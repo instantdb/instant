@@ -52,7 +52,7 @@ import {
   PlusIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
-import { PencilSquareIcon } from '@heroicons/react/24/outline';
+import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 import { successToast, errorToast } from '@/lib/toast';
 import {
@@ -1355,8 +1355,8 @@ export function Explorer({
       {selectedNamespace && currentNav && allItems ? (
         <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-neutral-800">
           <div className="flex items-center overflow-hidden border-b dark:border-neutral-700">
-            <div className="flex flex-1 flex-col justify-between md:flex-row md:items-center">
-              <div className="flex items-center overflow-hidden border-b px-2 py-1 dark:border-neutral-700 md:border-b-0">
+            <div className="flex flex-1 flex-col justify-between py-2 md:flex-row md:items-center">
+              <div className="flex items-center overflow-hidden border-b px-2 py-1 pl-4 dark:border-neutral-700 md:border-b-0">
                 {showBackButton ? (
                   <ArrowLeftIcon
                     className="mr-4 inline cursor-pointer"
@@ -1600,6 +1600,14 @@ export function Explorer({
                 height="1rem"
               />
             </button>
+            {numItemsSelected > 0 && (
+              <div className="pl-4">
+                <Button className="px-2" variant="destructive">
+                  <TrashIcon width={14} />
+                  Delete Selected Rows
+                </Button>
+              </div>
+            )}
           </div>
 
           <DndContext

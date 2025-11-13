@@ -95,7 +95,7 @@ export const TableHeader = ({
       key={header.id}
       ref={setNodeRef}
       className={clsx(
-        'group relative z-10 w-full select-none whitespace-nowrap',
+        'group relative z-10 h-8 w-full select-none whitespace-nowrap',
       )}
       style={{
         ...style,
