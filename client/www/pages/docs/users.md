@@ -149,7 +149,7 @@ const _schema = i.schema({
 });
 ```
 
-Note that `nickname` is optional too. New columns on `$users` have to be optional.
+Note that `nickname` is optional too. Custom columns on `$users` have to be optional.
 
 ---
 
