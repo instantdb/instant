@@ -68,11 +68,7 @@ export function AddFirebaseProviderForm({
         onClick={addFirebaseProvider}
       >
         <span className="flex items-center space-x-2">
-          <Image
-            className="dark:invert"
-            alt="firebase logo"
-            src={firebaseLogoSvg}
-          />
+          <Image alt="firebase logo" src={firebaseLogoSvg} />
           <span>Setup Firebase</span>
         </span>
       </Button>
