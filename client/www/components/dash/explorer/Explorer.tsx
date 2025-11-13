@@ -2,6 +2,7 @@ import { id, lookup, tx } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import {
   ColumnDef,
+  ColumnSizingState,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
@@ -35,7 +36,6 @@ import {
 import { jsonFetch } from '@/lib/fetch';
 import config from '@/lib/config';
 import clsx from 'clsx';
-import CopyToClipboard from 'react-copy-to-clipboard';
 import {
   Combobox,
   ComboboxInput,
@@ -43,7 +43,6 @@ import {
   ComboboxOptions,
 } from '@headlessui/react';
 
-import * as Tooltip from '@radix-ui/react-tooltip';
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -64,6 +63,7 @@ import {
   Content,
   Dialog,
   Fence,
+  IconButton,
   SectionHeading,
   Select,
   TextInput,
@@ -71,9 +71,7 @@ import {
   useDialog,
 } from '@/components/ui';
 import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
-import { useIsOverflow } from '@/lib/hooks/useIsOverflow';
 import { useClickOutside } from '@/lib/hooks/useClickOutside';
-import { isTouchDevice } from '@/lib/config';
 import { useNamespacesQuery, SearchFilter } from '@/lib/hooks/explorer';
 import { TokenContext } from '@/lib/contexts';
 import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDialog';
@@ -83,11 +81,13 @@ import { formatBytes } from '@/lib/format';
 import { useRecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
 import { getTableWidthSize } from '@/lib/tableWidthSize';
 import { TableCell, TableHeader } from './TableComponents';
+import { ArrowRightFromLine } from 'lucide-react';
 
 export type TableColMeta = {
   sortable?: boolean;
   disablePadding: boolean;
   isLink?: boolean;
+  attr: SchemaAttr;
   copyable?: boolean;
 };
 
@@ -738,12 +738,22 @@ export function Explorer({
   const [leftShadowOpacity, setLeftShadowOpacity] = useState(0);
   const [rightShadowOpacity, setRightShadowOpacity] = useState(1);
 
+  const [tableSmallerThanViewport, setTableSmallerThanViewport] =
+    useState(false);
+
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
+
   // Handle scroll to update shadow opacity
   useEffect(() => {
     const tableElement = tableRef.current;
     if (!tableElement) return;
 
     const handleScroll = () => {
+      const tableWidth = table.getCenterTotalSize();
+      const viewportWidth = tableElement.clientWidth;
+
+      setTableSmallerThanViewport(tableWidth < viewportWidth - 5);
+
       const { scrollLeft, scrollWidth, clientWidth } = tableElement;
       const maxScroll = scrollWidth - clientWidth;
       if (maxScroll <= 0) {
@@ -815,7 +825,7 @@ export function Explorer({
             <Checkbox
               className="relative z-10 text-[#2563EB] dark:checked:border-[#2563EB] dark:checked:bg-[#2563EB]"
               checked={row.getIsSelected()}
-              onChange={(checked, e) => {
+              onChange={(_, e) => {
                 const isShiftPressed = e.nativeEvent
                   ? (e.nativeEvent as MouseEvent).shiftKey
                   : false;
@@ -862,6 +872,7 @@ export function Explorer({
           sortable: attr.sortable || attr.name === 'id',
           copyable: true,
           isLink: attr.type === 'ref',
+          attr,
           disablePadding: attr.namespace === '$files' && attr.name === 'url',
         } satisfies TableColMeta,
         cell: (info) => {
@@ -874,7 +885,12 @@ export function Explorer({
           if (attr.type === 'ref') {
             const linkCount = info.row.original[attr.name].length;
             return (
-              <div className={cn('h-1', linkCount < 1 && 'opacity-50')}>
+              <div
+                className={cn(
+                  'h-1 translate-y-[2px]',
+                  linkCount < 1 && 'opacity-50',
+                )}
+              >
                 {linkCount} link{linkCount === 1 ? '' : 's'}
               </div>
             );
@@ -941,7 +957,9 @@ export function Explorer({
     getRowId: (row) => row.id,
     onColumnOrderChange: setColumnOrder,
     onRowSelectionChange: setCheckedIds,
+    onColumnSizingChange: setColumnSizing,
     state: {
+      columnSizing: columnSizing,
       columnOrder,
       rowSelection: checkedIds,
     },
@@ -1008,9 +1026,34 @@ export function Explorer({
     }
 
     table.setColumnSizing((d) => {
-      return { ...d, ...result };
+      return { ...result };
     });
-  }, [tableRef.current, selectedNamespace]);
+  }, [tableRef.current, selectedNamespace, selectedNamespaceId]);
+
+  const distributeRemainingWidth = () => {
+    const result: Record<string, number> = table.getState().columnSizing;
+
+    const fullWidth = tableRef.current?.clientWidth || -1;
+
+    const totalWidth = Object.values(result).reduce(
+      (acc, width) => acc + width,
+      0,
+    );
+    const remainingWidth = fullWidth - 52 - totalWidth;
+
+    if (remainingWidth > 0) {
+      const numColumns = Object.keys(result).length;
+      const extraWidth = remainingWidth / numColumns;
+
+      Object.keys(result).forEach((key) => {
+        result[key] += extraWidth;
+      });
+    }
+    setTableSmallerThanViewport(false);
+    table.setColumnSizing(() => {
+      return { ...result };
+    });
+  };
 
   const setMinViableColWidth = (columnId: string) => {
     // for some reason the id column wants to resize bigger
@@ -1031,11 +1074,9 @@ export function Explorer({
       result[attr.id + attr.name] =
         table.getColumn(attr.id + attr.name)?.getSize() || 0;
     });
-    table.setColumnSizing((d) => {
-      return {
-        ...result,
-        [columnId]: width,
-      };
+    table.setColumnSizing({
+      ...result,
+      [columnId]: width,
     });
   };
 
@@ -1174,17 +1215,18 @@ export function Explorer({
 
             <Content>
               Deleting is an{' '}
-              <strong className="dark:text-neutral-500">
+              <strong className="dark:text-white">
                 irreversible operation
               </strong>{' '}
               and will{' '}
-              <strong className="dark:text-neutral-500">
+              <strong className="dark:text-white">
                 delete {numItemsSelected} {rowText}{' '}
               </strong>
               associated with{' '}
-              <strong className="dark:text-neutral-500">
+              <strong className="dark:text-white">
                 {selectedNamespace.name}
               </strong>
+              .
             </Content>
 
             <ActionButton
@@ -1602,7 +1644,13 @@ export function Explorer({
             </button>
             {numItemsSelected > 0 && (
               <div className="pl-4">
-                <Button className="px-2" variant="destructive">
+                <Button
+                  onClick={() => {
+                    setDeleteDataConfirmationOpen(true);
+                  }}
+                  className="px-2"
+                  variant="destructive"
+                >
                   <TrashIcon width={14} />
                   Delete Selected Rows
                 </Button>
@@ -1618,21 +1666,25 @@ export function Explorer({
           >
             <div className="h-full bg-neutral-100 dark:bg-neutral-900/50">
               <div className="relative">
-                <div
-                  className="absolute bottom-0 right-0 top-0 z-50 w-[30px] bg-gradient-to-l from-black/20 via-black/5 to-transparent transition-opacity duration-150"
-                  style={{
-                    opacity: rightShadowOpacity,
-                    display: rightShadowOpacity == 0 ? 'none' : undefined,
-                  }}
-                />
+                {!tableSmallerThanViewport && (
+                  <div
+                    className="absolute bottom-0 right-0 top-0 z-50 w-[30px] bg-gradient-to-l from-black/20 via-black/5 to-transparent transition-opacity duration-150"
+                    style={{
+                      pointerEvents: 'none',
+                      opacity: rightShadowOpacity,
+                      display: rightShadowOpacity == 0 ? 'none' : undefined,
+                    }}
+                  />
+                )}
                 <div
                   className="absolute bottom-0 left-0 top-0 z-50 w-[30px] bg-gradient-to-r from-black/10 via-black/0 to-transparent transition-opacity duration-150"
                   style={{
+                    pointerEvents: 'none',
                     opacity: leftShadowOpacity,
                     display: leftShadowOpacity == 0 ? 'none' : undefined,
                   }}
                 />
-                <div ref={tableRef} className="w-full overflow-x-auto">
+                <div ref={tableRef} className="flex w-full overflow-x-auto">
                   <div
                     style={{
                       width: table.getCenterTotalSize(),
@@ -1686,13 +1738,28 @@ export function Explorer({
                               items={columnOrder}
                               strategy={horizontalListSortingStrategy}
                             >
-                              <TableCell key={cell.id} cell={cell} />
+                              <TableCell
+                                pushNavStack={pushNavStack}
+                                key={cell.id}
+                                cell={cell}
+                              />
                             </SortableContext>
                           ))}
                         </div>
                       ))}
                     </div>
                   </div>
+                  {tableSmallerThanViewport && (
+                    <div>
+                      <IconButton
+                        className="opacity-60"
+                        labelDirection="bottom"
+                        label="Fill Width"
+                        icon={<ArrowRightFromLine />}
+                        onClick={distributeRemainingWidth}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1726,108 +1793,6 @@ export function Explorer({
       )}
     </div>
   );
-}
-
-function getExplorerItemVal(item: Record<string, any>, attr: SchemaAttr) {
-  if (attr.namespace === '$files' && attr.name === 'size') {
-    return formatBytes(item.size);
-  }
-
-  return (item as any)[attr.name];
-}
-
-function ExplorerItemVal({
-  item,
-  attr,
-  onClickLink,
-}: {
-  item: Record<string, any>;
-  attr: SchemaAttr;
-  onClickLink: () => void;
-}) {
-  const val = getExplorerItemVal(item, attr);
-
-  const [tipOpen, setTipOpen] = useState(false);
-  const [showCopy, setShowCopy] = useState(false);
-  const { ref: overflowRef, isOverflow } = useIsOverflow();
-  const shouldShowTooltip = isOverflow || isObject(val);
-
-  if (attr.type === 'ref') {
-    const linksLen = (item as any)[attr.name]?.length ?? 0;
-
-    if (!linksLen) {
-      return (
-        <div className="whitespace-nowrap px-2 text-neutral-400">0 links</div>
-      );
-    }
-
-    return (
-      <div
-        className="inline-block cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-        onClick={onClickLink}
-      >
-        {linksLen} link{linksLen === 1 ? '' : 's'}
-      </div>
-    );
-  } else if (val === null || val === undefined) {
-    return <div className="truncate text-neutral-400">-</div>;
-  } else {
-    return (
-      <Tooltip.Provider>
-        <Tooltip.Root
-          delayDuration={0}
-          {...(isTouchDevice ? { open: shouldShowTooltip && tipOpen } : {})}
-        >
-          <Tooltip.Trigger
-            asChild
-            onMouseEnter={() => {
-              setTipOpen(true);
-            }}
-            onMouseLeave={() => {
-              setTipOpen(false);
-            }}
-          >
-            <div className="truncate" ref={overflowRef}>
-              <CopyToClipboard text={formatVal(val, true)}>
-                <span
-                  className="cursor-pointer"
-                  onClick={() => {
-                    setShowCopy(true);
-                    setTimeout(() => {
-                      setShowCopy(false);
-                    }, 2500);
-                  }}
-                >
-                  <Val data={showCopy ? 'Copied!' : val} />
-                </span>
-              </CopyToClipboard>
-            </div>
-          </Tooltip.Trigger>
-          {shouldShowTooltip ? (
-            <Tooltip.Portal>
-              <Tooltip.Content
-                className="z-30"
-                sideOffset={10}
-                alignOffset={10}
-                collisionPadding={10}
-                side="bottom"
-                align="start"
-              >
-                <div
-                  className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-80 p-2 font-mono text-xs shadow-md backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
-                  style={{
-                    maxHeight: `var(--radix-popper-available-height)`,
-                  }}
-                >
-                  <Val data={val} pretty />
-                </div>
-              </Tooltip.Content>
-            </Tooltip.Portal>
-          ) : null}
-        </Tooltip.Root>
-      </Tooltip.Provider>
-    );
-  }
 }
 
 function formatVal(data: any, pretty?: boolean): string {

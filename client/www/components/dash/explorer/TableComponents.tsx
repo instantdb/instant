@@ -22,10 +22,9 @@ import {
   ArrowsUpDownIcon,
   ArrowUpIcon,
 } from '@heroicons/react/24/outline';
-import { TableColMeta } from './Explorer';
+import { PushNavStack, TableColMeta } from './Explorer';
 import { useIsOverflow } from '@/lib/hooks/useIsOverflow';
 import { isObject } from 'lodash';
-import { isTouchDevice } from '@/lib/config';
 import copy from 'copy-to-clipboard';
 
 export const TableHeader = ({
@@ -196,7 +195,15 @@ export const TableHeader = ({
   );
 };
 
-export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
+export const TableCell = ({
+  cell,
+  pushNavStack,
+}: {
+  cell: Cell<any, unknown>;
+  pushNavStack: PushNavStack;
+}) => {
+  const resizing = cell.column.getIsResizing();
+
   const meta = cell.column.columnDef.meta as TableColMeta | null;
   const { isDragging, setNodeRef, transform } = useSortable({
     id: cell.column.id,
@@ -239,10 +246,8 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
   const realValue = cell.getValue();
 
   return (
-    <Tooltip
-      delayDuration={0}
-      {...(isTouchDevice ? { open: shouldShowTooltip } : {})}
-    >
+    <Tooltip>
+      {' '}
       <TooltipTrigger className="text-left">
         <div
           ref={(el) => {
@@ -262,6 +267,24 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
               disablePadding ? '' : 'pr-2',
             )}
             onClick={() => {
+              if (
+                meta?.isLink &&
+                meta.attr &&
+                Array.isArray(realValue) &&
+                realValue.length > 0
+              ) {
+                const attr = meta.attr;
+                const linkConfigDir =
+                  attr.linkConfig[!attr.isForward ? 'forward' : 'reverse'];
+
+                if (linkConfigDir) {
+                  pushNavStack({
+                    namespace: linkConfigDir.namespace,
+                    where: [`${linkConfigDir.attr}.id`, cell.row.original.id],
+                  });
+                  return;
+                }
+              }
               if (meta?.copyable) {
                 if (copy(formatVal(realValue))) {
                   setShowCopy(true);
@@ -278,7 +301,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
           </span>
         </div>
       </TooltipTrigger>
-      {shouldShowTooltip && (
+      {shouldShowTooltip && !resizing && (
         <TooltipContent
           className={cn(isObject(realValue) && 'p-0')}
           side="bottom"
