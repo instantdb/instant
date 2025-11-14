@@ -103,7 +103,7 @@ export const TableHeader = ({
     >
       {header.id !== 'select-col' && (
         <button
-          className="absolute inset-0 z-0"
+          className="absolute inset-0 z-0 hover:cursor-grab active:cursor-grabbing"
           {...attributes}
           {...listeners}
           ref={setActivatorNodeRef}
@@ -116,7 +116,7 @@ export const TableHeader = ({
         >
           {isSortable ? (
             <button
-              className="relative z-50 flex items-center gap-1"
+              className="relative z-50 flex items-center gap-1 py-2 pr-5"
               onClick={() => {
                 if (onSort) {
                   let thisAttrName =
@@ -134,7 +134,7 @@ export const TableHeader = ({
                     )}
               </span>
               <span
-                className="opacity-0 transition-opacity group-hover:opacity-100"
+                className="opacity-50 transition-opacity group-hover:opacity-70"
                 style={{
                   opacity: isCurrentSort ? 1 : undefined,
                   fontWeight: isCurrentSort ? 'bold' : 'normal',
