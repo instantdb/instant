@@ -291,7 +291,7 @@
     (reduce-kv (fn [acc eid v]
                  (assoc acc (:datalog-query/query (ds/entity @conn eid)) v))
                {}
-               (tool/inspect (cache/as-map-async (:datalog-query-cache (meta conn)))))))
+               (cache/as-map-async (:datalog-query-cache (meta conn))))))
 
 (defn- get-subscriptions-for-app-id [store app-id]
   (let [db @(rs/app-conn store app-id)]
