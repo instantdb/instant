@@ -82,6 +82,7 @@ import { useRecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
 import { getTableWidthSize } from '@/lib/tableWidthSize';
 import { TableCell, TableHeader } from './TableComponents';
 import { ArrowRightFromLine } from 'lucide-react';
+import { useColumnVisibility } from '@/lib/hooks/useColumnVisibility';
 
 export type TableColMeta = {
   sortable?: boolean;
@@ -811,6 +812,7 @@ export function Explorer({
       id: 'select-col',
       enableSorting: false,
       accessorFn: () => null,
+      enableHiding: false,
       enableResizing: false,
       size: 52,
       header: ({ table }) => {
@@ -957,9 +959,16 @@ export function Explorer({
     columns.map((c) => c.id!),
   );
 
+  const [columnVisibility, onColumnVisibilityChange] = useColumnVisibility({
+    appId,
+    attrs: selectedNamespace?.attrs,
+    namespaceId: selectedNamespace?.id,
+  });
+
   const table = useReactTable({
     columnResizeDirection,
     columnResizeMode,
+    onColumnVisibilityChange,
     columns: columns,
     data: tableItems,
     enableColumnResizing: true,
@@ -972,6 +981,7 @@ export function Explorer({
     state: {
       columnSizing: columnSizing,
       columnOrder,
+      columnVisibility,
       rowSelection: checkedIds,
     },
   });
