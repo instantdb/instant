@@ -364,10 +364,21 @@ export default class Reactor {
     this.querySubs = new PersistedObject2(
       new Storage(`instant_${this.config.appId}_5`, 'querySubs'),
       this._onMergeQuerySub,
-      this._onQuerySubLoaded.bind(this),
       querySubToStorage,
       (x) => querySubFromStorage(x, this.config.useDateObjects),
+      // objectSize
+      (x) => x.triples.length,
+      this._log,
+      {
+        gc: {
+          maxAgeMs: 1000 * 60 * 60 * 24 * 7 * 52, // 1 year
+          maxQueries: 1000,
+          // Size of each query is the number of triples
+          maxSize: 1_000_000, // XXX: ?? good number?
+        },
+      },
     );
+    this.querySubs.onKeyLoaded = (k) => this._onQuerySubLoaded(k);
     this.pendingMutations = new PersistedObject(
       this._persister,
       'pendingMutations',
