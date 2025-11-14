@@ -790,7 +790,7 @@ export function Explorer({
   useLayoutEffect(() => {
     if (selectedNamespace?.attrs) {
       const possibleSavedOrder = localStorage.getItem(
-        `order-${selectedNamespace.id}`,
+        `order-${selectedNamespace.id}-${appId}`,
       );
       if (possibleSavedOrder) {
         const savedOrder = JSON.parse(possibleSavedOrder);
@@ -1011,12 +1011,11 @@ export function Explorer({
 
   // evenly space width of columns on first render
   useLayoutEffect(() => {
-    console.log('layout effect running');
     if (selectedNamespace?.id) {
-      if (localStorage.getItem(`sizing-${selectedNamespace.id}`)) {
-        console.log('Loading saved sizing');
+      if (localStorage.getItem(`$sizing-${selectedNamespace.id}-${appId}`)) {
         const savedSizing = JSON.parse(
-          localStorage.getItem(`sizing-${selectedNamespace.id}`) || '{}',
+          localStorage.getItem(`sizing-${selectedNamespace.id}-${appId}`) ||
+            '{}',
         );
         table.setColumnSizing((d) => {
           return { ...savedSizing };
@@ -1056,7 +1055,7 @@ export function Explorer({
   useEffect(() => {
     if (selectedNamespace?.id && Object.keys(columnSizing).length > 0) {
       localStorage.setItem(
-        `sizing-${selectedNamespace.id}`,
+        `sizing-${selectedNamespace.id}-${appId}`,
         JSON.stringify(columnSizing),
       );
     }
@@ -1065,7 +1064,7 @@ export function Explorer({
   useEffect(() => {
     if (selectedNamespace?.id) {
       localStorage.setItem(
-        `order-${selectedNamespace.id}`,
+        `order-${selectedNamespace.id}-${appId}`,
         JSON.stringify(columnOrder),
       );
     }
