@@ -261,6 +261,12 @@
   (persistent!
    (reduce f (transient init) xs)))
 
+(defn reduce-kv-tr
+  "Like reduce-kv but makes acc transient/persistent automatically"
+  [f init xs]
+  (persistent!
+   (reduce-kv f (transient init) xs)))
+
 (defn update!
   "update for transients"
   [m k f & args]
