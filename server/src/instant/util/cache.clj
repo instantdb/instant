@@ -55,7 +55,8 @@
   (cond-> (Caffeine/newBuilder)
     max-size       (.maximumSize max-size)
     max-weight     (.maximumWeight max-weight)
-    weigher        (.weigher weigher)
+    weigher        (.weigher (fn [k v]
+                               (weigher k (unwrap-optional v))))
     ttl            (.expireAfterWrite (Duration/ofMillis ttl))
     on-remove      (.removalListener on-remove)
     value-fn       (.build (wrap-value-fn-with-optional value-fn))
@@ -77,7 +78,8 @@
   (cond-> (Caffeine/newBuilder)
     max-size   (.maximumSize max-size)
     max-weight (.maximumWeight max-weight)
-    weigher    (.weigher weigher)
+    weigher    (.weigher (fn [k v]
+                           (weigher k (unwrap-optional v))))
     ttl        (.expireAfterWrite (Duration/ofMillis ttl))
     on-remove  (.removalListener on-remove)
     executor   (.executor executor)
