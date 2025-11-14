@@ -787,6 +787,23 @@ export function Explorer({
     };
   }, [selectedNamespace, tableItems]);
 
+  useLayoutEffect(() => {
+    if (selectedNamespace?.attrs) {
+      const possibleSavedOrder = localStorage.getItem(
+        `order-${selectedNamespace.id}`,
+      );
+      if (possibleSavedOrder) {
+        const savedOrder = JSON.parse(possibleSavedOrder);
+        setColumnOrder(savedOrder);
+      } else {
+        const newOrder = selectedNamespace.attrs.map(
+          (attr) => attr.id + attr.name,
+        );
+        setColumnOrder(['select-col', ...newOrder]);
+      }
+    }
+  }, [selectedNamespace?.attrs]);
+
   const columns = useMemo(() => {
     const result: ColumnDef<any>[] = [];
 
@@ -930,14 +947,6 @@ export function Explorer({
   }, [selectedNamespace?.attrs]);
 
   // update the column order
-  useEffect(() => {
-    if (selectedNamespace?.attrs) {
-      const newOrder = selectedNamespace.attrs.map(
-        (attr) => attr.id + attr.name,
-      );
-      setColumnOrder(['select-col', ...newOrder]);
-    }
-  }, [selectedNamespace?.attrs]);
 
   const columnResizeMode = 'onChange';
   const columnResizeDirection = 'ltr';
@@ -1046,7 +1055,6 @@ export function Explorer({
 
   useEffect(() => {
     if (selectedNamespace?.id && Object.keys(columnSizing).length > 0) {
-      console.log('sizing: saving', columnSizing);
       localStorage.setItem(
         `sizing-${selectedNamespace.id}`,
         JSON.stringify(columnSizing),
