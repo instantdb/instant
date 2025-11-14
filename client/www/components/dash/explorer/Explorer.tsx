@@ -1084,7 +1084,6 @@ export function Explorer({
     if (remainingWidth > 0) {
       const numColumns = Object.keys(result).length;
       const extraWidth = remainingWidth / numColumns;
-      console.log('sizing extraWidth', extraWidth);
 
       Object.keys(result).forEach((key) => {
         result[key] += extraWidth;

@@ -1,6 +1,6 @@
 /**
  *
- * @param className
+ * @param columnId
  * @param max set a maximum width to return
  * @returns minimum width to display all column cells
  * @throws Error if element with class ${columnId} not found
