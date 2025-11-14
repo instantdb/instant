@@ -1,4 +1,4 @@
-import { id, lookup, tx } from '@instantdb/core';
+import { coerceToDate, id, lookup, tx } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import {
   ColumnDef,
@@ -933,7 +933,9 @@ export function Explorer({
             return info.row.original[attr.name] ? 'true' : 'false';
           }
           if (attr.checkedDataType === 'date') {
-            return new Date(info.row.original[attr.name]).toLocaleString();
+            const coerced = coerceToDate(info.row.original[attr.name]);
+
+            return coerced?.toLocaleString() || info.row.original[attr.name];
           }
           if (isObject(info.row.original[attr.name])) {
             return <Val data={info.row.original[attr.name]}></Val>;

@@ -10,6 +10,7 @@ import {
 import weakHash from './utils/weakHash.js';
 import id from './utils/uuid.js';
 import IndexedDBStorage from './IndexedDBStorage.ts';
+import { coerceToDate } from './utils/dates.js';
 import WindowNetworkListener from './WindowNetworkListener.js';
 import { i } from './schema.js';
 import { createDevtool } from './devtool.js';
@@ -862,6 +863,7 @@ export {
   getOps,
   coerceQuery,
   weakHash,
+  coerceToDate,
   IndexedDBStorage,
   WindowNetworkListener,
   InstantCoreDatabase,
