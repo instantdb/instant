@@ -171,7 +171,7 @@
    be stored in the cache, over-writing any previously cached values."
   [^Cache cache keys values-fn]
   (when-some [keys' (not-empty (filter some? keys))]
-    (-> (.getAll cache keys' (wrap-get-all-value-fn-with-optional values-fn))
+    (-> (.getAll cache keys' (wrap-get-all-values-fn-with-optional values-fn))
         (unwrap-get-all-optionals))))
 
 (defn get-all-async
