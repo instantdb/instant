@@ -1,7 +1,7 @@
 (ns instant.util.cache-test
   (:require
    [instant.util.cache :as cache]
-   [clojure.test :refer [deftest is]]))
+   [clojure.test :refer [deftest is testing]]))
 
 ;; Copy of test in core.cached to demonstrate that our version
 ;; of lookup-or-miss works
@@ -142,3 +142,45 @@
     (is (= {:a :a
             :e :e}
            @(cache/get-all-async cache [:a :e] (fn [xs] (zipmap xs xs)))))))
+
+(deftest negative-caching
+  (let [c (cache/make {:max-size 100})
+        call-count (atom 0)]
+    (is (nil? (cache/get c :test (fn [_]
+                                   (swap! call-count inc)
+                                   nil))))
+    (is (= 1 @call-count))
+
+    (testing "nil stays in the cache"
+
+      (is (nil? (cache/get c :test (fn [_]
+                                     (swap! call-count inc)
+                                     nil))))
+      (is (= 1 @call-count)))
+
+    (testing "get-all also works"
+      (is (= {:test nil} (cache/get-all c [:test] (fn [_]
+                                                    (swap! call-count inc)
+                                                    nil))))
+      (is (= 1 @call-count)))))
+
+(deftest negative-caching-async
+  (let [c (cache/make-async {:max-size 100})
+        call-count (atom 0)]
+    (is (nil? @(cache/get-async c :test (fn [_]
+                                          (swap! call-count inc)
+                                          nil))))
+    (is (= 1 @call-count))
+
+    (testing "nil stays in the cache"
+
+      (is (nil? @(cache/get-async c :test (fn [_]
+                                            (swap! call-count inc)
+                                            nil))))
+      (is (= 1 @call-count)))
+
+    (testing "get-all also works"
+      (is (= {:test nil} @(cache/get-all-async c [:test] (fn [_]
+                                                           (swap! call-count inc)
+                                                           nil))))
+      (is (= 1 @call-count)))))
