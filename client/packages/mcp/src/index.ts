@@ -474,7 +474,6 @@ async function startSse() {
   const honeycomb = new HoneycombSDK({
     apiKey: process.env.HONEYCOMB_API_KEY,
     serviceName: 'mcp-server',
-    debug: true,
   });
 
   if (process.env.HONEYCOMB_API_KEY) {
