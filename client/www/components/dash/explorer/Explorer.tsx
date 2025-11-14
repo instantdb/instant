@@ -1126,6 +1126,16 @@ export function Explorer({
 
   const userNamespaces = namespaces?.filter((x) => !x.name.startsWith('$'));
 
+  // keep track of last namespace the user was on (per app id)
+  useEffect(() => {
+    if (selectedNamespaceId && appId) {
+      // must make sure that the namespace is part of the namespace list
+      if (namespaces?.some((ns) => ns.id === selectedNamespaceId)) {
+        localStorage.setItem(`lastNamespace-${appId}`, selectedNamespaceId);
+      }
+    }
+  }, [selectedNamespaceId, appId]);
+
   // Handle initial load
   useEffect(() => {
     if (namespaces?.length && !navStack.length) {
@@ -1140,7 +1150,12 @@ export function Explorer({
       const sortAttr = (router.query.sort as string) || 'serverCreatedAt';
       const sortAsc = router.query.sortDir !== 'desc';
 
-      const namespace = selectedNamespaceId || userNamespaces?.[0]?.id;
+      const storedLastNamespace = localStorage.getItem(
+        `lastNamespace-${appId}`,
+      );
+      let backupNamespace = storedLastNamespace || userNamespaces?.[0]?.id;
+
+      const namespace = selectedNamespaceId || backupNamespace;
 
       // Use _setNavStack directly to avoid triggering a router.push during initialization
       _setNavStack([
