@@ -1720,103 +1720,98 @@ export function Explorer({
             onDragEnd={handleDragEnd}
             sensors={sensors}
           >
-            <div className="h-full bg-neutral-100 dark:bg-neutral-900/50">
-              <div className="relative">
-                {!tableSmallerThanViewport && (
-                  <div
-                    className="absolute bottom-0 right-0 top-0 z-50 w-[30px] bg-gradient-to-l from-black/20 via-black/5 to-transparent transition-opacity duration-150"
-                    style={{
-                      pointerEvents: 'none',
-                      opacity: rightShadowOpacity,
-                      display: rightShadowOpacity == 0 ? 'none' : undefined,
-                    }}
-                  />
-                )}
+            <div className="relative flex-1 overflow-hidden bg-neutral-100 dark:bg-neutral-900/50">
+              {!tableSmallerThanViewport && (
                 <div
-                  className="absolute bottom-0 left-0 top-0 z-50 w-[30px] bg-gradient-to-r from-black/10 via-black/0 to-transparent transition-opacity duration-150"
+                  className="absolute bottom-0 right-0 top-0 z-50 w-[30px] bg-gradient-to-l from-black/20 via-black/5 to-transparent transition-opacity duration-150"
                   style={{
                     pointerEvents: 'none',
-                    opacity: leftShadowOpacity,
-                    display: leftShadowOpacity == 0 ? 'none' : undefined,
+                    opacity: rightShadowOpacity,
+                    display: rightShadowOpacity == 0 ? 'none' : undefined,
                   }}
                 />
-                <div ref={tableRef} className="flex w-full overflow-x-auto">
-                  <div
-                    style={{
-                      width: table.getCenterTotalSize(),
-                    }}
-                    className="z-0 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400"
-                  >
-                    <div className="border-b border-r bg-white text-neutral-700 shadow dark:border-b-neutral-600 dark:border-r-neutral-700 dark:bg-[#303030] dark:text-neutral-300">
-                      {table.getHeaderGroups().map((headerGroup) => (
-                        <div
-                          className={'sticky flex w-full'}
-                          key={headerGroup.id}
+              )}
+              <div
+                className="absolute bottom-0 left-0 top-0 z-50 w-[30px] bg-gradient-to-r from-black/10 via-black/0 to-transparent transition-opacity duration-150"
+                style={{
+                  pointerEvents: 'none',
+                  opacity: leftShadowOpacity,
+                  display: leftShadowOpacity == 0 ? 'none' : undefined,
+                }}
+              />
+              <div ref={tableRef} className="flex h-full w-full overflow-auto">
+                <div
+                  style={{
+                    width: table.getCenterTotalSize(),
+                  }}
+                  className="z-0 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400"
+                >
+                  <div className="sticky top-0 z-10 border-b border-r bg-white text-neutral-700 shadow dark:border-b-neutral-600 dark:border-r-neutral-700 dark:bg-[#303030] dark:text-neutral-300">
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <div className={'flex w-full'} key={headerGroup.id}>
+                        <SortableContext
+                          items={columnOrder}
+                          strategy={horizontalListSortingStrategy}
                         >
+                          {headerGroup.headers.map((header, i) => (
+                            <TableHeader
+                              key={header.id}
+                              header={header}
+                              table={table}
+                              headerGroup={headerGroup}
+                              index={i}
+                              setMinViableColWidth={setMinViableColWidth}
+                              onSort={(attrName, currentAttr, currentAsc) => {
+                                replaceNavStackTop({
+                                  sortAttr: attrName,
+                                  sortAsc:
+                                    currentAttr !== attrName
+                                      ? true
+                                      : !currentAsc,
+                                });
+                              }}
+                              currentSortAttr={currentNav?.sortAttr}
+                              currentSortAsc={currentNav?.sortAsc}
+                            />
+                          ))}
+                        </SortableContext>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    {table.getRowModel().rows.map((row) => (
+                      <div
+                        className="group flex border-b border-r bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
+                        key={row.id}
+                      >
+                        {row.getVisibleCells().map((cell) => (
                           <SortableContext
+                            key={cell.id}
                             items={columnOrder}
                             strategy={horizontalListSortingStrategy}
                           >
-                            {headerGroup.headers.map((header, i) => (
-                              <TableHeader
-                                key={header.id}
-                                header={header}
-                                table={table}
-                                headerGroup={headerGroup}
-                                index={i}
-                                setMinViableColWidth={setMinViableColWidth}
-                                onSort={(attrName, currentAttr, currentAsc) => {
-                                  replaceNavStackTop({
-                                    sortAttr: attrName,
-                                    sortAsc:
-                                      currentAttr !== attrName
-                                        ? true
-                                        : !currentAsc,
-                                  });
-                                }}
-                                currentSortAttr={currentNav?.sortAttr}
-                                currentSortAsc={currentNav?.sortAsc}
-                              />
-                            ))}
-                          </SortableContext>
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      {table.getRowModel().rows.map((row) => (
-                        <div
-                          className="group flex border-b border-r bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
-                          key={row.id}
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <SortableContext
+                            <TableCell
+                              pushNavStack={pushNavStack}
                               key={cell.id}
-                              items={columnOrder}
-                              strategy={horizontalListSortingStrategy}
-                            >
-                              <TableCell
-                                pushNavStack={pushNavStack}
-                                key={cell.id}
-                                cell={cell}
-                              />
-                            </SortableContext>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
+                              cell={cell}
+                            />
+                          </SortableContext>
+                        ))}
+                      </div>
+                    ))}
                   </div>
-                  {tableSmallerThanViewport && (
-                    <div>
-                      <IconButton
-                        className="opacity-60"
-                        labelDirection="bottom"
-                        label="Fill Width"
-                        icon={<ArrowRightFromLine />}
-                        onClick={distributeRemainingWidth}
-                      />
-                    </div>
-                  )}
                 </div>
+                {tableSmallerThanViewport && (
+                  <div className="sticky top-0">
+                    <IconButton
+                      className="opacity-60"
+                      labelDirection="bottom"
+                      label="Fill Width"
+                      icon={<ArrowRightFromLine />}
+                      onClick={distributeRemainingWidth}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </DndContext>
