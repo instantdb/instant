@@ -10,6 +10,14 @@ import { zodToSchema } from './schema.ts';
 import { parseArgs } from 'node:util';
 import version from './version.ts';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { HoneycombSDK } from '@honeycombio/opentelemetry-node';
+import {
+  trace,
+  SpanKind,
+  SpanStatusCode,
+  Tracer,
+  Attributes,
+} from '@opentelemetry/api';
 
 import {
   createOAuthMetadata,
@@ -154,6 +162,49 @@ const appPerms = z
 
 // Tool Registration
 // -----------
+
+// Adds tracing to server.tool
+function wrapServerWithTracing(
+  server: McpServer,
+  tracer: Tracer,
+  attrs: Attributes,
+): McpServer {
+  const originalTool = server.tool.bind(server);
+
+  server.tool = function (name: string, ...args: any[]): any {
+    // Find the callback (it's always the last argument)
+    const callback = args[args.length - 1];
+    const otherArgs = args.slice(0, -1);
+
+    // Wrap the callback with tracing
+    const wrappedCallback = async (...callbackArgs: any[]) => {
+      const span = tracer.startSpan(`tool.${name}`, {
+        attributes: attrs,
+      });
+      try {
+        const result = await callback(...callbackArgs);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return result;
+      } catch (error) {
+        span.setStatus({ code: SpanStatusCode.ERROR });
+        span.recordException(error as Error);
+        throw error;
+      } finally {
+        span.end();
+      }
+    };
+
+    return originalTool(
+      name,
+      // @ts-expect-error: not sure how to type this
+      ...otherArgs,
+      wrappedCallback,
+    );
+  } as any;
+
+  return server;
+}
+
 function registerTools(server: McpServer, api: PlatformApi) {
   server.tool(
     'create-app',
@@ -420,6 +471,18 @@ function ensureEnv(key: string): string {
 }
 
 async function startSse() {
+  const honeycomb = new HoneycombSDK({
+    apiKey: process.env.HONEYCOMB_API_KEY,
+    serviceName: 'mcp-server',
+    debug: true,
+  });
+
+  if (process.env.HONEYCOMB_API_KEY) {
+    honeycomb.start();
+  }
+
+  const tracer = trace.getTracer('mcp-server');
+
   const db = init({
     adminToken: ensureEnv('INSTANT_ADMIN_TOKEN'),
     appId: ensureEnv('INSTANT_APP_ID'),
@@ -437,6 +500,32 @@ async function startSse() {
 
   const app = express();
   const logger = pino({ level: 'info' });
+
+  app.use((req, res, next) => {
+    const span = tracer.startSpan('http-req', {
+      kind: SpanKind.SERVER,
+      attributes: {
+        'http.method': req.method,
+        'http.url': req.url,
+        'http.target': req.path,
+        'http.host': req.get('host'),
+        'http.scheme': req.protocol,
+      },
+    });
+
+    const originalEnd = res.end.bind(res);
+    res.end = function (this: typeof res, ...args: any[]): typeof res {
+      span.setAttribute('http.status_code', res.statusCode);
+      span.setStatus({
+        code: res.statusCode >= 400 ? SpanStatusCode.ERROR : SpanStatusCode.OK,
+      });
+      span.end();
+      return originalEnd(...args);
+    };
+
+    next();
+  });
+
   app.use(
     pinoHttp({
       logger,
@@ -502,6 +591,14 @@ async function startSse() {
           makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
         );
 
+        wrapServerWithTracing(server, tracer, {
+          'client.client_id': tokens.mcpToken.client?.client_id,
+          'client.name': tokens.mcpToken.client?.client_name,
+          'client.id': tokens.mcpToken.client?.id,
+          'client.scope': tokens.mcpToken.client?.scope,
+          'client.uri': tokens.mcpToken.client?.client_uri,
+          'client.redirect_urls': tokens.mcpToken.client?.redirect_uris,
+        });
         registerTools(server, api);
         const transport: StreamableHTTPServerTransport =
           new StreamableHTTPServerTransport({
@@ -571,6 +668,15 @@ async function startSse() {
         const api = createPlatformApi(
           makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
         );
+
+        wrapServerWithTracing(server, tracer, {
+          'client.client_id': tokens.mcpToken.client?.client_id,
+          'client.name': tokens.mcpToken.client?.client_name,
+          'client.id': tokens.mcpToken.client?.id,
+          'client.scope': tokens.mcpToken.client?.scope,
+          'client.uri': tokens.mcpToken.client?.client_uri,
+          'client.redirect_urls': tokens.mcpToken.client?.redirect_uris,
+        });
 
         registerTools(server, api);
 
