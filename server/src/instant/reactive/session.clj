@@ -289,7 +289,6 @@
                                                                  :user-id (:id user)
                                                                  :admin? admin?
                                                                  :token token
-                                                                 :tx-id tx-id
                                                                  :topics topics})
                                         ;; Make sure this happens before we update the store
                                         ;; or else we could get a refresh before we send init

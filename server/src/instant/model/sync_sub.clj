@@ -65,7 +65,6 @@
 (defn xform-row [row]
   (-> row
       (clojure.set/rename-keys {:app_id :app-id
-                                :sent_tx_id :sent-tx-id
                                 :token_hash :token-hash
                                 :is_admin :admin?
                                 :user_id :user-id})
@@ -112,7 +111,6 @@
                                                    :values [{:id :?id
                                                              :app-id :?app-id
                                                              :query :?query
-                                                             :sent-tx-id :?tx-id
                                                              :token-hash :?token-hash
                                                              :is-admin :?admin?
                                                              :user-id :?user-id}]
@@ -134,9 +132,8 @@
   "Creates the sub and inserts the inital topics. Returns the sub with token.
   The token is used to resubscribe to the subscription on reconnect."
   ([params] (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [id app-id query user-id admin? token tx-id topics]}]
+  ([conn {:keys [id app-id query user-id admin? token topics]}]
    (let [params (add-topic-params {:id id
-                                   :tx-id tx-id
                                    :token-hash (crypt-util/uuid->sha256 token)
                                    :app-id app-id
                                    :query query
