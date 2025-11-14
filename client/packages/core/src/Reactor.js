@@ -367,7 +367,7 @@ export default class Reactor {
       querySubToStorage,
       (x) => querySubFromStorage(x, this.config.useDateObjects),
       // objectSize
-      (x) => x.triples.length,
+      (x) => x.result?.store?.triples?.length ?? 0,
       this._log,
       {
         gc: {
