@@ -126,3 +126,18 @@ npx instant-cli@latest login -p
 ```
 
 Instead of saving the token to your local device, the CLI will print it to your console. You can copy this token and provide it as `INSTANT_CLI_AUTH_TOKEN` later in your CI tool.
+
+## Init without creating files
+
+Sometimes you want to create an Instant app without generating `instant.schema.ts` and `instant.perms.ts` or modifying your .env files. You can do this by running:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest init-without-files --title "Hello World"
+```
+
+You can also make ephemeral apps that will clean up themselves after >24 hours
+via the `--temp` flag:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest init-without-files --title "Hello World" --temp
+```
