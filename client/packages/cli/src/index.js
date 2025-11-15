@@ -985,62 +985,6 @@ async function promptImportAppOrCreateApp() {
     appToken: result.adminToken,
     source: result.approach === 'import' ? 'imported' : 'created',
   };
-
-  // let apps = res.data.apps;
-  // let orgName;
-  // let orgId;
-  // if (orgs.length) {
-  //   const choices = [{ label: '(No organization)', value: null }];
-  //   for (const org of orgs) {
-  //     choices.push({ label: org.title, value: org.id });
-  //   }
-  //   const choice = await renderUnwrap(
-  //     new UI.Select({
-  //       promptText: 'Would you like to import an app from an organization?',
-  //       options: choices,
-  //     }),
-  //   );
-  //   if (choice) {
-  //     const orgsRes = await fetchJson({
-  //       debugName: 'Fetching apps',
-  //       method: 'GET',
-  //       path: `/dash/orgs/${choice}`,
-  //       errorMessage: 'Failed to fetch apps.',
-  //     });
-  //     if (!orgsRes.ok) {
-  //       return { ok: false };
-  //     }
-  //     apps = orgsRes.data.apps;
-  //     orgName = orgsRes.data.org.title;
-  //     orgId = choice;
-  //   } else {
-  //     apps = res.data.apps;
-  //   }
-  // }
-  // if (!apps.length) {
-  //   const ok = await promptOk(
-  //     {
-  //       promptText: `You don't have any apps${orgName ? ` in ${orgName}` : ''}. Want to create a new one?`,
-  //     },
-  //     program.opts(),
-  //     /*defaultAnswer=*/ true,
-  //   );
-  //   if (!ok) return { ok: false };
-  //   return await promptCreateApp({ org: orgId });
-  // }
-
-  // apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
-
-  // const choice = await renderUnwrap(
-  //   new UI.Select({
-  //     promptText: 'Which app would you like to import?',
-  //     options: apps.map((app) => {
-  //       return { label: `${app.title} (${app.id})`, value: app.id };
-  //     }),
-  //   }),
-  // );
-  // if (!choice) return { ok: false };
-  // return { ok: true, appId: choice, source: 'imported' };
 }
 
 async function createApp(title, orgId) {
