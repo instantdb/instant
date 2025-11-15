@@ -1,3 +1,7 @@
+// This is not in use, we now redirect to `https://status.instantdb.com`
+// We had to switch because the uptimerobot API has become unstable and
+// frequently times out in our 15 second function deadline.
+
 import Head from 'next/head';
 import {
   LandingContainer,
