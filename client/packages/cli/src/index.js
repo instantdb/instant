@@ -560,6 +560,12 @@ async function handleInitWithoutFiles(opts) {
       );
     }
 
+    if (opts.title.startsWith('-')) {
+      throw new Error(
+        `Invalid title: "${opts.title}". Title cannot be a flag.`,
+      );
+    }
+
     if (opts?.temp && opts?.orgId) {
       throw new Error('Cannot use --temp and --org-id flags together.');
     }
