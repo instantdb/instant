@@ -553,31 +553,18 @@ async function handleInit(opts) {
 }
 
 async function handleInitWithoutFiles(opts) {
-  if (!opts?.title) {
-    console.log(
-      toJson({
-        app: null,
-        error: {
-          message:
-            'Title is required for creating a new app without local files.',
-        },
-      }),
-    );
-    process.exit(1);
-  }
-
-  if (opts?.temp && opts?.orgId) {
-    console.log(
-      toJson({
-        app: null,
-        error: { message: 'Cannot use --temp and --org-id flags together.' },
-      }),
-    );
-    process.exit(1);
-  }
-
-  let result;
   try {
+    if (!opts?.title) {
+      throw new Error(
+        'Title is required for creating a new app without local files.',
+      );
+    }
+
+    if (opts?.temp && opts?.orgId) {
+      throw new Error('Cannot use --temp and --org-id flags together.');
+    }
+
+    let result;
     if (opts?.temp) {
       result = await createEphemeralApp(opts.title);
     } else {
@@ -592,6 +579,7 @@ async function handleInitWithoutFiles(opts) {
       }),
     );
   } catch (error) {
+    console.log(`${chalk.red('Failed to create app.')}\n`);
     console.log(
       toJson({
         app: null,
