@@ -961,20 +961,7 @@ async function promptImportAppOrCreateApp() {
       startingMenuIndex: 2,
       api: {
         getDash: () => res.data,
-        createEphemeralApp: async (title) => {
-          const id = randomUUID();
-          const token = randomUUID();
-          const app = { id, title, admin_token: token };
-          const appRes = await fetchJson({
-            method: 'POST',
-            path: '/dash/apps/ephemeral',
-            debugName: 'Ephemeral app create',
-            errorMessage: 'Failed to create ephemeral app.',
-            body: app,
-          });
-          if (!appRes.ok) throw new Error('Failed to create temporary app');
-          return { appId: id, adminToken: token };
-        },
+        createEphemeralApp,
         getAppsForOrg: async (orgId) => {
           const orgsRes = await fetchJson({
             debugName: 'Fetching org apps',
@@ -987,20 +974,7 @@ async function promptImportAppOrCreateApp() {
           }
           return { apps: orgsRes.data.apps };
         },
-        createApp: async (title, orgId) => {
-          const id = randomUUID();
-          const token = randomUUID();
-          const app = { id, title, admin_token: token, org_id: orgId };
-          const appRes = await fetchJson({
-            method: 'POST',
-            path: '/dash/apps',
-            debugName: 'App create',
-            errorMessage: 'Failed to create app.',
-            body: app,
-          });
-          if (!appRes.ok) throw new Error('Failed to create app');
-          return { appId: id, adminToken: token };
-        },
+        createApp,
       },
     }),
   );
