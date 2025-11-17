@@ -328,8 +328,15 @@ function attrDefForType(
   }
 }
 
-function apiSchemaAttrToDataAttrDef(attr: InstantDBAttr) {
-  const derivedType = deriveClientType(attr);
+type APISchemaConversionOpts = {
+  disableTypeInference: boolean;
+};
+
+function apiSchemaAttrToDataAttrDef(
+  attr: InstantDBAttr,
+  opts?: APISchemaConversionOpts,
+) {
+  const derivedType = deriveClientType(attr, opts?.disableTypeInference);
   let i: DataAttrDef<string, boolean, boolean> = attrDefForType(
     derivedType.type,
   );
@@ -348,13 +355,14 @@ function apiSchemaAttrToDataAttrDef(attr: InstantDBAttr) {
 
 function apiSchemaBlobToEntityDef(
   attrs: InstantAPIPlatformSchema['blobs'][string],
+  opts?: APISchemaConversionOpts,
 ) {
   const defs: Record<string, DataAttrDef<string, boolean, boolean>> = {};
   for (const [label, attr] of sortedEntries(attrs)) {
     if (label === 'id') {
       continue;
     }
-    defs[label] = apiSchemaAttrToDataAttrDef(attr);
+    defs[label] = apiSchemaAttrToDataAttrDef(attr, opts);
   }
   return i.entity(defs);
 }
@@ -391,10 +399,11 @@ function apiSchemaAttrToLinkDef(attr: InstantDBAttr) {
 
 export function apiSchemaToInstantSchemaDef(
   apiSchema: InstantAPIPlatformSchema,
+  opts?: { disableTypeInference: boolean },
 ): InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef> {
   const entities: EntitiesDef = {};
   for (const [etype, attrs] of sortedEntries(apiSchema.blobs)) {
-    entities[etype] = apiSchemaBlobToEntityDef(attrs);
+    entities[etype] = apiSchemaBlobToEntityDef(attrs, opts);
   }
   const links: LinksDef<EntitiesDef> = {};
   for (const [_name, attr] of sortedEntries(apiSchema.refs)) {

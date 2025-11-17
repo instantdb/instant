@@ -1517,7 +1517,9 @@ async function pushSchema(appId, opts) {
 
   const currentAttrs = pulledSchemaResponse.data['attrs'];
   const currentApiSchema = pulledSchemaResponse.data['schema'];
-  const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
+  const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema, {
+    disableTypeInference: true,
+  });
   const systemCatalogIdentNames = collectSystemCatalogIdentNames(currentAttrs);
 
   try {
