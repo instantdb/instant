@@ -61,6 +61,10 @@ function error(firstArg, ...rest) {
   console.error(chalk.red('[error]') + ' ' + firstArg, ...rest);
 }
 
+// json response
+
+const toJson = (data) => JSON.stringify(data, null, 2);
+
 // consts
 
 const potentialEnvs = {
@@ -347,6 +351,20 @@ program
   .option('-t --title <title>', 'Title for the created app')
   .action(handleInit);
 
+program
+  .command('init-without-files')
+  .description('Generate a new app id and admin token pair without any files.')
+  .option('--title <title>', 'Title for the created app.')
+  .option(
+    '--org-id <org-id>',
+    'Organization id for app. Cannot be used with --temp flag.',
+  )
+  .option(
+    '--temp',
+    'Create a temporary app which will automatically delete itself after >24 hours.',
+  )
+  .action(handleInitWithoutFiles);
+
 // Note: Nov 20, 2024
 // We can eventually delete this,
 // once we know most people use the new pull and push commands
@@ -531,6 +549,52 @@ async function handleInit(opts) {
     if (doPermsPush) {
       await push('perms', appId, opts);
     }
+  }
+}
+
+async function handleInitWithoutFiles(opts) {
+  try {
+    if (!opts?.title) {
+      throw new Error(
+        'Title is required for creating a new app without local files.',
+      );
+    }
+
+    if (opts.title.startsWith('-')) {
+      throw new Error(
+        `Invalid title: "${opts.title}". Title cannot be a flag.`,
+      );
+    }
+
+    if (opts?.temp && opts?.orgId) {
+      throw new Error('Cannot use --temp and --org-id flags together.');
+    }
+
+    let result;
+    if (opts?.temp) {
+      result = await createEphemeralApp(opts.title);
+    } else {
+      result = await createApp(opts.title, opts.orgId);
+    }
+
+    console.error(`${chalk.green('Successfully created new app!')}\n`);
+
+    console.log(
+      toJson({
+        app: result,
+        error: null,
+      }),
+    );
+  } catch (error) {
+    console.error(`${chalk.red('Failed to create app.')}\n`);
+
+    console.log(
+      toJson({
+        app: null,
+        error: { message: error.message },
+      }),
+    );
+    process.exit(1);
   }
 }
 
@@ -1017,6 +1081,21 @@ async function createApp(title, orgId) {
     body: app,
   });
   if (!appRes.ok) throw new Error('Failed to create app');
+  return { appId: id, adminToken: token };
+}
+
+async function createEphemeralApp(title) {
+  const id = randomUUID();
+  const token = randomUUID();
+  const app = { id, title, admin_token: token };
+  const appRes = await fetchJson({
+    method: 'POST',
+    path: '/dash/apps/ephemeral',
+    debugName: 'Ephemeral app create',
+    errorMessage: 'Failed to create ephemeral app.',
+    body: app,
+  });
+  if (!appRes.ok) throw new Error('Failed to create temporary app');
   return { appId: id, adminToken: token };
 }
 
