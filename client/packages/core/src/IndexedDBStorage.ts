@@ -1,4 +1,4 @@
-import type { Storage } from './utils/PersistedObject';
+import type { Storage } from './utils/PersistedObject.ts';
 
 type StoreName = 'kv' | 'querySubs';
 const version = 2;
