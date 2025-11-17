@@ -70,6 +70,7 @@ import {
   type DeleteFileResponse,
   validateQuery,
   validateTransactions,
+  InstantTypeHelper,
 } from '@instantdb/core';
 
 import version from './version.ts';
@@ -832,6 +833,11 @@ class InstantAdminDatabase<
   impersonationOpts?: ImpersonationOpts;
 
   public tx = txInit<NonNullable<Schema>>();
+
+  public $infer: InstantTypeHelper<
+    Schema,
+    NonNullable<Config['useDateObjects']>
+  >;
 
   constructor(_config: Config) {
     this.config = instantConfigWithDefaults(_config);

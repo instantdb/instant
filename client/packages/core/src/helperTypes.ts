@@ -3,6 +3,8 @@ import type {
   InstaQLResult,
   InstaQLParams,
   Remove$,
+  ValidQuery,
+  InstaQLResponse,
 } from './queryTypes.ts';
 import type {
   IContainEntitiesAndLinks,
@@ -94,6 +96,10 @@ export type InstantEntity<
     ? InstaQLEntity<Schema, EntityName, Query>
     : never;
 
+type Prettify<T> = {
+  [K in keyof T]: T[K];
+} & {};
+
 /**
  * @deprecated
  * `InstantSchemaDatabase` is deprecated. You generally don't need to
@@ -111,3 +117,17 @@ export type InstantSchemaDatabase<
   _T1 extends any = any,
   _T2 extends any = any,
 > = IInstantDatabase<Schema>;
+
+export type InstantTypeHelper<
+  Schema extends InstantSchemaDef<any, any, any>,
+  D extends boolean = false,
+> = {
+  query: <Q extends ValidQuery<Q, Schema>>(
+    q: Q,
+  ) => InstaQLResponse<Schema, Q, D>;
+  entity: {
+    [Name in keyof Schema['entities']]: Prettify<
+      InstaQLEntity<Schema, Name, {}, undefined, NonNullable<D>>
+    >;
+  };
+};

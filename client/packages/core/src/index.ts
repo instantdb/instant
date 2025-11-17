@@ -61,6 +61,7 @@ import type {
   InstantSchema,
   InstantEntity,
   InstantSchemaDatabase,
+  InstantTypeHelper,
 } from './helperTypes.ts';
 import type {
   InstantDBAttr,
@@ -508,6 +509,8 @@ class InstantCoreDatabase<
   public storage: Storage;
 
   public tx = txInit<Schema>();
+
+  public $infer: InstantTypeHelper<Schema, NonNullable<UseDates>>;
 
   constructor(reactor: Reactor<RoomsOf<Schema>>) {
     this._reactor = reactor;
@@ -965,4 +968,7 @@ export {
 
   // error types
   type InstantIssue,
+
+  // type helper
+  type InstantTypeHelper,
 };

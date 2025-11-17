@@ -21,6 +21,8 @@ import {
   IInstantDatabase,
   InstantError,
   ValidQuery,
+  InstaQLEntity,
+  InstantTypeHelper,
 } from '@instantdb/core';
 import {
   ReactNode,
@@ -54,6 +56,11 @@ export default abstract class InstantReactAbstractDatabase<
 
   /** @deprecated use `core` instead */
   public _core: InstantCoreDatabase<Schema, Config['useDateObjects']>;
+
+  public $infer: InstantTypeHelper<
+    Schema,
+    NonNullable<Config['useDateObjects']>
+  >;
 
   static Storage?: any;
   static NetworkListener?: any;
