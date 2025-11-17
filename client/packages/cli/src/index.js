@@ -43,6 +43,12 @@ import { ResolveRenamePrompt } from './util/renamePrompt.js';
 import { buildAutoRenameSelector } from './rename.js';
 import { loadEnv } from './util/loadEnv.js';
 import { isHeadlessEnvironment } from './util/isHeadlessEnvironment.js';
+import {
+  getSchemaReadCandidates,
+  getPermsReadCandidates,
+  getSchemaPathToWrite,
+  getPermsPathToWrite,
+} from './util/findConfigCandidates.js';
 
 const execAsync = promisify(exec);
 
@@ -1810,68 +1816,6 @@ function prettyPrintJSONErr(data) {
   }
 }
 
-/**
- * We need to do a bit of a hack of `@instantdb/react-native`.
- *
- * If a user writes import { i } from '@instantdb/react-native'
- *
- * We will fail to evaluate the file. This is because
- * `@instantdb/react-native` brings in `react-native`, which
- * does not run in a node context.
- *
- * To bypass this, we have a 'cli' module inside `react-native`, which
- * has all the necessary imports
- */
-function transformImports(code) {
-  return code.replace(
-    /["']@instantdb\/react-native["']/g,
-    '"@instantdb/react-native/dist/cli"',
-  );
-}
-
-function getEnvPermsPathWithLogging() {
-  const path = process.env.INSTANT_PERMS_FILE_PATH;
-  if (path) {
-    console.log(
-      `Using INSTANT_PERMS_FILE_PATH=${chalk.green(process.env.INSTANT_PERMS_FILE_PATH)}`,
-    );
-  }
-  return path;
-}
-
-function getPermsReadCandidates() {
-  const existing = getEnvPermsPathWithLogging();
-  if (existing) return [{ files: existing, transform: transformImports }];
-  return [
-    {
-      files: 'instant.perms',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-    {
-      files: 'src/instant.perms',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-    {
-      files: 'app/instant.perms',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-  ];
-}
-
-function getPermsPathToWrite(existingPath) {
-  if (existingPath) return existingPath;
-  if (process.env.INSTANT_PERMS_FILE_PATH) {
-    return process.env.INSTANT_PERMS_FILE_PATH;
-  }
-  if (existsSync(path.join(process.cwd(), 'src'))) {
-    return path.join('src', 'instant.perms.ts');
-  }
-  return 'instant.perms.ts';
-}
-
 async function readLocalPermsFile() {
   const readCandidates = getPermsReadCandidates();
   const res = await loadConfig({
@@ -1891,51 +1835,6 @@ async function readLocalPermsFileWithErrorLogging() {
     );
   }
   return res;
-}
-
-function getEnvSchemaPathWithLogging() {
-  const path = process.env.INSTANT_SCHEMA_FILE_PATH;
-  if (path) {
-    console.log(
-      `Using INSTANT_SCHEMA_FILE_PATH=${chalk.green(process.env.INSTANT_SCHEMA_FILE_PATH)}`,
-    );
-  }
-  return path;
-}
-
-function getSchemaReadCandidates() {
-  const existing = getEnvSchemaPathWithLogging();
-  if (existing) return [{ files: existing, transform: transformImports }];
-  return [
-    {
-      files: 'instant.schema',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-    {
-      files: 'src/instant.schema',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-    {
-      files: 'app/instant.schema',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-  ];
-}
-
-function getSchemaPathToWrite(existingPath) {
-  if (existingPath) return existingPath;
-  if (process.env.INSTANT_SCHEMA_FILE_PATH) {
-    return process.env.INSTANT_SCHEMA_FILE_PATH;
-  }
-  // If there is a src folder
-  if (existsSync(path.join(process.cwd(), 'src'))) {
-    return path.join('src', 'instant.schema.ts');
-  }
-
-  return 'instant.schema.ts';
 }
 
 async function readLocalSchemaFile() {

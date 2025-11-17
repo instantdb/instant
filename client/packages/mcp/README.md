@@ -71,8 +71,19 @@ npx @modelcontextprotocol/inspector node ./dist/index.js --token <token> --api-u
 http://localhost:8888
 ```
 
-You can also configure your editor or Claude to connect to your local MCP.
-Here's an example configuration for MacOS/Linux:
+If you're using Claude Code you can add the mcp server directly after building:
+
+```bash
+claude mcp add --transport stdio instant-local -- node <path-to-your-cloned-repo>/dist/index.js --token <token>
+```
+
+You can then remove the server directly:
+
+```bash
+claude mcp remove instant-local
+```
+
+You can also configure your editor to connect to your local MCP. Here's an example configuration for MacOS/Linux:
 
 ```json
 {
