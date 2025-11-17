@@ -357,6 +357,7 @@ class Auth {
 
   constructor(config: FilledConfig) {
     this.config = config;
+    this.createToken = this.createToken.bind(this);
   }
 
   /**
@@ -428,23 +429,42 @@ class Auth {
    * @example
    *   app.post('/custom_sign_in', async (req, res) => {
    *     // ... your custom flow for users
-   *     const token = await db.auth.createToken(email)
+   *     const token = await db.auth.createToken({ email })
    *     return res.status(200).send({ token })
    *   })
    *
    * @see https://instantdb.com/docs/backend#custom-auth
    */
-  createToken = async (email: string): Promise<AuthToken> => {
+  createToken(email: { email: string } | { id: string }): Promise<AuthToken>;
+
+  /**
+   *
+   * @deprecated Passing an email string directly is deprecated.
+   *
+   * Use an object with the `email` key instead.
+   *
+   * @example
+   * // Before
+   * const token = await auth.createToken(email)
+   * // After
+   * const token = await auth.createToken({ email })
+   */
+  createToken(email: string): Promise<AuthToken>;
+
+  async createToken(
+    input: string | { email: string } | { id: string },
+  ): Promise<AuthToken> {
+    const body = typeof input === 'string' ? { email: input } : input;
     const ret: { user: { refresh_token: string } } = await jsonFetch(
       `${this.config.apiURI}/admin/refresh_tokens`,
       {
         method: 'POST',
         headers: authorizedHeaders(this.config),
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(body),
       },
     );
     return ret.user.refresh_token;
-  };
+  }
 
   /**
    * Verifies a given token and returns the associated user.

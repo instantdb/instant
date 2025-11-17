@@ -145,7 +145,7 @@ You can do this with the `db.asUser` function.
 // Scope by their email
 const scopedDb = db.asUser({ email: 'alyssa_p_hacker@instantdb.com' });
 // Or with their auth token
-const token = db.auth.createToken('alyssa_p_hacker@instantdb.com');
+const token = db.auth.createToken({ email: 'alyssa_p_hacker@instantdb.com' });
 const scopedDb = db.asUser({ token });
 // Or use the db as a guest!
 const scopedDb = db.asUser({ guest: true });
@@ -284,7 +284,7 @@ app.post('/sign-in', async (req, res) => {
   // your custom logic for signing users in
   // ...
   // on success, create and return a token
-  const token = await db.auth.createToken(email);
+  const token = await db.auth.createToken({ email });
   return res.status(200).send({ token });
 });
 ```

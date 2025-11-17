@@ -357,17 +357,28 @@
 
 (deftest refresh-tokens-test
   (with-empty-app
-    (let [email "stopa@instantdb.com"]
-      (fn [{app-id :id admin-token :admin-token :as _app}]
-        (testing "can create refresh token"
-          (let [ret (refresh-tokens-post
-                     {:body {:email email}
-                      :headers {"app-id" app-id
-                                "authorization" (str "Bearer " admin-token)}})]
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (testing "can create refresh token with email"
+        (let [email "stopa1@instantdb.com"
+              ret (refresh-tokens-post
+                   {:body {:email email}
+                    :headers {"app-id" app-id
+                              "authorization" (str "Bearer " admin-token)}})]
 
-            (is (= 200 (:status ret)))
-            (is (= email (-> ret :body :user :email)))
-            (is (some? (-> ret :body :user :refresh_token)))))))))
+          (is (= 200 (:status ret)))
+          (is (= email (-> ret :body :user :email)))
+          (is (some? (-> ret :body :user :refresh_token)))))
+
+      (testing "can create refresh token with id"
+        (let [id (random-uuid)
+              ret (refresh-tokens-post
+                   {:body {:id id}
+                    :headers {"app-id" app-id
+                              "authorization" (str "Bearer " admin-token)}})]
+
+          (is (= 200 (:status ret)))
+          (is (= id (-> ret :body :user :id)))
+          (is (some? (-> ret :body :user :refresh_token))))))))
 
 (deftest sign-out-test
   (with-empty-app
