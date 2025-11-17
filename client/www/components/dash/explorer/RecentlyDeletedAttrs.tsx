@@ -12,12 +12,12 @@ import { ExpandableDeletedAttr } from './ExpandableDeletedAttr';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 import { useAuthToken } from '@/lib/auth';
 
-type SoftDeletedAttr = DBAttr & {
+export type SoftDeletedAttr = DBAttr & {
   'deletion-marked-at': string;
 };
 
 const deletedMarker = '_deleted$';
-const removeDeletedMarker = (s: string): string => {
+export const removeDeletedMarker = (s: string): string => {
   const idx = s.indexOf(deletedMarker);
   if (idx === -1) return s;
   return s.slice(idx + deletedMarker.length);

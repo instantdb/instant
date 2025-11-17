@@ -29,7 +29,7 @@ import {
   PlusIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
-import { PencilSquareIcon } from '@heroicons/react/24/outline';
+import { PencilSquareIcon, ClockIcon } from '@heroicons/react/24/outline';
 
 import { successToast, errorToast } from '@/lib/toast';
 import {
@@ -57,7 +57,11 @@ import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDia
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
 import { formatBytes } from '@/lib/format';
-import { useRecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
+import {
+  useRecentlyDeletedAttrs,
+  removeDeletedMarker,
+} from './RecentlyDeletedAttrs';
+import type { SoftDeletedAttr } from './RecentlyDeletedAttrs';
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -82,6 +86,14 @@ type ParsedQueryPart = {
   field: string;
   operator: (typeof OPERATORS)[number];
   value: string;
+};
+
+type DeletedNamespaceGroup = {
+  name: string;
+  attrs: {
+    attr: SoftDeletedAttr;
+    attrName: string;
+  }[];
 };
 function parseSearchQuery(s: string): ParsedQueryPart[] {
   let fieldStart = 0;
@@ -434,6 +446,7 @@ export function Explorer({
   // ui
   const [isNsOpen, setIsNsOpen] = useState(false);
   const newNsDialog = useDialog();
+  const deletedNsDialog = useDialog();
   const [deleteDataConfirmationOpen, setDeleteDataConfirmationOpen] =
     useState(false);
   const [editNs, setEditNs] = useState<SchemaNamespace | null>(null);
@@ -441,6 +454,9 @@ export function Explorer({
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const nsRef = useRef<HTMLDivElement>(null);
   const lastSelectedIdRef = useRef<string | null>(null);
+  const [restoringNamespace, setRestoringNamespace] = useState<string | null>(
+    null,
+  );
 
   const [searchFilters, setSearchFilters] = useState<SearchFilter[]>([]);
   const [ignoreUrlChanges, setIgnoreUrlChanges] = useState(false);
@@ -663,8 +679,66 @@ export function Explorer({
   // auth
   const token = useContext(TokenContext);
 
-  // pre-fetch recently deleted attrs before user opens the edit schema modal
-  useRecentlyDeletedAttrs(appId);
+  // recently deleted attrs (for namespace restore + modal prefetch)
+  const recentlyDeletedAttrsRes = useRecentlyDeletedAttrs(appId);
+  const deletedNamespaces = useMemo<DeletedNamespaceGroup[]>(() => {
+    const result: DeletedNamespaceGroup[] = [];
+    const attrs = recentlyDeletedAttrsRes.data?.attrs;
+    if (!attrs?.length) {
+      return result;
+    }
+    const grouped: Record<string, DeletedNamespaceGroup> = {};
+    for (const attr of attrs) {
+      const identity = attr['forward-identity'];
+      if (!identity) continue;
+      const [, rawNamespace, rawAttrName] = identity;
+      const namespaceName = removeDeletedMarker(rawNamespace);
+      const attrName = removeDeletedMarker(rawAttrName);
+      if (!namespaceName) continue;
+      if (!grouped[namespaceName]) {
+        grouped[namespaceName] = {
+          name: namespaceName,
+          attrs: [],
+        };
+      }
+      grouped[namespaceName].attrs.push({
+        attr,
+        attrName,
+      });
+    }
+
+    return Object.values(grouped)
+      .filter((group) =>
+        group.attrs.some((attr) => attr.attrName === 'id'),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [recentlyDeletedAttrsRes.data]);
+
+  const handleRestoreNamespace = async (ns: DeletedNamespaceGroup) => {
+    if (!ns.attrs.length) return;
+    setRestoringNamespace(ns.name);
+    const attrIds = ns.attrs.map(({ attr }) => attr.id);
+    try {
+      await db._core._reactor.pushOps(
+        attrIds.map((attrId) => ['restore-attr', attrId]),
+      );
+      recentlyDeletedAttrsRes.mutate((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          attrs: current.attrs.filter(
+            (attr) => !attrIds.includes(attr.id),
+          ),
+        };
+      });
+      successToast(`Restored ${ns.name}`);
+    } catch (error) {
+      console.error(error);
+      errorToast('Failed to restore namespace');
+    } finally {
+      setRestoringNamespace(null);
+    }
+  };
 
   const isSystemCatalogNs = selectedNamespace?.name?.startsWith('$') ?? false;
   const sanitizedNsName = selectedNamespace?.name ?? '';
@@ -939,6 +1013,14 @@ export function Explorer({
           }}
         />
       </Dialog>
+      <Dialog {...deletedNsDialog}>
+        <RecentlyDeletedNamespacesDialog
+          namespaces={deletedNamespaces}
+          onRestore={handleRestoreNamespace}
+          onClose={deletedNsDialog.onClose}
+          restoringNamespace={restoringNamespace}
+        />
+      </Dialog>
 
       <div
         ref={nsRef}
@@ -974,6 +1056,17 @@ export function Explorer({
                 />
               ) : null}
             </div>
+            {deletedNamespaces.length ? (
+              <Button
+                variant="secondary"
+                size="mini"
+                className="justify-center"
+                onClick={deletedNsDialog.onOpen}
+              >
+                <ClockIcon height="1rem" className="mr-1" />
+                Recently deleted
+              </Button>
+            ) : null}
             <Button
               variant="secondary"
               size="mini"
@@ -1667,6 +1760,79 @@ function NewNamespaceDialog({
         disabled={!name}
         onClick={onSubmit}
       />
+    </ActionForm>
+  );
+}
+
+function RecentlyDeletedNamespacesDialog({
+  namespaces,
+  onClose,
+  onRestore,
+  restoringNamespace,
+}: {
+  namespaces: DeletedNamespaceGroup[];
+  onClose: () => void;
+  onRestore: (ns: DeletedNamespaceGroup) => void;
+  restoringNamespace: string | null;
+}) {
+  return (
+    <ActionForm className="flex min-w-[320px] flex-col gap-4">
+      <h5 className="flex items-center gap-2 text-lg font-bold">
+        Recently deleted namespaces
+      </h5>
+
+      {namespaces.length ? (
+        <div className="flex flex-col gap-3">
+          {namespaces.map((ns) => (
+            <div
+              key={ns.name}
+              className="rounded border px-3 py-2 dark:border-neutral-700"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-semibold">{ns.name}</div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                    {ns.attrs.length} attr{ns.attrs.length === 1 ? '' : 's'}
+                  </div>
+                </div>
+                <Button
+                  size="mini"
+                  variant="secondary"
+                  disabled={restoringNamespace === ns.name}
+                  onClick={() => onRestore(ns)}
+                >
+                  {restoringNamespace === ns.name
+                    ? 'Restoring...'
+                    : 'Restore'}
+                </Button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1 text-xs text-neutral-500 dark:text-neutral-400">
+                {ns.attrs
+                  .map((attr) => attr.attrName)
+                  .sort()
+                  .map((attrName, index) => (
+                    <span
+                      key={`${ns.name}-${attrName}-${index}`}
+                      className="rounded bg-neutral-100 px-1 py-0.5 dark:bg-neutral-700 dark:text-neutral-200"
+                    >
+                      {attrName}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Content className="text-sm text-neutral-500 dark:text-neutral-400">
+          No recently deleted namespaces.
+        </Content>
+      )}
+
+      <div className="flex justify-end gap-2">
+        <Button size="mini" variant="secondary" onClick={onClose}>
+          Close
+        </Button>
+      </div>
     </ActionForm>
   );
 }
