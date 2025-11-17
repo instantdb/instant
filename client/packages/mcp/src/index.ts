@@ -429,6 +429,157 @@ function registerTools(server: McpServer, api: PlatformApi) {
       }
     },
   );
+
+  server.tool(
+    'query',
+    'Execute a query againt an app. Useful for inspecting data in the app.',
+    {},
+    async () => {
+      const instructions = `
+      You can query data for an app by writing and executing a script using the
+      Admin SDK. Here's an example script for fetching a habit and its completions:
+
+      \`\`\`typescript
+      import { init } from "@instantdb/admin";
+      import "dotenv/config";
+
+      const adminDb = init({
+        appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+        adminToken: process.env.INSTANT_APP_ADMIN_TOKEN!,
+      });
+
+      async function fetchHabit(habitName: string) {
+        const { habits } = await adminDb.query({
+          habits: {
+            $: { where: { name: habitName } },
+            completions: {},
+          },
+        });
+        console.log(habits);
+      }
+
+      fetchHabit("Read");
+      \`\`\`
+
+      If you're unsure how to write queries, refer to the documentation:
+
+      https://instantdb.com/docs/instaql.md
+      `;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: instructions,
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
+    'transact',
+    'Execute a transaction against an app. Useful for seeding or modifying data in the app.',
+    {},
+    async () => {
+      const instructions = `
+      You can transact data for an app by writing and executing a script using the
+      Admin SDK. Here's an example script for seeding a microblog app with some posts:
+
+      \`\`\`typescript
+      import { init, id } from "@instantdb/admin";
+      import "dotenv/config";
+
+      const adminDb = init({
+        appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+        adminToken: process.env.INSTANT_APP_ADMIN_TOKEN!,
+      });
+
+      interface Post {
+        id: number;
+        author: string;
+        handle: string;
+        color: string;
+        content: string;
+        timestamp: string;
+        likes: number;
+        liked: boolean;
+      }
+
+      const mockPosts: Post[] = [
+        {
+          author: 'Sarah Chen',
+          handle: 'sarahchen',
+          color: 'bg-blue-100',
+          content: 'Just launched my new project! Really excited to share it with everyone.',
+          timestamp: '2h ago',
+          likes: 12,
+          liked: false,
+        },
+        {
+          author: 'Alex Rivera',
+          handle: 'alexrivera',
+          color: 'bg-purple-100',
+          content: 'Beautiful sunset today. Nature never stops amazing me.',
+          timestamp: '4h ago',
+          likes: 19,
+          liked: true,
+        },
+        {
+          author: 'Jordan Lee',
+          handle: 'jordanlee',
+          color: 'bg-pink-100',
+          content: 'Working on something cool with Next.js and TypeScript. Updates coming soon!',
+          timestamp: '6h ago',
+          likes: 7,
+          liked: false,
+        },
+      ];
+
+      function friendlyTimeToTimestamp(friendlyTime: string) {
+        const hours = parseInt(friendlyTime);
+        const now = Date.now();
+        return now - (hours * 60 * 60 * 1000);
+      }
+
+      function seed() {
+        console.log("Seeding db...");
+        mockPosts.forEach(post => {
+          const userId = id();
+          const postId = id();
+          const user = adminDb.tx.$users[userId].create({});
+          const profile = adminDb.tx.profiles[userId].create({
+            displayName: post.author,
+            handle: post.handle,
+          }).link({ user: userId });
+          const postEntity = adminDb.tx.posts[postId].create({
+            color: post.color,
+            content: post.content,
+            timestamp: friendlyTimeToTimestamp(post.timestamp),
+          }).link({ author: userId });
+          const likes = Array.from({ length: post.likes }, () => adminDb.tx.likes[id()].create({ postId, userId }).link({ post: postId, user: userId }));
+          adminDb.transact([user, profile, postEntity, ...likes]);
+        })
+      }
+
+      seed();
+      \`\`\`
+
+      If you're unsure how to make transactions, refer to the documentation:
+
+      https://instantdb.com/docs/instaml.md
+      `;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: instructions,
+          },
+        ],
+      };
+    },
+  );
 }
 
 async function startStdio() {
