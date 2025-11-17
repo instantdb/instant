@@ -12,7 +12,6 @@ import * as flags from './utils/flags.ts';
 import { buildPresenceSlice, hasPresenceResponseChanged } from './presence.ts';
 import { Deferred } from './utils/Deferred.js';
 import { PersistedObject } from './utils/PersistedObject.ts';
-import { PersistedObject as PersistedObject2 } from './utils/PersistedObject2.ts';
 
 import { extractTriples } from './model/instaqlResult.js';
 import {
@@ -44,8 +43,6 @@ const STATUS = {
   CLOSED: 'closed',
   ERRORED: 'errored',
 };
-
-globalThis.PO = PersistedObject2;
 
 const QUERY_ONCE_TIMEOUT = 30_000;
 const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
@@ -189,10 +186,10 @@ export default class Reactor {
   _isShutdown = false;
   status = STATUS.CONNECTING;
 
-  /** @type {PersistedObject2} */
+  /** @type {PersistedObject} */
   querySubs;
 
-  /** @type {PersistedObject2} */
+  /** @type {PersistedObject} */
   kv;
 
   /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
@@ -204,7 +201,6 @@ export default class Reactor {
   mutationErrorCbs = [];
   connectionStatusCbs = [];
   config;
-  _persister;
   mutationDeferredStore = new Map();
   _reconnectTimeoutId = null;
   _reconnectTimeoutMs = 0;
@@ -365,9 +361,7 @@ export default class Reactor {
   }
 
   _initStorage(Storage) {
-    // XXX: Get rid of `this._persister`
-    this._persister = new Storage(`instant_${this.config.appId}_5`, 'kv');
-    this.querySubs = new PersistedObject2(
+    this.querySubs = new PersistedObject(
       new Storage(`instant_${this.config.appId}_5`, 'querySubs'),
       this._onMergeQuerySub,
       querySubToStorage,
@@ -385,7 +379,7 @@ export default class Reactor {
       },
     );
     this.querySubs.onKeyLoaded = (k) => this._onQuerySubLoaded(k);
-    this.kv = new PersistedObject2(
+    this.kv = new PersistedObject(
       new Storage(`instant_${this.config.appId}_5`, 'kv'),
       // XXX: Needs to be onmergekv
       this._onMergeKv,
@@ -1601,21 +1595,23 @@ export default class Reactor {
    *
    * Note: If the user deletes their local storage, this id will change.
    *
-   * We use this._localIdPromises to ensure that we only generate a local
-   * id once, even if multiple callers call this function concurrently.
    */
   async getLocalId(name) {
     const k = `localToken_${name}`;
-    const id = await this._persister.getItem(k);
-    if (id) return id;
-    if (this._localIdPromises[k]) {
-      return this._localIdPromises[k];
+    if (this.kv.currentValue[k]) {
+      return this.kv.currentValue[k];
+    }
+
+    const current = await this.kv.waitForKeyToLoad(k);
+    if (current) {
+      return current;
     }
     const newId = uuid();
-    this._localIdPromises[k] = this._persister
-      .setItem(k, newId)
-      .then(() => newId);
-    return this._localIdPromises[k];
+    this.kv.updateInPlace((prev) => {
+      if (prev[k]) return;
+      prev[k] = newId;
+    });
+    return await this.kv.waitForKeyToLoad(k);
   }
 
   // ----
@@ -1806,7 +1802,10 @@ export default class Reactor {
   }
 
   async setCurrentUser(user) {
-    await this._persister.setItem(currentUserKey, user);
+    this.kv.updateInPlace((prev) => {
+      prev[currentUserKey] = user;
+    });
+    await this.kv.waitForKeyToLoad(currentUserKey);
   }
 
   getCurrentUserCached() {
@@ -1814,7 +1813,7 @@ export default class Reactor {
   }
 
   async _getCurrentUser() {
-    const user = await this._persister.getItem(currentUserKey);
+    const user = await this.kv.waitForKeyToLoad(currentUserKey);
     return typeof user === 'string' ? JSON.parse(user) : user;
   }
 
@@ -1835,8 +1834,8 @@ export default class Reactor {
   }
 
   async _hasCurrentUser() {
-    const user = await this._persister.getItem(currentUserKey);
-    return JSON.parse(user) != null;
+    const user = await this.kv.waitForKeyToLoad(currentUserKey);
+    return typeof user === 'string' ? JSON.parse(user) != null : user != null;
   }
 
   async changeCurrentUser(newUser) {
