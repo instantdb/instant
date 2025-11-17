@@ -63,7 +63,10 @@ export function inferredType(attr: InstantDBAttr) {
   return inferredList[0];
 }
 
-export function deriveClientType(attr: InstantDBAttr): {
+export function deriveClientType(
+  attr: InstantDBAttr,
+  disableTypeInference?: boolean,
+): {
   type: InstantDBCheckedDataType | InstantDBInferredType | 'any';
   origin: 'checked' | 'inferred' | 'unknown';
 } {
@@ -73,7 +76,7 @@ export function deriveClientType(attr: InstantDBAttr): {
 
   const inferred = inferredType(attr);
 
-  if (inferred) {
+  if (inferred && !disableTypeInference) {
     return { type: inferred, origin: 'inferred' };
   }
 
