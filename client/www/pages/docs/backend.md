@@ -284,7 +284,7 @@ app.post('/sign-in', async (req, res) => {
   // your custom logic for signing users in
   // ...
   // on success, create and return a token
-  const token = await db.auth.createToken( { email } );
+  const token = await db.auth.createToken({ email });
   return res.status(200).send({ token });
 });
 ```
@@ -292,7 +292,7 @@ app.post('/sign-in', async (req, res) => {
 `db.auth.createToken` accepts either an email or a UUID. For the UUID variant:
 
 ```javascript
-const token = await db.auth.createToken( { id } );
+const token = await db.auth.createToken({ id });
 ```
 
 If a user with the provider id or email does not exist, `db.auth.createToken` will create the user for you.
