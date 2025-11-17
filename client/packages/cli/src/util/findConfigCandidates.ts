@@ -8,6 +8,18 @@ type ConfigCandidate = {
   transform: (code: string) => string;
 };
 
+/**
+ * We need to do a bit of a hack of `@instantdb/react-native`.
+ *
+ * If a user writes import { i } from '@instantdb/react-native'
+ *
+ * We will fail to evaluate the file. This is because
+ * `@instantdb/react-native` brings in `react-native`, which
+ * does not run in a node context.
+ *
+ * To bypass this, we have a 'cli' module inside `react-native`, which
+ * has all the necessary imports
+ */
 function transformImports(code: string): string {
   return code.replace(
     /["']@instantdb\/react-native["']/g,
@@ -43,7 +55,9 @@ function findPathsRecursive(
             scanDir(join(currentDir, entry.name), currentDepth + 1);
           }
         }
-      } catch (err) {}
+      } catch (err) {
+        console.error(`Error scanning directory ${fullPath}: ${err}`);
+      }
     }
   };
 
@@ -85,6 +99,10 @@ export function getSchemaReadCandidates(): ConfigCandidate[] {
     transform: transformImports,
   });
 
+  // matches: src/any-folder/any-folder/instant.schema
+  //          src/any-folder/instant.schema
+  //          src/instant.schema
+  // 3 levels in case someone does src/lib/db/instant.schema
   const srcPaths = findPathsRecursive('src', 3, 'instant.schema');
   for (const srcPath of srcPaths) {
     candidates.push({
@@ -94,6 +112,9 @@ export function getSchemaReadCandidates(): ConfigCandidate[] {
     });
   }
 
+  // matches: lib/any-folder/instant.schema
+  //          lib/instant.schema
+  // 2 levels in case someone does lib/db/instant.schema
   const libPaths = findPathsRecursive('lib', 2, 'instant.schema');
   for (const libPath of libPaths) {
     candidates.push({
