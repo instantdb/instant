@@ -83,6 +83,7 @@ import { getTableWidthSize } from '@/lib/tableWidthSize';
 import { TableCell, TableHeader } from './TableComponents';
 import { ArrowRightFromLine } from 'lucide-react';
 import { useColumnVisibility } from '@/lib/hooks/useColumnVisibility';
+import { ViewSettings } from './ViewSettings';
 
 export type TableColMeta = {
   sortable?: boolean;
@@ -959,7 +960,7 @@ export function Explorer({
     columns.map((c) => c.id!),
   );
 
-  const [columnVisibility, onColumnVisibilityChange] = useColumnVisibility({
+  const colVisiblity = useColumnVisibility({
     appId,
     attrs: selectedNamespace?.attrs,
     namespaceId: selectedNamespace?.id,
@@ -968,7 +969,7 @@ export function Explorer({
   const table = useReactTable({
     columnResizeDirection,
     columnResizeMode,
-    onColumnVisibilityChange,
+    onColumnVisibilityChange: colVisiblity[1],
     columns: columns,
     data: tableItems,
     enableColumnResizing: true,
@@ -981,7 +982,7 @@ export function Explorer({
     state: {
       columnSizing: columnSizing,
       columnOrder,
-      columnVisibility,
+      columnVisibility: colVisiblity[0],
       rowSelection: checkedIds,
     },
   });
@@ -1723,6 +1724,10 @@ export function Explorer({
                 </Button>
               </div>
             )}
+            <div className="grow" />
+            <div className="px-2">
+              <ViewSettings className="" visiblity={colVisiblity} />
+            </div>
           </div>
 
           <DndContext
