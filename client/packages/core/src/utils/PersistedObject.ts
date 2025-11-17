@@ -17,7 +17,7 @@
 // callback immediately
 
 import { create } from 'mutative';
-import { Logger } from './log';
+import type { Logger } from './log.ts';
 
 function safeIdleCallback(cb, timeout: number) {
   if (typeof requestIdleCallback === 'undefined') {
