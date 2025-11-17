@@ -141,3 +141,15 @@ via the `--temp` flag:
 ```shell {% showCopy=true %}
 npx instant-cli@latest init-without-files --title "Hello World" --temp
 ```
+
+You can also pipe the output of this command to `jq` to extract the app information for use in scripts:
+
+```shell {% showCopy=true %}
+output=$(your-command-that-creates-app)
+if echo "$output" | jq -e '.error' > /dev/null; then
+  echo "Error: $(echo "$output" | jq -r '.error')"
+  exit 1
+fi
+appId=$(echo "$output" | jq -r '.appId')
+adminToken=$(echo "$output" | jq -r '.adminToken')
+```
