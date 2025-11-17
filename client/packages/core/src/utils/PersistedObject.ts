@@ -462,7 +462,7 @@ export class PersistedObject<
     return this._version;
   }
 
-  updateInPlace(f: (prev: Record<string, T>) => void) {
+  public updateInPlace(f: (prev: Record<string, T>) => void) {
     this._version++;
     const [state, patches] = create(this.currentValue, f, {
       enablePatches: true,
@@ -485,6 +485,18 @@ export class PersistedObject<
 
     this.currentValue = state;
     this._enqueuePersist();
+    for (const cb of this._subs) {
+      cb(this.currentValue);
+    }
     return state;
+  }
+
+  public subscribe(cb: (value: Record<K, T>) => void) {
+    this._subs.push(cb);
+    cb(this.currentValue);
+
+    return () => {
+      this._subs = this._subs.filter((x) => x !== cb);
+    };
   }
 }

@@ -731,7 +731,7 @@ export default class Reactor {
     const mut = this.kv.currentValue.pendingMutations?.get(eventId);
 
     if (mut && (status !== 'timeout' || !mut['tx-id'])) {
-      this.kv.updateInPlace((prev) => {
+      this._updatePendingMutations((prev) => {
         prev.delete(eventId);
         return prev;
       });
