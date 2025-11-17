@@ -124,23 +124,7 @@ function querySubsFromStorage(x, useDateObjects) {
   return parsed;
 }
 
-function querySubsToStorage(querySubs) {
-  const jsonSubs = {};
-  for (const key in querySubs) {
-    const sub = querySubs[key];
-    const jsonSub = { ...sub };
-    if (sub.result?.store) {
-      jsonSub.result = {
-        ...sub.result,
-        store: s.toJSON(sub.result.store),
-      };
-    }
-    jsonSubs[key] = jsonSub;
-  }
-  return jsonSubs;
-}
-
-function querySubFromStorage(x, useDateObjects) {
+function querySubFromStorage(_key, x, useDateObjects) {
   const v = typeof x === 'string' ? JSON.parse(x) : x;
 
   if (v?.result?.store) {
@@ -154,7 +138,7 @@ function querySubFromStorage(x, useDateObjects) {
   return v;
 }
 
-function querySubToStorage(sub) {
+function querySubToStorage(_key, sub) {
   const jsonSub = { ...sub };
   if (sub.result?.store) {
     jsonSub.result = {
@@ -163,6 +147,24 @@ function querySubToStorage(sub) {
     };
   }
   return jsonSub;
+}
+
+function kvFromStorage(key, x) {
+  switch (key) {
+    case 'pendingMutations':
+      return new Map(typeof x === 'string' ? JSON.parse(x) : x);
+    default:
+      return x;
+  }
+}
+
+function kvToStorage(key, x) {
+  switch (key) {
+    case 'pendingMutations':
+      return [...x.entries()];
+    default:
+      return x;
+  }
 }
 
 function sortedMutationEntries(entries) {
@@ -189,8 +191,9 @@ export default class Reactor {
 
   /** @type {PersistedObject2} */
   querySubs;
-  /** @type {PersistedObject} */
-  pendingMutations;
+
+  /** @type {PersistedObject2} */
+  kv;
 
   /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
   queryCbs = {};
@@ -350,16 +353,19 @@ export default class Reactor {
   _reactorStats() {
     return {
       inFlightMutationCount: this._inFlightMutationEventIds.size,
-      pendingMutationCount: this.pendingMutations.currentValue.size,
+      pendingMutationCount: this._pendingMutations().size,
       transportType: this._transportType,
     };
   }
 
   _onQuerySubLoaded(hash) {
-    this.pendingMutations.waitForLoaded().then(() => this.notifyOne(hash));
+    this.kv
+      .waitForKeyToLoad('pendingMutations')
+      .then(() => this.notifyOne(hash));
   }
 
   _initStorage(Storage) {
+    // XXX: Get rid of `this._persister`
     this._persister = new Storage(`instant_${this.config.appId}_5`, 'kv');
     this.querySubs = new PersistedObject2(
       new Storage(`instant_${this.config.appId}_5`, 'querySubs'),
@@ -372,29 +378,41 @@ export default class Reactor {
       {
         gc: {
           maxAgeMs: 1000 * 60 * 60 * 24 * 7 * 52, // 1 year
-          maxQueries: 1000,
+          maxEntries: 1000,
           // Size of each query is the number of triples
           maxSize: 1_000_000, // XXX: ?? good number?
         },
       },
     );
     this.querySubs.onKeyLoaded = (k) => this._onQuerySubLoaded(k);
-    this.pendingMutations = new PersistedObject(
-      this._persister,
-      'pendingMutations',
-      new Map(),
-      this._onMergePendingMutations,
-      (x) => {
-        return [...x.entries()];
+    this.kv = new PersistedObject2(
+      new Storage(`instant_${this.config.appId}_5`, 'kv'),
+      // XXX: Needs to be onmergekv
+      this._onMergeKv,
+      kvToStorage,
+      kvFromStorage,
+      () => 0,
+      this._log,
+      {
+        saveThrottleMs: 100,
+        idleCallbackMaxWaitMs: 100,
+        gc: {
+          maxAgeMs: Number.MAX_SAFE_INTEGER,
+          maxEntries: Number.MAX_SAFE_INTEGER,
+          maxSize: Number.MAX_SAFE_INTEGER,
+        },
       },
-      (x) => {
-        return new Map(typeof x === 'string' ? JSON.parse(x) : x);
-      },
-      100, // throttle
-      100, // idlecallback timeout, flush more often for mutations
     );
+    this.kv.onKeyLoaded = (k) => {
+      if (k === 'pendingMutations') {
+        this.notifyAll();
+      }
+    };
+    // Trigger immediate load for pendingMutations and currentUser
+    this.kv.waitForKeyToLoad('pendingMutations');
+    this.kv.waitForKeyToLoad(currentUserKey);
     this._beforeUnloadCbs.push(() => {
-      this.pendingMutations.flush();
+      this.kv.flush();
       this.querySubs.flush();
     });
   }
@@ -447,58 +465,7 @@ export default class Reactor {
     this.notifyConnectionStatusSubs(status);
   }
 
-  /**
-   *  merge querySubs from storage and in memory. Has the following side
-   *  effects:
-   *  - We notify all queryCbs because results may been added during merge
-   */
-  _onMergeQuerySubs = (_storageSubs, inMemorySubs) => {
-    const storageSubs = _storageSubs || {};
-    const ret = { ...inMemorySubs };
-
-    // Consider an inMemorySub with no result;
-    // If we have a result from storageSubs, let's add it
-    Object.entries(inMemorySubs).forEach(([hash, querySub]) => {
-      const storageResult = storageSubs?.[hash]?.result;
-      const memoryResult = querySub.result;
-      if (storageResult && !memoryResult) {
-        ret[hash].result = storageResult;
-      }
-    });
-
-    // Consider a storageSub with no corresponding inMemorySub
-    // This means that at least at this point,
-    // the user has not asked to subscribe to the query.
-    // We may _still_ want to add it, because in just a
-    // few milliseconds, the user will ask to subscribe to the
-    // query.
-    // For now, we can't really tell if the user will ask to subscribe
-    // or not. So for now let's just add the first 10 queries from storage.
-    // Eventually, we could be smarter about this. For example,
-    // we can keep usage information about which queries are popular.
-    const storageKsToAdd = Object.keys(storageSubs)
-      .filter((k) => !inMemorySubs[k])
-      .sort((a, b) => {
-        // Sort by lastAccessed, newest first
-        const aTime = storageSubs[a]?.lastAccessed || 0;
-        const bTime = storageSubs[b]?.lastAccessed || 0;
-        return bTime - aTime;
-      })
-      .slice(0, this.queryCacheLimit);
-
-    storageKsToAdd.forEach((k) => {
-      ret[k] = storageSubs[k];
-    });
-
-    // Okay, now we have merged our querySubs
-    // XXX
-    // this.querySubs.set((_) => ret);
-
-    // XXX: Need a notify load
-    this.loadedNotifyAll();
-  };
-
-  _onMergeQuerySub = (storageSub, inMemorySub) => {
+  _onMergeQuerySub = (_k, storageSub, inMemorySub) => {
     const storageResult = storageSub?.result;
     const memoryResult = inMemorySub?.result;
     if (storageResult && !memoryResult) {
@@ -507,23 +474,27 @@ export default class Reactor {
     return inMemorySub;
   };
 
-  /**
-   * merge pendingMutations from storage and in memory. Has a side effect of
-   * sending mutations that were stored but not acked
-   */
-  _onMergePendingMutations = (storageMuts, inMemoryMuts) => {
-    const ret = new Map([...storageMuts.entries(), ...inMemoryMuts.entries()]);
-    this.pendingMutations.set((_) => ret);
-    this.loadedNotifyAll();
-    const rewrittenStorageMuts = this._rewriteMutationsSorted(
-      this.attrs,
-      storageMuts,
-    );
-    rewrittenStorageMuts.forEach(([k, mut]) => {
-      if (!inMemoryMuts.has(k) && !mut['tx-id']) {
-        this._sendMutation(k, mut);
+  // XXX: Move out of class
+  _onMergeKv = (key, storageV, inMemoryV) => {
+    switch (key) {
+      case 'pendingMutations': {
+        const storageEntries = storageV?.entries() ?? [];
+        const inMemoryEntries = inMemoryV?.entries() ?? [];
+        const muts = new Map([...storageEntries, ...inMemoryEntries]);
+        const rewrittenStorageMuts = storageV
+          ? this._rewriteMutationsSorted(this.attrs, storageV)
+          : [];
+        rewrittenStorageMuts.forEach(([k, mut]) => {
+          if (!inMemoryV?.pendingMutations?.has(k) && !mut['tx-id']) {
+            this._sendMutation(k, mut);
+          }
+        });
+        return muts;
       }
-    });
+      default:
+        // XXX: what should we do here??
+        return storageV || inMemoryV;
+    }
   };
 
   _flushEnqueuedRoomData(roomId) {
@@ -575,6 +546,9 @@ export default class Reactor {
       case 'add-query-ok':
         const { q, result } = msg;
         const hash = weakHash(q);
+        if (!this._hasQueryListeners() && !this.querySubs.currentValue[hash]) {
+          break;
+        }
         const pageInfo = result?.[0]?.data?.['page-info'];
         const aggregate = result?.[0]?.data?.['aggregate'];
         const triples = extractTriples(result);
@@ -610,15 +584,17 @@ export default class Reactor {
 
         const rewrittenMutations = this._rewriteMutations(
           this.attrs,
-          this.pendingMutations.currentValue,
+          this._pendingMutations(),
           processedTxId,
         );
 
-        if (rewrittenMutations !== this.pendingMutations.currentValue) {
+        if (rewrittenMutations !== this._pendingMutations()) {
           // We know we've changed the mutations to fix the attr ids and removed
           // processed attrs, so we'll persist those changes to prevent optimisticAttrs
           // from using old attr definitions
-          this.pendingMutations.set(() => rewrittenMutations);
+          this.kv.updateInPlace((prev) => {
+            prev.pendingMutations = rewrittenMutations;
+          });
         }
 
         const mutations = sortedMutationEntries(rewrittenMutations.entries());
@@ -666,7 +642,7 @@ export default class Reactor {
 
         const muts = this._rewriteMutations(
           this.attrs,
-          this.pendingMutations.currentValue,
+          this._pendingMutations(),
         );
         const prevMutation = muts.get(eventId);
         if (!prevMutation) {
@@ -674,13 +650,12 @@ export default class Reactor {
         }
 
         // update pendingMutation with server-side tx-id
-        this.pendingMutations.set((prev) => {
+        this._updatePendingMutations((prev) => {
           prev.set(eventId, {
             ...prev.get(eventId),
             'tx-id': txId,
             confirmed: Date.now(),
           });
-          return prev;
         });
 
         const newAttrs = prevMutation['tx-steps']
@@ -755,16 +730,29 @@ export default class Reactor {
     }
   }
 
+  _pendingMutations() {
+    const ret = this.kv.currentValue.pendingMutations ?? new Map();
+    return ret;
+  }
+
+  _updatePendingMutations(f) {
+    this.kv.updateInPlace((prev) => {
+      const muts = prev.pendingMutations ?? new Map();
+      prev.pendingMutations = muts;
+      f(muts);
+    });
+  }
+
   /**
    * @param {'timeout' | 'error'} status
    * @param {string} eventId
    * @param {{message: string, type?: string, status?: number, hint?: unknown}} errorMsg
    */
   _handleMutationError(status, eventId, errorMsg) {
-    const mut = this.pendingMutations.currentValue.get(eventId);
+    const mut = this.kv.currentValue.pendingMutations?.get(eventId);
 
     if (mut && (status !== 'timeout' || !mut['tx-id'])) {
-      this.pendingMutations.set((prev) => {
+      this.kv.updateInPlace((prev) => {
         prev.delete(eventId);
         return prev;
       });
@@ -785,7 +773,7 @@ export default class Reactor {
     const eventId = msg['client-event-id'];
     // This might not be a mutation, but it can't hurt to delete it
     this._inFlightMutationEventIds.delete(eventId);
-    const prevMutation = this.pendingMutations.currentValue.get(eventId);
+    const prevMutation = this._pendingMutations().get(eventId);
     const errorMessage = {
       message: msg.message || 'Uh-oh, something went wrong. Ping Joe & Stopa.',
     };
@@ -870,7 +858,6 @@ export default class Reactor {
     this.querySubs.updateInPlace((prev) => {
       prev[hash] = prev[hash] || { q, result: null, eventId };
       prev[hash].lastAccessed = Date.now();
-      return prev; // XXX: No need to return
     });
     this._trySendAuthed(eventId, { op: 'add-query', q });
 
@@ -972,14 +959,16 @@ export default class Reactor {
     this._cleanupQuery(q, hash);
   }
 
+  _hasQueryListeners(hash) {
+    return !!(this.queryCbs[hash]?.length || this.queryOnceDfds[hash]?.length);
+  }
+
   _cleanupQuery(q, hash) {
-    const hasListeners =
-      this.queryCbs[hash]?.length || this.queryOnceDfds[hash]?.length;
-
+    const hasListeners = this._hasQueryListeners(hash);
     if (hasListeners) return;
-
     delete this.queryCbs[hash];
     delete this.queryOnceDfds[hash];
+    this.querySubs.unloadKey(hash);
 
     this._trySendAuthed(uuid(), { op: 'remove-query', q });
   }
@@ -997,6 +986,7 @@ export default class Reactor {
   // server attr-ids.
   _rewriteMutations(attrs, muts, processedTxId) {
     if (!attrs) return muts;
+    if (!muts) return new Map();
     const findExistingAttr = (attr) => {
       const [_, etype, label] = attr['forward-identity'];
       const existing = instaml.getAttrByFwdIdentName(attrs, etype, label);
@@ -1082,9 +1072,7 @@ export default class Reactor {
   // Transact
 
   optimisticAttrs() {
-    const pendingMutationSteps = [
-      ...this.pendingMutations.currentValue.values(),
-    ] // hack due to Map()
+    const pendingMutationSteps = [...this._pendingMutations().values()] // hack due to Map()
       .flatMap((x) => x['tx-steps']);
 
     const deletedAttrIds = new Set(
@@ -1126,11 +1114,11 @@ export default class Reactor {
       return { error: errorMessage };
     }
     if (!this.querySubs) return;
-    if (!this.pendingMutations) return;
+    if (!this.kv.currentValue.pendingMutations) return;
     const querySubVersion = this.querySubs.version();
     const querySubs = this.querySubs.currentValue;
-    const pendingMutationsVersion = this.pendingMutations.version();
-    const pendingMutations = this.pendingMutations.currentValue;
+    const pendingMutationsVersion = this.kv.version();
+    const pendingMutations = this._pendingMutations();
 
     const { q, result } = querySubs[hash] || {};
     if (!result) return;
@@ -1249,7 +1237,7 @@ export default class Reactor {
    */
   pushOps = (txSteps, error) => {
     const eventId = uuid();
-    const mutations = [...this.pendingMutations.currentValue.values()];
+    const mutations = [...this._pendingMutations().values()];
     const order = Math.max(0, ...mutations.map((mut) => mut.order || 0)) + 1;
     const mutation = {
       op: 'transact',
@@ -1258,9 +1246,8 @@ export default class Reactor {
       error,
       order,
     };
-    this.pendingMutations.set((prev) => {
+    this._updatePendingMutations((prev) => {
       prev.set(eventId, mutation);
-      return prev;
     });
 
     const dfd = new Deferred();
@@ -1301,7 +1288,7 @@ export default class Reactor {
       Math.min(
         this._inFlightMutationEventIds.size + 1,
         // Defensive code in case we don't clean up in flight mutation event ids
-        this.pendingMutations.currentValue.size + 1,
+        this._pendingMutations().size + 1,
       ) * 6000,
     );
 
@@ -1347,7 +1334,7 @@ export default class Reactor {
 
     const muts = this._rewriteMutationsSorted(
       this.attrs,
-      this.pendingMutations.currentValue,
+      this._pendingMutations(),
     );
     muts.forEach(([eventId, mut]) => {
       if (!mut['tx-id']) {
@@ -1367,13 +1354,12 @@ export default class Reactor {
       }
     }
 
-    this.pendingMutations.set((prev) => {
+    this._updatePendingMutations((prev) => {
       for (const [eventId, mut] of Array.from(prev.entries())) {
         if (mut['tx-id'] && mut['tx-id'] <= minProcessedTxId) {
           prev.delete(eventId);
         }
       }
-      return prev;
     });
   }
 
@@ -1383,16 +1369,13 @@ export default class Reactor {
    * unaffected by this mutation and it’s safe to delete it from local queue
    */
   _cleanupPendingMutationsTimeout() {
-    if (
-      this.pendingMutations.currentValue.size <
-      this._pendingMutationCleanupThreshold
-    ) {
+    if (this._pendingMutations().size < this._pendingMutationCleanupThreshold) {
       return;
     }
 
     const now = Date.now();
 
-    this.pendingMutations.set((prev) => {
+    this._updatePendingMutations((prev) => {
       for (const [eventId, mut] of Array.from(prev.entries())) {
         if (
           mut.confirmed &&
@@ -1401,8 +1384,6 @@ export default class Reactor {
           prev.delete(eventId);
         }
       }
-
-      return prev;
     });
   }
 
@@ -1885,7 +1866,6 @@ export default class Reactor {
       Object.keys(prev).forEach((k) => {
         delete prev[k].result;
       });
-      return prev;
     });
     this._reconnectTimeoutMs = 0;
     this._transport.close();

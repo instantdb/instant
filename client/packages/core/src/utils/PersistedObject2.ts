@@ -31,8 +31,8 @@ const META_KEY = '__meta';
 
 type ObjectMeta = { createdAt: number; updatedAt: number; size: number };
 
-type Meta = {
-  objects: Record<string, ObjectMeta>;
+type Meta<K extends string> = {
+  objects: Record<K, ObjectMeta>;
 };
 
 export interface Storage {
@@ -45,7 +45,7 @@ export interface Storage {
 export type GCOpts = {
   maxSize: number;
   maxAgeMs: number;
-  maxQueries: number;
+  maxEntries: number;
 };
 
 export type Opts = {
@@ -54,21 +54,25 @@ export type Opts = {
   idleCallbackMaxWaitMs?: number | null | undefined;
 };
 
-export class PersistedObject<T, SerializedT> {
-  currentValue: Record<string, T>;
+export class PersistedObject<
+  T extends Record<string, any>,
+  SerializedT extends Record<K, any>,
+  K extends keyof T & string = keyof T & string,
+> {
+  currentValue: Record<K, T>;
   private _subs = [];
   private _persister: Storage;
-  private _onMerge: (fromStorage: T, inMemoryValue: T) => T;
-  private _loadedCbs: Record<string, Array<() => void>>;
-  private serialize: (input: T) => SerializedT;
-  private parse: (input: SerializedT) => T;
+  private _onMerge: (key: K, fromStorage: T, inMemoryValue: T) => T;
+  private _loadedCbs: Record<K, Array<() => void>>;
+  private serialize: (key: K, input: T) => SerializedT;
+  private parse: (key: K, value: SerializedT) => T;
   private _saveThrottleMs: number;
   private _idleCallbackMaxWaitMs: number;
   private _nextSave: null | NodeJS.Timeout = null;
   private _nextGc: null | NodeJS.Timeout = null;
-  private _pendingSaveKeys: Set<string> = new Set();
-  private _loadedKeys: Set<string> = new Set();
-  private _loadingKeys: Record<string, Promise<T>> = {};
+  private _pendingSaveKeys: Set<K> = new Set();
+  private _loadedKeys: Set<K> = new Set();
+  private _loadingKeys: Record<K, Promise<T>>;
   private _objectSize: (serializedObject: SerializedT) => number;
   private _log: Logger;
 
@@ -78,10 +82,10 @@ export class PersistedObject<T, SerializedT> {
   private _meta: {
     isLoading: boolean;
     onLoadCbs: Array<() => void>;
-    value: null | Meta;
+    value: null | Meta<K>;
     error: null | Error;
     attempts: number;
-    loadingPromise?: Promise<Meta> | null | undefined;
+    loadingPromise?: Promise<Meta<K>> | null | undefined;
   } = {
     isLoading: true,
     onLoadCbs: [],
@@ -98,11 +102,12 @@ export class PersistedObject<T, SerializedT> {
      * The value returned from onMerge will become the current value.
      */
     onMerge: (
+      key: K,
       fromStorage: T | null | undefined,
       inMemoryValue: T | null | undefined,
     ) => T,
-    serialize: (x: T) => SerializedT,
-    parse: (x: SerializedT) => T,
+    serialize: (key: K, input: T) => SerializedT,
+    parse: (key: K, value: SerializedT) => T,
     objectSize: (x: SerializedT) => number,
     log,
     opts: Opts,
@@ -116,7 +121,9 @@ export class PersistedObject<T, SerializedT> {
     this._saveThrottleMs = opts.saveThrottleMs ?? 100;
     this._idleCallbackMaxWaitMs = opts.idleCallbackMaxWaitMs ?? 1000;
     this._gcOpts = opts.gc;
-    this.currentValue = {};
+    this.currentValue = {} as T;
+    this._loadedKeys = new Set();
+    this._loadingKeys = {} as Record<K, Promise<T>>;
     this._initMeta();
   }
 
@@ -130,7 +137,7 @@ export class PersistedObject<T, SerializedT> {
       const v = await p;
       this._meta.isLoading = false;
       this._meta.error = null;
-      this._meta.value = (v || {}) as Meta;
+      this._meta.value = (v || {}) as Meta<K>;
     } catch (e) {
       this._meta.error = e;
       this._meta.attempts++;
@@ -138,7 +145,7 @@ export class PersistedObject<T, SerializedT> {
     }
   }
 
-  private async _getMeta(): Promise<Meta> {
+  private async _getMeta(): Promise<Meta<K>> {
     if (this._meta.value) {
       return this._meta.value;
     }
@@ -151,17 +158,17 @@ export class PersistedObject<T, SerializedT> {
     return this._meta.value;
   }
 
-  private async _getFromStorage(key: string) {
+  private async _getFromStorage(key: K) {
     try {
       const data = await this._persister.getItem(key);
-      return this.parse(data as SerializedT);
+      return this.parse(key, data as SerializedT);
     } catch (e) {
       console.error(`Unable to read from storage for key=${key}`, e);
       return null;
     }
   }
 
-  async waitForKeyToLoad(k: string) {
+  async waitForKeyToLoad(k: K) {
     if (this._loadedKeys.has(k)) {
       return;
     }
@@ -169,26 +176,37 @@ export class PersistedObject<T, SerializedT> {
     return (await this._loadingKeys[k]) || this._loadKey(k);
   }
 
-  private async _loadKey(k: string) {
+  // Unloads the key so that it can be garbage collected, but does not
+  // delete it. Removes the key from currentValue.
+  public unloadKey(k: K) {
+    console.log('UNLOAD', k);
+    this._loadedKeys.delete(k);
+    delete this._loadingKeys[k];
+    delete this.currentValue[k];
+  }
+
+  private async _loadKey(k: K) {
     if (this._loadedKeys.has(k) || k in this._loadingKeys) return;
     const p = this._getFromStorage(k);
     this._loadingKeys[k] = p;
     const value = await p;
     delete this._loadingKeys[k];
     this._loadedKeys.add(k);
-    if (value) {
-      const merged = this._onMerge(value, this.currentValue[k]);
+
+    const merged = this._onMerge(k, value, this.currentValue[k]);
+    if (merged) {
       this.currentValue[k] = merged;
-      this.onKeyLoaded && this.onKeyLoaded(k);
     }
+    this.onKeyLoaded && this.onKeyLoaded(k);
   }
 
-  private _writeToStorage() {
+  private _writeToStorage(opts?: { skipGc?: boolean | null | undefined }) {
+    const skipGc = opts?.skipGc;
     if (this._meta.isLoading) {
       // Wait for meta to load and try again, give it
       // 5 seconds so that we don't spend too much time retrying
       // XXX: Maybe we should make this delay increase on each attempt
-      setTimeout(() => this._enqueuePersist(), 5000);
+      setTimeout(() => this._enqueuePersist(opts), 5000);
     }
     const metaValue = this._meta.value;
     if (!metaValue) {
@@ -202,7 +220,7 @@ export class PersistedObject<T, SerializedT> {
     for (const k of this._pendingSaveKeys) {
       if (!(k in this.currentValue)) {
         keysToDelete.push(k);
-        delete metaValue[k];
+        delete metaValue.objects[k];
       } else {
         keysToUpdate.push(k);
       }
@@ -217,11 +235,12 @@ export class PersistedObject<T, SerializedT> {
     const keysToLoad = [];
 
     const kvPairs: Array<[string, any]> = [[META_KEY, metaValue]];
-    const metaObjects = metaValue.objects ?? {};
+    const metaObjects: Meta<K>['objects'] =
+      metaValue.objects ?? ({} as Meta<K>['objects']);
     metaValue.objects = metaObjects;
     for (const k of keysToUpdate) {
       if (this._loadedKeys.has(k)) {
-        const serializedV = this.serialize(this.currentValue[k]);
+        const serializedV = this.serialize(k, this.currentValue[k]);
         kvPairs.push([k, serializedV]);
         const size = this._objectSize(serializedV);
         const m = metaObjects[k] ?? {
@@ -241,12 +260,16 @@ export class PersistedObject<T, SerializedT> {
     this._persister.multiSet(kvPairs);
 
     // For the keys that haven't loaded, load the key then try
-    // persisting again. This will prevent a race where the
+    // persisting again. We don't want to do any async work here
+    // or else we might end up saving older copies of the data to
+    // the store.
     for (const k of keysToLoad) {
-      this._loadKey(k).then(() => this._enqueuePersist());
+      this._loadKey(k).then(() => this._enqueuePersist(opts));
     }
 
-    this.gc();
+    if (!skipGc) {
+      this.gc();
+    }
   }
 
   async flush() {
@@ -259,38 +282,52 @@ export class PersistedObject<T, SerializedT> {
 
   private async _gc() {
     // First, remove all keys we don't know about
-    const keys = await this._persister.getAllKeys();
+    const keys = new Set(await this._persister.getAllKeys());
+    keys.delete(META_KEY);
+
+    // Keys we can't delete
+    const sacredKeys = new Set(Object.keys(this.currentValue));
+    for (const k of Object.keys(this._loadingKeys)) {
+      sacredKeys.add(k);
+    }
+    for (const k of this._loadedKeys) {
+      sacredKeys.add(k);
+    }
+
     const meta = await this._getMeta();
     if (!meta) {
       this._log.info('Could not gc because we were not able to load meta');
       return;
     }
     const deets = {
+      gcOpts: this._gcOpts,
+      keys,
+      sacredKeys,
       removed: [],
+      metaRemoved: [],
+      removedMetaCount: 0,
       removedMissingCount: 0,
       removedOldCount: 0,
       removedThresholdCount: 0,
       removedSizeCount: 0,
     };
     for (const key of keys) {
-      if (
-        key in this.currentValue ||
-        key in meta.objects ||
-        this._loadedKeys.has(key) ||
-        key in this._loadingKeys
-      ) {
+      if (sacredKeys.has(key) || key in meta.objects) {
         continue;
       }
+      this._log.info('Lost track of key in meta', key);
       this._persister.removeItem(key);
       deets.removed.push(key);
       deets.removedMissingCount++;
     }
 
-    // XXX: clean out meta also
     // Remove anything over the max age
     const now = Date.now();
     for (const [k, m] of Object.entries(meta.objects)) {
-      if (m.updatedAt < now - this._gcOpts.maxAgeMs) {
+      if (
+        !sacredKeys.has(k) &&
+        (m as ObjectMeta).updatedAt < now - this._gcOpts.maxAgeMs
+      ) {
         this._persister.removeItem(k);
         delete meta.objects[k];
         deets.removed.push(k);
@@ -299,14 +336,14 @@ export class PersistedObject<T, SerializedT> {
     }
 
     // Keep queries under max queries
-    const entries = Object.entries(meta.objects);
+    const entries = Object.entries(meta.objects) as Array<[K, ObjectMeta]>;
     entries.sort(([_k_a, a_meta], [_k_b, b_meta]) => {
       return a_meta.updatedAt - b_meta.updatedAt;
     });
-    if (entries.length > this._gcOpts.maxSize) {
+    if (entries.length > this._gcOpts.maxEntries) {
       for (const [k] of entries.slice(
         0,
-        entries.length - this._gcOpts.maxSize,
+        entries.length - this._gcOpts.maxEntries,
       )) {
         this._persister.removeItem(k);
         delete meta.objects[k];
@@ -323,7 +360,7 @@ export class PersistedObject<T, SerializedT> {
 
     while (
       currentSize > 0 &&
-      currentSize < this._gcOpts.maxSize &&
+      currentSize > this._gcOpts.maxSize &&
       entries.length
     ) {
       const [[k, m]] = entries.splice(0, 1);
@@ -334,9 +371,16 @@ export class PersistedObject<T, SerializedT> {
       deets.removedSizeCount++;
     }
 
-    if (deets.removed.length) {
+    // Update meta to remove keys that are no longer in the store
+    for (const k of Object.keys(meta.objects)) {
+      if (!keys.has(k) && !sacredKeys.has(k)) {
+        delete meta.objects[k];
+      }
+    }
+
+    if (deets.removed.length || deets.metaRemoved.length) {
       // Trigger a flush of the meta
-      this._enqueuePersist();
+      this._enqueuePersist({ skipGc: true });
     }
 
     this._log.info('Completed GC', deets);
@@ -357,14 +401,14 @@ export class PersistedObject<T, SerializedT> {
     );
   }
 
-  private _enqueuePersist() {
+  private _enqueuePersist(opts?: { skipGc?: boolean | null | undefined }) {
     if (this._nextSave) {
       return;
     }
     this._nextSave = setTimeout(() => {
       safeIdleCallback(() => {
         this._nextSave = null;
-        this._writeToStorage();
+        this._writeToStorage(opts);
       }, this._idleCallbackMaxWaitMs);
     }, this._saveThrottleMs);
   }
@@ -381,10 +425,16 @@ export class PersistedObject<T, SerializedT> {
     for (const patch of patches) {
       const k = patch.path[0];
       if (k && typeof k === 'string') {
-        this._pendingSaveKeys.add(k);
-        if (!this._loadedKeys.has(k)) {
-          this._loadKey(k);
+        this._pendingSaveKeys.add(k as K);
+        if (!this._loadedKeys.has(k as K)) {
+          this._loadKey(k as K);
         }
+      }
+    }
+
+    for (const k of Object.keys(state)) {
+      if (!state[k]) {
+        debugger;
       }
     }
 

@@ -48,7 +48,9 @@ export default class IndexedDBStorage {
     const req = kvStore.get('querySubs');
     req.onerror = logErrorCb('get querySubs from kv store failed');
     req.onsuccess = (_) => {
-      const subs = req.result;
+      const subs =
+        // Backwards compatibility for older versions where we JSON.stringified before storing
+        typeof req.result === 'string' ? JSON.parse(req.result) : req.result;
       if (!subs) {
         return;
       }
