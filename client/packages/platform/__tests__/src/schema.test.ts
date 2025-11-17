@@ -628,7 +628,6 @@ test('disableTypeInference', () => {
             'books',
             'description',
           ],
-          'checked-data-type': 'string',
           id: '67d842b3-1b0d-4ed8-bc76-1159cdcc2de7',
           'unique?': false,
           cardinality: 'one',
@@ -641,16 +640,18 @@ test('disableTypeInference', () => {
     },
   } satisfies InstantAPIPlatformSchema;
 
-  const inferred = apiSchemaToInstantSchemaDef(apiSchemaDef);
-  expect(inferred.entities.books.attrs.description.valueType).toBe('string');
-  const inferEnabled = apiSchemaToInstantSchemaDef(apiSchemaDef, {
-    disableTypeInference: false,
-  });
-  expect(inferEnabled.entities.books.attrs.description.valueType).toBe(
-    'string',
-  );
-  const inferDisabled = apiSchemaToInstantSchemaDef(apiSchemaDef, {
-    disableTypeInference: true,
-  });
-  expect(inferDisabled.entities.books.attrs.description.valueType).toBe('blob');
+  expect(
+    apiSchemaToInstantSchemaDef(apiSchemaDef).entities.books.attrs.description
+      .valueType,
+  ).toBe('string');
+  expect(
+    apiSchemaToInstantSchemaDef(apiSchemaDef, {
+      disableTypeInference: false,
+    }).entities.books.attrs.description.valueType,
+  ).toBe('string');
+  expect(
+    apiSchemaToInstantSchemaDef(apiSchemaDef, {
+      disableTypeInference: true,
+    }).entities.books.attrs.description.valueType,
+  ).toBe('json');
 });
