@@ -572,9 +572,9 @@ async function handleInitWithoutFiles(opts) {
 
     let result;
     if (opts?.temp) {
-      result = await createEphemeralApp(opts.title, true);
+      result = await createEphemeralApp(opts.title);
     } else {
-      result = await createApp(opts.title, opts.orgId, true);
+      result = await createApp(opts.title, opts.orgId);
     }
 
     console.error(`${chalk.green('Successfully created new app!')}\n`);
@@ -1069,7 +1069,7 @@ async function promptImportAppOrCreateApp() {
   // return { ok: true, appId: choice, source: 'imported' };
 }
 
-async function createApp(title, orgId, noLogError = false) {
+async function createApp(title, orgId) {
   const id = randomUUID();
   const token = randomUUID();
   const app = { id, title, admin_token: token, org_id: orgId };
@@ -1079,13 +1079,12 @@ async function createApp(title, orgId, noLogError = false) {
     debugName: 'App create',
     errorMessage: 'Failed to create app.',
     body: app,
-    noLogError,
   });
   if (!appRes.ok) throw new Error('Failed to create app');
   return { appId: id, adminToken: token };
 }
 
-async function createEphemeralApp(title, noLogError = false) {
+async function createEphemeralApp(title) {
   const id = randomUUID();
   const token = randomUUID();
   const app = { id, title, admin_token: token };
@@ -1095,7 +1094,6 @@ async function createEphemeralApp(title, noLogError = false) {
     debugName: 'Ephemeral app create',
     errorMessage: 'Failed to create ephemeral app.',
     body: app,
-    noLogError,
   });
   if (!appRes.ok) throw new Error('Failed to create temporary app');
   return { appId: id, adminToken: token };
