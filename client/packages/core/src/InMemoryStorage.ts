@@ -1,4 +1,4 @@
-import type { Storage } from './utils/PersistedObject';
+import type { Storage } from './utils/PersistedObject.ts';
 
 export default class InMemoryStorage implements Storage {
   private dbName: string;
