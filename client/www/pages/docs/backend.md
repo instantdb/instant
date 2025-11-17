@@ -277,25 +277,25 @@ You can use the Admin SDK to create your own authentication flows. To implement 
 
 Create a new `sign-in` endpoint in your backend.
 
-This endpoint will use `db.auth.createToken` to generate an authentication token for the user:
+This endpoint will use `db.auth.createToken` to generate an authentication token for the user.
 
 ```javascript
 app.post('/sign-in', async (req, res) => {
   // your custom logic for signing users in
   // ...
   // on success, create and return a token
-  const token = await db.auth.createToken({ email });
+  const token = await db.auth.createToken( { email } );
   return res.status(200).send({ token });
 });
 ```
 
-If a user with this email does not exist, `auth.createToken` will create a user for you.
+`db.auth.createToken` accepts either an email or a UUID. For the UUID variant:
 
-{% callout type="note" %}
+```javascript
+const token = await db.auth.createToken( { id } );
+```
 
-Right now we require that every user _must_ have an email. If you need to relax this constraint let us know.
-
-{% /callout %}
+If a user with the provider id or email does not exist, `db.auth.createToken` will create the user for you.
 
 ### 2. Frontend: db.auth.signInWithToken
 
