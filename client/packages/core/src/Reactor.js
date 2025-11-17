@@ -106,22 +106,7 @@ const ignoreLogging = {
   'patch-presence': true,
 };
 
-function querySubsFromStorage(x, useDateObjects) {
-  const parsed = typeof x === 'string' ? JSON.parse(x) : x;
-  for (const key in parsed) {
-    const v = parsed[key];
-    if (v?.result?.store) {
-      const storeJSON = v.result.store;
-      v.result.store = s.fromJSON({
-        ...storeJSON,
-        useDateObjects: useDateObjects,
-      });
-    }
-  }
-  return parsed;
-}
-
-function querySubFromStorage(_key, x, useDateObjects) {
+function querySubFromStorage(x, useDateObjects) {
   const v = typeof x === 'string' ? JSON.parse(x) : x;
 
   if (v?.result?.store) {
@@ -365,7 +350,7 @@ export default class Reactor {
       new Storage(`instant_${this.config.appId}_5`, 'querySubs'),
       this._onMergeQuerySub,
       querySubToStorage,
-      (x) => querySubFromStorage(x, this.config.useDateObjects),
+      (_key, x) => querySubFromStorage(x, this.config.useDateObjects),
       // objectSize
       (x) => x.result?.store?.triples?.length ?? 0,
       this._log,
@@ -462,10 +447,10 @@ export default class Reactor {
   _onMergeQuerySub = (_k, storageSub, inMemorySub) => {
     const storageResult = storageSub?.result;
     const memoryResult = inMemorySub?.result;
-    if (storageResult && !memoryResult) {
+    if (storageResult && !memoryResult && inMemorySub) {
       inMemorySub.result = storageResult;
     }
-    return inMemorySub;
+    return inMemorySub || storageSub;
   };
 
   // XXX: Move out of class

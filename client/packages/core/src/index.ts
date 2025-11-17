@@ -19,6 +19,7 @@ import {
   validateTransactions,
   TransactionValidationError,
 } from './transactionValidation.ts';
+import type { Storage as StorageInterface } from './utils/PersistedObject.ts';
 
 import type {
   PresenceOpts,
@@ -969,4 +970,7 @@ export {
 
   // error types
   type InstantIssue,
+
+  // storage interface
+  type StorageInterface,
 };

@@ -1,3 +1,5 @@
+import type { Storage } from './utils/PersistedObject';
+
 type StoreName = 'kv' | 'querySubs';
 const version = 2;
 // Any time these are updated, the version must be updated
@@ -11,7 +13,7 @@ function logErrorCb(source: string) {
   };
 }
 
-export default class IndexedDBStorage {
+export default class IndexedDBStorage implements Storage {
   dbName: string;
   _storeName: string;
   _prefix: string;

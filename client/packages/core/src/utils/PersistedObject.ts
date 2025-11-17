@@ -161,20 +161,25 @@ export class PersistedObject<
   private async _getFromStorage(key: K) {
     try {
       const data = await this._persister.getItem(key);
-      return this.parse(key, data as SerializedT);
+      const parsed = this.parse(key, data as SerializedT);
+      return parsed;
     } catch (e) {
       console.error(`Unable to read from storage for key=${key}`, e);
       return null;
     }
   }
 
-  async waitForKeyToLoad(k: K) {
+  public async waitForKeyToLoad(k: K) {
     if (this._loadedKeys.has(k)) {
-      return;
+      return this.currentValue[k];
     }
-    // XXX: Should do a callback or something here
-    (await this._loadingKeys[k]) || this._loadKey(k);
+    await (this._loadingKeys[k] || this._loadKey(k));
     return this.currentValue[k];
+  }
+
+  // Used for tests
+  public async waitForMetaToLoad() {
+    return this._getMeta();
   }
 
   // Unloads the key so that it can be garbage collected, but does not
@@ -200,20 +205,43 @@ export class PersistedObject<
     this.onKeyLoaded && this.onKeyLoaded(k);
   }
 
-  private _writeToStorage(opts?: { skipGc?: boolean | null | undefined }) {
+  // Returns a promise with a number so that we can wait for flush
+  // to finish in the tests. The number is the number of operations
+  // it performed, but it's mostly there so that typescript will warn
+  // us if we forget to retun the promise from the function.
+  private _writeToStorage(opts?: {
+    skipGc?: boolean | null | undefined;
+    attempts?: number | null | undefined;
+  }): Promise<number> {
+    const promises: Promise<number>[] = [];
     const skipGc = opts?.skipGc;
     if (this._meta.isLoading) {
-      // Wait for meta to load and try again, give it
-      // 5 seconds so that we don't spend too much time retrying
-      // XXX: Maybe we should make this delay increase on each attempt
-      setTimeout(() => this._enqueuePersist(opts), 5000);
+      // Wait for meta to load and try again, give it a delay so that
+      // we don't spend too much time retrying
+      const p: Promise<number> = new Promise((resolve, reject) => {
+        setTimeout(
+          () =>
+            this._enqueuePersist(
+              opts
+                ? { ...opts, attempts: (opts.attempts || 0) + 1 }
+                : { attempts: 1 },
+            )
+              .then(resolve)
+              .catch(reject),
+          10 + (opts?.attempts ?? 0) * 1000,
+        );
+      });
+      promises.push(p);
+      return Promise.all(promises).then((vs) =>
+        vs.reduce((acc, x) => acc + x, 0),
+      );
     }
     const metaValue = this._meta.value;
     if (!metaValue) {
       // If it's not loading and we don't have the data, then there
       // must be an error and we're not going to be able to save until
       // the error is resolved elsewhere.
-      return;
+      return Promise.resolve(0);
     }
     const keysToDelete = [];
     const keysToUpdate = [];
@@ -227,7 +255,8 @@ export class PersistedObject<
     }
 
     for (const k of keysToDelete) {
-      this._persister.removeItem(k);
+      const p = this._persister.removeItem(k);
+      promises.push(p.then(() => 1));
       this._loadedKeys.delete(k);
       this._pendingSaveKeys.delete(k);
     }
@@ -257,21 +286,25 @@ export class PersistedObject<
       }
     }
 
-    console.log('set', kvPairs);
-
-    this._persister.multiSet(kvPairs);
+    const p = this._persister.multiSet(kvPairs);
+    promises.push(p.then(() => 1));
 
     // For the keys that haven't loaded, load the key then try
     // persisting again. We don't want to do any async work here
     // or else we might end up saving older copies of the data to
     // the store.
     for (const k of keysToLoad) {
-      this._loadKey(k).then(() => this._enqueuePersist(opts));
+      const p = this._loadKey(k).then(() => this._enqueuePersist(opts));
+      promises.push(p);
     }
 
     if (!skipGc) {
       this.gc();
     }
+
+    return Promise.all(promises).then((vs) => {
+      return vs.reduce((acc, x) => acc + x, 0);
+    });
   }
 
   async flush() {
@@ -279,7 +312,9 @@ export class PersistedObject<
       return;
     }
     clearTimeout(this._nextSave);
-    this._writeToStorage();
+    this._nextSave = null;
+    const p = this._writeToStorage();
+    return p;
   }
 
   private async _gc() {
@@ -404,16 +439,23 @@ export class PersistedObject<
     );
   }
 
-  private _enqueuePersist(opts?: { skipGc?: boolean | null | undefined }) {
-    if (this._nextSave) {
-      return;
-    }
-    this._nextSave = setTimeout(() => {
-      safeIdleCallback(() => {
-        this._nextSave = null;
-        this._writeToStorage(opts);
-      }, this._idleCallbackMaxWaitMs);
-    }, this._saveThrottleMs);
+  private _enqueuePersist(opts?: {
+    skipGc?: boolean | null | undefined;
+    attempts?: number | null | undefined;
+  }): Promise<number> {
+    return new Promise((resolve, reject) => {
+      if (this._nextSave) {
+        resolve(0);
+        return;
+      }
+
+      this._nextSave = setTimeout(() => {
+        safeIdleCallback(() => {
+          this._nextSave = null;
+          this._writeToStorage(opts).then(resolve).catch(reject);
+        }, this._idleCallbackMaxWaitMs);
+      }, this._saveThrottleMs);
+    });
   }
 
   version() {

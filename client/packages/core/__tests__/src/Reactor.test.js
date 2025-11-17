@@ -12,11 +12,20 @@ import * as instatx from '../../src/instatx';
 import zenecaAttrs from './data/zeneca/attrs.json';
 import zenecaTriples from './data/zeneca/triples.json';
 import uuid from '../../src/utils/uuid';
+import { weakHash } from '../../src';
 
 const zenecaIdToAttr = zenecaAttrs.reduce((res, x) => {
   res[x.id] = x;
   return res;
 }, {});
+
+async function waitForLoaded(reactor) {
+  await reactor.querySubs.waitForMetaToLoad();
+  await reactor.kv.waitForMetaToLoad();
+  await reactor.kv.waitForKeyToLoad('pendingMutations');
+  await reactor.querySubs.flush();
+  await reactor.kv.flush();
+}
 
 test('querySubs round-trips', async () => {
   const appId = uuid();
@@ -25,7 +34,7 @@ test('querySubs round-trips', async () => {
   reactor._setAttrs(zenecaAttrs);
   const q = { users: {} };
 
-  await reactor.querySubs.waitForLoaded();
+  await waitForLoaded(reactor);
 
   const resultOne = new Promise((resolve, reject) => {
     reactor.subscribeQuery(q, (res) => {
@@ -63,14 +72,15 @@ test('querySubs round-trips', async () => {
     'nicolegf',
   ]);
 
-  await reactor.querySubs.waitForSync();
+  await waitForLoaded(reactor);
 
   // Create a new reactor
   const reactor2 = new Reactor({ appId });
   reactor2._initStorage(IndexedDBStorage);
   reactor2._setAttrs(zenecaAttrs);
 
-  await reactor2.querySubs.waitForLoaded();
+  await waitForLoaded(reactor2);
+  await reactor2.querySubs.waitForKeyToLoad(weakHash(q));
 
   // Check that it pull the data from indexedDB
   const res = await new Promise((resolve, reject) => {
@@ -165,7 +175,7 @@ test('rewrite mutations works with multiple transactions', () => {
       op: 'transact',
       'tx-steps': steps,
     };
-    reactor.pendingMutations.set((prev) => {
+    reactor._updatePendingMutations((prev) => {
       prev.set(k, mut);
       return prev;
     });
@@ -174,7 +184,7 @@ test('rewrite mutations works with multiple transactions', () => {
   // rewrite them with the new server attributes
   const rewrittenMutations = reactor._rewriteMutations(
     zenecaIdToAttr,
-    reactor.pendingMutations.currentValue,
+    reactor._pendingMutations(),
   );
 
   const serverSteps = instaml.transform({ attrs: zenecaIdToAttr }, ops);
@@ -191,7 +201,7 @@ test('optimisticTx is not overwritten by refresh-ok', async () => {
   const q = { users: {} };
   const joe_id = 'ce942051-2d74-404a-9c7d-4aa3f2d54ae4';
 
-  await reactor.querySubs.waitForLoaded();
+  await waitForLoaded(reactor);
 
   let data = null;
 
@@ -216,7 +226,7 @@ test('optimisticTx is not overwritten by refresh-ok', async () => {
     ],
   });
 
-  await reactor.querySubs.waitForSync();
+  await reactor.querySubs.flush();
 
   expect(data.data.users.map((x) => x.handle)).toEqual([
     'joe',
@@ -234,7 +244,7 @@ test('optimisticTx is not overwritten by refresh-ok', async () => {
 
   reactor.pushTx(ops2);
 
-  await reactor.querySubs.waitForSync();
+  await reactor.querySubs.flush();
 
   expect(data.data.users.map((x) => x.handle)).toEqual([
     'joe2',
@@ -243,7 +253,7 @@ test('optimisticTx is not overwritten by refresh-ok', async () => {
     'nicolegf',
   ]);
 
-  const [eventId2] = reactor.pendingMutations.currentValue.keys();
+  const [eventId2] = reactor._pendingMutations().keys();
 
   // second optimistic
   const ops3 = [
@@ -254,7 +264,7 @@ test('optimisticTx is not overwritten by refresh-ok', async () => {
 
   reactor.pushTx(ops3);
 
-  await reactor.querySubs.waitForSync();
+  await reactor.querySubs.flush();
 
   expect(data.data.users.map((x) => x.handle)).toEqual([
     'joe3',
@@ -263,7 +273,7 @@ test('optimisticTx is not overwritten by refresh-ok', async () => {
     'nicolegf',
   ]);
 
-  const [_, eventId3] = reactor.pendingMutations.currentValue.keys();
+  const [_, eventId3] = reactor._pendingMutations().keys();
 
   // confirmation from server for first optimistic
   reactor._handleReceive(1, {
@@ -272,7 +282,7 @@ test('optimisticTx is not overwritten by refresh-ok', async () => {
     'tx-id': 100,
   });
 
-  await reactor.querySubs.waitForSync();
+  await waitForLoaded(reactor);
 
   expect(data.data.users.map((x) => x.handle)).toEqual([
     'joe3',
@@ -304,7 +314,7 @@ test('optimisticTx is not overwritten by refresh-ok', async () => {
   });
 
   // make sure it doesn’t override local results
-  await reactor.querySubs.waitForSync();
+  await waitForLoaded(reactor);
 
   expect(data.data.users.map((x) => x.handle)).toEqual([
     'joe3',
@@ -320,7 +330,7 @@ test('optimisticTx is not overwritten by refresh-ok', async () => {
     'tx-id': 101,
   });
 
-  await reactor.querySubs.waitForSync();
+  await waitForLoaded(reactor);
 
   expect(data.data.users.map((x) => x.handle)).toEqual([
     'joe3',
@@ -330,7 +340,7 @@ test('optimisticTx is not overwritten by refresh-ok', async () => {
   ]);
 
   // make sure it still doesn’t override local results
-  await reactor.querySubs.waitForSync();
+  await waitForLoaded(reactor);
 
   expect(data.data.users.map((x) => x.handle)).toEqual([
     'joe3',
@@ -353,7 +363,7 @@ test("we don't cleanup mutations we're still waiting on", async () => {
   const q = { users: {} };
   const joe_id = 'ce942051-2d74-404a-9c7d-4aa3f2d54ae4';
 
-  await reactor.pendingMutations.waitForLoaded();
+  await waitForLoaded(reactor);
 
   // Add two transactions
   const ops1 = [
@@ -372,9 +382,9 @@ test("we don't cleanup mutations we're still waiting on", async () => {
 
   reactor.pushTx(ops2);
 
-  await reactor.pendingMutations.waitForSync();
+  await reactor.kv.flush();
 
-  const [ev1, ev2] = reactor.pendingMutations.currentValue.keys();
+  const [ev1, ev2] = reactor._pendingMutations().keys();
 
   // Mark one as received
   reactor._handleReceive(1, {
@@ -389,9 +399,7 @@ test("we don't cleanup mutations we're still waiting on", async () => {
   // Cleanup shouldn't remove the mutation we're still waiting on
   await reactor._cleanupPendingMutationsTimeout();
 
-  const remainingKeys = new Array(
-    ...reactor.pendingMutations.currentValue.keys(),
-  );
+  const remainingKeys = new Array(...reactor._pendingMutations().keys());
 
   expect(remainingKeys).toStrictEqual([ev2]);
 });
