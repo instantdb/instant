@@ -84,6 +84,7 @@ import { TableCell, TableHeader } from './TableComponents';
 import { ArrowRightFromLine } from 'lucide-react';
 import { useColumnVisibility } from '@/lib/hooks/useColumnVisibility';
 import { ViewSettings } from './ViewSettings';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
 
 export type TableColMeta = {
   sortable?: boolean;
@@ -503,6 +504,8 @@ export function Explorer({
   );
   const currentNav: ExplorerNav | undefined = navStack[navStack.length - 1];
   const showBackButton = navStack.length > 1;
+
+  const [localDates, setLocalDates] = useLocalStorage('localDates', false);
 
   function nav(s: ExplorerNav[], options?: { replaceHistory?: boolean }) {
     setIsNavigating(true);
@@ -938,7 +941,11 @@ export function Explorer({
           if (attr.checkedDataType === 'date') {
             const coerced = coerceToDate(info.row.original[attr.name]);
 
-            return coerced?.toLocaleString() || info.row.original[attr.name];
+            if (localDates) {
+              return coerced?.toLocaleString() || info.row.original[attr.name];
+            } else {
+              return coerced?.toISOString() || info.row.original[attr.name];
+            }
           }
           if (isObject(info.row.original[attr.name])) {
             return <Val data={info.row.original[attr.name]}></Val>;
@@ -949,7 +956,7 @@ export function Explorer({
     });
 
     return result;
-  }, [selectedNamespace?.attrs]);
+  }, [selectedNamespace?.attrs, localDates]);
 
   // update the column order
 
@@ -969,7 +976,7 @@ export function Explorer({
   const table = useReactTable({
     columnResizeDirection,
     columnResizeMode,
-    onColumnVisibilityChange: colVisiblity[1],
+    onColumnVisibilityChange: colVisiblity.setVisibility,
     columns: columns,
     data: tableItems,
     enableColumnResizing: true,
@@ -982,7 +989,7 @@ export function Explorer({
     state: {
       columnSizing: columnSizing,
       columnOrder,
-      columnVisibility: colVisiblity[0],
+      columnVisibility: colVisiblity.visibility,
       rowSelection: checkedIds,
     },
   });
@@ -1726,7 +1733,11 @@ export function Explorer({
             )}
             <div className="grow" />
             <div className="px-2">
-              <ViewSettings className="" visiblity={colVisiblity} />
+              <ViewSettings
+                localDates={localDates}
+                setLocalDates={setLocalDates}
+                visiblity={colVisiblity}
+              />
             </div>
           </div>
 
