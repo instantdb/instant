@@ -368,13 +368,14 @@
 
     ;; TODO(sync-table): This will be replaced by a check that the tx is still in the db
     ;;                   when we have stable storage for the tx-data
-    (when-not (ucoll/seek (fn [x]
-                            (= (:tx-id x) tx-id))
-                          @rs/sync-table-txes)
-      (ex/throw-validation-err! :subscription
-                                {:subscription-id subscription-id
-                                 :tx-id tx-id}
-                                [{:message "transactions for the subscription are no longer available"}]))
+    ;; Commenting it out for now so that we don't get a bunch of reconnects while testing
+    #_(when-not (ucoll/seek (fn [x]
+                              (= (:tx-id x) tx-id))
+                            @rs/sync-table-txes)
+        (ex/throw-validation-err! :subscription
+                                  {:subscription-id subscription-id
+                                   :tx-id tx-id}
+                                  [{:message "transactions for the subscription are no longer available"}]))
     (rs/sync-query-resync store app-id sess-id
                           (:id record) tx-id (:topics record))
     (receive-queue/put! (-> (rs/session store sess-id) :session/socket :receive-q)
