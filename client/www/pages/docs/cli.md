@@ -50,12 +50,6 @@ npx instant-cli@latest push schema
 
 This will evaluate your schema, compare it with production, and migrate your data model.
 
-{% callout %}
-
-`push schema` doesn't support _renaming_ or _deleting_ attributes yet. To do this, use the [Explorer](/docs/modeling-data#update-or-delete-attributes)
-
-{% /callout %}
-
 Similarly, when you change `instant.perms.ts`, you can run:
 
 ```shell {% showCopy=true %}
