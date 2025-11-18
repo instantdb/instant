@@ -52,6 +52,7 @@ export type Opts = {
   gc: GCOpts;
   saveThrottleMs?: number | null | undefined;
   idleCallbackMaxWaitMs?: number | null | undefined;
+  preloadEntryCount?: number | null | undefined;
 };
 
 export class PersistedObject<K extends string, T, SerializedT> {
@@ -120,6 +121,9 @@ export class PersistedObject<K extends string, T, SerializedT> {
     this._loadedKeys = new Set();
     this._loadingKeys = {} as Record<K, Promise<T>>;
     this._initMeta();
+    if (opts.preloadEntryCount) {
+      this._preloadEntries(opts.preloadEntryCount);
+    }
   }
 
   private async _initMeta() {
@@ -132,7 +136,7 @@ export class PersistedObject<K extends string, T, SerializedT> {
       const v = await p;
       this._meta.isLoading = false;
       this._meta.error = null;
-      this._meta.value = (v || {}) as Meta<K>;
+      this._meta.value = (v || { objects: {} }) as Meta<K>;
     } catch (e) {
       this._meta.error = e;
       this._meta.attempts++;
@@ -151,6 +155,17 @@ export class PersistedObject<K extends string, T, SerializedT> {
     this._initMeta();
     await this._meta.loadingPromise;
     return this._meta.value;
+  }
+
+  private async _preloadEntries(n: number) {
+    const meta = await this.waitForMetaToLoad();
+    const entries = Object.entries(meta.objects) as Array<[K, ObjectMeta]>;
+    entries.sort(([_k_a, a_meta], [_k_b, b_meta]) => {
+      return b_meta.updatedAt - a_meta.updatedAt;
+    });
+    for (const [k] of entries.slice(0, n)) {
+      this._loadKey(k);
+    }
   }
 
   private async _getFromStorage(key: K) {

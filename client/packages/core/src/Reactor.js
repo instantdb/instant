@@ -355,6 +355,7 @@ export default class Reactor {
       (x) => x.result?.store?.triples?.length ?? 0,
       this._log,
       {
+        preloadEntryCount: 10,
         gc: {
           maxAgeMs: 1000 * 60 * 60 * 24 * 7 * 52, // 1 year
           maxEntries: 1000,
