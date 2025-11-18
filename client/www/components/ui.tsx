@@ -19,6 +19,7 @@ import {
   Fragment,
   PropsWithChildren,
   ComponentProps,
+  CSSProperties,
 } from 'react';
 import { Editor, Monaco, OnMount } from '@monaco-editor/react';
 import {
@@ -345,6 +346,7 @@ export function Checkbox({
   required,
   disabled,
   title,
+  style,
 }: {
   label?: ReactNode;
   error?: ReactNode;
@@ -358,6 +360,7 @@ export function Checkbox({
   required?: boolean;
   disabled?: boolean | undefined;
   title?: string | undefined;
+  style?: CSSProperties;
 }) {
   return (
     <label
@@ -369,6 +372,7 @@ export function Checkbox({
       title={title}
     >
       <input
+        style={style}
         disabled={disabled}
         title={title}
         required={required}
@@ -1446,7 +1450,7 @@ function TooltipContent({
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          'text-primary-foreground origin-(--radix-tooltip-content-transform-origin) text-balance z-50 w-fit border border-gray-100 bg-white px-3 py-1.5 text-xs animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700/50',
+          'text-primary-foreground origin-(--radix-tooltip-content-transform-origin) text-balance z-50 w-fit border border-gray-100 bg-white px-3 py-1.5 text-xs animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700',
           className,
         )}
         {...props}
