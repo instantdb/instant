@@ -23,6 +23,7 @@
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
    [instant.lib.ring.sse :as sse]
+   [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
    [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
@@ -30,6 +31,7 @@
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer])
   (:import
+   (clojure.lang PersistentQueue)
    (java.lang InterruptedException)
    (java.time Instant)
    (java.util Map)
@@ -106,7 +108,15 @@
     :db/unique :db.unique/identity}
 
    :datalog-query/delayed-call {} ;; delay with datalog result (from query.clj)
-   :datalog-query/topics {:db/type :db.type/list-of-topics}})
+   :datalog-query/topics {:db/type :db.type/list-of-topics}
+
+   :sync/id {:db/unique :db.unique/identity
+             :db/type :db.type/uuid}
+   :sync/session-id {:db/type :db.type/uuid
+                     :db/index true}
+   :sync/process {}
+   :sync/topics {}
+   :sync/sent-tx-id {}})
 
 (defn duration-ms [t0 t1]
   (-> t1 (- t0) (/ 1000000) double))
@@ -686,7 +696,7 @@
         (:session/datalog-loader (d/entity db-after [:session/id sess-id]))))))
 
 
-;; ------
+;; -------------
 ;; subscriptions
 
 (defn record-datalog-query-start! [store ctx datalog-query coarse-topics]
@@ -735,7 +745,7 @@
              :datalog-query/topics topics}]))]])))
 
 
-;; ------
+;; ------------
 ;; invalidation
 
 (defn intersects?
@@ -957,6 +967,16 @@
         :when (matching-topic-intersection? iv-topics dq-topics)]
     (:e datom)))
 
+(defn get-stale-sync-subs [store app-id iv-topics]
+  (let [db @(app-conn store app-id)]
+    (for [datom (d/datoms db :avet :sync/id)
+          :let [ent (d/entity db (:e datom))
+                ;; Wait until initialization has finished
+                sent-tx-id (:sync/sent-tx-id ent)
+                topics (:sync/topics ent)]
+          :when (and sent-tx-id topics (matching-topic-intersection? iv-topics topics))]
+      ent)))
+
 (defn mark-stale-topics!
   "Given topics, invalidates all relevant datalog qs and associated instaql queries.
 
@@ -976,6 +996,109 @@
                          (:db-before report)
                          datalog-query-eids)]
     session-ids))
+
+
+;; ----------
+;; sync table
+
+(defn get-sync-query [store app-id sess-id subscription-id]
+  (let [db @(app-conn store app-id)
+        ent (d/entity db [:sync/id subscription-id])]
+    (when (= sess-id (:sync/session-id ent))
+      ent)))
+
+(defn register-sync-query [store app-id sess-id subscription-id topics process]
+  (let [conn (app-conn store app-id)
+        {:keys [db-after]} (transact! "store/add-sync-query"
+                                      conn
+                                      [{:db/id -1
+                                        :sync/id subscription-id
+                                        :sync/session-id sess-id
+                                        :sync/topics topics
+                                        :sync/process process}])]
+    (d/entity db-after [:sync/id subscription-id])))
+
+(defn sync-query-update-init [store app-id ent-id tx-id topics]
+  (let [conn (app-conn store app-id)]
+    (transact! "store/sync-query-update-init"
+               conn
+               [[:db/add ent-id :sync/topics topics]
+                [:db/add ent-id :sync/sent-tx-id tx-id]])))
+
+(defn sync-query-update-sent-tx [store app-id ent-id tx-id]
+  (let [conn (app-conn store app-id)
+        {:keys [db-after]} (transact! "store/sync-query-update-sent-tx"
+                                      conn
+                                      [[:db/add ent-id :sync/sent-tx-id tx-id]])]
+    (d/entity db-after ent-id)))
+
+(defn sync-query-resync [store app-id sess-id subscription-id tx-id topics]
+  (let [conn (app-conn store app-id)
+        lookup [:sync/id subscription-id]
+        {:keys [db-after]}
+        (transact! "store/sync-query-update-sent-tx"
+                   conn
+                   [[:db.fn/call (fn [db]
+                                   (let [{:db/keys [id]} (d/entity db lookup)]
+                                     (if id
+                                       [[:db/add id :sync/session-id sess-id]
+                                        [:db/add id :sync/topics topics]
+                                        [:db/add id :sync/sent-tx-id tx-id]]
+                                       [{:db/id -1
+                                         :sync/id subscription-id
+                                         :sync/session-id sess-id
+                                         :sync/topics topics
+                                         :sync/sent-tx-id tx-id}])))]])]
+    (d/entity db-after lookup)))
+
+(defn remove-sync-query [store app-id sess-id subscription-id]
+  (transact! "store/remove-sync-query"
+             (app-conn store app-id)
+             [[:db.fn/call (fn [db]
+                             (let [ent (d/entity db [:sync/id subscription-id])]
+                               (when (= sess-id (:sync/session-id ent))
+                                 [[:db/retractEntity (:db/id ent)]])))]]))
+
+;; This serves as a placeholder for storing transaction data durably
+;; Right now it's just stored in memory, but we will want to have it
+;; live somewhere permanent (probably a combination of db + s3/google storage)
+(defonce sync-table-txes (atom PersistentQueue/EMPTY))
+
+(defn add-transaction-to-sync-table-txes [wal-record]
+  (swap! sync-table-txes (fn [txes]
+                           (let [res (conj txes wal-record)]
+                             (if (> (count res) 10000)
+                               (pop res)
+                               res)))))
+
+(defn sync-query-changes-for-wal-record [wal-record topics]
+  (reduce (fn [acc {:keys [action identity columns] :as record}]
+            (if (matching-topic-intersection? (topics/topics-for-change record)
+                                              topics)
+              (case action
+                :update (-> acc
+                            (conj {:action :removed
+                                   :triple (topics/columns->triple identity)})
+                            (conj {:action :added
+                                   :triple (topics/columns->triple columns)}))
+                :delete (conj acc {:action :removed
+                                   :triple (topics/columns->triple identity)})
+                :insert (conj acc {:action :added
+                                   :triple (topics/columns->triple columns)}))
+              acc))
+          []
+          (:triple-changes wal-record)))
+
+(defn sync-query-unread-txes [app-id sync-ent]
+  (let [{:sync/keys [topics sent-tx-id]} sync-ent]
+    (keep (fn [wal-record]
+            (when (and (= app-id (:app-id wal-record))
+                       (< sent-tx-id (:tx-id wal-record)))
+              (let [changes (sync-query-changes-for-wal-record wal-record topics)]
+                (when (seq changes)
+                  {:tx-id (:tx-id wal-record)
+                   :changes changes}))))
+          @sync-table-txes)))
 
 ;; -----------------
 ;; Websocket Helpers

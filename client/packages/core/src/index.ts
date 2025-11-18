@@ -112,10 +112,24 @@ import type {
 import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
 import { InstantError } from './InstantError.ts';
 import { EventSourceType } from './Connection.ts';
+import { CallbackEventType as SyncTableCallbackEventType } from './SyncTable.ts';
+import type {
+  SyncTableCallback,
+  CallbackEvent as SyncTableCallbackEvent,
+  InitialSyncBatch as SyncTableInitialSyncBatch,
+  InitialSyncComplete as SyncTableInitialSyncComplete,
+  SyncTransaction as SyncTableSyncTransaction,
+  LoadFromStorage as SyncTableLoadFromStorage,
+  SetupError as SyncTableSetupError,
+} from './SyncTable.ts';
 
 const defaultOpenDevtool = true;
 
 // types
+
+type ExactlyOne<T> = {
+  [K in keyof T]: Pick<T, K> & Partial<Record<Exclude<keyof T, K>, never>>;
+}[keyof T];
 
 export type Config = {
   appId: string;
@@ -711,6 +725,26 @@ class InstantCoreDatabase<
   }> {
     return this._reactor.queryOnce(query, opts);
   }
+
+  /**
+   * @deprecated This is an experimental function that is not yet ready for production use.
+   * Use this function to sync an entire namespace.
+   * It has many limitations that will be removed in the future:
+   * 1. Must be used with an admin token
+   * 2. Does not support permissions
+   * 3. Does not support where clauses
+   * 4. Does not support links
+   * It also does not support multiple top-level namespaces. For example,
+   *  {posts: {}, users: {}} is invalid. Only `posts` or `users` is allowed, but not both.
+   */
+  _syncTableExperimental<Q extends ValidQuery<Q, Schema>>(
+    query: ExactlyOne<Q>,
+    cb: SyncTableCallback<Schema, Q, UseDates>,
+  ): (
+    opts?: { keepSubscription: boolean | null | undefined } | null | undefined,
+  ) => void {
+    return this._reactor.subscribeTable(query, cb);
+  }
 }
 
 function schemaHash(schema?: InstantSchemaDef<any, any, any>): string {
@@ -872,6 +906,9 @@ export {
   version,
   InstantError,
 
+  // sync table enums
+  SyncTableCallbackEventType,
+
   // og types
   type IDatabase,
   type RoomSchemaShape,
@@ -964,6 +1001,15 @@ export {
 
   // SSE
   type EventSourceType,
+
+  // sync table types
+  type SyncTableCallback,
+  type SyncTableCallbackEvent,
+  type SyncTableInitialSyncBatch,
+  type SyncTableInitialSyncComplete,
+  type SyncTableSyncTransaction,
+  type SyncTableLoadFromStorage,
+  type SyncTableSetupError,
 
   // error types
   type InstantIssue,

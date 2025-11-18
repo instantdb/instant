@@ -13,6 +13,7 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.pg-introspect :as pg-introspect]
+   [instant.db.sync-table :as sync-table]
    [instant.db.transaction :as tx]
    [instant.flags :as flags]
    [instant.grouped-queue :as grouped-queue]
@@ -24,6 +25,7 @@
    [instant.model.app-user :as app-user-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
+   [instant.model.sync-sub :as sync-sub-model]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.query :as rq]
    [instant.reactive.receive-queue :as receive-queue]
@@ -56,6 +58,29 @@
 
 ;; ------
 ;; handlers
+
+(defn create-pending-handlers []
+  (atom {}))
+
+(defn add-pending-handler
+  ([session pending-handler]
+   (add-pending-handler session pending-handler (random-uuid)))
+  ([session pending-handler handler-id]
+   (let [handlers (-> session
+                      :session/socket
+                      :pending-handlers)]
+     (swap! handlers assoc handler-id pending-handler)
+     handler-id)))
+
+(defn remove-pending-handler
+  [session handler-id]
+  (let [handlers (-> session
+                     :session/socket
+                     :pending-handlers)]
+    (swap! handlers dissoc handler-id)))
+
+(defn pending-handler-count [session]
+  (-> session :session/socket :pending-handlers deref count))
 
 (def core-version-key (keyword "@instantdb/core"))
 (def react-version-key (keyword "@instantdb/react"))
@@ -193,6 +218,170 @@
                                               :result-meta result-meta
                                               :processed-tx-id processed-tx-id
                                               :client-event-id client-event-id})))))
+
+(defn- handle-start-sync! [store sess-id {:keys [q client-event-id op] :as _event}]
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+        {app-id :id} app]
+    (cond
+      (nil? q)
+      (ex/throw-validation-err! :start-sync
+                                {:q q}
+                                [{:message "Query can not be null."}])
+
+      (not admin?)
+      (ex/throw-validation-err! :start-sync
+                                {:q q}
+                                [{:message "start-sync is currently supported for admins only."}])
+
+
+      :else
+      (let [attrs (attr-model/get-by-app-id app-id)
+            ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                 :session-id sess-id
+                 :app-id app-id
+                 :attrs attrs
+                 :admin? admin?
+                 :current-user user}
+            {:keys [start cancel canceled?] :as process}
+            (sync-table/create-sync-process ctx q)
+
+            sub-id (random-uuid)
+            token (random-uuid)
+            query-ent (rs/register-sync-query store
+                                              app-id
+                                              sess-id
+                                              sub-id
+                                              (:coarse-topics process)
+                                              process)
+            receive-q (-> (rs/session store sess-id)
+                          :session/socket
+                          :receive-q)
+
+            _ (rs/send-event! store app-id sess-id
+                              {:op :start-sync-ok
+                               :q q
+                               :client-event-id client-event-id
+                               :subscription-id (:sync/id query-ent)
+                               :token token})
+            in-progress-stmts (sql/make-statement-tracker)
+
+            pending-handler-id (random-uuid)
+            session (rs/session store sess-id)
+            exceptions-silencer (atom false)
+
+            f (ua/vfuture
+                (try
+                  (binding [sql/*in-progress-stmts* in-progress-stmts
+                            tracer/*silence-exceptions?* exceptions-silencer]
+                    (start
+                     {:batch-size 100
+                      :on-batch (fn [batch]
+                                  (rs/send-event! store app-id sess-id
+                                                  {:op :sync-load-batch
+                                                   :subscription-id (:sync/id query-ent)
+                                                   :join-rows batch}))
+
+                      :on-init-finish (fn [{:keys [topics tx-id]}]
+                                        (sync-sub-model/create! {:id sub-id
+                                                                 :app-id app-id
+                                                                 :query q
+                                                                 :user-id (:id user)
+                                                                 :admin? admin?
+                                                                 :token token
+                                                                 :topics topics})
+                                        ;; Make sure this happens before we update the store
+                                        ;; or else we could get a refresh before we send init
+                                        (rs/send-event! store app-id sess-id
+                                                        {:op :sync-init-finish
+                                                         :subscription-id sub-id
+                                                         :tx-id tx-id})
+                                        (rs/sync-query-update-init store
+                                                                   app-id
+                                                                   (:db/id query-ent)
+                                                                   tx-id
+                                                                   topics)
+                                        ;; This will cause us to catch up on any transactions that were
+                                        ;; handled while we were syncing
+                                        (receive-queue/put! receive-q
+                                                            {:op :refresh-sync-table
+                                                             :app-id (:app-id ctx)
+                                                             :session-id sess-id
+                                                             :subscription-id (:sync/id query-ent)}))}))
+                  (catch Exception e
+                    (when-not (canceled?)
+                      (throw e)))
+                  (finally
+                    (remove-pending-handler session pending-handler-id))))]
+        (add-pending-handler session
+                             {:before-cancel cancel
+                              :future f
+                              :op op
+                              :in-progress-stmts in-progress-stmts
+                              :silence-exceptions (fn [x]
+                                                    (reset! exceptions-silencer x))}
+                             pending-handler-id)))))
+
+(defn- handle-remove-sync! [store sess-id event]
+  (let [subscription-id (ex/get-param! event [:subscription-id] uuid-util/coerce)
+        app-id (-> (get-auth! store sess-id) :app :id)
+        sync-ent (rs/get-sync-query store app-id sess-id subscription-id)]
+    (when sync-ent
+      (rs/remove-sync-query store app-id sess-id subscription-id)
+      (sync-sub-model/delete! {:id (:sync/subscription-id sync-ent)
+                               :app-id app-id}))))
+
+(defn- handle-refresh-sync-table! [store sess-id {:keys [subscription-id] :as _event}]
+  (let [{:keys [app]} (get-auth! store sess-id)
+        {app-id :id} app
+        ent (rs/get-sync-query store app-id sess-id subscription-id)]
+    (when ent
+      (let [unread-txes (rs/sync-query-unread-txes app-id ent)]
+        (when (seq unread-txes)
+          (let [max-txes 100
+                txes-to-send (take max-txes unread-txes)]
+            (rs/send-event! store app-id sess-id
+                            {:op :sync-update-triples
+                             :subscription-id subscription-id
+                             :txes txes-to-send})
+            (rs/sync-query-update-sent-tx store app-id (:db/id ent) (:tx-id (last txes-to-send)))
+
+            ;; There are still more txes to process, but we don't want to send too many in a single
+            ;; websocket packet, so requeue
+            (when (< max-txes (count unread-txes))
+              (receive-queue/put! (-> (rs/session store sess-id) :session/socket :receive-q)
+                                  {:op :refresh-sync-table
+                                   :subscription-id subscription-id
+                                   :app-id app-id
+                                   :session-id sess-id}))))))))
+
+(defn- handle-resync-table! [store sess-id event]
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+        {app-id :id} app
+        tx-id (ex/get-param! event [:tx-id] (fn [v] (try (long v) (catch Throwable _ nil))))
+        subscription-id (ex/get-param! event [:subscription-id] uuid-util/coerce)
+        token (ex/get-param! event [:token] uuid-util/coerce)
+        record (sync-sub-model/get-by-id-with-topics! {:id subscription-id
+                                                       :token token
+                                                       :admin? admin?
+                                                       :user-id (:id user)})]
+
+    ;; TODO(sync-table): This will be replaced by a check that the tx is still in the db
+    ;;                   when we have stable storage for the tx-data
+    ;; Commenting it out for now so that we don't get a bunch of reconnects while testing
+    #_(when-not (ucoll/seek (fn [x]
+                              (= (:tx-id x) tx-id))
+                            @rs/sync-table-txes)
+        (ex/throw-validation-err! :subscription
+                                  {:subscription-id subscription-id
+                                   :tx-id tx-id}
+                                  [{:message "transactions for the subscription are no longer available"}]))
+    (rs/sync-query-resync store app-id sess-id
+                          (:id record) tx-id (:topics record))
+    (receive-queue/put! (-> (rs/session store sess-id) :session/socket :receive-q)
+                        {:op :refresh-sync-table
+                         :subscription-id subscription-id
+                         :app-id app-id
+                         :session-id sess-id})))
 
 (defn- handle-remove-query! [store sess-id {:keys [q client-event-id] :as _event}]
   (let [{:keys [app]} (get-auth! store sess-id)]
@@ -462,7 +651,13 @@
       :refresh      (handle-refresh! store id event debug-info)
       :transact     (handle-transact! store id event)
       :error        (handle-error! store id event)
-      ;; -----
+      ;; ----------
+      ;; sync-table
+      :start-sync (handle-start-sync! store id event)
+      :remove-sync (handle-remove-sync! store id event)
+      :refresh-sync-table (handle-refresh-sync-table! store id event)
+      :resync-table (handle-resync-table! store id event)
+      ;; ----------
       ;; EPH events
       :join-room        (handle-join-room! store id event)
       :leave-room       (handle-leave-room! store id event)
@@ -588,8 +783,7 @@
   (tracer/with-exceptions-silencer [silence-exceptions]
     (tracer/with-span! {:name "receive-worker/handle-receive"
                         :attributes (handle-receive-attrs store session event metadata)}
-      (let [pending-handlers (:pending-handlers (:session/socket session))
-            in-progress-stmts (sql/make-statement-tracker)
+      (let [in-progress-stmts (sql/make-statement-tracker)
             debug-info (atom nil)
             app-id (-> session :session/auth :app :id)
             timeout-ms (or (when app-id
@@ -605,13 +799,12 @@
                                                     session
                                                     event
                                                     debug-info))))
-            pending-handler {:future event-fut
-                             :op (:op event)
-                             :in-progress-stmts in-progress-stmts
-                             :silence-exceptions silence-exceptions}]
-        (swap! pending-handlers conj pending-handler)
+            handler-id (add-pending-handler session {:future event-fut
+                                                     :op (:op event)
+                                                     :in-progress-stmts in-progress-stmts
+                                                     :silence-exceptions silence-exceptions})]
         (tracer/add-data! {:attributes {:timeout-ms timeout-ms
-                                        :concurrent-handler-count (count @pending-handlers)}})
+                                        :concurrent-handler-count (pending-handler-count session)}})
         (try
           (let [ret (deref event-fut timeout-ms :timeout)]
             (when (= :timeout ret)
@@ -652,7 +845,7 @@
                                            root-err
                                            @debug-info))))
           (finally
-            (swap! pending-handlers disj pending-handler)))))))
+            (remove-pending-handler session handler-id)))))))
 
 (defn process-receive-q-event [store event metadata]
   (let [{:keys [session-id]
@@ -718,13 +911,15 @@
   (tracer/with-span! {:name "socket/on-close"
                       :attributes {:session-id id}}
     (doseq [{:keys [op
+                    before-cancel
                     future
                     silence-exceptions
-                    in-progress-stmts]} @pending-handlers
+                    in-progress-stmts]} (vals @pending-handlers)
             :let [in-progress-count (count @(:stmts in-progress-stmts))]]
       (tracer/with-span! {:name "cancel-pending-handler"
                           :attributes {:op op
                                        :in-progress-query-count in-progress-count}}
+        (when before-cancel (before-cancel))
         (silence-exceptions true)
         (sql/cancel-in-progress in-progress-stmts)
         (future-cancel future)))
@@ -742,7 +937,7 @@
 
 (defn undertow-config
   [store receive-q {:keys [id]}]
-  (let [pending-handlers (atom #{})
+  (let [pending-handlers (create-pending-handlers)
         atomic-ping-latency-nanos (AtomicLong. 0)]
     {:undertow/websocket
      {:set-ping-latency-nanos (fn [^Long v]
@@ -771,7 +966,7 @@
 
 (defn undertow-sse-config
   [store receive-q {:keys [id app-id]}]
-  (let [pending-handlers (atom #{})]
+  (let [pending-handlers (create-pending-handlers)]
     {:undertow/sse
      {:on-open (fn [req]
                  (let [sse-token (random-uuid)
@@ -802,7 +997,7 @@
 
 (defn undertow-sse-admin-config
   [store receive-q {:keys [id]} ctx]
-  (let [pending-handlers (atom #{})]
+  (let [pending-handlers (create-pending-handlers)]
     {:undertow/sse
      {:on-open (fn [req]
                  (let [sse-token (random-uuid)
@@ -847,7 +1042,7 @@
 ;; ------
 ;; System
 
-(defn group-key [{:keys [op session-id room-id q]}]
+(defn group-key [{:keys [op session-id room-id q subscription-id]}]
   (case op
     :transact
     [:transact session-id]
@@ -863,6 +1058,9 @@
 
     :refresh-presence
     [:refresh-presence session-id room-id]
+
+    :refresh-sync-table
+    [:refresh-sync-table subscription-id]
 
     :error
     [:error session-id]
@@ -887,6 +1085,9 @@
   (update event2 :edits #(into (vec (:edits event1)) %)))
 
 (defmethod combine [:set-presence :set-presence] [_event1 event2]
+  event2)
+
+(defmethod combine [:refresh-sync-table :refresh-sync-table] [_ event2]
   event2)
 
 (defn process [group-key event]

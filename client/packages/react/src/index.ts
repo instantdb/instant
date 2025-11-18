@@ -7,6 +7,9 @@ import {
   // error
   InstantAPIError,
 
+  // sync table enums
+  SyncTableCallbackEventType,
+
   // types
   type QueryResponse,
   type InstantQuery,
@@ -71,6 +74,15 @@ import {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // sync table types
+  type SyncTableCallback,
+  type SyncTableCallbackEvent,
+  type SyncTableInitialSyncBatch,
+  type SyncTableInitialSyncComplete,
+  type SyncTableSyncTransaction,
+  type SyncTableLoadFromStorage,
+  type SyncTableSetupError,
 } from '@instantdb/core';
 
 import { InstantReactAbstractDatabase } from '@instantdb/react-common';
@@ -94,6 +106,9 @@ export {
   // internal
   InstantReactAbstractDatabase,
 
+  // sync table enums
+  SyncTableCallbackEventType,
+
   // types
   type Config,
   type InstantConfig,
@@ -158,4 +173,13 @@ export {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // sync table types
+  type SyncTableCallback,
+  type SyncTableCallbackEvent,
+  type SyncTableInitialSyncBatch,
+  type SyncTableInitialSyncComplete,
+  type SyncTableSyncTransaction,
+  type SyncTableLoadFromStorage,
+  type SyncTableSetupError,
 };

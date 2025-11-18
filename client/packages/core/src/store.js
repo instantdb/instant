@@ -18,7 +18,7 @@ function getAttr(attrs, attrId) {
   return attrs[attrId];
 }
 
-function getInMap(obj, path) {
+export function getInMap(obj, path) {
   return path.reduce((acc, key) => acc && acc.get(key), obj);
 }
 
@@ -126,6 +126,14 @@ export function fromJSON(storeJSON) {
   );
 }
 
+export function hasTriple(store, [e, a, v]) {
+  return getInMap(store.eav, [e, a, v]) !== undefined;
+}
+
+export function hasEntity(store, e) {
+  return getInMap(store.eav, [e]) !== undefined;
+}
+
 function resetAttrIndexes(store) {
   store.attrIndexes = createAttrIndexes(store.attrs);
 }
@@ -205,7 +213,7 @@ function resolveLookupRefs(store, triple) {
   }
 }
 
-function retractTriple(store, rawTriple) {
+export function retractTriple(store, rawTriple) {
   const triple = resolveLookupRefs(store, rawTriple);
   if (!triple) {
     return;
@@ -256,7 +264,7 @@ function getCreatedAt(store, attr, triple) {
   return createdAt || Date.now() * 10 + _seed++;
 }
 
-function addTriple(store, rawTriple) {
+export function addTriple(store, rawTriple) {
   const triple = resolveLookupRefs(store, rawTriple);
   if (!triple) {
     return;

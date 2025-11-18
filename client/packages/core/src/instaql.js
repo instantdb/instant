@@ -497,7 +497,7 @@ function compareDisparateValues(a, b, dataType) {
   return -1;
 }
 
-function compareOrder([id_a, v_a], [id_b, v_b], dataType) {
+export function compareOrder(id_a, v_a, id_b, v_b, dataType) {
   if (v_a === v_b || (v_a == null && v_b == null)) {
     return uuidCompare(id_a, id_b);
   }
@@ -512,6 +512,10 @@ function compareOrder([id_a, v_a], [id_b, v_b], dataType) {
   return compareDisparateValues(v_a, v_b, dataType);
 }
 
+function compareOrderTriples([id_a, v_a], [id_b, v_b], dataType) {
+  return compareOrder(id_a, v_a, id_b, v_b, dataType);
+}
+
 function comparableDate(x) {
   if (x == null) {
     return x;
@@ -523,14 +527,16 @@ function isBefore(startCursor, orderAttr, direction, idVec) {
   const [c_e, _c_a, c_v, c_t] = startCursor;
   const compareVal = direction === 'desc' ? 1 : -1;
   if (orderAttr['forward-identity']?.[2] === 'id') {
-    return compareOrder(idVec, [c_e, c_t], null) === compareVal;
+    return compareOrderTriples(idVec, [c_e, c_t], null) === compareVal;
   }
   const [e, v] = idVec;
   const dataType = orderAttr['checked-data-type'];
   const v_new = dataType === 'date' ? comparableDate(v) : v;
   const c_v_new = dataType === 'date' ? comparableDate(c_v) : c_v;
 
-  return compareOrder([e, v_new], [c_e, c_v_new], dataType) === compareVal;
+  return (
+    compareOrderTriples([e, v_new], [c_e, c_v_new], dataType) === compareVal
+  );
 }
 
 function orderAttrFromCursor(store, cursor) {
@@ -605,10 +611,10 @@ function runDataloadAndReturnObjects(store, { etype, pageInfo, dq, form }) {
   idVecs.sort(
     direction === 'asc'
       ? function compareIdVecs(a, b) {
-          return compareOrder(a, b, orderAttr?.['checked-data-type']);
+          return compareOrderTriples(a, b, orderAttr?.['checked-data-type']);
         }
       : function compareIdVecs(a, b) {
-          return compareOrder(b, a, orderAttr?.['checked-data-type']);
+          return compareOrderTriples(b, a, orderAttr?.['checked-data-type']);
         },
   );
 
