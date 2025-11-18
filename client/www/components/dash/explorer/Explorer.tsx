@@ -944,7 +944,7 @@ export function Explorer({
             if (localDates) {
               return coerced?.toLocaleString() || info.row.original[attr.name];
             } else {
-              return coerced?.toISOString() || info.row.original[attr.name];
+              return info.row.original[attr.name];
             }
           }
           if (isObject(info.row.original[attr.name])) {

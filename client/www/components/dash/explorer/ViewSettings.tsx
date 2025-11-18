@@ -66,7 +66,7 @@ export const ViewSettings = ({
           ></Switch>
         </div>
         <div className="text-xs opacity-40">
-          Copy to clipboard will still use ISO timestamp.
+          Copy to clipboard will still use the original value.
         </div>
       </Dialog>
     </>
