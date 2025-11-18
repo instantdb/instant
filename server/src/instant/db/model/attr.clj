@@ -727,8 +727,32 @@
      ::soft-delete-multi!
      conn
      (sql/format
-      "with soft_deleted_attrs as (
-        update attrs
+      "with target_attrs as ( 
+        select app_id, id, etype 
+        from attrs 
+        where 
+          app_id = ?app-id 
+          and id = any(?attr-ids)
+          and deletion_marked_at is null 
+       ), snaps as ( 
+         select 
+           t.app_id as target_app_id, 
+           t.id as target_attr_id, 
+           id_attr.id as id_attr_id
+         from target_attrs t 
+         left join lateral (
+           select 
+             id 
+           from    
+             attrs id_attr 
+           where 
+             id_attr.app_id = t.app_id 
+             and id_attr.etype = t.etype 
+             and id_attr.label = 'id' 
+           limit 1
+         ) id_attr on true     
+       ), soft_deleted_attrs as (
+        update attrs a
         set 
           deletion_marked_at = now(),
           is_indexed = false, 
@@ -738,7 +762,8 @@
           metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
             'soft_delete_snapshot', jsonb_build_object(
               'is_indexed', is_indexed,
-              'is_required', is_required
+              'is_required', is_required, 
+              'id_attr_id', s.id_attr_id 
             )
           ),
           reverse_etype = case 
@@ -751,11 +776,11 @@
             then id::text || '_deleted$' || reverse_label 
             else null 
           end
-        where 
-          app_id = ?app-id 
-          and id = any(?attr-ids) 
-          and deletion_marked_at is null
-        returning *
+        from snaps s 
+        where a.app_id = s.target_app_id 
+              and a.id = s.target_attr_id
+              and a.deletion_marked_at is null
+        returning a.*
       ), changed_forward_idents as ( 
         update idents fw 
         set 
