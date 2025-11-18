@@ -347,7 +347,7 @@ export default class Reactor {
 
   _initStorage(Storage) {
     this.querySubs = new PersistedObject(
-      new Storage(`instant_${this.config.appId}_5`, 'querySubs'),
+      new Storage(this.config.appId, 'querySubs'),
       this._onMergeQuerySub,
       querySubToStorage,
       (_key, x) => querySubFromStorage(x, this.config.useDateObjects),
@@ -366,7 +366,7 @@ export default class Reactor {
     );
     this.querySubs.onKeyLoaded = (k) => this._onQuerySubLoaded(k);
     this.kv = new PersistedObject(
-      new Storage(`instant_${this.config.appId}_5`, 'kv'),
+      new Storage(this.config.appId, 'kv'),
       // XXX: Needs to be onmergekv
       this._onMergeKv,
       kvToStorage,

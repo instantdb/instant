@@ -1,10 +1,16 @@
 import type { Storage } from './utils/PersistedObject.ts';
 
 type StoreName = 'kv' | 'querySubs';
-const version = 2;
-// Any time these are updated, the version must be updated
+
+// Any time these are updates to the data format or new stores are added,
+// the version must be updated.
 // onupgradeneeded will be called, which is where you can
-// move objects from one store to another.
+// move objects from one idb to another.
+// We create a new IDB for each version change instead of
+// using their built-in versioning because they have no ability
+// to roll back and if multiple tabs are active, then you'll just
+// be stuck.
+const version = 6;
 const storeNames = ['kv', 'querySubs'];
 
 function logErrorCb(source: string) {
@@ -13,21 +19,132 @@ function logErrorCb(source: string) {
   };
 }
 
+async function existingDb(name: string): Promise<IDBDatabase | null> {
+  return new Promise((resolve) => {
+    const request = indexedDB.open(name);
+
+    request.onerror = (_event) => {
+      resolve(null);
+    };
+
+    request.onsuccess = (event) => {
+      const target = event.target as IDBOpenDBRequest;
+      const db = target.result;
+      resolve(db);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const target = event.target as IDBOpenDBRequest;
+      target.transaction.abort();
+      resolve(null);
+    };
+  });
+}
+
+async function upgradeQuerySubs5To6(
+  hash: string,
+  value: any,
+  querySubStore: IDBObjectStore,
+): Promise<void> {
+  const subs =
+    // Backwards compatibility for older versions where we JSON.stringified before storing
+    typeof value === 'string' ? JSON.parse(value) : value;
+  if (!subs) {
+    return;
+  }
+  const putReqs: Set<IDBRequest<IDBValidKey>> = new Set();
+  return new Promise((resolve, reject) => {
+    for (const [hash, value] of Object.entries(subs)) {
+      const putReq = querySubStore.put(value, hash);
+      putReqs.add(putReq);
+    }
+    for (const r of putReqs) {
+      r.onsuccess = () => {
+        putReqs.delete(r);
+        if (putReqs.size === 0) {
+          resolve();
+        }
+      };
+      r.onerror = (event) => {
+        logErrorCb(`Move ${hash} to querySubs store failed`);
+        reject(event);
+      };
+    }
+  });
+}
+
+async function moveKv5To6(
+  k: string,
+  value: any,
+  kvStore: IDBObjectStore,
+): Promise<void> {
+  const request = kvStore.put(value, k);
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve();
+    request.onerror = (event) => reject(event);
+  });
+}
+
+async function upgrade5To6(appId: string, v5Tx: IDBTransaction): Promise<void> {
+  const v4db = await existingDb(`instant_${appId}_4`);
+  if (!v4db) {
+    return;
+  }
+
+  const kvStore = v5Tx.objectStore('kv');
+  const querySubStore = v5Tx.objectStore('querySubs');
+
+  return new Promise((resolve, reject) => {
+    const v4Tx = v4db.transaction(['kv'], 'readwrite');
+    const objectStore = v4Tx.objectStore('kv');
+    const cursorReq = objectStore.openCursor();
+    cursorReq.onerror = (event) => {
+      reject(event);
+    };
+    const promises = [];
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (cursor) {
+        const key = cursor.key;
+        const value = cursor.value;
+        switch (key) {
+          case 'querySubs': {
+            const p = upgradeQuerySubs5To6(key, value, querySubStore);
+            promises.push(p);
+            break;
+          }
+          default: {
+            const p = moveKv5To6(key as string, value, kvStore);
+            promises.push(p);
+            break;
+          }
+        }
+      } else {
+        Promise.all(promises)
+          .then(() => resolve())
+          .catch(reject);
+      }
+    };
+  });
+}
+
 export default class IndexedDBStorage implements Storage {
   dbName: string;
   _storeName: string;
+  _appId: string;
   _prefix: string;
   _dbPromise: Promise<IDBDatabase>;
 
-  constructor(dbName: string, storeName: StoreName) {
-    this.dbName = dbName;
+  constructor(appId: string, storeName: StoreName) {
+    this.dbName = `instant_${appId}_${version}`;
     this._storeName = storeName;
+    this._appId = appId;
     this._dbPromise = this._init();
   }
 
   _init(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, version);
+      const request = indexedDB.open(this.dbName, 1);
 
       request.onerror = (event) => {
         reject(event);
@@ -43,53 +160,16 @@ export default class IndexedDBStorage implements Storage {
     });
   }
 
-  // Moves query subs from the kv store to the querySubs store
-  _moveQuerySubsToObjectStore(tx: IDBTransaction) {
-    const kvStore = tx.objectStore('kv');
-    const querySubStore = tx.objectStore('querySubs');
-    const req = kvStore.get('querySubs');
-    req.onerror = logErrorCb('get querySubs from kv store failed');
-    req.onsuccess = (_) => {
-      const subs =
-        // Backwards compatibility for older versions where we JSON.stringified before storing
-        typeof req.result === 'string' ? JSON.parse(req.result) : req.result;
-      if (!subs) {
-        return;
-      }
-      const putReqs: Set<IDBRequest<IDBValidKey>> = new Set();
-      for (const [hash, value] of Object.entries(subs)) {
-        const putReq = querySubStore.put(value, hash);
-        putReq.onerror = logErrorCb(`Move ${hash} to querySubs store failed`);
-        putReqs.add(putReq);
-      }
-      for (const r of putReqs) {
-        r.onsuccess = () => {
-          putReqs.delete(r);
-          if (putReqs.size === 0) {
-            const deletedReq = kvStore.delete('querySubs');
-            deletedReq.onerror = logErrorCb(
-              'Cleanup querySubs from kv store failed',
-            );
-          }
-        };
-      }
-    };
-  }
-
   _upgradeStore(event: IDBVersionChangeEvent) {
     const target = event.target as IDBOpenDBRequest;
     const db = target.result;
-    const created = new Set();
     for (const storeName of storeNames) {
       if (!db.objectStoreNames.contains(storeName)) {
-        created.add(storeName);
         db.createObjectStore(storeName);
       }
     }
-    if (created.has('querySubs') && !created.has('kv')) {
-      const tx = target.transaction;
-      this._moveQuerySubsToObjectStore(tx);
-    }
+    const tx = target.transaction;
+    upgrade5To6(this._appId, tx);
   }
 
   async getItem(k: string): Promise<any> {
