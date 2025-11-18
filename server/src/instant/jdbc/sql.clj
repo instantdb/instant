@@ -48,6 +48,11 @@
 (defn- create-pg-array [^PreparedStatement s pgtype clazz vs]
   (.createArrayOf (.getConnection s) pgtype (into-array clazz vs)))
 
+(defn- create-2d-pg-array [^PreparedStatement s pgtype clazz vs]
+  (.createArrayOf (.getConnection s) pgtype (into-array (map (fn [v1]
+                                                               (into-array clazz v1))
+                                                             vs))))
+
 (def byte-class (Class/forName "[B"))
 
 (defn set-param
@@ -56,15 +61,19 @@
   (let [pgtype (or (:pgtype (meta v)) "jsonb")]
     (case pgtype
       "text[]" (.setArray s i (create-pg-array s "text" String v))
+      "text[][]" (.setArray s i (create-2d-pg-array s "text" String v))
       "uuid[]" (.setArray s i (create-pg-array s "uuid" String (map str v)))
       "jsonb[]" (.setArray s i (create-pg-array s "jsonb" String (map ->json v)))
+      "jsonb[][]" (let [vs (map #(map ->json %) v)]
+                    (.setArray s i (create-2d-pg-array s "jsonb" String vs)))
       "timestamptz[]" (.setArray s i (create-pg-array s "timestamptz" Instant v))
       "float8[]" (.setArray s i (create-pg-array s "float8" Number v))
       "boolean[]" (.setArray s i (create-pg-array s "boolean" Boolean v))
       "integer[]" (.setArray s i (create-pg-array s "integer" Integer v))
       "bigint[]" (.setArray s i (create-pg-array s "bigint" Long v))
-      "bigint[][]" (.setArray s i (.createArrayOf (.getConnection s) "bigint" (to-array-2d v)))
+      "bigint[][]" (.setArray s i (create-2d-pg-array s "bigint" Long v))
       "bytea[]" (.setArray s i (create-pg-array s "bytea" byte-class v))
+      "bytea[][]" (.setArray s i (create-2d-pg-array s "bytea" byte-class v))
       (.setObject s i (doto (PGobject.)
                         (.setType pgtype)
                         (.setValue (->json v)))))))
@@ -358,16 +367,20 @@
   (if-let [{:keys [add remove]} *in-progress-stmts*]
     (let [cancelable (reify Cancelable
                        (cancel [_]
-                         (.cancel stmt)
-                         ;; Don't close the connection we opened b/c
-                         ;; it seems to cause thread pinning when you
-                         ;; close from a different thread and it will
-                         ;; get closed in the `finally` clause
-                         ;; below. We have to close connections we
-                         ;; were passed to make sure transactions are
-                         ;; rolled back.
-                         (when-not created-connection?
-                           (.close conn))))]
+                         (try
+                           (.cancel stmt)
+                           ;; Don't close the connection we opened b/c
+                           ;; it seems to cause thread pinning when you
+                           ;; close from a different thread and it will
+                           ;; get closed in the `finally` clause
+                           ;; below. We have to close connections we
+                           ;; were passed to make sure transactions are
+                           ;; rolled back.
+                           (when-not created-connection?
+                             (.close conn))
+                           (catch java.sql.SQLException e
+                             (when (not= "Connection is closed" (.getMessage e))
+                               (throw e))))))]
       (add rw cancelable)
       (reify java.lang.AutoCloseable
         (close [_]
@@ -494,6 +507,33 @@
 (defsql execute-one! next-jdbc/execute-one! :write {:builder-fn rs/as-unqualified-maps
                                                     :return-keys true})
 (defsql do-execute! next-jdbc/execute! :write {:return-keys false})
+
+(defn- plan-reduce*
+  "Wrapper for plan that executes the reduce inside of defsql.
+   This lets our query cancel logic work.
+   The following query with plan:
+   (reduce (fn [acc x] (conj acc x))
+           []
+           (plan query opts))
+   Looks like this with plan-reduce:
+   (plan-reduce ::tag conn query {:reducer (fn [acc x] (conj acc x))
+                                  :init []
+                                  :fetch-size 100})
+
+   Note that cancel-in-progress is hit-or-miss for plan-reduce* because
+   the cancel might come when the preparedstatement is not active. future-cancel
+   will cancel the query, though."
+  [ps _ {:keys [reducer init fetch-size] :as opts}]
+  (reduce reducer
+          init
+          (next-jdbc/plan ps
+                          (merge {:fetch-size fetch-size
+                                  :concurrency :read-only
+                                  :cursors :close
+                                  :result-type :forward-only}
+                                 (dissoc opts :reducer :init :fetch-size)))))
+
+(defsql plan-reduce plan-reduce* :read {})
 
 (defn analyze [conn query]
   (-> query

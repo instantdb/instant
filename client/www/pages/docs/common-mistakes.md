@@ -43,26 +43,6 @@ const _schema = i.schema({
 });
 ```
 
-❌ **Common mistake**: Linking from a system namespace
-
-```
-// ❌ Bad: System namespace in forward direction
-profileUser: {
-  forward: { on: '$users', has: 'one', label: 'profile' },
-  reverse: { on: 'profiles', has: 'one', label: '$user' },
-},
-```
-
-✅ **Correction**: Always link to system namespaces in the reverse direction
-
-```
-// ✅ Good: System namespace in reverse direction
-profileUser: {
-  forward: { on: 'profiles', has: 'one', label: '$user' },
-  reverse: { on: '$users', has: 'one', label: 'profile' },
-},
-```
-
 ## Common mistakes with permissions
 
 Sometimes you want to express permissions based on an attribute in a linked entity. For those instances you can use `data.ref`.
@@ -631,62 +611,6 @@ const fetchTodos = async () => {
     throw error;
   }
 };
-```
-
-## Common mistakes using `$users` namespace
-
-Since the `$users` namespace is read-only and can't be modified directly, it's recommended to create a `profiles` namespace for storing additional user information.
-
-❌ **Common mistake**: Adding properties to `$users` directly
-
-```typescript
-// ❌ Bad: Directly updating $users will throw an error!
-db.transact(db.tx.$users[userId].update({ nickname: 'Alice' }));
-```
-
-✅ **Correction**: Add properties to a linked profile instead
-
-```
-// ✅ Good: Update linked profile instead
-db.transact(db.tx.profiles[profileId].update({ displayName: "Alice" }));
-```
-
-`$users` is a system namespace so we ensure to create links in the reverse direction.
-
-❌ **Common mistake**: Placing `$users` in the forward direction
-
-```typescript
-// ❌ Bad: $users must be in the reverse direction
-userProfiles: {
-  forward: { on: '$users', has: 'one', label: 'profile' },
-  reverse: { on: 'profiles', has: 'one', label: '$user' },
-},
-```
-
-✅ **Correction**: Always link `$users` in the reverse direction
-
-```
-// ✅ Good: Create link between profiles and $users
-userProfiles: {
-  forward: { on: 'profiles', has: 'one', label: '$user' },
-  reverse: { on: '$users', has: 'one', label: 'profile' },
-},
-```
-
-The default permissions only allow users to view their own data. We recommend keeping it this way for security reasons. Instead of viewing all users, you can view all profiles
-
-❌ **Common mistake**: Directly querying $users
-
-```typescript
-// ❌ Bad: This will likely only return the current user
-db.useQuery({ $users: {} });
-```
-
-✅ **Correction**: Directly query the profiles namespace
-
-```typescript
-// ✅ Good: View all profiles
-db.useQuery({ profiles: {} });
 ```
 
 ## Common mistakes with auth

@@ -66,12 +66,12 @@
                                  :ws-conn          (a/chan 100)
                                  :receive-q        receive-q
                                  :ping-job         (future)
-                                 :pending-handlers (atom #{})}
+                                 :pending-handlers (session/create-pending-handlers)}
                 socket-2        {:id               (random-uuid)
                                  :ws-conn          (a/chan 100)
                                  :receive-q        receive-q
                                  :ping-job         (future)
-                                 :pending-handlers (atom #{})}
+                                 :pending-handlers (session/create-pending-handlers)}
                 query-reactive  rq/instaql-query-reactive!]
             (session/on-open store socket)
             (session/on-open store socket-2)

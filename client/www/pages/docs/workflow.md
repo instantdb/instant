@@ -6,15 +6,12 @@ description: How to develop with Instant
 At a high level, here is the recommended workflow for developing with Instant:
 
 1. Authenticate with Instant in your terminal via `npx instant-cli login`.
-2. Create new projects via `npx create-instant-app`.
-3. Push changes to your schema and permissions via `npx instant-cli push`.
-4. Use the [Data Explorer](https://www.instantdb.com/dash?t=explorer) for
-   deleting namespaces and deleting/renaming attributes. Pull these changes in
-   via `npx instant-cli pull`.
-5. Use the [Sandbox](https://www.instantdb.com/dash?t=sandbox) to debug queries,
+1. Create new projects via `npx create-instant-app`.
+1. Push changes to your schema and permissions via `npx instant-cli push`.
+1. Use the [Sandbox](https://www.instantdb.com/dash?t=sandbox) to debug queries,
    transactions, and permissions.
-6. When you're ready for production, [restrict creating](/docs/patterns#restrict-creating-new-attributes) new attributes.
-7. If you need more help, check out our [patterns page](/docs/patterns) for common
+1. When you're ready for production, [restrict creating](/docs/patterns#restrict-creating-new-attributes) new attributes.
+1. If you need more help, check out our [patterns page](/docs/patterns) for common
    recipes or drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE).
 
 ## Authenticating with Instant in your terminal
@@ -50,11 +47,6 @@ edits to your local schema and permission files, and then run `npx instant-cli p
 If you prefer a GUI, you can also make changes via the explorer in the [Instant
 dashboard](https://www.instantdb.com/dash?t=explorer). To pull these changes
 into your local files, run `npx instant-cli pull`.
-
-{% callout type="note" %}
-If you need to delete namespaces or delete/rename attributes, please make the changes in the dashboard
-explorer. CLI support for deletes and renames is coming soon!
-{% /callout %}
 
 ## Debugging queries, transactions, and permissions
 

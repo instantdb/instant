@@ -6,7 +6,7 @@ import {
   InstantReactAbstractDatabase,
   InstantSchemaDef,
   LinksDef,
-  InstantConfig,
+  Config,
 } from '@instantdb/react';
 import { useEffect, useState } from 'react';
 import { RoomsDef, TransactionChunk } from '../../../packages/core/dist/esm';
@@ -89,12 +89,7 @@ function AppPage<
     db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>;
     appId: string;
   }>;
-  extraConfig?: Partial<
-    Omit<
-      InstantConfig<InstantSchemaDef<Entities, Links, Rooms>>,
-      'appId' | 'schema'
-    >
-  >;
+  extraConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
 }) {
   const router = useRouter();
   const [appId, setAppId] = useState<string | undefined>();
@@ -188,12 +183,7 @@ function Page<
     db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>;
     appId: string;
   }>;
-  extraConfig?: Partial<
-    Omit<
-      InstantConfig<InstantSchemaDef<Entities, Links, Rooms>>,
-      'appId' | 'schema'
-    >
-  >;
+  extraConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
 }) {
   const router = useRouter();
   if (router.isReady) {

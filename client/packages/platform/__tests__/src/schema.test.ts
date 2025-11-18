@@ -4,6 +4,7 @@ import {
   generateSchemaTypescriptFile,
   validateSchema,
   SchemaValidationError,
+  InstantAPIPlatformSchema,
 } from '../../src/schema';
 import { apiSchemaToInstantSchemaDef } from '../../src/api';
 import { i } from '@instantdb/core';
@@ -613,4 +614,44 @@ test('validateSchema throws on links to non-existent entities', () => {
       {},
     ),
   ).toThrow(SchemaValidationError);
+});
+
+test('disableTypeInference', () => {
+  const apiSchemaDef = {
+    refs: {},
+    blobs: {
+      books: {
+        description: {
+          'required?': false,
+          'forward-identity': [
+            'bdd54bf2-3164-4276-b88e-7a591a293a3a',
+            'books',
+            'description',
+          ],
+          id: '67d842b3-1b0d-4ed8-bc76-1159cdcc2de7',
+          'unique?': false,
+          cardinality: 'one',
+          'inferred-types': ['string'],
+          'value-type': 'blob',
+          catalog: 'user',
+          'index?': false,
+        },
+      },
+    },
+  } satisfies InstantAPIPlatformSchema;
+
+  expect(
+    apiSchemaToInstantSchemaDef(apiSchemaDef).entities.books.attrs.description
+      .valueType,
+  ).toBe('string');
+  expect(
+    apiSchemaToInstantSchemaDef(apiSchemaDef, {
+      disableTypeInference: false,
+    }).entities.books.attrs.description.valueType,
+  ).toBe('string');
+  expect(
+    apiSchemaToInstantSchemaDef(apiSchemaDef, {
+      disableTypeInference: true,
+    }).entities.books.attrs.description.valueType,
+  ).toBe('json');
 });

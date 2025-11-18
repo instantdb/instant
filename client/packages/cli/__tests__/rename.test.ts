@@ -76,7 +76,7 @@ test('works without flags', async () => {
     rename: [],
   });
 
-  const result = await diffSchemas(beforeSchema, afterSchema, fun);
+  const result = await diffSchemas(beforeSchema, afterSchema, fun, {});
 
   console.log(result);
   expectTxType(result, 'delete-attr', 2);
@@ -88,7 +88,7 @@ test('simple attr flag', async () => {
     rename: ['animals.speccies:animals.species'],
   });
 
-  const result = await diffSchemas(beforeSchema, afterSchema, fun);
+  const result = await diffSchemas(beforeSchema, afterSchema, fun, {});
 
   console.log(result);
   expectTxType(result, 'update-attr', 1);
@@ -99,7 +99,7 @@ test('simple link flag', async () => {
     rename: ['animals.mother:animals.parent'],
   });
 
-  const result = await diffSchemas(beforeSchema, afterSchema, fun);
+  const result = await diffSchemas(beforeSchema, afterSchema, fun, {});
 
   console.log(result);
   expectTxType(result, 'update-attr', 1);
@@ -115,7 +115,7 @@ test('both links and base attrs', async () => {
     ],
   });
 
-  const result = await diffSchemas(beforeSchema, afterSchema, fun);
+  const result = await diffSchemas(beforeSchema, afterSchema, fun, {});
 
   console.log(result);
   expectTxType(result, 'update-attr', 2);
@@ -126,7 +126,7 @@ test('nonexisting flag', async () => {
     rename: ['animals.favoriteFood:animals.favoriteFood'],
   });
 
-  const result = await diffSchemas(beforeSchema, afterSchema, fun);
+  const result = await diffSchemas(beforeSchema, afterSchema, fun, {});
 
   console.log(result);
   expectTxType(result, 'delete-attr', 2);

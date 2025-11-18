@@ -45,7 +45,9 @@
     "build": "rm -rf dist; tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch --skipLibCheck --preserveWatchOutput | grep -v '^$'",
     "test": "vitest",
-    "publish-package": "pnpm publish --access public --no-git-checks"
+    "test:ci": "vitest run",
+    "publish-package": "pnpm publish --access public --no-git-checks",
+    "clean": "rm -rf dist"
   },
   "devDependencies": {
     "@babel/core": "^7.17.9",

@@ -50,12 +50,6 @@ npx instant-cli@latest push schema
 
 This will evaluate your schema, compare it with production, and migrate your data model.
 
-{% callout %}
-
-`push schema` doesn't support _renaming_ or _deleting_ attributes yet. To do this, use the [Explorer](/docs/modeling-data#update-or-delete-attributes)
-
-{% /callout %}
-
 Similarly, when you change `instant.perms.ts`, you can run:
 
 ```shell {% showCopy=true %}
@@ -126,3 +120,30 @@ npx instant-cli@latest login -p
 ```
 
 Instead of saving the token to your local device, the CLI will print it to your console. You can copy this token and provide it as `INSTANT_CLI_AUTH_TOKEN` later in your CI tool.
+
+## Init without creating files
+
+Sometimes you want to create an Instant app without generating `instant.schema.ts` and `instant.perms.ts` or modifying your .env files. You can do this by running:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest init-without-files --title "Hello World"
+```
+
+You can also make ephemeral apps that will clean up themselves after >24 hours
+via the `--temp` flag:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest init-without-files --title "Hello World" --temp
+```
+
+You can also pipe the output of this command to `jq` to extract the app information for use in scripts:
+
+```shell {% showCopy=true %}
+output=$(npx instant-cli@latest init-without-files --title "Hello World" --temp)
+if echo "$output" | jq -e '.error' > /dev/null; then
+  echo "Error: $(echo "$output" | jq -r '.error')"
+  exit 1
+fi
+appId=$(echo "$output" | jq -r '.appId')
+adminToken=$(echo "$output" | jq -r '.adminToken')
+```

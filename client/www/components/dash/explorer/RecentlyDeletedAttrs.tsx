@@ -10,6 +10,7 @@ import { ClockIcon } from '@heroicons/react/24/outline';
 import { InstantAPIError } from '@instantdb/core';
 import { ExpandableDeletedAttr } from './ExpandableDeletedAttr';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
+import { useAuthToken } from '@/lib/auth';
 
 type SoftDeletedAttr = DBAttr & {
   'deletion-marked-at': string;
@@ -134,38 +135,30 @@ export const RecentlyDeletedAttrs: React.FC<{
 };
 
 export const useRecentlyDeletedAttrs = (appId: string) => {
-  const dashResponse = useDashFetch();
-  const app = dashResponse.data?.apps?.find((a: InstantApp) => a.id === appId);
-  const result = useSWR(
-    app?.id ? ['recently-deleted', appId] : null,
-    async () => {
-      if (!app) {
-        throw new Error('No app found'); // should never happen
-      }
-      const response = await fetch(
-        `${config.apiURI}/admin/soft_deleted_attrs`,
-        {
-          method: 'GET',
-          headers: {
-            'app-id': appId,
-            authorization: `Bearer ${app.admin_token}`,
-          },
+  const token = useAuthToken();
+  const result = useSWR(['recently-deleted', appId], async () => {
+    const response = await fetch(
+      `${config.apiURI}/dash/apps/${appId}/soft_deleted_attrs`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
+      },
+    );
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('Failed to fetch recently deleted attrs', data);
+      throw new Error(
+        'Failed to fetch recently deleted attrs' + JSON.stringify(data),
       );
-      const data = await response.json();
-      if (!response.ok) {
-        errorToast('Failed to get recently deleted attrs');
-        console.error('Failed to fetch recently deleted attrs', data);
-        throw new Error(
-          'Failed to fetch recently deleted attrs' + JSON.stringify(data),
-        );
-      }
-      const successfulData = data as {
-        attrs: SoftDeletedAttr[];
-      };
-      return { ...successfulData, 'grace-period-days': 2 };
-    },
-  );
+    }
+    const successfulData = data as {
+      attrs: SoftDeletedAttr[];
+      'grace-period-days': number;
+    };
+    return successfulData;
+  });
 
   return result;
 };

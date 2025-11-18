@@ -1,7 +1,6 @@
 (ns instant.reactive.invalidator
   (:require
    [clojure.core.async :as a]
-   [clojure.set :as clojure-set]
    [datascript.core :as ds]
    [instant.config :as config]
    [instant.db.pg-introspect :as pg-introspect]
@@ -10,16 +9,15 @@
    [instant.jdbc.wal :as wal]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
+   [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
-   [instant.util.json :refer [<-json]]
    [instant.util.e2e-tracer :as e2e-tracer]
-   [instant.util.tracer :as tracer]
-   [instant.db.model.triple :as triple-model])
+   [instant.util.tracer :as tracer])
   (:import
    (java.sql Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (java.util Map UUID)
+   (java.util Map)
    (java.util.concurrent ConcurrentHashMap)
    (org.postgresql.replication LogSequenceNumber)))
 
@@ -27,209 +25,23 @@
 
 (declare invalidator-q)
 
-(defn columns->map
-  ([columns]
-   (columns->map columns false))
-  ([columns keywordize]
-   (reduce (fn [acc column]
-             (assoc acc
-                    (if keywordize
-                      (keyword (:name column))
-                      (:name column))
-                    (:value column)))
-           {}
-           columns)))
-
-(defn get-column [columns col-name]
-  (reduce (fn [_acc col]
-            (when (= col-name (:name col))
-              (reduced (:value col))))
-          nil
-          columns))
-
-(defn- topics-for-triple-insert [change]
-  (let [m (columns->map (:columns change) true)
-        e (UUID/fromString (:entity_id m))
-        a (UUID/fromString (:attr_id m))
-        v-parsed (<-json (:value m))
-        v (cond
-            (:eav m)
-            (UUID/fromString v-parsed)
-            (= (:checked_data_type m) "date")
-            (triple-model/parse-date-value v-parsed)
-            :else
-            v-parsed)
-        ks (->> #{:ea :eav :av :ave :vae}
-                (filter m))]
-    (map (fn [k] [k #{e} #{a} #{v}])
-         ks)))
-
-(defn- topics-for-triple-update
-  [change]
-  (let [m (columns->map (:columns change) true)
-        e (UUID/fromString (:entity_id m))
-        a (UUID/fromString (:attr_id m))
-        ks (->> #{:ea :eav :av :ave :vae}
-                (filter m))]
-    ;; (XXX): If we had the old value we wouldn't need to do this wildcard
-    ;; business. Would be better if we can be more specific
-    (map (fn [k] [k #{e} #{a} '_]) ks)))
-
-(defn- topics-for-triple-delete [change]
-  (let [m (columns->map (:identity change) true)
-        e (UUID/fromString (:entity_id m))
-        a (UUID/fromString (:attr_id m))
-        ;; (XXX): The changeset doesn't include the index cols of the triple
-        ;; so for now we just invalidate all possible indexes
-        ks #{:ea :eav :av :ave :vae}]
-    ;; (XXX): Similar to update, we don't have the prev val, so we use wildcard
-    ;; later on lets think how we can be more specific
-    (map (fn [k] [k #{e} #{a} '_]) ks)))
-
-(defn- topics-for-change [{:keys [action] :as change}]
-  (case action
-    :insert (topics-for-triple-insert change)
-    :update (topics-for-triple-update change)
-    :delete (topics-for-triple-delete change)
-    #{}))
-
-(defn topics-for-triple-changes [changes]
-  (->> changes
-       (mapcat topics-for-change)
-       set))
-
-(defn- topics-for-ident-upsert [{:keys [columns]}]
-  (let [indexes #{:ea :eav :av :ave :vae}
-        attr-id (parse-uuid (get-column columns "attr_id"))
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
-    (set topics)))
-
-(defn- topics-for-attr-upsert [{:keys [columns identity] :as _change}]
-  (let [indexes #{:ea :eav :av :ave :vae}
-        attr-id (parse-uuid (get-column columns "id"))
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)
-
-        value-type (get-column columns "value_type")
-        object-attr? (not= value-type "ref")
-        restoration? (and (get-column identity "deletion_marked_at")
-                          (nil? (get-column columns "deletion_marked_at")))]
-
-    (cond-> topics
-      ;; Queries specifically request object attributes. 
-      ;; If we are restoring an attr, all queries that require 
-      ;; object attributes would need to be refreshed
-      (and object-attr? restoration?) (conj [:ea '_ '_ '_])
-
-      true set)))
-
-(defn- topics-for-attr-delete [{:keys [identity] :as _change}]
-  (let [attr-id (parse-uuid (get-column identity "id"))
-        indexes #{:ea :eav :av :ave :vae}
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
-    (set topics)))
-
-(defn topics-for-ident-change [{:keys [action] :as change}]
-  (case action
-    :update (topics-for-ident-upsert change)
-    :insert (topics-for-ident-upsert change)
-    #{}))
-
-(defn topics-for-ident-changes [changes]
-  (->> changes
-       (mapcat topics-for-ident-change)
-       set))
-
-(defn topics-for-attr-change [{:keys [action] :as change}]
-  (case action
-    :update (topics-for-attr-upsert change)
-    :insert (topics-for-attr-upsert change)
-    :delete (topics-for-attr-delete change)
-    #{}))
-
-(defn topics-for-attr-changes [changes]
-  (->> changes
-       (mapcat topics-for-attr-change)
-       set))
-
-(defn topics-for-changes [{:keys [ident-changes triple-changes attr-changes]}]
-  (let [topics-for-attr-changes (topics-for-attr-changes attr-changes)
-        topics-for-ident-changes (topics-for-ident-changes ident-changes)
-        topics-for-triple-changes (topics-for-triple-changes triple-changes)
-        topics (clojure-set/union topics-for-ident-changes
-                                  topics-for-triple-changes
-                                  topics-for-attr-changes)]
-    topics))
-
 (defn- invalidate!
   "Given a collection of changes, stales all relevant queries and returns
   sockets to be refreshed."
   ;; process-id used for tests
   [_process-id store {:keys [app-id tx-id] :as wal-record}]
-  (let [topics      (topics-for-changes wal-record)
+  (let [topics      (topics/topics-for-changes wal-record)
         session-ids (rs/mark-stale-topics! store app-id tx-id topics)
-        sockets     (keep #(:session/socket (rs/session store %)) session-ids)]
-    sockets))
-
-(defn- topics-for-byop-triple-insert [table-info change]
-  (let [m (columns->map (:columns change) true)
-        id-field (get-in table-info [(:table change) :primary-key :field])
-        e (get m id-field)
-        ;; just making everything :ea for now
-        ks [:ea]]
-    (for [k ks
-          [col v] m
-          :let [a (get-in table-info [(:table change) :fields (keyword col) :attr-id])]]
-      [k #{e} #{a} #{v}])))
-
-(defn- topics-for-byop-triple-update
-  [table-info change]
-  (let [m (columns->map (:columns change) true)
-        id-field (get-in table-info [(:table change) :primary-key :field])
-        e (get m id-field)
-        ;; just making everything :ea for now
-        ks [:ea]]
-    ;; (XXX): If we had the old value we wouldn't need to do this wildcard
-    ;; business. Would be better if we can be more specific
-    (for [k ks
-          [col _v] m
-          :let [a (get-in table-info [(:table change) :fields (keyword col) :attr-id])]]
-      [k #{e} #{a} '_])))
-
-(defn- topics-for-byop-triple-delete [table-info change]
-  (let [m (columns->map (:identity change) true)
-        id-field (get-in table-info [(:table change) :primary-key :field])
-        e (get m id-field)
-        ;; just making everything :ea for now
-        ks [:ea]]
-    ;; (XXX): Similar to update, we don't have the prev val, so we use wildcard
-    ;; later on lets think how we can be more specific
-    (for [k ks
-          [col _v] m
-          :let [a (get-in table-info [(:table change) :fields (keyword col) :attr-id])]]
-      [k #{e} #{a} '_])))
-
-(defn- topics-for-byop-change [table-info {:keys [action] :as change}]
-  ;; (XXX): We only handle triples atm, later on we should handle things
-  ;; like add/delete attrs and apps
-  (case action
-    :insert (topics-for-byop-triple-insert table-info change)
-    :update (topics-for-byop-triple-update table-info change)
-    :delete (topics-for-byop-triple-delete table-info change)
-    #{}))
-
-(defn topics-for-byop-triple-changes [table-info changes]
-  (->> changes
-       (mapcat (partial topics-for-byop-change table-info))
-       set))
-
-(defn- topics-for-byop-changes [table-info {:keys [triple-changes]}]
-  (topics-for-byop-triple-changes table-info triple-changes))
+        sockets     (keep #(:session/socket (rs/session store %)) session-ids)
+        sync-subs (rs/get-stale-sync-subs store app-id topics)]
+    {:sockets sockets
+     :sync-subs sync-subs}))
 
 (defn- invalidate-byop!
   "Given a collection of changes, stales all relevant queries and returns
   sockets to be refreshed."
   [table-info app-id store {:keys [tx-id] :as record}]
-  (let [topics      (topics-for-byop-changes table-info record)
+  (let [topics      (topics/topics-for-byop-changes table-info record)
         session-ids (rs/mark-stale-topics! store app-id tx-id topics)
         sockets     (keep #(:session/socket (rs/session store %)) session-ids)]
     sockets))
@@ -239,7 +51,7 @@
 
 (defn app-id-from-columns [columns]
   (some-> columns
-          (get-column "app_id")
+          (topics/get-column "app_id")
           (parse-uuid)))
 
 (defn extract-app-id
@@ -248,7 +60,7 @@
 
 (defn id-from-columns [columns]
   (some-> columns
-          (get-column "id")
+          (topics/get-column "id")
           (parse-uuid)))
 
 (defn extract-id
@@ -256,10 +68,10 @@
   (id-from-columns columns))
 
 (defn extract-tx-id [{:keys [columns] :as _change}]
-  (get-column columns "id"))
+  (topics/get-column columns "id"))
 
 (defn extract-tx-created-at [{:keys [columns] :as _change}]
-  (when-let [^String created-at (get-column columns "created_at")]
+  (when-let [^String created-at (topics/get-column columns "created_at")]
     (.toInstant (Timestamp/valueOf created-at))))
 
 (defn transform-wal-record [{:keys [changes tx-bytes] :as _record}]
@@ -357,19 +169,27 @@
                                      :tx-bytes tx-bytes}}
 
       (try
-        (let [sockets (invalidate! process-id store wal-record)]
+        (let [{:keys [sockets sync-subs]} (invalidate! process-id store wal-record)]
           (tracer/add-data! {:attributes {:num-sockets (count sockets)
+                                          :num-sync-subs (count sync-subs)
                                           :tx-latency-ms (e2e-tracer/tx-latency-ms tx-created-at)}})
           (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
                                                   :tx-created-at tx-created-at
                                                   :name "send-refreshes"
                                                   :attributes {:num-sockets (count sockets)}})
+          (when (or (config/dev?) (seq sync-subs))
+            (rs/add-transaction-to-sync-table-txes wal-record))
           (tracer/with-span! {:name "invalidator/send-refreshes"}
             (doseq [{:keys [id]} sockets]
               (receive-queue/put! {:op :refresh
                                    :session-id id
                                    :tx-id tx-id
-                                   :tx-created-at tx-created-at}))))
+                                   :tx-created-at tx-created-at}))
+            (doseq [{:sync/keys [session-id id]} sync-subs]
+              (receive-queue/put! {:op :refresh-sync-table
+                                   :app-id app-id
+                                   :session-id session-id
+                                   :subscription-id id}))))
         (catch Throwable t
           (def -wal-record wal-record)
           (def -store-value (store-snapshot store app-id))

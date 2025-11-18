@@ -20,5 +20,5 @@ export function useIsOverflow() {
     }
   }, [ref]);
 
-  return { ref, isOverflow };
+  return { ref, isOverflow, setIsOverflow };
 }

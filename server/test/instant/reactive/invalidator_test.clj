@@ -7,6 +7,7 @@
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-zeneca-app]]
    [instant.jdbc.aurora :as aurora]
+   [instant.reactive.topics :as topics]
    [instant.reactive.invalidator :as inv]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json]]
@@ -374,13 +375,13 @@
               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
               #{1987}]}
-           (inv/topics-for-changes {:triple-changes create-triple-changes}))))
+           (topics/topics-for-changes {:triple-changes create-triple-changes}))))
   (testing "update triples"
     (is (= '#{[:ea
                #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
                #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
                _]}
-           (inv/topics-for-changes {:triple-changes update-triple-changes}))))
+           (topics/topics-for-changes {:triple-changes update-triple-changes}))))
   (testing "update triples"
     (is (= '#{[:ave
                #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
@@ -422,14 +423,14 @@
                #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
                #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
                _]}
-           (inv/topics-for-changes {:triple-changes delete-triple-changes}))))
+           (topics/topics-for-changes {:triple-changes delete-triple-changes}))))
   (testing "create attrs + idents (these happen together)"
     (is (= '#{[:ave _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
               [:eav _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
               [:vae _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
               [:av _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
               [:ea _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]}
-           (inv/topics-for-changes {:ident-changes create-ident-changes
+           (topics/topics-for-changes {:ident-changes create-ident-changes
                                     :attr-changes create-attr-changes}))))
   (testing "update idents isolated"
     (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
@@ -437,21 +438,21 @@
               [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
               [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
               [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
-           (inv/topics-for-changes {:ident-changes update-ident-changes}))))
+           (topics/topics-for-changes {:ident-changes update-ident-changes}))))
   (testing "update attrs isolated"
     (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
               [:ea _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
               [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
               [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
               [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
-           (inv/topics-for-changes {:attr-changes update-attr-changes}))))
+           (topics/topics-for-changes {:attr-changes update-attr-changes}))))
   (testing "update attr + idents"
     (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
               [:ea _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
               [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
               [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
               [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
-           (inv/topics-for-changes {:ident-changes update-ident-changes
+           (topics/topics-for-changes {:ident-changes update-ident-changes
                                     :attr-changes update-attr-changes}))))
   (testing "restoring an attr includes a full wildcard for :ea"
     (is (= '#{[:av _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
@@ -460,14 +461,14 @@
               [:vae _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
               [:ea _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
               [:ave _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]}
-           (inv/topics-for-changes {:attr-changes restore-attr-changes}))))
+           (topics/topics-for-changes {:attr-changes restore-attr-changes}))))
   (testing "delete attr + idents (these happen together)"
     (is (= '#{[:ea _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
               [:vae _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
               [:ave _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
               [:eav _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
               [:av _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]}
-           (inv/topics-for-changes {:ident-changes delete-ident-changes
+           (topics/topics-for-changes {:ident-changes delete-ident-changes
                                     :attr-changes delete-attr-changes})))))
 
 (defn ->md5 [s]
