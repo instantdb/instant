@@ -31,7 +31,6 @@
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
-   [instant.util.coll :as ucoll]
    [instant.util.crypt :as crypt-util]
    [instant.util.delay :as delay]
    [instant.util.exception :as ex]
