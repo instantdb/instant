@@ -21,7 +21,6 @@ import {
   IInstantDatabase,
   InstantError,
   ValidQuery,
-  UserWithSchema,
 } from '@instantdb/core';
 import {
   ReactNode,
@@ -240,13 +239,13 @@ export default abstract class InstantReactAbstractDatabase<
    *  }
    *
    */
-  useAuth = (): AuthState<Schema, Config['useDateObjects']> => {
+  useAuth = (): AuthState => {
     // We use a ref to store the result of the query.
     // This is becuase `useSyncExternalStore` uses `Object.is`
     // to compare the previous and next state.
     // If we don't use a ref, the state will always be considered different, so
     // the component will always re-render.
-    const resultCacheRef = useRef<AuthState<Schema, Config['useDateObjects']>>(
+    const resultCacheRef = useRef<AuthState>(
       this.core._reactor._currentUserCached,
     );
 
@@ -254,16 +253,14 @@ export default abstract class InstantReactAbstractDatabase<
     // if `subscribe` changes, so we use `useCallback` to memoize the function.
     const subscribe = useCallback((cb: Function) => {
       const unsubscribe = this.core.subscribeAuth((auth) => {
-        resultCacheRef.current = { isLoading: false, ...(auth as any) };
+        resultCacheRef.current = { isLoading: false, ...auth };
         cb();
       });
 
       return unsubscribe;
     }, []);
 
-    const state = useSyncExternalStore<
-      AuthState<Schema, Config['useDateObjects']>
-    >(
+    const state = useSyncExternalStore<AuthState>(
       subscribe,
       () => resultCacheRef.current,
       () => defaultAuthState,
@@ -290,7 +287,7 @@ export default abstract class InstantReactAbstractDatabase<
    *  </db.SignedIn>
    *
    */
-  useUser = (): UserWithSchema<Schema, Config['useDateObjects']> => {
+  useUser = (): User => {
     const { user } = this.useAuth();
     if (!user) {
       throw new InstantError(
@@ -310,11 +307,8 @@ export default abstract class InstantReactAbstractDatabase<
    *   const user = await db.getAuth();
    *   console.log('logged in as', user.email)
    */
-  getAuth(): Promise<UserWithSchema<Schema, Config['useDateObjects']> | null> {
-    return this.core.getAuth() as Promise<UserWithSchema<
-      Schema,
-      Config['useDateObjects']
-    > | null>;
+  getAuth(): Promise<User | null> {
+    return this.core.getAuth();
   }
 
   /**

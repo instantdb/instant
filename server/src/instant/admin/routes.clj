@@ -179,6 +179,9 @@
                               [{:message "Cannot test perms as admin"}]))
         inference? (-> req :body :inference? boolean)
         rules-override (-> req :body :rules-override ->json <-json)
+        _ (when rules-override
+            (ex/assert-valid! :rule rules-override
+                              (rule-model/validation-errors rules-override)))
         query (ex/get-param! req [:body :query] #(when (map? %) %))
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
@@ -241,6 +244,11 @@
                                  req
                                  [:body :throw-on-missing-attrs?] boolean)
         attrs (attr-model/get-by-app-id app-id)
+
+        _ (when rules-override
+            (ex/assert-valid! :rule rules-override
+                              (rule-model/validation-errors rules-override)))
+
         rules (if rules-override
                 {:app_id app-id :code rules-override}
                 (rule-model/get-by-app-id {:app-id app-id}))
@@ -290,21 +298,33 @@
 
 (defn refresh-tokens-post [req]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
-        email (ex/get-param! req [:body :email] email/coerce)
-        {user-id :id :as user}
-        (or (app-user-model/get-by-email {:app-id app-id
-                                          :email email})
+        email (ex/get-optional-param! req [:body :email] email/coerce)
+        id (ex/get-optional-param! req [:body :id] uuid-util/coerce)
 
-            (app-user-model/create!
-             {:id (UUID/randomUUID)
-              :app-id app-id
-              :email email}))
+        {user-id :id :as user}
+        (cond
+          email (or (app-user-model/get-by-email {:app-id app-id
+                                                  :email email})
+
+                    (app-user-model/create!
+                     {:id (UUID/randomUUID)
+                      :app-id app-id
+                      :email email}))
+          id  (or  (app-user-model/get-by-id {:app-id app-id :id id})
+                   (app-user-model/create!
+                    {:id id
+                     :app-id app-id}))
+          :else (ex/throw-validation-err!
+                 :body
+                 (:body req)
+                 [{:message "Please provide an `email` or `id`"}]))
 
         {refresh-token-id :id}
         (app-user-refresh-token-model/create!
          {:app-id app-id
           :id (UUID/randomUUID)
           :user-id user-id})]
+
     (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
 
 (defn sign-out-post [{:keys [body] :as req}]

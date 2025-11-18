@@ -10,6 +10,14 @@ import { zodToSchema } from './schema.ts';
 import { parseArgs } from 'node:util';
 import version from './version.ts';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { HoneycombSDK } from '@honeycombio/opentelemetry-node';
+import {
+  trace,
+  SpanKind,
+  SpanStatusCode,
+  Tracer,
+  Attributes,
+} from '@opentelemetry/api';
 
 import {
   createOAuthMetadata,
@@ -154,6 +162,49 @@ const appPerms = z
 
 // Tool Registration
 // -----------
+
+// Adds tracing to server.tool
+function wrapServerWithTracing(
+  server: McpServer,
+  tracer: Tracer,
+  attrs: Attributes,
+): McpServer {
+  const originalTool = server.tool.bind(server);
+
+  server.tool = function (name: string, ...args: any[]): any {
+    // Find the callback (it's always the last argument)
+    const callback = args[args.length - 1];
+    const otherArgs = args.slice(0, -1);
+
+    // Wrap the callback with tracing
+    const wrappedCallback = async (...callbackArgs: any[]) => {
+      const span = tracer.startSpan(`tool.${name}`, {
+        attributes: attrs,
+      });
+      try {
+        const result = await callback(...callbackArgs);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return result;
+      } catch (error) {
+        span.setStatus({ code: SpanStatusCode.ERROR });
+        span.recordException(error as Error);
+        throw error;
+      } finally {
+        span.end();
+      }
+    };
+
+    return originalTool(
+      name,
+      // @ts-expect-error: not sure how to type this
+      ...otherArgs,
+      wrappedCallback,
+    );
+  } as any;
+
+  return server;
+}
+
 function registerTools(server: McpServer, api: PlatformApi) {
   server.tool(
     'create-app',
@@ -378,6 +429,157 @@ function registerTools(server: McpServer, api: PlatformApi) {
       }
     },
   );
+
+  server.tool(
+    'query',
+    'Execute a query againt an app. Useful for inspecting data in the app.',
+    {},
+    async () => {
+      const instructions = `
+      You can query data for an app by writing and executing a script using the
+      Admin SDK. Here's an example script for fetching a habit and its completions:
+
+      \`\`\`typescript
+      import { init } from "@instantdb/admin";
+      import "dotenv/config";
+
+      const adminDb = init({
+        appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+        adminToken: process.env.INSTANT_APP_ADMIN_TOKEN!,
+      });
+
+      async function fetchHabit(habitName: string) {
+        const { habits } = await adminDb.query({
+          habits: {
+            $: { where: { name: habitName } },
+            completions: {},
+          },
+        });
+        console.log(habits);
+      }
+
+      fetchHabit("Read");
+      \`\`\`
+
+      If you're unsure how to write queries, refer to the documentation:
+
+      https://instantdb.com/docs/instaql.md
+      `;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: instructions,
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
+    'transact',
+    'Execute a transaction against an app. Useful for seeding or modifying data in the app.',
+    {},
+    async () => {
+      const instructions = `
+      You can transact data for an app by writing and executing a script using the
+      Admin SDK. Here's an example script for seeding a microblog app with some posts:
+
+      \`\`\`typescript
+      import { init, id } from "@instantdb/admin";
+      import "dotenv/config";
+
+      const adminDb = init({
+        appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+        adminToken: process.env.INSTANT_APP_ADMIN_TOKEN!,
+      });
+
+      interface Post {
+        id: number;
+        author: string;
+        handle: string;
+        color: string;
+        content: string;
+        timestamp: string;
+        likes: number;
+        liked: boolean;
+      }
+
+      const mockPosts: Post[] = [
+        {
+          author: 'Sarah Chen',
+          handle: 'sarahchen',
+          color: 'bg-blue-100',
+          content: 'Just launched my new project! Really excited to share it with everyone.',
+          timestamp: '2h ago',
+          likes: 12,
+          liked: false,
+        },
+        {
+          author: 'Alex Rivera',
+          handle: 'alexrivera',
+          color: 'bg-purple-100',
+          content: 'Beautiful sunset today. Nature never stops amazing me.',
+          timestamp: '4h ago',
+          likes: 19,
+          liked: true,
+        },
+        {
+          author: 'Jordan Lee',
+          handle: 'jordanlee',
+          color: 'bg-pink-100',
+          content: 'Working on something cool with Next.js and TypeScript. Updates coming soon!',
+          timestamp: '6h ago',
+          likes: 7,
+          liked: false,
+        },
+      ];
+
+      function friendlyTimeToTimestamp(friendlyTime: string) {
+        const hours = parseInt(friendlyTime);
+        const now = Date.now();
+        return now - (hours * 60 * 60 * 1000);
+      }
+
+      function seed() {
+        console.log("Seeding db...");
+        mockPosts.forEach(post => {
+          const userId = id();
+          const postId = id();
+          const user = adminDb.tx.$users[userId].create({});
+          const profile = adminDb.tx.profiles[userId].create({
+            displayName: post.author,
+            handle: post.handle,
+          }).link({ user: userId });
+          const postEntity = adminDb.tx.posts[postId].create({
+            color: post.color,
+            content: post.content,
+            timestamp: friendlyTimeToTimestamp(post.timestamp),
+          }).link({ author: userId });
+          const likes = Array.from({ length: post.likes }, () => adminDb.tx.likes[id()].create({ postId, userId }).link({ post: postId, user: userId }));
+          adminDb.transact([user, profile, postEntity, ...likes]);
+        })
+      }
+
+      seed();
+      \`\`\`
+
+      If you're unsure how to make transactions, refer to the documentation:
+
+      https://instantdb.com/docs/instaml.md
+      `;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: instructions,
+          },
+        ],
+      };
+    },
+  );
 }
 
 async function startStdio() {
@@ -420,6 +622,17 @@ function ensureEnv(key: string): string {
 }
 
 async function startSse() {
+  const honeycomb = new HoneycombSDK({
+    apiKey: process.env.HONEYCOMB_API_KEY,
+    serviceName: 'mcp-server',
+  });
+
+  if (process.env.HONEYCOMB_API_KEY) {
+    honeycomb.start();
+  }
+
+  const tracer = trace.getTracer('mcp-server');
+
   const db = init({
     adminToken: ensureEnv('INSTANT_ADMIN_TOKEN'),
     appId: ensureEnv('INSTANT_APP_ID'),
@@ -437,6 +650,32 @@ async function startSse() {
 
   const app = express();
   const logger = pino({ level: 'info' });
+
+  app.use((req, res, next) => {
+    const span = tracer.startSpan('http-req', {
+      kind: SpanKind.SERVER,
+      attributes: {
+        'http.method': req.method,
+        'http.url': req.url,
+        'http.target': req.path,
+        'http.host': req.get('host'),
+        'http.scheme': req.protocol,
+      },
+    });
+
+    const originalEnd = res.end.bind(res);
+    res.end = function (this: typeof res, ...args: any[]): typeof res {
+      span.setAttribute('http.status_code', res.statusCode);
+      span.setStatus({
+        code: res.statusCode >= 400 ? SpanStatusCode.ERROR : SpanStatusCode.OK,
+      });
+      span.end();
+      return originalEnd(...args);
+    };
+
+    next();
+  });
+
   app.use(
     pinoHttp({
       logger,
@@ -502,6 +741,14 @@ async function startSse() {
           makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
         );
 
+        wrapServerWithTracing(server, tracer, {
+          'client.client_id': tokens.mcpToken.client?.client_id,
+          'client.name': tokens.mcpToken.client?.client_name,
+          'client.id': tokens.mcpToken.client?.id,
+          'client.scope': tokens.mcpToken.client?.scope,
+          'client.uri': tokens.mcpToken.client?.client_uri,
+          'client.redirect_urls': tokens.mcpToken.client?.redirect_uris,
+        });
         registerTools(server, api);
         const transport: StreamableHTTPServerTransport =
           new StreamableHTTPServerTransport({
@@ -571,6 +818,15 @@ async function startSse() {
         const api = createPlatformApi(
           makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
         );
+
+        wrapServerWithTracing(server, tracer, {
+          'client.client_id': tokens.mcpToken.client?.client_id,
+          'client.name': tokens.mcpToken.client?.client_name,
+          'client.id': tokens.mcpToken.client?.id,
+          'client.scope': tokens.mcpToken.client?.scope,
+          'client.uri': tokens.mcpToken.client?.client_uri,
+          'client.redirect_urls': tokens.mcpToken.client?.redirect_uris,
+        });
 
         registerTools(server, api);
 

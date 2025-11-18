@@ -1,5 +1,4 @@
 // @ts-check
-
 import {
   generatePermsTypescriptFile,
   apiSchemaToInstantSchemaDef,
@@ -43,6 +42,13 @@ import { promptOk } from './util/promptOk.js';
 import { ResolveRenamePrompt } from './util/renamePrompt.js';
 import { buildAutoRenameSelector } from './rename.js';
 import { loadEnv } from './util/loadEnv.js';
+import { isHeadlessEnvironment } from './util/isHeadlessEnvironment.js';
+import {
+  getSchemaReadCandidates,
+  getPermsReadCandidates,
+  getSchemaPathToWrite,
+  getPermsPathToWrite,
+} from './util/findConfigCandidates.js';
 
 const execAsync = promisify(exec);
 
@@ -60,6 +66,10 @@ function warn(firstArg, ...rest) {
 function error(firstArg, ...rest) {
   console.error(chalk.red('[error]') + ' ' + firstArg, ...rest);
 }
+
+// json response
+
+const toJson = (data) => JSON.stringify(data, null, 2);
 
 // consts
 
@@ -317,6 +327,10 @@ program
   .command('login')
   .description('Log into your account')
   .option('-p --print', 'Prints the auth token into the console.')
+  .option(
+    '--headless',
+    'Print the login URL instead of trying to open the browser',
+  )
   .action(async (opts) => {
     console.log("Let's log you in!");
     await login(opts);
@@ -342,6 +356,20 @@ program
   )
   .option('-t --title <title>', 'Title for the created app')
   .action(handleInit);
+
+program
+  .command('init-without-files')
+  .description('Generate a new app id and admin token pair without any files.')
+  .option('--title <title>', 'Title for the created app.')
+  .option(
+    '--org-id <org-id>',
+    'Organization id for app. Cannot be used with --temp flag.',
+  )
+  .option(
+    '--temp',
+    'Create a temporary app which will automatically delete itself after >24 hours.',
+  )
+  .action(handleInitWithoutFiles);
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
@@ -492,7 +520,88 @@ async function handleInit(opts) {
   if (!ok) {
     return process.exit(1);
   }
-  await pull('all', appId, pkgAndAuthInfo);
+
+  // Create schema file if it doesn't exist
+  // or ask to push if local schema exists
+  const localSchemaExists = await readLocalSchemaFile();
+  if (!localSchemaExists) {
+    await pull('schema', appId, pkgAndAuthInfo);
+  } else {
+    const doSchemaPush = await promptOk(
+      {
+        promptText: 'Found local schema. Push it to the new app?',
+        inline: true,
+      },
+      program.opts(),
+    );
+    if (doSchemaPush) {
+      await push('schema', appId, opts);
+    }
+  }
+
+  // Create perms file if it doesn't exist
+  // or ask to push if local perms exists
+  const localPermsExists = await readLocalPermsFile();
+  if (!localPermsExists) {
+    await pull('perms', appId, pkgAndAuthInfo);
+  } else {
+    const doPermsPush = await promptOk(
+      {
+        promptText: 'Found local perms. Push it to the new app?',
+        inline: true,
+      },
+      program.opts(),
+    );
+    if (doPermsPush) {
+      await push('perms', appId, opts);
+    }
+  }
+}
+
+async function handleInitWithoutFiles(opts) {
+  try {
+    if (!opts?.title) {
+      throw new Error(
+        'Title is required for creating a new app without local files.',
+      );
+    }
+
+    if (opts.title.startsWith('-')) {
+      throw new Error(
+        `Invalid title: "${opts.title}". Title cannot be a flag.`,
+      );
+    }
+
+    if (opts?.temp && opts?.orgId) {
+      throw new Error('Cannot use --temp and --org-id flags together.');
+    }
+
+    let result;
+    if (opts?.temp) {
+      result = await createEphemeralApp(opts.title);
+    } else {
+      result = await createApp(opts.title, opts.orgId);
+    }
+
+    console.error(`${chalk.green('Successfully created new app!')}\n`);
+
+    console.log(
+      toJson({
+        app: result,
+        error: null,
+      }),
+    );
+  } catch (error) {
+    console.error(`${chalk.red('Failed to create app.')}\n`);
+
+    console.log(
+      toJson({
+        app: null,
+        error: { message: error.message },
+      }),
+    );
+    process.exit(1);
+  }
 }
 
 async function handlePush(bag, opts) {
@@ -640,17 +749,23 @@ async function login(options) {
   const { secret, ticket } = registerRes.data;
 
   console.log();
-  const ok = await promptOk(
-    {
-      promptText: `This will open instantdb.com in your browser, OK to proceed?`,
-    },
-    program.opts(),
-    /*defaultAnswer=*/ true,
-  );
 
-  if (!ok) return;
+  if (isHeadlessEnvironment(options)) {
+    console.log(
+      `Open this URL in a browser to log in:\n ${instantDashOrigin}/dash?ticket=${ticket}\n`,
+    );
+  } else {
+    const ok = await promptOk(
+      {
+        promptText: `This will open instantdb.com in your browser, OK to proceed?`,
+      },
+      program.opts(),
+      /*defaultAnswer=*/ true,
+    );
 
-  openInBrowser(`${instantDashOrigin}/dash?ticket=${ticket}`);
+    if (!ok) return;
+    openInBrowser(`${instantDashOrigin}/dash?ticket=${ticket}`);
+  }
 
   console.log('Waiting for authentication...');
   const authTokenRes = await waitForAuthToken({ secret });
@@ -852,20 +967,7 @@ async function promptImportAppOrCreateApp() {
       startingMenuIndex: 2,
       api: {
         getDash: () => res.data,
-        createEphemeralApp: async (title) => {
-          const id = randomUUID();
-          const token = randomUUID();
-          const app = { id, title, admin_token: token };
-          const appRes = await fetchJson({
-            method: 'POST',
-            path: '/dash/apps/ephemeral',
-            debugName: 'Ephemeral app create',
-            errorMessage: 'Failed to create ephemeral app.',
-            body: app,
-          });
-          if (!appRes.ok) throw new Error('Failed to create temporary app');
-          return { appId: id, adminToken: token };
-        },
+        createEphemeralApp,
         getAppsForOrg: async (orgId) => {
           const orgsRes = await fetchJson({
             debugName: 'Fetching org apps',
@@ -878,20 +980,7 @@ async function promptImportAppOrCreateApp() {
           }
           return { apps: orgsRes.data.apps };
         },
-        createApp: async (title, orgId) => {
-          const id = randomUUID();
-          const token = randomUUID();
-          const app = { id, title, admin_token: token, org_id: orgId };
-          const appRes = await fetchJson({
-            method: 'POST',
-            path: '/dash/apps',
-            debugName: 'App create',
-            errorMessage: 'Failed to create app.',
-            body: app,
-          });
-          if (!appRes.ok) throw new Error('Failed to create app');
-          return { appId: id, adminToken: token };
-        },
+        createApp,
       },
     }),
   );
@@ -902,62 +991,6 @@ async function promptImportAppOrCreateApp() {
     appToken: result.adminToken,
     source: result.approach === 'import' ? 'imported' : 'created',
   };
-
-  // let apps = res.data.apps;
-  // let orgName;
-  // let orgId;
-  // if (orgs.length) {
-  //   const choices = [{ label: '(No organization)', value: null }];
-  //   for (const org of orgs) {
-  //     choices.push({ label: org.title, value: org.id });
-  //   }
-  //   const choice = await renderUnwrap(
-  //     new UI.Select({
-  //       promptText: 'Would you like to import an app from an organization?',
-  //       options: choices,
-  //     }),
-  //   );
-  //   if (choice) {
-  //     const orgsRes = await fetchJson({
-  //       debugName: 'Fetching apps',
-  //       method: 'GET',
-  //       path: `/dash/orgs/${choice}`,
-  //       errorMessage: 'Failed to fetch apps.',
-  //     });
-  //     if (!orgsRes.ok) {
-  //       return { ok: false };
-  //     }
-  //     apps = orgsRes.data.apps;
-  //     orgName = orgsRes.data.org.title;
-  //     orgId = choice;
-  //   } else {
-  //     apps = res.data.apps;
-  //   }
-  // }
-  // if (!apps.length) {
-  //   const ok = await promptOk(
-  //     {
-  //       promptText: `You don't have any apps${orgName ? ` in ${orgName}` : ''}. Want to create a new one?`,
-  //     },
-  //     program.opts(),
-  //     /*defaultAnswer=*/ true,
-  //   );
-  //   if (!ok) return { ok: false };
-  //   return await promptCreateApp({ org: orgId });
-  // }
-
-  // apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
-
-  // const choice = await renderUnwrap(
-  //   new UI.Select({
-  //     promptText: 'Which app would you like to import?',
-  //     options: apps.map((app) => {
-  //       return { label: `${app.title} (${app.id})`, value: app.id };
-  //     }),
-  //   }),
-  // );
-  // if (!choice) return { ok: false };
-  // return { ok: true, appId: choice, source: 'imported' };
 }
 
 async function createApp(title, orgId) {
@@ -972,6 +1005,21 @@ async function createApp(title, orgId) {
     body: app,
   });
   if (!appRes.ok) throw new Error('Failed to create app');
+  return { appId: id, adminToken: token };
+}
+
+async function createEphemeralApp(title) {
+  const id = randomUUID();
+  const token = randomUUID();
+  const app = { id, title, admin_token: token };
+  const appRes = await fetchJson({
+    method: 'POST',
+    path: '/dash/apps/ephemeral',
+    debugName: 'Ephemeral app create',
+    errorMessage: 'Failed to create ephemeral app.',
+    body: app,
+  });
+  if (!appRes.ok) throw new Error('Failed to create temporary app');
   return { appId: id, adminToken: token };
 }
 
@@ -1469,7 +1517,9 @@ async function pushSchema(appId, opts) {
 
   const currentAttrs = pulledSchemaResponse.data['attrs'];
   const currentApiSchema = pulledSchemaResponse.data['schema'];
-  const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
+  const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema, {
+    disableTypeInference: true,
+  });
   const systemCatalogIdentNames = collectSystemCatalogIdentNames(currentAttrs);
 
   try {
@@ -1766,68 +1816,6 @@ function prettyPrintJSONErr(data) {
   }
 }
 
-/**
- * We need to do a bit of a hack of `@instantdb/react-native`.
- *
- * If a user writes import { i } from '@instantdb/react-native'
- *
- * We will fail to evaluate the file. This is because
- * `@instantdb/react-native` brings in `react-native`, which
- * does not run in a node context.
- *
- * To bypass this, we have a 'cli' module inside `react-native`, which
- * has all the necessary imports
- */
-function transformImports(code) {
-  return code.replace(
-    /["']@instantdb\/react-native["']/g,
-    '"@instantdb/react-native/dist/cli"',
-  );
-}
-
-function getEnvPermsPathWithLogging() {
-  const path = process.env.INSTANT_PERMS_FILE_PATH;
-  if (path) {
-    console.log(
-      `Using INSTANT_PERMS_FILE_PATH=${chalk.green(process.env.INSTANT_PERMS_FILE_PATH)}`,
-    );
-  }
-  return path;
-}
-
-function getPermsReadCandidates() {
-  const existing = getEnvPermsPathWithLogging();
-  if (existing) return [{ files: existing, transform: transformImports }];
-  return [
-    {
-      files: 'instant.perms',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-    {
-      files: 'src/instant.perms',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-    {
-      files: 'app/instant.perms',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-  ];
-}
-
-function getPermsPathToWrite(existingPath) {
-  if (existingPath) return existingPath;
-  if (process.env.INSTANT_PERMS_FILE_PATH) {
-    return process.env.INSTANT_PERMS_FILE_PATH;
-  }
-  if (existsSync(path.join(process.cwd(), 'src'))) {
-    return path.join('src', 'instant.perms.ts');
-  }
-  return 'instant.perms.ts';
-}
-
 async function readLocalPermsFile() {
   const readCandidates = getPermsReadCandidates();
   const res = await loadConfig({
@@ -1847,51 +1835,6 @@ async function readLocalPermsFileWithErrorLogging() {
     );
   }
   return res;
-}
-
-function getEnvSchemaPathWithLogging() {
-  const path = process.env.INSTANT_SCHEMA_FILE_PATH;
-  if (path) {
-    console.log(
-      `Using INSTANT_SCHEMA_FILE_PATH=${chalk.green(process.env.INSTANT_SCHEMA_FILE_PATH)}`,
-    );
-  }
-  return path;
-}
-
-function getSchemaReadCandidates() {
-  const existing = getEnvSchemaPathWithLogging();
-  if (existing) return [{ files: existing, transform: transformImports }];
-  return [
-    {
-      files: 'instant.schema',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-    {
-      files: 'src/instant.schema',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-    {
-      files: 'app/instant.schema',
-      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-      transform: transformImports,
-    },
-  ];
-}
-
-function getSchemaPathToWrite(existingPath) {
-  if (existingPath) return existingPath;
-  if (process.env.INSTANT_SCHEMA_FILE_PATH) {
-    return process.env.INSTANT_SCHEMA_FILE_PATH;
-  }
-  // If there is a src folder
-  if (existsSync(path.join(process.cwd(), 'src'))) {
-    return path.join('src', 'instant.schema.ts');
-  }
-
-  return 'instant.schema.ts';
 }
 
 async function readLocalSchemaFile() {

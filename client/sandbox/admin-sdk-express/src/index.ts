@@ -36,7 +36,7 @@ app.use(bodyParser.json());
 
 app.post('/signin', async (req, res) => {
   const { email } = req.body;
-  return res.status(200).send({ token: await auth.createToken(email) });
+  return res.status(200).send({ token: await auth.createToken({ email }) });
 });
 
 app.listen(port, () => {
@@ -86,11 +86,25 @@ async function testTransact() {
   console.log(JSON.stringify(res, null, 2));
 }
 
-async function testCreateToken() {
+async function testCreateTokenDepr() {
   const token = await auth.createToken('stopa@instantdb.com');
   console.log('custom token!', token);
   const user = await auth.verifyToken(token);
   console.log('user', user);
+}
+
+async function testCreateTokenEmail() {
+  const token = await auth.createToken({ email: 'stopa@instantdb.com' });
+  console.log('custom token!', token);
+  const user = await auth.verifyToken(token);
+  console.log('user', user);
+}
+
+async function testCreateTokenId() {
+  await auth.createToken({ email: 'stopa@instantdb.com' });
+  const user = await auth.getUser({ email: 'stopa@instantdb.com' });
+  const token = await auth.createToken({ id: user.id });
+  console.log('Re-fetched from token', await auth.verifyToken(token));
 }
 
 async function testScoped() {
@@ -148,7 +162,9 @@ async function testDeleteUser() {
   }
 }
 
-// testCreateToken();
+// testCreateTokenDepr();
+// testCreateTokenEmail();
+// testCreateTokenId();
 // testQuery();
 // testNeQuery();
 // testTransact();

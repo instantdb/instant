@@ -28,6 +28,12 @@ const nextConfig = {
         ],
         destination: 'https://instantdb.com/:path*',
       },
+      {
+        permanent: false,
+        basePath: false,
+        source: '/status',
+        destination: 'https://status.instantdb.com',
+      },
     ];
   },
 };

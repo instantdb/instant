@@ -10,6 +10,7 @@ import { InstantApp, SchemaNamespace } from '@/lib/types';
 import { HomeButton } from '@/pages/dash';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { FetchedDash, useFetchedDash } from './MainDashLayout';
+import permsJsonSchema from '@/lib/permsJsonSchema';
 
 export function Perms({
   app,
@@ -29,7 +30,7 @@ export function Perms({
     return app.rules ? JSON.stringify(app.rules, null, 2) : '';
   }, [app]);
 
-  const schema = rulesSchema(namespaces);
+  const schema = permsJsonSchema(namespaces);
   const dashResponse = useFetchedDash();
 
   return (
@@ -152,57 +153,3 @@ function updateRules(token: string, appId: string, newRulesObj: object) {
     body: JSON.stringify({ code: newRulesObj }),
   });
 }
-
-const rulesSchema = (namespaces: SchemaNamespace[] | null) => {
-  const ruleBlock = {
-    type: 'object',
-    properties: {
-      allow: {
-        type: 'object',
-        properties: {
-          create: { type: 'string' },
-          update: { type: 'string' },
-          delete: { type: 'string' },
-          view: { type: 'string' },
-          link: {
-            type: 'object',
-            patternProperties: { '^[$a-zA-Z0-9_\\-]+$': { type: 'string' } },
-          },
-          unlink: {
-            type: 'object',
-            patternProperties: { '^[$a-zA-Z0-9_\\-]+$': { type: 'string' } },
-          },
-          $default: { type: 'string' },
-        },
-        additionalProperties: false,
-      },
-      bind: {
-        type: 'array',
-        // Use a combination of "items" and "additionalItems" for validation
-        items: { type: 'string' },
-        minItems: 2,
-      },
-    },
-    additionalProperties: false,
-  };
-
-  const properties: Record<string, typeof ruleBlock> = {
-    $default: ruleBlock,
-    attrs: ruleBlock,
-  };
-
-  if (namespaces) {
-    for (const namespace of namespaces) {
-      properties[namespace.name] = ruleBlock;
-    }
-  }
-
-  return {
-    type: 'object',
-    properties,
-    patternProperties: {
-      '^[$a-zA-Z0-9_\\-]+$': ruleBlock,
-    },
-    additionalProperties: false,
-  };
-};

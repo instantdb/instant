@@ -1,5 +1,28 @@
-import { id, lookup, tx } from '@instantdb/core';
+import { coerceToDate, id, lookup, tx } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
+import {
+  ColumnDef,
+  ColumnSizingState,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { restrictToHorizontalAxis } from '@dnd-kit/modifiers';
+import {
+  arrayMove,
+  SortableContext,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
+
 import { isObject, debounce, last } from 'lodash';
 import {
   useCallback,
@@ -8,11 +31,11 @@ import {
   useRef,
   useState,
   useContext,
+  useLayoutEffect,
 } from 'react';
 import { jsonFetch } from '@/lib/fetch';
 import config from '@/lib/config';
 import clsx from 'clsx';
-import CopyToClipboard from 'react-copy-to-clipboard';
 import {
   Combobox,
   ComboboxInput,
@@ -20,7 +43,6 @@ import {
   ComboboxOptions,
 } from '@headlessui/react';
 
-import * as Tooltip from '@radix-ui/react-tooltip';
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -29,7 +51,7 @@ import {
   PlusIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
-import { PencilSquareIcon } from '@heroicons/react/24/outline';
+import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 import { successToast, errorToast } from '@/lib/toast';
 import {
@@ -41,6 +63,7 @@ import {
   Content,
   Dialog,
   Fence,
+  IconButton,
   SectionHeading,
   Select,
   TextInput,
@@ -48,9 +71,7 @@ import {
   useDialog,
 } from '@/components/ui';
 import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
-import { useIsOverflow } from '@/lib/hooks/useIsOverflow';
 import { useClickOutside } from '@/lib/hooks/useClickOutside';
-import { isTouchDevice } from '@/lib/config';
 import { useNamespacesQuery, SearchFilter } from '@/lib/hooks/explorer';
 import { TokenContext } from '@/lib/contexts';
 import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDialog';
@@ -58,6 +79,20 @@ import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
 import { formatBytes } from '@/lib/format';
 import { useRecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
+import { getTableWidthSize } from '@/lib/tableWidthSize';
+import { TableCell, TableHeader } from './TableComponents';
+import { ArrowRightFromLine } from 'lucide-react';
+import { useColumnVisibility } from '@/lib/hooks/useColumnVisibility';
+import { ViewSettings } from './ViewSettings';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
+
+export type TableColMeta = {
+  sortable?: boolean;
+  disablePadding: boolean;
+  isLink?: boolean;
+  attr: SchemaAttr;
+  copyable?: boolean;
+};
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -419,6 +454,9 @@ function SearchInput({
   );
 }
 
+// Tanstack table needs a "stable reference" to all data
+const fallbackItems: any[] = [];
+
 export function Explorer({
   db,
   appId,
@@ -461,9 +499,13 @@ export function Explorer({
     // don't call this directly, instead call `nav`
     _setNavStack,
   ] = useState<ExplorerNav[]>([]);
-  const [checkedIds, setCheckedIds] = useState<Record<string, true>>({});
+  const [checkedIds, setCheckedIds] = useState<Record<string, true | false>>(
+    {},
+  );
   const currentNav: ExplorerNav | undefined = navStack[navStack.length - 1];
   const showBackButton = navStack.length > 1;
+
+  const [localDates, setLocalDates] = useLocalStorage('localDates', false);
 
   function nav(s: ExplorerNav[], options?: { replaceHistory?: boolean }) {
     setIsNavigating(true);
@@ -690,12 +732,428 @@ export function Explorer({
     sortAsc,
   );
 
-  const allItems = itemsRes.data?.[selectedNamespace?.name ?? ''] ?? [];
+  const allItems =
+    itemsRes.data?.[selectedNamespace?.name ?? ''] ?? fallbackItems;
+
+  const tableItems = useMemo(() => {
+    return allItems;
+  }, [allItems]);
+
+  const tableRef = useRef<HTMLDivElement>(null);
+  const [leftShadowOpacity, setLeftShadowOpacity] = useState(0);
+  const [rightShadowOpacity, setRightShadowOpacity] = useState(1);
+
+  const [tableSmallerThanViewport, setTableSmallerThanViewport] =
+    useState(false);
+
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
+
+  // Handle scroll to update shadow opacity
+  useEffect(() => {
+    const tableElement = tableRef.current;
+    if (!tableElement) return;
+
+    const handleScroll = () => {
+      const tableWidth = table.getCenterTotalSize();
+      const viewportWidth = tableElement.clientWidth;
+
+      setTableSmallerThanViewport(tableWidth < viewportWidth - 5);
+
+      const { scrollLeft, scrollWidth, clientWidth } = tableElement;
+      const maxScroll = scrollWidth - clientWidth;
+      if (maxScroll <= 0) {
+        setLeftShadowOpacity(0);
+        setRightShadowOpacity(0);
+        return;
+      }
+      const leftOpacity = Math.min(scrollLeft / 30, 1);
+      setLeftShadowOpacity(leftOpacity);
+
+      const rightOpacity = Math.min((maxScroll - scrollLeft) / 30, 1);
+      setRightShadowOpacity(rightOpacity);
+    };
+
+    handleScroll();
+    tableElement.addEventListener('scroll', handleScroll);
+
+    const resizeObserver = new ResizeObserver(handleScroll);
+    resizeObserver.observe(tableElement);
+    const tableContent = tableElement.firstElementChild;
+    if (tableContent) {
+      resizeObserver.observe(tableContent);
+    }
+
+    window.addEventListener('resize', handleScroll);
+
+    return () => {
+      tableElement.removeEventListener('scroll', handleScroll);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, [selectedNamespace, tableItems]);
+
+  useLayoutEffect(() => {
+    if (selectedNamespace?.attrs) {
+      const possibleSavedOrder = localStorage.getItem(
+        `order-${selectedNamespace.id}-${appId}`,
+      );
+      if (possibleSavedOrder) {
+        const savedOrder = JSON.parse(possibleSavedOrder);
+        setColumnOrder(savedOrder);
+      } else {
+        const newOrder = selectedNamespace.attrs.map(
+          (attr) => attr.id + attr.name,
+        );
+        setColumnOrder(['select-col', ...newOrder]);
+      }
+    }
+  }, [selectedNamespace?.attrs]);
+
+  const columns = useMemo(() => {
+    const result: ColumnDef<any>[] = [];
+
+    result.push({
+      id: 'select-col',
+      enableSorting: false,
+      accessorFn: () => null,
+      enableHiding: false,
+      enableResizing: false,
+      size: 52,
+      header: ({ table }) => {
+        return (
+          <Checkbox
+            className="relative z-10 text-[#2563EB] dark:checked:border-[#2563EB] dark:checked:bg-[#2563EB]"
+            style={{
+              pointerEvents: 'auto',
+            }}
+            checked={table.getIsAllRowsSelected()}
+            onChange={(checked) => {
+              if (checked) {
+                table.toggleAllRowsSelected();
+                // Use the first item as the last selected ID
+                if (allItems.length > 0) {
+                  lastSelectedIdRef.current = allItems[0].id as string;
+                }
+              } else {
+                setCheckedIds({});
+                lastSelectedIdRef.current = null;
+              }
+            }}
+          />
+        );
+      },
+      cell: ({ row, column }) => {
+        return (
+          <div className="flex h-1 justify-around gap-2">
+            <Checkbox
+              className="relative z-10 text-[#2563EB] dark:checked:border-[#2563EB] dark:checked:bg-[#2563EB]"
+              checked={row.getIsSelected()}
+              onChange={(_, e) => {
+                const isShiftPressed = e.nativeEvent
+                  ? (e.nativeEvent as MouseEvent).shiftKey
+                  : false;
+
+                if (isShiftPressed && lastSelectedIdRef.current) {
+                  handleRangeSelection(row.id as string, e.target.checked);
+                } else {
+                  // Regular single click selection
+                  setCheckedIds((prev) => {
+                    const newCheckedIds = { ...prev };
+                    if (e.target.checked) {
+                      newCheckedIds[row.id] = true;
+                    } else {
+                      delete newCheckedIds[row.id];
+                    }
+                    return newCheckedIds;
+                  });
+                }
+
+                lastSelectedIdRef.current = column.id;
+              }}
+            />
+            {readOnlyNs ? null : (
+              <button
+                className="translate-y-[2px] opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={() => setEditableRowId(row.id)}
+              >
+                <PencilSquareIcon className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
+              </button>
+            )}
+          </div>
+        );
+      },
+    });
+
+    selectedNamespace?.attrs?.forEach((attr) => {
+      result.push({
+        id: attr.id + attr.name,
+        header: attr.name,
+        enableSorting: true,
+        enableResizing: true,
+        accessorFn: (row) => row[attr.name],
+        meta: {
+          sortable: attr.sortable || attr.name === 'id',
+          copyable: true,
+          isLink: attr.type === 'ref',
+          attr,
+          disablePadding: attr.namespace === '$files' && attr.name === 'url',
+        } satisfies TableColMeta,
+        cell: (info) => {
+          if (
+            info.row.original[attr.name] === null ||
+            info.row.original[attr.name] === undefined
+          ) {
+            return <div className="h-1">-</div>;
+          }
+          if (attr.type === 'ref') {
+            const linkCount = info.row.original[attr.name].length;
+            return (
+              <div
+                className={cn(
+                  'h-1 translate-y-[2px]',
+                  linkCount < 1 && 'opacity-50',
+                )}
+              >
+                {linkCount} link{linkCount === 1 ? '' : 's'}
+              </div>
+            );
+          }
+
+          if (attr.namespace === '$files') {
+            if (attr.name === 'url') {
+              return (
+                <a
+                  className="h-full w-full pl-2 align-middle text-xs font-bold underline hover:text-black dark:hover:text-white"
+                  href={info.row.original['url'] as string}
+                  target="_blank"
+                >
+                  View File
+                </a>
+              );
+            } else if (attr.name === 'size') {
+              return formatBytes(info.row.original[attr.name]);
+            }
+          }
+
+          if (attr.checkedDataType === 'boolean') {
+            return info.row.original[attr.name] ? 'true' : 'false';
+          }
+          if (attr.checkedDataType === 'date') {
+            const coerced = coerceToDate(info.row.original[attr.name]);
+
+            if (localDates) {
+              return coerced?.toLocaleString() || info.row.original[attr.name];
+            } else {
+              return info.row.original[attr.name];
+            }
+          }
+          if (isObject(info.row.original[attr.name])) {
+            return <Val data={info.row.original[attr.name]}></Val>;
+          }
+          return info.row.original[attr.name];
+        },
+      });
+    });
+
+    return result;
+  }, [selectedNamespace?.attrs, localDates]);
+
+  // update the column order
+
+  const columnResizeMode = 'onChange';
+  const columnResizeDirection = 'ltr';
+
+  const [columnOrder, setColumnOrder] = useState<string[]>(() =>
+    columns.map((c) => c.id!),
+  );
+
+  const colVisiblity = useColumnVisibility({
+    appId,
+    attrs: selectedNamespace?.attrs,
+    namespaceId: selectedNamespace?.id,
+  });
+
+  const table = useReactTable({
+    columnResizeDirection,
+    columnResizeMode,
+    onColumnVisibilityChange: colVisiblity.setVisibility,
+    columns: columns,
+    data: tableItems,
+    enableColumnResizing: true,
+    enableRowSelection: true,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.id,
+    onColumnOrderChange: setColumnOrder,
+    onRowSelectionChange: setCheckedIds,
+    onColumnSizingChange: setColumnSizing,
+    state: {
+      columnSizing: columnSizing,
+      columnOrder,
+      columnVisibility: colVisiblity.visibility,
+      rowSelection: checkedIds,
+    },
+  });
+
+  // reorder columns after drag & drop
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    // Prevent dragging the select column or dragging over it
+    if (
+      active &&
+      over &&
+      active.id !== over.id &&
+      active.id !== 'select-col' &&
+      over.id !== 'select-col'
+    ) {
+      setColumnOrder((columnOrder) => {
+        const oldIndex = columnOrder.indexOf(active.id as string);
+        const newIndex = columnOrder.indexOf(over.id as string);
+        return arrayMove(columnOrder, oldIndex, newIndex); //this is just a splice util
+      });
+    }
+  }
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, {}),
+    useSensor(TouchSensor, {}),
+    useSensor(KeyboardSensor, {}),
+  );
+
+  const transformAttrNameToWidth = (name: string) => {
+    if (name === 'id') {
+      return 140;
+    }
+    if (name === 'url') {
+      return 120;
+    }
+    return name.length * 7.2 + 50;
+  };
+
+  // evenly space width of columns on first render
+  useLayoutEffect(() => {
+    if (selectedNamespace?.id) {
+      if (localStorage.getItem(`$sizing-${selectedNamespace.id}-${appId}`)) {
+        const savedSizing = JSON.parse(
+          localStorage.getItem(`sizing-${selectedNamespace.id}-${appId}`) ||
+            '{}',
+        );
+        table.setColumnSizing((d) => {
+          return { ...savedSizing };
+        });
+        return;
+      }
+
+      const fullWidth = tableRef.current?.clientWidth || -1;
+      const result: Record<string, number> = {};
+
+      selectedNamespace?.attrs.forEach((attr) => {
+        result[attr.id + attr.name] = transformAttrNameToWidth(attr.name);
+      });
+
+      const totalWidth = Object.values(result).reduce(
+        (acc, width) => acc + width,
+        0,
+      );
+
+      // Distribute the remaining width equally
+      const remainingWidth = fullWidth - 52 - totalWidth;
+      if (remainingWidth > 0) {
+        const numColumns = Object.keys(result).length;
+        const extraWidth = remainingWidth / numColumns;
+
+        Object.keys(result).forEach((key) => {
+          result[key] += extraWidth;
+        });
+      }
+
+      table.setColumnSizing((d) => {
+        return { ...result };
+      });
+    }
+  }, [tableRef.current, selectedNamespace]);
+
+  useEffect(() => {
+    if (selectedNamespace?.id && Object.keys(columnSizing).length > 0) {
+      localStorage.setItem(
+        `sizing-${selectedNamespace.id}-${appId}`,
+        JSON.stringify(columnSizing),
+      );
+    }
+  }, [columnSizing, selectedNamespace?.id]);
+
+  useEffect(() => {
+    if (selectedNamespace?.id) {
+      localStorage.setItem(
+        `order-${selectedNamespace.id}-${appId}`,
+        JSON.stringify(columnOrder),
+      );
+    }
+  }, [columnOrder, selectedNamespace?.id]);
+
+  const distributeRemainingWidth = () => {
+    const result: Record<string, number> = table.getState().columnSizing;
+
+    const fullWidth = tableRef.current?.clientWidth || -1;
+
+    const totalWidth = Object.values(result).reduce(
+      (acc, width) => acc + width,
+      0,
+    );
+    const remainingWidth = fullWidth - 52 - totalWidth;
+
+    if (remainingWidth > 0) {
+      const numColumns = Object.keys(result).length;
+      const extraWidth = remainingWidth / numColumns;
+
+      Object.keys(result).forEach((key) => {
+        result[key] += extraWidth;
+      });
+    }
+    setTableSmallerThanViewport(false);
+    table.setColumnSizing(() => {
+      return { ...result };
+    });
+  };
+
+  const setMinViableColWidth = (columnId: string) => {
+    // for some reason the id column wants to resize bigger
+    if (table?.getColumn(columnId)?.columnDef.header === 'id') {
+      setColumnWidth(columnId, 285);
+      return;
+    }
+    const size = getTableWidthSize(columnId, 800);
+    setColumnWidth(columnId, size);
+  };
+
+  const setColumnWidth = (columnId: string, width = 200) => {
+    if (!selectedNamespace) {
+      return;
+    }
+    const result: Record<string, number> = {};
+    selectedNamespace?.attrs.forEach((attr) => {
+      result[attr.id + attr.name] =
+        table.getColumn(attr.id + attr.name)?.getSize() || 0;
+    });
+    table.setColumnSizing({
+      ...result,
+      [columnId]: width,
+    });
+  };
 
   const numPages = allCount ? Math.ceil(allCount / limit) : 1;
   const currentPage = offset / limit + 1;
 
   const userNamespaces = namespaces?.filter((x) => !x.name.startsWith('$'));
+
+  // keep track of last namespace the user was on (per app id)
+  useEffect(() => {
+    if (selectedNamespaceId && appId) {
+      // must make sure that the namespace is part of the namespace list
+      if (namespaces?.some((ns) => ns.id === selectedNamespaceId)) {
+        localStorage.setItem(`lastNamespace-${appId}`, selectedNamespaceId);
+      }
+    }
+  }, [selectedNamespaceId, appId]);
 
   // Handle initial load
   useEffect(() => {
@@ -711,7 +1169,12 @@ export function Explorer({
       const sortAttr = (router.query.sort as string) || 'serverCreatedAt';
       const sortAsc = router.query.sortDir !== 'desc';
 
-      const namespace = selectedNamespaceId || userNamespaces?.[0]?.id;
+      const storedLastNamespace = localStorage.getItem(
+        `lastNamespace-${appId}`,
+      );
+      let backupNamespace = storedLastNamespace || userNamespaces?.[0]?.id;
+
+      const namespace = selectedNamespaceId || backupNamespace;
 
       // Use _setNavStack directly to avoid triggering a router.push during initialization
       _setNavStack([
@@ -793,7 +1256,7 @@ export function Explorer({
   };
 
   const handleRangeSelection = (currentId: string, checked: boolean) => {
-    const allItemIds = allItems.map((i) => i.id as string);
+    const allItemIds = table.options.data.map((i) => i.id as string);
     const currentIndex = allItemIds.indexOf(currentId);
     const lastSelectedIndex = allItemIds.indexOf(lastSelectedIdRef.current!);
     const [start, end] = [
@@ -827,17 +1290,18 @@ export function Explorer({
 
             <Content>
               Deleting is an{' '}
-              <strong className="dark:text-neutral-500">
+              <strong className="dark:text-white">
                 irreversible operation
               </strong>{' '}
               and will{' '}
-              <strong className="dark:text-neutral-500">
+              <strong className="dark:text-white">
                 delete {numItemsSelected} {rowText}{' '}
               </strong>
               associated with{' '}
-              <strong className="dark:text-neutral-500">
+              <strong className="dark:text-white">
                 {selectedNamespace.name}
               </strong>
+              .
             </Content>
 
             <ActionButton
@@ -1008,8 +1472,8 @@ export function Explorer({
       {selectedNamespace && currentNav && allItems ? (
         <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-neutral-800">
           <div className="flex items-center overflow-hidden border-b dark:border-neutral-700">
-            <div className="flex flex-1 flex-col justify-between md:flex-row md:items-center">
-              <div className="flex items-center overflow-hidden border-b px-2 py-1 dark:border-neutral-700 md:border-b-0">
+            <div className="flex flex-1 flex-col justify-between py-2 md:flex-row md:items-center">
+              <div className="flex items-center overflow-hidden border-b px-2 py-1 pl-4 dark:border-neutral-700 md:border-b-0">
                 {showBackButton ? (
                   <ArrowLeftIcon
                     className="mr-4 inline cursor-pointer"
@@ -1253,224 +1717,131 @@ export function Explorer({
                 height="1rem"
               />
             </button>
+            {numItemsSelected > 0 && (
+              <div className="pl-4">
+                <Button
+                  onClick={() => {
+                    setDeleteDataConfirmationOpen(true);
+                  }}
+                  className="px-2"
+                  variant="destructive"
+                >
+                  <TrashIcon width={14} />
+                  Delete Selected Rows
+                </Button>
+              </div>
+            )}
+            <div className="grow" />
+            <div className="px-2">
+              <ViewSettings
+                localDates={localDates}
+                setLocalDates={setLocalDates}
+                visiblity={colVisiblity}
+              />
+            </div>
           </div>
-          <div className="relative flex flex-1 overflow-x-auto overflow-y-scroll dark:bg-neutral-900/50">
-            <table className="z-0 w-full flex-1 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400">
-              <thead className="sticky top-0 z-20 bg-white text-neutral-700 shadow dark:bg-[#303030] dark:text-neutral-300">
-                <tr>
-                  <th
-                    colSpan={selectedNamespace.attrs.length + 1}
-                    className={clsx(
-                      'absolute left-[48px] right-0 top-0 z-30 flex items-center gap-1.5 overflow-hidden bg-white px-4 py-2 dark:bg-[#2F2F2F]',
-                      {
-                        hidden: !numItemsSelected,
-                      },
-                    )}
-                  >
-                    <Button
-                      disabled={readOnlyNs}
-                      title={
-                        readOnlyNs
-                          ? `The ${selectedNamespace?.name} namespace is read-only.`
-                          : undefined
-                      }
-                      variant="destructive"
-                      size="mini"
-                      className="flex px-2 py-0 text-xs"
-                      onClick={() => {
-                        setDeleteDataConfirmationOpen(true);
-                      }}
-                    >
-                      Delete {rowText}
-                    </Button>
-                  </th>
-                </tr>
-                <tr>
-                  <th className="px-2 py-2" style={{ width: '48px' }}>
-                    <Checkbox
-                      checked={
-                        allItems.length > 0 &&
-                        numItemsSelected === allItems.length
-                      }
-                      onChange={(checked) => {
-                        if (checked) {
-                          setCheckedIds(
-                            Object.fromEntries(
-                              allItems.map((i) => [i.id, true]),
-                            ),
-                          );
-                          // Use the first item as the last selected ID
-                          if (allItems.length > 0) {
-                            lastSelectedIdRef.current = allItems[0]
-                              .id as string;
-                          }
-                        } else {
-                          setCheckedIds({});
-                          lastSelectedIdRef.current = null;
-                        }
-                      }}
-                    />
-                  </th>
-                  {selectedNamespace.attrs.map((attr) => (
-                    <th
-                      key={attr.name}
-                      className={clsx(
-                        'z-10 select-none whitespace-nowrap px-4 py-1',
-                        {
-                          'bg-neutral-200 dark:bg-neutral-700':
-                            // Only highlight if one of the columns was clicked,
-                            // not if we're just doing our default sort
-                            currentNav?.sortAttr &&
-                            (sortAttr === attr.name ||
-                              (sortAttr === 'serverCreatedAt' &&
-                                attr.name === 'id')),
-                          'cursor-pointer': attr.sortable || attr.name === 'id',
-                        },
-                        selectedNamespace.name === '$files' &&
-                          attr.name === 'url' &&
-                          'w-32',
-                      )}
-                      onClick={
-                        attr.sortable
-                          ? () => {
-                              replaceNavStackTop({
-                                sortAttr: attr.name,
-                                sortAsc:
-                                  sortAttr !== attr.name ? true : !sortAsc,
-                              });
-                            }
-                          : attr.name === 'id'
-                            ? () => {
-                                replaceNavStackTop({
-                                  sortAttr: 'serverCreatedAt',
-                                  sortAsc:
-                                    sortAttr !== 'serverCreatedAt'
-                                      ? true
-                                      : !sortAsc,
-                                });
-                              }
-                            : undefined
-                      }
-                    >
-                      <div className="flex items-center gap-2">
-                        {selectedNamespace.name === '$files' &&
-                        attr.name === 'url'
-                          ? ''
-                          : attr.name}
-                        {attr.sortable || attr.name === 'id' ? (
-                          <span>
-                            {sortAttr === attr.name ||
-                            (sortAttr === 'serverCreatedAt' &&
-                              attr.name === 'id') ? (
-                              sortAsc ? (
-                                '↑'
-                              ) : (
-                                '↓'
-                              )
-                            ) : (
-                              <span className="text-neutral-400">↓</span>
-                            )}
-                          </span>
-                        ) : null}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="font-mono">
-                {allItems.map((item) => (
-                  <tr
-                    key={item.id as string}
-                    className="group border-b bg-white dark:border-neutral-700 dark:bg-neutral-800"
-                  >
-                    <td
-                      className="flex items-center gap-2 px-2 py-2"
-                      style={{ width: '48px' }}
-                    >
-                      <Checkbox
-                        checked={checkedIds[item.id as string] ?? false}
-                        onChange={(checked, e) => {
-                          const isShiftPressed = e.nativeEvent
-                            ? (e.nativeEvent as MouseEvent).shiftKey
-                            : false;
 
-                          if (isShiftPressed && lastSelectedIdRef.current) {
-                            handleRangeSelection(item.id as string, checked);
-                          } else {
-                            // Regular single click selection
-                            setCheckedIds((prev) => {
-                              const newCheckedIds = { ...prev };
-                              if (checked) {
-                                newCheckedIds[item.id as string] = true;
-                              } else {
-                                delete newCheckedIds[item.id as string];
-                              }
-                              return newCheckedIds;
-                            });
-                          }
-
-                          // Updated last selected for proper range selection
-                          // in future operations
-                          lastSelectedIdRef.current = item.id as string;
-                        }}
-                      />
-                      {readOnlyNs ? null : (
-                        <button
-                          className="opacity-0 transition-opacity group-hover:opacity-100"
-                          onClick={() => setEditableRowId(item.id)}
+          <DndContext
+            collisionDetection={closestCenter}
+            modifiers={[restrictToHorizontalAxis]}
+            onDragEnd={handleDragEnd}
+            sensors={sensors}
+          >
+            <div className="relative flex-1 overflow-hidden bg-neutral-100 dark:bg-neutral-900/50">
+              {!tableSmallerThanViewport && (
+                <div
+                  className="absolute bottom-0 right-0 top-0 z-50 w-[30px] bg-gradient-to-l from-black/20 via-black/5 to-transparent transition-opacity duration-150"
+                  style={{
+                    pointerEvents: 'none',
+                    opacity: rightShadowOpacity,
+                    display: rightShadowOpacity == 0 ? 'none' : undefined,
+                  }}
+                />
+              )}
+              <div
+                className="absolute bottom-0 left-0 top-0 z-50 w-[30px] bg-gradient-to-r from-black/10 via-black/0 to-transparent transition-opacity duration-150"
+                style={{
+                  pointerEvents: 'none',
+                  opacity: leftShadowOpacity,
+                  display: leftShadowOpacity == 0 ? 'none' : undefined,
+                }}
+              />
+              <div ref={tableRef} className="flex h-full w-full overflow-auto">
+                <div
+                  style={{
+                    width: table.getCenterTotalSize(),
+                  }}
+                  className="z-0 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400"
+                >
+                  <div className="sticky top-0 z-10 border-b border-r bg-white text-neutral-700 shadow dark:border-b-neutral-600 dark:border-r-neutral-700 dark:bg-[#303030] dark:text-neutral-300">
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <div className={'flex w-full'} key={headerGroup.id}>
+                        <SortableContext
+                          items={columnOrder}
+                          strategy={horizontalListSortingStrategy}
                         >
-                          <PencilSquareIcon className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
-                        </button>
-                      )}
-                    </td>
-                    {selectedNamespace.attrs.map((attr) => (
-                      <td
-                        key={attr.name}
-                        className="relative px-4 py-1"
-                        style={{
-                          maxWidth:
-                            attr.name === 'id' || attr.type === 'ref'
-                              ? '40px'
-                              : '80px',
-                        }}
-                      >
-                        {selectedNamespace.name === '$files' &&
-                        attr.name === 'url' ? (
-                          <Button
-                            variant="secondary"
-                            size="mini"
-                            onClick={() => {
-                              window.open(item.url as string, '_blank');
-                            }}
-                          >
-                            View File
-                          </Button>
-                        ) : (
-                          <ExplorerItemVal
-                            item={item}
-                            attr={attr}
-                            onClickLink={() => {
-                              const linkConfigDir =
-                                attr.linkConfig[
-                                  !attr.isForward ? 'forward' : 'reverse'
-                                ];
-                              if (linkConfigDir) {
-                                pushNavStack({
-                                  namespace: linkConfigDir.namespace,
-                                  where: [`${linkConfigDir.attr}.id`, item.id],
+                          {headerGroup.headers.map((header, i) => (
+                            <TableHeader
+                              key={header.id}
+                              header={header}
+                              table={table}
+                              headerGroup={headerGroup}
+                              index={i}
+                              setMinViableColWidth={setMinViableColWidth}
+                              onSort={(attrName, currentAttr, currentAsc) => {
+                                replaceNavStackTop({
+                                  sortAttr: attrName,
+                                  sortAsc:
+                                    currentAttr !== attrName
+                                      ? true
+                                      : !currentAsc,
                                 });
-                              }
-                            }}
-                          />
-                        )}
-                      </td>
+                              }}
+                              currentSortAttr={currentNav?.sortAttr}
+                              currentSortAsc={currentNav?.sortAsc}
+                            />
+                          ))}
+                        </SortableContext>
+                      </div>
                     ))}
-                  </tr>
-                ))}
-                <tr className="h-full"></tr>
-              </tbody>
-            </table>
-          </div>
+                  </div>
+                  <div>
+                    {table.getRowModel().rows.map((row) => (
+                      <div
+                        className="group flex border-b border-r bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
+                        key={row.id}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <SortableContext
+                            key={cell.id}
+                            items={columnOrder}
+                            strategy={horizontalListSortingStrategy}
+                          >
+                            <TableCell
+                              pushNavStack={pushNavStack}
+                              key={cell.id}
+                              cell={cell}
+                            />
+                          </SortableContext>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {tableSmallerThanViewport && (
+                  <div className="sticky top-0">
+                    <IconButton
+                      className="opacity-60"
+                      labelDirection="bottom"
+                      label="Fill Width"
+                      icon={<ArrowRightFromLine />}
+                      onClick={distributeRemainingWidth}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </DndContext>
         </div>
       ) : userNamespaces?.length ? (
         <div className="px-4 py-2 text-sm italic text-neutral-500 dark:text-neutral-400">
@@ -1500,108 +1871,6 @@ export function Explorer({
       )}
     </div>
   );
-}
-
-function getExplorerItemVal(item: Record<string, any>, attr: SchemaAttr) {
-  if (attr.namespace === '$files' && attr.name === 'size') {
-    return formatBytes(item.size);
-  }
-
-  return (item as any)[attr.name];
-}
-
-function ExplorerItemVal({
-  item,
-  attr,
-  onClickLink,
-}: {
-  item: Record<string, any>;
-  attr: SchemaAttr;
-  onClickLink: () => void;
-}) {
-  const val = getExplorerItemVal(item, attr);
-
-  const [tipOpen, setTipOpen] = useState(false);
-  const [showCopy, setShowCopy] = useState(false);
-  const { ref: overflowRef, isOverflow } = useIsOverflow();
-  const shouldShowTooltip = isOverflow || isObject(val);
-
-  if (attr.type === 'ref') {
-    const linksLen = (item as any)[attr.name]?.length ?? 0;
-
-    if (!linksLen) {
-      return (
-        <div className="whitespace-nowrap px-2 text-neutral-400">0 links</div>
-      );
-    }
-
-    return (
-      <div
-        className="inline-block cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-        onClick={onClickLink}
-      >
-        {linksLen} link{linksLen === 1 ? '' : 's'}
-      </div>
-    );
-  } else if (val === null || val === undefined) {
-    return <div className="truncate text-neutral-400">-</div>;
-  } else {
-    return (
-      <Tooltip.Provider>
-        <Tooltip.Root
-          delayDuration={0}
-          {...(isTouchDevice ? { open: shouldShowTooltip && tipOpen } : {})}
-        >
-          <Tooltip.Trigger
-            asChild
-            onMouseEnter={() => {
-              setTipOpen(true);
-            }}
-            onMouseLeave={() => {
-              setTipOpen(false);
-            }}
-          >
-            <div className="truncate" ref={overflowRef}>
-              <CopyToClipboard text={formatVal(val, true)}>
-                <span
-                  className="cursor-pointer"
-                  onClick={() => {
-                    setShowCopy(true);
-                    setTimeout(() => {
-                      setShowCopy(false);
-                    }, 2500);
-                  }}
-                >
-                  <Val data={showCopy ? 'Copied!' : val} />
-                </span>
-              </CopyToClipboard>
-            </div>
-          </Tooltip.Trigger>
-          {shouldShowTooltip ? (
-            <Tooltip.Portal>
-              <Tooltip.Content
-                className="z-30"
-                sideOffset={10}
-                alignOffset={10}
-                collisionPadding={10}
-                side="bottom"
-                align="start"
-              >
-                <div
-                  className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-80 p-2 font-mono text-xs shadow-md backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
-                  style={{
-                    maxHeight: `var(--radix-popper-available-height)`,
-                  }}
-                >
-                  <Val data={val} pretty />
-                </div>
-              </Tooltip.Content>
-            </Tooltip.Portal>
-          ) : null}
-        </Tooltip.Root>
-      </Tooltip.Provider>
-    );
-  }
 }
 
 function formatVal(data: any, pretty?: boolean): string {

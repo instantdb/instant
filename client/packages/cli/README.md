@@ -30,6 +30,33 @@ npx instant-cli init
 
 Start by peeking at the [instant-cli docs](https://www.instantdb.com/docs/cli).
 
+# Contributing
+
+Here's how to set up a local development environment for instant-cli.
+
+## Quick Start
+
+```bash
+Clone this repo
+git clone ..
+
+# If you made any backend changes, run the server locally in a separate terminal
+cd server
+make dev
+
+# Add --filter instant-cli to the 'dev' script in client/package.json to include
+# instant-cli in the dev process
+"dev": "turbo run dev ... --filter instant-cli"
+
+# Now run the client to listen to cli changes
+cd client
+make dev
+
+# Now go into a place where you can test out the CLI in your terminal
+cd client/sandbox/cli-nodejs
+INSTANT_CLI_DEV=1 npx instant-cli ...
+```
+
 # Questions?
 
 If you have any questions, feel free to drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE)
