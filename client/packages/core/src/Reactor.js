@@ -947,6 +947,7 @@ export default class Reactor {
     if (hasListeners) return;
     delete this.queryCbs[hash];
     delete this.queryOnceDfds[hash];
+    delete this._dataForQueryCache[hash];
     this.querySubs.unloadKey(hash);
 
     this._trySendAuthed(uuid(), { op: 'remove-query', q });

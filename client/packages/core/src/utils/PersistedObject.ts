@@ -54,16 +54,11 @@ export type Opts = {
   idleCallbackMaxWaitMs?: number | null | undefined;
 };
 
-export class PersistedObject<
-  T extends Record<string, any>,
-  SerializedT extends Record<K, any>,
-  K extends keyof T & string = keyof T & string,
-> {
+export class PersistedObject<K extends string, T, SerializedT> {
   currentValue: Record<K, T>;
   private _subs = [];
   private _persister: Storage;
   private _onMerge: (key: K, fromStorage: T, inMemoryValue: T) => T;
-  private _loadedCbs: Record<K, Array<() => void>>;
   private serialize: (key: K, input: T) => SerializedT;
   private parse: (key: K, value: SerializedT) => T;
   private _saveThrottleMs: number;
@@ -121,7 +116,7 @@ export class PersistedObject<
     this._saveThrottleMs = opts.saveThrottleMs ?? 100;
     this._idleCallbackMaxWaitMs = opts.idleCallbackMaxWaitMs ?? 1000;
     this._gcOpts = opts.gc;
-    this.currentValue = {} as T;
+    this.currentValue = {} as Record<K, T>;
     this._loadedKeys = new Set();
     this._loadingKeys = {} as Record<K, Promise<T>>;
     this._initMeta();
@@ -336,24 +331,28 @@ export class PersistedObject<
       this._log.info('Could not gc because we were not able to load meta');
       return;
     }
+
+    const promises = [];
+
     const deets = {
       gcOpts: this._gcOpts,
       keys,
       sacredKeys,
       removed: [],
       metaRemoved: [],
-      removedMetaCount: 0,
       removedMissingCount: 0,
       removedOldCount: 0,
       removedThresholdCount: 0,
       removedSizeCount: 0,
     };
+
     for (const key of keys) {
       if (sacredKeys.has(key) || key in meta.objects) {
         continue;
       }
       this._log.info('Lost track of key in meta', key);
-      this._persister.removeItem(key);
+      // XXX: This will delete things we care about if we have multiple tabs open
+      promises.push(this._persister.removeItem(key));
       deets.removed.push(key);
       deets.removedMissingCount++;
     }
@@ -365,7 +364,7 @@ export class PersistedObject<
         !sacredKeys.has(k) &&
         (m as ObjectMeta).updatedAt < now - this._gcOpts.maxAgeMs
       ) {
-        this._persister.removeItem(k);
+        promises.push(this._persister.removeItem(k));
         delete meta.objects[k];
         deets.removed.push(k);
         deets.removedOldCount++;
@@ -373,36 +372,43 @@ export class PersistedObject<
     }
 
     // Keep queries under max queries
-    const entries = Object.entries(meta.objects) as Array<[K, ObjectMeta]>;
-    entries.sort(([_k_a, a_meta], [_k_b, b_meta]) => {
+    const maxEntries = Object.entries(meta.objects) as Array<[K, ObjectMeta]>;
+    maxEntries.sort(([_k_a, a_meta], [_k_b, b_meta]) => {
       return a_meta.updatedAt - b_meta.updatedAt;
     });
-    if (entries.length > this._gcOpts.maxEntries) {
-      for (const [k] of entries.slice(
+
+    const deletableMaxEntries = maxEntries.filter(([x]) => !sacredKeys.has(x));
+    if (maxEntries.length > this._gcOpts.maxEntries) {
+      for (const [k] of deletableMaxEntries.slice(
         0,
-        entries.length - this._gcOpts.maxEntries,
+        maxEntries.length - this._gcOpts.maxEntries,
       )) {
-        this._persister.removeItem(k);
+        promises.push(this._persister.removeItem(k));
         delete meta.objects[k];
         deets.removed.push(k);
         deets.removedThresholdCount++;
-        entries.splice(0, 1);
       }
     }
 
     // Remove oldest entries until we are under max size
-    let currentSize = entries.reduce((acc, [_k, m]) => {
+    const delEntries = Object.entries(meta.objects) as Array<[K, ObjectMeta]>;
+    delEntries.sort(([_k_a, a_meta], [_k_b, b_meta]) => {
+      return a_meta.updatedAt - b_meta.updatedAt;
+    });
+    const deletableDelEntries = delEntries.filter(([x]) => !sacredKeys.has(x));
+
+    let currentSize = delEntries.reduce((acc, [_k, m]) => {
       return acc + m.size;
     }, 0);
 
     while (
       currentSize > 0 &&
       currentSize > this._gcOpts.maxSize &&
-      entries.length
+      deletableDelEntries.length
     ) {
-      const [[k, m]] = entries.splice(0, 1);
+      const [[k, m]] = deletableDelEntries.splice(0, 1);
       currentSize -= m.size;
-      this._persister.removeItem(k);
+      promises.push(this._persister.removeItem(k));
       delete meta.objects[k];
       deets.removed.push(k);
       deets.removedSizeCount++;
@@ -417,26 +423,25 @@ export class PersistedObject<
 
     if (deets.removed.length || deets.metaRemoved.length) {
       // Trigger a flush of the meta
-      this._enqueuePersist({ skipGc: true });
+      promises.push(this._enqueuePersist({ skipGc: true }));
     }
 
     this._log.info('Completed GC', deets);
+
+    await Promise.all(promises);
+    return deets;
   }
 
   gc() {
     if (this._nextGc) {
       return;
     }
-    this._nextGc = setTimeout(
-      () => {
-        safeIdleCallback(() => {
-          this._nextGc = null;
-          this._gc();
-        }, 30 * 1000);
-      },
-
-      1000, // * 60
-    );
+    this._nextGc = setTimeout(() => {
+      safeIdleCallback(() => {
+        this._nextGc = null;
+        this._gc();
+      }, 30 * 1000);
+    }, 1000 * 60);
   }
 
   private _enqueuePersist(opts?: {
