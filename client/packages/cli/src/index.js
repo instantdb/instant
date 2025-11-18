@@ -560,6 +560,13 @@ async function handleInit(opts) {
 
 async function handleInitWithoutFiles(opts) {
   try {
+    const authToken = await readConfigAuthToken(false);
+    if (!authToken) {
+      throw new Error(
+        `Please log in first with 'instant-cli login' before running this command.`,
+      );
+    }
+
     if (!opts?.title) {
       throw new Error(
         'Title is required for creating a new app without local files.',
