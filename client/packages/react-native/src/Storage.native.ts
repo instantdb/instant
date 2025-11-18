@@ -31,7 +31,7 @@ export default class Storage implements StorageInterface {
 
   async multiSet(keyValuePairs: Array<[string, any]>): Promise<void> {
     await AsyncStorage.multiSet(
-      keyValuePairs.map(([k, v]) => [this.makeKey(k), v]),
+      keyValuePairs.map(([k, v]) => [this.makeKey(k), JSON.stringify(v)]),
     );
   }
 }
