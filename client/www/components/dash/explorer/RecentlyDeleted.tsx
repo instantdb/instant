@@ -14,6 +14,13 @@ import { useAuthToken } from '@/lib/auth';
 
 export type SoftDeletedAttr = Omit<DBAttr, 'metadata'> & {
   'deletion-marked-at': string;
+  metadata: {
+    soft_delete_snapshot: {
+      is_indexed: boolean;
+      is_required: boolean;
+      id_attr_id: string;
+    };
+  };
 };
 
 const deletedMarker = '_deleted$';
@@ -87,12 +94,16 @@ export const RecentlyDeletedAttrs: React.FC<{
     }
   };
 
+  const idAttrId = namespace.attrs.find((a) => a.name === 'id')?.id || 'unk';
+
   const filtered = data?.attrs
     ?.map((attr) => ({
       ...attr,
       names: getNamesByNamespace(attr),
     }))
-    .filter((attr) => Object.keys(attr.names).includes(namespace.name));
+    .filter(
+      (attr) => attr.metadata?.soft_delete_snapshot.id_attr_id === idAttrId,
+    );
 
   useEffect(() => {
     if (filtered?.length === 0) {
