@@ -751,7 +751,6 @@ export class SyncTable {
             changes,
             store,
           });
-          1;
           continue;
         }
         entities.push({

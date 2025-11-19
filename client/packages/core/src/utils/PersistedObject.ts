@@ -386,7 +386,6 @@ export class PersistedObject<K extends string, T, SerializedT> {
         continue;
       }
       this._log.info('Lost track of key in meta', key);
-      // XXX: This will delete things we care about if we have multiple tabs open
       promises.push(this._persister.removeItem(key));
       deets.removed.push(key);
       deets.removedMissingCount++;

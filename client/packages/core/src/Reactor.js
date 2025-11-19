@@ -150,6 +150,15 @@ function kvToStorage(key, x) {
   }
 }
 
+function onMergeQuerySub(_k, storageSub, inMemorySub) {
+  const storageResult = storageSub?.result;
+  const memoryResult = inMemorySub?.result;
+  if (storageResult && !memoryResult && inMemorySub) {
+    inMemorySub.result = storageResult;
+  }
+  return inMemorySub || storageSub;
+}
+
 function sortedMutationEntries(entries) {
   return [...entries].sort((a, b) => {
     const [ka, muta] = a;
@@ -366,7 +375,7 @@ export default class Reactor {
   _initStorage(Storage) {
     this.querySubs = new PersistedObject(
       new Storage(this.config.appId, 'querySubs'),
-      this._onMergeQuerySub,
+      onMergeQuerySub,
       querySubToStorage,
       (_key, x) => querySubFromStorage(x, this.config.useDateObjects),
       // objectSize
@@ -463,16 +472,6 @@ export default class Reactor {
     this.notifyConnectionStatusSubs(status);
   }
 
-  _onMergeQuerySub = (_k, storageSub, inMemorySub) => {
-    const storageResult = storageSub?.result;
-    const memoryResult = inMemorySub?.result;
-    if (storageResult && !memoryResult && inMemorySub) {
-      inMemorySub.result = storageResult;
-    }
-    return inMemorySub || storageSub;
-  };
-
-  // XXX: Move out of class
   _onMergeKv = (key, storageV, inMemoryV) => {
     switch (key) {
       case 'pendingMutations': {
@@ -490,8 +489,7 @@ export default class Reactor {
         return muts;
       }
       default:
-        // XXX: what should we do here??
-        return storageV || inMemoryV;
+        return inMemoryV || storageV;
     }
   };
 
@@ -755,8 +753,7 @@ export default class Reactor {
   }
 
   _pendingMutations() {
-    const ret = this.kv.currentValue.pendingMutations ?? new Map();
-    return ret;
+    return this.kv.currentValue.pendingMutations ?? new Map();
   }
 
   _updatePendingMutations(f) {
@@ -773,7 +770,7 @@ export default class Reactor {
    * @param {{message: string, type?: string, status?: number, hint?: unknown}} errorMsg
    */
   _handleMutationError(status, eventId, errorMsg) {
-    const mut = this.kv.currentValue.pendingMutations?.get(eventId);
+    const mut = this._pendingMutations().get(eventId);
 
     if (mut && (status !== 'timeout' || !mut['tx-id'])) {
       this._updatePendingMutations((prev) => {
@@ -1231,16 +1228,18 @@ export default class Reactor {
   /** Re-compute all subscriptions */
   notifyAll() {
     Object.keys(this.queryCbs).forEach((hash) => {
-      this.notifyOne(hash);
+      this.querySubs
+        .waitForKeyToLoad(hash)
+        .then(() => this.notifyOne(hash))
+        .catch(() => this.notifyOne(hash));
     });
   }
 
-  // XXX: This will have to be more targeted to just the hashes that have been loaded
   loadedNotifyAll() {
-    // XXX: How are we going to do the notification? Just put a hook on the pendingMutations load
-    // XXX: if (this.pendingMutations.isLoading() || this.querySubs.isLoading()) return;
-    // XXX: Just call loadedNotifyAll any time a key loads from the po2 for now
-    this.notifyAll();
+    this.kv
+      .waitForKeyToLoad('pendingMutations')
+      .then(() => this.notifyAll())
+      .catch(() => this.notifyAll());
   }
 
   /** Applies transactions locally and sends transact message to server */
@@ -1254,8 +1253,6 @@ export default class Reactor {
         {
           attrs: this.optimisticAttrs(),
           schema: this.config.schema,
-          // XXX: How are we going to do this?
-          // XXX: This should only look at currently active subs
           stores: Object.values(this.querySubs.currentValue).map(
             (sub) => sub?.result?.store,
           ),
@@ -1871,13 +1868,21 @@ export default class Reactor {
       this._currentUserCached = { isLoading: false, ...errorV };
       return errorV;
     }
-    const user = await this._getCurrentUser();
-    const userV = { user: user, error: undefined };
-    this._currentUserCached = {
-      isLoading: false,
-      ...userV,
-    };
-    return userV;
+    try {
+      const user = await this._getCurrentUser();
+      const userV = { user: user, error: undefined };
+      this._currentUserCached = {
+        isLoading: false,
+        ...userV,
+      };
+      return userV;
+    } catch (e) {
+      return {
+        user: undefined,
+        isLoading: false,
+        error: { message: e?.message || 'Error loading user' },
+      };
+    }
   }
 
   async _hasCurrentUser() {

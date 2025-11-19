@@ -73,7 +73,7 @@ async function upgradeQuerySubs5To6(
   });
 }
 
-async function moveKv5To6(
+async function moveKvEntry5To6(
   k: string,
   value: any,
   kvStore: IDBObjectStore,
@@ -85,18 +85,18 @@ async function moveKv5To6(
   });
 }
 
-async function upgrade5To6(appId: string, v5Tx: IDBTransaction): Promise<void> {
-  const v4db = await existingDb(`instant_${appId}_4`);
-  if (!v4db) {
+async function upgrade5To6(appId: string, v6Tx: IDBTransaction): Promise<void> {
+  const v5db = await existingDb(`instant_${appId}_5`);
+  if (!v5db) {
     return;
   }
 
-  const kvStore = v5Tx.objectStore('kv');
-  const querySubStore = v5Tx.objectStore('querySubs');
+  const kvStore = v6Tx.objectStore('kv');
+  const querySubStore = v6Tx.objectStore('querySubs');
 
   return new Promise((resolve, reject) => {
-    const v4Tx = v4db.transaction(['kv'], 'readwrite');
-    const objectStore = v4Tx.objectStore('kv');
+    const v5Tx = v5db.transaction(['kv'], 'readwrite');
+    const objectStore = v5Tx.objectStore('kv');
     const cursorReq = objectStore.openCursor();
     cursorReq.onerror = (event) => {
       reject(event);
@@ -114,7 +114,7 @@ async function upgrade5To6(appId: string, v5Tx: IDBTransaction): Promise<void> {
             break;
           }
           default: {
-            const p = moveKv5To6(key as string, value, kvStore);
+            const p = moveKvEntry5To6(key as string, value, kvStore);
             promises.push(p);
             break;
           }
@@ -169,7 +169,9 @@ export default class IndexedDBStorage implements Storage {
       }
     }
     const tx = target.transaction;
-    upgrade5To6(this._appId, tx);
+    upgrade5To6(this._appId, tx).catch(
+      logErrorCb('Error upgrading store from version 5 to 6.'),
+    );
   }
 
   async getItem(k: string): Promise<any> {

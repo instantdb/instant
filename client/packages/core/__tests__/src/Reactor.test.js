@@ -403,3 +403,71 @@ test("we don't cleanup mutations we're still waiting on", async () => {
 
   expect(remainingKeys).toStrictEqual([ev2]);
 });
+
+test('getLocalId always returns the same id', async () => {
+  const appId = uuid();
+
+  const idbs = new Map();
+
+  // Class that reuses the same underlying storage for indexeddb.
+  // This will make fake-indexeddb act more like the browser, otherwise
+  // we get a fresh in-memory store each time we call indexedDB.open
+  class IDBStorage {
+    constructor(appId, dbName) {
+      if (idbs.get(dbName)) {
+        return idbs.get(dbName);
+      }
+      const idb = new IndexedDBStorage(appId, dbName);
+      idbs.set(dbName, idb);
+      return idb;
+    }
+  }
+
+  const reactor = new Reactor({
+    appId,
+    pendingTxCleanupTimeout: 1,
+    pendingMutationCleanupThreshold: 0,
+  });
+
+  reactor._initStorage(IDBStorage);
+
+  const promises = [];
+
+  const ids = new Set();
+
+  for (const _ of [...new Array(1000)]) {
+    const p = reactor.getLocalId('id').then((id) => ids.add(id));
+    promises.push(p);
+  }
+
+  await Promise.all(promises);
+
+  expect(ids.size).toBe(1);
+  await reactor.querySubs.flush();
+
+  await reactor.kv.flush();
+
+  const reactor2 = new Reactor({
+    appId,
+    pendingTxCleanupTimeout: 1,
+    pendingMutationCleanupThreshold: 0,
+  });
+
+  async function idbSnapshot(idb, { includeMeta }) {
+    const keys = await idb.getAllKeys();
+    const res = {};
+    for (const key of keys) {
+      if (key === '__meta' && !includeMeta) {
+        continue;
+      }
+      res[key] = await idb.getItem(key);
+    }
+    return res;
+  }
+
+  reactor2._initStorage(IDBStorage);
+
+  const id = await reactor2.getLocalId('id');
+
+  expect(id).toStrictEqual([...ids][0]);
+});
