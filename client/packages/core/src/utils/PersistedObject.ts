@@ -72,7 +72,6 @@ export class PersistedObject<K extends string, T, SerializedT> {
   private _objectSize: (serializedObject: SerializedT) => number;
   private _log: Logger;
 
-  // Maybe this should be a generic onChange?
   onKeyLoaded: (key: string) => void | null | undefined;
   private _version = 0;
   private _meta: {
@@ -136,7 +135,16 @@ export class PersistedObject<K extends string, T, SerializedT> {
       const v = await p;
       this._meta.isLoading = false;
       this._meta.error = null;
-      this._meta.value = (v || { objects: {} }) as Meta<K>;
+      this._meta.loadingPromise = null;
+      this._meta.attempts = 0;
+      const existingObjects = this._meta.value?.objects ?? {};
+      const value = v ?? {};
+      const objects = value.objects ?? {};
+      // Merge the values from storage with in-memory values
+      this._meta.value = {
+        ...value,
+        objects: { ...existingObjects, ...objects },
+      } as Meta<K>;
     } catch (e) {
       this._meta.error = e;
       this._meta.attempts++;
@@ -154,6 +162,11 @@ export class PersistedObject<K extends string, T, SerializedT> {
     }
     this._initMeta();
     await this._meta.loadingPromise;
+    return this._meta.value;
+  }
+
+  private async _refreshMeta(): Promise<Meta<K>> {
+    await this._initMeta();
     return this._meta.value;
   }
 
@@ -333,7 +346,6 @@ export class PersistedObject<K extends string, T, SerializedT> {
   }
 
   private async _gc() {
-    // First, remove all keys we don't know about
     const keys = new Set(await this._persister.getAllKeys());
     keys.delete(META_KEY);
 
@@ -346,7 +358,9 @@ export class PersistedObject<K extends string, T, SerializedT> {
       sacredKeys.add(k);
     }
 
-    const meta = await this._getMeta();
+    // Refresh meta from the store so that we're less likely to
+    // clobber data from other tabs
+    const meta = await this._refreshMeta();
     if (!meta) {
       this._log.info('Could not gc because we were not able to load meta');
       return;
@@ -366,6 +380,7 @@ export class PersistedObject<K extends string, T, SerializedT> {
       removedSizeCount: 0,
     };
 
+    // First, remove all keys we don't know about
     for (const key of keys) {
       if (sacredKeys.has(key) || key in meta.objects) {
         continue;

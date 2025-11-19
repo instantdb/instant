@@ -560,13 +560,16 @@ export default class Reactor {
           this.config.useDateObjects,
         );
         this.querySubs.updateInPlace((prev) => {
+          if (!prev[hash]) {
+            this._log.error('Missing value in querySubs', { hash, q });
+            return;
+          }
           prev[hash].result = {
             store,
             pageInfo,
             aggregate,
             processedTxId: msg['processed-tx-id'],
           };
-          return prev;
         });
         this._cleanupPendingMutationsQueries();
         this.notifyOne(hash);
@@ -635,14 +638,16 @@ export default class Reactor {
           );
           const pageInfo = result?.[0]?.data?.['page-info'];
           const aggregate = result?.[0]?.data?.['aggregate'];
-          return { hash, store: newStore, pageInfo, aggregate };
+          return { q, hash, store: newStore, pageInfo, aggregate };
         });
 
-        updates.forEach(({ hash, store, pageInfo, aggregate }) => {
+        updates.forEach(({ hash, q, store, pageInfo, aggregate }) => {
           this.querySubs.updateInPlace((prev) => {
+            if (!prev[hash]) {
+              this._log.error('Missing value in querySubs', { hash, q });
+              return;
+            }
             prev[hash].result = { store, pageInfo, aggregate, processedTxId };
-            // XXX: remove return prev
-            return prev;
           });
         });
 

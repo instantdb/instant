@@ -323,7 +323,7 @@ test('PersistedObject garbage collects when we exceed max age', async () => {
     (_k, x) => x,
     (_k, x) => x,
     (v) => v,
-    console,
+    devNullLogger,
     {
       saveThrottleMs: 0,
       gc: {
@@ -344,9 +344,7 @@ test('PersistedObject garbage collects when we exceed max age', async () => {
     PO.updateInPlace((prev) => {
       prev[k] = i as number;
     });
-    console.time('Flush');
     await PO.flush();
-    console.timeEnd('Flush');
   }
 
   // @ts-expect-error: allow access to private fields for test
