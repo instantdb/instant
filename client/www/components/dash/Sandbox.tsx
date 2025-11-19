@@ -206,7 +206,7 @@ export function Sandbox({
       if (converted && converted !== fullContent) {
         model.setValue(converted);
       }
-    }, 10);
+    }, 0);
   };
 
   // Add the schema types for the app's schema for better typesense
@@ -840,7 +840,6 @@ export function Sandbox({
                             trySaveCurrent,
                           );
 
-                          // Try alternative paste handling
                           editor.onKeyDown((e) => {
                             if (
                               (e.ctrlKey || e.metaKey) &&

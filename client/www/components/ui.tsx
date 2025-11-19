@@ -1199,6 +1199,23 @@ export function JSONEditor(props: {
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
               props.onSave(editor.getValue()),
             );
+
+            // Handle JSON5 paste conversion
+            editor.onDidPaste(async () => {
+              const model = editor.getModel();
+              if (!model) return;
+
+              // Wait a tick for paste to complete
+              setTimeout(async () => {
+                const fullContent = model.getValue();
+                if (!fullContent.trim()) return;
+
+                const converted = await convertJSON5(fullContent);
+                if (converted && converted !== fullContent) {
+                  model.setValue(converted);
+                }
+              }, 0);
+            });
           }}
         />
       </div>
@@ -1408,6 +1425,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { useDarkMode } from './dash/DarkModeToggle';
 import { useId } from 'react';
 import useMonacoJSONSchema from '@/lib/hooks/useMonacoJsonSchema';
+import { convertJSON5 } from '@/lib/convertJSON5';
 
 function TooltipProvider({
   delayDuration = 100,
