@@ -474,12 +474,16 @@ export class PersistedObject<K extends string, T, SerializedT> {
     if (this._nextGc) {
       return;
     }
-    this._nextGc = setTimeout(() => {
-      safeIdleCallback(() => {
-        this._nextGc = null;
-        this._gc();
-      }, 30 * 1000);
-    }, 1000 * 60);
+    this._nextGc = setTimeout(
+      () => {
+        safeIdleCallback(() => {
+          this._nextGc = null;
+          this._gc();
+        }, 30 * 1000);
+      },
+      // 1 minute + some jitter to keep multiple tabs from running at same time
+      1000 * 60 + Math.random() * 500,
+    );
   }
 
   private _enqueuePersist(opts?: {
