@@ -57,6 +57,7 @@ import { successToast, errorToast } from '@/lib/toast';
 import {
   ActionButton,
   ActionForm,
+  Badge,
   Button,
   Checkbox,
   cn,
@@ -1501,12 +1502,16 @@ export function Explorer({
             </Button>
             {Object.keys(deletedNamespaces).length ? (
               <Button
-                className="mt-2"
+                className="mt-2 justify-start gap-2"
                 variant="subtle"
                 size="nano"
                 onClick={recentlyDeletedNsDialog.onOpen}
               >
-                {Object.keys(deletedNamespaces).length} Recently Deleted
+                <TrashIcon className="h-3.5 w-3.5" />
+                <span className="flex-1 text-left">Recently Deleted</span>
+                <Badge className="ml-auto bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300">
+                  {Object.keys(deletedNamespaces).length}
+                </Badge>
               </Button>
             ) : null}
           </>
