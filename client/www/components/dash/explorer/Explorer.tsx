@@ -2058,7 +2058,9 @@ function RecentlyDeletedNSDialog({
               );
             })
             .map((ns) => {
-              const daysLeft = calculateDaysLeft(ns.idAttr['deletion-marked-at']);
+              const daysLeft = calculateDaysLeft(
+                ns.idAttr['deletion-marked-at'],
+              );
 
               return (
                 <div
@@ -2070,11 +2072,18 @@ function RecentlyDeletedNSDialog({
                       {removeDeletedMarker(ns.idAttr['forward-identity'][1])}
                     </div>
                     <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                      Deleted {formatDeletionDate(ns.idAttr['deletion-marked-at'])} · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+                      Deleted{' '}
+                      {formatDeletionDate(ns.idAttr['deletion-marked-at'])} ·{' '}
+                      {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
                     </div>
                     {ns.remainingCols.length > 0 ? (
                       <div className="mt-1 truncate text-xs text-neutral-500 dark:text-neutral-400">
-                        Columns: {ns.remainingCols.map((attr) => removeDeletedMarker(attr['forward-identity'][2])).join(', ')}
+                        Columns:{' '}
+                        {ns.remainingCols
+                          .map((attr) =>
+                            removeDeletedMarker(attr['forward-identity'][2]),
+                          )
+                          .join(', ')}
                       </div>
                     ) : (
                       <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
