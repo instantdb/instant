@@ -5155,6 +5155,23 @@
                       "description" "I will delete this post later"}}
                    (set (get result "posts"))))))
 
+        (testing "Soft deleted attrs have metadata"
+          (is (= {[(str attr-posts-slug "_deleted$posts")
+                   (str attr-posts-slug  "_deleted$slug")]
+                  {"soft_delete_snapshot" {"is_indexed" false, "is_required" true,
+                                           "id_attr_id" (str attr-posts-id)}},
+
+                  [(str attr-posts-title "_deleted$posts")
+                   (str attr-posts-title "_deleted$title")]
+                  {"soft_delete_snapshot" {"is_indexed" false, "is_required" true,
+                                           "id_attr_id" (str attr-posts-id)}}}
+                 (->> (attr-model/get-soft-deleted-by-app-id (aurora/conn-pool :read) app-id)
+                      (map (fn [attr]
+                             [(vec (attr-model/fwd-ident-name attr))
+                              (:metadata attr)]))
+
+                      (into {})))))
+
         (testing "We can't create new triples for deleted attrs"
           (is (= ::ex/sql-raise
                  (::ex/type
@@ -5194,6 +5211,7 @@
                       [attr-posts-slug "new-slug"]
                       attr-posts-id
                       [attr-posts-slug "new-slug"]]]))))))
+
         (testing "We can create new objects without uniqueness errors"
           (permissioned-tx/transact!
            (make-ctx)
@@ -5286,6 +5304,84 @@
 
               (is (empty? (get-hard-deleted (-> (date-util/pst-now)
                                                 (.toInstant))))))))))))
+
+(deftest soft-delete-can-delete-full-ns
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-posts-id          :posts/id
+             attr-posts-title       :posts/title
+             attr-posts-slug        :posts/slug
+             attr-posts-description :posts/description}
+            (test-util/make-attrs
+             app-id
+             [[:posts/id :required? :unique? :index?]
+              [:posts/title :required?]
+              [:posts/slug :required? :unique?]
+              [:posts/description]])
+            p1       (random-uuid)
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple p1 attr-posts-id          (str p1)]
+          [:add-triple p1 attr-posts-title       "First Post"]
+          [:add-triple p1 attr-posts-slug        "first-post"]
+          [:add-triple p1 attr-posts-description "This is the first post"]])
+
+        (testing "We get back posts"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {}}))]
+            (is (= #{{"slug" "first-post",
+                      "title" "First Post",
+                      "description" "This is the first post",
+                      "id" (str p1)}}
+                   (set (get result "posts"))))))
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:delete-attr attr-posts-id]
+          [:delete-attr attr-posts-title]
+          [:delete-attr attr-posts-slug]
+          [:delete-attr attr-posts-description]])
+
+        (testing "Soft deleted attrs have metadata"
+          (is (= {[(str attr-posts-id "_deleted$posts")
+                   (str attr-posts-id  "_deleted$id")]
+                  {"soft_delete_snapshot" {"is_indexed" true, "is_required" true,
+                                           "id_attr_id" (str attr-posts-id)}},
+
+                  [(str attr-posts-slug "_deleted$posts")
+                   (str attr-posts-slug  "_deleted$slug")]
+                  {"soft_delete_snapshot" {"is_indexed" false, "is_required" true,
+                                           "id_attr_id" (str attr-posts-id)}},
+
+                  [(str attr-posts-title "_deleted$posts")
+                   (str attr-posts-title "_deleted$title")]
+                  {"soft_delete_snapshot" {"is_indexed" false, "is_required" true,
+                                           "id_attr_id" (str attr-posts-id)}}
+
+                  [(str attr-posts-description "_deleted$posts")
+                   (str attr-posts-description "_deleted$description")]
+                  {"soft_delete_snapshot" {"is_indexed" false, "is_required" false,
+                                           "id_attr_id" (str attr-posts-id)}}}
+                 (->> (attr-model/get-soft-deleted-by-app-id (aurora/conn-pool :read) app-id)
+                      (map (fn [attr]
+                             [(vec (attr-model/fwd-ident-name attr))
+                              (:metadata attr)]))
+
+                      (into {})))))))))
 
 (deftest soft-delete-refs
   (with-empty-app
