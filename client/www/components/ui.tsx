@@ -1210,11 +1210,11 @@ export function JSONEditor(props: {
                 const fullContent = model.getValue();
                 if (!fullContent.trim()) return;
 
-                const converted = await convertJSON5(fullContent);
-                if (converted && converted !== fullContent) {
-                  model.setValue(converted);
+                const converted = parsePermsJSON(fullContent);
+                if (converted.status === 'ok') {
+                  model.setValue(JSON.stringify(converted.value, null, 2));
                 }
-              }, 0);
+              }, 20);
             });
           }}
         />
@@ -1425,7 +1425,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { useDarkMode } from './dash/DarkModeToggle';
 import { useId } from 'react';
 import useMonacoJSONSchema from '@/lib/hooks/useMonacoJsonSchema';
-import { convertJSON5 } from '@/lib/convertJSON5';
+import { parsePermsJSON } from '@/lib/parsePermsJSON';
 
 function TooltipProvider({
   delayDuration = 100,

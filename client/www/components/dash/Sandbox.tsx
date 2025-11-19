@@ -49,7 +49,7 @@ import { Save } from 'lucide-react';
 import { infoToast } from '@/lib/toast';
 import { useSavedQueryState } from '@/lib/hooks/useSavedQueryState';
 import { addInstantLibs } from '@/lib/monaco';
-import { convertJSON5 } from '@/lib/convertJSON5';
+import { parsePermsJSON } from '@/lib/parsePermsJSON';
 import {
   apiSchemaToInstantSchemaDef,
   generateSchemaTypescriptFile,
@@ -201,12 +201,12 @@ export function Sandbox({
         return;
       }
 
-      const converted = await convertJSON5(fullContent);
+      const converted = parsePermsJSON(fullContent);
 
-      if (converted && converted !== fullContent) {
-        model.setValue(converted);
+      if (converted.status === 'ok') {
+        model.setValue(JSON.stringify(converted.value, null, 2));
       }
-    }, 0);
+    }, 20);
   };
 
   // Add the schema types for the app's schema for better typesense
@@ -455,19 +455,8 @@ export function Sandbox({
     if (useAppPerms) {
       rules = app.rules ?? undefined;
     } else if (!useAppPerms && permsValue) {
-      try {
-        rules = JsonParser.parse(permsValue, (key, value) => {
-          // rules.json permissions require that "true" and "false" be strings
-          if (value === true) {
-            return 'true';
-          } else if (value === false) {
-            return 'false';
-          } else {
-            return value;
-          }
-        });
-        setPermsValue(JSON.stringify(rules, null, 2));
-      } catch (error) {
+      const parseResult = parsePermsJSON(permsValue);
+      if (parseResult.status === 'error') {
         out('error', {
           message:
             'Oops! The permission rules you wrote did not parse as valid JSON.' +
@@ -477,6 +466,8 @@ export function Sandbox({
         fin();
         return;
       }
+      rules = parseResult.value;
+      setPermsValue(JSON.stringify(parseResult.value, null, 2));
     }
 
     const _console = {
@@ -839,15 +830,6 @@ export function Sandbox({
                             monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
                             trySaveCurrent,
                           );
-
-                          editor.onKeyDown((e) => {
-                            if (
-                              (e.ctrlKey || e.metaKey) &&
-                              e.keyCode === monaco.KeyCode.KeyV
-                            ) {
-                              console.log('Ctrl+V detected!');
-                            }
-                          });
 
                           let lastContent = '';
 
