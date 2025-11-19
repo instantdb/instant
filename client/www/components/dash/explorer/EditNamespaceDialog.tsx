@@ -99,6 +99,10 @@ export function EditNamespaceDialog({
   async function deleteNs() {
     const ops = namespace.attrs.map((attr) => ['delete-attr', attr.id]);
     await db.core._reactor.pushOps(ops);
+    // update the recently deleted attr cache
+    setTimeout(() => {
+      mutate(['recently-deleted', appId]);
+    }, 500);
     onClose({ ok: true });
   }
 
@@ -1690,8 +1694,8 @@ function EditAttrForm({
   }
 
   async function deleteAttr() {
-    // update the recently deleted attr cache
     await db._core._reactor.pushOps([['delete-attr', attr.id]]);
+    // update the recently deleted attr cache
     setTimeout(() => {
       mutate(['recently-deleted', appId]);
     }, 500);

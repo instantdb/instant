@@ -502,7 +502,6 @@ export function Explorer({
       const cols = attrs.filter(
         (x) => x.metadata.soft_delete_snapshot.id_attr_id === a.id,
       );
-      debugger;
 
       // This feels like a really convoluted structure.
       return { idAttr: a, remainingCols: cols.filter((c) => a.id !== c.id) };
