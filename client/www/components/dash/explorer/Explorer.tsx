@@ -98,6 +98,7 @@ import {
   SoftDeletedAttr,
   useRecentlyDeletedAttrs,
 } from './RecentlyDeleted';
+import addDays from 'date-fns/addDays';
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -1452,6 +1453,8 @@ export function Explorer({
           namespaces={deletedNamespaces}
           onRestore={restoreNamespace}
           onClose={recentlyDeletedNsDialog.onClose}
+          // Hmm why default? I _think_ this should only exist when we have data
+          gracePeriodDays={data?.['grace-period-days'] || 2}
         />
       </Dialog>
       <div
@@ -2006,6 +2009,7 @@ function RecentlyDeletedNSDialog({
   namespaces,
   onClose,
   onRestore,
+  gracePeriodDays,
 }: {
   // Maybe later: we can have this as some explicit type
   namespaces: {
@@ -2017,6 +2021,7 @@ function RecentlyDeletedNSDialog({
     idAttr: SoftDeletedAttr;
     remainingCols: SoftDeletedAttr[];
   }) => void;
+  gracePeriodDays: number;
 }) {
   return (
     <ActionForm className="flex min-w-[320px] flex-col gap-4">
@@ -2046,6 +2051,13 @@ function RecentlyDeletedNSDialog({
                       Deleted on{' '}
                       {new Date(
                         ns.idAttr['deletion-marked-at'],
+                      ).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Scheduled to delete{' '}
+                      {addDays(
+                        new Date(ns.idAttr['deletion-marked-at']),
+                        gracePeriodDays,
                       ).toLocaleString()}
                     </div>
                   </div>
