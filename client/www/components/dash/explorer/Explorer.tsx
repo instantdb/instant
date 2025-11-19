@@ -103,6 +103,8 @@ import {
   useRecentlyDeletedAttrs,
 } from './RecentlyDeleted';
 import addDays from 'date-fns/addDays';
+import format from 'date-fns/format';
+import differenceInDays from 'date-fns/differenceInDays';
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -2030,13 +2032,24 @@ function RecentlyDeletedNSDialog({
   }) => void;
   gracePeriodDays: number;
 }) {
+  const formatDeletionDate = (deletionDate: string) => {
+    const deleted = new Date(deletionDate);
+    return format(deleted, 'MMM d, h:mm a');
+  };
+
+  const calculateDaysLeft = (deletionDate: string) => {
+    const deleteBy = addDays(new Date(deletionDate), gracePeriodDays);
+    const daysLeft = differenceInDays(deleteBy, new Date());
+    return daysLeft;
+  };
+
   return (
-    <ActionForm className="flex min-w-[320px] flex-col gap-4">
+    <ActionForm className="flex max-w-2xl flex-col gap-4">
       <h5 className="flex items-center gap-2 text-lg font-bold">
-        Recently deleted namespaces
+        Recently Deleted
       </h5>
       {namespaces.length ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           {namespaces
             .toSorted((a, b) => {
               return (
@@ -2044,50 +2057,44 @@ function RecentlyDeletedNSDialog({
                 +new Date(a.idAttr['deletion-marked-at'])
               );
             })
-            .map((ns) => (
-              <div
-                key={ns.idAttr.id}
-                className="rounded border px-3 py-2 dark:border-neutral-700"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold">
+            .map((ns) => {
+              const daysLeft = calculateDaysLeft(ns.idAttr['deletion-marked-at']);
+
+              return (
+                <div
+                  key={ns.idAttr.id}
+                  className="flex items-start justify-between gap-4 border-b py-3 last:border-b-0 dark:border-neutral-700"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold dark:text-white">
                       {removeDeletedMarker(ns.idAttr['forward-identity'][1])}
                     </div>
-                    <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                      Deleted on{' '}
-                      {new Date(
-                        ns.idAttr['deletion-marked-at'],
-                      ).toLocaleString()}
+                    <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                      Deleted {formatDeletionDate(ns.idAttr['deletion-marked-at'])} · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
                     </div>
-                    <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                      Scheduled to delete{' '}
-                      {addDays(
-                        new Date(ns.idAttr['deletion-marked-at']),
-                        gracePeriodDays,
-                      ).toLocaleString()}
-                    </div>
+                    {ns.remainingCols.length > 0 ? (
+                      <div className="mt-1 truncate text-xs text-neutral-500 dark:text-neutral-400">
+                        Columns: {ns.remainingCols.map((attr) => removeDeletedMarker(attr['forward-identity'][2])).join(', ')}
+                      </div>
+                    ) : (
+                      <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                        No columns
+                      </div>
+                    )}
                   </div>
-                  <Button
-                    size="mini"
-                    variant="secondary"
-                    onClick={() => onRestore(ns)}
-                  >
-                    Restore
-                  </Button>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1 text-xs text-neutral-500 dark:text-neutral-400">
-                  {ns.remainingCols.map((attr, index) => (
-                    <span
-                      key={attr['forward-identity'][2]}
-                      className="rounded bg-neutral-100 px-1 py-0.5 dark:bg-neutral-700 dark:text-neutral-200"
+                  <div className="flex flex-shrink-0 items-center">
+                    <Button
+                      size="mini"
+                      variant="secondary"
+                      onClick={() => onRestore(ns)}
                     >
-                      {removeDeletedMarker(attr['forward-identity'][2])}
-                    </span>
-                  ))}
+                      <ArrowPathIcon className="h-3.5 w-3.5" />
+                      Restore
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
         </div>
       ) : (
         <Content className="text-sm text-neutral-500 dark:text-neutral-400">
