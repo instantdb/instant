@@ -51,13 +51,16 @@ import {
   PlusIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
-import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowPathIcon,
+  PencilSquareIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
 
 import { successToast, errorToast } from '@/lib/toast';
 import {
   ActionButton,
   ActionForm,
-  Badge,
   Button,
   Checkbox,
   cn,
@@ -1502,16 +1505,15 @@ export function Explorer({
             </Button>
             {Object.keys(deletedNamespaces).length ? (
               <Button
-                className="mt-2 justify-start gap-2"
+                className="justify-start gap-2 rounded p-2"
                 variant="subtle"
                 size="nano"
                 onClick={recentlyDeletedNsDialog.onOpen}
               >
-                <TrashIcon className="h-3.5 w-3.5" />
-                <span className="flex-1 text-left">Recently Deleted</span>
-                <Badge className="ml-auto bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300">
+                <span className="rounded bg-gray-200 px-1">
                   {Object.keys(deletedNamespaces).length}
-                </Badge>
+                </span>
+                <span>Recently Deleted</span>
               </Button>
             ) : null}
           </>
