@@ -30,8 +30,15 @@ export default class Storage extends StorageInterface {
   }
 
   async getAllKeys(): Promise<string[]> {
-    const keys = await AsyncStorage.getAllKeys();
-    return keys.filter((k) => k.startsWith(this.makeKey('')));
+    const allKeys = await AsyncStorage.getAllKeys();
+    const keys = [];
+    const keyPrefix = this.makeKey('');
+    for (const key of allKeys) {
+      if (key.startsWith(keyPrefix)) {
+        keys.push(key.substring(keyPrefix.length));
+      }
+    }
+    return keys;
   }
 
   async multiSet(keyValuePairs: Array<[string, any]>): Promise<void> {

@@ -94,48 +94,69 @@ async function moveKvEntry5To6(
   });
 }
 
-async function upgrade5To6(appId: string, v6Tx: IDBTransaction): Promise<void> {
+async function upgrade5To6(appId: string, v6Db: IDBDatabase): Promise<void> {
   const v5db = await existingDb(`instant_${appId}_5`);
   if (!v5db) {
     return;
   }
 
-  const kvStore = v6Tx.objectStore('kv');
-  const querySubStore = v6Tx.objectStore('querySubs');
-
-  return new Promise((resolve, reject) => {
-    const v5Tx = v5db.transaction(['kv'], 'readwrite');
+  const data: Array<[string, any]> = await new Promise((resolve, reject) => {
+    const v5Tx = v5db.transaction(['kv'], 'readonly');
     const objectStore = v5Tx.objectStore('kv');
     const cursorReq = objectStore.openCursor();
     cursorReq.onerror = (event) => {
       reject(event);
     };
-    const promises = [];
+    const data: Array<[string, any]> = [];
     cursorReq.onsuccess = () => {
       const cursor = cursorReq.result;
       if (cursor) {
-        const key = cursor.key;
+        const key = cursor.key as string;
         const value = cursor.value;
-        switch (key) {
-          case 'querySubs': {
-            const p = upgradeQuerySubs5To6(key, value, querySubStore);
-            promises.push(p);
-            break;
-          }
-          default: {
-            const p = moveKvEntry5To6(key as string, value, kvStore);
-            promises.push(p);
-            break;
-          }
-        }
+        data.push([key, value]);
+        cursor.continue();
       } else {
-        Promise.all(promises)
-          .then(() => resolve())
-          .catch(reject);
+        resolve(data);
       }
     };
+    cursorReq.onerror = (event) => {
+      reject(event);
+    };
+  });
+
+  const v6Tx = v6Db.transaction(['kv', 'querySubs'], 'readwrite');
+
+  const kvStore = v6Tx.objectStore('kv');
+  const querySubStore = v6Tx.objectStore('querySubs');
+
+  const promises = [];
+  for (const [key, value] of data) {
+    switch (key) {
+      case 'querySubs': {
+        const p = upgradeQuerySubs5To6(key, value, querySubStore);
+        promises.push(p);
+        break;
+      }
+      default: {
+        const p = moveKvEntry5To6(key as string, value, kvStore);
+        promises.push(p);
+        break;
+      }
+    }
+  }
+  await Promise.all(promises);
+  await new Promise((resolve, reject) => {
+    v6Tx.oncomplete = (e) => resolve(e);
+    v6Tx.onerror = (e) => reject(e);
+    v6Tx.onabort = (e) => reject(e);
   });
 }
+
+// We create many IndexedDBStorage instances that talk to the same
+// underlying db, but we only get one `onupgradeneeded` event. This holds
+// the upgrade promises so that we wait until upgrade finishes before
+// we start writing.
+const upgradePromises = new Map();
 
 export default class IndexedDBStorage extends StorageInterface {
   dbName: string;
@@ -154,6 +175,7 @@ export default class IndexedDBStorage extends StorageInterface {
 
   _init(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
+      let requiresUpgrade = false;
       const request = indexedDB.open(this.dbName, 1);
 
       request.onerror = (event) => {
@@ -163,10 +185,26 @@ export default class IndexedDBStorage extends StorageInterface {
       request.onsuccess = (event) => {
         const target = event.target as IDBOpenDBRequest;
         const db = target.result;
-        resolve(db);
+        if (!requiresUpgrade) {
+          const p = upgradePromises.get(this.dbName);
+          if (!p) {
+            resolve(db);
+          } else {
+            p.then(() => resolve(db)).catch(() => resolve(db));
+          }
+        } else {
+          const p = upgrade5To6(this._appId, db).catch((e) => {
+            logErrorCb('Error upgrading store from version 5 to 6.')(e);
+          });
+          upgradePromises.set(this.dbName, p);
+          p.then(() => resolve(db)).catch(() => resolve(db));
+        }
       };
 
-      request.onupgradeneeded = (event) => this._upgradeStore(event);
+      request.onupgradeneeded = (event) => {
+        requiresUpgrade = true;
+        this._upgradeStore(event);
+      };
     });
   }
 
@@ -178,10 +216,6 @@ export default class IndexedDBStorage extends StorageInterface {
         db.createObjectStore(storeName);
       }
     }
-    const tx = target.transaction;
-    upgrade5To6(this._appId, tx).catch(
-      logErrorCb('Error upgrading store from version 5 to 6.'),
-    );
   }
 
   async getItem(k: string): Promise<any> {

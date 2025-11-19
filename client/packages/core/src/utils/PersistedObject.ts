@@ -469,6 +469,7 @@ export class PersistedObject<K extends string, T, SerializedT> {
     return deets;
   }
 
+  // Schedules a GC to run in one minute (unless it is already scheduled)
   gc() {
     if (this._nextGc) {
       return;
