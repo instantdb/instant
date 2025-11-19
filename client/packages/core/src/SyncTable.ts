@@ -614,10 +614,11 @@ export class SyncTable {
       batch.push(entity);
     }
 
-    sub.updatedAt = Date.now();
-
     this.subs.updateInPlace((prev) => {
       prev[hash] = sub;
+      // Make sure we write a field or mutative won't
+      // see the change because sub === prev[hash]
+      prev[hash].updatedAt = Date.now();
     });
 
     if (sub.values) {
@@ -776,10 +777,12 @@ export class SyncTable {
         removed,
         updated,
       });
-      sub.updatedAt = Date.now();
     }
     this.subs.updateInPlace((prev) => {
       prev[hash] = sub;
+      // Make sure we write a field or mutative won't
+      // see the change because sub === prev[hash]
+      prev[hash].updatedAt = Date.now();
     });
   }
 
