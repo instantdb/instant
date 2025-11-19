@@ -31,7 +31,7 @@ export default class Storage extends StorageInterface {
 
   async getAllKeys(): Promise<string[]> {
     const keys = await AsyncStorage.getAllKeys();
-    return keys.filter((k) => k.startsWith(`${this.dbName}_`));
+    return keys.filter((k) => k.startsWith(this.makeKey('')));
   }
 
   async multiSet(keyValuePairs: Array<[string, any]>): Promise<void> {
