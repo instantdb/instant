@@ -213,7 +213,7 @@ function registerTools(server: McpServer) {
       Push permission changes by using the instant-cli tool:
 
       \`\`\`
-      npx instant-cli pull schema --app ${appId} --token ${adminToken} --yes
+      npx instant-cli push schema --app ${appId} --token ${adminToken} --yes
       \`\`\`
 
       We supply the --yes flag to skip confirmation prompts.
