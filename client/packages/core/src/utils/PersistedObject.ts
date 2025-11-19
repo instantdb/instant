@@ -171,6 +171,9 @@ export class PersistedObject<K extends string, T, SerializedT> {
   private async _getFromStorage(key: K) {
     try {
       const data = await this._persister.getItem(key);
+      if (!data) {
+        return data;
+      }
       const parsed = this.parse(key, data as SerializedT);
       return parsed;
     } catch (e) {
@@ -208,9 +211,11 @@ export class PersistedObject<K extends string, T, SerializedT> {
     delete this._loadingKeys[k];
     this._loadedKeys.add(k);
 
-    const merged = this._onMerge(k, value, this.currentValue[k]);
-    if (merged) {
-      this.currentValue[k] = merged;
+    if (value) {
+      const merged = this._onMerge(k, value, this.currentValue[k]);
+      if (merged) {
+        this.currentValue[k] = merged;
+      }
     }
     this.onKeyLoaded && this.onKeyLoaded(k);
   }

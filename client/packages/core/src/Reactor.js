@@ -288,7 +288,7 @@ export default class Reactor {
 
     this._syncTable = new SyncTable(
       this._trySendAuthed.bind(this),
-      this._persister,
+      new Storage(this.config.appId, 'syncSubs'),
       {
         useDateObjects: this.config.useDateObjects,
       },
@@ -378,14 +378,13 @@ export default class Reactor {
           maxAgeMs: 1000 * 60 * 60 * 24 * 7 * 52, // 1 year
           maxEntries: 1000,
           // Size of each query is the number of triples
-          maxSize: 1_000_000, // XXX: ?? good number?
+          maxSize: 1_000_000, // 1 million triples
         },
       },
     );
     this.querySubs.onKeyLoaded = (k) => this._onQuerySubLoaded(k);
     this.kv = new PersistedObject(
       new Storage(this.config.appId, 'kv'),
-      // XXX: Needs to be onmergekv
       this._onMergeKv,
       kvToStorage,
       kvFromStorage,

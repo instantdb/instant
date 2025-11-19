@@ -1,6 +1,6 @@
 import type { Storage } from './utils/PersistedObject.ts';
 
-type StoreName = 'kv' | 'querySubs';
+type StoreName = 'kv' | 'querySubs' | 'syncSubs';
 
 // Any time these are updates to the data format or new stores are added,
 // the version must be updated.
@@ -11,7 +11,7 @@ type StoreName = 'kv' | 'querySubs';
 // to roll back and if multiple tabs are active, then you'll just
 // be stuck.
 const version = 6;
-const storeNames = ['kv', 'querySubs'];
+const storeNames = ['kv', 'querySubs', 'syncSubs'];
 
 function logErrorCb(source: string) {
   return function logError(event) {
