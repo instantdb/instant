@@ -59,7 +59,7 @@ import {
   useEditBlobConstraints,
 } from '@/lib/hooks/useEditBlobConstraints';
 import { mutate } from 'swr';
-import { RecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
+import { RecentlyDeletedAttrs } from './RecentlyDeleted';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 import { createRenameNamespaceOps } from '@/lib/renames';
 
