@@ -15,7 +15,6 @@ function Main() {
   useEffect(() => {
     const unsub = db.core._reactor.kv.subscribe((v: any) => {
       const copy = new Map(v.pendingMutations);
-      console.log('copy', copy);
       setPendingTxs(copy);
     });
     return unsub;

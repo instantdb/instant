@@ -509,6 +509,9 @@ export class PersistedObject<K extends string, T, SerializedT> {
     return this._version;
   }
 
+  // Takes a function that updates the store in place.
+  // Uses `mutative` to get a list of keys that were changed
+  // so that we know which entries we need to persist to the store.
   public updateInPlace(f: (prev: Record<string, T>) => void) {
     this._version++;
     const [state, patches] = create(this.currentValue, f, {
