@@ -78,7 +78,6 @@ import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDia
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
 import { formatBytes } from '@/lib/format';
-import { useRecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
 import { getTableWidthSize } from '@/lib/tableWidthSize';
 import { TableCell, TableHeader } from './TableComponents';
 import { ArrowRightFromLine } from 'lucide-react';
@@ -93,6 +92,12 @@ export type TableColMeta = {
   attr: SchemaAttr;
   copyable?: boolean;
 };
+
+import {
+  removeDeletedMarker,
+  SoftDeletedAttr,
+  useRecentlyDeletedAttrs,
+} from './RecentlyDeleted';
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -483,6 +488,28 @@ export function Explorer({
   const [searchFilters, setSearchFilters] = useState<SearchFilter[]>([]);
   const [ignoreUrlChanges, setIgnoreUrlChanges] = useState(false);
 
+  const { data } = useRecentlyDeletedAttrs(appId);
+  const recentlyDeletedNsDialog = useDialog();
+
+  // TODO: I should push this into `RecentlyDeleted`
+  const deletedNamespaces = useMemo(() => {
+    const attrs = data?.attrs || [];
+    const idAttrs = attrs.filter((a) => {
+      // TODO: It's annoying that I have to remove the deletion marker. Would be nicer if this was done upstream.
+      return removeDeletedMarker(a['forward-identity'][2]) === 'id';
+    });
+    const mapping = idAttrs.map((a) => {
+      const cols = attrs.filter(
+        (x) => x.metadata.soft_delete_snapshot.id_attr_id === a.id,
+      );
+      debugger;
+
+      // This feels like a really convoluted structure.
+      return { idAttr: a, remainingCols: cols.filter((c) => a.id !== c.id) };
+    });
+    return mapping;
+  }, [data?.attrs]);
+
   // nav
   const router = useRouter();
   const selectedNamespaceId = router.query.ns as string;
@@ -704,9 +731,6 @@ export function Explorer({
 
   // auth
   const token = useContext(TokenContext);
-
-  // pre-fetch recently deleted attrs before user opens the edit schema modal
-  useRecentlyDeletedAttrs(appId);
 
   const isSystemCatalogNs = selectedNamespace?.name?.startsWith('$') ?? false;
   const sanitizedNsName = selectedNamespace?.name ?? '';
@@ -1403,7 +1427,13 @@ export function Explorer({
           }}
         />
       </Dialog>
-
+      <Dialog {...recentlyDeletedNsDialog}>
+        <RecentlyDeletedNSDialog
+          namespaces={deletedNamespaces}
+          onRestore={() => {}}
+          onClose={recentlyDeletedNsDialog.onClose}
+        />
+      </Dialog>
       <div
         ref={nsRef}
         className={clsx(
@@ -1446,6 +1476,16 @@ export function Explorer({
             >
               <PlusIcon height="1rem" /> Create
             </Button>
+            {Object.keys(deletedNamespaces).length ? (
+              <Button
+                className="mt-2"
+                variant="subtle"
+                size="nano"
+                onClick={recentlyDeletedNsDialog.onOpen}
+              >
+                {Object.keys(deletedNamespaces).length} Recently Deleted
+              </Button>
+            ) : null}
           </>
         ) : (
           <div className="animate-slow-pulse flex w-full flex-col gap-2">
@@ -1936,6 +1976,91 @@ function NewNamespaceDialog({
         disabled={!name}
         onClick={onSubmit}
       />
+    </ActionForm>
+  );
+}
+
+// TODO: should this live here, or should I just move everything to the `RecentlyDeleted` file?
+
+function RecentlyDeletedNSDialog({
+  namespaces,
+  onClose,
+  onRestore,
+}: {
+  // Maybe later: we can have this as some explicit type
+  namespaces: {
+    idAttr: SoftDeletedAttr;
+    remainingCols: SoftDeletedAttr[];
+  }[];
+  onClose: () => void;
+  onRestore: (ns: {
+    idAttr: SoftDeletedAttr;
+    remainingCols: SoftDeletedAttr[];
+  }) => void;
+}) {
+  return (
+    <ActionForm className="flex min-w-[320px] flex-col gap-4">
+      <h5 className="flex items-center gap-2 text-lg font-bold">
+        Recently deleted namespaces
+      </h5>
+      {namespaces.length ? (
+        <div className="flex flex-col gap-3">
+          {namespaces
+            .toSorted((a, b) => {
+              return (
+                +new Date(b.idAttr['deletion-marked-at']) -
+                +new Date(a.idAttr['deletion-marked-at'])
+              );
+            })
+            .map((ns) => (
+              <div
+                key={ns.idAttr.id}
+                className="rounded border px-3 py-2 dark:border-neutral-700"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold">
+                      {removeDeletedMarker(ns.idAttr['forward-identity'][1])}
+                    </div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Deleted on{' '}
+                      {new Date(
+                        ns.idAttr['deletion-marked-at'],
+                      ).toLocaleString()}
+                    </div>
+                  </div>
+                  <Button
+                    size="mini"
+                    variant="secondary"
+                    onClick={() => onRestore(ns)}
+                  >
+                    Restore
+                  </Button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  {ns.remainingCols.map((attr, index) => (
+                    <span
+                      key={attr['forward-identity'][2]}
+                      className="rounded bg-neutral-100 px-1 py-0.5 dark:bg-neutral-700 dark:text-neutral-200"
+                    >
+                      {removeDeletedMarker(attr['forward-identity'][2])}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+        </div>
+      ) : (
+        <Content className="text-sm text-neutral-500 dark:text-neutral-400">
+          No recently deleted namespaces.
+        </Content>
+      )}
+
+      <div className="flex justify-end gap-2">
+        <Button size="mini" variant="secondary" onClick={onClose}>
+          Close
+        </Button>
+      </div>
     </ActionForm>
   );
 }
