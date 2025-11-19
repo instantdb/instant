@@ -1,10 +1,12 @@
-import type { Storage } from './utils/PersistedObject.ts';
+import {
+  StorageInterface,
+  StorageInterfaceStoreName,
+} from './utils/PersistedObject.js';
 
-export default class InMemoryStorage implements Storage {
-  private dbName: string;
+export default class InMemoryStorage extends StorageInterface {
   private store: Map<string, any>;
-  constructor(dbName) {
-    this.dbName = dbName;
+  constructor(appId: string, dbName: StorageInterfaceStoreName) {
+    super(appId, dbName);
     this.store = new Map();
   }
 
