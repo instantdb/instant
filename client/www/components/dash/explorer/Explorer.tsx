@@ -488,7 +488,8 @@ export function Explorer({
   const [searchFilters, setSearchFilters] = useState<SearchFilter[]>([]);
   const [ignoreUrlChanges, setIgnoreUrlChanges] = useState(false);
 
-  const { data } = useRecentlyDeletedAttrs(appId);
+  // These names should be more descriptipve
+  const { data, mutate } = useRecentlyDeletedAttrs(appId);
   const recentlyDeletedNsDialog = useDialog();
 
   // TODO: I should push this into `RecentlyDeleted`
@@ -508,6 +509,26 @@ export function Explorer({
     });
     return mapping;
   }, [data?.attrs]);
+
+  const restoreNamespace = async ({
+    idAttr,
+    remainingCols,
+  }: {
+    idAttr: SoftDeletedAttr;
+    remainingCols: SoftDeletedAttr[];
+  }) => {
+    if (!db) return;
+    if (!data) return;
+    const ids = [idAttr, ...remainingCols].map((a) => a.id);
+    await db._core._reactor.pushOps(
+      ids.map((attrId) => ['restore-attr', attrId]),
+    );
+    const idSet = new Set(ids);
+    mutate({
+      ...data,
+      attrs: data.attrs.filter((attr) => !idSet.has(attr.id)),
+    });
+  };
 
   // nav
   const router = useRouter();
@@ -1429,7 +1450,7 @@ export function Explorer({
       <Dialog {...recentlyDeletedNsDialog}>
         <RecentlyDeletedNSDialog
           namespaces={deletedNamespaces}
-          onRestore={() => {}}
+          onRestore={restoreNamespace}
           onClose={recentlyDeletedNsDialog.onClose}
         />
       </Dialog>
