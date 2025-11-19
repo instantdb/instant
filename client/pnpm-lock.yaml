@@ -987,6 +987,9 @@ importers:
       date-fns:
         specifier: ^2.28.0
         version: 2.30.0
+      export-to-csv:
+        specifier: ^1.4.0
+        version: 1.4.0
       focus-visible:
         specifier: ^5.2.0
         version: 5.2.1
@@ -1017,6 +1020,9 @@ importers:
       lucide-react:
         specifier: ^0.544.0
         version: 0.544.0(react@18.3.1)
+      markdown-table:
+        specifier: ^3.0.4
+        version: 3.0.4
       marked:
         specifier: ^16.1.1
         version: 16.1.1
@@ -8710,6 +8716,10 @@ packages:
 
   exponential-backoff@3.1.1:
     resolution: {integrity: sha512-dX7e/LHVJ6W3DE1MHWi9S1EYzDESENfLrYohG2G++ovZrYOkm4Knwa0mc1cn84xJOR4KEU0WSchhLbd0UklbHw==}
+
+  export-to-csv@1.4.0:
+    resolution: {integrity: sha512-6CX17Cu+rC2Fi2CyZ4CkgVG3hLl6BFsdAxfXiZkmDFIDY4mRx2y2spdeH6dqPHI9rP+AsHEfGeKz84Uuw7+Pmg==}
+    engines: {node: ^v12.20.0 || >=v14.13.0}
 
   express-rate-limit@7.5.0:
     resolution: {integrity: sha512-eB5zbQh5h+VenMPM3fh+nw1YExi5nMr6HUCR62ELSP11huvxm/Uir1H1QEyTkk5QX6A58pX6NmaTMceKZ0Eodg==}
@@ -23435,6 +23445,8 @@ snapshots:
       - utf-8-validate
 
   exponential-backoff@3.1.1: {}
+
+  export-to-csv@1.4.0: {}
 
   express-rate-limit@7.5.0(express@5.1.0):
     dependencies:
