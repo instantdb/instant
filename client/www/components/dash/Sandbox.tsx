@@ -49,6 +49,7 @@ import { Save } from 'lucide-react';
 import { infoToast } from '@/lib/toast';
 import { useSavedQueryState } from '@/lib/hooks/useSavedQueryState';
 import { addInstantLibs } from '@/lib/monaco';
+import { convertJSON5 } from '@/lib/convertJSON5';
 import {
   apiSchemaToInstantSchemaDef,
   generateSchemaTypescriptFile,
@@ -68,6 +69,8 @@ const base64Parser = createParser({
     return btoa(JSON.stringify(value));
   },
 });
+
+type CodeEditor = Parameters<OnMount>[0];
 
 type SavedSandbox = {
   name: string;
@@ -183,6 +186,28 @@ export function Sandbox({
   const monacoDisposables = useRef<Array<() => void>>([]);
 
   const { darkMode } = useDarkMode();
+
+  const handlePermsPaste = async (e: any, editor: CodeEditor) => {
+    const model = editor.getModel();
+    if (!model) {
+      return;
+    }
+
+    // Wait a tick for the paste to complete, then check the entire content
+    setTimeout(async () => {
+      const fullContent = model.getValue();
+
+      if (!fullContent.trim()) {
+        return;
+      }
+
+      const converted = await convertJSON5(fullContent);
+
+      if (converted && converted !== fullContent) {
+        model.setValue(converted);
+      }
+    }, 10);
+  };
 
   // Add the schema types for the app's schema for better typesense
   useEffect(() => {
@@ -375,7 +400,7 @@ export function Sandbox({
     consoleRef.current?.scrollTo(0, consoleRef.current.scrollHeight);
   }, [output]);
 
-  const prettify = async (editor: Parameters<OnMount>[0]) => {
+  const prettify = async (editor: CodeEditor) => {
     const code = editor.getValue();
     const [prettier, tsPlugin, estreePlugin] = await Promise.all([
       import('prettier/standalone'),
@@ -814,6 +839,27 @@ export function Sandbox({
                             monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
                             trySaveCurrent,
                           );
+
+                          // Try alternative paste handling
+                          editor.onKeyDown((e) => {
+                            if (
+                              (e.ctrlKey || e.metaKey) &&
+                              e.keyCode === monaco.KeyCode.KeyV
+                            ) {
+                              console.log('Ctrl+V detected!');
+                            }
+                          });
+
+                          let lastContent = '';
+
+                          editor.onDidChangeModelContent(() => {
+                            const currentContent = editor.getValue();
+                            if (currentContent !== lastContent) {
+                              lastContent = currentContent;
+                            }
+                          });
+
+                          editor.onDidPaste((e) => handlePermsPaste(e, editor));
 
                           setRulesEditorMonaco(monaco);
                         }}
