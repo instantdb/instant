@@ -1,14 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { StorageInterface } from '@instantdb/core';
+import { StorageInterface, StorageInterfaceStoreName } from '@instantdb/core';
 
-export default class Storage implements StorageInterface {
-  private dbName: string;
-  constructor(dbName) {
+const version = 5;
+
+export default class Storage extends StorageInterface {
+  private appId: string;
+  private dbName: StorageInterfaceStoreName;
+  constructor(appId: string, dbName: StorageInterfaceStoreName) {
+    super(appId, dbName);
+    this.appId = appId;
     this.dbName = dbName;
   }
 
   private makeKey(k: string): string {
-    return `${this.dbName}_${k}`;
+    return `instant_${this.appId}_${version}_${this.dbName}_${k}`;
   }
 
   async getItem(k) {

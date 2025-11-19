@@ -1,6 +1,7 @@
-import type { Storage } from './utils/PersistedObject.ts';
-
-type StoreName = 'kv' | 'querySubs' | 'syncSubs';
+import {
+  StorageInterface,
+  StorageInterfaceStoreName,
+} from './utils/PersistedObject.ts';
 
 // Any time these are updates to the data format or new stores are added,
 // the version must be updated.
@@ -11,7 +12,15 @@ type StoreName = 'kv' | 'querySubs' | 'syncSubs';
 // to roll back and if multiple tabs are active, then you'll just
 // be stuck.
 const version = 6;
-const storeNames = ['kv', 'querySubs', 'syncSubs'];
+
+const storeNames = ['kv', 'querySubs', 'syncSubs'] as const;
+
+// Check that we're not missing a store name in storeNames
+type MissingStoreNames = Exclude<
+  StorageInterfaceStoreName,
+  (typeof storeNames)[number]
+>;
+const _exhaustiveCheck: never = null as MissingStoreNames;
 
 function logErrorCb(source: string) {
   return function logError(event) {
@@ -128,14 +137,15 @@ async function upgrade5To6(appId: string, v6Tx: IDBTransaction): Promise<void> {
   });
 }
 
-export default class IndexedDBStorage implements Storage {
+export default class IndexedDBStorage extends StorageInterface {
   dbName: string;
-  _storeName: string;
+  _storeName: StorageInterfaceStoreName;
   _appId: string;
   _prefix: string;
   _dbPromise: Promise<IDBDatabase>;
 
-  constructor(appId: string, storeName: StoreName) {
+  constructor(appId: string, storeName: StorageInterfaceStoreName) {
+    super(appId, storeName);
     this.dbName = `instant_${appId}_${version}`;
     this._storeName = storeName;
     this._appId = appId;

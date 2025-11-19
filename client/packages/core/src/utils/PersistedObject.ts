@@ -35,11 +35,14 @@ type Meta<K extends string> = {
   objects: Record<K, ObjectMeta>;
 };
 
-export interface Storage {
-  getItem(key: string): Promise<any>;
-  removeItem(key: string): Promise<void>;
-  multiSet(keyValuePairs: Array<[string, any]>): Promise<void>;
-  getAllKeys(): Promise<string[]>;
+export type StorageInterfaceStoreName = 'kv' | 'querySubs' | 'syncSubs';
+
+export abstract class StorageInterface {
+  constructor(appId: string, storeName: StorageInterfaceStoreName) {}
+  abstract getItem(key: string): Promise<any>;
+  abstract removeItem(key: string): Promise<void>;
+  abstract multiSet(keyValuePairs: Array<[string, any]>): Promise<void>;
+  abstract getAllKeys(): Promise<string[]>;
 }
 
 export type GCOpts = {
@@ -58,7 +61,7 @@ export type Opts = {
 export class PersistedObject<K extends string, T, SerializedT> {
   currentValue: Record<K, T>;
   private _subs = [];
-  private _persister: Storage;
+  private _persister: StorageInterface;
   private _onMerge: (key: K, fromStorage: T, inMemoryValue: T) => T;
   private serialize: (key: K, input: T) => SerializedT;
   private parse: (key: K, value: SerializedT) => T;
@@ -91,7 +94,7 @@ export class PersistedObject<K extends string, T, SerializedT> {
   private _gcOpts: GCOpts;
 
   constructor(
-    persister: Storage,
+    persister: StorageInterface,
     /**
      * Merges data from storage with in-memory value on load.
      * The value returned from onMerge will become the current value.
