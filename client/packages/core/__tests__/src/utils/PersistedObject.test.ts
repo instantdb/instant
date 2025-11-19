@@ -80,13 +80,14 @@ test('PersistedObject merges existing values', async () => {
 
   await PO.flush();
 
-  expect(storageV).toBeNull();
-  expect(memoryV).toEqual('b');
-  expect(PO.currentValue.a).toEqual('merged-value');
+  // We don't run merge if there was nothing in the store
+  expect(storageV).toBeUndefined();
+  expect(memoryV).toBeUndefined();
+  expect(PO.currentValue.a).toEqual('b');
 
   const snapshot = await idbSnapshot(idb, { includeMeta: false });
 
-  expect(snapshot).toStrictEqual({ a: 'merged-value' });
+  expect(snapshot).toStrictEqual({ a: 'b' });
 
   let storageV2;
   let memoryV2;
@@ -112,13 +113,13 @@ test('PersistedObject merges existing values', async () => {
   );
 
   PO2.updateInPlace((prev) => {
-    prev.a = 'b';
+    prev.a = 'c';
   });
 
   await PO2.flush();
 
-  expect(storageV2).toEqual('merged-value');
-  expect(memoryV2).toEqual('b');
+  expect(storageV2).toEqual('b');
+  expect(memoryV2).toEqual('c');
   expect(PO2.currentValue.a).toEqual('merged-value-2');
 
   const snapshot2 = await idbSnapshot(idb, { includeMeta: false });
