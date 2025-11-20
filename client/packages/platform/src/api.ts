@@ -120,6 +120,26 @@ export type InstantAPICreateAppBody = {
   orgId?: string | null | undefined;
 };
 
+export type InstantAPICreateEphemeralBody = {
+  title: string;
+  schema?:
+    | InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>
+    | null
+    | undefined;
+  rules?: {
+    code: InstantRules;
+  } | null;
+};
+
+export type InstantAPICreateEphemeralResponse = {
+  app: Simplify<
+    InstantAPIAppDetails<{ includePerms: false; includeSchema: false }> & {
+      adminToken: string;
+    }
+  >;
+  expires_ms: number;
+};
+
 export type InstantAPICreateAppResponse = Simplify<{
   app: InstantAPIAppDetails<{ includePerms: true; includeSchema: true }> & {
     adminToken: string;
@@ -630,6 +650,30 @@ async function createApp(
   };
   return {
     app: withAdminToken,
+  };
+}
+
+async function createTemporaryApp(
+  apiURI: string,
+  fields: InstantAPICreateEphemeralBody,
+): Promise<InstantAPICreateEphemeralResponse> {
+  const response = await jsonFetch<{ app: any; expires_ms: number }>(
+    `${apiURI}/dash/apps/ephemeral`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fields),
+    },
+  );
+  const withAdminToken = {
+    ...coerceApp<{ includePerms: true; includeSchema: true }>(response.app),
+    adminToken: response.app['admin-token'],
+  };
+  return {
+    app: withAdminToken,
+    expires_ms: response.expires_ms,
   };
 }
 
@@ -1434,6 +1478,61 @@ export class PlatformApi {
     fields: InstantAPICreateAppBody,
   ): Promise<InstantAPICreateAppResponse> {
     return this.withRetry(createApp, [this.#apiURI, this.token(), fields]);
+  }
+
+  /**
+   * Create a new temporary app.
+   *
+   * Optionally set permissions and schema.
+   *
+   * ```ts
+   * const { app } = await api.createTemporaryApp({
+   *   title: 'My new app',
+   *   // Optional permissions
+   *   perms: { $default: { allow: { $default: 'false' } } },
+   *   // Optional schema
+   *   schema: i.schema({
+   *     entities: { books: i.entity({ title: i.string() }) },
+   *   }),
+   * });
+   * ```
+   *
+   * @param fields
+   * @param fields.title -- Title for app
+   * @param fields.schema -- Optional schema for the app
+   * @param fields.perms -- Optional permissions for the app
+   */
+  static async createTemporaryApp(
+    apiURI: string,
+    fields: InstantAPICreateEphemeralBody,
+  ): Promise<InstantAPICreateEphemeralResponse> {
+    return createTemporaryApp(apiURI, fields);
+  }
+
+  /**
+   * Create a new temporary app.
+   *
+   * Optionally set permissions and schema.
+   *
+   * ```ts
+   * const { app } = await api.createTemporaryApp({
+   *   title: 'My new app',
+   *   // Optional permissions
+   *   perms: { $default: { allow: { $default: 'false' } } },
+   *   // Optional schema
+   *   schema: i.schema({
+   *     entities: { books: i.entity({ title: i.string() }) },
+   *   }),
+   * });
+   * ```
+   *
+   * @param fields
+   * @param fields.title -- Title for app
+   * @param fields.schema -- Optional schema for the app
+   * @param fields.perms -- Optional permissions for the app
+   */
+  async createTemporaryApp(fields: InstantAPICreateEphemeralBody) {
+    return createTemporaryApp(this.#apiURI, fields);
   }
 
   /**
