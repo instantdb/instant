@@ -33,7 +33,7 @@ type DeletedNamespace = {
 };
 
 // -----
-// API
+// Hooks
 
 export const useRecentlyDeletedAttrs = (appId: string) => {
   const token = useAuthToken();
@@ -228,7 +228,7 @@ export const RecentlyDeletedAttrs: React.FC<{
     if (!db) return;
     if (!data) return;
     try {
-      await db._core._reactor.pushOps([['restore-attr', attrId]]);
+      await db.core._reactor.pushOps([['restore-attr', attrId]]);
       mutate({
         attrs: data.attrs.filter((attr) => attr.id !== attrId) ?? [],
         'grace-period-days': data['grace-period-days'],
