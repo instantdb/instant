@@ -86,7 +86,7 @@
                            (:checked-data-type attr))
               (ex/throw-validation-err! :query
                                         {:q instaql-query}
-                                        [{:message (str "Order field must be indexed with a checked data type.")}]))
+                                        [{:message "Order field must be indexed with a checked data type."}]))
 
             (let [order-col-value-fn (d/extract-value-fn (:checked-data-type attr) :>)]
               {:where [:and

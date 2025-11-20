@@ -5581,8 +5581,6 @@
             lookup [handle-aid (random-uuid)]
             tx-data [[:add-triple lookup (resolvers/->uuid r :users/id) lookup]
                      [:add-triple lookup (resolvers/->uuid r :users/bookshelves) (random-uuid)]]
-            attrs (attr-model/get-by-app-id app-id)
-            conn (aurora/conn-pool :write)
             txes (mapv (fn [_]
                          (future (permissioned-tx/transact! (make-ctx) tx-data)))
                        (range 20))]
