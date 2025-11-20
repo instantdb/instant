@@ -75,7 +75,6 @@ export const useRecentlyDeletedNamespaces = (
 ): DeletedNamespace[] => {
   const { data } = useRecentlyDeletedAttrs(appId);
   const deletedNamespaces = useMemo(() => {
-    // TODO: is this code elegant?
     const attrs = data?.attrs || [];
     const idAttrs = attrs.filter((a) => {
       return a['forward-identity'][2] === 'id';
