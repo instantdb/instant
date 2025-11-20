@@ -5570,5 +5570,25 @@
             (testing "connection did not deadlock"
               (is @tx))))))))
 
+
+;; Test that we don't get a conflict if a bunch of lookup inserts are happening simultaneously
+(deftest multiple-lookups-work
+  (with-zeneca-app
+    (fn [{app-id :id
+          make-ctx :make-ctx}
+         r]
+      (let [handle-aid (resolvers/->uuid r :users/handle)
+            lookup [handle-aid (random-uuid)]
+            tx-data [[:add-triple lookup (resolvers/->uuid r :users/id) lookup]
+                     [:add-triple lookup (resolvers/->uuid r :users/bookshelves) (random-uuid)]]
+            attrs (attr-model/get-by-app-id app-id)
+            conn (aurora/conn-pool :write)
+            txes (mapv (fn [_]
+                         (future (permissioned-tx/transact! (make-ctx) tx-data)))
+                       (range 20))]
+        (mapv (fn [tx]
+                (is @tx))
+              txes)))))
+
 (comment
   (test/run-tests *ns*))
