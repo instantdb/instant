@@ -5574,8 +5574,7 @@
 ;; Test that we don't get a conflict if a bunch of lookup inserts are happening simultaneously
 (deftest multiple-lookups-work
   (with-zeneca-app
-    (fn [{app-id :id
-          make-ctx :make-ctx}
+    (fn [{make-ctx :make-ctx}
          r]
       (let [handle-aid (resolvers/->uuid r :users/handle)
             lookup [handle-aid (random-uuid)]
