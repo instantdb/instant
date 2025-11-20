@@ -104,11 +104,11 @@ export class WSConnection implements Connection<WebSocket> {
   }
 
   isOpen(): boolean {
-    return this.conn.readyState === WebSocket.OPEN;
+    return this.conn.readyState === (WebSocket.OPEN ?? 1);
   }
 
   isConnecting(): boolean {
-    return this.conn.readyState === WebSocket.CONNECTING;
+    return this.conn.readyState === (WebSocket.CONNECTING ?? 0);
   }
 
   send(msg: SendMessageData) {
