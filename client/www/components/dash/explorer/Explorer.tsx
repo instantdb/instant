@@ -98,13 +98,9 @@ export type TableColMeta = {
 };
 
 import {
-  SoftDeletedAttr,
-  useRecentlyDeletedAttrs,
+  RecentlyDeletedNamespaces,
   useRecentlyDeletedNamespaces,
 } from './RecentlyDeleted';
-import addDays from 'date-fns/addDays';
-import format from 'date-fns/format';
-import differenceInDays from 'date-fns/differenceInDays';
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -496,30 +492,9 @@ export function Explorer({
   const [ignoreUrlChanges, setIgnoreUrlChanges] = useState(false);
 
   // These names should be more descriptipve
-  const { data, mutate } = useRecentlyDeletedAttrs(appId);
   const recentlyDeletedNsDialog = useDialog();
 
   const deletedNamespaces = useRecentlyDeletedNamespaces(appId);
-
-  const restoreNamespace = async ({
-    idAttr,
-    remainingCols,
-  }: {
-    idAttr: SoftDeletedAttr;
-    remainingCols: SoftDeletedAttr[];
-  }) => {
-    if (!db) return;
-    if (!data) return;
-    const ids = [idAttr, ...remainingCols].map((a) => a.id);
-    await db._core._reactor.pushOps(
-      ids.map((attrId) => ['restore-attr', attrId]),
-    );
-    const idSet = new Set(ids);
-    mutate({
-      ...data,
-      attrs: data.attrs.filter((attr) => !idSet.has(attr.id)),
-    });
-  };
 
   // nav
   const router = useRouter();
@@ -1439,12 +1414,10 @@ export function Explorer({
         />
       </Dialog>
       <Dialog {...recentlyDeletedNsDialog}>
-        <RecentlyDeletedNSDialog
-          namespaces={deletedNamespaces}
-          onRestore={restoreNamespace}
+        <RecentlyDeletedNamespaces
+          appId={appId}
+          db={db}
           onClose={recentlyDeletedNsDialog.onClose}
-          // Hmm why default? I _think_ this should only exist when we have data
-          gracePeriodDays={data?.['grace-period-days'] || 2}
         />
       </Dialog>
       <div
@@ -1992,112 +1965,6 @@ function NewNamespaceDialog({
         disabled={!name}
         onClick={onSubmit}
       />
-    </ActionForm>
-  );
-}
-
-// TODO: should this live here, or should I just move everything to the `RecentlyDeleted` file?
-
-function RecentlyDeletedNSDialog({
-  namespaces,
-  onClose,
-  onRestore,
-  gracePeriodDays,
-}: {
-  // Maybe later: we can have this as some explicit type
-  namespaces: {
-    idAttr: SoftDeletedAttr;
-    remainingCols: SoftDeletedAttr[];
-  }[];
-  onClose: () => void;
-  onRestore: (ns: {
-    idAttr: SoftDeletedAttr;
-    remainingCols: SoftDeletedAttr[];
-  }) => void;
-  gracePeriodDays: number;
-}) {
-  const formatDeletionDate = (deletionDate: string) => {
-    const deleted = new Date(deletionDate);
-    return format(deleted, 'MMM d, h:mm a');
-  };
-
-  const calculateDaysLeft = (deletionDate: string) => {
-    const deleteBy = addDays(new Date(deletionDate), gracePeriodDays);
-    const daysLeft = differenceInDays(deleteBy, new Date());
-    return daysLeft;
-  };
-
-  return (
-    <ActionForm className="flex max-w-2xl flex-col gap-4">
-      <h5 className="flex items-center gap-2 text-lg font-bold">
-        Recently Deleted Namespaces
-      </h5>
-      {namespaces.length ? (
-        <div className="flex flex-col gap-2">
-          {namespaces
-            .toSorted((a, b) => {
-              return (
-                +new Date(b.idAttr['deletion-marked-at']) -
-                +new Date(a.idAttr['deletion-marked-at'])
-              );
-            })
-            .map((ns) => {
-              const daysLeft = calculateDaysLeft(
-                ns.idAttr['deletion-marked-at'],
-              );
-
-              return (
-                <div
-                  key={ns.idAttr.id}
-                  className="flex items-start justify-between gap-4 border-b py-3 last:border-b-0 dark:border-neutral-700"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold dark:text-white">
-                      {ns.idAttr['forward-identity'][1]}
-                    </div>
-                    <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                      Deleted{' '}
-                      {formatDeletionDate(ns.idAttr['deletion-marked-at'])} ·{' '}
-                      {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
-                    </div>
-                    {ns.remainingCols.length > 0 ? (
-                      <div className="mt-1 truncate text-xs text-neutral-500 dark:text-neutral-400">
-                        Columns:{' '}
-                        {ns.remainingCols
-                          .map((attr) => attr['forward-identity'][2])
-                          .join(', ')}
-                      </div>
-                    ) : (
-                      <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                        No columns
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-shrink-0 items-center">
-                    <Button
-                      size="mini"
-                      variant="secondary"
-                      onClick={() => onRestore(ns)}
-                    >
-                      <ArrowPathIcon className="h-3.5 w-3.5" />
-                      Restore
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      ) : (
-        <Content className="text-sm text-neutral-500 dark:text-neutral-400">
-          No recently deleted namespaces.
-        </Content>
-      )}
-
-      <div className="flex justify-end gap-2">
-        <Button size="mini" variant="secondary" onClick={onClose}>
-          Close
-        </Button>
-      </div>
     </ActionForm>
   );
 }

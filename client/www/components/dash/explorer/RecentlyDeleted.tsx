@@ -1,16 +1,17 @@
-import { Divider, useDialog } from '@/components/ui';
+import { ActionForm, Button, Divider, useDialog } from '@/components/ui';
 import config from '@/lib/config';
 import { SchemaNamespace, DBAttr } from '@/lib/types';
 import useSWR from 'swr';
 import { errorToast } from '@/lib/toast';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { useEffect, useState } from 'react';
-import { ClockIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { InstantAPIError } from '@instantdb/core';
 import { ExpandableDeletedAttr } from './ExpandableDeletedAttr';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 import { useAuthToken } from '@/lib/auth';
 import { useMemo } from 'react';
+import { addDays, format, differenceInDays } from 'date-fns';
 
 // -----
 // Types
@@ -91,6 +92,122 @@ export const useRecentlyDeletedNamespaces = (
 
   return deletedNamespaces;
 };
+
+// -------
+// RecentlyDeletedNamespaces
+
+export function RecentlyDeletedNamespaces({
+  appId,
+  db,
+  onClose,
+}: {
+  db: InstantReactWebDatabase<any>;
+  appId: string;
+  onClose: () => void;
+}) {
+  const { data, mutate } = useRecentlyDeletedAttrs(appId);
+  const deletedNamespaces = useRecentlyDeletedNamespaces(appId);
+  const gracePeriodDays = data?.['grace-period-days'] || 2;
+
+  const formatDeletionDate = (deletionDate: string) => {
+    const deleted = new Date(deletionDate);
+    return format(deleted, 'MMM d, h:mm a');
+  };
+
+  const calculateDaysLeft = (deletionDate: string) => {
+    const deleteBy = addDays(new Date(deletionDate), gracePeriodDays);
+    const daysLeft = differenceInDays(deleteBy, new Date());
+    return daysLeft;
+  };
+
+  const onRestore = async ({ idAttr, remainingCols }: DeletedNamespace) => {
+    if (!db) return;
+    if (!data) return;
+    const ids = [idAttr, ...remainingCols].map((a) => a.id);
+    await db._core._reactor.pushOps(
+      ids.map((attrId) => ['restore-attr', attrId]),
+    );
+    const idSet = new Set(ids);
+    mutate({
+      ...data,
+      attrs: data.attrs.filter((attr) => !idSet.has(attr.id)),
+    });
+  };
+
+  return (
+    <ActionForm className="flex max-w-2xl flex-col gap-4">
+      <h5 className="flex items-center gap-2 text-lg font-bold">
+        Recently Deleted Namespaces
+      </h5>
+      {deletedNamespaces.length ? (
+        <div className="flex flex-col gap-2">
+          {deletedNamespaces
+            .toSorted((a, b) => {
+              return (
+                +new Date(b.idAttr['deletion-marked-at']) -
+                +new Date(a.idAttr['deletion-marked-at'])
+              );
+            })
+            .map((ns) => {
+              const daysLeft = calculateDaysLeft(
+                ns.idAttr['deletion-marked-at'],
+              );
+
+              return (
+                <div
+                  key={ns.idAttr.id}
+                  className="flex items-start justify-between gap-4 border-b py-3 last:border-b-0 dark:border-neutral-700"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold dark:text-white">
+                      {ns.idAttr['forward-identity'][1]}
+                    </div>
+                    <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                      Deleted{' '}
+                      {formatDeletionDate(ns.idAttr['deletion-marked-at'])} ·{' '}
+                      {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+                    </div>
+                    {ns.remainingCols.length > 0 ? (
+                      <div className="mt-1 truncate text-xs text-neutral-500 dark:text-neutral-400">
+                        Columns:{' '}
+                        {ns.remainingCols
+                          .map((attr) => attr['forward-identity'][2])
+                          .join(', ')}
+                      </div>
+                    ) : (
+                      <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                        No columns
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-shrink-0 items-center">
+                    <Button
+                      size="mini"
+                      variant="secondary"
+                      onClick={() => onRestore(ns)}
+                    >
+                      <ArrowPathIcon className="h-3.5 w-3.5" />
+                      Restore
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      ) : (
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          No recently deleted namespaces.
+        </p>
+      )}
+
+      <div className="flex justify-end gap-2">
+        <Button size="mini" variant="secondary" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+    </ActionForm>
+  );
+}
 
 // -------
 // RecentlyDeletedAttrs
