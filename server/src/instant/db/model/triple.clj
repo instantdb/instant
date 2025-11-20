@@ -69,10 +69,19 @@
                                        [:and [:= :attr-id a] [:= [:json_null_to_null :value] [:cast (->json v) :jsonb]]])
                                      lookups-set))]}))
 
-          lookups->eid (->> triples
-                            (map (fn [{:keys [entity_id attr_id value]}]
-                                   [[attr_id value] entity_id]))
-                            (into {}))]
+          lookups->eid (persistent!
+                        (reduce
+                         (fn [acc {:keys [entity_id attr_id value]}]
+                           (let [uuid-value (uuid-util/parse-uuid value)]
+                             (cond-> acc
+                               true (assoc! [attr_id value] entity_id)
+                               ;; If the value happens to parse as a UUID, then we
+                               ;; need to add the uuid version to the map also because
+                               ;; transaction/coerce is a little too eager to convert
+                               ;; uuids. If we fix that, then we won't need this any more.
+                               uuid-value (assoc! [attr_id uuid-value] entity_id))))
+                         (transient {})
+                         triples))]
       lookups->eid)))
 
 ;; ---
@@ -455,9 +464,20 @@
         {:insert-into [[:triples triple-cols]
                        {:select triple-cols
                         :from :enhanced-lookup-refs
+                        ;; Filter out the lookups that we know already exist
+                        ;; so we can avoid unnecessary writes
+                        :where [:not [:exists {:select 1
+                                               :from [[:triples :t]]
+                                               :where [:and
+                                                       [:= :t.app_id :enhanced-lookup-refs.app_id]
+                                                       [:= :t.attr_id :enhanced-lookup-refs.attr_id]
+                                                       :t.av
+                                                       [:= [:json_null_to_null :t.value] :enhanced-lookup-refs.value]]}]]
                         :order-by [:app-id :entity-id :attr-id :value-md5]}]
          :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
-         :do-nothing true
+         ;; Do a dummy write so that this triple becomes visible to the transaction
+         ;; If multiple txes were executing simultaneously, we might not see it
+         :do-update-set {:app-id :excluded.app-id}
          :returning :*}
 
         ;; collect lookup ref entities
