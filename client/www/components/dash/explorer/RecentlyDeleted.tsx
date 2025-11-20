@@ -296,7 +296,6 @@ export const RecentlyDeletedAttrs: React.FC<{
             }}
             key={attr.id}
             attr={attr}
-            namespace={namespace}
             gracePeriodDays={data?.['grace-period-days'] || 2}
             onRestore={restoreAttr}
           />
