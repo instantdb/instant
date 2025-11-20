@@ -189,6 +189,9 @@ export const RecentlyDeletedAttrs: React.FC<{
   );
 };
 
+// -------
+// RecentlyDeletedNamespaces
+
 // --------
 // Helpers
 
