@@ -1581,6 +1581,7 @@ function EditAttrForm({
   constraints: SystemConstraints;
   pushNavStack: PushNavStack;
 }) {
+  const { mutate } = useSWRConfig();
   const [screen, setScreen] = useState<{ type: 'main' } | { type: 'delete' }>({
     type: 'main',
   });
