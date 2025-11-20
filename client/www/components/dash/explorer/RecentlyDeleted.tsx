@@ -240,8 +240,6 @@ export const RecentlyDeletedAttrs: React.FC<{
           notes.setNote(attrId, possibleMessage);
         }
       }
-
-      console.log('Restored attr:', attrId);
     } catch (error) {
       console.error(error);
       if (error instanceof InstantAPIError) {
