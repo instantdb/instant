@@ -22,42 +22,25 @@ you should see a response with information about `db.useQuery` and `db.transact`
 
 ### Claude Code
 
-Save these instructions for your framework at the root of your project as
-`CLAUDE.md`:
+Save these rules at the root of your project as `CLAUDE.md`:
 
-- [Next.js instructions](/llm-rules/next/claude.md)
-- [Expo instructions](/llm-rules/expo/claude.md)
+- [InstantDB rules](/llm-rules/AGENTS.md)
 
-Save these instructions for your framework at the root of your project as
-`instant-rules.md`:
-
-- [Next.js rules](/llm-rules/next/claude-rules.md)
-- [Expo rules](/llm-rules/expo/claude-rules.md)
-
-If you already had claude running, restart it for the rules to take effect.
+If you already had Claude running, restart it for the rules to take effect.
 
 ### Codex
 
-Save these instructions for your framework at the root of your project as
-`AGENTS.md`:
+Save these rules at the root of your project as `AGENTS.md`:
 
-- [Next.js instructions](/llm-rules/next/claude.md)
-- [Expo instructions](/llm-rules/expo/claude.md)
+- [InstantDB rules](/llm-rules/AGENTS.md)
 
-Save these instructions for your framework at the root of your project as
-`instant-rules.md`:
-
-- [Next.js rules](/llm-rules/next/claude-rules.md)
-- [Expo rules](/llm-rules/expo/claude-rules.md)
-
-If you already had codex running, restart it for the rules to take effect.
+If you already had Codex running, restart it for the rules to take effect.
 
 ### Cursor
 
-Save these rules for your framework at the root of your project in `.cursor/rules/instant.mdc`:
+Save these rules at the root of your project in `.cursor/rules/instant.mdc`:
 
-- [Next.js rules](/llm-rules/next/cursor-rules.md)
-- [Expo rules](/llm-rules/expo/cursor-rules.md)
+- [Cursor rules](/llm-rules/cursor-rules.md)
 
 You may need to restart Cursor for them to take effect.
 
@@ -65,29 +48,25 @@ When using Cursor we recommend turning off "Auto" and using at least Claude Sonn
 
 ### Windsurf
 
-Save these rules for your framework at the root of your project in `.windsurf/rules/instant.md`:
+Save these rules at the root of your project in `.windsurf/rules/instant.md`:
 
-- [Next.js rules](/llm-rules/next/windsurf-rules.md)
-- [Expo rules](/llm-rules/expo/windsurf-rules.md)
+- [Windsurf rules](/llm-rules/windsurf-rules.md)
 
 You may need to restart Windsurf for them to take effect.
 
 ### Zed
 
-Save these rules for your framework at the root of your project in `AGENT.md`:
+Save these rules at the root of your project in `AGENTS.md`:
 
-- [Next.js rules](/llm-rules/next/other-rules.md)
-- [Expo rules](/llm-rules/expo/other-rules.md)
+- [InstantDB rules](/llm-rules/AGENTS.md)
 
 You may need to restart Zed for them to take effect.
 
 ### Other Tools
 
-Use these rules for your framework to give other tools context on how to use
-Instant:
+Use these rules to give other tools context on how to use Instant:
 
-- [Next.js rules](/llm-rules/next/other-rules.md)
-- [Expo rules](/llm-rules/expo/other-rules.md)
+- [InstantDB rules](/llm-rules/AGENTS.md)
 
 If you want to manually add in more documentation, you can also append `.md` to the end of any doc page url to get the raw markdown
 
