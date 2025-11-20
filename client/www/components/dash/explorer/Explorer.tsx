@@ -1460,7 +1460,7 @@ export function Explorer({
             >
               <PlusIcon height="1rem" /> Create
             </Button>
-            {Object.keys(deletedNamespaces).length ? (
+            {deletedNamespaces.length ? (
               <Button
                 className="justify-start gap-2 rounded p-2"
                 variant="subtle"
@@ -1468,7 +1468,7 @@ export function Explorer({
                 onClick={recentlyDeletedNsDialog.onOpen}
               >
                 <span className="rounded bg-gray-200 px-1">
-                  {Object.keys(deletedNamespaces).length}
+                  {deletedNamespaces.length}
                 </span>
                 <span>Recently Deleted</span>
               </Button>
