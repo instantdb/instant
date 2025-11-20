@@ -18,7 +18,6 @@ type SoftDeletedAttr = DBAttr & {
 
 interface ExpandableDeletedAttrProps {
   attr: SoftDeletedAttr;
-  namespace: SchemaNamespace;
   gracePeriodDays: number;
   onRestore: (attrId: string) => void;
   isExpanded: boolean;
@@ -27,7 +26,6 @@ interface ExpandableDeletedAttrProps {
 
 export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
   attr,
-  namespace,
   gracePeriodDays,
   isExpanded,
   setIsExpanded,
@@ -37,18 +35,18 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
     days: gracePeriodDays,
   });
 
-  const getForwardAttrName = () => {
+  const getForwardLabel = () => {
     return attr['forward-identity'][2];
   };
 
-  const getReverseAttrName = () => {
+  const getReverseLabel = () => {
     return attr['reverse-identity']?.[2];
   };
 
-  const getEntityNames = () => {
-    const forwardEntity = attr['forward-identity'][1];
-    const reverseEntity = attr['reverse-identity']?.[1];
-    return { forwardEntity, reverseEntity };
+  const getEtypes = () => {
+    const forwardEtype = attr['forward-identity'][1];
+    const reverseEtype = attr['reverse-identity']?.[1];
+    return { forwardEtype: forwardEtype, reverseEtype };
   };
 
   const getRelationshipType = (): RelationshipKinds => {
@@ -66,9 +64,10 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
     }
 
     const relationshipType = getRelationshipType();
-    const { forwardEntity, reverseEntity } = getEntityNames();
-    const forwardAttrName = getForwardAttrName();
-    const reverseAttrName = getReverseAttrName();
+    const { forwardEtype: forwardEtype, reverseEtype: reverseEtype } =
+      getEtypes();
+    const forwardLabel = getForwardLabel();
+    const reverseLabel = getReverseLabel();
 
     const getCardinalityText = (
       relType: RelationshipKinds,
@@ -86,9 +85,9 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
         label: 'forward',
         value: (
           <span>
-            <strong>{forwardEntity}</strong>{' '}
+            <strong>{forwardEtype}</strong>{' '}
             {getCardinalityText(relationshipType, true)}{' '}
-            <strong>{forwardAttrName}</strong>
+            <strong>{forwardLabel}</strong>
           </span>
         ),
       },
@@ -96,9 +95,9 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
         label: 'reverse',
         value: (
           <span>
-            <strong>{reverseEntity}</strong>{' '}
+            <strong>{reverseEtype}</strong>{' '}
             {getCardinalityText(relationshipType, false)}{' '}
-            <strong>{reverseAttrName}</strong>
+            <strong>{reverseLabel}</strong>
           </span>
         ),
       },
