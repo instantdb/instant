@@ -97,11 +97,7 @@ export type TableColMeta = {
   copyable?: boolean;
 };
 
-import {
-  removeDeletedMarker,
-  SoftDeletedAttr,
-  useRecentlyDeletedAttrs,
-} from './RecentlyDeleted';
+import { SoftDeletedAttr, useRecentlyDeletedAttrs } from './RecentlyDeleted';
 import addDays from 'date-fns/addDays';
 import format from 'date-fns/format';
 import differenceInDays from 'date-fns/differenceInDays';
@@ -504,7 +500,7 @@ export function Explorer({
     const attrs = data?.attrs || [];
     const idAttrs = attrs.filter((a) => {
       // TODO: It's annoying that I have to remove the deletion marker. Would be nicer if this was done upstream.
-      return removeDeletedMarker(a['forward-identity'][2]) === 'id';
+      a['forward-identity'][2] === 'id';
     });
     const mapping = idAttrs.map((a) => {
       const cols = attrs.filter(
@@ -2069,7 +2065,7 @@ function RecentlyDeletedNSDialog({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold dark:text-white">
-                      {removeDeletedMarker(ns.idAttr['forward-identity'][1])}
+                      {ns.idAttr['forward-identity'][1]}
                     </div>
                     <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                       Deleted{' '}
@@ -2080,9 +2076,7 @@ function RecentlyDeletedNSDialog({
                       <div className="mt-1 truncate text-xs text-neutral-500 dark:text-neutral-400">
                         Columns:{' '}
                         {ns.remainingCols
-                          .map((attr) =>
-                            removeDeletedMarker(attr['forward-identity'][2]),
-                          )
+                          .map((attr) => attr['forward-identity'][2])
                           .join(', ')}
                       </div>
                     ) : (
