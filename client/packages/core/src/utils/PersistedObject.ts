@@ -27,11 +27,11 @@ function safeIdleCallback(cb, timeout: number) {
   }
 }
 
-const META_KEY = '__meta';
+export const META_KEY = '__meta';
 
-type ObjectMeta = { createdAt: number; updatedAt: number; size: number };
+export type ObjectMeta = { createdAt: number; updatedAt: number; size: number };
 
-type Meta<K extends string> = {
+export type Meta<K extends string> = {
   objects: Record<K, ObjectMeta>;
 };
 

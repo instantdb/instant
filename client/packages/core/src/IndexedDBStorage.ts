@@ -1,4 +1,7 @@
 import {
+  Meta,
+  META_KEY,
+  ObjectMeta,
   StorageInterface,
   StorageInterfaceStoreName,
 } from './utils/PersistedObject.ts';
@@ -63,10 +66,23 @@ async function upgradeQuerySubs5To6(
   }
   const putReqs: Set<IDBRequest<IDBValidKey>> = new Set();
   return new Promise((resolve, reject) => {
-    for (const [hash, value] of Object.entries(subs)) {
+    const objects = {};
+    for (const [hash, v] of Object.entries(subs)) {
+      const value = typeof v === 'string' ? JSON.parse(v) : v;
+      if (value.lastAccessed) {
+        const objectMeta: ObjectMeta = {
+          createdAt: value.lastAccessed,
+          updatedAt: value.lastAccessed,
+          size: value.result?.store?.triples?.length ?? 0,
+        };
+        objects[hash] = objectMeta;
+      }
       const putReq = querySubStore.put(value, hash);
       putReqs.add(putReq);
     }
+    const meta: Meta<string> = { objects };
+    const metaPutReq = querySubStore.put(meta, META_KEY);
+    putReqs.add(metaPutReq);
     for (const r of putReqs) {
       r.onsuccess = () => {
         putReqs.delete(r);
@@ -130,6 +146,7 @@ async function upgrade5To6(appId: string, v6Db: IDBDatabase): Promise<void> {
   const querySubStore = v6Tx.objectStore('querySubs');
 
   const promises = [];
+  const kvMeta: Meta<string> = { objects: {} };
   for (const [key, value] of data) {
     switch (key) {
       case 'querySubs': {
@@ -140,10 +157,18 @@ async function upgrade5To6(appId: string, v6Db: IDBDatabase): Promise<void> {
       default: {
         const p = moveKvEntry5To6(key as string, value, kvStore);
         promises.push(p);
+        const objectMeta: ObjectMeta = {
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          size: 0,
+        };
+        kvMeta.objects[key] = objectMeta;
         break;
       }
     }
   }
+  const p = moveKvEntry5To6(META_KEY, kvMeta, kvStore);
+  promises.push(p);
   await Promise.all(promises);
   await new Promise((resolve, reject) => {
     v6Tx.oncomplete = (e) => resolve(e);
