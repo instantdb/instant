@@ -43,7 +43,6 @@ const main = async () => {
 
   addRuleFiles({
     projectDir,
-    base: project.base,
     ruleFilesToAdd: project.ruleFiles,
   });
 
