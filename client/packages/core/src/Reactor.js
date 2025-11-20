@@ -555,7 +555,7 @@ export default class Reactor {
         );
         this.querySubs.updateInPlace((prev) => {
           if (!prev[hash]) {
-            this._log.error('Missing value in querySubs', { hash, q });
+            this._log.info('Missing value in querySubs', { hash, q });
             return;
           }
           prev[hash].result = {
