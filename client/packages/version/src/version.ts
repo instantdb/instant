@@ -2,6 +2,6 @@
 // Update the version here and merge your code to main to
 // publish a new version of all of the packages to npm.
 
-const version = 'v0.22.56';
+const version = 'v0.22.57';
 
 export { version };

@@ -748,7 +748,7 @@ const testimonials = [
 ];
 
 const queryExampleComponentCode = /*js*/ `
-import { init, tx, id } from "@instantdb/react";
+import { init, id } from "@instantdb/react";
 
 const db = init({
   appId: process.env.NEXT_PUBLIC_APP_ID,
@@ -762,7 +762,7 @@ function Chat() {
 
   // 2. Write
   const addMessage = (message) => {
-    db.transact(tx.messages[id()].update(message));
+    db.transact(db.tx.messages[id()].update(message));
   };
 
   // 3. Render!
