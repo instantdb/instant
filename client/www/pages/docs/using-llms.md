@@ -22,25 +22,19 @@ you should see a response with information about `db.useQuery` and `db.transact`
 
 ### Claude Code
 
-Save these rules at the root of your project as `CLAUDE.md`:
-
-- [InstantDB rules](/llm-rules/AGENTS.md)
+[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `CLAUDE.md`
 
 If you already had Claude running, restart it for the rules to take effect.
 
 ### Codex
 
-Save these rules at the root of your project as `AGENTS.md`:
-
-- [InstantDB rules](/llm-rules/AGENTS.md)
+[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `AGENTS.md`
 
 If you already had Codex running, restart it for the rules to take effect.
 
 ### Cursor
 
-Save these rules at the root of your project in `.cursor/rules/instant.mdc`:
-
-- [Cursor rules](/llm-rules/cursor-rules.md)
+[Save these rules](/llm-rules/cursor-rules.md) at the root of your project in `.cursor/rules/instant.mdc`
 
 You may need to restart Cursor for them to take effect.
 
@@ -48,25 +42,19 @@ When using Cursor we recommend turning off "Auto" and using at least Claude Sonn
 
 ### Windsurf
 
-Save these rules at the root of your project in `.windsurf/rules/instant.md`:
-
-- [Windsurf rules](/llm-rules/windsurf-rules.md)
+[Save these rules](/llm-rules/windsurf-rules.md) at the root of your project in `.windsurf/rules/instant.md`
 
 You may need to restart Windsurf for them to take effect.
 
 ### Zed
 
-Save these rules at the root of your project in `AGENTS.md`:
-
-- [InstantDB rules](/llm-rules/AGENTS.md)
+[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `AGENTS.md`
 
 You may need to restart Zed for them to take effect.
 
 ### Other Tools
 
-Use these rules to give other tools context on how to use Instant:
-
-- [InstantDB rules](/llm-rules/AGENTS.md)
+[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `AGENTS.md`
 
 If you want to manually add in more documentation, you can also append `.md` to the end of any doc page url to get the raw markdown
 
