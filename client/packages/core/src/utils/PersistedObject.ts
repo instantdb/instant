@@ -66,7 +66,7 @@ export type Opts<K, T, SerializedT> = {
   parse: (key: K, value: SerializedT) => T;
   objectSize: (x: SerializedT) => number;
   logger: Logger;
-  gc: GCOpts;
+  gc: GCOpts | null | undefined;
   saveThrottleMs?: number | null | undefined;
   idleCallbackMaxWaitMs?: number | null | undefined;
   preloadEntryCount?: number | null | undefined;
@@ -347,6 +347,9 @@ export class PersistedObject<K extends string, T, SerializedT> {
   }
 
   private async _gc() {
+    if (!this._gcOpts) {
+      return;
+    }
     const keys = new Set(await this._persister.getAllKeys());
     keys.delete(META_KEY);
 

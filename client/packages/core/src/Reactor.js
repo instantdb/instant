@@ -399,11 +399,8 @@ export default class Reactor {
       logger: this._log,
       saveThrottleMs: 100,
       idleCallbackMaxWaitMs: 100,
-      gc: {
-        maxAgeMs: Number.MAX_SAFE_INTEGER,
-        maxEntries: Number.MAX_SAFE_INTEGER,
-        maxSize: Number.MAX_SAFE_INTEGER,
-      },
+      // Don't GC the kv store
+      gc: null,
     });
     this.kv.onKeyLoaded = (k) => {
       if (k === 'pendingMutations') {
