@@ -12,6 +12,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -70,12 +71,17 @@ export function useTopicEffect<
     peer: RoomSchema[RoomType]['presence'],
   ) => any,
 ): void {
+  const onEventRef = useRef(onEvent);
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  }, [onEvent]);
+
   useEffect(() => {
     const unsub = room.core._reactor.subscribeTopic(
       room.id,
       topic,
       (event, peer) => {
-        onEvent(event, peer);
+        onEventRef.current(event, peer);
       },
     );
 
