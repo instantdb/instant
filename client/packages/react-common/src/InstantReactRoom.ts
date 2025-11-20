@@ -72,9 +72,7 @@ export function useTopicEffect<
   ) => any,
 ): void {
   const onEventRef = useRef(onEvent);
-  useEffect(() => {
-    onEventRef.current = onEvent;
-  }, [onEvent]);
+  onEventRef.current = onEvent;
 
   useEffect(() => {
     const unsub = room.core._reactor.subscribeTopic(
