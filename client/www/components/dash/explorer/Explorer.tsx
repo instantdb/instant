@@ -499,17 +499,15 @@ export function Explorer({
   const deletedNamespaces = useMemo(() => {
     const attrs = data?.attrs || [];
     const idAttrs = attrs.filter((a) => {
-      // TODO: It's annoying that I have to remove the deletion marker. Would be nicer if this was done upstream.
-      a['forward-identity'][2] === 'id';
+      return a['forward-identity'][2] === 'id';
     });
     const mapping = idAttrs.map((a) => {
       const cols = attrs.filter(
         (x) => x.metadata.soft_delete_snapshot.id_attr_id === a.id,
       );
-
-      // This feels like a really convoluted structure.
       return { idAttr: a, remainingCols: cols.filter((c) => a.id !== c.id) };
     });
+
     return mapping;
   }, [data?.attrs]);
 
@@ -2042,7 +2040,7 @@ function RecentlyDeletedNSDialog({
   return (
     <ActionForm className="flex max-w-2xl flex-col gap-4">
       <h5 className="flex items-center gap-2 text-lg font-bold">
-        Recently Deleted
+        Recently Deleted Namespaces
       </h5>
       {namespaces.length ? (
         <div className="flex flex-col gap-2">
