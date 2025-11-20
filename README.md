@@ -40,7 +40,7 @@ How does it look? Here's a barebones chat app in about 12 lines:
 // * Multiplayer
 // * Works offline
 
-import { init, tx, id } from "@instantdb/react";
+import { init, id } from "@instantdb/react";
 
 const db = init({ 
   appId: process.env.NEXT_PUBLIC_APP_ID,
@@ -54,7 +54,7 @@ function Chat() {
 
   // 2. Write
   const addMessage = (message) => {
-    db.transact(tx.messages[id()].update(message));
+    db.transact(db.tx.messages[id()].update(message));
   };
 
   // 3. Render!

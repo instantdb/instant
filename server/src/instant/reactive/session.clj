@@ -321,14 +321,15 @@
                                                     (reset! exceptions-silencer x))}
                              pending-handler-id)))))
 
-(defn- handle-remove-sync! [store sess-id event]
+(defn- handle-remove-sync! [store sess-id {:keys [keep-subscription] :as event}]
   (let [subscription-id (ex/get-param! event [:subscription-id] uuid-util/coerce)
         app-id (-> (get-auth! store sess-id) :app :id)
         sync-ent (rs/get-sync-query store app-id sess-id subscription-id)]
     (when sync-ent
       (rs/remove-sync-query store app-id sess-id subscription-id)
-      (sync-sub-model/delete! {:id (:sync/subscription-id sync-ent)
-                               :app-id app-id}))))
+      (when-not keep-subscription
+        (sync-sub-model/delete! {:id (:sync/subscription-id sync-ent)
+                                 :app-id app-id})))))
 
 (defn- handle-refresh-sync-table! [store sess-id {:keys [subscription-id] :as _event}]
   (let [{:keys [app]} (get-auth! store sess-id)

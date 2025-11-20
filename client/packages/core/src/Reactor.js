@@ -12,6 +12,7 @@ import * as flags from './utils/flags.ts';
 import { buildPresenceSlice, hasPresenceResponseChanged } from './presence.ts';
 import { Deferred } from './utils/Deferred.js';
 import { PersistedObject } from './utils/PersistedObject.ts';
+
 import { extractTriples } from './model/instaqlResult.js';
 import {
   areObjectsDeepEqual,
@@ -106,35 +107,56 @@ const ignoreLogging = {
   'patch-presence': true,
 };
 
-function querySubsFromStorage(x, useDateObjects) {
-  const parsed = typeof x === 'string' ? JSON.parse(x) : x;
-  for (const key in parsed) {
-    const v = parsed[key];
-    if (v?.result?.store) {
-      const storeJSON = v.result.store;
-      v.result.store = s.fromJSON({
-        ...storeJSON,
-        useDateObjects: useDateObjects,
-      });
-    }
+function querySubFromStorage(x, useDateObjects) {
+  const v = typeof x === 'string' ? JSON.parse(x) : x;
+
+  if (v?.result?.store) {
+    const storeJSON = v.result.store;
+    v.result.store = s.fromJSON({
+      ...storeJSON,
+      useDateObjects: useDateObjects,
+    });
   }
-  return parsed;
+
+  return v;
 }
 
-function querySubsToStorage(querySubs) {
-  const jsonSubs = {};
-  for (const key in querySubs) {
-    const sub = querySubs[key];
-    const jsonSub = { ...sub };
-    if (sub.result?.store) {
-      jsonSub.result = {
-        ...sub.result,
-        store: s.toJSON(sub.result.store),
-      };
-    }
-    jsonSubs[key] = jsonSub;
+function querySubToStorage(_key, sub) {
+  const jsonSub = { ...sub };
+  if (sub.result?.store) {
+    jsonSub.result = {
+      ...sub.result,
+      store: s.toJSON(sub.result.store),
+    };
   }
-  return jsonSubs;
+  return jsonSub;
+}
+
+function kvFromStorage(key, x) {
+  switch (key) {
+    case 'pendingMutations':
+      return new Map(typeof x === 'string' ? JSON.parse(x) : x);
+    default:
+      return x;
+  }
+}
+
+function kvToStorage(key, x) {
+  switch (key) {
+    case 'pendingMutations':
+      return [...x.entries()];
+    default:
+      return x;
+  }
+}
+
+function onMergeQuerySub(_k, storageSub, inMemorySub) {
+  const storageResult = storageSub?.result;
+  const memoryResult = inMemorySub?.result;
+  if (storageResult && !memoryResult && inMemorySub) {
+    inMemorySub.result = storageResult;
+  }
+  return inMemorySub || storageSub;
 }
 
 function sortedMutationEntries(entries) {
@@ -161,8 +183,9 @@ export default class Reactor {
 
   /** @type {PersistedObject} */
   querySubs;
+
   /** @type {PersistedObject} */
-  pendingMutations;
+  kv;
 
   /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
   queryCbs = {};
@@ -173,7 +196,6 @@ export default class Reactor {
   mutationErrorCbs = [];
   connectionStatusCbs = [];
   config;
-  _persister;
   mutationDeferredStore = new Map();
   _reconnectTimeoutId = null;
   _reconnectTimeoutMs = 0;
@@ -275,7 +297,7 @@ export default class Reactor {
 
     this._syncTable = new SyncTable(
       this._trySendAuthed.bind(this),
-      this._persister,
+      new Storage(this.config.appId, 'syncSubs'),
       {
         useDateObjects: this.config.useDateObjects,
       },
@@ -339,37 +361,57 @@ export default class Reactor {
   _reactorStats() {
     return {
       inFlightMutationCount: this._inFlightMutationEventIds.size,
-      pendingMutationCount: this.pendingMutations.currentValue.size,
+      pendingMutationCount: this._pendingMutations().size,
       transportType: this._transportType,
     };
   }
 
+  _onQuerySubLoaded(hash) {
+    this.kv
+      .waitForKeyToLoad('pendingMutations')
+      .then(() => this.notifyOne(hash));
+  }
+
   _initStorage(Storage) {
-    this._persister = new Storage(`instant_${this.config.appId}_5`);
-    this.querySubs = new PersistedObject(
-      this._persister,
-      'querySubs',
-      {},
-      this._onMergeQuerySubs,
-      querySubsToStorage,
-      (x) => querySubsFromStorage(x, this.config.useDateObjects),
-    );
-    this.pendingMutations = new PersistedObject(
-      this._persister,
-      'pendingMutations',
-      new Map(),
-      this._onMergePendingMutations,
-      (x) => {
-        return [...x.entries()];
+    this.querySubs = new PersistedObject({
+      persister: new Storage(this.config.appId, 'querySubs'),
+      merge: onMergeQuerySub,
+      serialize: querySubToStorage,
+      parse: (_key, x) => querySubFromStorage(x, this.config.useDateObjects),
+      // objectSize
+      objectSize: (x) => x.result?.store?.triples?.length ?? 0,
+      logger: this._log,
+      preloadEntryCount: 10,
+      gc: {
+        maxAgeMs: 1000 * 60 * 60 * 24 * 7 * 52, // 1 year
+        maxEntries: 1000,
+        // Size of each query is the number of triples
+        maxSize: 1_000_000, // 1 million triples
       },
-      (x) => {
-        return new Map(typeof x === 'string' ? JSON.parse(x) : x);
-      },
-      100, // throttle
-      100, // idlecallback timeout, flush more often for mutations
-    );
+    });
+    this.querySubs.onKeyLoaded = (k) => this._onQuerySubLoaded(k);
+    this.kv = new PersistedObject({
+      persister: new Storage(this.config.appId, 'kv'),
+      merge: this._onMergeKv,
+      serialize: kvToStorage,
+      parse: kvFromStorage,
+      objectSize: () => 0,
+      logger: this._log,
+      saveThrottleMs: 100,
+      idleCallbackMaxWaitMs: 100,
+      // Don't GC the kv store
+      gc: null,
+    });
+    this.kv.onKeyLoaded = (k) => {
+      if (k === 'pendingMutations') {
+        this.notifyAll();
+      }
+    };
+    // Trigger immediate load for pendingMutations and currentUser
+    this.kv.waitForKeyToLoad('pendingMutations');
+    this.kv.waitForKeyToLoad(currentUserKey);
     this._beforeUnloadCbs.push(() => {
-      this.pendingMutations.flush();
+      this.kv.flush();
       this.querySubs.flush();
     });
   }
@@ -423,72 +465,25 @@ export default class Reactor {
     this.notifyConnectionStatusSubs(status);
   }
 
-  /**
-   *  merge querySubs from storage and in memory. Has the following side
-   *  effects:
-   *  - We notify all queryCbs because results may been added during merge
-   */
-  _onMergeQuerySubs = (_storageSubs, inMemorySubs) => {
-    const storageSubs = _storageSubs || {};
-    const ret = { ...inMemorySubs };
-
-    // Consider an inMemorySub with no result;
-    // If we have a result from storageSubs, let's add it
-    Object.entries(inMemorySubs).forEach(([hash, querySub]) => {
-      const storageResult = storageSubs?.[hash]?.result;
-      const memoryResult = querySub.result;
-      if (storageResult && !memoryResult) {
-        ret[hash].result = storageResult;
+  _onMergeKv = (key, storageV, inMemoryV) => {
+    switch (key) {
+      case 'pendingMutations': {
+        const storageEntries = storageV?.entries() ?? [];
+        const inMemoryEntries = inMemoryV?.entries() ?? [];
+        const muts = new Map([...storageEntries, ...inMemoryEntries]);
+        const rewrittenStorageMuts = storageV
+          ? this._rewriteMutationsSorted(this.attrs, storageV)
+          : [];
+        rewrittenStorageMuts.forEach(([k, mut]) => {
+          if (!inMemoryV?.pendingMutations?.has(k) && !mut['tx-id']) {
+            this._sendMutation(k, mut);
+          }
+        });
+        return muts;
       }
-    });
-
-    // Consider a storageSub with no corresponding inMemorySub
-    // This means that at least at this point,
-    // the user has not asked to subscribe to the query.
-    // We may _still_ want to add it, because in just a
-    // few milliseconds, the user will ask to subscribe to the
-    // query.
-    // For now, we can't really tell if the user will ask to subscribe
-    // or not. So for now let's just add the first 10 queries from storage.
-    // Eventually, we could be smarter about this. For example,
-    // we can keep usage information about which queries are popular.
-    const storageKsToAdd = Object.keys(storageSubs)
-      .filter((k) => !inMemorySubs[k])
-      .sort((a, b) => {
-        // Sort by lastAccessed, newest first
-        const aTime = storageSubs[a]?.lastAccessed || 0;
-        const bTime = storageSubs[b]?.lastAccessed || 0;
-        return bTime - aTime;
-      })
-      .slice(0, this.queryCacheLimit);
-
-    storageKsToAdd.forEach((k) => {
-      ret[k] = storageSubs[k];
-    });
-
-    // Okay, now we have merged our querySubs
-    this.querySubs.set((_) => ret);
-
-    this.loadedNotifyAll();
-  };
-
-  /**
-   * merge pendingMutations from storage and in memory. Has a side effect of
-   * sending mutations that were stored but not acked
-   */
-  _onMergePendingMutations = (storageMuts, inMemoryMuts) => {
-    const ret = new Map([...storageMuts.entries(), ...inMemoryMuts.entries()]);
-    this.pendingMutations.set((_) => ret);
-    this.loadedNotifyAll();
-    const rewrittenStorageMuts = this._rewriteMutationsSorted(
-      this.attrs,
-      storageMuts,
-    );
-    rewrittenStorageMuts.forEach(([k, mut]) => {
-      if (!inMemoryMuts.has(k) && !mut['tx-id']) {
-        this._sendMutation(k, mut);
-      }
-    });
+      default:
+        return inMemoryV || storageV;
+    }
   };
 
   _flushEnqueuedRoomData(roomId) {
@@ -542,6 +537,9 @@ export default class Reactor {
       case 'add-query-ok': {
         const { q, result } = msg;
         const hash = weakHash(q);
+        if (!this._hasQueryListeners() && !this.querySubs.currentValue[hash]) {
+          break;
+        }
         const pageInfo = result?.[0]?.data?.['page-info'];
         const aggregate = result?.[0]?.data?.['aggregate'];
         const triples = extractTriples(result);
@@ -552,14 +550,17 @@ export default class Reactor {
           this._linkIndex,
           this.config.useDateObjects,
         );
-        this.querySubs.set((prev) => {
+        this.querySubs.updateInPlace((prev) => {
+          if (!prev[hash]) {
+            this._log.info('Missing value in querySubs', { hash, q });
+            return;
+          }
           prev[hash].result = {
             store,
             pageInfo,
             aggregate,
             processedTxId: msg['processed-tx-id'],
           };
-          return prev;
         });
         this._cleanupPendingMutationsQueries();
         this.notifyOne(hash);
@@ -594,15 +595,17 @@ export default class Reactor {
 
         const rewrittenMutations = this._rewriteMutations(
           this.attrs,
-          this.pendingMutations.currentValue,
+          this._pendingMutations(),
           processedTxId,
         );
 
-        if (rewrittenMutations !== this.pendingMutations.currentValue) {
+        if (rewrittenMutations !== this._pendingMutations()) {
           // We know we've changed the mutations to fix the attr ids and removed
           // processed attrs, so we'll persist those changes to prevent optimisticAttrs
           // from using old attr definitions
-          this.pendingMutations.set(() => rewrittenMutations);
+          this.kv.updateInPlace((prev) => {
+            prev.pendingMutations = rewrittenMutations;
+          });
         }
 
         const mutations = sortedMutationEntries(rewrittenMutations.entries());
@@ -626,13 +629,16 @@ export default class Reactor {
           );
           const pageInfo = result?.[0]?.data?.['page-info'];
           const aggregate = result?.[0]?.data?.['aggregate'];
-          return { hash, store: newStore, pageInfo, aggregate };
+          return { q, hash, store: newStore, pageInfo, aggregate };
         });
 
-        updates.forEach(({ hash, store, pageInfo, aggregate }) => {
-          this.querySubs.set((prev) => {
+        updates.forEach(({ hash, q, store, pageInfo, aggregate }) => {
+          this.querySubs.updateInPlace((prev) => {
+            if (!prev[hash]) {
+              this._log.error('Missing value in querySubs', { hash, q });
+              return;
+            }
             prev[hash].result = { store, pageInfo, aggregate, processedTxId };
-            return prev;
           });
         });
 
@@ -650,7 +656,7 @@ export default class Reactor {
 
         const muts = this._rewriteMutations(
           this.attrs,
-          this.pendingMutations.currentValue,
+          this._pendingMutations(),
         );
         const prevMutation = muts.get(eventId);
         if (!prevMutation) {
@@ -658,13 +664,12 @@ export default class Reactor {
         }
 
         // update pendingMutation with server-side tx-id
-        this.pendingMutations.set((prev) => {
+        this._updatePendingMutations((prev) => {
           prev.set(eventId, {
             ...prev.get(eventId),
             'tx-id': txId,
             confirmed: Date.now(),
           });
-          return prev;
         });
 
         const newAttrs = prevMutation['tx-steps']
@@ -740,16 +745,28 @@ export default class Reactor {
     }
   }
 
+  _pendingMutations() {
+    return this.kv.currentValue.pendingMutations ?? new Map();
+  }
+
+  _updatePendingMutations(f) {
+    this.kv.updateInPlace((prev) => {
+      const muts = prev.pendingMutations ?? new Map();
+      prev.pendingMutations = muts;
+      f(muts);
+    });
+  }
+
   /**
    * @param {'timeout' | 'error'} status
    * @param {string} eventId
    * @param {{message: string, type?: string, status?: number, hint?: unknown}} errorMsg
    */
   _handleMutationError(status, eventId, errorMsg) {
-    const mut = this.pendingMutations.currentValue.get(eventId);
+    const mut = this._pendingMutations().get(eventId);
 
     if (mut && (status !== 'timeout' || !mut['tx-id'])) {
-      this.pendingMutations.set((prev) => {
+      this._updatePendingMutations((prev) => {
         prev.delete(eventId);
         return prev;
       });
@@ -770,7 +787,7 @@ export default class Reactor {
     const eventId = msg['client-event-id'];
     // This might not be a mutation, but it can't hurt to delete it
     this._inFlightMutationEventIds.delete(eventId);
-    const prevMutation = this.pendingMutations.currentValue.get(eventId);
+    const prevMutation = this._pendingMutations().get(eventId);
     const errorMessage = {
       message: msg.message || 'Uh-oh, something went wrong. Ping Joe & Stopa.',
     };
@@ -862,10 +879,9 @@ export default class Reactor {
 
   _startQuerySub(q, hash) {
     const eventId = uuid();
-    this.querySubs.set((prev) => {
+    this.querySubs.updateInPlace((prev) => {
       prev[hash] = prev[hash] || { q, result: null, eventId };
       prev[hash].lastAccessed = Date.now();
-      return prev;
     });
     this._trySendAuthed(eventId, { op: 'add-query', q });
 
@@ -971,14 +987,17 @@ export default class Reactor {
     this._cleanupQuery(q, hash);
   }
 
+  _hasQueryListeners(hash) {
+    return !!(this.queryCbs[hash]?.length || this.queryOnceDfds[hash]?.length);
+  }
+
   _cleanupQuery(q, hash) {
-    const hasListeners =
-      this.queryCbs[hash]?.length || this.queryOnceDfds[hash]?.length;
-
+    const hasListeners = this._hasQueryListeners(hash);
     if (hasListeners) return;
-
     delete this.queryCbs[hash];
     delete this.queryOnceDfds[hash];
+    delete this._dataForQueryCache[hash];
+    this.querySubs.unloadKey(hash);
 
     this._trySendAuthed(uuid(), { op: 'remove-query', q });
   }
@@ -996,6 +1015,7 @@ export default class Reactor {
   // server attr-ids.
   _rewriteMutations(attrs, muts, processedTxId) {
     if (!attrs) return muts;
+    if (!muts) return new Map();
     const findExistingAttr = (attr) => {
       const [_, etype, label] = attr['forward-identity'];
       const existing = instaml.getAttrByFwdIdentName(attrs, etype, label);
@@ -1081,9 +1101,7 @@ export default class Reactor {
   // Transact
 
   optimisticAttrs() {
-    const pendingMutationSteps = [
-      ...this.pendingMutations.currentValue.values(),
-    ] // hack due to Map()
+    const pendingMutationSteps = [...this._pendingMutations().values()] // hack due to Map()
       .flatMap((x) => x['tx-steps']);
 
     const deletedAttrIds = new Set(
@@ -1125,11 +1143,11 @@ export default class Reactor {
       return { error: errorMessage };
     }
     if (!this.querySubs) return;
-    if (!this.pendingMutations) return;
+    if (!this.kv.currentValue.pendingMutations) return;
     const querySubVersion = this.querySubs.version();
     const querySubs = this.querySubs.currentValue;
-    const pendingMutationsVersion = this.pendingMutations.version();
-    const pendingMutations = this.pendingMutations.currentValue;
+    const pendingMutationsVersion = this.kv.version();
+    const pendingMutations = this._pendingMutations();
 
     const { q, result } = querySubs[hash] || {};
     if (!result) return;
@@ -1203,13 +1221,18 @@ export default class Reactor {
   /** Re-compute all subscriptions */
   notifyAll() {
     Object.keys(this.queryCbs).forEach((hash) => {
-      this.notifyOne(hash);
+      this.querySubs
+        .waitForKeyToLoad(hash)
+        .then(() => this.notifyOne(hash))
+        .catch(() => this.notifyOne(hash));
     });
   }
 
   loadedNotifyAll() {
-    if (this.pendingMutations.isLoading() || this.querySubs.isLoading()) return;
-    this.notifyAll();
+    this.kv
+      .waitForKeyToLoad('pendingMutations')
+      .then(() => this.notifyAll())
+      .catch(() => this.notifyAll());
   }
 
   /** Applies transactions locally and sends transact message to server */
@@ -1243,7 +1266,7 @@ export default class Reactor {
    */
   pushOps = (txSteps, error) => {
     const eventId = uuid();
-    const mutations = [...this.pendingMutations.currentValue.values()];
+    const mutations = [...this._pendingMutations().values()];
     const order = Math.max(0, ...mutations.map((mut) => mut.order || 0)) + 1;
     const mutation = {
       op: 'transact',
@@ -1252,9 +1275,8 @@ export default class Reactor {
       error,
       order,
     };
-    this.pendingMutations.set((prev) => {
+    this._updatePendingMutations((prev) => {
       prev.set(eventId, mutation);
-      return prev;
     });
 
     const dfd = new Deferred();
@@ -1295,7 +1317,7 @@ export default class Reactor {
       Math.min(
         this._inFlightMutationEventIds.size + 1,
         // Defensive code in case we don't clean up in flight mutation event ids
-        this.pendingMutations.currentValue.size + 1,
+        this._pendingMutations().size + 1,
       ) * 6000,
     );
 
@@ -1341,7 +1363,7 @@ export default class Reactor {
 
     const muts = this._rewriteMutationsSorted(
       this.attrs,
-      this.pendingMutations.currentValue,
+      this._pendingMutations(),
     );
     muts.forEach(([eventId, mut]) => {
       if (!mut['tx-id']) {
@@ -1363,13 +1385,12 @@ export default class Reactor {
       }
     }
 
-    this.pendingMutations.set((prev) => {
+    this._updatePendingMutations((prev) => {
       for (const [eventId, mut] of Array.from(prev.entries())) {
         if (mut['tx-id'] && mut['tx-id'] <= minProcessedTxId) {
           prev.delete(eventId);
         }
       }
-      return prev;
     });
   }
 
@@ -1379,16 +1400,13 @@ export default class Reactor {
    * unaffected by this mutation and it’s safe to delete it from local queue
    */
   _cleanupPendingMutationsTimeout() {
-    if (
-      this.pendingMutations.currentValue.size <
-      this._pendingMutationCleanupThreshold
-    ) {
+    if (this._pendingMutations().size < this._pendingMutationCleanupThreshold) {
       return;
     }
 
     const now = Date.now();
 
-    this.pendingMutations.set((prev) => {
+    this._updatePendingMutations((prev) => {
       for (const [eventId, mut] of Array.from(prev.entries())) {
         if (
           mut.confirmed &&
@@ -1397,8 +1415,6 @@ export default class Reactor {
           prev.delete(eventId);
         }
       }
-
-      return prev;
     });
   }
 
@@ -1616,21 +1632,23 @@ export default class Reactor {
    *
    * Note: If the user deletes their local storage, this id will change.
    *
-   * We use this._localIdPromises to ensure that we only generate a local
-   * id once, even if multiple callers call this function concurrently.
    */
   async getLocalId(name) {
     const k = `localToken_${name}`;
-    const id = await this._persister.getItem(k);
-    if (id) return id;
-    if (this._localIdPromises[k]) {
-      return this._localIdPromises[k];
+    if (this.kv.currentValue[k]) {
+      return this.kv.currentValue[k];
+    }
+
+    const current = await this.kv.waitForKeyToLoad(k);
+    if (current) {
+      return current;
     }
     const newId = uuid();
-    this._localIdPromises[k] = this._persister
-      .setItem(k, newId)
-      .then(() => newId);
-    return this._localIdPromises[k];
+    this.kv.updateInPlace((prev) => {
+      if (prev[k]) return;
+      prev[k] = newId;
+    });
+    return await this.kv.waitForKeyToLoad(k);
   }
 
   // ----
@@ -1821,7 +1839,10 @@ export default class Reactor {
   }
 
   async setCurrentUser(user) {
-    await this._persister.setItem(currentUserKey, user);
+    this.kv.updateInPlace((prev) => {
+      prev[currentUserKey] = user;
+    });
+    await this.kv.waitForKeyToLoad(currentUserKey);
   }
 
   getCurrentUserCached() {
@@ -1829,7 +1850,7 @@ export default class Reactor {
   }
 
   async _getCurrentUser() {
-    const user = await this._persister.getItem(currentUserKey);
+    const user = await this.kv.waitForKeyToLoad(currentUserKey);
     return typeof user === 'string' ? JSON.parse(user) : user;
   }
 
@@ -1840,18 +1861,26 @@ export default class Reactor {
       this._currentUserCached = { isLoading: false, ...errorV };
       return errorV;
     }
-    const user = await this._getCurrentUser();
-    const userV = { user: user, error: undefined };
-    this._currentUserCached = {
-      isLoading: false,
-      ...userV,
-    };
-    return userV;
+    try {
+      const user = await this._getCurrentUser();
+      const userV = { user: user, error: undefined };
+      this._currentUserCached = {
+        isLoading: false,
+        ...userV,
+      };
+      return userV;
+    } catch (e) {
+      return {
+        user: undefined,
+        isLoading: false,
+        error: { message: e?.message || 'Error loading user' },
+      };
+    }
   }
 
   async _hasCurrentUser() {
-    const user = await this._persister.getItem(currentUserKey);
-    return JSON.parse(user) != null;
+    const user = await this.kv.waitForKeyToLoad(currentUserKey);
+    return typeof user === 'string' ? JSON.parse(user) != null : user != null;
   }
 
   async changeCurrentUser(newUser) {
@@ -1877,11 +1906,10 @@ export default class Reactor {
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
     this._dataForQueryCache = {};
-    this.querySubs.set((prev) => {
+    this.querySubs.updateInPlace((prev) => {
       Object.keys(prev).forEach((k) => {
         delete prev[k].result;
       });
-      return prev;
     });
     this._reconnectTimeoutMs = 0;
     this._transport.close();

@@ -49,6 +49,7 @@ import { Save } from 'lucide-react';
 import { infoToast } from '@/lib/toast';
 import { useSavedQueryState } from '@/lib/hooks/useSavedQueryState';
 import { addInstantLibs } from '@/lib/monaco';
+import { parsePermsJSON } from '@/lib/parsePermsJSON';
 import {
   apiSchemaToInstantSchemaDef,
   generateSchemaTypescriptFile,
@@ -68,6 +69,8 @@ const base64Parser = createParser({
     return btoa(JSON.stringify(value));
   },
 });
+
+type CodeEditor = Parameters<OnMount>[0];
 
 type SavedSandbox = {
   name: string;
@@ -183,6 +186,28 @@ export function Sandbox({
   const monacoDisposables = useRef<Array<() => void>>([]);
 
   const { darkMode } = useDarkMode();
+
+  const handlePermsPaste = async (e: any, editor: CodeEditor) => {
+    const model = editor.getModel();
+    if (!model) {
+      return;
+    }
+
+    // Wait a tick for the paste to complete, then check the entire content
+    setTimeout(async () => {
+      const fullContent = model.getValue();
+
+      if (!fullContent.trim()) {
+        return;
+      }
+
+      const converted = parsePermsJSON(fullContent);
+
+      if (converted.status === 'ok') {
+        model.setValue(JSON.stringify(converted.value, null, 2));
+      }
+    }, 20);
+  };
 
   // Add the schema types for the app's schema for better typesense
   useEffect(() => {
@@ -375,7 +400,7 @@ export function Sandbox({
     consoleRef.current?.scrollTo(0, consoleRef.current.scrollHeight);
   }, [output]);
 
-  const prettify = async (editor: Parameters<OnMount>[0]) => {
+  const prettify = async (editor: CodeEditor) => {
     const code = editor.getValue();
     const [prettier, tsPlugin, estreePlugin] = await Promise.all([
       import('prettier/standalone'),
@@ -430,19 +455,8 @@ export function Sandbox({
     if (useAppPerms) {
       rules = app.rules ?? undefined;
     } else if (!useAppPerms && permsValue) {
-      try {
-        rules = JsonParser.parse(permsValue, (key, value) => {
-          // rules.json permissions require that "true" and "false" be strings
-          if (value === true) {
-            return 'true';
-          } else if (value === false) {
-            return 'false';
-          } else {
-            return value;
-          }
-        });
-        setPermsValue(JSON.stringify(rules, null, 2));
-      } catch (error) {
+      const parseResult = parsePermsJSON(permsValue);
+      if (parseResult.status === 'error') {
         out('error', {
           message:
             'Oops! The permission rules you wrote did not parse as valid JSON.' +
@@ -452,6 +466,8 @@ export function Sandbox({
         fin();
         return;
       }
+      rules = parseResult.value;
+      setPermsValue(JSON.stringify(parseResult.value, null, 2));
     }
 
     const _console = {
@@ -814,6 +830,17 @@ export function Sandbox({
                             monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
                             trySaveCurrent,
                           );
+
+                          let lastContent = '';
+
+                          editor.onDidChangeModelContent(() => {
+                            const currentContent = editor.getValue();
+                            if (currentContent !== lastContent) {
+                              lastContent = currentContent;
+                            }
+                          });
+
+                          editor.onDidPaste((e) => handlePermsPaste(e, editor));
 
                           setRulesEditorMonaco(monaco);
                         }}
