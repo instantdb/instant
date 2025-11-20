@@ -326,7 +326,7 @@ export default class IndexedDBStorage extends StorageInterface {
   async getAllKeys(): Promise<string[]> {
     const db = await this._dbPromise;
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this._storeName], 'readwrite');
+      const transaction = db.transaction([this._storeName], 'readonly');
       const objectStore = transaction.objectStore(this._storeName);
       const request = objectStore.getAllKeys();
       request.onerror = (event) => {
