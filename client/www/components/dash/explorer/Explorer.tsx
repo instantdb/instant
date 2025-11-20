@@ -3,6 +3,7 @@ import { InstantReactWebDatabase } from '@instantdb/react';
 import { CurlyBraces, FileDown, Table } from 'lucide-react';
 import {
   ColumnDef,
+  ColumnMeta,
   ColumnSizingState,
   getCoreRowModel,
   useReactTable,
@@ -472,8 +473,7 @@ const fallbackItems: any[] = [];
 
 // Helper functions for exporting data
 function getSelectedRows(
-  table: any,
-  allItems: any[],
+  allItems: ({ id: string } & Record<string, any>)[],
   checkedIds: Record<string, true | false>,
 ) {
   return allItems.filter((item) => checkedIds[item.id]);
@@ -481,14 +481,17 @@ function getSelectedRows(
 
 function exportToCSV(
   rows: any[],
-  columns: any[],
+  columns: ColumnDef<any>[],
   namespace: string,
   downloadFile: boolean = false,
 ) {
   if (rows.length === 0) return;
 
   const visibleColumns = columns.filter(
-    (col: any) => col.id !== 'select-col' && col.header !== undefined,
+    (col) =>
+      col.id !== 'select-col' &&
+      col.header !== undefined &&
+      !(col.meta as TableColMeta | undefined)?.isLink,
   );
 
   const data = rows.map((row) => {
@@ -498,8 +501,6 @@ function exportToCSV(
       // Handle different data types
       if (value === null || value === undefined) {
         rowData[col.header] = '';
-      } else if (Array.isArray(value)) {
-        rowData[col.header] = `${value.length} links`;
       } else if (typeof value === 'object') {
         rowData[col.header] = JSON.stringify(value);
       } else {
@@ -536,7 +537,10 @@ function exportToMarkdown(
   if (rows.length === 0) return;
 
   const visibleColumns = columns.filter(
-    (col: any) => col.id !== 'select-col' && col.header !== undefined,
+    (col) =>
+      col.id !== 'select-col' &&
+      col.header !== undefined &&
+      !(col.meta as TableColMeta | undefined)?.isLink,
   );
 
   const headers = visibleColumns.map((col: any) => col.header as string);
@@ -546,8 +550,6 @@ function exportToMarkdown(
       const value = row[col.header];
       if (value === null || value === undefined) {
         return ' ';
-      } else if (Array.isArray(value)) {
-        return `${value.length} links`;
       } else if (typeof value === 'object') {
         return JSON.stringify(value);
       } else {
@@ -584,7 +586,10 @@ function exportToJSON(
   if (rows.length === 0) return;
 
   const visibleColumns = columns.filter(
-    (col: any) => col.id !== 'select-col' && col.header !== undefined,
+    (col) =>
+      col.id !== 'select-col' &&
+      col.header !== undefined &&
+      !(col.meta as TableColMeta | undefined)?.isLink,
   );
 
   const data = rows.map((row) => {
@@ -1926,7 +1931,6 @@ export function Explorer({
                       onSelect={(e) => {
                         e.preventDefault();
                         const selectedRows = getSelectedRows(
-                          table,
                           allItems,
                           checkedIds,
                         );
@@ -1947,7 +1951,6 @@ export function Explorer({
                       onSelect={(e) => {
                         e.preventDefault();
                         const selectedRows = getSelectedRows(
-                          table,
                           allItems,
                           checkedIds,
                         );
@@ -1970,7 +1973,6 @@ export function Explorer({
                       onSelect={(e) => {
                         e.preventDefault();
                         const selectedRows = getSelectedRows(
-                          table,
                           allItems,
                           checkedIds,
                         );
