@@ -58,10 +58,10 @@ import {
   PendingJob,
   useEditBlobConstraints,
 } from '@/lib/hooks/useEditBlobConstraints';
-import { mutate } from 'swr';
 import { RecentlyDeletedAttrs } from './RecentlyDeleted';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 import { createRenameNamespaceOps } from '@/lib/renames';
+import { useSWRConfig } from 'swr';
 
 export function EditNamespaceDialog({
   db,
@@ -83,6 +83,7 @@ export function EditNamespaceDialog({
   pushNavStack: PushNavStack;
   replaceNav: (nav: Partial<ExplorerNav>) => void;
 }) {
+  const { mutate } = useSWRConfig();
   const [screen, setScreen] = useState<
     | { type: 'main' }
     | { type: 'delete' }
