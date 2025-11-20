@@ -75,13 +75,6 @@ const tools: ToolCard[] = [
       'We let users leave feedback on our docs. This is a quick way to see what they are saying!',
     category: 'Comms',
   },
-  {
-    title: 'LLM Example',
-    href: '/intern/llm-example',
-    description:
-      'Example app that we use in our LLM rules to teach about InstantDB',
-    category: 'Other',
-  },
 ];
 
 const categories = ['All', 'KPIs', 'Analytics', 'Comms', 'Other'];
@@ -151,10 +144,9 @@ export default function InternIndexPage() {
   }
 
   const getCategoryButtonClass = (category: string) =>
-    `px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-      activeCategory === category
-        ? 'bg-blue-500 text-white'
-        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+    `px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeCategory === category
+      ? 'bg-blue-500 text-white'
+      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
     }`;
 
   const filteredTools = tools.filter((tool) => {
