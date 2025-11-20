@@ -97,7 +97,11 @@ export type TableColMeta = {
   copyable?: boolean;
 };
 
-import { SoftDeletedAttr, useRecentlyDeletedAttrs } from './RecentlyDeleted';
+import {
+  SoftDeletedAttr,
+  useRecentlyDeletedAttrs,
+  useRecentlyDeletedNamespaces,
+} from './RecentlyDeleted';
 import addDays from 'date-fns/addDays';
 import format from 'date-fns/format';
 import differenceInDays from 'date-fns/differenceInDays';
@@ -495,21 +499,7 @@ export function Explorer({
   const { data, mutate } = useRecentlyDeletedAttrs(appId);
   const recentlyDeletedNsDialog = useDialog();
 
-  // TODO: I should push this into `RecentlyDeleted`
-  const deletedNamespaces = useMemo(() => {
-    const attrs = data?.attrs || [];
-    const idAttrs = attrs.filter((a) => {
-      return a['forward-identity'][2] === 'id';
-    });
-    const mapping = idAttrs.map((a) => {
-      const cols = attrs.filter(
-        (x) => x.metadata.soft_delete_snapshot.id_attr_id === a.id,
-      );
-      return { idAttr: a, remainingCols: cols.filter((c) => a.id !== c.id) };
-    });
-
-    return mapping;
-  }, [data?.attrs]);
+  const deletedNamespaces = useRecentlyDeletedNamespaces(appId);
 
   const restoreNamespace = async ({
     idAttr,

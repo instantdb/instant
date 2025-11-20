@@ -10,6 +10,7 @@ import { InstantAPIError } from '@instantdb/core';
 import { ExpandableDeletedAttr } from './ExpandableDeletedAttr';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 import { useAuthToken } from '@/lib/auth';
+import { useMemo } from 'react';
 
 // -----
 // Types
@@ -25,13 +26,13 @@ export type SoftDeletedAttr = Omit<DBAttr, 'metadata'> & {
   };
 };
 
-export type DeletedNamespace = {
+type DeletedNamespace = {
   idAttr: SoftDeletedAttr;
-  columns: SoftDeletedAttr[];
+  remainingCols: SoftDeletedAttr[];
 };
 
 // -----
-// Hooks
+// API
 
 export const useRecentlyDeletedAttrs = (appId: string) => {
   const token = useAuthToken();
@@ -66,6 +67,29 @@ export const useRecentlyDeletedAttrs = (appId: string) => {
   });
 
   return result;
+};
+
+export const useRecentlyDeletedNamespaces = (
+  appId: string,
+): DeletedNamespace[] => {
+  const { data } = useRecentlyDeletedAttrs(appId);
+  const deletedNamespaces = useMemo(() => {
+    // TODO: is this code elegant?
+    const attrs = data?.attrs || [];
+    const idAttrs = attrs.filter((a) => {
+      return a['forward-identity'][2] === 'id';
+    });
+    const mapping = idAttrs.map((a) => {
+      const cols = attrs.filter(
+        (x) => x.metadata.soft_delete_snapshot.id_attr_id === a.id,
+      );
+      return { idAttr: a, remainingCols: cols.filter((c) => a.id !== c.id) };
+    });
+
+    return mapping;
+  }, [data?.attrs]);
+
+  return deletedNamespaces;
 };
 
 // -------
