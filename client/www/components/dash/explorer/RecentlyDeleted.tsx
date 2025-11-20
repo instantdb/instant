@@ -1,7 +1,6 @@
 import { Divider, useDialog } from '@/components/ui';
 import config from '@/lib/config';
-import { SchemaNamespace, InstantApp, DBAttr } from '@/lib/types';
-import { useDashFetch } from '@/lib/hooks/useDashFetch';
+import { SchemaNamespace, DBAttr } from '@/lib/types';
 import useSWR from 'swr';
 import { errorToast } from '@/lib/toast';
 import { InstantReactWebDatabase } from '@instantdb/react';
@@ -11,6 +10,9 @@ import { InstantAPIError } from '@instantdb/core';
 import { ExpandableDeletedAttr } from './ExpandableDeletedAttr';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 import { useAuthToken } from '@/lib/auth';
+
+// -----
+// Types
 
 export type SoftDeletedAttr = Omit<DBAttr, 'metadata'> & {
   'deletion-marked-at': string;
@@ -23,27 +25,51 @@ export type SoftDeletedAttr = Omit<DBAttr, 'metadata'> & {
   };
 };
 
-const deletedMarker = '_deleted$';
-
-export const removeDeletedMarker = (s: string): string => {
-  const idx = s.indexOf(deletedMarker);
-  if (idx === -1) return s;
-  return s.slice(idx + deletedMarker.length);
+export type DeletedNamespace = {
+  idAttr: SoftDeletedAttr;
+  columns: SoftDeletedAttr[];
 };
 
-const getNamesByNamespace = (
-  softDeletedAttr: SoftDeletedAttr,
-): Record<string, string> => {
-  const result: Record<string, string> = {};
-  const [_, fwdEtype, fwdLabel] = softDeletedAttr['forward-identity'];
-  result[removeDeletedMarker(fwdEtype)] = removeDeletedMarker(fwdLabel);
+// -----
+// Hooks
 
-  if (softDeletedAttr['reverse-identity']) {
-    const [_, revEtype, revLabel] = softDeletedAttr['reverse-identity'];
-    result[removeDeletedMarker(revEtype)] = removeDeletedMarker(revLabel);
-  }
+export const useRecentlyDeletedAttrs = (appId: string) => {
+  const token = useAuthToken();
+  const result = useSWR(['recently-deleted', appId], async () => {
+    const response = await fetch(
+      `${config.apiURI}/dash/apps/${appId}/soft_deleted_attrs`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('Failed to fetch recently deleted attrs', data);
+      throw new Error(
+        'Failed to fetch recently deleted attrs' + JSON.stringify(data),
+      );
+    }
+    const transformedData = {
+      ...data,
+      attrs: data.attrs.map(withoutDeletionMarkers),
+    };
+
+    const successfulData = transformedData as {
+      attrs: SoftDeletedAttr[];
+      'grace-period-days': number;
+    };
+
+    return successfulData;
+  });
+
   return result;
 };
+
+// -------
+// RecentlyDeletedAttrs
 
 export const RecentlyDeletedAttrs: React.FC<{
   namespace: SchemaNamespace;
@@ -57,8 +83,6 @@ export const RecentlyDeletedAttrs: React.FC<{
 
   const dialog = useDialog();
 
-  // TODO: if restoring attr with previous contraints
-  // leave a note
   const restoreAttr = async (attrId: string) => {
     if (!db) return;
     if (!data) return;
@@ -96,14 +120,9 @@ export const RecentlyDeletedAttrs: React.FC<{
 
   const idAttrId = namespace.attrs.find((a) => a.name === 'id')?.id || 'unk';
 
-  const filtered = data?.attrs
-    ?.map((attr) => ({
-      ...attr,
-      names: getNamesByNamespace(attr),
-    }))
-    .filter(
-      (attr) => attr.metadata?.soft_delete_snapshot.id_attr_id === idAttrId,
-    );
+  const filtered = data?.attrs?.filter(
+    (attr) => attr.metadata?.soft_delete_snapshot.id_attr_id === idAttrId,
+  );
 
   useEffect(() => {
     if (filtered?.length === 0) {
@@ -146,33 +165,34 @@ export const RecentlyDeletedAttrs: React.FC<{
   );
 };
 
-export const useRecentlyDeletedAttrs = (appId: string) => {
-  const token = useAuthToken();
-  const result = useSWR(['recently-deleted', appId], async () => {
-    const response = await fetch(
-      `${config.apiURI}/dash/apps/${appId}/soft_deleted_attrs`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    );
-    const data = await response.json();
-    if (!response.ok) {
-      console.error('Failed to fetch recently deleted attrs', data);
-      throw new Error(
-        'Failed to fetch recently deleted attrs' + JSON.stringify(data),
-      );
-    }
-    const successfulData = data as {
-      attrs: SoftDeletedAttr[];
-      'grace-period-days': number;
-    };
-    return successfulData;
-  });
+// --------
+// Helpers
 
-  return result;
+const deletedMarker = '_deleted$';
+
+const withoutDeletionMarkers = (attr: SoftDeletedAttr): SoftDeletedAttr => {
+  const newAttr = { ...attr };
+  const [fwdId, fwdEtype, fwdLabel] = attr['forward-identity'];
+  newAttr['forward-identity'] = [
+    fwdId,
+    removeDeletedMarker(fwdEtype),
+    removeDeletedMarker(fwdLabel),
+  ];
+  if (attr['reverse-identity']) {
+    const [revId, revEtype, revLabel] = attr['reverse-identity']!;
+    newAttr['reverse-identity'] = [
+      revId,
+      removeDeletedMarker(revEtype),
+      removeDeletedMarker(revLabel),
+    ];
+  }
+  return newAttr;
+};
+
+export const removeDeletedMarker = (s: string): string => {
+  const idx = s.indexOf(deletedMarker);
+  if (idx === -1) return s;
+  return s.slice(idx + deletedMarker.length);
 };
 
 const getConstraintMessage = (attr: SoftDeletedAttr): string | null => {

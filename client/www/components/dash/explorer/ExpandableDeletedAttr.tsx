@@ -16,12 +16,8 @@ type SoftDeletedAttr = DBAttr & {
   'deletion-marked-at': string;
 };
 
-type AttrWithNames = SoftDeletedAttr & {
-  names: Record<string, string>;
-};
-
 interface ExpandableDeletedAttrProps {
-  attr: AttrWithNames;
+  attr: SoftDeletedAttr;
   namespace: SchemaNamespace;
   gracePeriodDays: number;
   onRestore: (attrId: string) => void;
@@ -42,16 +38,16 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
   });
 
   const getForwardAttrName = () => {
-    return attr['forward-identity'][2].split('$')[1];
+    return attr['forward-identity'][2];
   };
 
   const getReverseAttrName = () => {
-    return attr['reverse-identity']?.[2].split('$')[1];
+    return attr['reverse-identity']?.[2];
   };
 
   const getEntityNames = () => {
-    const forwardEntity = attr['forward-identity'][1].split('$')[1];
-    const reverseEntity = attr['reverse-identity']?.[1].split('$')[1];
+    const forwardEntity = attr['forward-identity'][1];
+    const reverseEntity = attr['reverse-identity']?.[1];
     return { forwardEntity, reverseEntity };
   };
 
@@ -127,7 +123,7 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
             <ChevronRightIcon width={14} className="text-gray-400" />
           )}
           <span className="font-mono text-sm font-medium">
-            {attr.names[namespace.name]}
+            {attr['forward-identity'][2]}
           </span>
           <span className="font-mono text-xs text-gray-400">
             expires {formatDistanceToNow(date, { includeSeconds: false })}
