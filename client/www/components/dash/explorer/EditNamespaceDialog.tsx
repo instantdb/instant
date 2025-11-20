@@ -58,10 +58,10 @@ import {
   PendingJob,
   useEditBlobConstraints,
 } from '@/lib/hooks/useEditBlobConstraints';
-import { mutate } from 'swr';
-import { RecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
+import { RecentlyDeletedAttrs } from './RecentlyDeleted';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 import { createRenameNamespaceOps } from '@/lib/renames';
+import { useSWRConfig } from 'swr';
 
 export function EditNamespaceDialog({
   db,
@@ -83,6 +83,7 @@ export function EditNamespaceDialog({
   pushNavStack: PushNavStack;
   replaceNav: (nav: Partial<ExplorerNav>) => void;
 }) {
+  const { mutate } = useSWRConfig();
   const [screen, setScreen] = useState<
     | { type: 'main' }
     | { type: 'delete' }
@@ -99,6 +100,10 @@ export function EditNamespaceDialog({
   async function deleteNs() {
     const ops = namespace.attrs.map((attr) => ['delete-attr', attr.id]);
     await db.core._reactor.pushOps(ops);
+    // update the recently deleted attr cache
+    setTimeout(() => {
+      mutate(['recently-deleted', appId]);
+    }, 500);
     onClose({ ok: true });
   }
 
@@ -1576,6 +1581,7 @@ function EditAttrForm({
   constraints: SystemConstraints;
   pushNavStack: PushNavStack;
 }) {
+  const { mutate } = useSWRConfig();
   const [screen, setScreen] = useState<{ type: 'main' } | { type: 'delete' }>({
     type: 'main',
   });
@@ -1690,8 +1696,8 @@ function EditAttrForm({
   }
 
   async function deleteAttr() {
-    // update the recently deleted attr cache
     await db._core._reactor.pushOps([['delete-attr', attr.id]]);
+    // update the recently deleted attr cache
     setTimeout(() => {
       mutate(['recently-deleted', appId]);
     }, 500);

@@ -51,7 +51,11 @@ import {
   PlusIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
-import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowPathIcon,
+  PencilSquareIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
 
 import { successToast, errorToast } from '@/lib/toast';
 import {
@@ -78,7 +82,6 @@ import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDia
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
 import { formatBytes } from '@/lib/format';
-import { useRecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
 import { getTableWidthSize } from '@/lib/tableWidthSize';
 import { TableCell, TableHeader } from './TableComponents';
 import { ArrowRightFromLine } from 'lucide-react';
@@ -93,6 +96,11 @@ export type TableColMeta = {
   attr: SchemaAttr;
   copyable?: boolean;
 };
+
+import {
+  RecentlyDeletedNamespaces,
+  useRecentlyDeletedNamespaces,
+} from './RecentlyDeleted';
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -483,6 +491,9 @@ export function Explorer({
   const [searchFilters, setSearchFilters] = useState<SearchFilter[]>([]);
   const [ignoreUrlChanges, setIgnoreUrlChanges] = useState(false);
 
+  const recentlyDeletedNsDialog = useDialog();
+  const deletedNamespaces = useRecentlyDeletedNamespaces(appId);
+
   // nav
   const router = useRouter();
   const selectedNamespaceId = router.query.ns as string;
@@ -704,9 +715,6 @@ export function Explorer({
 
   // auth
   const token = useContext(TokenContext);
-
-  // pre-fetch recently deleted attrs before user opens the edit schema modal
-  useRecentlyDeletedAttrs(appId);
 
   const isSystemCatalogNs = selectedNamespace?.name?.startsWith('$') ?? false;
   const sanitizedNsName = selectedNamespace?.name ?? '';
@@ -1403,7 +1411,13 @@ export function Explorer({
           }}
         />
       </Dialog>
-
+      <Dialog {...recentlyDeletedNsDialog}>
+        <RecentlyDeletedNamespaces
+          appId={appId}
+          db={db}
+          onClose={recentlyDeletedNsDialog.onClose}
+        />
+      </Dialog>
       <div
         ref={nsRef}
         className={clsx(
@@ -1446,6 +1460,19 @@ export function Explorer({
             >
               <PlusIcon height="1rem" /> Create
             </Button>
+            {deletedNamespaces.length ? (
+              <Button
+                className="justify-start gap-2 rounded p-2"
+                variant="subtle"
+                size="nano"
+                onClick={recentlyDeletedNsDialog.onOpen}
+              >
+                <span className="rounded bg-gray-200 px-1">
+                  {deletedNamespaces.length}
+                </span>
+                <span>Recently Deleted</span>
+              </Button>
+            ) : null}
           </>
         ) : (
           <div className="animate-slow-pulse flex w-full flex-col gap-2">
