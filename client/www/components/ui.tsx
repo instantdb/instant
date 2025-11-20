@@ -1205,7 +1205,7 @@ export function JSONEditor(props: {
               const model = editor.getModel();
               if (!model) return;
 
-              // Wait a tick for paste to complete
+              // Wait 20 ms for paste to complete
               setTimeout(async () => {
                 const fullContent = model.getValue();
                 if (!fullContent.trim()) return;
