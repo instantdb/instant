@@ -491,9 +491,7 @@ export function Explorer({
   const [searchFilters, setSearchFilters] = useState<SearchFilter[]>([]);
   const [ignoreUrlChanges, setIgnoreUrlChanges] = useState(false);
 
-  // These names should be more descriptipve
   const recentlyDeletedNsDialog = useDialog();
-
   const deletedNamespaces = useRecentlyDeletedNamespaces(appId);
 
   // nav

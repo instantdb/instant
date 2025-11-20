@@ -19,7 +19,7 @@ import { addDays, format, differenceInDays } from 'date-fns';
 export type SoftDeletedAttr = Omit<DBAttr, 'metadata'> & {
   'deletion-marked-at': string;
   metadata: {
-    soft_delete_snapshot: {
+    soft_delete_snapshot?: {
       is_indexed: boolean;
       is_required: boolean;
       id_attr_id: string;
@@ -82,7 +82,7 @@ export const useRecentlyDeletedNamespaces = (
     });
     const mapping = idAttrs.map((a) => {
       const cols = attrs.filter(
-        (x) => x.metadata.soft_delete_snapshot.id_attr_id === a.id,
+        (x) => x.metadata.soft_delete_snapshot?.id_attr_id === a.id,
       );
       return { idAttr: a, remainingCols: cols.filter((c) => a.id !== c.id) };
     });
@@ -262,7 +262,7 @@ export const RecentlyDeletedAttrs: React.FC<{
   const idAttrId = namespace.attrs.find((a) => a.name === 'id')?.id || 'unk';
 
   const filtered = data?.attrs?.filter(
-    (attr) => attr.metadata?.soft_delete_snapshot.id_attr_id === idAttrId,
+    (attr) => attr.metadata?.soft_delete_snapshot?.id_attr_id === idAttrId,
   );
 
   useEffect(() => {
