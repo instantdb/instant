@@ -13,8 +13,8 @@ function Main() {
   const query = db.useQuery({ stickers: {} });
   const [pendingTxs, setPendingTxs] = useState<any>(null);
   useEffect(() => {
-    const unsub = db._core._reactor.pendingMutations.subscribe((txs: any) => {
-      const copy = new Map(txs);
+    const unsub = db.core._reactor.kv.subscribe((v: any) => {
+      const copy = new Map(v.pendingMutations);
       setPendingTxs(copy);
     });
     return unsub;
@@ -47,7 +47,7 @@ function Main() {
           className="bg-black text-white"
           onClick={() => {
             db.transact(
-              query.data?.stickers.map((x) => db.tx.strickers[x.id].delete()) ??
+              query.data?.stickers.map((x) => db.tx.stickers[x.id].delete()) ??
                 [],
             );
           }}

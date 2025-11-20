@@ -6,6 +6,7 @@ import { Logger } from './Reactor.js';
 import instaql, { compareOrder } from './instaql.js';
 import { InstaQLResponse, ValidQuery } from './queryTypes.ts';
 import { EntitiesDef, IContainEntitiesAndLinks } from './schemaTypes.ts';
+import { StorageInterface } from './index.ts';
 
 type SubState = {
   txId?: number;
@@ -21,15 +22,16 @@ type Sub = {
   orderDirection: 'asc' | 'desc';
   orderFieldType: 'string' | 'number' | 'date' | 'boolean';
   state?: SubState;
-  entities?: Array<{ entity: any; store: any; serverCreatedAt: number }>;
+  values?: {
+    attrs: Record<string, any>;
+    entities: Array<{ entity: any; store: any; serverCreatedAt: number }>;
+  };
   createdAt: number;
   updatedAt: number;
 };
 
 // We could make a better type for this if we had a return type for s.toJSON
-type SubsInStorage = Subs;
-
-type Subs = { [hash: string]: Sub };
+type SubInStorage = Sub;
 
 type StartMsg = {
   op: 'start-sync';
@@ -39,6 +41,7 @@ type StartMsg = {
 type EndMsg = {
   op: 'remove-sync';
   'subscription-id': string;
+  'keep-subscription': boolean;
 };
 
 type ResyncMsg = {
@@ -82,48 +85,52 @@ type TrySend = (eventId: string, msg: SendMsg) => void;
 type Config = { useDateObjects: boolean };
 
 // Modifies the data in place because it comes directly from storage
-function syncSubsFromStorage(
-  parsed: SubsInStorage,
-  useDateObjects: boolean,
-): Subs {
-  for (const key in parsed) {
-    const sub = parsed[key];
-    for (const e of sub.entities || []) {
+function syncSubFromStorage(sub: SubInStorage, useDateObjects: boolean): Sub {
+  const values = sub.values;
+  if (values) {
+    for (const e of values.entities || []) {
       e.store.useDateObjects = useDateObjects;
+      e.store.attrs = values.attrs;
       e.store = s.fromJSON(e.store);
     }
   }
-  return parsed;
+
+  return sub;
 }
 
-function syncSubsToStorage(subs: Subs): SubsInStorage {
-  const jsonSubs = {};
-  for (const key in subs) {
-    const sub = subs[key];
-    if (sub.entities) {
-      const entities = [];
-      for (const e of sub.entities) {
-        entities.push({ ...e, store: s.toJSON(e.store) });
-      }
-      jsonSubs[key] = { ...sub, entities };
-    } else {
-      jsonSubs[key] = sub;
+function syncSubToStorage(_k: string, sub: Sub): SubInStorage {
+  if (sub.values?.entities) {
+    const entities = [];
+    for (const e of sub.values?.entities) {
+      const store = s.toJSON(e.store);
+      // We'll store the attrs once on values, and put the
+      // attrs back into the store on hydration
+      delete store['attrs'];
+      entities.push({ ...e, store });
     }
+    return { ...sub, values: { ...sub.values, entities } };
+  } else {
+    return sub;
   }
-  return jsonSubs;
 }
 
-function onMergeSubs(storageSubs: Subs | null, inMemorySubs: Subs): Subs {
-  const subs = {};
-  for (const [k, v] of Object.entries(inMemorySubs)) {
-    subs[k] = v;
+function onMergeSub(
+  _key: string,
+  storageSub: SubInStorage | null,
+  inMemorySub: Sub | null,
+): Sub {
+  const storageTxId = storageSub?.state.txId;
+  const memoryTxId = inMemorySub?.state.txId;
+
+  if (storageTxId && (!memoryTxId || storageTxId > memoryTxId)) {
+    return storageSub;
   }
-  if (storageSubs) {
-    for (const [k, v] of Object.entries(storageSubs)) {
-      subs[k] = v;
-    }
+
+  if (memoryTxId && (!storageTxId || memoryTxId > storageTxId)) {
+    return inMemorySub;
   }
-  return subs;
+
+  return storageSub || inMemorySub;
 }
 
 function queryEntity(sub: Sub, store: any) {
@@ -198,11 +205,14 @@ function changedFieldsOfChanges(
   return changedFields;
 }
 
-function subData(sub: Sub, entities: NonNullable<Sub['entities']>) {
+function subData(sub: Sub, entities: NonNullable<Sub['values']['entities']>) {
   return { [sub.table]: entities.map((e) => e.entity) };
 }
 
-function sortEntitiesInPlace(sub: Sub, entities: NonNullable<Sub['entities']>) {
+function sortEntitiesInPlace(
+  sub: Sub,
+  entities: NonNullable<Sub['values']['entities']>,
+) {
   const dataType = sub.orderFieldType;
   if (sub.orderField === 'serverCreatedAt') {
     entities.sort(
@@ -362,7 +372,7 @@ export type SyncTableCallback<
 
 export class SyncTable {
   private trySend: TrySend;
-  private subs: PersistedObject<Subs>;
+  private subs: PersistedObject<string, Sub, SubInStorage>;
   // Using any for the SyncCallback because we'd need Reactor to be typed
   private callbacks: { [hash: string]: SyncTableCallback<any, any, any>[] } =
     {};
@@ -373,7 +383,7 @@ export class SyncTable {
 
   constructor(
     trySend: TrySend,
-    persister: Storage,
+    storage: StorageInterface,
     config: Config,
     log: Logger,
     createStore: (triples: Triple[]) => any,
@@ -383,14 +393,20 @@ export class SyncTable {
     this.log = log;
     this.createStore = createStore;
 
-    this.subs = new PersistedObject<Subs>(
-      persister,
-      'subs',
-      {},
-      onMergeSubs,
-      syncSubsToStorage,
-      (x) => syncSubsFromStorage(x, this.config.useDateObjects),
-    );
+    this.subs = new PersistedObject<string, Sub, SubInStorage>({
+      persister: storage,
+      merge: onMergeSub,
+      serialize: syncSubToStorage,
+      parse: (_key, x) => syncSubFromStorage(x, this.config.useDateObjects),
+      objectSize: (sub) => sub.values?.entities.length || 0,
+      logger: log,
+      gc: {
+        maxAgeMs: 1000 * 60 * 60 * 24 * 7 * 52, // 1 year
+        maxEntries: 1000,
+        // Size of each sub is the number of entity
+        maxSize: 1_000_000, // 1 million entities
+      },
+    });
   }
 
   public beforeUnload() {
@@ -424,17 +440,15 @@ export class SyncTable {
 
     if (!cbs.length) {
       delete this.callbacks[hash];
-      if (keepSubscription) {
-        return;
-      }
       const sub = this.subs.currentValue[hash];
       if (sub?.state) {
-        this.clearSubscriptionData(sub.state.subscriptionId);
+        this.clearSubscriptionData(sub.state.subscriptionId, keepSubscription);
       }
-      this.subs.set((prev) => {
-        delete prev[hash];
-        return prev;
-      });
+      if (!keepSubscription) {
+        this.subs.updateInPlace((prev) => {
+          delete prev[hash];
+        });
+      }
     }
   }
 
@@ -456,10 +470,11 @@ export class SyncTable {
     });
   }
 
-  private sendRemove(state: SubState) {
+  private sendRemove(state: SubState, keepSubscription: boolean) {
     this.trySend(uuid(), {
       op: 'remove-sync',
       'subscription-id': state.subscriptionId,
+      'keep-subscription': keepSubscription,
     });
   }
 
@@ -469,17 +484,17 @@ export class SyncTable {
     cb?: SyncTableCallback<any, any, any>,
   ) {
     // Wait for storage to load so that we know if we already have an existing subscription
-    await this.subs.waitForLoaded();
+    await this.subs.waitForKeyToLoad(hash);
     const existingSub = this.subs.currentValue[hash];
 
     if (existingSub && existingSub.state && existingSub.state.txId) {
       this.sendResync(existingSub, existingSub.state);
 
-      if (existingSub.entities && cb) {
+      if (existingSub.values?.entities && cb) {
         const k = Object.keys(query)[0];
         cb({
           type: CallbackEventType.LoadFromStorage,
-          data: subData(existingSub, existingSub.entities),
+          data: subData(existingSub, existingSub.values?.entities),
         });
       }
 
@@ -500,7 +515,7 @@ export class SyncTable {
             'checked-data-type'
           ];
 
-    this.subs.set((prev) => {
+    this.subs.updateInPlace((prev) => {
       prev[hash] = {
         query,
         hash: hash,
@@ -511,15 +526,14 @@ export class SyncTable {
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
-      return prev;
     });
 
     this.sendStart(query);
   }
 
   public async flushPending() {
-    await this.subs.waitForLoaded();
     for (const hash of Object.keys(this.callbacks)) {
+      await this.subs.waitForKeyToLoad(hash);
       const sub = this.subs.currentValue[hash];
       if (sub) {
         await this.initSubscription(sub.query, sub.hash);
@@ -536,7 +550,7 @@ export class SyncTable {
 
     this.idToHash[subscriptionId] = hash;
 
-    this.subs.set((prev) => {
+    this.subs.updateInPlace((prev) => {
       const sub = prev[hash];
       if (!sub) {
         this.log.error(
@@ -554,7 +568,6 @@ export class SyncTable {
         subscriptionId: subscriptionId,
         token: msg.token,
       };
-      return prev;
     });
   }
 
@@ -574,37 +587,42 @@ export class SyncTable {
     }
 
     const batch = [];
-    const currentValue = this.subs.set((prev) => {
-      const sub = prev[hash];
-      if (!sub) {
-        this.log.error('Missing sub for hash', hash, msg);
-        return prev;
-      }
+    const sub = this.subs.currentValue[hash];
+    if (!sub) {
+      this.log.error('Missing sub for hash', hash, msg);
+      return;
+    }
 
-      const entities = sub.entities ?? [];
-      sub.entities = entities;
+    const values = sub.values ?? {
+      entities: [],
+      attrs: this.createStore([]).attrs,
+    };
+    sub.values = values;
+    const entities = values.entities;
 
-      for (const entRows of joinRows) {
-        const store = this.createStore(entRows);
-        const entity = queryEntity(sub, store);
-        entities.push({
-          store,
-          entity,
-          serverCreatedAt: getServerCreatedAt(sub, store, entity.id),
-        });
-        batch.push(entity);
-      }
+    for (const entRows of joinRows) {
+      const store = this.createStore(entRows);
+      values.attrs = store.attrs;
+      const entity = queryEntity(sub, store);
+      entities.push({
+        store,
+        entity,
+        serverCreatedAt: getServerCreatedAt(sub, store, entity.id),
+      });
+      batch.push(entity);
+    }
 
-      sub.updatedAt = Date.now();
-
-      return prev;
+    this.subs.updateInPlace((prev) => {
+      prev[hash] = sub;
+      // Make sure we write a field or mutative won't
+      // see the change because sub === prev[hash]
+      prev[hash].updatedAt = Date.now();
     });
 
-    const sub = currentValue[hash];
-    if (sub.entities) {
+    if (sub.values) {
       this.notifyCbs(hash, {
         type: CallbackEventType.InitialSyncBatch,
-        data: subData(sub, sub.entities),
+        data: subData(sub, sub.values.entities),
         batch,
       });
     }
@@ -617,11 +635,11 @@ export class SyncTable {
       this.log.error('Missing hash for subscription', msg);
       return;
     }
-    this.subs.set((prev) => {
+    this.subs.updateInPlace((prev) => {
       const sub = prev[hash];
       if (!sub) {
         this.log.error('Missing sub for hash', hash, msg);
-        return prev;
+        return;
       }
       const state = sub.state;
       if (!state) {
@@ -630,7 +648,6 @@ export class SyncTable {
       }
       state.txId = msg['tx-id'];
       sub.updatedAt = Date.now();
-      return prev;
     });
 
     const sub = this.subs.currentValue[hash];
@@ -638,7 +655,7 @@ export class SyncTable {
     if (sub) {
       this.notifyCbs(hash, {
         type: CallbackEventType.InitialSyncComplete,
-        data: subData(sub, sub.entities || []),
+        data: subData(sub, sub.values?.entities || []),
       });
     }
   }
@@ -650,128 +667,140 @@ export class SyncTable {
       this.log.error('Missing hash for subscription', msg);
       return;
     }
-    this.subs.set((prev) => {
-      const sub = prev[hash];
-      if (!sub) {
-        this.log.error('Missing sub for hash', hash, msg);
-        return prev;
+
+    const sub = this.subs.currentValue[hash];
+    if (!sub) {
+      this.log.error('Missing sub for hash', hash, msg);
+      return;
+    }
+
+    const state = sub.state;
+    if (!state) {
+      this.log.error('Missing state for sub', sub, msg);
+      return;
+    }
+
+    for (const tx of msg.txes) {
+      if (state.txId >= tx['tx-id']) {
+        continue;
+      }
+      state.txId = tx['tx-id'];
+      const idxesToDelete = [];
+      // Note: this won't work as well when links are involved
+      const byEid: {
+        [eid: string]: SyncUpdateTriplesMsg['txes'][number]['changes'];
+      } = {};
+      for (const change of tx.changes) {
+        const eidChanges = byEid[change.triple[0]] ?? [];
+        byEid[change.triple[0]] = eidChanges;
+        eidChanges.push(change);
       }
 
-      const state = sub.state;
-      if (!state) {
-        this.log.error('Missing state for sub', sub, msg);
-        return prev;
+      const values = sub.values ?? {
+        entities: [],
+        attrs: this.createStore([]).attrs,
+      };
+      const entities = values.entities;
+      sub.values = values;
+
+      const updated: SyncTransaction<any, any, any>['updated'] = [];
+      // Update the existing stores, if we already know about this entity
+      eidLoop: for (const [eid, changes] of Object.entries(byEid)) {
+        for (const [entIdx, ent] of Object.entries(entities)) {
+          if (s.hasEntity(ent.store, eid)) {
+            applyChangesToStore(ent.store, changes);
+            const entity = queryEntity(sub, ent.store);
+            const changedFields = changedFieldsOfChanges(ent.store, changes)[
+              eid
+            ];
+            for (const [k, { oldValue, newValue }] of Object.entries(
+              changedFields || {},
+            )) {
+              if (oldValue === newValue) {
+                delete changedFields[k];
+              }
+            }
+            if (entity) {
+              updated.push({
+                oldEntity: ent.entity,
+                newEntity: entity,
+                changedFields: changedFields || {},
+              });
+              ent.entity = entity;
+            } else {
+              idxesToDelete.push(entIdx);
+            }
+            delete byEid[eid];
+            continue eidLoop;
+          }
+        }
       }
 
-      for (const tx of msg.txes) {
-        if (state.txId >= tx['tx-id']) {
+      const added = [];
+      // If we have anything left in byEid, then this must be a new entity we don't know about
+      for (const [_eid, changes] of Object.entries(byEid)) {
+        const store = this.createStore([]);
+        values.attrs = store.attrs;
+        applyChangesToStore(store, changes);
+        const entity = queryEntity(sub, store);
+        if (!entity) {
+          this.log.error('No entity found after applying change', {
+            sub,
+            changes,
+            store,
+          });
           continue;
         }
-        state.txId = tx['tx-id'];
-        const idxesToDelete = [];
-        // Note: this won't work as well when links are involved
-        const byEid: {
-          [eid: string]: SyncUpdateTriplesMsg['txes'][number]['changes'];
-        } = {};
-        for (const change of tx.changes) {
-          const eidChanges = byEid[change.triple[0]] ?? [];
-          byEid[change.triple[0]] = eidChanges;
-          eidChanges.push(change);
-        }
-
-        const entities = sub.entities || [];
-        sub.entities = entities;
-
-        const updated: SyncTransaction<any, any, any>['updated'] = [];
-        // Update the existing stores, if we already know about this entity
-        eidLoop: for (const [eid, changes] of Object.entries(byEid)) {
-          for (const [entIdx, ent] of Object.entries(entities)) {
-            if (s.hasEntity(ent.store, eid)) {
-              applyChangesToStore(ent.store, changes);
-              const entity = queryEntity(sub, ent.store);
-              const changedFields = changedFieldsOfChanges(ent.store, changes)[
-                eid
-              ];
-              for (const [k, { oldValue, newValue }] of Object.entries(
-                changedFields || {},
-              )) {
-                if (oldValue === newValue) {
-                  delete changedFields[k];
-                }
-              }
-              if (entity) {
-                updated.push({
-                  oldEntity: ent.entity,
-                  newEntity: entity,
-                  changedFields: changedFields || {},
-                });
-                ent.entity = entity;
-              } else {
-                idxesToDelete.push(entIdx);
-              }
-              delete byEid[eid];
-              continue eidLoop;
-            }
-          }
-        }
-
-        const added = [];
-        // If we have anything left in byEid, then this must be a new entity we don't know about
-        for (const [_eid, changes] of Object.entries(byEid)) {
-          const store = this.createStore([]);
-          applyChangesToStore(store, changes);
-          const entity = queryEntity(sub, store);
-          if (!entity) {
-            this.log.error('No entity found after applying change', {
-              sub,
-              changes,
-              store,
-            });
-            1;
-            continue;
-          }
-          entities.push({
-            store,
-            entity,
-            serverCreatedAt: getServerCreatedAt(sub, store, entity.id),
-          });
-          added.push(entity);
-        }
-
-        const removed = [];
-
-        for (const idx of idxesToDelete.sort().reverse()) {
-          removed.push(entities[idx].entity);
-          entities.splice(idx, 1);
-        }
-
-        sortEntitiesInPlace(sub, entities);
-        this.notifyCbs(hash, {
-          type: CallbackEventType.SyncTransaction,
-          data: subData(sub, sub.entities),
-          added,
-          removed,
-          updated,
+        entities.push({
+          store,
+          entity,
+          serverCreatedAt: getServerCreatedAt(sub, store, entity.id),
         });
-        sub.updatedAt = Date.now();
+        added.push(entity);
       }
 
-      return prev;
+      const removed = [];
+
+      for (const idx of idxesToDelete.sort().reverse()) {
+        removed.push(entities[idx].entity);
+        entities.splice(idx, 1);
+      }
+
+      sortEntitiesInPlace(sub, entities);
+      this.notifyCbs(hash, {
+        type: CallbackEventType.SyncTransaction,
+        data: subData(sub, sub.values?.entities),
+        added,
+        removed,
+        updated,
+      });
+    }
+    this.subs.updateInPlace((prev) => {
+      prev[hash] = sub;
+      // Make sure we write a field or mutative won't
+      // see the change because sub === prev[hash]
+      prev[hash].updatedAt = Date.now();
     });
   }
 
-  private clearSubscriptionData(subscriptionId: string) {
+  private clearSubscriptionData(
+    subscriptionId: string,
+    keepSubscription: boolean,
+  ) {
     const hash = this.idToHash[subscriptionId];
     if (hash) {
       delete this.idToHash[subscriptionId];
       const sub = this.subs.currentValue[hash];
       if (sub.state) {
-        this.sendRemove(sub.state);
+        this.sendRemove(sub.state, keepSubscription);
       }
-      this.subs.set((prev) => {
-        delete prev[hash];
-        return prev;
-      });
+      if (keepSubscription) {
+        this.subs.unloadKey(hash);
+      } else {
+        this.subs.updateInPlace((prev) => {
+          delete prev[hash];
+        });
+      }
       if (sub) {
         return sub;
       }
@@ -813,7 +842,7 @@ export class SyncTable {
     // This can happen if the auth changed and we need to refetch with the
     // new auth or if the subscription is too far behind.
     const subscriptionId = msg['original-event']['subscription-id'];
-    const removedSub = this.clearSubscriptionData(subscriptionId);
+    const removedSub = this.clearSubscriptionData(subscriptionId, false);
     if (removedSub) {
       this.initSubscription(removedSub.query, removedSub.hash);
     }
