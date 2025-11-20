@@ -373,42 +373,38 @@ export default class Reactor {
   }
 
   _initStorage(Storage) {
-    this.querySubs = new PersistedObject(
-      new Storage(this.config.appId, 'querySubs'),
-      onMergeQuerySub,
-      querySubToStorage,
-      (_key, x) => querySubFromStorage(x, this.config.useDateObjects),
+    this.querySubs = new PersistedObject({
+      persister: new Storage(this.config.appId, 'querySubs'),
+      merge: onMergeQuerySub,
+      serialize: querySubToStorage,
+      parse: (_key, x) => querySubFromStorage(x, this.config.useDateObjects),
       // objectSize
-      (x) => x.result?.store?.triples?.length ?? 0,
-      this._log,
-      {
-        preloadEntryCount: 10,
-        gc: {
-          maxAgeMs: 1000 * 60 * 60 * 24 * 7 * 52, // 1 year
-          maxEntries: 1000,
-          // Size of each query is the number of triples
-          maxSize: 1_000_000, // 1 million triples
-        },
+      objectSize: (x) => x.result?.store?.triples?.length ?? 0,
+      logger: this._log,
+      preloadEntryCount: 10,
+      gc: {
+        maxAgeMs: 1000 * 60 * 60 * 24 * 7 * 52, // 1 year
+        maxEntries: 1000,
+        // Size of each query is the number of triples
+        maxSize: 1_000_000, // 1 million triples
       },
-    );
+    });
     this.querySubs.onKeyLoaded = (k) => this._onQuerySubLoaded(k);
-    this.kv = new PersistedObject(
-      new Storage(this.config.appId, 'kv'),
-      this._onMergeKv,
-      kvToStorage,
-      kvFromStorage,
-      () => 0,
-      this._log,
-      {
-        saveThrottleMs: 100,
-        idleCallbackMaxWaitMs: 100,
-        gc: {
-          maxAgeMs: Number.MAX_SAFE_INTEGER,
-          maxEntries: Number.MAX_SAFE_INTEGER,
-          maxSize: Number.MAX_SAFE_INTEGER,
-        },
+    this.kv = new PersistedObject({
+      persister: new Storage(this.config.appId, 'kv'),
+      merge: this._onMergeKv,
+      serialize: kvToStorage,
+      parse: kvFromStorage,
+      objectSize: () => 0,
+      logger: this._log,
+      saveThrottleMs: 100,
+      idleCallbackMaxWaitMs: 100,
+      gc: {
+        maxAgeMs: Number.MAX_SAFE_INTEGER,
+        maxEntries: Number.MAX_SAFE_INTEGER,
+        maxSize: Number.MAX_SAFE_INTEGER,
       },
-    );
+    });
     this.kv.onKeyLoaded = (k) => {
       if (k === 'pendingMutations') {
         this.notifyAll();

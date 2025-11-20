@@ -51,7 +51,21 @@ export type GCOpts = {
   maxEntries: number;
 };
 
-export type Opts = {
+export type Opts<K, T, SerializedT> = {
+  persister: StorageInterface;
+  /**
+   * Merges data from storage with in-memory value on load.
+   * The value returned from merge will become the current value.
+   */
+  merge: (
+    key: K,
+    fromStorage: T | null | undefined,
+    inMemoryValue: T | null | undefined,
+  ) => T;
+  serialize: (key: K, input: T) => SerializedT;
+  parse: (key: K, value: SerializedT) => T;
+  objectSize: (x: SerializedT) => number;
+  logger: Logger;
   gc: GCOpts;
   saveThrottleMs?: number | null | undefined;
   idleCallbackMaxWaitMs?: number | null | undefined;
@@ -62,7 +76,7 @@ export class PersistedObject<K extends string, T, SerializedT> {
   currentValue: Record<K, T>;
   private _subs = [];
   private _persister: StorageInterface;
-  private _onMerge: (key: K, fromStorage: T, inMemoryValue: T) => T;
+  private _merge: (key: K, fromStorage: T, inMemoryValue: T) => T;
   private serialize: (key: K, input: T) => SerializedT;
   private parse: (key: K, value: SerializedT) => T;
   private _saveThrottleMs: number;
@@ -93,29 +107,13 @@ export class PersistedObject<K extends string, T, SerializedT> {
   };
   private _gcOpts: GCOpts;
 
-  constructor(
-    persister: StorageInterface,
-    /**
-     * Merges data from storage with in-memory value on load.
-     * The value returned from onMerge will become the current value.
-     */
-    onMerge: (
-      key: K,
-      fromStorage: T | null | undefined,
-      inMemoryValue: T | null | undefined,
-    ) => T,
-    serialize: (key: K, input: T) => SerializedT,
-    parse: (key: K, value: SerializedT) => T,
-    objectSize: (x: SerializedT) => number,
-    log,
-    opts: Opts,
-  ) {
-    this._persister = persister;
-    this._onMerge = onMerge;
-    this.serialize = serialize;
-    this.parse = parse;
-    this._objectSize = objectSize;
-    this._log = log;
+  constructor(opts: Opts<K, T, SerializedT>) {
+    this._persister = opts.persister;
+    this._merge = opts.merge;
+    this.serialize = opts.serialize;
+    this.parse = opts.parse;
+    this._objectSize = opts.objectSize;
+    this._log = opts.logger;
     this._saveThrottleMs = opts.saveThrottleMs ?? 100;
     this._idleCallbackMaxWaitMs = opts.idleCallbackMaxWaitMs ?? 1000;
     this._gcOpts = opts.gc;
@@ -228,7 +226,7 @@ export class PersistedObject<K extends string, T, SerializedT> {
     this._loadedKeys.add(k);
 
     if (value) {
-      const merged = this._onMerge(k, value, this.currentValue[k]);
+      const merged = this._merge(k, value, this.currentValue[k]);
       if (merged) {
         this.currentValue[k] = merged;
       }

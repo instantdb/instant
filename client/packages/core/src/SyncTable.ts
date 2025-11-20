@@ -393,22 +393,20 @@ export class SyncTable {
     this.log = log;
     this.createStore = createStore;
 
-    this.subs = new PersistedObject<string, Sub, SubInStorage>(
-      storage,
-      onMergeSub,
-      syncSubToStorage,
-      (_key, x) => syncSubFromStorage(x, this.config.useDateObjects),
-      (sub) => sub.values?.entities.length || 0,
-      log,
-      {
-        gc: {
-          maxAgeMs: 1000 * 60 * 60 * 24 * 7 * 52, // 1 year
-          maxEntries: 1000,
-          // Size of each sub is the number of entity
-          maxSize: 1_000_000, // 1 million entities
-        },
+    this.subs = new PersistedObject<string, Sub, SubInStorage>({
+      persister: storage,
+      merge: onMergeSub,
+      serialize: syncSubToStorage,
+      parse: (_key, x) => syncSubFromStorage(x, this.config.useDateObjects),
+      objectSize: (sub) => sub.values?.entities.length || 0,
+      logger: log,
+      gc: {
+        maxAgeMs: 1000 * 60 * 60 * 24 * 7 * 52, // 1 year
+        maxEntries: 1000,
+        // Size of each sub is the number of entity
+        maxSize: 1_000_000, // 1 million entities
       },
-    );
+    });
   }
 
   public beforeUnload() {

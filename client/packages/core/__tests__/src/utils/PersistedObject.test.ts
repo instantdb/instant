@@ -21,22 +21,20 @@ const devNullLogger = createLogger(false, () => ({}));
 
 test('PersistedObject saves values to storage', async () => {
   const idb = new IndexedDBStorage(randomUUID(), 'querySubs');
-  const PO = new PersistedObject<string, string, string>(
-    idb,
-    (_k, storage, memory) => storage || memory || 'none',
-    (_k, x) => x,
-    (_k, x) => x,
-    (_v) => 0,
-    devNullLogger,
-    {
-      saveThrottleMs: 0,
-      gc: {
-        maxAgeMs: Number.MAX_SAFE_INTEGER,
-        maxEntries: Number.MAX_SAFE_INTEGER,
-        maxSize: Number.MAX_SAFE_INTEGER,
-      },
+  const PO = new PersistedObject<string, string, string>({
+    persister: idb,
+    merge: (_k, storage, memory) => storage || memory || 'none',
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: (_v) => 0,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    gc: {
+      maxAgeMs: Number.MAX_SAFE_INTEGER,
+      maxEntries: Number.MAX_SAFE_INTEGER,
+      maxSize: Number.MAX_SAFE_INTEGER,
     },
-  );
+  });
 
   PO.updateInPlace((prev) => {
     prev.a = 'b';
@@ -53,26 +51,24 @@ test('PersistedObject merges existing values', async () => {
   const idb = new IndexedDBStorage(randomUUID(), 'querySubs');
   let storageV;
   let memoryV;
-  const PO = new PersistedObject<string, string, string>(
-    idb,
-    (_k, storage, memory) => {
+  const PO = new PersistedObject<string, string, string>({
+    persister: idb,
+    merge: (_k, storage, memory) => {
       storageV = storage;
       memoryV = memory;
       return 'merged-value';
     },
-    (_k, x) => x,
-    (_k, x) => x,
-    (_v) => 0,
-    devNullLogger,
-    {
-      saveThrottleMs: 0,
-      gc: {
-        maxAgeMs: Number.MAX_SAFE_INTEGER,
-        maxEntries: Number.MAX_SAFE_INTEGER,
-        maxSize: Number.MAX_SAFE_INTEGER,
-      },
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: (_v) => 0,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    gc: {
+      maxAgeMs: Number.MAX_SAFE_INTEGER,
+      maxEntries: Number.MAX_SAFE_INTEGER,
+      maxSize: Number.MAX_SAFE_INTEGER,
     },
-  );
+  });
 
   PO.updateInPlace((prev) => {
     prev.a = 'b';
@@ -91,26 +87,24 @@ test('PersistedObject merges existing values', async () => {
 
   let storageV2;
   let memoryV2;
-  const PO2 = new PersistedObject<string, string, string>(
-    idb,
-    (_k, storage, memory) => {
+  const PO2 = new PersistedObject<string, string, string>({
+    persister: idb,
+    merge: (_k, storage, memory) => {
       storageV2 = storage;
       memoryV2 = memory;
       return 'merged-value-2';
     },
-    (_k, x) => x,
-    (_k, x) => x,
-    (_v) => 0,
-    devNullLogger,
-    {
-      saveThrottleMs: 0,
-      gc: {
-        maxAgeMs: Number.MAX_SAFE_INTEGER,
-        maxEntries: Number.MAX_SAFE_INTEGER,
-        maxSize: Number.MAX_SAFE_INTEGER,
-      },
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: (_v) => 0,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    gc: {
+      maxAgeMs: Number.MAX_SAFE_INTEGER,
+      maxEntries: Number.MAX_SAFE_INTEGER,
+      maxSize: Number.MAX_SAFE_INTEGER,
     },
-  );
+  });
 
   PO2.updateInPlace((prev) => {
     prev.a = 'c';
@@ -129,42 +123,38 @@ test('PersistedObject merges existing values', async () => {
 
 test('PersistedObject notifies you when it loads a key from storage', async () => {
   const idb = new IndexedDBStorage(randomUUID(), 'querySubs');
-  const PO = new PersistedObject(
-    idb,
-    (_k, _storage, _memory) => 'merged',
-    (_k, x) => x,
-    (_k, x) => x,
-    () => 0,
-    devNullLogger,
-    {
-      saveThrottleMs: 0,
-      gc: {
-        maxAgeMs: Number.MAX_SAFE_INTEGER,
-        maxEntries: Number.MAX_SAFE_INTEGER,
-        maxSize: Number.MAX_SAFE_INTEGER,
-      },
+  const PO = new PersistedObject({
+    persister: idb,
+    merge: (_k, _storage, _memory) => 'merged',
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: () => 0,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    gc: {
+      maxAgeMs: Number.MAX_SAFE_INTEGER,
+      maxEntries: Number.MAX_SAFE_INTEGER,
+      maxSize: Number.MAX_SAFE_INTEGER,
     },
-  );
+  });
 });
 
 test('PersistedObject garbage collects when we exceed max items', async () => {
   const idb = new IndexedDBStorage(randomUUID(), 'querySubs');
-  const PO = new PersistedObject(
-    idb,
-    (_k, storage, memory) => storage || memory || 'new',
-    (_k, x) => x,
-    (_k, x) => x,
-    () => 0,
-    devNullLogger,
-    {
-      saveThrottleMs: 0,
-      gc: {
-        maxAgeMs: Number.MAX_SAFE_INTEGER,
-        maxEntries: 3,
-        maxSize: Number.MAX_SAFE_INTEGER,
-      },
+  const PO = new PersistedObject({
+    persister: idb,
+    merge: (_k, storage, memory) => storage || memory || 'new',
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: () => 0,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    gc: {
+      maxAgeMs: Number.MAX_SAFE_INTEGER,
+      maxEntries: 3,
+      maxSize: Number.MAX_SAFE_INTEGER,
     },
-  );
+  });
 
   for (const [i, k] of Object.entries(['a', 'b', 'c', 'd', 'e'])) {
     PO.updateInPlace((prev) => {
@@ -202,22 +192,20 @@ test('PersistedObject garbage collects when we exceed max items', async () => {
   expect(snapshot2).toStrictEqual({ a: 1, b: 2, c: 3, d: 4 });
 
   // Simulate a reload of the page
-  const PO2 = new PersistedObject(
-    idb,
-    (_k, storage, memory) => storage || memory || 'new',
-    (_k, x) => x,
-    (_k, x) => x,
-    () => 0,
-    devNullLogger,
-    {
-      saveThrottleMs: 0,
-      gc: {
-        maxAgeMs: Number.MAX_SAFE_INTEGER,
-        maxEntries: 3,
-        maxSize: Number.MAX_SAFE_INTEGER,
-      },
+  const PO2 = new PersistedObject({
+    persister: idb,
+    merge: (_k, storage, memory) => storage || memory || 'new',
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: () => 0,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    gc: {
+      maxAgeMs: Number.MAX_SAFE_INTEGER,
+      maxEntries: 3,
+      maxSize: Number.MAX_SAFE_INTEGER,
     },
-  );
+  });
 
   await PO2.waitForMetaToLoad();
 
@@ -230,22 +218,20 @@ test('PersistedObject garbage collects when we exceed max items', async () => {
 
 test('PersistedObject garbage collects when we exceed max size', async () => {
   const idb = new IndexedDBStorage(randomUUID(), 'querySubs');
-  const PO = new PersistedObject<string, number, number>(
-    idb,
-    (_k, storage, memory) => storage || memory || 0,
-    (_k, x) => x,
-    (_k, x) => x,
-    (v) => v,
-    devNullLogger,
-    {
-      saveThrottleMs: 0,
-      gc: {
-        maxAgeMs: Number.MAX_SAFE_INTEGER,
-        maxEntries: Number.MAX_SAFE_INTEGER,
-        maxSize: 100,
-      },
+  const PO = new PersistedObject<string, number, number>({
+    persister: idb,
+    merge: (_k, storage, memory) => storage || memory || 0,
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: (v) => v,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    gc: {
+      maxAgeMs: Number.MAX_SAFE_INTEGER,
+      maxEntries: Number.MAX_SAFE_INTEGER,
+      maxSize: 100,
     },
-  );
+  });
 
   for (const [i, k] of [
     [10, 'a'],
@@ -289,22 +275,20 @@ test('PersistedObject garbage collects when we exceed max size', async () => {
   expect(snapshot2).toStrictEqual({ a: 10, b: 20, c: 50, d: 50 });
 
   // Simulate a reload of the page
-  const PO2 = new PersistedObject<string, number, number>(
-    idb,
-    (_k, storage, memory) => storage || memory || 0,
-    (_k, x) => x,
-    (_k, x) => x,
-    (v) => v,
-    devNullLogger,
-    {
-      saveThrottleMs: 0,
-      gc: {
-        maxAgeMs: Number.MAX_SAFE_INTEGER,
-        maxEntries: Number.MAX_SAFE_INTEGER,
-        maxSize: 100,
-      },
+  const PO2 = new PersistedObject<string, number, number>({
+    persister: idb,
+    merge: (_k, storage, memory) => storage || memory || 0,
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: (v) => v,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    gc: {
+      maxAgeMs: Number.MAX_SAFE_INTEGER,
+      maxEntries: Number.MAX_SAFE_INTEGER,
+      maxSize: 100,
     },
-  );
+  });
 
   await PO2.waitForMetaToLoad();
 
@@ -317,22 +301,20 @@ test('PersistedObject garbage collects when we exceed max size', async () => {
 
 test('PersistedObject garbage collects when we exceed max age', async () => {
   const idb = new IndexedDBStorage(randomUUID(), 'querySubs');
-  const PO = new PersistedObject<string, number, number>(
-    idb,
-    (_k, storage, memory) => storage || memory || 0,
-    (_k, x) => x,
-    (_k, x) => x,
-    (v) => v,
-    devNullLogger,
-    {
-      saveThrottleMs: 0,
-      gc: {
-        maxAgeMs: 0,
-        maxEntries: Number.MAX_SAFE_INTEGER,
-        maxSize: Number.MAX_SAFE_INTEGER,
-      },
+  const PO = new PersistedObject<string, number, number>({
+    persister: idb,
+    merge: (_k, storage, memory) => storage || memory || 0,
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: (v) => v,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    gc: {
+      maxAgeMs: 0,
+      maxEntries: Number.MAX_SAFE_INTEGER,
+      maxSize: Number.MAX_SAFE_INTEGER,
     },
-  );
+  });
 
   for (const [i, k] of [
     [10, 'a'],
@@ -376,22 +358,20 @@ test('PersistedObject garbage collects when we exceed max age', async () => {
   expect(snapshot2).toStrictEqual({ a: 10, b: 20, c: 50, d: 50 });
 
   // Simulate a reload of the page
-  const PO2 = new PersistedObject<string, number, number>(
-    idb,
-    (_k, storage, memory) => storage || memory || 0,
-    (_k, x) => x,
-    (_k, x) => x,
-    (v) => v,
-    devNullLogger,
-    {
-      saveThrottleMs: 0,
-      gc: {
-        maxAgeMs: 0,
-        maxEntries: Number.MAX_SAFE_INTEGER,
-        maxSize: Number.MAX_SAFE_INTEGER,
-      },
+  const PO2 = new PersistedObject<string, number, number>({
+    persister: idb,
+    merge: (_k, storage, memory) => storage || memory || 0,
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: (v) => v,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    gc: {
+      maxAgeMs: 0,
+      maxEntries: Number.MAX_SAFE_INTEGER,
+      maxSize: Number.MAX_SAFE_INTEGER,
     },
-  );
+  });
 
   await PO2.waitForMetaToLoad();
 
