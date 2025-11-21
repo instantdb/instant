@@ -969,7 +969,7 @@ async function promptImportAppOrCreateApp() {
 
   const result = await renderUnwrap(
     new UI.AppSelector({
-      allowEphemeral: process.env?.INSTANT_ALLOW_INIT_TEMPORARY === 'true',
+      allowEphemeral: true,
       allowCreate: true,
       startingMenuIndex: 2,
       api: {
