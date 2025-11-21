@@ -144,9 +144,10 @@ export default function InternIndexPage() {
   }
 
   const getCategoryButtonClass = (category: string) =>
-    `px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeCategory === category
-      ? 'bg-blue-500 text-white'
-      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+    `px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+      activeCategory === category
+        ? 'bg-blue-500 text-white'
+        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
     }`;
 
   const filteredTools = tools.filter((tool) => {
