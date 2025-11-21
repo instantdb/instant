@@ -128,7 +128,7 @@ export class SSEConnection implements Connection<EventSourceType> {
   private sendQueue: any[] = [];
   private sendPromise: Promise<void> | null;
   private closeFired: boolean = false;
-  private sseInitTimeout: NodeJS.Timeout | null = null;
+  private sseInitTimeout: ReturnType<typeof setTimeout> | undefined = undefined;
   private ES: EventSourceConstructor;
   conn: EventSourceType;
   url: string;
@@ -203,9 +203,9 @@ export class SSEConnection implements Connection<EventSourceType> {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          machine_id: this.initParams.machineId,
-          session_id: this.initParams.sessionId,
-          sse_token: this.initParams.sseToken,
+          machine_id: this.initParams?.machineId,
+          session_id: this.initParams?.sessionId,
+          sse_token: this.initParams?.sseToken,
           messages,
         }),
       });

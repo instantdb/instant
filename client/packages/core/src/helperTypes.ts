@@ -43,7 +43,7 @@ export type InstantQuery<DB extends IInstantDatabase<any>> =
  */
 export type InstantQueryResult<DB extends IInstantDatabase<any>, Q> =
   DB extends IInstantDatabase<infer Schema>
-    ? InstaQLResult<Schema, Remove$<Q>>
+    ? InstaQLResult<Schema, Remove$<NonNullable<Q>>>
     : never;
 /**
  * @deprecated

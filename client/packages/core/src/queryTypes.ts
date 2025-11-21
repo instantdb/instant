@@ -200,7 +200,7 @@ type QueryResponse<
 
 type InstaQLResponse<Schema, Q, UseDates extends boolean = false> =
   Schema extends IContainEntitiesAndLinks<any, any>
-    ? InstaQLResult<Schema, Q, UseDates>
+    ? InstaQLResult<Schema, NonNullable<Q>, UseDates>
     : never;
 
 type PageInfoResponse<T> = {
@@ -257,16 +257,16 @@ type InstaQLEntitySubqueryResult<
             | InstaQLEntity<
                 Schema,
                 LinkedEntityName,
-                Remove$NonRecursive<Query[QueryPropName]>,
-                Query[QueryPropName]['$']['fields'],
+                Remove$NonRecursive<NonNullable<Query[QueryPropName]>>,
+                NonNullable<NonNullable<Query[QueryPropName]>['$']>['fields'],
                 UseDates
               >
             | undefined
         : InstaQLEntity<
             Schema,
             LinkedEntityName,
-            Remove$NonRecursive<Query[QueryPropName]>,
-            Query[QueryPropName]['$']['fields'],
+            Remove$NonRecursive<NonNullable<Query[QueryPropName]>>,
+            NonNullable<NonNullable<Query[QueryPropName]>['$']>['fields'],
             UseDates
           >[]
       : never
@@ -333,11 +333,14 @@ type InstaQLEntity<
   Fields extends InstaQLFields<Schema, EntityName> | undefined = undefined,
   UseDates extends boolean = false,
 > = Expand<
-  { id: string } & (Extract<Fields[number], string> extends undefined
+  { id: string } & (Extract<
+    NonNullable<Fields>[number],
+    string
+  > extends undefined
     ? ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>
     : DistributePick<
         ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>,
-        Exclude<Fields[number], 'id'>
+        Exclude<NonNullable<Fields>[number], 'id'>
       >) &
     InstaQLEntitySubqueryResult<Schema, EntityName, Subquery, UseDates>
 >;
@@ -385,8 +388,8 @@ type InstaQLResult<
     ? InstaQLEntity<
         Schema,
         QueryPropName,
-        Remove$NonRecursive<Query[QueryPropName]>,
-        Query[QueryPropName]['$']['fields'],
+        Remove$NonRecursive<NonNullable<Query[QueryPropName]>>,
+        NonNullable<NonNullable<Query[QueryPropName]>['$']>['fields'],
         UseDates
       >[]
     : never;
@@ -602,14 +605,25 @@ type ValidWhereObject<
         >;
       } & {
         and?: Input extends { and: Array<infer Item> }
-          ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
+          ? ValidWhereObject<
+              NoDistribute<NonNullable<Item>>,
+              Schema,
+              EntityName
+            >[]
           : never;
         or?: Input extends { or: Array<infer Item> }
-          ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
+          ? ValidWhereObject<
+              NoDistribute<NonNullable<Item>>,
+              Schema,
+              EntityName
+            >[]
           : never;
       } & {
         // Special case for id
-        id?: ValidWhereValue<Input['id'], DataAttrDef<string, false, false>>;
+        id?: ValidWhereValue<
+          NonNullable<Input>['id'],
+          DataAttrDef<string, false, false>
+        >;
       }
     : never;
 
@@ -646,7 +660,12 @@ type ValidQuery<
   ? InstaQLParams<S>
   : keyof Q extends keyof S['entities']
     ? {
-        [K in keyof S['entities']]?: ValidQueryObject<Q[K], S, K, true>;
+        [K in keyof S['entities']]?: ValidQueryObject<
+          NonNullable<Q[K]>,
+          S,
+          K,
+          true
+        >;
       }
     : never;
 

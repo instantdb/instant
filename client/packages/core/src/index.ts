@@ -184,7 +184,7 @@ export type SubscribeTopic<PresenceShape, TopicsByKey> = <
 
 export type GetPresence<PresenceShape> = <Keys extends keyof PresenceShape>(
   opts: PresenceOpts<PresenceShape, Keys>,
-) => PresenceResponse<PresenceShape, Keys>;
+) => PresenceResponse<PresenceShape, Keys> | null;
 
 export type SubscribePresence<PresenceShape> = <
   Keys extends keyof PresenceShape,
@@ -756,8 +756,9 @@ function schemaHash(schema?: InstantSchemaDef<any, any, any>): string {
     return '0';
   }
 
-  if (schemaHashStore.get(schema)) {
-    return schemaHashStore.get(schema);
+  const fromStore = schemaHashStore.get(schema);
+  if (fromStore) {
+    return fromStore;
   }
   const hash = weakHash(schema);
   schemaHashStore.set(schema, hash);
@@ -805,7 +806,7 @@ function init<
 ): InstantCoreDatabase<Schema, UseDates> {
   const existingClient = globalInstantCoreStore[
     reactorKey(config)
-  ] as InstantCoreDatabase<any, Config['useDateObjects']>;
+  ] as InstantCoreDatabase<any, NonNullable<Config['useDateObjects']>>;
 
   if (existingClient) {
     if (schemaChanged(existingClient, config.schema)) {
@@ -826,9 +827,10 @@ function init<
     EventSourceImpl,
   );
 
-  const client = new InstantCoreDatabase<any, Config['useDateObjects']>(
-    reactor,
-  );
+  const client = new InstantCoreDatabase<
+    any,
+    NonNullable<Config['useDateObjects']>
+  >(reactor);
   globalInstantCoreStore[reactorKey(config)] = client;
 
   handleDevtool(config.appId, config.devtool);
@@ -836,7 +838,10 @@ function init<
   return client;
 }
 
-function handleDevtool(appId: string, devtool: boolean | DevtoolConfig) {
+function handleDevtool(
+  appId: string,
+  devtool: boolean | DevtoolConfig | null | undefined,
+) {
   if (
     typeof window === 'undefined' ||
     typeof window.location === 'undefined' ||

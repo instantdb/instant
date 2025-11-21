@@ -124,7 +124,7 @@ function createToggler(
   return { element };
 }
 
-function cssPositionForToggler(position: DevtoolPosition) {
+function cssPositionForToggler(position: DevtoolPosition | undefined) {
   switch (position) {
     case 'bottom-left':
       return { bottom: '24px', left: '24px' };
@@ -134,10 +134,13 @@ function cssPositionForToggler(position: DevtoolPosition) {
       return { top: '24px', right: '24px' };
     case 'top-left':
       return { top: '24px', left: '24px' };
+    default:
+      // Default to bottom-left
+      return { bottom: '24px', left: '24px' };
   }
 }
 
-function cssPositionForIframeContainer(position: DevtoolPosition) {
+function cssPositionForIframeContainer(position: DevtoolPosition | undefined) {
   switch (position) {
     case 'bottom-left':
       return { bottom: '24px', right: '24px', left: '60px', top: '72px' };
@@ -147,6 +150,9 @@ function cssPositionForIframeContainer(position: DevtoolPosition) {
       return { top: '24px', left: '24px', right: '60px', bottom: '72px' };
     case 'top-left':
       return { top: '24px', right: '24px', left: '60px', bottom: '72px' };
+    default:
+      // Default to bottom-left
+      return { bottom: '24px', right: '24px', left: '60px', top: '72px' };
   }
 }
 
