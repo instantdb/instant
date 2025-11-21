@@ -969,7 +969,7 @@ async function promptImportAppOrCreateApp() {
 
   const result = await renderUnwrap(
     new UI.AppSelector({
-      allowEphemeral: false,
+      allowEphemeral: process.env?.INSTANT_ALLOW_INIT_TEMPORARY === 'true',
       allowCreate: true,
       startingMenuIndex: 2,
       api: {
@@ -1906,15 +1906,6 @@ async function readConfigAuthToken(allowAdminToken = true) {
     return process.env.INSTANT_CLI_AUTH_TOKEN;
   }
 
-  const authToken = await readFile(
-    getAuthPaths().authConfigFilePath,
-    'utf-8',
-  ).catch(() => null);
-
-  if (authToken) {
-    return authToken;
-  }
-
   if (allowAdminToken) {
     const adminTokenNames = Object.values(potentialAdminTokenEnvs);
     for (const envName of adminTokenNames) {
@@ -1924,6 +1915,16 @@ async function readConfigAuthToken(allowAdminToken = true) {
       }
     }
   }
+
+  const authToken = await readFile(
+    getAuthPaths().authConfigFilePath,
+    'utf-8',
+  ).catch(() => null);
+
+  if (authToken) {
+    return authToken;
+  }
+
   return null;
 }
 
