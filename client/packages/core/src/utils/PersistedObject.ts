@@ -74,7 +74,7 @@ export type Opts<K, T, SerializedT> = {
 
 export class PersistedObject<K extends string, T, SerializedT> {
   currentValue: Record<K, T>;
-  private _subs = [];
+  private _subs: ((value: Record<K, T>) => void)[] = [];
   private _persister: StorageInterface;
   private _merge: (key: K, fromStorage: T, inMemoryValue: T) => T;
   private serialize: (key: K, input: T) => SerializedT;
@@ -105,7 +105,7 @@ export class PersistedObject<K extends string, T, SerializedT> {
     error: null,
     attempts: 0,
   };
-  private _gcOpts: GCOpts;
+  private _gcOpts: GCOpts | null | undefined;
 
   constructor(opts: Opts<K, T, SerializedT>) {
     this._persister = opts.persister;
@@ -153,7 +153,7 @@ export class PersistedObject<K extends string, T, SerializedT> {
     }
   }
 
-  private async _getMeta(): Promise<Meta<K>> {
+  private async _getMeta(): Promise<Meta<K> | null> {
     if (this._meta.value) {
       return this._meta.value;
     }
@@ -166,13 +166,14 @@ export class PersistedObject<K extends string, T, SerializedT> {
     return this._meta.value;
   }
 
-  private async _refreshMeta(): Promise<Meta<K>> {
+  private async _refreshMeta(): Promise<Meta<K> | null> {
     await this._initMeta();
     return this._meta.value;
   }
 
   private async _preloadEntries(n: number) {
     const meta = await this.waitForMetaToLoad();
+    if (!meta) return;
     const entries = Object.entries(meta.objects) as Array<[K, ObjectMeta]>;
     entries.sort(([_k_a, a_meta], [_k_b, b_meta]) => {
       return b_meta.updatedAt - a_meta.updatedAt;
@@ -272,8 +273,8 @@ export class PersistedObject<K extends string, T, SerializedT> {
       // the error is resolved elsewhere.
       return Promise.resolve(0);
     }
-    const keysToDelete = [];
-    const keysToUpdate = [];
+    const keysToDelete: K[] = [];
+    const keysToUpdate: K[] = [];
     for (const k of this._pendingSaveKeys) {
       if (!(k in this.currentValue)) {
         keysToDelete.push(k);
@@ -290,7 +291,7 @@ export class PersistedObject<K extends string, T, SerializedT> {
       this._pendingSaveKeys.delete(k);
     }
 
-    const keysToLoad = [];
+    const keysToLoad: K[] = [];
 
     const kvPairs: Array<[string, any]> = [[META_KEY, metaValue]];
     const metaObjects: Meta<K>['objects'] =
@@ -370,13 +371,13 @@ export class PersistedObject<K extends string, T, SerializedT> {
       return;
     }
 
-    const promises = [];
+    const promises: Promise<any>[] = [];
 
     const deets = {
       gcOpts: this._gcOpts,
       keys,
       sacredKeys,
-      removed: [],
+      removed: [] as string[],
       metaRemoved: [],
       removedMissingCount: 0,
       removedOldCount: 0,

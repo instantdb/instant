@@ -47,7 +47,7 @@ async function existingDb(name: string): Promise<IDBDatabase | null> {
 
     request.onupgradeneeded = (event) => {
       const target = event.target as IDBOpenDBRequest;
-      target.transaction.abort();
+      target.transaction?.abort();
       resolve(null);
     };
   });
@@ -145,7 +145,7 @@ async function upgrade5To6(appId: string, v6Db: IDBDatabase): Promise<void> {
   const kvStore = v6Tx.objectStore('kv');
   const querySubStore = v6Tx.objectStore('querySubs');
 
-  const promises = [];
+  const promises: Promise<any>[] = [];
   const kvMeta: Meta<string> = { objects: {} };
   for (const [key, value] of data) {
     switch (key) {

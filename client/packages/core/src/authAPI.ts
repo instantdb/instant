@@ -109,7 +109,7 @@ export async function exchangeCodeForToken({
 }
 
 export type SignInWithIdTokenParams = {
-  nonce?: string;
+  nonce?: string | null | undefined;
   idToken: string;
   clientName: string;
   refreshToken?: string;

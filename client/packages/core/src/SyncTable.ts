@@ -14,18 +14,26 @@ type SubState = {
   token: string;
 };
 
+type SubEntity = {
+  entity: any;
+  store: any;
+  serverCreatedAt: number;
+};
+
+type SubValues = {
+  attrs: Record<string, any>;
+  entities: Array<SubEntity>;
+};
+
 type Sub = {
   query: any;
   hash: string;
   table: string;
   orderField: string;
   orderDirection: 'asc' | 'desc';
-  orderFieldType: 'string' | 'number' | 'date' | 'boolean';
+  orderFieldType?: 'string' | 'number' | 'date' | 'boolean';
   state?: SubState;
-  values?: {
-    attrs: Record<string, any>;
-    entities: Array<{ entity: any; store: any; serverCreatedAt: number }>;
-  };
+  values?: SubValues;
   createdAt: number;
   updatedAt: number;
 };
@@ -100,7 +108,7 @@ function syncSubFromStorage(sub: SubInStorage, useDateObjects: boolean): Sub {
 
 function syncSubToStorage(_k: string, sub: Sub): SubInStorage {
   if (sub.values?.entities) {
-    const entities = [];
+    const entities: SubEntity[] = [];
     for (const e of sub.values?.entities) {
       const store = s.toJSON(e.store);
       // We'll store the attrs once on values, and put the
@@ -116,11 +124,11 @@ function syncSubToStorage(_k: string, sub: Sub): SubInStorage {
 
 function onMergeSub(
   _key: string,
-  storageSub: SubInStorage | null,
+  storageSub: SubInStorage,
   inMemorySub: Sub | null,
 ): Sub {
-  const storageTxId = storageSub?.state.txId;
-  const memoryTxId = inMemorySub?.state.txId;
+  const storageTxId = storageSub?.state?.txId;
+  const memoryTxId = inMemorySub?.state?.txId;
 
   if (storageTxId && (!memoryTxId || storageTxId > memoryTxId)) {
     return storageSub;
@@ -202,18 +210,44 @@ function changedFieldsOfChanges(
         break;
     }
   }
+
+  for (const k of Object.keys(changedFields)) {
+    const { oldValue, newValue } = changedFields[k];
+    if (oldValue === newValue) {
+      delete changedFields[k];
+    }
+  }
   return changedFields;
 }
 
-function subData(sub: Sub, entities: NonNullable<Sub['values']['entities']>) {
+function subData(sub: Sub, entities: NonNullable<Sub['values']>['entities']) {
   return { [sub.table]: entities.map((e) => e.entity) };
+}
+
+// Updates the sub order field type if it hasn't been set
+// and returns the type. We have to wait until the attrs
+// are loaded before we can determine the type.
+function orderFieldTypeMutative(sub: Sub, createStore) {
+  if (sub.orderFieldType) {
+    return sub.orderFieldType;
+  }
+  const orderFieldType =
+    sub.orderField === 'serverCreatedAt'
+      ? 'number'
+      : s.getAttrByFwdIdentName(createStore([]), sub.table, sub.orderField)?.[
+          'checked-data-type'
+        ];
+
+  sub.orderFieldType = orderFieldType;
+  return orderFieldType;
 }
 
 function sortEntitiesInPlace(
   sub: Sub,
-  entities: NonNullable<Sub['values']['entities']>,
+  orderFieldType: NonNullable<Sub['orderFieldType']>,
+  entities: NonNullable<Sub['values']>['entities'],
 ) {
-  const dataType = sub.orderFieldType;
+  const dataType = orderFieldType;
   if (sub.orderField === 'serverCreatedAt') {
     entities.sort(
       sub.orderDirection === 'asc'
@@ -442,7 +476,10 @@ export class SyncTable {
       delete this.callbacks[hash];
       const sub = this.subs.currentValue[hash];
       if (sub?.state) {
-        this.clearSubscriptionData(sub.state.subscriptionId, keepSubscription);
+        this.clearSubscriptionData(
+          sub.state.subscriptionId,
+          !!keepSubscription,
+        );
       }
       if (!keepSubscription) {
         this.subs.updateInPlace((prev) => {
@@ -459,13 +496,13 @@ export class SyncTable {
     });
   }
 
-  private sendResync(sub: Sub, state: SubState) {
+  private sendResync(sub: Sub, state: SubState, txId: number) {
     // Make sure we can find the hash from the subscriptionId
     this.idToHash[state.subscriptionId] = sub.hash;
     this.trySend(state.subscriptionId, {
       op: 'resync-table',
       'subscription-id': state.subscriptionId,
-      'tx-id': state.txId,
+      'tx-id': txId,
       token: state.token,
     });
   }
@@ -488,10 +525,9 @@ export class SyncTable {
     const existingSub = this.subs.currentValue[hash];
 
     if (existingSub && existingSub.state && existingSub.state.txId) {
-      this.sendResync(existingSub, existingSub.state);
+      this.sendResync(existingSub, existingSub.state, existingSub.state.txId);
 
       if (existingSub.values?.entities && cb) {
-        const k = Object.keys(query)[0];
         cb({
           type: CallbackEventType.LoadFromStorage,
           data: subData(existingSub, existingSub.values?.entities),
@@ -508,13 +544,6 @@ export class SyncTable {
       'asc' | 'desc',
     ];
 
-    const orderFieldType =
-      orderField === 'serverCreatedAt'
-        ? 'number'
-        : s.getAttrByFwdIdentName(this.createStore([]), table, orderField)?.[
-            'checked-data-type'
-          ];
-
     this.subs.updateInPlace((prev) => {
       prev[hash] = {
         query,
@@ -522,7 +551,6 @@ export class SyncTable {
         table,
         orderDirection,
         orderField,
-        orderFieldType,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -586,14 +614,14 @@ export class SyncTable {
       return;
     }
 
-    const batch = [];
+    const batch: any[] = [];
     const sub = this.subs.currentValue[hash];
     if (!sub) {
       this.log.error('Missing sub for hash', hash, msg);
       return;
     }
 
-    const values = sub.values ?? {
+    const values: SubValues = sub.values ?? {
       entities: [],
       attrs: this.createStore([]).attrs,
     };
@@ -681,11 +709,11 @@ export class SyncTable {
     }
 
     for (const tx of msg.txes) {
-      if (state.txId >= tx['tx-id']) {
+      if (state.txId && state.txId >= tx['tx-id']) {
         continue;
       }
       state.txId = tx['tx-id'];
-      const idxesToDelete = [];
+      const idxesToDelete: number[] = [];
       // Note: this won't work as well when links are involved
       const byEid: {
         [eid: string]: SyncUpdateTriplesMsg['txes'][number]['changes'];
@@ -696,7 +724,7 @@ export class SyncTable {
         eidChanges.push(change);
       }
 
-      const values = sub.values ?? {
+      const values: SubValues = sub.values ?? {
         entities: [],
         attrs: this.createStore([]).attrs,
       };
@@ -706,20 +734,14 @@ export class SyncTable {
       const updated: SyncTransaction<any, any, any>['updated'] = [];
       // Update the existing stores, if we already know about this entity
       eidLoop: for (const [eid, changes] of Object.entries(byEid)) {
-        for (const [entIdx, ent] of Object.entries(entities)) {
+        for (let i = 0; i < entities.length; i++) {
+          const ent = entities[i];
           if (s.hasEntity(ent.store, eid)) {
             applyChangesToStore(ent.store, changes);
             const entity = queryEntity(sub, ent.store);
             const changedFields = changedFieldsOfChanges(ent.store, changes)[
               eid
             ];
-            for (const [k, { oldValue, newValue }] of Object.entries(
-              changedFields || {},
-            )) {
-              if (oldValue === newValue) {
-                delete changedFields[k];
-              }
-            }
             if (entity) {
               updated.push({
                 oldEntity: ent.entity,
@@ -728,7 +750,7 @@ export class SyncTable {
               });
               ent.entity = entity;
             } else {
-              idxesToDelete.push(entIdx);
+              idxesToDelete.push(i);
             }
             delete byEid[eid];
             continue eidLoop;
@@ -736,7 +758,7 @@ export class SyncTable {
         }
       }
 
-      const added = [];
+      const added: any[] = [];
       // If we have anything left in byEid, then this must be a new entity we don't know about
       for (const [_eid, changes] of Object.entries(byEid)) {
         const store = this.createStore([]);
@@ -759,14 +781,16 @@ export class SyncTable {
         added.push(entity);
       }
 
-      const removed = [];
+      const removed: any[] = [];
 
       for (const idx of idxesToDelete.sort().reverse()) {
         removed.push(entities[idx].entity);
         entities.splice(idx, 1);
       }
 
-      sortEntitiesInPlace(sub, entities);
+      const orderFieldType = orderFieldTypeMutative(sub, this.createStore);
+
+      sortEntitiesInPlace(sub, orderFieldType, entities);
       this.notifyCbs(hash, {
         type: CallbackEventType.SyncTransaction,
         data: subData(sub, sub.values?.entities),

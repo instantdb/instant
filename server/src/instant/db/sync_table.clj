@@ -104,7 +104,7 @@
                :pg-hints [(pg-hints/index-scan :t (if order-col-value-fn
                                                     (keyword (format "triples_%s_type_idx"
                                                                      (name (:checked-data-type attr))))
-                                                    :ave_index))]})))
+                                                    :ave_with_e_index))]})))
 
         ea-select (fn [ns-str]
                     {:select :*

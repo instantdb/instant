@@ -342,7 +342,7 @@ export type RoomsFromDef<RDef extends RoomsDef> = {
     presence: Expand<ResolveEntityAttrs<RDef[RoomName]['presence']>>;
     topics: {
       [TopicName in keyof RDef[RoomName]['topics']]: Expand<
-        ResolveEntityAttrs<RDef[RoomName]['topics'][TopicName]>
+        ResolveEntityAttrs<NonNullable<RDef[RoomName]['topics']>[TopicName]>
       >;
     };
   };
@@ -458,10 +458,12 @@ type EntityDefFromRoomSlice<Shape extends { [k: string]: any }> = EntityDef<
 
 type RoomDefFromShape<RoomSchema extends RoomSchemaShape> = {
   [RoomName in keyof RoomSchema]: {
-    presence: EntityDefFromRoomSlice<RoomSchema[RoomName]['presence']>;
+    presence: EntityDefFromRoomSlice<
+      NonNullable<RoomSchema[RoomName]['presence']>
+    >;
     topics: {
       [TopicName in keyof RoomSchema[RoomName]['topics']]: EntityDefFromRoomSlice<
-        RoomSchema[RoomName]['topics'][TopicName]
+        NonNullable<RoomSchema[RoomName]['topics'][TopicName]>
       >;
     };
   };
