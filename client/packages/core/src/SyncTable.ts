@@ -20,7 +20,7 @@ type Sub = {
   table: string;
   orderField: string;
   orderDirection: 'asc' | 'desc';
-  orderFieldType: 'string' | 'number' | 'date' | 'boolean';
+  orderFieldType?: 'string' | 'number' | 'date' | 'boolean';
   state?: SubState;
   values?: {
     attrs: Record<string, any>;
@@ -209,11 +209,30 @@ function subData(sub: Sub, entities: NonNullable<Sub['values']['entities']>) {
   return { [sub.table]: entities.map((e) => e.entity) };
 }
 
+// Updates the sub order field type if it hasn't been set
+// and returns the type. We have to wait until the attrs
+// are loaded before we can determine the type.
+function orderFieldTypeMutative(sub: Sub, createStore) {
+  if (sub.orderFieldType) {
+    return sub.orderFieldType;
+  }
+  const orderFieldType =
+    sub.orderField === 'serverCreatedAt'
+      ? 'number'
+      : s.getAttrByFwdIdentName(createStore([]), sub.table, sub.orderField)?.[
+          'checked-data-type'
+        ];
+
+  sub.orderFieldType = orderFieldType;
+  return orderFieldType;
+}
+
 function sortEntitiesInPlace(
   sub: Sub,
+  orderFieldType: NonNullable<Sub['orderFieldType']>,
   entities: NonNullable<Sub['values']['entities']>,
 ) {
-  const dataType = sub.orderFieldType;
+  const dataType = orderFieldType;
   if (sub.orderField === 'serverCreatedAt') {
     entities.sort(
       sub.orderDirection === 'asc'
@@ -508,13 +527,6 @@ export class SyncTable {
       'asc' | 'desc',
     ];
 
-    const orderFieldType =
-      orderField === 'serverCreatedAt'
-        ? 'number'
-        : s.getAttrByFwdIdentName(this.createStore([]), table, orderField)?.[
-            'checked-data-type'
-          ];
-
     this.subs.updateInPlace((prev) => {
       prev[hash] = {
         query,
@@ -522,7 +534,6 @@ export class SyncTable {
         table,
         orderDirection,
         orderField,
-        orderFieldType,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -766,7 +777,9 @@ export class SyncTable {
         entities.splice(idx, 1);
       }
 
-      sortEntitiesInPlace(sub, entities);
+      const orderFieldType = orderFieldTypeMutative(sub, this.createStore);
+
+      sortEntitiesInPlace(sub, orderFieldType, entities);
       this.notifyCbs(hash, {
         type: CallbackEventType.SyncTransaction,
         data: subData(sub, sub.values?.entities),
