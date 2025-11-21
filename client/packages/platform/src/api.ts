@@ -1227,9 +1227,15 @@ export type PlatformApiAuth =
     };
 
 export type PlatformApiConfig = {
-  auth: PlatformApiAuth;
+  auth?: PlatformApiAuth;
   apiURI?: string;
 };
+
+export class PlatformApiMissingAuthError extends Error {
+  constructor() {
+    super('PlatformApi was not provided auth.');
+  }
+}
 
 /**
  * API methods for the Platform API
@@ -1247,7 +1253,7 @@ export type PlatformApiConfig = {
  * ```
  */
 export class PlatformApi {
-  #auth: PlatformApiAuth;
+  #auth: PlatformApiAuth | undefined;
   #apiURI: string;
 
   /**
@@ -1256,16 +1262,15 @@ export class PlatformApi {
    *   or a personal access token.
    * @throws {Error} When `token` is missing.
    */
-  constructor(config: PlatformApiConfig) {
-    this.#auth = config.auth;
-    this.#apiURI = config.apiURI || 'https://api.instantdb.com';
-
-    if (!this.#auth) {
-      throw new Error('PlatformApi must be constructed with auth.');
-    }
+  constructor(config?: PlatformApiConfig) {
+    this.#auth = config?.auth;
+    this.#apiURI = config?.apiURI || 'https://api.instantdb.com';
   }
 
   token(): string {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     if ('token' in this.#auth) {
       return this.#auth.token;
     }
@@ -1273,6 +1278,9 @@ export class PlatformApi {
   }
 
   canRefreshToken(): boolean {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     return (
       'refreshToken' in this.#auth &&
       'clientId' in this.#auth &&
@@ -1287,6 +1295,9 @@ export class PlatformApi {
     accessToken: string;
     expiresAt: Date;
   }> {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     if (
       !this.canRefreshToken() ||
       // Checked in canRefreshToken, but this lets
@@ -1502,35 +1513,6 @@ export class PlatformApi {
    * @param fields.schema -- Optional schema for the app
    * @param fields.perms -- Optional permissions for the app
    */
-  static async createTemporaryApp(
-    apiURI: string,
-    fields: InstantAPICreateEphemeralBody,
-  ): Promise<InstantAPICreateEphemeralResponse> {
-    return createTemporaryApp(apiURI, fields);
-  }
-
-  /**
-   * Create a new temporary app.
-   *
-   * Optionally set permissions and schema.
-   *
-   * ```ts
-   * const { app } = await api.createTemporaryApp({
-   *   title: 'My new app',
-   *   // Optional permissions
-   *   perms: { $default: { allow: { $default: 'false' } } },
-   *   // Optional schema
-   *   schema: i.schema({
-   *     entities: { books: i.entity({ title: i.string() }) },
-   *   }),
-   * });
-   * ```
-   *
-   * @param fields
-   * @param fields.title -- Title for app
-   * @param fields.schema -- Optional schema for the app
-   * @param fields.perms -- Optional permissions for the app
-   */
   async createTemporaryApp(fields: InstantAPICreateEphemeralBody) {
     return createTemporaryApp(this.#apiURI, fields);
   }
@@ -1622,6 +1604,9 @@ export class PlatformApi {
     appId: string,
     body: InstantAPISchemaPushBody,
   ): ProgressPromise<InProgressStepsSummary, InstantAPISchemaPushResponse> {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     return new ProgressPromise(async (progress, resolve, reject) => {
       // It's tricky to add withRetry to the background process that fetches the jobs,
       // so we'll just refresh the token at the start.
@@ -1662,10 +1647,16 @@ export class PlatformApi {
     appId: string,
     body: InstantAPIPushPermsBody,
   ): Promise<InstantAPIPushPermsResponse> {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     return this.withRetry(pushPerms, [this.#apiURI, this.token(), appId, body]);
   }
 
   async tokenInfo(): Promise<InstantAPITokenInfoResponse> {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     return this.withRetry(tokenInfo, [this.#apiURI, this.token()]);
   }
 }
