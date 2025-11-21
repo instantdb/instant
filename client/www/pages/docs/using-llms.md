@@ -346,17 +346,10 @@ Claude Desktop. You should now see the Instant MCP server active and enabled!
 
 Below is a list of the current tools we expose
 
-**App Management**
-
-- `create-app` Creates a new InstantDB application with optional schema and permissions.
-- `get-apps` Lists all apps owned by the authenticated user.
-- `get-app` Fetches a single app by ID.
-
 **Schema Management**
 
 - `get-schema` Retrieves the schema for a specific app.
-- `plan-schema-push` Dry-run a schema update to preview changes.
-- `push-schema` Applies schema changes to an app. Run `plan-schema-push` first to preview.
+- `push-schema` Applies schema changes to an app.
 
 **Permissions Management**
 
