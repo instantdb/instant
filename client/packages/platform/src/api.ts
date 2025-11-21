@@ -137,7 +137,7 @@ export type InstantAPICreateEphemeralResponse = {
       adminToken: string;
     }
   >;
-  expires_ms: number;
+  expiresMs: number;
 };
 
 export type InstantAPICreateAppResponse = Simplify<{
@@ -673,7 +673,7 @@ async function createTemporaryApp(
   };
   return {
     app: withAdminToken,
-    expires_ms: response.expires_ms,
+    expiresMs: response.expires_ms,
   };
 }
 
