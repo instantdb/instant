@@ -628,12 +628,7 @@ export function getTriples(store, [e, a, v]) {
   }
 }
 
-const cache = {};
-
 export function getAsObject(store, attrs, e) {
-  if (cache[e]) {
-    return cache[e];
-  }
   const obj = {};
 
   for (const [label, attr] of attrs.entries()) {
@@ -643,8 +638,6 @@ export function getAsObject(store, attrs, e) {
       obj[label] = triple[2];
     }
   }
-
-  cache[e] = obj;
 
   return obj;
 }
