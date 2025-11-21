@@ -528,7 +528,6 @@ export class SyncTable {
       this.sendResync(existingSub, existingSub.state, existingSub.state.txId);
 
       if (existingSub.values?.entities && cb) {
-        const k = Object.keys(query)[0];
         cb({
           type: CallbackEventType.LoadFromStorage,
           data: subData(existingSub, existingSub.values?.entities),

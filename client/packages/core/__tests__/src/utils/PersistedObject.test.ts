@@ -351,6 +351,8 @@ test('PersistedObject garbage collects when we exceed max age', async () => {
   // @ts-expect-error: allow access to private fields for test
   await PO._gc();
 
+  await PO.flush();
+
   const snapshot2 = await idbSnapshot(idb, { includeMeta: false });
 
   // It does get rid of unloaded keys
