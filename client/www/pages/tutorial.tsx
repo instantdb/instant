@@ -524,20 +524,21 @@ const clientConfigs = {
     setupContent: (
       <div className="space-y-4">
         <p>
-          If you're on a paid plan, you can add the server via the command line:
+          If you haven't already, add this to your codex config in
+          `~/.codex/config.toml` to enable remote mcp support:
         </p>
-        <Copyable value='codex mcp add instant -- npx -y mcp-remote "https://mcp.instantdb.com/mcp"' />
-        <p>Now you can run through the following:</p>
-        <ol className="list-inside list-decimal space-y-2">
-          <li>
-            Run <code>codex</code> in your terminal to start Codex
-          </li>
-          <li>After a few seconds, codex should initiate an auth flow</li>
-          <li>
-            Complete the flow to enable the Instant MCP server in your codex
-            sessions!
-          </li>
-        </ol>
+        <Copyable
+          value={`[features]
+rmcp_client = true`}
+          multiline
+        />
+        <p>Now tell codex to add the MCP server:</p>
+        <Copyable value='codex mcp add instant --url "https://mcp.instantdb.com/mcp"' />
+        <p>
+          This should load a browser to authenticate with Instant. After
+          granting access you should be ready to go! Run `codex` to start Codex
+          and then run `/mcp` to see Instant in your mcp list.
+        </p>
       </div>
     ),
   },
