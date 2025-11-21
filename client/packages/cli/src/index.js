@@ -355,7 +355,7 @@ program
     '-p --package <react|react-native|core|admin>',
     'Which package to automatically install if there is not one installed already.',
   )
-  .option('-t --title <title>', 'Title for the created app')
+  .option('--title <title>', 'Title for the created app')
   .action(handleInit);
 
 program
