@@ -240,7 +240,7 @@ function ConfigEditor({
           type="submit"
           disabled={!hasChanges}
           className={clsx(
-            'flex-shrink-0 border px-4 py-1.5 text-sm font-mono font-semibold',
+            'flex-shrink-0 border px-4 py-1.5 font-mono text-sm font-semibold',
             hasChanges
               ? 'border-blue-500 bg-blue-500 text-white hover:bg-blue-600'
               : 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400',

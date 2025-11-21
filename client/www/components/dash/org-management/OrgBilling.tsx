@@ -146,7 +146,7 @@ export const OrgBilling = () => {
           </span>
         </div>
       </div>
-      <SectionHeading className="pt-8 pb-2">Billing</SectionHeading>
+      <SectionHeading className="pb-2 pt-8">Billing</SectionHeading>
       {isFreeTier ? (
         <div className="flex flex-col gap-2">
           <Button variant="primary" onClick={onUpgrade}>
