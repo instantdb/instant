@@ -447,21 +447,23 @@ type InstaQLOptions = {
 // Start of new types
 
 type ValidQueryObject<
-  T extends Record<string, any>,
+  T,
   Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema['entities'],
   TopLevel extends boolean,
-> = keyof T extends keyof Schema['entities'][EntityName]['links'] | '$'
-  ? {
-      [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
-        T[K],
-        Schema,
-        Schema['entities'][EntityName]['links'][K]['entityName'],
-        false
-      >;
-    } & {
-      $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
-    }
+> = T extends Record<string, any>
+  ? keyof T extends keyof Schema['entities'][EntityName]['links'] | '$'
+    ? {
+        [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
+          T[K],
+          Schema,
+          Schema['entities'][EntityName]['links'][K]['entityName'],
+          false
+        >;
+      } & {
+        $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
+      }
+    : never
   : never;
 
 type PaginationKeys =
@@ -661,7 +663,7 @@ type ValidQuery<
   : keyof Q extends keyof S['entities']
     ? {
         [K in keyof S['entities']]?: ValidQueryObject<
-          NonNullable<Q[K]>,
+          Q[K],
           S,
           K,
           true
