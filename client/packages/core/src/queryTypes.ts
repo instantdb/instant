@@ -451,20 +451,21 @@ type ValidQueryObject<
   Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema['entities'],
   TopLevel extends boolean,
-> = T extends Record<string, any>
-  ? keyof T extends keyof Schema['entities'][EntityName]['links'] | '$'
-    ? {
-        [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
-          T[K],
-          Schema,
-          Schema['entities'][EntityName]['links'][K]['entityName'],
-          false
-        >;
-      } & {
-        $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
-      }
-    : never
-  : never;
+> =
+  T extends Record<string, any>
+    ? keyof T extends keyof Schema['entities'][EntityName]['links'] | '$'
+      ? {
+          [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
+            T[K],
+            Schema,
+            Schema['entities'][EntityName]['links'][K]['entityName'],
+            false
+          >;
+        } & {
+          $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
+        }
+      : never
+    : never;
 
 type PaginationKeys =
   | 'limit'
@@ -662,12 +663,7 @@ type ValidQuery<
   ? InstaQLParams<S>
   : keyof Q extends keyof S['entities']
     ? {
-        [K in keyof S['entities']]?: ValidQueryObject<
-          Q[K],
-          S,
-          K,
-          true
-        >;
+        [K in keyof S['entities']]?: ValidQueryObject<Q[K], S, K, true>;
       }
     : never;
 
