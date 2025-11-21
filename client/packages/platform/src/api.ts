@@ -120,7 +120,7 @@ export type InstantAPICreateAppBody = {
   orgId?: string | null | undefined;
 };
 
-export type InstantAPICreateEphemeralBody = {
+export type InstantAPICreateTemporaryAppBody = {
   title: string;
   schema?:
     | InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>
@@ -131,7 +131,7 @@ export type InstantAPICreateEphemeralBody = {
   } | null;
 };
 
-export type InstantAPICreateEphemeralResponse = {
+export type InstantAPICreateTemporaryAppResponse = {
   app: Simplify<
     InstantAPIAppDetails<{ includePerms: false; includeSchema: false }> & {
       adminToken: string;
@@ -655,8 +655,8 @@ async function createApp(
 
 async function createTemporaryApp(
   apiURI: string,
-  fields: InstantAPICreateEphemeralBody,
-): Promise<InstantAPICreateEphemeralResponse> {
+  fields: InstantAPICreateTemporaryAppBody,
+): Promise<InstantAPICreateTemporaryAppResponse> {
   const response = await jsonFetch<{ app: any; expires_ms: number }>(
     `${apiURI}/dash/apps/ephemeral`,
     {
@@ -1513,7 +1513,7 @@ export class PlatformApi {
    * @param fields.schema -- Optional schema for the app
    * @param fields.perms -- Optional permissions for the app
    */
-  async createTemporaryApp(fields: InstantAPICreateEphemeralBody) {
+  async createTemporaryApp(fields: InstantAPICreateTemporaryAppBody) {
     return createTemporaryApp(this.#apiURI, fields);
   }
 
