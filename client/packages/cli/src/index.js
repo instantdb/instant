@@ -7,6 +7,7 @@ import {
   convertTxSteps,
   validateSchema,
   SchemaValidationError,
+  PlatformApi,
 } from '@instantdb/platform';
 import version from './version.js';
 import { existsSync } from 'fs';
@@ -1016,18 +1017,9 @@ async function createApp(title, orgId) {
 }
 
 async function createEphemeralApp(title) {
-  const id = randomUUID();
-  const token = randomUUID();
-  const app = { id, title, admin_token: token };
-  const appRes = await fetchJson({
-    method: 'POST',
-    path: '/dash/apps/ephemeral',
-    debugName: 'Ephemeral app create',
-    errorMessage: 'Failed to create ephemeral app.',
-    body: app,
-  });
-  if (!appRes.ok) throw new Error('Failed to create temporary app');
-  return { appId: id, adminToken: token };
+  const api = new PlatformApi({ apiURI: instantBackendOrigin });
+  const { app } = await api.createTemporaryApp({ title });
+  return { appId: app.id, adminToken: app.adminToken };
 }
 
 async function detectAppWithErrorLogging(opts) {
