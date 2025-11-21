@@ -223,7 +223,7 @@ import { clientDb } from '@/lib/clientDb';
 // For react/react-native apps use db.useAuth
 function App() {
   const { isLoading, user, error } = clientDb.useAuth();
-  if (isLoading) { <Loading />; }
+  if (isLoading) { return null; }
   if (error) { return <Error message={error.message /}></div>; }
   if (user) { return <Main />; }
   return <Login />;
