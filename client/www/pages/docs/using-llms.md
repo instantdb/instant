@@ -97,13 +97,22 @@ auth flow to enable the Instant MCP server in your claude code sessions!
 
 If you're on a paid OpenAI plan, you can add the the server via the command line
 
-```text {% showCopy="true" %}
-codex mcp add instant -- npx -y mcp-remote "https://mcp.instantdb.com/mcp"
+Edit your `~/.codex/config.toml` to include the [`rmcp_client` feature](https://developers.openai.com/codex/mcp/):
+
+```toml {% showCopy="true" %}
+[features]
+rmcp_client = true
 ```
 
-Now run `codex` to start Codex. Within a few seconds this should load a browser
-to authenticate with Instant. After authenticating you can run `/mcp` to see
-Instant in your list.
+Tell codex to add the MCP server:
+
+```text {% showCopy="true" %}
+codex mcp add instant --url "https://mcp.instantdb.com/mcp"
+```
+
+This should load a browser to authenticate with Instant.
+
+Now run `codex` to start Codex. You can run `/mcp` to see Instant in your list.
 
 ### Cursor
 
