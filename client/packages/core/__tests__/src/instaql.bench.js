@@ -46,12 +46,22 @@ describe('entity caching', () => {
   const tx = txInit();
 
   const chunks = [];
-  for (let i = 0; i < 100000; i++) {
+  for (let i = 0; i < 10000; i++) {
     chunks.push(
       tx.hi[id()].create({
         name: generateRandomString(10),
         age: Math.floor(Math.random() * 100),
         bio: generateRandomString(50),
+        field1: generateRandomString(10),
+        field2: generateRandomString(10),
+        field3: generateRandomString(10),
+        field4: generateRandomString(10),
+        field5: generateRandomString(10),
+        field6: generateRandomString(10),
+        field7: generateRandomString(10),
+        field8: generateRandomString(10),
+        field9: generateRandomString(10),
+        field10: generateRandomString(10),
       }),
     );
   }
@@ -65,4 +75,14 @@ describe('entity caching', () => {
   const attrs = newStore.attrs;
   const triples = getAllTriples(newStore);
   console.log(triples.length);
+
+  const withoutCacheStore = createStore(attrs, triples);
+  bench('without caching', () => {
+    query(
+      { store: withoutCacheStore },
+      {
+        hi: {},
+      },
+    );
+  });
 });
