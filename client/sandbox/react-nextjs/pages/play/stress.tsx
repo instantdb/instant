@@ -64,7 +64,7 @@ function Example({ appId }: { appId: string }) {
       <div>
         <div>
           <button
-            className="bg-black text-white m-2 p-2"
+            className="m-2 bg-black p-2 text-white"
             onClick={() => generateGoals(count)}
           >
             Generate {count} goals
@@ -76,19 +76,19 @@ function Example({ appId }: { appId: string }) {
           />
         </div>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => generateGoals(1)}
         >
           Add one goal
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => deleteAll()}
         >
           Delete all
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => {
             window.location.href = router.pathname;
           }}

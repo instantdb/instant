@@ -120,26 +120,26 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
     <div>
       <div>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => generateGoals(15)}
         >
           Generate some goals
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => generateGoals(1)}
         >
           Add one goal
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => deleteAll()}
         >
           Delete all
         </button>
         <ResetButton
           label="Start over"
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
         />
       </div>
       <div className="p-2">

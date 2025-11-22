@@ -30,31 +30,31 @@ function Example({ appId }: { appId: string }) {
     <div>
       <div>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => db.transact(tx.items[id()].update({ val: null }))}
         >
           Create item with null val
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => db.transact(tx.items[id()].update({}))}
         >
           Create item with undefined val
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => db.transact(tx.items[id()].update({ val: 'a' }))}
         >
           Create item with val = "a"
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => db.transact(tx.items[id()].update({ val: 'b' }))}
         >
           Create item with val != "a"
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => {
             const linkId = id();
             db.transact([
@@ -68,7 +68,7 @@ function Example({ appId }: { appId: string }) {
           Create link with val != "a"
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => {
             const linkId = id();
             db.transact([
@@ -82,7 +82,7 @@ function Example({ appId }: { appId: string }) {
           Create link with val = "a"
         </button>
         <ResetButton
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           label="Start over"
         />
       </div>

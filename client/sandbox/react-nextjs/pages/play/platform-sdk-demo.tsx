@@ -97,7 +97,7 @@ function OAuthFlow({
           </div>
         );
       })}
-      <button className="bg-black text-white m-2 p-2" onClick={handleConnect}>
+      <button className="m-2 bg-black p-2 text-white" onClick={handleConnect}>
         Connect to your Instant Account
       </button>
     </div>
@@ -164,26 +164,26 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
   return (
     <div>
       <div>
-        <button className="bg-black text-white m-2 p-2" onClick={getApps}>
+        <button className="m-2 bg-black p-2 text-white" onClick={getApps}>
           Get Apps
         </button>
-        <button className="bg-black text-white m-2 p-2" onClick={getOrgs}>
+        <button className="m-2 bg-black p-2 text-white" onClick={getOrgs}>
           Get Orgs
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => getApps({ includeSchema: true })}
         >
           Get Apps with schema
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => getApps({ includePerms: true })}
         >
           Get Apps with perms
         </button>
         <button
-          className="bg-blue-600 text-white m-2 p-2"
+          className="m-2 bg-blue-600 p-2 text-white"
           onClick={() => createApp({})}
         >
           Create App
@@ -192,25 +192,25 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
           return (
             <div key={org.id}>
               <button
-                className="bg-black text-white m-2 p-2"
+                className="m-2 bg-black p-2 text-white"
                 onClick={() => getAppsForOrg(org.id, {})}
               >
                 Get Apps for {org.title}
               </button>
               <button
-                className="bg-black text-white m-2 p-2"
+                className="m-2 bg-black p-2 text-white"
                 onClick={() => getAppsForOrg(org.id, { includeSchema: true })}
               >
                 Get Apps with schema for {org.title}
               </button>
               <button
-                className="bg-black text-white m-2 p-2"
+                className="m-2 bg-black p-2 text-white"
                 onClick={() => getAppsForOrg(org.id, { includePerms: true })}
               >
                 Get Apps with perms for {org.title}
               </button>
               <button
-                className="bg-blue-600 text-white m-2 p-2"
+                className="m-2 bg-blue-600 p-2 text-white"
                 onClick={() => createApp({ orgId: org.id })}
               >
                 Create App in {org.title}
@@ -243,7 +243,7 @@ function Demo({ oauthHandler }: { oauthHandler: OAuthHandler }) {
 export default function Page() {
   const oauthHandler = OAUTH_HANDLER;
   return (
-    <div className="max-w-lg flex flex-col mt-20 mx-auto">
+    <div className="mx-auto mt-20 flex max-w-lg flex-col">
       {!oauthHandler ? (
         <ClientIdReadme />
       ) : (

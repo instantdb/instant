@@ -74,7 +74,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof _schema> }) {
     <div>
       <div>
         <ResetButton
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           label="Start over"
         />
       </div>
@@ -83,7 +83,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof _schema> }) {
           const hasField = fields.includes(field);
           return (
             <button
-              className="bg-black font-mono text-white m-2 p-2 "
+              className="m-2 bg-black p-2 font-mono text-white"
               key={field}
               onClick={() => {
                 if (hasField) {
@@ -100,7 +100,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof _schema> }) {
       </div>
       <div>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => {
             setNoFields(!noFields);
           }}

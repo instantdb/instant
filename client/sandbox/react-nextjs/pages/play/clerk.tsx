@@ -34,13 +34,13 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
   if (user) {
     return (
       <div>
-        <h3 className="text-lg font-bold mb-2">
+        <h3 className="mb-2 text-lg font-bold">
           Logged in with Clerk and Instant
         </h3>
 
         <div className="mb-4">
           <button
-            className="bg-black text-white m-2 p-2"
+            className="m-2 bg-black p-2 text-white"
             onClick={() => {
               db.auth.signOut();
             }}
@@ -48,7 +48,7 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
             Sign out Instant only
           </button>
           <button
-            className="bg-black text-white m-2 p-2"
+            className="m-2 bg-black p-2 text-white"
             onClick={() => {
               signOut();
             }}
@@ -56,7 +56,7 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
             Sign out Clerk only
           </button>
           <button
-            className="bg-black text-white m-2 p-2"
+            className="m-2 bg-black p-2 text-white"
             onClick={() => {
               db.auth.signOut().then(() => {
                 signOut();
@@ -66,7 +66,7 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
             Sign out both
           </button>
           <button
-            className="bg-black text-white m-2 p-2"
+            className="m-2 bg-black p-2 text-white"
             onClick={signInWithToken}
           >
             Sign in to Instant again, just for fun
@@ -74,8 +74,8 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
         </div>
 
         <div className="mb-4">
-          <h4 className="font-semibold mb-1">Instant User Object:</h4>
-          <pre className="text-xs bg-gray-100 p-2 rounded border">
+          <h4 className="mb-1 font-semibold">Instant User Object:</h4>
+          <pre className="rounded border bg-gray-100 p-2 text-xs">
             {JSON.stringify(user, null, 2)}
           </pre>
         </div>

@@ -12,7 +12,7 @@ function Main() {
   return (
     <div>
       <div className="p-2">
-        <pre className="whitespace-pre-wrap mb-4 w-1/3">
+        <pre className="mb-4 w-1/3 whitespace-pre-wrap">
           <div>Instructions:</div>
           <div>
             1. Set Chrome network to "Slow 3G" in DevTools (Network tab)

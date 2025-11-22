@@ -32,10 +32,10 @@ function App({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
 
   return (
     <div>
-      <ResetButton className="bg-black text-white m-2 p-2" />
+      <ResetButton className="m-2 bg-black p-2 text-white" />
       <pre>{JSON.stringify(data, null, 2)}</pre>;
       <button
-        className="bg-black text-white m-2 p-2"
+        className="m-2 bg-black p-2 text-white"
         onClick={() =>
           db.transact(db.tx.docs[id()].update({ title: 'New doc' }))
         }
@@ -48,7 +48,7 @@ function App({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
 
 export default function Page() {
   return (
-    <div className="max-w-lg flex flex-col mt-20 mx-auto">
+    <div className="mx-auto mt-20 flex max-w-lg flex-col">
       <div>
         This is a demo of how to create a play page with an ephemeral app. Look
         at `ephemeral-demo.tsx` to create your own.

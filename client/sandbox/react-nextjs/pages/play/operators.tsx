@@ -50,7 +50,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
     <div>
       <div>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() =>
             db.transact(
               tx.comments[id()].update({
@@ -65,7 +65,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
           Add random item
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() =>
             db.transact(
               tx.comments[id()].update({
@@ -77,7 +77,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
           Add order = 50
         </button>
         <ResetButton
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           label="Start over"
         />
       </div>

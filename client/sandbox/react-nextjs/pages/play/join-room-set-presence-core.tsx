@@ -58,7 +58,7 @@ function App() {
         onChange={(e) => setPresenceData(e.target.value)}
       ></input>
       <button
-        className="bg-black text-white m-2 p-2"
+        className="m-2 bg-black p-2 text-white"
         onClick={() => setShowPresence(!showPresence)}
       >
         {showPresence ? 'Leave room' : 'Join room'}

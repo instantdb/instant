@@ -64,7 +64,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
     <div>
       <div>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() =>
             db.transact(tx.items[id()].update({ val: 'Go Team Instant' }))
           }
@@ -72,19 +72,19 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
           Create item with val = "Go Team Instant"
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => db.transact(tx.items[id()].update({ val: 'Instant' }))}
         >
           Create item with val = "Instant"
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => db.transact(tx.items[id()].update({ val: null }))}
         >
           Create item with val = null
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => {
             const linkId = id();
             db.transact([
@@ -96,7 +96,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
           Create link with val = "super moop"
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => {
             const linkId = id();
             db.transact([
@@ -108,7 +108,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
           Create link with val = "womp"
         </button>
         <ResetButton
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           label="Start over"
         />
       </div>

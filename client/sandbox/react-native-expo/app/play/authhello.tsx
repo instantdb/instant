@@ -67,7 +67,7 @@ function Login() {
   const { sentEmail, email, code } = state;
 
   return (
-    <View className="h-full justify-center items-center m-1">
+    <View className="m-1 h-full items-center justify-center">
       {!sentEmail ? (
         <View key="em">
           <Text>Let's log you in!</Text>
@@ -119,7 +119,7 @@ function DemoData({ user, db }: DemoDataProps) {
   if (error) return <Text>Error: {error.message}</Text>;
 
   return (
-    <ScrollView className="py-10 px-4">
+    <ScrollView className="px-4 py-10">
       <Button
         title="Create some example data"
         onPress={() => {

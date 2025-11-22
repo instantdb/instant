@@ -46,7 +46,7 @@ const SelectionArea: FC<{ area: Dimension | null; color?: string }> = ({
   return (
     <div
       data-testid="selectionArea"
-      className="absolute rounded z-[1000]"
+      className="absolute z-[1000] rounded"
       style={{
         transform: `matrix(1, 0, 0, 1, ${area.x}, ${area.y})`,
         width: area.width,
@@ -186,10 +186,10 @@ const Canvas: FC = () => {
 
   return (
     <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Canvas with Instant Presence</h2>
+      <h2 className="mb-4 text-2xl font-bold">Canvas with Instant Presence</h2>
       <div
         ref={canvasRef}
-        className="overflow-hidden w-full h-[50vh] bg-[#333] relative select-none"
+        className="relative h-[50vh] w-full select-none overflow-hidden bg-[#333]"
       >
         {stickers.map((sticker) => {
           const isSelected = selectedStickerIds.has(sticker.id);
@@ -242,7 +242,7 @@ const Canvas: FC = () => {
               );
             })
           ) : (
-            <pre className="text-center mb-4">
+            <pre className="mb-4 text-center">
               No peers connected, open a second window
             </pre>
           )}

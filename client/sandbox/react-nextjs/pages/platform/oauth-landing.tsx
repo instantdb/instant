@@ -27,7 +27,7 @@ function Demo({ oauthHandler }: { oauthHandler: OAuthHandler }) {
 export default function Page() {
   const oauthHandler = OAUTH_HANDLER;
   return (
-    <div className="max-w-lg flex flex-col mt-20 mx-auto">
+    <div className="mx-auto mt-20 flex max-w-lg flex-col">
       {!oauthHandler ? (
         <ClientIdReadme />
       ) : (
