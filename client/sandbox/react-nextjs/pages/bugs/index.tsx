@@ -26,7 +26,7 @@ export async function getStaticProps() {
 const BugsIndex = ({ bugFiles }: { bugFiles: BugFile[] }) => {
   return (
     <div className="max-w-md p-4">
-      <h1 className="text-xl font-bold mb-4">Bug Repros</h1>
+      <h1 className="mb-4 text-xl font-bold">Bug Repros</h1>
       {bugFiles.map(({ pathName, name }) => (
         <div key={pathName}>
           <a href={pathName} className="text-blue-600 hover:underline">

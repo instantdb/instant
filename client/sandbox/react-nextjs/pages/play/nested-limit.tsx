@@ -98,8 +98,8 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
   };
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <h1 className="text-2xl font-bold mb-6 text-center">Todo List</h1>
+    <div className="mx-auto max-w-md rounded-lg bg-white p-6 shadow-lg">
+      <h1 className="mb-6 text-center text-2xl font-bold">Todo List</h1>
       <div>Each todo has 10 "notes" which get created along with the todo</div>
       <form onSubmit={addTodo} className="mb-6">
         <div className="flex gap-2">
@@ -108,11 +108,11 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
             value={newTodoTitle}
             onChange={(e) => setNewTodoTitle(e.target.value)}
             placeholder="Add a new todo..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Add
           </button>
@@ -123,17 +123,17 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
         {data?.todos?.map((todo) => (
           <div
             key={todo.id}
-            className="flex items-center gap-3 p-3 border border-gray-200 rounded-md"
+            className="flex items-center gap-3 rounded-md border border-gray-200 p-3"
           >
             <input
               type="checkbox"
               checked={todo.completed}
               onChange={() => toggleTodo(todo.id, todo.completed)}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
             />
             <span
               className={`flex-1 ${
-                todo.completed ? 'line-through text-gray-500' : 'text-gray-900'
+                todo.completed ? 'text-gray-500 line-through' : 'text-gray-900'
               }`}
             >
               {todo.title}
@@ -154,7 +154,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
       </div>
 
       {data?.todos?.length === 0 && (
-        <p className="text-center text-gray-500 mt-6">
+        <p className="mt-6 text-center text-gray-500">
           No todos yet. Add one above!
         </p>
       )}
@@ -162,7 +162,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
       <div className="mt-6 text-xs text-gray-400">
         <details>
           <summary className="cursor-pointer">Debug Data</summary>
-          <pre className="mt-2 text-xs overflow-auto">
+          <pre className="mt-2 overflow-auto text-xs">
             {JSON.stringify(data, null, 2)}
           </pre>
         </details>

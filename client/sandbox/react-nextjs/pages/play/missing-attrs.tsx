@@ -50,7 +50,7 @@ function Example({ appId }: { appId: string }) {
     <div>
       <div>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() =>
             db.transact(
               tx.comments[id()].update({ slug: 'oi' }).link({ author: id() }),
@@ -60,7 +60,7 @@ function Example({ appId }: { appId: string }) {
           Create comment
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() =>
             db.transact(tx.profiles[id()].update({ name: 'stonado' }))
           }

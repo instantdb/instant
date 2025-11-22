@@ -85,7 +85,7 @@ function DocList({ secret }: { secret: string }) {
   }
 
   return (
-    <ul className="pl-4 list-disk">
+    <ul className="list-disk pl-4">
       {q.data.playDocs.map((doc) => {
         return (
           <li className="list-disk">
@@ -94,7 +94,7 @@ function DocList({ secret }: { secret: string }) {
               onClick={() => {
                 update(doc);
               }}
-              className="p-2 m-1 bg-blue-500 text-white rounded"
+              className="m-1 rounded bg-blue-500 p-2 text-white"
             >
               Update
             </button>
@@ -120,7 +120,7 @@ function Main() {
           <button
             key={label}
             onClick={fn}
-            className="p-2 m-1 bg-blue-500 text-white rounded"
+            className="m-1 rounded bg-blue-500 p-2 text-white"
           >
             {label}
           </button>
@@ -136,7 +136,7 @@ function Main() {
                 onClick={() => {
                   deleteAll(secret);
                 }}
-                className="p-2 m-1 bg-blue-500 text-white rounded"
+                className="m-1 rounded bg-blue-500 p-2 text-white"
               >
                 Delete All
               </button>

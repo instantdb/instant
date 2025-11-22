@@ -119,23 +119,23 @@ function Example({ appId }: { appId: string }) {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Link/Unlink Permissions Demo</h1>
+      <h1 className="mb-4 text-2xl font-bold">Link/Unlink Permissions Demo</h1>
 
-      <div className="mb-6 p-4 bg-gray-100 rounded">
+      <div className="mb-6 rounded bg-gray-100 p-4">
         <p className="mb-2">
           Current User: {currentUser?.name || 'None'} (ID:{' '}
           {currentUserId || 'N/A'})
         </p>
         <button
           onClick={seedData}
-          className="bg-blue-500 text-white px-4 py-2 rounded mr-2"
+          className="mr-2 rounded bg-blue-500 px-4 py-2 text-white"
         >
           Seed Data
         </button>
         <select
           value={currentUserId}
           onChange={(e) => setCurrentUserId(e.target.value)}
-          className="px-4 py-2 border rounded"
+          className="rounded border px-4 py-2"
         >
           <option value="">Select User</option>
           {users.map((user) => (
@@ -151,20 +151,20 @@ function Example({ appId }: { appId: string }) {
         const memberIds = new Set(group.members?.map((m: any) => m.id) || []);
 
         return (
-          <div key={group.id} className="mb-6 p-4 border rounded">
-            <h2 className="text-xl font-semibold mb-2">
+          <div key={group.id} className="mb-6 rounded border p-4">
+            <h2 className="mb-2 text-xl font-semibold">
               {group.name} (Owner:{' '}
               {users.find((u) => u.id === group.ownerId)?.name})
             </h2>
 
             <div className="mb-4">
-              <h3 className="font-semibold mb-2">Current Members:</h3>
+              <h3 className="mb-2 font-semibold">Current Members:</h3>
               {group.members?.map((member: any) => (
-                <div key={member.id} className="flex items-center gap-2 mb-1">
+                <div key={member.id} className="mb-1 flex items-center gap-2">
                   <span>{member.name}</span>
                   <button
                     onClick={() => removeMember(group.id, member.id)}
-                    className="text-red-500 text-sm"
+                    className="text-sm text-red-500"
                     title={
                       isOwner
                         ? 'Owner can remove anyone'
@@ -183,15 +183,15 @@ function Example({ appId }: { appId: string }) {
             </div>
 
             <div>
-              <h3 className="font-semibold mb-2">Available Users:</h3>
+              <h3 className="mb-2 font-semibold">Available Users:</h3>
               {users
                 .filter((u) => !memberIds.has(u.id))
                 .map((user) => (
-                  <div key={user.id} className="flex items-center gap-2 mb-1">
+                  <div key={user.id} className="mb-1 flex items-center gap-2">
                     <span>{user.name}</span>
                     <button
                       onClick={() => addMember(group.id, user.id)}
-                      className="text-green-500 text-sm"
+                      className="text-sm text-green-500"
                     >
                       Add
                     </button>

@@ -117,25 +117,25 @@ function Demo() {
     <div className="flex items-center">
       <Cursors
         room={room}
-        className="h-32 w-32 border overflow-hidden inline-block"
+        className="inline-block h-32 w-32 overflow-hidden border"
       />
       <Cursors
         room={room}
         spaceId="space-2"
         userCursorColor="purple"
-        className="h-32 w-32 border overflow-hidden inline-block"
+        className="inline-block h-32 w-32 overflow-hidden border"
       />
       <Cursors
         room={room}
         spaceId="space-3"
         userCursorColor="dodgerblue"
-        className="h-64 w-64 pt-16 pl-16 border overflow-hidden"
+        className="h-64 w-64 overflow-hidden border pl-16 pt-16"
       >
         <Cursors
           room={room}
           spaceId="space-4"
           userCursorColor="orange"
-          className="h-32 w-32 border overflow-hidden inline-block"
+          className="inline-block h-32 w-32 overflow-hidden border"
         />
       </Cursors>
       <div
@@ -158,7 +158,7 @@ function Demo() {
         <input className="p-0.5 text-sm" {...inputIndicator.inputProps} />
         <textarea className="p-0.5 text-sm" {...textareaIndicator.inputProps} />
         <button
-          className="bg-blue-500 p-1 text-white rounded"
+          className="rounded bg-blue-500 p-1 text-white"
           onClick={() => {
             setShowNested((_) => !_);
           }}
@@ -189,7 +189,7 @@ function Nested() {
 
 function Data({ value }: { value: any }) {
   return (
-    <pre className="overflow-scroll p-3 text-xs flex-1">
+    <pre className="flex-1 overflow-scroll p-3 text-xs">
       {JSON.stringify(value, null, 2)}
     </pre>
   );

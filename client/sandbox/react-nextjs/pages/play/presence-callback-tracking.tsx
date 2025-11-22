@@ -85,7 +85,7 @@ function PresenceTracker({ db }: { db: InstantReactAbstractDatabase<Schema> }) {
       <section className="space-y-4">
         <div className="flex gap-2">
           <button
-            className="bg-black text-white px-4 py-2 text-sm font-medium rounded"
+            className="rounded bg-black px-4 py-2 text-sm font-medium text-white"
             onClick={joinRoom}
             disabled={isJoined}
           >
@@ -93,14 +93,14 @@ function PresenceTracker({ db }: { db: InstantReactAbstractDatabase<Schema> }) {
           </button>
           {isJoined && (
             <button
-              className="border border-gray-300 px-4 py-2 text-sm rounded"
+              className="rounded border border-gray-300 px-4 py-2 text-sm"
               onClick={leaveRoom}
             >
               Leave Room
             </button>
           )}
           <button
-            className="border border-gray-300 px-3 py-2 text-sm rounded"
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
             onClick={() => setUpdates([])}
             disabled={!updates.length}
           >
@@ -108,21 +108,21 @@ function PresenceTracker({ db }: { db: InstantReactAbstractDatabase<Schema> }) {
           </button>
         </div>
 
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded text-sm space-y-2">
+        <div className="space-y-2 rounded border border-blue-200 bg-blue-50 p-4 text-sm">
           <div className="font-semibold">Status:</div>
           <div>Room Joined: {isJoined ? '✓ Yes' : '✗ No'}</div>
-          <div className="font-semibold mt-2">
+          <div className="mt-2 font-semibold">
             Total Callbacks: {updates.length}
           </div>
-          <div className="mt-2 text-xs space-y-1">
+          <div className="mt-2 space-y-1 text-xs">
             <div>
-              <code className="bg-white px-1 py-0.5 rounded">
+              <code className="rounded bg-white px-1 py-0.5">
                 initialPresence
               </code>
               : stage = "initialPresenceFromJoinRoom"
             </div>
             <div>
-              <code className="bg-white px-1 py-0.5 rounded">initialData</code>:
+              <code className="rounded bg-white px-1 py-0.5">initialData</code>:
               stage = "initialPresenceFromSubscribe"
             </div>
           </div>
@@ -141,9 +141,9 @@ function PresenceTracker({ db }: { db: InstantReactAbstractDatabase<Schema> }) {
         ) : !updates.length ? (
           <p className="text-sm text-gray-600">Waiting for updates...</p>
         ) : (
-          <div className="text-sm mb-2">
+          <div className="mb-2 text-sm">
             <span className="font-medium">Issue Reproduction:</span>
-            <ul className="list-disc list-inside text-gray-700 mt-1 space-y-1">
+            <ul className="mt-1 list-inside list-disc space-y-1 text-gray-700">
               <li>
                 First user joining should trigger 2 callbacks (expected: 1)
               </li>
@@ -158,12 +158,12 @@ function PresenceTracker({ db }: { db: InstantReactAbstractDatabase<Schema> }) {
           {updates.map((payload, index) => (
             <li
               key={index}
-              className="rounded border border-gray-300 p-3 bg-white shadow-sm"
+              className="rounded border border-gray-300 bg-white p-3 shadow-sm"
             >
-              <div className="text-sm font-semibold text-blue-600 mb-2">
+              <div className="mb-2 text-sm font-semibold text-blue-600">
                 Update #{updates.length - index}
               </div>
-              <pre className="text-xs overflow-x-auto whitespace-pre-wrap bg-gray-50 p-2 rounded">
+              <pre className="overflow-x-auto whitespace-pre-wrap rounded bg-gray-50 p-2 text-xs">
                 {JSON.stringify(payload, null, 2)}
               </pre>
             </li>
@@ -171,7 +171,7 @@ function PresenceTracker({ db }: { db: InstantReactAbstractDatabase<Schema> }) {
         </ul>
       </section>
 
-      <section className="text-xs text-gray-500 space-y-1 p-3 bg-gray-50 rounded">
+      <section className="space-y-1 rounded bg-gray-50 p-3 text-xs text-gray-500">
         <div className="font-semibold">Debug Info:</div>
         <div>
           Room Type: <code>{ROOM_TYPE}</code>
@@ -214,7 +214,7 @@ function App({
 
 export default function Page() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
+    <div className="mx-auto max-w-4xl px-4 py-12">
       <EphemeralAppPage schema={schema} Component={App} />
     </div>
   );

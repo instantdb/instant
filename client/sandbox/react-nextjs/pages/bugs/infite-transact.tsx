@@ -48,13 +48,13 @@ function App({ db }: AppProps) {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <ResetButton className="bg-red-500 text-white px-4 py-2 rounded" />
+      <ResetButton className="rounded bg-red-500 px-4 py-2 text-white" />
       <div className="flex gap-4">
         <button
           onClick={() => {
             setShouldTrigger(true);
           }}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
+          className="rounded bg-blue-500 px-4 py-2 text-white"
         >
           Add Todo
         </button>
@@ -62,7 +62,7 @@ function App({ db }: AppProps) {
           onClick={() => {
             setShouldTrigger(false);
           }}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
+          className="rounded bg-blue-500 px-4 py-2 text-white"
         >
           Stop Adding Todos
         </button>
@@ -72,7 +72,7 @@ function App({ db }: AppProps) {
       <div className="mt-4">
         <h3 className="font-bold">Todos ({data?.todos?.length || 0}):</h3>
         {data?.todos?.map((todo) => (
-          <div key={todo.id} className="p-2 border-b">
+          <div key={todo.id} className="border-b p-2">
             {todo.text}
           </div>
         ))}
@@ -83,8 +83,8 @@ function App({ db }: AppProps) {
 
 export default function Page() {
   return (
-    <div className="max-w-lg flex flex-col mt-20 mx-auto space-y-4">
-      <h1 className="text-2xl font-bold text-center mb-4">
+    <div className="mx-auto mt-20 flex max-w-lg flex-col space-y-4">
+      <h1 className="mb-4 text-center text-2xl font-bold">
         Infinite transact bug
       </h1>
       <div className="space-y-4">

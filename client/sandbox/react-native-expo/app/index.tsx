@@ -5,7 +5,7 @@ import config from './config';
 export default function Page() {
   if (!config.appId) {
     return (
-      <View className="space-y-2 py-20 px-10">
+      <View className="space-y-2 px-10 py-20">
         <Text className="text-xl font-bold">
           Welcome to the react-native-expo playground!
         </Text>
@@ -18,7 +18,7 @@ export default function Page() {
     );
   }
   return (
-    <View className="h-full m-4 mt-8">
+    <View className="m-4 mt-8 h-full">
       <Link className="text-lg" href="/play/ephemeral-demo">
         Ephemeral Demo
       </Link>

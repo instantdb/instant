@@ -67,7 +67,7 @@ function Login() {
     discovery,
   );
   return (
-    <View className="h-full justify-center items-center">
+    <View className="h-full items-center justify-center">
       <Button
         title="Log in with expo auth"
         disabled={!request}
@@ -109,7 +109,7 @@ function DemoData({ user, db }: DemoDataProps) {
   if (error) return <Text>Error: {error.message}</Text>;
 
   return (
-    <ScrollView className="py-10 px-4">
+    <ScrollView className="px-4 py-10">
       <Button
         title="Create some example data"
         onPress={() => {

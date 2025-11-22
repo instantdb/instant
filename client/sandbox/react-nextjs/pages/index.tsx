@@ -19,7 +19,7 @@ const Home = ({
   appRouterFiles: File[];
 }) => {
   return (
-    <div className="mx-w-md mx-auto pb-16 p-4">
+    <div className="mx-w-md mx-auto p-4 pb-16">
       <div>
         <strong>Pages Router</strong>
       </div>

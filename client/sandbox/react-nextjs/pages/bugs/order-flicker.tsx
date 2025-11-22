@@ -50,12 +50,12 @@ function App({ db }: AppProps) {
 
   return (
     <div className="flex flex-col items-center">
-      <ResetButton className="bg-red-500 text-white px-4 py-2 rounded mb-4" />
+      <ResetButton className="mb-4 rounded bg-red-500 px-4 py-2 text-white" />
       <div className="flex flex-col items-center gap-4">
         {data.colors.map((c) => (
           <div
             key={c.id}
-            className="w-24 h-24 rounded-lg flex items-center justify-center text-white font-bold"
+            className="flex h-24 w-24 items-center justify-center rounded-lg font-bold text-white"
             style={{ backgroundColor: c.value }}
           ></div>
         ))}
@@ -70,7 +70,7 @@ function App({ db }: AppProps) {
             ),
           )
         }
-        className="bg-blue-500 text-white px-4 py-2 rounded mt-4"
+        className="mt-4 rounded bg-blue-500 px-4 py-2 text-white"
       >
         Reverse Order
       </button>
@@ -80,11 +80,11 @@ function App({ db }: AppProps) {
 
 export default function Page() {
   return (
-    <div className="max-w-lg flex flex-col mt-20 mx-auto">
-      <h1 className="text-2xl font-bold text-center mb-4">
+    <div className="mx-auto mt-20 flex max-w-lg flex-col">
+      <h1 className="mb-4 text-center text-2xl font-bold">
         Order Flicker Repro
       </h1>
-      <p className="text-center mb-8 text-gray-600">
+      <p className="mb-8 text-center text-gray-600">
         Press "Reverse Order" twice to see the flicker effect.
       </p>
       <EphemeralAppPage schema={schema} perms={perms} Component={App} />

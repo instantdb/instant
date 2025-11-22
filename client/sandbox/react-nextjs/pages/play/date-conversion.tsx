@@ -81,7 +81,7 @@ function Example({ appId }: { appId: string }) {
       <div className="flex gap-2">
         {Object.keys(dateTypes).map((type) => (
           <button
-            className="p-2 border"
+            className="border p-2"
             key={type}
             onClick={() => handleAdd(getRandomTodo(), type as any)}
           >

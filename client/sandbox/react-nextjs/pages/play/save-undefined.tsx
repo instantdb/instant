@@ -12,7 +12,7 @@ export default function Page() {
   });
   if (isLoading || error) return;
   return (
-    <div className="p-4 text-sm font-mono flex flex-col mx-auto max-w-md gap-4">
+    <div className="mx-auto flex max-w-md flex-col gap-4 p-4 font-mono text-sm">
       <button className="border border-black" onClick={() => reset(data.items)}>
         reset state
       </button>
@@ -25,7 +25,7 @@ export default function Page() {
       >
         create item with undefined
       </button>
-      <pre className="border border-black overflow-scroll bg-gray-100">
+      <pre className="overflow-scroll border border-black bg-gray-100">
         {JSON.stringify(data.items, null, 2)}
       </pre>
     </div>

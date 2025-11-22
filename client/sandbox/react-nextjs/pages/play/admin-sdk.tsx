@@ -70,7 +70,7 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
       <div>Check window.db for the admin db.</div>
       <div>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => {
             db.current.transact(db.current.tx.test[testId].update({ i: j++ }));
           }}
@@ -78,7 +78,7 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
           Change data
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => {
             db.current.transact(db.current.tx.test[id()].update({ i: j++ }));
           }}
@@ -87,7 +87,7 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
         </button>
         {sub ? (
           <button
-            className="bg-black text-white m-2 p-2"
+            className="m-2 bg-black p-2 text-white"
             onClick={() => {
               sub?.close();
               setSub(null);
@@ -97,7 +97,7 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
           </button>
         ) : (
           <button
-            className="bg-black text-white m-2 p-2"
+            className="m-2 bg-black p-2 text-white"
             onClick={() => {
               setTriggerSub((x) => x + 1);
             }}
@@ -136,10 +136,10 @@ export default function Page() {
 
   if (app) {
     return (
-      <div className="max-w-lg flex flex-col mt-20 mx-auto">
+      <div className="mx-auto mt-20 flex max-w-lg flex-col">
         <App app={app} />
       </div>
     );
   }
-  return <div className="max-w-lg flex flex-col mt-20 mx-auto">Loading...</div>;
+  return <div className="mx-auto mt-20 flex max-w-lg flex-col">Loading...</div>;
 }

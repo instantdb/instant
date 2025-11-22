@@ -106,15 +106,15 @@ function Main({ db }: { db: any }) {
                   setFiles(e.target.files)
                 }
               />
-              <div className="w-full flex gap-1 items-center">
+              <div className="flex w-full items-center gap-1">
                 <button
-                  className="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:pointer-events-none disabled:opacity-50 bg-zinc-100 text-zinc-900 shadow-sm hover:bg-zinc-100/80 h-9 px-4 py-2"
+                  className="inline-flex h-9 flex-1 items-center justify-center whitespace-nowrap rounded-md bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm transition-colors hover:bg-zinc-100/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:pointer-events-none disabled:opacity-50"
                   onClick={handleTryDownloadUrl}
                 >
                   Check
                 </button>
                 <button
-                  className="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:pointer-events-none disabled:opacity-50 bg-zinc-900 text-zinc-50 shadow hover:bg-zinc-900/90 h-9 px-4 py-2"
+                  className="inline-flex h-9 flex-1 items-center justify-center whitespace-nowrap rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-50 shadow transition-colors hover:bg-zinc-900/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:pointer-events-none disabled:opacity-50"
                   onClick={handleUpload}
                 >
                   Upload
@@ -133,7 +133,7 @@ function Main({ db }: { db: any }) {
                   )}
                   {imageStatus === 'success' && (
                     <button
-                      className="w-full items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-700 disabled:pointer-events-none disabled:opacity-50 bg-red-600 text-red-50 shadow hover:bg-red-600/90 h-9 px-4 py-2"
+                      className="h-9 w-full items-center justify-center whitespace-nowrap rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-red-50 shadow transition-colors hover:bg-red-600/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-700 disabled:pointer-events-none disabled:opacity-50"
                       onClick={handleDelete}
                     >
                       Delete
