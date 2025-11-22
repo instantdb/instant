@@ -244,7 +244,7 @@ type Exactly<Parent, Child> = Parent & {
 type InstaQLEntitySubqueryResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema['entities'],
-  Query extends InstaQLEntitySubquery<Schema, EntityName> = {},
+  Query extends InstaQLEntitySubquery<Schema, EntityName> | undefined = {},
   UseDates extends boolean = false,
 > = {
   [QueryPropName in keyof Query]: Schema['entities'][EntityName]['links'][QueryPropName] extends LinkAttrDef<
@@ -258,7 +258,7 @@ type InstaQLEntitySubqueryResult<
                 Schema,
                 LinkedEntityName,
                 Remove$NonRecursive<NonNullable<Query[QueryPropName]>>,
-                NonNullable<NonNullable<Query[QueryPropName]>['$']>['fields'],
+                SafeLookup<Query, [QueryPropName, '$', 'fields']>,
                 UseDates
               >
             | undefined
@@ -266,7 +266,7 @@ type InstaQLEntitySubqueryResult<
             Schema,
             LinkedEntityName,
             Remove$NonRecursive<NonNullable<Query[QueryPropName]>>,
-            NonNullable<NonNullable<Query[QueryPropName]>['$']>['fields'],
+            SafeLookup<Query, [QueryPropName, '$', 'fields']>,
             UseDates
           >[]
       : never
@@ -321,27 +321,45 @@ type DistributePick<T, K extends string> = T extends any
   ? { [P in K]: P extends keyof T ? T[P] : never }
   : never;
 
+// SafeLookup<T, ['A', 'B', number]> is like doing
+// T['A']['B'][number], but it will merge with undefined if any
+// of the intermediates are undefined
+type SafeLookup<T, K extends readonly PropertyKey[]> = K extends [
+  infer First,
+  ...infer Rest extends readonly PropertyKey[],
+]
+  ? First extends keyof NonNullable<T>
+    ?
+        | SafeLookup<NonNullable<T>[First], Rest>
+        | (T extends null | undefined ? undefined : never)
+    : undefined
+  : T;
+
 type InstaQLFields<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
 > = (Extract<keyof ResolveEntityAttrs<S['entities'][K]>, string> | 'id')[];
 
+type ComputeAttrs<
+  AllAttrs,
+  Fields extends readonly string[] | undefined,
+> = Fields extends readonly string[]
+  ? Fields[number] extends never
+    ? AllAttrs
+    : DistributePick<AllAttrs, Exclude<Fields[number], 'id'>>
+  : AllAttrs;
+
 type InstaQLEntity<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema['entities'],
-  Subquery extends InstaQLEntitySubquery<Schema, EntityName> = {},
+  Subquery extends InstaQLEntitySubquery<Schema, EntityName> | undefined = {},
   Fields extends InstaQLFields<Schema, EntityName> | undefined = undefined,
   UseDates extends boolean = false,
 > = Expand<
-  { id: string } & (Extract<
-    NonNullable<Fields>[number],
-    string
-  > extends undefined
-    ? ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>
-    : DistributePick<
-        ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>,
-        Exclude<NonNullable<Fields>[number], 'id'>
-      >) &
+  { id: string } & ComputeAttrs<
+    ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>,
+    Fields
+  > &
     InstaQLEntitySubqueryResult<Schema, EntityName, Subquery, UseDates>
 >;
 
@@ -381,15 +399,15 @@ type InstaQLQueryResult<
 
 type InstaQLResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
-  Query extends InstaQLParams<Schema>,
+  Query extends InstaQLParams<Schema> | undefined,
   UseDates extends boolean = false,
 > = Expand<{
   [QueryPropName in keyof Query]: QueryPropName extends keyof Schema['entities']
     ? InstaQLEntity<
         Schema,
         QueryPropName,
-        Remove$NonRecursive<NonNullable<Query[QueryPropName]>>,
-        NonNullable<NonNullable<Query[QueryPropName]>['$']>['fields'],
+        Remove$NonRecursive<SafeLookup<Query, [QueryPropName]>>,
+        SafeLookup<Query, [QueryPropName, '$', 'fields']>,
         UseDates
       >[]
     : never;
@@ -447,25 +465,22 @@ type InstaQLOptions = {
 // Start of new types
 
 type ValidQueryObject<
-  T,
+  T extends Record<string, any>,
   Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema['entities'],
   TopLevel extends boolean,
-> =
-  T extends Record<string, any>
-    ? keyof T extends keyof Schema['entities'][EntityName]['links'] | '$'
-      ? {
-          [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
-            T[K],
-            Schema,
-            Schema['entities'][EntityName]['links'][K]['entityName'],
-            false
-          >;
-        } & {
-          $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
-        }
-      : never
-    : never;
+> = keyof T extends keyof Schema['entities'][EntityName]['links'] | '$'
+  ? {
+      [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
+        T[K],
+        Schema,
+        Schema['entities'][EntityName]['links'][K]['entityName'],
+        false
+      >;
+    } & {
+      $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
+    }
+  : never;
 
 type PaginationKeys =
   | 'limit'
@@ -607,24 +622,20 @@ type ValidWhereObject<
           Schema['entities'][EntityName]['attrs'][K]
         >;
       } & {
-        and?: Input extends { and: Array<infer Item> }
-          ? ValidWhereObject<
-              NoDistribute<NonNullable<Item>>,
-              Schema,
-              EntityName
-            >[]
+        and?: Input extends {
+          and: Array<infer Item extends { [key: string]: any } | undefined>;
+        }
+          ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
           : never;
-        or?: Input extends { or: Array<infer Item> }
-          ? ValidWhereObject<
-              NoDistribute<NonNullable<Item>>,
-              Schema,
-              EntityName
-            >[]
+        or?: Input extends {
+          or: Array<infer Item extends { [key: string]: any } | undefined>;
+        }
+          ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
           : never;
       } & {
         // Special case for id
         id?: ValidWhereValue<
-          NonNullable<Input>['id'],
+          SafeLookup<Input, ['id']>,
           DataAttrDef<string, false, false>
         >;
       }
@@ -657,7 +668,7 @@ type ExtractAttrFromDotPath<
         : never;
 
 type ValidQuery<
-  Q extends object,
+  Q extends Record<string, any>,
   S extends IContainEntitiesAndLinks<any, any>,
 > = S extends InstantUnknownSchemaDef
   ? InstaQLParams<S>
