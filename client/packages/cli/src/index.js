@@ -355,7 +355,7 @@ program
     '-p --package <react|react-native|core|admin>',
     'Which package to automatically install if there is not one installed already.',
   )
-  .option('-t --title <title>', 'Title for the created app')
+  .option('--title <title>', 'Title for the created app')
   .action(handleInit);
 
 program
@@ -414,7 +414,6 @@ program
     '--skip-check-types',
     "Don't check types on the server when pushing schema",
   )
-  .option('-t --title', 'Title for the created app')
   .option(
     '--rename [renames...]',
     'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator stores.owner:stores.manager`',
@@ -465,7 +464,6 @@ program
     '-a --app <app-id>',
     'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
   )
-  .option('-t --title', 'Title for the created app')
   .option(
     '-p --package <react|react-native|core|admin>',
     'Which package to automatically install if there is not one installed already.',
