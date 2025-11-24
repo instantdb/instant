@@ -491,6 +491,38 @@ const cursorMCPConfig = `{
 }`;
 
 const clientConfigs = {
+  cursor: {
+    name: 'Cursor',
+    setupContent: (
+      <div className="space-y-4">
+        <p>Click this button to install the Instant MCP server in Cursor:</p>
+        <div className="flex">
+          <a
+            href="https://cursor.com/en/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <img
+              width={150}
+              src="https://cursor.com/deeplink/mcp-install-dark.svg"
+              alt="Install MCP Server"
+              className="transition-opacity hover:opacity-80"
+            />
+          </a>
+        </div>
+        <p>
+          Alternatively you can paste this into your `~/.cursor/mcp.json`
+          directly
+        </p>
+        <Fence code={cursorMCPConfig} copyable={true} language="json" />
+        <p>
+          You should now see the Instant MCP server in your MCP servers list. If
+          you don't you may need to restart Cursor. Once you see it, click the
+          "Needs Login" button to go through the auth flow.
+        </p>
+      </div>
+    ),
+  },
   claude: {
     name: 'Claude Code',
     setupContent: (
@@ -542,34 +574,18 @@ rmcp_client = true`}
       </div>
     ),
   },
-  cursor: {
-    name: 'Cursor',
+  gemini: {
+    name: 'Gemini',
     setupContent: (
       <div className="space-y-4">
-        <p>Click this button to install the Instant MCP server in Cursor:</p>
-        <div className="flex">
-          <a
-            href="https://cursor.com/en/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <img
-              width={150}
-              src="https://cursor.com/deeplink/mcp-install-dark.svg"
-              alt="Install MCP Server"
-              className="transition-opacity hover:opacity-80"
-            />
-          </a>
-        </div>
         <p>
-          Alternatively you can paste this into your `~/.cursor/mcp.json`
-          directly
+          If you're on a paid plan, you can add the server via the command line:
         </p>
-        <Fence code={cursorMCPConfig} copyable={true} language="json" />
+        <Copyable value="gemini mcp add --transport http instant https://mcp.instantdb.com/mcp" />
         <p>
-          You should now see the Instant MCP server in your MCP servers list. If
-          you don't you may need to restart Cursor. Once you see it, click the
-          "Needs Login" button to go through the auth flow.
+          This should load a browser to authenticate with Instant. After
+          granting access you should be ready to go! Run `gemini` to start
+          Gemini and then run `/mcp` to see Instant in your mcp list.
         </p>
       </div>
     ),
