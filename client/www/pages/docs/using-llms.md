@@ -340,12 +340,9 @@ Claude Desktop. You should now see the Instant MCP server active and enabled!
 
 Below is a list of the current tools we expose
 
-**Schema Management**
-
+- `learn` Fetch rules files if needed to help the LLM understand InstantDB.
+- `create-app` Creates a new Instant app.
 - `get-schema` Retrieves the schema for a specific app.
-- `push-schema` Applies schema changes to an app.
-
-**Permissions Management**
-
 - `get-perms` Retrieves permission rules for an app.
+- `push-schema` Applies schema changes to an app.
 - `push-perms` Updates permission rules for an app.
