@@ -91,7 +91,7 @@ function createIframe(src: string) {
 }
 
 function createToggler(
-  config: DevtoolConfig,
+  config: StrictDevtoolConfig,
   onClick: (this: HTMLButtonElement, ev: MouseEvent) => any,
 ) {
   const logoSVG = `
@@ -124,7 +124,7 @@ function createToggler(
   return { element };
 }
 
-function cssPositionForToggler(position: DevtoolPosition | undefined) {
+function cssPositionForToggler(position: DevtoolPosition) {
   switch (position) {
     case 'bottom-left':
       return { bottom: '24px', left: '24px' };
@@ -134,13 +134,10 @@ function cssPositionForToggler(position: DevtoolPosition | undefined) {
       return { top: '24px', right: '24px' };
     case 'top-left':
       return { top: '24px', left: '24px' };
-    default:
-      // Default to bottom-left
-      return cssPositionForToggler('bottom-right');
   }
 }
 
-function cssPositionForIframeContainer(position: DevtoolPosition | undefined) {
+function cssPositionForIframeContainer(position: DevtoolPosition) {
   switch (position) {
     case 'bottom-left':
       return { bottom: '24px', right: '24px', left: '60px', top: '72px' };
@@ -150,13 +147,10 @@ function cssPositionForIframeContainer(position: DevtoolPosition | undefined) {
       return { top: '24px', left: '24px', right: '60px', bottom: '72px' };
     case 'top-left':
       return { top: '24px', right: '24px', left: '60px', bottom: '72px' };
-    default:
-      // Default to bottom-right
-      return cssPositionForIframeContainer('bottom-right');
   }
 }
 
-function createIframeContainer(config: DevtoolConfig) {
+function createIframeContainer(config: StrictDevtoolConfig) {
   const element = document.createElement('div');
   Object.assign(element.style, {
     position: 'fixed',
