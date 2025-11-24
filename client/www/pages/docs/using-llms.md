@@ -20,6 +20,14 @@ You can verify you set up the rules correctly by asking your LLM "How do you
 make queries and transactions in InstantDB?" If everything is set up correctly,
 you should see a response with information about `db.useQuery` and `db.transact`
 
+### Cursor
+
+[Save these rules](/llm-rules/cursor-rules.md) at the root of your project in `.cursor/rules/instant.mdc`
+
+You may need to restart Cursor for them to take effect.
+
+When using Cursor we recommend turning off "Auto" and using at least Claude Sonnet 4
+
 ### Claude Code
 
 [Save these rules](/llm-rules/AGENTS.md) at the root of your project as `CLAUDE.md`
@@ -32,13 +40,11 @@ If you already had Claude running, restart it for the rules to take effect.
 
 If you already had Codex running, restart it for the rules to take effect.
 
-### Cursor
+### Gemini
 
-[Save these rules](/llm-rules/cursor-rules.md) at the root of your project in `.cursor/rules/instant.mdc`
+[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `GEMINI.md`
 
-You may need to restart Cursor for them to take effect.
-
-When using Cursor we recommend turning off "Auto" and using at least Claude Sonnet 4
+If you already had Gemini running, restart it for the rules to take effect.
 
 ### Windsurf
 
@@ -81,6 +87,22 @@ When you add the MCP server, you'll be sent through an OAuth flow to grant acces
 
 {% /callout %}
 
+### Cursor
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9)
+
+Or edit your `~/.cursor/mcp.json` directly:
+
+```json {% showCopy="true" %}
+{
+  "mcpServers": {
+    "instant": {
+      "url": "https://mcp.instantdb.com/mcp"
+    }
+  }
+}
+```
+
 ### Claude Code
 
 If you're on a paid Claude plan, you can add the the server via the command line
@@ -114,21 +136,17 @@ This should load a browser to authenticate with Instant.
 
 Now run `codex` to start Codex. You can run `/mcp` to see Instant in your list.
 
-### Cursor
+### Gemini
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9)
+If you're on a paid Google AI plan, you can add the the server via the command line
 
-Or edit your `~/.cursor/mcp.json` directly:
-
-```json {% showCopy="true" %}
-{
-  "mcpServers": {
-    "instant": {
-      "url": "https://mcp.instantdb.com/mcp"
-    }
-  }
-}
+```text {% showCopy="true" %}
+gemini mcp add --transport http instant https://mcp.instantdb.com/mcp
 ```
+
+This should load a browser to authenticate with Instant.
+
+Now run `gemini` to start Gemini. You can run `/mcp` to see Instant in your list.
 
 ### Windsurf
 
