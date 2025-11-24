@@ -136,7 +136,7 @@ function cssPositionForToggler(position: DevtoolPosition | undefined) {
       return { top: '24px', left: '24px' };
     default:
       // Default to bottom-left
-      return { bottom: '24px', left: '24px' };
+      return cssPositionForToggler('bottom-right');
   }
 }
 
@@ -151,8 +151,8 @@ function cssPositionForIframeContainer(position: DevtoolPosition | undefined) {
     case 'top-left':
       return { top: '24px', right: '24px', left: '60px', bottom: '72px' };
     default:
-      // Default to bottom-left
-      return { bottom: '24px', right: '24px', left: '60px', top: '72px' };
+      // Default to bottom-right
+      return cssPositionForIframeContainer('bottom-right');
   }
 }
 
