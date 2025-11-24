@@ -12,7 +12,7 @@ export const TodosWithSuspense = () => {
   });
 
   return (
-    <div className="border-4 p-2 m-2 border-green-500">
+    <div className="m-2 border-4 border-green-500 p-2">
       <h1>With Suspense / SSR</h1>
       <pre>{JSON.stringify(todos, null, 2)}</pre>
     </div>
