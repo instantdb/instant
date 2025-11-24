@@ -50,10 +50,10 @@ function PostsQuery() {
         ))}
       </ul>
       <div className="space-x-2">
-        <button onClick={addPost} className="text-white bg-black p-2">
+        <button onClick={addPost} className="bg-black p-2 text-white">
           Add post
         </button>
-        <button onClick={deletePosts} className="text-white bg-black p-2">
+        <button onClick={deletePosts} className="bg-black p-2 text-white">
           Delete posts
         </button>
       </div>
@@ -73,14 +73,14 @@ export default function App() {
   }, []);
 
   return (
-    <div className="font-sans p-6 space-y-8">
+    <div className="space-y-8 p-6 font-sans">
       <h1 className="text-2xl font-bold">InstantDB Hot-Reload Playground</h1>
 
       {/* Two-column layout */}
-      <div className="md:grid md:grid-cols-2 gap-10 space-y-8 md:space-y-0">
+      <div className="gap-10 space-y-8 md:grid md:grid-cols-2 md:space-y-0">
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">Test 1: Changing schema</h2>
-          <pre className="bg-gray-100 rounded p-3 text-sm overflow-auto max-h-64">
+          <pre className="max-h-64 overflow-auto rounded bg-gray-100 p-3 text-sm">
             {JSON.stringify(currSchema, null, 2)}
           </pre>
           <p>

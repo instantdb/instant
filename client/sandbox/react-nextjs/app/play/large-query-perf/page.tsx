@@ -313,7 +313,7 @@ export default function Home() {
     <div>
       <button
         onClick={mutateFirstTask}
-        className="bg-blue-500 text-white p-2 rounded-md"
+        className="rounded-md bg-blue-500 p-2 text-white"
       >
         Update task {firstTask?.id}
       </button>
@@ -335,7 +335,7 @@ export default function Home() {
         ref={canvasRef}
         width={800}
         height={400}
-        className="border border-gray-300 mt-4"
+        className="mt-4 border border-gray-300"
       />
 
       <pre>{JSON.stringify(result0, null, 2)}</pre>

@@ -242,7 +242,7 @@ function AppPicker({
         The examples below will be updated with your app ID.
       </p>
       {allOrgs.length > 0 && (
-        <p className="text-xs text-gray-600 mt-1">
+        <p className="mt-1 text-xs text-gray-600">
           Current workspace: <strong>{currentWorkspaceName}</strong>
         </p>
       )}
@@ -315,7 +315,7 @@ function PageContent({ path, title, sectionTitle, allLinks, children }) {
             <p className="text-sm font-medium text-gray-500">{sectionTitle}</p>
           )}
           {title && (
-            <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-[1fr_auto] md:items-start">
+            <div className="space-y-4 md:grid md:grid-cols-[1fr_auto] md:items-start md:space-y-0">
               <h1 className="text-3xl dark:text-white">{title}</h1>
               <CopyAsMarkdown path={path} />
             </div>

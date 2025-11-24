@@ -58,7 +58,7 @@ function TopicEffectStalenessDemo({
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4 p-4">
+    <div className="mx-auto max-w-3xl space-y-4 p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs text-gray-500">
           <div>Ephemeral app</div>
@@ -73,7 +73,7 @@ function TopicEffectStalenessDemo({
           <input
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            className="flex-1 min-w-[140px] rounded border px-2 py-1"
+            className="min-w-[140px] flex-1 rounded border px-2 py-1"
             placeholder="message"
           />
           <button
@@ -103,7 +103,7 @@ function TopicEffectStalenessDemo({
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className="flex-1 min-w-[140px] rounded border px-2 py-1 text-sm"
+            className="min-w-[140px] flex-1 rounded border px-2 py-1 text-sm"
             placeholder="handler label (not sent)"
           />
         </div>

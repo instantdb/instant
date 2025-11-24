@@ -100,26 +100,26 @@ function SoftDeleteTest({ db, appId, adminToken }: any) {
       <h1 className="text-2xl font-bold">Soft Delete Test</h1>
 
       {/* Create Attr Section */}
-      <div className="border rounded p-4">
-        <h2 className="text-lg font-semibold mb-2">Create Attr</h2>
+      <div className="rounded border p-4">
+        <h2 className="mb-2 text-lg font-semibold">Create Attr</h2>
         <div className="flex gap-2">
           <input
             type="text"
             placeholder="Namespace name"
             value={nsName}
             onChange={(e) => setNsName(e.target.value)}
-            className="border rounded px-2 py-1"
+            className="rounded border px-2 py-1"
           />
           <input
             type="text"
             placeholder="Attr name"
             value={attrName}
             onChange={(e) => setAttrName(e.target.value)}
-            className="border rounded px-2 py-1"
+            className="rounded border px-2 py-1"
           />
           <button
             onClick={createAttr}
-            className="px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="rounded bg-blue-500 px-4 py-1 text-white hover:bg-blue-600"
           >
             Create Attr
           </button>
@@ -127,28 +127,28 @@ function SoftDeleteTest({ db, appId, adminToken }: any) {
       </div>
 
       {/* Subscribed Attrs Section */}
-      <div className="border rounded p-4">
-        <h2 className="text-lg font-semibold mb-2">
+      <div className="rounded border p-4">
+        <h2 className="mb-2 text-lg font-semibold">
           Subscribed Attrs ({attrs.length})
         </h2>
         <div className="space-y-2">
           {attrs.map((attr: any) => (
             <div
               key={attr.id}
-              className="flex justify-between items-center p-2 bg-gray-50 rounded"
+              className="flex items-center justify-between rounded bg-gray-50 p-2"
             >
               <div>
                 <span className="font-mono text-sm">
                   {attr['forward-identity']?.[1]}.
                   {attr['forward-identity']?.[2]}
                 </span>
-                <span className="text-xs text-gray-500 ml-2">
+                <span className="ml-2 text-xs text-gray-500">
                   ID: {attr.id}
                 </span>
               </div>
               <button
                 onClick={() => deleteAttr(attr.id)}
-                className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+                className="rounded bg-red-500 px-3 py-1 text-sm text-white hover:bg-red-600"
               >
                 Delete
               </button>
@@ -161,12 +161,12 @@ function SoftDeleteTest({ db, appId, adminToken }: any) {
       </div>
 
       {/* Polling Controls */}
-      <div className="border rounded p-4">
-        <h2 className="text-lg font-semibold mb-2">Polling Controls</h2>
-        <div className="flex gap-2 items-center">
+      <div className="rounded border p-4">
+        <h2 className="mb-2 text-lg font-semibold">Polling Controls</h2>
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setIsPolling(!isPolling)}
-            className={`px-4 py-1 rounded ${
+            className={`rounded px-4 py-1 ${
               isPolling
                 ? 'bg-gray-500 text-white hover:bg-gray-600'
                 : 'bg-green-500 text-white hover:bg-green-600'
@@ -181,24 +181,24 @@ function SoftDeleteTest({ db, appId, adminToken }: any) {
       </div>
 
       {/* Soft-Deleted Attrs Section */}
-      <div className="border rounded p-4">
-        <h2 className="text-lg font-semibold mb-2">
+      <div className="rounded border p-4">
+        <h2 className="mb-2 text-lg font-semibold">
           Soft-Deleted Attrs ({softDeletedAttrs.length})
         </h2>
         <div className="space-y-2">
           {softDeletedAttrs.map((attr: any) => (
             <div
               key={attr.id}
-              className="flex justify-between items-center p-2 bg-red-50 rounded"
+              className="flex items-center justify-between rounded bg-red-50 p-2"
             >
               <div>
                 <span className="font-mono text-sm line-through">
                   {attr['forward-identity'][1]}.{attr['forward-identity'][2]}
                 </span>
-                <span className="text-xs text-gray-500 ml-2">
+                <span className="ml-2 text-xs text-gray-500">
                   ID: {attr.id}
                 </span>
-                <span className="text-xs text-gray-500 ml-2">
+                <span className="ml-2 text-xs text-gray-500">
                   Marked at:{' '}
                   {new Date(attr['deletion-marked-at']).toLocaleString()}
                 </span>
@@ -206,7 +206,7 @@ function SoftDeleteTest({ db, appId, adminToken }: any) {
               <div className="flex gap-2">
                 <button
                   onClick={() => restoreAttr(attr.id)}
-                  className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+                  className="rounded bg-green-500 px-3 py-1 text-sm text-white hover:bg-green-600"
                 >
                   Restore
                 </button>
@@ -225,9 +225,9 @@ function SoftDeleteTest({ db, appId, adminToken }: any) {
       </div>
 
       {/* Debug Info */}
-      <div className="border rounded p-4 bg-gray-100">
-        <h2 className="text-lg font-semibold mb-2">Debug Info</h2>
-        <div className="text-xs font-mono space-y-1">
+      <div className="rounded border bg-gray-100 p-4">
+        <h2 className="mb-2 text-lg font-semibold">Debug Info</h2>
+        <div className="space-y-1 font-mono text-xs">
           <div>App ID: {appId}</div>
           <div>Admin Token: {adminToken ? '✓' : '✗'}</div>
           <div>DB Connected: {db ? '✓' : '✗'}</div>
@@ -274,5 +274,5 @@ export default function Page() {
   if (app) {
     return <App app={app} />;
   }
-  return <div className="max-w-lg flex flex-col mt-20 mx-auto">Loading...</div>;
+  return <div className="mx-auto mt-20 flex max-w-lg flex-col">Loading...</div>;
 }

@@ -79,7 +79,7 @@ function App({ db }: AppProps) {
 
   return (
     <div className="flex flex-col items-center">
-      <ResetButton className="bg-red-500 text-white px-4 py-2 rounded mb-4" />
+      <ResetButton className="mb-4 rounded bg-red-500 px-4 py-2 text-white" />
       <div className="flex justify-between">
         <div className="flex flex-col items-center gap-4">
           <h2>Private Ents</h2>
@@ -96,7 +96,7 @@ function App({ db }: AppProps) {
       </div>
       <button
         onClick={() => handleDelete()}
-        className="bg-blue-500 text-white px-4 py-2 rounded mt-4"
+        className="mt-4 rounded bg-blue-500 px-4 py-2 text-white"
       >
         Delete Private Ents (Cascade Delete Public)
       </button>
@@ -106,20 +106,20 @@ function App({ db }: AppProps) {
 
 export default function Page() {
   return (
-    <div className="max-w-lg flex flex-col mt-20 mx-auto">
-      <h1 className="text-2xl font-bold text-center mb-4">
+    <div className="mx-auto mt-20 flex max-w-lg flex-col">
+      <h1 className="mb-4 text-center text-2xl font-bold">
         Cascade Delete Bug
       </h1>
-      <p className="text-center mb-8 text-gray-600">
+      <p className="mb-8 text-center text-gray-600">
         When you delete entities that have cascade delete, associated entities
         should be deleted as well!
       </p>
-      <p className="text-center mb-8 text-gray-600">
+      <p className="mb-8 text-center text-gray-600">
         This mostly works, but one bug is when{' '}
         <b>the entities have the same IDs</b> (as in this example), the cascade
         delete does not occur properly.
       </p>
-      <p className="text-center mb-8 text-gray-600">
+      <p className="mb-8 text-center text-gray-600">
         In this example when we delete all privateEnts, the associated
         publicEnts should also be deleted via cascade delete. But they are not.
       </p>

@@ -100,7 +100,7 @@ function Main({ user }: { user: { id: string; email?: string | null } }) {
       <h1>Hi {user.email || '<no email>'}!</h1>
       <h2>id: {user.id}</h2>
       <button
-        className="px-4 py-2 bg-blue-500 text-white rounded border-2 my-2"
+        className="my-2 rounded border-2 bg-blue-500 px-4 py-2 text-white"
         onClick={(e) => {
           const todoAId = id();
           const todoBId = id();
@@ -127,7 +127,7 @@ function Main({ user }: { user: { id: string; email?: string | null } }) {
         Create some example data
       </button>
       <button
-        className="px-4 py-2 bg-red-500 text-white rounded border-2 my-2"
+        className="my-2 rounded border-2 bg-red-500 px-4 py-2 text-white"
         onClick={() => {
           const goalIds = data.goals.map((g) => g.id);
           const todoIds = data.goals
@@ -143,7 +143,7 @@ function Main({ user }: { user: { id: string; email?: string | null } }) {
       </button>
 
       <button
-        className="px-4 py-2 rounded border-2 my-2"
+        className="my-2 rounded border-2 px-4 py-2"
         onClick={() => {
           auth.signOut();
         }}

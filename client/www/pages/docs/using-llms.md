@@ -22,42 +22,19 @@ you should see a response with information about `db.useQuery` and `db.transact`
 
 ### Claude Code
 
-Save these instructions for your framework at the root of your project as
-`CLAUDE.md`:
+[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `CLAUDE.md`
 
-- [Next.js instructions](/llm-rules/next/claude.md)
-- [Expo instructions](/llm-rules/expo/claude.md)
-
-Save these instructions for your framework at the root of your project as
-`instant-rules.md`:
-
-- [Next.js rules](/llm-rules/next/claude-rules.md)
-- [Expo rules](/llm-rules/expo/claude-rules.md)
-
-If you already had claude running, restart it for the rules to take effect.
+If you already had Claude running, restart it for the rules to take effect.
 
 ### Codex
 
-Save these instructions for your framework at the root of your project as
-`AGENTS.md`:
+[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `AGENTS.md`
 
-- [Next.js instructions](/llm-rules/next/claude.md)
-- [Expo instructions](/llm-rules/expo/claude.md)
-
-Save these instructions for your framework at the root of your project as
-`instant-rules.md`:
-
-- [Next.js rules](/llm-rules/next/claude-rules.md)
-- [Expo rules](/llm-rules/expo/claude-rules.md)
-
-If you already had codex running, restart it for the rules to take effect.
+If you already had Codex running, restart it for the rules to take effect.
 
 ### Cursor
 
-Save these rules for your framework at the root of your project in `.cursor/rules/instant.mdc`:
-
-- [Next.js rules](/llm-rules/next/cursor-rules.md)
-- [Expo rules](/llm-rules/expo/cursor-rules.md)
+[Save these rules](/llm-rules/cursor-rules.md) at the root of your project in `.cursor/rules/instant.mdc`
 
 You may need to restart Cursor for them to take effect.
 
@@ -65,29 +42,19 @@ When using Cursor we recommend turning off "Auto" and using at least Claude Sonn
 
 ### Windsurf
 
-Save these rules for your framework at the root of your project in `.windsurf/rules/instant.md`:
-
-- [Next.js rules](/llm-rules/next/windsurf-rules.md)
-- [Expo rules](/llm-rules/expo/windsurf-rules.md)
+[Save these rules](/llm-rules/windsurf-rules.md) at the root of your project in `.windsurf/rules/instant.md`
 
 You may need to restart Windsurf for them to take effect.
 
 ### Zed
 
-Save these rules for your framework at the root of your project in `AGENT.md`:
-
-- [Next.js rules](/llm-rules/next/other-rules.md)
-- [Expo rules](/llm-rules/expo/other-rules.md)
+[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `AGENTS.md`
 
 You may need to restart Zed for them to take effect.
 
 ### Other Tools
 
-Use these rules for your framework to give other tools context on how to use
-Instant:
-
-- [Next.js rules](/llm-rules/next/other-rules.md)
-- [Expo rules](/llm-rules/expo/other-rules.md)
+[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `AGENTS.md`
 
 If you want to manually add in more documentation, you can also append `.md` to the end of any doc page url to get the raw markdown
 
@@ -130,13 +97,22 @@ auth flow to enable the Instant MCP server in your claude code sessions!
 
 If you're on a paid OpenAI plan, you can add the the server via the command line
 
-```text {% showCopy="true" %}
-codex mcp add instant -- npx -y mcp-remote "https://mcp.instantdb.com/mcp"
+Edit your `~/.codex/config.toml` to include the [`rmcp_client` feature](https://developers.openai.com/codex/mcp/):
+
+```toml {% showCopy="true" %}
+[features]
+rmcp_client = true
 ```
 
-Now run `codex` to start Codex. Within a few seconds this should load a browser
-to authenticate with Instant. After authenticating you can run `/mcp` to see
-Instant in your list.
+Tell codex to add the MCP server:
+
+```text {% showCopy="true" %}
+codex mcp add instant --url "https://mcp.instantdb.com/mcp"
+```
+
+This should load a browser to authenticate with Instant.
+
+Now run `codex` to start Codex. You can run `/mcp` to see Instant in your list.
 
 ### Cursor
 
@@ -346,17 +322,10 @@ Claude Desktop. You should now see the Instant MCP server active and enabled!
 
 Below is a list of the current tools we expose
 
-**App Management**
-
-- `create-app` Creates a new InstantDB application with optional schema and permissions.
-- `get-apps` Lists all apps owned by the authenticated user.
-- `get-app` Fetches a single app by ID.
-
 **Schema Management**
 
 - `get-schema` Retrieves the schema for a specific app.
-- `plan-schema-push` Dry-run a schema update to preview changes.
-- `push-schema` Applies schema changes to an app. Run `plan-schema-push` first to preview.
+- `push-schema` Applies schema changes to an app.
 
 **Permissions Management**
 

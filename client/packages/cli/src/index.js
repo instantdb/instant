@@ -7,6 +7,7 @@ import {
   convertTxSteps,
   validateSchema,
   SchemaValidationError,
+  PlatformApi,
 } from '@instantdb/platform';
 import version from './version.js';
 import { existsSync } from 'fs';
@@ -354,7 +355,7 @@ program
     '-p --package <react|react-native|core|admin>',
     'Which package to automatically install if there is not one installed already.',
   )
-  .option('-t --title <title>', 'Title for the created app')
+  .option('--title <title>', 'Title for the created app')
   .action(handleInit);
 
 program
@@ -413,7 +414,6 @@ program
     '--skip-check-types',
     "Don't check types on the server when pushing schema",
   )
-  .option('-t --title', 'Title for the created app')
   .option(
     '--rename [renames...]',
     'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator stores.owner:stores.manager`',
@@ -464,7 +464,6 @@ program
     '-a --app <app-id>',
     'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
   )
-  .option('-t --title', 'Title for the created app')
   .option(
     '-p --package <react|react-native|core|admin>',
     'Which package to automatically install if there is not one installed already.',
@@ -969,7 +968,7 @@ async function promptImportAppOrCreateApp() {
 
   const result = await renderUnwrap(
     new UI.AppSelector({
-      allowEphemeral: false,
+      allowEphemeral: true,
       allowCreate: true,
       startingMenuIndex: 2,
       api: {
@@ -1016,18 +1015,9 @@ async function createApp(title, orgId) {
 }
 
 async function createEphemeralApp(title) {
-  const id = randomUUID();
-  const token = randomUUID();
-  const app = { id, title, admin_token: token };
-  const appRes = await fetchJson({
-    method: 'POST',
-    path: '/dash/apps/ephemeral',
-    debugName: 'Ephemeral app create',
-    errorMessage: 'Failed to create ephemeral app.',
-    body: app,
-  });
-  if (!appRes.ok) throw new Error('Failed to create temporary app');
-  return { appId: id, adminToken: token };
+  const api = new PlatformApi({ apiURI: instantBackendOrigin });
+  const { app } = await api.createTemporaryApp({ title });
+  return { appId: app.id, adminToken: app.adminToken };
 }
 
 async function detectAppWithErrorLogging(opts) {
@@ -1906,15 +1896,6 @@ async function readConfigAuthToken(allowAdminToken = true) {
     return process.env.INSTANT_CLI_AUTH_TOKEN;
   }
 
-  const authToken = await readFile(
-    getAuthPaths().authConfigFilePath,
-    'utf-8',
-  ).catch(() => null);
-
-  if (authToken) {
-    return authToken;
-  }
-
   if (allowAdminToken) {
     const adminTokenNames = Object.values(potentialAdminTokenEnvs);
     for (const envName of adminTokenNames) {
@@ -1924,6 +1905,16 @@ async function readConfigAuthToken(allowAdminToken = true) {
       }
     }
   }
+
+  const authToken = await readFile(
+    getAuthPaths().authConfigFilePath,
+    'utf-8',
+  ).catch(() => null);
+
+  if (authToken) {
+    return authToken;
+  }
+
   return null;
 }
 

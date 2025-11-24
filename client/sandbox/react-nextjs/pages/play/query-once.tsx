@@ -102,7 +102,7 @@ function Main() {
       <div className="flex space-x-2 py-2">
         <div>Query Once test</div>
         <button
-          className="border px-4 border-black"
+          className="border border-black px-4"
           onClick={() => deleteAll(data.onceTest)}
         >
           Delete All

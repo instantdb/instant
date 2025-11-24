@@ -111,11 +111,11 @@ function QueryCacheApp({
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Query Cache Test</h1>
+      <div className="mx-auto max-w-6xl">
+        <h1 className="mb-8 text-3xl font-bold">Query Cache Test</h1>
 
         {/* Controls */}
-        <div className="flex gap-4 items-center mb-6 pb-4 border-b">
+        <div className="mb-6 flex items-center gap-4 border-b pb-4">
           <div className="flex flex-col">
             <label className="text-sm font-medium">
               Cache Limit:
@@ -131,16 +131,16 @@ function QueryCacheApp({
                     });
                   }
                 }}
-                className="ml-2 px-3 py-1 border rounded w-20"
+                className="ml-2 w-20 rounded border px-3 py-1"
               />
             </label>
-            <span className="text-xs text-gray-500 mt-1">
+            <span className="mt-1 text-xs text-gray-500">
               Changing this will spawn a new app
             </span>
           </div>
           <button
             onClick={generateRandomTodo}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
           >
             🎲 Spawn Random Todo
           </button>
@@ -149,10 +149,10 @@ function QueryCacheApp({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Master View - All Todos */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">All Todos</h2>
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h2 className="mb-4 text-xl font-semibold">All Todos</h2>
 
             {todosLoading ? (
               <div className="text-gray-500">Loading todos...</div>
@@ -165,7 +165,7 @@ function QueryCacheApp({
                 {allTodos?.todos?.map((todo) => (
                   <div
                     key={todo.id}
-                    className={`p-3 border rounded cursor-pointer transition-colors ${
+                    className={`cursor-pointer rounded border p-3 transition-colors ${
                       selectedTodoId === todo.id
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
@@ -181,11 +181,11 @@ function QueryCacheApp({
                             e.stopPropagation();
                             toggleTodo(todo.id, todo.completed || false);
                           }}
-                          className="w-4 h-4"
+                          className="h-4 w-4"
                         />
                         <span
                           className={
-                            todo.completed ? 'line-through text-gray-500' : ''
+                            todo.completed ? 'text-gray-500 line-through' : ''
                           }
                         >
                           {todo.text}
@@ -196,7 +196,7 @@ function QueryCacheApp({
                           e.stopPropagation();
                           deleteTodo(todo.id);
                         }}
-                        className="text-red-500 hover:text-red-700 text-sm"
+                        className="text-sm text-red-500 hover:text-red-700"
                       >
                         Delete
                       </button>
@@ -205,7 +205,7 @@ function QueryCacheApp({
                 ))}
 
                 {(!allTodos?.todos || allTodos.todos.length === 0) && (
-                  <div className="text-gray-500 text-center py-8">
+                  <div className="py-8 text-center text-gray-500">
                     No todos yet. Click "🎲 Spawn Random Todo" to create some!
                   </div>
                 )}
@@ -214,11 +214,11 @@ function QueryCacheApp({
           </div>
 
           {/* Detail View - Selected Todo */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Todo Detail</h2>
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h2 className="mb-4 text-xl font-semibold">Todo Detail</h2>
 
             {!selectedTodoId ? (
-              <div className="text-gray-500 text-center py-8">
+              <div className="py-8 text-center text-gray-500">
                 Select a todo from the list to view details
               </div>
             ) : detailLoading ? (
@@ -226,37 +226,37 @@ function QueryCacheApp({
             ) : todoDetail?.todos?.[0] ? (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     ID
                   </label>
-                  <div className="text-sm text-gray-600 font-mono bg-gray-50 p-2 rounded">
+                  <div className="rounded bg-gray-50 p-2 font-mono text-sm text-gray-600">
                     {todoDetail.todos[0].id}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     Text
                   </label>
-                  <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
+                  <div className="rounded bg-gray-50 p-2 text-sm text-gray-900">
                     {todoDetail.todos[0].text}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     Status
                   </label>
-                  <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
+                  <div className="rounded bg-gray-50 p-2 text-sm text-gray-900">
                     {todoDetail.todos[0].completed ? 'Completed' : 'Pending'}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     Created At
                   </label>
-                  <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                  <div className="rounded bg-gray-50 p-2 text-sm text-gray-600">
                     {todoDetail.todos[0].createdAt
                       ? new Date(todoDetail.todos[0].createdAt).toLocaleString()
                       : 'Unknown'}
@@ -264,7 +264,7 @@ function QueryCacheApp({
                 </div>
               </div>
             ) : (
-              <div className="text-red-500 text-center py-8">
+              <div className="py-8 text-center text-red-500">
                 Todo not found or failed to load
               </div>
             )}
@@ -288,13 +288,13 @@ export default function QueryCacheTestPage() {
       : defaultLimit;
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
+    <div className="mx-auto max-w-6xl p-4">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-4">Query Cache Test</h1>
+        <h1 className="mb-4 text-2xl font-bold">Query Cache Test</h1>
 
         <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-2">About Query Caching</h2>
-          <div className="text-sm text-gray-700 space-y-2 mb-4">
+          <h2 className="mb-2 text-lg font-semibold">About Query Caching</h2>
+          <div className="mb-4 space-y-2 text-sm text-gray-700">
             <p>
               • Until we have single-store, we limit the number of queries we
               cache for offline use
@@ -303,13 +303,13 @@ export default function QueryCacheTestPage() {
             <p>
               • By default we cache 10 queries, but you can configure this by
               passing{' '}
-              <code className="bg-gray-100 px-1 rounded">queryCacheLimit</code>{' '}
-              to <code className="bg-gray-100 px-1 rounded">init()</code>
+              <code className="rounded bg-gray-100 px-1">queryCacheLimit</code>{' '}
+              to <code className="rounded bg-gray-100 px-1">init()</code>
             </p>
           </div>
 
-          <h3 className="font-medium mb-2">How to Test</h3>
-          <ol className="text-sm text-gray-700 space-y-1 list-decimal list-inside">
+          <h3 className="mb-2 font-medium">How to Test</h3>
+          <ol className="list-inside list-decimal space-y-1 text-sm text-gray-700">
             <li>
               Create N+1 todos where N is the cache limit (current limit:{' '}
               <strong>{cacheLimit}</strong>)
@@ -321,11 +321,11 @@ export default function QueryCacheTestPage() {
           </ol>
         </div>
 
-        <p className="text-sm text-gray-500 mb-2">
+        <p className="mb-2 text-sm text-gray-500">
           Cache limit: <strong>{cacheLimit}</strong> queries
         </p>
         {isHydrated && (
-          <ResetButton className="bg-gray-600 text-white px-4 py-2 rounded" />
+          <ResetButton className="rounded bg-gray-600 px-4 py-2 text-white" />
         )}
       </div>
       {isHydrated && (
@@ -336,7 +336,7 @@ export default function QueryCacheTestPage() {
           extraConfig={{ queryCacheLimit: cacheLimit }}
         />
       )}
-      {!isHydrated && <div className="text-center py-8">Loading...</div>}
+      {!isHydrated && <div className="py-8 text-center">Loading...</div>}
     </div>
   );
 }

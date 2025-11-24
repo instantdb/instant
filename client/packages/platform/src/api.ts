@@ -120,6 +120,26 @@ export type InstantAPICreateAppBody = {
   orgId?: string | null | undefined;
 };
 
+export type InstantAPICreateTemporaryAppBody = {
+  title: string;
+  schema?:
+    | InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>
+    | null
+    | undefined;
+  rules?: {
+    code: InstantRules;
+  } | null;
+};
+
+export type InstantAPICreateTemporaryAppResponse = {
+  app: Simplify<
+    InstantAPIAppDetails<{ includePerms: false; includeSchema: false }> & {
+      adminToken: string;
+    }
+  >;
+  expiresMs: number;
+};
+
 export type InstantAPICreateAppResponse = Simplify<{
   app: InstantAPIAppDetails<{ includePerms: true; includeSchema: true }> & {
     adminToken: string;
@@ -630,6 +650,30 @@ async function createApp(
   };
   return {
     app: withAdminToken,
+  };
+}
+
+async function createTemporaryApp(
+  apiURI: string,
+  fields: InstantAPICreateTemporaryAppBody,
+): Promise<InstantAPICreateTemporaryAppResponse> {
+  const response = await jsonFetch<{ app: any; expires_ms: number }>(
+    `${apiURI}/dash/apps/ephemeral`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fields),
+    },
+  );
+  const withAdminToken = {
+    ...coerceApp<{ includePerms: true; includeSchema: true }>(response.app),
+    adminToken: response.app['admin-token'],
+  };
+  return {
+    app: withAdminToken,
+    expiresMs: response.expires_ms,
   };
 }
 
@@ -1183,9 +1227,15 @@ export type PlatformApiAuth =
     };
 
 export type PlatformApiConfig = {
-  auth: PlatformApiAuth;
+  auth?: PlatformApiAuth;
   apiURI?: string;
 };
+
+export class PlatformApiMissingAuthError extends Error {
+  constructor() {
+    super('PlatformApi was not provided auth.');
+  }
+}
 
 /**
  * API methods for the Platform API
@@ -1203,7 +1253,7 @@ export type PlatformApiConfig = {
  * ```
  */
 export class PlatformApi {
-  #auth: PlatformApiAuth;
+  #auth: PlatformApiAuth | undefined;
   #apiURI: string;
 
   /**
@@ -1212,16 +1262,15 @@ export class PlatformApi {
    *   or a personal access token.
    * @throws {Error} When `token` is missing.
    */
-  constructor(config: PlatformApiConfig) {
-    this.#auth = config.auth;
-    this.#apiURI = config.apiURI || 'https://api.instantdb.com';
-
-    if (!this.#auth) {
-      throw new Error('PlatformApi must be constructed with auth.');
-    }
+  constructor(config?: PlatformApiConfig) {
+    this.#auth = config?.auth;
+    this.#apiURI = config?.apiURI || 'https://api.instantdb.com';
   }
 
   token(): string {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     if ('token' in this.#auth) {
       return this.#auth.token;
     }
@@ -1229,6 +1278,9 @@ export class PlatformApi {
   }
 
   canRefreshToken(): boolean {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     return (
       'refreshToken' in this.#auth &&
       'clientId' in this.#auth &&
@@ -1243,6 +1295,9 @@ export class PlatformApi {
     accessToken: string;
     expiresAt: Date;
   }> {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     if (
       !this.canRefreshToken() ||
       // Checked in canRefreshToken, but this lets
@@ -1437,6 +1492,32 @@ export class PlatformApi {
   }
 
   /**
+   * Create a new temporary app.
+   *
+   * Optionally set permissions and schema.
+   *
+   * ```ts
+   * const { app } = await api.createTemporaryApp({
+   *   title: 'My new app',
+   *   // Optional permissions
+   *   perms: { $default: { allow: { $default: 'false' } } },
+   *   // Optional schema
+   *   schema: i.schema({
+   *     entities: { books: i.entity({ title: i.string() }) },
+   *   }),
+   * });
+   * ```
+   *
+   * @param fields
+   * @param fields.title -- Title for app
+   * @param fields.schema -- Optional schema for the app
+   * @param fields.perms -- Optional permissions for the app
+   */
+  async createTemporaryApp(fields: InstantAPICreateTemporaryAppBody) {
+    return createTemporaryApp(this.#apiURI, fields);
+  }
+
+  /**
    * Update the title of an app by its id.
    *
    * ```ts
@@ -1523,6 +1604,9 @@ export class PlatformApi {
     appId: string,
     body: InstantAPISchemaPushBody,
   ): ProgressPromise<InProgressStepsSummary, InstantAPISchemaPushResponse> {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     return new ProgressPromise(async (progress, resolve, reject) => {
       // It's tricky to add withRetry to the background process that fetches the jobs,
       // so we'll just refresh the token at the start.
@@ -1563,10 +1647,16 @@ export class PlatformApi {
     appId: string,
     body: InstantAPIPushPermsBody,
   ): Promise<InstantAPIPushPermsResponse> {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     return this.withRetry(pushPerms, [this.#apiURI, this.token(), appId, body]);
   }
 
   async tokenInfo(): Promise<InstantAPITokenInfoResponse> {
+    if (!this.#auth) {
+      throw new PlatformApiMissingAuthError();
+    }
     return this.withRetry(tokenInfo, [this.#apiURI, this.token()]);
   }
 }

@@ -206,7 +206,7 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Optional Admin Token Tests</h1>
+      <h1 className="mb-4 text-2xl font-bold">Optional Admin Token Tests</h1>
       <p className="mb-2">
         Tests that <code>adminToken</code> is optional when using{' '}
         <code>asUser(&#123;token&#125;)</code> or{' '}
@@ -220,7 +220,7 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
 
       <div className="mb-4">
         <button
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+          className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
           onClick={runTests}
           disabled={running}
         >
@@ -233,10 +233,10 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
           {results.map((result, i) => (
             <div
               key={i}
-              className={`p-3 rounded border ${
+              className={`rounded border p-3 ${
                 result.status === 'success'
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-red-50 border-red-200'
+                  ? 'border-green-200 bg-green-50'
+                  : 'border-red-200 bg-red-50'
               }`}
             >
               <div className="flex items-start">
@@ -251,11 +251,11 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
                 </span>
                 <div className="flex-1">
                   <div className="font-semibold">{result.name}</div>
-                  <div className="text-sm mt-1">{result.message}</div>
+                  <div className="mt-1 text-sm">{result.message}</div>
                   {result.data && (
-                    <details className="text-xs mt-1">
+                    <details className="mt-1 text-xs">
                       <summary className="cursor-pointer">View data</summary>
-                      <pre className="mt-1 p-2 bg-white rounded overflow-auto max-h-40">
+                      <pre className="mt-1 max-h-40 overflow-auto rounded bg-white p-2">
                         {JSON.stringify(result.data, null, 2)}
                       </pre>
                     </details>
@@ -289,10 +289,10 @@ export default function Page() {
 
   if (app) {
     return (
-      <div className="max-w-4xl mx-auto mt-8">
+      <div className="mx-auto mt-8 max-w-4xl">
         <App app={app} />
       </div>
     );
   }
-  return <div className="max-w-4xl mx-auto mt-8">Loading...</div>;
+  return <div className="mx-auto mt-8 max-w-4xl">Loading...</div>;
 }

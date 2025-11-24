@@ -144,7 +144,7 @@ function Main({ universeId }: { universeId: string }) {
 
   const { stickers, universes } = data;
   return (
-    <div className="flex-col p-4 space-y-4">
+    <div className="flex-col space-y-4 p-4">
       <div>
         <p className="font-bold">useQuery</p>
         <pre>{JSON.stringify(q, null, 2)}</pre>
@@ -180,13 +180,13 @@ function Main({ universeId }: { universeId: string }) {
           </div>
           <div className="space-x-2">
             <button
-              className="p-4 border border-black hover:bg-gray-200"
+              className="border border-black p-4 hover:bg-gray-200"
               onClick={createStickers}
             >
               Create stickers
             </button>
             <button
-              className="p-4 border border-black hover:bg-gray-200"
+              className="border border-black p-4 hover:bg-gray-200"
               onClick={deleteStickers}
             >
               Delete {batchSize} stickers

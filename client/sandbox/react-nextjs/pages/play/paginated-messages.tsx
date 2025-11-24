@@ -107,19 +107,19 @@ function Messages({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
   };
 
   return (
-    <div className="min-h-screen p-8 max-w-2xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
+    <div className="mx-auto min-h-screen max-w-2xl p-8">
+      <div className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Paginated Messages</h1>
         <div className="flex gap-2">
           <button
             onClick={togglePaginationMode}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            className="rounded bg-blue-500 px-4 py-2 text-white transition-colors hover:bg-blue-600"
           >
             {useCursors ? 'Switch to Offset' : 'Switch to Cursor'}
           </button>
           <button
             onClick={deleteAll}
-            className="px-4 py-2 text-red-600 hover:text-red-800 transition-colors"
+            className="px-4 py-2 text-red-600 transition-colors hover:text-red-800"
           >
             Delete All
           </button>
@@ -133,11 +133,11 @@ function Messages({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Write a message..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="submit"
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            className="rounded-lg bg-blue-500 px-6 py-2 text-white transition-colors hover:bg-blue-600"
           >
             Send
           </button>
@@ -151,12 +151,12 @@ function Messages({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
           messages.map((message) => (
             <div
               key={message.id}
-              className="p-4 bg-gray-100 rounded-lg flex justify-between items-center"
+              className="flex items-center justify-between rounded-lg bg-gray-100 p-4"
             >
               <span>{message.text}</span>
               <button
                 onClick={() => handleDelete(message.id)}
-                className="text-gray-500 hover:text-red-500 transition-colors text-2xl"
+                className="text-2xl text-gray-500 transition-colors hover:text-red-500"
               >
                 ×
               </button>
@@ -165,25 +165,25 @@ function Messages({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
         )}
       </div>
 
-      <div className="relative flex items-center mt-8">
+      <div className="relative mt-8 flex items-center">
         <div className="flex-1">
           {hasPreviousPage && (
             <button
               onClick={loadPreviousPage}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+              className="rounded-lg bg-gray-200 px-4 py-2 transition-colors hover:bg-gray-300"
             >
               Previous
             </button>
           )}
         </div>
-        <span className="text-gray-600 absolute left-1/2 transform -translate-x-1/2">
+        <span className="absolute left-1/2 -translate-x-1/2 transform text-gray-600">
           {useCursors ? 'Cursor-based' : `Page ${page}`}
         </span>
-        <div className="flex-1 flex justify-end">
+        <div className="flex flex-1 justify-end">
           {hasNextPage && (
             <button
               onClick={loadNextPage}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+              className="rounded-lg bg-gray-200 px-4 py-2 transition-colors hover:bg-gray-300"
             >
               Next
             </button>

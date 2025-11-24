@@ -39,10 +39,10 @@ export default function () {
   }, [peopleRes.data]);
 
   return (
-    <div className="p-4 text-sm font-mono flex flex-col mx-auto max-w-md gap-4">
+    <div className="mx-auto flex max-w-md flex-col gap-4 p-4 font-mono text-sm">
       <strong>People</strong>
       <select
-        className="text-sm p-1"
+        className="p-1 text-sm"
         value={selectedPersonId ?? undefined}
         onChange={(e) => setSelectedPersonId(e.target.value)}
       >

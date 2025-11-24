@@ -194,7 +194,7 @@ function TaskTrackerApp() {
     : undefined;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="flex min-h-screen bg-gray-50">
       <div className="relative" style={{ width: leftPanelWidth }}>
         <LeftPanel
           projects={projects}
@@ -213,13 +213,13 @@ function TaskTrackerApp() {
         />
         {/* Resize handle */}
         <div
-          className="absolute top-0 right-0 w-1 h-full bg-gray-200 hover:bg-gray-400 cursor-ew-resize transition-colors"
+          className="absolute top-0 right-0 h-full w-1 cursor-ew-resize bg-gray-200 transition-colors hover:bg-gray-400"
           onMouseDown={handleMouseDown}
         />
       </div>
-      <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex justify-between items-center">
+      <div className="flex flex-1 flex-col">
+        <header className="border-b border-gray-200 bg-white px-6 py-4">
+          <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-gray-900">
               {selectedProject ? selectedProject.name : 'Instant Task Tracker'}
             </h1>
@@ -237,10 +237,10 @@ function TaskTrackerApp() {
             />
           ) : (
             <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              <h2 className="mb-4 text-xl font-semibold text-gray-900">
                 Welcome to Instant Task Tracker
               </h2>
-              <p className="text-gray-600 mb-6">
+              <p className="mb-6 text-gray-600">
                 Select a project from the panel or create a new one to get
                 started.
               </p>
@@ -435,8 +435,8 @@ function AuthForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="max-w-md w-full space-y-8">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="w-full max-w-md space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Task Tracker
@@ -454,7 +454,7 @@ function AuthForm() {
               <input
                 type="email"
                 required
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="relative block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -467,7 +467,7 @@ function AuthForm() {
                 <input
                   type="text"
                   required
-                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="relative block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
                   placeholder="Verification code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
@@ -478,7 +478,7 @@ function AuthForm() {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="group relative flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none"
             >
               {sentEmail ? 'Verify Code' : 'Send Code'}
             </button>
@@ -547,7 +547,7 @@ function LeftPanel({
 
   return (
     <>
-      <aside className="w-full h-full bg-white border-r border-gray-200 flex flex-col">
+      <aside className="flex h-full w-full flex-col border-r border-gray-200 bg-white">
         <div className="flex-1 p-4">
           {/* Project Select Dropdown */}
           <div className="mb-6">
@@ -555,7 +555,7 @@ function LeftPanel({
               <select
                 value={selectedProjectId || ''}
                 onChange={(e) => onSelectProject(e.target.value || null)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
               >
                 <option value="">Select Project</option>
                 {projects.map((project) => (
@@ -571,7 +571,7 @@ function LeftPanel({
                   title="Manage Members"
                 >
                   <svg
-                    className="w-5 h-5"
+                    className="h-5 w-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -596,10 +596,10 @@ function LeftPanel({
 
           {/* Action Buttons */}
           {selectedProject && (
-            <div className="space-y-3 mb-6">
+            <div className="mb-6 space-y-3">
               <button
                 onClick={() => setShowCreateTask(true)}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
               >
                 New Task
               </button>
@@ -611,12 +611,12 @@ function LeftPanel({
             <div className="space-y-4">
               {/* Issue Type Filter */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">
+                <label className="mb-2 block text-xs font-medium text-gray-600">
                   Issue Type
                 </label>
                 <div className="space-y-1">
                   {/* Group checkbox for Issue Types */}
-                  <label className="flex items-center text-sm select-none font-medium">
+                  <label className="flex items-center text-sm font-medium select-none">
                     <input
                       type="checkbox"
                       checked={selectedIssueTypes.length === 3}
@@ -638,7 +638,7 @@ function LeftPanel({
                   {['issue', 'bug', 'improvement'].map((type) => (
                     <label
                       key={type}
-                      className="flex items-center text-sm select-none ml-4"
+                      className="ml-4 flex items-center text-sm select-none"
                     >
                       <input
                         type="checkbox"
@@ -665,12 +665,12 @@ function LeftPanel({
 
               {/* Status Filter */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">
+                <label className="mb-2 block text-xs font-medium text-gray-600">
                   Status
                 </label>
                 <div className="space-y-1">
                   {/* Group checkbox for Statuses */}
-                  <label className="flex items-center text-sm select-none font-medium">
+                  <label className="flex items-center text-sm font-medium select-none">
                     <input
                       type="checkbox"
                       checked={selectedStatuses.length === 4}
@@ -693,7 +693,7 @@ function LeftPanel({
                   {['open', 'in_progress', 'review', 'done'].map((status) => (
                     <label
                       key={status}
-                      className="flex items-center text-sm select-none ml-4"
+                      className="ml-4 flex items-center text-sm select-none"
                     >
                       <input
                         type="checkbox"
@@ -719,13 +719,13 @@ function LeftPanel({
 
               {/* Creator Filter */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">
+                <label className="mb-2 block text-xs font-medium text-gray-600">
                   Creator
                 </label>
                 <select
                   value={selectedCreator}
                   onChange={(e) => setSelectedCreator(e.target.value)}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
                 >
                   <option value="">All creators</option>
                   {projectUsers.map((user) => (
@@ -738,13 +738,13 @@ function LeftPanel({
 
               {/* Assigned To Filter */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">
+                <label className="mb-2 block text-xs font-medium text-gray-600">
                   Assigned To
                 </label>
                 <select
                   value={selectedAssignee}
                   onChange={(e) => setSelectedAssignee(e.target.value)}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
                 >
                   <option value="">All assigned</option>
                   <option value="unassigned">Unassigned</option>
@@ -760,16 +760,16 @@ function LeftPanel({
         </div>
 
         {/* User info at bottom */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="border-t border-gray-200 p-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600 truncate">{user.email}</span>
+            <span className="truncate text-sm text-gray-600">{user.email}</span>
             <button
               onClick={() => db.auth.signOut()}
-              className="text-gray-400 hover:text-gray-600 ml-2"
+              className="ml-2 text-gray-400 hover:text-gray-600"
               title="Sign out"
             >
               <svg
-                className="w-4 h-4"
+                className="h-4 w-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -826,7 +826,7 @@ function CreateProjectForm({
       <div className="mb-4">
         <label
           htmlFor="projectName"
-          className="block text-sm font-medium text-gray-700 mb-2"
+          className="mb-2 block text-sm font-medium text-gray-700"
         >
           Project Name
         </label>
@@ -835,14 +835,14 @@ function CreateProjectForm({
           id="projectName"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
           placeholder="Enter project name"
           required
         />
       </div>
       <button
         type="submit"
-        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
       >
         Create Project
       </button>
@@ -924,32 +924,32 @@ function ProjectView({
 
   return (
     <div>
-      <div className="bg-white overflow-hidden">
+      <div className="overflow-hidden bg-white">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                <th className="w-1/6 px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Title
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                <th className="w-1/6 px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Issue Type
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                <th className="w-1/6 px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                <th className="w-1/6 px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Creator
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                <th className="w-1/6 px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Assignee
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                <th className="w-1/6 px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Created
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 bg-white">
               {filteredTasks.map((task) => (
                 <TaskRow
                   key={task.id}
@@ -960,7 +960,7 @@ function ProjectView({
             </tbody>
           </table>
           {filteredTasks.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
+            <div className="py-12 text-center text-gray-500">
               No tasks match the current filters
             </div>
           )}
@@ -1049,10 +1049,10 @@ function TaskRow({
 
   return (
     <tr className="hover:bg-gray-50">
-      <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+      <td className="px-4 py-3 text-sm font-medium text-gray-900">
         {task.title}
         {task.description && (
-          <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">
+          <div className="mt-1 max-w-xs truncate text-xs text-gray-500">
             {task.description}
           </div>
         )}
@@ -1061,7 +1061,7 @@ function TaskRow({
         <select
           value={task.category}
           onChange={(e) => handleCategoryChange(e.target.value)}
-          className={`text-xs border-0 rounded-full px-2 py-1 cursor-pointer ${categoryColors[task.category as keyof typeof categoryColors]}`}
+          className={`cursor-pointer rounded-full border-0 px-2 py-1 text-xs ${categoryColors[task.category as keyof typeof categoryColors]}`}
         >
           <option value="issue">Issue</option>
           <option value="bug">Bug</option>
@@ -1072,7 +1072,7 @@ function TaskRow({
         <select
           value={task.status}
           onChange={(e) => handleStatusChange(e.target.value)}
-          className={`text-xs border-0 rounded-full px-2 py-1 ${statusColors[task.status as keyof typeof statusColors]} cursor-pointer`}
+          className={`rounded-full border-0 px-2 py-1 text-xs ${statusColors[task.status as keyof typeof statusColors]} cursor-pointer`}
         >
           <option value="open">Open</option>
           <option value="in_progress">In Progress</option>
@@ -1087,7 +1087,7 @@ function TaskRow({
         <select
           value={task.assignee?.id || 'unassigned'}
           onChange={(e) => handleAssigneeChange(e.target.value)}
-          className="text-sm border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 rounded px-1 py-0.5"
+          className="rounded border-0 bg-transparent px-1 py-0.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
         >
           <option value="unassigned">Unassigned</option>
           {projectUsers.map((user) => (
@@ -1149,9 +1149,9 @@ function CreateTaskModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
+    <div className="bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black">
+      <div className="w-full max-w-md rounded-lg bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">Create New Task</h3>
           <button
             onClick={onClose}
@@ -1162,36 +1162,36 @@ function CreateTaskModal({
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Title
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Description
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
               rows={3}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Category
             </label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as any)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
             >
               <option value="issue">Issue</option>
               <option value="bug">Bug</option>
@@ -1199,13 +1199,13 @@ function CreateTaskModal({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Assignee (Optional)
             </label>
             <select
               value={assigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
             >
               <option value="">Unassigned</option>
               {projectMembers.map((member) => (
@@ -1219,13 +1219,13 @@ function CreateTaskModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+              className="rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
               Create Task
             </button>
@@ -1326,9 +1326,9 @@ function ManageMembersModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-        <div className="flex justify-between items-center mb-4">
+    <div className="bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black">
+      <div className="w-full max-w-lg rounded-lg bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">Manage Project Members</h3>
           <button
             onClick={onClose}
@@ -1346,7 +1346,7 @@ function ManageMembersModal({
               return (
                 <div
                   key={member.id}
-                  className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded"
+                  className="flex items-center justify-between rounded bg-gray-50 px-3 py-2"
                 >
                   <div className="flex items-center space-x-2">
                     <span className="font-medium">{member.email}</span>
@@ -1360,7 +1360,7 @@ function ManageMembersModal({
                             e.target.value as 'admin' | 'member',
                           )
                         }
-                        className={`px-2 py-1 text-xs rounded border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                        className={`rounded border-0 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none ${
                           isAdmin
                             ? 'bg-red-100 text-red-800'
                             : 'bg-blue-100 text-blue-800'
@@ -1371,7 +1371,7 @@ function ManageMembersModal({
                       </select>
                     ) : (
                       <span
-                        className={`px-2 py-1 text-xs rounded ${
+                        className={`rounded px-2 py-1 text-xs ${
                           isAdmin
                             ? 'bg-red-100 text-red-800'
                             : 'bg-blue-100 text-blue-800'
@@ -1381,7 +1381,7 @@ function ManageMembersModal({
                       </span>
                     )}
                     {member.id === user.id && (
-                      <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-800 font-medium">
+                      <span className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
                         you
                       </span>
                     )}
@@ -1390,7 +1390,7 @@ function ManageMembersModal({
                     member.id === user.id) && (
                     <button
                       onClick={() => removeProjectMember(project.id, member.id)}
-                      className="text-red-600 hover:text-red-800 text-sm"
+                      className="text-sm text-red-600 hover:text-red-800"
                     >
                       {member.id === user.id ? 'Leave' : 'Remove'}
                     </button>
@@ -1401,8 +1401,8 @@ function ManageMembersModal({
           </div>
 
           {isCurrentUserAdmin && (
-            <div className="pt-4 border-t">
-              <h4 className="font-medium text-gray-900 mb-4">Project Invite</h4>
+            <div className="border-t pt-4">
+              <h4 className="mb-4 font-medium text-gray-900">Project Invite</h4>
               {!inviteLoading && (
                 <div className="space-y-3">
                   <label className="block text-sm font-medium text-gray-700">
@@ -1413,7 +1413,7 @@ function ManageMembersModal({
                       type="text"
                       value={getInviteLink()}
                       readOnly
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm focus:outline-none"
+                      className="flex-1 rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:outline-none"
                       placeholder={
                         existingInvite ? '' : 'No invite created yet'
                       }
@@ -1422,14 +1422,14 @@ function ManageMembersModal({
                       <>
                         <button
                           onClick={handleCopyInviteLink}
-                          className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                          className="rounded-md bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
                           title="Copy invite link"
                         >
                           Copy
                         </button>
                         <button
                           onClick={handleRegenerateInvite}
-                          className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
+                          className="rounded-md bg-gray-600 px-3 py-2 text-sm text-white hover:bg-gray-700"
                         >
                           Regenerate
                         </button>
@@ -1437,7 +1437,7 @@ function ManageMembersModal({
                     ) : (
                       <button
                         onClick={handleCreateInvite}
-                        className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                        className="rounded-md bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700"
                       >
                         Create Invite
                       </button>
@@ -1453,10 +1453,10 @@ function ManageMembersModal({
           )}
         </div>
 
-        <div className="flex justify-end mt-6">
+        <div className="mt-6 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+            className="rounded-md bg-gray-600 px-4 py-2 text-white hover:bg-gray-700"
           >
             Close
           </button>
