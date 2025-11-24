@@ -87,8 +87,8 @@ function getEnvPermsPathWithLogging(): string | undefined {
 
 export function getSchemaReadCandidates(): ConfigCandidate[] {
   const existing = getEnvSchemaPathWithLogging();
-  
-  if (existing) { 
+
+  if (existing) {
     return [{ files: existing, transform: transformImports }];
   }
   const extensions = ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'];
