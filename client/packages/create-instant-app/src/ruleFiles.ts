@@ -14,12 +14,6 @@ export const addRuleFiles = ({
     return;
   }
   switch (ruleFilesToAdd) {
-    case 'claude':
-      fs.copyFileSync(
-        path.join(PKG_ROOT, 'template/rules/AGENTS.md'),
-        path.join(projectDir, 'CLAUDE.md'),
-      );
-      break;
     case 'cursor':
       fs.ensureDirSync(path.join(projectDir, '.cursor/rules'));
       fs.copyFileSync(
@@ -27,11 +21,22 @@ export const addRuleFiles = ({
         path.join(projectDir, '.cursor/rules/instant.mdc'),
       );
       break;
-    case 'windsurf':
-      fs.ensureDirSync(path.join(projectDir, '.windsurf/rules'));
+    case 'claude':
       fs.copyFileSync(
-        path.join(PKG_ROOT, 'template/rules/windsurf-rules.md'),
-        path.join(projectDir, '.windsurf/rules/instant.md'),
+        path.join(PKG_ROOT, 'template/rules/AGENTS.md'),
+        path.join(projectDir, 'CLAUDE.md'),
+      );
+      break;
+    case 'codex':
+      fs.copyFileSync(
+        path.join(PKG_ROOT, 'template/rules/AGENTS.md'),
+        path.join(projectDir, 'AGENTS.md'),
+      );
+      break;
+    case 'gemini':
+      fs.copyFileSync(
+        path.join(PKG_ROOT, 'template/rules/AGENTS.md'),
+        path.join(projectDir, 'GEMINI.md'),
       );
       break;
     case 'zed':
@@ -40,10 +45,11 @@ export const addRuleFiles = ({
         path.join(projectDir, 'AGENTS.md'),
       );
       break;
-    case 'codex':
+    case 'windsurf':
+      fs.ensureDirSync(path.join(projectDir, '.windsurf/rules'));
       fs.copyFileSync(
-        path.join(PKG_ROOT, 'template/rules/AGENTS.md'),
-        path.join(projectDir, 'AGENTS.md'),
+        path.join(PKG_ROOT, 'template/rules/windsurf-rules.md'),
+        path.join(projectDir, '.windsurf/rules/instant.md'),
       );
       break;
   }
