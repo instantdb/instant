@@ -212,7 +212,11 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
       pageInfo: PageInfoResponse<Q>;
     };
 
-type InstaQLSubscriptionState<Schema, Q, UseDates extends boolean> =
+type InstaQLSubscriptionState<
+  Schema,
+  Q,
+  UseDates extends boolean | undefined,
+> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
@@ -519,7 +523,7 @@ function coerceQuery(o: any) {
 
 class InstantCoreDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  UseDates extends boolean = false,
+  UseDates extends boolean | undefined = false,
 > implements IInstantDatabase<Schema>
 {
   public _reactor: Reactor<RoomsOf<Schema>>;
@@ -593,7 +597,7 @@ class InstantCoreDatabase<
    */
   subscribeQuery<
     Q extends ValidQuery<Q, Schema>,
-    UseDatesLocal extends boolean = UseDates,
+    UseDatesLocal extends boolean | undefined = UseDates,
   >(
     query: Q,
     cb: (resp: InstaQLSubscriptionState<Schema, Q, UseDatesLocal>) => void,
@@ -806,7 +810,7 @@ function init<
 ): InstantCoreDatabase<Schema, UseDates> {
   const existingClient = globalInstantCoreStore[
     reactorKey(config)
-  ] as InstantCoreDatabase<any, NonNullable<Config['useDateObjects']>>;
+  ] as InstantCoreDatabase<any, Config['useDateObjects']>;
 
   if (existingClient) {
     if (schemaChanged(existingClient, config.schema)) {
@@ -827,10 +831,9 @@ function init<
     EventSourceImpl,
   );
 
-  const client = new InstantCoreDatabase<
-    any,
-    NonNullable<Config['useDateObjects']>
-  >(reactor);
+  const client = new InstantCoreDatabase<any, Config['useDateObjects']>(
+    reactor,
+  );
   globalInstantCoreStore[reactorKey(config)] = client;
 
   handleDevtool(config.appId, config.devtool);
