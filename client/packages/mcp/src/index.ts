@@ -93,6 +93,73 @@ function wrapServerWithTracing(
 
 function registerTools(server: McpServer) {
   server.tool(
+    'learn',
+    "If you don't have any context provided about InstantDB, use this tool to learn about it!",
+    {},
+    async () => {
+      const instructions = `
+      You can learn about InstantDB by fetching our rules file for agents:
+
+      https://www.instantdb.com/llm-rules/AGENTS.md
+      `;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: instructions,
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
+    'create-app',
+    "Create a new Instant app. Only do this if there isn't already an existing app setup",
+    {
+      title: z.string().describe('Title of the new app'),
+    },
+    async ({ title }) => {
+      const instructions = `
+      Before creating a new app make sure one doesn't already exist.
+
+      If schema or perms already exist, they will be in \`instant.schema.ts\` and \`instant.perms.ts\`.
+      If an app id and admin token already exists, they will be in \`.env\` or another env file.
+
+      CRITICAL: If these exist you likely don't need to create a new app unless a user specifically askes you to overwrite those.
+
+      If you do need to create a new app, you can use the instant-cli tool:
+
+      \`\`\`bash
+      npx instant-cli init-without-files --title ${title}
+      \`\`\`
+
+      This outputs an app id and admin token. Store them in an env file.
+
+      Now you can create or overwrite \`instant.schema.ts\` and \`instant.perms.ts\` with schema and permissions for the new app.
+
+      After creating schema and perm files push them up to the app using the instant-cli tool:
+
+      \`\`\`
+      npx instant-cli push --app <NEW_APP_ID> --token <NEW_ADMIN_TOKEN> --yes
+      \`\`\`
+
+      We supply the --yes flag to skip confirmation prompts.
+      `;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: instructions,
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
     'get-schema',
     'Fetch schema for an app by its ID!',
     {
