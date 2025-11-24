@@ -4,7 +4,7 @@ import chalk from 'chalk';
 
 type ConfigCandidate = {
   files: string;
-  extensions: string[];
+  extensions?: string[];
   transform: (code: string) => string;
 };
 
@@ -87,10 +87,11 @@ function getEnvPermsPathWithLogging(): string | undefined {
 
 export function getSchemaReadCandidates(): ConfigCandidate[] {
   const existing = getEnvSchemaPathWithLogging();
+  
+  if (existing) { 
+    return [{ files: existing, transform: transformImports }];
+  }
   const extensions = ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'];
-  if (existing)
-    return [{ files: existing, extensions, transform: transformImports }];
-
   const candidates: ConfigCandidate[] = [];
 
   candidates.push({
