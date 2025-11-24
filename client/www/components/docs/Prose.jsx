@@ -1,38 +1,8 @@
 import clsx from 'clsx';
-import { useEffect, useRef } from 'react';
-
-function handleHeaderClick(event) {
-  const header = event.target;
-  const id = header.getAttribute('id');
-
-  if (id) {
-    const newUrl = `${window.location.pathname}#${id}`;
-    window.history.pushState(null, '', newUrl);
-    header.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-}
-
-function addHeaderClickHandlers(container) {
-  if (!container) return;
-
-  const headers = container.querySelectorAll('h1[id], h2[id], h3[id]');
-  headers.forEach((header) => {
-    header.removeEventListener('click', handleHeaderClick);
-    header.addEventListener('click', handleHeaderClick);
-    header.style.cursor = 'pointer';
-  });
-}
 
 export function Prose({ as: Component = 'div', className, ...props }) {
-  const containerRef = useRef(null);
-
-  useEffect(() => {
-    addHeaderClickHandlers(containerRef.current);
-  }, [props.children]);
-
   return (
     <Component
-      ref={containerRef}
       className={clsx(
         className,
         'prose max-w-none',
