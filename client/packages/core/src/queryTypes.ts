@@ -346,9 +346,7 @@ type ComputeAttrs<
   AllAttrs,
   Fields extends readonly string[] | undefined,
 > = Fields extends readonly string[]
-  ? Fields[number] extends never
-    ? AllAttrs
-    : DistributePick<AllAttrs, Exclude<Fields[number], 'id'>>
+  ? DistributePick<AllAttrs, Exclude<Fields[number], 'id'>>
   : AllAttrs;
 
 type InstaQLEntity<
