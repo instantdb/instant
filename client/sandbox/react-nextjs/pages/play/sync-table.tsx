@@ -113,7 +113,7 @@ function assertNever(x: never): never {
 }
 
 function notifyEvent(
-  event: SyncTableCallbackEvent<typeof schema, ItemsQuery, false>,
+  event: SyncTableCallbackEvent<typeof schema, ItemsQuery, boolean>,
   addMessage: (msg: string) => void,
 ) {
   switch (event.type) {
