@@ -1,6 +1,8 @@
 import { i, init } from '../../src/index.ts';
 import type { Equal, Expect, NotAny } from './typeUtils.ts';
 
+// These tests just check types. See `type _cases = ` for the test cases.
+
 const schema = i.schema({
   entities: {
     tbl: i.entity({
