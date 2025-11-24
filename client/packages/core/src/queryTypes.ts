@@ -200,7 +200,9 @@ type QueryResponse<
 
 type InstaQLResponse<Schema, Q, UseDates extends boolean | undefined = false> =
   Schema extends IContainEntitiesAndLinks<any, any>
-    ? InstaQLResult<Schema, NonNullable<Q>, UseDates>
+    ? Q extends InstaQLParams<Schema> | undefined
+      ? InstaQLResult<Schema, Q, UseDates>
+      : never
     : never;
 
 type PageInfoResponse<T> = {
@@ -237,6 +239,20 @@ type PageInfoResponse<T> = {
 type Exactly<Parent, Child> = Parent & {
   [K in keyof Child]: K extends keyof Parent ? Child[K] : never;
 };
+
+// SafeLookup<T, ['A', 'B', number]> is like doing
+// T['A']['B'][number], but it will merge with undefined if any
+// of the intermediates are undefined
+type SafeLookup<T, K extends readonly PropertyKey[]> = K extends [
+  infer First,
+  ...infer Rest extends readonly PropertyKey[],
+]
+  ? First extends keyof NonNullable<T>
+    ?
+        | SafeLookup<NonNullable<T>[First], Rest>
+        | (T extends null | undefined ? undefined : never)
+    : undefined
+  : T;
 
 // ==========
 // InstaQL helpers
@@ -320,20 +336,6 @@ type InstaQLQueryEntityLinksResult<
 type DistributePick<T, K extends string> = T extends any
   ? { [P in K]: P extends keyof T ? T[P] : never }
   : never;
-
-// SafeLookup<T, ['A', 'B', number]> is like doing
-// T['A']['B'][number], but it will merge with undefined if any
-// of the intermediates are undefined
-type SafeLookup<T, K extends readonly PropertyKey[]> = K extends [
-  infer First,
-  ...infer Rest extends readonly PropertyKey[],
-]
-  ? First extends keyof NonNullable<T>
-    ?
-        | SafeLookup<NonNullable<T>[First], Rest>
-        | (T extends null | undefined ? undefined : never)
-    : undefined
-  : T;
 
 type InstaQLFields<
   S extends IContainEntitiesAndLinks<any, any>,

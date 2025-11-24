@@ -25,7 +25,7 @@ export type SubscribeQueryPayload<
 > =
   | {
       type: 'ok';
-      data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
+      data: InstaQLResponse<Schema, Q, Config['useDateObjects']>;
       pageInfo: PageInfoResponse<Q>;
       sessionInfo: SubscribeQuerySessionInfo | null;
     }

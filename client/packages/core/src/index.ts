@@ -148,7 +148,7 @@ export type Config = {
 
 export type InstantConfig<
   S extends InstantSchemaDef<any, any, any>,
-  UseDates extends boolean = false,
+  UseDates extends boolean | undefined = false,
 > = {
   appId: string;
   schema?: S;
@@ -235,7 +235,7 @@ type LifecycleSubscriptionState<
 type InstaQLLifecycleState<
   Schema,
   Q,
-  UseDates extends boolean = false,
+  UseDates extends boolean | undefined = false,
 > = InstaQLSubscriptionState<Schema, Q, UseDates> & {
   isLoading: boolean;
 };
@@ -261,7 +261,7 @@ function initGlobalInstantCoreStore(): Record<string, any> {
   return globalThis.__instantDbStore;
 }
 
-function reactorKey(config: InstantConfig<any, boolean>): string {
+function reactorKey(config: InstantConfig<any, boolean | undefined>): string {
   // @ts-expect-error
   const adminToken = config.__adminToken;
   return (
@@ -800,7 +800,7 @@ function schemaChanged(
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
-  UseDates extends boolean = false,
+  UseDates extends boolean | undefined = false,
 >(
   config: InstantConfig<Schema, UseDates>,
   Storage?: any,
