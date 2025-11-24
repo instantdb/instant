@@ -165,6 +165,7 @@ test('PersistedObject garbage collects when we exceed max items', async () => {
 
   // @ts-expect-error: allow access to private fields for test
   await PO._gc();
+  await PO.flush();
 
   const snapshot = await idbSnapshot(idb, { includeMeta: false });
 
@@ -184,6 +185,7 @@ test('PersistedObject garbage collects when we exceed max items', async () => {
 
   // @ts-expect-error: allow access to private fields for test
   await PO._gc();
+  await PO.flush();
 
   const snapshot2 = await idbSnapshot(idb, { includeMeta: false });
 
@@ -211,6 +213,7 @@ test('PersistedObject garbage collects when we exceed max items', async () => {
 
   // @ts-expect-error: allow access to private fields for test
   await PO2._gc();
+  await PO.flush();
   const snapshot3 = await idbSnapshot(idb, { includeMeta: false });
 
   expect(snapshot3).toStrictEqual({ b: 2, c: 3, d: 4 });
@@ -248,6 +251,7 @@ test('PersistedObject garbage collects when we exceed max size', async () => {
 
   // @ts-expect-error: allow access to private fields for test
   await PO._gc();
+  await PO.flush();
 
   const snapshot = await idbSnapshot(idb, { includeMeta: false });
 
@@ -267,6 +271,7 @@ test('PersistedObject garbage collects when we exceed max size', async () => {
 
   // @ts-expect-error: allow access to private fields for test
   await PO._gc();
+  await PO.flush();
 
   const snapshot2 = await idbSnapshot(idb, { includeMeta: false });
 
@@ -294,6 +299,7 @@ test('PersistedObject garbage collects when we exceed max size', async () => {
 
   // @ts-expect-error: allow access to private fields for test
   await PO2._gc();
+  await PO.flush();
   const snapshot3 = await idbSnapshot(idb, { includeMeta: false });
 
   expect(snapshot3).toStrictEqual({ c: 50, d: 50 });
@@ -331,6 +337,7 @@ test('PersistedObject garbage collects when we exceed max age', async () => {
 
   // @ts-expect-error: allow access to private fields for test
   await PO._gc();
+  await PO.flush();
 
   const snapshot = await idbSnapshot(idb, { includeMeta: false });
 
@@ -379,6 +386,7 @@ test('PersistedObject garbage collects when we exceed max age', async () => {
 
   // @ts-expect-error: allow access to private fields for test
   await PO2._gc();
+  await PO.flush();
   const snapshot3 = await idbSnapshot(idb, { includeMeta: false });
 
   expect(snapshot3).toStrictEqual({});
