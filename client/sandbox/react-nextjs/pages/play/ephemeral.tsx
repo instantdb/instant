@@ -95,7 +95,7 @@ function Demo() {
   useEffect(() => {
     const user = db._core.joinRoom('demo-room', roomId).getPresence({
       keys: ['test'],
-    }).user;
+    })?.user;
 
     user?.test;
     // @ts-expect-error
