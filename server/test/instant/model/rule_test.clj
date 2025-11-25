@@ -61,6 +61,24 @@
                              "myetype"
                              "view")))))
 
+(deftest does-not-allow-cyclic-dependencies
+  (is (= [{:message "The binds have a cyclic dependency a -> b -> a",
+           :in ["myetype" "allow" "view"]}]
+         (rule/validation-errors {"myetype"
+                                  {"bind" ["a" "b"
+                                           "b" "a"]
+                                   "allow" {"view" "a"}}})))
+
+  (is (= [{:message "The binds have a cyclic dependency d -> e -> a -> b -> c -> d",
+           :in ["myetype" "allow" "view"]}]
+         (rule/validation-errors {"myetype"
+                                  {"bind" ["a" "b"
+                                           "b" "c"
+                                           "c" "d"
+                                           "d" "e"
+                                           "e" "a"]
+                                   "allow" {"view" "e"}}}))))
+
 (deftest validation-errors-passes
   (is (= () (rule/validation-errors {"myetype"
                                      {"bind" ["parent" "true"
@@ -115,7 +133,15 @@
           {:message "There was an unexpected error evaluating the rules",
            :in ["myetype" "allow" "view"]}]
          (rule/validation-errors {"myetype" {"bind" ["duplicate"]
-                                             "allow" {"view" "duplicate"}}}))))
+                                             "allow" {"view" "duplicate"}}})))
+
+  (is (= [{:message "bind should have an even number of elements",
+           :in ["myetype" "bind"]}
+          {:message "There was an unexpected error evaluating the rules",
+           :in ["myetype" "allow" "view"]}]
+         (rule/validation-errors  {"myetype" {"bind" ["duplicate"]
+                                              "allow" {"view" "true"}}
+                                   "new-etype" {"allow" {"view" "true"}}}))))
 
 (defn pretty-program [p]
   (select-keys p [:etype :action :code]))

@@ -1,7 +1,7 @@
 (ns instant.db.cel
   (:require
    [clojure.set :as clojure-set]
-   [clojure.string :as clojure-string]
+   [clojure.string]
    [instant.db.dataloader :as dataloader]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -19,8 +19,11 @@
    (com.google.protobuf NullValue)
    (dev.cel.common CelAbstractSyntaxTree
                    CelFunctionDecl
+                   CelIssue
                    CelOptions
-                   CelOverloadDecl)
+                   CelOverloadDecl
+                   CelSource
+                   CelValidationException)
    (dev.cel.common.ast CelExpr
                        CelExpr$CelCall
                        CelExpr$CelComprehension
@@ -76,7 +79,7 @@
 
 (defn- build-query
   [ctx {:keys [etype eids path-str]}]
-  (let [path (clojure-string/split path-str #"\.")
+  (let [path (clojure.string/split path-str #"\.")
         [refs-path value-label] (ucoll/split-last path)
         level 0
 
@@ -270,7 +273,7 @@
 
   IRef
   (ref [_ path-str]
-    (let [path (clojure-string/replace path-str
+    (let [path (clojure.string/replace path-str
                                        #"^\$user\."
                                        "")]
       (ref-impl ctx m "$users" path))))
@@ -801,7 +804,7 @@
    (for [arg-1 [:datakey :whereclause :bool]
          arg-2 [:datakey :whereclause :bool]
          :let [args [arg-1 arg-2]]]
-     {:overload-id (str "_or_" (clojure-string/join "_"
+     {:overload-id (str "_or_" (clojure.string/join "_"
                                                     (map type->name args)))
       :cel-args (map type->cel args)
       :cel-return-type (case args
@@ -878,7 +881,7 @@
    (for [arg-1 [:datakey :whereclause :bool]
          arg-2 [:datakey :whereclause :bool]
          :let [args [arg-1 arg-2]]]
-     {:overload-id (str "_and_" (clojure-string/join "_"
+     {:overload-id (str "_and_" (clojure.string/join "_"
                                                      (map type->name args)))
       :cel-args (map type->cel args)
       :cel-return-type (case args
@@ -923,7 +926,7 @@
    They have to check a non-nullable attribute (only `id` meets this requirement
    for now)."
   [^RefPath ref-path]
-  (let [segments (clojure-string/split (.path_str ref-path) #"\.")]
+  (let [segments (clojure.string/split (.path_str ref-path) #"\.")]
     (when (and (= 2 (count segments))
                (= "id" (last segments)))
       (first segments))))
@@ -1204,7 +1207,7 @@
 
 (defn validate-refpath [attrs initial-etype path]
   (loop [etype initial-etype
-         [label & rest] (clojure-string/split path #"\.")]
+         [label & rest] (clojure.string/split path #"\.")]
     (let [[attr next-etype] (or (when-let [attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
                                   [attr (attr-model/rev-etype attr)])
                                 (when-let [attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
@@ -1420,7 +1423,7 @@
       (if-let [arg (ref-arg call)]
         #{{:obj obj
            :path (if (= obj "auth")
-                   (clojure-string/replace arg
+                   (clojure.string/replace arg
                                            #"^\$user\."
                                            "")
                    arg)}}
@@ -1569,7 +1572,7 @@
               (let [arg ^CelExpr (first (.args call))
                     arg-val (ref-arg call)]
                 (when (or (not arg-val)
-                          (not (clojure-string/starts-with? arg-val "$user.")))
+                          (not (clojure.string/starts-with? arg-val "$user.")))
                   (.addError issues-factory
                              (if arg
                                (.id arg)
@@ -1583,6 +1586,14 @@
       (.build)
       (.validate ast)
       (.getErrors)))
+
+(defn throw-cyclic-dependency-error [^String code bind-vars]
+  (let [source (.build (CelSource/newBuilder code))
+        issue (CelIssue/formatError 1 ;; line
+                                    1 ;; col
+                                    (format "The binds have a cyclic dependency %s"
+                                            (clojure.string/join " -> " bind-vars)))]
+    (throw (CelValidationException. source [issue]))))
 
 ;; Helper for dev so that `rules.clj` can clear its cache when this
 ;; namespace is reloaded and the deftypes change
