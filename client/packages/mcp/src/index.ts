@@ -93,6 +93,28 @@ function wrapServerWithTracing(
 
 function registerTools(server: McpServer) {
   server.tool(
+    'learn',
+    "If you don't have any context provided about InstantDB, use this tool to learn about it!",
+    {},
+    async () => {
+      const instructions = `
+      You can learn about InstantDB by fetching our rules file for agents:
+
+      https://www.instantdb.com/llm-rules/AGENTS.md
+      `;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: instructions,
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
     'get-schema',
     'Fetch schema for an app by its ID!',
     {
