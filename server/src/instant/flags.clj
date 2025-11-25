@@ -110,7 +110,9 @@
                   (update :disable-hint-query-hashes (fn [vs]
                                                        (set vs)))
                   (update :enable-store-batching-apps (fn [vs]
-                                                        (set (map parse-uuid vs)))))
+                                                        (set (map parse-uuid vs))))
+                  (update :enable-admin-transact-queue-apps (fn [vs]
+                                                              (set (map parse-uuid vs)))))
 
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
@@ -239,3 +241,6 @@
 
 (defn hard-deletion-sweeper-disabled? []
   (toggled? :hard-deletion-sweeper-disabled?))
+
+(defn admin-tx-queue-enabled? [app-id]
+  (contains? (flag :enable-admin-transact-queue-apps) app-id))

@@ -9,6 +9,7 @@
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
+   [instant.admin.transact-queue :as tx-queue]
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.app-user :as app-user-model]
@@ -27,6 +28,7 @@
    [instant.util.json :refer [->json <-json]]
    [instant.util.string :as string-util]
    [instant.util.token :as token-util]
+   [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [instant.hard-deletion-sweeper :as sweeper]
    [ring.util.http-response :as response]
@@ -39,6 +41,8 @@
    [medley.core :as medley]
    [instant.runtime.magic-code-auth :as magic-code-auth])
   (:import
+   (io.undertow.server HttpServerExchange)
+   (java.time Duration Instant)
    (java.util UUID)))
 
 (defn req->app-id-untrusted! [req]
@@ -212,6 +216,8 @@
 ;; ------
 ;; Transact
 
+(def connection-timeout-seconds 65)
+
 (defn transact-post [req]
   (let [steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
         throw-on-missing-attrs? (ex/get-optional-param!
@@ -228,8 +234,31 @@
         tx-steps (admin-model/->tx-steps! {:attrs attrs
                                            :throw-on-missing-attrs? throw-on-missing-attrs?}
                                           steps)
-        {tx-id :id} (permissioned-tx/transact! ctx tx-steps)]
-    (response/ok {:tx-id tx-id})))
+        use-tx-queue? (flags/admin-tx-queue-enabled? app-id)]
+    (tracer/add-data! {:attributes {:use-tx-queue use-tx-queue?}})
+    (if-not use-tx-queue?
+      (let [{tx-id :id} (permissioned-tx/transact! ctx tx-steps)]
+        (response/ok {:tx-id tx-id}))
+
+      (let [response (promise)
+            start (Instant/now)
+            _ (tx-queue/put! {:app-id app-id
+                              :ctx ctx
+                              :tx-steps tx-steps
+                              :response-promise response
+                              :open? (fn []
+                                       (let [^HttpServerExchange exchange (:server-exchange req)]
+                                         (and (-> exchange
+                                                  (.getConnection)
+                                                  (.isOpen))
+                                              ;; Assume the connection is closed if it took over 1 minute
+                                              ;; for our query to get picked up.
+                                              (> connection-timeout-seconds
+                                                 (.getSeconds (Duration/between start (Instant/now)))))))})
+            result @response]
+        (if (:error result)
+          (throw (:error result))
+          (response/ok {:tx-id (:id (:ok result))}))))))
 
 (defn transact-perms-check [req]
   (let [{:keys [app-id] :as perms} (get-perms! req :data/write)
