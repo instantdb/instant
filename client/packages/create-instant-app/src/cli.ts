@@ -7,7 +7,14 @@ import { renderUnwrap, UI } from 'instant-cli/ui';
 
 export type Project = {
   base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
-  ruleFiles: 'cursor' | 'claude' | 'windsurf' | 'zed' | 'codex' | null;
+  ruleFiles:
+    | 'cursor'
+    | 'claude'
+    | 'codex'
+    | 'gemini'
+    | 'zed'
+    | 'windsurf'
+    | null;
   appName: string;
   prompt: string | null;
   createRepo: boolean;
@@ -66,13 +73,19 @@ export const runCli = async (): Promise<Project> => {
       new Option('--no-git', "Don't create a git repo in the new project"),
     )
     .addOption(
+      new Option('--cursor', 'Include a Cursor rules file in the scaffold'),
+    )
+    .addOption(
       new Option('--claude', 'Include a CLAUDE.md file in the scaffold'),
     )
     .addOption(
-      new Option('--rules', 'Include an AGENT.md file in the scaffold'),
+      new Option('--codex', 'Include an AGENTS.md file in the scaffold'),
     )
     .addOption(
-      new Option('--cursor', 'Include a Cursor rules file in the scaffold'),
+      new Option('--gemini', 'Include a GEMINI.md file in the scaffold'),
+    )
+    .addOption(
+      new Option('--rules', 'Include an AGENTS.md file in the scaffold'),
     )
     .addOption(
       new Option(
@@ -180,19 +193,20 @@ export const runCli = async (): Promise<Project> => {
           return 'claude';
         }
 
-        // Only ask about rule files if the base supports it
-        if (results.base !== 'next-js-app-dir' && results.base !== 'expo') {
-          return null;
+        if (flags.cursor) {
+          return 'cursor';
         }
-
         if (flags.claude) {
           return 'claude';
         }
-        if (flags.rules) {
+        if (flags.codex) {
           return 'codex';
         }
-        if (flags.cursor) {
-          return 'cursor';
+        if (flags.gemini) {
+          return 'gemini';
+        }
+        if (flags.rules) {
+          return 'codex';
         }
 
         return renderUnwrap(
@@ -202,6 +216,7 @@ export const runCli = async (): Promise<Project> => {
               { value: 'cursor', label: 'Cursor' },
               { value: 'claude', label: 'Claude' },
               { value: 'codex', label: 'Codex' },
+              { value: 'gemini', label: 'Gemini' },
               { value: 'zed', label: 'Zed' },
               { value: 'windsurf', label: 'Windsurf' },
               { value: null, label: 'None' },
