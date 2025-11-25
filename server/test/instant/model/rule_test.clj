@@ -24,7 +24,7 @@
                              "myetype"
                              "view"))))
 
-  (is (= "cel.bind(test, true, cel.bind(test2, false, test && test2))"
+  (is (= "cel.bind(test2, false, cel.bind(test, true, test && test2))"
          (:code
           (rule/get-program! {:code {"myetype"
                                      {"bind" ["test" "true"
