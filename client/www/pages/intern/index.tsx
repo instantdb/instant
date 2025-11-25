@@ -75,6 +75,13 @@ const tools: ToolCard[] = [
       'We let users leave feedback on our docs. This is a quick way to see what they are saying!',
     category: 'Comms',
   },
+  {
+    title: 'Image Generator',
+    href: '/intern/image',
+    description:
+      'Generate 16:9 images with the Instant logo and custom text for social media, presentations, etc.',
+    category: 'Other',
+  },
 ];
 
 const categories = ['All', 'KPIs', 'Analytics', 'Comms', 'Other'];
