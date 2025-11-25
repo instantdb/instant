@@ -130,14 +130,14 @@
 (deftest uneven-binds-fail
   (is (= [{:message "bind should have an even number of elements",
            :in ["myetype" "bind"]}
-          {:message "There was an unexpected error evaluating the rules",
+          {:message "bind should have an even number of elements",
            :in ["myetype" "allow" "view"]}]
          (rule/validation-errors {"myetype" {"bind" ["duplicate"]
                                              "allow" {"view" "duplicate"}}})))
 
   (is (= [{:message "bind should have an even number of elements",
            :in ["myetype" "bind"]}
-          {:message "There was an unexpected error evaluating the rules",
+          {:message "bind should have an even number of elements",
            :in ["myetype" "allow" "view"]}]
          (rule/validation-errors  {"myetype" {"bind" ["duplicate"]
                                               "allow" {"view" "true"}}

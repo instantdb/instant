@@ -1595,6 +1595,13 @@
                                             (clojure.string/join " -> " bind-vars)))]
     (throw (CelValidationException. source [issue]))))
 
+(defn throw-cel-validation-error [^String code error]
+  (let [source (.build (CelSource/newBuilder code))
+        issue (CelIssue/formatError 1 ;; line
+                                    1 ;; col
+                                    error)]
+    (throw (CelValidationException. source [issue]))))
+
 ;; Helper for dev so that `rules.clj` can clear its cache when this
 ;; namespace is reloaded and the deftypes change
 (defonce after-load (atom nil))

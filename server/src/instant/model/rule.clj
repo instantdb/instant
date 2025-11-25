@@ -127,6 +127,8 @@
   (let [binds (concat
                (get-in rule ["$default" "bind"])
                (get-in rule [etype      "bind"]))]
+    (when (not (even? (count binds)))
+      (cel/throw-cel-validation-error expr "bind should have an even number of elements"))
     (if (empty? binds)
       expr
       (let [compiler (cel/action->compiler action)
