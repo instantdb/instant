@@ -66,7 +66,8 @@
                          ::validation-failed
 
                          ::session-missing
-                         ::member-missing})
+                         ::member-missing
+                         ::connection-closed})
 
 (comment
   (s/explain-data ::instant-exception {::type ::record-not-found
@@ -420,6 +421,10 @@
            ::hint {:sess-id sess-id
                    :exception-message (.getMessage io-ex)}}
           io-ex))
+
+(defn throw-connection-closed! []
+  (throw+ {::type ::connection-closed
+           ::message "Connection is closed"}))
 ;; ----
 ;; Spec
 
