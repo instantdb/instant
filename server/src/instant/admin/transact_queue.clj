@@ -32,7 +32,7 @@
 
 (defn process [_group-key {:keys [ctx tx-steps response-promise open?]}]
   (try
-    (when-not (tool/inspect (open?))
+    (when-not (open?)
       (ex/throw-connection-closed!))
     (deliver response-promise {:ok (permissioned-tx/transact! ctx tx-steps)})
     (catch Throwable t
