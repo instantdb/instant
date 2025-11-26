@@ -44,7 +44,7 @@
    [instant.runtime.magic-code-auth :as magic-code-auth])
   (:import
    (io.undertow.server HttpServerExchange)
-   (java.time Duration Instant)
+   (java.time Instant)
    (java.util UUID)))
 
 (defn req->app-id-untrusted! [req]
