@@ -309,7 +309,7 @@ export enum CallbackEventType {
 type QueryEntities<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > = InstaQLResponse<Schema, Q, UseDates>[keyof InstaQLResponse<
   Schema,
   Q,
@@ -319,7 +319,7 @@ type QueryEntities<
 type QueryEntity<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > = QueryEntities<Schema, Q, UseDates> extends (infer E)[] ? E : never;
 
 type ChangedFields<Entity> = {
@@ -332,7 +332,7 @@ type ChangedFields<Entity> = {
 export interface BaseCallbackEvent<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > {
   type: CallbackEventType;
   data: InstaQLResponse<Schema, Q, UseDates>;
@@ -341,7 +341,7 @@ export interface BaseCallbackEvent<
 export interface InitialSyncBatch<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.InitialSyncBatch;
   batch: QueryEntities<Schema, Q, UseDates>;
@@ -350,7 +350,7 @@ export interface InitialSyncBatch<
 export interface InitialSyncComplete<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.InitialSyncComplete;
 }
@@ -358,7 +358,7 @@ export interface InitialSyncComplete<
 export interface SyncTransaction<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.SyncTransaction;
   added: QueryEntities<Schema, Q, UseDates>;
@@ -373,7 +373,7 @@ export interface SyncTransaction<
 export interface LoadFromStorage<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.LoadFromStorage;
 }
@@ -381,7 +381,7 @@ export interface LoadFromStorage<
 export interface SetupError<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.Error;
   error: { message: string; hint?: any; type: string; status: number };
@@ -390,7 +390,7 @@ export interface SetupError<
 export type CallbackEvent<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > =
   | InitialSyncBatch<Schema, Q, UseDates>
   | InitialSyncComplete<Schema, Q, UseDates>
@@ -401,7 +401,7 @@ export type CallbackEvent<
 export type SyncTableCallback<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > = (event: CallbackEvent<Schema, Q, UseDates>) => void;
 
 export class SyncTable {

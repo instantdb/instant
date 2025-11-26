@@ -42,7 +42,7 @@ const defaultAuthState = {
 export default abstract class InstantReactAbstractDatabase<
   // need to pull this schema out to another generic for query params, not sure why
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean | undefined> = InstantConfig<
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<
     Schema,
     boolean
   >,

@@ -31,10 +31,16 @@ export function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
   UseDates extends boolean = false,
 >(
-  config: InstantConfig<Schema, UseDates>,
+  config: Omit<InstantConfig<Schema, UseDates>, 'useDateObjects'> & {
+    useDateObjects?: UseDates;
+  },
 ): InstantReactWebDatabase<Schema, InstantConfig<Schema, UseDates>> {
+  const configStrict = {
+    ...config,
+    useDateObjects: (config.useDateObjects ?? false) as UseDates,
+  };
   return new InstantReactWebDatabase<Schema, InstantConfig<Schema, UseDates>>(
-    config,
+    configStrict,
     {
       '@instantdb/react': version,
     },
