@@ -54,7 +54,7 @@ export async function provisionEphemeralApp<
   perms?: any;
   schema?: InstantSchemaDef<Entities, Links, Rooms>;
   onCreateApp?: OnCreateApp<Entities, Links, Rooms, UseDates, Config>;
-  useDateObjects: UseDates;
+  useDateObjects?: UseDates;
 }) {
   const body: any = { title: 'Example app' };
   if (perms) {
@@ -226,8 +226,13 @@ function Page<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   Rooms extends RoomsDef,
-  UseDates extends boolean,
-  Config extends Cfg<Entities, Links, Rooms, UseDates>,
+  UseDates extends boolean = false,
+  Config extends Cfg<Entities, Links, Rooms, UseDates> = Cfg<
+    Entities,
+    Links,
+    Rooms,
+    UseDates
+  >,
 >({
   schema,
   perms,

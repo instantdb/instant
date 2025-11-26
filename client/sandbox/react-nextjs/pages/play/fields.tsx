@@ -290,7 +290,12 @@ const characters = [
 
 export default function Page() {
   return (
-    <EphemeralAppPage
+    <EphemeralAppPage<
+      AppSchema['entities'],
+      AppSchema['links'],
+      AppSchema['rooms'],
+      false
+    >
       schema={schema}
       onCreateApp={async (db) => {
         await db.transact(
