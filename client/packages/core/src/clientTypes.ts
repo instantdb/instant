@@ -14,7 +14,7 @@ export type AuthResult =
 export type AuthState =
   | { isLoading: true; error: undefined; user: undefined }
   | { isLoading: false; error: { message: string }; user: undefined }
-  | { isLoading: false; error: undefined; user: User | null };
+  | { isLoading: false; error: undefined; user: User | null | undefined };
 
 export type ConnectionStatus =
   | 'connecting'
