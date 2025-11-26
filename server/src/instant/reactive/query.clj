@@ -39,13 +39,15 @@
 
   Once the query completes we refine the subscription with the resolved topics"
   [store ctx datalog-query]
-  (tracer/with-span! {:name "datalog-query-reactive!"
-                      :attributes {:query (pr-str datalog-query)}}
-    (let [coarse-topics (d/pats->coarse-topics datalog-query)
-          _ (rs/record-datalog-query-start! store ctx datalog-query coarse-topics)
-          datalog-result (datalog-query-cached! store ctx datalog-query)]
-      (rs/record-datalog-query-finish! store ctx datalog-query datalog-result)
-      datalog-result)))
+  (if (:skip-cache? ctx)
+    (d/query ctx datalog-query)
+    (tracer/with-span! {:name "datalog-query-reactive!"
+                        :attributes {:query (pr-str datalog-query)}}
+      (let [coarse-topics (d/pats->coarse-topics datalog-query)
+            _ (rs/record-datalog-query-start! store ctx datalog-query coarse-topics)
+            datalog-result (datalog-query-cached! store ctx datalog-query)]
+        (rs/record-datalog-query-finish! store ctx datalog-query datalog-result)
+        datalog-result))))
 
 (defn collect-triples [instaql-result]
   (let [join-rows (get-in instaql-result [:data :datalog-result :join-rows])
