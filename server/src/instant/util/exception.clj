@@ -390,6 +390,10 @@
            ::message (format "Operation timed out: %s" (name operation-name))
            ::hint {:timeout-ms timeout-ms}}))
 
+(defn throw-query-timeout! []
+  (throw+ {::type ::timeout
+           ::message "The query took too long to complete."}))
+
 ;; ----------
 ;; Rate limit
 
