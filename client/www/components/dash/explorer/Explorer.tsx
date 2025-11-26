@@ -1596,11 +1596,7 @@ export function Explorer({
         />
       </Dialog>
       <Dialog {...recentlyDeletedNsDialog}>
-        <RecentlyDeletedNamespaces
-          appId={appId}
-          db={db}
-          onClose={recentlyDeletedNsDialog.onClose}
-        />
+        <RecentlyDeletedNamespaces appId={appId} db={db} />
       </Dialog>
       <div
         ref={nsRef}

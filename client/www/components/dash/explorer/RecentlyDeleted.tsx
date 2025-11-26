@@ -98,11 +98,9 @@ export const useRecentlyDeletedNamespaces = (
 export function RecentlyDeletedNamespaces({
   appId,
   db,
-  onClose,
 }: {
   db: InstantReactWebDatabase<any>;
   appId: string;
-  onClose: () => void;
 }) {
   const { data, mutate } = useRecentlyDeletedAttrs(appId);
   const deletedNamespaces = useRecentlyDeletedNamespaces(appId);
@@ -198,12 +196,6 @@ export function RecentlyDeletedNamespaces({
           No recently deleted namespaces.
         </p>
       )}
-
-      <div className="flex justify-end gap-2">
-        <Button size="mini" variant="secondary" onClick={onClose}>
-          Close
-        </Button>
-      </div>
     </ActionForm>
   );
 }
