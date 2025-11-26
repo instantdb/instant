@@ -1487,7 +1487,7 @@
       path-str: string}
    Returns a map of:
      {{eid: uuid, etype: string, path: string}: get-ref-result}"
-  [ctx refs]
+  [{:keys [datalog-query-fn] :as ctx} refs]
   (let [{:keys [patterns]}
         (reduce (fn [acc ref-info]
                   (let [{:keys [pats referenced-etypes]}
@@ -1502,10 +1502,8 @@
         query {:children {:pattern-groups (map (fn [patterns]
                                                  {:patterns patterns})
                                                patterns)}}
-        datalog-query-fn (if (flags/toggled? :skip-ref-cache)
-                           d/query
-                           (:datalog-query-fn ctx))
-        results (:data (datalog-query-fn ctx query))]
+        results (:data (datalog-query-fn (assoc ctx :skip-cache? (flags/toggled? :skip-ref-cache))
+                                         query))]
     (reduce (fn [acc [ref pattern result]]
               (let [group-by-path [0 0]
                     val-path (find-val-path pattern)
