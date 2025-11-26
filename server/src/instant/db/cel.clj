@@ -6,6 +6,7 @@
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.attr-pat :as attr-pat]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
@@ -1486,7 +1487,7 @@
       path-str: string}
    Returns a map of:
      {{eid: uuid, etype: string, path: string}: get-ref-result}"
-  [{:keys [datalog-query-fn] :as ctx} refs]
+  [ctx refs]
   (let [{:keys [patterns]}
         (reduce (fn [acc ref-info]
                   (let [{:keys [pats referenced-etypes]}
@@ -1501,6 +1502,9 @@
         query {:children {:pattern-groups (map (fn [patterns]
                                                  {:patterns patterns})
                                                patterns)}}
+        datalog-query-fn (if (flags/toggled? :skip-ref-cache)
+                           d/query
+                           (:datalog-query-fn ctx))
         results (:data (datalog-query-fn ctx query))]
     (reduce (fn [acc [ref pattern result]]
               (let [group-by-path [0 0]
