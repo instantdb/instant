@@ -5570,7 +5570,6 @@
             (testing "connection did not deadlock"
               (is @tx))))))))
 
-
 ;; Test that we don't get a conflict if a bunch of lookup inserts are happening simultaneously
 (deftest multiple-lookups-work
   (with-zeneca-app
@@ -5586,6 +5585,42 @@
         (mapv (fn [tx]
                 (is @tx))
               txes)))))
+
+(deftest soft-delete-in-system-ns-can-see-system-id-attr
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-users-nickname  :$users/nickname}
+            (test-util/make-attrs
+             app-id
+             [[:$users/nickname]])
+
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:delete-attr attr-users-nickname]])
+        (let [deleted (some->> (attr-model/get-soft-deleted-by-app-id (aurora/conn-pool :read) app-id)
+                               (filter (comp (partial = attr-users-nickname) :id))
+                               first)
+
+              id-attr-id (some-> deleted
+                                 :metadata
+                                 (get "soft_delete_snapshot")
+                                 (get "id_attr_id")
+                                 parse-uuid)]
+
+          (is (=  (system-catalog/get-attr-id "$users" "id")
+                  id-attr-id)))))))
 
 (comment
   (test/run-tests *ns*))

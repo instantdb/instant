@@ -746,7 +746,7 @@
            from    
              attrs id_attr 
            where 
-             id_attr.app_id = t.app_id 
+             (id_attr.app_id = t.app_id or id_attr.app_id = ?system-catalog-app-id)
              and id_attr.etype = t.etype 
              and id_attr.label = 'id' 
            limit 1
@@ -808,6 +808,7 @@
       union all 
       select count(*) from changed_rev_idents"
       {"?app-id" app-id
+       "?system-catalog-app-id" system-catalog-app-id
        "?attr-ids" (with-meta (vec ids) {:pgtype "uuid[]"})}))))
 
 (defn hard-delete-multi!
