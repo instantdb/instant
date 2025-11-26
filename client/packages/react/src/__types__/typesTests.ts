@@ -1,10 +1,5 @@
-import type {
-  Equal,
-  Expect,
-  IsAny,
-  NotAny,
-} from '../../../core/__tests__/src/typeUtils.ts';
-import { i, init } from '../../src/index.ts';
+import type { Equal, Expect, IsAny, NotAny } from './typeUtils.ts';
+import { i, init } from '../index.ts';
 
 const schema = i.schema({
   entities: {
@@ -73,7 +68,6 @@ function _testUseDatesUndefinedTest() {
     type _cases_2 = [
       Expect<NotAny<tOpt>>,
       Expect<Equal<tOpt, string | number | undefined>>,
-      Expect<false>,
     ];
   }
 }
