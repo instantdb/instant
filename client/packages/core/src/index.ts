@@ -812,7 +812,7 @@ function init<
   };
   const existingClient = globalInstantCoreStore[
     reactorKey(configStrict)
-  ] as InstantCoreDatabase<any, Config['useDateObjects']>;
+  ] as InstantCoreDatabase<any, UseDates>;
 
   if (existingClient) {
     if (schemaChanged(existingClient, configStrict.schema)) {
@@ -833,9 +833,7 @@ function init<
     EventSourceImpl,
   );
 
-  const client = new InstantCoreDatabase<any, Config['useDateObjects']>(
-    reactor,
-  );
+  const client = new InstantCoreDatabase<any, UseDates>(reactor);
   globalInstantCoreStore[reactorKey(configStrict)] = client;
 
   handleDevtool(configStrict.appId, configStrict.devtool);

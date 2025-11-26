@@ -121,13 +121,18 @@ function init<
   config: Omit<InstantConfig<Schema, UseDates>, 'useDateObjects'> & {
     useDateObjects?: UseDates;
   },
-): InstantReactNativeDatabase<Schema, InstantConfig<Schema, UseDates>> {
+): InstantReactNativeDatabase<
+  Schema,
+  UseDates,
+  InstantConfig<Schema, UseDates>
+> {
   const configStrict = {
     ...config,
     useDateObjects: (config.useDateObjects ?? false) as UseDates,
   };
   return new InstantReactNativeDatabase<
     Schema,
+    UseDates,
     InstantConfig<Schema, UseDates>
   >(configStrict, {
     '@instantdb/react': version,
@@ -152,8 +157,12 @@ const init_experimental = init;
 
 class InstantReactNativeDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
-> extends InstantReactAbstractDatabase<Schema, Config> {
+  UseDates extends boolean,
+  Config extends InstantConfig<Schema, UseDates> = InstantConfig<
+    Schema,
+    UseDates
+  >,
+> extends InstantReactAbstractDatabase<Schema, UseDates, Config> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
   static EventSourceImpl = EventSourceImpl;

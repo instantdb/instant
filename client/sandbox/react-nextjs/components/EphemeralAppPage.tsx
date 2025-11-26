@@ -5,23 +5,56 @@ import {
   init,
   InstantReactAbstractDatabase,
   InstantSchemaDef,
+  InstantConfig,
   LinksDef,
-  Config,
 } from '@instantdb/react';
 import { useEffect, useState } from 'react';
 import { RoomsDef, TransactionChunk } from '../../../packages/core/dist/esm';
 import { IContainEntitiesAndLinks } from '../../../packages/core/dist/esm/schemaTypes';
 
-export async function provisionEphemeralApp({
+type Cfg<
+  Entities extends EntitiesDef,
+  Links extends LinksDef<Entities>,
+  Rooms extends RoomsDef,
+  UseDates extends boolean,
+> = InstantConfig<InstantSchemaDef<Entities, Links, Rooms>, UseDates>;
+
+type DB<
+  Entities extends EntitiesDef,
+  Links extends LinksDef<Entities>,
+  Rooms extends RoomsDef,
+  UseDates extends boolean,
+  Config extends Cfg<Entities, Links, Rooms, UseDates>,
+> = InstantReactAbstractDatabase<
+  InstantSchemaDef<Entities, Links, Rooms>,
+  UseDates,
+  Config
+>;
+
+type OnCreateApp<
+  Entities extends EntitiesDef,
+  Links extends LinksDef<Entities>,
+  Rooms extends RoomsDef,
+  UseDates extends boolean,
+  Config extends Cfg<Entities, Links, Rooms, UseDates>,
+> = (db: DB<Entities, Links, Rooms, UseDates, Config>) => Promise<void>;
+
+export async function provisionEphemeralApp<
+  Entities extends EntitiesDef,
+  Links extends LinksDef<Entities>,
+  Rooms extends RoomsDef,
+  UseDates extends boolean,
+  Config extends Cfg<Entities, Links, Rooms, UseDates>,
+>({
   perms,
   schema,
   onCreateApp,
+  useDateObjects,
 }: {
   perms?: any;
-  schema?: InstantSchemaDef<any, any, any>;
-  onCreateApp?: (
-    db: InstantReactAbstractDatabase<InstantSchemaDef<any, any, any>>,
-  ) => Promise<void>;
+  schema?: InstantSchemaDef<Entities, Links, Rooms>;
+  onCreateApp?: OnCreateApp<Entities, Links, Rooms, UseDates, Config>;
+  useDateObjects: UseDates;
 }) {
   const body: any = { title: 'Example app' };
   if (perms) {
@@ -41,7 +74,12 @@ export async function provisionEphemeralApp({
   const res = await r.json();
 
   if (res.app && onCreateApp) {
-    const db = init({ ...config, appId: res.app.id, schema: schema });
+    const db = init({
+      ...config,
+      appId: res.app.id,
+      schema: schema,
+      useDateObjects,
+    });
     onCreateApp(db);
   }
 
@@ -67,6 +105,8 @@ function AppPage<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   Rooms extends RoomsDef,
+  UseDates extends boolean,
+  Config extends Cfg<Entities, Links, Rooms, UseDates>,
 >({
   urlAppId,
   schema,
@@ -74,22 +114,24 @@ function AppPage<
   onCreateApp,
   Component,
   extraConfig,
+  useDateObjects,
 }: {
   urlAppId: string | undefined;
   schema?: InstantSchemaDef<Entities, Links, Rooms>;
   perms?: any;
   onCreateApp?: (
-    db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>,
+    db: DB<Entities, Links, Rooms, UseDates, Config>,
   ) => Promise<void>;
   txChunks?: TransactionChunk<
     IContainEntitiesAndLinks<Entities, Links>,
     keyof Entities
   >[];
   Component: React.ComponentType<{
-    db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>;
+    db: DB<Entities, Links, Rooms, UseDates, Config>;
     appId: string;
   }>;
-  extraConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
+  extraConfig?: Partial<Omit<Config, 'appId' | 'schema' | 'useDateObjects'>>;
+  useDateObjects: UseDates;
 }) {
   const router = useRouter();
   const [appId, setAppId] = useState<string | undefined>();
@@ -97,7 +139,18 @@ function AppPage<
 
   const provisionApp = async () => {
     try {
-      const res = await provisionEphemeralApp({ schema, perms, onCreateApp });
+      const res = await provisionEphemeralApp<
+        Entities,
+        Links,
+        Rooms,
+        UseDates,
+        Config
+      >({
+        schema,
+        perms,
+        onCreateApp,
+        useDateObjects,
+      });
 
       if (res.app) {
         router.replace({
@@ -157,7 +210,13 @@ function AppPage<
     return <div>Loading...</div>;
   }
 
-  const finalConfig = { ...config, ...extraConfig, schema, appId };
+  const finalConfig = {
+    ...config,
+    ...extraConfig,
+    schema,
+    appId,
+    useDateObjects,
+  };
   const db = init(finalConfig);
 
   return <Component key={appId} db={db} appId={appId} />;
@@ -167,34 +226,37 @@ function Page<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   Rooms extends RoomsDef,
+  UseDates extends boolean,
+  Config extends Cfg<Entities, Links, Rooms, UseDates>,
 >({
   schema,
   perms,
   onCreateApp,
   Component,
   extraConfig,
+  useDateObjects,
 }: {
   schema?: InstantSchemaDef<Entities, Links, Rooms>;
   perms?: any;
-  onCreateApp?: (
-    db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>,
-  ) => Promise<void>;
+  onCreateApp?: OnCreateApp<Entities, Links, Rooms, UseDates, Config>;
   Component: React.ComponentType<{
-    db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>;
+    db: DB<Entities, Links, Rooms, UseDates, Config>;
     appId: string;
   }>;
-  extraConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
+  extraConfig?: Partial<Omit<Config, 'appId' | 'schema' | 'useDateObjects'>>;
+  useDateObjects?: UseDates;
 }) {
   const router = useRouter();
   if (router.isReady) {
     return (
-      <AppPage
+      <AppPage<Entities, Links, Rooms, UseDates, Config>
         schema={schema}
         perms={perms}
         onCreateApp={onCreateApp}
         Component={Component}
         extraConfig={extraConfig}
         urlAppId={router.query.app as string}
+        useDateObjects={useDateObjects ?? (false as UseDates)}
       />
     );
   } else {

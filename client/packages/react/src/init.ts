@@ -34,17 +34,18 @@ export function init<
   config: Omit<InstantConfig<Schema, UseDates>, 'useDateObjects'> & {
     useDateObjects?: UseDates;
   },
-): InstantReactWebDatabase<Schema, InstantConfig<Schema, UseDates>> {
+): InstantReactWebDatabase<Schema, UseDates, InstantConfig<Schema, UseDates>> {
   const configStrict = {
     ...config,
     useDateObjects: (config.useDateObjects ?? false) as UseDates,
   };
-  return new InstantReactWebDatabase<Schema, InstantConfig<Schema, UseDates>>(
-    configStrict,
-    {
-      '@instantdb/react': version,
-    },
-  );
+  return new InstantReactWebDatabase<
+    Schema,
+    UseDates,
+    InstantConfig<Schema, UseDates>
+  >(configStrict, {
+    '@instantdb/react': version,
+  });
 }
 
 /**

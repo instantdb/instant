@@ -300,15 +300,17 @@ function init<
   config: Omit<InstantConfig<Schema, UseDates>, 'useDateObjects'> & {
     useDateObjects?: UseDates;
   },
-): InstantAdminDatabase<Schema, InstantConfig<Schema, UseDates>> {
+): InstantAdminDatabase<Schema, UseDates, InstantConfig<Schema, UseDates>> {
   const configStrict = {
     ...config,
     useDateObjects: (config.useDateObjects ?? false) as UseDates,
   };
 
-  return new InstantAdminDatabase<Schema, InstantConfig<Schema, UseDates>>(
-    configStrict,
-  );
+  return new InstantAdminDatabase<
+    Schema,
+    UseDates,
+    InstantConfig<Schema, UseDates>
+  >(configStrict);
 }
 
 /**
@@ -830,12 +832,13 @@ type AdminQueryOpts = {
  */
 class InstantAdminDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<
+  UseDates extends boolean = false,
+  Config extends InstantConfig<Schema, UseDates> = InstantConfig<
     Schema,
-    boolean
+    UseDates
   >,
 > {
-  config: InstantConfigFilled<Schema, Config['useDateObjects']>;
+  config: InstantConfigFilled<Schema, UseDates>;
   auth: Auth;
   storage: Storage;
   rooms: Rooms<Schema>;
@@ -859,8 +862,10 @@ class InstantAdminDatabase<
    * @example
    *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
    */
-  asUser = (opts: ImpersonationOpts): InstantAdminDatabase<Schema, Config> => {
-    const newClient = new InstantAdminDatabase<Schema, Config>({
+  asUser = (
+    opts: ImpersonationOpts,
+  ): InstantAdminDatabase<Schema, UseDates, Config> => {
+    const newClient = new InstantAdminDatabase<Schema, UseDates, Config>({
       ...(this.config as Config),
     });
     newClient.impersonationOpts = opts;
@@ -886,7 +891,7 @@ class InstantAdminDatabase<
   query = <Q extends ValidQuery<Q, Schema>>(
     query: Q,
     opts: AdminQueryOpts = {},
-  ): Promise<InstaQLResponse<Schema, Q, Config['useDateObjects']>> => {
+  ): Promise<InstaQLResponse<Schema, Q, UseDates>> => {
     if (query && opts && 'ruleParams' in opts) {
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
@@ -948,9 +953,9 @@ class InstantAdminDatabase<
    */
   subscribeQuery<Q extends ValidQuery<Q, Schema>>(
     query: Q,
-    cb?: SubscribeQueryCallback<Schema, Q, Config>,
+    cb?: SubscribeQueryCallback<Schema, Q, UseDates>,
     opts: AdminQueryOpts = {},
-  ): SubscribeQueryResponse<Schema, Q, Config> {
+  ): SubscribeQueryResponse<Schema, Q, UseDates> {
     if (query && opts && 'ruleParams' in opts) {
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
@@ -1040,7 +1045,7 @@ class InstantAdminDatabase<
     query: Q,
     opts?: { rules?: any; ruleParams?: { [key: string]: any } },
   ): Promise<{
-    result: InstaQLResponse<Schema, Q, Config['useDateObjects']>;
+    result: InstaQLResponse<Schema, Q, UseDates>;
     checkResults: DebugCheckResult[];
   }> => {
     if (query && opts && 'ruleParams' in opts) {

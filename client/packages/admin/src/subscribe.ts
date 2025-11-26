@@ -21,14 +21,11 @@ export type SubscribeQuerySessionInfo = {
 export type SubscribeQueryPayload<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<
-    Schema,
-    boolean
-  >,
+  UseDates extends boolean = false,
 > =
   | {
       type: 'ok';
-      data: InstaQLResponse<Schema, Q, Config['useDateObjects']>;
+      data: InstaQLResponse<Schema, Q, UseDates>;
       pageInfo: PageInfoResponse<Q>;
       sessionInfo: SubscribeQuerySessionInfo | null;
     }
@@ -43,19 +40,13 @@ export type SubscribeQueryPayload<
 export type SubscribeQueryCallback<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<
-    Schema,
-    boolean
-  >,
-> = (payload: SubscribeQueryPayload<Schema, Q, Config>) => void;
+  UseDates extends boolean = false,
+> = (payload: SubscribeQueryPayload<Schema, Q, UseDates>) => void;
 
 export interface SubscribeQueryResponse<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<
-    Schema,
-    boolean
-  >,
+  UseDates extends boolean = false,
 > {
   /** Stop the subscription and close the connection. */
   close(): void;
@@ -65,7 +56,7 @@ export interface SubscribeQueryResponse<
 
   /** Async iterator of query payloads */
   [Symbol.asyncIterator](): AsyncIterableIterator<
-    SubscribeQueryPayload<Schema, Q, Config>
+    SubscribeQueryPayload<Schema, Q, UseDates>
   >;
 
   /** Ready state of the connection */
@@ -81,22 +72,19 @@ export interface SubscribeQueryResponse<
 function makeAsyncIterator<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<
-    Schema,
-    boolean
-  >,
+  UseDates extends boolean = false,
 >(
-  subscribe: (cb: SubscribeQueryCallback<Schema, Q, Config>) => void,
+  subscribe: (cb: SubscribeQueryCallback<Schema, Q, UseDates>) => void,
   subscribeOnClose: (cb: () => void) => void,
-  unsubscribe: (cb: SubscribeQueryCallback<Schema, Q, Config>) => void,
+  unsubscribe: (cb: SubscribeQueryCallback<Schema, Q, UseDates>) => void,
   readyState: () => SubscriptionReadyState,
-): AsyncGenerator<SubscribeQueryPayload<Schema, Q, Config>> {
+): AsyncGenerator<SubscribeQueryPayload<Schema, Q, UseDates>> {
   let wakeup = null;
   let closed = false;
 
-  const backlog: SubscribeQueryPayload<Schema, Q, Config>[] = [];
-  const handler: SubscribeQueryCallback<Schema, Q, Config> = (
-    data: SubscribeQueryPayload<Schema, Q, Config>,
+  const backlog: SubscribeQueryPayload<Schema, Q, UseDates>[] = [];
+  const handler: SubscribeQueryCallback<Schema, Q, UseDates> = (
+    data: SubscribeQueryPayload<Schema, Q, UseDates>,
   ): void => {
     backlog.push(data);
     if (backlog.length > 100) {
@@ -226,15 +214,12 @@ function formatPageInfo(
 export function subscribe<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<
-    Schema,
-    boolean
-  >,
+  UseDates extends boolean,
 >(
   query: Q,
   cb,
   opts: { headers: HeadersInit; inference: boolean; apiURI: string },
-): SubscribeQueryResponse<Schema, Q, Config> {
+): SubscribeQueryResponse<Schema, Q, UseDates> {
   let fetchErrorResponse;
   let closed = false;
 
@@ -269,7 +254,7 @@ export function subscribe<
     },
   );
 
-  const subscribers: SubscribeQueryCallback<Schema, Q, Config>[] = [];
+  const subscribers: SubscribeQueryCallback<Schema, Q, UseDates>[] = [];
   const onCloseSubscribers = [];
 
   const subscribe = (cb) => {
@@ -290,7 +275,7 @@ export function subscribe<
 
   let sessionParams: SubscribeQuerySessionInfo | null = null;
 
-  function deliver(result: SubscribeQueryPayload<Schema, Q, Config>) {
+  function deliver(result: SubscribeQueryPayload<Schema, Q, UseDates>) {
     if (closed) {
       return;
     }
