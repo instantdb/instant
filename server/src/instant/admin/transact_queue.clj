@@ -4,7 +4,8 @@
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.grouped-queue :as grouped-queue]
    [instant.util.delay :as delay]
-   [instant.util.exception :as ex]))
+   [instant.util.exception :as ex]
+   [instant.util.tracer :as tracer]))
 
 (def num-receive-workers (* (if config/fewer-vfutures?
                               20
@@ -30,13 +31,14 @@
 (defn combine [_a _b]
   nil)
 
-(defn process [_group-key {:keys [ctx tx-steps response-promise open?]}]
-  (try
-    (when-not (open?)
-      (ex/throw-connection-closed!))
-    (deliver response-promise {:ok (permissioned-tx/transact! ctx tx-steps)})
-    (catch Throwable t
-      (deliver response-promise {:error t}))))
+(defn process [_group-key {:keys [ctx tx-steps response-promise open? span]}]
+  (binding [tracer/*span* span]
+    (try
+      (when-not (open?)
+        (ex/throw-connection-closed!))
+      (deliver response-promise {:ok (permissioned-tx/transact! ctx tx-steps)})
+      (catch Throwable t
+        (deliver response-promise {:error t})))))
 
 (defn start []
   (.bindRoot #'tx-q

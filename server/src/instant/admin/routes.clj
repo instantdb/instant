@@ -246,6 +246,7 @@
                               :ctx ctx
                               :tx-steps tx-steps
                               :response-promise response
+                              :span tracer/*span*
                               :open? (fn []
                                        (let [^HttpServerExchange exchange (:server-exchange req)]
                                          (and (-> exchange
