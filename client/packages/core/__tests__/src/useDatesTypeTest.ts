@@ -22,7 +22,11 @@ function _testDateDb() {
     const item = resp.data?.tbl[0];
     if (item) {
       const d = item.d;
-      type _cases = [Expect<NotAny<typeof d>>, Expect<Equal<typeof d, Date>>];
+      type _cases = [
+        Expect<false>,
+        Expect<NotAny<typeof d>>,
+        Expect<Equal<typeof d, Date>>,
+      ];
     }
   });
 }
