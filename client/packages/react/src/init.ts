@@ -31,6 +31,8 @@ export function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
   UseDates extends boolean = false,
 >(
+  // Allows config with missing `useDateObjects`, but keeps `UseDates`
+  // as a non-nullable in the InstantConfig type.
   config: Omit<InstantConfig<Schema, UseDates>, 'useDateObjects'> & {
     useDateObjects?: UseDates;
   },
