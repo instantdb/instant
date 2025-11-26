@@ -73,11 +73,12 @@ function _testUseDatesUndefinedTest() {
     type _cases_2 = [
       Expect<NotAny<tOpt>>,
       Expect<Equal<tOpt, string | number | undefined>>,
+      Expect<false>,
     ];
   }
 }
 
-function _testX() {
+function _testDataNoSchema() {
   const db = init({
     appId: '123',
   });
