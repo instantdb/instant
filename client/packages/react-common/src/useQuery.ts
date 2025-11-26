@@ -16,7 +16,7 @@ const defaultState = {
   data: undefined,
   pageInfo: undefined,
   error: undefined,
-};
+} as const;
 
 function stateForResult(result: any) {
   return {

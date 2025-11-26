@@ -233,7 +233,7 @@ type InstaQLLifecycleState<Schema, Q, UseDates extends boolean = false> =
       isLoading: boolean;
     })
   | {
-      isLoading: boolean;
+      isLoading: true;
       data: undefined;
       pageInfo: undefined;
       error: undefined;
