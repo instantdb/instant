@@ -3,6 +3,8 @@
    [instant.config :as config]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.grouped-queue :as grouped-queue]
+   [instant.jdbc.sql :as sql]
+   [instant.util.async :as ua]
    [instant.util.coll :as ucoll]
    [instant.util.delay :as delay]
    [instant.util.exception :as ex]
@@ -34,14 +36,20 @@
 (defn combine [_a _b]
   nil)
 
-(defn process [_group-key {:keys [ctx tx-steps response-promise open? span]}]
-  (binding [tracer/*span* span]
-    (try
-      (when-not (open?)
-        (ex/throw-connection-closed!))
-      (deliver response-promise {:ok (permissioned-tx/transact! ctx tx-steps)})
-      (catch Throwable t
-        (deliver response-promise {:error t})))))
+(defn process [_group-key {:keys [ctx tx-steps response-promise
+                                  open? canceled? span exceptions-silencer
+                                  child-vfutures statement-tracker]}]
+  (binding [tracer/*span* span
+            tracer/*silence-exceptions?* exceptions-silencer
+            ua/*child-vfutures* child-vfutures
+            sql/*in-progress-stmts* statement-tracker]
+    (when-not @canceled?
+      (try
+        (when-not (open?)
+          (ex/throw-connection-closed!))
+        (deliver response-promise {:ok (permissioned-tx/transact! ctx tx-steps)})
+        (catch Throwable t
+          (deliver response-promise {:error t}))))))
 
 (defn start []
   (.bindRoot #'tx-q
