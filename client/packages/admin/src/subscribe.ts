@@ -26,7 +26,7 @@ export type SubscribeQueryPayload<
   | {
       type: 'ok';
       data: InstaQLResponse<Schema, Q, UseDates>;
-      pageInfo: PageInfoResponse<Q>;
+      pageInfo: PageInfoResponse<Q> | undefined;
       sessionInfo: SubscribeQuerySessionInfo | null;
     }
   | {
@@ -79,7 +79,7 @@ function makeAsyncIterator<
   unsubscribe: (cb: SubscribeQueryCallback<Schema, Q, UseDates>) => void,
   readyState: () => SubscriptionReadyState,
 ): AsyncGenerator<SubscribeQueryPayload<Schema, Q, UseDates>> {
-  let wakeup = null;
+  let wakeup: (() => void) | null = null;
   let closed = false;
 
   const backlog: SubscribeQueryPayload<Schema, Q, UseDates>[] = [];
@@ -102,7 +102,10 @@ function makeAsyncIterator<
 
   subscribe(handler);
 
-  const done = () => {
+  const done = (): Promise<{
+    done: true;
+    value: undefined;
+  }> => {
     unsubscribe(handler);
     return Promise.resolve({ done: true, value: undefined });
   };
@@ -117,7 +120,9 @@ function makeAsyncIterator<
 
   subscribeOnClose(onClose);
 
-  const next = async () => {
+  const next = async (): Promise<
+    IteratorResult<SubscribeQueryPayload<Schema, Q, UseDates>, undefined>
+  > => {
     while (true) {
       if (readyState() === 'closed' || closed) {
         return done();
@@ -128,7 +133,7 @@ function makeAsyncIterator<
         return { value: nextValue, done: false };
       }
 
-      const p = new Promise((resolve) => {
+      const p = new Promise<void>((resolve) => {
         wakeup = resolve;
       });
 
@@ -160,11 +165,13 @@ function esReadyState(es: EventSource): SubscriptionReadyState {
     case es.OPEN: {
       return 'open';
     }
+    default:
+      return 'connecting';
   }
 }
 
-function multiReadFetchResponse(r) {
-  let p = null;
+function multiReadFetchResponse(r: Response) {
+  let p: null | Promise<string> = null;
   return {
     ...r,
     text() {
@@ -217,7 +224,7 @@ export function subscribe<
   UseDates extends boolean,
 >(
   query: Q,
-  cb,
+  cb: SubscribeQueryCallback<Schema, Q, UseDates> | undefined,
   opts: { headers: HeadersInit; inference: boolean; apiURI: string },
 ): SubscribeQueryResponse<Schema, Q, UseDates> {
   let fetchErrorResponse;
@@ -255,7 +262,7 @@ export function subscribe<
   );
 
   const subscribers: SubscribeQueryCallback<Schema, Q, UseDates>[] = [];
-  const onCloseSubscribers = [];
+  const onCloseSubscribers: (() => void)[] = [];
 
   const subscribe = (cb) => {
     subscribers.push(cb);

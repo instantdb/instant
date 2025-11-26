@@ -167,7 +167,7 @@ function withImpersonation(
 
 function validateConfigAndImpersonation(
   config: FilledConfig,
-  impersonationOpts: ImpersonationOpts,
+  impersonationOpts: ImpersonationOpts | undefined,
 ) {
   if (
     impersonationOpts &&
@@ -254,7 +254,7 @@ async function jsonFetch(
 ): Promise<any> {
   const defaultFetchOpts = getDefaultFetchOpts();
   const headers = {
-    ...(init.headers || {}),
+    ...(init?.headers || {}),
     'Instant-Admin-Version': version,
     'Instant-Core-Version': coreVersion,
   };
@@ -689,12 +689,12 @@ class Storage {
       duplex = 'half'; // one-way stream
     }
     if (isNodeReadable(file) || isWebReadable(file)) {
-      headers['content-length'] = metadata.fileSize.toString();
       if (!metadata.fileSize) {
         throw new Error(
           'fileSize is required in metadata when uploading streams',
         );
       }
+      headers['content-length'] = metadata.fileSize.toString();
     }
 
     let options = {
@@ -761,12 +761,15 @@ class Storage {
         }),
       },
     );
+    const headers = {};
+    const contentType = metadata.contentType;
+    if (contentType) {
+      headers['Content-Type'] = contentType;
+    }
     const { ok } = await fetch(presignedUrl, {
       method: 'PUT',
       body: file as unknown as BodyInit,
-      headers: {
-        'Content-Type': metadata.contentType,
-      },
+      headers,
     });
 
     return ok;
