@@ -109,7 +109,7 @@ export type InstantConfig<
   adminToken?: string;
   apiURI?: string;
   schema?: Schema;
-  useDateObjects?: UseDates;
+  useDateObjects: UseDates;
   disableValidation?: boolean;
 };
 
@@ -297,10 +297,17 @@ function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
   UseDates extends boolean = false,
 >(
-  config: InstantConfig<Schema, UseDates>,
+  config: Omit<InstantConfig<Schema, UseDates>, 'useDateObjects'> & {
+    useDateObjects?: UseDates;
+  },
 ): InstantAdminDatabase<Schema, InstantConfig<Schema, UseDates>> {
+  const configStrict = {
+    ...config,
+    useDateObjects: (config.useDateObjects ?? false) as UseDates,
+  };
+
   return new InstantAdminDatabase<Schema, InstantConfig<Schema, UseDates>>(
-    config,
+    configStrict,
   );
 }
 
@@ -823,7 +830,10 @@ type AdminQueryOpts = {
  */
 class InstantAdminDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<
+    Schema,
+    boolean
+  >,
 > {
   config: InstantConfigFilled<Schema, Config['useDateObjects']>;
   auth: Auth;

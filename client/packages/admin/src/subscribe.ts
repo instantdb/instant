@@ -21,7 +21,10 @@ export type SubscribeQuerySessionInfo = {
 export type SubscribeQueryPayload<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<
+    Schema,
+    boolean
+  >,
 > =
   | {
       type: 'ok';
@@ -40,13 +43,19 @@ export type SubscribeQueryPayload<
 export type SubscribeQueryCallback<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<
+    Schema,
+    boolean
+  >,
 > = (payload: SubscribeQueryPayload<Schema, Q, Config>) => void;
 
 export interface SubscribeQueryResponse<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<
+    Schema,
+    boolean
+  >,
 > {
   /** Stop the subscription and close the connection. */
   close(): void;
@@ -72,7 +81,10 @@ export interface SubscribeQueryResponse<
 function makeAsyncIterator<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<
+    Schema,
+    boolean
+  >,
 >(
   subscribe: (cb: SubscribeQueryCallback<Schema, Q, Config>) => void,
   subscribeOnClose: (cb: () => void) => void,
@@ -214,7 +226,10 @@ function formatPageInfo(
 export function subscribe<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<
+    Schema,
+    boolean
+  >,
 >(
   query: Q,
   cb,
