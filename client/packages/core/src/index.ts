@@ -232,7 +232,12 @@ type InstaQLLifecycleState<Schema, Q, UseDates extends boolean = false> =
   | (InstaQLSubscriptionState<Schema, Q, UseDates> & {
       isLoading: boolean;
     })
-  | { isLoading: true; data: undefined; pageInfo: undefined; error: undefined };
+  | {
+      isLoading: boolean;
+      data: undefined;
+      pageInfo: undefined;
+      error: undefined;
+    };
 
 type UnsubscribeFn = () => void;
 
