@@ -302,10 +302,7 @@ type OptionalKeys<Attrs extends AttrsDefs> = {
  *   - Required keys => `key: ValueType`
  *   - Optional keys => `key?: ValueType`
  */
-type MappedAttrs<
-  Attrs extends AttrsDefs,
-  UseDates extends boolean,
-> = {
+type MappedAttrs<Attrs extends AttrsDefs, UseDates extends boolean> = {
   [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any, any>
     ? V extends Date
       ? UseDates extends true
