@@ -11,7 +11,7 @@ import { ExpandableDeletedAttr } from './ExpandableDeletedAttr';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 import { useAuthToken } from '@/lib/auth';
 import { useMemo } from 'react';
-import { addDays, format, differenceInDays } from 'date-fns';
+import { add, formatDistanceToNow, format } from 'date-fns';
 
 // -----
 // Types
@@ -106,17 +106,6 @@ export function RecentlyDeletedNamespaces({
   const deletedNamespaces = useRecentlyDeletedNamespaces(appId);
   const gracePeriodDays = data?.['grace-period-days'] || 2;
 
-  const formatDeletionDate = (deletionDate: string) => {
-    const deleted = new Date(deletionDate);
-    return format(deleted, 'MMM d, h:mm a');
-  };
-
-  const calculateDaysLeft = (deletionDate: string) => {
-    const deleteBy = addDays(new Date(deletionDate), gracePeriodDays);
-    const daysLeft = differenceInDays(deleteBy, new Date());
-    return daysLeft;
-  };
-
   const onRestore = async ({ idAttr, remainingCols }: DeletedNamespace) => {
     if (!db) return;
     if (!data) return;
@@ -146,9 +135,12 @@ export function RecentlyDeletedNamespaces({
               );
             })
             .map((ns) => {
-              const daysLeft = calculateDaysLeft(
+              const deletionMarkedAt = new Date(
                 ns.idAttr['deletion-marked-at'],
               );
+              const expiresAt = add(deletionMarkedAt, {
+                days: gracePeriodDays,
+              });
 
               return (
                 <div
@@ -160,9 +152,11 @@ export function RecentlyDeletedNamespaces({
                       {ns.idAttr['forward-identity'][1]}
                     </div>
                     <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                      Deleted{' '}
-                      {formatDeletionDate(ns.idAttr['deletion-marked-at'])} ·{' '}
-                      {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+                      Deleted {format(deletionMarkedAt, 'MMM d, h:mm a')} ·{' '}
+                      expires{' '}
+                      {formatDistanceToNow(expiresAt, {
+                        includeSeconds: false,
+                      })}
                     </div>
                     {ns.remainingCols.length > 0 ? (
                       <div className="mt-1 truncate text-xs text-neutral-500 dark:text-neutral-400">
