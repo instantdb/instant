@@ -4,7 +4,10 @@ import { EventSource } from 'eventsource';
 
 export default class InstantReactWebDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<
+    Schema,
+    boolean
+  >,
 > extends InstantReactAbstractDatabase<Schema, Config> {
   static EventSourceImpl = EventSource;
 }

@@ -6,6 +6,7 @@
     "outDir": "dist/tsc",
     "rewriteRelativeImportExtensions": true,
     "rootDir": "src",
-    "checkJs": false
+    "checkJs": false,
+    "strictNullChecks": true
   }
 }

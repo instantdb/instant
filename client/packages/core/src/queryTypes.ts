@@ -198,9 +198,11 @@ type QueryResponse<
     ? InstaQLQueryResult<E, Q, WithCardinalityInference, UseDates>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
-type InstaQLResponse<Schema, Q, UseDates extends boolean = false> =
+type InstaQLResponse<Schema, Q, UseDates extends boolean | undefined = false> =
   Schema extends IContainEntitiesAndLinks<any, any>
-    ? InstaQLResult<Schema, Q, UseDates>
+    ? Q extends InstaQLParams<Schema> | undefined
+      ? InstaQLResult<Schema, Q, UseDates>
+      : never
     : never;
 
 type PageInfoResponse<T> = {
@@ -238,14 +240,28 @@ type Exactly<Parent, Child> = Parent & {
   [K in keyof Child]: K extends keyof Parent ? Child[K] : never;
 };
 
+// SafeLookup<T, ['A', 'B', number]> is like doing
+// T['A']['B'][number], but it will merge with undefined if any
+// of the intermediates are undefined
+type SafeLookup<T, K extends readonly PropertyKey[]> = K extends [
+  infer First,
+  ...infer Rest extends readonly PropertyKey[],
+]
+  ? First extends keyof NonNullable<T>
+    ?
+        | SafeLookup<NonNullable<T>[First], Rest>
+        | (T extends null | undefined ? undefined : never)
+    : undefined
+  : T;
+
 // ==========
 // InstaQL helpers
 
 type InstaQLEntitySubqueryResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema['entities'],
-  Query extends InstaQLEntitySubquery<Schema, EntityName> = {},
-  UseDates extends boolean = false,
+  Query extends InstaQLEntitySubquery<Schema, EntityName> | undefined = {},
+  UseDates extends boolean | undefined = false,
 > = {
   [QueryPropName in keyof Query]: Schema['entities'][EntityName]['links'][QueryPropName] extends LinkAttrDef<
     infer Cardinality,
@@ -257,16 +273,16 @@ type InstaQLEntitySubqueryResult<
             | InstaQLEntity<
                 Schema,
                 LinkedEntityName,
-                Remove$NonRecursive<Query[QueryPropName]>,
-                Query[QueryPropName]['$']['fields'],
+                Remove$NonRecursive<SafeLookup<Query, [QueryPropName]>>,
+                SafeLookup<Query, [QueryPropName, '$', 'fields']>,
                 UseDates
               >
             | undefined
         : InstaQLEntity<
             Schema,
             LinkedEntityName,
-            Remove$NonRecursive<Query[QueryPropName]>,
-            Query[QueryPropName]['$']['fields'],
+            Remove$NonRecursive<SafeLookup<Query, [QueryPropName]>>,
+            SafeLookup<Query, [QueryPropName, '$', 'fields']>,
             UseDates
           >[]
       : never
@@ -326,19 +342,24 @@ type InstaQLFields<
   K extends keyof S['entities'],
 > = (Extract<keyof ResolveEntityAttrs<S['entities'][K]>, string> | 'id')[];
 
+type ComputeAttrs<
+  AllAttrs,
+  Fields extends readonly string[] | undefined,
+> = Fields extends readonly string[]
+  ? DistributePick<AllAttrs, Exclude<Fields[number], 'id'>>
+  : AllAttrs;
+
 type InstaQLEntity<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema['entities'],
-  Subquery extends InstaQLEntitySubquery<Schema, EntityName> = {},
+  Subquery extends InstaQLEntitySubquery<Schema, EntityName> | undefined = {},
   Fields extends InstaQLFields<Schema, EntityName> | undefined = undefined,
-  UseDates extends boolean = false,
+  UseDates extends boolean | undefined = false,
 > = Expand<
-  { id: string } & (Extract<Fields[number], string> extends undefined
-    ? ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>
-    : DistributePick<
-        ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>,
-        Exclude<Fields[number], 'id'>
-      >) &
+  { id: string } & ComputeAttrs<
+    ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>,
+    Fields
+  > &
     InstaQLEntitySubqueryResult<Schema, EntityName, Subquery, UseDates>
 >;
 
@@ -378,15 +399,15 @@ type InstaQLQueryResult<
 
 type InstaQLResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
-  Query extends InstaQLParams<Schema>,
-  UseDates extends boolean = false,
+  Query extends InstaQLParams<Schema> | undefined,
+  UseDates extends boolean | undefined = false,
 > = Expand<{
   [QueryPropName in keyof Query]: QueryPropName extends keyof Schema['entities']
     ? InstaQLEntity<
         Schema,
         QueryPropName,
-        Remove$NonRecursive<Query[QueryPropName]>,
-        Query[QueryPropName]['$']['fields'],
+        Remove$NonRecursive<SafeLookup<Query, [QueryPropName]>>,
+        SafeLookup<Query, [QueryPropName, '$', 'fields']>,
         UseDates
       >[]
     : never;
@@ -601,15 +622,22 @@ type ValidWhereObject<
           Schema['entities'][EntityName]['attrs'][K]
         >;
       } & {
-        and?: Input extends { and: Array<infer Item> }
+        and?: Input extends {
+          and: Array<infer Item extends { [key: string]: any } | undefined>;
+        }
           ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
           : never;
-        or?: Input extends { or: Array<infer Item> }
+        or?: Input extends {
+          or: Array<infer Item extends { [key: string]: any } | undefined>;
+        }
           ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
           : never;
       } & {
         // Special case for id
-        id?: ValidWhereValue<Input['id'], DataAttrDef<string, false, false>>;
+        id?: ValidWhereValue<
+          SafeLookup<Input, ['id']>,
+          DataAttrDef<string, false, false>
+        >;
       }
     : never;
 
@@ -640,7 +668,7 @@ type ExtractAttrFromDotPath<
         : never;
 
 type ValidQuery<
-  Q extends object,
+  Q extends Record<string, any>,
   S extends IContainEntitiesAndLinks<any, any>,
 > = S extends InstantUnknownSchemaDef
   ? InstaQLParams<S>

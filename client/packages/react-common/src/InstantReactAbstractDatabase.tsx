@@ -42,7 +42,10 @@ const defaultAuthState = {
 export default abstract class InstantReactAbstractDatabase<
   // need to pull this schema out to another generic for query params, not sure why
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+  Config extends InstantConfig<Schema, boolean | undefined> = InstantConfig<
+    Schema,
+    boolean
+  >,
   Rooms extends RoomSchemaShape = RoomsOf<Schema>,
 > implements IInstantDatabase<Schema>
 {
@@ -204,11 +207,7 @@ export default abstract class InstantReactAbstractDatabase<
   useQuery = <Q extends ValidQuery<Q, Schema>>(
     query: null | Q,
     opts?: InstaQLOptions,
-  ): InstaQLLifecycleState<
-    Schema,
-    Q,
-    NonNullable<Config['useDateObjects']>
-  > => {
+  ): InstaQLLifecycleState<Schema, Q, Config['useDateObjects']> => {
     return useQueryInternal<Q, Schema, Config['useDateObjects']>(
       this.core,
       query,

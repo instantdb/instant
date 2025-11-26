@@ -212,9 +212,9 @@
     (uuid? x)          (str x)
     (sequential? x)    (CelList. x)
     (associative? x)   (CelMap. x)
-    (instance? Date x) (doto (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss'Z'")
-                         (.setTimeZone (SimpleTimeZone. 0 "UTC"))
-                         (.format ^Date x))
+    (instance? Date x) (-> (doto (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss'Z'")
+                             (.setTimeZone (SimpleTimeZone. 0 "UTC")))
+                           (.format ^Date x))
     :else              x))
 
 (defn get-cel-value [m k]

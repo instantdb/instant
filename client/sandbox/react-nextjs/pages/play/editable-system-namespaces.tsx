@@ -312,8 +312,8 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
   ];
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">
+    <div className="mx-auto max-w-6xl p-4">
+      <h1 className="mb-4 text-2xl font-bold">
         Editable System Namespaces Tests
       </h1>
       <p className="mb-4 text-sm text-gray-600">
@@ -352,7 +352,7 @@ function TestButton({
   if (!result) {
     return (
       <button
-        className="w-full text-left bg-gray-100 hover:bg-gray-200 px-4 py-3 rounded border border-gray-300"
+        className="w-full rounded border border-gray-300 bg-gray-100 px-4 py-3 text-left hover:bg-gray-200"
         onClick={onClick}
       >
         <div className="font-semibold text-gray-700">{label}</div>
@@ -376,7 +376,7 @@ function TestButton({
         : 'text-yellow-600';
 
   return (
-    <div className={`p-3 rounded border ${bgColor}`}>
+    <div className={`rounded border p-3 ${bgColor}`}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2">
@@ -385,20 +385,20 @@ function TestButton({
             </span>
             <div className="font-semibold">{label}</div>
           </div>
-          <div className="text-sm mt-1">{result.message}</div>
+          <div className="mt-1 text-sm">{result.message}</div>
           {result.data && (
-            <details className="text-xs mt-1">
+            <details className="mt-1 text-xs">
               <summary className="cursor-pointer text-gray-600">
                 View data
               </summary>
-              <pre className="mt-1 p-2 bg-white rounded overflow-auto max-h-40">
+              <pre className="mt-1 max-h-40 overflow-auto rounded bg-white p-2">
                 {JSON.stringify(result.data, null, 2)}
               </pre>
             </details>
           )}
         </div>
         <button
-          className="ml-2 text-xs bg-white px-2 py-1 rounded border hover:bg-gray-50"
+          className="ml-2 rounded border bg-white px-2 py-1 text-xs hover:bg-gray-50"
           onClick={onClick}
         >
           Re-run
@@ -427,10 +427,10 @@ export default function Page() {
 
   if (app) {
     return (
-      <div className="max-w-6xl mx-auto mt-8">
+      <div className="mx-auto mt-8 max-w-6xl">
         <App app={app} />
       </div>
     );
   }
-  return <div className="max-w-6xl mx-auto mt-8">Loading...</div>;
+  return <div className="mx-auto mt-8 max-w-6xl">Loading...</div>;
 }

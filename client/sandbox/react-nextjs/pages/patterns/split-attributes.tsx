@@ -40,9 +40,9 @@ function App() {
 
   const { items } = data;
   return (
-    <div className="mx-w-md mx-auto p-4 flex flex-col w-1/2 space-y-2">
+    <div className="mx-w-md mx-auto flex w-1/2 flex-col space-y-2 p-4">
       <div className="font-bold">Todos</div>
-      <form className="space-y-2 flex flex-col" onSubmit={handleSubmit}>
+      <form className="flex flex-col space-y-2" onSubmit={handleSubmit}>
         <input
           type="text"
           value={field}
@@ -55,12 +55,12 @@ function App() {
           onChange={(e) => setPrivateField(e.target.value)}
           placeholder="private field..."
         />
-        <button className="py-2 border-2 border-black" type="submit">
+        <button className="border-2 border-black py-2" type="submit">
           Add item!
         </button>
       </form>
       <button
-        className="py-2 border-2 border-black"
+        className="border-2 border-black py-2"
         onClick={() => deleteItems(items)}
       >
         Delete all

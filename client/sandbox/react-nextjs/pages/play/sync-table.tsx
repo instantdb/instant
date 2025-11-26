@@ -113,7 +113,7 @@ function assertNever(x: never): never {
 }
 
 function notifyEvent(
-  event: SyncTableCallbackEvent<typeof schema, ItemsQuery, false>,
+  event: SyncTableCallbackEvent<typeof schema, ItemsQuery, boolean>,
   addMessage: (msg: string) => void,
 ) {
   switch (event.type) {
@@ -360,16 +360,16 @@ function Main({
 
   return (
     <div className="min-h-screen">
-      <div className="flex gap-8 p-4 justify-center">
+      <div className="flex justify-center gap-8 p-4">
         <div className="min-w-[560px]">
           <div className="mb-4">
-            <h1 className="text-4xl font-bold text-gray-800 mb-4">
+            <h1 className="mb-4 text-4xl font-bold text-gray-800">
               Items ({entities.length})
             </h1>
-            <div className="flex gap-3 flex-wrap items-center mb-3">
-              <div className="flex items-center gap-3 bg-white rounded-lg px-3 py-2 border-2 border-gray-300 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-3 rounded-lg border-2 border-gray-300 bg-white px-3 py-2 shadow-sm">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500 font-medium">
+                  <span className="text-sm font-medium text-gray-500">
                     Mode:
                   </span>
                   <select
@@ -383,15 +383,15 @@ function Main({
                       }
                       setUseSubscribeQuery(e.target.value === 'subscribeQuery');
                     }}
-                    className="border-0 bg-transparent text-sm font-semibold text-gray-900 focus:ring-0 focus:outline-none cursor-pointer pr-6"
+                    className="cursor-pointer border-0 bg-transparent pr-6 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-0"
                   >
                     <option value="subscribeTable">subscribeTable</option>
                     <option value="subscribeQuery">subscribeQuery</option>
                   </select>
                 </div>
-                <div className="w-px h-5 bg-gray-300"></div>
+                <div className="h-5 w-px bg-gray-300"></div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500 font-medium">
+                  <span className="text-sm font-medium text-gray-500">
                     Sort:
                   </span>
                   <select
@@ -405,7 +405,7 @@ function Main({
                           | 'createdAt',
                       )
                     }
-                    className="border-0 bg-transparent text-sm font-semibold text-gray-900 focus:ring-0 focus:outline-none cursor-pointer pr-6"
+                    className="cursor-pointer border-0 bg-transparent pr-6 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-0"
                   >
                     <option value="serverCreatedAt">Server Created</option>
                     <option value="name">Name</option>
@@ -418,10 +418,10 @@ function Main({
                         orderByDirection === 'asc' ? 'desc' : 'asc',
                       )
                     }
-                    className="flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-xs font-semibold text-gray-700"
+                    className="flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200"
                   >
                     <svg
-                      className="w-3.5 h-3.5"
+                      className="h-3.5 w-3.5"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -448,30 +448,30 @@ function Main({
               </div>
             </div>
             <div className="flex flex-col gap-3">
-              <div className="flex gap-3 flex-wrap items-center">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={handleCreateItem}
                   disabled={isCreating}
-                  className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Create Item
                 </button>
                 <button
                   onClick={handleCreate1000Items}
                   disabled={isCreating}
-                  className="rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-purple-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="whitespace-nowrap rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Create 1000
                 </button>
                 <button
                   onClick={handleCreate10kItems}
                   disabled={isCreating}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-indigo-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="whitespace-nowrap rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Create 10k
                 </button>
               </div>
-              <div className="flex gap-3 flex-wrap items-center">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={() => {
                     if (unsubRef.current) {
@@ -480,7 +480,7 @@ function Main({
                     }
                   }}
                   disabled={useSubscribeQuery}
-                  className="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-800 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="whitespace-nowrap rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Hard Unsubscribe
                 </button>
@@ -491,7 +491,7 @@ function Main({
                     }
                   }}
                   disabled={useSubscribeQuery}
-                  className="rounded-lg bg-gray-500 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="whitespace-nowrap rounded-lg bg-gray-500 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Soft Unsubscribe
                 </button>
@@ -504,22 +504,22 @@ function Main({
                     }
                   }}
                   disabled={isCreating}
-                  className="rounded-lg bg-gray-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="whitespace-nowrap rounded-lg bg-gray-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Reset Subscription
                 </button>
               </div>
-              <div className="flex gap-3 flex-wrap items-center">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={onResetApp}
                   disabled={isCreating}
-                  className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="whitespace-nowrap rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Reset App
                 </button>
                 <button
                   onClick={triggerError}
-                  className="rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-orange-700 whitespace-nowrap"
+                  className="whitespace-nowrap rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-orange-700"
                 >
                   Try an invalid query
                 </button>
@@ -528,7 +528,7 @@ function Main({
             {isCreating && (
               <div className="mt-4 flex items-center gap-3 text-gray-700">
                 <svg
-                  className="animate-spin h-5 w-5"
+                  className="h-5 w-5 animate-spin"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -557,8 +557,8 @@ function Main({
         </div>
         <div className="w-80 flex-shrink-0">
           <div className="sticky top-4">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Events</h2>
-            <div className="rounded-lg border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-8rem)] overflow-y-auto">
+            <h2 className="mb-4 text-2xl font-bold text-gray-800">Events</h2>
+            <div className="max-h-[calc(100vh-8rem)] overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-sm">
               {messages.length === 0 ? (
                 <div className="px-6 py-12 text-center text-gray-500">
                   No events yet
@@ -802,12 +802,12 @@ function App() {
       __adminToken: app['admin-token'],
     });
     return (
-      <div className="max-w-lg flex flex-col mx-auto">
+      <div className="mx-auto flex max-w-lg flex-col">
         <Main db={db} onResetApp={handleResetApp} appId={app.id} />
       </div>
     );
   }
-  return <div className="max-w-lg flex flex-col mx-auto">Loading...</div>;
+  return <div className="mx-auto flex max-w-lg flex-col">Loading...</div>;
 }
 
 export default App;

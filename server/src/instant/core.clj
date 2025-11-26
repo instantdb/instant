@@ -6,6 +6,7 @@
    [clojure.tools.logging :as log]
    [compojure.core :refer [defroutes GET POST routes wrap-routes]]
    [instant.admin.routes :as admin-routes]
+   [instant.admin.transact-queue :as admin-tx-queue]
    [instant.auth.jwt :as jwt]
    [instant.auth.oauth :as oauth]
    [instant.config :as config]
@@ -334,6 +335,8 @@
 
       (with-log-init :hint-testing
         (hint-testing/start))
+      (with-log-init :admin-tx-queue
+        (admin-tx-queue/start))
       (with-log-init :web-server
         (start))
       (log/info "Finished initializing"))

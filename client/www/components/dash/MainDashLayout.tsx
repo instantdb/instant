@@ -174,7 +174,10 @@ export const MainDashLayout: React.FC<{
         )}
       >
         <div
-          className={cn('flex h-full w-full flex-col', darkMode ? 'dark' : '')}
+          className={cn(
+            'flex min-h-full w-full flex-col',
+            darkMode ? 'dark' : '',
+          )}
         >
           <TopBar />
           <div

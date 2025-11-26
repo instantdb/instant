@@ -113,7 +113,10 @@ function patchClientForScopes(
     !client.scope ||
     // https://github.com/modelcontextprotocol/modelcontextprotocol/issues/653
     // Anthropic says it's fixed, but it doesn't seem like it
-    client.scope?.includes('claudeai')
+    client.scope?.includes('claudeai') ||
+    // Fix for mcp-remote. Unclear why it can't find the scopes
+    // and falls back to its default
+    client.scope === 'openid email profile'
   ) {
     return { ...client, scope: 'apps-read apps-write' };
   }

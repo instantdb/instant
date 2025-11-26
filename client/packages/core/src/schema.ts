@@ -39,7 +39,7 @@ function graph<
     // correctly aligned and does not allow for substituting a type that might
     // be broader or have additional properties.
     links as LinksDef<any>,
-    undefined as UnknownRooms,
+    undefined as unknown as UnknownRooms,
   );
 }
 

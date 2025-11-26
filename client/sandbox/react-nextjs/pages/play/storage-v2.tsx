@@ -47,8 +47,8 @@ function App() {
   }
   const { $files: images } = data;
   return (
-    <div className="box-border bg-gray-50 font-mono min-h-screen p-5 flex items-center flex-col">
-      <div className="tracking-wider text-5xl text-gray-300 mb-8">
+    <div className="box-border flex min-h-screen flex-col items-center bg-gray-50 p-5 font-mono">
+      <div className="mb-8 text-5xl tracking-wider text-gray-300">
         Image Feed
       </div>
       <ImageUpload />
@@ -103,7 +103,7 @@ function ImageUpload() {
   };
 
   return (
-    <div className="mb-8 p-5 border-2 border-dashed border-gray-300 rounded-lg">
+    <div className="mb-8 rounded-lg border-2 border-dashed border-gray-300 p-5">
       <input
         type="file"
         accept="image/*"
@@ -115,11 +115,11 @@ function ImageUpload() {
           <img
             src={previewURL}
             alt="Preview"
-            className="max-w-xs max-h-xs object-contain"
+            className="max-h-xs max-w-xs object-contain"
           />
           <button
             onClick={handleUpload}
-            className="py-2 px-4 bg-green-500 text-white border-none rounded cursor-pointer font-mono"
+            className="cursor-pointer rounded border-none bg-green-500 px-4 py-2 font-mono text-white"
           >
             Upload Image
           </button>
@@ -133,22 +133,22 @@ type Image = InstaQLEntity<typeof schema, '$files'>;
 
 function ImageGrid({ images }: { images: Image[] }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 w-full max-w-6xl">
+    <div className="grid w-full max-w-6xl grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
       {images.map((image, idx) => (
         <div
           key={image.id}
-          className="border border-gray-300 rounded-lg overflow-hidden"
+          className="overflow-hidden rounded-lg border border-gray-300"
         >
           <img
             src={image.url}
             alt={image.path}
-            className="w-full h-64 object-cover"
+            className="h-64 w-full object-cover"
           />
-          <div className="p-3 flex justify-between items-center bg-white">
+          <div className="flex items-center justify-between bg-white p-3">
             <span>{image.path}</span>
             <span
               onClick={() => deleteImage(image)}
-              className="cursor-pointer text-gray-300 px-1"
+              className="cursor-pointer px-1 text-gray-300"
             >
               𝘟
             </span>

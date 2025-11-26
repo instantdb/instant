@@ -9,6 +9,8 @@
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.admin.transact-queue :as tx-queue]
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.app-user :as app-user-model]
@@ -20,6 +22,7 @@
    [instant.reactive.session :as session]
    [instant.reactive.store :as rs]
    [instant.superadmin.routes :refer [req->superadmin-user!]]
+   [instant.util.async :as ua]
    [instant.util.email :as email]
    [instant.util.exception :as ex]
    [instant.util.http :as http-util]
@@ -27,6 +30,7 @@
    [instant.util.json :refer [->json <-json]]
    [instant.util.string :as string-util]
    [instant.util.token :as token-util]
+   [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [instant.hard-deletion-sweeper :as sweeper]
    [ring.util.http-response :as response]
@@ -39,6 +43,8 @@
    [medley.core :as medley]
    [instant.runtime.magic-code-auth :as magic-code-auth])
   (:import
+   (io.undertow.server HttpServerExchange)
+   (java.time Instant)
    (java.util UUID)))
 
 (defn req->app-id-untrusted! [req]
@@ -228,8 +234,47 @@
         tx-steps (admin-model/->tx-steps! {:attrs attrs
                                            :throw-on-missing-attrs? throw-on-missing-attrs?}
                                           steps)
-        {tx-id :id} (permissioned-tx/transact! ctx tx-steps)]
-    (response/ok {:tx-id tx-id})))
+        use-tx-queue? (flags/admin-tx-queue-enabled? app-id)]
+    (tracer/add-data! {:attributes {:use-tx-queue use-tx-queue?}})
+    (if-not use-tx-queue?
+      (let [{tx-id :id} (permissioned-tx/transact! ctx tx-steps)]
+        (response/ok {:tx-id tx-id}))
+
+      (let [response (promise)
+            start (Instant/now)
+            child-vfutures (ua/new-child-vfutures)
+            statement-tracker (sql/make-statement-tracker)
+            canceled? (atom false)
+            _ (tx-queue/put! {:app-id app-id
+                              :ctx ctx
+                              :tx-steps tx-steps
+                              :response-promise response
+                              :span tracer/*span*
+                              :child-vfutures child-vfutures
+                              :statement-tracker statement-tracker
+                              :canceled? canceled?
+                              :exceptions-silencer canceled?
+                              :start start
+                              :open? (fn []
+                                       (let [^HttpServerExchange exchange (:server-exchange req)]
+                                         (-> exchange
+                                             (.getConnection)
+                                             (.isOpen))))})
+            result (deref response
+                          (* (+ sql/*query-timeout-seconds* 5) 1000)
+                          ::timeout)]
+        (cond (= result ::timeout)
+              (do
+                (reset! canceled? true)
+                (sql/cancel-in-progress statement-tracker)
+                (ua/cancel-children child-vfutures true)
+                (ex/throw-query-timeout!))
+
+              (:error result)
+              (throw (:error result))
+
+              :else
+              (response/ok {:tx-id (:id (:ok result))}))))))
 
 (defn transact-perms-check [req]
   (let [{:keys [app-id] :as perms} (get-perms! req :data/write)

@@ -64,7 +64,7 @@ function SignInWithMagicCode({
 
   return (
     <div className="flex">
-      <div className="w-[200px] flex items-center">
+      <div className="flex w-[200px] items-center">
         <span className="text-sm font-medium">Magic Code</span>
       </div>
       <div className="w-[500px]">
@@ -75,11 +75,11 @@ function SignInWithMagicCode({
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               onClick={handleSendCode}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 whitespace-nowrap"
+              className="whitespace-nowrap rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
             >
               Send code
             </button>
@@ -91,11 +91,11 @@ function SignInWithMagicCode({
               placeholder="Enter code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               onClick={handleVerifyCode}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+              className="rounded bg-green-500 px-4 py-2 text-white hover:bg-green-600"
             >
               Verify
             </button>
@@ -119,12 +119,12 @@ function SignInAsGuest({
 
   return (
     <div className="flex">
-      <div className="w-[200px] flex items-center">
+      <div className="flex w-[200px] items-center">
         <span className="text-sm font-medium">Guest</span>
       </div>
       <div className="w-[500px]">
         <button
-          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          className="rounded bg-gray-500 px-4 py-2 text-white hover:bg-gray-600"
           onClick={handleSignInAsGuest}
         >
           Sign in as guest
@@ -140,8 +140,8 @@ function SignedOut({
   db: InstantReactAbstractDatabase<typeof schema>;
 }) {
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Sign In</h1>
+    <div className="mx-auto max-w-4xl p-6">
+      <h1 className="mb-6 text-2xl font-bold">Sign In</h1>
 
       <div className="space-y-4">
         <SignInAsGuest db={db} />
@@ -159,10 +159,10 @@ function SignedInAsGuest({
   db: InstantReactAbstractDatabase<typeof schema>;
 }) {
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="mx-auto max-w-4xl">
       <SignedIn user={user} db={db} />
 
-      <h2 className="text-lg font-semibold mb-4">Upgrade your account</h2>
+      <h2 className="mb-4 text-lg font-semibold">Upgrade your account</h2>
       <div className="space-y-4">
         <SignInWithMagicCode db={db} />
       </div>
@@ -204,18 +204,18 @@ function SignedIn({
 
   const guestUsers = data?.$users;
   return (
-    <div className="my-6 max-w-4xl mx-auto">
-      <table className="min-w-full border mb-6">
-        <tbody className="bg-white divide-y divide-gray-200">
+    <div className="mx-auto my-6 max-w-4xl">
+      <table className="mb-6 min-w-full border">
+        <tbody className="divide-y divide-gray-200 bg-white">
           {Object.entries(user)
             .sort(([a], [b]) => a.localeCompare(b))
             .filter(([key]) => key !== 'refresh_token')
             .map(([key, value]) => (
               <tr key={key}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
                   {key}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                   {typeof value === 'object'
                     ? JSON.stringify(value)
                     : String(value)}
@@ -236,7 +236,7 @@ function SignedIn({
             <div>
               {u.id}
               <button
-                className="ml-2 bg-blue-500 text-white px-2 text-sm hover:bg-blue-600"
+                className="ml-2 bg-blue-500 px-2 text-sm text-white hover:bg-blue-600"
                 onClick={() => transferTodos(u.id)}
               >
                 Transfer
@@ -259,14 +259,14 @@ function SignedIn({
             }),
           )
         }
-        className="px-4 py-2 mr-4 bg-blue-500 text-white rounded hover:bg-blue-600"
+        className="mr-4 rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
       >
         Add some todos
       </button>
 
       <button
         onClick={() => db.auth.signOut()}
-        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+        className="rounded bg-red-500 px-4 py-2 text-white hover:bg-red-600"
       >
         Sign out
       </button>

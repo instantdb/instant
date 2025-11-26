@@ -17,11 +17,11 @@ export default function Patch() {
   });
 
   return (
-    <div className="p-4 text-sm font-mono flex flex-col mx-auto max-w-md gap-4">
+    <div className="mx-auto flex max-w-md flex-col gap-4 p-4 font-mono text-sm">
       <button className="border border-black" onClick={reset}>
         reset state
       </button>
-      <div className="flex flex-col gap-2 p-4 border border-black">
+      <div className="flex flex-col gap-2 border border-black p-4">
         <em>Block data (editable)</em>
         <textarea
           className="bg-gray-50"
@@ -47,7 +47,7 @@ export default function Patch() {
       <button className="border border-black" onClick={mergeRef}>
         merge `refs` (throws error)
       </button>
-      <pre className="border border-black overflow-scroll bg-gray-100">
+      <pre className="overflow-scroll border border-black bg-gray-100">
         {JSON.stringify(r.data, null, 2)}
       </pre>
     </div>

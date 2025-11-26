@@ -91,7 +91,7 @@ function createIframe(src: string) {
 }
 
 function createToggler(
-  config: DevtoolConfig,
+  config: StrictDevtoolConfig,
   onClick: (this: HTMLButtonElement, ev: MouseEvent) => any,
 ) {
   const logoSVG = `
@@ -150,7 +150,7 @@ function cssPositionForIframeContainer(position: DevtoolPosition) {
   }
 }
 
-function createIframeContainer(config: DevtoolConfig) {
+function createIframeContainer(config: StrictDevtoolConfig) {
   const element = document.createElement('div');
   Object.assign(element.style, {
     position: 'fixed',

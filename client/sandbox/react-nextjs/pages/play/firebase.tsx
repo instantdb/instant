@@ -62,13 +62,13 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
   if (user) {
     return (
       <div>
-        <h3 className="text-lg font-bold mb-2">
+        <h3 className="mb-2 text-lg font-bold">
           Logged in with Firebase and Instant
         </h3>
 
         <div className="mb-4">
           <button
-            className="bg-black text-white m-2 p-2"
+            className="m-2 bg-black p-2 text-white"
             onClick={() => {
               db.auth.signOut();
             }}
@@ -76,7 +76,7 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
             Sign out Instant only
           </button>
           <button
-            className="bg-black text-white m-2 p-2"
+            className="m-2 bg-black p-2 text-white"
             onClick={() => {
               auth.signOut();
             }}
@@ -84,13 +84,13 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
             Sign out Firebase only
           </button>
           <button
-            className="bg-black text-white m-2 p-2"
+            className="m-2 bg-black p-2 text-white"
             onClick={handleSignOut}
           >
             Sign out both
           </button>
           <button
-            className="bg-black text-white m-2 p-2"
+            className="m-2 bg-black p-2 text-white"
             onClick={signInWithToken}
           >
             Sign in to Instant again, just for fun
@@ -98,15 +98,15 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
         </div>
 
         <div className="mb-4">
-          <h4 className="font-semibold mb-1">Instant User Object:</h4>
-          <pre className="text-xs bg-gray-100 p-2 rounded border">
+          <h4 className="mb-1 font-semibold">Instant User Object:</h4>
+          <pre className="rounded border bg-gray-100 p-2 text-xs">
             {JSON.stringify(user, null, 2)}
           </pre>
         </div>
 
         <div className="mb-4">
-          <h4 className="font-semibold mb-1">Firebase User Object:</h4>
-          <pre className="text-xs bg-gray-100 p-2 rounded border">
+          <h4 className="mb-1 font-semibold">Firebase User Object:</h4>
+          <pre className="rounded border bg-gray-100 p-2 text-xs">
             {JSON.stringify(firebaseUser, null, 2)}
           </pre>
         </div>
@@ -223,19 +223,19 @@ function AuthForm({ db }: { db: InstantReactWebDatabase<any> }) {
 
       <div>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => setMode('email')}
         >
           {mode === 'email' ? '→ ' : ''}Email
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={() => setMode('phone')}
         >
           {mode === 'phone' ? '→ ' : ''}Phone
         </button>
         <button
-          className="bg-black text-white m-2 p-2"
+          className="m-2 bg-black p-2 text-white"
           onClick={handleAnonymousSignIn}
         >
           Anonymous
@@ -246,13 +246,13 @@ function AuthForm({ db }: { db: InstantReactWebDatabase<any> }) {
         <div>
           <div>
             <button
-              className="bg-black text-white m-2 p-2"
+              className="m-2 bg-black p-2 text-white"
               onClick={() => setAuthMode('signin')}
             >
               {authMode === 'signin' ? '→ ' : ''}Sign In
             </button>
             <button
-              className="bg-black text-white m-2 p-2"
+              className="m-2 bg-black p-2 text-white"
               onClick={() => setAuthMode('signup')}
             >
               {authMode === 'signup' ? '→ ' : ''}Sign Up
@@ -260,7 +260,7 @@ function AuthForm({ db }: { db: InstantReactWebDatabase<any> }) {
           </div>
           <div>
             <input
-              className="m-2 p-2 w-64"
+              className="m-2 w-64 p-2"
               type="email"
               placeholder="Email"
               value={email}
@@ -269,7 +269,7 @@ function AuthForm({ db }: { db: InstantReactWebDatabase<any> }) {
           </div>
           <div>
             <input
-              className="m-2 p-2 w-64"
+              className="m-2 w-64 p-2"
               type="password"
               placeholder="Password"
               value={password}
@@ -278,7 +278,7 @@ function AuthForm({ db }: { db: InstantReactWebDatabase<any> }) {
           </div>
           <div>
             <button
-              className="bg-black text-white m-2 p-2"
+              className="m-2 bg-black p-2 text-white"
               onClick={handleEmailAuth}
             >
               {authMode === 'signin' ? 'Sign In' : 'Sign Up'}
@@ -293,7 +293,7 @@ function AuthForm({ db }: { db: InstantReactWebDatabase<any> }) {
             <>
               <div>
                 <input
-                  className="m-2 p-2 w-64"
+                  className="m-2 w-64 p-2"
                   type="tel"
                   placeholder="Phone Number (e.g., +1234567890)"
                   value={phone}
@@ -305,7 +305,7 @@ function AuthForm({ db }: { db: InstantReactWebDatabase<any> }) {
               </div>
               <div>
                 <button
-                  className="bg-black text-white m-2 p-2"
+                  className="m-2 bg-black p-2 text-white"
                   onClick={handlePhoneSignIn}
                 >
                   Send Verification Code
@@ -316,7 +316,7 @@ function AuthForm({ db }: { db: InstantReactWebDatabase<any> }) {
             <>
               <div>
                 <input
-                  className="m-2 p-2 w-64"
+                  className="m-2 w-64 p-2"
                   type="text"
                   placeholder="Verification Code"
                   value={verificationCode}
@@ -328,7 +328,7 @@ function AuthForm({ db }: { db: InstantReactWebDatabase<any> }) {
               </div>
               <div>
                 <button
-                  className="bg-black text-white m-2 p-2"
+                  className="m-2 bg-black p-2 text-white"
                   onClick={handleVerifyCode}
                 >
                   Verify Code
@@ -341,12 +341,12 @@ function AuthForm({ db }: { db: InstantReactWebDatabase<any> }) {
 
       {error && <div className="m-2 p-2 text-red-600">Error: {error}</div>}
 
-      <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded">
-        <h3 className="font-semibold mb-2">Setup Instructions:</h3>
-        <p className="text-sm mb-2">
+      <div className="mt-8 rounded border border-yellow-200 bg-yellow-50 p-4">
+        <h3 className="mb-2 font-semibold">Setup Instructions:</h3>
+        <p className="mb-2 text-sm">
           Before signing in, you need to add Firebase auth to your Instant app:
         </p>
-        <ol className="text-sm list-decimal list-inside space-y-1">
+        <ol className="list-inside list-decimal space-y-1 text-sm">
           <li>
             Go to:{' '}
             <a

@@ -29,9 +29,11 @@
 (defn set-package-versions!
   "Update all package.jsons with the given version"
   [v]
-  (doseq [[k path] PACKAGE_PATHS]
-    (println (str  "[" (name k) "]" " set version = " v))
-    (jq-set! (package-json-path path) ".version" v)))
+  ;; npm expects plain semver, so strip a leading "v" when writing package.json
+  (let [package-version (str/replace-first v #"^v" "")]
+    (doseq [[k path] PACKAGE_PATHS]
+      (println (str "[" (name k) "] set version = " package-version))
+      (jq-set! (package-json-path path) ".version" package-version))))
 
 (defn publish-packages! [tag]
   (println "[publish] pnpm publish-packages")

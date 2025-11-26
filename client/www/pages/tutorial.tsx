@@ -203,7 +203,7 @@ function PackageManagerSelector({
     <div className="flex justify-center">
       <div className="w-full">
         <TabGroup selectedIndex={selectedIndex} onChange={setSelectedIndex}>
-          <TabList className="flex space-x-1 rounded-t-xl bg-gray-200 p-1 mb-0">
+          <TabList className="mb-0 flex space-x-1 rounded-t-xl bg-gray-200 p-1">
             {packageManagers.map((pm) => (
               <Tab
                 key={pm.id}
@@ -212,7 +212,7 @@ function PackageManagerSelector({
                     'w-full rounded-lg py-2.5 text-sm font-medium transition-all',
                     'ring-white ring-opacity-60 ring-offset-2 ring-offset-gray-400 focus:outline-none focus:ring-2',
                     selected
-                      ? 'bg-white shadow-md text-gray-900'
+                      ? 'bg-white text-gray-900 shadow-md'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
                   )
                 }
@@ -222,11 +222,11 @@ function PackageManagerSelector({
             ))}
           </TabList>
 
-          <div className="bg-white rounded-b-lg border border-gray-300 shadow-sm">
+          <div className="rounded-b-lg border border-gray-300 bg-white shadow-sm">
             <TabPanels>
               {packageManagers.map((pm) => (
                 <TabPanel key={pm.id} className="focus:outline-none">
-                  <div className="p-5 font-mono text-xs md:text-sm flex items-center justify-between">
+                  <div className="flex items-center justify-between p-5 font-mono text-xs md:text-sm">
                     <span className="text-gray-900">{currentCommand}</span>
                     <CopyButton command={currentCommand} />
                   </div>
@@ -243,11 +243,11 @@ function PackageManagerSelector({
 function PromptExample({ title, content }: { title: string; content: string }) {
   return (
     <div className="mb-8">
-      <div className="flex items-start justify-between mb-4">
+      <div className="mb-4 flex items-start justify-between">
         <SubsectionHeading className="flex-1">{title}</SubsectionHeading>
         <CopyButton command={content} label="Copy Prompt" />
       </div>
-      <div className="bg-gray-50 rounded-md p-4 font-mono text-sm text-gray-800 whitespace-pre-wrap border-l-4 border-l-gray-300">
+      <div className="whitespace-pre-wrap rounded-md border-l-4 border-l-gray-300 bg-gray-50 p-4 font-mono text-sm text-gray-800">
         {content}
       </div>
     </div>
@@ -274,15 +274,15 @@ function DebuggingAccordion() {
         return (
           <div
             key={item.id}
-            className="border border-gray-200 rounded-lg bg-gray-50"
+            className="rounded-lg border border-gray-200 bg-gray-50"
           >
             <button
               onClick={() => toggleItem(item.id)}
-              className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition-colors"
+              className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
             >
               <span className="font-medium text-gray-900">{item.title}</span>
               <svg
-                className={`w-5 h-5 text-gray-500 transition-transform ${
+                className={`h-5 w-5 text-gray-500 transition-transform ${
                   isOpen ? 'rotate-180' : ''
                 }`}
                 fill="none"
@@ -298,7 +298,7 @@ function DebuggingAccordion() {
               </svg>
             </button>
             {isOpen && (
-              <div className="px-4 pb-4 text-gray-700 border-t border-gray-100">
+              <div className="border-t border-gray-100 px-4 pb-4 text-gray-700">
                 <div className="space-y-4">
                   {item.content}
                   {item.videoUrl && (
@@ -307,10 +307,10 @@ function DebuggingAccordion() {
                         href={item.videoUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                        className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                       >
                         <svg
-                          className="w-4 h-4"
+                          className="h-4 w-4"
                           fill="currentColor"
                           viewBox="0 0 24 24"
                         >
@@ -338,7 +338,7 @@ function MCPSetupInstructions() {
       <div className="mb-6">
         <H3>2. Install the Instant MCP server</H3>
       </div>
-      <p className="text-gray-700 mb-6">
+      <p className="mb-6 text-gray-700">
         Below are instructions on how to add the remote Instant MCP server.
         Select your preferred tool and follow the instructions.
       </p>
@@ -350,7 +350,7 @@ function MCPSetupInstructions() {
           setSelectedClient(Object.keys(clientConfigs)[index] as ClientType)
         }
       >
-        <TabList className="flex space-x-1 rounded-xl bg-gray-100 p-1 mb-6">
+        <TabList className="mb-6 flex space-x-1 rounded-xl bg-gray-100 p-1">
           {Object.entries(clientConfigs).map(([key, config]) => (
             <Tab
               key={key}
@@ -359,7 +359,7 @@ function MCPSetupInstructions() {
                   'w-full rounded-lg py-2.5 text-sm font-medium leading-5',
                   'ring-white ring-opacity-60 ring-offset-2 ring-offset-gray-400 focus:outline-none focus:ring-2',
                   selected
-                    ? 'bg-white shadow text-gray-900'
+                    ? 'bg-white text-gray-900 shadow'
                     : 'text-gray-600 hover:bg-white/60 hover:text-gray-900',
                 )
               }
@@ -392,7 +392,7 @@ function BuildAppSection() {
       <div className="mb-6">
         <H3>4. Prompt the LLM to build us an app! (This is the fun part!)</H3>
       </div>
-      <div className="text-gray-700 space-y-3 mb-6">
+      <div className="mb-6 space-y-3 text-gray-700">
         <p>
           Woohoo! Now that we've got everything set up, we're ready to build an
           app! Fire up your editor (cursor, windsurf, zed, etc.) or your CLI
@@ -420,7 +420,7 @@ function DebuggingSection() {
       <div className="mb-6">
         <H3>Debugging Common Issues</H3>
       </div>
-      <p className="text-gray-700 mb-6">
+      <p className="mb-6 text-gray-700">
         Run into an issue? Here are solutions to common problems you might
         encounter:
       </p>
@@ -434,7 +434,7 @@ function ClosingSection() {
     <p>
       Huzzah! You've built your first app with Instant! If you're curious, you
       can go to your{' '}
-      <a href="/dash" className="text-blue-600 hover:text-blue-800 underline">
+      <a href="/dash" className="text-blue-600 underline hover:text-blue-800">
         Instant dashboard
       </a>{' '}
       and see all the data you've created in the Explorer tab.
@@ -445,20 +445,20 @@ function ClosingSection() {
 function ShareCreationSection() {
   return (
     <div className="mb-16">
-      <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-lg p-6">
+      <div className="rounded-lg border border-orange-200 bg-gradient-to-br from-orange-50 to-red-50 p-6">
         <div className="flex items-start gap-4">
           <div className="text-3xl">🎉</div>
           <div className="flex-1">
-            <h4 className="text-lg font-semibold text-gray-800 mb-2">
+            <h4 className="mb-2 text-lg font-semibold text-gray-800">
               Show off your creation!
             </h4>
-            <p className="text-gray-600 mb-4">
+            <p className="mb-4 text-gray-600">
               We'd love to see what you built! Tweet us{' '}
               <a
                 href="https://twitter.com/instant_db"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-orange-600 hover:text-orange-800 font-medium"
+                className="font-medium text-orange-600 hover:text-orange-800"
               >
                 @instant_db
               </a>{' '}
@@ -468,7 +468,7 @@ function ShareCreationSection() {
               href="https://twitter.com/intent/tweet?text=%0A%0ABuilt%20with%20@instant_db%20%F0%9F%9A%80%20Tutorial:%20https://instantdb.com/labs/mcp-tutorial"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded-full text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-4 py-2 text-sm font-medium text-orange-800 transition-colors hover:bg-orange-200"
             >
               <span>🧡</span>
               <span>Share on Twitter</span>
@@ -491,6 +491,38 @@ const cursorMCPConfig = `{
 }`;
 
 const clientConfigs = {
+  cursor: {
+    name: 'Cursor',
+    setupContent: (
+      <div className="space-y-4">
+        <p>Click this button to install the Instant MCP server in Cursor:</p>
+        <div className="flex">
+          <a
+            href="https://cursor.com/en/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <img
+              width={150}
+              src="https://cursor.com/deeplink/mcp-install-dark.svg"
+              alt="Install MCP Server"
+              className="transition-opacity hover:opacity-80"
+            />
+          </a>
+        </div>
+        <p>
+          Alternatively you can paste this into your `~/.cursor/mcp.json`
+          directly
+        </p>
+        <Fence code={cursorMCPConfig} copyable={true} language="json" />
+        <p>
+          You should now see the Instant MCP server in your MCP servers list. If
+          you don't you may need to restart Cursor. Once you see it, click the
+          "Needs Login" button to go through the auth flow.
+        </p>
+      </div>
+    ),
+  },
   claude: {
     name: 'Claude Code',
     setupContent: (
@@ -500,7 +532,7 @@ const clientConfigs = {
         </p>
         <Copyable value="claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp" />
         <p>Now you can run through the following:</p>
-        <ol className="list-decimal list-inside space-y-2">
+        <ol className="list-inside list-decimal space-y-2">
           <li>
             Run <code>claude</code> in your terminal to start the Claude Code
             CLI.
@@ -524,51 +556,36 @@ const clientConfigs = {
     setupContent: (
       <div className="space-y-4">
         <p>
-          If you're on a paid plan, you can add the server via the command line:
+          If you haven't already, add this to your codex config in
+          `~/.codex/config.toml` to enable remote mcp support:
         </p>
-        <Copyable value='codex mcp add instant -- npx -y mcp-remote "https://mcp.instantdb.com/mcp"' />
-        <p>Now you can run through the following:</p>
-        <ol className="list-decimal list-inside space-y-2">
-          <li>
-            Run <code>codex</code> in your terminal to start Codex
-          </li>
-          <li>After a few seconds, codex should initiate an auth flow</li>
-          <li>
-            Complete the flow to enable the Instant MCP server in your codex
-            sessions!
-          </li>
-        </ol>
+        <Copyable
+          value={`[features]
+rmcp_client = true`}
+          multiline
+        />
+        <p>Now tell codex to add the MCP server:</p>
+        <Copyable value='codex mcp add instant --url "https://mcp.instantdb.com/mcp"' />
+        <p>
+          This should load a browser to authenticate with Instant. After
+          granting access you should be ready to go! Run `codex` to start Codex
+          and then run `/mcp` to see Instant in your mcp list.
+        </p>
       </div>
     ),
   },
-  cursor: {
-    name: 'Cursor',
+  gemini: {
+    name: 'Gemini',
     setupContent: (
       <div className="space-y-4">
-        <p>Click this button to install the Instant MCP server in Cursor:</p>
-        <div className="flex">
-          <a
-            href="https://cursor.com/en/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <img
-              width={150}
-              src="https://cursor.com/deeplink/mcp-install-dark.svg"
-              alt="Install MCP Server"
-              className="hover:opacity-80 transition-opacity"
-            />
-          </a>
-        </div>
         <p>
-          Alternatively you can paste this into your `~/.cursor/mcp.json`
-          directly
+          If you're on a paid plan, you can add the server via the command line:
         </p>
-        <Fence code={cursorMCPConfig} copyable={true} language="json" />
+        <Copyable value="gemini mcp add --transport http instant https://mcp.instantdb.com/mcp" />
         <p>
-          You should now see the Instant MCP server in your MCP servers list. If
-          you don't you may need to restart Cursor. Once you see it, click the
-          "Needs Login" button to go through the auth flow.
+          This should load a browser to authenticate with Instant. After
+          granting access you should be ready to go! Run `gemini` to start
+          Gemini and then run `/mcp` to see Instant in your mcp list.
         </p>
       </div>
     ),
@@ -605,13 +622,13 @@ export default function TutorialNew() {
       <MainNav />
 
       <Section>
-        <div className="max-w-4xl mx-auto">
-          <div className="mt-12 mb-8">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-8 mt-12">
             <div className="mb-6">
               <H2>{pageTitle}</H2>
             </div>
 
-            <div className="mb-12 text-lg text-gray-700 space-y-6">
+            <div className="mb-12 space-y-6 text-lg text-gray-700">
               <p>👋 Hey there!</p>
               <p>
                 In this tutorial we'll walk through creating a full-stack app
@@ -621,7 +638,7 @@ export default function TutorialNew() {
               </p>
             </div>
           </div>
-          <div className="text-gray-700 space-y-12">
+          <div className="space-y-12 text-gray-700">
             <div>
               <H3>What we'll do:</H3>
               <ol className="mt-4 space-y-2 text-lg text-gray-700">
@@ -646,7 +663,7 @@ export default function TutorialNew() {
               </p>
               <PackageManagerSelector commandTemplate="instant-cli login" />
               <p>
-                This will open up a broswer window where you can log in to your
+                This will open up a browser window where you can log in to your
                 Instant account or sign up if you don't have one yet.
               </p>
             </div>

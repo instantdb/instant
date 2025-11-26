@@ -148,7 +148,7 @@ export type Config = {
 
 export type InstantConfig<
   S extends InstantSchemaDef<any, any, any>,
-  UseDates extends boolean = false,
+  UseDates extends boolean | undefined = false,
 > = {
   appId: string;
   schema?: S;
@@ -184,7 +184,7 @@ export type SubscribeTopic<PresenceShape, TopicsByKey> = <
 
 export type GetPresence<PresenceShape> = <Keys extends keyof PresenceShape>(
   opts: PresenceOpts<PresenceShape, Keys>,
-) => PresenceResponse<PresenceShape, Keys>;
+) => PresenceResponse<PresenceShape, Keys> | null;
 
 export type SubscribePresence<PresenceShape> = <
   Keys extends keyof PresenceShape,
@@ -212,7 +212,11 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
       pageInfo: PageInfoResponse<Q>;
     };
 
-type InstaQLSubscriptionState<Schema, Q, UseDates extends boolean> =
+type InstaQLSubscriptionState<
+  Schema,
+  Q,
+  UseDates extends boolean | undefined,
+> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
@@ -231,7 +235,7 @@ type LifecycleSubscriptionState<
 type InstaQLLifecycleState<
   Schema,
   Q,
-  UseDates extends boolean = false,
+  UseDates extends boolean | undefined = false,
 > = InstaQLSubscriptionState<Schema, Q, UseDates> & {
   isLoading: boolean;
 };
@@ -257,7 +261,7 @@ function initGlobalInstantCoreStore(): Record<string, any> {
   return globalThis.__instantDbStore;
 }
 
-function reactorKey(config: InstantConfig<any, boolean>): string {
+function reactorKey(config: InstantConfig<any, boolean | undefined>): string {
   // @ts-expect-error
   const adminToken = config.__adminToken;
   return (
@@ -519,7 +523,7 @@ function coerceQuery(o: any) {
 
 class InstantCoreDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  UseDates extends boolean = false,
+  UseDates extends boolean | undefined = false,
 > implements IInstantDatabase<Schema>
 {
   public _reactor: Reactor<RoomsOf<Schema>>;
@@ -593,7 +597,7 @@ class InstantCoreDatabase<
    */
   subscribeQuery<
     Q extends ValidQuery<Q, Schema>,
-    UseDatesLocal extends boolean = UseDates,
+    UseDatesLocal extends boolean | undefined = UseDates,
   >(
     query: Q,
     cb: (resp: InstaQLSubscriptionState<Schema, Q, UseDatesLocal>) => void,
@@ -756,8 +760,9 @@ function schemaHash(schema?: InstantSchemaDef<any, any, any>): string {
     return '0';
   }
 
-  if (schemaHashStore.get(schema)) {
-    return schemaHashStore.get(schema);
+  const fromStore = schemaHashStore.get(schema);
+  if (fromStore) {
+    return fromStore;
   }
   const hash = weakHash(schema);
   schemaHashStore.set(schema, hash);
@@ -795,7 +800,7 @@ function schemaChanged(
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
-  UseDates extends boolean = false,
+  UseDates extends boolean | undefined = false,
 >(
   config: InstantConfig<Schema, UseDates>,
   Storage?: any,
@@ -836,7 +841,10 @@ function init<
   return client;
 }
 
-function handleDevtool(appId: string, devtool: boolean | DevtoolConfig) {
+function handleDevtool(
+  appId: string,
+  devtool: boolean | DevtoolConfig | null | undefined,
+) {
   if (
     typeof window === 'undefined' ||
     typeof window.location === 'undefined' ||

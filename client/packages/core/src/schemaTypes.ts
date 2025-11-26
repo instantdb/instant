@@ -302,7 +302,10 @@ type OptionalKeys<Attrs extends AttrsDefs> = {
  *   - Required keys => `key: ValueType`
  *   - Optional keys => `key?: ValueType`
  */
-type MappedAttrs<Attrs extends AttrsDefs, UseDates extends boolean> = {
+type MappedAttrs<
+  Attrs extends AttrsDefs,
+  UseDates extends boolean | undefined,
+> = {
   [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any, any>
     ? V extends Date
       ? UseDates extends true
@@ -322,7 +325,7 @@ type MappedAttrs<Attrs extends AttrsDefs, UseDates extends boolean> = {
 
 export type ResolveEntityAttrs<
   EDef extends EntityDef<any, any, any>,
-  UseDates extends boolean = false,
+  UseDates extends boolean | undefined = false,
   ResolvedAttrs = MappedAttrs<EDef['attrs'], UseDates>,
 > =
   EDef extends EntityDef<any, any, infer AsType>
@@ -342,7 +345,7 @@ export type RoomsFromDef<RDef extends RoomsDef> = {
     presence: Expand<ResolveEntityAttrs<RDef[RoomName]['presence']>>;
     topics: {
       [TopicName in keyof RDef[RoomName]['topics']]: Expand<
-        ResolveEntityAttrs<RDef[RoomName]['topics'][TopicName]>
+        ResolveEntityAttrs<NonNullable<RDef[RoomName]['topics']>[TopicName]>
       >;
     };
   };
@@ -458,10 +461,12 @@ type EntityDefFromRoomSlice<Shape extends { [k: string]: any }> = EntityDef<
 
 type RoomDefFromShape<RoomSchema extends RoomSchemaShape> = {
   [RoomName in keyof RoomSchema]: {
-    presence: EntityDefFromRoomSlice<RoomSchema[RoomName]['presence']>;
+    presence: EntityDefFromRoomSlice<
+      NonNullable<RoomSchema[RoomName]['presence']>
+    >;
     topics: {
       [TopicName in keyof RoomSchema[RoomName]['topics']]: EntityDefFromRoomSlice<
-        RoomSchema[RoomName]['topics'][TopicName]
+        NonNullable<RoomSchema[RoomName]['topics'][TopicName]>
       >;
     };
   };

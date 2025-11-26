@@ -49,7 +49,7 @@ function Main({ user, auth }: { user: User; auth: any }) {
       <h1>Hi {user.email}!</h1>
       <h2>id: {user.id}</h2>
       <button
-        className="px-4 py-2 rounded border-2 my-2"
+        className="my-2 rounded border-2 px-4 py-2"
         onClick={(e) => {
           auth.signOut();
         }}

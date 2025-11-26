@@ -364,7 +364,7 @@ const validateWhereClause = (
 const validateDollarObject = (
   dollarObj: Record<string, unknown>,
   entityName: string,
-  schema?: IContainEntitiesAndLinks<any, any>,
+  schema?: IContainEntitiesAndLinks<any, any> | null | undefined,
   path?: string,
   depth: number = 0,
 ): void => {
@@ -414,7 +414,7 @@ const validateDollarObject = (
 const validateEntityInQuery = (
   queryPart: Record<string, unknown>,
   entityName: string,
-  schema: IContainEntitiesAndLinks<any, any>,
+  schema: IContainEntitiesAndLinks<any, any> | null | undefined,
   path: string,
   depth: number = 0,
 ): void => {

@@ -58,7 +58,7 @@ function Main() {
   const item = data.flicker[0];
 
   return (
-    <div className="p-10 flex flex-col gap-1">
+    <div className="flex flex-col gap-1 p-10">
       <div>
         {item.id} {': '} {item.count}
       </div>
@@ -94,7 +94,7 @@ function Main() {
         </button>
       </div>
 
-      <div className="flex flex-row gap-1 flex-wrap">
+      <div className="flex flex-row flex-wrap gap-1">
         {states.map((state, i) => {
           let correct = i == 0 || states[i - 1] + 1 == state;
           return (

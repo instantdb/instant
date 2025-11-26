@@ -75,7 +75,7 @@ const ConvertPage: React.FC = () => {
         </div>
         <div className="my-4">
           <button
-            className="bg-black text-white p-2 flex"
+            className="flex bg-black p-2 text-white"
             onClick={handleConvert}
           >
             Convert

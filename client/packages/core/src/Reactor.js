@@ -187,6 +187,9 @@ export default class Reactor {
   /** @type {PersistedObject} */
   kv;
 
+  /** @type {SyncTable} */
+  _syncTable;
+
   /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
   queryCbs = {};
   /** @type {Record<string, Array<{ q: any, eventId: string, dfd: Deferred }>>} */
@@ -210,7 +213,7 @@ export default class Reactor {
   _wsOk = null;
   _localIdPromises = {};
   _errorMessage = null;
-  /** @type {Promise<null | {error: {message: string}}>}**/
+  /** @type {Promise<null | {error: {message: string}}> | null}**/
   _oauthCallbackResponse = null;
 
   /** @type {null | import('./utils/linkIndex.ts').LinkIndex}} */
@@ -226,6 +229,7 @@ export default class Reactor {
   _presence = {};
   _broadcastQueue = [];
   _broadcastSubs = {};
+  /** @type {{isLoading: boolean; error: any | undefined, user: any | undefined}} */
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
   _dataForQueryCache = {};
@@ -444,17 +448,22 @@ export default class Reactor {
       dfd.resolve({ status, eventId });
     } else {
       // Check if error comes from server or client
-      if (errorMsg.type) {
+      if (errorMsg?.type) {
         const { status, ...body } = errorMsg;
         dfd.reject(
           new InstantAPIError({
             // @ts-expect-error body.type is not constant typed
             body,
-            status,
+            status: status ?? 0,
           }),
         );
       } else {
-        dfd.reject(new InstantError(errorMsg.message, errorMsg.hint));
+        dfd.reject(
+          new InstantError(
+            errorMsg?.message || 'Unknown error',
+            errorMsg?.hint,
+          ),
+        );
       }
     }
   }
@@ -760,7 +769,7 @@ export default class Reactor {
   /**
    * @param {'timeout' | 'error'} status
    * @param {string} eventId
-   * @param {{message: string, type?: string, status?: number, hint?: unknown}} errorMsg
+   * @param {{message?: string, type?: string, status?: number, hint?: unknown}} errorMsg
    */
   _handleMutationError(status, eventId, errorMsg) {
     const mut = this._pendingMutations().get(eventId);

@@ -75,13 +75,6 @@ const tools: ToolCard[] = [
       'We let users leave feedback on our docs. This is a quick way to see what they are saying!',
     category: 'Comms',
   },
-  {
-    title: 'LLM Example',
-    href: '/intern/llm-example',
-    description:
-      'Example app that we use in our LLM rules to teach about InstantDB',
-    category: 'Other',
-  },
 ];
 
 const categories = ['All', 'KPIs', 'Analytics', 'Comms', 'Other'];

@@ -86,7 +86,7 @@
                            (:checked-data-type attr))
               (ex/throw-validation-err! :query
                                         {:q instaql-query}
-                                        [{:message (str "Order field must be indexed with a checked data type.")}]))
+                                        [{:message "Order field must be indexed with a checked data type."}]))
 
             (let [order-col-value-fn (d/extract-value-fn (:checked-data-type attr) :>)]
               {:where [:and
@@ -104,7 +104,7 @@
                :pg-hints [(pg-hints/index-scan :t (if order-col-value-fn
                                                     (keyword (format "triples_%s_type_idx"
                                                                      (name (:checked-data-type attr))))
-                                                    :ave_index))]})))
+                                                    :ave_with_e_index))]})))
 
         ea-select (fn [ns-str]
                     {:select :*
