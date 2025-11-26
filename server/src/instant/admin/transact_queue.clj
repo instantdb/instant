@@ -3,6 +3,7 @@
    [instant.config :as config]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.grouped-queue :as grouped-queue]
+   [instant.util.coll :as ucoll]
    [instant.util.delay :as delay]
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer]))
@@ -21,8 +22,10 @@
    (grouped-queue/put! q item)))
 
 (defn attr-key [tx-steps]
-  (when (= :add-triple (ffirst tx-steps))
-    (-> tx-steps first (nth 2))))
+  (when-let [add-triple-step (ucoll/seek (fn [step]
+                                           (= :add-triple (first step)))
+                                         tx-steps)]
+    (nth add-triple-step 2)))
 
 (defn group-key [{:keys [app-id tx-steps]}]
   [app-id (or (attr-key tx-steps)
