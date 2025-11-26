@@ -983,7 +983,7 @@
   Returns affected session-ids"
   [store app-id tx-id topics]
   (let [conn               (app-conn store app-id)
-        datalog-query-eids (get-datalog-queries-for-topics @conn app-id topics)
+        datalog-query-eids (vec (get-datalog-queries-for-topics @conn app-id topics))
 
         report
         (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)
