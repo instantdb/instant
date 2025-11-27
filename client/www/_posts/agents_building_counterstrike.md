@@ -1,5 +1,5 @@
 ---
-title: 'Codex vs Opus vs Gemini: The Battle for Counter-Strike'
+title: 'Codex, Opus, Gemini try to build Counter Strike'
 date: '2025-11-26'
 authors: stopachka
 ---
@@ -8,7 +8,7 @@ In the last week we’ve had three major model updates: Gemini 3 Pro, Codex Max 
 
 **Build a basic version of Counter Strike.** The game had to be a 3D UI and it had to be multiplayer.
 
-If you're curious, pop open (an ideally large computer screen) and try out each model's handiwork yourself:
+If you're curious, pop open (an ideally large computer screen) and you can try out each model's handiwork yourself:
 
 1. **Codex Max 5.1**: https://cscodex.vercel.app/
 1. **Claude Opus 4.5**: https://csclaude.vercel.app/
@@ -16,19 +16,21 @@ If you're curious, pop open (an ideally large computer screen) and try out each 
 
 We have a full video of us going through the build [here](https://youtu.be/jNg0DVnIdQ8), but for those who prefer text, you get this post.
 
-We'll go over some of our high-level impressions on each model, then dive deeper into the details of performance over specific prompts.
+We'll go over some of our high-level impressions on each model, then dive deeper into the performance of specific prompts.
 
 ## The Setup
 
-We signed up for the highest-tier plan for each model provider and used the defaults set from their CLI. For Codex, that’s 5.1 codex-max on the medium setting. For Claude it’s Opus 4.5. And with Gemini it's 3 pro.
+We signed up for the highest-tier plan on each model provider and used the defaults set for their CLI. For Codex, that’s 5.1 codex-max on the medium setting. For Claude it’s Opus 4.5. And with Gemini it's 3 pro.
 
-We then gave each model about 7 consecutive prompts. They were divided into two categories:
+We then gave each model about 7 consecutive prompts. Prompts were divided into two categories:
 
 **Frontend:** At first agents only having to worry about the game mechanics. Design the scene, the enemies, the logic for shooting, and some sound effects.
 
 **Backend:** Once that was done agents would then make the game multiplayer. They would need to build be selection of rooms. Users could join them and start shooting.
 
 ## A High-Level Overview
+
+So, how'd each model do?
 
 In a familiar tune with the other Anthropic models, **Opus 4.5 won out on the frontend**. It made nicer maps, nicer characters, nicer guns, and generally had the right scene from the get-go.
 
