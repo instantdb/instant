@@ -117,16 +117,18 @@
                      [:= :value-type [:inline "ref"]]
                      [:= :label [:inline "id"]]]]}])
 
-(defn insert-attr-inferred-types-cte [app-id triples]
+(defn insert-attr-inferred-types-cte [app-id attrs triples]
   (let [values (->> (reduce (fn [acc [_e a v]]
                               (if (nil? v)
                                 acc
-                                (update acc
-                                        a
-                                        (fnil bit-or 0)
-                                        (-> v
-                                            attr-model/inferred-value-type
-                                            attr-model/type->binary))))
+                                (let [attr (attr-model/seek-by-id a attrs)
+                                      typ (attr-model/inferred-value-type v)]
+                                  (if (contains? (:inferred-types attr) typ)
+                                    acc
+                                    (update acc
+                                            a
+                                            (fnil bit-or 0)
+                                            (attr-model/type->binary typ))))))
                             {}
                             triples)
                     (map (fn [[id typ]]
@@ -245,7 +247,7 @@
      :text]
     :uuid]])
 
-(defn deep-merge-multi!  [conn _attrs app-id triples]
+(defn deep-merge-multi! [conn attrs app-id triples]
   (let [input-triples-values
         (->> triples
              (group-by (juxt first second))
@@ -391,7 +393,7 @@
                    ['applied-triples applied-triples]
                    [:enhanced-triples enhanced-triples]
                    [:ea-index-inserts ea-index-inserts]]
-                  (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
+                  (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id attrs triples)]
                     [[:attr-inferred-types attr-inferred-types]]))
            :select ['entity-id 'attr-id]
            :from :ea-index-inserts}]
@@ -706,7 +708,7 @@
                        ['remaining-inserts    remaining-inserts]
                        ['indexed-null-triples indexed-null-triples]
                        ['indexed-null-inserts indexed-null-inserts]]
-                      (when-some [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
+                      (when-some [attr-inferred-types (insert-attr-inferred-types-cte app-id attrs triples)]
                         [['attr-inferred-types attr-inferred-types]])
                       [['all-inserts all-inserts]])
 
