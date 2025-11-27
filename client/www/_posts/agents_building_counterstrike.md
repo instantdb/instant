@@ -14,7 +14,7 @@ If you're curious, pop open (an ideally large computer screen) and you can try o
 1. **Claude Opus 4.5**: https://csclaude.vercel.app/
 1. **Gemini 3 Pro**: https://csgemini.vercel.app/
 
-We have a full video of us going through the build [here](https://youtu.be/jNg0DVnIdQ8), but for those who prefer text, you get this post.
+We have a full video of us going through the build [here](https://youtu.be/fm-OoCWQlmc), but for those who prefer text, you get this post.
 
 We'll go over some of our high-level impressions on each model, then dive deeper into the performance of specific prompts.
 
