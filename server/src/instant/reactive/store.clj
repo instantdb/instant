@@ -65,7 +65,7 @@
      :db/cardinality, and :db/tupleAttrs. There may be added fields.
      The :db/type field is purely cosmetic."}
   schema
-  ;; XXX: get rid of all of the app-ids in here, we no longer need them
+  ;; TODO: get rid of all of the app-ids in here, we no longer need them
   {:tx-meta/app-id {:db/unique :db.unique/identity}
    :tx-meta/processed-tx-id {:db/type :db.type/integer}
 
