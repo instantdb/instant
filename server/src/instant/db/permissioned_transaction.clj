@@ -18,7 +18,6 @@
    [instant.util.coll :as ucoll]
    [instant.db.model.triple :as triple-model]
    [instant.system-catalog :as system-catalog]
-   [clojure.tools.logging :as log]
    [instant.flags :as flags])
   (:import
    (com.zaxxer.hikari HikariDataSource)))
@@ -620,7 +619,7 @@
     (when (flags/rate-limit-tx-based-on-conn-pool?)
       (let [^HikariDataSource pool (:conn-pool db)]
         (when (instance? HikariDataSource pool)
-          (let [mx-bean #p (.getHikariPoolMXBean pool)
+          (let [mx-bean (.getHikariPoolMXBean pool)
                 active (.getActiveConnections mx-bean)
                 total (.getTotalConnections mx-bean)]
             (when (>= active (- total 5))
