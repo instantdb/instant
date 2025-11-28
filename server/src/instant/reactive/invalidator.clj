@@ -218,8 +218,8 @@
                 put-at (some-> head :instant.grouped-queue/put-at)
                 latency (if put-at (- (System/currentTimeMillis) put-at) 0)]
             (if (and (flags/invalidator-drop-tx-enabled?)
-                     (not (flags/invalidator-drop-tx-skip-app? app-id))
-                     (> latency (flags/invalidator-drop-tx-latency-ms)))
+                     (or (flags/invalidator-drop-tx-skip-app? app-id)
+                         (> latency (flags/invalidator-drop-tx-latency-ms))))
               (tracer/record-info! {:name "invalidator/drop-backpressure"
                                     :attributes {:app-id app-id
                                                  :latency latency}})
