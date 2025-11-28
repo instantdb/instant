@@ -1,6 +1,6 @@
 (ns instant.db.permissioned-transaction
   (:require
-   [clojure.string :as string]
+   [clojure.string :as string] permis
    [clojure+.core :as clojure+]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
@@ -17,7 +17,11 @@
    [next.jdbc :as next-jdbc]
    [instant.util.coll :as ucoll]
    [instant.db.model.triple :as triple-model]
-   [instant.system-catalog :as system-catalog]))
+   [instant.system-catalog :as system-catalog]
+   [clojure.tools.logging :as log]
+   [instant.flags :as flags])
+  (:import
+   (com.zaxxer.hikari HikariDataSource)))
 
 (defn lookup-ref? [eid]
   (sequential? eid))
@@ -613,6 +617,19 @@
   (tracer/with-span! {:name "permissioned-transaction/transact!"
                       :attributes {:app-id app-id
                                    :transact-version "2"}}
+    (when (flags/rate-limit-tx-based-on-conn-pool?)
+      (let [^HikariDataSource pool (:conn-pool db)]
+        (when (instance? HikariDataSource pool)
+          (let [mx-bean #p (.getHikariPoolMXBean pool)
+                active (.getActiveConnections mx-bean)
+                total (.getTotalConnections mx-bean)]
+            (when (>= active (- total 5))
+              (tracer/record-info! {:name "permissioned-transaction/transact!-shedding-load"
+                                    :attributes {:app-id app-id
+                                                 :active-connections active
+                                                 :total-connections total}})
+
+              (ex/throw-rate-limited!))))))
     (next-jdbc/with-transaction [tx-conn (:conn-pool db)]
       (io/warn-io :permissioned-transact!
         (let [ops-order        (tx/tx-steps-order tx-step-vecs)

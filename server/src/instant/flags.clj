@@ -244,6 +244,10 @@
 (defn hard-deletion-sweeper-disabled? []
   (toggled? :hard-deletion-sweeper-disabled?))
 
+(defn rate-limit-tx-based-on-conn-pool? []
+  (toggled? :rate-limit-tx-based-on-conn-pool?)
+  true)
+
 (defn admin-tx-queue-enabled? [app-id]
   (contains? (flag :enable-admin-transact-queue-apps) app-id))
 
