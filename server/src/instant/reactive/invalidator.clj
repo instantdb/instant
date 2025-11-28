@@ -211,7 +211,16 @@
     (a/go
       (loop []
         (when-some [wal-record (a/<! wal-chan)]
-          (grouped-queue/put! queue wal-record)
+          (let [app-id (:app-id wal-record)
+                group (get (:groups queue) app-id)
+                head (when group (.peek group))
+                put-at (some-> head :instant.grouped-queue/put-at)
+                latency (if put-at (- (System/currentTimeMillis) put-at) 0)]
+            (if (> latency 30000)
+              (tracer/record-info! {:name "invalidator/drop-backpressure"
+                                    :attributes {:app-id app-id
+                                                 :latency latency}})
+              (grouped-queue/put! queue wal-record)))
           (recur)))
       (grouped-queue/stop queue)
       (tracer/record-info! {:name "invalidation-worker/shutdown"}))
