@@ -621,8 +621,10 @@
         (when (instance? HikariDataSource pool)
           (let [mx-bean (.getHikariPoolMXBean pool)
                 active (.getActiveConnections mx-bean)
-                total (.getTotalConnections mx-bean)]
-            (when (>= active (- total 5))
+                total (.getTotalConnections mx-bean)
+                remaining-connections (- total active)
+                buffer (flags/rate-limit-tx-based-on-conn-pool-buffer)]
+            (when (> buffer remaining-connections)
               (tracer/record-info! {:name "permissioned-transaction/transact!-shedding-load"
                                     :attributes {:app-id app-id
                                                  :active-connections active
