@@ -4,6 +4,7 @@
    [datascript.core :as ds]
    [instant.config :as config]
    [instant.db.pg-introspect :as pg-introspect]
+   [instant.flags :as flags]
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
@@ -216,7 +217,9 @@
                 head (when group (.peek group))
                 put-at (some-> head :instant.grouped-queue/put-at)
                 latency (if put-at (- (System/currentTimeMillis) put-at) 0)]
-            (if (> latency 30000)
+            (if (and (flags/invalidator-drop-tx-enabled?)
+                     (not (flags/invalidator-drop-tx-skip-app? app-id))
+                     (> latency (flags/invalidator-drop-tx-latency-ms)))
               (tracer/record-info! {:name "invalidator/drop-backpressure"
                                     :attributes {:app-id app-id
                                                  :latency latency}})
