@@ -1,6 +1,6 @@
 (ns instant.db.permissioned-transaction
   (:require
-   [clojure.string :as string] permis
+   [clojure.string :as string]
    [clojure+.core :as clojure+]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
