@@ -4,6 +4,7 @@
    [datascript.core :as ds]
    [instant.config :as config]
    [instant.db.pg-introspect :as pg-introspect]
+   [instant.flags :as flags]
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
@@ -112,7 +113,7 @@
    We combine all of the change lists and advance the tx-id to the
    latest tx-id in the list."
   [r1 r2]
-  (when (< (::grouped-queue/combined r1 1) 100)
+  (when (< (::grouped-queue/combined r1 1) (flags/flag :invalidator-batch-limit 500))
     ;; Complain loudly if we accidently mix wal-records from multiple apps
     (when (not= (:app-id r1) (:app-id r2))
       (throw (ex-info "app-id mismatch in combine-wal-records" {:r1 r1 :r2 r2})))
