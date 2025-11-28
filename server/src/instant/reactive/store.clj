@@ -39,7 +39,9 @@
    (java.util.concurrent.locks ReentrantLock)
    (java.util.regex Pattern)
    (io.undertow.server.handlers.sse ServerSentEventConnection)
-   (io.undertow.websockets.spi WebSocketHttpExchange)))
+   (io.undertow.websockets.spi WebSocketHttpExchange)
+   (org.roaringbitmap.longlong Roaring64Bitmap)
+   (org.roaringbitmap RoaringBitmap)))
 
 (set! *warn-on-reflection* true)
 
@@ -64,6 +66,7 @@
      :db/cardinality, and :db/tupleAttrs. There may be added fields.
      The :db/type field is purely cosmetic."}
   schema
+  ;; XXX: get rid of all of the app-ids in here, we no longer need them
   {:tx-meta/app-id {:db/unique :db.unique/identity}
    :tx-meta/processed-tx-id {:db/type :db.type/integer}
 
@@ -89,9 +92,7 @@
                                 :db/valueType :db.type/ref}
    :subscription/v {:db/type :db.type/integer}
 
-   :datalog-query/app-id {:db/index true
-                          :db/type :db.type/integer}
-   :datalog-query/query {} ;; datalog patterns (from datalog.clj)
+   :datalog-query/query {:db/unique :db.unique/identity} ;; datalog patterns (from datalog.clj)
 
    ;; Atom containing a set of watcher ids. Used to determine if
    ;; we can cancel an in-progress query if it is evicted from the store.
@@ -103,10 +104,6 @@
    ;; no longer subscribed
    :datalog-query/child-vfutures {}
 
-   :datalog-query/app-id+query
-   {:db/tupleAttrs [:datalog-query/app-id :datalog-query/query]
-    :db/unique :db.unique/identity}
-
    :datalog-query/delayed-call {} ;; delay with datalog result (from query.clj)
    :datalog-query/topics {:db/type :db.type/list-of-topics}
 
@@ -116,7 +113,9 @@
                      :db/index true}
    :sync/process {}
    :sync/topics {}
-   :sync/sent-tx-id {}})
+   :sync/sent-tx-id {}
+   :topic-index/key {:db/unique :db.unique/identity}
+   :topic-index/index {}})
 
 (defn duration-ms [t0 t1]
   (-> t1 (- t0) (/ 1000000) double))
@@ -178,6 +177,8 @@
           (* 1024 1024)))
     (fn [v]
       (let [byte-len (:sql-byte-len (meta v))]
+        (when-not byte-len
+          (tool/def-locals))
         (assert byte-len ":sql-byte-len is missing from datalog result")
         byte-len))))
 
@@ -245,7 +246,7 @@
   [conn {:keys [tx-data]}]
   (let [deleted-datalog-query-ids (keep (fn [datom]
                                           (when (and (= (:a datom)
-                                                        :datalog-query/app-id+query)
+                                                        :datalog-query/query)
                                                      (not (:added datom)))
                                             (:e datom)))
                                         tx-data)
@@ -331,11 +332,13 @@
           (translate-datascript-exceptions e))))))
 
 (defn transact! [span-name conn tx-data]
-  (if (or (flags/toggled? :enable-store-batching-globally)
-          (contains? (flags/flag :enable-store-batching-apps)
-                     (:app-id (meta conn))))
-    (transact-new! span-name conn tx-data)
-    (transact-old! span-name conn tx-data)))
+  (let [res (if (or (flags/toggled? :enable-store-batching-globally)
+                    (contains? (flags/flag :enable-store-batching-apps)
+                               (:app-id (meta conn))))
+              (transact-new! span-name conn tx-data)
+              (transact-old! span-name conn tx-data))]
+    ;;(tool/inspect (:eavt (:db-after res)))
+    res))
 
 ;; -----
 ;; reports
@@ -424,6 +427,119 @@
         ent (d/entity db [:tx-meta/app-id app-id])]
     (:tx-meta/processed-tx-id ent)))
 
+;; --------------
+;; datalog topics
+
+(def topic-index-lookup [:topic-index/key :topics])
+
+(defn encode-ctid
+  "Encodes [x y] into a single long. Assumes x and y < 2^32."
+  ^long [^long x ^long y]
+  (+' (bit-shift-left x 32) y))
+
+(defn decode-ctid
+  "Decodes a long back into [x y]."
+  [^long z]
+  (let [x (bit-shift-right z 32)
+        y (bit-and z 0xFFFFFFFF)] ;; 0xFFFFFFFF is the 32-bit mask
+    [x y]))
+
+(defn add-items-to-index [index-map items ^long ctid]
+  (ucoll/reduce-tr (fn [index-map item]
+                     (-> index-map
+                         (assoc! item (let [topic-set (or (get index-map item) (Roaring64Bitmap.))]
+                                        (Roaring64Bitmap/.addLong topic-set ctid)
+                                        topic-set))
+                         (assoc! ::any (let [topic-set (or (get index-map ::any) (Roaring64Bitmap.))]
+                                         (Roaring64Bitmap/.addLong topic-set ctid)
+                                         topic-set))))
+                   index-map
+                   (if (= '_ items) [items] items)))
+
+(defn add-topics-to-index [index datalog-query-eid topics]
+  (let [id datalog-query-eid]
+    (reduce-kv (fn [index topic-idx [idx e a v :as _topic]]
+                 (let [ctid (encode-ctid id topic-idx)]
+                   (-> index
+                       (update :idx add-items-to-index [idx] ctid)
+                       (update :e add-items-to-index e ctid)
+                       (update :a add-items-to-index a ctid)
+                       (update :v add-items-to-index (if (map? v) '_ v) ctid))))
+               index
+               topics)))
+
+(defn- remove-items-from-index [index-map items ^long ctid]
+  (ucoll/reduce-tr (fn [index-map item]
+                     (let [next-val (let [topic-set (or (get index-map item) (Roaring64Bitmap.))]
+                                      (Roaring64Bitmap/.removeLong topic-set ctid)
+                                      (if (Roaring64Bitmap/.isEmpty topic-set)
+                                        nil
+                                        topic-set))]
+                       (cond-> index-map
+                         next-val (assoc! item next-val)
+                         ;; Remove from the map if we're the last one with this value
+                         (not next-val) (dissoc! item)
+                         true (assoc! ::any (let [topic-set (or (get index-map ::any) (Roaring64Bitmap.))]
+                                              (Roaring64Bitmap/.removeLong topic-set ctid)
+                                              topic-set)))))
+                   index-map
+                   (if (= '_ items) [items] items)))
+
+(defn- remove-topics-from-index [topic-index datalog-query-eid topics]
+  (reduce-kv (fn [index topic-idx [idx e a v :as _topic]]
+               (let [ctid (encode-ctid datalog-query-eid topic-idx)]
+                 (-> index
+                     (update :idx remove-items-from-index [idx] ctid)
+                     (update :e remove-items-from-index e ctid)
+                     (update :a remove-items-from-index a ctid)
+                     (update :v remove-items-from-index (if (map? v) '_ v) ctid))))
+             topic-index
+             topics))
+
+(defn- remove-topics-tx-data
+  "Should be used in a db.fn/call. Returns transactions.
+   Used to clean up the topic-index when the topics for the datalog query change."
+  [db datalog-query-eid topics]
+  (let [id datalog-query-eid
+        topic-index-ent (d/entity db topic-index-lookup)]
+    (when (and topic-index-ent (seq topics))
+      (let [index (remove-topics-from-index (:topic-index/index topic-index-ent)
+                                            datalog-query-eid
+                                            topics)]
+        [[:db/add (:db/id topic-index-ent) :topic-index/index index]]))))
+
+(defn- remove-datalog-query-tx-data
+  "Should be used in a db.fn/call. Returns transactions.
+   retracts a datalog-query by its id and cleans up the topic-index."
+  [db query-id]
+  (when-let [{:db/keys [id]
+              :datalog-query/keys [topics]} (d/entity db query-id)]
+    [[:db.fn/call remove-topics-tx-data id topics]
+     [:db.fn/retractEntity query-id]]))
+
+(def empty-topic-index {:idx {}
+                        :e {}
+                        :a {}
+                        :v {}})
+
+(defn- replace-topics-tx-data
+  "Should be used in a db.fn/call. Returns transactions.
+   Updates the topic-index by removing the old topics and adding the new topics.
+   Must be placed after the tx-data that adds the datalog-query to the store."
+  [db datalog-query-lookup old-topics new-topics]
+  (let [id (d/entid db datalog-query-lookup)
+        topics-ent (d/entity db topic-index-lookup)
+        index-without-old (if-let [index (:topic-index/index topics-ent)]
+                            (remove-topics-from-index index id old-topics)
+                            empty-topic-index)
+        index-with-new (add-topics-to-index index-without-old
+                                            id
+                                            new-topics)]
+    (if-not topics-ent
+      [{:topic-index/key :topics
+        :topic-index/index index-with-new}]
+      [[:db/add (:db/id topics-ent) :topic-index/index index-with-new]])))
+
 ;; ------
 ;; instaql queries
 
@@ -479,9 +595,9 @@
   "Should be used in a db.fn/call. Returns transactions.
    Retracts datalog queries that are no longer referenced in any subscriptions."
   [db]
-  (for [datom (d/datoms db :aevt :datalog-query/app-id)
+  (for [datom (d/datoms db :aevt :datalog-query/query)
         :when (nil? (d/datoms db :avet :subscription/datalog-query (:e datom)))]
-    [:db/retractEntity (:e datom)]))
+    [:db.fn/call remove-datalog-query-tx-data (:e datom)]))
 
 (defn remove-query! [store app-id sess-id q]
   (transact! "store/remove-query!"
@@ -582,7 +698,7 @@
   "Should be used in a db.fn/call. Returns transactions.
    Updates or creates the datalog query with data needed to manage the cache."
   [db app-id query watcher-id]
-  (if-let [existing (d/entity db [:datalog-query/app-id+query [app-id query]])]
+  (if-let [existing (d/entity db [:datalog-query/query query])]
     (let [watchers (:datalog-query/watchers existing)
           id (:db/id existing)]
       (if (or (not watchers)
@@ -599,8 +715,7 @@
          [:db/add id :datalog-query/child-vfutures (ua/new-child-vfutures)]]
 
         []))
-    [{:datalog-query/app-id app-id
-      :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)
+    [{:datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)
       :datalog-query/child-vfutures (ua/new-child-vfutures)
       :datalog-query/query query
       :datalog-query/watchers (atom {:canceled? false
@@ -618,7 +733,7 @@
    removed from the cache (see `clean-datalog-query-cache`). If it is in progress
    and there are no watchers, then the query will be canceled."
   [store app-id datalog-query-fn ctx datalog-query]
-  (let [lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
+  (let [lookup-ref [:datalog-query/query datalog-query]
         conn (app-conn store app-id)
         watcher-id (Object.)
         {:keys [db-after]} (transact! "store/swap-datalog-cache!"
@@ -695,29 +810,32 @@
                        [[:db.fn/call upsert-datalog-loader-tx-data sess-id make-loader-fn]])]
         (:session/datalog-loader (d/entity db-after [:session/id sess-id]))))))
 
-
 ;; -------------
 ;; subscriptions
 
 (defn record-datalog-query-start! [store ctx datalog-query coarse-topics]
   (let [{:keys [app-id session-id instaql-query v]} ctx
-        conn (app-conn store app-id)]
+        conn (app-conn store app-id)
+        coarse-topics (vec coarse-topics)]
     (transact! "store/record-datalog-query-start!"
                conn
                [[:db.fn/call
                  (fn [db]
-                   (let [lookup-ref             [:datalog-query/app-id+query [app-id datalog-query]]
+                   (let [lookup-ref             [:datalog-query/query datalog-query]
                          existing-datalog-query (d/entity db lookup-ref)
                          datalog-query-eid      (or (:db/id existing-datalog-query) -1)]
                      (concat
                       (if existing-datalog-query
-                        (when-not (:datalog-query/topics existing-datalog-query)
-                          [{:db/id                datalog-query-eid
-                            :datalog-query/topics coarse-topics}])
-                        [{:db/id                datalog-query-eid
-                          :datalog-query/app-id app-id
-                          :datalog-query/query  datalog-query
-                          :datalog-query/topics coarse-topics}])
+                        [{:db/id datalog-query-eid
+                          :datalog-query/topics coarse-topics}
+                         (let [id (:db/id existing-datalog-query)
+                               old-topics (:datalog-query/topics existing-datalog-query)
+                               new-topics coarse-topics]
+                           [:db.fn/call replace-topics-tx-data id old-topics new-topics])]
+                        [{:db/id datalog-query-eid
+                          :datalog-query/query datalog-query
+                          :datalog-query/topics coarse-topics}
+                         [:db.fn/call replace-topics-tx-data lookup-ref nil coarse-topics]])
                       (when-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
                         [{:subscription/app-id        app-id
                           :subscription/session-id    session-id
@@ -732,17 +850,22 @@
 
   (let [{:keys [app-id]} ctx
         conn       (app-conn store app-id)
-        lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]]
+        lookup-ref [:datalog-query/query datalog-query]
+        topics (vec topics)]
     (transact!
      "store/record-datalog-query-finish!"
      conn
      [[:db.fn/call
        (fn [db]
          (if-some [existing (d/entity db lookup-ref)]
-           [[:db/add (:db/id existing) :datalog-query/topics topics]]
-           [{:datalog-query/app-id app-id
-             :datalog-query/query datalog-query
-             :datalog-query/topics topics}]))]])))
+           [[:db/add (:db/id existing) :datalog-query/topics topics]
+            (let [id (:db/id existing)
+                  old-topics (:datalog-query/topics existing)
+                  new-topics topics]
+              [:db.fn/call replace-topics-tx-data id old-topics new-topics])]
+           [{:datalog-query/query datalog-query
+             :datalog-query/topics topics}
+            [:db.fn/call replace-topics-tx-data lookup-ref nil topics]]))]])))
 
 
 ;; ------------
@@ -958,14 +1081,15 @@
     [[:db.fn/call set-tx-id app-id tx-id]
      [:db.fn/call mark-instaql-queries-stale-tx-data datalog-query-eids]]
     (for [e datalog-query-eids]
-      [:db.fn/retractEntity e]))))
+      [:db.fn/call remove-datalog-query-tx-data e]))))
 
-(defn- get-datalog-queries-for-topics [db app-id iv-topics]
-  (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
+(defn- get-datalog-queries-for-topics-old [db app-id iv-topics]
+  (for [datom (d/datoms db :avet :datalog-query/query)
         :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
         :when dq-topics
         :when (matching-topic-intersection? iv-topics dq-topics)]
     (:e datom)))
+
 
 (defn get-stale-sync-subs [store app-id iv-topics]
   (let [db @(app-conn store app-id)]
@@ -976,6 +1100,85 @@
                 topics (:sync/topics ent)]
           :when (and sent-tx-id topics (matching-topic-intersection? iv-topics topics))]
       ent)))
+
+(defn topic-index-bitmap-or
+  "Does a bitmap-or on all of the matching values for the topic segment.
+   Updates the candidates bitmap in place."
+  [^Roaring64Bitmap candidates iv-component topic-index-map]
+  (doseq [k (if (= iv-component '_)
+              [::any]
+              (conj iv-component '_))
+          :let [s (get topic-index-map k)]
+          :when s]
+    (.or candidates s)))
+
+(defn topic-index-ctid-matches-for-topic [topic-index iv-topic]
+  (let [{:keys [idx e a v]} topic-index
+        [iv-idx iv-e iv-a iv-v] iv-topic
+        e-candidates (Roaring64Bitmap.)
+        a-candidates (Roaring64Bitmap.)
+        v-candidates (Roaring64Bitmap.)
+        ;; Careful not to modify idx-candidates
+        idx-candidates (get idx iv-idx)]
+    (topic-index-bitmap-or e-candidates iv-e e)
+    (topic-index-bitmap-or a-candidates iv-a a)
+    (topic-index-bitmap-or v-candidates iv-v v)
+
+    ;; We'll use e-candidates as our result bitmap
+    ;; to save ourselves a copy
+    (.and e-candidates a-candidates)
+    (.and e-candidates v-candidates)
+    (when idx-candidates
+      (.and e-candidates idx-candidates))
+
+    (map (fn [v]
+           (decode-ctid v))
+         (stream-seq! (.stream e-candidates)))))
+
+(defn topic-by-ctid [db [datalog-query-eid topic-idx :as _ctid]]
+  (nth (:datalog-query/topics (d/entity db datalog-query-eid)) topic-idx))
+
+(defn collect-datalog-queries-for-topics [db eids ctids iv-topic]
+  (ucoll/reduce-tr (fn [acc [datalog-query-eid topic-idx :as ctid]]
+                     (if (contains? acc datalog-query-eid)
+                       acc
+                       (if (match-topic? iv-topic (topic-by-ctid db ctid))
+                         (conj! acc datalog-query-eid)
+                         acc)))
+                   eids
+                   ctids))
+
+(defn get-datalog-queries-for-topics [db app-id iv-topics]
+  (when-let [topic-index (:topic-index/index (d/entity db topic-index-lookup))]
+    (reduce (fn [acc iv-topic]
+              (let [ctids (topic-index-ctid-matches-for-topic topic-index iv-topic)]
+                (collect-datalog-queries-for-topics db acc ctids iv-topic)))
+            #{}
+            iv-topics)))
+
+(defn test-old [topics-list iv-topics]
+  (reduce-kv (fn [acc i topics]
+               (if (matching-topic-intersection? iv-topics topics)
+                 (conj acc i)
+                 acc))
+             #{}
+             topics-list))
+
+(defn test-new [topics index iv-topics]
+  (reduce (fn [acc iv-topic]
+            (let [ctids (topic-index-ctid-matches-for-topic index iv-topic)]
+              (ucoll/reduce-tr
+               (fn [acc [datalog-query-eid topic-idx :as ctid]]
+                 (if (contains? acc datalog-query-eid)
+                   acc
+                   (if (match-topic? iv-topic (nth (nth topics datalog-query-eid)
+                                                   topic-idx))
+                     (conj! acc datalog-query-eid)
+                     acc)))
+               acc
+               ctids)))
+          #{}
+          iv-topics))
 
 (defn mark-stale-topics!
   "Given topics, invalidates all relevant datalog qs and associated instaql queries.
