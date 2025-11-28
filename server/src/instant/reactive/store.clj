@@ -1091,7 +1091,8 @@
   "Does a bitmap-or on all of the matching values for the topic segment.
    Updates the candidates bitmap in place."
   [^Roaring64Bitmap candidates iv-component topic-index-map]
-  (doseq [k (if (= iv-component '_)
+  (doseq [k (if (or (= iv-component '_)
+                    (map? iv-component))
               [::any]
               (conj iv-component '_))
           :let [s (get topic-index-map k)]
