@@ -625,7 +625,7 @@
                 remaining-connections (- total active)
                 buffer (flags/rate-limit-tx-based-on-conn-pool-buffer)]
             (when (> buffer remaining-connections)
-              (tracer/record-info! {:name "permissioned-transaction/transact!-shedding-load"
+              (tracer/record-info! {:name "permissioned-transaction/transact-rate-limit"
                                     :attributes {:app-id app-id
                                                  :active-connections active
                                                  :total-connections total}})
