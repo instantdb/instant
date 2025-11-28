@@ -97,28 +97,6 @@ function App({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
   return (
     <div className="min-h-screen bg-gray-950 p-6 text-white">
       <div className="mx-auto max-w-2xl">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">v0.22.58</h1>
-            <p className="text-sm text-red-400">Buggy version</p>
-          </div>
-          <div className="flex gap-2">
-            <a
-              href="/v57"
-              className="rounded bg-gray-800 px-3 py-1.5 text-sm hover:bg-gray-700"
-            >
-              Switch to v57
-            </a>
-            <a
-              href="/"
-              className="rounded bg-gray-800 px-3 py-1.5 text-sm hover:bg-gray-700"
-            >
-              Home
-            </a>
-          </div>
-        </div>
-
         {/* Controls */}
         <div className="mb-6 flex gap-2">
           <button
@@ -155,24 +133,6 @@ function App({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
                 key={todo.id}
                 className="rounded border border-gray-800 bg-gray-900 p-4"
               >
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="font-medium">{todo.title}</span>
-                  <span className="text-sm text-gray-500">
-                    {items.length} items
-                  </span>
-                </div>
-
-                {/* Items list */}
-                {items.length > 0 && (
-                  <div className="mb-4 border-l border-gray-700 pl-3">
-                    {items.map((item) => (
-                      <div key={item.id} className="text-sm text-gray-400">
-                        {item.content}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 {/* Test buttons - two rows */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -220,6 +180,24 @@ function App({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
                     <span className="text-xs text-green-400">← Works</span>
                   </div>
                 </div>
+
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="font-medium">{todo.title}</span>
+                  <span className="text-sm text-gray-500">
+                    {items.length} items
+                  </span>
+                </div>
+
+                {/* Items list */}
+                {items.length > 0 && (
+                  <div className="mb-4 border-l border-gray-700 pl-3">
+                    {items.map((item) => (
+                      <div key={item.id} className="text-sm text-gray-400">
+                        {item.content}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -244,29 +222,17 @@ function App({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
             )}
           </div>
         </div>
-
-        {/* Explanation */}
-        <div className="mt-6 rounded border border-red-900/50 bg-red-950/20 p-4 text-xs text-gray-400">
-          <p className="mb-2 font-medium text-red-400">
-            Bug: React setState breaks InstantDB reactivity
-          </p>
-          <p className="mb-2">
-            In v0.22.58, calling{' '}
-            <code className="text-red-300">setState()</code> during a
-            transaction causes the UI to not update. The data persists (refresh
-            to verify), but the reactive subscription fails to trigger a
-            re-render.
-          </p>
-          <p className="font-medium text-gray-500">
-            This works fine in v0.22.57 — something changed in how useQuery
-            handles concurrent React renders.
-          </p>
-        </div>
       </div>
     </div>
   );
 }
 
 export default function Page() {
-  return <EphemeralAppPage schema={schema} Component={App} />;
+  return (
+    <EphemeralAppPage
+      extraConfig={{ useDateObjects: false }}
+      schema={schema}
+      Component={App}
+    />
+  );
 }
