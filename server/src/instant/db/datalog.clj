@@ -2756,6 +2756,8 @@
     :children [{:result ...}]}] "
   ([sql-res grouped-rows children]
    (nested-sql-result->result nil grouped-rows sql-res children false))
+  ([sql-res grouped-rows children coarse-topics?]
+   (nested-sql-result->result nil grouped-rows sql-res children coarse-topics?))
   ([parent-info grouped-rows sql-res children coarse-topics?]
    (reduce (fn [acc group]
              (cond
