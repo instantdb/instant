@@ -40,8 +40,7 @@
    (java.util.regex Pattern)
    (io.undertow.server.handlers.sse ServerSentEventConnection)
    (io.undertow.websockets.spi WebSocketHttpExchange)
-   (org.roaringbitmap.longlong Roaring64Bitmap)
-   (org.roaringbitmap RoaringBitmap)))
+   (org.roaringbitmap.longlong Roaring64Bitmap)))
 
 (set! *warn-on-reflection* true)
 
@@ -177,8 +176,6 @@
           (* 1024 1024)))
     (fn [v]
       (let [byte-len (:sql-byte-len (meta v))]
-        (when-not byte-len
-          (tool/def-locals))
         (assert byte-len ":sql-byte-len is missing from datalog result")
         byte-len))))
 
@@ -337,7 +334,6 @@
                                (:app-id (meta conn))))
               (transact-new! span-name conn tx-data)
               (transact-old! span-name conn tx-data))]
-    ;;(tool/inspect (:eavt (:db-after res)))
     res))
 
 ;; -----
@@ -500,8 +496,7 @@
   "Should be used in a db.fn/call. Returns transactions.
    Used to clean up the topic-index when the topics for the datalog query change."
   [db datalog-query-eid topics]
-  (let [id datalog-query-eid
-        topic-index-ent (d/entity db topic-index-lookup)]
+  (let [topic-index-ent (d/entity db topic-index-lookup)]
     (when (and topic-index-ent (seq topics))
       (let [index (remove-topics-from-index (:topic-index/index topic-index-ent)
                                             datalog-query-eid
@@ -697,7 +692,7 @@
 (defn- swap-datalog-cache-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Updates or creates the datalog query with data needed to manage the cache."
-  [db app-id query watcher-id]
+  [db query watcher-id]
   (if-let [existing (d/entity db [:datalog-query/query query])]
     (let [watchers (:datalog-query/watchers existing)
           id (:db/id existing)]
@@ -740,7 +735,6 @@
                                       conn
                                       [[:db.fn/call
                                         swap-datalog-cache-tx-data
-                                        app-id
                                         datalog-query
                                         watcher-id]])
 
@@ -1083,14 +1077,6 @@
     (for [e datalog-query-eids]
       [:db.fn/call remove-datalog-query-tx-data e]))))
 
-(defn- get-datalog-queries-for-topics-old [db app-id iv-topics]
-  (for [datom (d/datoms db :avet :datalog-query/query)
-        :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
-        :when dq-topics
-        :when (matching-topic-intersection? iv-topics dq-topics)]
-    (:e datom)))
-
-
 (defn get-stale-sync-subs [store app-id iv-topics]
   (let [db @(app-conn store app-id)]
     (for [datom (d/datoms db :avet :sync/id)
@@ -1139,7 +1125,7 @@
   (nth (:datalog-query/topics (d/entity db datalog-query-eid)) topic-idx))
 
 (defn collect-datalog-queries-for-topics [db eids ctids iv-topic]
-  (ucoll/reduce-tr (fn [acc [datalog-query-eid topic-idx :as ctid]]
+  (ucoll/reduce-tr (fn [acc [datalog-query-eid :as ctid]]
                      (if (contains? acc datalog-query-eid)
                        acc
                        (if (match-topic? iv-topic (topic-by-ctid db ctid))
@@ -1148,7 +1134,7 @@
                    eids
                    ctids))
 
-(defn get-datalog-queries-for-topics [db app-id iv-topics]
+(defn get-datalog-queries-for-topics [db iv-topics]
   (when-let [topic-index (:topic-index/index (d/entity db topic-index-lookup))]
     (reduce (fn [acc iv-topic]
               (let [ctids (topic-index-ctid-matches-for-topic topic-index iv-topic)]
@@ -1168,7 +1154,7 @@
   (reduce (fn [acc iv-topic]
             (let [ctids (topic-index-ctid-matches-for-topic index iv-topic)]
               (ucoll/reduce-tr
-               (fn [acc [datalog-query-eid topic-idx :as ctid]]
+               (fn [acc [datalog-query-eid topic-idx]]
                  (if (contains? acc datalog-query-eid)
                    acc
                    (if (match-topic? iv-topic (nth (nth topics datalog-query-eid)
@@ -1186,7 +1172,7 @@
   Returns affected session-ids"
   [store app-id tx-id topics]
   (let [conn               (app-conn store app-id)
-        datalog-query-eids (vec (get-datalog-queries-for-topics @conn app-id topics))
+        datalog-query-eids (vec (get-datalog-queries-for-topics @conn topics))
 
         report
         (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)
