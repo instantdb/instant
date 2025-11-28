@@ -26,6 +26,7 @@
   "devDependencies": {
     "prettier": "3.6.2",
     "prettier-plugin-tailwindcss": "^0.7.1",
+    "typescript": "^5.9.3",
     "tsx": "^4.19.3",
     "turbo": "^2.5.4"
   }

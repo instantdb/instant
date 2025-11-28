@@ -38,6 +38,8 @@
   },
   "scripts": {
     "test": "vitest",
+    "test:types": "tsc -p tsconfig.test.json --noEmit",
+    "test:ci": "pnpm run test:types",
     "check-exports": "attw --pack .",
     "dev": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
     "clean": "rm -rf dist",

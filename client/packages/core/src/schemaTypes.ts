@@ -302,10 +302,7 @@ type OptionalKeys<Attrs extends AttrsDefs> = {
  *   - Required keys => `key: ValueType`
  *   - Optional keys => `key?: ValueType`
  */
-type MappedAttrs<
-  Attrs extends AttrsDefs,
-  UseDates extends boolean | undefined,
-> = {
+type MappedAttrs<Attrs extends AttrsDefs, UseDates extends boolean> = {
   [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any, any>
     ? V extends Date
       ? UseDates extends true
@@ -325,7 +322,7 @@ type MappedAttrs<
 
 export type ResolveEntityAttrs<
   EDef extends EntityDef<any, any, any>,
-  UseDates extends boolean | undefined = false,
+  UseDates extends boolean = false,
   ResolvedAttrs = MappedAttrs<EDef['attrs'], UseDates>,
 > =
   EDef extends EntityDef<any, any, infer AsType>

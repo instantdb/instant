@@ -4,10 +4,11 @@ import { EventSource } from 'eventsource';
 
 export default class InstantReactWebDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<
+  UseDates extends boolean = false,
+  Config extends InstantConfig<Schema, UseDates> = InstantConfig<
     Schema,
-    boolean
+    UseDates
   >,
-> extends InstantReactAbstractDatabase<Schema, Config> {
+> extends InstantReactAbstractDatabase<Schema, UseDates, Config> {
   static EventSourceImpl = EventSource;
 }

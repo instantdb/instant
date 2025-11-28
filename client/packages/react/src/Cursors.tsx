@@ -41,7 +41,7 @@ export function Cursors<
     _spaceId || `cursors-space-default--${String(room.type)}-${room.id}`;
 
   const cursorsPresence = room.usePresence({
-    keys: [spaceId],
+    keys: [spaceId] as (keyof RoomSchema[RoomType]['presence'])[],
   });
 
   const fullPresence = room._core._reactor.getPresence(room.type, room.id);
@@ -142,7 +142,7 @@ export function Cursors<
               {renderCursor ? (
                 renderCursor({
                   color: cursor.color,
-                  presence: fullPresence.peers[id],
+                  presence: fullPresence?.peers[id],
                 })
               ) : (
                 <Cursor {...cursor} />

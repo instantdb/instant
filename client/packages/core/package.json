@@ -39,7 +39,8 @@
   "scripts": {
     "test": "vitest",
     "bench": "vitest bench",
-    "test:ci": "vitest run",
+    "test:types": "tsc -p tsconfig.test.json --noEmit",
+    "test:ci": "vitest run && pnpm run test:types",
     "bench:ci": "vitest bench --run",
     "check": "tsc --noEmit",
     "check-exports": "attw --pack .",

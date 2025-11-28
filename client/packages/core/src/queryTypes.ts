@@ -198,7 +198,7 @@ type QueryResponse<
     ? InstaQLQueryResult<E, Q, WithCardinalityInference, UseDates>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
-type InstaQLResponse<Schema, Q, UseDates extends boolean | undefined = false> =
+type InstaQLResponse<Schema, Q, UseDates extends boolean = false> =
   Schema extends IContainEntitiesAndLinks<any, any>
     ? Q extends InstaQLParams<Schema> | undefined
       ? InstaQLResult<Schema, Q, UseDates>
@@ -261,7 +261,7 @@ type InstaQLEntitySubqueryResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema['entities'],
   Query extends InstaQLEntitySubquery<Schema, EntityName> | undefined = {},
-  UseDates extends boolean | undefined = false,
+  UseDates extends boolean = false,
 > = {
   [QueryPropName in keyof Query]: Schema['entities'][EntityName]['links'][QueryPropName] extends LinkAttrDef<
     infer Cardinality,
@@ -354,7 +354,7 @@ type InstaQLEntity<
   EntityName extends keyof Schema['entities'],
   Subquery extends InstaQLEntitySubquery<Schema, EntityName> | undefined = {},
   Fields extends InstaQLFields<Schema, EntityName> | undefined = undefined,
-  UseDates extends boolean | undefined = false,
+  UseDates extends boolean = false,
 > = Expand<
   { id: string } & ComputeAttrs<
     ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>,
@@ -400,7 +400,7 @@ type InstaQLQueryResult<
 type InstaQLResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Query extends InstaQLParams<Schema> | undefined,
-  UseDates extends boolean | undefined = false,
+  UseDates extends boolean = false,
 > = Expand<{
   [QueryPropName in keyof Query]: QueryPropName extends keyof Schema['entities']
     ? InstaQLEntity<

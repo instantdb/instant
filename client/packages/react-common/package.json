@@ -38,6 +38,7 @@
   },
   "scripts": {
     "test": "vitest",
+    "check": "tsc --noEmit",
     "check-exports": "attw --pack .",
     "dev:module": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
     "dev:main": "tsc --watch --preserveWatchOutput -p tsconfig.cjs.dev.json",

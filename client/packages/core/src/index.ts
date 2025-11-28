@@ -142,13 +142,13 @@ export type Config = {
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;
   queryCacheLimit?: number;
-  useDateObjects?: boolean;
+  useDateObjects: boolean;
   disableValidation?: boolean;
 };
 
 export type InstantConfig<
   S extends InstantSchemaDef<any, any, any>,
-  UseDates extends boolean | undefined = false,
+  UseDates extends boolean = false,
 > = {
   appId: string;
   schema?: S;
@@ -157,7 +157,7 @@ export type InstantConfig<
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;
   queryCacheLimit?: number;
-  useDateObjects?: UseDates;
+  useDateObjects: UseDates;
   disableValidation?: boolean;
 };
 
@@ -212,11 +212,7 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
       pageInfo: PageInfoResponse<Q>;
     };
 
-type InstaQLSubscriptionState<
-  Schema,
-  Q,
-  UseDates extends boolean | undefined,
-> =
+type InstaQLSubscriptionState<Schema, Q, UseDates extends boolean> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
@@ -232,13 +228,16 @@ type LifecycleSubscriptionState<
   isLoading: boolean;
 };
 
-type InstaQLLifecycleState<
-  Schema,
-  Q,
-  UseDates extends boolean | undefined = false,
-> = InstaQLSubscriptionState<Schema, Q, UseDates> & {
-  isLoading: boolean;
-};
+type InstaQLLifecycleState<Schema, Q, UseDates extends boolean = false> =
+  | (InstaQLSubscriptionState<Schema, Q, UseDates> & {
+      isLoading: boolean;
+    })
+  | {
+      isLoading: true;
+      data: undefined;
+      pageInfo: undefined;
+      error: undefined;
+    };
 
 type UnsubscribeFn = () => void;
 
@@ -261,7 +260,7 @@ function initGlobalInstantCoreStore(): Record<string, any> {
   return globalThis.__instantDbStore;
 }
 
-function reactorKey(config: InstantConfig<any, boolean | undefined>): string {
+function reactorKey(config: InstantConfig<any, boolean>): string {
   // @ts-expect-error
   const adminToken = config.__adminToken;
   return (
@@ -523,7 +522,7 @@ function coerceQuery(o: any) {
 
 class InstantCoreDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  UseDates extends boolean | undefined = false,
+  UseDates extends boolean = false,
 > implements IInstantDatabase<Schema>
 {
   public _reactor: Reactor<RoomsOf<Schema>>;
@@ -597,7 +596,7 @@ class InstantCoreDatabase<
    */
   subscribeQuery<
     Q extends ValidQuery<Q, Schema>,
-    UseDatesLocal extends boolean | undefined = UseDates,
+    UseDatesLocal extends boolean = UseDates,
   >(
     query: Q,
     cb: (resp: InstaQLSubscriptionState<Schema, Q, UseDatesLocal>) => void,
@@ -800,21 +799,29 @@ function schemaChanged(
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
-  UseDates extends boolean | undefined = false,
+  UseDates extends boolean = false,
 >(
-  config: InstantConfig<Schema, UseDates>,
+  // Allows config with missing `useDateObjects`, but keeps `UseDates`
+  // as a non-nullable in the InstantConfig type.
+  config: Omit<InstantConfig<Schema, UseDates>, 'useDateObjects'> & {
+    useDateObjects?: UseDates;
+  },
   Storage?: any,
   NetworkListener?: any,
   versions?: { [key: string]: string },
   EventSourceImpl?: any,
 ): InstantCoreDatabase<Schema, UseDates> {
+  const configStrict = {
+    ...config,
+    useDateObjects: (config.useDateObjects ?? false) as UseDates,
+  };
   const existingClient = globalInstantCoreStore[
-    reactorKey(config)
-  ] as InstantCoreDatabase<any, Config['useDateObjects']>;
+    reactorKey(configStrict)
+  ] as InstantCoreDatabase<any, UseDates>;
 
   if (existingClient) {
-    if (schemaChanged(existingClient, config.schema)) {
-      existingClient._reactor.updateSchema(config.schema);
+    if (schemaChanged(existingClient, configStrict.schema)) {
+      existingClient._reactor.updateSchema(configStrict.schema);
     }
     return existingClient;
   }
@@ -822,8 +829,8 @@ function init<
   const reactor = new Reactor<RoomsOf<Schema>>(
     {
       ...defaultConfig,
-      ...config,
-      cardinalityInference: config.schema ? true : false,
+      ...configStrict,
+      cardinalityInference: configStrict.schema ? true : false,
     },
     Storage || IndexedDBStorage,
     NetworkListener || WindowNetworkListener,
@@ -831,12 +838,10 @@ function init<
     EventSourceImpl,
   );
 
-  const client = new InstantCoreDatabase<any, Config['useDateObjects']>(
-    reactor,
-  );
-  globalInstantCoreStore[reactorKey(config)] = client;
+  const client = new InstantCoreDatabase<any, UseDates>(reactor);
+  globalInstantCoreStore[reactorKey(configStrict)] = client;
 
-  handleDevtool(config.appId, config.devtool);
+  handleDevtool(configStrict.appId, configStrict.devtool);
 
   return client;
 }

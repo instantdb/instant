@@ -16,7 +16,7 @@ const defaultState = {
   data: undefined,
   pageInfo: undefined,
   error: undefined,
-};
+} as const;
 
 function stateForResult(result: any) {
   return {
@@ -73,8 +73,11 @@ export function useQueryInternal<
       const unsubscribe = _core.subscribeQuery<Q, UseDates>(query, (result) => {
         resultCacheRef.current = {
           isLoading: !Boolean(result),
+          // @ts-expect-error: ts thinks this will always be overwritten
           data: undefined,
+          // @ts-expect-error: ts thinks this will always be overwritten
           pageInfo: undefined,
+          // @ts-expect-error: ts thinks this will always be overwritten
           error: undefined,
           ...result,
         };

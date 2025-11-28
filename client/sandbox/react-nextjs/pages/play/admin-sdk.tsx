@@ -122,7 +122,7 @@ export default function Page() {
   const [app, setApp] = useState(null);
   const [error, setError] = useState<null | Error>(null);
   useEffect(() => {
-    provisionEphemeralApp({ schema })
+    provisionEphemeralApp({ schema, useDateObjects: false })
       .then((res) => setApp(res.app))
       .catch((e) => {
         console.error('Error creating app', e);
