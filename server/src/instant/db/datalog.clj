@@ -2755,8 +2755,10 @@
     :datalog-query [[:ea #uuid \"user-id\"]]
     :children [{:result ...}]}] "
   ([sql-res grouped-rows children]
-   (nested-sql-result->result nil grouped-rows sql-res children))
-  ([parent-info grouped-rows sql-res children]
+   (nested-sql-result->result nil grouped-rows sql-res children false))
+  ([sql-res grouped-rows children coarse-topics?]
+   (nested-sql-result->result nil grouped-rows sql-res children coarse-topics?))
+  ([parent-info grouped-rows sql-res children coarse-topics?]
    (reduce (fn [acc group]
              (cond
                (:missing-attr? group)
@@ -2800,7 +2802,8 @@
                                                              (or has-prev
                                                                  (and (empty? rows)
                                                                       (or (and offset (pos? offset))
-                                                                          (some? after-cursor)))))))
+                                                                          (some? after-cursor))))))
+                              coarse-topics? (assoc :topics (pats->coarse-topics (:datalog-query group))))
                      datalog-query (if join-sym
                                      (replace-join-sym-in-datalog-query join-sym
                                                                         join-val
@@ -2814,7 +2817,8 @@
                                                                             :join-val join-val}
                                                                            grouped-rows
                                                                            sql-res
-                                                                           (:children group)))
+                                                                           (:children group)
+                                                                           coarse-topics?))
                                               (or (get-in result [:symbol-values join-sym])
                                                   ;; This is a hack to get things to nest properly
                                                   (when (= join-sym (:join-sym parent-info))
@@ -2893,11 +2897,13 @@
     (let [{:keys [query pattern-metas]} (match-query :match-0- app-id named-patterns {})
           sql-query (hsql/format query)
           sql-res (sql/select-string-keys ::send-query-single conn sql-query)]
-      (sql-result->result sql-res
-                          pattern-metas
-                          ;; No need to parse uuids because the db driver will
-                          ;; do that for us with the unbatched query
-                          false))))
+      (cond-> (sql-result->result sql-res
+                                  pattern-metas
+                                  ;; No need to parse uuids because the db driver will
+                                  ;; do that for us with the unbatched query
+                                  false)
+        (flags/use-coarse-topics? app-id)
+        (assoc :topics (pats->coarse-topics named-patterns))))))
 
 (defn- collect-all-topics
   ([nested-result] (collect-all-topics #{} nested-result))
@@ -2949,7 +2955,10 @@
                                                  :bytes-read)]
                           {:sql-byte-len sql-bytes}))))
           grouped-rows (group-rows-by-join-sym sql-res children)
-          result (nested-sql-result->result sql-res grouped-rows children)
+          result (nested-sql-result->result sql-res
+                                            grouped-rows
+                                            children
+                                            (flags/use-coarse-topics? app-id))
           topics (collect-all-topics result)]
       (with-meta {:data result
                   :topics topics}
@@ -3102,5 +3111,8 @@
                   (let [result @this-result]
                     (if (instance? Exception result)
                       (throw result)
-                      result))))]
+                      (cond-> result
+                        (and (not (map? patterns))
+                             (flags/use-coarse-topics? app-id))
+                        (assoc :topics (pats->coarse-topics patterns)))))))]
           result)))))

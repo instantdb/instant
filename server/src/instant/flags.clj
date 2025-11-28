@@ -113,9 +113,12 @@
                                                         (set (map parse-uuid vs))))
                   (update :enable-admin-transact-queue-apps (fn [vs]
                                                               (set (map parse-uuid vs))))
-                  (update :invalidator-drop-tx-skip-apps (fn [vs]
-                                                           (set (map parse-uuid vs)))))
 
+                  (update :invalidator-drop-tx-skip-apps (fn [vs]
+                                                           (set (map parse-uuid vs))))
+
+                  (update :coarse-topics-apps (fn [vs]
+                                                (set (map parse-uuid vs)))))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -261,3 +264,6 @@
 
 (defn invalidator-drop-tx-skip-app? [app-id]
   (contains? (flag :invalidator-drop-tx-skip-apps) app-id))
+
+(defn use-coarse-topics? [app-id]
+  (contains? (flag :coarse-topics-apps) app-id))
