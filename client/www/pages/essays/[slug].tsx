@@ -14,6 +14,7 @@ import remarkMath from 'remark-math';
 import 'katex/dist/katex.min.css';
 
 import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
+import { Lightbox } from '@/components/Lightbox';
 
 import ReactMarkdown, { Components } from 'react-markdown';
 import { Fence } from '@/components/ui';
@@ -156,6 +157,14 @@ const Post = ({ post }: { post: Post }) => {
                       language={language}
                     ></Fence>
                   );
+                },
+                img(props) {
+                  const { src, alt, ...rest } = props;
+                  if (src?.includes('?lightbox')) {
+                    const cleanSrc = src.replace('?lightbox', '');
+                    return <Lightbox src={cleanSrc} alt={alt} />;
+                  }
+                  return <img src={src} alt={alt} {...rest} />;
                 },
               } as Components
             }

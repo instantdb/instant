@@ -74,9 +74,9 @@ Goal number 1 was to set up the physics for the game. Models needed to design a 
 
 Here’s a side-by-side comparison of the visuals each model came up with:
 
-| Codex                                    | Claude                                    | Gemini                                    |
-| ---------------------------------------- | ----------------------------------------- | ----------------------------------------- |
-| ![](/posts/counter_strike/map_codex.png) | ![](/posts/counter_strike/map_claude.png) | ![](/posts/counter_strike/map_gemini.png) |
+| Codex                                             | Claude                                             | Gemini                                             |
+| ------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------- |
+| ![](/posts/counter_strike/map_codex.png?lightbox) | ![](/posts/counter_strike/map_claude.png?lightbox) | ![](/posts/counter_strike/map_gemini.png?lightbox) |
 
 Visually Claude came up with the most interesting map. There were obstacles, a nice floor, and you could see everything well.
 
@@ -92,9 +92,9 @@ Now that we had a map and some polygons, we asked the models to style up the cha
 
 Here’s the result of their work:
 
-| Codex                                      | Claude                                      | Gemini                                      |
-| ------------------------------------------ | ------------------------------------------- | ------------------------------------------- |
-| ![](/posts/counter_strike/enemy_codex.png) | ![](/posts/counter_strike/enemy_claude.png) | ![](/posts/counter_strike/enemy_gemini.png) |
+| Codex                                               | Claude                                               | Gemini                                               |
+| --------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+| ![](/posts/counter_strike/enemy_codex.png?lightbox) | ![](/posts/counter_strike/enemy_claude.png?lightbox) | ![](/posts/counter_strike/enemy_gemini.png?lightbox) |
 
 Again it feels like Claude did the best job here. The character look quite human — almost at the level of design in Minecraft. Gemini did well too. Codex made it’s characters better, but everything was a single color, which really diminished it compared to the others.
 
@@ -106,9 +106,9 @@ We then asked each model to add a gun to our first-person view. When we shoot, w
 
 Here’s the side-by-side of how the recoil felt for each model:
 
-| Codex                                       | Claude                                       | Gemini                                       |
-| ------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
-| ![](/posts/counter_strike/recoil_codex.gif) | ![](/posts/counter_strike/recoil_claude.gif) | ![](/posts/counter_strike/recoil_gemini.gif) |
+| Codex                                                | Claude                                                | Gemini                                                |
+| ---------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| ![](/posts/counter_strike/recoil_codex.gif?lightbox) | ![](/posts/counter_strike/recoil_claude.gif?lightbox) | ![](/posts/counter_strike/recoil_gemini.gif?lightbox) |
 
 Here both Claude and Codex got the gun working in one shot. Claude’s gone looks like a real darn pistol though.
 
@@ -228,9 +228,9 @@ The reason we added this challenge, was to see (a) how they would deal with a ne
 
 All models did great with the UI. Here’s how each looked:
 
-| Codex                                   | Claude                                   | Gemini                                   |
-| --------------------------------------- | ---------------------------------------- | ---------------------------------------- |
-| ![](/posts/counter_strike/ui_codex.png) | ![](/posts/counter_strike/ui_claude.png) | ![](/posts/counter_strike/ui_gemini.png) |
+| Codex                                            | Claude                                            | Gemini                                            |
+| ------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------- |
+| ![](/posts/counter_strike/ui_codex.png?lightbox) | ![](/posts/counter_strike/ui_claude.png?lightbox) | ![](/posts/counter_strike/ui_gemini.png?lightbox) |
 
 We kind of like Gemini’s UI the most, but they were all pretty cool.
 
