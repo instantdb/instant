@@ -230,3 +230,6 @@ client/packages/admin/src/package.json
 client/packages/react-native/src/package.json
 client/packages/react/src/package.json
 client/packages/version/src/package.json
+
+# gemini
+.gemini
