@@ -29,8 +29,7 @@
    [instant.util.test :refer [instant-ex-data pretty-perm-q with-sketches]]
    [next.jdbc :as next-jdbc]
    [rewrite-clj.zip :as z]
-   [zprint.core :as zprint]
-   [instant.flags :as flags])
+   [zprint.core :as zprint])
   (:import
    (java.time Instant)
    (java.util UUID)
