@@ -963,14 +963,13 @@
 
 (defn- get-datalog-queries-for-topics [db app-id iv-topics]
   (if (flags/toggled? :pmap-datalog-queries-for-topics)
-    (into []
-          (keep identity)
-          (cp/pmap cpu-bound-pool
-                   (fn [datom]
-                     (let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
-                       (when (and dq-topics (matching-topic-intersection? iv-topics dq-topics))
-                         (:e datom))))
-                   (d/datoms db :avet :datalog-query/app-id app-id)))
+    (vec (keep identity
+               (cp/pmap cpu-bound-pool
+                        (fn [datom]
+                          (let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
+                            (when (and dq-topics (matching-topic-intersection? iv-topics dq-topics))
+                              (:e datom))))
+                        (d/datoms db :avet :datalog-query/app-id app-id))))
     (vec (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
                :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
                :when dq-topics
