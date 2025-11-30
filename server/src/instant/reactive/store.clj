@@ -1252,7 +1252,7 @@
                                       [{:db/id -1
                                         :sync/id subscription-id
                                         :sync/session-id sess-id
-                                        :sync/topics topics
+                                        :sync/topics (squish-topics topics)
                                         :sync/process process}])]
     (d/entity db-after [:sync/id subscription-id])))
 
@@ -1260,7 +1260,7 @@
   (let [conn (app-conn store app-id)]
     (transact! "store/sync-query-update-init"
                conn
-               [[:db/add ent-id :sync/topics topics]
+               [[:db/add ent-id :sync/topics (squish-topics topics)]
                 [:db/add ent-id :sync/sent-tx-id tx-id]])))
 
 (defn sync-query-update-sent-tx [store app-id ent-id tx-id]
@@ -1273,6 +1273,7 @@
 (defn sync-query-resync [store app-id sess-id subscription-id tx-id topics]
   (let [conn (app-conn store app-id)
         lookup [:sync/id subscription-id]
+        topics (squish-topics topics)
         {:keys [db-after]}
         (transact! "store/sync-query-update-sent-tx"
                    conn
