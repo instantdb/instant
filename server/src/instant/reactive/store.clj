@@ -16,7 +16,6 @@
       events across the lifetime of a session"
   (:require
    [clojure.string :as string]
-   [com.climate.claypoole :as cp]
    [datascript.core :as d]
    [datascript.conn :as d-conn]
    [instant.config :as config]
@@ -33,7 +32,7 @@
    [instant.util.tracer :as tracer])
   (:import
    (clojure.lang PersistentQueue)
-   (java.lang InterruptedException Runtime)
+   (java.lang InterruptedException)
    (java.time Instant)
    (java.util Map)
    (java.util.concurrent CancellationException CompletableFuture ConcurrentHashMap ConcurrentLinkedQueue ExecutorService Executors)
@@ -212,6 +211,7 @@
                  :datalog-query-cache (create-datalog-query-cache cache-executor)
                  :app-id app-id)
     conn))
+
 
 (defn app-conn [store app-id]
   (Map/.computeIfAbsent (:conns store) app-id #(create-conn schema %)))
@@ -695,6 +695,7 @@
                        [[:db.fn/call upsert-datalog-loader-tx-data sess-id make-loader-fn]])]
         (:session/datalog-loader (d/entity db-after [:session/id sess-id]))))))
 
+
 ;; -------------
 ;; subscriptions
 
@@ -742,6 +743,7 @@
            [{:datalog-query/app-id app-id
              :datalog-query/query datalog-query
              :datalog-query/topics topics}]))]])))
+
 
 ;; ------------
 ;; invalidation
@@ -799,7 +801,7 @@
                        0))))
 
 (defn make-like-match? [case-insensitive? text pattern]
-  (let [regex-pattern (like-pattern case-insensitive? pattern)]
+  (let [regex-pattern (like-pattern case-insensitive? pattern )]
     (re-matches regex-pattern text)))
 
 (def like-match?
@@ -958,23 +960,12 @@
     (for [e datalog-query-eids]
       [:db.fn/retractEntity e]))))
 
-(defonce cpu-bound-pool
-  (cp/threadpool (/ (.availableProcessors (Runtime/getRuntime)) 2)))
-
 (defn- get-datalog-queries-for-topics [db app-id iv-topics]
-  (if (flags/toggled? :pmap-datalog-queries-for-topics)
-    (vec (keep identity
-               (cp/pmap cpu-bound-pool
-                        (fn [datom]
-                          (let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
-                            (when (and dq-topics (matching-topic-intersection? iv-topics dq-topics))
-                              (:e datom))))
-                        (d/datoms db :avet :datalog-query/app-id app-id))))
-    (vec (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
-               :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
-               :when dq-topics
-               :when (matching-topic-intersection? iv-topics dq-topics)]
-           (:e datom)))))
+  (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
+        :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
+        :when dq-topics
+        :when (matching-topic-intersection? iv-topics dq-topics)]
+    (:e datom)))
 
 (defn get-stale-sync-subs [store app-id iv-topics]
   (let [db @(app-conn store app-id)]
@@ -992,7 +983,7 @@
   Returns affected session-ids"
   [store app-id tx-id topics]
   (let [conn               (app-conn store app-id)
-        datalog-query-eids (get-datalog-queries-for-topics @conn app-id topics)
+        datalog-query-eids (vec (get-datalog-queries-for-topics @conn app-id topics))
 
         report
         (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)
@@ -1005,6 +996,7 @@
                          (:db-before report)
                          datalog-query-eids)]
     session-ids))
+
 
 ;; ----------
 ;; sync table
