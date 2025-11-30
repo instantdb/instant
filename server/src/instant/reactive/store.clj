@@ -40,7 +40,6 @@
    (java.util.regex Pattern)
    (io.undertow.server.handlers.sse ServerSentEventConnection)
    (io.undertow.websockets.spi WebSocketHttpExchange)
-   (org.roaringbitmap.longlong Roaring64Bitmap)
    (org.roaringbitmap RoaringBitmap)))
 
 (set! *warn-on-reflection* true)
@@ -1074,24 +1073,6 @@
       (when (contains? dq-part :$not)
         (let [not-val (:$not dq-part)]
           (ucoll/exists? (partial not= not-val) iv-part))))))
-
-(defn match-topic?
-  [[iv-idx iv-e iv-a iv-v]
-   [dq-idx dq-e dq-a dq-v]]
-  (and
-   (match-topic-part? iv-idx dq-idx)
-   (match-topic-part? iv-e   dq-e)
-   (match-topic-part? iv-a   dq-a)
-   (match-topic-part? iv-v   dq-v)))
-
-(defn matching-topic-intersection? [iv-topics dq-topics]
-  (ucoll/seek
-   (fn [iv-topic]
-     (ucoll/seek
-      (fn [dq-topic]
-        (match-topic? iv-topic dq-topic))
-      dq-topics))
-   iv-topics))
 
 (defn match-topic? [[iv-idx iv-e iv-a iv-v] dq-topics]
   (let [idx-topics (get dq-topics iv-idx)]
