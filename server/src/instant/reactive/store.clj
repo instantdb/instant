@@ -213,7 +213,6 @@
                  :app-id app-id)
     conn))
 
-
 (defn app-conn [store app-id]
   (Map/.computeIfAbsent (:conns store) app-id #(create-conn schema %)))
 
@@ -696,7 +695,6 @@
                        [[:db.fn/call upsert-datalog-loader-tx-data sess-id make-loader-fn]])]
         (:session/datalog-loader (d/entity db-after [:session/id sess-id]))))))
 
-
 ;; -------------
 ;; subscriptions
 
@@ -744,7 +742,6 @@
            [{:datalog-query/app-id app-id
              :datalog-query/query datalog-query
              :datalog-query/topics topics}]))]])))
-
 
 ;; ------------
 ;; invalidation
@@ -802,7 +799,7 @@
                        0))))
 
 (defn make-like-match? [case-insensitive? text pattern]
-  (let [regex-pattern (like-pattern case-insensitive? pattern )]
+  (let [regex-pattern (like-pattern case-insensitive? pattern)]
     (re-matches regex-pattern text)))
 
 (def like-match?
@@ -966,7 +963,7 @@
 
 (defn- get-datalog-queries-for-topics [db app-id iv-topics]
   (let [datoms (d/datoms db :avet :datalog-query/app-id app-id)]
-    (if (flags/toggled? :invalidator-parallel-check)
+    (if (flags/toggled? :pmap-datalog-queries-for-topics)
       (->> datoms
            (cp/pmap cpu-bound-pool
                     (fn [datom]
@@ -1009,7 +1006,6 @@
                          (:db-before report)
                          datalog-query-eids)]
     session-ids))
-
 
 ;; ----------
 ;; sync table
