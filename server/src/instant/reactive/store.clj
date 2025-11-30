@@ -962,20 +962,19 @@
   (cp/threadpool (/ (.availableProcessors (Runtime/getRuntime)) 2)))
 
 (defn- get-datalog-queries-for-topics [db app-id iv-topics]
-  (let [datoms (d/datoms db :avet :datalog-query/app-id app-id)]
-    (if (flags/toggled? :pmap-datalog-queries-for-topics)
-      (->> datoms
-           (cp/pmap cpu-bound-pool
-                    (fn [datom]
-                      (let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
-                        (when (and dq-topics (matching-topic-intersection? iv-topics dq-topics))
-                          (:e datom)))))
-           (keep identity))
-      (for [datom datoms
-            :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
-            :when dq-topics
-            :when (matching-topic-intersection? iv-topics dq-topics)]
-        (:e datom)))))
+  (if (flags/toggled? :pmap-datalog-queries-for-topics)
+    (vec (keep identity
+               (cp/pmap cpu-bound-pool
+                        (fn [datom]
+                          (let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
+                            (when (and dq-topics (matching-topic-intersection? iv-topics dq-topics))
+                              (:e datom))))
+                        (d/datoms db :avet :datalog-query/app-id app-id))))
+    (vec (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
+               :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
+               :when dq-topics
+               :when (matching-topic-intersection? iv-topics dq-topics)]
+           (:e datom)))))
 
 (defn get-stale-sync-subs [store app-id iv-topics]
   (let [db @(app-conn store app-id)]
@@ -993,7 +992,7 @@
   Returns affected session-ids"
   [store app-id tx-id topics]
   (let [conn               (app-conn store app-id)
-        datalog-query-eids (vec (get-datalog-queries-for-topics @conn app-id topics))
+        datalog-query-eids (get-datalog-queries-for-topics @conn app-id topics)
 
         report
         (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)
