@@ -959,7 +959,7 @@
       [:db.fn/retractEntity e]))))
 
 (defonce cpu-bound-pool
-  (cp/threadpool (.availableProcessors (Runtime/getRuntime))))
+  (cp/threadpool (/ (.availableProcessors (Runtime/getRuntime)) 2)))
 
 (defn- get-datalog-queries-for-topics [db app-id iv-topics]
   (let [datoms (d/datoms db :avet :datalog-query/app-id app-id)]
