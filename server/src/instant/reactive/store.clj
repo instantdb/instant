@@ -434,7 +434,6 @@
 (def ctid-lookup [:ctid/key :ctid])
 
 (defn set-ctid-tx-data [db datalog-query-eid]
-  (tool/def-locals)
   (if-let [{:db/keys [id]
             :ctid/keys [next-ctid free-ctids]} (d/entity db ctid-lookup)]
     (if (seq free-ctids)
@@ -852,8 +851,8 @@
               (reduce (fn [acc [path v]]
                         (update-in acc path (fn [vs]
                                               (if (set? v)
-                                                (into vs v)
-                                                (conj vs v)))))
+                                                (into (or vs #{}) v)
+                                                (conj (or vs #{}) v)))))
                       acc
                       paths)))
           {}
@@ -1084,15 +1083,15 @@
                                     (reduced true)
                                     false))
                                 false
-                                (select-keys a-topics (if (set iv-a)
-                                                        (conj iv-a '_)
-                                                        [iv-a])))
+                                (if (= iv-a '_)
+                                  a-topics
+                                  (select-keys a-topics (conj iv-a '_))))
                    (reduced true)
                    false))
                false
-               (select-keys idx-topics (if (set iv-e)
-                                         (conj iv-e '_)
-                                         [iv-e])))))
+               (if (= iv-e '_)
+                 idx-topics
+                 (select-keys idx-topics (conj iv-e '_))))))
 
 (defn matching-topic-intersection? [iv-topics dq-topics]
   (ucoll/seek (fn [iv-topic]
