@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "strict": true,
+    "outDir": "dist/tsc",
+    "moduleResolution": "nodenext",
+    "rootDirs": ["src", "app"],
+    "sourceMap": true,
+    "jsx": "react",
+    "checkJs": false,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@lib": ["./src/index.tsx"]
+    },
+    "strictNullChecks": true
+  }
+}

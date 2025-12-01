@@ -1,9 +1,9 @@
 import { coerceToDate, id, lookup, tx } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
+import { HelloCounter } from '@instantdb/components';
 import { CurlyBraces, FileDown, Table } from 'lucide-react';
 import {
   ColumnDef,
-  ColumnMeta,
   ColumnSizingState,
   getCoreRowModel,
   useReactTable,
@@ -56,8 +56,8 @@ import {
   PlusIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
+
 import {
-  ArrowPathIcon,
   ArrowUpOnSquareIcon,
   PencilSquareIcon,
   TrashIcon,
@@ -1478,6 +1478,7 @@ export function Explorer({
 
   return (
     <div className="relative flex w-full flex-1 overflow-hidden dark:bg-neutral-800">
+      <HelloCounter></HelloCounter>
       <Dialog
         open={deleteDataConfirmationOpen}
         onClose={() => setDeleteDataConfirmationOpen(false)}

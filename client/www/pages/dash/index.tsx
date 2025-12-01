@@ -18,6 +18,7 @@ import {
   MagnifyingGlassIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
+import { Explorer as NewExplorer } from '@instantdb/components';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import { init } from '@instantdb/react';
 import produce from 'immer';
@@ -947,6 +948,10 @@ function ExplorerTab({
 }) {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
+      <NewExplorer
+        appId={appId}
+        adminToken={db.core._reactor.config.__adminToken}
+      />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Explorer
           db={db}

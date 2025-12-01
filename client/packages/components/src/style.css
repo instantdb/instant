@@ -1,0 +1,48 @@
+@layer theme {
+  @import 'tailwindcss/theme.css';
+}
+@layer base {
+  .tw-preflight {
+    /*
+      ¡ Surround components with `.tw-preflight` to use preflight !
+      So we don’t contaminate consumers.
+      Source: https://github.com/Roman86/tailwindcss-scoped-preflight/issues/67
+    */
+    @import 'tailwindcss/preflight.css';
+  }
+  /* Because the `html` selector is outside of .tw-preflight */
+  html .tw-preflight,
+  :host .tw-preflight {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    font-family: --theme(
+      --default-font-family,
+      ui-sans-serif,
+      system-ui,
+      sans-serif,
+      'Apple Color Emoji',
+      'Segoe UI Emoji',
+      'Segoe UI Symbol',
+      'Noto Color Emoji'
+    );
+    font-feature-settings: --theme(--default-font-feature-settings, normal);
+    font-variation-settings: --theme(--default-font-variation-settings, normal);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .no-tw-preflight {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+      all: revert-layer;
+    }
+  }
+}
+
+@layer components;
+@layer utilities {
+  @import 'tailwindcss/utilities.css';
+}
