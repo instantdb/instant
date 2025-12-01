@@ -386,14 +386,23 @@
            (contains? (second v) :$isNull))
     ;; This might be a lot simpler if we had a way to do
     ;; (not [?e :attr-id])
-    [[:ea
-      (component->topic-component symbol-values :e e)
-      (component->topic-component symbol-values :a a)
-      '_]
-     [:ea
-      '_
-      #{(-> v second :$isNull :attr-id)}
-      '_]]
+    (if (-> v second :$isNull :nil?)
+      [[:ea
+        (component->topic-component symbol-values :e e)
+        (component->topic-component symbol-values :a a)
+        '_]
+       [:ea
+        (component->topic-component symbol-values :e e)
+        #{(-> v second :$isNull :attr-id)}
+        '_]]
+      [[:ea
+        (component->topic-component symbol-values :e e)
+        (component->topic-component symbol-values :a a)
+        '_]
+       [:ea
+        '_
+        #{(-> v second :$isNull :attr-id)}
+        '_]])
     [[(idx-key idx)
       (component->topic-component symbol-values :e e)
       (component->topic-component symbol-values :a a)
