@@ -245,7 +245,7 @@ export function useTypingIndicator<
   const timeout = useTimeout();
 
   const observedPresence = rooms.usePresence(room, {
-    keys: [inputName],
+    keys: [inputName] as (keyof RoomSchema[RoomType]['presence'])[],
   });
 
   const active = useMemo(() => {

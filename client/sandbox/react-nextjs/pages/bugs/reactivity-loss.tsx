@@ -23,6 +23,8 @@ const schema = i.schema({
   },
 });
 
+type AppSchema = typeof schema;
+
 function App({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
   const [logs, setLogs] = useState<string[]>([]);
   const log = (msg: string) =>
@@ -229,8 +231,13 @@ function App({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
 
 export default function Page() {
   return (
-    <EphemeralAppPage
-      extraConfig={{ useDateObjects: false }}
+    <EphemeralAppPage<
+      AppSchema['entities'],
+      AppSchema['links'],
+      AppSchema['rooms'],
+      true
+    >
+      useDateObjects={true}
       schema={schema}
       Component={App}
     />

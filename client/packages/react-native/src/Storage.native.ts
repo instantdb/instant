@@ -18,6 +18,7 @@ export default class Storage extends StorageInterface {
 
   async getItem(k) {
     const res = await AsyncStorage.getItem(this.makeKey(k));
+    if (res === null) return res;
     return JSON.parse(res);
   }
 
@@ -31,7 +32,7 @@ export default class Storage extends StorageInterface {
 
   async getAllKeys(): Promise<string[]> {
     const allKeys = await AsyncStorage.getAllKeys();
-    const keys = [];
+    const keys: string[] = [];
     const keyPrefix = this.makeKey('');
     for (const key of allKeys) {
       if (key.startsWith(keyPrefix)) {
