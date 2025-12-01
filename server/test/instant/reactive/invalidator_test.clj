@@ -145,38 +145,76 @@
        false
        false],
       :oldkeys
-      {:keynames ["app_id" "entity_id" "attr_id" "value_md5"],
-       :keytypes ["uuid" "uuid" "uuid" "text"],
+      {:keynames ["app_id" "entity_id" "attr_id" "value" "value_md5"],
+       :keytypes ["uuid" "uuid" "uuid" "text" "text"],
        :keyvalues
        ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
         "7c6b379b-d841-46e1-8970-2da7e0cbc490"
         "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"
+        "\"Old Movie\""
         "01a892b6f33fa54aa3e8056d49b790db"]}})))
 
 (def delete-triple-changes
-  (->wal2jsonv2
-   '({:kind "delete",
-      :schema "public",
-      :table "triples",
-      :oldkeys
-      {:keynames ["app_id" "entity_id" "attr_id" "value_md5"],
-       :keytypes ["uuid" "uuid" "uuid" "text"],
-       :keyvalues
-       ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
-        "7c6b379b-d841-46e1-8970-2da7e0cbc490"
-        "6a631008-d315-4bbd-8665-c92aed9abc9c"
-        "d68a18275455ae3eaa2c291eebb46e6d"]}}
-     {:kind "delete",
-      :schema "public",
-      :table "triples",
-      :oldkeys
-      {:keynames ["app_id" "entity_id" "attr_id" "value_md5"],
-       :keytypes ["uuid" "uuid" "uuid" "text"],
-       :keyvalues
-       ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
-        "7c6b379b-d841-46e1-8970-2da7e0cbc490"
-        "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"
-        "26833117de9ecb130a208c6da76eb18b"]}})))
+  [{:action :delete,
+    :lsn "2D4/71E9E610",
+    :schema "public",
+    :table "triples",
+    :identity
+    [{:name "app_id",
+      :type "uuid",
+      :value "ecf244fe-87bf-489a-8618-b617e822d65d"}
+     {:name "entity_id",
+      :type "uuid",
+      :value "12f213cf-c7a7-420e-b47a-f148c9e36f21"}
+     {:name "attr_id",
+      :type "uuid",
+      :value "cb1d86ce-8dad-4cf9-87bc-e00d79fb0fa3"}
+     {:name "value",
+      :type "jsonb",
+      :value "\"12f213cf-c7a7-420e-b47a-f148c9e36f21\""}
+     {:name "value_md5",
+      :type "text",
+      :value "76a76d67743140985b3fdb82eb087754"}
+     {:name "ea", :type "boolean", :value true}
+     {:name "eav", :type "boolean", :value false}
+     {:name "av", :type "boolean", :value true}
+     {:name "ave", :type "boolean", :value false}
+     {:name "vae", :type "boolean", :value false}
+     {:name "created_at", :type "bigint", :value 1764627956167}
+     {:name "checked_data_type",
+      :type "checked_data_type",
+      :value nil}
+     {:name "pg_size", :type "integer", :value 180}],
+    :tx-bytes 889}
+   {:action :delete,
+    :lsn "2D4/71E9E720",
+    :schema "public",
+    :table "triples",
+    :identity
+    [{:name "app_id",
+      :type "uuid",
+      :value "ecf244fe-87bf-489a-8618-b617e822d65d"}
+     {:name "entity_id",
+      :type "uuid",
+      :value "12f213cf-c7a7-420e-b47a-f148c9e36f21"}
+     {:name "attr_id",
+      :type "uuid",
+      :value "f9ae4e62-b193-4b99-bdd4-a5ede7b923c1"}
+     {:name "value", :type "jsonb", :value "\"hello\""}
+     {:name "value_md5",
+      :type "text",
+      :value "5deaee1c1332199e5b5bc7c5e4f7f0c2"}
+     {:name "ea", :type "boolean", :value true}
+     {:name "eav", :type "boolean", :value false}
+     {:name "av", :type "boolean", :value false}
+     {:name "ave", :type "boolean", :value false}
+     {:name "vae", :type "boolean", :value false}
+     {:name "created_at", :type "bigint", :value 1764627956167}
+     {:name "checked_data_type",
+      :type "checked_data_type",
+      :value "string"}
+     {:name "pg_size", :type "integer", :value 152}],
+    :tx-bytes 863}])
 
 (def create-ident-changes
   (->wal2jsonv2
@@ -367,109 +405,51 @@
 
 (deftest changes-produce-correct-topics
   (testing "insert triples"
-    (is (= #{[:ea
-              #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
+    (is (= #{[#{:ea} #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
               #{"New Movie"}]
-             [:ea
-              #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
+             [#{:ea} #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
               #{1987}]}
            (topics/topics-for-changes {:triple-changes create-triple-changes}))))
   (testing "update triples"
-    (is (= '#{[:ea
+    (is (= '#{[#{:ea}
                #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
                #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]}
+               #{"Updated Movie3" "Old Movie"}]}
            (topics/topics-for-changes {:triple-changes update-triple-changes}))))
-  (testing "update triples"
-    (is (= '#{[:ave
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]
-              [:eav
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]
-              [:av
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]
-              [:vae
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
-               _]
-              [:eav
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
-               _]
-              [:ave
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
-               _]
-              [:ea
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
-               _]
-              [:av
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
-               _]
-              [:ea
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]
-              [:vae
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]}
+  (testing "delete triples"
+    (is (= #{[#{:ea}
+              #{#uuid "12f213cf-c7a7-420e-b47a-f148c9e36f21"}
+              #{#uuid "f9ae4e62-b193-4b99-bdd4-a5ede7b923c1"}
+              #{"hello"}]
+             [#{:av :ea}
+              #{#uuid "12f213cf-c7a7-420e-b47a-f148c9e36f21"}
+              #{#uuid "cb1d86ce-8dad-4cf9-87bc-e00d79fb0fa3"}
+              #{"12f213cf-c7a7-420e-b47a-f148c9e36f21"}]}
            (topics/topics-for-changes {:triple-changes delete-triple-changes}))))
   (testing "create attrs + idents (these happen together)"
-    (is (= '#{[:ave _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
-              [:eav _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
-              [:vae _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
-              [:av _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
-              [:ea _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]}
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]}
            (topics/topics-for-changes {:ident-changes create-ident-changes
-                                    :attr-changes create-attr-changes}))))
+                                       :attr-changes create-attr-changes}))))
   (testing "update idents isolated"
-    (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ea _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
            (topics/topics-for-changes {:ident-changes update-ident-changes}))))
   (testing "update attrs isolated"
-    (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ea _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
            (topics/topics-for-changes {:attr-changes update-attr-changes}))))
   (testing "update attr + idents"
-    (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ea _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
            (topics/topics-for-changes {:ident-changes update-ident-changes
-                                    :attr-changes update-attr-changes}))))
+                                       :attr-changes update-attr-changes}))))
   (testing "restoring an attr includes a full wildcard for :ea"
-    (is (= '#{[:av _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
-              [:eav _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
-              [:ea _ _ _]
-              [:vae _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
-              [:ea _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
-              [:ave _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]}
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
+              [#{:ea} _ _ _]}
            (topics/topics-for-changes {:attr-changes restore-attr-changes}))))
   (testing "delete attr + idents (these happen together)"
-    (is (= '#{[:ea _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
-              [:vae _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
-              [:ave _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
-              [:eav _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
-              [:av _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]}
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]}
            (topics/topics-for-changes {:ident-changes delete-ident-changes
-                                    :attr-changes delete-attr-changes})))))
+                                       :attr-changes delete-attr-changes})))))
 
 (defn ->md5 [s]
   (-> s

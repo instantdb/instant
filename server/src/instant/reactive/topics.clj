@@ -66,7 +66,7 @@
                 (filter m)
                 set)
 
-        old-m (columns->map (:columns change) true)
+        old-m (columns->map (:identity change) true)
         old-e (UUID/fromString (:entity_id old-m))
         old-a (UUID/fromString (:attr_id old-m))
         old-v (<-json (:value old-m))]
