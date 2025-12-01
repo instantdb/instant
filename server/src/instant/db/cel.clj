@@ -6,6 +6,7 @@
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.attr-pat :as attr-pat]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
@@ -1501,7 +1502,8 @@
         query {:children {:pattern-groups (map (fn [patterns]
                                                  {:patterns patterns})
                                                patterns)}}
-        results (:data (datalog-query-fn ctx query))]
+        results (:data (datalog-query-fn (assoc ctx :skip-cache? (flags/toggled? :skip-ref-cache))
+                                         query))]
     (reduce (fn [acc [ref pattern result]]
               (let [group-by-path [0 0]
                     val-path (find-val-path pattern)

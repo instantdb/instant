@@ -112,8 +112,13 @@
                   (update :enable-store-batching-apps (fn [vs]
                                                         (set (map parse-uuid vs))))
                   (update :enable-admin-transact-queue-apps (fn [vs]
-                                                              (set (map parse-uuid vs)))))
+                                                              (set (map parse-uuid vs))))
 
+                  (update :invalidator-drop-tx-skip-apps (fn [vs]
+                                                           (set (map parse-uuid vs))))
+
+                  (update :coarse-topics-apps (fn [vs]
+                                                (set (map parse-uuid vs)))))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -242,5 +247,23 @@
 (defn hard-deletion-sweeper-disabled? []
   (toggled? :hard-deletion-sweeper-disabled?))
 
+(defn rate-limit-tx-based-on-conn-pool? []
+  (toggled? :rate-limit-tx-based-on-conn-pool?))
+
+(defn rate-limit-tx-based-on-conn-pool-buffer []
+  (flag :rate-limit-tx-based-on-conn-pool-buffer 5))
+
 (defn admin-tx-queue-enabled? [app-id]
   (contains? (flag :enable-admin-transact-queue-apps) app-id))
+
+(defn invalidator-drop-tx-enabled? []
+  (toggled? :invalidator-drop-tx-enabled?))
+
+(defn invalidator-drop-tx-latency-ms []
+  (flag :invalidator-drop-tx-latency-ms 30000))
+
+(defn invalidator-drop-tx-skip-app? [app-id]
+  (contains? (flag :invalidator-drop-tx-skip-apps) app-id))
+
+(defn use-coarse-topics? [app-id]
+  (contains? (flag :coarse-topics-apps) app-id))

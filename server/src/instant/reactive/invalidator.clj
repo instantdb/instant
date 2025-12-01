@@ -4,6 +4,7 @@
    [datascript.core :as ds]
    [instant.config :as config]
    [instant.db.pg-introspect :as pg-introspect]
+   [instant.flags :as flags]
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
@@ -112,7 +113,7 @@
    We combine all of the change lists and advance the tx-id to the
    latest tx-id in the list."
   [r1 r2]
-  (when (< (::grouped-queue/combined r1 1) 100)
+  (when (< (::grouped-queue/combined r1 1) (flags/flag :invalidator-batch-limit 500))
     ;; Complain loudly if we accidently mix wal-records from multiple apps
     (when (not= (:app-id r1) (:app-id r2))
       (throw (ex-info "app-id mismatch in combine-wal-records" {:r1 r1 :r2 r2})))
@@ -211,7 +212,18 @@
     (a/go
       (loop []
         (when-some [wal-record (a/<! wal-chan)]
-          (grouped-queue/put! queue wal-record)
+          (let [app-id (:app-id wal-record)
+                group (get (:groups queue) app-id)
+                head (when group (.peek group))
+                put-at (some-> head :instant.grouped-queue/put-at)
+                latency (if put-at (- (System/currentTimeMillis) put-at) 0)]
+            (if (and (flags/invalidator-drop-tx-enabled?)
+                     (or (flags/invalidator-drop-tx-skip-app? app-id)
+                         (> latency (flags/invalidator-drop-tx-latency-ms))))
+              (tracer/record-info! {:name "invalidator/drop-backpressure"
+                                    :attributes {:app-id app-id
+                                                 :latency latency}})
+              (grouped-queue/put! queue wal-record)))
           (recur)))
       (grouped-queue/stop queue)
       (tracer/record-info! {:name "invalidation-worker/shutdown"}))
