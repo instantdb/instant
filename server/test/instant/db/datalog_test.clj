@@ -44,22 +44,22 @@
            (d/->named-patterns '[[:vae]])))))
 
 (deftest pats->coarse-topics
-  (is (= '[[:eav _ _ _ _]]
+  (is (= '[[#{:eav} _ _ _ _]]
          (d/pats->coarse-topics '[[:eav ?e]])))
-  (is (= '[[:eav _ _ #{"Joe"} _]]
+  (is (= '[[#{:eav} _ _ #{"Joe"} _]]
          (d/pats->coarse-topics '[[:eav ?e ?a "Joe"]])))
-  (is (= '[[:eav _ _ #{"Jack"} _]
-           [:eav _ _ #{"Jill"} _]]
+  (is (= '[[#{:eav} _ _ #{"Jack"} _]
+           [#{:eav} _ _ #{"Jill"} _]]
          (d/pats->coarse-topics '[{:or {:patterns [{:and [[:eav ?e ?a "Jack"]]}]}}
                                   [:eav ?e ?a "Jill"]])))
-  (is (= '[[:eav _ _ #{"Jack"} _]
-           [:eav _ _ #{"Jill"} _]]
+  (is (= '[[#{:eav} _ _ #{"Jack"} _]
+           [#{:eav} _ _ #{"Jill"} _]]
          (d/pats->coarse-topics '{:children {:pattern-groups
                                              [{:patterns [{:or {:patterns [{:and [[:eav ?e ?a "Jack"]]}]}}
                                                           [:eav ?e ?a "Jill"]]}]}})))
-  (is (= '[[:eav _ _ #{"Jack"} _]
-           [:eav _ _ #{"Jill"} _]
-           [:ea _ _ _ _]]
+  (is (= '[[#{:eav} _ _ #{"Jack"} _]
+           [#{:eav} _ _ #{"Jill"} _]
+           [#{:ea} _ _ _ _]]
          (d/pats->coarse-topics '{:children {:pattern-groups
                                              [{:patterns [{:or {:patterns [{:and [[:eav ?e ?a "Jack"]]}]}}
                                                           [:eav ?e ?a "Jill"]]
@@ -242,7 +242,7 @@
             query-pretty (partial query-pretty ctx r)]
         (testing "simple query"
           (let [tina-turner-eid (resolvers/->uuid r "eid-tina-turner")]
-            (is (= '{:topics [[:ea #{"eid-tina-turner"} _ _]]
+            (is (= '{:topics [[#{:ea} #{"eid-tina-turner"} _ _]]
 
                      :symbol-values {?a #{:person/name :person/born :person/id}},
 
@@ -256,8 +256,8 @@
         (testing "attr-jump"
           (let [movie-title-aid (resolvers/->uuid r :movie/title)
                 movie-year-aid (resolvers/->uuid r :movie/year)]
-            (is (= '{:topics [[:ea _ #{:movie/year} #{1987}]
-                              [:ea #{"eid-lethal-weapon" "eid-robocop" "eid-predator"} #{:movie/title} _]],
+            (is (= '{:topics [[#{:ea} _ #{:movie/year} #{1987}]
+                              [#{:ea} #{"eid-lethal-weapon" "eid-robocop" "eid-predator"} #{:movie/title} _]],
 
                      :symbol-values {?e #{"eid-lethal-weapon" "eid-robocop" "eid-predator"},
                                      ?title #{"Predator" "RoboCop" "Lethal Weapon"}},
@@ -276,9 +276,9 @@
                 movie-director-aid (resolvers/->uuid r :movie/director)
                 person-name-aid (resolvers/->uuid r :person/name)]
             (is (= '{:topics
-                     [[:ea _ #{:movie/title} #{"Predator"}]
-                      [:vae #{"eid-predator"} #{:movie/director} _]
-                      [:ea _ #{:person/name} _]]
+                     [[#{:ea} _ #{:movie/title} #{"Predator"}]
+                      [#{:vae} #{"eid-predator"} #{:movie/director} _]
+                      [#{:ea} _ #{:person/name} _]]
                      :symbol-values {?e #{"eid-predator"},
                                      ?director #{"eid-john-mctiernan"},
                                      ?name #{"John McTiernan"}},
@@ -296,9 +296,9 @@
           (let [movie-title-aid (resolvers/->uuid r :movie/title)
                 movie-director-aid (resolvers/->uuid r :movie/director)
                 person-name-aid (resolvers/->uuid r :person/name)]
-            (is (= '{:topics [[:ea _ #{:person/name} #{"John McTiernan"}]
-                              [:vae _ #{:movie/director} #{"eid-john-mctiernan"}]
-                              [:ea #{"eid-predator" "eid-die-hard"} #{:movie/title} _]],
+            (is (= '{:topics [[#{:ea} _ #{:person/name} #{"John McTiernan"}]
+                              [#{:vae} _ #{:movie/director} #{"eid-john-mctiernan"}]
+                              [#{:ea} #{"eid-predator" "eid-die-hard"} #{:movie/title} _]],
 
                      :symbol-values {?director #{"eid-john-mctiernan"},
                                      ?movie #{"eid-predator" "eid-die-hard"},
@@ -363,9 +363,9 @@
                   (.close hold-conn)
 
                   (is (=
-                       '{:topics [[:ea _ #{:person/name} #{"John McTiernan"}]
-                                  [:vae _ #{:movie/director} #{"eid-john-mctiernan"}]
-                                  [:ea #{"eid-predator" "eid-die-hard"} #{:movie/title} _]],
+                       '{:topics [[#{:ea} _ #{:person/name} #{"John McTiernan"}]
+                                  [#{:vae} _ #{:movie/director} #{"eid-john-mctiernan"}]
+                                  [#{:ea} #{"eid-predator" "eid-die-hard"} #{:movie/title} _]],
 
                          :symbol-values {?director #{"eid-john-mctiernan"},
                                          ?movie #{"eid-predator" "eid-die-hard"},
@@ -379,9 +379,9 @@
                                        ["eid-predator" :movie/title "Predator"]]}}
                        @q1))
                   (is (=
-                       '{:topics [[:ea _ #{:movie/title} #{"Predator"}]
-                                  [:vae #{"eid-predator"} #{:movie/director} _]
-                                  [:ea _ #{:person/name} _]]
+                       '{:topics [[#{:ea} _ #{:movie/title} #{"Predator"}]
+                                  [#{:vae} #{"eid-predator"} #{:movie/director} _]
+                                  [#{:ea} _ #{:person/name} _]]
 
                          :symbol-values {?e #{"eid-predator"},
                                          ?director #{"eid-john-mctiernan"},

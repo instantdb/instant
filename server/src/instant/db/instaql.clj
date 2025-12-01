@@ -1324,7 +1324,7 @@
                             [:= field [:cast value field-type]]))))]}]
      :topics (if (seq rest)
                topics
-               [[:ea
+               [[#{:ea}
                  '_
                  (get-in table-info [(name other-table) :fields field :attr-id])
                  ;; TODO(byop): Should be able to use values to narrow the topics,
@@ -1400,7 +1400,7 @@
         {:sql-conds (list* :or
                            (for [value values]
                              [comparison field [:cast value field-type]]))
-         :topics [[:ea '_ #{(:attr-id field-info)} '_]]}))))
+         :topics [[#{:ea} '_ #{(:attr-id field-info)} '_]]}))))
 
 (defn where-cond->sql [state table-info table-name [tag where-cond]]
   (case tag
@@ -1662,9 +1662,9 @@
         id-attr (:attr-id primary-key)
 
         ;; TODO(byop): narrow this down if there is a where clause
-        catch-all [[:ea '_ #{id-attr} '_]]
+        catch-all [[#{:ea} '_ #{id-attr} '_]]
         entity-topics (map (fn [{:strs [row]}]
-                             [:ea #{(get row id-field)} '_ '_])
+                             [#{:ea} #{(get row id-field)} '_ '_])
                            rows)
 
         relations (get-in table-info [etype :relations])
@@ -1674,7 +1674,7 @@
            (map (fn [child]
                   (let [relation (get relations (get child "k"))]
                     ;; TODO(byop): narrow these down to relevant topics for this relation
-                    [:ea '_ #{(:attr-id relation)} '_]))
+                    [#{:ea} '_ #{(:attr-id relation)} '_]))
                 children))
          rows)]
     (concat catch-all
@@ -1923,7 +1923,7 @@
                     (reduce-kv (fn [cache eid join-rows]
                                  (assoc cache [[:ea eid attr-ids]] {:join-rows join-rows
                                                                     :symbol-values {}
-                                                                    :topics [[:ea #{eid} attr-ids '_]]}))
+                                                                    :topics [[#{:ea} #{eid} attr-ids '_]]}))
                                cache
                                eid->join-rows)))
                 {}

@@ -302,9 +302,9 @@
 ;; Coarse topic
 
 (defn pat-part->coarse-topic-part [pat-part]
-  (if
-   (symbol? pat-part) '_
-   pat-part))
+  (cond (symbol? pat-part) '_
+        (set? pat-part) pat-part
+        :else #{pat-part}))
 
 (defn pat->coarse-topic [pat]
   (->> pat
@@ -386,15 +386,15 @@
            (contains? (second v) :$isNull))
     ;; This might be a lot simpler if we had a way to do
     ;; (not [?e :attr-id])
-    [[:ea
+    [[#{:ea}
       (component->topic-component symbol-values :e e)
       (component->topic-component symbol-values :a a)
       '_]
-     [:ea
+     [#{:ea}
       '_
       #{(-> v second :$isNull :attr-id)}
       '_]]
-    [[(idx-key idx)
+    [[#{(idx-key idx)}
       (component->topic-component symbol-values :e e)
       (component->topic-component symbol-values :a a)
       (component->topic-component symbol-values :v v)]]))
@@ -2529,9 +2529,20 @@
           {}
           named-patterns))
 
+(defn ensure-empty-symbol-values-for-topics
+  "Adds empty sets to the symbol values for the fields that we know about.
+   This will prevent '_ in the topic when we return no results from the query."
+  [symbol-fields symbol-values]
+  (reduce-kv (fn [acc _pat-idx {:keys [sym ref-value?]}]
+               (if (or ref-value? (contains? acc sym))
+                 acc
+                 (assoc acc sym #{})))
+             symbol-values
+             symbol-fields))
+
 (defn- missing-attr-result [named-patterns]
-  {:topics '[[:ea _ _ _]
-             [:eav _ _ _]]
+  {:topics '[[#{:ea} _ _ _]
+             [#{:eav} _ _ _]]
    :symbol-values (empty-symbol-values named-patterns)
    :join-rows #{}})
 
@@ -2616,7 +2627,9 @@
                      {:join-rows []
                       :page-info-rows []
                       :symbol-values symbol-values
-                      :symbol-values-for-topics symbol-values-for-topics}
+                      :symbol-values-for-topics (ensure-empty-symbol-values-for-topics
+                                                 symbol-fields
+                                                 symbol-values-for-topics)}
                      sql-res)]
          (-> (if page-info
                (let [rows (if (:last? page-info)

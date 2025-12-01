@@ -51,38 +51,58 @@
             :else
             v-parsed)
         ks (->> #{:ea :eav :av :ave :vae}
-                (filter m))]
-    (map (fn [k] [k #{e} #{a} #{v}])
-         ks)))
+                (filter m)
+                set)]
+    [[ks #{e} #{a} #{v}]]))
 
 (defn- topics-for-triple-update
   [change]
   (let [m (columns->map (:columns change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
+        v (<-json (:value m))
+
         ks (->> #{:ea :eav :av :ave :vae}
-                (filter m))]
-    ;; (XXX): If we had the old value we wouldn't need to do this wildcard
-    ;; business. Would be better if we can be more specific
-    (map (fn [k] [k #{e} #{a} '_]) ks)))
+                (filter m)
+                set)
+
+        old-m (columns->map (:identity change) true)
+        old-e (UUID/fromString (:entity_id old-m))
+        old-a (UUID/fromString (:attr_id old-m))
+        old-v (<-json (:value old-m))]
+    (cond (and (= e old-e)
+               (= a old-a)
+               ;; toasted value not included if it didn't change
+               (or (not (contains? m :value))
+                   (= v old-v)))
+          ;; value didn't change, so we can ignore this update
+          []
+
+          (and (= e old-e)
+               (= a old-a))
+          [[ks #{e} #{a} (set [v old-v])]]
+
+          ;; We shouldn't hit this, but just in case
+          :else
+          [[ks #{e} #{a} #{v}]
+           [ks #{e} #{a} #{old-v}]])))
 
 (defn- topics-for-triple-delete [change]
   (let [m (columns->map (:identity change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
-        ;; (XXX): The changeset doesn't include the index cols of the triple
-        ;; so for now we just invalidate all possible indexes
-        ks #{:ea :eav :av :ave :vae}]
-    ;; (XXX): Similar to update, we don't have the prev val, so we use wildcard
-    ;; later on lets think how we can be more specific
-    (map (fn [k] [k #{e} #{a} '_]) ks)))
+        v (<-json (:value m))
+        ks (->> #{:ea :eav :av :ave :vae}
+                (filter m)
+                set)]
+    [[ks #{e} #{a} #{v}]]))
 
 (defn topics-for-change [{:keys [action] :as change}]
   (case action
     :insert (topics-for-triple-insert change)
     :update (topics-for-triple-update change)
     :delete (topics-for-triple-delete change)
-    #{}))
+    []))
 
 (defn topics-for-triple-changes [changes]
   (->> changes
@@ -91,14 +111,13 @@
 
 (defn- topics-for-ident-upsert [{:keys [columns]}]
   (let [indexes #{:ea :eav :av :ave :vae}
-        attr-id (parse-uuid (get-column columns "attr_id"))
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
-    (set topics)))
+        attr-id (parse-uuid (get-column columns "attr_id"))]
+    #{[indexes '_ #{attr-id} '_]}))
 
 (defn- topics-for-attr-upsert [{:keys [columns identity] :as _change}]
   (let [indexes #{:ea :eav :av :ave :vae}
         attr-id (parse-uuid (get-column columns "id"))
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)
+        topics [[indexes '_ #{attr-id} '_]]
 
         value-type (get-column columns "value_type")
         object-attr? (not= value-type "ref")
@@ -109,15 +128,14 @@
       ;; Queries specifically request object attributes.
       ;; If we are restoring an attr, all queries that require
       ;; object attributes would need to be refreshed
-      (and object-attr? restoration?) (conj [:ea '_ '_ '_])
+      (and object-attr? restoration?) (conj [#{:ea} '_ '_ '_])
 
       true set)))
 
 (defn- topics-for-attr-delete [{:keys [identity] :as _change}]
   (let [attr-id (parse-uuid (get-column identity "id"))
-        indexes #{:ea :eav :av :ave :vae}
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
-    (set topics)))
+        indexes #{:ea :eav :av :ave :vae}]
+    #{[indexes '_ #{attr-id} '_]}))
 
 (defn topics-for-ident-change [{:keys [action] :as change}]
   (case action
