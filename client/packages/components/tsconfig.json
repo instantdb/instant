@@ -1,12 +1,15 @@
 {
   "extends": "../../tsconfig.base.json",
   "include": ["src"],
-  "exclude": ["node_modules", "dist", "src/__types__"],
+  "exclude": ["node_modules", "dist"],
   "compilerOptions": {
+    "strict": true,
     "outDir": "dist/tsc",
-    "rewriteRelativeImportExtensions": true,
+    "moduleResolution": "nodenext",
     "rootDirs": ["src", "lib"],
+    "jsx": "react-jsx",
     "checkJs": false,
+    "skipLibCheck": true,
     "strictNullChecks": true
   }
 }

@@ -3,7 +3,6 @@ import { InstantReactWebDatabase } from '@instantdb/react';
 import { CurlyBraces, FileDown, Table } from 'lucide-react';
 import {
   ColumnDef,
-  ColumnMeta,
   ColumnSizingState,
   getCoreRowModel,
   useReactTable,
@@ -56,8 +55,8 @@ import {
   PlusIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
+
 import {
-  ArrowPathIcon,
   ArrowUpOnSquareIcon,
   PencilSquareIcon,
   TrashIcon,

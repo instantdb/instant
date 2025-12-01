@@ -1,0 +1,49 @@
+{
+  "name": "components",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/core": "^7.17.9",
+    "@babel/preset-env": "^7.16.11",
+    "@babel/types": "^7.27.6",
+    "@prettier/sync": "^0.5.5",
+    "@tailwindcss/vite": "^4.1.17",
+    "@types/node": "^18.11.18",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@types/uuid": "^10.0.0",
+    "@types/websocket": "^1.0.5",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@vitejs/plugin-react-swc": "^4.2.2",
+    "fake-indexeddb": "^6.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "swc": "link:@vitejs/plugin-react/swc",
+    "tailwindcss": "^4.1.17",
+    "tshy": "^3.0.2",
+    "typescript": "^5.9.3",
+    "vite": "^5.2.0",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^1.6.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "dependencies": {
+    "@babel/parser": "^8.0.0-beta.0",
+    "@babel/types": "^8.0.0-beta.0",
+    "@instantdb/core": "workspace:*",
+    "@instantdb/version": "workspace:*"
+  }
+}
