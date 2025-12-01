@@ -1828,7 +1828,7 @@ async function readLocalPermsFileWithErrorLogging() {
   const res = await readLocalPermsFile();
   if (!res) {
     error(
-      `We couldn't find your ${chalk.yellow('`instant.perms.ts`')} file. Make sure it's in the root directory.`,
+      `We couldn't find your ${chalk.yellow('`instant.perms.ts`')} file. Make sure it's in the root directory or set INSTANT_PERMS_FILE_PATH to your custom location.`,
     );
   }
   return res;
@@ -1867,7 +1867,7 @@ async function readLocalSchemaFileWithErrorLogging() {
 
   if (!res) {
     error(
-      `We couldn't find your ${chalk.yellow('`instant.schema.ts`')} file. Make sure it's in the root directory.`,
+      `We couldn't find your ${chalk.yellow('`instant.schema.ts`')} file. Make sure it's in the root directory or set INSTANT_SCHEMA_FILE_PATH to your custom location.`,
     );
     return;
   }
