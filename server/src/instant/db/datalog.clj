@@ -302,9 +302,9 @@
 ;; Coarse topic
 
 (defn pat-part->coarse-topic-part [pat-part]
-  (if
-   (symbol? pat-part) '_
-   pat-part))
+  (cond (symbol? pat-part) '_
+        (set? pat-part) pat-part
+        :else #{pat-part}))
 
 (defn pat->coarse-topic [pat]
   (->> pat
@@ -2533,16 +2533,18 @@
   "Adds empty sets to the symbol values for the fields that we know about.
    This will prevent '_ in the topic when we return no results from the query."
   [symbol-fields symbol-values]
-  (reduce-kv (fn [acc _pat-idx {:keys [sym ref-value?]}]
-               (if (or ref-value? (contains? acc sym))
-                 acc
-                 (assoc acc sym #{})))
-             symbol-values
-             symbol-fields))
+  (if false
+    symbol-values
+    (reduce-kv (fn [acc _pat-idx {:keys [sym ref-value?]}]
+                 (if (or ref-value? (contains? acc sym))
+                   acc
+                   (assoc acc sym #{})))
+               symbol-values
+               symbol-fields)))
 
 (defn- missing-attr-result [named-patterns]
-  {:topics '[[:ea _ _ _]
-             [:eav _ _ _]]
+  {:topics '[[#{:ea} _ _ _]
+             [#{:eav} _ _ _]]
    :symbol-values (empty-symbol-values named-patterns)
    :join-rows #{}})
 
