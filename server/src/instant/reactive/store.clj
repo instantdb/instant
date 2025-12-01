@@ -110,6 +110,9 @@
    :datalog-query/delayed-call {} ;; delay with datalog result (from query.clj)
    :datalog-query/topics {:db/type :db.type/list-of-topics}
 
+   :datalog-query/attrs {:db/index true
+                         :db/cardinality :db.cardinality/many}
+
    :sync/id {:db/unique :db.unique/identity
              :db/type :db.type/uuid}
    :sync/session-id {:db/type :db.type/uuid
@@ -697,6 +700,15 @@
 ;; -------------
 ;; subscriptions
 
+(defn topics->attrs [topics]
+  (reduce
+   (fn [acc [_ _ a :as _topic]]
+     (if (set? a)
+       (into acc a)
+       (reduced #{:*})))
+   #{}
+   topics))
+
 (defn record-datalog-query-start! [store ctx datalog-query coarse-topics]
   (let [{:keys [app-id session-id instaql-query v]} ctx
         conn (app-conn store app-id)]
@@ -706,16 +718,19 @@
                  (fn [db]
                    (let [lookup-ref             [:datalog-query/app-id+query [app-id datalog-query]]
                          existing-datalog-query (d/entity db lookup-ref)
-                         datalog-query-eid      (or (:db/id existing-datalog-query) -1)]
+                         datalog-query-eid      (or (:db/id existing-datalog-query) -1)
+                         attrs (topics->attrs coarse-topics)]
                      (concat
                       (if existing-datalog-query
                         (when-not (:datalog-query/topics existing-datalog-query)
                           [{:db/id                datalog-query-eid
-                            :datalog-query/topics coarse-topics}])
+                            :datalog-query/topics coarse-topics
+                            :datalog-query/attrs  attrs}])
                         [{:db/id                datalog-query-eid
                           :datalog-query/app-id app-id
                           :datalog-query/query  datalog-query
-                          :datalog-query/topics coarse-topics}])
+                          :datalog-query/topics coarse-topics
+                          :datalog-query/attrs  attrs}])
                       (when-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
                         [{:subscription/app-id        app-id
                           :subscription/session-id    session-id
@@ -730,17 +745,26 @@
 
   (let [{:keys [app-id]} ctx
         conn       (app-conn store app-id)
-        lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]]
+        lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
+        attrs (topics->attrs topics)]
     (transact!
      "store/record-datalog-query-finish!"
      conn
      [[:db.fn/call
        (fn [db]
          (if-some [existing (d/entity db lookup-ref)]
-           [[:db/add (:db/id existing) :datalog-query/topics topics]]
+           (let [eid (:db/id existing)
+                 old-attrs (:datalog-query/attrs existing)
+                 retract-txs (for [a old-attrs] [:db/retract eid :datalog-query/attrs a])
+                 add-txs (for [a attrs] [:db/add eid :datalog-query/attrs a])]
+             (concat
+              [[:db/add eid :datalog-query/topics topics]]
+              retract-txs
+              add-txs))
            [{:datalog-query/app-id app-id
              :datalog-query/query datalog-query
-             :datalog-query/topics topics}]))]])))
+             :datalog-query/topics topics
+             :datalog-query/attrs attrs}]))]])))
 
 ;; ------------
 ;; invalidation
@@ -957,8 +981,8 @@
     (for [e datalog-query-eids]
       [:db.fn/retractEntity e]))))
 
-;; -------------- 
-;; Topic Index 
+;; --------------
+;; Topic Index
 
 (defn- topic->paths-to-index
   "Given a topic, returns the paths where we index it.
@@ -1063,6 +1087,23 @@
         candidates)))
    dq-topics))
 
+(defn- get-candidate-datalog-query-eids
+  "Given iv-attrs (attrs from invalidation topics), returns candidate datalog query eids.
+   If iv-attrs contains :*, we must check all datalog queries for the app.
+   Otherwise, we can use the :datalog-query/attrs index to get only those with matching attrs."
+  [db app-id iv-attrs]
+  (if (contains? iv-attrs :*)
+    ;; Fall back to all datalog queries for this app
+    (map :e (d/datoms db :avet :datalog-query/app-id app-id))
+    ;; Use the attrs index to get candidates
+    (let [candidate-eids (into #{}
+                               (mapcat (fn [attr]
+                                         (map :e (d/datoms db :avet :datalog-query/attrs attr))))
+                               iv-attrs)
+          ;; Also include any datalog queries that have :* in their attrs
+          star-eids (map :e (d/datoms db :avet :datalog-query/attrs :*))]
+      (into candidate-eids star-eids))))
+
 (defn- get-datalog-queries-for-topics [db app-id iv-topics]
   (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
         :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
@@ -1078,6 +1119,19 @@
            :when dq-topics
            :when (match-topic-intersection-indexed? iv-topic-index dq-topics)]
        (:e datom)))))
+
+(defn- get-datalog-queries-for-topics-v3 [db app-id iv-topics]
+  (vec
+   (let [iv-topic-index (build-topic-index iv-topics)
+         iv-attrs (topics->attrs iv-topics)
+         candidate-eids (get-candidate-datalog-query-eids db app-id iv-attrs)]
+     (for [eid candidate-eids
+           :let [ent (d/entity db eid)]
+           :when (= app-id (:datalog-query/app-id ent))
+           :let [dq-topics (:datalog-query/topics ent)]
+           :when dq-topics
+           :when (match-topic-intersection-indexed? iv-topic-index dq-topics)]
+       eid))))
 
 (defn get-stale-sync-subs [store app-id iv-topics]
   (let [db @(app-conn store app-id)]
@@ -1096,8 +1150,14 @@
   [store app-id tx-id topics]
   (let [conn               (app-conn store app-id)
         datalog-query-eids (vec
-                            (if (flags/use-datalog-topic-indexing?)
+                            (cond
+                              (flags/toggled? :datalog-query-attr-index?)
+                              (get-datalog-queries-for-topics-v3 @conn app-id topics)
+
+                              (flags/toggled? :use-datalog-topic-indexing)
                               (get-datalog-queries-for-topics-v2 @conn app-id topics)
+
+                              :else
                               (get-datalog-queries-for-topics @conn app-id topics)))
 
         report
