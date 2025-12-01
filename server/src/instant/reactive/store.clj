@@ -212,7 +212,6 @@
                  :app-id app-id)
     conn))
 
-
 (defn app-conn [store app-id]
   (Map/.computeIfAbsent (:conns store) app-id #(create-conn schema %)))
 
@@ -695,7 +694,6 @@
                        [[:db.fn/call upsert-datalog-loader-tx-data sess-id make-loader-fn]])]
         (:session/datalog-loader (d/entity db-after [:session/id sess-id]))))))
 
-
 ;; -------------
 ;; subscriptions
 
@@ -743,7 +741,6 @@
            [{:datalog-query/app-id app-id
              :datalog-query/query datalog-query
              :datalog-query/topics topics}]))]])))
-
 
 ;; ------------
 ;; invalidation
@@ -801,7 +798,7 @@
                        0))))
 
 (defn make-like-match? [case-insensitive? text pattern]
-  (let [regex-pattern (like-pattern case-insensitive? pattern )]
+  (let [regex-pattern (like-pattern case-insensitive? pattern)]
     (re-matches regex-pattern text)))
 
 (def like-match?
@@ -960,12 +957,134 @@
     (for [e datalog-query-eids]
       [:db.fn/retractEntity e]))))
 
+;; -------------- 
+;; Topic Index 
+
+(defn- topic->paths-to-index
+  "Given a topic, returns the list of paths where we can index it. 
+
+   i.e: [:ea _ #{a-uuid} _] 
+
+   Would return the paths: 
+
+   [:*] 
+   [:ea]
+   [:ea a-uuid]"
+  [[idx e a v]]
+  (into
+   [[:*]]
+   (let [paths []]
+     (if-not (keyword? idx)
+       paths
+       (let [paths (into paths [[idx]])]
+         (if-not (set? a)
+           paths
+           (let [paths (into paths (for [av a] [idx av]))]
+             (if-not (set? e)
+               paths
+               (let [paths (into paths (for [av a, ev e] [idx av ev]))]
+                 (if-not (set? v)
+                   paths
+                   (into paths (for [av a, ev e, vv v] [idx av ev vv]))))))))))))
+
+(defn- build-topic-index
+  "Consider the structure of a topic: 
+   
+   [idx e a v] 
+   
+   The most common values that are provided in a topic are: idx, a, e, v in order. 
+
+   This takes a list of topics, and creates an `idx,a,e,v` index for them. 
+
+   We go through and build up to the _most specific path_ that we can get for 
+   a topic. 
+
+   i.e given: 
+
+   [:ea _ #{a-uuid b-uuid} _] 
+
+   We would index this topic on: 
+
+   [:*] ;; everything 
+   [:ea] ;; just ea topics 
+   [:ea a-uuid] ;; ea topics that use a-uuid 
+   [:ea b-uuid] ;; ea topics that use b-uuid 
+   
+   This index is particularily useful for finding intersections. 
+
+   Given some topic, we can query into this index, to get a subset we 
+   can check against. "
+  [topics]
+  (let [flat (ucoll/reduce-tr
+              (fn [acc topic]
+                (reduce
+                 (fn [m' path]
+                   (let [ts (or (get m' path) (transient #{}))]
+                     (assoc! m' path (conj! ts topic))))
+                 acc
+                 (topic->paths-to-index topic)))
+              {}
+              topics)
+        flat-persisted (ucoll/reduce-kv-tr
+                        (fn [m path ts]
+                          (assoc! m path (persistent! ts)))
+                        {}
+                        flat)]
+    flat-persisted))
+
+(defn- topic->paths-to-query
+  "Given a topic, returns the most specific paths to query the index with. 
+  i.e: [:ea _ #{a-uuid b-uuid} _] 
+
+  Would return the paths: 
+
+  [:ea a-uuid]
+  [:ea b-uuid]"
+  [[idx e a v]]
+  (let [idx-key (if (keyword? idx) idx :*)]
+    (loop [paths [[idx-key]]
+           remaining [a e v]]
+      (if (empty? remaining)
+        paths
+        (let [[x & xs] remaining]
+          (if (set? x)
+            (recur (persistent!
+                    (reduce
+                     (fn [acc p]
+                       (reduce #(conj! %1 (conj p %2)) acc x))
+                     (transient [])
+                     paths))
+                   xs)
+            paths))))))
+
+(defn query-topic-index [index topic]
+  (into #{} (mapcat #(get index %) (topic->paths-to-query topic))))
+
+(defn match-topic-intersection-indexed? [iv-topic-index dq-topics]
+  (ucoll/seek
+   (fn [dq-topic]
+     (let [candidates (query-topic-index iv-topic-index dq-topic)]
+       (ucoll/seek
+        (fn [candidate]
+          (match-topic? candidate dq-topic))
+        candidates)))
+   dq-topics))
+
 (defn- get-datalog-queries-for-topics [db app-id iv-topics]
   (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
         :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
         :when dq-topics
         :when (matching-topic-intersection? iv-topics dq-topics)]
     (:e datom)))
+
+(defn- get-datalog-queries-for-topics-v2 [db app-id iv-topics]
+  (vec
+   (let [iv-topic-index (build-topic-index iv-topics)]
+     (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
+           :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
+           :when dq-topics
+           :when (match-topic-intersection-indexed? iv-topic-index dq-topics)]
+       (:e datom)))))
 
 (defn get-stale-sync-subs [store app-id iv-topics]
   (let [db @(app-conn store app-id)]
@@ -983,7 +1102,10 @@
   Returns affected session-ids"
   [store app-id tx-id topics]
   (let [conn               (app-conn store app-id)
-        datalog-query-eids (vec (get-datalog-queries-for-topics @conn app-id topics))
+        datalog-query-eids (vec
+                            (if (flags/toggled? :use-datalog-topic-indexing)
+                              (get-datalog-queries-for-topics-v2 @conn app-id topics)
+                              (get-datalog-queries-for-topics @conn app-id topics)))
 
         report
         (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)
@@ -996,7 +1118,6 @@
                          (:db-before report)
                          datalog-query-eids)]
     session-ids))
-
 
 ;; ----------
 ;; sync table
