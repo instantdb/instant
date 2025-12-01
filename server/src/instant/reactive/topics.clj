@@ -60,23 +60,42 @@
   (let [m (columns->map (:columns change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
+        v (<-json (:value m))
+
         ks (->> #{:ea :eav :av :ave :vae}
                 (filter m)
-                set)]
-    ;; (XXX): If we had the old value we wouldn't need to do this wildcard
-    ;; business. Would be better if we can be more specific
-    [[ks #{e} #{a} '_]]))
+                set)
+
+        old-m (columns->map (:columns change) true)
+        old-e (UUID/fromString (:entity_id m))
+        old-a (UUID/fromString (:attr_id m))
+        old-v (<-json (:value m))]
+    (cond (and (= e old-e)
+               (= a old-a)
+               ;; toasted value not included if it didn't change
+               (or (not (contains? m :value))
+                   (= v old-v)))
+          ;; value didn't change, so we can ignore this update
+          []
+
+          (and (= e old-e)
+               (= a old-a))
+          [[ks #{e} #{a} (set [v old-v])]]
+
+          ;; We shouldn't hit this, but just in case
+          :else
+          [[ks #{e} #{a} #{v}]
+           [ks #{e} #{a} #{old-v}]])))
 
 (defn- topics-for-triple-delete [change]
   (let [m (columns->map (:identity change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
-        ;; (XXX): The changeset doesn't include the index cols of the triple
-        ;; so for now we just invalidate all possible indexes
-        ks #{:ea :eav :av :ave :vae}]
-    ;; (XXX): Similar to update, we don't have the prev val, so we use wildcard
-    ;; later on lets think how we can be more specific
-    [[ks #{e} #{a} '_]]))
+        v (<-json (:value m))
+        ks (->> #{:ea :eav :av :ave :vae}
+                (filter m)
+                set)]
+    [[ks #{e} #{a} #{v}]]))
 
 (defn topics-for-change [{:keys [action] :as change}]
   (case action
