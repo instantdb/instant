@@ -1151,10 +1151,10 @@
   (let [conn               (app-conn store app-id)
         datalog-query-eids (vec
                             (cond
-                              (flags/toggled? :datalog-query-attr-index?)
+                              (flags/use-datalog-attr-index?)
                               (get-datalog-queries-for-topics-v3 @conn app-id topics)
 
-                              (flags/toggled? :use-datalog-topic-indexing)
+                              (flags/use-datalog-topic-indexing?)
                               (get-datalog-queries-for-topics-v2 @conn app-id topics)
 
                               :else

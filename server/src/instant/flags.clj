@@ -274,3 +274,8 @@
       v
       true)))
 
+(defn use-datalog-attr-index? []
+  (let [v (toggled? :use-datalog-attr-index)]
+    (if (boolean? v)
+      v
+      true)))
