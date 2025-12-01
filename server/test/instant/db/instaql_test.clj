@@ -655,7 +655,7 @@
               (is-pretty-eq? (query-pretty {:users {:$ {:limit 1
                                                         :before start-cursor
                                                         :order {:serverCreatedAt :desc}}}})
-                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ea} _ #{:users/id} _]) :triples ()}))
+                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ea} #{} #{:users/id} _]) :triples ()}))
 
               (is-pretty-eq? (query-pretty {:users {:$ {:limit 1
                                                         :before start-cursor
@@ -680,7 +680,7 @@
               (is-pretty-eq? (query-pretty {:users {:$ {:limit 1
                                                         :before start-cursor
                                                         :order {:serverCreatedAt :desc}}}})
-                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ea} _ #{:users/id} _]) :triples ()}))
+                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ea} #{} #{:users/id} _]) :triples ()}))
 
               (is-pretty-eq? (query-pretty {:users {:$ {:last 1
                                                         :before start-cursor
@@ -954,7 +954,7 @@
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
                                                               :before start-cursor
                                                               :order {:handle :desc}}}})
-                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ave} _ #{:users/handle} _])
+                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ave} #{} #{:users/handle} _])
                                 :triples ()}))
 
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
@@ -979,7 +979,7 @@
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
                                                               :before start-cursor
                                                               :order {:handle :desc}}}})
-                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ave} _ #{:users/handle} _])
+                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ave} #{} #{:users/handle} _])
                                 :triples ()}))
 
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:last 1
@@ -1473,9 +1473,9 @@
             {:users {:$ {:where {:bookshelves.books.title "Musashi"
                                  :email "random@example.com"}}}})
            '({:topics ([#{:ave} _ #{:books/title} #{"Musashi"}]
-                       [#{:vae} _ #{:bookshelves/books} _]
-                       [#{:vae} _ #{:users/bookshelves} _]
-                       [#{:av} _ #{:users/email} #{"random@example.com"}])
+                       [#{:vae} _ #{:bookshelves/books} #{}]
+                       [#{:vae} _ #{:users/bookshelves} #{}]
+                       [#{:av} #{} #{:users/email} #{"random@example.com"}])
               :triples ()})))
 
         (testing "Single match"
@@ -2696,7 +2696,7 @@
             {:users {:$ {:where {:and [{:handle {:in ["nobody"]}}
                                        {:handle "everybody"}]}}}})
            '({:topics ([#{:av} _ #{:users/handle} #{"nobody"}]
-                       [#{:av} _ #{:users/handle} #{"everybody"}])
+                       [#{:av} #{} #{:users/handle} #{"everybody"}])
               :triples ()})))
         (testing "with matches"
           (let [expected '({:topics ([#{:ave} _ #{:books/title} #{"Musashi"}]
@@ -3056,26 +3056,26 @@
                        '({:topics ([#{:vae} {:$not "eid-stepan-parunashvili"} #{:users/bookshelves} _]
                                    [#{:ea} _ #{:bookshelves/id} _]
                                    [#{:ea} _ #{:users/bookshelves} _]
-                                   [#{:vae} {:$not "eid-nicole"} #{:users/bookshelves} _]
-                                   [#{:ea} _ #{:bookshelves/id} _]
+                                   [#{:vae} {:$not "eid-nicole"} #{:users/bookshelves} #{}]
+                                   [#{:ea} #{} #{:bookshelves/id} _]
                                    [#{:ea} _ #{:users/bookshelves} _]
-                                   [#{:vae} {:$not "eid-joe-averbukh"} #{:users/bookshelves} _]
-                                   [#{:ea} _ #{:bookshelves/id} _]
+                                   [#{:vae} {:$not "eid-joe-averbukh"} #{:users/bookshelves} #{}]
+                                   [#{:ea} #{} #{:bookshelves/id} _]
                                    [#{:ea} _ #{:users/bookshelves} _]
-                                   [#{:ave} _ #{:bookshelves/order} _]
+                                   [#{:ave} #{} #{:bookshelves/order} _]
                                    --
                                    [#{:ea} #{"eid-nonfiction"}
                                     #{:bookshelves/desc :bookshelves/name :bookshelves/order
                                       :bookshelves/id} _])
                           :triples (("eid-alex" :users/bookshelves "eid-nonfiction")
-                                     ("eid-alex" :users/bookshelves "eid-nonfiction")
-                                     ("eid-alex" :users/bookshelves "eid-nonfiction")
-                                     ("eid-nonfiction" :bookshelves/order 1)
-                                     --
-                                     ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
-                                     ("eid-nonfiction" :bookshelves/name "Nonfiction")
-                                     ("eid-nonfiction" :bookshelves/desc "")
-                                     ("eid-nonfiction" :bookshelves/order 1))}))))))
+                                    ("eid-alex" :users/bookshelves "eid-nonfiction")
+                                    ("eid-alex" :users/bookshelves "eid-nonfiction")
+                                    ("eid-nonfiction" :bookshelves/order 1)
+                                    --
+                                    ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
+                                    ("eid-nonfiction" :bookshelves/name "Nonfiction")
+                                    ("eid-nonfiction" :bookshelves/desc "")
+                                    ("eid-nonfiction" :bookshelves/order 1))}))))))
 
 (deftest lookup-unique-uses-the-av-index
   (binding [d/*enable-pg-hints* true]
