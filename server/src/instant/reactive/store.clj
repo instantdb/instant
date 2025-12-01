@@ -850,9 +850,12 @@
                           [[idx e a] v])]
               (reduce (fn [acc [path v]]
                         (update-in acc path (fn [vs]
-                                              (if (set? v)
-                                                (into (or vs #{}) v)
-                                                (conj (or vs #{}) v)))))
+                                              (if (or (= vs '_)
+                                                      (= v '_))
+                                                '_
+                                                (if (set? v)
+                                                  (into (or vs #{}) v)
+                                                  (conj (or vs #{}) v))))))
                       acc
                       paths)))
           {}
@@ -1076,10 +1079,8 @@
 (defn match-topic? [[iv-idx iv-e iv-a iv-v] dq-topics]
   (let [idx-topics (get dq-topics iv-idx)]
     (reduce-kv (fn [_ _dq-e a-topics]
-                 (if (reduce-kv (fn [_ _dq-a vs]
-                                  (if (ucoll/seek (fn [dq-v]
-                                                    (match-topic-part? iv-v dq-v))
-                                                  vs)
+                 (if (reduce-kv (fn [_ _dq-a dq-v]
+                                  (if (match-topic-part? iv-v dq-v)
                                     (reduced true)
                                     false))
                                 false
@@ -1200,8 +1201,9 @@
 
   Returns affected session-ids"
   [store app-id tx-id topics]
-  (let [conn               (app-conn store app-id)
-        datalog-query-eids (vec (get-datalog-queries-for-topics @conn topics))
+  (let [conn (app-conn store app-id)
+        db @conn
+        datalog-query-eids (vec (get-datalog-queries-for-topics db topics))
 
         report
         (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)
