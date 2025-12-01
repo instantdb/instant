@@ -1103,7 +1103,7 @@
   [store app-id tx-id topics]
   (let [conn               (app-conn store app-id)
         datalog-query-eids (vec
-                            (if (flags/toggled? :use-datalog-topic-indexing)
+                            (if (flags/use-datalog-topic-indexing?)
                               (get-datalog-queries-for-topics-v2 @conn app-id topics)
                               (get-datalog-queries-for-topics @conn app-id topics)))
 

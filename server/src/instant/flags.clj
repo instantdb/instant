@@ -267,3 +267,10 @@
 
 (defn use-coarse-topics? [app-id]
   (contains? (flag :coarse-topics-apps) app-id))
+
+(defn use-datalog-topic-indexing? []
+  (let [v (toggled? :use-datalog-topic-indexing)]
+    (if (boolean? v)
+      v
+      true)))
+
