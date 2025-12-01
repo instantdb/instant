@@ -961,59 +961,41 @@
 ;; Topic Index 
 
 (defn- topic->paths-to-index
-  "Given a topic, returns the list of paths where we can index it. 
+  "Given a topic, returns the paths where we index it.
+   Each path ends with :* to indicate 'catchall from here on'.
 
-   i.e: [:ea _ #{a-uuid} _] 
+   A topic is indexed at its most-specific level only.
 
-   Would return the paths: 
+   i.e: [:ea _ #{a-uuid} _]
+   Would return: [[:ea a-uuid :*]]
 
-   [:*] 
-   [:ea]
-   [:ea a-uuid]"
+   i.e: [:ea eid _ _] (where eid is not a set)
+   Would return: [[:ea :*]]"
   [[idx e a v]]
-  (into
-   [[:*]]
-   (let [paths []]
-     (if-not (keyword? idx)
-       paths
-       (let [paths (into paths [[idx]])]
-         (if-not (set? a)
-           paths
-           (let [paths (into paths (for [av a] [idx av]))]
-             (if-not (set? e)
-               paths
-               (let [paths (into paths (for [av a, ev e] [idx av ev]))]
-                 (if-not (set? v)
-                   paths
-                   (into paths (for [av a, ev e, vv v] [idx av ev vv]))))))))))))
+  (if-not (keyword? idx)
+    [[:*]]
+    (if-not (set? a)
+      [[idx :*]]
+      (if-not (set? e)
+        (for [av a] [idx av :*])
+        (if-not (set? v)
+          (for [av a, ev e] [idx av ev :*])
+          (for [av a, ev e, vv v] [idx av ev vv :*]))))))
 
 (defn- build-topic-index
-  "Consider the structure of a topic: 
-   
-   [idx e a v] 
-   
-   The most common values that are provided in a topic are: idx, a, e, v in order. 
+  "Builds an index of topics for efficient intersection lookups.
 
-   This takes a list of topics, and creates an `idx,a,e,v` index for them. 
+   Topics are indexed at their most-specific level only, with paths
+   ending in :* to indicate 'catchall from here on'.
 
-   We go through and build up to the _most specific path_ that we can get for 
-   a topic. 
+   i.e given: [:ea _ #{a-uuid b-uuid} _]
+   Would be indexed at: [:ea a-uuid :*] and [:ea b-uuid :*]
 
-   i.e given: 
+   i.e given: [:ea eid _ _] (eid not a set)
+   Would be indexed at: [:ea :*]
 
-   [:ea _ #{a-uuid b-uuid} _] 
-
-   We would index this topic on: 
-
-   [:*] ;; everything 
-   [:ea] ;; just ea topics 
-   [:ea a-uuid] ;; ea topics that use a-uuid 
-   [:ea b-uuid] ;; ea topics that use b-uuid 
-   
-   This index is particularily useful for finding intersections. 
-
-   Given some topic, we can query into this index, to get a subset we 
-   can check against. "
+   When querying, we check all paths from root to most-specific
+   to find catchalls at every level."
   [topics]
   (let [flat (ucoll/reduce-tr
               (fn [acc topic]
@@ -1033,28 +1015,30 @@
     flat-persisted))
 
 (defn- topic->paths-to-query
-  "Given a topic, returns the most specific paths to query the index with. 
-  i.e: [:ea _ #{a-uuid b-uuid} _] 
+  "Given a topic, returns ALL paths to query the index with.
+   We walk from root to most-specific, collecting catchalls at each level.
 
-  Would return the paths: 
+   i.e: [:ea _ #{a-uuid b-uuid} _]
+   Would return the paths:
+   [[:*] [:ea :*] [:ea a-uuid :*] [:ea b-uuid :*]]
 
-  [:ea a-uuid]
-  [:ea b-uuid]"
+   This ensures we find invalidation topics indexed at any level of specificity."
   [[idx e a v]]
   (let [idx-key (if (keyword? idx) idx :*)]
-    (loop [paths [[idx-key]]
+    (loop [paths [[:*] [idx-key :*]]  ;; always include root catchalls
+           prefixes [[idx-key]]       ;; current prefixes to extend
            remaining [a e v]]
       (if (empty? remaining)
         paths
         (let [[x & xs] remaining]
           (if (set? x)
-            (recur (persistent!
-                    (reduce
-                     (fn [acc p]
-                       (reduce #(conj! %1 (conj p %2)) acc x))
-                     (transient [])
-                     paths))
-                   xs)
+            ;; Expand: for each prefix and each value, create new path with :*
+            (let [new-prefixes (for [p prefixes, xv x] (conj p xv))
+                  new-paths (for [p new-prefixes] (conj p :*))]
+              (recur (into paths new-paths)
+                     new-prefixes
+                     xs))
+            ;; No set at this level, we're done descending
             paths))))))
 
 (defn query-topic-index [index topic]
