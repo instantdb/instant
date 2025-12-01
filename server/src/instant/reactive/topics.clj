@@ -67,9 +67,9 @@
                 set)
 
         old-m (columns->map (:columns change) true)
-        old-e (UUID/fromString (:entity_id m))
-        old-a (UUID/fromString (:attr_id m))
-        old-v (<-json (:value m))]
+        old-e (UUID/fromString (:entity_id old-m))
+        old-a (UUID/fromString (:attr_id old-m))
+        old-v (<-json (:value old-m))]
     (cond (and (= e old-e)
                (= a old-a)
                ;; toasted value not included if it didn't change
