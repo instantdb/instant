@@ -109,6 +109,8 @@
 
    :datalog-query/delayed-call {} ;; delay with datalog result (from query.clj)
    :datalog-query/topics {:db/type :db.type/list-of-topics}
+   :datalog-query/attrs {:db/index true
+                         :db/cardinality :db.cardinality/many}
 
    :sync/id {:db/unique :db.unique/identity
              :db/type :db.type/uuid}
@@ -708,16 +710,25 @@
                  (fn [db]
                    (let [lookup-ref             [:datalog-query/app-id+query [app-id datalog-query]]
                          existing-datalog-query (d/entity db lookup-ref)
-                         datalog-query-eid      (or (:db/id existing-datalog-query) -1)]
+                         datalog-query-eid      (or (:db/id existing-datalog-query) -1)
+                         attrs (reduce (fn [acc topic]
+                                         (let [a (nth topic 2)]
+                                           (if (set? a)
+                                             (into acc a)
+                                             acc)))
+                                       #{}
+                                       coarse-topics)]
                      (concat
                       (if existing-datalog-query
                         (when-not (:datalog-query/topics existing-datalog-query)
                           [{:db/id                datalog-query-eid
-                            :datalog-query/topics coarse-topics}])
+                            :datalog-query/topics coarse-topics
+                            :datalog-query/attrs  attrs}])
                         [{:db/id                datalog-query-eid
                           :datalog-query/app-id app-id
                           :datalog-query/query  datalog-query
-                          :datalog-query/topics coarse-topics}])
+                          :datalog-query/topics coarse-topics
+                          :datalog-query/attrs  attrs}])
                       (when-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
                         [{:subscription/app-id        app-id
                           :subscription/session-id    session-id
@@ -738,11 +749,20 @@
      conn
      [[:db.fn/call
        (fn [db]
-         (if-some [existing (d/entity db lookup-ref)]
-           [[:db/add (:db/id existing) :datalog-query/topics topics]]
-           [{:datalog-query/app-id app-id
-             :datalog-query/query datalog-query
-             :datalog-query/topics topics}]))]])))
+         (let [attrs (reduce (fn [acc topic]
+                               (let [a (nth topic 2)]
+                                 (if (set? a)
+                                   (into acc a)
+                                   acc)))
+                             #{}
+                             topics)]
+           (if-some [existing (d/entity db lookup-ref)]
+             [[:db/add (:db/id existing) :datalog-query/topics topics]
+              [:db/add (:db/id existing) :datalog-query/attrs attrs]]
+             [{:datalog-query/app-id app-id
+               :datalog-query/query datalog-query
+               :datalog-query/topics topics
+               :datalog-query/attrs attrs}])))]])))
 
 
 ;; ------------
@@ -960,12 +980,87 @@
     (for [e datalog-query-eids]
       [:db.fn/retractEntity e]))))
 
+(defn- index-iv-topics [iv-topics]
+  (reduce (fn [acc topic]
+            (let [[idx e a _] topic]
+              (if (set? a)
+                (reduce (fn [acc attr]
+                          (let [acc (assoc! acc attr (conj (get acc attr []) topic))
+                                acc (if (keyword? idx)
+                                      (assoc! acc [attr idx] (conj (get acc [attr idx] []) topic))
+                                      acc)]
+                            (cond
+                              (set? e)
+                              (reduce (fn [acc id]
+                                        (assoc! acc [attr id] (conj (get acc [attr id] []) topic)))
+                                      acc
+                                      e)
+
+                              (symbol? e)
+                              (assoc! acc [attr :*] (conj (get acc [attr :*] []) topic))
+
+                              :else acc)))
+                        acc
+                        a)
+                acc)))
+          (transient {})
+          iv-topics))
+
+(defn- matching-topic-intersection-indexed? [iv-index iv-topics dq-topics]
+  (ucoll/seek
+   (fn [dq-topic]
+     (let [[dq-idx dq-e dq-a _] dq-topic]
+       (if (set? dq-a)
+         (ucoll/seek (fn [attr]
+                       (if (set? dq-e)
+                         (or (ucoll/seek (fn [id]
+                                           (when-let [candidates (get iv-index [attr id])]
+                                             (ucoll/seek (fn [iv-topic]
+                                                           (match-topic? iv-topic dq-topic))
+                                                         candidates)))
+                                         dq-e)
+                             (when-let [candidates (get iv-index [attr :*])]
+                               (ucoll/seek (fn [iv-topic]
+                                             (match-topic? iv-topic dq-topic))
+                                           candidates)))
+                         (if (keyword? dq-idx)
+                           (when-let [candidates (get iv-index [attr dq-idx])]
+                             (ucoll/seek (fn [iv-topic]
+                                           (match-topic? iv-topic dq-topic))
+                                         candidates))
+                           (when-let [candidates (get iv-index attr)]
+                             (ucoll/seek (fn [iv-topic]
+                                           (match-topic? iv-topic dq-topic))
+                                         candidates)))))
+                     dq-a)
+         (ucoll/seek (fn [iv-topic]
+                       (match-topic? iv-topic dq-topic))
+                     iv-topics))))
+   dq-topics))
+
 (defn- get-datalog-queries-for-topics [db app-id iv-topics]
-  (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
-        :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
-        :when dq-topics
-        :when (matching-topic-intersection? iv-topics dq-topics)]
-    (:e datom)))
+  (let [iv-index (persistent! (index-iv-topics iv-topics))
+        ;; We only want to look up the base attributes in the DB index.
+        ;; The iv-index contains refined keys (vectors) which we skip here.
+        candidate-eids (loop [attrs (keys iv-index)
+                              acc (transient #{})]
+                         (if-let [attr (first attrs)]
+                           (recur (rest attrs)
+                                  (if (vector? attr)
+                                    acc
+                                    (reduce (fn [acc datom]
+                                              (conj! acc (:e datom)))
+                                            acc
+                                            (d/datoms db :avet :datalog-query/attrs attr))))
+                           (persistent! acc)))]
+    (keep (fn [eid]
+            (let [ent (d/entity db eid)
+                  dq-topics (:datalog-query/topics ent)]
+              (when (and (= app-id (:datalog-query/app-id ent)) ;; Verify app-id
+                         dq-topics
+                         (matching-topic-intersection-indexed? iv-index iv-topics dq-topics))
+                eid)))
+          candidate-eids)))
 
 (defn get-stale-sync-subs [store app-id iv-topics]
   (let [db @(app-conn store app-id)]
