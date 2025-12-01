@@ -13,19 +13,19 @@
   (is (true?
         (rs/match-topic?
           '[:eav _ _ _]
-          (rs/squish-topics '[[:eav #{1} #{2} #{3}]]))))
+          '[:eav #{1} #{2} #{3}])))
   (is (true?
         (rs/match-topic?
           '[:eav #{1 2} _ _]
-          (rs/squish-topics '[[:eav #{1} #{2} #{3}]]))))
+          '[:eav #{1} #{2} #{3}])))
   (is (false?
         (rs/match-topic?
           '[:ea #{1 2} _ _]
-          (rs/squish-topics '[[:eav #{1} #{2} #{3}]]))))
+          '[:eav #{1} #{2} #{3}])))
   (is (false?
         (rs/match-topic?
           '[:eav #{3} _ _]
-          (rs/squish-topics '[[:eav #{1} #{2} #{3}]])))))
+          '[:eav #{1} #{2} #{3}]))))
 
 (deftest swap-datalog-cache!
   (let [store  (rs/init)
@@ -118,7 +118,7 @@
           ;; Give the query a chance to register
           (wait-for (fn []
                       (let [conn (rs/app-conn store app-id)
-                            ent  (d/entity @conn [:datalog-query/query q])
+                            ent  (d/entity @conn [:datalog-query/app-id+query [app-id q]])
                             watchers (:datalog-query/watchers ent)]
                         (= 2 (count (:watchers @watchers)))))
                     1000
@@ -148,7 +148,7 @@
         ;; for some reason)
         (let [conn (rs/app-conn store app-id)
               cache (:datalog-query-cache (meta conn))
-              q-id (:db/id (d/entity @conn [:datalog-query/query q]))]
+              q-id (:db/id (d/entity @conn [:datalog-query/app-id+query [app-id q]]))]
           (wait-for (fn []
                       (not (c/get-if-present-async cache q-id)))
                     1000))

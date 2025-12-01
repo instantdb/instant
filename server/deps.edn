@@ -95,8 +95,6 @@
         net.openhft/zero-allocation-hashing {:mvn/version "0.27ea1"}
         com.github.luben/zstd-jni {:mvn/version "1.5.7-4"}
 
-        org.roaringbitmap/RoaringBitmap {:mvn/version "1.3.0"}
-
         org.clojure/java.jmx {:mvn/version "1.1.0"}}
  :aliases {:dev {:extra-paths ["dev" "test" "dev-resources"]
                  :extra-deps {refactor-nrepl/refactor-nrepl {:mvn/version "3.10.0"}
