@@ -2533,7 +2533,7 @@
   "Adds empty sets to the symbol values for the fields that we know about.
    This will prevent '_ in the topic when we return no results from the query."
   [symbol-fields symbol-values]
-  (if false
+  (if true
     symbol-values
     (reduce-kv (fn [acc _pat-idx {:keys [sym ref-value?]}]
                  (if (or ref-value? (contains? acc sym))
