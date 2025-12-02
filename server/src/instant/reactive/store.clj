@@ -901,12 +901,9 @@
         (let [not-val (:$not dq-part)]
           (ucoll/exists? (partial not= not-val) iv-part))))))
 
-(def match-cnt (atom 0))
-
 (defn match-topic?
   [[iv-idx iv-e iv-a iv-v]
    [dq-idx dq-e dq-a dq-v]]
-  (swap! match-cnt inc)
   (and
    (match-topic-part? iv-idx dq-idx)
    (match-topic-part? iv-e   dq-e)
