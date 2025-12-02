@@ -72,7 +72,7 @@
         old-m (columns->map (:identity change) true)
         old-e (UUID/fromString (:entity_id old-m))
         old-a (UUID/fromString (:attr_id old-m))
-        old-v (parse-v m)]
+        old-v (parse-v old-m)]
     (cond (and (= e old-e)
                (= a old-a)
                ;; toasted value not included if it didn't change
