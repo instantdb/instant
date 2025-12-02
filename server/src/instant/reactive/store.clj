@@ -981,19 +981,19 @@
          (update acc :catchall conj topic)
          (reduce
           (fn [acc' a-val]
-            (update acc' a-val (fnil conj #{}) topic))
+            (update acc' a-val (fnil conj ()) topic))
           acc
           a))))
-   {:catchall #{}
-    :all #{}}
+   {:catchall ()
+    :all ()}
    topics))
 
 (defn- topic-index-candidates
   [iv-topic-index [_idx _e a :as _topic]]
   (if-not (set? a)
-    (get iv-topic-index :all #{})
-    (into (get iv-topic-index :catchall #{})
-          (mapcat iv-topic-index a))))
+    (get iv-topic-index :all ())
+    (concat (get iv-topic-index :catchall ())
+            (mapcat iv-topic-index a))))
 
 (defn matching-topic-intersection-indexed? [iv-topic-a-index dq-topics]
   (ucoll/seek
