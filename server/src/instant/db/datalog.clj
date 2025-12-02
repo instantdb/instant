@@ -334,6 +334,15 @@
        flatten-pats-for-coarse-topics
        (mapv pat->coarse-topic)))
 
+(defn topics->topic-attrs [topics]
+  (reduce
+   #{}
+   (fn [acc [_idx _e a]]
+     (if (set? a)
+       (set/union acc a)
+       (reduced #{:catchall})))
+   topics))
+
 ;; -----
 ;; Topic
 
@@ -1669,8 +1678,7 @@
                                   (into acc (map (fn [path]
                                                    [ctype (:ctype path)])
                                                  paths))
-                                  acc)
-                                )
+                                  acc))
                               #{}
                               (variable-components named-p))]
       (if (or (= #{[:e :e]} join-ctypes)
@@ -2805,9 +2813,9 @@
                                                                (get "exists")))
                               (:page-info group) (assoc-in [:page-info :has-previous-page?]
                                                            (let [has-prev (-> sql-res
-                                                                             (get (name (has-prev-tbl table)))
-                                                                             first
-                                                                             (get "exists"))
+                                                                              (get (name (has-prev-tbl table)))
+                                                                              first
+                                                                              (get "exists"))
                                                                  offset (get-in group [:page-info :offset])
                                                                  after-cursor (get-in group [:page-info :after])]
                                                              ;; If the page is empty but we have an offset > 0 or an after cursor,

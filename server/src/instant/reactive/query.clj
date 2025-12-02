@@ -44,9 +44,11 @@
     (tracer/with-span! {:name "datalog-query-reactive!"
                         :attributes {:query (pr-str datalog-query)}}
       (let [coarse-topics (d/pats->coarse-topics datalog-query)
-            _ (rs/record-datalog-query-start! store ctx datalog-query coarse-topics)
-            datalog-result (datalog-query-cached! store ctx datalog-query)]
-        (rs/record-datalog-query-finish! store ctx datalog-query datalog-result)
+            topic-attrs   (d/topics->topic-attrs coarse-topics)
+            _ (rs/record-datalog-query-start! store ctx datalog-query coarse-topics topic-attrs)
+            {:keys [topics]} (datalog-query-cached! store ctx datalog-query)]
+            topic-attrs (d/topics->topic-attrs topics
+        (rs/record-datalog-query-finish! store ctx datalog-query topics topic-attrs)
         datalog-result))))
 
 (defn collect-triples [instaql-result]

@@ -110,6 +110,9 @@
    :datalog-query/delayed-call {} ;; delay with datalog result (from query.clj)
    :datalog-query/topics {:db/type :db.type/list-of-topics}
 
+   :datalog-query/topic-attrs {:db/cardinality :db.cardinality/many
+                               :db/index true}
+
    :sync/id {:db/unique :db.unique/identity
              :db/type :db.type/uuid}
    :sync/session-id {:db/type :db.type/uuid
@@ -697,7 +700,7 @@
 ;; -------------
 ;; subscriptions
 
-(defn record-datalog-query-start! [store ctx datalog-query coarse-topics]
+(defn record-datalog-query-start! [store ctx datalog-query coarse-topics topic-attrs]
   (let [{:keys [app-id session-id instaql-query v]} ctx
         conn (app-conn store app-id)]
     (transact! "store/record-datalog-query-start!"
@@ -711,11 +714,13 @@
                       (if existing-datalog-query
                         (when-not (:datalog-query/topics existing-datalog-query)
                           [{:db/id                datalog-query-eid
-                            :datalog-query/topics coarse-topics}])
+                            :datalog-query/topics coarse-topics
+                            :adatalog-query/topic-attrs topic-attrs}])
                         [{:db/id                datalog-query-eid
                           :datalog-query/app-id app-id
                           :datalog-query/query  datalog-query
-                          :datalog-query/topics coarse-topics}])
+                          :datalog-query/topics coarse-topics
+                          :datalog-query/topic-attrs topic-attrs}])
                       (when-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
                         [{:subscription/app-id        app-id
                           :subscription/session-id    session-id
@@ -726,7 +731,7 @@
 (defn record-datalog-query-finish! [store
                                     ctx
                                     datalog-query
-                                    {:keys [topics] :as _result}]
+                                    {:keys [topics topic-attrs] :as _result}]
 
   (let [{:keys [app-id]} ctx
         conn       (app-conn store app-id)
