@@ -63,7 +63,7 @@
                   :http-req nil
                   :ws-conn ws-conn
                   :receive-q receive-queue/receive-q
-                  :pending-handlers (atom #{})}]
+                  :pending-handlers (session/create-pending-handlers)}]
 
       ;; Get results in foreground so that flags are initialized before we return
       (doseq [{:keys [query transform]} queries
