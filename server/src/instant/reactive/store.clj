@@ -957,6 +957,88 @@
     (for [e datalog-query-eids]
       [:db.fn/retractEntity e]))))
 
+;; ---------- 
+;; Topic Trie 
+
+(defn- empty-topic-trie []
+  {:children {}
+   :wildcard nil
+   :topics ()})
+
+(def ^:private topic-trie-order
+  "Topic structure: [idx e a v]
+  
+  Our traversal order: idx -> a -> e -> v. 
+  
+  Reasoning: most selective parts first."
+  [0 2 1 3])
+
+(defn- topic->ordered-parts [topic]
+  (map #(nth topic %) topic-trie-order))
+
+(defn- topic-part->trie-keys [part]
+  (if-not (set? part)
+    [:wildcard]
+    part))
+
+(defn- insert-topic-into-trie [trie topic]
+  (letfn [(step [node [part & rest-parts]]
+            (let [ks (topic-part->trie-keys part)]
+              (reduce
+               (fn [n k]
+                 (let [child-path (if (= k :wildcard)
+                                    [:wildcard]
+                                    [:children k])
+                       child (get-in n child-path (empty-topic-trie))
+                       child' (if (seq rest-parts)
+                                (step child rest-parts)
+                                (update child :topics conj topic))]
+                   (assoc-in n child-path child')))
+               node
+               ks)))]
+    (step trie (topic->ordered-parts topic))))
+
+(defn- topics->topic-trie [topics]
+  (reduce insert-topic-into-trie (empty-topic-trie) topics))
+
+(defn- topic-trie-next-nodes [node part]
+  (let [{:keys [children wildcard]} (or node {})
+        children (or children {})
+        base (cond-> [] wildcard (conj wildcard))]
+    (if-not (set? part)
+      (into base (vals children))
+      (into base (keep children part)))))
+
+(defn- topic-trie-match? [trie topic]
+  (letfn [(step [node [part & rest-parts]]
+            (let [candidates (topic-trie-next-nodes node part)]
+              (if (empty? rest-parts)
+                (ucoll/seek
+                 (fn [child]
+                   (ucoll/seek
+                    (fn [iv-topic] (match-topic? iv-topic topic))
+                    (:topics child)))
+                 candidates)
+                (ucoll/seek #(step % rest-parts) candidates))))]
+    (step trie (topic->ordered-parts topic))))
+
+(defn matching-topic-intersection-trie? [iv-topic-trie dq-topics]
+  (ucoll/seek
+   (fn [dq-topic]
+     (topic-trie-match? iv-topic-trie dq-topic))
+   dq-topics))
+
+(defn- get-datalog-queries-for-topics-v3 [db app-id iv-topics]
+  (let [iv-topic-trie (topics->topic-trie iv-topics)]
+    (vec (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
+               :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
+               :when dq-topics
+               :when (matching-topic-intersection-trie? iv-topic-trie dq-topics)]
+           (:e datom)))))
+
+;; ---------- 
+;; Topic Index based on attribute values
+
 (defn- topics->topic-index
   "Given a list of topics, returns an index for attribute values 
   i.e: 
@@ -1038,6 +1120,9 @@
   (let [conn               (app-conn store app-id)
         datalog-query-eids
         (cond
+          (flags/use-get-datalog-queries-for-topics-v3?)
+          (get-datalog-queries-for-topics-v3 @conn app-id topics)
+
           (flags/use-get-datalog-queries-for-topics-v2?)
           (get-datalog-queries-for-topics-v2 @conn app-id topics)
 

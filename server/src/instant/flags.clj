@@ -268,8 +268,14 @@
 (defn use-coarse-topics? [app-id]
   (contains? (flag :coarse-topics-apps) app-id))
 
+(defn use-get-datalog-queries-for-topics-v3? []
+  (let [v (toggled? :use-get-datalog-queries-for-topics-v3?)]
+    (if (boolean? v)
+      v
+      true)))
+
 (defn use-get-datalog-queries-for-topics-v2? []
-  (let [v (toggled? :invalidator-drop-tx-enabled?)]
+  (let [v (toggled? :use-get-datalog-queries-for-topics-v2?)]
     (if (boolean? v)
       v
       true)))
