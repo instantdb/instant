@@ -1007,7 +1007,9 @@
         base (cond-> [] wildcard (conj wildcard))]
     (if-not (set? part)
       (into base (vals children))
-      (into base (keep children part)))))
+      (if (< (count children) (count part))
+        (into base (keep (fn [[k v]] (when (contains? part k) v)) children))
+        (into base (keep children part))))))
 
 (defn- topic-trie-match? [trie topic]
   (letfn [(step [node [part & rest-parts]]
