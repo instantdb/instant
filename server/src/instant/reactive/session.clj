@@ -467,7 +467,6 @@
                       :dropped-spam? true
                       :tx-latency-ms (e2e-tracer/tx-latency-ms (:tx-created-at event))}
         {prev-attrs-hash :session/attrs-hash
-         version :session/versions
          features :session/features} (rs/session store sess-id)
         can-skip-attrs? (supports-skip-attrs? features)
         attrs-hash      (hash attrs)
