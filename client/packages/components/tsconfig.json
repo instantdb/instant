@@ -10,6 +10,7 @@
     "sourceMap": true,
     "jsx": "react",
     "checkJs": false,
+    "lib": ["dom", "dom.iterable", "esnext"],
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
