@@ -901,9 +901,12 @@
         (let [not-val (:$not dq-part)]
           (ucoll/exists? (partial not= not-val) iv-part))))))
 
+(def match-cnt (atom 0))
+
 (defn match-topic?
   [[iv-idx iv-e iv-a iv-v]
    [dq-idx dq-e dq-a dq-v]]
+  (swap! match-cnt inc)
   (and
    (match-topic-part? iv-idx dq-idx)
    (match-topic-part? iv-e   dq-e)
@@ -981,19 +984,19 @@
          (update acc :catchall conj topic)
          (reduce
           (fn [acc' a-val]
-            (update acc' a-val (fnil conj #{}) topic))
+            (update acc' a-val (fnil conj ()) topic))
           acc
           a))))
-   {:catchall #{}
-    :all #{}}
+   {:catchall ()
+    :all ()}
    topics))
 
 (defn- topic-index-candidates
   [iv-topic-index [_idx _e a :as _topic]]
   (if-not (set? a)
-    (get iv-topic-index :all #{})
-    (into (get iv-topic-index :catchall #{})
-          (mapcat iv-topic-index a))))
+    (get iv-topic-index :all ())
+    (concat (get iv-topic-index :catchall ())
+            (mapcat iv-topic-index a))))
 
 (defn matching-topic-intersection-indexed? [iv-topic-a-index dq-topics]
   (ucoll/seek
