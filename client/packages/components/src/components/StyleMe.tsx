@@ -2,6 +2,8 @@ import { ReactNode, useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import React from 'react';
 
+// TODO: Create shadow dom context for popups
+
 // @ts-ignore
 import myStyles from '../style.css?inline';
 

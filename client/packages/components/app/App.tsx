@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import './App.css';
-import { HelloCounter } from '@lib';
+import { Explorer } from '../src/index';
 
 function App() {
   const [count, setCount] = useState(0);
 
   return (
     <>
-      <HelloCounter></HelloCounter>
+      <Explorer
+        appId="59cb9109-0e5c-4735-8775-4369d0486d0b"
+        adminToken="59cb9109-0e5c-4735-8775-4369d0486d0b"
+      />
       <h1>Vite + React</h1>
       <div className="bg-blue-500">this should not be blue</div>
       <div className="card">

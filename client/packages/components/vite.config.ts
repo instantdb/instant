@@ -19,6 +19,8 @@ export default defineConfig({
     outDir: 'dist',
     target: 'esnext',
     minify: true,
+    // TODO: make this true for prod
+    emptyOutDir: false,
     lib: {
       formats: ['es', 'cjs'],
       entry: resolve(__dirname, 'src', 'index.tsx'),

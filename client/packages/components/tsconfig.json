@@ -7,7 +7,7 @@
     "outDir": "dist/tsc",
     "moduleResolution": "nodenext",
     "rootDirs": ["src", "app"],
-    "jsx": "react-jsx",
+    "jsx": "react",
     "checkJs": false,
     "skipLibCheck": true,
     "baseUrl": ".",

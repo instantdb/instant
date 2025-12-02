@@ -215,7 +215,7 @@ export function TextInput({
   error?: ReactNode;
   onChange: (value: string) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  label?: React.ReactNode;
+  label?: ReactNode;
   placeholder?: string;
   autoFocus?: boolean;
   inputMode?: 'numeric' | 'text';
