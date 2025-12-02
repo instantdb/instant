@@ -537,7 +537,7 @@ function Client({ client }: { client: OAuthAppClient }) {
   return (
     <div className="group/delete-parent relative flex flex-col gap-4">
       <Button
-        className="absolute right-0 top-0 hidden group-hover/delete-parent:block"
+        className="absolute top-0 right-0 hidden group-hover/delete-parent:block"
         variant="destructive"
         size="mini"
         onClick={() => setShowDeleteClientDialog(true)}
@@ -919,7 +919,7 @@ function EditableAppInput({
       <Label>{labelOfEditableAppField(field)}</Label>
       {editing ? (
         <TextInput
-          className="max-w-sm rounded-none border-0 border-b border-gray-300 p-0 outline-none focus:shadow-none focus:outline-none focus:ring-0"
+          className="max-w-sm rounded-none border-0 border-b border-gray-300 p-0 outline-hidden focus:shadow-none focus:ring-0 focus:outline-hidden"
           value={value || ''}
           onChange={setValue}
           autoFocus={true}
@@ -1007,7 +1007,7 @@ function App({ app }: { app: OAuthApp }) {
     <>
       {app.isPublic ? null : (
         <div className="flex max-w-md bg-sky-50 dark:bg-slate-800/60 dark:ring-1 dark:ring-slate-300/10">
-          <Content className="m-4 text-sm text-sky-800 [--tw-prose-background:theme(colors.sky.50)] prose-a:text-sky-900 prose-code:text-sky-900 dark:text-slate-300 dark:prose-code:text-slate-300">
+          <Content className="prose-a:text-sky-900 prose-code:text-sky-900 dark:prose-code:text-slate-300 m-4 text-sm text-sky-800 [--tw-prose-background:var(--color-sky-50)] dark:text-slate-300">
             This app is in test mode. Only members of this Instant app will be
             allowed to auth with it. Once you've built your integration, ping us
             in{' '}
@@ -1025,7 +1025,7 @@ function App({ app }: { app: OAuthApp }) {
       <div className="relative flex max-w-md flex-col gap-4">
         <div className="group/delete-parent flex flex-col gap-4">
           <Button
-            className="absolute right-0 top-0 hidden group-hover/delete-parent:block"
+            className="absolute top-0 right-0 hidden group-hover/delete-parent:block"
             variant="destructive"
             size="mini"
             onClick={() => setShowDeleteAppDialog(true)}
@@ -1258,7 +1258,7 @@ function CreateAppForm({ onClose }: { onClose: () => void }) {
 
   return (
     <form
-      className="flex flex-col gap-2 rounded border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800"
+      className="flex flex-col gap-2 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"

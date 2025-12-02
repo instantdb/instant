@@ -11,7 +11,7 @@ const room = db.room('cursors-example', '124');
 function CustomCursor({ color, name }: { color?: string; name: string }) {
   return (
     <span
-      className="rounded-b-xl rounded-r-xl border-2 bg-white/30 px-3 text-xs shadow-lg backdrop-blur-md"
+      className="rounded-r-xl rounded-b-xl border-2 bg-white/30 px-3 text-xs shadow-lg backdrop-blur-md"
       style={{
         borderColor: color ?? 'gray',
       }}

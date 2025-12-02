@@ -88,7 +88,7 @@ export default function App() {
               {Array.from({ length: boardSize }).map((sq, c) => (
                 <div
                   key={`idx-${r}-${c}`}
-                  className={`flex h-12 w-12 justify-center text-lg outline outline-black hover:cursor-pointer hover:bg-gray-300`}
+                  className={`flex h-12 w-12 justify-center text-lg outline-black outline-solid hover:cursor-pointer hover:bg-gray-300`}
                   style={{
                     backgroundColor:
                       hoveredSquare === `${r}-${c}`
@@ -112,7 +112,7 @@ export default function App() {
           ))}
         </div>
         <button
-          className="my-4 rounded bg-blue-500 px-4 py-1 font-bold text-white hover:bg-blue-700"
+          className="my-4 rounded-sm bg-blue-500 px-4 py-1 font-bold text-white hover:bg-blue-700"
           onClick={() => {
             db.transact([
               db.tx.boards[boardId].update({

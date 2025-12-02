@@ -507,7 +507,7 @@ function Dashboard() {
   return (
     <>
       <div className="bg-gray-50 dark:bg-neutral-800/90">
-        <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 dark:border-b-neutral-700 md:flex-row md:gap-4">
+        <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 md:flex-row md:gap-4 dark:border-b-neutral-700">
           <div className="flex items-center gap-2">
             <h2 className="font-mono font-bold md:text-xl">{app.title}</h2>
             {dashResponse.data.workspace.type === 'org' && (
@@ -687,7 +687,7 @@ export function HomeButton({
   return (
     <NextLink
       href={formatRouteParams(href)}
-      className="cursor-pointer justify-start space-y-2 rounded border bg-white p-4 shadow-sm transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
+      className="cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
     >
       <div>
         <div className="font-mono font-bold">{title}</div>
@@ -755,7 +755,7 @@ function Home({ appId, token }: { appId: string; token: string }) {
       {/* Connection Count Display */}
       <div className="mt-10">
         <SectionHeading>Your App Statistics</SectionHeading>
-        <div className="mt-4 space-y-2 rounded border bg-white p-4 shadow-sm transition-colors dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="mt-4 space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors dark:border-neutral-700 dark:bg-neutral-800">
           <div className="flex items-center justify-between">
             <div className="mt-1">
               {isLoading ? (
@@ -957,9 +957,9 @@ function AppCombobox({
         <ComboboxInput
           ref={comboboxInputRef}
           className={clsx(
-            'w-full !min-w-0 basis-[35%] truncate rounded-sm border-gray-300 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-700/40 md:w-full md:basis-full',
-            'pl-3 pr-8 text-sm/6',
-            'ring-0 focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
+            'w-full min-w-0! basis-[35%] truncate rounded-xs border-gray-300 py-1 text-sm md:w-full md:basis-full dark:border-neutral-700 dark:bg-neutral-700/40',
+            'pr-8 pl-3 text-sm/6',
+            'ring-0 focus:outline-hidden data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25',
           )}
           displayValue={(app: InstantApp | null) => (app ? app.title : '')}
           onChange={(e) => setAppQuery(e.target.value)}
@@ -975,16 +975,16 @@ function AppCombobox({
         anchor="bottom"
         transition
         className={clsx(
-          'z-50 border border-gray-300 bg-white shadow-lg empty:invisible dark:divide-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white md:min-w-[var(--input-width)]',
+          'z-50 border border-gray-300 bg-white shadow-lg empty:invisible md:min-w-(--input-width) dark:divide-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white',
           'mx-2 my-1 border [--anchor-gap:var(--spacing-1)]',
-          'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
+          'transition duration-100 ease-in data-leave:data-closed:opacity-0',
         )}
       >
         {sortedApps.map((app) => (
           <ComboboxOption
             key={app.id}
             value={app}
-            className="group cursor-pointer px-3 py-1 data-[focus]:bg-gray-100 dark:data-[focus]:bg-neutral-700/80"
+            className="group cursor-pointer px-3 py-1 data-focus:bg-gray-100 dark:data-focus:bg-neutral-700/80"
           >
             <div className="">{app.title}</div>
           </ComboboxOption>
@@ -1010,7 +1010,7 @@ function Nav({
 }) {
   const showAppNav = apps;
   return (
-    <div className="flex flex-col gap-2 border-b border-gray-300 bg-gray-50 dark:border-neutral-700/80 dark:bg-neutral-800/40 md:w-48 md:gap-0 md:border-b-0 md:border-r">
+    <div className="flex flex-col gap-2 border-b border-gray-300 bg-gray-50 md:w-48 md:gap-0 md:border-r md:border-b-0 dark:border-neutral-700/80 dark:bg-neutral-800/40">
       {showAppNav ? (
         <>
           {createPortal(
@@ -1024,7 +1024,7 @@ function Nav({
           )}
         </>
       ) : null}
-      <div className="hidden h-full flex-row overflow-auto bg-gray-50 dark:bg-neutral-800/40 md:visible md:static md:flex md:flex-col">
+      <div className="hidden h-full flex-row overflow-auto bg-gray-50 md:visible md:static md:flex md:flex-col dark:bg-neutral-800/40">
         <ToggleCollection
           className="gap-0 text-sm"
           buttonClassName="rounded-none py-2"
@@ -1051,7 +1051,7 @@ function Nav({
 export function FullscreenErrorMessage({ message }: { message: string }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-2">
-      <div className="rounded bg-red-100 p-4 text-red-700">{message}</div>
+      <div className="rounded-sm bg-red-100 p-4 text-red-700">{message}</div>
     </div>
   );
 }

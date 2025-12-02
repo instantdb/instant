@@ -71,7 +71,7 @@ export function AppleClient({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col rounded border"
+        className="flex flex-col rounded-sm border"
       >
         <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
@@ -239,7 +239,7 @@ export function AddClientExpanded({
 
   return (
     <form
-      className="flex flex-col gap-2 rounded border p-4 dark:border-neutral-700 dark:bg-neutral-800/50"
+      className="flex flex-col gap-2 rounded-sm border p-4 dark:border-neutral-700 dark:bg-neutral-800/50"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -274,7 +274,7 @@ export function AddClientExpanded({
       <Collapsible.Root
         open={redirectOpen}
         onOpenChange={setRedirectOpen}
-        className="flex flex-col rounded border dark:border-neutral-700 dark:bg-neutral-800"
+        className="flex flex-col rounded-sm border dark:border-neutral-700 dark:bg-neutral-800"
       >
         <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">

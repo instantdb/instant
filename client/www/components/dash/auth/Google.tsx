@@ -132,7 +132,7 @@ export function AddClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 rounded border p-4 dark:border dark:border-neutral-700"
+      className="flex flex-col gap-2 rounded-sm border p-4 dark:border dark:border-neutral-700"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -203,7 +203,7 @@ export function AddClientForm({
         />
       )}
       {appType === 'web' && (
-        <div className="flex flex-col gap-2 rounded border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
           <p className="overflow-hidden">
             Add{' '}
             <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
@@ -230,7 +230,7 @@ export function AddClientForm({
         </div>
       )}
       {isNative(appType) && (
-        <div className="flex flex-col gap-2 rounded border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
           <Checkbox
             checked={skipNonceChecks}
             onChange={setSkipNonceChecks}
@@ -384,7 +384,7 @@ const url = db.auth.createAuthorizationURL({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col rounded border"
+        className="flex flex-col rounded-sm border"
       >
         <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
@@ -406,7 +406,7 @@ const url = db.auth.createAuthorizationURL({
         <Collapsible.Content className="">
           <div className="flex flex-col gap-4 border-t p-4">
             <div className="flex items-center bg-white font-mono text-sm">
-              <span className="rounded-sm border bg-gray-50 px-2 py-0.5 text-sm font-bold text-gray-500">
+              <span className="rounded-xs border bg-gray-50 px-2 py-0.5 text-sm font-bold text-gray-500">
                 {appTypeLabel(appType)}
               </span>
             </div>
@@ -415,7 +415,7 @@ const url = db.auth.createAuthorizationURL({
             <Copyable label="Google client ID" value={client.client_id || ''} />
 
             {didSkipNonceChecks ? (
-              <div className="flex flex-col gap-2 rounded border bg-gray-50 p-4">
+              <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4">
                 <Checkbox
                   checked={client.meta?.skipNonceChecks || false}
                   onChange={() => {}}
@@ -456,7 +456,7 @@ const url = db.auth.createAuthorizationURL({
                   <strong>2.</strong> Use the code below to generate a login
                   link in your app.
                 </Content>
-                <div className="overflow-auto rounded border text-sm">
+                <div className="overflow-auto rounded-sm border text-sm">
                   <Fence code={exampleCode} language="typescript" />
                 </div>
               </>
@@ -476,7 +476,7 @@ const url = db.auth.createAuthorizationURL({
                   <strong>1.</strong> Use the code below to sign in with
                   `react-native-google-signin`:
                 </Content>
-                <div className="overflow-auto rounded border text-sm">
+                <div className="overflow-auto rounded-sm border text-sm">
                   <Fence code={exampleRNCode} language="typescript" />
                 </div>
               </>

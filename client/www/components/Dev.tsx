@@ -40,7 +40,7 @@ export function Dev() {
   if (!isHydrated || !open) return null;
 
   return (
-    <div className="fixed bottom-2 right-2 top-2 z-50 flex w-full max-w-md flex-col gap-4 overflow-auto border bg-gray-50 p-5 font-mono shadow-lg">
+    <div className="fixed top-2 right-2 bottom-2 z-50 flex w-full max-w-md flex-col gap-4 overflow-auto border bg-gray-50 p-5 font-mono shadow-lg">
       <h2 className="text-lg font-bold">Instant WWW Devtools</h2>
 
       <div>
@@ -97,7 +97,7 @@ export function Dev() {
             </div>
           ))
         ) : (
-          <div className="italic text-gray-400">No flags</div>
+          <div className="text-gray-400 italic">No flags</div>
         )}
       </div>
 
@@ -109,7 +109,7 @@ export function Dev() {
               <div key={p.name} className="flex items-center justify-between">
                 <div>
                   {p.name}{' '}
-                  <span className="italic text-gray-400">
+                  <span className="text-gray-400 italic">
                     ({p.prod ? 'Prod' : 'Dev'})
                   </span>
                 </div>
@@ -143,7 +143,7 @@ export function Dev() {
               </div>
             ))
           ) : (
-            <div className="italic text-gray-400">No auth tokens</div>
+            <div className="text-gray-400 italic">No auth tokens</div>
           )}
         </div>
       </div>

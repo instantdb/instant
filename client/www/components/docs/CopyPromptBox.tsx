@@ -68,7 +68,7 @@ export function CopyPromptBox({
   };
 
   return (
-    <div className="space-y-2 rounded-lg border border-orange-600 px-4 py-4 text-center shadow-sm md:grid md:grid-cols-[1fr_auto] md:space-y-0 md:text-start">
+    <div className="space-y-2 rounded-lg border border-orange-600 px-4 py-4 text-center shadow-xs md:grid md:grid-cols-[1fr_auto] md:space-y-0 md:text-start">
       <div className="text-gray-700">{description}</div>
       <Button size="mini" variant="cta" onClick={handleCopy}>
         {copyLabel}

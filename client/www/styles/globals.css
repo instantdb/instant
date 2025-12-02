@@ -1,59 +1,77 @@
-@font-face {
-  font-family: 'Berk Mono';
-  font-weight: normal;
-  font-style: normal;
-  font-stretch: normal;
-  src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.woff2')
-    format('woff2');
-  font-display: swap;
+@import 'tailwindcss';
+
+@config '../tailwind.config.js';
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
 }
 
-@font-face {
-  font-family: 'Berk Mono';
-  font-weight: normal;
-  font-style: italic;
-  font-stretch: normal;
-  src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Italic.woff2')
-    format('woff2');
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Berk Mono';
-  font-weight: bold;
-  font-style: normal;
-  font-stretch: normal;
-  src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Bold.woff2')
-    format('woff2');
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Berk Mono';
-  font-weight: normal;
-  font-style: italic;
-  font-stretch: normal;
-  src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-BoldItalic.woff2')
-    format('woff2');
-  font-display: swap;
-}
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer utilities {
+@utility no-scrollbar {
   /* Hide scrollbar for Chrome, Safari and Opera */
-  .no-scrollbar::-webkit-scrollbar {
+  &::-webkit-scrollbar {
     display: none;
   }
 
   /* Hide scrollbar for IE, Edge and Firefox */
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    /* IE and Edge */
-    scrollbar-width: none;
-    /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+@layer base {
+  @font-face {
+    font-family: 'Berk Mono';
+    font-weight: normal;
+    font-style: normal;
+    font-stretch: normal;
+    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.woff2')
+      format('woff2');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Berk Mono';
+    font-weight: normal;
+    font-style: italic;
+    font-stretch: normal;
+    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Italic.woff2')
+      format('woff2');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Berk Mono';
+    font-weight: bold;
+    font-style: normal;
+    font-stretch: normal;
+    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Bold.woff2')
+      format('woff2');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Berk Mono';
+    font-weight: normal;
+    font-style: italic;
+    font-stretch: normal;
+    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-BoldItalic.woff2')
+      format('woff2');
+    font-display: swap;
   }
 }
 

@@ -244,7 +244,7 @@ export function PageProgressBar() {
   }, []);
 
   return (
-    <div className="fixed left-0 right-0 top-0 z-50 h-0.5 bg-gray-200">
+    <div className="fixed top-0 right-0 left-0 z-50 h-0.5 bg-gray-200">
       <div
         className="h-full bg-orange-600 transition-all duration-150 ease-out"
         style={{ width: `${progress}%` }}

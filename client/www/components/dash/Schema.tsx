@@ -45,7 +45,7 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-      <div className="flex min-h-0 flex-col gap-4 border-r p-4 text-sm dark:border-r-neutral-600 md:text-base lg:basis-96">
+      <div className="flex min-h-0 flex-col gap-4 border-r p-4 text-sm md:text-base lg:basis-96 dark:border-r-neutral-600">
         <SectionHeading>Schema</SectionHeading>
         <p>This is the schema for your app in code form.</p>
         <p>
@@ -54,7 +54,7 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
           changes to your schema:
         </p>
         <p>
-          <div className="overflow-auto rounded border bg-white text-sm dark:border-neutral-600 dark:bg-neutral-800">
+          <div className="overflow-auto rounded-sm border bg-white text-sm dark:border-neutral-600 dark:bg-neutral-800">
             <Fence
               copyable
               code={`npx instant-cli@latest pull`}
@@ -98,7 +98,7 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
             />
           </div>
         </div>
-        <div className="flex-grow">
+        <div className="grow">
           <CodeEditor
             readOnly={true}
             onChange={() => null}

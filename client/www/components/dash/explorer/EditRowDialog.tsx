@@ -86,7 +86,7 @@ function ResizingTextArea({
   return (
     <textarea
       ref={textareaRef}
-      className="flex min-h-[34px] w-full flex-1 resize-none overflow-hidden rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500"
+      className="flex min-h-[34px] w-full flex-1 resize-none overflow-hidden rounded-xs border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500"
       rows={1}
       placeholder="hello world (Shift+Enter for new line)"
       {...props}
@@ -248,7 +248,7 @@ function RefItemTooltip({
         <Tooltip.Content collisionPadding={10} side="bottom">
           <div className="relative">
             <div
-              className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-90 p-2 font-mono text-xs shadow-md backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-800"
+              className="bg-opacity-90 max-w-md overflow-auto border bg-white p-2 font-mono text-xs whitespace-pre shadow-md backdrop-blur-xs dark:border-neutral-700 dark:bg-neutral-800"
               style={{
                 maxHeight: `var(--radix-popper-available-height)`,
               }}
@@ -256,7 +256,7 @@ function RefItemTooltip({
               {JSON.stringify(data?.[namespace.name]?.[0] || item, null, 2)}
             </div>
             {isLoading ? (
-              <div className="absolute right-0 top-0 animate-spin p-2 opacity-50">
+              <div className="absolute top-0 right-0 animate-spin p-2 opacity-50">
                 <Cog8ToothIcon width={12} />
               </div>
             ) : null}
@@ -284,7 +284,7 @@ function LinkComboboxItem({
       key={option.id}
       value={option}
       className={clsx(
-        'cursor-pointer px-3 py-1 data-[focus]:bg-blue-100 dark:border-neutral-700 dark:bg-neutral-800',
+        'cursor-pointer px-3 py-1 data-focus:bg-blue-100 dark:border-neutral-700 dark:bg-neutral-800',
         {},
       )}
     >
@@ -331,7 +331,7 @@ function LinkComboboxItem({
           </Tooltip.Trigger>
           <Tooltip.Content collisionPadding={10}>
             <div
-              className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-90 p-2 font-mono text-xs shadow-md backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-800"
+              className="bg-opacity-90 max-w-md overflow-auto border bg-white p-2 font-mono text-xs whitespace-pre shadow-md backdrop-blur-xs dark:border-neutral-700 dark:bg-neutral-800"
               style={{
                 maxHeight: `var(--radix-popper-available-height)`,
               }}
@@ -451,7 +451,7 @@ function LinkCombobox({
           portal={false}
           unmount={false}
           static={true}
-          className="fixed mt-1 max-h-[25vh] w-[var(--input-width)] divide-y overflow-scroll rounded-md border border-gray-300 bg-white shadow-lg empty:invisible dark:border-neutral-700"
+          className="fixed mt-1 max-h-[25vh] w-(--input-width) divide-y overflow-scroll rounded-md border border-gray-300 bg-white shadow-lg empty:invisible dark:border-neutral-700"
           style={{ top: inputRef.current?.getBoundingClientRect().bottom }}
         >
           {(options || []).map((o) => (
@@ -465,7 +465,7 @@ function LinkCombobox({
           ))}
         </ComboboxOptions>
         {options?.length || isLoading ? null : (
-          <div className="absolute mt-1 w-[var(--input-width)] divide-y overflow-scroll rounded-md border border-gray-300 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
+          <div className="absolute mt-1 w-(--input-width) divide-y overflow-scroll rounded-md border border-gray-300 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
             No matching rows in <code>{namespace.name}</code>
           </div>
         )}
@@ -941,7 +941,7 @@ export function EditRowDialog({
             </div>
             <div className="flex flex-col gap-1">
               <input
-                className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
+                className="flex w-full flex-1 rounded-xs border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
                 value={blobUpdates.id?.value ?? ''}
                 onChange={(e) =>
                   handleUpdateFieldValue('id', e.target.value, uuidValidate)
@@ -980,7 +980,7 @@ export function EditRowDialog({
                           handleNullToggle(attr.name, checked)
                         }
                         label={
-                          <span className="text-[10px] uppercase text-gray-600 dark:text-neutral-600">
+                          <span className="text-[10px] text-gray-600 uppercase dark:text-neutral-600">
                             null
                           </span>
                         }
@@ -988,7 +988,7 @@ export function EditRowDialog({
                     )}
                   </div>
                   <Select
-                    className="w-24 rounded px-2 py-0.5 text-sm"
+                    className="w-24 rounded-sm px-2 py-0.5 text-sm"
                     value={type}
                     options={validFieldTypeOptions(attr.checkedDataType)}
                     onChange={(option) =>
@@ -1005,7 +1005,7 @@ export function EditRowDialog({
                   <div className="flex space-x-1">
                     <div className="flex-1">
                       {type === 'json' ? (
-                        <div className="h-32 w-full rounded border">
+                        <div className="h-32 w-full rounded-sm border">
                           <CodeEditor
                             tabIndex={tabIndex}
                             language="json"
@@ -1031,7 +1031,7 @@ export function EditRowDialog({
                         <input
                           tabIndex={tabIndex}
                           type="number"
-                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
+                          className="flex w-full flex-1 rounded-xs border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
                           value={value ?? ''}
                           onChange={(num) =>
                             handleUpdateFieldValue(attr.name, num.target.value)
@@ -1073,7 +1073,7 @@ export function EditRowDialog({
                       handleNullToggle(attr.name, false);
                       focusElementAtTabIndex(tabIndex);
                     }}
-                    className="flex-1 rounded-sm border border-gray-200 bg-gray-50 px-3 py-1 text-left italic text-gray-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
+                    className="flex-1 rounded-xs border border-gray-200 bg-gray-50 px-3 py-1 text-left text-gray-500 italic dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
                   >
                     null
                   </button>
@@ -1102,7 +1102,7 @@ export function EditRowDialog({
             <div key={attr.name} className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <Label className="font-mono">{attr.name}</Label>
-                <span className="rounded px-2 py-0.5 text-sm">
+                <span className="rounded-sm px-2 py-0.5 text-sm">
                   Link to <code>{namespace.name}</code>
                 </span>
               </div>

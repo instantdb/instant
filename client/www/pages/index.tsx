@@ -45,7 +45,7 @@ function Switch({
     <HeadlessSwitch
       checked={enabled}
       onChange={onChange}
-      className={`${enabled ? 'bg-emerald-500' : 'bg-gray-600'} relative inline-flex h-[19px] w-[37px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75`}
+      className={`${enabled ? 'bg-emerald-500' : 'bg-gray-600'} relative inline-flex h-[19px] w-[37px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white/75`}
     >
       <span className="sr-only">Use setting</span>
       <span
@@ -99,7 +99,7 @@ function CreateInstantApp() {
       }}
     >
       <div className="relative inline-flex w-full cursor-pointer items-center border border-black bg-transparent px-4 py-2 font-mono text-lg transition-colors hover:bg-gray-50/30">
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-800 transition-colors">
+        <div className="absolute top-1/2 right-4 -translate-y-1/2 text-gray-800 transition-colors">
           {showCopySuccess ? (
             <CheckIcon className="h-5 w-5 text-orange-600" />
           ) : (
@@ -117,7 +117,7 @@ function CreateInstantApp() {
 
 function LandingHero() {
   return (
-    <div className="pb-16 pt-8">
+    <div className="pt-8 pb-16">
       <SectionWide>
         <TwoColResponsive>
           <div className="flex flex-1 flex-col gap-6">
@@ -198,7 +198,7 @@ function LandingProblemStatement() {
               </p>
             </div>
             <div className="flex flex-1 flex-col gap-4">
-              <div className="bg-prism overflow-auto rounded border font-mono text-sm">
+              <div className="bg-prism overflow-auto rounded-sm border font-mono text-sm">
                 <Fence language="javascript" code={queryExampleComponentCode} />
               </div>
             </div>
@@ -295,7 +295,7 @@ const ThemedTab = ({
     <Tab
       className={({ selected }) =>
         clsx(
-          'relative z-10 translate-x-1 px-5 py-2 outline-none last:translate-x-0',
+          'relative z-10 translate-x-1 px-5 py-2 outline-hidden last:translate-x-0',
           className,
           selected ? 'bg-prism-dark z-20' : 'bg-prism',
         )
@@ -337,16 +337,16 @@ function LandingCoreFeatures() {
               {isHydrated ? (
                 <Tab.Group>
                   <Tab.List className="pl-4">
-                    <ThemedTab className="rounded-tl border-l border-t">
+                    <ThemedTab className="rounded-tl border-t border-l">
                       Instant
                     </ThemedTab>
-                    <ThemedTab className="rounded-tr border-r border-t">
+                    <ThemedTab className="rounded-tr border-t border-r">
                       Not Instant
                     </ThemedTab>
                   </Tab.List>
                   <Tab.Panels>
                     <Tab.Panel>
-                      <div className="bg-prism h-80 overflow-auto rounded border text-sm">
+                      <div className="bg-prism h-80 overflow-auto rounded-sm border text-sm">
                         <Fence
                           language="javascript"
                           code={mutationExampleCode}
@@ -354,7 +354,7 @@ function LandingCoreFeatures() {
                       </div>
                     </Tab.Panel>
                     <Tab.Panel>
-                      <div className="bg-prism h-80 overflow-auto rounded border text-sm">
+                      <div className="bg-prism h-80 overflow-auto rounded-sm border text-sm">
                         <Fence
                           language="javascript"
                           code={mutationWithoutInstantExampleCode}
@@ -431,11 +431,11 @@ function Testimonial({
 }) {
   return (
     <div>
-      <p className="ml-2 h-56 w-80 rounded border bg-white p-4 italic text-gray-700">
+      <p className="ml-2 h-56 w-80 rounded-sm border bg-white p-4 text-gray-700 italic">
         "{blurb}"
       </p>
       <div className="flex -translate-y-1 gap-3">
-        <div className="h-16 w-16 overflow-hidden rounded-[50%] bg-black shadow">
+        <div className="h-16 w-16 overflow-hidden rounded-[50%] bg-black shadow-sm">
           <img src={photo} alt={person} />
         </div>
         <div className="flex flex-col justify-center">
@@ -526,7 +526,7 @@ function LandingTeam() {
 const SeeTheCodeButton = ({ href }: { href: string }) => (
   <Link
     href={href}
-    className="flex items-center gap-1 rounded-full border bg-white px-2.5 py-0.5 text-sm shadow backdrop-blur-lg hover:bg-gray-50"
+    className="flex items-center gap-1 rounded-full border bg-white px-2.5 py-0.5 text-sm shadow-sm backdrop-blur-lg hover:bg-gray-50"
   >
     See the code <ChevronRightIcon height="1rem" />
   </Link>
@@ -582,7 +582,7 @@ function LandingOfflineGraphic() {
             onChangeOnline(!state.online);
           }}
           className={clsx(
-            'flex w-36 cursor-pointer items-center space-x-2 rounded px-2 py-2 shadow-sm transition-colors',
+            'flex w-36 cursor-pointer items-center space-x-2 rounded-sm px-2 py-2 shadow-xs transition-colors',
             state.online
               ? 'bg-emerald-500/10 text-emerald-700'
               : 'bg-gray-500/20 text-gray-900',
@@ -597,10 +597,10 @@ function LandingOfflineGraphic() {
           <div key={q} className="flex flex-1 flex-col gap-3">
             <div
               className={clsx(
-                'w-fullrounded-lg aspect-[16/10] rounded bg-gray-500/10 p-1 shadow-xl',
+                'w-fullrounded-lg aspect-16/10 rounded-sm bg-gray-500/10 p-1 shadow-xl',
               )}
             >
-              <div className="flex h-full flex-col items-center justify-center gap-1 rounded bg-white p-2">
+              <div className="flex h-full flex-col items-center justify-center gap-1 rounded-sm bg-white p-2">
                 <button
                   className="bg-orange-600 px-2 py-1 text-white transition-all active:scale-95"
                   onClick={() => onClick(q)}
@@ -617,7 +617,7 @@ function LandingOfflineGraphic() {
                 {state[q].slice(-showQueueLength).map((item, i) => (
                   <div
                     className={clsx(
-                      'overflow-hidden rounded-sm border bg-white px-2 py-1 font-mono text-xs shadow-sm transition-transform',
+                      'overflow-hidden rounded-xs border bg-white px-2 py-1 font-mono text-xs shadow-xs transition-transform',
                     )}
                   >
                     {item.ts}
@@ -686,7 +686,10 @@ export function ExampleMultiPreview({
       {Array(numViews)
         .fill(null)
         .map((_, i) => (
-          <div key={i} className="flex h-36 rounded border bg-white shadow-sm">
+          <div
+            key={i}
+            className="flex h-36 rounded-sm border bg-white shadow-xs"
+          >
             {appId ? (
               <iframe
                 className="flex-1"

@@ -63,7 +63,7 @@ export default function AdminPage() {
     <div className="flex flex-col space-y-4">
       {sortedUsers.map((user, idx) => {
         return (
-          <div key={idx} className="rounded border p-4 shadow">
+          <div key={idx} className="rounded-sm border p-4 shadow-sm">
             <p className="text-lg font-bold">
               Email: <span className="font-normal">{user.email}</span>
             </p>

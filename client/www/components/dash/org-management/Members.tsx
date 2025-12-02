@@ -113,10 +113,10 @@ export const Members = () => {
         )}
       </div>
       <InviteToOrgDialog dialog={dialog} />
-      <div className="divide-y rounded-sm border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="divide-y rounded-xs border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
         {org.members.map((member) => (
           <div
-            className="flex w-full items-center justify-between gap-2 rounded-sm p-2 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700/40"
+            className="flex w-full items-center justify-between gap-2 rounded-xs p-2 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700/40"
             key={member.id}
           >
             <div className="flex items-center gap-3">

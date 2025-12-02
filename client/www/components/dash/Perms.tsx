@@ -35,7 +35,7 @@ export function Perms({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-      <div className="flex min-h-0 min-w-[260px] flex-col gap-4 border-r p-4 text-sm dark:border-r-neutral-700 md:basis-96 md:text-base">
+      <div className="flex min-h-0 min-w-[260px] flex-col gap-4 border-r p-4 text-sm md:basis-96 md:text-base dark:border-r-neutral-700">
         <SectionHeading>Permissions</SectionHeading>
         <Content className="dark:text-neutral-300">
           <p>

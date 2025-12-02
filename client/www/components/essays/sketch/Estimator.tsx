@@ -89,7 +89,7 @@ export function Estimator({
               </div>
               <div>
                 <input
-                  className="w-full border border-gray-300 bg-white px-3 py-1.5 text-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="w-full border border-gray-300 bg-white px-3 py-1.5 text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:outline-hidden"
                   placeholder="Type any word to query the sketch…"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
@@ -127,7 +127,7 @@ function ResultCardSide({
       <div className="text-3xl font-bold text-gray-900 transition-all">
         {value !== null ? value.toLocaleString('en-US') : '—'}
       </div>
-      <div className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <div className="mt-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">
         {label}
       </div>
     </div>
@@ -198,12 +198,12 @@ function ConfigEditor({
       }}
       className="flex items-end justify-end gap-3"
     >
-      <label className="flex flex-shrink-0 flex-col text-sm font-medium text-gray-600">
-        <span className="mb-1 text-xs uppercase tracking-wide text-gray-500">
+      <label className="flex shrink-0 flex-col text-sm font-medium text-gray-600">
+        <span className="mb-1 text-xs tracking-wide text-gray-500 uppercase">
           Columns
         </span>
         <input
-          className="w-20 border border-gray-300 px-3 py-1.5 font-mono text-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          className="w-20 border border-gray-300 px-3 py-1.5 font-mono text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:outline-hidden"
           name="columns"
           value={currConfig.columns}
           onChange={(e) =>
@@ -215,12 +215,12 @@ function ConfigEditor({
           inputMode="numeric"
         />
       </label>
-      <label className="flex flex-shrink-0 flex-col text-sm font-medium text-gray-600">
-        <span className="mb-1 text-xs uppercase tracking-wide text-gray-500">
+      <label className="flex shrink-0 flex-col text-sm font-medium text-gray-600">
+        <span className="mb-1 text-xs tracking-wide text-gray-500 uppercase">
           Rows
         </span>
         <input
-          className="w-20 border border-gray-300 px-3 py-1.5 font-mono text-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          className="w-20 border border-gray-300 px-3 py-1.5 font-mono text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:outline-hidden"
           name="rows"
           value={currConfig.rows}
           onChange={(e) =>
@@ -232,15 +232,15 @@ function ConfigEditor({
           inputMode="numeric"
         />
       </label>
-      <div className="flex flex-shrink-0 flex-col">
-        <span className="mb-1 text-xs uppercase tracking-wide text-gray-500 opacity-0">
+      <div className="flex shrink-0 flex-col">
+        <span className="mb-1 text-xs tracking-wide text-gray-500 uppercase opacity-0">
           &nbsp;
         </span>
         <button
           type="submit"
           disabled={!hasChanges}
           className={clsx(
-            'flex-shrink-0 border px-4 py-1.5 font-mono text-sm font-semibold',
+            'shrink-0 border px-4 py-1.5 font-mono text-sm font-semibold',
             hasChanges
               ? 'border-blue-500 bg-blue-500 text-white hover:bg-blue-600'
               : 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400',

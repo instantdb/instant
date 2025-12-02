@@ -119,43 +119,43 @@ function PaidTable({ data }: { data: any }) {
         <thead>
           <tr>
             <th
-              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
               onClick={() => handleSort('user_email')}
             >
               User email{getSortIndicator('user_email')}
             </th>
             <th
-              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
               onClick={() => handleSort('type')}
             >
               Type{getSortIndicator('type')}
             </th>
             <th
-              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
               onClick={() => handleSort('title')}
             >
               Title{getSortIndicator('title')}
             </th>
             <th
-              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
               onClick={() => handleSort('monthly_revenue')}
             >
               Monthly prevenue{getSortIndicator('monthly_revenue')}
             </th>
             <th
-              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
               onClick={() => handleSort('start_timestamp')}
             >
               Subscribed since{getSortIndicator('start_timestamp')}
             </th>
             <th
-              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
               onClick={() => handleSort('usage')}
             >
               DB size{getSortIndicator('usage')}
             </th>
             <th
-              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
               onClick={() => handleSort('triple_count')}
             >
               Triple count{getSortIndicator('triple_count')}
@@ -219,7 +219,7 @@ function Page() {
         <title>Instant Paid Apps</title>
         <meta name="description" content="Welcome to Instant." />
       </Head>
-      <div className="m-4 flex flex-wrap space-x-0 space-y-4 md:flex-nowrap md:space-x-8 md:space-y-0">
+      <div className="m-4 flex flex-wrap space-y-4 space-x-0 md:flex-nowrap md:space-y-0 md:space-x-8">
         <div className="flex flex-col space-y-2">
           <span className="font-xl font-bold">Paid Apps</span>
           <PaidTable data={data} />

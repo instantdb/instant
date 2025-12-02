@@ -56,7 +56,7 @@ function Content({ content }: { content: string }) {
       components={
         {
           p: ({ children }) => (
-            <div className="mb-[1.25em] mt-[1.25em] text-base leading-relaxed">
+            <div className="mt-[1.25em] mb-[1.25em] text-base leading-relaxed">
               {children}
             </div>
           ),
@@ -117,15 +117,15 @@ function ExampleDetail({ app }: { app: ExampleApp }) {
   return (
     <div className="space-y-12 md:space-y-6">
       <div className="mx-auto flex max-w-prose flex-col">
-        <div className="pb-2 pt-6">
+        <div className="pt-6 pb-2">
           <Link href="/examples" className="text-sm text-gray-500">
-            <ArrowLeftIcon className="mb-0.5 mr-1 inline h-4 w-4" />
+            <ArrowLeftIcon className="mr-1 mb-0.5 inline h-4 w-4" />
             Back To Examples
           </Link>
         </div>
         <div className="py-4">
           <div className="mb-1 flex items-center justify-between">
-            <div className="-mt-1 text-3xl font-bold leading-relaxed">
+            <div className="-mt-1 text-3xl leading-relaxed font-bold">
               {title}
             </div>
             <div className="hidden gap-4 md:flex">
@@ -140,7 +140,7 @@ function ExampleDetail({ app }: { app: ExampleApp }) {
         <div className="prose prose-headings:font-bold prose-headings:leading-relaxed prose-h1:mb-4 prose-h1:mt-8 prose-h1:text-xl prose-h2:mb-2 prose-h2:mt-4 prose-h2:text-lg prose-pre:bg-gray-100">
           <Content content={content} />
         </div>
-        <div className="my-4 border border-dashed border-orange-600 bg-orange-50/50 px-4 pb-4 pt-2">
+        <div className="my-4 border border-dashed border-orange-600 bg-orange-50/50 px-4 pt-2 pb-4">
           <div className="py-4 text-sm font-light">
             What did you think of this example? Are there any other apps you'd
             like to see implemented with InstantDB? Let us know and we'll do our

@@ -48,16 +48,16 @@ function StorageMetricsTable({ data }: { data: any }) {
       <table className="min-w-full border border-gray-200 bg-white">
         <thead>
           <tr>
-            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase tracking-wide text-gray-800">
+            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium tracking-wide text-gray-800 uppercase">
               User email
             </th>
-            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase tracking-wide text-gray-800">
+            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium tracking-wide text-gray-800 uppercase">
               App Title
             </th>
-            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-right text-sm font-medium uppercase tracking-wide text-gray-800">
+            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-right text-sm font-medium tracking-wide text-gray-800 uppercase">
               File count
             </th>
-            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-right text-sm font-medium uppercase tracking-wide text-gray-800">
+            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-right text-sm font-medium tracking-wide text-gray-800 uppercase">
               Space used
             </th>
           </tr>

@@ -180,7 +180,7 @@ function Main({ files }: { files: File[] }) {
                 <p>
                   To get rolling, create a free account, grab your app ID, and
                   install{' '}
-                  <code className="whitespace-nowrap rounded-sm bg-gray-500 px-3 text-sm text-white">
+                  <code className="rounded-xs bg-gray-500 px-3 text-sm whitespace-nowrap text-white">
                     @instantdb/react
                   </code>
                   .
@@ -206,7 +206,7 @@ function Main({ files }: { files: File[] }) {
 
           <div
             ref={topInViewRef}
-            className="max-w-2xl overflow-hidden rounded border border-gray-300 bg-white p-4 text-gray-700 md:mx-auto"
+            className="max-w-2xl overflow-hidden rounded-sm border border-gray-300 bg-white p-4 text-gray-700 md:mx-auto"
           >
             <div className="flex flex-col gap-2">
               <h3 className="text-md font-bold">
@@ -282,7 +282,7 @@ function Example({
       data-path-name={file.pathName}
       className="flex flex-col py-2"
     >
-      <div className="flex flex-col overflow-hidden rounded-sm border">
+      <div className="flex flex-col overflow-hidden rounded-xs border">
         <div className="flex items-center gap-2 border-b bg-gray-50 px-4 py-2">
           <h3 className="truncate font-mono font-bold">{file.name}</h3>
           <Button
@@ -294,8 +294,8 @@ function Example({
             Copy
           </Button>
 
-          <span className="whitespace-nowrap text-sm">
-            <span className="rounded-sm border bg-white px-1">{numViews}</span>{' '}
+          <span className="text-sm whitespace-nowrap">
+            <span className="rounded-xs border bg-white px-1">{numViews}</span>{' '}
             previews
           </span>
           <Button
@@ -329,7 +329,7 @@ function Example({
               .map((_, i) => (
                 <div
                   key={i}
-                  className="flex h-[30vh] rounded border bg-white shadow-sm"
+                  className="flex h-[30vh] rounded-sm border bg-white shadow-xs"
                 >
                   {appId ? (
                     <iframe
@@ -358,10 +358,10 @@ function RoomStatus({ db, appId }: { db: InstantDB; appId: string }) {
   if (presence.isLoading) return null;
 
   return (
-    <div className="first-letter fixed bottom-0 left-0 right-0 z-10 mb-3 flex justify-center">
+    <div className="first-letter fixed right-0 bottom-0 left-0 z-10 mb-3 flex justify-center">
       <div
         key={numPeers}
-        className="rounded-full bg-black/60 px-4 py-1 text-sm text-white shadow-lg backdrop-blur"
+        className="rounded-full bg-black/60 px-4 py-1 text-sm text-white shadow-lg backdrop-blur-sm"
         style={{
           animation: 'bounce 0.5s',
         }}

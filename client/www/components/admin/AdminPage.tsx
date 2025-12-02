@@ -377,7 +377,7 @@ export function Admin({
         </>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 rounded border bg-gray-100 p-2 dark:border-neutral-700 dark:bg-neutral-800">
+          <div className="flex items-center gap-2 rounded-sm border bg-gray-100 p-2 dark:border-neutral-700 dark:bg-neutral-800">
             <InformationCircleIcon width={18}></InformationCircleIcon>
             Upgrade to a paid app to manage members.{' '}
             <Link className="underline" href="/pricing">

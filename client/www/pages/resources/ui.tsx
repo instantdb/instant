@@ -27,7 +27,7 @@ function Example({
   return (
     <div className="flex flex-col gap-0.5">
       <div className="font-mono text-xs text-gray-500">{label}</div>
-      <div className="dots rounded-sm border p-4">{children}</div>
+      <div className="dots rounded-xs border p-4">{children}</div>
     </div>
   );
 }

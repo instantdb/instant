@@ -72,7 +72,7 @@ function DevtoolComp() {
         <Auth
           emailOnly
           info={
-            <div className="rounded border bg-gray-100 p-4">
+            <div className="rounded-sm border bg-gray-100 p-4">
               <Help />
             </div>
           }
@@ -133,7 +133,7 @@ function DevtoolComp() {
                   <ScreenHeading>🤕 Failed to load your app</ScreenHeading>
                   {message ? (
                     <div className="mx-auto flex w-full max-w-2xl flex-col">
-                      <div className="rounded bg-red-100 p-4 text-red-700">
+                      <div className="rounded-sm bg-red-100 p-4 text-red-700">
                         {message}
                       </div>
                     </div>
@@ -306,7 +306,7 @@ function DevtoolWithData({
             </ScreenHeading>
             {message ? (
               <div className="mx-auto flex w-full max-w-2xl flex-col">
-                <div className="rounded bg-red-100 p-4 text-red-700">
+                <div className="rounded-sm bg-red-100 p-4 text-red-700">
                   {message}
                 </div>
               </div>
@@ -437,7 +437,7 @@ function AppIdLabel({ appId }: { appId: string }) {
     <div className="flex gap-2 px-2 py-1 font-mono text-xs">
       <span>App ID</span>
       <code
-        className="rounded border bg-white px-2"
+        className="rounded-sm border bg-white px-2"
         onClick={(e) => {
           const node = e.currentTarget;
           const selection = window.getSelection();
@@ -622,7 +622,7 @@ function Help() {
   );
 }
 
-const Code = twel('code', 'bg-gray-200 px-1 rounded text-xs font-mono');
+const Code = twel('code', 'bg-gray-200 px-1 rounded-sm text-xs font-mono');
 
 function isEmptyObj(obj: object) {
   return Object.keys(obj).length === 0;

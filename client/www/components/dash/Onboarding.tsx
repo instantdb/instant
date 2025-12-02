@@ -178,7 +178,7 @@ function ProfileScreen(props: {
           <textarea
             id="build"
             name="build"
-            className="w-full appearance-none rounded border-gray-200 font-normal placeholder-gray-400 outline-none"
+            className="w-full appearance-none rounded-sm border-gray-200 font-normal placeholder-gray-400 outline-hidden"
             placeholder="Social media for books -- like goodreads, but with a better design. Something like zeneca.io but realtime!"
             value={build}
             onChange={(e) => setBuild(e.target.value)}
@@ -192,7 +192,7 @@ function ProfileScreen(props: {
           {isLoading ? '...' : 'Onwards!'}
         </Button>
         {error ? (
-          <div className="mb-4 rounded bg-gray-200 p-2 text-orange-500">
+          <div className="mb-4 rounded-sm bg-gray-200 p-2 text-orange-500">
             {error}
           </div>
         ) : null}
@@ -240,7 +240,7 @@ function CreateFirstAppScreen(props: {
             Let's build!
           </Button>
           {props.error ? (
-            <div className="mb-4 rounded bg-gray-200 p-2 text-orange-500">
+            <div className="mb-4 rounded-sm bg-gray-200 p-2 text-orange-500">
               {props.error}
             </div>
           ) : null}

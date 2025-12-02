@@ -208,7 +208,7 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
   if (daily.error) {
     return (
       <div className="flex-1 space-y-2 p-2">
-        <div className="rounded border border-red-200 bg-red-50 p-4">
+        <div className="rounded-sm border border-red-200 bg-red-50 p-4">
           <h3 className="mb-2 font-semibold text-red-600">Daily Stats Error</h3>
           <pre className="text-sm text-red-500">
             {JSON.stringify(daily.error.body || daily.error.message, null, 2)}
@@ -221,7 +221,7 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
   if (!daily.data) {
     return (
       <div className="flex-1 space-y-2 p-2">
-        <div className="rounded border border-yellow-200 bg-yellow-50 p-4">
+        <div className="rounded-sm border border-yellow-200 bg-yellow-50 p-4">
           <p className="text-yellow-600">No daily data available</p>
         </div>
       </div>
@@ -240,7 +240,7 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
           <h1 className="leading-none" style={{ fontSize: 120 }}>
             {latestRolling['distinct_apps']}
           </h1>
-          <div className="font-bold leading-none">Monthly Active Apps</div>
+          <div className="leading-none font-bold">Monthly Active Apps</div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -311,7 +311,7 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
   if (minute.error) {
     return (
       <div className="flex min-h-0 w-1/2 flex-1 flex-col space-y-2 p-4">
-        <div className="rounded border border-red-200 bg-red-50 p-4">
+        <div className="rounded-sm border border-red-200 bg-red-50 p-4">
           <h3 className="mb-2 font-semibold text-red-600">
             Minute Stats Error
           </h3>
@@ -326,7 +326,7 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
   if (!minute.data) {
     return (
       <div className="flex min-h-0 w-1/2 flex-1 flex-col space-y-2 p-4">
-        <div className="rounded border border-yellow-200 bg-yellow-50 p-4">
+        <div className="rounded-sm border border-yellow-200 bg-yellow-50 p-4">
           <p className="text-yellow-600">No minute data available</p>
         </div>
       </div>
@@ -360,7 +360,7 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
               ))}
             </div>
 
-            <div className="font-bold leading-none">Active Connections</div>
+            <div className="leading-none font-bold">Active Connections</div>
           </div>
         </div>
         <div className="inline-flex items-baseline space-x-4">

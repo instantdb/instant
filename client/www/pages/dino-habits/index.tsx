@@ -83,7 +83,7 @@ function Login() {
   const [sentEmail, setSentEmail] = useState('');
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-purple-900 to-green-900">
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-purple-900 to-green-900">
       <div className="max-w-sm rounded-2xl border-2 border-green-400 bg-black/50 p-8">
         {!sentEmail ? (
           <EmailStep onSendEmail={setSentEmail} />
@@ -264,7 +264,7 @@ function Main() {
   if (isLoading) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-900 to-green-900 p-4">
+    <div className="min-h-screen bg-linear-to-b from-purple-900 to-green-900 p-4">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-4xl font-bold text-green-400">
@@ -413,7 +413,7 @@ function HabitCard({
           </div>
           <div className="relative h-8 overflow-hidden rounded-full bg-black/50">
             <div
-              className="absolute h-full bg-gradient-to-r from-green-500 to-green-400 transition-all"
+              className="absolute h-full bg-linear-to-r from-green-500 to-green-400 transition-all"
               style={{ width: `${(currentCount / habit.targetCount) * 100}%` }}
             />
             <button
@@ -700,15 +700,15 @@ function HabitDetails({
           </div>
           <div className="mt-4 flex gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="h-4 w-4 rounded bg-green-600"></div>
+              <div className="h-4 w-4 rounded-sm bg-green-600"></div>
               <span className="text-gray-400">Complete</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="h-4 w-4 rounded bg-yellow-600"></div>
+              <div className="h-4 w-4 rounded-sm bg-yellow-600"></div>
               <span className="text-gray-400">Partial</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="h-4 w-4 rounded bg-gray-800"></div>
+              <div className="h-4 w-4 rounded-sm bg-gray-800"></div>
               <span className="text-gray-400">Missed</span>
             </div>
           </div>

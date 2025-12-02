@@ -155,7 +155,7 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
                       : 'border-b border-gray-200'
                   }
                 >
-                  <td className="py-1 pl-2 pr-4 font-medium text-gray-700">
+                  <td className="py-1 pr-4 pl-2 font-medium text-gray-700">
                     {row.label}
                   </td>
                   <td className="py-1 text-gray-600">{row.value}</td>

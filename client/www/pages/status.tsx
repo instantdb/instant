@@ -72,7 +72,7 @@ function MainStatus({
   return (
     <div className="relative z-10 flex justify-center px-4 py-4 sm:px-8 md:px-16 md:py-8 lg:px-32 xl:px-64">
       <div className="relative h-32 w-full max-w-4xl border-2 border-gray-200 bg-white sm:h-44 md:h-60">
-        <div className="absolute right-4 top-3 font-mono text-xs md:text-sm">
+        <div className="absolute top-3 right-4 font-mono text-xs md:text-sm">
           <div className="text-right">
             <span className="text-gray-500">
               Last updated {lastUpdated.toLocaleTimeString()}
@@ -81,7 +81,7 @@ function MainStatus({
         </div>
         <div className="flex h-full items-center justify-center gap-4 px-4 sm:gap-6 md:gap-8">
           <div
-            className={`flex items-center justify-center ${allOperational ? '' : 'h-5 w-5 sm:h-7 sm:w-7'} h-10 w-10 flex-shrink-0 rounded-full shadow-2xl sm:h-12 sm:w-12`}
+            className={`flex items-center justify-center ${allOperational ? '' : 'h-5 w-5 sm:h-7 sm:w-7'} h-10 w-10 shrink-0 rounded-full shadow-2xl sm:h-12 sm:w-12`}
             style={{
               backgroundColor: allOperational ? GOOD_COLOR : ERR_COLOR,
             }}
@@ -160,7 +160,7 @@ function MonitorDisplay({
             return (
               <div
                 key={index}
-                className="flex-1 cursor-pointer rounded-sm transition-opacity hover:opacity-80"
+                className="flex-1 cursor-pointer rounded-xs transition-opacity hover:opacity-80"
                 style={{
                   backgroundColor:
                     percentage !== null
@@ -199,7 +199,7 @@ function UptimeDetails({ uptime }: { uptime: UptimeResponse }) {
         <span className="text-sm font-semibold md:text-base">
           Uptime last 90 days
         </span>
-        <div className="mt-2 border-2 border-gray-200 bg-white p-3 shadow-sm md:p-4">
+        <div className="mt-2 border-2 border-gray-200 bg-white p-3 shadow-xs md:p-4">
           <MonitorDisplay monitor={backendMonitor} title="Instant API" />
           <div className="flex py-6">
             <div
@@ -221,7 +221,7 @@ function OverallUptime({ uptime }: { uptime: UptimeResponse }) {
         <span className="text-sm font-semibold md:text-base">
           Overall Uptime
         </span>
-        <div className="mt-2 flex h-auto items-center justify-center border-2 border-gray-200 bg-white p-4 shadow-sm sm:h-48 sm:p-6 md:h-64">
+        <div className="mt-2 flex h-auto items-center justify-center border-2 border-gray-200 bg-white p-4 shadow-xs sm:h-48 sm:p-6 md:h-64">
           <div className="flex flex-col items-center gap-6 py-4 sm:flex-row sm:gap-2.5 sm:py-0">
             <div className="flex flex-1 flex-col text-center sm:w-40">
               <span className="text-2xl font-semibold">

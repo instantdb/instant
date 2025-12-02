@@ -210,7 +210,7 @@ function PackageManagerSelector({
                 className={({ selected }) =>
                   clsx(
                     'w-full rounded-lg py-2.5 text-sm font-medium transition-all',
-                    'ring-white ring-opacity-60 ring-offset-2 ring-offset-gray-400 focus:outline-none focus:ring-2',
+                    'ring-opacity-60 ring-white ring-offset-2 ring-offset-gray-400 focus:ring-2 focus:outline-hidden',
                     selected
                       ? 'bg-white text-gray-900 shadow-md'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
@@ -222,10 +222,10 @@ function PackageManagerSelector({
             ))}
           </TabList>
 
-          <div className="rounded-b-lg border border-gray-300 bg-white shadow-sm">
+          <div className="rounded-b-lg border border-gray-300 bg-white shadow-xs">
             <TabPanels>
               {packageManagers.map((pm) => (
-                <TabPanel key={pm.id} className="focus:outline-none">
+                <TabPanel key={pm.id} className="focus:outline-hidden">
                   <div className="flex items-center justify-between p-5 font-mono text-xs md:text-sm">
                     <span className="text-gray-900">{currentCommand}</span>
                     <CopyButton command={currentCommand} />
@@ -247,7 +247,7 @@ function PromptExample({ title, content }: { title: string; content: string }) {
         <SubsectionHeading className="flex-1">{title}</SubsectionHeading>
         <CopyButton command={content} label="Copy Prompt" />
       </div>
-      <div className="whitespace-pre-wrap rounded-md border-l-4 border-l-gray-300 bg-gray-50 p-4 font-mono text-sm text-gray-800">
+      <div className="rounded-md border-l-4 border-l-gray-300 bg-gray-50 p-4 font-mono text-sm whitespace-pre-wrap text-gray-800">
         {content}
       </div>
     </div>
@@ -278,7 +278,7 @@ function DebuggingAccordion() {
           >
             <button
               onClick={() => toggleItem(item.id)}
-              className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+              className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-100 focus:bg-gray-100 focus:outline-hidden"
             >
               <span className="font-medium text-gray-900">{item.title}</span>
               <svg
@@ -356,10 +356,10 @@ function MCPSetupInstructions() {
               key={key}
               className={({ selected }) =>
                 clsx(
-                  'w-full rounded-lg py-2.5 text-sm font-medium leading-5',
-                  'ring-white ring-opacity-60 ring-offset-2 ring-offset-gray-400 focus:outline-none focus:ring-2',
+                  'w-full rounded-lg py-2.5 text-sm leading-5 font-medium',
+                  'ring-opacity-60 ring-white ring-offset-2 ring-offset-gray-400 focus:ring-2 focus:outline-hidden',
                   selected
-                    ? 'bg-white text-gray-900 shadow'
+                    ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:bg-white/60 hover:text-gray-900',
                 )
               }
@@ -370,7 +370,7 @@ function MCPSetupInstructions() {
         </TabList>
         <TabPanels>
           {Object.entries(clientConfigs).map(([key, config]) => (
-            <TabPanel key={key} className="py-6 focus:outline-none">
+            <TabPanel key={key} className="py-6 focus:outline-hidden">
               {config.setupContent}
             </TabPanel>
           ))}
@@ -445,7 +445,7 @@ function ClosingSection() {
 function ShareCreationSection() {
   return (
     <div className="mb-16">
-      <div className="rounded-lg border border-orange-200 bg-gradient-to-br from-orange-50 to-red-50 p-6">
+      <div className="rounded-lg border border-orange-200 bg-linear-to-br from-orange-50 to-red-50 p-6">
         <div className="flex items-start gap-4">
           <div className="text-3xl">🎉</div>
           <div className="flex-1">
@@ -623,7 +623,7 @@ export default function TutorialNew() {
 
       <Section>
         <div className="mx-auto max-w-4xl">
-          <div className="mb-8 mt-12">
+          <div className="mt-12 mb-8">
             <div className="mb-6">
               <H2>{pageTitle}</H2>
             </div>

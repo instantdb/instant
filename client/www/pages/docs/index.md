@@ -148,7 +148,7 @@ function TodoForm({ todos }: { todos: Todo[] }) {
         }}
       >
         <input
-          className="w-full h-full px-2 outline-none bg-transparent"
+          className="w-full h-full px-2 outline-hidden bg-transparent"
           autoFocus
           placeholder="What needs to be done?"
           type="text"

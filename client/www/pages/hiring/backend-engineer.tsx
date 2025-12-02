@@ -144,7 +144,7 @@ export default function Page() {
       <MainNav />
       <div className="mx-auto mt-6 p-4 md:max-w-2xl">
         <HiringContent />
-        <div className="mb-4 mt-8 flex justify-center">
+        <div className="mt-8 mb-4 flex justify-center">
           <Button type="link" href="/hiring" variant="secondary">
             Back to All Positions
           </Button>

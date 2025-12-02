@@ -146,7 +146,7 @@ const styles: Record<string, string> = {
     border-bottom-width: 0px;
   `,
   todoText: `
-    flex-grow: 1;
+    grow: 1;
     overflow: hidden;
   `,
   delete: `
