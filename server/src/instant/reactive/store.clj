@@ -960,7 +960,7 @@
 ;; ---------- 
 ;; Topic Trie 
 
-(defn- empty-topic-trie []
+(def empty-topic-trie
   {:children {}
    :wildcard nil
    :topics ()})
