@@ -923,7 +923,10 @@
                        iv-part))
       (when (contains? dq-part :$not)
         (let [not-val (:$not dq-part)]
-          (ucoll/exists? (partial not= not-val) iv-part))))))
+          (ucoll/exists? (partial not= not-val) iv-part))))
+
+    :else
+    (= iv-part dq-part)))
 
 (defn match-topic?
   [[iv-idx iv-e iv-a iv-v]
@@ -986,32 +989,44 @@
 
 (defn- topic->paths-to-index
   "Given a topic, returns the paths where we index it.
-   Each path ends with :* to indicate 'catchall from here on'.
+   Each path ends with :* or :descendants.
 
-   A topic is indexed at its most-specific level only.
-   
-   Given a topic [idx e a v] 
-   
-   The order of specificity is: 
-   
-   [idx > a > e > v] 
+   :* indicates 'catchall from here on'.
+   :descendants indicates 'some specific values are indexed below'.
+
+   Given a topic [idx e a v]
+
+   The order of specificity is:
+
+   [idx > a > e > v]
 
 
    i.e: [:ea _ #{a-uuid} _]
-   Would return: [[:ea a-uuid :*]]
+   Would return:
+   [[:ea :*]                 ;; The 'ea' level catchall
+    [:ea :descendants]       ;; Indicates there are specific 'a' values
+    [:ea a-uuid :*]]         ;; The specific 'a' value
 
-   i.e: [:ea #{eid} _ _] 
-   Would return: [[:ea :*]]"
+   i.e: [:ea #{eid} _ _] (eid not a set)
+   Would return:
+   [[:ea :*]]"
   [[idx e a v]]
   (if-not (keyword? idx)
     [[:*]]
-    (if-not (set? a)
-      [[idx :*]]
-      (if-not (set? e)
-        (for [av a] [idx av :*])
-        (if-not (set? v)
-          (for [av a, ev e] [idx av ev :*])
-          (for [av a, ev e, vv v] [idx av ev vv :*]))))))
+    (loop [paths [[idx]]
+           remaining [a e v]
+           acc (transient [])]
+      (if (empty? remaining)
+        ;; If we consumed everything specific, close with :*
+        (persistent! (reduce (fn [a p] (conj! a (conj p :*))) acc paths))
+        (let [[x & xs] remaining]
+          (if (set? x)
+            ;; Specific: Index at :descendants, then expand paths
+            (let [new-acc (reduce (fn [a p] (conj! a (conj p :descendants))) acc paths)
+                  new-paths (for [p paths, xv x] (conj p xv))]
+              (recur new-paths xs new-acc))
+            ;; Wildcard: Index at :*, and STOP.
+            (persistent! (reduce (fn [a p] (conj! a (conj p :*))) acc paths))))))))
 
 (defn- build-topic-index
   "Builds an index of topics for efficient intersection lookups.
@@ -1019,17 +1034,20 @@
    Topics are indexed at their most-specific level only, with paths
    ending in :* to indicate 'catchall from here on'.
 
-   Given a topic [idx e a v] 
-   
-   The order of specificity is: 
-   
-   [idx > a > e > v] 
-   
+   Given a topic [idx e a v]
+
+   The order of specificity is:
+
+   [idx > a > e > v]
+
    i.e given: [:ea _ #{a-uuid b-uuid} _]
    Would be indexed at: [:ea a-uuid :*] and [:ea b-uuid :*]
 
    i.e given: [:ea eid _ _]
-   Would be indexed at: [:ea :*]"
+   Would be indexed at: [:ea :*]
+
+   When querying, we check all paths from root to most-specific
+   to find catchalls at every level."
   [topics]
   (let [flat (ucoll/reduce-tr
               (fn [acc topic]
@@ -1049,30 +1067,35 @@
     flat-persisted))
 
 (defn- topic->paths-to-query
-  "Given a topic, returns all paths to query the index with.
+  "Given a topic, returns ALL paths to query the index with.
    We walk from root to most-specific, collecting catchalls at each level.
 
    i.e: [:ea _ #{a-uuid b-uuid} _]
    Would return the paths:
-   [[:*] 
-    [:ea :*] 
-    [:ea a-uuid :*] 
-    [:ea b-uuid :*]]"
+   [[:*]
+    [:ea :*]
+    [:ea a-uuid :*]
+    [:ea b-uuid :*]]
+
+   This ensures we find invalidation topics indexed at any level of specificity."
   [[idx e a v]]
   (let [idx-key (if (keyword? idx) idx :*)]
-    (loop [paths [[:*] [idx-key :*]]
-           prefixes [[idx-key]]
+    (loop [paths [[:*] [idx-key :*]]  ;; always include root catchalls
+           prefixes [[idx-key]]       ;; current prefixes to extend
            remaining [a e v]]
       (if (empty? remaining)
         paths
         (let [[x & xs] remaining]
           (if (set? x)
+            ;; Expand: for each prefix and each value, create new path with :*
             (let [new-prefixes (for [p prefixes, xv x] (conj p xv))
                   new-paths (for [p new-prefixes] (conj p :*))]
               (recur (into paths new-paths)
                      new-prefixes
                      xs))
-            paths))))))
+            ;; Wildcard: Check for descendant index
+            (let [descendant-paths (for [p prefixes] (conj p :descendants))]
+              (into paths descendant-paths))))))))
 
 (defn query-topic-index [index topic]
   (into #{} (mapcat #(get index %) (topic->paths-to-query topic))))
