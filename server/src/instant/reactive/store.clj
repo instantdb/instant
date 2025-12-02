@@ -957,7 +957,7 @@
     (for [e datalog-query-eids]
       [:db.fn/retractEntity e]))))
 
-(defn topics->topic-index
+(defn- topics->topic-index
   "Given a list of topics, returns an index for attribute values 
   i.e: 
   [#{:ea} _ {uid1} _] 
@@ -976,23 +976,24 @@
   [topics]
   (reduce
    (fn [acc [_idx _e a :as topic]]
-     (update (if (set? a)
-               (reduce
-                (fn [acc' a-val]
-                  (update acc' a-val (fnil conj #{}) topic))
-                acc
-                a)
-               (update acc :catchall conj topic))
-             :all conj))
+     (let [acc (update acc :all conj topic)]
+       (if-not (set? a)
+         (update acc :catchall conj topic)
+         (reduce
+          (fn [acc' a-val]
+            (update acc' a-val (fnil conj #{}) topic))
+          acc
+          a))))
    {:catchall #{}
     :all #{}}
    topics))
 
-(defn topic-index-candidates [iv-topic-index [_idx _e a :as _topic]]
-  (if (set? a)
+(defn- topic-index-candidates
+  [iv-topic-index [_idx _e a :as _topic]]
+  (if-not (set? a)
+    (get iv-topic-index :all #{})
     (into (get iv-topic-index :catchall #{})
-          (mapcat iv-topic-index a))
-    (get iv-topic-index :all #{})))
+          (mapcat iv-topic-index a))))
 
 (defn matching-topic-intersection-indexed? [iv-topic-a-index dq-topics]
   (ucoll/seek
