@@ -226,8 +226,11 @@
 (defn test-rule-wheres? []
   (:rule-where-testing (query-result)))
 
-(defn toggled? [key]
-  (get-in (query-result) [:toggles key]))
+(defn toggled?
+  ([key]
+   (get-in (query-result) [:toggles key]))
+  ([key not-found]
+   (get-in (query-result) [:toggles key] not-found)))
 
 (defn flag
   ([key] (get-in (query-result) [:flags key]))
@@ -265,8 +268,8 @@
 (defn use-coarse-topics? [app-id]
   (contains? (flag :coarse-topics-apps) app-id))
 
+(defn use-get-datalog-queries-for-topics-v3? []
+  (toggled? :use-get-datalog-queries-for-topics-v3? true))
+
 (defn use-get-datalog-queries-for-topics-v2? []
-  (let [v (toggled? :use-get-datalog-queries-for-topics-v2?)]
-    (if (boolean? v)
-      v
-      true)))
+  (toggled? :use-get-datalog-queries-for-topics-v2? true))
