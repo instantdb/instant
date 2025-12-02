@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleMe } from './StyleMe.js';
 interface ExplorerProps {
   appId: string;
   adminToken: string;
@@ -8,9 +9,11 @@ interface ExplorerProps {
 
 export const Explorer = ({ appId, adminToken }: ExplorerProps) => {
   return (
-    <div className="tw-preflight bg-blue-500 p-2">
-      {adminToken}
-      <p>This is the explorer</p>
-    </div>
+    <StyleMe>
+      <div className="tw-preflight bg-[#ffcabb] p-2">
+        {adminToken}
+        <p>This is the explorer</p>
+      </div>
+    </StyleMe>
   );
 };
