@@ -5,7 +5,7 @@
   "compilerOptions": {
     "outDir": "dist/tsc",
     "rewriteRelativeImportExtensions": true,
-    "rootDirs": ["src", "lib"],
+    "rootDir": "src",
     "checkJs": false,
     "strictNullChecks": true
   }

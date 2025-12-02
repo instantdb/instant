@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import './App.css';
-import { HelloCounter } from '../lib/index.js';
+import { HelloCounter } from '@lib';
 
 function App() {
   const [count, setCount] = useState(0);

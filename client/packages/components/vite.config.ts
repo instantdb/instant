@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
+import path from 'path';
 import react from '@vitejs/plugin-react-swc';
 import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
@@ -13,6 +14,11 @@ export default defineConfig({
     tailwindcss({ optimize: true }),
     dts({ rollupTypes: false, tsconfigPath: './tsconfig.json' }),
   ],
+  resolve: {
+    alias: {
+      '@lib': path.resolve(__dirname, 'lib'),
+    },
+  },
   build: {
     outDir: 'dist',
     target: 'esnext',
