@@ -212,7 +212,6 @@
                  :app-id app-id)
     conn))
 
-
 (defn app-conn [store app-id]
   (Map/.computeIfAbsent (:conns store) app-id #(create-conn schema %)))
 
@@ -695,7 +694,6 @@
                        [[:db.fn/call upsert-datalog-loader-tx-data sess-id make-loader-fn]])]
         (:session/datalog-loader (d/entity db-after [:session/id sess-id]))))))
 
-
 ;; -------------
 ;; subscriptions
 
@@ -743,7 +741,6 @@
            [{:datalog-query/app-id app-id
              :datalog-query/query datalog-query
              :datalog-query/topics topics}]))]])))
-
 
 ;; ------------
 ;; invalidation
@@ -801,7 +798,7 @@
                        0))))
 
 (defn make-like-match? [case-insensitive? text pattern]
-  (let [regex-pattern (like-pattern case-insensitive? pattern )]
+  (let [regex-pattern (like-pattern case-insensitive? pattern)]
     (re-matches regex-pattern text)))
 
 (def like-match?
@@ -960,6 +957,62 @@
     (for [e datalog-query-eids]
       [:db.fn/retractEntity e]))))
 
+(defn- topics->topic-index
+  "Given a list of topics, returns an index for attribute values 
+  i.e: 
+  [#{:ea} _ {uid1} _] 
+  [#{:ea} _ _ v1] 
+
+  Would produce the index: 
+
+  {uid1 #{[#{:ea} _ {uid1} _]} 
+   
+   :catchall #{[#{:ea} _ _ v1]} 
+   
+   :all #{[#{:ea} _ {uid1} _] 
+          [#{:ea} _ _ v1]}} 
+    
+  This helps us quickly prune topics when trying to do a match."
+  [topics]
+  (reduce
+   (fn [acc [_idx _e a :as topic]]
+     (let [acc (update acc :all conj topic)]
+       (if-not (set? a)
+         (update acc :catchall conj topic)
+         (reduce
+          (fn [acc' a-val]
+            (update acc' a-val (fnil conj #{}) topic))
+          acc
+          a))))
+   {:catchall #{}
+    :all #{}}
+   topics))
+
+(defn- topic-index-candidates
+  [iv-topic-index [_idx _e a :as _topic]]
+  (if-not (set? a)
+    (get iv-topic-index :all #{})
+    (into (get iv-topic-index :catchall #{})
+          (mapcat iv-topic-index a))))
+
+(defn matching-topic-intersection-indexed? [iv-topic-a-index dq-topics]
+  (ucoll/seek
+   (fn [dq-topic]
+     (let [iv-candidates (topic-index-candidates iv-topic-a-index dq-topic)]
+       (ucoll/seek
+        (fn [iv-topic]
+          (match-topic? iv-topic dq-topic))
+        iv-candidates)))
+   dq-topics))
+
+(defn- get-datalog-queries-for-topics-v2 [db app-id iv-topics]
+  (let [iv-topic-index (topics->topic-index iv-topics)]
+    (vec (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
+               :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
+               :when dq-topics
+               :when (matching-topic-intersection-indexed? iv-topic-index dq-topics)]
+           (:e datom)))))
+
 (defn- get-datalog-queries-for-topics [db app-id iv-topics]
   (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
         :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
@@ -983,7 +1036,13 @@
   Returns affected session-ids"
   [store app-id tx-id topics]
   (let [conn               (app-conn store app-id)
-        datalog-query-eids (vec (get-datalog-queries-for-topics @conn app-id topics))
+        datalog-query-eids
+        (cond
+          (flags/use-get-datalog-queries-for-topics-v2?)
+          (get-datalog-queries-for-topics-v2 @conn app-id topics)
+
+          :else
+          (vec (get-datalog-queries-for-topics @conn app-id topics)))
 
         report
         (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)
@@ -996,7 +1055,6 @@
                          (:db-before report)
                          datalog-query-eids)]
     session-ids))
-
 
 ;; ----------
 ;; sync table
