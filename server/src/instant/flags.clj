@@ -114,8 +114,8 @@
                   (update :enable-admin-transact-queue-apps (fn [vs]
                                                               (set (map parse-uuid vs))))
 
-                  (update :invalidator-drop-tx-skip-apps (fn [vs]
-                                                           (set (map parse-uuid vs))))
+                  (update :invalidator-drop-backpressure-apps (fn [vs]
+                                                                (set (map parse-uuid vs))))
 
                   (update :coarse-topics-apps (fn [vs]
                                                 (set (map parse-uuid vs)))))
