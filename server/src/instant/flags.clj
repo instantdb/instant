@@ -256,20 +256,17 @@
 (defn admin-tx-queue-enabled? [app-id]
   (contains? (flag :enable-admin-transact-queue-apps) app-id))
 
-(defn invalidator-drop-tx-enabled? []
-  (toggled? :invalidator-drop-tx-enabled?))
-
 (defn invalidator-drop-tx-latency-ms []
   (flag :invalidator-drop-tx-latency-ms 30000))
 
-(defn invalidator-drop-tx-skip-app? [app-id]
-  (contains? (flag :invalidator-drop-tx-skip-apps) app-id))
+(defn invalidator-drop-backpressure? [app-id]
+  (contains? (flag :invalidator-drop-backpressure-apps) app-id))
 
 (defn use-coarse-topics? [app-id]
   (contains? (flag :coarse-topics-apps) app-id))
 
 (defn use-get-datalog-queries-for-topics-v2? []
-  (let [v (toggled? :invalidator-drop-tx-enabled?)]
+  (let [v (toggled? :use-get-datalog-queries-for-topics-v2?)]
     (if (boolean? v)
       v
       true)))
