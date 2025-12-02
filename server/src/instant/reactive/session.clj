@@ -632,7 +632,7 @@
                                                 :op :client-broadcast-ok
                                                 :client-event-id client-event-id))))
 
-(defn- handle-server-broadcast! [store sess-id {:keys [app-id room-id] :as event}]
+(defn- handle-server-broadcast! [store sess-id {:keys [app-id] :as event}]
   (let [room-id (validate-room-id event)]
     (when (eph/in-room? app-id room-id sess-id)
       (doseq [{:keys [topic data]} (or (::payloads event)
