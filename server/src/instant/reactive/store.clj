@@ -989,7 +989,7 @@
                  (let [child-path (if (= k :wildcard)
                                     [:wildcard]
                                     [:children k])
-                       child (get-in n child-path (empty-topic-trie))
+                       child (get-in n child-path empty-topic-trie)
                        child' (if (seq rest-parts)
                                 (step child rest-parts)
                                 (update child :topics conj topic))]
@@ -999,7 +999,7 @@
     (step trie (topic->ordered-parts topic))))
 
 (defn- topics->topic-trie [topics]
-  (reduce insert-topic-into-trie (empty-topic-trie) topics))
+  (reduce insert-topic-into-trie empty-topic-trie topics))
 
 (defn- topic-trie-next-nodes [node part]
   (let [{:keys [children wildcard]} (or node {})
