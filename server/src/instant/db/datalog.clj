@@ -2918,16 +2918,36 @@
         (flags/use-coarse-topics? app-id)
         (assoc :topics (pats->coarse-topics named-patterns))))))
 
-(defn- collect-all-topics
-  ([nested-result] (collect-all-topics #{} nested-result))
-  ([acc nested-result]
-   (reduce (fn [acc {:keys [result children]}]
-             (let [next-acc (into acc (:topics result))]
-               (if (seq children)
-                 (reduce collect-all-topics next-acc children)
-                 next-acc)))
-           acc
-           nested-result)))
+(defn- add-topics! [acc topics]
+  (reduce (fn [acc topic]
+            (if (contains? acc topic)
+              acc
+              (let [combine-idx (if (= (first topic) #{:vae})
+                                  3
+                                  1)
+                    topic-key (if (set? (nth topic combine-idx))
+                                (assoc topic combine-idx ::placeholder)
+                                topic)]
+                (assoc! acc topic-key (if-let [existing (get acc topic-key)]
+                                        (update existing combine-idx into (nth topic combine-idx))
+                                        topic)))))
+          acc
+          topics))
+
+(defn- collect-all-topics* [acc nested-result]
+  (reduce (fn [acc {:keys [result children]}]
+            (let [next-acc (add-topics! acc (tool/inspect (:topics result)))]
+              (if (seq children)
+                (reduce collect-all-topics* next-acc children)
+                next-acc)))
+          acc
+          nested-result))
+
+(defn- collect-all-topics [nested-result]
+  (-> (collect-all-topics* (transient {}) nested-result)
+      persistent!
+      vals
+      set))
 
 (defn send-query-nested
   [ctx conn app-id nested-named-patterns]
