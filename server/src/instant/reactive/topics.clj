@@ -38,18 +38,21 @@
           nil
           columns))
 
+(defn parse-v [m]
+  (let [v-parsed (<-json (:value m))]
+    (cond
+      (:eav m)
+      (UUID/fromString v-parsed)
+      (= (:checked_data_type m) "date")
+      (triple-model/parse-date-value v-parsed)
+      :else
+      v-parsed)))
+
 (defn- topics-for-triple-insert [change]
   (let [m (columns->map (:columns change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
-        v-parsed (<-json (:value m))
-        v (cond
-            (:eav m)
-            (UUID/fromString v-parsed)
-            (= (:checked_data_type m) "date")
-            (triple-model/parse-date-value v-parsed)
-            :else
-            v-parsed)
+        v (parse-v m)
         ks (->> #{:ea :eav :av :ave :vae}
                 (filter m)
                 set)]
@@ -60,7 +63,7 @@
   (let [m (columns->map (:columns change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
-        v (<-json (:value m))
+        v (parse-v m)
 
         ks (->> #{:ea :eav :av :ave :vae}
                 (filter m)
@@ -69,7 +72,7 @@
         old-m (columns->map (:identity change) true)
         old-e (UUID/fromString (:entity_id old-m))
         old-a (UUID/fromString (:attr_id old-m))
-        old-v (<-json (:value old-m))]
+        old-v (parse-v old-m)]
     (cond (and (= e old-e)
                (= a old-a)
                ;; toasted value not included if it didn't change
@@ -91,7 +94,7 @@
   (let [m (columns->map (:identity change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
-        v (<-json (:value m))
+        v (parse-v m)
         ks (->> #{:ea :eav :av :ave :vae}
                 (filter m)
                 set)]
