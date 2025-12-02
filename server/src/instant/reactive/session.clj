@@ -521,14 +521,15 @@
    {:keys [op
            client-event-id
            total-delay-ms
-           ws-ping-latency-ms] :as _event}]
+           ws-ping-latency-ms] :as event}]
   (let [{:session/keys [auth creator versions]} (rs/session store session-id)]
     (merge
      {:op op
       :client-event-id client-event-id
       :session-id session-id
       :total-delay-ms total-delay-ms
-      :ws-ping-latency-ms ws-ping-latency-ms}
+      :ws-ping-latency-ms ws-ping-latency-ms
+      :combined (::grouped-queue/combined event 1)}
      (auth-and-creator-attrs auth creator versions))))
 
 (defn validate-room-id [event]
@@ -631,13 +632,15 @@
                                                 :op :client-broadcast-ok
                                                 :client-event-id client-event-id))))
 
-(defn- handle-server-broadcast! [store sess-id {:keys [app-id topic data] :as event}]
+(defn- handle-server-broadcast! [store sess-id {:keys [app-id] :as event}]
   (let [room-id (validate-room-id event)]
     (when (eph/in-room? app-id room-id sess-id)
-      (rs/send-event! store app-id sess-id {:op :server-broadcast
-                                            :room-id room-id
-                                            :topic topic
-                                            :data data}))))
+      (doseq [{:keys [topic data]} (or (::payloads event)
+                                       [event])]
+        (rs/send-event! store app-id sess-id {:op :server-broadcast
+                                              :room-id room-id
+                                              :topic topic
+                                              :data data})))))
 
 (defn handle-event [store session event debug-info]
   (let [{:keys [op]} event
@@ -1090,6 +1093,17 @@
 
 (defmethod combine [:refresh-sync-table :refresh-sync-table] [_ event2]
   event2)
+
+(defmethod combine [:server-broadcast :server-broadcast] [event1 event2]
+  (if-let [payloads (::payloads event1)]
+    (assoc event1 ::payloads (conj payloads {:topic (:topic event2)
+                                             :data (:data event2)}))
+    (-> event2
+        (assoc ::payloads [{:topic (:topic event1)
+                            :data (:data event1)}
+                           {:topic (:topic event2)
+                            :data (:data event2)}])
+        (dissoc :topic :data))))
 
 (defn process [group-key event]
   (straight-jacket-process-receive-q-event rs/store group-key event))
