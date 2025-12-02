@@ -1500,7 +1500,13 @@ export default class Reactor {
     }
     // Try to reconnect via websocket the next time we connect
     this._transportType = 'ws';
-    this._handleReceive(targetTransport.id, e.message);
+    if (Array.isArray(e.message)) {
+      for (const msg of e.message) {
+        this._handleReceive(targetTransport.id, msg);
+      }
+    } else {
+      this._handleReceive(targetTransport.id, e.message);
+    }
   };
 
   _transportOnError = (e) => {

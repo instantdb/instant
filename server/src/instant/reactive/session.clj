@@ -86,6 +86,36 @@
 (def react-version-key (keyword "@instantdb/react"))
 (def react-native-version-key (keyword "@instantdb/react-native"))
 
+(def patch-presence-min-version
+  (semver/parse "v0.17.5"))
+
+(def refresh-skip-attrs-min-version
+  (semver/parse "v0.20.4"))
+
+(def batch-messages-min-version
+  (semver/parse "0.22.75"))
+
+(defn get-supported-features [versions]
+  (when-let [parsed-version (some-> versions (get core-version-key semver/parse))]
+    (cond-> #{}
+      (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version))
+      (conj :skip-attrs)
+
+      (pos? (semver/compare-semver parsed-version patch-presence-min-version))
+      (conj :patch-presence)
+
+      (pos? (semver/compare-semver parsed-version batch-messages-min-version))
+      (conj :batch-messages))))
+
+(defn supports-skip-attrs? [features]
+  (contains? features :skip-attrs))
+
+(defn supports-patch-presence? [features]
+  (contains? features :patch-presence))
+
+(defn supports-batch-messages? [features]
+  (contains? features :batch-messages))
+
 (defn auth-and-creator-attrs [auth creator versions]
   (cond-> {:app-id (-> auth :app :id)
            :app-title (-> auth :app :title)
@@ -114,9 +144,6 @@
                                                            "public"))
     {:attrs (attr-model/get-by-app-id (:id app))}))
 
-(def refresh-skip-attrs-min-version
-  (semver/parse "v0.20.4"))
-
 (defn- handle-init! [store sess-id event]
   (let [{:keys [refresh-token client-event-id versions]
          admin-token :__admin-token} event
@@ -137,17 +164,16 @@
         auth        {:app    app
                      :user   user
                      :admin? admin?}
-        parsed-version  (some-> versions (get core-version-key) (semver/parse))
-        can-skip-attrs? (and parsed-version
-                             (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version)))]
+        features (get-supported-features versions)]
     (tracer/add-data! {:attributes (auth-and-creator-attrs auth creator versions)})
     (apply rs/assoc-session! store sess-id
            :session/auth auth
            :session/creator creator
+           :session/features features
            (concat
             (when versions
               [:session/versions versions])
-            (when can-skip-attrs?
+            (when (supports-skip-attrs? features)
               [:session/attrs-hash (hash attrs)])))
     (rs/send-event! store app-id sess-id {:op              :init-ok
                                           :session-id      sess-id
@@ -441,10 +467,9 @@
                       :dropped-spam? true
                       :tx-latency-ms (e2e-tracer/tx-latency-ms (:tx-created-at event))}
         {prev-attrs-hash :session/attrs-hash
-         version :session/versions} (rs/session store sess-id)
-        parsed-version  (some-> version (get core-version-key) (semver/parse))
-        can-skip-attrs? (and parsed-version
-                             (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version)))
+         version :session/versions
+         features :session/features} (rs/session store sess-id)
+        can-skip-attrs? (supports-skip-attrs? features)
         attrs-hash      (hash attrs)
         attrs-changed?  (not= prev-attrs-hash attrs-hash)]
     (when (and can-skip-attrs? attrs-changed?)
@@ -574,22 +599,15 @@
                                           :room-id room-id
                                           :client-event-id client-event-id})))
 
-(def patch-presence-min-version
-  (semver/parse "v0.17.5"))
-
 (defn- handle-refresh-presence! [store sess-id {:keys [app-id data edits] :as event}]
-  (let [version (-> (rs/session store sess-id)
-                    :session/versions
-                    (get core-version-key))
+  (let [features (-> (rs/session store sess-id) :session/features)
         room-id (validate-room-id event)]
     (cond
       (and edits (empty? edits))
       :nop
 
       (and edits
-           (when-let [parsed-version (some-> version (semver/parse))]
-             (pos? (semver/compare-semver parsed-version
-                                          patch-presence-min-version))))
+           (supports-patch-presence? features))
       (rs/send-event! store app-id sess-id
                       {:op      :patch-presence
                        :room-id room-id
@@ -633,14 +651,27 @@
                                                 :client-event-id client-event-id))))
 
 (defn- handle-server-broadcast! [store sess-id {:keys [app-id] :as event}]
-  (let [room-id (validate-room-id event)]
+  (let [room-id (validate-room-id event)
+        batch-messages? (-> (rs/session store sess-id)
+                            :features
+                            supports-batch-messages?)]
     (when (eph/in-room? app-id room-id sess-id)
-      (doseq [{:keys [topic data]} (or (::payloads event)
-                                       [event])]
-        (rs/send-event! store app-id sess-id {:op :server-broadcast
-                                              :room-id room-id
-                                              :topic topic
-                                              :data data})))))
+      (let [messages (for [{:keys [topic data]} (or (::payloads event)
+                                                    [event])]
+                       {:op :server-broadcast
+                        :room-id room-id
+                        :topic topic
+                        :data data})]
+        (cond (= 1 (count messages))
+              (rs/send-event! store app-id sess-id (first messages))
+
+              batch-messages?
+              (doseq [batch (partition-all 500 messages)]
+                (rs/send-event! store app-id sess-id batch))
+
+              :else
+              (doseq [message messages]
+                (rs/send-event! store app-id sess-id message)))))))
 
 (defn handle-event [store session event debug-info]
   (let [{:keys [op]} event
