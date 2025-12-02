@@ -96,16 +96,17 @@
   (semver/parse "0.22.75"))
 
 (defn get-supported-features [versions]
-  (when-let [parsed-version (some-> versions (get core-version-key semver/parse))]
-    (cond-> #{}
-      (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version))
-      (conj :skip-attrs)
+  (or (when-let [parsed-version (some-> versions (get core-version-key semver/parse))]
+        (cond-> #{}
+          (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version))
+          (conj :skip-attrs)
 
-      (pos? (semver/compare-semver parsed-version patch-presence-min-version))
-      (conj :patch-presence)
+          (pos? (semver/compare-semver parsed-version patch-presence-min-version))
+          (conj :patch-presence)
 
-      (pos? (semver/compare-semver parsed-version batch-messages-min-version))
-      (conj :batch-messages))))
+          (pos? (semver/compare-semver parsed-version batch-messages-min-version))
+          (conj :batch-messages)))
+      #{}))
 
 (defn supports-skip-attrs? [features]
   (contains? features :skip-attrs))
