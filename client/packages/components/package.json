@@ -1,6 +1,6 @@
 {
-  "name": "components",
-  "version": "1.0.0",
+  "name": "@instantdb/components",
+  "version": "0.0.0",
   "description": "",
   "type": "module",
   "main": "index.js",
@@ -8,6 +8,19 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "vite build",
     "dev": "vite"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
   },
   "keywords": [],
   "author": "",
@@ -32,8 +45,8 @@
     "tailwindcss": "^4.1.17",
     "tshy": "^3.0.2",
     "typescript": "^5.9.3",
+    "unplugin-dts": "1.0.0-beta.6",
     "vite": "^5.2.0",
-    "vite-plugin-dts": "^4.5.4",
     "vitest": "^1.6.0"
   },
   "peerDependencies": {

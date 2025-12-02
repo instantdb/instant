@@ -2,21 +2,17 @@ import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import react from '@vitejs/plugin-react-swc';
-import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
+import dts from 'unplugin-dts/vite';
 
 import { peerDependencies } from './package.json';
 
 export default defineConfig({
   clearScreen: false,
-  plugins: [
-    react({}),
-    tailwindcss({ optimize: true }),
-    dts({ rollupTypes: false, tsconfigPath: './tsconfig.json' }),
-  ],
+  plugins: [react({}), tailwindcss({ optimize: true }), dts({})],
   resolve: {
     alias: {
-      '@lib': path.resolve(__dirname, 'lib'),
+      '@lib': path.resolve(__dirname, 'src'),
     },
   },
   build: {
@@ -25,8 +21,9 @@ export default defineConfig({
     minify: true,
     lib: {
       formats: ['es', 'cjs'],
-      entry: resolve(__dirname, 'lib', 'index.tsx'),
-      // @ts-ignore
+      entry: resolve(__dirname, 'src', 'index.tsx'),
+      // @ts-ignore, currently not functional
+      // if styling solution beyond shadow dom necessary this will have to be fixed
       cssFileName: 'style',
       fileName: 'index',
     },

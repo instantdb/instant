@@ -6,13 +6,13 @@
     "strict": true,
     "outDir": "dist/tsc",
     "moduleResolution": "nodenext",
-    "rootDirs": ["src", "lib"],
+    "rootDirs": ["src", "app"],
     "jsx": "react-jsx",
     "checkJs": false,
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@lib": ["./lib/index.tsx"]
+      "@lib": ["./src/index.tsx"]
     },
     "strictNullChecks": true
   }
