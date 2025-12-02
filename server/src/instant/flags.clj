@@ -114,8 +114,8 @@
                   (update :enable-admin-transact-queue-apps (fn [vs]
                                                               (set (map parse-uuid vs))))
 
-                  (update :invalidator-drop-tx-skip-apps (fn [vs]
-                                                           (set (map parse-uuid vs))))
+                  (update :invalidator-drop-backpressure-apps (fn [vs]
+                                                                (set (map parse-uuid vs))))
 
                   (update :coarse-topics-apps (fn [vs]
                                                 (set (map parse-uuid vs)))))
@@ -226,8 +226,11 @@
 (defn test-rule-wheres? []
   (:rule-where-testing (query-result)))
 
-(defn toggled? [key]
-  (get-in (query-result) [:toggles key]))
+(defn toggled?
+  ([key]
+   (get-in (query-result) [:toggles key]))
+  ([key not-found]
+   (get-in (query-result) [:toggles key] not-found)))
 
 (defn flag
   ([key] (get-in (query-result) [:flags key]))
@@ -256,26 +259,17 @@
 (defn admin-tx-queue-enabled? [app-id]
   (contains? (flag :enable-admin-transact-queue-apps) app-id))
 
-(defn invalidator-drop-tx-enabled? []
-  (toggled? :invalidator-drop-tx-enabled?))
-
 (defn invalidator-drop-tx-latency-ms []
   (flag :invalidator-drop-tx-latency-ms 30000))
 
-(defn invalidator-drop-tx-skip-app? [app-id]
-  (contains? (flag :invalidator-drop-tx-skip-apps) app-id))
+(defn invalidator-drop-backpressure? [app-id]
+  (contains? (flag :invalidator-drop-backpressure-apps) app-id))
 
 (defn use-coarse-topics? [app-id]
   (contains? (flag :coarse-topics-apps) app-id))
 
 (defn use-get-datalog-queries-for-topics-v3? []
-  (let [v (toggled? :use-get-datalog-queries-for-topics-v3?)]
-    (if (boolean? v)
-      v
-      true)))
+  (toggled? :use-get-datalog-queries-for-topics-v3? true))
 
 (defn use-get-datalog-queries-for-topics-v2? []
-  (let [v (toggled? :use-get-datalog-queries-for-topics-v2?)]
-    (if (boolean? v)
-      v
-      true)))
+  (toggled? :use-get-datalog-queries-for-topics-v2? true))
