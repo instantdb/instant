@@ -521,14 +521,15 @@
    {:keys [op
            client-event-id
            total-delay-ms
-           ws-ping-latency-ms] :as _event}]
+           ws-ping-latency-ms] :as event}]
   (let [{:session/keys [auth creator versions]} (rs/session store session-id)]
     (merge
      {:op op
       :client-event-id client-event-id
       :session-id session-id
       :total-delay-ms total-delay-ms
-      :ws-ping-latency-ms ws-ping-latency-ms}
+      :ws-ping-latency-ms ws-ping-latency-ms
+      :combined (::grouped-queue/combined event 1)}
      (auth-and-creator-attrs auth creator versions))))
 
 (defn validate-room-id [event]
