@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react-swc';
 import { resolve } from 'path';
 import dts from 'unplugin-dts/vite';
 
-import { peerDependencies } from './package.json';
+import { peerDependencies, dependencies } from './package.json';
 
 export default defineConfig({
   clearScreen: false,
@@ -18,11 +18,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     target: 'esnext',
-    minify: true,
     // TODO: make this true for prod
     emptyOutDir: false,
     lib: {
-      formats: ['es', 'cjs'],
+      formats: ['es'],
       entry: resolve(__dirname, 'src', 'index.tsx'),
       // @ts-ignore, currently not functional
       // if styling solution beyond shadow dom necessary this will have to be fixed
@@ -30,11 +29,21 @@ export default defineConfig({
       fileName: 'index',
     },
     rollupOptions: {
-      external: [
-        'react',
-        'react/jsx-runtime',
-        ...Object.keys(peerDependencies),
-      ],
+      external: (id) => {
+        // Check exact matches and subpath imports (e.g., react/jsx-runtime)
+        const allDeps = [
+          ...Object.keys(peerDependencies),
+          ...Object.keys(dependencies),
+        ];
+        return allDeps.some((dep) => id === dep || id.startsWith(dep + '/'));
+      },
+      // external: [
+      //   'react',
+      //   'react/jsx-runtime',
+      //   '@heroicons/react',
+      //   ...Object.keys(peerDependencies),
+      //   ...Object.keys(dependencies),
+      // ],
     },
   },
 });
