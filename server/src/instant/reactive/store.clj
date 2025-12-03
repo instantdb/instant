@@ -19,6 +19,7 @@
    [datascript.core :as d]
    [datascript.conn :as d-conn]
    [instant.config :as config]
+   [instant.db.model.attr :as attr-model]
    [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
@@ -28,6 +29,7 @@
    [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
+   [instant.util.instaql :refer [forms-hash]]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer])
   (:import
@@ -68,6 +70,7 @@
    :tx-meta/processed-tx-id {:db/type :db.type/integer}
 
    :instaql-query/query {:db/index true}
+   :instaql-query/forms-hash {}
    :instaql-query/session-id {:db/type :db.type/uuid
                               :db/index true}
    :instaql-query/stale? {:db/type :db.type/boolean}
@@ -446,6 +449,7 @@
         :instaql-query/stale? false}])
     [{:instaql-query/session-id session-id
       :instaql-query/query instaql-query
+      :instaql-query/forms-hash (forms-hash instaql-query)
       :instaql-query/stale? false
       :instaql-query/version 1
       :instaql-query/return-type return-type
@@ -957,8 +961,8 @@
     (for [e datalog-query-eids]
       [:db.fn/retractEntity e]))))
 
-;; ---------- 
-;; Topic Trie 
+;; ----------
+;; Topic Trie
 
 (def empty-topic-trie
   {:children {}
@@ -967,9 +971,9 @@
 
 (def ^:private topic-trie-order
   "Topic structure: [idx e a v]
-  
-  Our traversal order: idx -> a -> e -> v. 
-  
+
+  Our traversal order: idx -> a -> e -> v.
+
   Reasoning: most selective parts first."
   [0 2 1 3])
 
@@ -1038,24 +1042,24 @@
                :when (matching-topic-intersection-trie? iv-topic-trie dq-topics)]
            (:e datom)))))
 
-;; ---------- 
+;; ----------
 ;; Topic Index based on attribute values
 
 (defn- topics->topic-index
-  "Given a list of topics, returns an index for attribute values 
-  i.e: 
-  [#{:ea} _ {uid1} _] 
-  [#{:ea} _ _ v1] 
+  "Given a list of topics, returns an index for attribute values
+  i.e:
+  [#{:ea} _ {uid1} _]
+  [#{:ea} _ _ v1]
 
-  Would produce the index: 
+  Would produce the index:
 
-  {uid1 #{[#{:ea} _ {uid1} _]} 
-   
-   :catchall #{[#{:ea} _ _ v1]} 
-   
-   :all #{[#{:ea} _ {uid1} _] 
-          [#{:ea} _ _ v1]}} 
-    
+  {uid1 #{[#{:ea} _ {uid1} _]}
+
+   :catchall #{[#{:ea} _ _ v1]}
+
+   :all #{[#{:ea} _ {uid1} _]
+          [#{:ea} _ _ v1]}}
+
   This helps us quickly prune topics when trying to do a match."
   [topics]
   (reduce
@@ -1114,22 +1118,82 @@
           :when (and sent-tx-id topics (matching-topic-intersection? iv-topics topics))]
       ent)))
 
+(defn filter-queries [app-id db iv-topics query-ids]
+  (if-not (flags/toggled? :filter-query)
+    query-ids
+    (remove (fn [eid]
+              (when-let [q (some->> (d/datoms db :avet :subscription/datalog-query eid)
+                                    first
+                                    :e
+                                    (d/entity db)
+                                    :subscription/instaql-query)]
+                (when (= (:instaql-query/forms-hash q)
+                         889158316)
+                  (let [wid (some-> q
+                                    :instaql-query/query
+                                    :edenItem
+                                    :$
+                                    :where
+                                    :workspaceId)
+                        deleted-nil? (some-> q
+                                             :instaql-query/query
+                                             :edenItem
+                                             :$
+                                             :where
+                                             :deleted
+                                             :$isNull)
+                        type (some-> q
+                                     :instaql-query/query
+                                     :edenItem
+                                     :$
+                                     :where
+                                     :type)]
+                    (when (and wid deleted-nil? type)
+                      (let [attrs (attr-model/get-by-app-id app-id)
+                            waid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "workspaceId"] attrs))
+                            deleted-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "deleted"] attrs))
+                            type-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "type"] attrs))
+                            creates (reduce (fn [acc [_idx e a v]]
+                                              (let [e (first e)
+                                                    a (first a)]
+                                                (if (or (= a waid)
+                                                        (= a deleted-aid)
+                                                        (= a type-aid))
+                                                  (if (not= 1 (count v))
+                                                    ;; We got an update, so we'll just bail out
+                                                    (reduced nil)
+                                                    (assoc-in acc [e a] (first v)))
+                                                  acc)))
+                                            {}
+                                            iv-topics)]
+                        (when creates
+                          (not (some (fn [[_e ent]]
+                                       (and (= (get ent waid) wid)
+                                            (= deleted-nil? (nil? (get ent deleted-aid)))
+                                            (= (get ent type-aid) type)))
+                                     creates)))))))))
+            query-ids)))
+
 (defn mark-stale-topics!
   "Given topics, invalidates all relevant datalog qs and associated instaql queries.
 
   Returns affected session-ids"
   [store app-id tx-id topics]
-  (let [conn               (app-conn store app-id)
+  (let [conn (app-conn store app-id)
+        db @conn
         datalog-query-eids
-        (cond
-          (flags/use-get-datalog-queries-for-topics-v3?)
-          (get-datalog-queries-for-topics-v3 @conn app-id topics)
+        (vec (filter-queries app-id
+                             db
+                             topics
+                             (cond
+                               (flags/use-get-datalog-queries-for-topics-v3?)
+                               (get-datalog-queries-for-topics-v3 db app-id topics)
 
-          (flags/use-get-datalog-queries-for-topics-v2?)
-          (get-datalog-queries-for-topics-v2 @conn app-id topics)
+                               (flags/use-get-datalog-queries-for-topics-v2?)
+                               (get-datalog-queries-for-topics-v2 db app-id topics)
 
-          :else
-          (vec (get-datalog-queries-for-topics @conn app-id topics)))
+                               :else
+                               (vec (get-datalog-queries-for-topics db app-id topics)))))
 
         report
         (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)

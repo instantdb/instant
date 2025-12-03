@@ -18,7 +18,7 @@
    (java.sql Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (java.util Map)
+   (java.util Map Queue)
    (java.util.concurrent ConcurrentHashMap)
    (org.postgresql.replication LogSequenceNumber)))
 
@@ -196,6 +196,19 @@
           (def -store-value (store-snapshot store app-id))
           (tracer/add-exception! t {:escaping? false}))))))
 
+(defn drop-backpressure? [queue wal-record]
+  (let [app-id (:app-id wal-record)
+        group (get (:groups queue) app-id)
+        head (when group (Queue/.peek group))
+        put-at (some-> head :instant.grouped-queue/put-at)
+        latency (if put-at (- (System/currentTimeMillis) put-at) 0)]
+    (when (and (flags/invalidator-drop-backpressure? app-id)
+               (> latency (flags/invalidator-drop-tx-latency-ms)))
+      (tracer/record-info! {:name "invalidator/drop-backpressure"
+                            :attributes {:app-id app-id
+                                         :latency latency}})
+      true)))
+
 (defn start-worker [process-id store wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start"})
   (let [queue
@@ -212,17 +225,8 @@
     (a/go
       (loop []
         (when-some [wal-record (a/<! wal-chan)]
-          (let [app-id (:app-id wal-record)
-                group (get (:groups queue) app-id)
-                head (when group (.peek group))
-                put-at (some-> head :instant.grouped-queue/put-at)
-                latency (if put-at (- (System/currentTimeMillis) put-at) 0)]
-            (if (and (flags/invalidator-drop-backpressure? app-id)
-                     (> latency (flags/invalidator-drop-tx-latency-ms)))
-              (tracer/record-info! {:name "invalidator/drop-backpressure"
-                                    :attributes {:app-id app-id
-                                                 :latency latency}})
-              (grouped-queue/put! queue wal-record)))
+          (when-not (drop-backpressure? queue wal-record)
+            (grouped-queue/put! queue wal-record))
           (recur)))
       (grouped-queue/stop queue)
       (tracer/record-info! {:name "invalidation-worker/shutdown"}))
