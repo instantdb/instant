@@ -1,4 +1,4 @@
-export { Explorer } from './components/explorer.js';
+export { Explorer } from './components/explorer/index.js';
 
 import * as ui from './components/ui.js';
 

@@ -952,14 +952,14 @@ function ExplorerTab({
         appId={appId}
         adminToken={db.core._reactor.config.__adminToken}
       />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      {/*<div className="flex flex-1 flex-col overflow-hidden">
         <Explorer
           db={db}
           appId={appId}
           namespaces={namespaces}
           key={db._core._reactor.config.appId}
         />
-      </div>
+      </div>*/}
     </div>
   );
 }
