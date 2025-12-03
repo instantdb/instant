@@ -19,6 +19,7 @@
    [datascript.core :as d]
    [datascript.conn :as d-conn]
    [instant.config :as config]
+   [instant.db.model.attr :as attr-model]
    [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
@@ -1119,6 +1120,7 @@
       ent)))
 
 (defn filter-queries [db iv-topics query-ids]
+(defn filter-queries [app-id db iv-topics query-ids]
   (remove (fn [eid]
             (when-let [q (some->> (d/datoms db :avet :subscription/datalog-query eid)
                                   first
@@ -1127,27 +1129,49 @@
                                   :subscription/instaql-query)]
               (when (= (:instaql-query/forms-hash q)
                        889158316)
-                (when-let [wid (some-> q
-                                       :instaql-query/query
-                                       :edenItem
-                                       :$
-                                       :where
-                                       :workspaceId
-                                       uuid-util/coerce)]
-                  (when-let [dq-topics (:datalog-query/topics (d/entity db eid))]
-                    (let [non-wildcard-matches? (ucoll/seek (fn [iv-topic]
-                                                              (ucoll/seek
-                                                               (fn [dq-topic]
-                                                                 (and (or (not= (nth dq-topic 1) '_)
-                                                                          (not= (nth dq-topic 3) '_))
-                                                                      (match-topic? iv-topic dq-topic)))
-                                                               dq-topics))
-                                                            iv-topics)]
-                      (and (not non-wildcard-matches?)
-                           (not (ucoll/seek (fn [iv-topic]
-                                              (and (set? (nth iv-topic 1))
-                                                   (contains? (nth iv-topic 1) wid)))
-                                            iv-topics)))))))))
+                (let [wid (some-> q
+                                  :instaql-query/query
+                                  :edenItem
+                                  :$
+                                  :where
+                                  :workspaceId)
+                      deleted-nil? (some-> q
+                                           :instaql-query/query
+                                           :edenItem
+                                           :$
+                                           :where
+                                           :deleted
+                                           :$isNull)
+                      type (some-> q
+                                   :instaql-query/query
+                                   :edenItem
+                                   :$
+                                   :where
+                                   :type)]
+                  (when (and wid deleted-nil? type)
+                    (let [attrs (attr-model/get-by-app-id app-id)
+                          waid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "workspaceId"] attrs))
+                          deleted-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "deleted"] attrs))
+                          type-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "type"] attrs))
+                          creates (reduce (fn [acc [_idx e a v]]
+                                            (let [e (first e)
+                                                  a (first a)]
+                                              (if (or (= a waid)
+                                                      (= a deleted-aid)
+                                                      (= a type-aid))
+                                                (if (not= 1 (count v))
+                                                  ;; We got an update, so we'll just bail out
+                                                  (reduced nil)
+                                                  (assoc-in acc [e a] (first v)))
+                                                acc)))
+                                          {}
+                                          iv-topics)]
+                      (when creates
+                        (not (some (fn [[_e ent]]
+                                     (and (= (get ent waid) wid)
+                                          (= (= deleted-nil? (nil? (get ent deleted-aid))))
+                                          (= (get ent type-aid) type)))
+                                   creates)))))))))
           query-ids))
 
 (defn mark-stale-topics!
@@ -1158,7 +1182,8 @@
   (let [conn (app-conn store app-id)
         db @conn
         datalog-query-eids
-        (vec (filter-queries db
+        (vec (filter-queries app-id
+                             db
                              topics
                              (cond
                                (flags/use-get-datalog-queries-for-topics-v3?)
@@ -1168,9 +1193,7 @@
                                (get-datalog-queries-for-topics-v2 db app-id topics)
 
                                :else
-                               (get-datalog-queries-for-topics db app-id topics))))
-
-
+                               (vec (get-datalog-queries-for-topics db app-id topics)))))
 
         report
         (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)
