@@ -16,8 +16,8 @@ export function PostHogIdentify() {
     // Skip if no user or already identified this user
     if (!user || identifiedUserIdRef.current === user.id) return;
 
-    posthog.identify(user.id, {
-      email: user.email,
+    posthog.identify(user.email, {
+      user_id: user.id,
       signed_up_at: user.created_at,
     });
     identifiedUserIdRef.current = user.id;
