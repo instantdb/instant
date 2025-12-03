@@ -96,7 +96,9 @@
   (semver/parse "0.22.75"))
 
 (defn get-supported-features [versions]
-  (or (when-let [parsed-version (some-> versions (get core-version-key semver/parse))]
+  (or (when-let [parsed-version (some-> versions
+                                        (get core-version-key)
+                                        semver/parse)]
         (cond-> #{}
           (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version))
           (conj :skip-attrs)
