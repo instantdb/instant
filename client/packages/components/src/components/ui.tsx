@@ -8,7 +8,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './select.js';
+} from './select';
 
 import {
   MouseEventHandler,
@@ -39,7 +39,7 @@ import {
   EyeSlashIcon,
 } from '@heroicons/react/24/solid';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
-import { errorToast, successToast } from './toast.jsx';
+import { errorToast, successToast } from './toast';
 import CopyToClipboard from 'react-copy-to-clipboard';
 
 // content

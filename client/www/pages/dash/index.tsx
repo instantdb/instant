@@ -1017,7 +1017,7 @@ function AppCombobox({
         <ComboboxButton className="group absolute inset-y-0 right-0 px-2.5">
           <ChevronDownIcon
             height={'1em'}
-            className="fill-gray/300 group-data-[hover]:fill-gray"
+            className="fill-gray/300 group-data-hover:fill-gray"
           />
         </ComboboxButton>
       </div>

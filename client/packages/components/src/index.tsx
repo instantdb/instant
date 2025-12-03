@@ -1,6 +1,6 @@
-export { Explorer } from './components/explorer/index.js';
+export { Explorer } from './components/explorer/index';
 
-import * as ui from './components/ui.js';
+import * as ui from './components/ui';
 
 import './style.css';
 
