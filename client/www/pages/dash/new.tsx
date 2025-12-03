@@ -58,7 +58,7 @@ function NewApp() {
   }
   return (
     <>
-      <div className="grid h-full w-full place-items-center">
+      <div className="my-auto grid h-full w-full place-items-center">
         <ActionForm className="flex max-w-md flex-col gap-4">
           <div className="mb-2 flex justify-center text-4xl">🔥</div>
           <ScreenHeading className="text-center">
