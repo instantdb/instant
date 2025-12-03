@@ -37,6 +37,26 @@ const fillDefaults = (
   };
 };
 
+export type SearchFilterOp =
+  | '='
+  | '$ilike'
+  | '$like'
+  | '$gt'
+  | '$lt'
+  | '$isNull';
+export type SearchFilter = [string, SearchFilterOp, any];
+export interface ExplorerNav {
+  namespace?: string;
+  where?: [string, any];
+  sortAttr?: string;
+  sortAsc?: boolean;
+  filters?: SearchFilter[];
+  limit?: number;
+  page?: number;
+}
+
+export type PushNavStack = (nav: ExplorerNav) => void;
+
 export const Explorer = (props: WithOptional<ExplorerProps>) => {
   const filledProps: WithDefaults<ExplorerProps> = fillDefaults(props);
   return (

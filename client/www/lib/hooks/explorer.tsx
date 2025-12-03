@@ -2,16 +2,6 @@ import { InstantReactWebDatabase } from '@instantdb/react';
 import { useEffect, useState } from 'react';
 import { DBAttr, SchemaNamespace } from '@/lib/types';
 import { dbAttrsToExplorerSchema } from '@/lib/schema';
-
-export type SearchFilterOp =
-  | '='
-  | '$ilike'
-  | '$like'
-  | '$gt'
-  | '$lt'
-  | '$isNull';
-export type SearchFilter = [string, SearchFilterOp, any];
-
 function makeWhere(
   navWhere: null | undefined | [string, any],
   searchFilters: null | undefined | SearchFilter[],
