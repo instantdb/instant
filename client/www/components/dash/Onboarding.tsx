@@ -22,6 +22,7 @@ import { jsonFetch } from '@/lib/fetch';
 import { useRouter } from 'next/router';
 import { useFetchedDash } from './MainDashLayout';
 import { useReadyRouter } from '../clientOnlyPage';
+import { usePostHog } from 'posthog-js/react';
 
 type ProfileCreateState = { isLoading: boolean; error?: string };
 type AppError = { body: { message: string } | undefined };
@@ -288,6 +289,7 @@ export function OnboardingScreen(props: {
 
 export function Onboarding() {
   const token = useContext(TokenContext);
+  const posthog = usePostHog();
   const [dashState, setDashState] = useDash();
   const [appCreateState, setAppCreateState] = useState<AppCreateState>({
     isLoading: false,
@@ -350,6 +352,14 @@ export function Onboarding() {
 
     createApp(token, toCreate).then(
       async () => {
+        posthog.capture('onboarding_complete', {
+          heard_from: dashState.profile?.meta?.heard,
+          build_choice: dashState.profile?.meta?.build,
+        });
+        posthog.capture('app_create', {
+          app_id: toCreate.id,
+          is_first_app: true,
+        });
         await dash.mutate();
         router.replace('/dash');
         console.log('App created successfully');

@@ -19,6 +19,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ReactElement, useContext, useState } from 'react';
 import { v4 } from 'uuid';
+import { usePostHog } from 'posthog-js/react';
 
 const Page: NextPageWithLayout = asClientOnlyPage(NewApp);
 
@@ -27,12 +28,14 @@ function NewApp() {
   const dashResponse = useFetchedDash();
   const token = useContext(TokenContext);
   const router = useRouter();
+  const posthog = usePostHog();
 
   function onCreateApp(r: { name: string }) {
     const orgId =
       dashResponse.data.currentWorkspaceId === 'personal'
         ? undefined
         : dashResponse.data.currentWorkspaceId;
+    const existingApps = dashResponse.data.apps;
     const app: InstantApp & {
       org_id?: string | null | undefined;
     } = {
@@ -51,6 +54,12 @@ function NewApp() {
     };
 
     const promise = createApp(token, app);
+    promise.then(() => {
+      posthog.capture('app_create', {
+        app_id: app.id,
+        is_first_app: existingApps.length === 0,
+      });
+    });
     dashResponse.addNewAppOptimistically(promise, app);
     router.replace(
       `/dash?app=${app.id}&t=home&s=main&org=${dashResponse.data.currentWorkspaceId}`,

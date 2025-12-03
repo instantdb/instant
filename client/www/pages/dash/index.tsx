@@ -25,6 +25,7 @@ import Head from 'next/head';
 import NextLink from 'next/link';
 import { useRouter } from 'next/router';
 import { ReactElement, useContext, useEffect, useRef, useState } from 'react';
+import { usePostHog } from 'posthog-js/react';
 
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
@@ -245,6 +246,7 @@ function Dashboard() {
   const token = useContext(TokenContext);
   const router = useReadyRouter();
   const fetchedDash = useFetchedDash();
+  const posthog = usePostHog();
   const apps = fetchedDash.data.apps;
 
   const appId =
@@ -424,7 +426,10 @@ function Dashboard() {
     };
   }, [app?.id, app?.admin_token]);
 
-  function nav(q: { s: string; app?: string; t?: string }, cb?: () => void) {
+  function nav(
+    q: { s: string; app?: string; t?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) {
     // TODO: update for orgs
     if (q.app)
       setLocallySavedApp({
@@ -432,13 +437,21 @@ function Dashboard() {
         orgId: dashResponse.data.currentWorkspaceId,
       });
 
+    // Track tab navigation only for user-initiated clicks
+    if (q.t && opts?.trackClick) {
+      posthog.capture('dashboard_tab_click', {
+        tab: q.t,
+        app_id: q.app || appId,
+      });
+    }
+
     router
       .push({
         query: q,
       })
       .then(() => {
-        if (cb) {
-          cb();
+        if (opts?.cb) {
+          opts.cb();
         }
       });
   }
@@ -499,7 +512,6 @@ function Dashboard() {
       return {
         id: t.id,
         label: t.title,
-        link: { href: `/dash?s=main&app=${appId}&t=${t.id}` },
         icon: t.icon,
       };
     });
@@ -534,7 +546,9 @@ function Dashboard() {
           appId={appId}
           tab={tab as MainTabId}
           availableTabs={availableTabs}
-          nav={(params) => nav({ s: 'main', app: appId, ...params })}
+          nav={(params, opts) =>
+            nav({ s: 'main', app: appId, ...params }, opts)
+          }
           screen={screen}
         />
         <>
@@ -549,7 +563,10 @@ function Dashboard() {
                 selectedId={tab}
                 disabled={!Boolean(appId)}
                 onSelect={(t) => {
-                  nav({ s: 'main', app: app.id, t: t.id });
+                  nav(
+                    { s: 'main', app: app.id, t: t.id },
+                    { trackClick: true },
+                  );
                 }}
               />
               <div className="flex flex-1 flex-col overflow-hidden">
@@ -679,15 +696,18 @@ export function HomeButton({
   href,
   title,
   children,
+  onClick,
 }: {
   href: string;
   title: string;
   children: React.ReactNode;
+  onClick?: () => void;
 }) {
   return (
     <NextLink
       href={formatRouteParams(href)}
       className="cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
+      onClick={onClick}
     >
       <div>
         <div className="font-mono font-bold">{title}</div>
@@ -700,6 +720,7 @@ export function HomeButton({
 }
 
 function Home({ appId, token }: { appId: string; token: string }) {
+  const posthog = usePostHog();
   const { stats, isLoading, error } = useAppConnectionStats(token, appId);
   const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
 
@@ -716,12 +737,27 @@ function Home({ appId, token }: { appId: string; token: string }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
-        <HomeButton href="/docs" title="Read the Docs">
+        <HomeButton
+          href="/docs"
+          title="Read the Docs"
+          onClick={() =>
+            posthog.capture('getting_started_click', {
+              action: 'read_docs',
+              app_id: appId,
+            })
+          }
+        >
           Jump into our docs to start learning how to use Instant.
         </HomeButton>
         <HomeButton
           href="https://discord.com/invite/VU53p7uQcE"
           title="Join the community"
+          onClick={() =>
+            posthog.capture('getting_started_click', {
+              action: 'join_discord',
+              app_id: appId,
+            })
+          }
         >
           Join our Discord to meet like-minded hackers, and to give us feedback
           too!
@@ -832,7 +868,10 @@ function DashboardContent({
   appId: string;
   tab: string;
   role: Role;
-  nav: (q: { s: string; app?: string; t?: string }, cb?: () => void) => void;
+  nav: (
+    q: { s: string; app?: string; t?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) => void;
   onDeleteApp: (app: InstantApp) => void;
   workspace: Workspace;
 }) {
@@ -922,7 +961,10 @@ function AppCombobox({
   tab,
 }: {
   apps: InstantApp[];
-  nav: (p: { s: string; t?: string; app?: string }, cb?: () => void) => void;
+  nav: (
+    p: { s: string; t?: string; app?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) => void;
   appId: string;
   tab: MainTabId;
 }) {
@@ -948,7 +990,10 @@ function AppCombobox({
         setAppQuery('');
         nav(
           { s: 'main', app: app.id, t: tab },
-          () => comboboxInputRef.current && comboboxInputRef.current.blur(),
+          {
+            cb: () =>
+              comboboxInputRef.current && comboboxInputRef.current.blur(),
+          },
         );
       }}
       onClose={() => setAppQuery('')}
@@ -1002,7 +1047,10 @@ function Nav({
   availableTabs,
 }: {
   apps?: InstantApp[];
-  nav: (p: { s?: string; t?: string; app?: string }, cb?: () => void) => void;
+  nav: (
+    p: { s?: string; t?: string; app?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) => void;
   appId: string;
   tab: MainTabId | UserSettingsTabId;
   availableTabs: TabItem[];
@@ -1028,7 +1076,7 @@ function Nav({
         <ToggleCollection
           className="gap-0 text-sm"
           buttonClassName="rounded-none py-2"
-          onChange={(t) => nav({ t: t.id })}
+          onChange={(t) => nav({ t: t.id }, { trackClick: true })}
           selectedId={tab}
           items={availableTabs.map((t) => ({
             ...t,
