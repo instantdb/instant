@@ -1119,60 +1119,61 @@
           :when (and sent-tx-id topics (matching-topic-intersection? iv-topics topics))]
       ent)))
 
-(defn filter-queries [db iv-topics query-ids]
 (defn filter-queries [app-id db iv-topics query-ids]
-  (remove (fn [eid]
-            (when-let [q (some->> (d/datoms db :avet :subscription/datalog-query eid)
-                                  first
-                                  :e
-                                  (d/entity db)
-                                  :subscription/instaql-query)]
-              (when (= (:instaql-query/forms-hash q)
-                       889158316)
-                (let [wid (some-> q
-                                  :instaql-query/query
-                                  :edenItem
-                                  :$
-                                  :where
-                                  :workspaceId)
-                      deleted-nil? (some-> q
-                                           :instaql-query/query
-                                           :edenItem
-                                           :$
-                                           :where
-                                           :deleted
-                                           :$isNull)
-                      type (some-> q
-                                   :instaql-query/query
-                                   :edenItem
-                                   :$
-                                   :where
-                                   :type)]
-                  (when (and wid deleted-nil? type)
-                    (let [attrs (attr-model/get-by-app-id app-id)
-                          waid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "workspaceId"] attrs))
-                          deleted-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "deleted"] attrs))
-                          type-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "type"] attrs))
-                          creates (reduce (fn [acc [_idx e a v]]
-                                            (let [e (first e)
-                                                  a (first a)]
-                                              (if (or (= a waid)
-                                                      (= a deleted-aid)
-                                                      (= a type-aid))
-                                                (if (not= 1 (count v))
-                                                  ;; We got an update, so we'll just bail out
-                                                  (reduced nil)
-                                                  (assoc-in acc [e a] (first v)))
-                                                acc)))
-                                          {}
-                                          iv-topics)]
-                      (when creates
-                        (not (some (fn [[_e ent]]
-                                     (and (= (get ent waid) wid)
-                                          (= (= deleted-nil? (nil? (get ent deleted-aid))))
-                                          (= (get ent type-aid) type)))
-                                   creates)))))))))
-          query-ids))
+  (if-not (flags/toggled? :filter-query)
+    query-ids
+    (remove (fn [eid]
+              (when-let [q (some->> (d/datoms db :avet :subscription/datalog-query eid)
+                                    first
+                                    :e
+                                    (d/entity db)
+                                    :subscription/instaql-query)]
+                (when (= (:instaql-query/forms-hash q)
+                         889158316)
+                  (let [wid (some-> q
+                                    :instaql-query/query
+                                    :edenItem
+                                    :$
+                                    :where
+                                    :workspaceId)
+                        deleted-nil? (some-> q
+                                             :instaql-query/query
+                                             :edenItem
+                                             :$
+                                             :where
+                                             :deleted
+                                             :$isNull)
+                        type (some-> q
+                                     :instaql-query/query
+                                     :edenItem
+                                     :$
+                                     :where
+                                     :type)]
+                    (when (and wid deleted-nil? type)
+                      (let [attrs (attr-model/get-by-app-id app-id)
+                            waid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "workspaceId"] attrs))
+                            deleted-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "deleted"] attrs))
+                            type-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "type"] attrs))
+                            creates (reduce (fn [acc [_idx e a v]]
+                                              (let [e (first e)
+                                                    a (first a)]
+                                                (if (or (= a waid)
+                                                        (= a deleted-aid)
+                                                        (= a type-aid))
+                                                  (if (not= 1 (count v))
+                                                    ;; We got an update, so we'll just bail out
+                                                    (reduced nil)
+                                                    (assoc-in acc [e a] (first v)))
+                                                  acc)))
+                                            {}
+                                            iv-topics)]
+                        (when creates
+                          (not (some (fn [[_e ent]]
+                                       (and (= (get ent waid) wid)
+                                            (= (= deleted-nil? (nil? (get ent deleted-aid))))
+                                            (= (get ent type-aid) type)))
+                                     creates)))))))))
+            query-ids)))
 
 (defn mark-stale-topics!
   "Given topics, invalidates all relevant datalog qs and associated instaql queries.
