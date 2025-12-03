@@ -242,10 +242,14 @@
                             {:code code :email email})
         {refresh-token-id :id} (instant-user-refresh-token-model/create!
                                 {:id (UUID/randomUUID)
-                                 :user-id user-id})]
+                                 :user-id user-id})
+        user (instant-user-model/get-by-id! {:id user-id})]
 
     (fut-bg (ping-for-outreach user-id))
-    (response/ok {:token refresh-token-id})))
+    (response/ok {:token refresh-token-id
+                  :user {:id (:id user)
+                         :email (:email user)
+                         :created_at (:created_at user)}})))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
@@ -755,11 +759,16 @@
 (defn oauth-token-callback [req]
   (let [code (ex/get-param! req [:body :code] uuid-util/coerce)
         oauth-code (instant-oauth-code-model/consume! {:code code})
+        user-id (:user_id oauth-code)
         {refresh-token-id :id} (instant-user-refresh-token-model/create!
                                 {:id (UUID/randomUUID)
-                                 :user-id (:user_id oauth-code)})]
+                                 :user-id user-id})
+        user (instant-user-model/get-by-id! {:id user-id})]
     (response/ok {:token refresh-token-id
-                  :redirect_path (:redirect_path oauth-code)})))
+                  :redirect_path (:redirect_path oauth-code)
+                  :user {:id (:id user)
+                         :email (:email user)
+                         :created_at (:created_at user)}})))
 
 ;; --------
 ;; Billing
