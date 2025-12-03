@@ -176,14 +176,25 @@
           (println " " v))
         test-vars))))
 
-(defn -main [& _args]
+(defn filter-tests [vars args]
+  (if (empty? args)
+    vars
+    (let [patterns (map re-pattern args)]
+      (filter (fn [v]
+                (let [v-name (str (symbol v))]
+                  (some #(re-find % v-name) patterns)))
+              vars))))
+
+(defn -main [& args]
   (let [nses (find-namespaces-in-dir (io/file "test"))
         _ (apply require :reload nses)
         all-test-vars (for [ns nses
                             var (vals (ns-interns ns))
                             :when (:test (meta var))]
                         var)
-        test-vars (select-vars all-test-vars)
+        test-vars (-> all-test-vars
+                      (filter-tests args)
+                      (select-vars))
         counters (ref clojure.test/*initial-report-counters*)
         timing-state (atom {})
         config {:global-fixture setup-teardown

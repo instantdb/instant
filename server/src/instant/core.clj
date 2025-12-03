@@ -123,8 +123,7 @@
                                            "Cache-Control" (str "public, max-age=" max-age)}))))))
 
 (defn add-security-headers [resp]
-  (let [default-headers {
-                         ;; Don't let anyone put us in an iframe
+  (let [default-headers {;; Don't let anyone put us in an iframe
                          "X-Frame-Options" "DENY"
                          ;; Don't leak path info in referrer
                          "Referrer-Policy" "strict-origin"
@@ -188,19 +187,21 @@
   nil)
 
 (defn start []
-  (tracer/record-info! {:name "server/start" :attributes {:port (config/get-server-port)}})
-  (lang/set-var! server
-                 (undertow-adapter/run-undertow
-                  (handler)
-                  (merge
-                   {:host "0.0.0.0"
-                    :port (config/get-server-port)
-                    :configurator (fn [^Undertow$Builder builder]
-                                    (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
-                   (when (.exists (io/file "dev-resources/certs/dev.jks"))
-                     {:ssl-port 8889
-                      :keystore "dev-resources/certs/dev.jks"
-                      :key-password "changeit"}))))
+  (let [config (merge
+                {:host "0.0.0.0"
+                 :port (config/get-server-port)
+                 :configurator (fn [^Undertow$Builder builder]
+                                 (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
+                (when (.exists (io/file "dev-resources/certs/dev.jks"))
+                  {:ssl-port (config/get-server-ssl-port)
+                   :keystore "dev-resources/certs/dev.jks"
+                   :key-password "changeit"}))]
+    (tracer/record-info! {:name "server/start"
+                          :attributes (select-keys config {:port :ssl-port})})
+    (lang/set-var! server
+                   (undertow-adapter/run-undertow
+                    (handler)
+                    config)))
   (lang/set-var! stop-gauge
                  (gauges/add-gauge-metrics-fn
                   (fn [_]
