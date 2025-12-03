@@ -1,6 +1,6 @@
 import { useDashFetch } from '@/lib/hooks/useDashFetch';
 import Head from 'next/head';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { cn, FullscreenLoading } from '../ui';
 import { FullscreenErrorMessage } from '@/pages/dash';
 import { useAuthToken } from '@/lib/auth';
@@ -15,6 +15,7 @@ import { useWorkspace } from '@/lib/hooks/useWorkspace';
 import { InstantApp } from '@/lib/types';
 import { useReadyRouter } from '../clientOnlyPage';
 import { useDarkMode } from './DarkModeToggle';
+import { usePostHog } from 'posthog-js/react';
 
 export type FetchedDash = ReturnType<typeof useFetchedDash>;
 
@@ -36,11 +37,29 @@ export const { use: useFetchedDash, provider: DashFetchProvider } =
     'dashResponse',
     (args?: { workspaceId?: string | null | undefined }) => {
       const dashResult = useDashFetch();
+      const posthog = usePostHog();
+      const identifiedRef = useRef(false);
       const [currentWorkspaceId, setWorkspace] = useState<string | 'personal'>(
         args?.workspaceId || getInitialWorkspace(),
       );
 
       const workspace = useWorkspace(dashResult, currentWorkspaceId);
+
+      // Identify user in PostHog once when dash data is available
+      useEffect(() => {
+        if (dashResult.data?.user && !identifiedRef.current) {
+          const isNewUser =
+            dashResult.data.apps.length === 0 &&
+            (dashResult.data.orgs || []).length === 0 &&
+            (dashResult.data.invites || []).length === 0;
+
+          posthog.identify(dashResult.data.user.id, {
+            email: dashResult.data.user.email,
+            is_new_user: isNewUser,
+          });
+          identifiedRef.current = true;
+        }
+      }, [dashResult.data, posthog]);
 
       const refetch = async () => {
         await dashResult.mutate();

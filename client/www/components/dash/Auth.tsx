@@ -14,6 +14,7 @@ import Image from 'next/image';
 import { InstantIssue } from '@/lib/types';
 import { url } from '@/lib/url';
 import { useRouter } from 'next/router';
+import { usePostHog } from 'posthog-js/react';
 
 type State = {
   sentEmail: string | undefined;
@@ -142,6 +143,7 @@ export default function Auth(props: {
   ticket?: string;
   onVerified?: ({ token, ticket }: { token: string; ticket?: string }) => void;
 }) {
+  const posthog = usePostHog();
   const [{ sentEmail, email, code, error, isLoading }, setState] =
     useState<State>({
       sentEmail: '',
@@ -159,14 +161,23 @@ export default function Auth(props: {
       isLoading: false,
     }));
 
-    sendMagicCode({ email }).catch((err) => {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        sentEmail: undefined,
-        error: errorFromSendMagicCode(err),
-      }));
-    });
+    sendMagicCode({ email })
+      .then(() => {
+        const emailDomain = email.split('@')[1];
+        if (emailDomain) {
+          posthog.capture('auth_start', {
+            email_domain: emailDomain,
+          });
+        }
+      })
+      .catch((err) => {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          sentEmail: undefined,
+          error: errorFromSendMagicCode(err),
+        }));
+      });
   };
 
   const verifyCode = () => {
@@ -177,6 +188,9 @@ export default function Auth(props: {
 
     verifyMagicCode({ email, code }).then(
       ({ token }) => {
+        posthog.capture('auth_complete', {
+          auth_method: 'email',
+        });
         props.onVerified?.({ token, ticket: props.ticket });
       },
       (err) => {
