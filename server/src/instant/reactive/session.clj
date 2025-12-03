@@ -42,7 +42,7 @@
    [lambdaisland.uri :as uri])
   (:import
    (io.undertow.server.handlers.sse ServerSentEventConnection)
-   (java.util.concurrent CancellationException)
+   (java.util.concurrent CancellationException Executors)
    (java.util.concurrent.atomic AtomicLong)
    (org.xnio IoUtils)))
 
@@ -51,10 +51,8 @@
 
 (def handle-receive-timeout-ms 5000)
 
-(def num-receive-workers (* (if config/fewer-vfutures?
-                              20
-                              100)
-                            (delay/cpu-count)))
+(def threads-num-receive-workers (* 20 (delay/cpu-count)))
+(def vfutures-num-receive-workers (* 100 (delay/cpu-count)))
 
 ;; ------
 ;; handlers
@@ -827,7 +825,7 @@
                              (flags/handle-receive-timeout app-id))
                            handle-receive-timeout-ms)
             event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
-                        (if config/fewer-vfutures?
+                        (if-not (flags/use-more-vfutures?)
                           (ua/tracked-future (handle-event store
                                                            session
                                                            event
@@ -1142,13 +1140,18 @@
   (straight-jacket-process-receive-q-event rs/store group-key event))
 
 (defn start []
-  (receive-queue/start
-   (grouped-queue/start
-    {:group-key-fn #'group-key
-     :combine-fn   #'combine
-     :process-fn   #'process
-     :max-workers  num-receive-workers
-     :metrics-path "instant.reactive.session.receive-q"})))
+  (let [vfutures-executor (ua/make-limited-concurrency-executor vfutures-num-receive-workers)
+        threads-executor (Executors/newFixedThreadPool threads-num-receive-workers)]
+    (receive-queue/start
+     (grouped-queue/start
+      {:group-key-fn #'group-key
+       :combine-fn   #'combine
+       :process-fn   #'process
+       :get-executor (fn []
+                       (if (flags/use-more-vfutures?)
+                         vfutures-executor
+                         threads-executor))
+       :metrics-path "instant.reactive.session.receive-q"}))))
 
 (defn stop []
   (receive-queue/stop))

@@ -118,7 +118,9 @@
                                                                 (set (map parse-uuid vs))))
 
                   (update :coarse-topics-apps (fn [vs]
-                                                (set (map parse-uuid vs)))))
+                                                (set (map parse-uuid vs))))
+                  (update :more-vfutures-instances (fn [vs]
+                                                     (set vs))))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -273,3 +275,13 @@
 
 (defn use-get-datalog-queries-for-topics-v2? []
   (toggled? :use-get-datalog-queries-for-topics-v2? true))
+
+(def use-more-vfutures?
+  (case (config/get-env)
+    :dev
+    (fn []
+      (contains? (flag :more-vfutures-instances) @config/hostname))
+    :test
+    (fn [] true)
+    (fn []
+      (contains? (flag :more-vfutures-instances) @config/instance-id))))
