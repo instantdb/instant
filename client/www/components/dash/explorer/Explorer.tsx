@@ -1764,7 +1764,7 @@ export function Explorer({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    className="flex cursor-pointer rounded-sm border border-neutral-200 bg-transparent px-1 pt-1.5 text-sm shadow-xs transition-colors file:rounded-xs file:border-none file:border-neutral-200 file:bg-transparent file:text-sm file:font-medium file:shadow-none placeholder:text-neutral-500 focus-visible:ring-1 focus-visible:ring-neutral-950 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white dark:file:border-neutral-700 dark:file:text-white dark:placeholder:text-neutral-400 dark:focus-visible:ring-neutral-400"
+                    className="flex cursor-pointer rounded-sm border border-neutral-200 bg-transparent px-1 pt-1.5 text-sm shadow-xs transition-colors file:rounded-xs file:border-none file:border-neutral-200 file:bg-transparent file:p-2 file:pt-1 file:text-sm file:font-medium file:shadow-none placeholder:text-neutral-500 focus-visible:ring-1 focus-visible:ring-neutral-950 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white dark:file:border-neutral-700 dark:file:text-white dark:placeholder:text-neutral-400 dark:focus-visible:ring-neutral-400"
                     onChange={(e: React.ChangeEvent<any>) => {
                       const files = e.target.files;
                       setSelectedFiles(files);
