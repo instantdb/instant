@@ -8,6 +8,7 @@ interface ExplorerProps {
   adminToken: string;
   apiURI: HasDefault<string>;
   websocketURI: HasDefault<string>;
+  darkMode: HasDefault<boolean>;
 }
 
 const ExplorerPropsContext = createContext<WithDefaults<ExplorerProps> | null>(
@@ -32,6 +33,7 @@ const fillDefaults = (
     ...input,
     apiURI: input.apiURI || config.apiURI,
     websocketURI: input.websocketURI || config.websocketURI,
+    darkMode: input.darkMode || false,
   };
 };
 
