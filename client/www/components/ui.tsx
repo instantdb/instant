@@ -61,6 +61,7 @@ export const {
   CodeEditor,
   Fence,
   JSONEditor,
+  Switch,
 } = ui;
 
 // content

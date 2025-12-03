@@ -7,6 +7,7 @@ function App() {
 
   return (
     <>
+      {/*Not sure why props aren't autocompleting here*/}
       <Explorer
         appId="59cb9109-0e5c-4735-8775-4369d0486d0b"
         adminToken="59cb9109-0e5c-4735-8775-4369d0486d0b"

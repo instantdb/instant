@@ -6,6 +6,7 @@
     "strict": true,
     "outDir": "dist/tsc",
     "moduleResolution": "bundler",
+    "module": "ESNext",
     "rootDirs": ["src", "app"],
     "jsx": "react",
     "checkJs": false,
