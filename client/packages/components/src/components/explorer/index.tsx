@@ -1,7 +1,9 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { StyleMe } from '@lib/components/StyleMe';
 import type { HasDefault, WithDefaults, WithOptional } from '@lib/types';
 import { config } from '@lib/config';
+import { ExplorerLayout } from './explorer-layout';
+import { useSchemaQuery } from '@lib/hooks/explorer';
 
 interface ExplorerProps {
   appId: string;
@@ -9,6 +11,12 @@ interface ExplorerProps {
   apiURI: HasDefault<string>;
   websocketURI: HasDefault<string>;
   darkMode: HasDefault<boolean>;
+
+  // state management
+  explorerState: HasDefault<ExplorerNav | null>;
+  setExplorerState: HasDefault<
+    React.Dispatch<React.SetStateAction<ExplorerNav | null>>
+  >;
 }
 
 const ExplorerPropsContext = createContext<WithDefaults<ExplorerProps> | null>(
@@ -22,18 +30,32 @@ export const useExplorerProps = (): WithDefaults<ExplorerProps> => {
       'useExplorerProps must be used within an Explorer component',
     );
   }
-
   return props;
 };
 
-const fillDefaults = (
+export const useExplorerState = (): ExplorerNav => {
+  const props = useExplorerProps();
+
+  if (!props.explorerState) {
+    throw new Error(
+      'useExplorerState must be used within an Explorer component and have a valid explorerState',
+    );
+  }
+  return props.explorerState;
+};
+
+const fillPropsWithDefaults = (
   input: WithOptional<ExplorerProps>,
+  _explorerState: ExplorerNav | null,
+  setExplorerState: React.Dispatch<React.SetStateAction<ExplorerNav | null>>,
 ): WithDefaults<ExplorerProps> => {
   return {
     ...input,
     apiURI: input.apiURI || config.apiURI,
     websocketURI: input.websocketURI || config.websocketURI,
     darkMode: input.darkMode || false,
+    explorerState: input.explorerState || _explorerState,
+    setExplorerState: input.setExplorerState || setExplorerState,
   };
 };
 
@@ -44,9 +66,11 @@ export type SearchFilterOp =
   | '$gt'
   | '$lt'
   | '$isNull';
+
 export type SearchFilter = [string, SearchFilterOp, any];
+
 export interface ExplorerNav {
-  namespace?: string;
+  namespace: string;
   where?: [string, any];
   sortAttr?: string;
   sortAsc?: boolean;
@@ -57,15 +81,42 @@ export interface ExplorerNav {
 
 export type PushNavStack = (nav: ExplorerNav) => void;
 
-export const Explorer = (props: WithOptional<ExplorerProps>) => {
-  const filledProps: WithDefaults<ExplorerProps> = fillDefaults(props);
+export const Explorer = (_props: WithOptional<ExplorerProps>) => {
+  // backup useState if explorer is uncontrolled component
+  const [_explorerState, _setExplorerState] = useState<ExplorerNav | null>(
+    null,
+  );
+
+  const props: WithDefaults<ExplorerProps> = fillPropsWithDefaults(
+    _props,
+    _explorerState,
+    _setExplorerState,
+  );
+
+  const { explorerState, setExplorerState } = props;
+  const [explorerStateHistory, setExplorerStateHistory] = useState<
+    ExplorerNav[]
+  >(explorerState ? [explorerState] : []);
+
+  const db = init({
+    appId: props.appId,
+    apiURI: props.apiURI,
+    websocketURI: props.websocketURI,
+    // @ts-ignore sshhh
+    __adminToken: props.adminToken,
+    disableValidation: true,
+  });
+
+  const schemaData = useSchemaQuery(db);
+
+  if (!schemaData.namespaces) {
+    return null;
+  }
+
   return (
     <StyleMe>
-      <ExplorerPropsContext.Provider value={filledProps}>
-        <div className="tw-preflight bg-red-400 p-2">
-          {filledProps.adminToken} {filledProps.appId}
-          <p>This is the explorer</p>
-        </div>
+      <ExplorerPropsContext.Provider value={props}>
+        <ExplorerLayout namespaces={schemaData.namespaces} />
       </ExplorerPropsContext.Provider>
     </StyleMe>
   );
