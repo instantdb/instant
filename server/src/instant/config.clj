@@ -218,11 +218,6 @@
 (defn get-google-oauth-client []
   (-> @config-map :google-oauth-client))
 
-(def server-origin (case (get-env)
-                     :prod "https://api.instantdb.com"
-                     :staging "https://api-staging.instantdb.com"
-                     "http://localhost:8888"))
-
 (def s3-bucket-name
   (case (get-env)
     :prod "instant-storage"
@@ -251,6 +246,12 @@
       (if-not (= :test (get-env))
         8889
         8887)))
+
+(def server-origin
+  (case (get-env)
+    :prod "https://api.instantdb.com"
+    :staging "https://api-staging.instantdb.com"
+    (str "http://localhost:" (get-server-port))))
 
 (defn get-nrepl-port []
   (or (env-integer "NREPL_PORT") 6005))
