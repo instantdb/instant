@@ -9,8 +9,14 @@ import produce, { Draft } from 'immer';
 // ----------
 // Auth State
 
-type Sub = (token: string | undefined) => void;
-type AuthInfo = { token: string | undefined };
+type AuthUser = {
+  id: string;
+  email: string;
+  created_at: string;
+};
+
+type AuthInfo = { token: string | undefined; user: AuthUser | undefined };
+type Sub = (authInfo: AuthInfo) => void;
 export type APIResponse<Data> = SWRResponse<Data> & {
   optimisticUpdate: <MutationResponse>(
     mutationPromiseToWaitFor: Promise<MutationResponse>,
@@ -23,10 +29,10 @@ function recordLoggedInStateInCookie(authInfo: AuthInfo) {
 }
 
 function bootstrapAuthInfo(): AuthInfo {
-  const empty = { token: undefined };
+  const empty: AuthInfo = { token: undefined, user: undefined };
   if (typeof window == 'undefined') return empty;
   const fromStorage = localStorage.getItem('@AUTH');
-  const res = fromStorage ? JSON.parse(fromStorage) : empty;
+  const res: AuthInfo = fromStorage ? JSON.parse(fromStorage) : empty;
   recordLoggedInStateInCookie(res);
   return res;
 }
@@ -48,14 +54,11 @@ function subscribe(fn: Sub) {
   };
 }
 
-function change(newToken: string | undefined) {
-  _AUTH_INFO.token = newToken;
+function setAuthInfo(authInfo: AuthInfo) {
+  _AUTH_INFO.token = authInfo.token;
+  _AUTH_INFO.user = authInfo.user;
   saveAuthInfo(_AUTH_INFO);
-  _SUBS.forEach(({ fn }) => fn(_AUTH_INFO.token));
-}
-
-function clearToken() {
-  change(undefined);
+  _SUBS.forEach(({ fn }) => fn(_AUTH_INFO));
 }
 
 // --------
@@ -64,17 +67,32 @@ function clearToken() {
 export function useAuthToken(): string | undefined {
   const [authToken, setAuthToken] = useState(_AUTH_INFO.token);
   useEffect(() => {
-    const unsub = subscribe((newToken) => {
-      setAuthToken(newToken);
+    const unsub = subscribe((authInfo) => {
+      setAuthToken(authInfo.token);
     });
     return unsub;
   }, []);
   return authToken;
 }
 
+export function useAuthInfo(): AuthInfo {
+  const [authInfo, setAuthInfo] = useState<AuthInfo>(_AUTH_INFO);
+  useEffect(() => {
+    const unsub = subscribe((newAuthInfo) => {
+      setAuthInfo(newAuthInfo);
+    });
+    return unsub;
+  }, []);
+  return authInfo;
+}
+
+function clearAuthInfo() {
+  setAuthInfo({ token: undefined, user: undefined });
+}
+
 export function useAuthedFetch<Res = any>(path: string) {
   const token = useContext(TokenContext);
-  return useTokenFetch<Res>(path, token, clearToken);
+  return useTokenFetch<Res>(path, token, clearAuthInfo);
 }
 
 export function useAdmin() {
@@ -169,7 +187,7 @@ export async function verifyMagicCode({
   email: string;
   code: string;
 }) {
-  const res: { token: string } = await jsonFetch(
+  const res: { token: string; user: AuthUser } = await jsonFetch(
     `${config.apiURI}/dash/auth/verify_magic_code`,
     {
       method: 'POST',
@@ -177,7 +195,7 @@ export async function verifyMagicCode({
       body: JSON.stringify({ email, code }),
     },
   );
-  change(res.token);
+  setAuthInfo({ token: res.token, user: res.user });
   return res;
 }
 
@@ -197,22 +215,20 @@ export async function signOut() {
   } catch (e) {
     console.error('Error signing out', e);
   }
-  change(undefined);
+  clearAuthInfo();
 }
 
 // ---------
 // OAuth API
 
 export async function exchangeOAuthCodeForToken({ code }: { code: string }) {
-  const res: { token: string; redirect_path: string } = await jsonFetch(
-    `${config.apiURI}/dash/oauth/token`,
-    {
+  const res: { token: string; redirect_path: string; user: AuthUser } =
+    await jsonFetch(`${config.apiURI}/dash/oauth/token`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ code }),
-    },
-  );
-  change(res.token);
+    });
+  setAuthInfo({ token: res.token, user: res.user });
   return res;
 }
 
