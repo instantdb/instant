@@ -7,8 +7,7 @@
    [instant.gauges :as gauges]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util.concurrent AbstractExecutorService
-                         ConcurrentHashMap
+   (java.util.concurrent ConcurrentHashMap
                          Executors
                          ExecutorService
                          Future
