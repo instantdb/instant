@@ -31,8 +31,7 @@
    [instant.util.exception :as ex]
    [instant.util.instaql :refer [forms-hash]]
    [instant.util.lang :as lang]
-   [instant.util.tracer :as tracer]
-   [instant.util.uuid :as uuid-util])
+   [instant.util.tracer :as tracer])
   (:import
    (clojure.lang PersistentQueue)
    (java.lang InterruptedException)
@@ -1170,7 +1169,7 @@
                         (when creates
                           (not (some (fn [[_e ent]]
                                        (and (= (get ent waid) wid)
-                                            (= (= deleted-nil? (nil? (get ent deleted-aid))))
+                                            (= deleted-nil? (nil? (get ent deleted-aid)))
                                             (= (get ent type-aid) type)))
                                      creates)))))))))
             query-ids)))
