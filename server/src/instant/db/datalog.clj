@@ -2922,9 +2922,9 @@
   (reduce (fn [acc topic]
             (if (contains? acc topic)
               acc
-              (let [combine-idx (if (= (first topic) #{:vae})
-                                  3
-                                  1)
+              (let [combine-idx (if (set? (nth topic 1))
+                                  1
+                                  3)
                     topic-key (if (set? (nth topic combine-idx))
                                 (assoc topic combine-idx ::placeholder)
                                 topic)]
@@ -2936,7 +2936,7 @@
 
 (defn- collect-all-topics* [acc nested-result]
   (reduce (fn [acc {:keys [result children]}]
-            (let [next-acc (add-topics! acc (tool/inspect (:topics result)))]
+            (let [next-acc (add-topics! acc (:topics result))]
               (if (seq children)
                 (reduce collect-all-topics* next-acc children)
                 next-acc)))
