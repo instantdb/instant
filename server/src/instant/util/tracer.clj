@@ -4,6 +4,7 @@
   (:require
    [clojure.main :as main]
    [clojure.test :as test]
+   [instant.flags :as flags]
    [instant.config :as config]
    [instant.util.logging-exporter :as logging-exporter]
    [steffan-westcott.clj-otel.api.attributes :as attr])
@@ -105,7 +106,7 @@
                                     "process-id" @config/process-id
                                     "machine-id" config/machine-id
                                     "instance-id" @config/instance-id
-                                    "fewer-vfutures" config/fewer-vfutures?}
+                                    "fewer-vfutures" (not (flags/use-more-vfutures?))}
                              thread (assoc "thread.name"
                                            (.getName thread)
                                            "thread.id"

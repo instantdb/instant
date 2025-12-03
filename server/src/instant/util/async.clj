@@ -7,10 +7,12 @@
    [instant.gauges :as gauges]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util.concurrent ConcurrentHashMap
+   (java.util.concurrent AbstractExecutorService
+                         ConcurrentHashMap
                          Executors
                          ExecutorService
-                         Future)
+                         Future
+                         Semaphore)
    (clojure.core.async.impl.buffers FixedBuffer
                                     DroppingBuffer
                                     SlidingBuffer
@@ -217,6 +219,36 @@
 
 (defn make-vfuture-executor []
   (VFutureExecutor.))
+
+(defmacro execute-with-semaphore [^Semaphore semaphore & body]
+  `(try
+     (.acquire ~semaphore)
+     ~@body
+     (finally
+       (.release ~semaphore))))
+
+(deftype LimitedConcurrencyVFutureExecutor [^ExecutorService executor
+                                            ^Semaphore sem]
+  ExecutorService
+  (^Future submit [_ ^Callable callable]
+   (.submit executor ^Callable (^{:once true} fn* []
+                                (execute-with-semaphore sem (.call callable)))))
+
+  (^Future submit [_ ^Runnable runnable]
+   (.submit executor ^Runnable (^{:once true} fn* []
+                                (execute-with-semaphore sem (.run runnable)))))
+
+  (^void execute [_ ^Runnable runnable]
+   (.execute executor ^Runnable (^{:once true} fn* []
+                                 (execute-with-semaphore sem (.run runnable)))))
+
+  (shutdown [_]
+    (.shutdown executor)))
+
+(defn make-limited-concurrency-executor ^ExecutorService [max-concurrency]
+  (let [executor (Executors/newVirtualThreadPerTaskExecutor)
+        sem (Semaphore. max-concurrency)]
+    (LimitedConcurrencyVFutureExecutor. executor sem)))
 
 ;; ----
 ;; core.async
