@@ -26,6 +26,7 @@
   (let [conn (aurora/conn-pool :write)
         items-id-attr-id (random-uuid)
         items-title-attr-id (random-uuid)
+        items-is-deleted-attr-id (random-uuid)
         workspaces-id-attr-id (random-uuid)
         workspaces-name-attr-id (random-uuid)
         items-workspaces-attr-id (random-uuid)]
@@ -45,6 +46,12 @@
                               :cardinality :one
                               :unique? false
                               :index? false}]
+                   [:add-attr {:id items-is-deleted-attr-id
+                              :forward-identity [(random-uuid) "items" "isDeleted"]
+                              :value-type :blob
+                              :cardinality :one
+                              :unique? false
+                              :index? true}]
                    [:add-attr {:id workspaces-id-attr-id
                               :forward-identity [(random-uuid) "workspaces" "id"]
                               :value-type :blob
@@ -67,6 +74,7 @@
 
     {:items/id items-id-attr-id
      :items/title items-title-attr-id
+     :items/isDeleted items-is-deleted-attr-id
      :workspaces/id workspaces-id-attr-id
      :workspaces/name workspaces-name-attr-id
      :items/workspaces items-workspaces-attr-id}))
@@ -151,20 +159,15 @@
             ;; Refresh attrs after creating data
             attrs (attr-model/get-by-app-id app-id)
 
-            ;; 3. Create resolver for pretty printing
-            r (resolvers/make-resolver {:conn-pool (aurora/conn-pool :read)}
-                                       app-id
-                                       [["items" "id"]
-                                        ["workspaces" "id"]])
+            ;; 3. Build the InstaQL query: items where workspaces = workspace-1-id AND isDeleted is null
+            query {:items {:$ {:where {:workspaces workspace-1-id
+                                       :isDeleted {:$isNull true}}}}}
 
-            ;; 4. Build the InstaQL query: items where workspaces = workspace-1-id
-            query {:items {:$ {:where {:workspaces workspace-1-id}}}}
-
-            ;; 5. Run the query and get topics
+            ;; 4. Run the query and get topics
             {:keys [topics]} (run-query-and-get-topics app-id attrs query)
             query-topics topics
 
-            ;; 6. Create a NEW item (NOT linked to any workspace) and capture WAL
+            ;; 5. Create a NEW item (NOT linked to any workspace) and capture WAL
             new-item-id (random-uuid)
             {:keys [wal-records]}
             (with-wal-capture
@@ -178,9 +181,15 @@
 
             wal-topics (set (mapcat topics/topics-for-changes wal-records))
 
-            ;; 7. Check for match
+            ;; 6. Check for match
             matched? (when (and (seq wal-topics) (seq query-topics))
                        (rs/matching-topic-intersection? wal-topics query-topics))
+
+            ;; 7. Create resolver AFTER all data exists (so it knows about all entity IDs)
+            r (resolvers/make-resolver {:conn-pool (aurora/conn-pool :read)}
+                                       app-id
+                                       [["items" "title"]
+                                        ["workspaces" "name"]])
 
             ;; 8. Make topics pretty with resolver
             pretty-query-topics (resolvers/walk-friendly r query-topics)
