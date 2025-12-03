@@ -3,7 +3,7 @@ import { Button } from '@/components/ui';
 import { atom, useAtom } from 'jotai';
 import { useRouter } from 'next/router';
 
-export const getDefaultDarkMode = () => {
+export const getDefaultDarkMode = (): boolean => {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('darkMode');
     if (saved !== null) {
@@ -47,7 +47,7 @@ export function useDarkMode() {
     // we use this hook outside of tailwind for things like monaco
     darkMode: router.pathname.startsWith('/dash') ? darkMode : false,
     toggleDarkMode,
-  };
+  } as const;
 }
 
 export function DarkModeToggle() {

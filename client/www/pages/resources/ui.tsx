@@ -179,12 +179,22 @@ export default function UI() {
       </Example>
       <Example label="CodeEditor">
         <div className="h-[30vh]">
-          <CodeEditor language="json" value="{}" onChange={() => {}} />
+          <CodeEditor
+            darkMode={false}
+            language="json"
+            value="{}"
+            onChange={() => {}}
+          />
         </div>
       </Example>
       <Example label="JSONEditor">
         <div className="h-[30vh]">
-          <JSONEditor label={<>rules.json</>} value="{}" onSave={() => {}} />
+          <JSONEditor
+            darkMode={false}
+            label={<>rules.json</>}
+            value="{}"
+            onSave={() => {}}
+          />
         </div>
       </Example>
     </div>

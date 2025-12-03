@@ -21,7 +21,7 @@ export default defineConfig({
     // TODO: make this true for prod
     emptyOutDir: false,
     lib: {
-      formats: ['es'],
+      formats: ['es', 'cjs'],
       entry: resolve(__dirname, 'src', 'index.tsx'),
       // @ts-ignore, currently not functional
       // if styling solution beyond shadow dom necessary this will have to be fixed
@@ -30,6 +30,13 @@ export default defineConfig({
     },
     rollupOptions: {
       external: (id) => {
+        // Bundle prism-react-renderer to avoid CJS/ESM interop issues
+        if (
+          id === 'prism-react-renderer' ||
+          id.startsWith('prism-react-renderer/')
+        ) {
+          return false;
+        }
         // Check exact matches and subpath imports (e.g., react/jsx-runtime)
         const allDeps = [
           ...Object.keys(peerDependencies),

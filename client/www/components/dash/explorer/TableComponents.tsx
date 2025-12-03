@@ -26,6 +26,7 @@ import { PushNavStack, TableColMeta } from './Explorer';
 import { useIsOverflow } from '@/lib/hooks/useIsOverflow';
 import { isObject } from 'lodash';
 import copy from 'copy-to-clipboard';
+import { useDarkMode } from '../DarkModeToggle';
 
 export const TableHeader = ({
   header,
@@ -186,7 +187,7 @@ export const TableHeader = ({
             }}
           >
             {headerGroup.headers.length - 1 !== index && (
-              <div className="h-full w-[2px] bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="h-full w-0.5 bg-neutral-200 dark:bg-neutral-700"></div>
             )}
           </div>
         </div>
@@ -327,9 +328,10 @@ function formatVal(data: any, pretty?: boolean): string {
 
 function Val({ data, pretty }: { data: any; pretty?: boolean }) {
   const sanitized = formatVal(data, pretty);
+  const { darkMode } = useDarkMode();
 
   if (pretty && isObject(data)) {
-    return <Fence code={sanitized} language="json" />;
+    return <Fence darkMode={darkMode} code={sanitized} language="json" />;
   }
 
   return <>{sanitized}</>;
