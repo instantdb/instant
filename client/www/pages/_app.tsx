@@ -15,6 +15,7 @@ import {
   patchNumberInputScroll,
 } from '@/lib/patchBrowserEvents';
 import { ReactElement, ReactNode, useEffect } from 'react';
+import { PostHogIdentify } from '@/components/PostHogIdentify';
 import { NextPage } from 'next';
 import { SWRConfig } from 'swr';
 import { localStorageProvider } from '@/lib/swrCache';
@@ -76,6 +77,7 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
   return (
     <PostHogProvider client={posthog}>
       <AppHead />
+      <PostHogIdentify />
       <ErrorBoundary renderError={() => <Oops />}>
         <SWRConfig
           value={{
