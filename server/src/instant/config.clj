@@ -240,10 +240,17 @@
     (Integer/parseInt envvar)))
 
 (defn get-server-port []
-  (or (env-integer "PORT") (env-integer "BEANSTALK_PORT") 8888))
+  (or (env-integer "PORT")
+      (env-integer "BEANSTALK_PORT")
+      (if-not (= :test (get-env))
+        8888
+        8886)))
 
 (defn get-server-ssl-port []
-  (or (env-integer "SSL_PORT") 8889))
+  (or (env-integer "SSL_PORT")
+      (if-not (= :test (get-env))
+        8889
+        8887)))
 
 (defn get-nrepl-port []
   (or (env-integer "NREPL_PORT") 6005))
