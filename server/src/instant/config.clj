@@ -242,6 +242,9 @@
 (defn get-server-port []
   (or (env-integer "PORT") (env-integer "BEANSTALK_PORT") 8888))
 
+(defn get-server-ssl-port []
+  (or (env-integer "SSL_PORT") 8889))
+
 (defn get-nrepl-port []
   (or (env-integer "NREPL_PORT") 6005))
 
