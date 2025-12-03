@@ -28,8 +28,10 @@
    [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
+   [instant.util.instaql :refer [forms-hash]]
    [instant.util.lang :as lang]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [instant.util.uuid :as uuid-util])
   (:import
    (clojure.lang PersistentQueue)
    (java.lang InterruptedException)
@@ -68,6 +70,7 @@
    :tx-meta/processed-tx-id {:db/type :db.type/integer}
 
    :instaql-query/query {:db/index true}
+   :instaql-query/forms-hash {}
    :instaql-query/session-id {:db/type :db.type/uuid
                               :db/index true}
    :instaql-query/stale? {:db/type :db.type/boolean}
@@ -446,6 +449,7 @@
         :instaql-query/stale? false}])
     [{:instaql-query/session-id session-id
       :instaql-query/query instaql-query
+      :instaql-query/forms-hash (forms-hash instaql-query)
       :instaql-query/stale? false
       :instaql-query/version 1
       :instaql-query/return-type return-type
@@ -957,8 +961,8 @@
     (for [e datalog-query-eids]
       [:db.fn/retractEntity e]))))
 
-;; ---------- 
-;; Topic Trie 
+;; ----------
+;; Topic Trie
 
 (def empty-topic-trie
   {:children {}
@@ -967,9 +971,9 @@
 
 (def ^:private topic-trie-order
   "Topic structure: [idx e a v]
-  
-  Our traversal order: idx -> a -> e -> v. 
-  
+
+  Our traversal order: idx -> a -> e -> v.
+
   Reasoning: most selective parts first."
   [0 2 1 3])
 
@@ -1038,24 +1042,24 @@
                :when (matching-topic-intersection-trie? iv-topic-trie dq-topics)]
            (:e datom)))))
 
-;; ---------- 
+;; ----------
 ;; Topic Index based on attribute values
 
 (defn- topics->topic-index
-  "Given a list of topics, returns an index for attribute values 
-  i.e: 
-  [#{:ea} _ {uid1} _] 
-  [#{:ea} _ _ v1] 
+  "Given a list of topics, returns an index for attribute values
+  i.e:
+  [#{:ea} _ {uid1} _]
+  [#{:ea} _ _ v1]
 
-  Would produce the index: 
+  Would produce the index:
 
-  {uid1 #{[#{:ea} _ {uid1} _]} 
-   
-   :catchall #{[#{:ea} _ _ v1]} 
-   
-   :all #{[#{:ea} _ {uid1} _] 
-          [#{:ea} _ _ v1]}} 
-    
+  {uid1 #{[#{:ea} _ {uid1} _]}
+
+   :catchall #{[#{:ea} _ _ v1]}
+
+   :all #{[#{:ea} _ {uid1} _]
+          [#{:ea} _ _ v1]}}
+
   This helps us quickly prune topics when trying to do a match."
   [topics]
   (reduce
@@ -1114,22 +1118,59 @@
           :when (and sent-tx-id topics (matching-topic-intersection? iv-topics topics))]
       ent)))
 
+(defn filter-queries [db iv-topics query-ids]
+  (remove (fn [eid]
+            (when-let [q (some->> (d/datoms db :avet :subscription/datalog-query eid)
+                                  first
+                                  :e
+                                  (d/entity db)
+                                  :subscription/instaql-query)]
+              (when (= (:instaql-query/forms-hash q)
+                       889158316)
+                (when-let [wid (some-> q
+                                       :instaql-query/query
+                                       :edenItem
+                                       :$
+                                       :where
+                                       :workspaceId
+                                       uuid-util/coerce)]
+                  (when-let [dq-topics (:datalog-query/topics (d/entity db eid))]
+                    (let [non-wildcard-matches? (ucoll/seek (fn [iv-topic]
+                                                              (ucoll/seek
+                                                               (fn [dq-topic]
+                                                                 (and (or (not= (nth dq-topic 1) '_)
+                                                                          (not= (nth dq-topic 3) '_))
+                                                                      (match-topic? iv-topic dq-topic)))
+                                                               dq-topics))
+                                                            iv-topics)]
+                      (and (not non-wildcard-matches?)
+                           (not (ucoll/seek (fn [iv-topic]
+                                              (and (set? (nth iv-topic 1))
+                                                   (contains? (nth iv-topic 1) wid)))
+                                            iv-topics)))))))))
+          query-ids))
+
 (defn mark-stale-topics!
   "Given topics, invalidates all relevant datalog qs and associated instaql queries.
 
   Returns affected session-ids"
   [store app-id tx-id topics]
-  (let [conn               (app-conn store app-id)
+  (let [conn (app-conn store app-id)
+        db @conn
         datalog-query-eids
-        (cond
-          (flags/use-get-datalog-queries-for-topics-v3?)
-          (get-datalog-queries-for-topics-v3 @conn app-id topics)
+        (vec (filter-queries db
+                             topics
+                             (cond
+                               (flags/use-get-datalog-queries-for-topics-v3?)
+                               (get-datalog-queries-for-topics-v3 db app-id topics)
 
-          (flags/use-get-datalog-queries-for-topics-v2?)
-          (get-datalog-queries-for-topics-v2 @conn app-id topics)
+                               (flags/use-get-datalog-queries-for-topics-v2?)
+                               (get-datalog-queries-for-topics-v2 db app-id topics)
 
-          :else
-          (vec (get-datalog-queries-for-topics @conn app-id topics)))
+                               :else
+                               (get-datalog-queries-for-topics db app-id topics))))
+
+
 
         report
         (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)
