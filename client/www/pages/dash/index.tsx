@@ -56,8 +56,6 @@ import OAuthApps from '@/components/dash/OAuthApps';
 import { Sandbox } from '@/components/dash/Sandbox';
 import {
   Badge,
-  Button,
-  Content,
   Copyable,
   SectionHeading,
   SmallCopyable,
