@@ -4,6 +4,7 @@ import type { HasDefault, WithDefaults, WithOptional } from '@lib/types';
 import { config } from '@lib/config';
 import { ExplorerLayout } from './explorer-layout';
 import { useSchemaQuery } from '@lib/hooks/explorer';
+import { useStableDB } from '@lib/hooks/useStableDB';
 
 interface ExplorerProps {
   appId: string;
@@ -94,21 +95,19 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
   );
 
   const { explorerState, setExplorerState } = props;
+
   const [explorerStateHistory, setExplorerStateHistory] = useState<
     ExplorerNav[]
   >(explorerState ? [explorerState] : []);
 
-  const db = init({
+  const db = useStableDB({
     appId: props.appId,
     apiURI: props.apiURI,
     websocketURI: props.websocketURI,
-    // @ts-ignore sshhh
-    __adminToken: props.adminToken,
-    disableValidation: true,
+    adminToken: props.adminToken,
   });
 
   const schemaData = useSchemaQuery(db);
-
   if (!schemaData.namespaces) {
     return null;
   }

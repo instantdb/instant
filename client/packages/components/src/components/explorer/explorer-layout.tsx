@@ -9,5 +9,16 @@ export const ExplorerLayout = ({
   namespaces: SchemaNamespace[];
 }) => {
   const props = useExplorerProps();
-  return <div>expolorer layout</div>;
+  return (
+    <div>
+      expolorer layout
+      <pre>
+        {JSON.stringify(
+          namespaces.map((n) => n.name),
+          null,
+          2,
+        )}
+      </pre>
+    </div>
+  );
 };
