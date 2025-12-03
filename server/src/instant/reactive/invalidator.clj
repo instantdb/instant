@@ -18,7 +18,7 @@
    (java.sql Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (java.util Map)
+   (java.util Map Queue)
    (java.util.concurrent ConcurrentHashMap)
    (org.postgresql.replication LogSequenceNumber)))
 
@@ -196,10 +196,11 @@
           (def -store-value (store-snapshot store app-id))
           (tracer/add-exception! t {:escaping? false}))))))
 
-(defn drop-backpressure? [wal-record]
+(defn drop-backpressure? [queue wal-record]
   (let [app-id (:app-id wal-record)
-        put-at (when-let [created-at (:tx-created-at wal-record)]
-                 (Instant/.toEpochMilli created-at))
+        group (get (:groups queue) app-id)
+        head (when group (Queue/.peek group))
+        put-at (some-> head :instant.grouped-queue/put-at)
         latency (if put-at (- (System/currentTimeMillis) put-at) 0)]
     (when (and (flags/invalidator-drop-backpressure? app-id)
                (> latency (flags/invalidator-drop-tx-latency-ms)))
@@ -224,7 +225,7 @@
     (a/go
       (loop []
         (when-some [wal-record (a/<! wal-chan)]
-          (when-not (drop-backpressure? wal-record)
+          (when-not (drop-backpressure? queue wal-record)
             (grouped-queue/put! queue wal-record))
           (recur)))
       (grouped-queue/stop queue)
