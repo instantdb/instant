@@ -18,9 +18,9 @@ const icons = {
 };
 
 const iconStyles = {
-  blue: '[--icon-foreground:theme(colors.slate.900)] [--icon-background:theme(colors.white)]',
+  blue: '[--icon-foreground:var(--color-slate-900)] [--icon-background:var(--color-white)]',
   amber:
-    '[--icon-foreground:theme(colors.amber.900)] [--icon-background:theme(colors.amber.100)]',
+    '[--icon-foreground:var(--color-amber-900)] [--icon-background:var(--color-amber-100)]',
 };
 
 export function Icon({ color = 'blue', icon, className, ...props }) {

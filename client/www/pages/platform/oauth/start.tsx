@@ -29,7 +29,7 @@ function InvalidRedirect({
       <div className="flex max-w-sm flex-col gap-4">
         <span className="inline-flex items-center space-x-2">
           <LogoIcon />
-          <span className="font-mono text-sm lowercase text-gray-400">
+          <span className="font-mono text-sm text-gray-400 lowercase">
             Instant
           </span>
         </span>
@@ -159,11 +159,11 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
       <div className="flex max-w-sm flex-col gap-4">
         <span className="inline-flex items-center space-x-2">
           <LogoIcon />
-          <span className="font-mono text-sm lowercase text-gray-400">
+          <span className="font-mono text-sm text-gray-400 lowercase">
             Instant
           </span>
         </span>
-        <span className="text-sm italic text-gray-700">
+        <span className="text-sm text-gray-700 italic">
           Logged in as <span className="font-semibold">{data.userEmail}</span>
         </span>
         <div className="flex flex-row items-center gap-4">

@@ -14,8 +14,8 @@ export function MetricsOverview() {
         </h2>
         <div className="animate-pulse">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="h-20 rounded bg-gray-200"></div>
-            <div className="h-20 rounded bg-gray-200"></div>
+            <div className="h-20 rounded-sm bg-gray-200"></div>
+            <div className="h-20 rounded-sm bg-gray-200"></div>
           </div>
         </div>
       </div>

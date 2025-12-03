@@ -50,7 +50,7 @@ function CodeStep(props: {
       </Content>
       <TextInput
         autoFocus
-        className="w-full appearance-none rounded outline-none"
+        className="w-full appearance-none rounded-sm outline-hidden"
         placeholder="Your code"
         inputMode="numeric"
         value={props.code}
@@ -97,7 +97,7 @@ function EmailStep(props: {
         </Content>
         <TextInput
           autoFocus
-          className="w-full rounded"
+          className="w-full rounded-sm"
           placeholder="Enter your email address"
           type="email"
           value={props.email}
@@ -208,7 +208,7 @@ export default function Auth(props: {
       <div className="max-w-sm">
         <span className="inline-flex items-center space-x-2">
           <LogoIcon />
-          <span className="font-mono text-sm lowercase text-gray-400">
+          <span className="font-mono text-sm text-gray-400 lowercase">
             Instant
           </span>
         </span>

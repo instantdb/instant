@@ -55,7 +55,7 @@ function Avatar({ name, color }: { name: string; color: string }) {
       }}
     >
       {name?.slice(0, 1)}
-      <div className="absolute bottom-10 z-10 hidden rounded bg-gray-200 px-2 text-sm text-gray-800 group-hover:flex">
+      <div className="absolute bottom-10 z-10 hidden rounded-sm bg-gray-200 px-2 text-sm text-gray-800 group-hover:flex">
         {name}
       </div>
     </div>

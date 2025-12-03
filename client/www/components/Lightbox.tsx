@@ -28,14 +28,14 @@ export function Lightbox({
           <DialogPanel className="relative max-h-[90vh] max-w-[90vw]">
             <button
               onClick={() => setOpen(false)}
-              className="absolute -right-2 -top-2 rounded-full bg-white p-1 shadow-lg hover:bg-gray-100"
+              className="absolute -top-2 -right-2 rounded-full bg-white p-1 shadow-lg hover:bg-gray-100"
             >
               <XMarkIcon className="h-5 w-5 text-gray-700" />
             </button>
             <img
               src={src}
               alt={alt}
-              className="max-h-[90vh] max-w-[90vw] rounded shadow-2xl"
+              className="max-h-[90vh] max-w-[90vw] rounded-sm shadow-2xl"
             />
           </DialogPanel>
         </div>

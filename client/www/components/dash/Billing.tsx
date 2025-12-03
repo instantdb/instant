@@ -90,7 +90,7 @@ export function ProgressBar({ width }: { width: number }) {
     <div className="relative h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
       <div
         style={{ width: `${width}%` }}
-        className="absolute left-0 top-0 h-full bg-indigo-500"
+        className="absolute top-0 left-0 h-full bg-indigo-500"
       />
     </div>
   );
@@ -127,7 +127,7 @@ export default function Billing({ appId }: { appId: string }) {
   if (orgIsPaid) {
     return (
       <div className="">
-        <div className="parent rounded p-3">
+        <div className="parent rounded-sm p-3">
           <div className="p-2">This app is part of a paid organization.</div>
           <Link href={'/dash/org?tab=billing'}>
             <Button>Manage Organization Billing</Button>
@@ -174,14 +174,14 @@ export default function Billing({ appId }: { appId: string }) {
       <div className="flex items-center gap-2">
         <h1 className="font-bold">Current plan</h1>
         {isFreeTier ? (
-          <div className="rounded border px-2 py-1 font-mono font-bold dark:border-neutral-600">
+          <div className="rounded-sm border px-2 py-1 font-mono font-bold dark:border-neutral-600">
             {subscriptionName}
           </div>
         ) : (
           <div style={{ animation: 'wiggle 5s infinite' }}>
             <div
               ref={confettiRef}
-              className="translate-y-0 cursor-pointer select-none rounded border border-purple-400 bg-purple-100 px-2 py-1 font-mono font-bold text-purple-800 transition-all hover:-translate-y-1 active:scale-90 dark:border-purple-400/50 dark:bg-purple-800/40 dark:text-purple-100"
+              className="translate-y-0 cursor-pointer rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 font-mono font-bold text-purple-800 transition-all select-none hover:-translate-y-1 active:scale-90 dark:border-purple-400/50 dark:bg-purple-800/40 dark:text-purple-100"
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
 
@@ -203,7 +203,7 @@ export default function Billing({ appId }: { appId: string }) {
         )}
       </div>
 
-      <div className="gap flex flex-col rounded border bg-white px-2 pb-3 pt-1 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="gap flex flex-col rounded-sm border bg-white px-2 pt-1 pb-3 dark:border-neutral-700 dark:bg-neutral-800">
         <h2 className="flex justify-between gap-2 p-2">
           <span className="font-bold">Usage</span>{' '}
           <span className="font-mono text-sm">
@@ -211,7 +211,7 @@ export default function Billing({ appId }: { appId: string }) {
           </span>
         </h2>
         <ProgressBar width={progress} />
-        <div className="flex justify-start gap-4 pl-2 pt-3 text-sm">
+        <div className="flex justify-start gap-4 pt-3 pl-2 text-sm">
           <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
             DB ({friendlyUsage(totalAppBytes)})
           </span>
@@ -226,7 +226,7 @@ export default function Billing({ appId }: { appId: string }) {
           <Button variant="primary" onClick={onUpgrade}>
             Upgrade to Pro
           </Button>
-          <Content className="rounded border border-purple-400 bg-purple-100 px-2 py-1 text-sm italic text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
+          <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
             Pro offers 10GB of storage, backups, multiple team members for apps,
             and priority support.
           </Content>

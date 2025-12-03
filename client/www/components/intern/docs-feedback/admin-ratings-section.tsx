@@ -112,7 +112,7 @@ export function AdminRatingsSection() {
       <div className="rounded-lg bg-white p-6 shadow-md">
         <h2 className="mb-4 text-xl font-semibold text-gray-900">Ratings</h2>
         <div className="animate-pulse">
-          <div className="h-96 rounded bg-gray-200"></div>
+          <div className="h-96 rounded-sm bg-gray-200"></div>
         </div>
       </div>
     );
@@ -199,7 +199,7 @@ export function AdminRatingsSection() {
                     selectedRatings.size === paginatedRatings.length
                   }
                   onChange={handleSelectAll}
-                  className="rounded border-gray-300"
+                  className="rounded-sm border-gray-300"
                 />
               </th>
               <th className="w-44 px-4 py-3 text-left font-medium text-gray-900">
@@ -227,11 +227,11 @@ export function AdminRatingsSection() {
                     type="checkbox"
                     checked={selectedRatings.has(rating.id)}
                     onChange={() => handleSelectRating(rating.id)}
-                    className="rounded border-gray-300"
+                    className="rounded-sm border-gray-300"
                   />
                 </td>
                 <td className="px-4 py-3">
-                  <span className="whitespace-nowrap text-sm text-gray-600">
+                  <span className="text-sm whitespace-nowrap text-gray-600">
                     {formatDate(rating.createdAt)}
                   </span>
                 </td>
@@ -260,7 +260,7 @@ export function AdminRatingsSection() {
                       <div
                         className={
                           expandedRows.has(rating.id)
-                            ? 'whitespace-pre-wrap break-words'
+                            ? 'wrap-break-word whitespace-pre-wrap'
                             : 'line-clamp-2'
                         }
                       >

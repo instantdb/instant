@@ -4,7 +4,7 @@ export function DemoIframe(props: { uri: string }) {
   const { uri } = props;
   return (
     <div className="pointer-events-none" style={{ height: '750px' }}>
-      <div className="not-prose pointer-events-auto absolute left-0 right-0 p-4">
+      <div className="not-prose pointer-events-auto absolute right-0 left-0 p-4">
         <div className="mx-auto max-w-4xl">
           <div className="space-y-2">
             <div

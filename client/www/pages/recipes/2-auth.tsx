@@ -107,7 +107,7 @@ function Login() {
 const cls = {
   root: 'flex max-w-xs mx-auto flex-col gap-3 items-center h-screen px-2 pt-12',
   heading: 'text-lg font-bold',
-  input: 'py-1 border-gray-300 rounded w-full',
-  button: 'bg-blue-500 text-white px-3 py-1 rounded w-full',
+  input: 'py-1 border-gray-300 rounded-sm w-full',
+  button: 'bg-blue-500 text-white px-3 py-1 rounded-sm w-full',
   error: 'text-red-700 text-sm bg-red-50 border-red-500 border p-2',
 };

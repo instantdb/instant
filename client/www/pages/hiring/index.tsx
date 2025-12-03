@@ -28,7 +28,7 @@ const jobListings = [
 
 const JobCard = ({ title, href, description }: JobListing) => (
   <Link href={href} className="no-underline">
-    <div className="relative rounded-md border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+    <div className="relative rounded-md border border-gray-200 bg-white p-6 shadow-xs transition-all hover:shadow-md">
       <div className="mb-2 text-xl font-medium text-gray-900">{title}</div>
       <p className="text-gray-600">{description}</p>
       <div className="mt-4">
@@ -55,7 +55,7 @@ export default function HiringIndexPage() {
       </Head>
       <MainNav />
       <Section>
-        <div className="mb-8 mt-12">
+        <div className="mt-12 mb-8">
           <div className="mb-6 text-center">
             <H2>Build the future of front-end tech.</H2>
           </div>
@@ -90,7 +90,7 @@ export default function HiringIndexPage() {
           </div>
         </div>
 
-        <div className="mb-16 mt-12">
+        <div className="mt-12 mb-16">
           <div className="mb-6 text-center">
             <H3>Don't see a relevant role?</H3>
           </div>

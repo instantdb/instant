@@ -166,7 +166,7 @@ export function FirebaseClient({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col rounded border"
+        className="flex flex-col rounded-sm border"
       >
         <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100">
           <div className="flex flex-1 items-center justify-between">
@@ -199,7 +199,7 @@ export function FirebaseClient({
               user to Instant.
             </Content>
 
-            <div className="overflow-auto rounded border text-sm">
+            <div className="overflow-auto rounded-sm border text-sm">
               <Fence copyable code={exampleCode} language="typescript" />
             </div>
 
@@ -300,7 +300,7 @@ export function AddFirebaseClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 rounded border p-4 dark:border-neutral-700"
+      className="flex flex-col gap-2 rounded-sm border p-4 dark:border-neutral-700"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"

@@ -236,7 +236,7 @@ function AppPicker({
       : allOrgs.find((org) => org.id === workspaceId)?.title || workspaceId;
 
   return (
-    <div className="mb-6 flex flex-col gap-1 border bg-white bg-opacity-40 p-4">
+    <div className="bg-opacity-40 mb-6 flex flex-col gap-1 border bg-white p-4">
       <h4 className="font-bold">Pick your app</h4>
       <p className="text-sm">
         The examples below will be updated with your app ID.
@@ -463,7 +463,7 @@ export function Layout({ children, title, tableOfContents }) {
           }
         `}
       </style>
-      <div className="min-h-[100dvh]">
+      <div className="min-h-dvh">
         {/* Header */}
         <div
           className={clsx(
@@ -508,7 +508,7 @@ export function Layout({ children, title, tableOfContents }) {
             <main
               ref={scrollContainerRef}
               key={router.pathname}
-              className="min-w-0 max-w-prose flex-1 p-4"
+              className="max-w-prose min-w-0 flex-1 p-4"
             >
               {isHydrated && !isLoadingWorkspace && (
                 <AppPicker

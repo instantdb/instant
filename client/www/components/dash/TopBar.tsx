@@ -21,7 +21,7 @@ export const TopBar: React.FC<{}> = () => {
   const hasInvites = (dash.data.invites || []).length > 0;
 
   return (
-    <div className="flex flex-col flex-wrap justify-between gap-2 border-b border-b-gray-300 px-2 py-2 dark:border-b-neutral-700 dark:bg-neutral-800 dark:text-white md:flex-row md:px-4">
+    <div className="flex flex-col flex-wrap justify-between gap-2 border-b border-b-gray-300 px-2 py-2 md:flex-row md:px-4 dark:border-b-neutral-700 dark:bg-neutral-800 dark:text-white">
       <div className="flex flex-row items-center justify-between gap-2 md:justify-start">
         <ProfilePanel />
         <div id="left-top-bar"></div>

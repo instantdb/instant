@@ -171,7 +171,7 @@ export function RecentlyDeletedNamespaces({
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-shrink-0 items-center">
+                  <div className="flex shrink-0 items-center">
                     <Button
                       size="mini"
                       variant="secondary"

@@ -90,7 +90,7 @@ function TopUsersTable({ data }) {
         <thead>
           <tr>
             <th
-              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase"
               onClick={() => handleSort('user_email')}
             >
               User Email ({totalApps}){' '}
@@ -98,7 +98,7 @@ function TopUsersTable({ data }) {
                 (sortConfig.direction === 'asc' ? '↑' : '↓')}
             </th>
             <th
-              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase"
               onClick={() => handleSort('app_title')}
             >
               App Title{' '}
@@ -106,7 +106,7 @@ function TopUsersTable({ data }) {
                 (sortConfig.direction === 'asc' ? '↑' : '↓')}
             </th>
             <th
-              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase"
               onClick={() => handleSort('total_transactions')}
             >
               Transactions ({formatNumber(totalTransactions)}){' '}
@@ -163,7 +163,7 @@ function Page() {
       <Head>
         <title>Instant Top Users</title>
       </Head>
-      <div className="m-4 flex flex-wrap space-x-0 space-y-4 md:flex-nowrap md:space-x-8 md:space-y-0">
+      <div className="m-4 flex flex-wrap space-y-4 space-x-0 md:flex-nowrap md:space-y-0 md:space-x-8">
         <div className="flex flex-col space-y-2">
           <span className="font-xl font-bold">
             Top Users Last {getDays()} Days

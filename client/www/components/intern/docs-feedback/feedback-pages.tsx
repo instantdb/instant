@@ -81,7 +81,7 @@ export function FeedbackPages({ onPageClick }: FeedbackPagesProps) {
         <div className="animate-pulse">
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-16 rounded bg-gray-200"></div>
+              <div key={i} className="h-16 rounded-sm bg-gray-200"></div>
             ))}
           </div>
         </div>
@@ -251,7 +251,7 @@ function SortableHeader({
 
   return (
     <th
-      className="cursor-pointer select-none px-4 py-3 text-left font-medium text-gray-900 hover:bg-gray-50"
+      className="cursor-pointer px-4 py-3 text-left font-medium text-gray-900 select-none hover:bg-gray-50"
       onClick={() => onSort(field)}
     >
       <div className="flex items-center space-x-1">

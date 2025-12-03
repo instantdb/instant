@@ -69,13 +69,13 @@ export function TabbedSingle({ tabs, defaultTab, storageKey }) {
       </div>
 
       <div className="relative bg-white py-1">
-        <pre className="m-0 overflow-x-auto whitespace-pre bg-white font-mono text-xs text-gray-900">
+        <pre className="m-0 overflow-x-auto bg-white font-mono text-xs whitespace-pre text-gray-900">
           {content}
         </pre>
-        <div className="absolute right-0 top-0 m-2">
+        <div className="absolute top-0 right-0 m-2">
           <button
             onClick={handleCopy}
-            className="flex items-center gap-x-1 rounded bg-white px-2 py-1 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 text-xs font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50"
           >
             <ClipboardDocumentIcon className="h-3.5 w-3.5" aria-hidden="true" />
             {copyLabel}

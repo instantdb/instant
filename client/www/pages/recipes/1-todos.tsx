@@ -43,7 +43,7 @@ export default function InstantTodos() {
         </button>
       </form>
       {isLoading ? (
-        <p className="italic text-gray-700">Loading...</p>
+        <p className="text-gray-700 italic">Loading...</p>
       ) : data?.todos.length ? (
         <ul>
           {data.todos.map((todo) => (
@@ -83,7 +83,7 @@ export default function InstantTodos() {
           ))}
         </ul>
       ) : (
-        <p className="italic text-gray-700">No todos!</p>
+        <p className="text-gray-700 italic">No todos!</p>
       )}
     </div>
   );

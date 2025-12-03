@@ -667,7 +667,7 @@ export function BucketVisualizer({
         </div>
       </div>
       {footnote ? (
-        <p className="mt-4 text-sm italic text-orange-800">{footnote}</p>
+        <p className="mt-4 text-sm text-orange-800 italic">{footnote}</p>
       ) : null}
     </div>
   );
@@ -701,7 +701,7 @@ function QueryControls({
                 <motion.div
                   layoutId={`query-indicator-${componentId}`}
                   className={cn(
-                    'absolute -top-2.5 left-0 right-0 h-1',
+                    'absolute -top-2.5 right-0 left-0 h-1',
                     selectedWord.scheme.dot,
                   )}
                   transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
@@ -770,7 +770,7 @@ function BucketRow({
   return (
     <div className="relative">
       <div className="mb-2 flex items-baseline justify-between">
-        <span className="font-mono text-sm font-semibold uppercase tracking-wide text-gray-600">
+        <span className="font-mono text-sm font-semibold tracking-wide text-gray-600 uppercase">
           {label}()
         </span>
       </div>
@@ -806,14 +806,14 @@ function BucketRow({
                 ease: 'easeInOut',
                 times: [0, 0.35, 1],
               }}
-              className="pointer-events-none absolute left-0 top-0 z-10"
+              className="pointer-events-none absolute top-0 left-0 z-10"
               style={{
                 transformOrigin: 'center center',
               }}
             >
               <span
                 className={cn(
-                  'inline-block whitespace-nowrap px-2 py-0.5 text-xs font-medium',
+                  'inline-block px-2 py-0.5 text-xs font-medium whitespace-nowrap',
                   animWord.word.scheme.chip,
                 )}
               >
@@ -860,7 +860,7 @@ function BucketRow({
                 <motion.div
                   layoutId={`bucket-indicator-${componentId}-${rowIdx}`}
                   className={cn(
-                    'absolute -top-2 left-0 right-0 h-1',
+                    'absolute -top-2 right-0 left-0 h-1',
                     isMinimumRow ? selectedWord.scheme.dot : 'bg-gray-900',
                   )}
                   transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
@@ -1038,7 +1038,7 @@ function ResultCardSide({
       <div className="text-3xl font-bold text-gray-900 transition-all">
         {value !== null ? value.toLocaleString('en-US') : '—'}
       </div>
-      <div className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <div className="mt-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">
         {label}
       </div>
     </div>
@@ -1099,7 +1099,7 @@ export function SingleRowBucketsDemo() {
           <div className="space-y-3">
             <div className="relative">
               <div className="mb-0.5 flex items-baseline justify-between">
-                <span className="font-mono text-sm font-semibold uppercase tracking-wide text-gray-600">
+                <span className="font-mono text-sm font-semibold tracking-wide text-gray-600 uppercase">
                   hash1()
                 </span>
               </div>
@@ -1162,7 +1162,7 @@ export function BucketNoiseBreakdownDemo() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap gap-3">
               <div className="relative flex flex-col items-center">
-                <motion.div className="absolute -top-2.5 left-0 right-0 h-1 bg-emerald-500" />
+                <motion.div className="absolute -top-2.5 right-0 left-0 h-1 bg-emerald-500" />
                 <span className="border border-emerald-300 bg-emerald-100 px-3 py-1.5 text-xs font-medium text-emerald-800">
                   wet
                 </span>
@@ -1352,7 +1352,7 @@ export function MoreBucketsDemo() {
           <div className="flex items-center justify-end gap-4">
             <button
               onClick={() => setExpanded(!expanded)}
-              className="flex-shrink-0 border border-blue-500 bg-blue-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-600"
+              className="shrink-0 border border-blue-500 bg-blue-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-600"
             >
               {expanded ? 'Remove 1 bucket' : 'Add 1 bucket'}
             </button>
@@ -1365,7 +1365,7 @@ export function MoreBucketsDemo() {
                     <motion.div
                       layoutId="more-buckets-indicator"
                       className={cn(
-                        'absolute -top-2.5 left-0 right-0 h-1',
+                        'absolute -top-2.5 right-0 left-0 h-1',
                         selectedWord.scheme.dot,
                       )}
                       transition={{
@@ -1418,7 +1418,7 @@ export function MoreBucketsDemo() {
                     return (
                       <div key={rowIdx} className="relative">
                         <div className="mb-2 flex items-baseline justify-between">
-                          <span className="font-mono text-sm font-semibold uppercase tracking-wide text-gray-600">
+                          <span className="font-mono text-sm font-semibold tracking-wide text-gray-600 uppercase">
                             {rowLabel}()
                           </span>
                         </div>
@@ -1445,7 +1445,7 @@ export function MoreBucketsDemo() {
                                 {isHighlight && selectedWord && (
                                   <div
                                     className={cn(
-                                      'absolute -top-2 left-0 right-0 h-1',
+                                      'absolute -top-2 right-0 left-0 h-1',
                                       selectedWord.scheme.dot,
                                     )}
                                   />
@@ -1522,7 +1522,7 @@ export function HighFrequencyDemo() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap gap-3">
               <div className="relative flex flex-col items-center">
-                <motion.div className="absolute -top-2.5 left-0 right-0 h-1 bg-amber-500" />
+                <motion.div className="absolute -top-2.5 right-0 left-0 h-1 bg-amber-500" />
                 <span className="border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800">
                   peer
                 </span>
@@ -1743,7 +1743,7 @@ export function MoreRowsConfidenceDemo() {
           <div className="flex items-center justify-end gap-4">
             <button
               onClick={() => setExpanded(!expanded)}
-              className="flex-shrink-0 border border-blue-500 bg-blue-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-600"
+              className="shrink-0 border border-blue-500 bg-blue-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-600"
             >
               {expanded ? 'Remove 1 row' : 'Add 1 row'}
             </button>
@@ -1756,7 +1756,7 @@ export function MoreRowsConfidenceDemo() {
                     <motion.div
                       layoutId="more-rows-indicator"
                       className={cn(
-                        'absolute -top-2.5 left-0 right-0 h-1',
+                        'absolute -top-2.5 right-0 left-0 h-1',
                         selectedWord.scheme.dot,
                       )}
                       transition={{
@@ -1811,7 +1811,7 @@ export function MoreRowsConfidenceDemo() {
                     return (
                       <div key={rowIdx} className="relative">
                         <div className="mb-2 flex items-baseline justify-between">
-                          <span className="font-mono text-sm font-semibold uppercase tracking-wide text-gray-600">
+                          <span className="font-mono text-sm font-semibold tracking-wide text-gray-600 uppercase">
                             {rowLabel}()
                           </span>
                         </div>
@@ -1841,7 +1841,7 @@ export function MoreRowsConfidenceDemo() {
                                 {isHighlight && selectedWord && (
                                   <div
                                     className={cn(
-                                      'absolute -top-2 left-0 right-0 h-1',
+                                      'absolute -top-2 right-0 left-0 h-1',
                                       isMinimumRow
                                         ? selectedWord.scheme.dot
                                         : 'bg-gray-900',
