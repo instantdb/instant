@@ -40,13 +40,9 @@ if (typeof global !== 'undefined') {
 
 require('prismjs/components/prism-clojure');
 
-import { ClipboardDocumentIcon } from '@heroicons/react/24/solid';
-import copy from 'copy-to-clipboard';
 import Link from 'next/link';
 
 import { ui } from '@instantdb/components';
-
-import { Editor, Monaco, OnMount } from '@monaco-editor/react';
 
 export const {
   Button,
@@ -90,6 +86,10 @@ export const {
   useDialog,
   TooltipProvider,
   TooltipTrigger,
+  CodeEditor,
+  Fence,
+  JSONEditor,
+  Switch,
 } = ui;
 
 // content
@@ -458,7 +458,9 @@ export function Fence({
   );
 }
 
-import useMonacoJSONSchema from '@/lib/hooks/useMonacoJsonSchema';
 import { parsePermsJSON } from '@/lib/parsePermsJSON';
 import { useId } from 'react';
 import { useDarkMode } from './dash/DarkModeToggle';
+import { Editor, Monaco, OnMount } from '@monaco-editor/react';
+import copy from 'copy-to-clipboard';
+import { ClipboardDocumentIcon } from '@heroicons/react/24/outline';

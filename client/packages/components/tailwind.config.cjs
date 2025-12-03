@@ -21,7 +21,12 @@ const sans = [
 
 module.exports = {
   darkMode: 'class',
-  content: ['./src/components/**/*.{js,ts,jsx,tsx}'],
+  content: ['./src/**/*.{js,ts,jsx,tsx}'],
+  plugins: [
+    scopedPreflightStyles({
+      isolationStrategy: isolateInsideOfContainer('.tw-preflight'),
+    }),
+  ],
   theme: {
     fontFamily: {
       sans: ['"IBM Plex Sans"', ...sans],

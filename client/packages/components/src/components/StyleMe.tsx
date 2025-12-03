@@ -6,6 +6,7 @@ import React from 'react';
 
 // @ts-ignore
 import myStyles from '../style.css?inline';
+import { cn } from './ui';
 
 export const StyleMe = ({ children }: { children: ReactNode }) => {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -18,6 +19,7 @@ export const StyleMe = ({ children }: { children: ReactNode }) => {
         const style = document.createElement('style');
         style.textContent = myStyles;
         const container = document.createElement('div');
+        container.setAttribute('class', 'tw-preflight h-full');
         shadow.appendChild(style);
         shadow.appendChild(container);
         setMountNode(container);
@@ -26,7 +28,11 @@ export const StyleMe = ({ children }: { children: ReactNode }) => {
   }, [mountNode]);
 
   return (
-    <div ref={hostRef}>
+    <div
+      ref={hostRef}
+      style={{ height: '100%' }}
+      className={cn('tw-preflight h-full')}
+    >
       {mountNode ? createPortal(children, mountNode) : null}
     </div>
   );

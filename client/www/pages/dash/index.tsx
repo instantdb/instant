@@ -57,8 +57,6 @@ import OAuthApps from '@/components/dash/OAuthApps';
 import { Sandbox } from '@/components/dash/Sandbox';
 import {
   Badge,
-  Button,
-  Content,
   Copyable,
   SectionHeading,
   SmallCopyable,
@@ -76,6 +74,7 @@ import { NextPageWithLayout } from '../_app';
 import { capitalize } from 'lodash';
 import { Workspace } from '@/lib/hooks/useWorkspace';
 import AnimatedCounter from '@/components/AnimatedCounter';
+import { useDarkMode } from '@/components/dash/DarkModeToggle';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -946,12 +945,18 @@ function ExplorerTab({
   appId: string;
   namespaces: SchemaNamespace[] | null;
 }) {
+  const { darkMode } = useDarkMode();
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      <NewExplorer
-        appId={appId}
-        adminToken={db.core._reactor.config.__adminToken}
-      />
+    <>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <NewExplorer
+          apiURI={config.apiURI}
+          websocketURI={config.websocketURI}
+          darkMode={darkMode}
+          appId={appId}
+          adminToken={db.core._reactor.config.__adminToken}
+        />
+      </div>
       {/*<div className="flex flex-1 flex-col overflow-hidden">
         <Explorer
           db={db}
@@ -960,7 +965,7 @@ function ExplorerTab({
           key={db._core._reactor.config.appId}
         />
       </div>*/}
-    </div>
+    </>
   );
 }
 
@@ -1022,7 +1027,7 @@ function AppCombobox({
         <ComboboxButton className="group absolute inset-y-0 right-0 px-2.5">
           <ChevronDownIcon
             height={'1em'}
-            className="fill-gray/300 group-data-[hover]:fill-gray"
+            className="fill-gray/300 group-data-hover:fill-gray"
           />
         </ComboboxButton>
       </div>

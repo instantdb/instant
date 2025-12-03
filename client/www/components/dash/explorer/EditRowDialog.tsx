@@ -35,6 +35,7 @@ import {
 import { validate } from 'uuid';
 import clsx from 'clsx';
 import { ClockIcon } from '@heroicons/react/24/outline';
+import { useDarkMode } from '../DarkModeToggle';
 
 type FieldType = 'string' | 'number' | 'boolean' | 'json';
 type FieldTypeOption = { value: FieldType; label: string };
@@ -600,6 +601,7 @@ export function EditRowDialog({
 
   const editableBlobAttrs: SchemaAttr[] = [];
   const editableRefAttrs: SchemaAttr[] = [];
+  const { darkMode } = useDarkMode();
 
   for (const a of namespace.attrs) {
     if (a.name !== 'id') {
@@ -1007,6 +1009,7 @@ export function EditRowDialog({
                       {type === 'json' ? (
                         <div className="h-32 w-full rounded-sm border">
                           <CodeEditor
+                            darkMode={darkMode}
                             tabIndex={tabIndex}
                             language="json"
                             value={json}

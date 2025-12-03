@@ -223,6 +223,15 @@ importers:
       export-to-csv:
         specifier: ^1.4.0
         version: 1.4.0
+      json5:
+        specifier: ^2.2.3
+        version: 2.2.3
+      lodash:
+        specifier: ^4.17.21
+        version: 4.17.21
+      lucide-react:
+        specifier: ^0.544.0
+        version: 0.544.0(react@18.3.1)
       markdown-table:
         specifier: ^3.0.4
         version: 3.0.4
@@ -250,6 +259,9 @@ importers:
       tailwind-merge:
         specifier: ^2.2.1
         version: 2.6.0
+      uuid:
+        specifier: ^11.1.0
+        version: 11.1.0
     devDependencies:
       '@babel/core':
         specifier: ^7.17.9
@@ -263,6 +275,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.1.17
         version: 4.1.17(vite@5.4.14(@types/node@18.19.74)(lightningcss@1.30.2)(terser@5.37.0))
+      '@types/lodash':
+        specifier: ^4.14.182
+        version: 4.17.15
       '@types/node':
         specifier: ^18.11.18
         version: 18.19.74
@@ -11508,6 +11523,7 @@ packages:
   next@15.5.7:
     resolution: {integrity: sha512-+t2/0jIJ48kUpGKkdlhgkv+zPTEOoXyr60qXe68eB/pl3CMJaLeIGjzp5D6Oqt25hCBiBTt8wEeeAzfJvUKnPQ==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
+    deprecated: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.
     hasBin: true
     peerDependencies:
       '@opentelemetry/api': ^1.1.0

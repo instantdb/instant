@@ -111,6 +111,7 @@ import {
   RecentlyDeletedNamespaces,
   useRecentlyDeletedNamespaces,
 } from './RecentlyDeleted';
+import { useDarkMode } from '../DarkModeToggle';
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -679,6 +680,7 @@ export function Explorer({
   const [isShiftPressed, setIsShiftPressed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  // TODO:
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') {
@@ -750,6 +752,7 @@ export function Explorer({
     } else {
       delete queryParams.limit;
     }
+
     if (current.page) {
       queryParams.page = current.page;
     } else {
@@ -2190,10 +2193,11 @@ function formatVal(data: any, pretty?: boolean): string {
 }
 
 function Val({ data, pretty }: { data: any; pretty?: boolean }) {
+  const { darkMode } = useDarkMode();
   const sanitized = formatVal(data, pretty);
 
   if (pretty && isObject(data)) {
-    return <Fence code={sanitized} language="json" />;
+    return <Fence darkMode={darkMode} code={sanitized} language="json" />;
   }
 
   return <>{sanitized}</>;

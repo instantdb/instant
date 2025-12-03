@@ -20,9 +20,13 @@ export default defineConfig({
     target: 'esnext',
     // TODO: make this true for prod
     emptyOutDir: false,
+    cssCodeSplit: true,
     lib: {
-      formats: ['es'],
-      entry: resolve(__dirname, 'src', 'index.tsx'),
+      formats: ['es', 'cjs'],
+      entry: [
+        resolve(__dirname, 'src', 'index.tsx'),
+        resolve(__dirname, 'src', 'style.css'),
+      ],
       // @ts-ignore, currently not functional
       // if styling solution beyond shadow dom necessary this will have to be fixed
       cssFileName: 'style',
@@ -30,6 +34,13 @@ export default defineConfig({
     },
     rollupOptions: {
       external: (id) => {
+        // Bundle prism-react-renderer to avoid CJS/ESM interop issues
+        if (
+          id === 'prism-react-renderer' ||
+          id.startsWith('prism-react-renderer/')
+        ) {
+          return false;
+        }
         // Check exact matches and subpath imports (e.g., react/jsx-runtime)
         const allDeps = [
           ...Object.keys(peerDependencies),

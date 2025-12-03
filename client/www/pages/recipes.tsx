@@ -321,7 +321,7 @@ function Example({
         </div>
         <div className="flex flex-col gap-2 overflow-hidden bg-gray-100 md:flex-row">
           <div className="bg-prism flex h-[50vh] flex-col overflow-auto text-xs md:h-[61vh] md:flex-1">
-            <Fence code={file.code} language="tsx" />
+            <Fence darkMode={false} code={file.code} language="tsx" />
           </div>
           <div className="flex flex-col gap-[1vh] md:flex-1">
             {Array(numViews)

@@ -5,7 +5,8 @@
   "compilerOptions": {
     "strict": true,
     "outDir": "dist/tsc",
-    "moduleResolution": "nodenext",
+    "moduleResolution": "bundler",
+    "module": "ESNext",
     "rootDirs": ["src", "app"],
     "sourceMap": true,
     "jsx": "react",
@@ -14,7 +15,7 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@lib": ["./src/index.tsx"]
+      "@lib/*": ["./src/*"]
     },
     "strictNullChecks": true
   }

@@ -7,10 +7,24 @@ function App() {
 
   return (
     <>
-      <Explorer
-        appId="59cb9109-0e5c-4735-8775-4369d0486d0b"
-        adminToken="59cb9109-0e5c-4735-8775-4369d0486d0b"
-      />
+      {/*Not sure why props aren't autocompleting here*/}
+      <div
+        style={{
+          minHeight: '50vh',
+          height: '50vh',
+        }}
+        className="min-h-[50vh w-full"
+      >
+        <Explorer
+          className="h-full"
+          useShadowDOM
+          darkMode={false}
+          apiURI={'http://localhost:8888'}
+          websocketURI={'ws://localhost:8888/runtime/session'}
+          appId="5696faa0-af6b-4562-ade9-47ffb3b2b87b"
+          adminToken="59cb9109-0e5c-4735-8775-4369d0486d0b"
+        />
+      </div>
       <h1>Vite + React</h1>
       <div className="bg-blue-500">this should not be blue</div>
       <div className="card">
