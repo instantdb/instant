@@ -246,7 +246,7 @@
 
 (defn make-limited-concurrency-executor ^ExecutorService [max-concurrency]
   (let [executor (Executors/newVirtualThreadPerTaskExecutor)
-        sem (Semaphore. max-concurrency)]
+        sem (Semaphore. max-concurrency true)]
     (LimitedConcurrencyVFutureExecutor. executor sem)))
 
 ;; ----
