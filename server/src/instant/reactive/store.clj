@@ -355,7 +355,7 @@
                  (transact-new! span-name conn tx-data)
                  (transact-old! span-name conn tx-data))]
     (if-let [eids (seq (deleted-subscriptions-datalog-query-ids report))]
-      (transact! "clean-datalog-queries" conn [[:db.fn/call clean-stale-datalog-queries-tx-data (distinct eids)]])
+      (transact! "store/clean-datalog-queries" conn [[:db.fn/call clean-stale-datalog-queries-tx-data (distinct eids)]])
       report)))
 
 ;; -----
