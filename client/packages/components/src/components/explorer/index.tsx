@@ -119,14 +119,14 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
     Wrapper = ({ children }) => <StyleMe>{children}</StyleMe>;
   }
 
-  if (!schemaData.namespaces) {
+  if (schemaData.namespaces === null) {
     return null;
   }
 
   return (
     <Wrapper>
       <ExplorerPropsContext.Provider value={props}>
-        <ExplorerLayout namespaces={schemaData.namespaces} />
+        <ExplorerLayout db={db} namespaces={schemaData.namespaces} />
       </ExplorerPropsContext.Provider>
     </Wrapper>
   );
