@@ -31,9 +31,18 @@
   (let [store  (rs/init)
         app-id (random-uuid)
         make-res (fn [v]
-                   (with-meta v {:sql-byte-len 10}))]
+                   (with-meta v {:sql-byte-len 10}))
+        record-start (fn [store app-id dq]
+                       (rs/record-datalog-query-start! store
+                                                       {:app-id app-id
+                                                        :session-id (random-uuid)
+                                                        :instaql-query {:q {:$ {:where {:v (str (random-uuid))}}}}
+                                                        :v 0}
+                                                       dq
+                                                       #{}))]
     (testing "store returns cached data"
       (let [q [[:ea (random-uuid)]]]
+        (record-start store app-id q)
         (is (= {:a :a} (rs/swap-datalog-cache! store
                                                app-id
                                                (fn [_ctx _query]
@@ -49,6 +58,7 @@
 
     (testing "store returns cached data with delay"
       (let [q [[:ea (random-uuid)]]]
+        (record-start store app-id q)
         (is (= {:a :a} (rs/swap-datalog-cache! store
                                                app-id
                                                (fn [_ctx _query]
@@ -65,6 +75,7 @@
 
     (testing "work is canceled with no listeners"
       (let [q [[:ea (random-uuid)]]
+            _ (record-start store app-id q)
             err (promise)
             started (promise)
             canceled (promise)
@@ -91,9 +102,9 @@
     (dotimes [_ 100]
       (testing "work isn't canceled if there are still listeners"
         (let [q [[:ea (random-uuid)]]
+              _ (record-start store app-id q)
               err (promise)
               started (promise)
-
               wait (promise)
               f1 (ua/vfuture (try (rs/swap-datalog-cache! store
                                                           app-id
@@ -132,6 +143,7 @@
 
     (testing "doesn't store failures"
       (let [q [[:ea (random-uuid)]]
+            _ (record-start store app-id q)
             r1 (try (rs/swap-datalog-cache! store
                                             app-id
                                             (fn [_ctx _query]
