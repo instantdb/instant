@@ -332,12 +332,31 @@
         (catch clojure.lang.ExceptionInfo e
           (translate-datascript-exceptions e))))))
 
+(defn deleted-subscriptions-datalog-query-ids [report]
+  (keep (fn [datom]
+          (when (and (= (:a datom)
+                        :subscription/datalog-query)
+                     (not (:added datom)))
+            (:v datom)))
+        (:tx-data report)))
+
+(defn clean-stale-datalog-queries-tx-data [db datalog-query-eids]
+  (ucoll/reduce-tr (fn [acc e]
+                     (if-not (d/find-datom db :avet :subscription/datalog-query e)
+                       (conj! acc [:db/retractEntity e])
+                       acc))
+                   []
+                   datalog-query-eids))
+
 (defn transact! [span-name conn tx-data]
-  (if (or (flags/toggled? :enable-store-batching-globally)
-          (contains? (flags/flag :enable-store-batching-apps)
-                     (:app-id (meta conn))))
-    (transact-new! span-name conn tx-data)
-    (transact-old! span-name conn tx-data)))
+  (let [report (if (or (flags/toggled? :enable-store-batching-globally)
+                       (contains? (flags/flag :enable-store-batching-apps)
+                                  (:app-id (meta conn))))
+                 (transact-new! span-name conn tx-data)
+                 (transact-old! span-name conn tx-data))]
+    (if-let [eids (seq (deleted-subscriptions-datalog-query-ids report))]
+      (transact! "clean-datalog-queries" conn [[:db.fn/call clean-stale-datalog-queries-tx-data (vec eids)]])
+      report)))
 
 ;; -----
 ;; reports
@@ -476,21 +495,10 @@
      [[:db/retractEntity query-eid]])
     []))
 
-;; TODO: We could do this in the background by listening to transactions
-;;       and noticing whenever we remove a reference to a datalog entry
-(defn- clean-stale-datalog-tx-data
-  "Should be used in a db.fn/call. Returns transactions.
-   Retracts datalog queries that are no longer referenced in any subscriptions."
-  [db]
-  (for [datom (d/datoms db :aevt :datalog-query/app-id)
-        :when (nil? (d/datoms db :avet :subscription/datalog-query (:e datom)))]
-    [:db/retractEntity (:e datom)]))
-
 (defn remove-query! [store app-id sess-id q]
   (transact! "store/remove-query!"
              (app-conn store app-id)
-             [[:db.fn/call remove-subscriptions-tx-data sess-id q]
-              [:db.fn/call clean-stale-datalog-tx-data]]))
+             [[:db.fn/call remove-subscriptions-tx-data sess-id q]]))
 
 ;; --------------
 ;; adding queries
@@ -522,7 +530,6 @@
         report          (transact! "store/add-instaql-query!"
                                    conn
                                    [[:db.fn/call clean-stale-subscriptions-tx-data lookup-ref v]
-                                    [:db.fn/call clean-stale-datalog-tx-data]
                                     [:db.fn/call set-instaql-query-result-tx-data lookup-ref result-hash]])
         hash-before     (:instaql-query/hash (d/entity (:db-before report) lookup-ref))
         hash-after      (:instaql-query/hash (d/entity (:db-after report) lookup-ref))
@@ -562,8 +569,7 @@
     (transact! "store/remove-session-data!"
                (app-conn store app-id)
                [[:db.fn/call remove-session-queries-tx-data sess-id]
-                [:db.fn/call remove-session-subscriptions-tx-data sess-id]
-                [:db.fn/call clean-stale-datalog-tx-data]]))
+                [:db.fn/call remove-session-subscriptions-tx-data sess-id]]))
   (let [sessions-conn (:sessions store)]
     (transact! "store/remove-session!"
                sessions-conn
@@ -585,29 +591,24 @@
   "Should be used in a db.fn/call. Returns transactions.
    Updates or creates the datalog query with data needed to manage the cache."
   [db app-id query watcher-id]
-  (if-let [existing (d/entity db [:datalog-query/app-id+query [app-id query]])]
-    (let [watchers (:datalog-query/watchers existing)
-          id (:db/id existing)]
-      (if (or (not watchers)
-              ;; We were canceled, so let's start over
-              (:canceled? @watchers)
-              (:canceled? (swap! watchers
-                                 (fn [x]
-                                   (if (:canceled? x)
-                                     x
-                                     (update x :watchers conj watcher-id))))))
-        [[:db/add id :datalog-query/watchers (atom {:canceled? false
-                                                    :watchers #{watcher-id}})]
-         [:db/add id :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)]
-         [:db/add id :datalog-query/child-vfutures (ua/new-child-vfutures)]]
+  (let [existing (d/entity db [:datalog-query/app-id+query [app-id query]])
+        _ (when-not existing (throw (Exception. "Nobody cares about this datalog query")))
+        watchers (:datalog-query/watchers existing)
+        id (:db/id existing)]
+    (if (or (not watchers)
+            ;; We were canceled, so let's start over
+            (:canceled? @watchers)
+            (:canceled? (swap! watchers
+                               (fn [x]
+                                 (if (:canceled? x)
+                                   x
+                                   (update x :watchers conj watcher-id))))))
+      [[:db/add id :datalog-query/watchers (atom {:canceled? false
+                                                  :watchers #{watcher-id}})]
+       [:db/add id :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)]
+       [:db/add id :datalog-query/child-vfutures (ua/new-child-vfutures)]]
 
-        []))
-    [{:datalog-query/app-id app-id
-      :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)
-      :datalog-query/child-vfutures (ua/new-child-vfutures)
-      :datalog-query/query query
-      :datalog-query/watchers (atom {:canceled? false
-                                     :watchers #{watcher-id}})}]))
+      [])))
 
 (defn swap-datalog-cache!
   "Adds a query to the datalog cache.
@@ -708,22 +709,22 @@
                conn
                [[:db.fn/call
                  (fn [db]
-                   (let [lookup-ref             [:datalog-query/app-id+query [app-id datalog-query]]
+                   (let [lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
                          existing-datalog-query (d/entity db lookup-ref)
-                         datalog-query-eid      (or (:db/id existing-datalog-query) -1)]
+                         datalog-query-eid (or (:db/id existing-datalog-query) -1)]
                      (concat
                       (if existing-datalog-query
                         (when-not (:datalog-query/topics existing-datalog-query)
-                          [{:db/id                datalog-query-eid
+                          [{:db/id datalog-query-eid
                             :datalog-query/topics coarse-topics}])
-                        [{:db/id                datalog-query-eid
+                        [{:db/id datalog-query-eid
                           :datalog-query/app-id app-id
                           :datalog-query/query  datalog-query
                           :datalog-query/topics coarse-topics}])
                       (when-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
-                        [{:subscription/app-id        app-id
-                          :subscription/session-id    session-id
-                          :subscription/v             v
+                        [{:subscription/app-id app-id
+                          :subscription/session-id session-id
+                          :subscription/v v
                           :subscription/instaql-query query-eid
                           :subscription/datalog-query datalog-query-eid}]))))]])))
 
@@ -733,18 +734,15 @@
                                     {:keys [topics] :as _result}]
 
   (let [{:keys [app-id]} ctx
-        conn       (app-conn store app-id)
+        conn (app-conn store app-id)
         lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]]
     (transact!
      "store/record-datalog-query-finish!"
      conn
      [[:db.fn/call
        (fn [db]
-         (if-some [existing (d/entity db lookup-ref)]
-           [[:db/add (:db/id existing) :datalog-query/topics topics]]
-           [{:datalog-query/app-id app-id
-             :datalog-query/query datalog-query
-             :datalog-query/topics topics}]))]])))
+         (when-some [existing (d/entity db lookup-ref)]
+           [[:db/add (:db/id existing) :datalog-query/topics topics]]))]])))
 
 ;; ------------
 ;; invalidation
