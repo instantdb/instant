@@ -18,6 +18,7 @@ interface ExplorerProps {
   setExplorerState: HasDefault<
     React.Dispatch<React.SetStateAction<ExplorerNav | null>>
   >;
+  useShadowDOM: HasDefault<boolean>;
 }
 
 const ExplorerPropsContext = createContext<WithDefaults<ExplorerProps> | null>(
@@ -57,6 +58,7 @@ const fillPropsWithDefaults = (
     darkMode: input.darkMode || false,
     explorerState: input.explorerState || _explorerState,
     setExplorerState: input.setExplorerState || setExplorerState,
+    useShadowDOM: input.useShadowDOM || false,
   };
 };
 
@@ -108,15 +110,24 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
   });
 
   const schemaData = useSchemaQuery(db);
+
+  let Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <>{children}</>
+  );
+
+  if (props.useShadowDOM) {
+    Wrapper = ({ children }) => <StyleMe>{children}</StyleMe>;
+  }
+
   if (!schemaData.namespaces) {
     return null;
   }
 
   return (
-    <StyleMe>
+    <Wrapper>
       <ExplorerPropsContext.Provider value={props}>
         <ExplorerLayout namespaces={schemaData.namespaces} />
       </ExplorerPropsContext.Provider>
-    </StyleMe>
+    </Wrapper>
   );
 };
