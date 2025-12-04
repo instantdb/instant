@@ -357,7 +357,9 @@
 
                                    (:update :delete) (assoc state :next-action :close-ignore)
 
-                                   (:truncate :message) state
+                                   :message (update state :messages conj record)
+
+                                   :truncate state
 
                                    :close (assoc state :next-action :advance)
 
@@ -375,8 +377,10 @@
                              :close (case (:action record)
                                       (:insert :update :delete) (update state :records conj record)
 
-                                      ;; Don't handle truncate or message
-                                      (:truncate :message) state
+                                      :message (update state :messages conj record)
+
+                                      ;; Don't handle truncate
+                                      :truncate state
 
                                       :close (assoc state :next-action :deliver)
 
@@ -413,6 +417,7 @@
                        (recur (.read stream) produce-start-state)))
           :deliver (let [last-receive-lsn ^LogSequenceNumber (.getLastReceiveLSN stream)
                          msg {:changes (:records state)
+                              :messages (:messages state)
                               :nextlsn (LogSequenceNumber/valueOf ^String (:nextlsn record))
                               :lsn (LogSequenceNumber/valueOf ^String (:lsn record))
                               :tx-bytes (:tx-bytes state)}

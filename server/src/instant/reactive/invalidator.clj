@@ -1,5 +1,6 @@
 (ns instant.reactive.invalidator
   (:require
+   [clojure.tools.logging]
    [clojure.core.async :as a]
    [datascript.core :as ds]
    [instant.config :as config]
@@ -13,6 +14,7 @@
    [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
    [instant.util.e2e-tracer :as e2e-tracer]
+   [instant.util.json]
    [instant.util.tracer :as tracer])
   (:import
    (java.sql Timestamp)
@@ -75,7 +77,7 @@
   (when-let [^String created-at (topics/get-column columns "created_at")]
     (.toInstant (Timestamp/valueOf created-at))))
 
-(defn transform-wal-record [{:keys [changes tx-bytes] :as _record}]
+(defn transform-wal-record [{:keys [changes messages tx-bytes] :as _record}]
   ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
   ;;      or else we will never be notified about it.
   (let [{:strs [idents triples attrs transactions]}
@@ -86,6 +88,11 @@
                          (seq attrs))
         transactions-change (first transactions)
         app-id (extract-app-id transactions-change)]
+
+    (doseq [msg messages]
+      (clojure.tools.logging/info "MESSAGE"
+                                  (:prefix msg)
+                                  (instant.util.json/<-json (:content msg))))
 
     (when (and some-changes app-id)
       (let [tx-id (extract-tx-id transactions-change)
@@ -101,7 +108,8 @@
          :app-id app-id
          :tx-created-at tx-created-at
          :tx-id tx-id
-         :tx-bytes tx-bytes}))))
+         :tx-bytes tx-bytes
+         :messages messages}))))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"
