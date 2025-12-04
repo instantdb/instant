@@ -35,6 +35,8 @@
 
 (defn dev? [] (= :dev (get-env)))
 
+(defn test? [] (= :test (get-env)))
+
 (defn aws-env? []
   (contains? #{:prod :staging} (get-env)))
 
