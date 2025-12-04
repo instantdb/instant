@@ -500,21 +500,10 @@
      [[:db/retractEntity query-eid]])
     []))
 
-;; TODO: We could do this in the background by listening to transactions
-;;       and noticing whenever we remove a reference to a datalog entry
-(defn- clean-stale-datalog-tx-data
-  "Should be used in a db.fn/call. Returns transactions.
-   Retracts datalog queries that are no longer referenced in any subscriptions."
-  [db]
-  (for [datom (d/datoms db :aevt :datalog-query/app-id)
-        :when (nil? (d/datoms db :avet :subscription/datalog-query (:e datom)))]
-    [:db/retractEntity (:e datom)]))
-
 (defn remove-query! [store app-id sess-id q]
   (transact! "store/remove-query!"
              (app-conn store app-id)
-             [[:db.fn/call remove-subscriptions-tx-data sess-id q]
-              [:db.fn/call clean-stale-datalog-tx-data]]))
+             [[:db.fn/call remove-subscriptions-tx-data sess-id q]]))
 
 ;; --------------
 ;; adding queries
@@ -546,7 +535,6 @@
         report          (transact! "store/add-instaql-query!"
                                    conn
                                    [[:db.fn/call clean-stale-subscriptions-tx-data lookup-ref v]
-                                    [:db.fn/call clean-stale-datalog-tx-data]
                                     [:db.fn/call set-instaql-query-result-tx-data lookup-ref result-hash]])
         hash-before     (:instaql-query/hash (d/entity (:db-before report) lookup-ref))
         hash-after      (:instaql-query/hash (d/entity (:db-after report) lookup-ref))
@@ -586,8 +574,7 @@
     (transact! "store/remove-session-data!"
                (app-conn store app-id)
                [[:db.fn/call remove-session-queries-tx-data sess-id]
-                [:db.fn/call remove-session-subscriptions-tx-data sess-id]
-                [:db.fn/call clean-stale-datalog-tx-data]]))
+                [:db.fn/call remove-session-subscriptions-tx-data sess-id]]))
   (let [sessions-conn (:sessions store)]
     (transact! "store/remove-session!"
                sessions-conn
@@ -609,7 +596,7 @@
   "Should be used in a db.fn/call. Returns transactions.
    Updates or creates the datalog query with data needed to manage the cache."
   [db app-id query watcher-id]
-  (if-let [existing (d/entity db [:datalog-query/app-id+query [app-id query]])]
+  (when-let [existing (d/entity db [:datalog-query/app-id+query [app-id query]])]
     (let [watchers (:datalog-query/watchers existing)
           id (:db/id existing)]
       (if (or (not watchers)
@@ -625,13 +612,7 @@
          [:db/add id :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)]
          [:db/add id :datalog-query/child-vfutures (ua/new-child-vfutures)]]
 
-        []))
-    [{:datalog-query/app-id app-id
-      :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)
-      :datalog-query/child-vfutures (ua/new-child-vfutures)
-      :datalog-query/query query
-      :datalog-query/watchers (atom {:canceled? false
-                                     :watchers #{watcher-id}})}]))
+        []))))
 
 (defn swap-datalog-cache!
   "Adds a query to the datalog cache.
@@ -654,56 +635,59 @@
                                         swap-datalog-cache-tx-data
                                         app-id
                                         datalog-query
-                                        watcher-id]])
+                                        watcher-id]])]
+    (if-let [query-ent (d/entity db-after lookup-ref)]
+      (let [query-id (:db/id query-ent)
 
-        query-ent (d/entity db-after lookup-ref)
+            stmt-tracker (:datalog-query/stmt-tracker query-ent)
 
-        query-id (:db/id query-ent)
+            child-vfutures (:datalog-query/child-vfutures query-ent)
 
-        stmt-tracker (:datalog-query/stmt-tracker query-ent)
+            cache (conn->datalog-query-cache conn)
 
-        child-vfutures (:datalog-query/child-vfutures query-ent)
+            ^CompletableFuture existing-result
+            (when-let [res (cache/get-if-present-async cache query-id)]
+              (if (.isCompletedExceptionally res)
+                ;; caffeine invalidates errors, but sometimes it takes a bit
+                (cache/invalidate-async cache query-id)
+                res))
 
-        cache (conn->datalog-query-cache conn)
+            ^CompletableFuture result
+            (or existing-result
+                ;; bindings to let us cancel in-progress queries
+                ;; once all listeners drop off
+                (binding [ua/*child-vfutures* child-vfutures
+                          sql/*in-progress-stmts* stmt-tracker]
+                  (cache/get-async cache
+                                   query-id
+                                   (fn [_]
+                                     (datalog-query-fn ctx datalog-query)))))]
 
-        ^CompletableFuture existing-result
-        (when-let [res (cache/get-if-present-async cache query-id)]
-          (if (.isCompletedExceptionally res)
-            ;; caffeine invalidates errors, but sometimes it takes a bit
-            (cache/invalidate-async cache query-id)
-            res))
+        (tracer/add-data! {:attributes {:cache-hit (not (nil? existing-result))
+                                        :realized (and (not (nil? existing-result))
+                                                       (.isDone existing-result))}})
 
-        ^CompletableFuture result
-        (or existing-result
-            ;; bindings to let us cancel in-progress queries
-            ;; once all listeners drop off
-            (binding [ua/*child-vfutures* child-vfutures
-                      sql/*in-progress-stmts* stmt-tracker]
-              (cache/get-async cache
-                               query-id
-                               (fn [_]
-                                 (datalog-query-fn ctx datalog-query)))))]
-
-    (tracer/add-data! {:attributes {:cache-hit (not (nil? existing-result))
-                                    :realized (and (not (nil? existing-result))
-                                                   (.isDone existing-result))}})
-
-    (try
-      (deref result)
-      (catch Throwable t
-        (when (and (not (.isDone result))
-                   (or (instance? InterruptedException t)
-                       (instance? CancellationException t))
-                   (:canceled? (swap! (:datalog-query/watchers query-ent)
-                                      (fn [watchers]
-                                        (let [watchers' (update watchers :watchers disj watcher-id)]
-                                          (if (empty? (:watchers watchers'))
-                                            (assoc watchers' :canceled? true)
-                                            watchers'))))))
-          (cancel-in-progress-datalog-query cache query-ent))
-        (throw t))
-      (finally
-        (swap! (:datalog-query/watchers query-ent) update :watchers disj watcher-id)))))
+        (try
+          (deref result)
+          (catch Throwable t
+            (when (and (not (.isDone result))
+                       (or (instance? InterruptedException t)
+                           (instance? CancellationException t))
+                       (:canceled? (swap! (:datalog-query/watchers query-ent)
+                                          (fn [watchers]
+                                            (let [watchers' (update watchers :watchers disj watcher-id)]
+                                              (if (empty? (:watchers watchers'))
+                                                (assoc watchers' :canceled? true)
+                                                watchers'))))))
+              (cancel-in-progress-datalog-query cache query-ent))
+            (throw t))
+          (finally
+            (swap! (:datalog-query/watchers query-ent) update :watchers disj watcher-id))))
+      ;; There was no query in the store, it was likely removed by the session leaving.
+      ;; We're going to run it just in case
+      ;; TODO: Throw an exception here once we confirm that it's not running in prod
+      (tracer/with-span! {:name "orphaned-datalog-query"}
+        (datalog-query-fn ctx datalog-query)))))
 
 ;; --------------
 ;; datalog loader
@@ -732,22 +716,22 @@
                conn
                [[:db.fn/call
                  (fn [db]
-                   (let [lookup-ref             [:datalog-query/app-id+query [app-id datalog-query]]
+                   (let [lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
                          existing-datalog-query (d/entity db lookup-ref)
-                         datalog-query-eid      (or (:db/id existing-datalog-query) -1)]
+                         datalog-query-eid (or (:db/id existing-datalog-query) -1)]
                      (concat
                       (if existing-datalog-query
                         (when-not (:datalog-query/topics existing-datalog-query)
-                          [{:db/id                datalog-query-eid
+                          [{:db/id datalog-query-eid
                             :datalog-query/topics coarse-topics}])
-                        [{:db/id                datalog-query-eid
+                        [{:db/id datalog-query-eid
                           :datalog-query/app-id app-id
                           :datalog-query/query  datalog-query
                           :datalog-query/topics coarse-topics}])
                       (when-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
-                        [{:subscription/app-id        app-id
-                          :subscription/session-id    session-id
-                          :subscription/v             v
+                        [{:subscription/app-id app-id
+                          :subscription/session-id session-id
+                          :subscription/v v
                           :subscription/instaql-query query-eid
                           :subscription/datalog-query datalog-query-eid}]))))]])))
 
@@ -757,18 +741,15 @@
                                     {:keys [topics] :as _result}]
 
   (let [{:keys [app-id]} ctx
-        conn       (app-conn store app-id)
+        conn (app-conn store app-id)
         lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]]
     (transact!
      "store/record-datalog-query-finish!"
      conn
      [[:db.fn/call
        (fn [db]
-         (if-some [existing (d/entity db lookup-ref)]
-           [[:db/add (:db/id existing) :datalog-query/topics topics]]
-           [{:datalog-query/app-id app-id
-             :datalog-query/query datalog-query
-             :datalog-query/topics topics}]))]])))
+         (when-some [existing (d/entity db lookup-ref)]
+           [[:db/add (:db/id existing) :datalog-query/topics topics]]))]])))
 
 ;; ------------
 ;; invalidation
