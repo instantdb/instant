@@ -1,14 +1,16 @@
-import React from 'react';
-import { Button } from '@lib/components/ui';
-import { SchemaNamespace, DBAttr } from '@lib/types';
-import { relationshipConstraintsInverse, RelationshipKinds } from '@lib/types';
 import {
   ArrowUturnLeftIcon,
-  ChevronRightIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
+import { Button } from '@lib/components/ui';
+import {
+  DBAttr,
+  relationshipConstraintsInverse,
+  RelationshipKinds,
+} from '@lib/types';
 import { add, formatDistanceToNow } from 'date-fns';
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 
 type SoftDeletedAttr = DBAttr & {
   'deletion-marked-at': string;
