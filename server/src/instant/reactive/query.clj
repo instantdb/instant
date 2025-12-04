@@ -8,6 +8,7 @@
   (:require
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
+   [instant.db.instaql-topic :as iqt]
    [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.reactive.store :as rs]
@@ -44,7 +45,9 @@
     (tracer/with-span! {:name "datalog-query-reactive!"
                         :attributes {:query (pr-str datalog-query)}}
       (let [coarse-topics (d/pats->coarse-topics datalog-query)
-            _ (rs/record-datalog-query-start! store ctx datalog-query coarse-topics)
+            _ (rs/record-datalog-query-start! store ctx datalog-query
+                                              {:coarse-topics coarse-topics
+                                               :instaql-topic (:instaql-topic ctx)})
             datalog-result (datalog-query-cached! store ctx datalog-query)]
         (rs/record-datalog-query-finish! store ctx datalog-query datalog-result)
         datalog-result))))
@@ -93,6 +96,15 @@
                      {:aggregate aggregate}))
       :child-nodes []}]))
 
+(defn- compute-instaql-topic [attrs instaql-query]
+  (tracer/with-span! {:name "compute-instaql-topic"}
+    (let [forms (iq/->forms! attrs instaql-query)]
+      (when (and (= 1 (count forms))
+                 (empty? (:child-forms (first forms))))
+        (let [result (iqt/instaql-topic {:attrs attrs} (first forms))]
+          (when (:program result)
+            result))))))
+
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
   effects in the store. To be used with session"
@@ -103,8 +115,10 @@
                                    :instaql-query instaql-query}}
     (try
       (let [v (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
+            instaql-topic (compute-instaql-topic attrs instaql-query)
             ctx (-> base-ctx
                     (assoc :v v
+                           :instaql-topic instaql-topic
                            :datalog-query-fn (partial datalog-query-reactive! store)
                            :instaql-query instaql-query)
                     ((fn [ctx]
