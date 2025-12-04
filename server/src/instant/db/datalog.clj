@@ -30,6 +30,7 @@
   (:require [clojure.pprint]
             [clojure.spec.alpha :as s]
             [clojure.set :as set]
+            [instant.config :as config]
             [instant.db.model.triple :as triple-model]
             [instant.db.attr-sketch :as cms]
             [instant.flags :as flags]
@@ -2627,9 +2628,11 @@
                      {:join-rows []
                       :page-info-rows []
                       :symbol-values symbol-values
-                      :symbol-values-for-topics (ensure-empty-symbol-values-for-topics
-                                                 symbol-fields
-                                                 symbol-values-for-topics)}
+                      :symbol-values-for-topics (if (flags/toggled? :ensure-empty-symbol-values-for-topics (config/test?))
+                                                  (ensure-empty-symbol-values-for-topics
+                                                   symbol-fields
+                                                   symbol-values-for-topics)
+                                                  symbol-values-for-topics)}
                      sql-res)]
          (-> (if page-info
                (let [rows (if (:last? page-info)
