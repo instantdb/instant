@@ -332,12 +332,36 @@
         (catch clojure.lang.ExceptionInfo e
           (translate-datascript-exceptions e))))))
 
+(defn deleted-subscriptions-datalog-query-ids [report]
+  (keep (fn [datom]
+          (when (and (= (:a datom)
+                        :subscription/datalog-query)
+                     (not (:added datom))
+                     (d/entity (:db-after report) (:v datom)))
+            (:v datom)))
+        (:tx-data report)))
+
+(defn clean-stale-datalog-queries-tx-data [db datalog-query-eids]
+  (ucoll/reduce-tr (fn [acc e]
+                     (if-not (d/find-datom db :avet :subscription/datalog-query e)
+                       (conj! acc [:db/retractEntity e])
+                       acc))
+                   []
+                   datalog-query-eids))
+
 (defn transact! [span-name conn tx-data]
-  (if (or (flags/toggled? :enable-store-batching-globally)
-          (contains? (flags/flag :enable-store-batching-apps)
-                     (:app-id (meta conn))))
-    (transact-new! span-name conn tx-data)
-    (transact-old! span-name conn tx-data)))
+  (let [report (if (or (flags/toggled? :enable-store-batching-globally)
+                       (contains? (flags/flag :enable-store-batching-apps)
+                                  (:app-id (meta conn))))
+                 (transact-new! span-name conn tx-data)
+                 (transact-old! span-name conn tx-data))]
+    (if-let [eids (seq (deleted-subscriptions-datalog-query-ids report))]
+      (do
+        (transact! "store/clean-datalog-queries"
+                   conn
+                   [[:db.fn/call clean-stale-datalog-queries-tx-data (distinct eids)]])
+        report)
+      report)))
 
 ;; -----
 ;; reports
