@@ -100,5 +100,5 @@
                        (try
                          (merge default-props
                                 (instance-info rds-client reader-instance-id))
-                         (catch Throwable t
+                         (catch Throwable _t
                            nil)))})))
