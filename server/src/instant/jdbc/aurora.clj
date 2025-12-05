@@ -361,8 +361,12 @@
     (lang/set-var! -conn-pool
       (start-pool conn-pool-size primary-config))
     (when replica-config
-      (lang/set-var! -replica-conn-pool
-                     (start-replica-pool conn-pool-size replica-config)))
+      (tracer/with-span! {:name "aurora/start-replica"}
+        (try
+          (lang/set-var! -replica-conn-pool
+            (start-replica-pool conn-pool-size replica-config))
+          (catch Throwable t
+            (tracer/add-exception! t {:escaping? false})))))
     nil))
 
 (defn stop []
