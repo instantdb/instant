@@ -90,7 +90,7 @@
         default-props {:secret-arn secret-arn
                        :cluster-id cluster-id
                        :cluster-status cluster-status
-                       :application-name application-name}]
+                       :ApplicationName application-name}]
     (assert secret-arn "missing secret-arn")
     (merge default-props
            {:primary (merge default-props

@@ -362,7 +362,8 @@
       (start-pool conn-pool-size primary-config))
     (when replica-config
       (lang/set-var! -replica-conn-pool
-        (start-pool conn-pool-size replica-config)))))
+                     (start-replica-pool conn-pool-size replica-config)))
+    nil))
 
 (defn stop []
   (lang/clear-var! -conn-pool (fn [^HikariDataSource d]
