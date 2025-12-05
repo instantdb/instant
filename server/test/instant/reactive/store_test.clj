@@ -44,8 +44,7 @@
                                                         :instaql-query {:q {:$ {:where {:v (str (random-uuid))}}}}
                                                         :v 0}
                                                        dq
-                                                       {:coarse-topics #{}
-                                                        :instaql-topic nil}))]
+                                                       #{}))]
     (testing "store returns cached data"
       (let [q [[:ea (random-uuid)]]]
         (record-start store app-id q)
@@ -359,11 +358,20 @@
 
         (let [conn (rs/app-conn store app-id)
               db @conn
+              ;; Get the datalog-query
               dq-ent (->> (d/datoms db :avet :datalog-query/app-id app-id)
                           first
                           :e
                           (d/entity db))
-              program (get-in dq-ent [:datalog-query/instaql-topic :program])]
+              ;; Get subscription that references this datalog-query
+              sub-ent (->> (d/datoms db :avet :subscription/datalog-query (:db/id dq-ent))
+                           first
+                           :e
+                           (d/entity db))
+              ;; Get the instaql-query from the subscription
+              iq-ent (:subscription/instaql-query sub-ent)
+              ;; Get the topic from the instaql-query
+              program (get-in iq-ent [:instaql-query/topic :program])]
           (is (some? program))
 
           (is (true? (program {:etype "users"

@@ -45,9 +45,7 @@
     (tracer/with-span! {:name "datalog-query-reactive!"
                         :attributes {:query (pr-str datalog-query)}}
       (let [coarse-topics (d/pats->coarse-topics datalog-query)
-            _ (rs/record-datalog-query-start! store ctx datalog-query
-                                              {:coarse-topics coarse-topics
-                                               :instaql-topic (:instaql-topic ctx)})
+            _ (rs/record-datalog-query-start! store ctx datalog-query coarse-topics)
             datalog-result (datalog-query-cached! store ctx datalog-query)]
         (rs/record-datalog-query-finish! store ctx datalog-query datalog-result)
         datalog-result))))
@@ -114,11 +112,13 @@
                                    :app-id app-id
                                    :instaql-query instaql-query}}
     (try
-      (let [v (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
-            instaql-topic (compute-instaql-topic attrs instaql-query)
+      (let [iq-ent (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
+            v (:instaql-query/version iq-ent)
+            _ (when (and (= 1 v) (not (:instaql-query/topic iq-ent)))
+                (when-let [topic (compute-instaql-topic attrs instaql-query)]
+                  (rs/set-instaql-topic! store app-id (:db/id iq-ent) topic)))
             ctx (-> base-ctx
                     (assoc :v v
-                           :instaql-topic instaql-topic
                            :datalog-query-fn (partial datalog-query-reactive! store)
                            :instaql-query instaql-query)
                     ((fn [ctx]

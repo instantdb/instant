@@ -82,6 +82,7 @@
     :db/unique :db.unique/identity}
    :instaql-query/return-type {} ;; :join-rows or :tree
    :instaql-query/inference? {:db/type :db.type/boolean}
+   :instaql-query/topic {} ;; the computed instaql-topic
 
    :subscription/app-id {:db/type :db.type/integer}
    :subscription/session-id {:db/index true
@@ -112,7 +113,6 @@
 
    :datalog-query/delayed-call {} ;; delay with datalog result (from query.clj)
    :datalog-query/topics {:db/type :db.type/list-of-topics}
-   :datalog-query/instaql-topic {}
 
    :sync/id {:db/unique :db.unique/identity
              :db/type :db.type/uuid}
@@ -480,7 +480,13 @@
         conn       (app-conn store app-id)
         tx         [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type inference?]]
         report     (transact! "store/bump-instaql-version!" conn tx)]
-    (:instaql-query/version (d/entity (:db-after report) lookup-ref))))
+    (d/entity (:db-after report) lookup-ref)))
+
+(defn set-instaql-topic! [store app-id instaql-query-eid topic]
+  (let [conn (app-conn store app-id)]
+    (transact! "store/set-instaql-topic!"
+               conn
+               [[:db/add instaql-query-eid :instaql-query/topic topic]])))
 
 ;; ----
 ;; remove instaql queries
@@ -705,7 +711,7 @@
 ;; -------------
 ;; subscriptions
 
-(defn record-datalog-query-start! [store ctx datalog-query {:keys [coarse-topics instaql-topic]}]
+(defn record-datalog-query-start! [store ctx datalog-query coarse-topics]
   (let [{:keys [app-id session-id instaql-query v]} ctx
         conn (app-conn store app-id)]
     (transact! "store/record-datalog-query-start!"
@@ -718,14 +724,12 @@
                      (concat
                       (if existing-datalog-query
                         (when-not (:datalog-query/topics existing-datalog-query)
-                          [(cond-> {:db/id datalog-query-eid
-                                    :datalog-query/topics coarse-topics}
-                             instaql-topic (assoc :datalog-query/instaql-topic instaql-topic))])
-                        [(cond-> {:db/id datalog-query-eid
-                                  :datalog-query/app-id app-id
-                                  :datalog-query/query  datalog-query
-                                  :datalog-query/topics coarse-topics}
-                           instaql-topic (assoc :datalog-query/instaql-topic instaql-topic))])
+                          [{:db/id datalog-query-eid
+                            :datalog-query/topics coarse-topics}])
+                        [{:db/id datalog-query-eid
+                          :datalog-query/app-id app-id
+                          :datalog-query/query  datalog-query
+                          :datalog-query/topics coarse-topics}])
                       (when-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
                         [{:subscription/app-id app-id
                           :subscription/session-id session-id
