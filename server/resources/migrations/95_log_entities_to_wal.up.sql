@@ -1,8 +1,8 @@
 create or replace function triples_update_batch_trigger()
 returns trigger as $$
 declare
-  update_ents text;
-  ref_ents text;
+  ents_msg text;
+  app_id_setting uuid;
 begin
   -- Don't let this trigger cause itself to fire. We let it fire
   -- twice because postgres 16 has some bug (fixed in 17) where
@@ -13,6 +13,7 @@ begin
     return null;
   end if;
 
+  -- XXX: remove
   perform pg_logical_emit_message(true, 'trigger_depth', pg_trigger_depth()::text);
 
   if pg_trigger_depth() <= 1 then
@@ -38,45 +39,68 @@ begin
 
   end if;
 
-  -- Write the entities to the wal
-  with by_entity as (
-    select t.entity_id,
-           json_build_array(json_object_agg(t.attr_id::text, t.value)) as attrs
-      from triples t
-      join newrows n
-        on t.app_id = n.app_id
-       and t.entity_id = n.entity_id
-     where t.ea
-     group by t.entity_id
-  )
-  select json_object_agg(entity_id::text, attrs)::text
-    into update_ents
-    from by_entity;
+  select current_setting('instant.wal_msg_app_id', true)::uuid into app_id_setting;
 
-  if update_ents is not null then
-    perform pg_logical_emit_message(true, 'update_ents', update_ents);
+  if app_id_setting is not null then
+
+    -- Write the entities to the wal
+    with by_etype as (
+      -- Forward entities
+      select a.etype, n.entity_id
+        from newrows n
+        join attrs a
+          on n.attr_id = a.id
+         and a.app_id = app_id_setting
+      union
+      -- Ref entities
+      select a.reverse_etype etype, json_uuid_to_uuid(n.value) entity_id
+        from newrows n
+        join attrs a
+          on n.attr_id = a.id
+         and a.app_id = app_id_setting
+       where n.vae
+    ),
+    etypes as (
+      select distinct etype from by_etype
+    ),
+    -- Map of etype to attr
+    attr_map as (
+      select a.etype, a.id
+        from attrs a
+        join etypes e on e.etype = a.etype
+       where a.app_id = app_id_setting
+         and a.cardinality = 'one'
+    ),
+    -- Get all of the ents, grouped by etype and entity_id
+    by_entity as (
+      select e.etype,
+             t.entity_id,
+             json_object_agg(t.attr_id::text, t.value) as attrs
+        from triples t
+        join by_etype e
+          on t.entity_id = e.entity_id
+        join attr_map a
+          on a.etype = e.etype
+         and t.attr_id = a.id
+       where t.app_id = app_id_setting
+         and t.ea
+       group by e.etype, t.entity_id
+    ),
+    -- Group the ents by entity_id (you can only do one aggregate at a time)
+    ent_groups as (
+      select etype, json_object_agg(entity_id::text, attrs) ents
+        from by_entity
+       group by etype
+    )
+    -- Group by etype to give us {posts: {id1: {id-attr: id1, title: title1}}}
+    select json_object_agg(etype, ents)::text
+      into ents_msg
+      from ent_groups;
+
+    if ents_msg is not null then
+      perform pg_logical_emit_message(true, 'update_ents', ents_msg);
+    end if;
   end if;
-
-  -- Write the ref entities to the wal
-  with by_entity as (
-    select t.entity_id,
-           json_build_array(json_object_agg(t.attr_id::text, t.value)) as attrs
-      from triples t
-      join newrows n
-        on t.app_id = n.app_id
-       and n.vae
-       and t.entity_id = json_uuid_to_uuid(n.value)
-     where t.ea
-     group by t.entity_id
-  )
-  select json_object_agg(entity_id::text, attrs)::text
-    into ref_ents
-    from by_entity;
-
-  if ref_ents is not null then
-    perform pg_logical_emit_message(true, 'ref_ents', ref_ents);
-  end if;
-
 
   update triples t
      set pg_size = public.triples_column_size(t)
@@ -86,6 +110,89 @@ begin
     and s.attr_id = t.attr_id
     and s.value_md5 = t.value_md5
     and public.triples_column_size(t) is distinct from t.pg_size;
+
+  return null;
+end;
+$$ language plpgsql;
+
+
+create or replace function triples_delete_batch_trigger()
+returns trigger as $$
+declare
+  ents_msg text;
+  app_id_setting uuid;
+begin
+  -- Update sweeper with deleted files
+  insert into app_files_to_sweep (app_id, location_id)
+    select app_id, value #>> '{}' as location_id
+    from oldrows
+    -- This should match the attr_id for $files.location-id
+    where attr_id = '96653230-13ff-ffff-2a34-b40fffffffff'
+    on conflict do nothing;
+
+  select current_setting('instant.wal_msg_app_id', true)::uuid into app_id_setting;
+
+  if app_id_setting is not null then
+
+    -- Write the entities to the wal
+    with by_etype as (
+      -- Forward entities
+      select a.etype, n.entity_id
+        from oldrows n
+        join attrs a
+          on n.attr_id = a.id
+         and a.app_id = app_id_setting
+      union
+      -- Ref entities
+      select a.reverse_etype etype, json_uuid_to_uuid(n.value) entity_id
+        from oldrows n
+        join attrs a
+          on n.attr_id = a.id
+         and a.app_id = app_id_setting
+       where n.vae
+    ),
+    etypes as (
+      select distinct etype from by_etype
+    ),
+    -- Map of etype to attr
+    attr_map as (
+      select a.etype, a.id
+        from attrs a
+        join etypes e on e.etype = a.etype
+       where a.app_id = app_id_setting
+         and a.cardinality = 'one'
+    ),
+    -- Get all of the ents, grouped by etype and entity_id
+    by_entity as (
+      select e.etype,
+             t.entity_id,
+             json_object_agg(t.attr_id::text, t.value) as attrs
+        from triples t
+        join by_etype e
+          on t.entity_id = e.entity_id
+        join attr_map a
+          on a.etype = e.etype
+         and t.attr_id = a.id
+       where t.app_id = app_id_setting
+         and t.ea
+       group by e.etype, t.entity_id
+    ),
+    -- Group the ents by entity_id (you can only do one aggregate at a time)
+    ent_groups as (
+      select etype, json_object_agg(entity_id::text, attrs) ents
+        from by_entity
+       group by etype
+    )
+    -- Group by etype to give us {posts: {id1: {id-attr: id1, title: title1}}}
+    select json_object_agg(etype, ents)::text
+      into ents_msg
+      from ent_groups;
+
+    if ents_msg is not null then
+      perform pg_logical_emit_message(true, 'delete_ents', ents_msg);
+    end if;
+  end if;
+
 
   return null;
 end;

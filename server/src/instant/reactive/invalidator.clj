@@ -89,10 +89,6 @@
         transactions-change (first transactions)
         app-id (extract-app-id transactions-change)]
 
-    (doseq [msg messages]
-      (clojure.tools.logging/info "MESSAGE"
-                                  (:prefix msg)
-                                  (instant.util.json/<-json (:content msg))))
 
     (when (and some-changes app-id)
       (let [tx-id (extract-tx-id transactions-change)

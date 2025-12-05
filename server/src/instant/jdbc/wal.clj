@@ -315,6 +315,7 @@
 
 (def produce-start-state {:next-action :begin
                           :records []
+                          :messages []
                           :tx-bytes 0})
 
 (defn- produce

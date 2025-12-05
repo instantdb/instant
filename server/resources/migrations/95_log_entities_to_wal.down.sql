@@ -43,3 +43,18 @@ begin
   return null;
 end;
 $$ language plpgsql;
+
+create or replace function triples_delete_batch_trigger()
+returns trigger as $$
+begin
+  -- Update sweeper with deleted files
+  insert into app_files_to_sweep (app_id, location_id)
+    select app_id, value #>> '{}' as location_id
+    from oldrows
+    -- This should match the attr_id for $files.location-id
+    where attr_id = '96653230-13ff-ffff-2a34-b40fffffffff'
+    on conflict do nothing;
+
+  return null;
+end;
+$$ language plpgsql;
