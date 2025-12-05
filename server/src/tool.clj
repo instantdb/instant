@@ -11,6 +11,7 @@
    [cheshire.core :as cheshire]
    [clojure.string :as str]
    [honey.sql :as hsql]
+   [lambdaisland.uri :as uri]
    [portal.api :as p]
    [clj-async-profiler.core :as prof])
   (:import
@@ -414,8 +415,9 @@
                          clojure.edn/read-string
                          :database-cluster-id)
          rds-cluster-id->db-config# (requiring-resolve 'instant.aurora-config/rds-cluster-id->db-config)
-         start-pool# (requiring-resolve 'instant.jdbc.aurora/start-pool)]
-     (with-open [~conn-name ^HikariDataSource (start-pool# 1 (rds-cluster-id->db-config# cluster-id# (.getHostName (InetAddress/getLocalHost))))]
+         start-pool# (requiring-resolve 'instant.jdbc.aurora/start-pool)
+         application-name# (uri/query-encode (.getHostName (InetAddress/getLocalHost)))]
+     (with-open [~conn-name ^HikariDataSource (start-pool# 1 (rds-cluster-id->db-config# cluster-id# application-name#))]
        ~@body)))
 
 (defn recompile-java
