@@ -1,6 +1,5 @@
 (ns instant.reactive.invalidator
   (:require
-   [clojure.tools.logging]
    [clojure.core.async :as a]
    [datascript.core :as ds]
    [instant.config :as config]
@@ -14,7 +13,6 @@
    [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
    [instant.util.e2e-tracer :as e2e-tracer]
-   [instant.util.json]
    [instant.util.tracer :as tracer])
   (:import
    (java.sql Timestamp)
