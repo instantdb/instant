@@ -8,13 +8,15 @@
   (:require
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
+   [instant.db.instaql-topic :as iqt]
    [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.reactive.store :as rs]
    [instant.util.instaql :refer [instaql-nodes->object-meta
                                  instaql-nodes->object-tree]]
    [instant.util.tracer :as tracer]
-   [instant.comment :as c]))
+   [instant.comment :as c]
+   [instant.flags :as flags]))
 
 (defn- datalog-query-cached!
   "Returns the result of a datalog query. Leverages atom and
@@ -93,6 +95,20 @@
                      {:aggregate aggregate}))
       :child-nodes []}]))
 
+(defn- compile-instaql-topic [attrs instaql-query]
+  (when (flags/toggled? :instaql-topic-compiler true)
+    (tracer/with-span! {:name "compile-instaql-topic"}
+      (try
+        (let [forms (iq/->forms! attrs instaql-query)]
+          (when (and (= 1 (count forms))
+                     (empty? (:child-forms (first forms))))
+            (let [result (iqt/instaql-topic {:attrs attrs} (first forms))]
+              (when (:program result)
+                (tracer/add-data! {:attributes {:got-result? true}})
+                result))))
+        (catch Throwable e
+          (tracer/record-exception-span! e {:name "compile-instaql-topic-ex"}))))))
+
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
   effects in the store. To be used with session"
@@ -102,7 +118,15 @@
                                    :app-id app-id
                                    :instaql-query instaql-query}}
     (try
-      (let [v (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
+      (let [iq-ent (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
+            v (:instaql-query/version iq-ent)
+            iq-topic (or (:instaql-query/topic iq-ent)
+                         (when-let [topic (compile-instaql-topic attrs instaql-query)]
+                           (rs/set-instaql-topic! store app-id (:db/id iq-ent) topic)
+                           topic))
+
+            _ (tracer/add-data! {:attributes {:v v
+                                              :iq-topic? (boolean iq-topic)}})
             ctx (-> base-ctx
                     (assoc :v v
                            :datalog-query-fn (partial datalog-query-reactive! store)

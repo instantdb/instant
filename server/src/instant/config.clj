@@ -23,13 +23,14 @@
 
 (defn get-env []
   (cond
-    (some? *env*)                           *env*
+    (some? *env*)                                 *env*
+    (= "test" (System/getProperty "instant.env")) :test
     ;; n.b. make sure this the staging check is first so that we can
     ;;      override it in the eb env vars
-    (= "true" (System/getenv "STAGING"))    :staging
-    (= "true" (System/getenv "PRODUCTION")) :prod
-    (= "true" (System/getenv "TEST"))       :test
-    :else                                   :dev))
+    (= "true" (System/getenv "STAGING"))          :staging
+    (= "true" (System/getenv "PRODUCTION"))       :prod
+    (= "true" (System/getenv "TEST"))             :test
+    :else                                         :dev))
 
 (defn prod? [] (= :prod (get-env)))
 
@@ -142,16 +143,16 @@
                 "jdbc:postgresql://localhost:5432/instant")]
     (db-url->config url)))
 
-(defn aurora-config-from-cluster-id []
+(defn aurora-config-from-cluster-id [application-name]
   (when-let [cluster-id (or (System/getenv "DATABASE_CLUSTER_ID")
                             (some-> @config-map :database-cluster-id))]
-    (aurora-config/rds-cluster-id->db-config cluster-id)))
+    (aurora-config/rds-cluster-id->db-config cluster-id application-name)))
 
 (defn get-aurora-config []
   (let [application-name (uri/query-encode (format "%s, %s"
                                                    @hostname
                                                    @process-id))
-        config (or (aurora-config-from-cluster-id)
+        config (or (aurora-config-from-cluster-id application-name)
                    (aurora-config-from-database-url))]
     (assoc config
            :ApplicationName application-name)))
@@ -159,10 +160,11 @@
 (defn get-next-aurora-config []
   (when-let [cluster-id (or (System/getenv "NEXT_DATABASE_CLUSTER_ID")
                             (some-> @config-map :next-database-cluster-id))]
-    (assoc (aurora-config/rds-cluster-id->db-config cluster-id)
-           :ApplicationName (uri/query-encode (format "%s, %s"
-                                                      @hostname
-                                                      @process-id)))))
+    (let [application-name (uri/query-encode (format "%s, %s"
+                                                     @hostname
+                                                     @process-id))]
+      (assoc (aurora-config/rds-cluster-id->db-config cluster-id application-name)
+             :ApplicationName application-name))))
 
 (defn dashboard-origin
   ([] (dashboard-origin {:env (get-env)}))

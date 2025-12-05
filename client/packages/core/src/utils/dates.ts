@@ -91,6 +91,24 @@ function iso8601IncompleteOffsetToInstant(s) {
   return null;
 }
 
+function iso8601SingleDigitToInstant(s) {
+  // Format: "2025-11-2T00:00:00.000Z" or "2025-1-2T00:00:00Z" (single-digit month/day)
+  // Also handles space separator: "2025-1-2 00:00:00"
+  // Normalize to proper ISO 8601 format with two-digit month and day
+  const regex = /^(\d+)-(\d{1,2})-(\d{1,2})([ T])(.+)$/;
+  const match = s.match(regex);
+
+  if (match) {
+    const [, year, month, day, separator, rest] = match;
+    const paddedMonth = month.padStart(2, '0');
+    const paddedDay = day.padStart(2, '0');
+    const correctedString = `${year}-${paddedMonth}-${paddedDay}T${rest}`;
+    return new Date(correctedString);
+  }
+
+  return null;
+}
+
 function usDateTimeStrToInstant(s) {
   // Format: "M/d/yyyy, h:mm:ss a" (e.g., "8/4/2025, 11:02:31 PM")
   const [datePart, timePart] = s.split(', ');
@@ -161,6 +179,7 @@ const dateParsers = [
   zonedDateTimeStrToInstant,
   specialStrToInstant,
   pgTimezoneStrToInstant,
+  iso8601SingleDigitToInstant,
 ];
 
 // Try to parse with a specific parser

@@ -2,6 +2,11 @@
   (:require
    [clojure.test :as test :refer [deftest is testing]]
    [datascript.core :as d]
+   [instant.data.resolvers :as resolvers]
+   [instant.db.model.attr :as attr-model]
+   [instant.fixtures :refer [with-zeneca-app]]
+   [instant.jdbc.aurora :as aurora]
+   [instant.reactive.query :as rq]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.cache :as c]
@@ -335,6 +340,42 @@
   (testing "$not"
     (is-match-topic-part #{1} {:$not 2} true)
     (is-match-topic-part #{1} {:$not 1} false)))
+
+(deftest topic-program-stored-on-datalog-query
+  (with-zeneca-app
+    (fn [app r]
+      (let [store (rs/init)
+            app-id (:id app)
+            session-id (random-uuid)
+            attrs (attr-model/get-by-app-id app-id)
+            instaql-query {:users {:$ {:where {:handle "stopa"}}}}
+            ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                 :app-id app-id
+                 :session-id session-id
+                 :attrs attrs
+                 :current-user nil}]
+        (rq/instaql-query-reactive! store ctx instaql-query :join-rows false)
+
+        (let [conn (rs/app-conn store app-id)
+              db @conn
+              dq-ent (->> (d/datoms db :avet :datalog-query/app-id app-id)
+                          first
+                          :e
+                          (d/entity db))
+              sub-ent (->> (d/datoms db :avet :subscription/datalog-query (:db/id dq-ent))
+                           first
+                           :e
+                           (d/entity db))
+              iq-ent (:subscription/instaql-query sub-ent)
+              program (get-in iq-ent [:instaql-query/topic :program])]
+          (is (some? program))
+
+          (is (true? (program {:etype "users"
+                               :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
+          (is (false? (program {:etype "users"
+                                :attrs {(str (resolvers/->uuid r :users/handle)) "joe"}})))
+          (is (false? (program {:etype "posts"
+                                :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}}))))))))
 
 (comment
   (test/run-tests *ns*))

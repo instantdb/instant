@@ -437,6 +437,20 @@
         ast (->ast compiler expr-str)]
     (->program ast)))
 
+(defn eval-program-with-bindings
+  [^CelRuntime$Program cel-program ^HashMap bindings]
+  (let [result (.eval cel-program bindings)]
+    (cond
+      (= result NullValue/NULL_VALUE)
+      nil
+
+      (instance? CelUnknownSet result)
+      (throw (CelEvaluationException.
+              "Tried to evaluate a cel program that used unknown variables"))
+
+      :else
+      result)))
+
 (defn eval-program!
   [ctx
    {:keys [cel-program etype action]}
@@ -451,19 +465,8 @@
           _ (when linked-data
               (.put bindings "linkedData" (DataCelMap. ctx linked-etype (CelMap. linked-data))))
           _ (when actions
-              (.put bindings "actions" (CelMap. actions)))
-          result (.eval ^CelRuntime$Program cel-program
-                        bindings)]
-      (cond
-        (= result NullValue/NULL_VALUE)
-        nil
-
-        (instance? CelUnknownSet result)
-        (throw (CelEvaluationException.
-                "Tried to evaluate a cel program that used unknown variables"))
-
-        :else
-        result))
+              (.put bindings "actions" (CelMap. actions)))]
+      (eval-program-with-bindings cel-program bindings))
 
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
