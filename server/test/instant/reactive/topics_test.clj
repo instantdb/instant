@@ -65,7 +65,6 @@
       (wait-for-record wal-records)
       (let [attrs (attr-model/get-by-app-id (:id app))
             r (resolvers/make-zeneca-resolver (:id app))]
-        (tool/def-locals)
         (testing "add a new entity"
           (is (tx/transact! (aurora/conn-pool :write)
                             attrs
@@ -76,6 +75,7 @@
           (let [record (wait-for-record wal-records)
                 entities-after (topics/extract-entities-after record)
                 entities-before (topics/extract-entities-before attrs entities-after record)]
+            (is (= 1 (count (:messages record))))
             (is (= (resolvers/walk-friendly r entities-after)
                    {"users"
                     {(str (stuid "dww"))
@@ -93,7 +93,8 @@
           (let [record (wait-for-record wal-records)
                 entities-after (topics/extract-entities-after record)
                 entities-before (topics/extract-entities-before attrs entities-after record)]
-
+            ;; No messages because no entities in the db
+            (is (= 0 (count (:messages record))))
             (is (= (resolvers/walk-friendly r entities-after)
                    {}))
 
@@ -116,7 +117,7 @@
                 entities-after (topics/extract-entities-after record)
                 entities-before (topics/extract-entities-before attrs entities-after record)]
 
-            (def -rec record)
+            (is (= 1 (count (:messages record))))
             (is (= (resolvers/walk-friendly r entities-before)
                    {"users"
                     {"eid-alex"
@@ -165,8 +166,8 @@
           (let [record (wait-for-record wal-records)
                 entities-after (topics/extract-entities-after record)
                 entities-before (topics/extract-entities-before attrs entities-after record)]
+            (is (= 1 (count (:messages record))))
 
-            ;; Many-to-many links
             (is (= (resolvers/walk-friendly r entities-before)
                    {"users"
                     {"eid-alex"
@@ -217,7 +218,7 @@
                 entities-after (topics/extract-entities-after record)
                 entities-before (topics/extract-entities-before attrs entities-after record)]
 
-
+            (is (= 1 (count (:messages record))))
             (is (= (resolvers/walk-friendly r entities-after)
                    (resolvers/walk-friendly r entities-before)
                    {"bookshelves"
@@ -246,6 +247,7 @@
           (let [record (wait-for-record wal-records)
                 entities-after (topics/extract-entities-after record)
                 entities-before (topics/extract-entities-before attrs entities-after record)]
+            (is (= 1 (count (:messages record))))
 
             ;; Many-to-many links
             (is (= (resolvers/walk-friendly r entities-after)

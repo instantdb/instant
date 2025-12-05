@@ -13,9 +13,6 @@ begin
     return null;
   end if;
 
-  -- XXX: remove
-  perform pg_logical_emit_message(true, 'trigger_depth', pg_trigger_depth()::text);
-
   if pg_trigger_depth() <= 1 then
     -- Update sweeper with deleted files
     with old_files as (
