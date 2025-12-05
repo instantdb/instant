@@ -12,9 +12,6 @@
 
 (declare log-q)
 
-;; ------
-;; Query
-
 (def upsert-q
   (uhsql/preformat
    {:insert-into :join-room-logs
@@ -22,9 +19,6 @@
               :join-count :?join-count}]
     :on-conflict :app-id
     :do-update-set {:join-count [:+ :join-room-logs.join-count :excluded.join-count]}}))
-
-;; ------
-;; Queue
 
 (defn- group-key
   [{:keys [app-id]}]
