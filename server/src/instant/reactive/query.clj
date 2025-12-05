@@ -115,12 +115,13 @@
     (try
       (let [iq-ent (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
             v (:instaql-query/version iq-ent)
-            existing-iq-topic (:instaql-query/topic iq-ent)
+            iq-topic (or (:instaql-query/topic iq-ent)
+                         (when-let [topic (compile-instaql-topic attrs instaql-query)]
+                           (rs/set-instaql-topic! store app-id (:db/id iq-ent) topic)
+                           topic))
+
             _ (tracer/add-data! {:attributes {:v v
-                                              :iq-topic? (boolean existing-iq-topic)}})
-            _ (when (and  (not existing-iq-topic) (= 1 v))
-                (when-let [topic (compile-instaql-topic attrs instaql-query)]
-                  (rs/set-instaql-topic! store app-id (:db/id iq-ent) topic)))
+                                              :iq-topic? (boolean iq-topic)}})
             ctx (-> base-ctx
                     (assoc :v v
                            :datalog-query-fn (partial datalog-query-reactive! store)
