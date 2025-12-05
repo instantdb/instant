@@ -15,17 +15,16 @@
 ;; ------
 ;; Queue
 
-(defn group-key
+(defn- group-key
   [{:keys [app-id]}]
   app-id)
 
-(defn combine
+(defn- combine
   [item1 item2]
   (-> item1
       (update :join-count + (:join-count item2))))
 
-(defn process
-  "Upsert the join-room log into the database."
+(defn- process
   [_group-key {:keys [app-id join-count]}]
   (tracer/with-span! {:name "join-room-logger/process"
                       :attributes {:app-id app-id
@@ -44,19 +43,12 @@
                                           :attributes {:app-id app-id}
                                           :escaping? false})))))
 
-;; ------
-;; Public API
-
 (defn log-join-room!
-  "Queue a join-room event for logging. Non-blocking."
   [app-id]
   (when (and (bound? #'log-q)
              (flags/toggled? :join-room-logging-enabled?))
     (grouped-queue/put! log-q {:app-id app-id
                                :join-count 1})))
-
-;; ------
-;; Lifecycle
 
 (defn start []
   (tracer/record-info! {:name "join-room-logger/start"})
