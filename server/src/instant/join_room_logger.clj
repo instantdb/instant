@@ -1,6 +1,7 @@
 (ns instant.join-room-logger
-  "Logs join-room events for apps that only use presence (no transactions).
-   This allows us to track active apps that only use presence features."
+  "Logs join-room events. 
+  
+   This can be useful for analytics, when we want to know which apps use presence."
   (:require
    [honey.sql :as hsql]
    [instant.flags :as flags]
@@ -15,12 +16,10 @@
 ;; Queue
 
 (defn group-key
-  "Group by app-id so we can combine multiple joins for the same app."
   [{:keys [app-id]}]
   app-id)
 
 (defn combine
-  "Combine multiple join-room events for the same app into one with a count."
   [item1 item2]
   (-> item1
       (update :join-count + (:join-count item2))))
