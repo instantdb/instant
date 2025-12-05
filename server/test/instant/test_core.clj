@@ -177,7 +177,6 @@
           (println " " v))
         test-vars))))
 
-;; CLI options (cognitect-style, like cognitect-labs/test-runner)
 (defn accumulate [m k v]
   (update m k (fnil conj #{}) v))
 
@@ -204,37 +203,28 @@
     :assoc-fn accumulate]
    ["-h" "--help"]])
 
-(defn filter-nses
-  "Filter namespaces based on -n and -r options"
-  [nses {:keys [namespace namespace-regex]}]
+(defn filter-nses [nses {:keys [namespace namespace-regex]}]
   (cond
-    ;; If specific namespaces are given, use only those
     (seq namespace)
     (filter namespace nses)
 
-    ;; If regex patterns are given, filter by those
     (seq namespace-regex)
     (filter (fn [ns]
               (let [ns-name (str ns)]
                 (some #(re-find % ns-name) namespace-regex)))
             nses)
 
-    ;; Default: run all namespaces ending in -test
     :else
     (filter #(re-find #"-test$" (str %)) nses)))
 
-(defn filter-vars-by-name
-  "Filter vars to only those specified by -v option"
-  [vars {:keys [var]}]
+(defn filter-vars-by-name [vars {:keys [var]}]
   (if (seq var)
     (filter (fn [v]
               (contains? var (symbol v)))
             vars)
     vars))
 
-(defn filter-vars-by-metadata
-  "Filter vars by include/exclude metadata"
-  [vars {:keys [include exclude]}]
+(defn filter-vars-by-metadata [vars {:keys [include exclude]}]
   (cond->> vars
     (seq include)
     (filter (fn [v]
@@ -254,7 +244,6 @@
 
 (defn -main [& args]
   (let [{:keys [options errors summary]} (parse-opts args cli-options)]
-    ;; Handle errors or help
     (when (seq errors)
       (doseq [e errors]
         (println "Error:" e))
@@ -265,7 +254,6 @@
       (print-help summary)
       (System/exit 0))
 
-    ;; Run tests
     (let [dirs (:dir options)
           all-nses (mapcat #(find-namespaces-in-dir (io/file %)) dirs)
           nses (filter-nses all-nses options)

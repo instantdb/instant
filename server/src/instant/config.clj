@@ -24,7 +24,6 @@
 (defn get-env []
   (cond
     (some? *env*)                                 *env*
-    ;; Check JVM property (set by deps.edn :test alias)
     (= "test" (System/getProperty "instant.env")) :test
     ;; n.b. make sure this the staging check is first so that we can
     ;;      override it in the eb env vars
