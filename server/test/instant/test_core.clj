@@ -9,8 +9,9 @@
    [clojure+.print]
    [clojure+.test]
    [clojure.java.io :as io]
-   [clojure.string]
+   [clojure.string :as string]
    [clojure.test]
+   [clojure.tools.cli :refer [parse-opts]]
    [clojure.tools.namespace.find :refer [find-namespaces-in-dir]]
    [instant.config :as config]
    [instant.core :as core]
@@ -176,63 +177,149 @@
           (println " " v))
         test-vars))))
 
-(defn filter-tests [vars args]
-  (if (empty? args)
-    vars
-    (let [patterns (map re-pattern args)]
-      (filter (fn [v]
-                (let [v-name (str (symbol v))]
-                  (some #(re-find % v-name) patterns)))
-              vars))))
+;; CLI options (cognitect-style, like cognitect-labs/test-runner)
+(defn accumulate [m k v]
+  (update m k (fnil conj #{}) v))
+
+(def cli-options
+  [["-d" "--dir DIRNAME" "Test directory"
+    :default #{"test"}
+    :default-desc "test"
+    :parse-fn str
+    :assoc-fn accumulate]
+   ["-n" "--namespace SYMBOL" "Run tests in namespace (can be repeated)"
+    :parse-fn symbol
+    :assoc-fn accumulate]
+   ["-r" "--namespace-regex REGEX" "Filter namespaces by regex (can be repeated)"
+    :parse-fn re-pattern
+    :assoc-fn accumulate]
+   ["-v" "--var SYMBOL" "Run specific test var, fully qualified (can be repeated)"
+    :parse-fn symbol
+    :assoc-fn accumulate]
+   ["-i" "--include KEYWORD" "Only run tests with this metadata (can be repeated)"
+    :parse-fn keyword
+    :assoc-fn accumulate]
+   ["-e" "--exclude KEYWORD" "Exclude tests with this metadata (can be repeated)"
+    :parse-fn keyword
+    :assoc-fn accumulate]
+   ["-h" "--help"]])
+
+(defn filter-nses
+  "Filter namespaces based on -n and -r options"
+  [nses {:keys [namespace namespace-regex]}]
+  (cond
+    ;; If specific namespaces are given, use only those
+    (seq namespace)
+    (filter namespace nses)
+
+    ;; If regex patterns are given, filter by those
+    (seq namespace-regex)
+    (filter (fn [ns]
+              (let [ns-name (str ns)]
+                (some #(re-find % ns-name) namespace-regex)))
+            nses)
+
+    ;; Default: run all namespaces ending in -test
+    :else
+    (filter #(re-find #"-test$" (str %)) nses)))
+
+(defn filter-vars-by-name
+  "Filter vars to only those specified by -v option"
+  [vars {:keys [var]}]
+  (if (seq var)
+    (filter (fn [v]
+              (contains? var (symbol v)))
+            vars)
+    vars))
+
+(defn filter-vars-by-metadata
+  "Filter vars by include/exclude metadata"
+  [vars {:keys [include exclude]}]
+  (cond->> vars
+    (seq include)
+    (filter (fn [v]
+              (let [m (meta v)]
+                (some #(get m %) include))))
+
+    (seq exclude)
+    (remove (fn [v]
+              (let [m (meta v)]
+                (some #(get m %) exclude))))))
+
+(defn- print-help [summary]
+  (println "Usage: clj -M:test [options]")
+  (println)
+  (println "Options:")
+  (println summary))
 
 (defn -main [& args]
-  (let [nses (find-namespaces-in-dir (io/file "test"))
-        _ (apply require :reload nses)
-        all-test-vars (for [ns nses
-                            var (vals (ns-interns ns))
-                            :when (:test (meta var))]
-                        var)
-        test-vars (-> all-test-vars
-                      (filter-tests args)
-                      (select-vars))
-        counters (ref clojure.test/*initial-report-counters*)
-        timing-state (atom {})
-        config {:global-fixture setup-teardown
-                :timing-state timing-state
-                :reporters [circleci.test.report/clojure-test-reporter
-                            actions-reporter
-                            timings-reporter
-                            junit/reporter]
-                :test-results-dir "target/test-results"}
-        global-fixture-fn (circleci.test/make-global-fixture config)
-        timings-app-id (System/getenv "INSTANT_TIMINGS_APP_ID")
-        timings-admin-token (System/getenv "INSTANT_TIMINGS_ADMIN_TOKEN")
-        ns-groups (group-by (comp :ns meta) test-vars)]
+  (let [{:keys [options errors summary]} (parse-opts args cli-options)]
+    ;; Handle errors or help
+    (when (seq errors)
+      (doseq [e errors]
+        (println "Error:" e))
+      (print-help summary)
+      (System/exit 1))
 
-    (binding [clojure.test/*report-counters* counters
-              clojure.test/report report/report
-              report/*reporters* (#'circleci.test/get-reporters config)]
-      (global-fixture-fn
-       (fn []
-         (doseq [[ns test-vars] ns-groups]
-           (println "Testing tests in namespace" (str ns))
-           (clojure.test/do-report {:type :begin-test-ns :ns ns})
-           (doseq [v test-vars]
-             (println "Testing" (str (symbol v)))
-             (circleci.test/test-var v config))
-           (clojure.test/do-report {:type :end-test-ns :ns ns}))))
-      (let [summary (assoc @counters :type :summary)
-            exit-code (+ (:fail summary) (:error summary))]
-        (clojure.test/do-report summary)
-        (when (and (zero? exit-code)
-                   timings-app-id
-                   timings-admin-token
-                   (= "true" (System/getenv "SAVE_TIMINGS")))
-          (try
-            (record-test-timings timings-app-id timings-admin-token @timing-state)
-            (catch Throwable t
-              (println "Error saving test timings" t))))
-        (System/exit exit-code)))))
+    (when (:help options)
+      (print-help summary)
+      (System/exit 0))
+
+    ;; Run tests
+    (let [dirs (:dir options)
+          all-nses (mapcat #(find-namespaces-in-dir (io/file %)) dirs)
+          nses (filter-nses all-nses options)
+          _ (apply require :reload nses)
+          all-test-vars (for [ns nses
+                              var (vals (ns-interns ns))
+                              :when (:test (meta var))]
+                          var)
+          test-vars (-> all-test-vars
+                        (filter-vars-by-name options)
+                        (filter-vars-by-metadata options)
+                        (select-vars))
+          counters (ref clojure.test/*initial-report-counters*)
+          timing-state (atom {})
+          config {:global-fixture setup-teardown
+                  :timing-state timing-state
+                  :reporters [circleci.test.report/clojure-test-reporter
+                              actions-reporter
+                              timings-reporter
+                              junit/reporter]
+                  :test-results-dir "target/test-results"}
+          global-fixture-fn (circleci.test/make-global-fixture config)
+          timings-app-id (System/getenv "INSTANT_TIMINGS_APP_ID")
+          timings-admin-token (System/getenv "INSTANT_TIMINGS_ADMIN_TOKEN")
+          ns-groups (group-by (comp :ns meta) test-vars)]
+
+      (when (empty? test-vars)
+        (println "No tests found matching the given options.")
+        (System/exit 0))
+
+      (binding [clojure.test/*report-counters* counters
+                clojure.test/report report/report
+                report/*reporters* (#'circleci.test/get-reporters config)]
+        (global-fixture-fn
+         (fn []
+           (doseq [[ns test-vars] ns-groups]
+             (println "Testing tests in namespace" (str ns))
+             (clojure.test/do-report {:type :begin-test-ns :ns ns})
+             (doseq [v test-vars]
+               (println "Testing" (str (symbol v)))
+               (circleci.test/test-var v config))
+             (clojure.test/do-report {:type :end-test-ns :ns ns}))))
+        (let [summary (assoc @counters :type :summary)
+              exit-code (+ (:fail summary) (:error summary))]
+          (clojure.test/do-report summary)
+          (when (and (zero? exit-code)
+                     timings-app-id
+                     timings-admin-token
+                     (= "true" (System/getenv "SAVE_TIMINGS")))
+            (try
+              (record-test-timings timings-app-id timings-admin-token @timing-state)
+              (catch Throwable t
+                (println "Error saving test timings" t))))
+          (System/exit exit-code))))))
 
 (defn -main+ [_]
   (setup-teardown

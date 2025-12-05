@@ -23,13 +23,15 @@
 
 (defn get-env []
   (cond
-    (some? *env*)                           *env*
+    (some? *env*)                                 *env*
+    ;; Check JVM property (set by deps.edn :test alias)
+    (= "test" (System/getProperty "instant.env")) :test
     ;; n.b. make sure this the staging check is first so that we can
     ;;      override it in the eb env vars
-    (= "true" (System/getenv "STAGING"))    :staging
-    (= "true" (System/getenv "PRODUCTION")) :prod
-    (= "true" (System/getenv "TEST"))       :test
-    :else                                   :dev))
+    (= "true" (System/getenv "STAGING"))          :staging
+    (= "true" (System/getenv "PRODUCTION"))       :prod
+    (= "true" (System/getenv "TEST"))             :test
+    :else                                         :dev))
 
 (defn prod? [] (= :prod (get-env)))
 
