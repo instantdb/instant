@@ -32,7 +32,7 @@
   ;; process-id used for tests
   [_process-id store {:keys [app-id tx-id] :as wal-record}]
   (let [topics      (topics/topics-for-changes wal-record)
-        session-ids (rs/mark-stale-topics! store app-id tx-id topics)
+        session-ids (rs/mark-stale-topics! store app-id tx-id topics wal-record)
         sockets     (keep #(:session/socket (rs/session store %)) session-ids)
         sync-subs (rs/get-stale-sync-subs store app-id topics)]
     {:sockets sockets
@@ -43,7 +43,7 @@
   sockets to be refreshed."
   [table-info app-id store {:keys [tx-id] :as record}]
   (let [topics      (topics/topics-for-byop-changes table-info record)
-        session-ids (rs/mark-stale-topics! store app-id tx-id topics)
+        session-ids (rs/mark-stale-topics! store app-id tx-id topics record)
         sockets     (keep #(:session/socket (rs/session store %)) session-ids)]
     sockets))
 
