@@ -5,8 +5,6 @@ description: How to use Instant with React Native
 
 You can use Instant in React Native projects too! Below is an example using Expo.
 
-{% copy-prompt-box id="expo" /%}
-
 Open up your terminal and do the following:
 
 ```shell {% showCopy=true %}
