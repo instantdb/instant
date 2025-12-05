@@ -28,6 +28,9 @@
 (defonce read-only-memoize
   (atom nil))
 
+(defonce replica-read-only-memoize
+  (atom nil))
+
 (defn read-only-wrapper [^HikariDataSource pool]
   (proxy [HikariDataSource] []
     (getConnection
@@ -57,6 +60,15 @@
     wrapper
     (let [wrapper (read-only-wrapper pool)]
       (reset! read-only-memoize [pool wrapper])
+      wrapper)))
+
+(defn memoized-replica-read-only-wrapper [^HikariDataSource pool]
+  (if-let [wrapper (when-let [[memo-pool wrapper] @replica-read-only-memoize]
+                     (when (= memo-pool pool)
+                       wrapper))]
+    wrapper
+    (let [wrapper (read-only-wrapper pool)]
+      (reset! replica-read-only-memoize [pool wrapper])
       wrapper)))
 
 (defn filter-closed-connections-wrapper
@@ -162,7 +174,7 @@
                            (when-not @shutdown?
                              (Thread/sleep sleep-ms)
                              (let [next-config (try (merge aurora-config
-                                                           (rds-cluster-id->db-config cluster-id))
+                                                           (:primary (rds-cluster-id->db-config cluster-id (:application-name aurora-config))))
                                                     (catch Exception e
                                                       (tracer/record-exception-span! e {:name "failover-watcher-error"})
                                                       last-config))]
@@ -254,12 +266,20 @@
 
 (defonce -conn-pool nil)
 
+(defonce -replica-conn-pool nil)
+
 (defn conn-pool
-  "Takes a single argument that should be either :read for a read-only connection
-   or :write for a read-write connection."
+  "Takes a single argument that should be either :read for a read-only connection,
+   :read-replica for a read-only connection on the replica (or primary if replica
+   does not exist), or :write for a read-write connection."
   [rw]
-  (if (= rw :read)
+  (case rw
+    :read
     (memoized-read-only-wrapper -conn-pool)
+    :read-replica
+    (if -replica-conn-pool
+      (memoized-replica-read-only-wrapper -conn-pool)
+      (memoized-read-only-wrapper -conn-pool))
     -conn-pool))
 
 (defn patch-hikari []
@@ -272,6 +292,31 @@
   ;; validation check. If it gets a retryable error, like connection_closed,
   ;; then it can try again on another connection.
   (System/setProperty "com.zaxxer.hikari.aliveBypassWindowMs" "60000"))
+
+(defn start-replica-pool ^HikariDataSource [pool-size aurora-config]
+  (patch-hikari)
+  (tracer/record-info! {:name "aurora/start-replica-conn-pool"
+                        :attributes {:size pool-size}})
+  (let [config aurora-config
+        hikari-config (doto (HikariConfig.)
+                        (.setMaxLifetime (* 10 60 1000))
+                        (.setMaximumPoolSize pool-size))
+        pool (if (:cluster-id config)
+               (let [ds (aurora-cluster-datasource (fn [_instance-id _conn]
+                                                     nil)
+                                                   (fn []
+                                                     config))
+                     pool (HikariDataSource. (doto hikari-config
+                                               (.setDataSource ds)))]
+                 pool)
+               (HikariDataSource.
+                (doto hikari-config
+                  (.setUsername (:user config))
+                  (.setPassword (:password config))
+                  (.setDataSource (dev-datasource config)))))]
+    ;; Check that the pool is working
+    (.close (next-jdbc/get-connection pool))
+    pool))
 
 (defn start-pool ^HikariDataSource [pool-size aurora-config]
   (patch-hikari)
@@ -309,14 +354,23 @@
     pool))
 
 (defn start []
-  (let [conn-pool-size (config/get-connection-pool-size)]
+  (let [conn-pool-size (config/get-connection-pool-size)
+        config (config/get-aurora-config)
+        primary-config (or (:primary config) config)
+        replica-config (:replica config)]
     (lang/set-var! -conn-pool
-      (start-pool conn-pool-size (config/get-aurora-config)))))
+      (start-pool conn-pool-size primary-config))
+    (when replica-config
+      (lang/set-var! -replica-conn-pool
+        (start-pool conn-pool-size replica-config)))))
 
 (defn stop []
   (lang/clear-var! -conn-pool (fn [^HikariDataSource d]
                                 (.close d)
-                                (.shutdown ^HikariPool (.getHikariPoolMXBean d)))))
+                                (.shutdown ^HikariPool (.getHikariPoolMXBean d))))
+  (lang/clear-var! -replica-conn-pool (fn [^HikariDataSource d]
+                                        (.close d)
+                                        (.shutdown ^HikariPool (.getHikariPoolMXBean d)))))
 
 (defn restart []
   (stop)

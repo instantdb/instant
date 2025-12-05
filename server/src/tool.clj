@@ -16,6 +16,7 @@
   (:import
    (com.github.vertical_blank.sqlformatter SqlFormatter)
    (com.zaxxer.hikari HikariDataSource)
+   (java.net InetAddress)
    (java.time Instant)
    (java.util UUID)
    (org.apache.commons.codec.binary Hex)
@@ -414,7 +415,7 @@
                          :database-cluster-id)
          rds-cluster-id->db-config# (requiring-resolve 'instant.aurora-config/rds-cluster-id->db-config)
          start-pool# (requiring-resolve 'instant.jdbc.aurora/start-pool)]
-     (with-open [~conn-name ^HikariDataSource (start-pool# 1 (rds-cluster-id->db-config# cluster-id#))]
+     (with-open [~conn-name ^HikariDataSource (start-pool# 1 (:primary (rds-cluster-id->db-config# cluster-id# (.getHostName (InetAddress/getLocalHost)))))]
        ~@body)))
 
 (defn recompile-java
