@@ -220,7 +220,9 @@
 
 (defn extract-entities-before [attrs entities-after {:keys [triple-changes]}]
   (let [attr-etype (vmemoize (fn [id-str]
-                               (attr-model/etype-by-id (parse-uuid id-str) attrs)))]
+                               (let [attr (attr-model/seek-by-id (parse-uuid id-str) attrs)]
+                                 (when (= :one (:cardinality attr))
+                                   (attr-model/fwd-etype attr)))))]
     (reduce (fn [acc change]
               (case (:action change)
                 :insert (let [[e a] (columns->eav (:columns change))]

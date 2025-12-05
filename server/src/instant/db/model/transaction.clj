@@ -10,13 +10,13 @@
    (sql/execute-one! ::create!
                      conn
                      (if (flags/enable-wal-entity-log? app-id)
-                       (tool/inspect ["with setting as materialized (
+                       ["with setting as materialized (
                            select set_config('instant.wal_msg_app_id', ?::text, true) as config
                          ),
                          tx as (
                            insert into transactions (app_id) values (?::uuid) returning *
                          )
                          select tx.*, (select config from setting) as _ from tx"
-                                      (str app-id)
-                                      app-id])
-                       (tool/inspect ["insert into transactions (app_id) values (?::uuid)" app-id])))))
+                        (str app-id)
+                        app-id]
+                       ["insert into transactions (app_id) values (?::uuid)" app-id]))))
