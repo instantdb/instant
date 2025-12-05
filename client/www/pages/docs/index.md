@@ -6,8 +6,6 @@ description: How to use Instant with React
 
 Instant is the easy to use backend for your frontend. With Instant you can build delightful apps in less than 10 minutes. Follow the quick start below to **build a live app!**
 
-{% copy-prompt-box id="react" /%}
-
 To use Instant in a brand new project, fire up your terminal and run the following:
 
 ```shell {% showCopy=true %}
