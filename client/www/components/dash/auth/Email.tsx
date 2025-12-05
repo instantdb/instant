@@ -127,7 +127,7 @@ export function Email({ app }: { app: InstantApp }) {
     onSubmit,
     validators: {
       subject: validateTemplate,
-      bodyHtml: (v) => validateTemplate(v) || validateHtml(v),
+      bodyHtml: validateTemplate,
     },
     initial: template
       ? {
@@ -428,19 +428,6 @@ const formDefaults = {
 function validateTemplate(v: string) {
   if (!v.includes('{code}')) {
     return { error: 'Must include the template variable {code}' };
-  }
-}
-
-function validateHtml(xmlStr: string) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(
-    `<body>${xmlStr}</body>`,
-    'application/xml',
-  );
-  const errorNode = doc.querySelector('parsererror');
-
-  if (errorNode) {
-    return { error: 'Invalid HTML' };
   }
 }
 
