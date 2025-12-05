@@ -35,6 +35,7 @@
    [instant.scripts.analytics :as analytics]
    [instant.scripts.daily-metrics :as daily-metrics]
    [instant.scripts.welcome-email :as welcome-email]
+   [instant.join-room-logger :as join-room-logger]
    [instant.session-counter :as session-counter]
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
@@ -247,7 +248,10 @@
           (eph/stop)))
       (future
         (tracer/with-span! {:name "stop-indexing-jobs"}
-          (indexing-jobs/stop)))))
+          (indexing-jobs/stop)))
+      (future
+        (tracer/with-span! {:name "stop-join-room-logger"}
+          (join-room-logger/stop)))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
@@ -318,6 +322,8 @@
         (ephemeral-app/start))
       (with-log-init :session-counter
         (session-counter/start))
+      (with-log-init :join-room-logger
+        (join-room-logger/start))
       (with-log-init :indexing-jobs
         (indexing-jobs/start))
       (with-log-init :storage-sweeper
