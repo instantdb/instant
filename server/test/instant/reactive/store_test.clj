@@ -358,19 +358,15 @@
 
         (let [conn (rs/app-conn store app-id)
               db @conn
-              ;; Get the datalog-query
               dq-ent (->> (d/datoms db :avet :datalog-query/app-id app-id)
                           first
                           :e
                           (d/entity db))
-              ;; Get subscription that references this datalog-query
               sub-ent (->> (d/datoms db :avet :subscription/datalog-query (:db/id dq-ent))
                            first
                            :e
                            (d/entity db))
-              ;; Get the instaql-query from the subscription
               iq-ent (:subscription/instaql-query sub-ent)
-              ;; Get the topic from the instaql-query
               program (get-in iq-ent [:instaql-query/topic :program])]
           (is (some? program))
 

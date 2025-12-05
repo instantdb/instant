@@ -162,7 +162,6 @@
 
 (defn- instaql-topic* [ctx form]
   (let [parsed-ast (form->ast! ctx form)
-        ;; Type-check the parsed AST to get a checked AST
         checked-ast (.getAst (.check instaql-topic-cel-compiler parsed-ast))
         cel-program (.createProgram instaql-topic-cel-runtime checked-ast)]
     {:ast checked-ast

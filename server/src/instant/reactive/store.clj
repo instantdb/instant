@@ -82,7 +82,7 @@
     :db/unique :db.unique/identity}
    :instaql-query/return-type {} ;; :join-rows or :tree
    :instaql-query/inference? {:db/type :db.type/boolean}
-   :instaql-query/topic {} ;; the computed instaql-topic
+   :instaql-query/topic {}
 
    :subscription/app-id {:db/type :db.type/integer}
    :subscription/session-id {:db/index true
