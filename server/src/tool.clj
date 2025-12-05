@@ -415,7 +415,7 @@
                          :database-cluster-id)
          rds-cluster-id->db-config# (requiring-resolve 'instant.aurora-config/rds-cluster-id->db-config)
          start-pool# (requiring-resolve 'instant.jdbc.aurora/start-pool)]
-     (with-open [~conn-name ^HikariDataSource (start-pool# 1 (:primary (rds-cluster-id->db-config# cluster-id# (.getHostName (InetAddress/getLocalHost)))))]
+     (with-open [~conn-name ^HikariDataSource (start-pool# 1 (rds-cluster-id->db-config# cluster-id# (.getHostName (InetAddress/getLocalHost))))]
        ~@body)))
 
 (defn recompile-java

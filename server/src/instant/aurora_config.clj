@@ -97,5 +97,8 @@
     (merge primary-props
            {:primary primary-props
             :replica (when reader-instance-id
-                       (merge default-props
-                              (instance-info rds-client reader-instance-id)))})))
+                       (try
+                         (merge default-props
+                                (instance-info rds-client reader-instance-id))
+                         (catch Throwable t
+                           nil)))})))

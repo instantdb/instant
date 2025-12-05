@@ -174,7 +174,7 @@
                            (when-not @shutdown?
                              (Thread/sleep sleep-ms)
                              (let [next-config (try (merge aurora-config
-                                                           (:primary (rds-cluster-id->db-config cluster-id (:application-name aurora-config))))
+                                                           (rds-cluster-id->db-config cluster-id (:application-name aurora-config)))
                                                     (catch Exception e
                                                       (tracer/record-exception-span! e {:name "failover-watcher-error"})
                                                       last-config))]
