@@ -179,7 +179,7 @@ function ProfileScreen(props: {
           <textarea
             id="build"
             name="build"
-            className="w-full appearance-none rounded-sm border-gray-200 font-normal placeholder-gray-400 outline-hidden"
+            className="placeholder:gray-400 w-full appearance-none rounded-sm border-gray-200 font-normal outline-hidden dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500"
             placeholder="Social media for books -- like goodreads, but with a better design. Something like zeneca.io but realtime!"
             value={build}
             onChange={(e) => setBuild(e.target.value)}
