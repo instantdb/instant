@@ -337,7 +337,8 @@
   (keep (fn [datom]
           (when (and (= (:a datom)
                         :subscription/datalog-query)
-                     (not (:added datom)))
+                     (not (:added datom))
+                     (d/entity (:db-after report) (:v datom)))
             (:v datom)))
         (:tx-data report)))
 
@@ -356,7 +357,11 @@
                  (transact-new! span-name conn tx-data)
                  (transact-old! span-name conn tx-data))]
     (if-let [eids (seq (deleted-subscriptions-datalog-query-ids report))]
-      (transact! "store/clean-datalog-queries" conn [[:db.fn/call clean-stale-datalog-queries-tx-data (distinct eids)]])
+      (do
+        (transact! "store/clean-datalog-queries"
+                   conn
+                   [[:db.fn/call clean-stale-datalog-queries-tx-data (distinct eids)]])
+        report)
       report)))
 
 ;; -----
