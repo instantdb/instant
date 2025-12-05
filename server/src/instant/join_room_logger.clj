@@ -1,16 +1,27 @@
 (ns instant.join-room-logger
-  "Logs join-room events. 
-  
+  "Logs join-room events.
+
    This can be useful for analytics, when we want to know which apps use presence."
   (:require
-   [honey.sql :as hsql]
    [instant.flags :as flags]
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.util.hsql :as uhsql]
    [instant.util.tracer :as tracer]))
 
 (declare log-q)
+
+;; ------
+;; Query
+
+(def upsert-q
+  (uhsql/preformat
+   {:insert-into :join-room-logs
+    :values [{:app-id :?app-id
+              :join-count :?join-count}]
+    :on-conflict :app-id
+    :do-update-set {:join-count [:+ :join-room-logs.join-count :excluded.join-count]}}))
 
 ;; ------
 ;; Queue
@@ -32,12 +43,8 @@
     (try
       (sql/execute! ::upsert-join-room-log
                     (aurora/conn-pool :write)
-                    (hsql/format
-                     {:insert-into :join-room-logs
-                      :values [{:app-id app-id
-                                :join-count join-count}]
-                      :on-conflict :app-id
-                      :do-update-set {:join-count [:+ :join-room-logs.join-count :excluded.join-count]}}))
+                    (uhsql/formatp upsert-q {:app-id app-id
+                                             :join-count join-count}))
       (catch Exception e
         (tracer/record-exception-span! e {:name "join-room-logger/process-error"
                                           :attributes {:app-id app-id}
