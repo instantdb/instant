@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useExplorerProps } from '.';
 import { SchemaNamespace } from '@lib/types';
 import { Button, cn, Dialog, ToggleCollection, useDialog } from '../ui';
@@ -27,6 +27,14 @@ export const ExplorerLayout = ({
     (ns) => ns.id === props.explorerState?.namespace,
   );
   const [isNsOpen, setIsNsOpen] = useState(false);
+
+  // Auto-select first namespace if none selected
+  useEffect(() => {
+    if (!selectedNamespace && namespaces.length > 0) {
+      props.setExplorerState({ namespace: namespaces[0].id });
+    }
+  }, [selectedNamespace, namespaces, props]);
+
   const deletedNamespaces = useRecentlyDeletedNamespaces(props.appId);
   const nsRef = useRef<HTMLDivElement>(null);
 
