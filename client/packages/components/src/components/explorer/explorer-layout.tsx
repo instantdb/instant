@@ -9,6 +9,7 @@ import {
 import { useStableDB } from '@lib/hooks/useStableDB';
 import { ChevronLeftIcon, PlusIcon } from '@heroicons/react/24/solid';
 import { NewNamespaceDialog } from './new-namespace-dialog';
+import { InnerExplorer } from './inner-explorer';
 
 // Holds the explorer table itself and also the sidebar to select / create namespaces
 export const ExplorerLayout = ({
@@ -123,13 +124,8 @@ export const ExplorerLayout = ({
           </div>
         )}
       </div>
-      <pre>
-        {JSON.stringify(
-          namespaces.map((n) => n.name),
-          null,
-          2,
-        )}
-      </pre>
+
+      {props.explorerState && <InnerExplorer namespaces={namespaces} db={db} />}
     </div>
   );
 };

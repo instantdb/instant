@@ -21,29 +21,35 @@ interface ExplorerProps {
   useShadowDOM: HasDefault<boolean>;
 }
 
-const ExplorerPropsContext = createContext<WithDefaults<ExplorerProps> | null>(
-  null,
-);
+const ExplorerPropsContext = createContext<{
+  props: WithDefaults<ExplorerProps> | null;
+  history: {
+    push: (
+      filter: React.SetStateAction<ExplorerNav>,
+      replace?: boolean,
+    ) => void;
+  };
+}>({ props: null, history: { push: () => {} } });
 
 export const useExplorerProps = (): WithDefaults<ExplorerProps> => {
-  const props = useContext(ExplorerPropsContext);
-  if (!props) {
+  const ctx = useContext(ExplorerPropsContext);
+  if (!ctx.props) {
     throw new Error(
       'useExplorerProps must be used within an Explorer component',
     );
   }
-  return props;
+  return ctx.props;
 };
 
-export const useExplorerState = (): ExplorerNav => {
-  const props = useExplorerProps();
-
-  if (!props.explorerState) {
+// TODO rewrite this to return history stuff
+export const useExplorerState = () => {
+  const ctx = useContext(ExplorerPropsContext);
+  if (!ctx.props || !ctx.props.explorerState) {
     throw new Error(
-      'useExplorerState must be used within an Explorer component and have a valid explorerState',
+      'useExplorerProps must be used within an Explorer component',
     );
   }
-  return props.explorerState;
+  return { explorerState: ctx.props.explorerState, history: ctx.history };
 };
 
 const fillPropsWithDefaults = (
@@ -82,8 +88,6 @@ export interface ExplorerNav {
   page?: number;
 }
 
-export type PushNavStack = (nav: ExplorerNav) => void;
-
 export const Explorer = (_props: WithOptional<ExplorerProps>) => {
   // backup useState if explorer is uncontrolled component
   const [_explorerState, _setExplorerState] = useState<ExplorerNav | null>(
@@ -96,11 +100,23 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
     _setExplorerState,
   );
 
+  // inside the component avoid setting explorer state directly
+  // if change could be useful for history
   const { explorerState, setExplorerState } = props;
 
   const [explorerStateHistory, setExplorerStateHistory] = useState<
     ExplorerNav[]
   >(explorerState ? [explorerState] : []);
+
+  const pushExplorerState = (
+    filter: React.SetStateAction<ExplorerNav>,
+    replace: boolean = false,
+  ) => {
+    if (!replace && explorerState !== null) {
+      setExplorerStateHistory([...explorerStateHistory, explorerState]);
+    }
+    setExplorerState(filter as any);
+  };
 
   const db = useStableDB({
     appId: props.appId,
@@ -125,7 +141,14 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
 
   return (
     <Wrapper>
-      <ExplorerPropsContext.Provider value={props}>
+      <ExplorerPropsContext.Provider
+        value={{
+          props,
+          history: {
+            push: pushExplorerState,
+          },
+        }}
+      >
         <ExplorerLayout db={db} namespaces={schemaData.namespaces} />
       </ExplorerPropsContext.Provider>
     </Wrapper>
