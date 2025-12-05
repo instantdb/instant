@@ -210,9 +210,10 @@
   (reduce (fn [acc message]
             (case (:prefix message)
               ("update_ents" "delete_ents")
-              (let [ents (<-json (:content message))]
-                (merge-with merge acc ents))
-
+              (reduce (fn [acc [etype attr-id ent]]
+                        (assoc-in acc [etype attr-id] ent))
+                      acc
+                      (<-json (:content message)))
               acc))
           {}
           messages))

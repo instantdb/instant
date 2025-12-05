@@ -39,7 +39,12 @@ begin
 
   end if;
 
-  select current_setting('instant.wal_msg_app_id', true)::uuid into app_id_setting;
+  select case current_setting('instant.wal_msg_app_id', true)
+           when null then null
+           when '' then null
+           else current_setting('instant.wal_msg_app_id', true)::uuid
+         end
+    into app_id_setting;
 
   if app_id_setting is not null then
 
@@ -85,17 +90,10 @@ begin
        where t.app_id = app_id_setting
          and t.ea
        group by e.etype, t.entity_id
-    ),
-    -- Group the ents by entity_id (you can only do one aggregate at a time)
-    ent_groups as (
-      select etype, json_object_agg(entity_id::text, attrs) ents
-        from by_entity
-       group by etype
     )
-    -- Group by etype to give us {posts: {id1: {id-attr: id1, title: title1}}}
-    select json_object_agg(etype, ents)::text
+    select json_agg(json_build_array(etype, entity_id, attrs))::text
       into ents_msg
-      from ent_groups;
+      from by_entity;
 
     if ents_msg is not null then
       perform pg_logical_emit_message(true, 'update_ents', ents_msg);
@@ -130,7 +128,12 @@ begin
     where attr_id = '96653230-13ff-ffff-2a34-b40fffffffff'
     on conflict do nothing;
 
-  select current_setting('instant.wal_msg_app_id', true)::uuid into app_id_setting;
+  select case current_setting('instant.wal_msg_app_id', true)
+           when null then null
+           when '' then null
+           else current_setting('instant.wal_msg_app_id', true)::uuid
+         end
+    into app_id_setting;
 
   if app_id_setting is not null then
 
@@ -176,17 +179,10 @@ begin
        where t.app_id = app_id_setting
          and t.ea
        group by e.etype, t.entity_id
-    ),
-    -- Group the ents by entity_id (you can only do one aggregate at a time)
-    ent_groups as (
-      select etype, json_object_agg(entity_id::text, attrs) ents
-        from by_entity
-       group by etype
     )
-    -- Group by etype to give us {posts: {id1: {id-attr: id1, title: title1}}}
-    select json_object_agg(etype, ents)::text
+    select json_agg(json_build_array(etype, entity_id, attrs))::text
       into ents_msg
-      from ent_groups;
+      from by_entity;
 
     if ents_msg is not null then
       perform pg_logical_emit_message(true, 'delete_ents', ents_msg);
