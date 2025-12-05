@@ -82,6 +82,7 @@
     :db/unique :db.unique/identity}
    :instaql-query/return-type {} ;; :join-rows or :tree
    :instaql-query/inference? {:db/type :db.type/boolean}
+   :instaql-query/topic {}
 
    :subscription/app-id {:db/type :db.type/integer}
    :subscription/session-id {:db/index true
@@ -484,7 +485,13 @@
         conn       (app-conn store app-id)
         tx         [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type inference?]]
         report     (transact! "store/bump-instaql-version!" conn tx)]
-    (:instaql-query/version (d/entity (:db-after report) lookup-ref))))
+    (d/entity (:db-after report) lookup-ref)))
+
+(defn set-instaql-topic! [store app-id instaql-query-eid topic]
+  (let [conn (app-conn store app-id)]
+    (transact! "store/set-instaql-topic!"
+               conn
+               [[:db/add instaql-query-eid :instaql-query/topic topic]])))
 
 ;; ----
 ;; remove instaql queries
