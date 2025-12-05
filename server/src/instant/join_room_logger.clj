@@ -25,18 +25,20 @@
       (update :join-count + (:join-count item2))))
 
 (defn process
-  "Insert the join-room log into the database."
+  "Upsert the join-room log into the database."
   [_group-key {:keys [app-id join-count]}]
   (tracer/with-span! {:name "join-room-logger/process"
                       :attributes {:app-id app-id
                                    :join-count join-count}}
     (try
-      (sql/execute! ::insert-join-room-log
+      (sql/execute! ::upsert-join-room-log
                     (aurora/conn-pool :write)
                     (hsql/format
                      {:insert-into :join-room-logs
                       :values [{:app-id app-id
-                                :join-count join-count}]}))
+                                :join-count join-count}]
+                      :on-conflict :app-id
+                      :do-update-set {:join-count [:+ :join-room-logs.join-count :excluded.join-count]}}))
       (catch Exception e
         (tracer/record-exception-span! e {:name "join-room-logger/process-error"
                                           :attributes {:app-id app-id}
