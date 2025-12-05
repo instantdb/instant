@@ -95,12 +95,13 @@
       :child-nodes []}]))
 
 (defn- compile-instaql-topic [attrs instaql-query]
-  (tracer/with-span! {:name "compute-instaql-topic"}
+  (tracer/with-span! {:name "compile-instaql-topic"}
     (let [forms (iq/->forms! attrs instaql-query)]
       (when (and (= 1 (count forms))
                  (empty? (:child-forms (first forms))))
         (let [result (iqt/instaql-topic {:attrs attrs} (first forms))]
           (when (:program result)
+            (tracer/add-data! {:attributes {:got-result? true}})
             result))))))
 
 (defn instaql-query-reactive!
@@ -114,7 +115,10 @@
     (try
       (let [iq-ent (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
             v (:instaql-query/version iq-ent)
-            _ (when (and (= 1 v) (not (:instaql-query/topic iq-ent)))
+            existing-iq-topic (:instaql-query/topic iq-ent)
+            _ (tracer/add-data! {:attributes {:v v
+                                              :iq-topic? (boolean existing-iq-topic)}})
+            _ (when (and  (not existing-iq-topic) (= 1 v))
                 (when-let [topic (compile-instaql-topic attrs instaql-query)]
                   (rs/set-instaql-topic! store app-id (:db/id iq-ent) topic)))
             ctx (-> base-ctx

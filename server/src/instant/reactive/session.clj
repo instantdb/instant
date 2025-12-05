@@ -260,7 +260,6 @@
                                 {:q q}
                                 [{:message "start-sync is currently supported for admins only."}])
 
-
       :else
       (let [attrs (attr-model/get-by-app-id app-id)
             ctx {:db {:conn-pool (aurora/conn-pool :read)}
@@ -297,48 +296,48 @@
             exceptions-silencer (atom false)
 
             f (ua/vfuture
-                (try
-                  (binding [sql/*in-progress-stmts* in-progress-stmts
-                            tracer/*silence-exceptions?* exceptions-silencer]
-                    (start
-                     {:batch-size 100
-                      :on-batch (fn [batch]
-                                  (rs/send-event! store app-id sess-id
-                                                  {:op :sync-load-batch
-                                                   :subscription-id (:sync/id query-ent)
-                                                   :join-rows batch}))
+               (try
+                 (binding [sql/*in-progress-stmts* in-progress-stmts
+                           tracer/*silence-exceptions?* exceptions-silencer]
+                   (start
+                    {:batch-size 100
+                     :on-batch (fn [batch]
+                                 (rs/send-event! store app-id sess-id
+                                                 {:op :sync-load-batch
+                                                  :subscription-id (:sync/id query-ent)
+                                                  :join-rows batch}))
 
-                      :on-init-finish (fn [{:keys [topics tx-id]}]
-                                        (sync-sub-model/create! {:id sub-id
-                                                                 :app-id app-id
-                                                                 :query q
-                                                                 :user-id (:id user)
-                                                                 :admin? admin?
-                                                                 :token token
-                                                                 :topics topics})
+                     :on-init-finish (fn [{:keys [topics tx-id]}]
+                                       (sync-sub-model/create! {:id sub-id
+                                                                :app-id app-id
+                                                                :query q
+                                                                :user-id (:id user)
+                                                                :admin? admin?
+                                                                :token token
+                                                                :topics topics})
                                         ;; Make sure this happens before we update the store
                                         ;; or else we could get a refresh before we send init
-                                        (rs/send-event! store app-id sess-id
-                                                        {:op :sync-init-finish
-                                                         :subscription-id sub-id
-                                                         :tx-id tx-id})
-                                        (rs/sync-query-update-init store
-                                                                   app-id
-                                                                   (:db/id query-ent)
-                                                                   tx-id
-                                                                   topics)
+                                       (rs/send-event! store app-id sess-id
+                                                       {:op :sync-init-finish
+                                                        :subscription-id sub-id
+                                                        :tx-id tx-id})
+                                       (rs/sync-query-update-init store
+                                                                  app-id
+                                                                  (:db/id query-ent)
+                                                                  tx-id
+                                                                  topics)
                                         ;; This will cause us to catch up on any transactions that were
                                         ;; handled while we were syncing
-                                        (receive-queue/put! receive-q
-                                                            {:op :refresh-sync-table
-                                                             :app-id (:app-id ctx)
-                                                             :session-id sess-id
-                                                             :subscription-id (:sync/id query-ent)}))}))
-                  (catch Exception e
-                    (when-not (canceled?)
-                      (throw e)))
-                  (finally
-                    (remove-pending-handler session pending-handler-id))))]
+                                       (receive-queue/put! receive-q
+                                                           {:op :refresh-sync-table
+                                                            :app-id (:app-id ctx)
+                                                            :session-id sess-id
+                                                            :subscription-id (:sync/id query-ent)}))}))
+                 (catch Exception e
+                   (when-not (canceled?)
+                     (throw e)))
+                 (finally
+                   (remove-pending-handler session pending-handler-id))))]
         (add-pending-handler session
                              {:before-cancel cancel
                               :future f
