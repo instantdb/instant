@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "turbo run build --cache-dir=.turbo --no-update-notifier",
-    "dev": "turbo run dev --filter=@instantdb/version --filter=@instantdb/core --filter=@instantdb/react-common --filter=@instantdb/react --filter=@instantdb/react-native --filter=@instantdb/admin --filter=@instantdb/platform --filter=instant-www --filter=sb-react-nextjs --filter=sb-admin-sdk-express --parallel --concurrency=20 --no-update-notifier",
+    "dev": "turbo run dev --filter=@instantdb/version --filter=@instantdb/core --filter=@instantdb/react-common --filter=@instantdb/react --filter=@instantdb/react-native --filter=@instantdb/admin --filter=@instantdb/platform --filter=instant-www --filter=sb-react-nextjs --filter=sb-admin-sdk-express --filter=instant-cli --parallel --concurrency=20 --no-update-notifier",
     "test": "turbo run test:ci --no-update-notifier",
     "clean": "turbo run clean",
     "bench": "turbo run bench:ci --no-update-notifier",
