@@ -1,6 +1,7 @@
 (ns instant.db.instaql-topic-test
   (:require
    [clojure.test :refer [deftest is testing]]
+   [instant.db.cel :as cel]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
    [instant.fixtures :refer [with-zeneca-app]]
@@ -33,21 +34,19 @@
   (with-zeneca-app
     (fn [app r]
       (let [attrs (attr-model/get-by-app-id (:id app))
-            {:keys [edn cel-str program]} (iqt/instaql-topic
-                                           {:attrs attrs}
-                                           (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"
-                                                                                   :email "stopa@instantdb.com"}}}}))]
-        (is (= '(and
-                 (= (:etype entity) "users")
-                 (= (get (:attrs entity) :users/handle) "stopa")
-                 (= (get (:attrs entity) :users/email) "stopa@instantdb.com"))
-               (resolvers/walk-friendly r edn)))
+            {:keys [ast program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"
+                                                                           :email "stopa@instantdb.com"}}}}))
+            cel-str (cel/unparse ast)]
 
-        (is (= (str "(entity[\"etype\"] == \"users\" && "
+        ;; Check the CEL string representation
+        (is (= (str "entity[\"etype\"] == \"users\" && "
                     "entity[\"attrs\"][\"" (resolvers/->uuid r :users/handle) "\"] == \"stopa\" && "
-                    "entity[\"attrs\"][\"" (resolvers/->uuid r :users/email) "\"] == \"stopa@instantdb.com\")")
+                    "entity[\"attrs\"][\"" (resolvers/->uuid r :users/email) "\"] == \"stopa@instantdb.com\"")
                cel-str))
 
+        ;; Test program execution
         (is (true?
              (program {:etype "users"
                        :attrs {(str (resolvers/->uuid r :users/handle))
@@ -74,38 +73,58 @@
                                (str (resolvers/->uuid r :users/email))
                                "dww@instantdb.com"}})))))))
 
-(deftest wacky-attr-names-and-values
-  (testing "values with special characters"
-    (let [edn '(= (get (:attrs entity) "field") "!@#$%^&*()")
-          program (iqt/edn->program edn)]
-      (is (true? (iqt/eval-topic-program program {:attrs {"field" "!@#$%^&*()"}})))))
+(deftest wacky-attr-values
+  (with-zeneca-app
+    (fn [app r]
+      (let [attrs (attr-model/get-by-app-id (:id app))]
 
-  (testing "values with quotes"
-    (let [edn '(= (get (:attrs entity) "field") "say \"hello\"")
-          program (iqt/edn->program edn)]
-      (is (true? (iqt/eval-topic-program program {:attrs {"field" "say \"hello\""}})))))
+        (testing "values with special characters"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:handle "!@#$%^&*()"}}}}))]
+            (is (true? (program {:etype "users"
+                                 :attrs {(str (resolvers/->uuid r :users/handle)) "!@#$%^&*()"}})))
+            (is (false? (program {:etype "users"
+                                  :attrs {(str (resolvers/->uuid r :users/handle)) "other"}})))))
 
-  (testing "values with newlines and tabs"
-    (let [edn '(= (get (:attrs entity) "field") "line1\nline2\ttab")
-          program (iqt/edn->program edn)]
-      (is (true? (iqt/eval-topic-program program {:attrs {"field" "line1\nline2\ttab"}})))))
+        (testing "values with quotes"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:handle "say \"hello\""}}}}))]
+            (is (true? (program {:etype "users"
+                                 :attrs {(str (resolvers/->uuid r :users/handle)) "say \"hello\""}})))))
 
-  (testing "values with backslashes"
-    (let [edn '(= (get (:attrs entity) "path") "C:\\Users\\test")
-          program (iqt/edn->program edn)]
-      (is (true? (iqt/eval-topic-program program {:attrs {"path" "C:\\Users\\test"}})))))
+        (testing "values with newlines and tabs"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:handle "line1\nline2\ttab"}}}}))]
+            (is (true? (program {:etype "users"
+                                 :attrs {(str (resolvers/->uuid r :users/handle)) "line1\nline2\ttab"}})))))
 
-  (testing "unicode values"
-    (let [edn '(= (get (:attrs entity) "name") "日本語テスト")
-          program (iqt/edn->program edn)]
-      (is (true? (iqt/eval-topic-program program {:attrs {"name" "日本語テスト"}})))))
+        (testing "values with backslashes"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:handle "C:\\Users\\test"}}}}))]
+            (is (true? (program {:etype "users"
+                                 :attrs {(str (resolvers/->uuid r :users/handle)) "C:\\Users\\test"}})))))
 
-  (testing "emoji values"
-    (let [edn '(= (get (:attrs entity) "status") "🎉 Party time! 🚀")
-          program (iqt/edn->program edn)]
-      (is (true? (iqt/eval-topic-program program {:attrs {"status" "🎉 Party time! 🚀"}})))))
+        (testing "unicode values"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:handle "日本語テスト"}}}}))]
+            (is (true? (program {:etype "users"
+                                 :attrs {(str (resolvers/->uuid r :users/handle)) "日本語テスト"}})))))
 
-  (testing "CEL injection-like values"
-    (let [edn '(= (get (:attrs entity) "input") "\" && true || \"")
-          program (iqt/edn->program edn)]
-      (is (true? (iqt/eval-topic-program program {:attrs {"input" "\" && true || \""}}))))))
+        (testing "emoji values"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:handle "🎉 Party time! 🚀"}}}}))]
+            (is (true? (program {:etype "users"
+                                 :attrs {(str (resolvers/->uuid r :users/handle)) "🎉 Party time! 🚀"}})))))
+
+        (testing "CEL injection-like values"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:handle "\" && true || \""}}}}))]
+            (is (true? (program {:etype "users"
+                                 :attrs {(str (resolvers/->uuid r :users/handle)) "\" && true || \""}})))))))))
