@@ -529,12 +529,6 @@ export class PersistedObject<K extends string, T, SerializedT> {
       }
     }
 
-    for (const k of Object.keys(state)) {
-      if (!state[k]) {
-        debugger;
-      }
-    }
-
     this.currentValue = state;
     this._enqueuePersist();
     for (const cb of this._subs) {
