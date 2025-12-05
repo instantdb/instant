@@ -419,7 +419,10 @@
 (defn- recompute-instaql-query!
   [{:keys [store current-user app-id sess-id attrs table-info admin?]}
    {:keys [instaql-query/query instaql-query/return-type instaql-query/inference?]}]
-  (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
+  (let [ctx {:db {:conn-pool (aurora/conn-pool
+                              (if (flags/toggled? :refresh-from-replica)
+                                :read-replica
+                                :read))}
              :session-id sess-id
              :app-id app-id
              :attrs attrs
