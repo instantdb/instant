@@ -22,81 +22,78 @@
 
 (defn- index-expr
   "Build entity[key] expression"
-  ^CelExpr [^CelExprFactory f ^CelExpr obj ^CelExpr key]
-  (.newGlobalCall f
+  ^CelExpr [^CelExprFactory factory ^CelExpr obj ^CelExpr key]
+  (.newGlobalCall factory
                   (.getFunction Operator/INDEX)
-                  ^"[Ldev.cel.common.ast.CelExpr;"
-                  (into-array CelExpr [obj key])))
+                  ^CelExpr/1 (into-array CelExpr [obj key])))
 
 (defn- eq-expr
   "Build a == b expression"
-  ^CelExpr [^CelExprFactory f ^CelExpr a ^CelExpr b]
-  (.newGlobalCall f
+  ^CelExpr [^CelExprFactory factory ^CelExpr a ^CelExpr b]
+  (.newGlobalCall factory
                   (.getFunction Operator/EQUALS)
-                  ^"[Ldev.cel.common.ast.CelExpr;"
-                  (into-array CelExpr [a b])))
+                  ^CelExpr/1 (into-array CelExpr [a b])))
 
 (defn- and-expr
   "Build a && b expression"
-  ^CelExpr [^CelExprFactory f ^CelExpr a ^CelExpr b]
-  (.newGlobalCall f
+  ^CelExpr [^CelExprFactory factory ^CelExpr a ^CelExpr b]
+  (.newGlobalCall factory
                   (.getFunction Operator/LOGICAL_AND)
-                  ^"[Ldev.cel.common.ast.CelExpr;"
-                  (into-array CelExpr [a b])))
+                  ^CelExpr/1 (into-array CelExpr [a b])))
 
 (defn- and-exprs
   "Build (a && b && c && ...) from a sequence of expressions"
-  ^CelExpr [^CelExprFactory f exprs]
+  ^CelExpr [^CelExprFactory factory exprs]
   (reduce (fn [^CelExpr acc ^CelExpr expr]
-            (and-expr f acc expr))
+            (and-expr factory acc expr))
           exprs))
 
 (defn- value->cel-expr
   "Convert a Clojure value to a CEL expression"
-  ^CelExpr [^CelExprFactory f v]
+  ^CelExpr [^CelExprFactory factory v]
   (cond
-    (string? v) (.newStringLiteral f v)
-    (int? v) (.newIntLiteral f (long v))
-    (float? v) (.newDoubleLiteral f (double v))
-    (boolean? v) (.newBoolLiteral f v)
-    (uuid? v) (.newStringLiteral f (str v))
+    (string? v) (.newStringLiteral factory v)
+    (int? v) (.newIntLiteral factory (long v))
+    (float? v) (.newDoubleLiteral factory (double v))
+    (boolean? v) (.newBoolLiteral factory v)
+    (uuid? v) (.newStringLiteral factory (str v))
     :else (throw (ex-info "Unsupported value type for CEL" {:value v :type (type v)}))))
 
 (defn- entity-etype-expr
   "Build entity[\"etype\"] expression"
-  ^CelExpr [^CelExprFactory f]
-  (index-expr f
-              (.newIdentifier f "entity")
-              (.newStringLiteral f "etype")))
+  ^CelExpr [^CelExprFactory factory]
+  (index-expr factory
+              (.newIdentifier factory "entity")
+              (.newStringLiteral factory "etype")))
 
 (defn- entity-attr-expr
   "Build entity[\"attrs\"][aid] expression"
-  ^CelExpr [^CelExprFactory f aid]
-  (index-expr f
-              (index-expr f
-                          (.newIdentifier f "entity")
-                          (.newStringLiteral f "attrs"))
-              (.newStringLiteral f (str aid))))
+  ^CelExpr [^CelExprFactory factory aid]
+  (index-expr factory
+              (index-expr factory
+                          (.newIdentifier factory "entity")
+                          (.newStringLiteral factory "attrs"))
+              (.newStringLiteral factory (str aid))))
 
 (defn- eq-etype-cel-expr
   "Build entity[\"etype\"] == etype expression"
-  ^CelExpr [^CelExprFactory f ^String etype]
-  (eq-expr f
-           (entity-etype-expr f)
-           (.newStringLiteral f etype)))
+  ^CelExpr [^CelExprFactory factory ^String etype]
+  (eq-expr factory
+           (entity-etype-expr factory)
+           (.newStringLiteral factory etype)))
 
 (defn- eq-attr-cel-expr
   "Build entity[\"attrs\"][aid] == value expression"
-  ^CelExpr [^CelExprFactory f aid v]
-  (eq-expr f
-           (entity-attr-expr f aid)
-           (value->cel-expr f v)))
+  ^CelExpr [^CelExprFactory factory aid v]
+  (eq-expr factory
+           (entity-attr-expr factory aid)
+           (value->cel-expr factory v)))
 
 ;; ---------
 ;; form->ast!
 
 (defn- single-cond->cel-expr!
-  ^CelExpr [^CelExprFactory f {:keys [etype attrs]} {:keys [cond-data]}]
+  ^CelExpr [^CelExprFactory factory {:keys [etype attrs]} {:keys [cond-data]}]
   (let [{:keys [path v]} cond-data
         [v-type v-data] v]
     (cond
@@ -111,14 +108,14 @@
             {:keys [id] :as attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
         (if-not attr
           (throw-not-supported! [:unknown-attribute])
-          (eq-attr-cel-expr f id v-data))))))
+          (eq-attr-cel-expr factory id v-data))))))
 
 (defn- where-cond->cel-expr!
-  ^CelExpr [^CelExprFactory f ctx {:keys [where-cond]}]
+  ^CelExpr [^CelExprFactory factory ctx {:keys [where-cond]}]
   (let [[cond-type cond-data] where-cond]
     (case cond-type
       :cond
-      (single-cond->cel-expr! f ctx {:cond-data cond-data})
+      (single-cond->cel-expr! factory ctx {:cond-data cond-data})
       (throw-not-supported! [:where-cond cond-type]))))
 
 (defn- form->ast!
@@ -126,18 +123,18 @@
   ^CelAbstractSyntaxTree [{:keys [attrs]} {etype :k :keys [option-map child-forms]}]
   (if (seq child-forms)
     (throw-not-supported! [:child-forms])
-    (let [f (CelExprFactory/newInstance)
+    (let [factory (CelExprFactory/newInstance)
           {:keys [where-conds]} option-map
-          etype-check (eq-etype-cel-expr f etype)
+          etype-check (eq-etype-cel-expr factory etype)
           attr-checks (mapv (fn [where-cond]
                               (where-cond->cel-expr!
-                               f
+                               factory
                                {:etype etype
                                 :attrs attrs}
                                {:where-cond where-cond}))
                             where-conds)
           all-checks (cons etype-check attr-checks)
-          combined-expr (and-exprs f all-checks)]
+          combined-expr (and-exprs factory all-checks)]
       (CelAbstractSyntaxTree/newParsedAst combined-expr cel-source))))
 
 ;; ------
