@@ -19,7 +19,6 @@
    [datascript.core :as d]
    [datascript.conn :as d-conn]
    [instant.config :as config]
-   [instant.db.instaql-topic :as instaql-topic]
    [instant.db.model.attr :as attr-model]
    [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
@@ -1485,7 +1484,7 @@
 
       (println "mark-stale")
       (time
-       (mark-stale-topics! test-store app-id 1 dummy-coarse-topics))
+       (mark-stale-topics! test-store app-id 1 dummy-coarse-topics {}))
 
       (println "get-stale")
       (time
