@@ -15,7 +15,6 @@
 (defn with-invalidator-setup [f]
   (with-zeneca-app
     (fn [app r]
-      (println "za")
       (let [invalidate! (var-get #'inv/invalidate!)
             enable-wal-entity-log? (var-get #'flags/enable-wal-entity-log?)
             records (atom clojure.lang.PersistentQueue/EMPTY)
