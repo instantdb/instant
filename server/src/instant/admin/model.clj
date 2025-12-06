@@ -498,8 +498,8 @@
   [ctx steps]
   (let [coerced-admin-steps (<-json (->json steps) false)
         valid? (s/valid? ::ops coerced-admin-steps)
-        _ (check-for-invalid-entity-ids! steps)
         _ (when-not valid?
+            (check-for-invalid-entity-ids! steps)
             (ex/throw-validation-err!
              :steps
              steps
