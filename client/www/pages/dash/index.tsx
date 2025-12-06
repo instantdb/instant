@@ -18,6 +18,7 @@ import {
   MagnifyingGlassIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
+import { Explorer as NewExplorer } from '@instantdb/components';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import { init } from '@instantdb/react';
 import produce from 'immer';
@@ -55,8 +56,6 @@ import OAuthApps from '@/components/dash/OAuthApps';
 import { Sandbox } from '@/components/dash/Sandbox';
 import {
   Badge,
-  Button,
-  Content,
   Copyable,
   SectionHeading,
   SmallCopyable,
@@ -941,7 +940,13 @@ function ExplorerTab({
   namespaces: SchemaNamespace[] | null;
 }) {
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <NewExplorer
+          appId={appId}
+          adminToken={db.core._reactor.config.__adminToken}
+        />
+      </div>
       <div className="flex flex-1 flex-col overflow-hidden">
         <Explorer
           db={db}
@@ -950,7 +955,7 @@ function ExplorerTab({
           key={db._core._reactor.config.appId}
         />
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1012,7 +1017,7 @@ function AppCombobox({
         <ComboboxButton className="group absolute inset-y-0 right-0 px-2.5">
           <ChevronDownIcon
             height={'1em'}
-            className="fill-gray/300 group-data-[hover]:fill-gray"
+            className="fill-gray/300 group-data-hover:fill-gray"
           />
         </ComboboxButton>
       </div>

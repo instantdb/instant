@@ -3,7 +3,6 @@ import { InstantReactWebDatabase } from '@instantdb/react';
 import { CurlyBraces, FileDown, Table } from 'lucide-react';
 import {
   ColumnDef,
-  ColumnMeta,
   ColumnSizingState,
   getCoreRowModel,
   useReactTable,
@@ -56,8 +55,8 @@ import {
   PlusIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
+
 import {
-  ArrowPathIcon,
   ArrowUpOnSquareIcon,
   PencilSquareIcon,
   TrashIcon,
@@ -112,6 +111,7 @@ import {
   RecentlyDeletedNamespaces,
   useRecentlyDeletedNamespaces,
 } from './RecentlyDeleted';
+import { useDarkMode } from '../DarkModeToggle';
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -2191,10 +2191,11 @@ function formatVal(data: any, pretty?: boolean): string {
 }
 
 function Val({ data, pretty }: { data: any; pretty?: boolean }) {
+  const { darkMode } = useDarkMode();
   const sanitized = formatVal(data, pretty);
 
   if (pretty && isObject(data)) {
-    return <Fence code={sanitized} language="json" />;
+    return <Fence darkMode={darkMode} code={sanitized} language="json" />;
   }
 
   return <>{sanitized}</>;

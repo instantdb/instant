@@ -1,4 +1,4 @@
-import { Switch } from '@/components/switch';
+import { Switch } from '@/components/ui';
 import { Checkbox, Dialog, Divider, IconButton } from '@/components/ui';
 import { useColumnVisibility } from '@/lib/hooks/useColumnVisibility';
 import { Cog6ToothIcon, XMarkIcon } from '@heroicons/react/24/outline';

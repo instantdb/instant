@@ -514,7 +514,12 @@ const clientConfigs = {
           Alternatively you can paste this into your `~/.cursor/mcp.json`
           directly
         </p>
-        <Fence code={cursorMCPConfig} copyable={true} language="json" />
+        <Fence
+          darkMode={false}
+          code={cursorMCPConfig}
+          copyable={true}
+          language="json"
+        />
         <p>
           You should now see the Instant MCP server in your MCP servers list. If
           you don't you may need to restart Cursor. Once you see it, click the
