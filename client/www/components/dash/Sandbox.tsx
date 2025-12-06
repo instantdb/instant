@@ -491,7 +491,7 @@ export function Sandbox({
           out('transaction', { response, rules }, execTimeMs);
 
           return { 'tx-id': response['tx-id'] };
-        } catch (error) {
+        } catch (error: any) {
           out('error', { message: JSON.stringify(error, null, '  ') });
           const errorMessage =
             error?.hint?.errors?.[0]?.message ||
