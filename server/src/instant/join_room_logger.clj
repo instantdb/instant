@@ -58,7 +58,7 @@
               {:group-key-fn #'group-key
                :combine-fn #'combine
                :process-fn #'process
-               :max-workers 2
+               :max-workers 1
                :metrics-path "instant.join-room-logger"})))
 
 (defn stop []
