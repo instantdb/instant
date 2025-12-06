@@ -183,7 +183,8 @@
            "instaql/map-permissioned-node"
            "datalog-query-reactive!"
            "instaql/preload-entity-maps"
-           "datalog/send-query-nested") true
+           "datalog/send-query-nested"
+           "join-room-logger/process") true
 
           ("receive-worker/handle-event"
            "receive-worker/handle-receive")

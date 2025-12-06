@@ -1,0 +1,14 @@
+CREATE TABLE join_room_logs (
+  app_id uuid PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+  join_count BIGINT NOT NULL DEFAULT 1,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX join_room_logs_created_at_idx ON join_room_logs (created_at);
+CREATE INDEX join_room_logs_updated_at_idx ON join_room_logs (updated_at);
+
+CREATE TRIGGER update_join_room_logs_updated_at
+BEFORE UPDATE ON join_room_logs
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
