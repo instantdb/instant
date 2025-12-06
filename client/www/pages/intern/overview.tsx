@@ -378,7 +378,9 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
                 <td className="px-4 py-2 text-right">
                   {Intl.NumberFormat().format(session.count)}
                 </td>
-                <td className="px-4 py-2">{session['app-title']}</td>
+                <td className="px-4 py-2" title={session['app-id']}>
+                  {session['app-title']}
+                </td>
                 <td className="px-4 py-2">{session['creator-email'] || '-'}</td>
                 <td className="px-4 py-2">
                   <OriginColumn origins={session['origins']} />
