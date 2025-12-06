@@ -46,7 +46,7 @@ import {
 } from '../resizable';
 import { useDarkMode } from './DarkModeToggle';
 import { Save } from 'lucide-react';
-import { infoToast } from '@/lib/toast';
+import { infoToast, errorToast } from '@/lib/toast';
 import { useSavedQueryState } from '@/lib/hooks/useSavedQueryState';
 import { addInstantLibs } from '@/lib/monaco';
 import { parsePermsJSON } from '@/lib/parsePermsJSON';
@@ -493,6 +493,10 @@ export function Sandbox({
           return { 'tx-id': response['tx-id'] };
         } catch (error) {
           out('error', { message: JSON.stringify(error, null, '  ') });
+          const errorMessage =
+            error?.hint?.errors?.[0]?.message ||
+            'Transact error, see hint message for details';
+          errorToast(errorMessage, { autoClose: 3000 });
           throw error;
         }
       },
