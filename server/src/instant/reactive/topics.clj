@@ -1,9 +1,12 @@
 (ns instant.reactive.topics
   (:require
    [clojure.set]
+   [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triple-model]
    [instant.util.coll :as ucoll]
-   [instant.util.json :refer [<-json]])
+   [instant.util.json :refer [<-json]]
+   [instant.util.memoize :refer [vmemoize]]
+   [medley.core :as medley])
   (:import
    (java.util UUID)))
 
@@ -16,6 +19,34 @@
                        "created_at" (assoc! acc 3 value)
                        acc))
                    [nil nil nil nil]
+                   cols))
+
+(defn columns->ea [cols]
+  (ucoll/reduce-tr (fn [acc {:keys [name value]}]
+                     (case name
+                       "entity_id" (assoc! acc 0 value)
+                       "attr_id" (let [res (assoc! acc 1 value)]
+                                   (if (and (not (nil? (nth acc 0)))
+                                            (not (nil? (nth acc 1))))
+                                     (reduced res)
+                                     res))
+                       acc))
+                   [nil nil]
+                   cols))
+
+(defn columns->eav [cols]
+  (ucoll/reduce-tr (fn [acc {:keys [name value]}]
+                     (case name
+                       "entity_id" (assoc! acc 0 value)
+                       "attr_id" (assoc! acc 1 value)
+                       "value" (let [res (assoc! acc 2 (<-json value))]
+                                 (if (and (not (nil? (nth acc 0)))
+                                          (not (nil? (nth acc 1)))
+                                          (not (nil? (nth acc 2))))
+                                   (reduced res)
+                                   res))
+                       acc))
+                   [nil nil nil]
                    cols))
 
 (defn columns->map
@@ -172,6 +203,38 @@
                                   topics-for-attr-changes)]
     topics))
 
+;; Wal entities
+;; ------------
+
+(defn extract-entities-after [{:keys [messages]}]
+  (reduce (fn [acc message]
+            (case (:prefix message)
+              ("update_ents" "delete_ents")
+              (reduce (fn [acc [etype attr-id ent]]
+                        (assoc-in acc [etype attr-id] ent))
+                      acc
+                      (<-json (:content message)))
+              acc))
+          {}
+          messages))
+
+(defn extract-entities-before [attrs entities-after {:keys [triple-changes]}]
+  (let [attr-etype (vmemoize (fn [id-str]
+                               (let [attr (attr-model/seek-by-id (parse-uuid id-str) attrs)]
+                                 (when (= :one (:cardinality attr))
+                                   (attr-model/fwd-etype attr)))))]
+    (reduce (fn [acc change]
+              (case (:action change)
+                :insert (let [[e a] (columns->eav (:columns change))]
+                          (if-let [etype (attr-etype a)]
+                            (medley.core/dissoc-in acc [etype e a])
+                            acc))
+                (:update :delete) (let [[e a v] (columns->eav (:identity change))]
+                                    (if-let [etype (attr-etype a)]
+                                      (assoc-in acc [etype e a] v)
+                                      acc))))
+            entities-after
+            (reverse triple-changes))))
 
 ;; ----
 ;; BYOP

@@ -1130,73 +1130,112 @@
           :when (and sent-tx-id topics (matching-topic-intersection? iv-topics topics))]
       ent)))
 
-(defn filter-queries [app-id db iv-topics query-ids]
+(defn hard-coded-should-remove-query? [app-id db iv-topics eid]
+  (when-let [q (some->> (d/datoms db :avet :subscription/datalog-query eid)
+                        first
+                        :e
+                        (d/entity db)
+                        :subscription/instaql-query)]
+    (when (= (:instaql-query/forms-hash q)
+             889158316)
+      (let [wid (some-> q
+                        :instaql-query/query
+                        :edenItem
+                        :$
+                        :where
+                        :workspaceId)
+            deleted-nil? (some-> q
+                                 :instaql-query/query
+                                 :edenItem
+                                 :$
+                                 :where
+                                 :deleted
+                                 :$isNull)
+            type (some-> q
+                         :instaql-query/query
+                         :edenItem
+                         :$
+                         :where
+                         :type)]
+        (when (and wid deleted-nil? type)
+          (let [attrs (attr-model/get-by-app-id app-id)
+                waid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "workspaceId"] attrs))
+                deleted-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "deleted"] attrs))
+                type-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "type"] attrs))
+                creates (reduce (fn [acc [_idx e a v]]
+                                  (let [e (first e)
+                                        a (first a)]
+                                    (if (or (= a waid)
+                                            (= a deleted-aid)
+                                            (= a type-aid))
+                                      (if (not= 1 (count v))
+                                        ;; We got an update, so we'll just bail out
+                                        (reduced nil)
+                                        (assoc-in acc [e a] (first v)))
+                                      acc)))
+                                {}
+                                iv-topics)]
+            (when creates
+              (not (some (fn [[_e ent]]
+                           (and (= (get ent waid) wid)
+                                (= deleted-nil? (nil? (get ent deleted-aid)))
+                                (= (get ent type-aid) type)))
+                         creates)))))))))
+
+(defn instaql-query-ent-for-datalog-query-eid [db eid]
+  (->> (d/find-datom db :avet :subscription/datalog-query eid)
+       :e
+       (d/entity db)
+       :subscription/instaql-query))
+
+(defn instaql-topic-matches? [{:keys [program]} entities]
+  (reduce-kv
+   (fn [_ etype by-eid]
+     (reduce-kv
+      (fn [_ _eid attrs]
+        (if (program {:etype etype
+                      :attrs attrs})
+          (reduced program)
+          false))
+      false
+      by-eid))
+   false
+   entities))
+
+(defn instaql-topic-should-remove-query? [app-id db wal-record eid]
+  (try
+    (when (seq (:messages wal-record))
+      (when-let [iql-topic (-> (instaql-query-ent-for-datalog-query-eid db eid)
+                               :instaql-query/topic)]
+        (let [entities-after (topics/extract-entities-after wal-record)]
+          (and (not (instaql-topic-matches? iql-topic entities-after))
+               (let [entities-before (topics/extract-entities-before (attr-model/get-by-app-id app-id)
+                                                                     entities-after
+                                                                     wal-record)]
+                 (not (instaql-topic-matches? iql-topic entities-before)))))))
+    (catch Throwable t
+      (tracer/record-exception-span! t {:name "instaql-topic-should-remove-query?-error"}))))
+
+(defn filter-queries [app-id db iv-topics wal-record query-ids]
   (if-not (flags/toggled? :filter-query)
     query-ids
     (remove (fn [eid]
-              (when-let [q (some->> (d/datoms db :avet :subscription/datalog-query eid)
-                                    first
-                                    :e
-                                    (d/entity db)
-                                    :subscription/instaql-query)]
-                (when (= (:instaql-query/forms-hash q)
-                         889158316)
-                  (let [wid (some-> q
-                                    :instaql-query/query
-                                    :edenItem
-                                    :$
-                                    :where
-                                    :workspaceId)
-                        deleted-nil? (some-> q
-                                             :instaql-query/query
-                                             :edenItem
-                                             :$
-                                             :where
-                                             :deleted
-                                             :$isNull)
-                        type (some-> q
-                                     :instaql-query/query
-                                     :edenItem
-                                     :$
-                                     :where
-                                     :type)]
-                    (when (and wid deleted-nil? type)
-                      (let [attrs (attr-model/get-by-app-id app-id)
-                            waid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "workspaceId"] attrs))
-                            deleted-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "deleted"] attrs))
-                            type-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "type"] attrs))
-                            creates (reduce (fn [acc [_idx e a v]]
-                                              (let [e (first e)
-                                                    a (first a)]
-                                                (if (or (= a waid)
-                                                        (= a deleted-aid)
-                                                        (= a type-aid))
-                                                  (if (not= 1 (count v))
-                                                    ;; We got an update, so we'll just bail out
-                                                    (reduced nil)
-                                                    (assoc-in acc [e a] (first v)))
-                                                  acc)))
-                                            {}
-                                            iv-topics)]
-                        (when creates
-                          (not (some (fn [[_e ent]]
-                                       (and (= (get ent waid) wid)
-                                            (= deleted-nil? (nil? (get ent deleted-aid)))
-                                            (= (get ent type-aid) type)))
-                                     creates)))))))))
+              (or (hard-coded-should-remove-query? app-id db iv-topics eid)
+                  (instaql-topic-should-remove-query? app-id db wal-record eid)))
             query-ids)))
 
 (defn mark-stale-topics!
   "Given topics, invalidates all relevant datalog qs and associated instaql queries.
 
   Returns affected session-ids"
-  [store app-id tx-id topics]
+  [store app-id tx-id topics wal-record]
   (let [conn (app-conn store app-id)
         db @conn
         datalog-query-eids
         (vec (filter-queries app-id
                              db
                              topics
+                             wal-record
                              (cond
                                (flags/use-get-datalog-queries-for-topics-v3?)
                                (get-datalog-queries-for-topics-v3 db app-id topics)
@@ -1445,7 +1484,7 @@
 
       (println "mark-stale")
       (time
-       (mark-stale-topics! test-store app-id 1 dummy-coarse-topics))
+       (mark-stale-topics! test-store app-id 1 dummy-coarse-topics {}))
 
       (println "get-stale")
       (time

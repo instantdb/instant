@@ -484,7 +484,8 @@
                                  5
                                  [(d/pat->coarse-topic
                                    [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    (resolvers/->uuid r "eid-predator")])]
+                                 {})
 
             ;; Now we have a stale query
           (is (= [(:kw-q query-1987)]
@@ -524,7 +525,8 @@
                                  0
                                  [(d/pat->coarse-topic
                                    [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    (resolvers/->uuid r "eid-predator")])]
+                                 {})
           (ds/transact! (rs/app-conn store app-id)
                         [[:db/retract [:instaql-query/session-id+query [sess-id (:kw-q query-1987)]] :instaql-query/hash]])
 
@@ -553,7 +555,8 @@
                                  0
                                  [(d/pat->coarse-topic
                                    [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    (resolvers/->uuid r "eid-predator")])]
+                                 {})
           (ds/transact! (rs/app-conn store app-id)
                         [[:db/retract [:instaql-query/session-id+query [sess-id (:kw-q query-1987)]] :instaql-query/hash]])
 
@@ -580,7 +583,8 @@
                                  0
                                  [(d/pat->coarse-topic
                                    [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    (resolvers/->uuid r "eid-predator")])]
+                                 {})
 
           (testing "send refresh"
             ;; clear the query hash so that the refresh will trigger a send
@@ -670,7 +674,8 @@
                                    app-id
                                    0
                                    [(d/pat->coarse-topic
-                                     [:vae '_ '_ john-uuid])])
+                                     [:vae '_ '_ john-uuid])]
+                                   {})
 
             ;; send refresh
             (blocking-send-msg :refresh-ok socket {:session-id (:id socket)

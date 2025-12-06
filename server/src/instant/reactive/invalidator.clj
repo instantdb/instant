@@ -32,7 +32,7 @@
   ;; process-id used for tests
   [_process-id store {:keys [app-id tx-id] :as wal-record}]
   (let [topics      (topics/topics-for-changes wal-record)
-        session-ids (rs/mark-stale-topics! store app-id tx-id topics)
+        session-ids (rs/mark-stale-topics! store app-id tx-id topics wal-record)
         sockets     (keep #(:session/socket (rs/session store %)) session-ids)
         sync-subs (rs/get-stale-sync-subs store app-id topics)]
     {:sockets sockets
@@ -43,7 +43,7 @@
   sockets to be refreshed."
   [table-info app-id store {:keys [tx-id] :as record}]
   (let [topics      (topics/topics-for-byop-changes table-info record)
-        session-ids (rs/mark-stale-topics! store app-id tx-id topics)
+        session-ids (rs/mark-stale-topics! store app-id tx-id topics record)
         sockets     (keep #(:session/socket (rs/session store %)) session-ids)]
     sockets))
 
@@ -75,7 +75,7 @@
   (when-let [^String created-at (topics/get-column columns "created_at")]
     (.toInstant (Timestamp/valueOf created-at))))
 
-(defn transform-wal-record [{:keys [changes tx-bytes] :as _record}]
+(defn transform-wal-record [{:keys [changes messages tx-bytes] :as _record}]
   ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
   ;;      or else we will never be notified about it.
   (let [{:strs [idents triples attrs transactions]}
@@ -86,6 +86,7 @@
                          (seq attrs))
         transactions-change (first transactions)
         app-id (extract-app-id transactions-change)]
+
 
     (when (and some-changes app-id)
       (let [tx-id (extract-tx-id transactions-change)
@@ -101,7 +102,8 @@
          :app-id app-id
          :tx-created-at tx-created-at
          :tx-id tx-id
-         :tx-bytes tx-bytes}))))
+         :tx-bytes tx-bytes
+         :messages messages}))))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"

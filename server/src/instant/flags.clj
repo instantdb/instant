@@ -120,7 +120,9 @@
                   (update :coarse-topics-apps (fn [vs]
                                                 (set (map parse-uuid vs))))
                   (update :more-vfutures-instances (fn [vs]
-                                                     (set vs))))
+                                                     (set vs)))
+                  (update :enable-wal-entity-log-apps (fn [vs]
+                                                        (set vs))))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -275,6 +277,9 @@
 
 (defn use-get-datalog-queries-for-topics-v2? []
   (toggled? :use-get-datalog-queries-for-topics-v2? true))
+
+(defn enable-wal-entity-log? [app-id]
+  (contains? (flag :enable-wal-entity-log-apps) app-id))
 
 (def use-more-vfutures?
   (case (config/get-env)

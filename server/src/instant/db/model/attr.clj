@@ -1044,6 +1044,9 @@
 (defn seek-by-id [id ^Attrs attrs]
   (get @(.-by-id-cache attrs) id))
 
+(defn etype-by-id [id ^Attrs attrs]
+  (fwd-etype (seek-by-id id attrs)))
+
 (defn seek-by-fwd-ident-name [fwd-ident ^Attrs attrs]
   (get @(.-by-fwd-ident-cache attrs) fwd-ident))
 
