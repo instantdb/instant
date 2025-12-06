@@ -993,7 +993,16 @@
                 (conj attrs {:id (random-uuid)
                              :forward-identity [(random-uuid) "books" "test.isbn"]
                              :unique? false})
-                [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))))))
+                [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))
+        (is (= {:message "Invalid entity ID '12345'. Entity IDs must be UUIDs or lookup references."
+                :in [0 2]}
+               (tx-validation-err
+                attrs [["delete" "goals" 12345]])))
+        (is (= {:message "Invalid entity ID 'bad-id'. Entity IDs must be UUIDs or lookup references."
+                :in [1 2]}
+               (tx-validation-err
+                attrs [["update" "goals" (random-uuid) {"title" "test"}]
+                       ["link" "goals" "bad-id" {"todos" (random-uuid)}]])))))))
 
 (deftest presence-get-test
   (with-empty-app
