@@ -318,6 +318,8 @@
                           :messages []
                           :tx-bytes 0})
 
+(def watched-message-prefixes #{"update_ents" "delete_ents"})
+
 (defn- produce
   "Repeatedly read from the stream and >!! records to the `to` channel.
 
@@ -358,7 +360,9 @@
 
                                    (:update :delete) (assoc state :next-action :close-ignore)
 
-                                   :message (update state :messages conj record)
+                                   :message (if (contains? watched-message-prefixes (:prefix record))
+                                              (update state :messages conj record)
+                                              state)
 
                                    :truncate state
 
@@ -378,7 +382,9 @@
                              :close (case (:action record)
                                       (:insert :update :delete) (update state :records conj record)
 
-                                      :message (update state :messages conj record)
+                                      :message (if (contains? watched-message-prefixes (:prefix record))
+                                                 (update state :messages conj record)
+                                                 state)
 
                                       ;; Don't handle truncate
                                       :truncate state
