@@ -1,4 +1,10 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { InstantReactAbstractDatabase } from '@instantdb/react';
 import { useExplorerProps, useExplorerState } from '.';
 import { SearchInput } from './search-input';
@@ -34,9 +40,6 @@ import {
   SortableContext,
   horizontalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { mkConfig, generateCsv, download } from 'export-to-csv';
-import { markdownTable } from 'markdown-table';
-import copy from 'copy-to-clipboard';
 import {
   ArrowUpOnSquareIcon,
   PencilSquareIcon,
@@ -46,8 +49,6 @@ import {
 
 import { successToast, errorToast } from '@lib/components/toast';
 import {
-  ActionButton,
-  ActionForm,
   Button,
   Checkbox,
   cn,
@@ -60,14 +61,12 @@ import {
   DropdownMenuTrigger,
   Fence,
   IconButton,
-  SectionHeading,
   Select,
   TextInput,
   ToggleCollection,
   useDialog,
 } from '@lib/components/ui';
 import { DBAttr, SchemaAttr, SchemaNamespace } from '@lib/types';
-import { useClickOutside } from '@lib/hooks/useClickOutside';
 import { useNamespacesQuery, SearchFilter } from '@lib/hooks/explorer';
 import { formatBytes } from '@lib/utils/format';
 import { getTableWidthSize } from '@lib/utils/tableWidthSize';
@@ -77,7 +76,7 @@ import { useColumnVisibility } from '@lib/hooks/useColumnVisibility';
 import { ViewSettings } from './view-settings';
 import { useLocalStorage } from '@lib/hooks/useLocalStorage';
 
-import { isObject, debounce, last } from 'lodash';
+import { isObject } from 'lodash';
 
 const fallbackItems: any[] = [];
 
@@ -146,50 +145,6 @@ export const InnerExplorer: React.FC<{
       return newCheckedIds;
     });
   };
-
-  // Handle scroll to update shadow opacity
-  useEffect(() => {
-    const tableElement = tableRef.current;
-    if (!tableElement) return;
-
-    const handleScroll = () => {
-      const tableWidth = table.getCenterTotalSize();
-      const viewportWidth = tableElement.clientWidth;
-
-      setTableSmallerThanViewport(tableWidth < viewportWidth - 5);
-
-      const { scrollLeft, scrollWidth, clientWidth } = tableElement;
-      const maxScroll = scrollWidth - clientWidth;
-      if (maxScroll <= 0) {
-        setLeftShadowOpacity(0);
-        setRightShadowOpacity(0);
-        return;
-      }
-      const leftOpacity = Math.min(scrollLeft / 30, 1);
-      setLeftShadowOpacity(leftOpacity);
-
-      const rightOpacity = Math.min((maxScroll - scrollLeft) / 30, 1);
-      setRightShadowOpacity(rightOpacity);
-    };
-
-    handleScroll();
-    tableElement.addEventListener('scroll', handleScroll);
-
-    const resizeObserver = new ResizeObserver(handleScroll);
-    resizeObserver.observe(tableElement);
-    const tableContent = tableElement.firstElementChild;
-    if (tableContent) {
-      resizeObserver.observe(tableContent);
-    }
-
-    window.addEventListener('resize', handleScroll);
-
-    return () => {
-      tableElement.removeEventListener('scroll', handleScroll);
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', handleScroll);
-    };
-  }, [selectedNamespace, tableItems]);
 
   const [searchFilters, setSearchFilters] = useState<SearchFilter[]>([]);
   const { itemsRes, allCount } = useNamespacesQuery(
@@ -531,6 +486,50 @@ export const InnerExplorer: React.FC<{
     }
   }
 
+  // Handle scroll to update shadow opacity
+  useEffect(() => {
+    const tableElement = tableRef.current;
+    if (!tableElement) return;
+
+    const handleScroll = () => {
+      const tableWidth = table.getCenterTotalSize();
+      const viewportWidth = tableElement.clientWidth;
+
+      setTableSmallerThanViewport(tableWidth < viewportWidth - 5);
+
+      const { scrollLeft, scrollWidth, clientWidth } = tableElement;
+      const maxScroll = scrollWidth - clientWidth;
+      if (maxScroll <= 0) {
+        setLeftShadowOpacity(0);
+        setRightShadowOpacity(0);
+        return;
+      }
+      const leftOpacity = Math.min(scrollLeft / 30, 1);
+      setLeftShadowOpacity(leftOpacity);
+
+      const rightOpacity = Math.min((maxScroll - scrollLeft) / 30, 1);
+      setRightShadowOpacity(rightOpacity);
+    };
+
+    handleScroll();
+    tableElement.addEventListener('scroll', handleScroll);
+
+    const resizeObserver = new ResizeObserver(handleScroll);
+    resizeObserver.observe(tableElement);
+    const tableContent = tableElement.firstElementChild;
+    if (tableContent) {
+      resizeObserver.observe(tableContent);
+    }
+
+    window.addEventListener('resize', handleScroll);
+
+    return () => {
+      tableElement.removeEventListener('scroll', handleScroll);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, [selectedNamespace, tableItems]);
+
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
     useSensor(TouchSensor, {}),
@@ -546,6 +545,53 @@ export const InnerExplorer: React.FC<{
     }
     return name.length * 7.2 + 50;
   };
+  // evenly space width of columns on first render
+  useLayoutEffect(() => {
+    if (selectedNamespace?.id) {
+      if (
+        localStorage.getItem(
+          `$sizing-${selectedNamespace.id}-${explorerProps.appId}`,
+        )
+      ) {
+        const savedSizing = JSON.parse(
+          localStorage.getItem(
+            `sizing-${selectedNamespace.id}-${explorerProps.appId}`,
+          ) || '{}',
+        );
+        table.setColumnSizing(() => {
+          return { ...savedSizing };
+        });
+        return;
+      }
+
+      const fullWidth = tableRef.current?.clientWidth || -1;
+      const result: Record<string, number> = {};
+
+      selectedNamespace?.attrs.forEach((attr) => {
+        result[attr.id + attr.name] = transformAttrNameToWidth(attr.name);
+      });
+
+      const totalWidth = Object.values(result).reduce(
+        (acc, width) => acc + width,
+        0,
+      );
+
+      // Distribute the remaining width equally
+      const remainingWidth = fullWidth - 52 - totalWidth;
+      if (remainingWidth > 0) {
+        const numColumns = Object.keys(result).length;
+        const extraWidth = remainingWidth / numColumns;
+
+        Object.keys(result).forEach((key) => {
+          result[key] += extraWidth;
+        });
+      }
+
+      table.setColumnSizing((d) => {
+        return { ...result };
+      });
+    }
+  }, [tableRef.current, selectedNamespace]);
 
   if (!selectedNamespace) {
     return null;
