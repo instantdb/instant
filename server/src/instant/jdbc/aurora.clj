@@ -208,7 +208,8 @@
   (binding [socket-track/*connection-id* (random-uuid)]
     (let [conn (next-jdbc/get-connection (assoc config
                                                 :socketFactory "instant.SocketWrapper"))]
-      (socket-track/add-connection socket-track/*connection-id* conn)
+      (socket-track/add-connection socket-track/*connection-id* conn {:cluster-id (:cluster-id config)
+                                                                      :db-host (:host config)})
       (next-jdbc/execute! conn ["select set_config('idle_in_transaction_session_timeout', ?::text, false)"
                                 (flags/flag :idle-in-transaction-session-timeout (* 1000 60))])
       conn)))
@@ -278,7 +279,7 @@
     (memoized-read-only-wrapper -conn-pool)
     :read-replica
     (if -replica-conn-pool
-      (memoized-replica-read-only-wrapper -conn-pool)
+      (memoized-replica-read-only-wrapper -replica-conn-pool)
       (memoized-read-only-wrapper -conn-pool))
     -conn-pool))
 
@@ -292,31 +293,6 @@
   ;; validation check. If it gets a retryable error, like connection_closed,
   ;; then it can try again on another connection.
   (System/setProperty "com.zaxxer.hikari.aliveBypassWindowMs" "60000"))
-
-(defn start-replica-pool ^HikariDataSource [pool-size aurora-config]
-  (patch-hikari)
-  (tracer/record-info! {:name "aurora/start-replica-conn-pool"
-                        :attributes {:size pool-size}})
-  (let [config aurora-config
-        hikari-config (doto (HikariConfig.)
-                        (.setMaxLifetime (* 10 60 1000))
-                        (.setMaximumPoolSize pool-size))
-        pool (if (:cluster-id config)
-               (let [ds (aurora-cluster-datasource (fn [_instance-id _conn]
-                                                     nil)
-                                                   (fn []
-                                                     config))
-                     pool (HikariDataSource. (doto hikari-config
-                                               (.setDataSource ds)))]
-                 pool)
-               (HikariDataSource.
-                (doto hikari-config
-                  (.setUsername (:user config))
-                  (.setPassword (:password config))
-                  (.setDataSource (dev-datasource config)))))]
-    ;; Check that the pool is working
-    (.close (next-jdbc/get-connection pool))
-    pool))
 
 (defn start-pool ^HikariDataSource [pool-size aurora-config]
   (patch-hikari)
@@ -356,15 +332,14 @@
 (defn start []
   (let [conn-pool-size (config/get-connection-pool-size)
         config (config/get-aurora-config)
-        primary-config (or (:primary config) config)
-        replica-config (:replica config)]
+        next-config (config/get-next-aurora-config)]
     (lang/set-var! -conn-pool
-      (start-pool conn-pool-size primary-config))
-    (when replica-config
+      (start-pool conn-pool-size config))
+    (when next-config
       (tracer/with-span! {:name "aurora/start-replica"}
         (try
           (lang/set-var! -replica-conn-pool
-            (start-replica-pool conn-pool-size replica-config))
+            (start-pool conn-pool-size next-config))
           (catch Throwable t
             (tracer/add-exception! t {:escaping? false})))))
     nil))

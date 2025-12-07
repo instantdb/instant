@@ -482,7 +482,8 @@
                                          :bytes-written (- (:write bytes-after#)
                                                            (:write bytes-before#))})]
                       (when bytes-meta#
-                        (tracer/add-data! {:attributes bytes-meta#}))
+                        (tracer/add-data! {:attributes (merge bytes-meta#
+                                                              (socket-track/connection-metadata c#))}))
                       (annotate-update-count ps#)
                       (when res#
                         (if (:attach-warnings? opts#)

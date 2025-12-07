@@ -489,12 +489,7 @@
                                   :close-signal-chan close-signal-chan
                                   :flush-lsn-chan flush-lsn-chan
                                   :get-conn-config (fn []
-                                                     (or (config/get-next-aurora-config)
-                                                         ;; Use the next db so that we don't
-                                                         ;; have to worry about restarting the
-                                                         ;; aggregator when failing over to a
-                                                         ;; new blue/green deployment
-                                                         (config/get-aurora-config)))
+                                                     (config/get-aurora-config))
                                   :slot-suffix slot-suffix
                                   :slot-type slot-type
                                   :lsn lsn})

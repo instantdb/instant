@@ -230,7 +230,10 @@
             processed-tx-id (rs/get-processed-tx-id store app-id)
             {:keys [table-info]} (get-attrs app)
             attrs (attr-model/get-by-app-id app-id)
-            ctx {:db             {:conn-pool (aurora/conn-pool :read)}
+            ctx {:db {:conn-pool (aurora/conn-pool
+                                  (if (flags/toggled? :refresh-from-replica)
+                                    :read-replica
+                                    :read))}
                  :datalog-loader (rs/upsert-datalog-loader! store sess-id d/make-loader)
                  :session-id     sess-id
                  :app-id         app-id
