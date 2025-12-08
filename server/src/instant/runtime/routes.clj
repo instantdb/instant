@@ -254,24 +254,27 @@
                 :app-id app-id
                 :sub sub
                 :provider-id provider-id})
-        user (if (>= 1 (count users))
-               (first users)
-               (let [email-match (when email
-                                   (filter (fn [u]
-                                             (= email (:app_users/email u)))
-
-                                           users))]
-
-                 (if (= 1 (count email-match))
-                   (tracer/with-span! {:name "oauth/disambiguated-by-email"
-                                       :attributes {:params params
-                                                    :users users}}
-
-                     (first email-match))
-
-                   (ex/throw-validation-err! :oauth
-                                             nil
-                                             [{:message "We could not log you in. There were multiple users associated with this account."}]))))]
+        {:keys [user existing-oauth-link]}
+        (if (<= (count users) 1)
+          {:user (first users)
+           :existing-oauth-link nil}
+          (let [email-matches (when email
+                                (filter #(= email (:app_users/email %)) users))]
+            (when-not (= 1 (count email-matches))
+              (ex/throw-validation-err! :oauth
+                                        nil
+                                        [{:message "We could not log you in. There were multiple users associated with this account."}]))
+            (let [selected (first email-matches)
+                  oauth-link-user (first (filter :app_user_oauth_links/id users))]
+              (tracer/record-info! {:name "oauth/disambiguated-by-email"
+                                    :attributes {:email email
+                                                 :sub sub
+                                                 :user-ids (mapv :app_users/id users)
+                                                 :selected-user-id (:app_users/id selected)}})
+              {:user selected
+               :existing-oauth-link (when oauth-link-user
+                                      {:id (:app_user_oauth_links/id oauth-link-user)
+                                       :sub (:app_user_oauth_links/sub oauth-link-user)})})))]
 
     (if-not user
       (let [created (app-user-model/create!
@@ -314,6 +317,14 @@
                                                :app-id app-id
                                                :email email})
                 (ucoll/select-keys-no-ns user :app_user_oauth_links))
+
+              (and existing-oauth-link (not (:app_user_oauth_links/id user)))
+              (tracer/with-span! {:name "oauth-link/reassign"
+                                  :attributes {:link-id (:id existing-oauth-link)
+                                               :to-user-id (:app_users/id user)}}
+                (app-user-oauth-link-model/update-user! {:id (:id existing-oauth-link)
+                                                         :app-id app-id
+                                                         :user-id (:app_users/id user)}))
 
               (not (:app_user_oauth_links/id user))
               (tracer/with-span! {:name "oauth-link/create"

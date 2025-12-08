@@ -20,3 +20,14 @@
                                                                            sub
                                                                            provider-id)]])
       (get-entity id)))))
+
+(defn update-user!
+  ([params] (update-user! (aurora/conn-pool :write) params))
+  ([conn {:keys [id app-id user-id]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id get-entity]}]
+      (transact! [[:add-triple id (resolve-id :$user) user-id]])
+      (get-entity id)))))
