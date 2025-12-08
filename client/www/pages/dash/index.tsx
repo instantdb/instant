@@ -18,7 +18,7 @@ import {
   MagnifyingGlassIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
-import { Explorer as NewExplorer } from '@instantdb/components';
+import { ExplorerNav, Explorer as NewExplorer } from '@instantdb/components';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import { init } from '@instantdb/react';
 import produce from 'immer';
@@ -64,7 +64,7 @@ import {
   ToggleCollection,
   twel,
 } from '@/components/ui';
-import { useSchemaQuery } from '@/lib/hooks/explorer';
+import { SearchFilter, useSchemaQuery } from '@/lib/hooks/explorer';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 import clsx from 'clsx';
@@ -74,6 +74,14 @@ import { capitalize } from 'lodash';
 import { Workspace } from '@/lib/hooks/useWorkspace';
 import AnimatedCounter from '@/components/AnimatedCounter';
 import { useDarkMode } from '@/components/dash/DarkModeToggle';
+import {
+  parseAsBoolean,
+  parseAsInteger,
+  parseAsJson,
+  parseAsString,
+  useQueryStates,
+} from 'nuqs';
+import { useExplorerState } from '@/lib/hooks/useExplorerState';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -938,6 +946,7 @@ function DashboardContent({
 function ExplorerTab({
   db,
   appId,
+  namespaces,
 }: {
   db: InstantReactClient;
   appId: string;
@@ -945,10 +954,14 @@ function ExplorerTab({
 }) {
   const { darkMode } = useDarkMode();
 
+  const [explorerState, setExplorerState] = useExplorerState();
+
   return (
     <>
       <div className="flex flex-1 flex-col overflow-hidden">
         <NewExplorer
+          setExplorerState={setExplorerState}
+          explorerState={explorerState}
           apiURI={config.apiURI}
           websocketURI={config.websocketURI}
           darkMode={darkMode}
