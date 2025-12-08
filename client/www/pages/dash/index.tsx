@@ -24,7 +24,6 @@ import { init } from '@instantdb/react';
 import produce from 'immer';
 import Head from 'next/head';
 import NextLink from 'next/link';
-import { useRouter } from 'next/router';
 import { ReactElement, useContext, useEffect, useRef, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 
@@ -35,8 +34,8 @@ import { successToast } from '@/lib/toast';
 import { InstantApp, SchemaNamespace } from '@/lib/types';
 import { titleComparator } from '@/lib/app';
 
-import { Explorer } from '@/components/dash/explorer/Explorer';
 import { AppStart } from '@/components/dash/HomeStartGuide';
+import { Explorer } from '@/components/dash/explorer/Explorer';
 import { Perms } from '@/components/dash/Perms';
 import { Schema } from '@/components/dash/Schema';
 
@@ -939,13 +938,13 @@ function DashboardContent({
 function ExplorerTab({
   db,
   appId,
-  namespaces,
 }: {
   db: InstantReactClient;
   appId: string;
   namespaces: SchemaNamespace[] | null;
 }) {
   const { darkMode } = useDarkMode();
+
   return (
     <>
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -957,14 +956,6 @@ function ExplorerTab({
           adminToken={db.core._reactor.config.__adminToken}
         />
       </div>
-      {/*<div className="flex flex-1 flex-col overflow-hidden">
-        <Explorer
-          db={db}
-          appId={appId}
-          namespaces={namespaces}
-          key={db._core._reactor.config.appId}
-        />
-      </div>*/}
     </>
   );
 }
