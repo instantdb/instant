@@ -135,19 +135,18 @@
    (if-let [[data-type v] (data-type-for-hash checked-data-type v_)]
      ;; Only track counts for the items that you can query for
      (let [seed (hash-val 0 -1 data-type v)
-           bin-changes (mapv (fn [i]
-                               (let [hash (hash-val seed i data-type v)]
-                                 {:i i
-                                  :bin-idx (int (+ (Long/remainderUnsigned hash
-                                                                           (:width sketch))
-                                                   (* i (:width sketch))))}))
-                             (range (:depth sketch)))]
+           bin-idxes (mapv (fn [i]
+                             (let [hash (hash-val seed i data-type v)]
+                               (int (+ (Long/remainderUnsigned hash
+                                                               (:width sketch))
+                                       (* i (:width sketch))))))
+                           (range (:depth sketch)))]
        ;; Lock the bins so that we don't get concurrent changes.
        ;; This shouldn't be a problem because we only ever add from the
        ;; single-threaded aggregator
        (let [^longs bins (:bins sketch)]
          (locking bins
-           (doseq [{:keys [id bin-idx]} bin-changes]
+           (doseq [bin-idx bin-idxes]
              (aset bins bin-idx (+ (aget bins bin-idx) ^long n)))))
        (-> sketch
            (update :total + n)))
@@ -172,7 +171,7 @@
                                                                                                    (:width sketch))
                                                                            (* i (:width sketch))))]
 
-                                                       (conj! acc {:i i :bin-idx bin-idx :n n})))
+                                                       (conj! acc {:bin-idx bin-idx :n n})))
                                                    (:bin-changes acc)
                                                    (range (:depth sketch)))]
                            (-> acc
