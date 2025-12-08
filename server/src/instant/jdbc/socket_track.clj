@@ -55,7 +55,7 @@
 
 (defn add-connection [^UUID connection-id ^PgConnection connection metadata]
   (ConcurrentMap/.put connection-map connection connection-id)
-  (ConcurrentMap/.put connection-metadata-map connection-id metadata))
+  (ConcurrentMap/.put connection-metadata-map connection metadata))
 
 ;; Exposed through the gen-class as instant.jdbc.SocketTrack.addsocket
 (defn -addsocket [^CountingSocket s]
@@ -73,5 +73,5 @@
      :write (.getBytesWritten socket)}))
 
 (defn connection-metadata [conn]
-  (when-let [conn-id (get-connection-id conn)]
-    (ConcurrentMap/.get connection-metadata-map conn-id)))
+  (when-let [conn (unwrap-conn conn)]
+    (ConcurrentMap/.get connection-metadata-map conn)))
