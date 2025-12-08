@@ -301,7 +301,6 @@ jobs:
         with:
           node-version: 23
           package-manager-cache: false
-          registry-url: 'https://registry.npmjs.org'
           always-auth: true
 
       - name: Get pnpm cache directory path
