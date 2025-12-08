@@ -39,7 +39,7 @@
     (uncaughtException [_ thread ex]
       (tracer/record-exception-span! ex {:name        "uncaught-exception"
                                          :escaping?   false
-                                         :thread-name (.getName thread)}))))
+                                         :attributes {:thread-name (.getName thread)}}))))
 
 (defn wrap-catch-unhandled-exceptions [f]
   (fn [& args]
