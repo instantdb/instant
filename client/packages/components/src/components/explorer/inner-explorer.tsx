@@ -432,6 +432,33 @@ export const InnerExplorer: React.FC<{
     columns.map((c) => c.id!),
   );
 
+  // Sync columnOrder when namespace changes
+  useLayoutEffect(() => {
+    if (selectedNamespace?.attrs) {
+      const savedOrder = localStorage.getItem(
+        `order-${selectedNamespace.id}-${explorerProps.appId}`,
+      );
+      if (savedOrder) {
+        setColumnOrder(JSON.parse(savedOrder));
+      } else {
+        const newOrder = selectedNamespace.attrs.map(
+          (attr) => attr.id + attr.name,
+        );
+        setColumnOrder(['select-col', ...newOrder]);
+      }
+    }
+  }, [selectedNamespace?.attrs]);
+
+  // Persist columnOrder to localStorage when it changes
+  useEffect(() => {
+    if (selectedNamespace?.id) {
+      localStorage.setItem(
+        `order-${selectedNamespace.id}-${explorerProps.appId}`,
+        JSON.stringify(columnOrder),
+      );
+    }
+  }, [columnOrder, selectedNamespace?.id]);
+
   const [checkedIds, setCheckedIds] = useState<Record<string, true | false>>(
     {},
   );
