@@ -211,6 +211,12 @@
       (ex/throw-validation-err! :init {:sess-id sess-id} [{:message "`init` has not run for this session."}]))
     auth))
 
+(defn db-read-level [app-id]
+  (if (and (flags/toggled? :refresh-from-replica)
+           (not= app-id config/instant-config-app-id))
+    :read-replica
+    :read))
+
 (defn- handle-add-query! [store sess-id {:keys [q client-event-id return-type inference?] :as _event}]
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
         {app-id :id} app
@@ -230,10 +236,7 @@
             processed-tx-id (rs/get-processed-tx-id store app-id)
             {:keys [table-info]} (get-attrs app)
             attrs (attr-model/get-by-app-id app-id)
-            ctx {:db {:conn-pool (aurora/conn-pool
-                                  (if (flags/toggled? :refresh-from-replica)
-                                    :read-replica
-                                    :read))}
+            ctx {:db {:conn-pool (aurora/conn-pool (db-read-level app-id))}
                  :datalog-loader (rs/upsert-datalog-loader! store sess-id d/make-loader)
                  :session-id     sess-id
                  :app-id         app-id
@@ -422,10 +425,7 @@
 (defn- recompute-instaql-query!
   [{:keys [store current-user app-id sess-id attrs table-info admin?]}
    {:keys [instaql-query/query instaql-query/return-type instaql-query/inference?]}]
-  (let [ctx {:db {:conn-pool (aurora/conn-pool
-                              (if (flags/toggled? :refresh-from-replica)
-                                :read-replica
-                                :read))}
+  (let [ctx {:db {:conn-pool (aurora/conn-pool (db-read-level app-id))}
              :session-id sess-id
              :app-id app-id
              :attrs attrs
