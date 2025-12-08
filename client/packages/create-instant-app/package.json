@@ -24,7 +24,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "clean": "rm -rf dist .turbo node_modules",
-    "publish-package": "pnpm publish --access public --no-git-checks",
+    "publish-package": "npm publish --access public --no-git-checks",
     "start": "node dist/index.js"
   },
   "dependencies": {

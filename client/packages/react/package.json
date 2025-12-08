@@ -46,7 +46,7 @@
     "build:tshy": "tshy",
     "build:standalone": "vite build",
     "build": "rm -rf dist; npm run build:tshy && npm run build:standalone && npm run check-exports",
-    "publish-package": "pnpm publish --access public --no-git-checks"
+    "publish-package": "npm publish --access public --no-git-checks"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",
