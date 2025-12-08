@@ -23,7 +23,7 @@
     "clean": "rm -rf dist",
     "build:main": "tsc -p tsconfig.json",
     "build:module": "tsc -p tsconfig.module.json",
-    "publish-package": "pnpm publish --access public --no-git-checks"
+    "publish-package": "npm publish --access public --no-git-checks"
   },
   "devDependencies": {
     "@babel/core": "^7.17.9",
