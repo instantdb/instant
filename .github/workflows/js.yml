@@ -123,7 +123,7 @@ jobs:
       - name: Setup Node.js environment
         uses: actions/setup-node@v5
         with:
-          node-version: 23
+          node-version: 24
           package-manager-cache: false
 
       - name: Get pnpm cache directory path
@@ -195,7 +195,7 @@ jobs:
       - name: Setup Node.js environment
         uses: actions/setup-node@v5
         with:
-          node-version: 23
+          node-version: 24
           package-manager-cache: false
           cache-dependency-path: client/pnpm-lock.yaml
 
@@ -239,7 +239,7 @@ jobs:
     - name: Setup Node.js environment
       uses: actions/setup-node@v5
       with:
-        node-version: 23
+        node-version: 24
         package-manager-cache: false
 
     - name: Get pnpm cache directory path
@@ -299,7 +299,7 @@ jobs:
       - name: Setup Node.js environment
         uses: actions/setup-node@v5
         with:
-          node-version: 23
+          node-version: 24
           package-manager-cache: false
           registry-url: 'https://registry.npmjs.org'
 
@@ -392,7 +392,7 @@ jobs:
       - name: Setup Node.js environment
         uses: actions/setup-node@v5
         with:
-          node-version: 23
+          node-version: 24
           package-manager-cache: false
           registry-url: 'https://registry.npmjs.org'
           always-auth: true
@@ -458,7 +458,7 @@ jobs:
     - name: Setup Node.js environment
       uses: actions/setup-node@v5
       with:
-        node-version: 23
+        node-version: 24
         package-manager-cache: false
 
     - name: Get pnpm cache directory path
@@ -550,7 +550,7 @@ jobs:
     - name: Setup Node.js environment
       uses: actions/setup-node@v5
       with:
-        node-version: 23
+        node-version: 24
         package-manager-cache: false
     - name: Get pnpm cache directory path
       id: pnpm-cache-dir-path
@@ -595,7 +595,7 @@ jobs:
     - name: Setup Node.js environment
       uses: actions/setup-node@v5
       with:
-        node-version: 23
+        node-version: 24
         package-manager-cache: false
 
     - name: Get pnpm cache directory path
