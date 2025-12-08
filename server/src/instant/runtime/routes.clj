@@ -248,32 +248,49 @@
                               ;; matches everything under the subdirectory
                               :path "/runtime/oauth"}))))
 
-(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id]}]
+(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id] :as params}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
                 :sub sub
-                :provider-id provider-id})]
-    (cond
-      (< 1 (count users))
-      (let [err (format "Got multiple app users for email=%s, sub=%s, provider-id=%s."
-                        email
-                        sub
-                        provider-id)]
-        (tracer/record-exception-span!
-         (Exception. err)
-         {:name "oauth/upsert-oauth-link!"
-          :escaping? false
-          :attributes {:email email
-                       :sub sub
-                       :user-ids (pr-str (map :app_user/id users))}})
-        nil)
+                :provider-id provider-id})
+        user (if (>= 1 (count users))
+               (first users)
+               (let [email-match (when email
+                                   (filter (fn [u]
+                                             (= email (:app_users/email u)))
 
-      (= 1 (count users))
-      (let [user (first users)]
+                                           users))]
+
+                 (if (= 1 (count email-match))
+                   (tracer/with-span! {:name "oauth/disambiguated-by-email"
+                                       :attributes {:params params
+                                                    :users users}}
+
+                     (first email-match))
+
+                   (ex/throw-validation-err! :oauth
+                                             nil
+                                             [{:message "We could not log you in. There were multiple users associated with this account."}]))))]
+
+    (if-not user
+      (let [created (app-user-model/create!
+                     {:id guest-user-id
+                      :app-id app-id
+                      :email email
+                      :imageURL imageURL
+                      :type "user"})]
+        (app-user-oauth-link-model/create! {:id (random-uuid)
+                                            :app-id app-id
+                                            :provider-id provider-id
+                                            :sub sub
+                                            :user-id (:id created)}))
+
+      (do
         ;; extra caution because it would be really bad to
         ;; return users for a different app
         (assert (= app-id (:app_users/app_id user)))
+
         (when guest-user-id
           (app-user-model/link-guest {:app-id app-id
                                       :guest-user-id guest-user-id
@@ -309,20 +326,7 @@
                                                     :sub sub
                                                     :user-id (:app_users/id user)}))
 
-              :else (ucoll/select-keys-no-ns user :app_user_oauth_links)))
-
-      (= 0 (count users))
-      (let [user (app-user-model/create!
-                  {:id guest-user-id
-                   :app-id app-id
-                   :email email
-                   :imageURL imageURL
-                   :type "user"})]
-        (app-user-oauth-link-model/create! {:id (random-uuid)
-                                            :app-id app-id
-                                            :provider-id provider-id
-                                            :sub sub
-                                            :user-id (:id user)})))))
+              :else (ucoll/select-keys-no-ns user :app_user_oauth_links))))))
 
 (defn oauth-callback-landing
   "Used for external apps to prevent a dangling page on redirect.
@@ -567,7 +571,6 @@
                                          :ignore-audience? true}))
         email (email/coerce email)
 
-
         current-refresh-token (when current-refresh-token-id
                                 (app-user-refresh-token-model/get-by-id
                                  {:app-id app-id
@@ -615,12 +618,12 @@
                                                       :app-id app-id}))
         attrs (attr-model/get-by-app-id app-id)
         ctx {:db {:conn-pool (aurora/conn-pool :read)}
-                  :app-id app-id
-                  :attrs attrs
-                  :datalog-query-fn d/query
-                  :datalog-loader (d/make-loader)
-                  :current-user user
-                  :versions (-> req :body :versions)}
+             :app-id app-id
+             :attrs attrs
+             :datalog-query-fn d/query
+             :datalog-loader (d/make-loader)
+             :current-user user
+             :versions (-> req :body :versions)}
         nodes (iq/permissioned-query ctx query)
         result (collect-instaql-results-for-client nodes)]
     (response/ok {:result result :attrs attrs})))
