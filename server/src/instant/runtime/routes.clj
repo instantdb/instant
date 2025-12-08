@@ -261,9 +261,7 @@
           (let [email-matches (when email
                                 (filter #(= email (:app_users/email %)) users))]
             (when-not (= 1 (count email-matches))
-              (ex/throw-validation-err! :oauth
-                                        nil
-                                        [{:message "We could not log you in. There were multiple users associated with this account."}]))
+              (ex/throw-oauth-err! "Could not disambiguate between multiple users for this account."))
             (let [selected (first email-matches)
                   oauth-link-user (first (filter :app_user_oauth_links/id users))]
               (tracer/record-info! {:name "oauth/disambiguated-by-email"
