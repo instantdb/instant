@@ -359,7 +359,6 @@ jobs:
         working-directory: client
         run: make publish-experimental
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
           NPM_CONFIG_PROVENANCE: true
 
       - name: Debug
