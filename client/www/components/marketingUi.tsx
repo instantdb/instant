@@ -96,7 +96,7 @@ function NavItems() {
       <NavLink href="https://github.com/instantdb/instant">
         <span className="hidden md:inline">
           <img
-            src="https://img.shields.io/github/stars/instantdb/instant?style=flat-square&logo=github&label=GitHub&labelColor=000000&color=EA570C"
+            src="https://img.shields.io/github/stars/instantdb/instant?style=flat-square&logo=github&label=GitHub&labelColor=000000&color=F54900"
             alt="GitHub stars"
             className="h-5"
           />
