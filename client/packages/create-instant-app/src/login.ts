@@ -3,7 +3,7 @@ import * as p from '@clack/prompts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import openInBrowser from 'open';
 import { join } from 'node:path';
-import { Project, unwrapSkippablePrompt } from './cli.js';
+import { AppFlags, Project, unwrapSkippablePrompt } from './cli.js';
 import { randomUUID } from 'node:crypto';
 import {
   fetchJson,
@@ -102,6 +102,51 @@ export const fetchApps = async (authToken: string) => {
   return res.apps;
 };
 
+export const verifyAppAccess = async (
+  authToken: string,
+  appId: string,
+): Promise<{ appId: string; adminToken: string } | null> => {
+  try {
+    const dashData = await fetchDashboard(authToken);
+
+    // Check personal apps
+    const personalApp = dashData.apps.find((app) => app.id === appId);
+    if (personalApp) {
+      return { appId: personalApp.id, adminToken: personalApp.admin_token };
+    }
+
+    // Check org apps
+    for (const org of dashData.orgs) {
+      const { apps } = await fetchOrganizationApps(authToken, org.id);
+      const orgApp = apps.find((app) => app.id === appId);
+      if (orgApp) {
+        return { appId: orgApp.id, adminToken: orgApp.admin_token };
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+export const verifyAppIdAndToken = async (
+  appId: string,
+  token: string,
+): Promise<boolean> => {
+  try {
+    // Verify the token works for this app by pulling schema
+    await fetchJson<any>({
+      method: 'GET',
+      path: `/dash/apps/${appId}/schema/pull`,
+      authToken: token,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const getAuthToken = async (): Promise<string | null> => {
   if (forceEphemeral) {
     return null;
@@ -149,8 +194,52 @@ const createPermissiveEphemeralApp = async (title: string) => {
   return { appId: response.app.id, adminToken: response.app['admin-token'] };
 };
 
-export const tryConnectApp = async (): Promise<AppTokenResponse | null> => {
+export const tryConnectApp = async (
+  appFlags?: AppFlags,
+): Promise<AppTokenResponse | null> => {
   let authToken = await getAuthToken();
+
+  // Handle --app flag: skip interactive selection
+  if (appFlags?.app) {
+    // If token is provided via --token flag, verify and use it
+    if (appFlags.token) {
+      const isValid = await verifyAppIdAndToken(appFlags.app, appFlags.token);
+      if (!isValid) {
+        throw new Error(
+          `Invalid app ID and token combination. Please verify both the app ID and token are correct.`,
+        );
+      }
+      UI.log(`Linking to app: ${appFlags.app}`, UI.ciaModifier(null));
+      return {
+        appId: appFlags.app,
+        adminToken: appFlags.token,
+        approach: 'import',
+      };
+    }
+
+    // If no token provided but user is logged in, look up the admin token
+    if (authToken) {
+      const appAccess = await verifyAppAccess(authToken, appFlags.app);
+      if (!appAccess) {
+        throw new Error(
+          `You don't have access to app "${appFlags.app}". Please check the app ID or use --token to provide a token.`,
+        );
+      }
+      UI.log(`Linking to app: ${appFlags.app}`, UI.ciaModifier(null));
+      return {
+        appId: appAccess.appId,
+        adminToken: appAccess.adminToken,
+        approach: 'import',
+      };
+    }
+
+    // No token and not logged in - error
+    throw new Error(
+      `You must be logged in or provide --token when using --app. ` +
+        `Either run 'npx instant-cli login' first, or use: --app ${appFlags.app} --token <token>`,
+    );
+  }
+
   if (!authToken) {
     const choice = await renderUnwrap(
       new UI.Select({
