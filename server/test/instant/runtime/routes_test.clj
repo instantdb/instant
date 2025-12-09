@@ -309,13 +309,13 @@
   (with-empty-app
     (fn [app]
       ;; Apple OAuth lets you provide "relay" emails: 
-      ;; these are anonumous emails that forward to the user's real email. 
+      ;; these are anonymous emails that forward to the user's real email. 
 
       ;; This opens up a potential problem. 
 
       ;; Consider the following scenario: 
       ;; (1) User signs in with magic code: stopa@instantdb.com 
-      ;; (2) User signs in with with Apple, private relay on: foo@privaterelay.apple.com  
+      ;; (2) User signs in with with Apple, private relay on: foo@privaterelay.appleid.com  
 
       ;; At this point we'll have _2_ separate users. 
 
