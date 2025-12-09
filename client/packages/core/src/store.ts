@@ -2,6 +2,7 @@ import { create } from 'mutative';
 import { immutableDeepMerge } from './utils/object.js';
 import { coerceToDate } from './utils/dates.ts';
 import { InstantDBAttr } from './attrTypes.ts';
+import { LinkIndex } from './utils/linkIndex.ts';
 
 type Triple = [string, string, any, number];
 type Attrs = Record<string, InstantDBAttr>;
@@ -17,11 +18,11 @@ export type Store = {
   eav: Map<string, Map<string, Map<any, Triple>>>;
   aev: Map<string, Map<string, Map<any, Triple>>>;
   vae: Map<any, Map<string, Map<string, Triple>>>;
-  useDateObjects: boolean;
+  useDateObjects: boolean | null;
   attrs: Attrs;
   attrIndexes: AttrIndexes;
-  cardinalityInference: boolean;
-  linkIndex: fixme;
+  cardinalityInference: boolean | null;
+  linkIndex: LinkIndex | null;
   __type: 'store';
 };
 
@@ -29,9 +30,9 @@ export type StoreJson = {
   __type: 'store';
   attrs: Attrs;
   triples: Triple[];
-  cardinalityInference: boolean;
-  linkIndex: fixme;
-  useDateObjects: boolean;
+  cardinalityInference: boolean | null;
+  linkIndex: LinkIndex | null;
+  useDateObjects: boolean | null;
 };
 
 function hasEA(attr: InstantDBAttr) {
@@ -87,7 +88,7 @@ function isDateAttr(attr: InstantDBAttr) {
 function createTripleIndexes(
   attrs: Record<string, InstantDBAttr>,
   triples: Triple[],
-  useDateObjects: boolean,
+  useDateObjects: boolean | null,
 ): Pick<Store, 'eav' | 'aev' | 'vae'> {
   const eav = new Map();
   const aev = new Map();
@@ -174,14 +175,12 @@ function resetAttrIndexes(store: Store) {
   store.attrIndexes = createAttrIndexes(store.attrs);
 }
 
-type fixme = any;
-
 export function createStore(
   attrs: Record<string, InstantDBAttr>,
   triples: Triple[],
-  enableCardinalityInference: boolean,
-  linkIndex: fixme,
-  useDateObjects: boolean,
+  enableCardinalityInference: boolean | null,
+  linkIndex: LinkIndex | null,
+  useDateObjects: boolean | null,
 ): Store {
   const store = createTripleIndexes(
     attrs,
