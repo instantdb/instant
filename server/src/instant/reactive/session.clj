@@ -426,7 +426,8 @@
 
 (defn- recompute-instaql-query!
   [{:keys [store current-user app-id sess-id attrs table-info admin?]}
-   {:keys [instaql-query/query instaql-query/return-type instaql-query/inference?]}]
+   {:keys [instaql-query/query instaql-query/return-type instaql-query/inference?
+           instaql-query/forms-hash]}]
   (let [ctx {:db {:conn-pool (aurora/conn-pool (db-read-level app-id))}
              :session-id sess-id
              :app-id app-id
@@ -440,6 +441,7 @@
         (rq/instaql-query-reactive! store ctx query return-type inference?)
         end-ms (System/currentTimeMillis)]
     {:instaql-query query
+     :instaql-query-hash forms-hash
      :instaql-result instaql-result
      :result-meta result-meta
      :result-changed? result-changed?
@@ -483,10 +485,11 @@
         can-skip-attrs? (supports-skip-attrs? features)
         attrs-hash      (hash attrs)
         attrs-changed?  (not= prev-attrs-hash attrs-hash)]
-    (doseq [{:keys [instaql-query duration-ms instaql-topic?]} spam]
+    (doseq [{:keys [instaql-query instaql-query-hash duration-ms instaql-topic?]} spam]
       (tracer/record-info! {:name "handle-refresh/spam"
                             :attributes {:app-id app-id
                                          :instaql-query instaql-query
+                                         :instaql-query-hash instaql-query-hash
                                          :instaql-query-normalized (instaql-util/normalized-forms instaql-query)
                                          :duration-ms duration-ms
                                          :instaql-topic? instaql-topic?}}))
