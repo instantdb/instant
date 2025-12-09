@@ -118,7 +118,7 @@
   (send-msg socket msg)
   (let [ret (read-msg socket)]
     (is (= expected-op (:op ret)))
-    ret))
+    (dissoc ret :trace-id)))
 
 (defn- pretty-auth [{:keys [app user] :as _auth}]
   [(:title app) (:email user)])
