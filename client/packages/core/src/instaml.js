@@ -1,4 +1,4 @@
-import { allMapValues } from './store.js';
+import { allMapValues } from './store.ts';
 import { getOps, isLookup, parseLookup } from './instatx.ts';
 import { immutableRemoveUndefined } from './utils/object.js';
 import { coerceToDate } from './utils/dates.ts';

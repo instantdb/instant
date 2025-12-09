@@ -1,5 +1,5 @@
 import { PersistedObject } from './utils/PersistedObject.ts';
-import * as s from './store.js';
+import * as s from './store.ts';
 import weakHash from './utils/weakHash.ts';
 import uuid from './utils/uuid.ts';
 import { Logger } from './Reactor.js';
@@ -31,7 +31,7 @@ type Sub = {
   table: string;
   orderField: string;
   orderDirection: 'asc' | 'desc';
-  orderFieldType?: 'string' | 'number' | 'date' | 'boolean';
+  orderFieldType?: 'string' | 'number' | 'date' | 'boolean' | null;
   state?: SubState;
   values?: SubValues;
   createdAt: number;
@@ -113,6 +113,7 @@ function syncSubToStorage(_k: string, sub: Sub): SubInStorage {
       const store = s.toJSON(e.store);
       // We'll store the attrs once on values, and put the
       // attrs back into the store on hydration
+      // @ts-ignore: ts doesn't want us to delete a non-optional
       delete store['attrs'];
       entities.push({ ...e, store });
     }
@@ -790,7 +791,7 @@ export class SyncTable {
 
       const orderFieldType = orderFieldTypeMutative(sub, this.createStore);
 
-      sortEntitiesInPlace(sub, orderFieldType, entities);
+      sortEntitiesInPlace(sub, orderFieldType!, entities);
       this.notifyCbs(hash, {
         type: CallbackEventType.SyncTransaction,
         data: subData(sub, sub.values?.entities),

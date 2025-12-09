@@ -6,12 +6,7 @@ export type InstantDBIdent = [id, etype, label];
 
 export type InstantDBInferredType = 'number' | 'string' | 'boolean' | 'json';
 
-export type InstantDBCheckedDataType =
-  | 'number'
-  | 'string'
-  | 'boolean'
-  | 'date'
-  | 'json';
+export type InstantDBCheckedDataType = 'number' | 'string' | 'boolean' | 'date';
 
 export type InstantDBAttrOnDelete = 'cascade';
 

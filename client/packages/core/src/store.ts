@@ -1,20 +1,52 @@
 import { create } from 'mutative';
 import { immutableDeepMerge } from './utils/object.js';
 import { coerceToDate } from './utils/dates.ts';
+import { InstantDBAttr } from './attrTypes.ts';
 
-function hasEA(attr) {
+type Triple = [string, string, any, number];
+type Attrs = Record<string, InstantDBAttr>;
+
+type AttrIndexes = {
+  blobAttrs: Map<string, Map<string, InstantDBAttr>>;
+  primaryKeys: Map<string, InstantDBAttr>;
+  forwardIdents: Map<string, Map<string, InstantDBAttr>>;
+  revIdents: Map<string, Map<string, InstantDBAttr>>;
+};
+
+export type Store = {
+  eav: Map<string, Map<string, Map<any, Triple>>>;
+  aev: Map<string, Map<string, Map<any, Triple>>>;
+  vae: Map<any, Map<string, Map<string, Triple>>>;
+  useDateObjects: boolean;
+  attrs: Attrs;
+  attrIndexes: AttrIndexes;
+  cardinalityInference: boolean;
+  linkIndex: fixme;
+  __type: 'store';
+};
+
+export type StoreJson = {
+  __type: 'store';
+  attrs: Attrs;
+  triples: Triple[];
+  cardinalityInference: boolean;
+  linkIndex: fixme;
+  useDateObjects: boolean;
+};
+
+function hasEA(attr: InstantDBAttr) {
   return attr['cardinality'] === 'one';
 }
 
-function isRef(attr) {
+function isRef(attr: InstantDBAttr) {
   return attr['value-type'] === 'ref';
 }
 
-export function isBlob(attr) {
+export function isBlob(attr: InstantDBAttr) {
   return attr['value-type'] === 'blob';
 }
 
-function getAttr(attrs, attrId) {
+function getAttr(attrs: Attrs, attrId: string): InstantDBAttr | undefined {
   return attrs[attrId];
 }
 
@@ -48,11 +80,15 @@ function setInMap(m, path, value) {
   setInMap(nextM, tail, value);
 }
 
-function isDateAttr(attr) {
+function isDateAttr(attr: InstantDBAttr) {
   return attr['checked-data-type'] === 'date';
 }
 
-function createTripleIndexes(attrs, triples, useDateObjects) {
+function createTripleIndexes(
+  attrs: Record<string, InstantDBAttr>,
+  triples: Triple[],
+  useDateObjects: boolean,
+): Pick<Store, 'eav' | 'aev' | 'vae'> {
   const eav = new Map();
   const aev = new Map();
   const vae = new Map();
@@ -79,7 +115,7 @@ function createTripleIndexes(attrs, triples, useDateObjects) {
   return { eav, aev, vae };
 }
 
-function createAttrIndexes(attrs) {
+function createAttrIndexes(attrs: Record<string, InstantDBAttr>): AttrIndexes {
   const blobAttrs = new Map();
   const primaryKeys = new Map();
   const forwardIdents = new Map();
@@ -105,7 +141,7 @@ function createAttrIndexes(attrs) {
   return { blobAttrs, primaryKeys, forwardIdents, revIdents };
 }
 
-export function toJSON(store) {
+export function toJSON(store: Store): StoreJson {
   return {
     __type: store.__type,
     attrs: store.attrs,
@@ -116,7 +152,7 @@ export function toJSON(store) {
   };
 }
 
-export function fromJSON(storeJSON) {
+export function fromJSON(storeJSON: StoreJson): Store {
   return createStore(
     storeJSON.attrs,
     storeJSON.triples,
@@ -126,26 +162,32 @@ export function fromJSON(storeJSON) {
   );
 }
 
-export function hasTriple(store, [e, a, v]) {
+export function hasTriple(store: Store, [e, a, v]: [string, string, any]) {
   return getInMap(store.eav, [e, a, v]) !== undefined;
 }
 
-export function hasEntity(store, e) {
+export function hasEntity(store: Store, e: string) {
   return getInMap(store.eav, [e]) !== undefined;
 }
 
-function resetAttrIndexes(store) {
+function resetAttrIndexes(store: Store) {
   store.attrIndexes = createAttrIndexes(store.attrs);
 }
 
+type fixme = any;
+
 export function createStore(
-  attrs,
-  triples,
-  enableCardinalityInference,
-  linkIndex,
-  useDateObjects,
-) {
-  const store = createTripleIndexes(attrs, triples, useDateObjects);
+  attrs: Record<string, InstantDBAttr>,
+  triples: Triple[],
+  enableCardinalityInference: boolean,
+  linkIndex: fixme,
+  useDateObjects: boolean,
+): Store {
+  const store = createTripleIndexes(
+    attrs,
+    triples,
+    useDateObjects,
+  ) as unknown as Store;
   store.useDateObjects = useDateObjects;
   store.attrs = attrs;
   store.attrIndexes = createAttrIndexes(attrs);
@@ -161,7 +203,7 @@ export function createStore(
 // into the store. If we can't find the lookup ref locally,
 // then we drop the triple and have to wait for the server response
 // to see the optimistic updates.
-function resolveLookupRefs(store, triple) {
+function resolveLookupRefs(store: Store, triple: Triple): Triple | null {
   let eid;
 
   // Check if `e` is a lookup ref
@@ -213,7 +255,7 @@ function resolveLookupRefs(store, triple) {
   }
 }
 
-export function retractTriple(store, rawTriple) {
+export function retractTriple(store: Store, rawTriple: Triple): void {
   const triple = resolveLookupRefs(store, rawTriple);
   if (!triple) {
     return;
@@ -232,10 +274,15 @@ export function retractTriple(store, rawTriple) {
 }
 
 let _seed = 0;
-function getCreatedAt(store, attr, triple) {
+function getCreatedAt(
+  store: Store,
+  attr: InstantDBAttr,
+  triple: Triple,
+): Number {
   const [eid, aid, v] = triple;
   let createdAt;
-  const t = getInMap(store.ea, [eid, aid, v]);
+  // XXX: Is that right?
+  const t = getInMap(store.eav, [eid, aid, v]);
   if (t) {
     createdAt = t[3];
   }
@@ -264,7 +311,7 @@ function getCreatedAt(store, attr, triple) {
   return createdAt || Date.now() * 10 + _seed++;
 }
 
-export function addTriple(store, rawTriple) {
+export function addTriple(store: Store, rawTriple: Triple) {
   const triple = resolveLookupRefs(store, rawTriple);
   if (!triple) {
     return;
@@ -303,7 +350,7 @@ export function addTriple(store, rawTriple) {
   }
 }
 
-function mergeTriple(store, rawTriple) {
+function mergeTriple(store: Store, rawTriple: Triple) {
   const triple = resolveLookupRefs(store, rawTriple);
   if (!triple) {
     return;
@@ -336,9 +383,9 @@ function mergeTriple(store, rawTriple) {
   setInMap(store.eav, [eid, aid], new Map([[updatedValue, enhancedTriple]]));
 }
 
-function deleteEntity(store, args) {
+function deleteEntity(store: Store, args: any[]) {
   const [lookup, etype] = args;
-  const triple = resolveLookupRefs(store, [lookup]);
+  const triple = resolveLookupRefs(store, [lookup, '', null, 0]);
 
   if (!triple) {
     return;
@@ -353,8 +400,9 @@ function deleteEntity(store, args) {
 
       // delete cascade refs
       if (attr && attr['on-delete-reverse'] === 'cascade') {
-        allMapValues(eMap.get(a), 1).forEach(([e, a, v]) =>
-          deleteEntity(store, [v, attr['reverse-identity']?.[1]]),
+        allMapValues(eMap.get(a), 1).forEach(
+          ([e, a, v]: [string, string, any]) =>
+            deleteEntity(store, [v, attr['reverse-identity']?.[1]]),
         );
       }
 
@@ -381,7 +429,7 @@ function deleteEntity(store, args) {
   const vaeTriples = store.vae.get(id) && allMapValues(store.vae.get(id), 2);
 
   if (vaeTriples) {
-    vaeTriples.forEach((triple) => {
+    vaeTriples.forEach((triple: Triple) => {
       const [e, a, v] = triple;
       const attr = store.attrs[a];
       if (!etype || !attr || attr['reverse-identity']?.[1] === etype) {
@@ -411,7 +459,7 @@ function deleteEntity(store, args) {
 // * We could batch this reset at the end
 // * We could add an ave index for all triples, so removing the
 //   right triples is easy and fast.
-function resetIndexMap(store, newTriples) {
+function resetIndexMap(store: Store, newTriples: Triple[]) {
   const newIndexMap = createTripleIndexes(
     store.attrs,
     newTriples,
@@ -422,16 +470,16 @@ function resetIndexMap(store, newTriples) {
   });
 }
 
-function addAttr(store, [attr]) {
+function addAttr(store: Store, [attr]: [InstantDBAttr]) {
   store.attrs[attr.id] = attr;
   resetAttrIndexes(store);
 }
 
-function getAllTriples(store) {
+function getAllTriples(store: Store): Triple[] {
   return allMapValues(store.eav, 3);
 }
 
-function deleteAttr(store, [id]) {
+function deleteAttr(store: Store, [id]: [string]) {
   if (!store.attrs[id]) return;
   const newTriples = getAllTriples(store).filter(([_, aid]) => aid !== id);
   delete store.attrs[id];
@@ -439,7 +487,10 @@ function deleteAttr(store, [id]) {
   resetIndexMap(store, newTriples);
 }
 
-function updateAttr(store, [partialAttr]) {
+function updateAttr(
+  store: Store,
+  [partialAttr]: [Partial<InstantDBAttr> & { id: string }],
+) {
   const attr = store.attrs[partialAttr.id];
   if (!attr) return;
   store.attrs[partialAttr.id] = { ...attr, ...partialAttr };
@@ -447,7 +498,7 @@ function updateAttr(store, [partialAttr]) {
   resetIndexMap(store, getAllTriples(store));
 }
 
-function applyTxStep(store, txStep) {
+function applyTxStep(store: Store, txStep) {
   const [action, ...args] = txStep;
   switch (action) {
     case 'add-triple':
@@ -480,7 +531,7 @@ function applyTxStep(store, txStep) {
   }
 }
 
-export function allMapValues(m, level, res = []) {
+export function allMapValues(m, level, res: any[] = []) {
   if (!m) {
     return res;
   }
@@ -500,12 +551,12 @@ export function allMapValues(m, level, res = []) {
   return res;
 }
 
-function triplesByValue(store, m, v) {
-  const res = [];
+function triplesByValue(store: Store, m: Map<any, Triple>, v: any) {
+  const res: Triple[] = [];
   if (v?.hasOwnProperty('$not')) {
     for (const candidate of m.keys()) {
       if (v.$not !== candidate) {
-        res.push(m.get(candidate));
+        res.push(m.get(candidate) as Triple);
       }
     }
     return res;
@@ -518,9 +569,10 @@ function triplesByValue(store, m, v) {
       for (const candidate of m.keys()) {
         const vMap = store.vae.get(candidate);
         const isValNull =
-          !vMap || vMap.get(attrId)?.get(null) || !vMap.get(attrId);
+          !vMap ||
+          !vMap.get(attrId);
         if (isNull ? isValNull : !isValNull) {
-          res.push(m.get(candidate));
+          res.push(m.get(candidate) as Triple);
         }
       }
     } else {
@@ -529,7 +581,7 @@ function triplesByValue(store, m, v) {
         const isValNull =
           !aMap || aMap.get(candidate)?.get(null) || !aMap.get(candidate);
         if (isNull ? isValNull : !isValNull) {
-          res.push(m.get(candidate));
+          res.push(m.get(candidate) as Triple);
         }
       }
     }
@@ -555,7 +607,7 @@ function triplesByValue(store, m, v) {
 
 // A poor man's pattern matching
 // Returns either eav, ea, ev, av, v, or ''
-function whichIdx(e, a, v) {
+function whichIdx(e, a, v): 'eav' | 'ea' | 'ev' | 'av' | 'e' | 'a' | 'v' | '' {
   let res = '';
   if (e !== undefined) {
     res += 'e';
@@ -566,7 +618,7 @@ function whichIdx(e, a, v) {
   if (v !== undefined) {
     res += 'v';
   }
-  return res;
+  return res as 'eav' | 'ea' | 'ev' | 'av' | 'e' | 'a' | 'v' | '';
 }
 
 export function getTriples(store, [e, a, v]) {
@@ -592,7 +644,7 @@ export function getTriples(store, [e, a, v]) {
       if (!eMap) {
         return [];
       }
-      const res = [];
+      const res: Triple[] = [];
       for (const aMap of eMap.values()) {
         res.push(...triplesByValue(store, aMap, v));
       }
@@ -607,14 +659,14 @@ export function getTriples(store, [e, a, v]) {
       if (!aMap) {
         return [];
       }
-      const res = [];
+      const res: Triple[] = [];
       for (const eMap of aMap.values()) {
         res.push(...triplesByValue(store, eMap, v));
       }
       return res;
     }
     case 'v': {
-      const res = [];
+      const res: Triple[] = [];
       for (const eMap of store.eav.values()) {
         for (const aMap of eMap.values()) {
           res.push(...triplesByValue(store, aMap, v));
@@ -628,10 +680,10 @@ export function getTriples(store, [e, a, v]) {
   }
 }
 
-export function getAsObject(store, attrs, e) {
+export function getAsObject(store: Store, attrs: Attrs, e: string) {
   const obj = {};
 
-  for (const [label, attr] of attrs.entries()) {
+  for (const [label, attr] of Object.entries(attrs)) {
     const aMap = store.eav.get(e)?.get(attr.id);
     const triples = allMapValues(aMap, 1);
     for (const triple of triples) {
@@ -642,19 +694,27 @@ export function getAsObject(store, attrs, e) {
   return obj;
 }
 
-export function getAttrByFwdIdentName(store, inputEtype, inputLabel) {
+export function getAttrByFwdIdentName(
+  store: Store,
+  inputEtype: string,
+  inputLabel: string,
+) {
   return store.attrIndexes.forwardIdents.get(inputEtype)?.get(inputLabel);
 }
 
-export function getAttrByReverseIdentName(store, inputEtype, inputLabel) {
+export function getAttrByReverseIdentName(
+  store: Store,
+  inputEtype: string,
+  inputLabel: string,
+) {
   return store.attrIndexes.revIdents.get(inputEtype)?.get(inputLabel);
 }
 
-export function getBlobAttrs(store, etype) {
+export function getBlobAttrs(store: Store, etype: string) {
   return store.attrIndexes.blobAttrs.get(etype);
 }
 
-export function getPrimaryKeyAttr(store, etype) {
+export function getPrimaryKeyAttr(store: Store, etype: string) {
   const fromPrimary = store.attrIndexes.primaryKeys.get(etype);
   if (fromPrimary) {
     return fromPrimary;
@@ -662,8 +722,11 @@ export function getPrimaryKeyAttr(store, etype) {
   return store.attrIndexes.forwardIdents.get(etype)?.get('id');
 }
 
-function findTriple(store, rawTriple) {
-  const triple = resolveLookupRefs(store, rawTriple);
+function findTriple(
+  store: Store,
+  rawTriple: [string, string, any] | Triple,
+): Triple | undefined {
+  const triple = resolveLookupRefs(store, rawTriple as Triple);
   if (!triple) {
     return;
   }
@@ -681,7 +744,7 @@ function findTriple(store, rawTriple) {
   return getInMap(store.eav, [eid, aid]);
 }
 
-export function transact(store, txSteps) {
+export function transact(store: Store, txSteps) {
   const txStepsFiltered = txSteps.filter(
     ([action, eid, attrId, value, opts]) => {
       if (action !== 'add-triple' && action !== 'deep-merge-triple') {
@@ -698,7 +761,11 @@ export function transact(store, txSteps) {
       const attr = getAttr(store.attrs, attrId);
       if (attr) {
         const idAttr = getPrimaryKeyAttr(store, attr['forward-identity'][1]);
-        exists = !!findTriple(store, [eid, idAttr.id, eid]);
+        exists = !!findTriple(store, [
+          eid as string,
+          idAttr?.id as string,
+          eid,
+        ]);
       }
 
       if (mode === 'create' && exists) {
