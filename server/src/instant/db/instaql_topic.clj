@@ -1,6 +1,7 @@
 (ns instant.db.instaql-topic
   (:require [instant.db.cel :as cel]
-            [instant.db.model.attr :as attr-model])
+            [instant.db.model.attr :as attr-model]
+            [clojure+.core :as clojure+])
   (:import (clojure.lang ExceptionInfo)
            (com.google.protobuf NullValue)
            (dev.cel.common CelAbstractSyntaxTree CelSource)
@@ -127,18 +128,20 @@
       (throw-not-supported! [:multi-part-path])
 
       (and (= v-type :args-map) (contains? v-data :$isNull))
-      (let [label (first path)
-            fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
-            rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
-        (cond
-          rev-attr (throw-not-supported! [:reverse-attribute])
+      (clojure+/cond+
+       :let [label (first path)
+             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
 
-          (not fwd-attr) (throw-not-supported! [:unknown-attribute])
+       rev-attr  (throw-not-supported! [:reverse-attribute])
 
-          (= :many (:cardinality fwd-attr)) (throw-not-supported! [:cardinality-many])
+       :let [{:keys [id cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
 
-          :else
-          (is-null-attr-cel-expr factory (:id fwd-attr) (:$isNull v-data))))
+       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
+
+       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
+
+       :else
+       (is-null-attr-cel-expr factory id (:$isNull v-data)))
 
       (not= v-type :value)
       (throw-not-supported! [:complex-value-type])

@@ -176,9 +176,8 @@
 
 (deftest isNull-refs
   (with-zeneca-app
-    (fn [app r]
-      (let [;; Create a cardinality-one ref attr: users.favoriteBook -> books
-            favorite-book-attr-id (random-uuid)
+    (fn [app _r]
+      (let [favorite-book-attr-id (random-uuid)
             _ (tx/transact!
                (aurora/conn-pool :write)
                (attr-model/get-by-app-id (:id app))
@@ -192,31 +191,22 @@
                             :index? false}]])
             attrs (attr-model/get-by-app-id (:id app))]
 
-        (testing "cardinality-many ref is not supported"
-          ;; bookshelves is a cardinality-many ref in zeneca
-          (is (= {:not-supported [:cardinality-many]}
-                 (iqt/instaql-topic
-                  {:attrs attrs}
-                  (iq/->forms! attrs {:users {:$ {:where {:bookshelves {:$isNull true}}}}})))))
+        (is (= {:not-supported [:cardinality-many]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:users {:$ {:where {:bookshelves {:$isNull true}}}}}))))
 
-        (testing "reverse attribute is not supported"
-          (is (= {:not-supported [:reverse-attribute]}
-                 (iqt/instaql-topic
-                  {:attrs attrs}
-                  (iq/->forms! attrs {:books {:$ {:where {:favoriteByUsers {:$isNull true}}}}})))))
-
-        (testing "forward cardinality-one ref works"
-          (let [result (iqt/instaql-topic
-                        {:attrs attrs}
-                        (iq/->forms! attrs {:users {:$ {:where {:favoriteBook {:$isNull true}}}}}))
-                {:keys [program]} result]
-            (is (some? program) (str "Expected program but got: " (pr-str result)))
-            (when program
-              ;; Should match when favoriteBook is null/missing
-              (is (true?
-                   (program {:etype "users"
-                             :attrs {}})))
-              ;; Should not match when favoriteBook is present
-              (is (false?
-                   (program {:etype "users"
-                             :attrs {(str favorite-book-attr-id) (str (random-uuid))}})))))))))))
+        (is (= {:not-supported [:reverse-attribute]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:books {:$ {:where {:favoriteByUsers {:$isNull true}}}}}))))
+        (let [result (iqt/instaql-topic
+                      {:attrs attrs}
+                      (iq/->forms! attrs {:users {:$ {:where {:favoriteBook {:$isNull true}}}}}))
+              {:keys [program]} result]
+          (is (true?
+               (program {:etype "users"
+                         :attrs {}})))
+          (is (false?
+               (program {:etype "users"
+                         :attrs {(str favorite-book-attr-id) (str (random-uuid))}}))))))))
