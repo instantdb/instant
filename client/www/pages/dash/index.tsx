@@ -720,15 +720,8 @@ export function HomeButton({
   );
 }
 
-function Home({
-  appId,
-  appTitle,
-  token,
-}: {
-  appId: string;
-  appTitle: string;
-  token: string;
-}) {
+function Home({ app, token }: { app: InstantApp; token: string }) {
+  const { id: appId } = app;
   const posthog = usePostHog();
   const { stats, isLoading, error } = useAppConnectionStats(token, appId);
   const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
@@ -741,7 +734,7 @@ function Home({
   return (
     <div className="max-w-2xl p-4 text-sm md:text-base">
       <div className="mb-10">
-        <AppStart appId={appId} appTitle={appTitle} />
+        <AppStart app={app} />
       </div>
 
       <SectionHeading>Next Steps</SectionHeading>
@@ -895,11 +888,7 @@ function DashboardContent({
   return (
     <>
       {tab === 'home' ? (
-        <Home
-          appId={appId}
-          appTitle={app.title}
-          token={useContext(TokenContext)!}
-        />
+        <Home app={app} token={useContext(TokenContext)!} />
       ) : tab === 'explorer' ? (
         <ExplorerTab
           appId={appId}

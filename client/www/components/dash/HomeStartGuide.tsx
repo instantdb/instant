@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
+import { InstantApp } from '@/lib/types';
 import { usePostHog } from 'posthog-js/react';
 import confetti from 'canvas-confetti';
 import {
@@ -66,6 +67,7 @@ function getSteps(
   framework: Framework,
   dirName: string,
   appId: string,
+  adminToken: string,
 ): Step[] {
   const config = frameworkConfig[framework];
   const viewStep: Step =
@@ -87,7 +89,7 @@ function getSteps(
       id: 'start_guide_create_project',
       title: 'Create your project',
       description: `Scaffold a new ${framework === 'nextjs' ? 'Next.js' : 'Expo'} app with Instant pre-configured`,
-      command: `npx create-instant-app ${dirName} --app ${appId} ${config.flag} --rules`,
+      command: `npx create-instant-app ${dirName} --app ${appId} --token ${adminToken} ${config.flag} --rules`,
     },
     {
       id: 'start_guide_start_server',
@@ -99,17 +101,12 @@ function getSteps(
   ];
 }
 
-export function AppStart({
-  appId,
-  appTitle,
-}: {
-  appId: string;
-  appTitle: string;
-}) {
+export function AppStart({ app }: { app: InstantApp }) {
+  const { id: appId, title: appTitle, admin_token: adminToken } = app;
   const posthog = usePostHog();
   const [framework, setFramework] = useState<Framework>('nextjs');
   const dirName = toDirectoryName(appTitle);
-  const steps = getSteps(framework, dirName, appId);
+  const steps = getSteps(framework, dirName, appId, adminToken);
 
   const trackCopy = (stepId: string) => {
     posthog.capture(stepId, {
