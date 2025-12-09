@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/select';
+import { rosePineDawnTheme } from '@/lib/rosePineDawnTheme';
 
 import {
   MouseEventHandler,
@@ -1266,7 +1267,7 @@ export function Fence({
               },
               styles: [],
             }
-          : undefined
+          : rosePineDawnTheme
       }
     >
       {({ className, style, tokens, getTokenProps }) => (
