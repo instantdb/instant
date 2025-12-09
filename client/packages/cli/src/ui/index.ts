@@ -3,7 +3,7 @@ import boxen from 'boxen';
 import stringWidth from 'string-width';
 import { AnyKey, ModifyOutputFn, Prompt, SelectState } from './lib.js';
 
-export { render, renderUnwrap } from './lib.js';
+export { render, renderUnwrap, setRawModeWindowsFriendly } from './lib.js';
 
 export namespace UI {
   type Status = 'idle' | 'submitted' | 'aborted';
