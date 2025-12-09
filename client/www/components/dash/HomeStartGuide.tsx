@@ -131,15 +131,15 @@ export function AppStart({ app }: { app: InstantApp }) {
         <span>with your credentials.</span>
       </div>
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-6">
         {steps.map((step, index) => (
           <div key={index} className="flex gap-4">
             <div className="flex flex-col items-center">
-              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-700 dark:bg-neutral-700 dark:text-neutral-300">
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-neutral-400/20 bg-gray-200 text-sm font-medium text-gray-700 dark:bg-neutral-700 dark:text-neutral-300">
                 {index + 1}
               </div>
               {index < steps.length - 1 && (
-                <div className="mt-2 h-full w-px bg-gray-200 dark:bg-neutral-700" />
+                <div className="h-full w-px bg-gray-200 dark:bg-neutral-700" />
               )}
             </div>
             <div className="min-w-0 flex-1 pb-2">
@@ -148,7 +148,7 @@ export function AppStart({ app }: { app: InstantApp }) {
                 <p className="mt-1 text-sm">{step.description}</p>
               </Content>
               {step.command && (
-                <div className="mt-3">
+                <div className="mt-3 mb-4">
                   <Copyable
                     value={step.command}
                     label="$"
@@ -157,7 +157,7 @@ export function AppStart({ app }: { app: InstantApp }) {
                 </div>
               )}
               {step.link && (
-                <div className="mt-3">
+                <div className="mt-3 mb-4">
                   <a
                     href={step.link}
                     target="_blank"
@@ -175,10 +175,10 @@ export function AppStart({ app }: { app: InstantApp }) {
       </div>
 
       {/* Success message */}
-      <div className="mt-6 border-t pt-6 dark:border-neutral-700">
+      <div className="mt-2 border-t pt-6 dark:border-neutral-700">
         <div className="flex gap-4">
           <div className="flex flex-col items-center">
-            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-green-100 text-sm dark:bg-green-900/30">
+            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-green-600/30 bg-green-100 text-sm dark:bg-green-900/30">
               <span className="text-green-600 dark:text-green-400">✓</span>
             </div>
           </div>
