@@ -4,6 +4,7 @@ import { ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 import Highlight, { defaultProps } from 'prism-react-renderer';
 import { useState } from 'react';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
+import { rosePineDawnTheme } from '@/lib/rosePineDawnTheme';
 
 export function Fence({ children, language, showCopy }) {
   const [copyLabel, setCopyLabel] = useState('Copy');
@@ -25,13 +26,7 @@ export function Fence({ children, language, showCopy }) {
       {...defaultProps}
       code={code}
       language={language}
-      theme={{
-        plain: {
-          backgroundColor: 'white',
-          color: 'black',
-        },
-        styles: [],
-      }}
+      theme={rosePineDawnTheme}
     >
       {({ className, style, tokens, getTokenProps }) => (
         <div className="relative text-sm">
