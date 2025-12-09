@@ -21,7 +21,7 @@
     "clean": "rm -rf dist",
     "build": "rm -rf dist && tsc",
     "prepublishOnly": "npm run build",
-    "publish-package": "npm publish --access public --no-git-checks",
+    "publish-package": "pnpm pack && npm publish *.tgz --access public && rm *.tgz",
     "pull:dev": "INSTANT_SCHEMA_FILE_PATH=./src/db/instant.schema.ts INSTANT_PERMS_FILE_PATH=./src/db/instant.perms.ts instant-cli pull --app 2366e905-5ce1-4cfa-8de1-ed3450a4ed2b",
     "push:dev": "INSTANT_SCHEMA_FILE_PATH=./src/db/instant.schema.ts INSTANT_PERMS_FILE_PATH=./src/db/instant.perms.ts instant-cli push --app 2366e905-5ce1-4cfa-8de1-ed3450a4ed2b",
     "instant-cli-init:dev": "INSTANT_SCHEMA_FILE_PATH=./src/db/instant.schema.ts INSTANT_PERMS_FILE_PATH=./src/db/instant.perms.ts instant-cli init --app 22d72c26-0514-4d75-b410-564416ddf0ba",
