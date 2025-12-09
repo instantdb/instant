@@ -671,12 +671,13 @@ export const compareBlobs = (
   } else if (
     oldBlob.valueType !== newBlob.valueType &&
     newBlob.valueType !== 'json'
-  )
+  ) {
     results.push({
       type: 'check-data-type',
       identifier: identity,
       'checked-data-type': newBlob.valueType,
     });
+  }
 
   return results;
 };
