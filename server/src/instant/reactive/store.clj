@@ -1219,22 +1219,20 @@
 (defn filter-queries [app-id db iv-topics wal-record query-ids]
   (if-not (flags/toggled? :filter-query)
     query-ids
-    (let [hardcoded-remove
-          (remove (fn [eid]
-                    (hard-coded-should-remove-query? app-id db iv-topics eid))
-                  query-ids)
-
-          iql-topic-remove
+    (let [iql-topic-remove
           (remove (fn [eid]
                     (instaql-topic-should-remove-query? app-id db wal-record eid))
-                  hardcoded-remove)]
+                  query-ids)
+          hardcoded-remove
+          (remove (fn [eid]
+                    (hard-coded-should-remove-query? app-id db iv-topics eid))
+                  iql-topic-remove)]
       (tracer/record-info! {:name "store/filter-queries-summary"
                             :attributes {:app-id app-id
                                          :iv-topics-count (count iv-topics)
                                          :initial-count (count query-ids)
-                                         :after-hardcoded (count hardcoded-remove)
-                                         :after-instaql-topic (count iql-topic-remove)}})
-
+                                         :iq-topic-removed (- (count query-ids) (count iql-topic-remove))
+                                         :hardcode-removed (- (count iql-topic-remove) (count hardcoded-remove))}})
       iql-topic-remove)))
 
 (defn mark-stale-topics!
