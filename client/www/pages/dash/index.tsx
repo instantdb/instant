@@ -35,6 +35,7 @@ import { InstantApp, SchemaNamespace } from '@/lib/types';
 import { titleComparator } from '@/lib/app';
 
 import { Explorer } from '@/components/dash/explorer/Explorer';
+import { AppStart } from '@/components/dash/HomeStartGuide';
 import { Perms } from '@/components/dash/Perms';
 import { Schema } from '@/components/dash/Schema';
 
@@ -719,7 +720,8 @@ export function HomeButton({
   );
 }
 
-function Home({ appId, token }: { appId: string; token: string }) {
+function Home({ app, token }: { app: InstantApp; token: string }) {
+  const { id: appId } = app;
   const posthog = usePostHog();
   const { stats, isLoading, error } = useAppConnectionStats(token, appId);
   const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
@@ -730,10 +732,15 @@ function Home({ appId, token }: { appId: string; token: string }) {
     : [];
 
   return (
-    <div className="mx-auto max-w-2xl p-4 text-sm md:pt-14 md:text-base">
-      <SectionHeading>Getting Started</SectionHeading>
+    <div className="max-w-2xl p-4 text-sm md:text-base">
+      <div className="mb-10">
+        <AppStart app={app} />
+      </div>
+
+      <SectionHeading>Next Steps</SectionHeading>
       <div className="pt-1">
-        Welcome to Instant! Here are some resources to help you get started.
+        Now that you have your app running, here's some helpful links on what to
+        do next!
       </div>
 
       <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
@@ -881,7 +888,7 @@ function DashboardContent({
   return (
     <>
       {tab === 'home' ? (
-        <Home appId={appId} token={useContext(TokenContext)!} />
+        <Home app={app} token={useContext(TokenContext)!} />
       ) : tab === 'explorer' ? (
         <ExplorerTab
           appId={appId}
