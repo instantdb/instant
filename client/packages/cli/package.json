@@ -46,7 +46,7 @@
     "dev": "tsc -p tsconfig.json --watch --skipLibCheck --preserveWatchOutput | grep -v '^$'",
     "test": "vitest",
     "test:ci": "vitest run",
-    "publish-package": "pnpm pack && npm publish *.tgz --access public && rm *.tgz",
+    "publish-package": "pnpm pack && npm publish *.tgz --access public",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
