@@ -28,56 +28,50 @@
         (is (= {:not-supported [:complex-value-type]}
                (iqt/instaql-topic
                 {:attrs attrs}
-                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}})))) ))))
+                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))))))
 
 (deftest isNull-check
   (with-zeneca-app
     (fn [app r]
       (let [attrs (attr-model/get-by-app-id (:id app))]
-
-        (testing "$isNull: true - matches when attr is missing/null"
+        (testing "$isNull: true"
           (let [result (iqt/instaql-topic
                         {:attrs attrs}
                         (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"
                                                                 :fullName {:$isNull true}}}}}))
-                {:keys [ast program]} result]
+                {:keys [program]} result]
+            (is (true?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
 
-            (is (some? ast) (str "Expected AST but got: " (pr-str result)))
-            (is (some? program) (str "Expected program but got: " (pr-str result)))
+            (is (true?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) nil}})))
+            (is (false?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) "Stepan"}})))))
 
-            (when (and ast program)
-              ;; Should match when handle matches and fullName is missing
-              (is (true?
-                   (program {:etype "users"
-                             :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
-
-              ;; Should not match if fullName is present
-              (is (false?
-                   (program {:etype "users"
-                             :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
-                                     (str (resolvers/->uuid r :users/fullName)) "Joe Averbukh"}}))))))
-
-        (testing "$isNull: false - matches when attr is present/non-null"
+        (testing "$isNull: false"
           (let [result (iqt/instaql-topic
                         {:attrs attrs}
                         (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"
                                                                 :fullName {:$isNull false}}}}}))
-                {:keys [ast program]} result]
+                {:keys [program]} result]
 
-            (is (some? ast) (str "Expected AST but got: " (pr-str result)))
-            (is (some? program) (str "Expected program but got: " (pr-str result)))
+            (is (false?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
 
-            (when (and ast program)
-              ;; Should NOT match when fullName is missing
-              (is (false?
-                   (program {:etype "users"
-                             :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
-
-              ;; Should match if fullName is present
-              (is (true?
-                   (program {:etype "users"
-                             :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
-                                     (str (resolvers/->uuid r :users/fullName)) "Joe Averbukh"}})))))))))
+            (is (false?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) nil}})))
+            (is (true?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) "Stepan"}})))))))))
 
 (deftest composites
   (with-zeneca-app
