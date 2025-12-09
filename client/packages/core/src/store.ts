@@ -281,7 +281,7 @@ function getCreatedAt(
 ): Number {
   const [eid, aid, v] = triple;
   let createdAt;
-  // XXX: Is that right?
+
   const t = getInMap(store.eav, [eid, aid, v]);
   if (t) {
     createdAt = t[3];
@@ -385,7 +385,7 @@ function mergeTriple(store: Store, rawTriple: Triple) {
 
 function deleteEntity(store: Store, args: any[]) {
   const [lookup, etype] = args;
-  const triple = resolveLookupRefs(store, [lookup, '', null, 0]);
+  const triple = resolveLookupRefs(store, [lookup] as unknown as Triple);
 
   if (!triple) {
     return;
@@ -678,10 +678,14 @@ export function getTriples(store, [e, a, v]) {
   }
 }
 
-export function getAsObject(store: Store, attrs: Attrs, e: string) {
+export function getAsObject(
+  store: Store,
+  attrs: Map<string, InstantDBAttr>,
+  e: string,
+) {
   const obj = {};
 
-  for (const [label, attr] of Object.entries(attrs)) {
+  for (const [label, attr] of attrs.entries()) {
     const aMap = store.eav.get(e)?.get(attr.id);
     const triples = allMapValues(aMap, 1);
     for (const triple of triples) {
