@@ -8,7 +8,7 @@
    [instant.db.instaql-topic :as iqt]
    [instant.data.resolvers :as resolvers]
    [instant.db.transaction :as tx]
-   [instant.aurora :as aurora]))
+   [instant.jdbc.aurora :as aurora]))
 
 ;; ----
 ;; Tests
