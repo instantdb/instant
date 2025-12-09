@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import { usePostHog } from 'posthog-js/react';
+import confetti from 'canvas-confetti';
 import {
   SectionHeading,
   SubsectionHeading,
   Copyable,
   Content,
   Select,
+  Button,
 } from '@/components/ui';
 
 /**
@@ -21,6 +23,10 @@ function toDirectoryName(title: string): string {
     .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
 
   return dirName || 'instant-app'; // Fall back to 'instant-app' if result is empty
+}
+
+function randomInRange(min: number, max: number) {
+  return Math.random() * (max - min) + min;
 }
 
 type Framework = 'nextjs' | 'expo';
@@ -65,26 +71,26 @@ function getSteps(
   const viewStep: Step =
     config.viewStep.type === 'link'
       ? {
-        id: 'view_app',
-        title: 'View your app',
-        description: 'Open your browser to see the app running locally',
-        link: config.viewStep.url,
-      }
+          id: 'start_guide_view_app',
+          title: 'View your app',
+          description: 'Open your browser to see the app running locally',
+          link: config.viewStep.url,
+        }
       : {
-        id: 'view_app',
-        title: 'View your app',
-        description: config.viewStep.text,
-      };
+          id: 'start_guide_view_app',
+          title: 'View your app',
+          description: config.viewStep.text,
+        };
 
   return [
     {
-      id: 'create_project',
+      id: 'start_guide_create_project',
       title: 'Create your project',
       description: `Scaffold a new ${framework === 'nextjs' ? 'Next.js' : 'Expo'} app with Instant pre-configured`,
       command: `npx create-instant-app ${dirName} --app ${appId} ${config.flag} --rules`,
     },
     {
-      id: 'start_dev_server',
+      id: 'start_guide_start_server',
       title: 'Start the dev server',
       description: 'Navigate to your project and run the development server',
       command: `cd ${dirName} && ${config.devCommand}`,
@@ -106,8 +112,7 @@ export function AppStart({
   const steps = getSteps(framework, dirName, appId);
 
   const trackCopy = (stepId: string) => {
-    posthog.capture('start_guide_copy', {
-      step: stepId,
+    posthog.capture(stepId, {
       framework: framework === 'nextjs' ? 'web' : 'mobile',
       app_id: appId,
     });
@@ -121,8 +126,8 @@ export function AppStart({
         <Select
           value={framework}
           options={[
-            { label: 'web app', value: 'nextjs' as Framework },
-            { label: 'mobile app', value: 'expo' as Framework },
+            { label: 'web app', value: 'nextjs' },
+            { label: 'mobile app', value: 'expo' },
           ]}
           onChange={(option) => option && setFramework(option.value)}
         />
@@ -181,13 +186,32 @@ export function AppStart({
             </div>
           </div>
           <div className="flex-1">
-            <SubsectionHeading>Huzzah!</SubsectionHeading>
+            <SubsectionHeading>Got it working?</SubsectionHeading>
             <Content>
-              <p className="mt-1 text-sm">
-                You've got your Instant app running. Check out the Next Steps
-                below to keep going!
-              </p>
+              <p className="mt-1 text-sm">Give yourself a pat on the back!</p>
             </Content>
+            <Button
+              variant="secondary"
+              className="mt-3"
+              size="normal"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const originX = (rect.x + 0.5 * rect.width) / window.innerWidth;
+                const originY =
+                  (rect.y + 0.5 * rect.height) / window.innerHeight;
+
+                confetti({
+                  angle: randomInRange(55, 125),
+                  spread: randomInRange(50, 70),
+                  particleCount: randomInRange(50, 100),
+                  origin: { x: originX, y: originY },
+                });
+
+                posthog.capture('start_guide_celebration', { app_id: appId });
+              }}
+            >
+              Heck yeah!
+            </Button>
           </div>
         </div>
       </div>
