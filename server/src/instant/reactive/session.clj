@@ -17,6 +17,7 @@
    [instant.db.transaction :as tx]
    [instant.flags :as flags]
    [instant.grouped-queue :as grouped-queue]
+   [instant.join-room-logger :as join-room-logger]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.sse :as sse]
@@ -584,6 +585,7 @@
         current-user (-> auth :user)
         room-id (validate-room-id event)]
     (eph/join-room! app-id sess-id current-user room-id data)
+    (join-room-logger/log-join-room! app-id)
     (rs/send-event! store app-id sess-id {:op :join-room-ok
                                           :room-id room-id
                                           :client-event-id client-event-id})))
