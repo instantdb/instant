@@ -32,49 +32,6 @@
                 {:attrs attrs}
                 (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))))))
 
-(deftest isNull-check
-  (with-zeneca-app
-    (fn [app r]
-      (let [attrs (attr-model/get-by-app-id (:id app))]
-        (testing "$isNull: true"
-          (let [result (iqt/instaql-topic
-                        {:attrs attrs}
-                        (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"
-                                                                :fullName {:$isNull true}}}}}))
-                {:keys [program]} result]
-            (is (true?
-                 (program {:etype "users"
-                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
-
-            (is (true?
-                 (program {:etype "users"
-                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
-                                   (str (resolvers/->uuid r :users/fullName)) nil}})))
-            (is (false?
-                 (program {:etype "users"
-                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
-                                   (str (resolvers/->uuid r :users/fullName)) "Stepan"}})))))
-
-        (testing "$isNull: false"
-          (let [result (iqt/instaql-topic
-                        {:attrs attrs}
-                        (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"
-                                                                :fullName {:$isNull false}}}}}))
-                {:keys [program]} result]
-
-            (is (false?
-                 (program {:etype "users"
-                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
-
-            (is (false?
-                 (program {:etype "users"
-                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
-                                   (str (resolvers/->uuid r :users/fullName)) nil}})))
-            (is (true?
-                 (program {:etype "users"
-                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
-                                   (str (resolvers/->uuid r :users/fullName)) "Stepan"}})))))))))
-
 (deftest composites
   (with-zeneca-app
     (fn [app r]
@@ -173,6 +130,48 @@
                                    (iq/->forms! attrs {:users {:$ {:where {:handle "\" && true || \""}}}}))]
             (is (true? (program {:etype "users"
                                  :attrs {(str (resolvers/->uuid r :users/handle)) "\" && true || \""}})))))))))
+(deftest isNull-check
+  (with-zeneca-app
+    (fn [app r]
+      (let [attrs (attr-model/get-by-app-id (:id app))]
+        (testing "$isNull: true"
+          (let [result (iqt/instaql-topic
+                        {:attrs attrs}
+                        (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"
+                                                                :fullName {:$isNull true}}}}}))
+                {:keys [program]} result]
+            (is (true?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
+
+            (is (true?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) nil}})))
+            (is (false?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) "Stepan"}})))))
+
+        (testing "$isNull: false"
+          (let [result (iqt/instaql-topic
+                        {:attrs attrs}
+                        (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"
+                                                                :fullName {:$isNull false}}}}}))
+                {:keys [program]} result]
+
+            (is (false?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
+
+            (is (false?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) nil}})))
+            (is (true?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) "Stepan"}})))))))))
 
 (deftest isNull-refs
   (with-zeneca-app
