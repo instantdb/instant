@@ -72,6 +72,7 @@
     "@instantdb/version": "workspace:*",
     "@monaco-editor/react": "^4.6.0",
     "@radix-ui/react-collapsible": "^1.0.3",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-switch": "^1.2.6",

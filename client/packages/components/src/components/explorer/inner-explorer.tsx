@@ -732,7 +732,11 @@ export const InnerExplorer: React.FC<{
           />
         ) : null}
       </Dialog>
-      <Dialog open={Boolean(editNs)} onClose={() => setEditNs(null)}>
+      <Dialog
+        stopFocusPropagation={true}
+        open={Boolean(editNs)}
+        onClose={() => setEditNs(null)}
+      >
         {selectedNamespace ? (
           <EditNamespaceDialog
             readOnly={readOnlyNs}

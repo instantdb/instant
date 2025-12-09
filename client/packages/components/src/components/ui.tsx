@@ -12,6 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from './select';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { XIcon } from 'lucide-react';
 
 import Highlight, { defaultProps } from 'prism-react-renderer';
 
@@ -605,36 +607,116 @@ export function useDialog() {
   };
 }
 
+function MainDialog({
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+}
+
+function DialogPortal({
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Portal>) {
+  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
+}
+
+function DialogOverlay({
+  className,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+  return (
+    <DialogPrimitive.Overlay
+      data-slot="dialog-overlay"
+      className={cn(
+        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function DialogContent({
+  className,
+  children,
+  showCloseButton = false,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  showCloseButton?: boolean;
+}) {
+  const shadowRoot = useShadowRoot();
+
+  return (
+    <DialogPortal container={shadowRoot} data-slot="dialog-portal">
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        data-slot="dialog-content"
+        className={cn(
+          'bg-background tw-preflight data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg dark:border-neutral-700',
+          className,
+        )}
+        {...props}
+      >
+        {children}
+        {showCloseButton && (
+          <DialogPrimitive.Close
+            data-slot="dialog-close"
+            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity duration-100 hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+          >
+            <XIcon />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        )}
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  );
+}
+
+export { DialogContent, DialogOverlay, DialogPortal };
+
 export function Dialog({
   open,
   children,
   onClose,
   className,
+  stopFocusPropagation = false,
   hideCloseButton = false,
 }: {
   open: boolean;
   children: React.ReactNode;
   onClose: () => void;
   className?: string;
+  stopFocusPropagation?: boolean;
   hideCloseButton?: boolean;
 }) {
   return (
-    <HeadlessDialog as="div" open={open} onClose={onClose}>
-      <div className="fixed inset-0 z-50 bg-black/50" aria-hidden="true" />
-      <div className="fixed inset-4 z-50 flex flex-col items-center justify-center">
-        <DialogPanel
-          className={`relative w-full max-w-xl overflow-y-auto rounded bg-white p-3 text-sm shadow dark:bg-neutral-800 dark:text-white ${className}`}
-        >
-          {!hideCloseButton && (
-            <XMarkIcon
-              className="absolute top-[18px] right-3 h-4 w-4 cursor-pointer"
-              onClick={onClose}
-            />
-          )}
-          {children}
-        </DialogPanel>
-      </div>
-    </HeadlessDialog>
+    <MainDialog
+      onOpenChange={(s) => {
+        if (!s) {
+          onClose();
+        }
+      }}
+      open={open}
+    >
+      <DialogContent
+        onFocusCapture={(e) => {
+          if (stopFocusPropagation) {
+            e.stopPropagation();
+          }
+        }}
+        autoFocus={false}
+        tabIndex={undefined}
+        className={`w-full max-w-xl overflow-y-auto rounded bg-white p-3 text-sm shadow dark:bg-neutral-800 dark:text-white ${className}`}
+      >
+        {!hideCloseButton && (
+          <XMarkIcon
+            className="absolute top-[18px] right-3 h-4 w-4 cursor-pointer"
+            onClick={onClose}
+          />
+        )}
+        {children}
+      </DialogContent>
+      {/*</div>*/}
+    </MainDialog>
   );
 }
 
@@ -1132,8 +1214,9 @@ function TooltipContent({
   children,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
+  const shadowRoot = useShadowRoot();
   return (
-    <TooltipPrimitive.Portal>
+    <TooltipPrimitive.Portal container={shadowRoot}>
       <TooltipPrimitive.Content
         data-slot="tooltip-content"
         sideOffset={sideOffset}
@@ -1445,6 +1528,7 @@ export function Fence({
 
 import * as SwitchPrimitive from '@radix-ui/react-switch';
 import { rosePineDawnTheme } from './rosePineDawnTheme';
+import { useShadowRoot } from './StyleMe';
 function Switch({
   className,
   ...props
