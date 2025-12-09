@@ -313,7 +313,7 @@ test('PersistedObject garbage collects when we exceed max age', async () => {
     serialize: (_k, x) => x,
     parse: (_k, x) => x,
     objectSize: (v) => v,
-    logger: devNullLogger,
+    logger: createLogger(true, () => ({})),
     saveThrottleMs: 0,
     gc: {
       maxAgeMs: 0,

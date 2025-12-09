@@ -2,7 +2,7 @@
 import weakHash from './utils/weakHash.ts';
 import instaql from './instaql.js';
 import * as instaml from './instaml.js';
-import * as s from './store.js';
+import * as s from './store.ts';
 import uuid from './utils/uuid.ts';
 import IndexedDBStorage from './IndexedDBStorage.ts';
 import WindowNetworkListener from './WindowNetworkListener.js';
