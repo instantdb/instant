@@ -282,7 +282,7 @@
 
 (defn compress-bins ^bytes [sketch]
   ;; Temporary flag for backwards compatibility while new version deploys
-  (if (or true (flags/toggled? :compress-bins-with-pfor (config/test?)))
+  (if (flags/toggled? :compress-bins-with-pfor (config/test?))
     (compress-new sketch)
     (compress-old sketch)))
 
