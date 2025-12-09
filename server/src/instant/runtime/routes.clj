@@ -248,12 +248,13 @@
                               ;; matches everything under the subdirectory
                               :path "/runtime/oauth"}))))
 
-(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id] :as params}]
+(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
                 :sub sub
                 :provider-id provider-id})
+
         {:keys [user existing-oauth-link]}
         (if (<= (count users) 1)
           {:user (first users)
@@ -263,16 +264,16 @@
             (when-not (= 1 (count email-matches))
               (ex/throw-oauth-err! "Could not disambiguate between multiple users for this account."))
             (let [selected (first email-matches)
-                  oauth-link-user (first (filter :app_user_oauth_links/id users))]
+                  oauth-link (first (filter :app_user_oauth_links/id users))]
               (tracer/record-info! {:name "oauth/disambiguated-by-email"
                                     :attributes {:email email
                                                  :sub sub
                                                  :user-ids (mapv :app_users/id users)
                                                  :selected-user-id (:app_users/id selected)}})
               {:user selected
-               :existing-oauth-link (when oauth-link-user
-                                      {:id (:app_user_oauth_links/id oauth-link-user)
-                                       :sub (:app_user_oauth_links/sub oauth-link-user)})})))]
+               :existing-oauth-link (when oauth-link
+                                      {:id (:app_user_oauth_links/id oauth-link)
+                                       :sub (:app_user_oauth_links/sub oauth-link)})})))]
 
     (if-not user
       (let [created (app-user-model/create!

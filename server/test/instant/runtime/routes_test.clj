@@ -308,6 +308,26 @@
 (deftest upsert-oauth-link-disambiguates-with-email
   (with-empty-app
     (fn [app]
+      ;; Apple OAuth lets you provide "relay" emails: 
+      ;; these are anonumous emails that forward to the user's real email. 
+
+      ;; This opens up a potential problem. 
+
+      ;; Consider the following scenario: 
+      ;; (1) User signs in with magic code: stopa@instantdb.com 
+      ;; (2) User signs in with with Apple, private relay on: foo@privaterelay.apple.com  
+
+      ;; At this point we'll have _2_ separate users. 
+
+      ;; Now 
+      ;; (3) The user signs in with Apple, private relay off: stopa@instantdb.com. 
+
+      ;; Which user should we link this 3rd sign up too? It matches _both_ the 
+      ;; existing email user, and the existing Apple Oauth link. 
+
+      ;; Currently, we choose the existing email user. 
+      ;; This means that the user with the private relay email will get stranded. 
+      ;; However, in the worst case scenario, they can be recovered manually.
       (let [provider (provider-model/create! {:app-id (:id app)
                                               :provider-name "apple"})
             email "stopa@instantdb.com"
@@ -330,7 +350,4 @@
         (is anon-link)
         (is (not= (:id email-user) (:user_id anon-link)))
         (is (= (:id email-user) (:user_id revealed-link)))))))
-
-
-
 

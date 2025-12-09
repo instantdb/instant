@@ -22,6 +22,7 @@
       (get-entity id)))))
 
 (defn update-user!
+  "Updates the $user link on an existing oauth user link entity"
   ([params] (update-user! (aurora/conn-pool :write) params))
   ([conn {:keys [id app-id user-id]}]
    (update-op
