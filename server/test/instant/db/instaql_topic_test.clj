@@ -130,6 +130,7 @@
                                    (iq/->forms! attrs {:users {:$ {:where {:handle "\" && true || \""}}}}))]
             (is (true? (program {:etype "users"
                                  :attrs {(str (resolvers/->uuid r :users/handle)) "\" && true || \""}})))))))))
+
 (deftest isNull-check
   (with-zeneca-app
     (fn [app r]
