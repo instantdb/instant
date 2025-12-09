@@ -167,6 +167,7 @@
            "gauges"
            "ws/send-json!"
            "handle-refresh/send-event!"
+           "handle-refresh/spam"
            "store/record-datalog-query-finish!"
            "store/record-datalog-query-start!"
            "store/swap-datalog-cache!"
@@ -187,6 +188,7 @@
 
           ("receive-worker/handle-event"
            "receive-worker/handle-receive")
+
           (case (-> (.getAttributes span)
                     (.get op-attr-key))
             (":set-presence"
