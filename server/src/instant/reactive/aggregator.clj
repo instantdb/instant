@@ -72,8 +72,6 @@
                           (:value-too-large? (meta (:value row)))
                           (assoc :checked-data-type nil)))
 
-        base-sketch (cms/make-sketch)
-
         triple-count (volatile! 0)
         sketch-count (volatile! 0)
         span (volatile! (tracer/new-span! {:name "aggregator/initial-sketch-batch"}))
@@ -99,8 +97,8 @@
                              attr-id (:attr-id (first s))
                              triples (transient {})
                              reverse-triples (transient {})
-                             sketch base-sketch
-                             reverse-sketch base-sketch
+                             sketch (cms/make-sketch)
+                             reverse-sketch (cms/make-sketch)
                              triples-pg-size 0]
                         (if (and (= app-id (:app-id (first s)))
                                  (= attr-id (:attr-id (first s))))

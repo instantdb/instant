@@ -21,14 +21,17 @@
 (def ^:dynamic *env*
   nil)
 
+(def staging-env (System/getenv "STAGING"))
+(def prod-env (System/getenv "PRODUCTION"))
+
 (defn get-env []
   (cond
     (some? *env*)                                 *env*
-    (= "test" (System/getProperty "instant.env")) :test
     ;; n.b. make sure this the staging check is first so that we can
     ;;      override it in the eb env vars
-    (= "true" (System/getenv "STAGING"))          :staging
-    (= "true" (System/getenv "PRODUCTION"))       :prod
+    (= "true" staging-env)                        :staging
+    (= "true" prod-env)                           :prod
+    (= "test" (System/getProperty "instant.env")) :test
     (= "true" (System/getenv "TEST"))             :test
     :else                                         :dev))
 

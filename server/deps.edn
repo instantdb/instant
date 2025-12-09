@@ -94,6 +94,7 @@
 
         net.openhft/zero-allocation-hashing {:mvn/version "0.27ea1"}
         com.github.luben/zstd-jni {:mvn/version "1.5.7-4"}
+        me.lemire.integercompression/JavaFastPFOR {:mvn/version "0.3.9"}
 
         org.clojure/java.jmx {:mvn/version "1.1.0"}}
  :aliases {:dev {:extra-paths ["dev" "test" "dev-resources"]
