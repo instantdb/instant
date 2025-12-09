@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
+import { usePostHog } from 'posthog-js/react';
 import {
   SectionHeading,
   SubsectionHeading,
@@ -25,6 +26,7 @@ function toDirectoryName(title: string): string {
 type Framework = 'nextjs' | 'expo';
 
 type Step = {
+  id: string;
   title: string;
   description: string;
   command?: string;
@@ -63,22 +65,26 @@ function getSteps(
   const viewStep: Step =
     config.viewStep.type === 'link'
       ? {
-          title: 'View your app',
-          description: 'Open your browser to see the app running locally',
-          link: config.viewStep.url,
-        }
+        id: 'view_app',
+        title: 'View your app',
+        description: 'Open your browser to see the app running locally',
+        link: config.viewStep.url,
+      }
       : {
-          title: 'View your app',
-          description: config.viewStep.text,
-        };
+        id: 'view_app',
+        title: 'View your app',
+        description: config.viewStep.text,
+      };
 
   return [
     {
+      id: 'create_project',
       title: 'Create your project',
       description: `Scaffold a new ${framework === 'nextjs' ? 'Next.js' : 'Expo'} app with Instant pre-configured`,
       command: `npx create-instant-app ${dirName} --app ${appId} ${config.flag} --rules`,
     },
     {
+      id: 'start_dev_server',
       title: 'Start the dev server',
       description: 'Navigate to your project and run the development server',
       command: `cd ${dirName} && ${config.devCommand}`,
@@ -94,9 +100,18 @@ export function AppStart({
   appId: string;
   appTitle: string;
 }) {
+  const posthog = usePostHog();
   const [framework, setFramework] = useState<Framework>('nextjs');
   const dirName = toDirectoryName(appTitle);
   const steps = getSteps(framework, dirName, appId);
+
+  const trackCopy = (stepId: string) => {
+    posthog.capture('start_guide_copy', {
+      step: stepId,
+      framework: framework === 'nextjs' ? 'web' : 'mobile',
+      app_id: appId,
+    });
+  };
 
   return (
     <div>
@@ -132,7 +147,11 @@ export function AppStart({
               </Content>
               {step.command && (
                 <div className="mt-3">
-                  <Copyable value={step.command} label="$" />
+                  <Copyable
+                    value={step.command}
+                    label="$"
+                    onCopy={() => trackCopy(step.id)}
+                  />
                 </div>
               )}
               {step.link && (

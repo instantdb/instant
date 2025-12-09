@@ -977,6 +977,7 @@ export function Copyable({
   hideValue,
   onChangeHideValue,
   multiline,
+  onCopy,
 }: {
   value: string;
   label?: string;
@@ -985,6 +986,7 @@ export function Copyable({
   hideValue?: boolean;
   onChangeHideValue?: () => void;
   multiline?: boolean;
+  onCopy?: () => void;
 }) {
   const [hidden, setHidden] = useState(defaultHidden);
   const [tooltipOpen, setTooltipOpen] = useState(false);
@@ -1028,6 +1030,7 @@ export function Copyable({
                 window.navigator.clipboard.writeText(value);
                 setTooltipOpen(true);
                 setTimeout(() => setTooltipOpen(false), 1000);
+                onCopy?.();
               }
             }}
           >
@@ -1059,6 +1062,7 @@ export function Copyable({
               setTimeout(() => {
                 setCopyLabel('Copy');
               }, 2500);
+              onCopy?.();
             }}
             className={cn(
               'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600',
