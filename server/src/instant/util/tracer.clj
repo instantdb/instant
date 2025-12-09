@@ -244,6 +244,12 @@
 
 (def dataset-name "instant-server")
 
+(defn current-trace-id []
+  (when-let [^Span span *span*]
+    (-> span
+        (.getSpanContext)
+        (.getTraceId))))
+
 (defn current-span-ids []
   (when-let [^Span span *span*]
     {:span-id (-> span

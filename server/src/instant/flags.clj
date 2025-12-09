@@ -4,7 +4,8 @@
 (ns instant.flags
   (:require
    [clojure.walk :as w]
-   [instant.config :as config]))
+   [instant.config :as config]
+   [instant.util.uuid :as uuid-util]))
 
 ;; Map of query to {:result {result-tree}
 ;;                  :tx-id int}
@@ -73,7 +74,7 @@
                                   (get result "rate-limited-apps"))
 
         log-sampled-apps (reduce (fn [acc {:strs [appId sampleRate]}]
-                                   (assoc acc appId sampleRate))
+                                   (assoc acc (uuid-util/coerce appId) sampleRate))
                                  {}
                                  (get result "log-sampled-apps"))
 
@@ -197,8 +198,7 @@
     (contains? (storage-block-list) app-id)))
 
 (defn log-sampled-apps [app-id]
-  (let [app-id (str app-id)]
-    (get-in (query-result) [:log-sampled-apps app-id] nil)))
+  (get-in (query-result) [:log-sampled-apps app-id] nil))
 
 (defn app-rate-limited? [app-id]
   (contains? (:rate-limited-apps (query-result))

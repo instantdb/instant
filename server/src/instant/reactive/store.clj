@@ -1375,7 +1375,8 @@
 ;; Websocket Helpers
 
 (defn send-event! [store app-id sess-id event]
-  (let [socket (:session/socket (session store sess-id))]
+  (let [socket (:session/socket (session store sess-id))
+        event (assoc event :trace-id (tracer/current-trace-id))]
     (when-not socket
       (ex/throw-socket-missing! sess-id))
     (when-let [sse-conn (:sse-conn socket)]
