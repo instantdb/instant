@@ -433,12 +433,16 @@
              :table-info table-info
              :current-user current-user
              :admin? admin?}
-        {:keys [instaql-result result-meta result-changed?]}
-        (rq/instaql-query-reactive! store ctx query return-type inference?)]
+        start-ms (System/currentTimeMillis)
+        {:keys [instaql-result result-meta result-changed? instaql-topic?]}
+        (rq/instaql-query-reactive! store ctx query return-type inference?)
+        end-ms (System/currentTimeMillis)]
     {:instaql-query query
      :instaql-result instaql-result
      :result-meta result-meta
-     :result-changed? result-changed?}))
+     :result-changed? result-changed?
+     :duration-ms (- end-ms start-ms)
+     :instaql-topic? instaql-topic?}))
 
 (defn- handle-refresh! [store sess-id event debug-info]
   (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id event)
@@ -477,6 +481,13 @@
         can-skip-attrs? (supports-skip-attrs? features)
         attrs-hash      (hash attrs)
         attrs-changed?  (not= prev-attrs-hash attrs-hash)]
+    (doseq [{:keys [instaql-query duration-ms instaql-topic?]} spam]
+      (tracer/record-info! {:name "handle-refresh/spam"
+                            :attributes {:app-id app-id
+                                         :instaql-query instaql-query
+                                         :duration-ms duration-ms
+                                         :instaql-topic? instaql-topic?}}))
+
     (when (and can-skip-attrs? attrs-changed?)
       (rs/assoc-session! store sess-id :session/attrs-hash attrs-hash))
     (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id event)

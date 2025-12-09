@@ -146,7 +146,8 @@
                            (collect-instaql-results-for-client instaql-result))
          :result-meta (when (= :tree return-type)
                         (instaql-nodes->object-meta instaql-result))
-         :result-changed? result-changed?})
+         :result-changed? result-changed?
+         :instaql-topic? (boolean iq-topic)})
       (catch Throwable e
         (rs/remove-query! store app-id session-id instaql-query)
         (throw e)))))
