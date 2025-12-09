@@ -126,7 +126,6 @@
       (> (count path) 1)
       (throw-not-supported! [:multi-part-path])
 
-      ;; Handle $isNull check
       (and (= v-type :args-map) (contains? v-data :$isNull))
       (let [label (first path)
             {:keys [id] :as attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
