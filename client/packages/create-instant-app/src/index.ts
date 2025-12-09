@@ -33,7 +33,7 @@ const main = async () => {
   }
 
   const theme = await detectTerminalTheme();
-  const project = await runCli();
+  const { project, appFlags } = await runCli();
 
   const [scopedAppName, appDir] = parseNameAndPath(project.appName);
 
@@ -46,7 +46,7 @@ const main = async () => {
     ruleFilesToAdd: project.ruleFiles,
   });
 
-  const possibleAppTokenPair = await tryConnectApp();
+  const possibleAppTokenPair = await tryConnectApp(appFlags);
   if (possibleAppTokenPair) {
     applyEnvFile(
       project,

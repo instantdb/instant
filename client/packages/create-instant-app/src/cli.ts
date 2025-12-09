@@ -20,6 +20,11 @@ export type Project = {
   createRepo: boolean;
 };
 
+export type AppFlags = {
+  app: string | null;
+  token: string | null;
+};
+
 export const unwrapSkippablePrompt = <T>(result: Promise<T | symbol>) => {
   return result.then((value) => {
     if (p.isCancel(value)) {
@@ -37,7 +42,10 @@ const defaultOptions: Project = {
   prompt: null,
 };
 
-export const runCli = async (): Promise<Project> => {
+export const runCli = async (): Promise<{
+  project: Project;
+  appFlags: AppFlags;
+}> => {
   const results = defaultOptions;
 
   const program = new Command()
@@ -91,6 +99,18 @@ export const runCli = async (): Promise<Project> => {
       new Option(
         '--ai',
         'Create a new InstantDB app based off of a prompt. (requires Claude Code)',
+      ),
+    )
+    .addOption(
+      new Option(
+        '-a --app <app-id>',
+        'Link to an existing InstantDB app by ID (requires login or --token)',
+      ),
+    )
+    .addOption(
+      new Option(
+        '-t --token <token>',
+        'Auth token override (use with --app when not logged in)',
       ),
     )
     .version(version)
@@ -244,5 +264,10 @@ export const runCli = async (): Promise<Project> => {
     },
   );
 
-  return project;
+  const appFlags: AppFlags = {
+    app: flags.app ?? null,
+    token: flags.token ?? null,
+  };
+
+  return { project, appFlags };
 };
