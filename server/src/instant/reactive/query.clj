@@ -97,17 +97,15 @@
 
 (defn- compile-instaql-topic [attrs instaql-query]
   (when (flags/toggled? :instaql-topic-compiler true)
-    (tracer/with-span! {:name "compile-instaql-topic"}
-      (try
-        (let [forms (iq/->forms! attrs instaql-query)]
-          (when (and (= 1 (count forms))
-                     (empty? (:child-forms (first forms))))
-            (let [result (iqt/instaql-topic {:attrs attrs} (first forms))]
-              (when (:program result)
-                (tracer/add-data! {:attributes {:got-result? true}})
-                result))))
-        (catch Throwable e
-          (tracer/record-exception-span! e {:name "compile-instaql-topic-ex"}))))))
+    (try
+      (let [forms (iq/->forms! attrs instaql-query)]
+        (when (and (= 1 (count forms))
+                   (empty? (:child-forms (first forms))))
+          (let [result (iqt/instaql-topic {:attrs attrs} (first forms))]
+            (when (:program result)
+              result))))
+      (catch Throwable e
+        (tracer/record-exception-span! e {:name "compile-instaql-topic-ex"})))))
 
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
