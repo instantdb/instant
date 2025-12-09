@@ -127,7 +127,7 @@
                          :else x))
                  where))
 
-(defn- clean-forms-for-hash [forms]
+(defn normalized-forms [forms]
   (walk/postwalk (fn [v]
                    (if (and (map? v)
                             (contains? v :$))
@@ -139,4 +139,4 @@
                  forms))
 
 (defn forms-hash [forms]
-  (hash (clean-forms-for-hash forms)))
+  (hash (normalized-forms forms)))

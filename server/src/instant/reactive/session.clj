@@ -38,6 +38,7 @@
    [instant.util.json :refer [<-json]]
    [instant.util.semver :as semver]
    [instant.util.e2e-tracer :as e2e-tracer]
+   [instant.util.instaql :as instaql-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [lambdaisland.uri :as uri])
@@ -486,6 +487,7 @@
       (tracer/record-info! {:name "handle-refresh/spam"
                             :attributes {:app-id app-id
                                          :instaql-query instaql-query
+                                         :instaql-query-normalized (instaql-util/normalized-forms instaql-query)
                                          :duration-ms duration-ms
                                          :instaql-topic? instaql-topic?}}))
 
