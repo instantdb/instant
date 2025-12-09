@@ -106,7 +106,7 @@
   (let [ret (ua/<!!-timeout ws-conn)]
     (if (= :timeout ret)
       (throw (ex-info "Timed out waiting for a response" {:id id}))
-      (dissoc ret :client-event-id))))
+      (dissoc ret :client-event-id :trace-id))))
 
 (defn- read-msgs [n socket]
   (set (repeatedly n #(read-msg socket))))
@@ -118,7 +118,7 @@
   (send-msg socket msg)
   (let [ret (read-msg socket)]
     (is (= expected-op (:op ret)))
-    ret))
+    (dissoc ret :trace-id)))
 
 (defn- pretty-auth [{:keys [app user] :as _auth}]
   [(:title app) (:email user)])
