@@ -350,4 +350,3 @@
         (is anon-link)
         (is (not= (:id email-user) (:user_id anon-link)))
         (is (= (:id email-user) (:user_id revealed-link)))))))
-
