@@ -224,8 +224,12 @@ export class Terminal implements ITerminal {
   private tearDown(keypress: (...args: any[]) => void) {
     this.stdout.write(cursor.show);
     this.stdin.removeListener('keypress', keypress);
-    if (this.stdin.isTTY) this.stdin.setRawMode(false);
-    this.closable.close();
+    // Defer cleanup to avoid Windows race condition with console input handling
+    // See: https://github.com/nodejs/node/issues/49588
+    setTimeout(() => {
+      if (this.stdin.isTTY) this.stdin.setRawMode(false);
+      this.closable.close();
+    }, 0);
   }
 
   result(): Promise<{}> {
