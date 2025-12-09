@@ -128,10 +128,17 @@
 
       (and (= v-type :args-map) (contains? v-data :$isNull))
       (let [label (first path)
-            {:keys [id] :as attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-        (if-not attr
-          (throw-not-supported! [:unknown-attribute])
-          (is-null-attr-cel-expr factory id (:$isNull v-data))))
+            fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
+            rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
+        (cond
+          rev-attr (throw-not-supported! [:reverse-attribute])
+
+          (not fwd-attr) (throw-not-supported! [:unknown-attribute])
+
+          (= :many (:cardinality fwd-attr)) (throw-not-supported! [:cardinality-many])
+
+          :else
+          (is-null-attr-cel-expr factory (:id fwd-attr) (:$isNull v-data))))
 
       (not= v-type :value)
       (throw-not-supported! [:complex-value-type])
