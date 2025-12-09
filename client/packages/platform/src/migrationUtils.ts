@@ -21,7 +21,8 @@ export const attrDefToNewAttrTx = (
       namespace: entityName,
     },
     'index?': attrInSchema.config.indexed,
-    'checked-data-type': attrInSchema.valueType,
+    'checked-data-type':
+      attrInSchema.valueType !== 'json' ? attrInSchema.valueType : null,
   };
 };
 
