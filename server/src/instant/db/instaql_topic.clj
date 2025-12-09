@@ -1,9 +1,11 @@
 (ns instant.db.instaql-topic
   (:require [instant.db.cel :as cel]
-            [instant.db.model.attr :as attr-model])
+            [instant.db.model.attr :as attr-model]
+            [clojure+.core :as clojure+])
   (:import (clojure.lang ExceptionInfo)
+           (com.google.protobuf NullValue)
            (dev.cel.common CelAbstractSyntaxTree CelSource)
-           (dev.cel.common.ast CelExprFactory CelExpr)
+           (dev.cel.common.ast CelConstant CelExprFactory CelExpr)
            (dev.cel.common.types MapType SimpleType)
            (dev.cel.compiler CelCompiler CelCompilerFactory)
            (dev.cel.parser CelStandardMacro Operator)
@@ -34,6 +36,13 @@
                   (.getFunction Operator/EQUALS)
                   ^CelExpr/1 (into-array CelExpr [a b])))
 
+(defn- neq-expr
+  "Build a != b expression"
+  ^CelExpr [^CelExprFactory factory ^CelExpr a ^CelExpr b]
+  (.newGlobalCall factory
+                  (.getFunction Operator/NOT_EQUALS)
+                  ^CelExpr/1 (into-array CelExpr [a b])))
+
 (defn- and-expr
   "Build a && b expression"
   ^CelExpr [^CelExprFactory factory ^CelExpr a ^CelExpr b]
@@ -48,10 +57,16 @@
             (and-expr factory acc expr))
           exprs))
 
+(defn- null-expr
+  "Build a null literal expression"
+  ^CelExpr [^CelExprFactory factory]
+  (.newConstant factory (CelConstant/ofValue NullValue/NULL_VALUE)))
+
 (defn- value->cel-expr
   "Convert a Clojure value to a CEL expression"
   ^CelExpr [^CelExprFactory factory v]
   (cond
+    (nil? v) (null-expr factory)
     (string? v) (.newStringLiteral factory v)
     (int? v) (.newIntLiteral factory (long v))
     (float? v) (.newDoubleLiteral factory (double v))
@@ -89,6 +104,18 @@
            (entity-attr-expr factory aid)
            (value->cel-expr factory v)))
 
+(defn- is-null-attr-cel-expr
+  "Build entity[\"attrs\"][aid] == null expression for $isNull: true
+   or entity[\"attrs\"][aid] != null expression for $isNull: false"
+  ^CelExpr [^CelExprFactory factory aid is-null?]
+  (if is-null?
+    (eq-expr factory
+             (entity-attr-expr factory aid)
+             (null-expr factory))
+    (neq-expr factory
+              (entity-attr-expr factory aid)
+              (null-expr factory))))
+
 ;; ---------
 ;; form->ast!
 
@@ -99,6 +126,22 @@
     (cond
       (> (count path) 1)
       (throw-not-supported! [:multi-part-path])
+
+      (and (= v-type :args-map) (contains? v-data :$isNull))
+      (clojure+/cond+
+       :let [label (first path)
+             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
+
+       rev-attr  (throw-not-supported! [:reverse-attribute])
+
+       :let [{:keys [id cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+
+       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
+
+       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
+
+       :else
+       (is-null-attr-cel-expr factory id (:$isNull v-data)))
 
       (not= v-type :value)
       (throw-not-supported! [:complex-value-type])

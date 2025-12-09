@@ -235,10 +235,7 @@ export const renderSchemaPlan = (
           addLine(
             `${chalk.bgGreen.black(' + CREATE ATTR ')} ${createDotName(step)}`,
           );
-          if (
-            step['checked-data-type'] &&
-            step['checked-data-type'] !== 'json'
-          ) {
+          if (step['checked-data-type']) {
             addSecondaryLine('   DATA TYPE: ' + step['checked-data-type']);
           }
           if (step['unique?'] && step.identifier.attrName !== 'id') {

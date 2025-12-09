@@ -171,10 +171,7 @@ const CONVERTERS: AllConvertPlanStepFns = {
         catalog: 'user',
         'on-delete': from['on-delete'],
         'on-delete-reverse': from['on-delete-reverse'],
-        'checked-data-type':
-          from['checked-data-type'] !== 'json'
-            ? from['checked-data-type']
-            : undefined,
+        'checked-data-type': from['checked-data-type'],
       },
     ]);
 
@@ -671,12 +668,16 @@ export const compareBlobs = (
       type: 'remove-data-type',
       identifier: identity,
     });
-  } else if (oldBlob.valueType !== newBlob.valueType)
+  } else if (
+    oldBlob.valueType !== newBlob.valueType &&
+    newBlob.valueType !== 'json'
+  ) {
     results.push({
       type: 'check-data-type',
       identifier: identity,
       'checked-data-type': newBlob.valueType,
     });
+  }
 
   return results;
 };

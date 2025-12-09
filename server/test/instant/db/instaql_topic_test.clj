@@ -6,7 +6,9 @@
    [instant.db.model.attr :as attr-model]
    [instant.fixtures :refer [with-zeneca-app]]
    [instant.db.instaql-topic :as iqt]
-   [instant.data.resolvers :as resolvers]))
+   [instant.data.resolvers :as resolvers]
+   [instant.db.transaction :as tx]
+   [instant.jdbc.aurora :as aurora]))
 
 ;; ----
 ;; Tests
@@ -128,3 +130,83 @@
                                    (iq/->forms! attrs {:users {:$ {:where {:handle "\" && true || \""}}}}))]
             (is (true? (program {:etype "users"
                                  :attrs {(str (resolvers/->uuid r :users/handle)) "\" && true || \""}})))))))))
+
+(deftest isNull-check
+  (with-zeneca-app
+    (fn [app r]
+      (let [attrs (attr-model/get-by-app-id (:id app))]
+        (testing "$isNull: true"
+          (let [result (iqt/instaql-topic
+                        {:attrs attrs}
+                        (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"
+                                                                :fullName {:$isNull true}}}}}))
+                {:keys [program]} result]
+            (is (true?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
+
+            (is (true?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) nil}})))
+            (is (false?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) "Stepan"}})))))
+
+        (testing "$isNull: false"
+          (let [result (iqt/instaql-topic
+                        {:attrs attrs}
+                        (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"
+                                                                :fullName {:$isNull false}}}}}))
+                {:keys [program]} result]
+
+            (is (false?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
+
+            (is (false?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) nil}})))
+            (is (true?
+                 (program {:etype "users"
+                           :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"
+                                   (str (resolvers/->uuid r :users/fullName)) "Stepan"}})))))))))
+
+(deftest isNull-refs
+  (with-zeneca-app
+    (fn [app _r]
+      (let [favorite-book-attr-id (random-uuid)
+            _ (tx/transact!
+               (aurora/conn-pool :write)
+               (attr-model/get-by-app-id (:id app))
+               (:id app)
+               [[:add-attr {:id favorite-book-attr-id
+                            :forward-identity [(random-uuid) "users" "favoriteBook"]
+                            :reverse-identity [(random-uuid) "books" "favoriteByUsers"]
+                            :value-type :ref
+                            :cardinality :one
+                            :unique? false
+                            :index? false}]])
+            attrs (attr-model/get-by-app-id (:id app))]
+
+        (is (= {:not-supported [:cardinality-many]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:users {:$ {:where {:bookshelves {:$isNull true}}}}}))))
+
+        (is (= {:not-supported [:reverse-attribute]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:books {:$ {:where {:favoriteByUsers {:$isNull true}}}}}))))
+        (let [result (iqt/instaql-topic
+                      {:attrs attrs}
+                      (iq/->forms! attrs {:users {:$ {:where {:favoriteBook {:$isNull true}}}}}))
+              {:keys [program]} result]
+          (is (true?
+               (program {:etype "users"
+                         :attrs {}})))
+          (is (false?
+               (program {:etype "users"
+                         :attrs {(str favorite-book-attr-id) (str (random-uuid))}}))))))))

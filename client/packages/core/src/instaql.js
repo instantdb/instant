@@ -1,7 +1,7 @@
 import { query as datalogQuery } from './datalog.js';
 import { uuidCompare } from './utils/uuid.ts';
 import { stringCompare } from './utils/strings.ts';
-import * as s from './store.js';
+import * as s from './store.ts';
 
 // Pattern variables
 // -----------------
