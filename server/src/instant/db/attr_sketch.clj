@@ -2,6 +2,8 @@
   (:require
    [clojure.pprint]
    [honey.sql :as hsql]
+   [instant.config :as config]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.util.cache :as cache]
@@ -189,7 +191,7 @@
        ;; This shouldn't be a problem because we only ever add from the
        ;; single-threaded aggregator
        (locking bins
-         (doseq [{:keys [id bin-idx n]} (persistent! bin-changes)]
+         (doseq [{:keys [bin-idx n]} (persistent! bin-changes)]
            (aset bins bin-idx (+ (aget bins bin-idx) ^long n)))))
      (-> sketch
          (update :total + item-count)
@@ -253,7 +255,22 @@
 
 ;;; Compression
 
-(defn compress-bins
+(defn longs->bytes [^longs longs]
+  (let [bb (ByteBuffer/allocate (* (alength longs)
+                                   Long/BYTES))]
+    (.put (.asLongBuffer bb)
+          ^longs longs)
+    (.array bb)))
+
+(defn compress-new
+  "Returns the bins as bytes compressed with JavaFastPFOR, then zstd."
+  ^bytes [sketch]
+  (->> (:bins sketch)
+       (.compress (me.lemire.longcompression.LongCompressor.))
+       (longs->bytes)
+       (Zstd/compress)))
+
+(defn compress-old
   "Returns the bins as bytes compressed with zstd."
   ^bytes [sketch]
   (let [bb (ByteBuffer/allocate (* (:width sketch)
@@ -263,7 +280,13 @@
           ^longs (:bins sketch))
     (Zstd/compress (.array bb))))
 
-(defn bytes->longs [^bytes b]
+(defn compress-bins ^bytes [sketch]
+  ;; Temporary flag for backwards compatibility while new version deploys
+  (if (or true (flags/toggled? :compress-bins-with-pfor (config/test?)))
+    (compress-new sketch)
+    (compress-old sketch)))
+
+(defn bytes->longs ^longs [^bytes b]
   (let [bb (ByteBuffer/wrap b)
         len (/ (alength b)
                Long/BYTES)
@@ -272,9 +295,16 @@
     longs))
 
 (defn decompress-bins [width depth ^bytes compressed-bin-bytes]
-  (let [dst (byte-array (* width depth Long/BYTES))]
-    (Zstd/decompress dst compressed-bin-bytes)
-    (bytes->longs dst)))
+  (let [dst (byte-array (Zstd/decompressedSize compressed-bin-bytes))
+        _ (Zstd/decompress dst compressed-bin-bytes)
+        longs (bytes->longs dst)]
+
+    (if (= (alength longs) (* width depth))
+      ;; We got the original length back, it must have been
+      ;; compressed without LongCompressor
+      longs
+      (.uncompress (me.lemire.longcompression.LongCompressor.)
+                   longs))))
 
 ;;; Queries
 
