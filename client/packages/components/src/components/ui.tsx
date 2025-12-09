@@ -474,7 +474,7 @@ export function Button({
       'hover:enabled:text-slate-100 hover:enabled:bg-orange-500 dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-orange-500':
         variant === 'cta' && !isATag,
       // secondary
-      'border text-gray-500 bg-gray-50 shadow-sm dark:border-neutral-600 dark:text-neutral-400 dark:bg-neutral-800':
+      'border border-gray-200 text-gray-500 bg-gray-50 shadow-sm dark:border-neutral-600 dark:text-neutral-400 dark:bg-neutral-800':
         variant === 'secondary',
       'hover:text-gray-600 hover:bg-gray-50/30 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/30':
         variant === 'secondary' && isATag,
@@ -1390,7 +1390,7 @@ export function Fence({
               },
               styles: [],
             }
-          : undefined
+          : rosePineDawnTheme
       }
     >
       {({ className, style, tokens, getTokenProps }) => (
@@ -1444,6 +1444,7 @@ export function Fence({
 }
 
 import * as SwitchPrimitive from '@radix-ui/react-switch';
+import { rosePineDawnTheme } from './rosePineDawnTheme';
 function Switch({
   className,
   ...props

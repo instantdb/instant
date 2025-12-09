@@ -750,7 +750,7 @@ export const InnerExplorer: React.FC<{
         ) : null}
       </Dialog>
       <div className="flex flex-1 grow flex-col overflow-hidden bg-white dark:bg-neutral-800">
-        <div className="flex items-center overflow-hidden border-b dark:border-neutral-700">
+        <div className="flex items-center overflow-hidden border-b border-b-gray-200 dark:border-neutral-700">
           <div className="flex flex-1 flex-col justify-between py-2 md:flex-row md:items-center">
             <div className="flex items-center overflow-hidden border-b px-2 py-1 pl-4 md:border-b-0 dark:border-neutral-700">
               {showBackButton ? (
@@ -853,7 +853,7 @@ export const InnerExplorer: React.FC<{
                   {uploadingFile ? 'Uploading...' : 'Upload file'}
                 </Button>
               </div>
-              <div className="relative flex max-w-[67vw] min-w-0 flex-1">
+              <div className="relative flex max-w-[67vw] min-w-0 flex-1 rounded-sm border border-neutral-200 focus-within:ring-2 focus-within:ring-blue-700 dark:border-neutral-700 dark:focus-within:ring-blue-500">
                 <span className="absolute inset-y-0 left-0 flex items-center rounded-l bg-neutral-100 px-3 text-sm text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
                   File Path:
                 </span>
@@ -862,13 +862,13 @@ export const InnerExplorer: React.FC<{
                   placeholder="Enter a custom path (optional)"
                   value={customPath}
                   onChange={(e) => setCustomPath(e.target.value)}
-                  className="h-9 w-full rounded-sm border-0 bg-transparent py-1 pr-3 pl-24 text-sm outline-1 outline-neutral-200 outline-solid placeholder:text-neutral-500 focus:ring-2 focus:ring-blue-700 dark:bg-neutral-800 dark:text-white dark:outline-neutral-700 dark:placeholder:text-neutral-400 dark:focus:ring-blue-500"
+                  className="h-9 w-full rounded-sm border-0 bg-transparent py-1 pr-3 pl-24 text-sm ring-0 placeholder:text-neutral-500 focus:outline-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-400"
                 />
               </div>
             </div>
           </div>
         ) : null}
-        <div className="flex items-center justify-start space-x-2 border-b p-1 text-xs dark:border-neutral-700 dark:text-white">
+        <div className="flex items-center justify-start space-x-2 border-b border-b-gray-200 p-1 text-xs dark:border-neutral-700 dark:text-white">
           {selectedNamespace.name !== '$files' ? (
             <Button
               disabled={readOnlyNs}
@@ -1154,7 +1154,7 @@ export const InnerExplorer: React.FC<{
                 }}
                 className="z-0 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400"
               >
-                <div className="sticky top-0 z-10 border-r border-b bg-white text-neutral-700 shadow-sm dark:border-r-neutral-700 dark:border-b-neutral-600 dark:bg-[#303030] dark:text-neutral-300">
+                <div className="sticky top-0 z-10 border-r border-b border-gray-200 border-r-gray-200 bg-white text-neutral-700 shadow-sm dark:border-r-neutral-700 dark:border-b-neutral-600 dark:bg-[#303030] dark:text-neutral-300">
                   {table.getHeaderGroups().map((headerGroup) => (
                     <div className={'flex w-full'} key={headerGroup.id}>
                       <SortableContext
@@ -1188,7 +1188,7 @@ export const InnerExplorer: React.FC<{
                 <div>
                   {table.getRowModel().rows.map((row) => (
                     <div
-                      className="group flex border-r border-b bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
+                      className="group flex border-r border-b border-b-gray-200 bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
                       key={row.id}
                     >
                       {row.getVisibleCells().map((cell) => (

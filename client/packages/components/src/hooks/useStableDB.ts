@@ -1,5 +1,5 @@
 import { init } from '@instantdb/react';
-import { useState } from 'react';
+import { useMemo } from 'react';
 
 type InstantReactClient = ReturnType<typeof init>;
 export const useStableDB = ({
@@ -13,15 +13,17 @@ export const useStableDB = ({
   websocketURI: string;
   adminToken?: string;
 }) => {
-  const [connection] = useState<InstantReactClient>(
-    init({
-      appId,
-      apiURI,
-      websocketURI,
-      // @ts-ignore
-      __adminToken: adminToken,
-      disableValidation: true,
-    }),
+  const connection = useMemo<InstantReactClient>(
+    () =>
+      init({
+        appId,
+        apiURI,
+        websocketURI,
+        // @ts-ignore
+        __adminToken: adminToken,
+        disableValidation: true,
+      }),
+    [appId, apiURI, websocketURI, adminToken],
   );
 
   return connection;

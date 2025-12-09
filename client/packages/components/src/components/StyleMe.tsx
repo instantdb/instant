@@ -7,10 +7,13 @@ import React from 'react';
 // @ts-ignore
 import myStyles from '../style.css?inline';
 import { cn } from './ui';
+import { useExplorerProps } from './explorer';
 
 export const StyleMe = ({ children }: { children: ReactNode }) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const [mountNode, setMountNode] = useState<HTMLDivElement | null>(null);
+
+  const explorerProps = useExplorerProps();
 
   useEffect(() => {
     if (hostRef.current && !mountNode) {
@@ -19,9 +22,16 @@ export const StyleMe = ({ children }: { children: ReactNode }) => {
         const style = document.createElement('style');
         style.textContent = myStyles;
         const container = document.createElement('div');
-        container.setAttribute('class', 'tw-preflight h-full');
+
+        if (explorerProps.darkMode) {
+          container.setAttribute('class', 'tw-preflight h-full dark');
+        } else {
+          container.setAttribute('class', 'tw-preflight h-full');
+        }
+
         shadow.appendChild(style);
         shadow.appendChild(container);
+
         setMountNode(container);
       } catch (err) {}
     }

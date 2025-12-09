@@ -18,7 +18,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     target: 'esnext',
-    // TODO: make this true for prod
     emptyOutDir: false,
     cssCodeSplit: true,
     lib: {
@@ -48,13 +47,6 @@ export default defineConfig({
         ];
         return allDeps.some((dep) => id === dep || id.startsWith(dep + '/'));
       },
-      // external: [
-      //   'react',
-      //   'react/jsx-runtime',
-      //   '@heroicons/react',
-      //   ...Object.keys(peerDependencies),
-      //   ...Object.keys(dependencies),
-      // ],
     },
   },
 });

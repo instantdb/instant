@@ -40,7 +40,7 @@ export const ViewSettings = ({
           <div>Visible Columns</div>
           <div className="py-1">
             {visiblity.attrs?.map((attr) => (
-              <div className="flex gap-2">
+              <div key={attr.id + attr.name} className="flex gap-2">
                 <Checkbox
                   label={attr.name}
                   checked={visiblity.visibility[attr.id + attr.name] !== false}

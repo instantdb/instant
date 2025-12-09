@@ -2,6 +2,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -71,7 +72,7 @@ const fillPropsWithDefaults = (
     ...input,
     apiURI: input.apiURI || config.apiURI,
     websocketURI: input.websocketURI || config.websocketURI,
-    darkMode: input.darkMode || false,
+    darkMode: input.darkMode === undefined ? false : input.darkMode,
     explorerState: input.explorerState || _explorerState,
     setExplorerState: input.setExplorerState || setExplorerState,
     useShadowDOM: input.useShadowDOM || false,
@@ -147,6 +148,12 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
     websocketURI: props.websocketURI,
     adminToken: props.adminToken,
   });
+
+  // Reset explorer state and history when appId changes
+  useEffect(() => {
+    setExplorerState(null);
+    setExplorerStateHistory([]);
+  }, [props.appId, setExplorerState]);
 
   const schemaData = useSchemaQuery(db);
 

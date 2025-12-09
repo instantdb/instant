@@ -74,7 +74,7 @@ export const ExplorerLayout = ({
       <div
         ref={nsRef}
         className={cn(
-          'absolute top-0 bottom-0 left-0 z-40 flex min-w-[200px] flex-col gap-1 border-r border-solid bg-white p-2 shadow-md md:static md:flex md:shadow-none dark:border-neutral-700 dark:bg-neutral-800 dark:text-white',
+          'absolute top-0 bottom-0 left-0 z-40 flex min-w-[200px] flex-col gap-1 border-r border-solid border-r-gray-200 bg-white p-2 shadow-md md:static md:flex md:shadow-none dark:border-neutral-700 dark:bg-neutral-800 dark:text-white',
           {
             hidden: !isNsOpen,
           },
@@ -88,7 +88,7 @@ export const ExplorerLayout = ({
           />
           Namespaces
         </div>
-        <div className="flex flex-col gap-2 border-r bg-neutral-100 p-1 md:hidden dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="flex flex-col gap-2 border-r border-gray-300 bg-neutral-100 p-1 md:hidden dark:border-neutral-700 dark:bg-neutral-800">
           <button
             className="flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 select-none hover:bg-neutral-300 dark:hover:bg-neutral-700"
             onClick={(e) => {

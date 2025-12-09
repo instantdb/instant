@@ -18,7 +18,7 @@ import {
   MagnifyingGlassIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
-import { ExplorerNav, Explorer as NewExplorer } from '@instantdb/components';
+import { Explorer as NewExplorer } from '@instantdb/components';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import { init } from '@instantdb/react';
 import produce from 'immer';
@@ -35,7 +35,6 @@ import { InstantApp, SchemaNamespace } from '@/lib/types';
 import { titleComparator } from '@/lib/app';
 
 import { AppStart } from '@/components/dash/HomeStartGuide';
-import { Explorer } from '@/components/dash/explorer/Explorer';
 import { Perms } from '@/components/dash/Perms';
 import { Schema } from '@/components/dash/Schema';
 
