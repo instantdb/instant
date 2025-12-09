@@ -570,21 +570,19 @@ function Dashboard() {
                   );
                 }}
               />
-              <div className="flex flex-1 flex-col overflow-hidden">
-                <div className="flex flex-1 flex-col overflow-y-scroll">
-                  {connection ? (
-                    <DashboardContent
-                      role={role}
-                      connection={connection}
-                      app={app}
-                      appId={appId}
-                      tab={tab}
-                      nav={nav}
-                      onDeleteApp={onDeleteApp}
-                      workspace={dashResponse.data.workspace}
-                    />
-                  ) : null}
-                </div>
+              <div className="flex flex-1 grow flex-col overflow-y-auto">
+                {connection ? (
+                  <DashboardContent
+                    role={role}
+                    connection={connection}
+                    app={app}
+                    appId={appId}
+                    tab={tab}
+                    nav={nav}
+                    onDeleteApp={onDeleteApp}
+                    workspace={dashResponse.data.workspace}
+                  />
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -733,7 +731,7 @@ function Home({ app, token }: { app: InstantApp; token: string }) {
 
   return (
     <div className="max-w-2xl p-4 text-sm md:text-base">
-      <div className="mb-10">
+      <div className="pb-10">
         <AppStart app={app} />
       </div>
 
