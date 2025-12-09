@@ -568,9 +568,7 @@ function triplesByValue(store: Store, m: Map<any, Triple>, v: any) {
     if (reverse) {
       for (const candidate of m.keys()) {
         const vMap = store.vae.get(candidate);
-        const isValNull =
-          !vMap ||
-          !vMap.get(attrId);
+        const isValNull = !vMap || !vMap.get(attrId);
         if (isNull ? isValNull : !isValNull) {
           res.push(m.get(candidate) as Triple);
         }
