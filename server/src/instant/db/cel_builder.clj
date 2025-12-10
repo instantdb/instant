@@ -74,25 +74,34 @@
                                        (->cel-expr b *factory*)])))
 
 (defn and
-  "Build (a && b && c && ...) from expressions"
+  "Build (a && b && c && ...) from expressions.
+   Returns true for 0 args, unwraps single arg."
   ^CelExpr [& exprs]
-  (let [cel-exprs (map #(->cel-expr % *factory*) exprs)]
-    (reduce (fn [^CelExpr acc ^CelExpr expr]
-              (.newGlobalCall *factory*
-                              (.getFunction Operator/LOGICAL_AND)
-                              ^CelExpr/1
-                              (into-array CelExpr [acc expr])))
-            cel-exprs)))
+  (case (count exprs)
+    0 (->cel-expr true *factory*)
+    1 (->cel-expr (first exprs) *factory*)
+    (let [cel-exprs (map #(->cel-expr % *factory*) exprs)]
+      (reduce (fn [^CelExpr acc ^CelExpr expr]
+                (.newGlobalCall *factory*
+                                (.getFunction Operator/LOGICAL_AND)
+                                ^CelExpr/1
+                                (into-array CelExpr [acc expr])))
+              cel-exprs))))
 
 (defn or
+  "Build (a || b || c || ...) from expressions.
+   Returns false for 0 args, unwraps single arg."
   ^CelExpr [& exprs]
-  (let [cel-exprs (map #(->cel-expr % *factory*) exprs)]
-    (reduce (fn [^CelExpr acc ^CelExpr expr]
-              (.newGlobalCall *factory*
-                              (.getFunction Operator/LOGICAL_OR)
-                              ^CelExpr/1
-                              (into-array CelExpr [acc expr])))
-            cel-exprs)))
+  (case (count exprs)
+    0 (->cel-expr false *factory*)
+    1 (->cel-expr (first exprs) *factory*)
+    (let [cel-exprs (map #(->cel-expr % *factory*) exprs)]
+      (reduce (fn [^CelExpr acc ^CelExpr expr]
+                (.newGlobalCall *factory*
+                                (.getFunction Operator/LOGICAL_OR)
+                                ^CelExpr/1
+                                (into-array CelExpr [acc expr])))
+              cel-exprs))))
 
 (defn get-in
   "Build nested index: obj[k1][k2][k3]..."

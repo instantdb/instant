@@ -159,25 +159,17 @@
   [{:keys [attrs]} {:keys [etype child-forms] :as form}]
   (validate-child-form-where! {:attrs attrs} form)
   (let [etype-check (b/= (b/get 'entity "etype") etype)]
-    (if-not (seq child-forms)
-      etype-check
-      (apply b/or etype-check (map (partial child-form->cel-expr! {:attrs attrs}) child-forms)))))
+    (apply b/or etype-check (map (partial child-form->cel-expr! {:attrs attrs}) child-forms))))
 
 (defn- form->ast! [ctx {:keys [child-forms] :as form}]
-  (let [top-expr (top-form->cel-expr! ctx form)
-        combined-expr (if-not (seq child-forms)
-                        top-expr
-                        (apply b/or top-expr (map (partial child-form->cel-expr! ctx) child-forms)))]
-    combined-expr))
+  (let [top-expr (top-form->cel-expr! ctx form)]
+    (apply b/or top-expr (map (partial child-form->cel-expr! ctx) child-forms))))
 
 (defn- forms->ast!
   ^CelAbstractSyntaxTree [ctx forms]
   (b/with-cel-factory (CelExprFactory/newInstance)
-    (let [exprs (mapv (partial form->ast! ctx) forms)
-          combined-expr (if (= 1 (count exprs))
-                          (first exprs)
-                          (apply b/or exprs))]
-      (CelAbstractSyntaxTree/newParsedAst combined-expr cel-source))))
+    (let [exprs (mapv (partial form->ast! ctx) forms)]
+      (CelAbstractSyntaxTree/newParsedAst (apply b/or exprs) cel-source))))
 
 ;; ------
 ;; Compiler and Runtime
