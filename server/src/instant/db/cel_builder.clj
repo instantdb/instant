@@ -1,14 +1,5 @@
 (ns instant.db.cel-builder
-  "DSL for building CEL AST expressions.
-
-   Usage:
-     (require '[instant.db.cel-builder :as b])
-
-     (b/with-cel-factory (CelExprFactory/newInstance)
-       (b/and
-         (b/eq (b/get-in 'entity \"etype\") \"users\")
-         (b/eq (b/get-in 'entity \"attrs\" aid) value)))"
-  (:refer-clojure :exclude [get get-in and not=])
+  (:refer-clojure :exclude [get get-in and = not=])
   (:import (com.google.protobuf NullValue)
            (dev.cel.common.ast CelConstant CelExpr CelExprFactory)
            (dev.cel.parser Operator)))
@@ -60,16 +51,16 @@
   ^CelExpr [obj key]
   (.newGlobalCall *factory*
                   (.getFunction Operator/INDEX)
-                  ^"[Ldev.cel.common.ast.CelExpr;"
+                  ^CelExpr/1
                   (into-array CelExpr [(->cel-expr obj *factory*)
                                        (->cel-expr key *factory*)])))
 
-(defn eq
+(defn =
   "Build a == b expression"
   ^CelExpr [a b]
   (.newGlobalCall *factory*
                   (.getFunction Operator/EQUALS)
-                  ^"[Ldev.cel.common.ast.CelExpr;"
+                  ^CelExpr/1
                   (into-array CelExpr [(->cel-expr a *factory*)
                                        (->cel-expr b *factory*)])))
 
@@ -78,7 +69,7 @@
   ^CelExpr [a b]
   (.newGlobalCall *factory*
                   (.getFunction Operator/NOT_EQUALS)
-                  ^"[Ldev.cel.common.ast.CelExpr;"
+                  ^CelExpr/1
                   (into-array CelExpr [(->cel-expr a *factory*)
                                        (->cel-expr b *factory*)])))
 
@@ -89,7 +80,7 @@
     (reduce (fn [^CelExpr acc ^CelExpr expr]
               (.newGlobalCall *factory*
                               (.getFunction Operator/LOGICAL_AND)
-                              ^"[Ldev.cel.common.ast.CelExpr;"
+                              ^CelExpr/1
                               (into-array CelExpr [acc expr])))
             cel-exprs)))
 

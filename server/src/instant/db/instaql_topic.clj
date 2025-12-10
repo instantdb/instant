@@ -48,7 +48,7 @@
 
        :else
        (if (:$isNull v-data)
-         (b/eq (b/get-in 'entity "attrs" (str id)) nil)
+         (b/= (b/get-in 'entity "attrs" (str id)) nil)
          (b/not= (b/get-in 'entity "attrs" (str id)) nil)))
 
       (not= v-type :value)
@@ -59,7 +59,7 @@
             {:keys [id] :as attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
         (if-not attr
           (throw-not-supported! [:unknown-attribute])
-          (b/eq (b/get-in 'entity "attrs" (str id)) v-data))))))
+          (b/= (b/get-in 'entity "attrs" (str id)) v-data))))))
 
 (defn- where-cond->cel-expr!
   [ctx {:keys [where-cond]}]
@@ -76,7 +76,7 @@
     (throw-not-supported! [:child-forms])
     (b/with-cel-factory (CelExprFactory/newInstance)
       (let [{:keys [where-conds]} option-map
-            etype-check (b/eq (b/get-in 'entity "etype") etype)
+            etype-check (b/= (b/get-in 'entity "etype") etype)
             attr-checks (mapv (fn [where-cond]
                                 (where-cond->cel-expr!
                                  {:etype etype
