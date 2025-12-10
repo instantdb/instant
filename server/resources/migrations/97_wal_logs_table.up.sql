@@ -122,7 +122,7 @@ begin
     if ents_msg is not null then
       if log_to_table_setting is not null and log_to_table_setting then
         insert into wal_logs (id, created_at, hour_bucket, prefix, content)
-             values (gen_random_uuid(), now(), date_part('hour', now())::int % 8, 'update_ents', ents_msg);
+             values (gen_random_uuid(), now(), date_part('hour', now() at time zone 'UTC')::int % 8, 'update_ents', ents_msg);
       else
         perform pg_logical_emit_message(true, 'update_ents', ents_msg);
       end if;
@@ -225,7 +225,7 @@ begin
     if ents_msg is not null then
       if log_to_table_setting is not null and log_to_table_setting then
         insert into wal_logs (id, created_at, hour_bucket, prefix, content)
-             values (gen_random_uuid(), now(), date_part('hour', now())::int % 8, 'delete_ents', ents_msg);
+             values (gen_random_uuid(), now(), date_part('hour', now() at time zone 'UTC')::int % 8, 'delete_ents', ents_msg);
       else
         perform pg_logical_emit_message(true, 'delete_ents', ents_msg);
       end if;
