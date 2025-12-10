@@ -3,6 +3,8 @@
 ;; and can be required from anywhere.
 (ns instant.flags
   (:require
+   ;; Can't depend on tracer in this file
+   [clojure.tools.logging :as log]
    [clojure.walk :as w]
    [instant.config :as config]
    [instant.util.uuid :as uuid-util]))
@@ -32,6 +34,13 @@
             :handle-receive-timeout {}})
 
 (def toggle-defaults {:pg-hints-by-default (= :test (config/get-env))})
+
+(defn parse-uuids-flag [vs]
+  (try
+    (set (map parse-uuid vs))
+    (catch Exception e
+      (log/error e "Error parsing UUIDs")
+      #{})))
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -101,29 +110,20 @@
                             (assoc acc (keyword setting) value))
                           {}
                           (get result "flags"))
-                  (update :always-materialize-attr-ids (fn [vs]
-                                                         (set (map parse-uuid vs))))
-                  (update :tika-enabled-apps (fn [vs]
-                                               (set (map parse-uuid vs))))
+                  (update :always-materialize-attr-ids parse-uuids-flag)
+                  (update :tika-enabled-apps parse-uuids-flag)
 
                   (update :reserved-system-catalog-ident-names (fn [vs]
                                                                  (set vs)))
                   (update :disable-hint-query-hashes (fn [vs]
                                                        (set vs)))
-                  (update :enable-store-batching-apps (fn [vs]
-                                                        (set (map parse-uuid vs))))
-                  (update :enable-admin-transact-queue-apps (fn [vs]
-                                                              (set (map parse-uuid vs))))
-
-                  (update :invalidator-drop-backpressure-apps (fn [vs]
-                                                                (set (map parse-uuid vs))))
-
-                  (update :coarse-topics-apps (fn [vs]
-                                                (set (map parse-uuid vs))))
+                  (update :enable-store-batching-apps parse-uuids-flag)
+                  (update :enable-admin-transact-queue-apps parse-uuids-flag)
+                  (update :invalidator-drop-backpressure-apps parse-uuids-flag)
+                  (update :coarse-topics-apps parse-uuids-flag)
                   (update :more-vfutures-instances (fn [vs]
                                                      (set vs)))
-                  (update :enable-wal-entity-log-apps (fn [vs]
-                                                        (set vs))))
+                  (update :enable-wal-entity-log-apps parse-uuids-flag))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
