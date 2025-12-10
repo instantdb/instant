@@ -266,6 +266,17 @@
         (is (false? (program {:etype "books" :attrs {}})))
         (is (false? (program {:etype "posts" :attrs {}})))))))
 
+(deftest ruleParams-are-ignored
+  (with-zeneca-app
+    (fn [app r]
+      (let [attrs (attr-model/get-by-app-id (:id app))
+            {:keys [program]} (iqt/instaql-topic
+                               {:attrs attrs}
+                               (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}}}
+                                                   :$$ruleParams {:handle "stopa"}}))]
+        (is (true? (program {:etype "users"
+                             :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))))))
+
 (deftest child-forms
   (with-zeneca-app
     (fn [app r]
