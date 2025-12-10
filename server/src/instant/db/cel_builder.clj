@@ -96,8 +96,8 @@
 
 (defn get-in
   "Build nested index: obj[k1][k2][k3]..."
-  ^CelExpr [obj & keys]
+  ^CelExpr [obj ks]
   (reduce (fn [^CelExpr acc k]
             (get acc k))
           (->cel-expr obj *factory*)
-          keys))
+          ks))

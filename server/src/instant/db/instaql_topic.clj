@@ -48,14 +48,14 @@
 
        :else
        (if (:$isNull v-data)
-         (b/= (b/get-in 'entity "attrs" (str id)) nil)
-         (b/not= (b/get-in 'entity "attrs" (str id)) nil)))
+         (b/= (b/get-in 'entity ["attrs" (str id)]) nil)
+         (b/not= (b/get-in 'entity ["attrs" (str id)]) nil)))
 
       (not= v-type :value)
       (throw-not-supported! [:complex-value-type])
 
       :else
-      (clojure+/cond+
+      (cond+
        :let [label (first path)
              rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
 
@@ -68,7 +68,7 @@
        (not= :one cardinality) (throw-not-supported! [:cardinality-many])
 
        :else
-       (b/= (b/get-in 'entity "attrs" (str id)) v-data)))))
+       (b/= (b/get-in 'entity ["attrs" (str id)]) v-data)))))
 
 (defn- where-cond->cel-expr!
   [ctx {:keys [where-cond]}]
@@ -79,9 +79,9 @@
       (throw-not-supported! [:where-cond cond-type]))))
 
 (defn- top-form->cel-expr!
-  [{:keys [attrs]} {etype :k :keys [option-map]}]
+  [{:keys [attrs]} {:keys [etype option-map]}]
   (let [{:keys [where-conds]} option-map
-        etype-check (b/= (b/get-in 'entity "etype") etype)
+        etype-check (b/= (b/get 'entity "etype") etype)
         attr-checks (mapv (fn [where-cond]
                             (where-cond->cel-expr!
                              {:etype etype
@@ -91,14 +91,14 @@
     (apply b/and etype-check attr-checks)))
 
 (defn- child-form->cel-expr!
-  [{etype :k :keys [child-forms]}]
-  (let [etype-check (b/= (b/get-in 'entity "etype") etype)]
+  [{etype :etype :keys [child-forms]}]
+  (let [etype-check (b/= (b/get 'entity "etype") etype)]
     (if-not (seq child-forms)
       etype-check
       (apply b/or etype-check (map child-form->cel-expr! child-forms)))))
 
 (defn- form->ast!
-  ^CelAbstractSyntaxTree [ctx {etype :k :keys [option-map child-forms] :as form}]
+  ^CelAbstractSyntaxTree [ctx {:keys [child-forms] :as form}]
   (b/with-cel-factory (CelExprFactory/newInstance)
     (let [top-expr (top-form->cel-expr! ctx form)
           combined-expr (if-not (seq child-forms)

@@ -69,12 +69,40 @@
             ;; matches bookshelves (child form is permissive)
             (is (true? (program {:etype "bookshelves" :attrs {}})))))
 
-        (testing "child where clauses are ignored (etype only)"
+        (testing "child forms match etype only, regardless of where clause"
           (let [{:keys [program]} (iqt/instaql-topic
                                    {:attrs attrs}
-                                   (iq/->forms! attrs {:users {:bookshelves {:$ {:where {:name "sci-fi"}}}}}))]
-            ;; matches any bookshelf, ignoring the where clause
-            (is (true? (program {:etype "bookshelves" :attrs {}})))))))))
+                                   (iq/->forms! attrs {:users {:bookshelves {:$ {:where {:name "sci-fi"}}
+                                                                             :books {}}}}))]
+            ;; other etypes do NOT match
+            (is (false? (program {:etype "posts" :attrs {}})))
+            ;; bookshelves match regardless of where clause
+            (is (true? (program {:etype "bookshelves" :attrs {}})))
+            ;; books match regardless of where clause
+            (is (true? (program {:etype "books" :attrs {}})))))
+
+        (testing "child link name differs from etype"
+          (let [_ (tx/transact!
+                   (aurora/conn-pool :write)
+                   attrs
+                   (:id app)
+                   [[:add-attr {:id (random-uuid)
+                                :forward-identity [(random-uuid) "users" "favoriteBook"]
+                                :reverse-identity [(random-uuid) "books" "favoritedByUsers"]
+                                :value-type :ref
+                                :cardinality :one
+                                :unique? false
+                                :index? false}]])
+                attrs (attr-model/get-by-app-id (:id app))
+                {:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:favoriteBook {}}}))]
+            ;; matches users (top-level)
+            (is (true? (program {:etype "users" :attrs {}})))
+            ;; matches books (the actual etype), NOT "favoriteBook" (the link name)
+            (is (true? (program {:etype "books" :attrs {}})))
+            ;; does NOT match "favoriteBook" - that's the link name, not the etype
+            (is (false? (program {:etype "favoriteBook" :attrs {}})))))))))
 
 (deftest composites
   (with-zeneca-app
