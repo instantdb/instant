@@ -30,79 +30,31 @@
 (deftest child-forms
   (with-zeneca-app
     (fn [app r]
-      (let [attrs (attr-model/get-by-app-id (:id app))]
-        (testing "single level child form"
-          (let [{:keys [program]} (iqt/instaql-topic
-                                   {:attrs attrs}
-                                   (iq/->forms! attrs {:users {:bookshelves {}}}))]
-            ;; matches users
-            (is (true? (program {:etype "users" :attrs {}})))
-            ;; matches bookshelves
-            (is (true? (program {:etype "bookshelves" :attrs {}})))
-            ;; does not match other etypes
-            (is (false? (program {:etype "books" :attrs {}})))))
-
-        (testing "nested child forms"
-          (let [{:keys [program]} (iqt/instaql-topic
-                                   {:attrs attrs}
-                                   (iq/->forms! attrs {:users {:bookshelves {:books {}}}}))]
-            ;; matches users
-            (is (true? (program {:etype "users" :attrs {}})))
-            ;; matches bookshelves
-            (is (true? (program {:etype "bookshelves" :attrs {}})))
-            ;; matches books
-            (is (true? (program {:etype "books" :attrs {}})))
-            ;; does not match other etypes
-            (is (false? (program {:etype "posts" :attrs {}})))))
-
-        (testing "top-level where still applies"
-          (let [{:keys [program]} (iqt/instaql-topic
-                                   {:attrs attrs}
-                                   (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}}
-                                                               :bookshelves {}}}))]
-            ;; matches users with correct handle
-            (is (true? (program {:etype "users"
-                                 :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
-            ;; does NOT match users with wrong handle
-            (is (false? (program {:etype "users"
-                                  :attrs {(str (resolvers/->uuid r :users/handle)) "joe"}})))
-            ;; matches bookshelves (child form is permissive)
-            (is (true? (program {:etype "bookshelves" :attrs {}})))))
-
-        (testing "child forms match etype only, regardless of where clause"
-          (let [{:keys [program]} (iqt/instaql-topic
-                                   {:attrs attrs}
-                                   (iq/->forms! attrs {:users {:bookshelves {:$ {:where {:name "sci-fi"}}
-                                                                             :books {}}}}))]
-            ;; other etypes do NOT match
-            (is (false? (program {:etype "posts" :attrs {}})))
-            ;; bookshelves match regardless of where clause
-            (is (true? (program {:etype "bookshelves" :attrs {}})))
-            ;; books match regardless of where clause
-            (is (true? (program {:etype "books" :attrs {}})))))
-
-        (testing "child link name differs from etype"
-          (let [_ (tx/transact!
-                   (aurora/conn-pool :write)
-                   attrs
-                   (:id app)
-                   [[:add-attr {:id (random-uuid)
-                                :forward-identity [(random-uuid) "users" "favoriteBook"]
-                                :reverse-identity [(random-uuid) "books" "favoritedByUsers"]
-                                :value-type :ref
-                                :cardinality :one
-                                :unique? false
-                                :index? false}]])
-                attrs (attr-model/get-by-app-id (:id app))
-                {:keys [program]} (iqt/instaql-topic
-                                   {:attrs attrs}
-                                   (iq/->forms! attrs {:users {:favoriteBook {}}}))]
-            ;; matches users (top-level)
-            (is (true? (program {:etype "users" :attrs {}})))
-            ;; matches books (the actual etype), NOT "favoriteBook" (the link name)
-            (is (true? (program {:etype "books" :attrs {}})))
-            ;; does NOT match "favoriteBook" - that's the link name, not the etype
-            (is (false? (program {:etype "favoriteBook" :attrs {}})))))))))
+      (let [_ (tx/transact!
+               (aurora/conn-pool :write)
+               (attr-model/get-by-app-id (:id app))
+               (:id app)
+               [[:add-attr {:id (random-uuid)
+                            :forward-identity [(random-uuid) "users" "favoriteBook"]
+                            :reverse-identity [(random-uuid) "books" "favoritedByUsers"]
+                            :value-type :ref
+                            :cardinality :one
+                            :unique? false
+                            :index? false}]])
+            attrs (attr-model/get-by-app-id (:id app))
+            {:keys [program]} (iqt/instaql-topic
+                               {:attrs attrs}
+                               (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}}
+                                                           :favoriteBook {:$ {:where {:title "Erta"}}
+                                                                          :bookshelves {:$ {:where {:name "sci-fi"}}}}}}))]
+        (is (true? (program {:etype "users"
+                             :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
+        (is (false? (program {:etype "users"
+                              :attrs {(str (resolvers/->uuid r :users/handle)) "joe"}})))
+        (is (true? (program {:etype "books" :attrs {}})))
+        (is (true? (program {:etype "bookshelves" :attrs {}})))
+        (is (false? (program {:etype "favoriteBook" :attrs {}})))
+        (is (false? (program {:etype "posts" :attrs {}})))))))
 
 (deftest composites
   (with-zeneca-app
