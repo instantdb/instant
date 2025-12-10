@@ -13,7 +13,7 @@
 ;; ----
 ;; Tests
 
-(deftest not-supported
+(deftest child-forms-not-supported
   (with-zeneca-app
     (fn [app _r]
       (let [attrs (attr-model/get-by-app-id (:id app))]
@@ -25,7 +25,17 @@
         (is (= {:not-supported [:complex-value-type]}
                (iqt/instaql-topic
                 {:attrs attrs}
-                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))))))
+                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))
+
+        (is (= {:not-supported [:multi-part-path]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:books {:bookshelves {:$ {:where {"users.handle" "stopa"}}}}}))))
+
+        (is (= {:not-supported [:complex-value-type]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:users {:bookshelves {:$ {:where {:name {:$ilike "%sci%"}}}}}}))))))))
 
 (deftest child-forms
   (with-zeneca-app
