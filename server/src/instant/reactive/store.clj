@@ -1188,31 +1188,33 @@
        (d/entity db)
        :subscription/instaql-query))
 
-(defn instaql-topic-matches? [{:keys [program]} entities]
+(defn instaql-topic-matching-item [{:keys [program]} entities]
   (reduce-kv
    (fn [_ etype by-eid]
      (reduce-kv
       (fn [_ _eid attrs]
-        (if (program {:etype etype
-                      :attrs attrs})
-          (reduced program)
-          false))
-      false
+        (let [item {:etype etype
+                    :attrs attrs}]
+          (if (program item)
+            (reduced item)
+            nil)))
+      nil
       by-eid))
-   false
+   nil
    entities))
 
 (defn instaql-topic-should-remove-query? [app-id db wal-record eid]
   (try
-    (when (seq (:messages wal-record))
+    (when (or (seq (:messages wal-record))
+              (seq (:wal-logs wal-record)))
       (when-let [iql-topic (-> (instaql-query-ent-for-datalog-query-eid db eid)
                                :instaql-query/topic)]
         (let [entities-after (topics/extract-entities-after wal-record)]
-          (and (not (instaql-topic-matches? iql-topic entities-after))
+          (and (not (instaql-topic-matching-item iql-topic entities-after))
                (let [entities-before (topics/extract-entities-before (attr-model/get-by-app-id app-id)
                                                                      entities-after
                                                                      wal-record)]
-                 (not (instaql-topic-matches? iql-topic entities-before)))))))
+                 (not (instaql-topic-matching-item iql-topic entities-before)))))))
     (catch Throwable t
       (tracer/record-exception-span! t {:name "instaql-topic-should-remove-query?-error"}))))
 
@@ -1229,11 +1231,12 @@
                   iql-topic-remove)]
       (tracer/record-info! {:name "store/filter-queries-summary"
                             :attributes {:app-id app-id
+                                         :wal-log-enabled (flags/enable-wal-entity-log? app-id)
                                          :iv-topics-count (count iv-topics)
                                          :initial-count (count query-ids)
                                          :iq-topic-removed (- (count query-ids) (count iql-topic-remove))
                                          :hardcode-removed (- (count iql-topic-remove) (count hardcoded-remove))}})
-      iql-topic-remove)))
+      hardcoded-remove)))
 
 (defn mark-stale-topics!
   "Given topics, invalidates all relevant datalog qs and associated instaql queries.

@@ -488,6 +488,7 @@
     (doseq [{:keys [instaql-query instaql-query-hash duration-ms instaql-topic?]} spam]
       (tracer/record-info! {:name "handle-refresh/spam"
                             :attributes {:app-id app-id
+                                         :wal-log-enabled (flags/enable-wal-entity-log? app-id)
                                          :instaql-query instaql-query
                                          :instaql-query-hash instaql-query-hash
                                          :instaql-query-normalized (instaql-util/normalized-forms instaql-query)
