@@ -1,8 +1,5 @@
-// not sure if any of this works because we are on v4
-import {
-  scopedPreflightStyles,
-  isolateInsideOfContainer,
-} from 'tailwindcss-scoped-preflight';
+// Tailwind v4 uses CSS-first configuration via style.css
+// This config is kept for any remaining JS-based customizations
 
 const sans = [
   'ui-sans-serif',
@@ -23,11 +20,7 @@ const sans = [
 module.exports = {
   darkMode: 'class',
   content: ['./src/**/*.{js,ts,jsx,tsx}'],
-  plugins: [
-    scopedPreflightStyles({
-      isolationStrategy: isolateInsideOfContainer('.tw-preflight'),
-    }),
-  ],
+  plugins: [],
   theme: {
     fontFamily: {
       sans: ['"IBM Plex Sans"', ...sans],

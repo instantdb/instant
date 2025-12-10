@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -13,6 +14,7 @@ import { config } from '@lib/config';
 import { ExplorerLayout } from './explorer-layout';
 import { useSchemaQuery } from '@lib/hooks/explorer';
 import { useStableDB } from '@lib/hooks/useStableDB';
+import ErrorBoundary from '@lib/components/error-boundary';
 
 interface ExplorerProps {
   appId: string;
@@ -24,7 +26,10 @@ interface ExplorerProps {
   className?: string;
 
   // state management
-  explorerState: HasDefault<ExplorerNav | null>;
+  // When undefined: uncontrolled mode (component manages its own state)
+  // When null: controlled mode with no selection
+  // When ExplorerNav: controlled mode with a selection
+  explorerState: HasDefault<ExplorerNav | null | undefined>;
   setExplorerState: HasDefault<
     React.Dispatch<React.SetStateAction<ExplorerNav | null>>
   >;
@@ -63,17 +68,28 @@ export const useExplorerState = () => {
   return { explorerState: ctx.props.explorerState, history: ctx.history };
 };
 
+const isControlled = (props: WithOptional<ExplorerProps>): boolean => {
+  // Component is controlled if explorerState prop is explicitly provided
+  // (even if null - that means "no selection" in controlled mode)
+  return (
+    props.explorerState !== undefined || props.setExplorerState !== undefined
+  );
+};
+
 const fillPropsWithDefaults = (
   input: WithOptional<ExplorerProps>,
   _explorerState: ExplorerNav | null,
   setExplorerState: React.Dispatch<React.SetStateAction<ExplorerNav | null>>,
 ): WithDefaults<ExplorerProps> => {
+  const controlled = isControlled(input);
   return {
     ...input,
     apiURI: input.apiURI || config.apiURI,
     websocketURI: input.websocketURI || config.websocketURI,
     darkMode: input.darkMode === undefined ? false : input.darkMode,
-    explorerState: input.explorerState || _explorerState,
+    // In controlled mode, use the provided state (even if null)
+    // In uncontrolled mode, use the internal state
+    explorerState: controlled ? (input.explorerState ?? null) : _explorerState,
     setExplorerState: input.setExplorerState || setExplorerState,
     useShadowDOM: input.useShadowDOM || false,
   };
@@ -121,7 +137,7 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
   const pushExplorerState = useCallback(
     (filter: React.SetStateAction<ExplorerNav>, replace: boolean = false) => {
       setExplorerStateHistory((prev) => {
-        if (!replace && explorerState !== null) {
+        if (!replace && explorerState) {
           return [...prev, explorerState];
         }
         return prev;
@@ -149,11 +165,29 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
     adminToken: props.adminToken,
   });
 
-  // Reset explorer state and history when appId changes
+  // Track if this is the first render to avoid resetting on mount
+  const isFirstRender = useRef(true);
+  const prevAppId = useRef(props.appId);
+
+  // Reset explorer history when appId changes (but not on initial mount)
+  // Only reset internal state in uncontrolled mode - in controlled mode,
+  // the parent component manages state resets
   useEffect(() => {
-    setExplorerState(null);
-    setExplorerStateHistory([]);
-  }, [props.appId, setExplorerState]);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    if (prevAppId.current !== props.appId) {
+      prevAppId.current = props.appId;
+      // Always reset history when app changes
+      setExplorerStateHistory([]);
+      // Only reset state in uncontrolled mode
+      if (!isControlled(_props)) {
+        _setExplorerState(null);
+      }
+    }
+  }, [props.appId, _props]);
 
   const schemaData = useSchemaQuery(db);
 
@@ -174,7 +208,9 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
   return (
     <ExplorerPropsContext.Provider value={contextValue}>
       <Wrapper>
-        <ExplorerLayout db={db} namespaces={schemaData.namespaces || []} />
+        <ErrorBoundary>
+          <ExplorerLayout db={db} namespaces={schemaData.namespaces || []} />
+        </ErrorBoundary>
       </Wrapper>
     </ExplorerPropsContext.Provider>
   );

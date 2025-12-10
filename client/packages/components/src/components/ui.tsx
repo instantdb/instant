@@ -19,12 +19,7 @@ import Highlight, { defaultProps } from 'prism-react-renderer';
 
 import { parsePermsJSON } from '@lib/utils/parsePermsJSON';
 
-import {
-  Dialog as HeadlessDialog,
-  Popover,
-  PopoverButton,
-  PopoverPanel,
-} from '@headlessui/react';
+import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import * as HeadlessToggleGroup from '@radix-ui/react-toggle-group';
 import {
@@ -148,7 +143,7 @@ export function ToggleGroup({
 
         onChange(item);
       }}
-      className="flex gap-1 rounded-sm border bg-gray-200 p-0.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+      className="flex gap-1 rounded-sm border border-gray-300 bg-gray-200 p-0.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
       type="single"
       defaultValue="center"
       aria-label={ariaLabel}
@@ -644,29 +639,32 @@ function DialogContent({
   showCloseButton?: boolean;
 }) {
   const shadowRoot = useShadowRoot();
+  const darkMode = useShadowDarkMode();
 
   return (
     <DialogPortal container={shadowRoot} data-slot="dialog-portal">
-      <DialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        className={cn(
-          'bg-background tw-preflight data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg dark:border-neutral-700',
-          className,
-        )}
-        {...props}
-      >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity duration-100 hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-          >
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Content>
+      <DialogOverlay className={cn(darkMode ? 'dark' : '', 'overflow-y-auto')}>
+        <DialogPrimitive.Content
+          data-slot="dialog-content"
+          className={cn(
+            'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 relative top-[50%] left-[50%] z-50 grid max-h-[calc(100%-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-lg border border-gray-200 bg-white p-6 shadow-lg duration-200 sm:max-w-lg dark:border-neutral-700 dark:bg-neutral-800 dark:text-white',
+            darkMode ? 'dark' : '',
+            className,
+          )}
+          {...props}
+        >
+          {children}
+          {showCloseButton && (
+            <DialogPrimitive.Close
+              data-slot="dialog-close"
+              className="absolute top-4 right-4 rounded-xs opacity-70 transition-opacity duration-100 hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            >
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          )}
+        </DialogPrimitive.Content>
+      </DialogOverlay>
     </DialogPortal>
   );
 }
@@ -705,7 +703,7 @@ export function Dialog({
         }}
         autoFocus={false}
         tabIndex={undefined}
-        className={`w-full max-w-xl overflow-y-auto rounded bg-white p-3 text-sm shadow dark:bg-neutral-800 dark:text-white ${className}`}
+        className={`w-full max-w-xl overflow-y-auto rounded border-solid bg-white p-3 text-sm shadow dark:bg-neutral-800 dark:text-white ${className}`}
       >
         {!hideCloseButton && (
           <XMarkIcon
@@ -1215,13 +1213,15 @@ function TooltipContent({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
   const shadowRoot = useShadowRoot();
+  const darkMode = useShadowDarkMode();
   return (
     <TooltipPrimitive.Portal container={shadowRoot}>
       <TooltipPrimitive.Content
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          'text-primary-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) border border-gray-100 bg-white px-3 py-1.5 text-xs text-balance dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700',
+          'animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) border border-gray-100 bg-white px-3 py-1.5 text-xs text-balance text-gray-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white',
+          darkMode ? 'dark' : '',
           className,
         )}
         {...props}
@@ -1251,12 +1251,15 @@ function DropdownMenuContent({
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+  const shadowRoot = useShadowRoot();
+  const darkMode = useShadowDarkMode();
   return (
-    <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.Portal container={shadowRoot}>
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-48 overflow-visible rounded-md border border-neutral-200 bg-white p-1 text-neutral-950 shadow-lg dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-50',
+          darkMode ? 'dark' : '',
           className,
         )}
         {...props}
@@ -1528,7 +1531,7 @@ export function Fence({
 
 import * as SwitchPrimitive from '@radix-ui/react-switch';
 import { rosePineDawnTheme } from './rosePineDawnTheme';
-import { useShadowRoot } from './StyleMe';
+import { useShadowRoot, useShadowDarkMode } from './StyleMe';
 function Switch({
   className,
   ...props
@@ -1545,7 +1548,7 @@ function Switch({
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"
         className={cn(
-          'pointer-events-none block h-4 w-4 rounded-full border-transparent bg-white ring-0 transition-transform data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=checked]:bg-white data-[state=unchecked]:translate-x-0 dark:bg-neutral-200 dark:data-[state=checked]:bg-neutral-600 dark:data-[state=unchecked]:bg-neutral-200',
+          'pointer-events-none block size-3.5 translate-y-0 rounded-full border-transparent bg-white ring-0 transition-transform data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=checked]:bg-white data-[state=unchecked]:translate-x-0 dark:bg-neutral-200 dark:data-[state=checked]:bg-neutral-600 dark:data-[state=unchecked]:bg-neutral-200',
         )}
       />
     </SwitchPrimitive.Root>

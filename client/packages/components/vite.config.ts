@@ -26,9 +26,6 @@ export default defineConfig({
         resolve(__dirname, 'src', 'index.tsx'),
         resolve(__dirname, 'src', 'style.css'),
       ],
-      // @ts-ignore, currently not functional
-      // if styling solution beyond shadow dom necessary this will have to be fixed
-      cssFileName: 'style',
       fileName: 'index',
     },
     rollupOptions: {

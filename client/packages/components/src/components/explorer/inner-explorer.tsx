@@ -463,6 +463,12 @@ export const InnerExplorer: React.FC<{
     {},
   );
 
+  // Clear selection when namespace changes
+  useEffect(() => {
+    setCheckedIds({});
+    lastSelectedIdRef.current = null;
+  }, [selectedNamespace?.id]);
+
   const numItemsSelected = Object.keys(checkedIds).length;
   const rowText =
     sanitizedNsName === '$files'
@@ -495,6 +501,35 @@ export const InnerExplorer: React.FC<{
   });
 
   const [isShiftPressed, setIsShiftPressed] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        setIsShiftPressed(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        setIsShiftPressed(false);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      setIsShiftPressed(false);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur-sm', handleWindowBlur);
+    };
+  }, []);
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   function handleDragEnd(event: DragEndEvent) {
@@ -918,12 +953,15 @@ export const InnerExplorer: React.FC<{
             />
           </div>
           <div className="w-[62px]">
-            {allCount && (
-              <>
-                {(currentPage - 1) * limit + 1} -{' '}
-                {Math.min(allCount, currentPage * limit)} of {allCount}
-              </>
-            )}
+            {allCount !== undefined &&
+              (allCount === 0 ? (
+                <>No Results</>
+              ) : (
+                <>
+                  {(currentPage - 1) * limit + 1} -{' '}
+                  {Math.min(allCount, currentPage * limit)} of {allCount}
+                </>
+              ))}
           </div>
           <button
             className="flex items-center justify-center"
@@ -1151,12 +1189,12 @@ export const InnerExplorer: React.FC<{
                 display: leftShadowOpacity == 0 ? 'none' : undefined,
               }}
             />
-            <div ref={tableRef} className="flex h-full w-full overflow-auto">
+            <div ref={tableRef} className="h-full w-full overflow-auto">
               <div
                 style={{
                   width: table.getCenterTotalSize(),
                 }}
-                className="z-0 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400"
+                className="z-0 inline-block text-left align-top font-mono text-xs text-neutral-500 dark:text-neutral-400"
               >
                 <div className="sticky top-0 z-10 border-r border-b border-gray-200 border-r-gray-200 bg-white text-neutral-700 shadow-sm dark:border-r-neutral-700 dark:border-b-neutral-600 dark:bg-[#303030] dark:text-neutral-300">
                   {table.getHeaderGroups().map((headerGroup) => (
@@ -1192,7 +1230,7 @@ export const InnerExplorer: React.FC<{
                 <div>
                   {table.getRowModel().rows.map((row) => (
                     <div
-                      className="group flex border-r border-b border-b-gray-200 bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
+                      className="group flex border-r border-b border-r-gray-200 border-b-gray-200 bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
                       key={row.id}
                     >
                       {row.getVisibleCells().map((cell) => (
@@ -1209,7 +1247,7 @@ export const InnerExplorer: React.FC<{
                 </div>
               </div>
               {tableSmallerThanViewport && (
-                <div className="sticky top-0">
+                <div className="sticky top-0 inline-block align-top">
                   <IconButton
                     className="opacity-60"
                     labelDirection="bottom"

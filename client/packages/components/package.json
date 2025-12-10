@@ -7,7 +7,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite build --watch",
+    "dev:demo": "vite"
   },
   "exports": {
     "./package.json": "./package.json",
@@ -31,6 +32,7 @@
     "@babel/preset-env": "^7.16.11",
     "@babel/types": "^7.27.6",
     "@prettier/sync": "^0.5.5",
+    "@tailwindcss/forms": "^0.5.2",
     "@tailwindcss/vite": "^4.1.17",
     "@types/lodash": "^4.14.182",
     "@types/node": "^18.11.18",

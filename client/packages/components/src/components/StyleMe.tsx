@@ -9,18 +9,38 @@ import {
 import { createPortal } from 'react-dom';
 import React from 'react';
 
-// TODO: Create shadow dom context for popups
-type ShadowRootContextType = ShadowRoot | null;
-const ShadowRootContext = createContext<ShadowRootContextType>(null);
-
-export function useShadowRoot(): ShadowRoot | null {
-  return useContext(ShadowRootContext);
-}
-
 // @ts-ignore
 import myStyles from '../style.css?inline';
 import { cn } from './ui';
 import { useExplorerProps } from './explorer';
+
+// Context for shadow root - used by portaled components (Dialog, Tooltip, etc.)
+type ShadowRootContextType = {
+  shadowRoot: ShadowRoot | null;
+  container: HTMLDivElement | null;
+  darkMode: boolean;
+};
+const ShadowRootContext = createContext<ShadowRootContextType>({
+  shadowRoot: null,
+  container: null,
+  darkMode: false,
+});
+
+/**
+ * Returns the shadow root container element for portaling components.
+ * This is the container div inside the shadow root that has the dark class applied.
+ */
+export function useShadowRoot(): HTMLDivElement | null {
+  return useContext(ShadowRootContext).container;
+}
+
+/**
+ * Returns the dark mode state from the shadow root context.
+ * Used by portaled components to apply dark mode styles.
+ */
+export function useShadowDarkMode(): boolean {
+  return useContext(ShadowRootContext).darkMode;
+}
 
 export const StyleMe = ({ children }: { children: ReactNode }) => {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -28,7 +48,9 @@ export const StyleMe = ({ children }: { children: ReactNode }) => {
   const [mountNode, setMountNode] = useState<HTMLDivElement | null>(null);
 
   const explorerProps = useExplorerProps();
+  const darkMode = explorerProps.darkMode;
 
+  // Initialize shadow DOM
   useEffect(() => {
     if (hostRef.current && !mountNode) {
       try {
@@ -39,11 +61,7 @@ export const StyleMe = ({ children }: { children: ReactNode }) => {
         style.textContent = myStyles;
         const container = document.createElement('div');
 
-        if (explorerProps.darkMode) {
-          container.setAttribute('class', 'tw-preflight h-full dark');
-        } else {
-          container.setAttribute('class', 'tw-preflight h-full');
-        }
+        container.setAttribute('class', darkMode ? 'h-full dark' : 'h-full');
 
         shadow.appendChild(style);
         shadow.appendChild(container);
@@ -53,13 +71,25 @@ export const StyleMe = ({ children }: { children: ReactNode }) => {
     }
   }, [mountNode]);
 
+  // Update dark mode class when darkMode prop changes
+  useEffect(() => {
+    if (mountNode) {
+      mountNode.setAttribute('class', darkMode ? 'h-full dark' : 'h-full');
+    }
+  }, [darkMode, mountNode]);
+
+  const contextValue = React.useMemo(
+    () => ({
+      shadowRoot: shadowRoot.current,
+      container: mountNode,
+      darkMode,
+    }),
+    [mountNode, darkMode],
+  );
+
   return (
-    <div
-      ref={hostRef}
-      style={{ height: '100%' }}
-      className={cn('tw-preflight h-full')}
-    >
-      <ShadowRootContext.Provider value={shadowRoot.current}>
+    <div ref={hostRef} style={{ height: '100%' }} className={cn('h-full')}>
+      <ShadowRootContext.Provider value={contextValue}>
         {mountNode ? createPortal(children, mountNode) : null}
       </ShadowRootContext.Provider>
     </div>

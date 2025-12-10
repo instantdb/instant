@@ -424,7 +424,7 @@ function LinkCombobox({
   const options = data?.[namespace.name]?.filter((o) => !ignoreIds.has(o.id));
 
   return (
-    <div className="mt-1 w-full">
+    <div className="relative mt-1 w-full">
       <Combobox
         key={isLoading ? 'query-loading' : 'query-loaded'}
         onChange={(option: any) => {
@@ -453,8 +453,7 @@ function LinkCombobox({
           portal={false}
           unmount={false}
           static={true}
-          className="fixed mt-1 max-h-[25vh] w-(--input-width) divide-y overflow-scroll rounded-md border border-gray-300 bg-white shadow-lg empty:invisible dark:border-neutral-700"
-          style={{ top: inputRef.current?.getBoundingClientRect().bottom }}
+          className="absolute left-0 z-10 mt-1 max-h-[25vh] w-full divide-y overflow-scroll rounded-md border border-gray-300 bg-white shadow-lg empty:invisible dark:border-neutral-700 dark:bg-neutral-800"
         >
           {(options || []).map((o) => (
             <LinkComboboxItem
@@ -467,7 +466,7 @@ function LinkCombobox({
           ))}
         </ComboboxOptions>
         {options?.length || isLoading ? null : (
-          <div className="absolute mt-1 w-(--input-width) divide-y overflow-scroll rounded-md border border-gray-300 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
+          <div className="absolute left-0 z-10 mt-1 w-full divide-y overflow-scroll rounded-md border border-gray-300 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
             No matching rows in <code>{namespace.name}</code>
           </div>
         )}

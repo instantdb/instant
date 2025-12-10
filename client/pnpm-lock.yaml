@@ -275,6 +275,9 @@ importers:
       '@prettier/sync':
         specifier: ^0.5.5
         version: 0.5.5(prettier@3.6.2)
+      '@tailwindcss/forms':
+        specifier: ^0.5.2
+        version: 0.5.10(tailwindcss@4.1.17)
       '@tailwindcss/vite':
         specifier: ^4.1.17
         version: 4.1.17(vite@5.4.14(@types/node@18.19.74)(lightningcss@1.30.2)(terser@5.37.0))

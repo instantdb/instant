@@ -7,7 +7,6 @@ function App() {
 
   return (
     <>
-      {/*Not sure why props aren't autocompleting here*/}
       <div
         style={{
           minHeight: '40vh',
@@ -21,8 +20,8 @@ function App() {
           darkMode={false}
           apiURI={'http://localhost:8888'}
           websocketURI={'ws://localhost:8888/runtime/session'}
-          appId="5696faa0-af6b-4562-ade9-47ffb3b2b87b"
-          adminToken="59cb9109-0e5c-4735-8775-4369d0486d0b"
+          appId={import.meta.env.VITE_INSTANT_APP_ID}
+          adminToken={import.meta.env.VITE_INSTANT_ADMIN_TOKEN}
         />
       </div>
       <div
