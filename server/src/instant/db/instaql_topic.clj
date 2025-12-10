@@ -2,7 +2,7 @@
   (:require [instant.db.cel :as cel]
             [instant.db.cel-builder :as b]
             [instant.db.model.attr :as attr-model]
-            [clojure+.core :as clojure+])
+            [clojure+.core :refer [cond+]])
   (:import (clojure.lang ExceptionInfo)
            (dev.cel.common CelAbstractSyntaxTree CelSource)
            (dev.cel.common.ast CelExprFactory)
@@ -34,7 +34,7 @@
       (throw-not-supported! [:multi-part-path])
 
       (and (= v-type :args-map) (contains? v-data :$isNull))
-      (clojure+/cond+
+      (cond+
        :let [label (first path)
              rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
 
@@ -78,22 +78,33 @@
       (single-cond->cel-expr! ctx {:cond-data cond-data})
       (throw-not-supported! [:where-cond cond-type]))))
 
+(defn- top-form->cel-expr!
+  [{:keys [attrs]} {etype :k :keys [option-map]}]
+  (let [{:keys [where-conds]} option-map
+        etype-check (b/= (b/get-in 'entity "etype") etype)
+        attr-checks (mapv (fn [where-cond]
+                            (where-cond->cel-expr!
+                             {:etype etype
+                              :attrs attrs}
+                             {:where-cond where-cond}))
+                          where-conds)]
+    (apply b/and etype-check attr-checks)))
+
+(defn- child-form->cel-expr!
+  [{etype :k :keys [child-forms]}]
+  (let [etype-check (b/= (b/get-in 'entity "etype") etype)]
+    (if-not (seq child-forms)
+      etype-check
+      (apply b/or etype-check (map child-form->cel-expr! child-forms)))))
+
 (defn- form->ast!
-  "Convert an InstaQL form directly to a CEL AST"
-  ^CelAbstractSyntaxTree [{:keys [attrs]} {etype :k :keys [option-map child-forms]}]
-  (if (seq child-forms)
-    (throw-not-supported! [:child-forms])
-    (b/with-cel-factory (CelExprFactory/newInstance)
-      (let [{:keys [where-conds]} option-map
-            etype-check (b/= (b/get-in 'entity "etype") etype)
-            attr-checks (mapv (fn [where-cond]
-                                (where-cond->cel-expr!
-                                 {:etype etype
-                                  :attrs attrs}
-                                 {:where-cond where-cond}))
-                              where-conds)
-            combined-expr (apply b/and etype-check attr-checks)]
-        (CelAbstractSyntaxTree/newParsedAst combined-expr cel-source)))))
+  ^CelAbstractSyntaxTree [ctx {etype :k :keys [option-map child-forms] :as form}]
+  (b/with-cel-factory (CelExprFactory/newInstance)
+    (let [top-expr (top-form->cel-expr! ctx form)
+          combined-expr (if-not (seq child-forms)
+                          top-expr
+                          (apply b/or top-expr (map child-form->cel-expr! child-forms)))]
+      (CelAbstractSyntaxTree/newParsedAst combined-expr cel-source))))
 
 ;; ------
 ;; Compiler and Runtime

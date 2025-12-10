@@ -17,11 +17,6 @@
   (with-zeneca-app
     (fn [app _r]
       (let [attrs (attr-model/get-by-app-id (:id app))]
-        (is (= {:not-supported [:child-forms]}
-               (iqt/instaql-topic
-                {:attrs attrs}
-                (iq/->forms! attrs {:users {:bookshelves {}}}))))
-
         (is (= {:not-supported [:multi-part-path]}
                (iqt/instaql-topic
                 {:attrs attrs}
@@ -31,6 +26,55 @@
                (iqt/instaql-topic
                 {:attrs attrs}
                 (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))))))
+
+(deftest child-forms
+  (with-zeneca-app
+    (fn [app r]
+      (let [attrs (attr-model/get-by-app-id (:id app))]
+        (testing "single level child form"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:bookshelves {}}}))]
+            ;; matches users
+            (is (true? (program {:etype "users" :attrs {}})))
+            ;; matches bookshelves
+            (is (true? (program {:etype "bookshelves" :attrs {}})))
+            ;; does not match other etypes
+            (is (false? (program {:etype "books" :attrs {}})))))
+
+        (testing "nested child forms"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:bookshelves {:books {}}}}))]
+            ;; matches users
+            (is (true? (program {:etype "users" :attrs {}})))
+            ;; matches bookshelves
+            (is (true? (program {:etype "bookshelves" :attrs {}})))
+            ;; matches books
+            (is (true? (program {:etype "books" :attrs {}})))
+            ;; does not match other etypes
+            (is (false? (program {:etype "posts" :attrs {}})))))
+
+        (testing "top-level where still applies"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}}
+                                                               :bookshelves {}}}))]
+            ;; matches users with correct handle
+            (is (true? (program {:etype "users"
+                                 :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
+            ;; does NOT match users with wrong handle
+            (is (false? (program {:etype "users"
+                                  :attrs {(str (resolvers/->uuid r :users/handle)) "joe"}})))
+            ;; matches bookshelves (child form is permissive)
+            (is (true? (program {:etype "bookshelves" :attrs {}})))))
+
+        (testing "child where clauses are ignored (etype only)"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:bookshelves {:$ {:where {:name "sci-fi"}}}}}))]
+            ;; matches any bookshelf, ignoring the where clause
+            (is (true? (program {:etype "bookshelves" :attrs {}})))))))))
 
 (deftest composites
   (with-zeneca-app
