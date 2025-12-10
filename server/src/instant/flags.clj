@@ -123,7 +123,7 @@
                   (update :more-vfutures-instances (fn [vs]
                                                      (set vs)))
                   (update :enable-wal-entity-log-apps (fn [vs]
-                                                        (set vs))))
+                                                        (set (map parse-uuid vs)))))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
