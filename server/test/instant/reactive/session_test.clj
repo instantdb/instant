@@ -106,7 +106,7 @@
   (let [ret (ua/<!!-timeout ws-conn)]
     (if (= :timeout ret)
       (throw (ex-info "Timed out waiting for a response" {:id id}))
-      (dissoc ret :client-event-id))))
+      (dissoc ret :client-event-id :trace-id))))
 
 (defn- read-msgs [n socket]
   (set (repeatedly n #(read-msg socket))))
@@ -118,7 +118,7 @@
   (send-msg socket msg)
   (let [ret (read-msg socket)]
     (is (= expected-op (:op ret)))
-    ret))
+    (dissoc ret :trace-id)))
 
 (defn- pretty-auth [{:keys [app user] :as _auth}]
   [(:title app) (:email user)])
@@ -484,7 +484,8 @@
                                  5
                                  [(d/pat->coarse-topic
                                    [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    (resolvers/->uuid r "eid-predator")])]
+                                 {})
 
             ;; Now we have a stale query
           (is (= [(:kw-q query-1987)]
@@ -524,7 +525,8 @@
                                  0
                                  [(d/pat->coarse-topic
                                    [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    (resolvers/->uuid r "eid-predator")])]
+                                 {})
           (ds/transact! (rs/app-conn store app-id)
                         [[:db/retract [:instaql-query/session-id+query [sess-id (:kw-q query-1987)]] :instaql-query/hash]])
 
@@ -553,7 +555,8 @@
                                  0
                                  [(d/pat->coarse-topic
                                    [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    (resolvers/->uuid r "eid-predator")])]
+                                 {})
           (ds/transact! (rs/app-conn store app-id)
                         [[:db/retract [:instaql-query/session-id+query [sess-id (:kw-q query-1987)]] :instaql-query/hash]])
 
@@ -580,7 +583,8 @@
                                  0
                                  [(d/pat->coarse-topic
                                    [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    (resolvers/->uuid r "eid-predator")])]
+                                 {})
 
           (testing "send refresh"
             ;; clear the query hash so that the refresh will trigger a send
@@ -670,7 +674,8 @@
                                    app-id
                                    0
                                    [(d/pat->coarse-topic
-                                     [:vae '_ '_ john-uuid])])
+                                     [:vae '_ '_ john-uuid])]
+                                   {})
 
             ;; send refresh
             (blocking-send-msg :refresh-ok socket {:session-id (:id socket)

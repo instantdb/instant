@@ -33,28 +33,9 @@
     {:user username
      :password password}))
 
-(defn rds-cluster-id->db-config [cluster-id]
-  (let [^RdsClient rds-client (-> (RdsClient/builder)
-                                  (.build))
-        request (-> (DescribeDbClustersRequest/builder)
-                    (.dbClusterIdentifier cluster-id)
-                    (.build))
-        clusters (-> (.describeDBClusters rds-client
-                                          ^DescribeDbClustersRequest request)
-                     (.dbClusters))
-
-        _ (assert (= 1 (count clusters))
-                  (format "Could not determine db cluster, found %d clusters."
-                          (count clusters)))
-        ^DBCluster cluster (first clusters)
-        writer-instance-id (some->> cluster
-                                    (.dbClusterMembers)
-                                    ^DBClusterMember (ucoll/seek (fn [^DBClusterMember m]
-                                                                   (.isClusterWriter m)))
-                                    (.dbInstanceIdentifier))
-        _ (assert writer-instance-id "no writer instance")
-        instance-request (-> (DescribeDbInstancesRequest/builder)
-                             (.dbInstanceIdentifier writer-instance-id)
+(defn instance-info [^RdsClient rds-client instance-id]
+  (let [instance-request (-> (DescribeDbInstancesRequest/builder)
+                             (.dbInstanceIdentifier instance-id)
                              (.build))
         instances (-> (.describeDBInstances rds-client
                                             ^DescribeDbInstancesRequest instance-request)
@@ -69,17 +50,55 @@
         port (-> instance
                  (.endpoint)
                  (.port))
-        dbname (.dbName instance)
-        secret-arn (.secretArn (.masterUserSecret cluster))]
+        dbname (.dbName instance)]
     (assert endpoint "missing endpoint")
     (assert port "missing port")
     (assert dbname "missing dbname")
-    (assert secret-arn "missing secret-arn")
+
     {:dbtype "postgres"
      :dbname dbname
      :host endpoint
      :port port
-     :secret-arn secret-arn
-     :cluster-id cluster-id
-     :instance-id writer-instance-id
-     :cluster-status (.status cluster)}))
+     :instance-id instance-id}))
+
+(defn rds-cluster-id->db-config [cluster-id application-name]
+  (let [^RdsClient rds-client (-> (RdsClient/builder)
+                                  (.build))
+        request (-> (DescribeDbClustersRequest/builder)
+                    (.dbClusterIdentifier cluster-id)
+                    (.build))
+        clusters (-> (.describeDBClusters rds-client
+                                          ^DescribeDbClustersRequest request)
+                     (.dbClusters))
+
+        _ (assert (= 1 (count clusters))
+                  (format "Could not determine db cluster, found %d clusters."
+                          (count clusters)))
+        ^DBCluster cluster (first clusters)
+        members (.dbClusterMembers cluster)
+        writer-instance-id (some->> members
+                                    ^DBClusterMember (ucoll/seek (fn [^DBClusterMember m]
+                                                                   (.isClusterWriter m)))
+                                    (.dbInstanceIdentifier))
+        _ (assert writer-instance-id "no writer instance")
+        reader-instance-id (some->> members
+                                    ^DBClusterMember (ucoll/seek (fn [^DBClusterMember m]
+                                                                   (not (.isClusterWriter m))))
+                                    (.dbInstanceIdentifier))
+        secret-arn (.secretArn (.masterUserSecret cluster))
+        cluster-status (.status cluster)
+        default-props {:secret-arn secret-arn
+                       :cluster-id cluster-id
+                       :cluster-status cluster-status
+                       :ApplicationName application-name}
+        primary-props (merge default-props
+                             (instance-info rds-client writer-instance-id))]
+    (assert secret-arn "missing secret-arn")
+    (merge primary-props
+           {:primary primary-props
+            :replica (when reader-instance-id
+                       (try
+                         (merge default-props
+                                (instance-info rds-client reader-instance-id))
+                         (catch Throwable _t
+                           nil)))})))

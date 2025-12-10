@@ -117,6 +117,17 @@ Based on what you change, you'll play with different examples:
 
 Check out the sandbox READMEs to see how to run them.
 
+### Publishing
+
+We publish our packages through GitHub actions with [https://docs.npmjs.com/trusted-publishers](https://docs.npmjs.com/trusted-publishers).
+
+To publish a new package:
+
+1. Create the package on npm
+2. Add `instantdb/instant` as a trusted publisher with js.yml as the workflow file from the package's settings [https://docs.npmjs.com/trusted-publishers#step-1-add-a-trusted-publisher-on-npmjscom](https://docs.npmjs.com/trusted-publishers#step-1-add-a-trusted-publisher-on-npmjscom)
+3. Make sure you have all of the fields needed for provenance in your package.json (your best bet is to copy https://github.com/instantdb/instant/blob/main/client/packages/core/package.json)
+4. Update `PACKAGE_PATHS` in `script/publish_pacakges.clj`
+
 ## Internal Apps
 
 We also have a few internal pages and apps we use for things like metrics and

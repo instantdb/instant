@@ -8,13 +8,15 @@
   (:require
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
+   [instant.db.instaql-topic :as iqt]
    [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.reactive.store :as rs]
    [instant.util.instaql :refer [instaql-nodes->object-meta
                                  instaql-nodes->object-tree]]
    [instant.util.tracer :as tracer]
-   [instant.comment :as c]))
+   [instant.comment :as c]
+   [instant.flags :as flags]))
 
 (defn- datalog-query-cached!
   "Returns the result of a datalog query. Leverages atom and
@@ -39,13 +41,15 @@
 
   Once the query completes we refine the subscription with the resolved topics"
   [store ctx datalog-query]
-  (tracer/with-span! {:name "datalog-query-reactive!"
-                      :attributes {:query (pr-str datalog-query)}}
-    (let [coarse-topics (d/pats->coarse-topics datalog-query)
-          _ (rs/record-datalog-query-start! store ctx datalog-query coarse-topics)
-          datalog-result (datalog-query-cached! store ctx datalog-query)]
-      (rs/record-datalog-query-finish! store ctx datalog-query datalog-result)
-      datalog-result)))
+  (if (:skip-cache? ctx)
+    (d/query ctx datalog-query)
+    (tracer/with-span! {:name "datalog-query-reactive!"
+                        :attributes {:query (pr-str datalog-query)}}
+      (let [coarse-topics (d/pats->coarse-topics datalog-query)
+            _ (rs/record-datalog-query-start! store ctx datalog-query coarse-topics)
+            datalog-result (datalog-query-cached! store ctx datalog-query)]
+        (rs/record-datalog-query-finish! store ctx datalog-query datalog-result)
+        datalog-result))))
 
 (defn collect-triples [instaql-result]
   (let [join-rows (get-in instaql-result [:data :datalog-result :join-rows])
@@ -91,6 +95,16 @@
                      {:aggregate aggregate}))
       :child-nodes []}]))
 
+(defn- compile-instaql-topic [attrs instaql-query]
+  (when (flags/toggled? :instaql-topic-compiler true)
+    (try
+      (let [forms (iq/->forms! attrs instaql-query)
+            result (iqt/instaql-topic {:attrs attrs} forms)]
+        (when (:program result)
+          result))
+      (catch Throwable e
+        (tracer/record-exception-span! e {:name "compile-instaql-topic-ex"})))))
+
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
   effects in the store. To be used with session"
@@ -100,7 +114,15 @@
                                    :app-id app-id
                                    :instaql-query instaql-query}}
     (try
-      (let [v (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
+      (let [iq-ent (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
+            v (:instaql-query/version iq-ent)
+            iq-topic (or (:instaql-query/topic iq-ent)
+                         (when-let [topic (compile-instaql-topic attrs instaql-query)]
+                           (rs/set-instaql-topic! store app-id (:db/id iq-ent) topic)
+                           topic))
+
+            _ (tracer/add-data! {:attributes {:v v
+                                              :iq-topic? (boolean iq-topic)}})
             ctx (-> base-ctx
                     (assoc :v v
                            :datalog-query-fn (partial datalog-query-reactive! store)
@@ -120,7 +142,8 @@
                            (collect-instaql-results-for-client instaql-result))
          :result-meta (when (= :tree return-type)
                         (instaql-nodes->object-meta instaql-result))
-         :result-changed? result-changed?})
+         :result-changed? result-changed?
+         :instaql-topic? (boolean iq-topic)})
       (catch Throwable e
         (rs/remove-query! store app-id session-id instaql-query)
         (throw e)))))

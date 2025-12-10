@@ -3,15 +3,16 @@
    [clojure+.core :as clojure+]
    [instant.config :as config]
    [instant.gauges :as gauges]
+   [instant.util.async :as ua]
    [instant.util.tracer :as tracer])
   (:import
    (java.util Map Queue)
    (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executor Executors ExecutorService TimeUnit)
    (java.util.concurrent.atomic AtomicInteger)))
 
-(defn- execute [{:keys [executor error-fn]} ^Runnable task]
+(defn- execute [{:keys [get-executor error-fn]} ^Runnable task]
   (try
-    (Executor/.execute executor task)
+    (Executor/.execute (get-executor) task)
     (catch Exception e
       (if error-fn
         (error-fn e)
@@ -117,7 +118,11 @@
 
      :executor     :: ExecutorService | nil
 
-   An exectutor to use to run worker threads. Should support unbounded task queue.
+   An executor to use to run worker threads. Should support unbounded task queue.
+
+     :get-executor :: (fn []) -> ExecutorService
+
+   Function that returns an executor, used for testing different executors
 
      :max-workers  :: long | nil
 
@@ -126,7 +131,7 @@
      :metrics-path :: String | nil
 
    A string to report gauge metrics to. If skipped, no reporting"
-  [{:keys [group-key-fn combine-fn process-fn error-fn executor max-workers metrics-path]
+  [{:keys [group-key-fn combine-fn process-fn error-fn executor get-executor max-workers metrics-path]
     :or {max-workers 2}}]
   (let [groups       (ConcurrentHashMap.)
         accepting?   (atom true)
@@ -138,13 +143,14 @@
                        (some? executor)
                        executor
 
+                       get-executor nil
+
                        config/fewer-vfutures?
                        (Executors/newFixedThreadPool max-workers)
-                       #_(doto (ThreadPoolExecutor. max-workers max-workers 60 TimeUnit/SECONDS (LinkedBlockingQueue.))
-                           (.allowCoreThreadTimeOut true))
 
                        :else
-                       (Executors/newVirtualThreadPerTaskExecutor))
+                       (ua/make-limited-concurrency-executor max-workers))
+        get-executor (or get-executor (fn [] executor))
         cleanup-fn   (when metrics-path
                        (gauges/add-gauge-metrics-fn
                         (fn [_]
@@ -153,10 +159,10 @@
                            (when-some [t (longest-wait-time groups)]
                              {:path  (str metrics-path ".longest-waiting-ms")
                               :value t})
+                           {:path (str metrics-path ".executor-class")
+                            :value (.getName (class (get-executor)))}
                            {:path (str metrics-path ".worker-count")
                             :value (AtomicInteger/.get num-workers)}
-                           #_{:path (str metrics-path ".pool-size")
-                              :value (ThreadPoolExecutor/.getPoolSize executor)}
                            {:path (str metrics-path ".num-puts")
                             :value (AtomicInteger/.getAndSet num-puts 0)}])))
         shutdown-fn  (fn [{:keys [timeout-ms]
@@ -164,15 +170,15 @@
                        (when cleanup-fn
                          (cleanup-fn))
                        (reset! accepting? false)
-                       (ExecutorService/.shutdown executor)
-                       (if (ExecutorService/.awaitTermination executor timeout-ms TimeUnit/MILLISECONDS)
+                       (ExecutorService/.shutdown (get-executor))
+                       (if (ExecutorService/.awaitTermination (get-executor) timeout-ms TimeUnit/MILLISECONDS)
                          :shutdown
                          (do
                            (reset! processing? false)
-                           (if (ExecutorService/.awaitTermination executor timeout-ms TimeUnit/MILLISECONDS)
+                           (if (ExecutorService/.awaitTermination (get-executor) timeout-ms TimeUnit/MILLISECONDS)
                              :shutdown
                              (do
-                               (ExecutorService/.shutdownNow executor)
+                               (ExecutorService/.shutdownNow (get-executor))
                                :terminated)))))]
     {:group-key-fn (or group-key-fn identity)
      :combine-fn   (or combine-fn (fn [_ _] nil))
@@ -184,7 +190,7 @@
      :num-items    num-items
      :num-puts     num-puts
      :num-workers  num-workers
-     :executor     executor
+     :get-executor get-executor
      :shutdown-fn  shutdown-fn}))
 
 (defn stop

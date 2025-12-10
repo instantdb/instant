@@ -167,6 +167,7 @@
            "gauges"
            "ws/send-json!"
            "handle-refresh/send-event!"
+           "handle-refresh/spam"
            "store/record-datalog-query-finish!"
            "store/record-datalog-query-start!"
            "store/swap-datalog-cache!"
@@ -183,10 +184,12 @@
            "instaql/map-permissioned-node"
            "datalog-query-reactive!"
            "instaql/preload-entity-maps"
-           "datalog/send-query-nested") true
+           "datalog/send-query-nested"
+           "join-room-logger/process") true
 
           ("receive-worker/handle-event"
            "receive-worker/handle-receive")
+
           (case (-> (.getAttributes span)
                     (.get op-attr-key))
             (":set-presence"

@@ -26,25 +26,36 @@
                             (.weakKeys)
                             (.makeMap)))
 
+(defonce connection-metadata-map (-> (MapMaker.)
+                                     (.weakKeys)
+                                     (.makeMap)))
+
+(defn unwrap-conn [conn]
+  (cond (instance? HikariProxyConnection conn)
+        (.unwrap ^HikariProxyConnection conn PgConnection)
+
+        (instance? PgConnection conn)
+        conn
+
+        (instance? HikariDataSource conn)
+        (.unwrap ^HikariDataSource conn PgConnection)
+
+        :else nil))
+
+(defn get-connection-id [conn]
+  (when-let [conn (unwrap-conn conn)]
+    (ConcurrentMap/.get connection-map conn)))
+
 (defn socket-for-connection
   "Gets the socket for the connection, unwrapping the connection
    to get the underlying PgConnection if necessary."
   ^CountingSocket [conn]
-  (when-let [conn (cond (instance? HikariProxyConnection conn)
-                        (.unwrap ^HikariProxyConnection conn PgConnection)
+  (when-let [conn-id (get-connection-id conn)]
+    (ConcurrentMap/.get socket-map conn-id)))
 
-                        (instance? PgConnection conn)
-                        conn
-
-                        (instance? HikariDataSource conn)
-                        (.unwrap ^HikariDataSource conn PgConnection)
-
-                        :else nil)]
-    (when-let [conn-id (ConcurrentMap/.get connection-map conn)]
-      (ConcurrentMap/.get socket-map conn-id))))
-
-(defn add-connection [^UUID connection-id ^PgConnection connection]
-  (ConcurrentMap/.put connection-map connection connection-id))
+(defn add-connection [^UUID connection-id ^PgConnection connection metadata]
+  (ConcurrentMap/.put connection-map connection connection-id)
+  (ConcurrentMap/.put connection-metadata-map connection metadata))
 
 ;; Exposed through the gen-class as instant.jdbc.SocketTrack.addsocket
 (defn -addsocket [^CountingSocket s]
@@ -60,3 +71,7 @@
   (when-let [socket (socket-for-connection conn)]
     {:read (.getBytesRead socket)
      :write (.getBytesWritten socket)}))
+
+(defn connection-metadata [conn]
+  (when-let [conn (unwrap-conn conn)]
+    (ConcurrentMap/.get connection-metadata-map conn)))

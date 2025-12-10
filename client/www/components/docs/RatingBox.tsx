@@ -139,7 +139,7 @@ function SavingTextArea({ savedValue, onSave, ...props }: SavingTextAreaProps) {
       <textarea
         {...props}
         value={value}
-        className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400"
+        className="flex w-full flex-1 rounded-xs border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400"
         onChange={(e) => {
           setValue(e.target.value);
         }}

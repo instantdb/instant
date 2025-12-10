@@ -117,7 +117,7 @@ function PrivacyPolicyContent() {
           </h4>
           <p>
             Google Analytics 4 is a web analysis service provided by Google LLC
-            (“Google”). Google utilizes the Data collected to track and examine
+            ("Google"). Google utilizes the Data collected to track and examine
             the use of this Application, to prepare reports on its activities
             and share them with other Google services. Google may use the Data
             collected to contextualize and personalize the ads of its own
@@ -125,7 +125,7 @@ function PrivacyPolicyContent() {
             collection time and then discarded before Data is logged in any data
             center or server. Users can learn more by consulting{' '}
             <a href="https://support.google.com/analytics/answer/12017362?hl=en&ref_topic=2919631">
-              Google’s official documentation
+              Google's official documentation
             </a>
             .{' '}
           </p>
@@ -138,6 +138,26 @@ function PrivacyPolicyContent() {
             <a href="https://policies.google.com/privacy">Privacy Policy</a> –{' '}
             <a href="https://tools.google.com/dlpage/gaoptout?hl=en">Opt Out</a>
             .{' '}
+          </p>
+          <h4 id="posthog-posthog-inc">PostHog (PostHog, Inc.)</h4>
+          <p>
+            PostHog is a product analytics service provided by PostHog, Inc.
+            PostHog utilizes the Data collected to track and analyze the use of
+            this Application, understand user behavior, and prepare reports on
+            its activities. PostHog processes data in the United States. Users
+            can learn more by consulting{' '}
+            <a href="https://posthog.com/docs">
+              PostHog's official documentation
+            </a>
+            .
+          </p>
+          <p>
+            Personal Data processed: number of Users; session statistics;
+            Trackers; Usage Data.
+          </p>
+          <p>
+            Place of processing: United States –{' '}
+            <a href="https://posthog.com/privacy">Privacy Policy</a>.
           </p>
         </li>
       </ul>
@@ -449,7 +469,7 @@ function PrivacyPolicyContent() {
         This privacy policy relates solely to this Application, if not stated
         otherwise within this document.
       </p>
-      <p>Latest update: March 19, 2024</p>
+      <p>Latest update: December 3, 2025</p>
     </div>
   );
 }

@@ -8,6 +8,7 @@
     "rewriteRelativeImportExtensions": true,
     "rootDir": "src",
     "checkJs": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "strictNullChecks": true
   }
 }

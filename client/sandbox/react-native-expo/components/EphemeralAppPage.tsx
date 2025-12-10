@@ -18,10 +18,13 @@ import config from '../app/config';
 
 interface ProvisionEphemeralAppParams<
   Schema extends InstantSchemaDef<any, any, any>,
+  UseDates extends boolean = false,
 > {
   perms?: any;
   schema?: Schema;
-  onCreateApp?: (db: InstantReactNativeDatabase<Schema>) => Promise<void>;
+  onCreateApp?: (
+    db: InstantReactNativeDatabase<Schema, UseDates>,
+  ) => Promise<void>;
 }
 
 // (TODO): This is identical to what we have in the react sandbox epehemeral
@@ -57,12 +60,15 @@ async function provisionEphemeralApp<
 
 interface EphemeralAppPageProps<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+  UseDates extends boolean = false,
 > {
   schema?: Schema;
   perms?: any;
-  onCreateApp?: (db: InstantReactNativeDatabase<Schema>) => Promise<void>;
+  onCreateApp?: (
+    db: InstantReactNativeDatabase<Schema, UseDates>,
+  ) => Promise<void>;
   Component: React.ComponentType<{
-    db: InstantReactNativeDatabase<Schema>;
+    db: InstantReactNativeDatabase<Schema, UseDates>;
     appId: string;
     onReset?: () => void;
   }>;

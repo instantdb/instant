@@ -17,6 +17,7 @@
    [instant.db.transaction :as tx]
    [instant.flags :as flags]
    [instant.grouped-queue :as grouped-queue]
+   [instant.join-room-logger :as join-room-logger]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.sse :as sse]
@@ -37,12 +38,13 @@
    [instant.util.json :refer [<-json]]
    [instant.util.semver :as semver]
    [instant.util.e2e-tracer :as e2e-tracer]
+   [instant.util.instaql :as instaql-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [lambdaisland.uri :as uri])
   (:import
    (io.undertow.server.handlers.sse ServerSentEventConnection)
-   (java.util.concurrent CancellationException)
+   (java.util.concurrent CancellationException Executors)
    (java.util.concurrent.atomic AtomicLong)
    (org.xnio IoUtils)))
 
@@ -51,10 +53,8 @@
 
 (def handle-receive-timeout-ms 5000)
 
-(def num-receive-workers (* (if config/fewer-vfutures?
-                              20
-                              100)
-                            (delay/cpu-count)))
+(def threads-num-receive-workers (* 20 (delay/cpu-count)))
+(def vfutures-num-receive-workers (* 100 (delay/cpu-count)))
 
 ;; ------
 ;; handlers
@@ -86,6 +86,39 @@
 (def react-version-key (keyword "@instantdb/react"))
 (def react-native-version-key (keyword "@instantdb/react-native"))
 
+(def patch-presence-min-version
+  (semver/parse "v0.17.5"))
+
+(def refresh-skip-attrs-min-version
+  (semver/parse "v0.20.4"))
+
+(def batch-messages-min-version
+  (semver/parse "0.22.75"))
+
+(defn get-supported-features [versions]
+  (or (when-let [parsed-version (some-> versions
+                                        (get core-version-key)
+                                        semver/parse)]
+        (cond-> #{}
+          (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version))
+          (conj :skip-attrs)
+
+          (pos? (semver/compare-semver parsed-version patch-presence-min-version))
+          (conj :patch-presence)
+
+          (pos? (semver/compare-semver parsed-version batch-messages-min-version))
+          (conj :batch-messages)))
+      #{}))
+
+(defn supports-skip-attrs? [features]
+  (contains? features :skip-attrs))
+
+(defn supports-patch-presence? [features]
+  (contains? features :patch-presence))
+
+(defn supports-batch-messages? [features]
+  (contains? features :batch-messages))
+
 (defn auth-and-creator-attrs [auth creator versions]
   (cond-> {:app-id (-> auth :app :id)
            :app-title (-> auth :app :title)
@@ -114,9 +147,6 @@
                                                            "public"))
     {:attrs (attr-model/get-by-app-id (:id app))}))
 
-(def refresh-skip-attrs-min-version
-  (semver/parse "v0.20.4"))
-
 (defn- handle-init! [store sess-id event]
   (let [{:keys [refresh-token client-event-id versions]
          admin-token :__admin-token} event
@@ -137,17 +167,16 @@
         auth        {:app    app
                      :user   user
                      :admin? admin?}
-        parsed-version  (some-> versions (get core-version-key) (semver/parse))
-        can-skip-attrs? (and parsed-version
-                             (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version)))]
+        features (get-supported-features versions)]
     (tracer/add-data! {:attributes (auth-and-creator-attrs auth creator versions)})
     (apply rs/assoc-session! store sess-id
            :session/auth auth
            :session/creator creator
+           :session/features features
            (concat
             (when versions
               [:session/versions versions])
-            (when can-skip-attrs?
+            (when (supports-skip-attrs? features)
               [:session/attrs-hash (hash attrs)])))
     (rs/send-event! store app-id sess-id {:op              :init-ok
                                           :session-id      sess-id
@@ -184,6 +213,12 @@
       (ex/throw-validation-err! :init {:sess-id sess-id} [{:message "`init` has not run for this session."}]))
     auth))
 
+(defn db-read-level [app-id]
+  (if (and (flags/toggled? :refresh-from-replica)
+           (not= app-id config/instant-config-app-id))
+    :read-replica
+    :read))
+
 (defn- handle-add-query! [store sess-id {:keys [q client-event-id return-type inference?] :as _event}]
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
         {app-id :id} app
@@ -203,7 +238,7 @@
             processed-tx-id (rs/get-processed-tx-id store app-id)
             {:keys [table-info]} (get-attrs app)
             attrs (attr-model/get-by-app-id app-id)
-            ctx {:db             {:conn-pool (aurora/conn-pool :read)}
+            ctx {:db {:conn-pool (aurora/conn-pool (db-read-level app-id))}
                  :datalog-loader (rs/upsert-datalog-loader! store sess-id d/make-loader)
                  :session-id     sess-id
                  :app-id         app-id
@@ -232,7 +267,6 @@
       (ex/throw-validation-err! :start-sync
                                 {:q q}
                                 [{:message "start-sync is currently supported for admins only."}])
-
 
       :else
       (let [attrs (attr-model/get-by-app-id app-id)
@@ -270,48 +304,48 @@
             exceptions-silencer (atom false)
 
             f (ua/vfuture
-                (try
-                  (binding [sql/*in-progress-stmts* in-progress-stmts
-                            tracer/*silence-exceptions?* exceptions-silencer]
-                    (start
-                     {:batch-size 100
-                      :on-batch (fn [batch]
-                                  (rs/send-event! store app-id sess-id
-                                                  {:op :sync-load-batch
-                                                   :subscription-id (:sync/id query-ent)
-                                                   :join-rows batch}))
+               (try
+                 (binding [sql/*in-progress-stmts* in-progress-stmts
+                           tracer/*silence-exceptions?* exceptions-silencer]
+                   (start
+                    {:batch-size 100
+                     :on-batch (fn [batch]
+                                 (rs/send-event! store app-id sess-id
+                                                 {:op :sync-load-batch
+                                                  :subscription-id (:sync/id query-ent)
+                                                  :join-rows batch}))
 
-                      :on-init-finish (fn [{:keys [topics tx-id]}]
-                                        (sync-sub-model/create! {:id sub-id
-                                                                 :app-id app-id
-                                                                 :query q
-                                                                 :user-id (:id user)
-                                                                 :admin? admin?
-                                                                 :token token
-                                                                 :topics topics})
+                     :on-init-finish (fn [{:keys [topics tx-id]}]
+                                       (sync-sub-model/create! {:id sub-id
+                                                                :app-id app-id
+                                                                :query q
+                                                                :user-id (:id user)
+                                                                :admin? admin?
+                                                                :token token
+                                                                :topics topics})
                                         ;; Make sure this happens before we update the store
                                         ;; or else we could get a refresh before we send init
-                                        (rs/send-event! store app-id sess-id
-                                                        {:op :sync-init-finish
-                                                         :subscription-id sub-id
-                                                         :tx-id tx-id})
-                                        (rs/sync-query-update-init store
-                                                                   app-id
-                                                                   (:db/id query-ent)
-                                                                   tx-id
-                                                                   topics)
+                                       (rs/send-event! store app-id sess-id
+                                                       {:op :sync-init-finish
+                                                        :subscription-id sub-id
+                                                        :tx-id tx-id})
+                                       (rs/sync-query-update-init store
+                                                                  app-id
+                                                                  (:db/id query-ent)
+                                                                  tx-id
+                                                                  topics)
                                         ;; This will cause us to catch up on any transactions that were
                                         ;; handled while we were syncing
-                                        (receive-queue/put! receive-q
-                                                            {:op :refresh-sync-table
-                                                             :app-id (:app-id ctx)
-                                                             :session-id sess-id
-                                                             :subscription-id (:sync/id query-ent)}))}))
-                  (catch Exception e
-                    (when-not (canceled?)
-                      (throw e)))
-                  (finally
-                    (remove-pending-handler session pending-handler-id))))]
+                                       (receive-queue/put! receive-q
+                                                           {:op :refresh-sync-table
+                                                            :app-id (:app-id ctx)
+                                                            :session-id sess-id
+                                                            :subscription-id (:sync/id query-ent)}))}))
+                 (catch Exception e
+                   (when-not (canceled?)
+                     (throw e)))
+                 (finally
+                   (remove-pending-handler session pending-handler-id))))]
         (add-pending-handler session
                              {:before-cancel cancel
                               :future f
@@ -392,8 +426,9 @@
 
 (defn- recompute-instaql-query!
   [{:keys [store current-user app-id sess-id attrs table-info admin?]}
-   {:keys [instaql-query/query instaql-query/return-type instaql-query/inference?]}]
-  (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
+   {:keys [instaql-query/query instaql-query/return-type instaql-query/inference?
+           instaql-query/forms-hash]}]
+  (let [ctx {:db {:conn-pool (aurora/conn-pool (db-read-level app-id))}
              :session-id sess-id
              :app-id app-id
              :attrs attrs
@@ -401,12 +436,17 @@
              :table-info table-info
              :current-user current-user
              :admin? admin?}
-        {:keys [instaql-result result-meta result-changed?]}
-        (rq/instaql-query-reactive! store ctx query return-type inference?)]
+        start-ms (System/currentTimeMillis)
+        {:keys [instaql-result result-meta result-changed? instaql-topic?]}
+        (rq/instaql-query-reactive! store ctx query return-type inference?)
+        end-ms (System/currentTimeMillis)]
     {:instaql-query query
+     :instaql-query-hash forms-hash
      :instaql-result instaql-result
      :result-meta result-meta
-     :result-changed? result-changed?}))
+     :result-changed? result-changed?
+     :duration-ms (- end-ms start-ms)
+     :instaql-topic? instaql-topic?}))
 
 (defn- handle-refresh! [store sess-id event debug-info]
   (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id event)
@@ -441,12 +481,20 @@
                       :dropped-spam? true
                       :tx-latency-ms (e2e-tracer/tx-latency-ms (:tx-created-at event))}
         {prev-attrs-hash :session/attrs-hash
-         version :session/versions} (rs/session store sess-id)
-        parsed-version  (some-> version (get core-version-key) (semver/parse))
-        can-skip-attrs? (and parsed-version
-                             (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version)))
+         features :session/features} (rs/session store sess-id)
+        can-skip-attrs? (supports-skip-attrs? features)
         attrs-hash      (hash attrs)
         attrs-changed?  (not= prev-attrs-hash attrs-hash)]
+    (doseq [{:keys [instaql-query instaql-query-hash duration-ms instaql-topic?]} spam]
+      (tracer/record-info! {:name "handle-refresh/spam"
+                            :attributes {:app-id app-id
+                                         :wal-log-enabled (flags/enable-wal-entity-log? app-id)
+                                         :instaql-query instaql-query
+                                         :instaql-query-hash instaql-query-hash
+                                         :instaql-query-normalized (instaql-util/normalized-forms instaql-query)
+                                         :duration-ms duration-ms
+                                         :instaql-topic? instaql-topic?}}))
+
     (when (and can-skip-attrs? attrs-changed?)
       (rs/assoc-session! store sess-id :session/attrs-hash attrs-hash))
     (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id event)
@@ -521,14 +569,15 @@
    {:keys [op
            client-event-id
            total-delay-ms
-           ws-ping-latency-ms] :as _event}]
+           ws-ping-latency-ms] :as event}]
   (let [{:session/keys [auth creator versions]} (rs/session store session-id)]
     (merge
      {:op op
       :client-event-id client-event-id
       :session-id session-id
       :total-delay-ms total-delay-ms
-      :ws-ping-latency-ms ws-ping-latency-ms}
+      :ws-ping-latency-ms ws-ping-latency-ms
+      :combined (::grouped-queue/combined event 1)}
      (auth-and-creator-attrs auth creator versions))))
 
 (defn validate-room-id [event]
@@ -542,6 +591,7 @@
         current-user (-> auth :user)
         room-id (validate-room-id event)]
     (eph/join-room! app-id sess-id current-user room-id data)
+    (join-room-logger/log-join-room! app-id)
     (rs/send-event! store app-id sess-id {:op :join-room-ok
                                           :room-id room-id
                                           :client-event-id client-event-id})))
@@ -573,22 +623,15 @@
                                           :room-id room-id
                                           :client-event-id client-event-id})))
 
-(def patch-presence-min-version
-  (semver/parse "v0.17.5"))
-
 (defn- handle-refresh-presence! [store sess-id {:keys [app-id data edits] :as event}]
-  (let [version (-> (rs/session store sess-id)
-                    :session/versions
-                    (get core-version-key))
+  (let [features (-> (rs/session store sess-id) :session/features)
         room-id (validate-room-id event)]
     (cond
       (and edits (empty? edits))
       :nop
 
       (and edits
-           (when-let [parsed-version (some-> version (semver/parse))]
-             (pos? (semver/compare-semver parsed-version
-                                          patch-presence-min-version))))
+           (supports-patch-presence? features))
       (rs/send-event! store app-id sess-id
                       {:op      :patch-presence
                        :room-id room-id
@@ -631,13 +674,28 @@
                                                 :op :client-broadcast-ok
                                                 :client-event-id client-event-id))))
 
-(defn- handle-server-broadcast! [store sess-id {:keys [app-id topic data] :as event}]
-  (let [room-id (validate-room-id event)]
+(defn- handle-server-broadcast! [store sess-id {:keys [app-id] :as event}]
+  (let [room-id (validate-room-id event)
+        batch-messages? (-> (rs/session store sess-id)
+                            :features
+                            supports-batch-messages?)]
     (when (eph/in-room? app-id room-id sess-id)
-      (rs/send-event! store app-id sess-id {:op :server-broadcast
-                                            :room-id room-id
-                                            :topic topic
-                                            :data data}))))
+      (let [messages (for [{:keys [topic data]} (or (::payloads event)
+                                                    [event])]
+                       {:op :server-broadcast
+                        :room-id room-id
+                        :topic topic
+                        :data data})]
+        (cond (= 1 (count messages))
+              (rs/send-event! store app-id sess-id (first messages))
+
+              batch-messages?
+              (doseq [batch (partition-all 500 messages)]
+                (rs/send-event! store app-id sess-id batch))
+
+              :else
+              (doseq [message messages]
+                (rs/send-event! store app-id sess-id message)))))))
 
 (defn handle-event [store session event debug-info]
   (let [{:keys [op]} event
@@ -791,7 +849,7 @@
                              (flags/handle-receive-timeout app-id))
                            handle-receive-timeout-ms)
             event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
-                        (if config/fewer-vfutures?
+                        (if-not (flags/use-more-vfutures?)
                           (ua/tracked-future (handle-event store
                                                            session
                                                            event
@@ -1091,17 +1149,33 @@
 (defmethod combine [:refresh-sync-table :refresh-sync-table] [_ event2]
   event2)
 
+(defmethod combine [:server-broadcast :server-broadcast] [event1 event2]
+  (if-let [payloads (::payloads event1)]
+    (assoc event1 ::payloads (conj payloads {:topic (:topic event2)
+                                             :data (:data event2)}))
+    (-> event2
+        (assoc ::payloads [{:topic (:topic event1)
+                            :data (:data event1)}
+                           {:topic (:topic event2)
+                            :data (:data event2)}])
+        (dissoc :topic :data))))
+
 (defn process [group-key event]
   (straight-jacket-process-receive-q-event rs/store group-key event))
 
 (defn start []
-  (receive-queue/start
-   (grouped-queue/start
-    {:group-key-fn #'group-key
-     :combine-fn   #'combine
-     :process-fn   #'process
-     :max-workers  num-receive-workers
-     :metrics-path "instant.reactive.session.receive-q"})))
+  (let [vfutures-executor (ua/make-limited-concurrency-executor vfutures-num-receive-workers)
+        threads-executor (Executors/newFixedThreadPool threads-num-receive-workers)]
+    (receive-queue/start
+     (grouped-queue/start
+      {:group-key-fn #'group-key
+       :combine-fn   #'combine
+       :process-fn   #'process
+       :get-executor (fn []
+                       (if (flags/use-more-vfutures?)
+                         vfutures-executor
+                         threads-executor))
+       :metrics-path "instant.reactive.session.receive-q"}))))
 
 (defn stop []
   (receive-queue/stop))

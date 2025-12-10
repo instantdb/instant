@@ -2,7 +2,7 @@
 import weakHash from './utils/weakHash.ts';
 import instaql from './instaql.js';
 import * as instaml from './instaml.js';
-import * as s from './store.js';
+import * as s from './store.ts';
 import uuid from './utils/uuid.ts';
 import IndexedDBStorage from './IndexedDBStorage.ts';
 import WindowNetworkListener from './WindowNetworkListener.js';
@@ -883,7 +883,7 @@ export default class Reactor {
 
   getPreviousResult = (q) => {
     const hash = weakHash(q);
-    return this.dataForQuery(hash);
+    return this.dataForQuery(hash)?.data;
   };
 
   _startQuerySub(q, hash) {
@@ -1167,7 +1167,7 @@ export default class Reactor {
       querySubVersion === cached.querySubVersion &&
       pendingMutationsVersion === cached.pendingMutationsVersion
     ) {
-      return cached.data;
+      return cached;
     }
 
     const { store, pageInfo, aggregate, processedTxId } = result;
@@ -1182,13 +1182,7 @@ export default class Reactor {
     );
     const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
 
-    this._dataForQueryCache[hash] = {
-      querySubVersion,
-      pendingMutationsVersion,
-      data: resp,
-    };
-
-    return resp;
+    return { data: resp, querySubVersion, pendingMutationsVersion };
   }
 
   _applyOptimisticUpdates(store, mutations, processedTxId) {
@@ -1204,17 +1198,18 @@ export default class Reactor {
   notifyOne = (hash) => {
     const cbs = this.queryCbs[hash] ?? [];
     const prevData = this._dataForQueryCache[hash]?.data;
-    const data = this.dataForQuery(hash);
+    const resp = this.dataForQuery(hash);
 
-    if (!data) return;
-    if (areObjectsDeepEqual(data, prevData)) return;
+    if (!resp?.data) return;
+    this._dataForQueryCache[hash] = resp;
+    if (areObjectsDeepEqual(resp.data, prevData)) return;
 
-    cbs.forEach((r) => r.cb(data));
+    cbs.forEach((r) => r.cb(resp.data));
   };
 
   notifyOneQueryOnce = (hash) => {
     const dfds = this.queryOnceDfds[hash] ?? [];
-    const data = this.dataForQuery(hash);
+    const data = this.dataForQuery(hash)?.data;
 
     dfds.forEach((r) => {
       this._completeQueryOnce(r.q, hash, r.dfd);
@@ -1505,7 +1500,13 @@ export default class Reactor {
     }
     // Try to reconnect via websocket the next time we connect
     this._transportType = 'ws';
-    this._handleReceive(targetTransport.id, e.message);
+    if (Array.isArray(e.message)) {
+      for (const msg of e.message) {
+        this._handleReceive(targetTransport.id, msg);
+      }
+    } else {
+      this._handleReceive(targetTransport.id, e.message);
+    }
   };
 
   _transportOnError = (e) => {

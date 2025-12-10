@@ -204,13 +204,14 @@
 (defn filter-keys
   "Only keep keys in `m` that return truthy for `(pred key)`"
   [pred m]
-  (persistent!
-   (reduce-kv
-    (fn [m key _]
-      (if (pred key)
-        m
-        (dissoc! m key)))
-    (transient m) m)))
+  (when m
+    (persistent!
+     (reduce-kv
+      (fn [m key _]
+        (if (pred key)
+          m
+          (dissoc! m key)))
+      (transient m) m))))
 
 (defn every?-var-args [pred & colls]
   (if (= 1 (count colls))

@@ -117,3 +117,15 @@
       (is (= 1 (-> (cms/make-sketch)
                    (cms/add nil b)
                    (cms/check nil b)))))))
+
+(deftest compression-round-trips
+  (let [s (reduce (fn [s i]
+                    (cms/add s nil i))
+                  (cms/make-sketch {:confidence 0.8
+                                    :error-rate 0.1})
+                  (range 10000))]
+    (is (= (vec (:bins s))
+           (->> s
+                cms/compress-bins
+                (cms/decompress-bins (:width s) (:depth s))
+                vec)))))

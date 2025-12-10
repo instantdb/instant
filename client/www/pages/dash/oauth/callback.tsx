@@ -7,6 +7,7 @@ import { exchangeOAuthCodeForToken } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
 import config, { cliOauthParamName } from '@/lib/config';
 import { InstantIssue } from '@/lib/types';
+import { usePostHog } from 'posthog-js/react';
 
 type CallbackState =
   | { type: 'router-loading' }
@@ -24,7 +25,7 @@ function LoadingScreen() {
   );
 }
 const ErrorBubble: React.FC<{ error: string }> = ({ error }) => (
-  <div className="rounded bg-red-100 px-3 py-1.5 text-sm text-red-600">
+  <div className="rounded-sm bg-red-100 px-3 py-1.5 text-sm text-red-600">
     {error}
   </div>
 );
@@ -91,6 +92,7 @@ const CallbackScreen = ({ state }: { state: CallbackState }) => {
 
 export default function OAuthCallback() {
   const router = useRouter();
+  const posthog = usePostHog();
 
   const [state, setState] = useState<CallbackState>(stateFromRouter(router));
 
@@ -113,6 +115,10 @@ export default function OAuthCallback() {
           code: state.code,
         })
           .then(async (res) => {
+            posthog.capture('auth_complete', {
+              auth_method: 'google',
+            });
+
             const ticket = state.ticket;
             const path = res.redirect_path || '/dash';
 

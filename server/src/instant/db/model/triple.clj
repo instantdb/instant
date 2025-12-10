@@ -117,16 +117,18 @@
                      [:= :value-type [:inline "ref"]]
                      [:= :label [:inline "id"]]]]}])
 
-(defn insert-attr-inferred-types-cte [app-id triples]
+(defn insert-attr-inferred-types-cte [app-id attrs triples]
   (let [values (->> (reduce (fn [acc [_e a v]]
                               (if (nil? v)
                                 acc
-                                (update acc
-                                        a
-                                        (fnil bit-or 0)
-                                        (-> v
-                                            attr-model/inferred-value-type
-                                            attr-model/type->binary))))
+                                (let [attr (attr-model/seek-by-id a attrs)
+                                      typ (attr-model/inferred-value-type v)]
+                                  (if (contains? (:inferred-types attr) typ)
+                                    acc
+                                    (update acc
+                                            a
+                                            (fnil bit-or 0)
+                                            (attr-model/type->binary typ))))))
                             {}
                             triples)
                     (map (fn [[id typ]]
@@ -245,7 +247,7 @@
      :text]
     :uuid]])
 
-(defn deep-merge-multi!  [conn _attrs app-id triples]
+(defn deep-merge-multi! [conn attrs app-id triples]
   (let [input-triples-values
         (->> triples
              (group-by (juxt first second))
@@ -391,7 +393,7 @@
                    ['applied-triples applied-triples]
                    [:enhanced-triples enhanced-triples]
                    [:ea-index-inserts ea-index-inserts]]
-                  (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
+                  (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id attrs triples)]
                     [[:attr-inferred-types attr-inferred-types]]))
            :select ['entity-id 'attr-id]
            :from :ea-index-inserts}]
@@ -706,7 +708,7 @@
                        ['remaining-inserts    remaining-inserts]
                        ['indexed-null-triples indexed-null-triples]
                        ['indexed-null-inserts indexed-null-inserts]]
-                      (when-some [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
+                      (when-some [attr-inferred-types (insert-attr-inferred-types-cte app-id attrs triples)]
                         [['attr-inferred-types attr-inferred-types]])
                       [['all-inserts all-inserts]])
 
@@ -793,21 +795,30 @@
                     triples.vae
                     AND triples.app_id = ?app-id
                     AND attrs.reverse_etype = id_etypes.etype
-                )
+                ),
 
-                DELETE FROM triples
-
-                WHERE ctid IN (
+                ctids as (
                   (SELECT * FROM forward_attrs)
                   UNION
                   (SELECT * FROM reverse_attrs)
+                ),
+
+                ordered_rows as (
+                  SELECT triples.ctid
+                    FROM triples
+                    JOIN ctids on ctids.ctid = triples.ctid
+                    ORDER BY app_id, entity_id, attr_id, value_md5
+                    FOR UPDATE
                 )
 
+                DELETE FROM triples
+                USING ordered_rows
+                WHERE ordered_rows.ctid = triples.ctid
                 RETURNING
-                  entity_id,
-                  attr_id,
-                  value,
-                  created_at"
+                  triples.entity_id,
+                  triples.attr_id,
+                  triples.value,
+                  triples.created_at"
                {"?id+etypes" (->json id+etypes)
                 "?app-id" app-id})]
 
@@ -856,15 +867,26 @@
                   [[:md5 :value] :value-md5]]
          :from :input-triples}
 
+        locked-rows
+        {:select :t.ctid
+         :from [[:triples :t]]
+         :join [[:enhanced-triples :e] [:and
+                                        [:= :t.app-id :e.app-id]
+                                        [:= :t.attr-id :e.attr-id]
+                                        [:= :t.entity-id :e.entity-id]
+                                        [:= :t.value-md5 :e.value-md5]]]
+         :order-by [:t.app-id :t.entity-id :t.attr-id :t.value-md5]
+         :for :update}
+
         query
         {:with [[[:input-triples {:columns [:app-id :entity-id :attr-id :value]}]
                  {:values input-triples}]
-                [:enhanced-triples enhanced-triples]]
+                [:enhanced-triples enhanced-triples]
+                [:locked-rows locked-rows]]
          :delete-from :triples
-         :where [:in
-                 [:composite :app-id :entity-id :attr-id :value-md5]
-                 {:select :* :from :enhanced-triples}]
-         :returning [:entity-id :attr-id]}]
+         :using :locked-rows
+         :where [:= :locked-rows.ctid :triples.ctid]
+         :returning [:triples.entity-id :triples.attr-id]}]
     (sql/execute! ::delete-multi! conn (hsql/format query))))
 
 ;; ---

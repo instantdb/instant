@@ -1,5 +1,6 @@
 // written by claude
 import { stdin, stdout } from 'process';
+import { setRawModeWindowsFriendly } from 'instant-cli/ui';
 
 /**
  * Query terminal background color using OSC 11
@@ -16,7 +17,7 @@ export async function queryTerminalBackground(): Promise<string | null> {
     // Set up stdin for raw mode to capture the response
     const wasRaw = stdin.isRaw;
     if (!wasRaw) {
-      stdin.setRawMode(true);
+      setRawModeWindowsFriendly(stdin, true);
     }
 
     // Timeout in case terminal doesn't support OSC 11
@@ -31,7 +32,7 @@ export async function queryTerminalBackground(): Promise<string | null> {
       clearTimeout(timeout);
       stdin.removeListener('data', onData);
       if (!wasRaw && stdin.isTTY) {
-        stdin.setRawMode(false);
+        setRawModeWindowsFriendly(stdin, false);
       }
     };
 

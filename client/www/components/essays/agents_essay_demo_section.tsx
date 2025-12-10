@@ -159,7 +159,7 @@ function ToolCall({
   const [running, setRunning] = useState(false);
   return (
     <>
-      <div className="not-prose my-4 flex items-baseline space-x-2 rounded bg-white p-4">
+      <div className="not-prose my-4 flex items-baseline space-x-2 rounded-sm bg-white p-4">
         <div className="">
           <div className="h-2 w-2 rounded-full bg-green-600"></div>
         </div>
@@ -169,7 +169,7 @@ function ToolCall({
             <div className="font-mono font-bold">-</div>
             <div className="font-mono font-bold">{name}</div>
           </div>
-          <div className="max-h-20 overflow-x-auto overflow-y-auto text-xs [&_pre]:!p-0">
+          <div className="max-h-20 overflow-x-auto overflow-y-auto text-xs [&_pre]:p-0!">
             <Fence code={argsString} language="javascript" />
           </div>
         </div>
@@ -223,10 +223,10 @@ function ToolOutput({
   timeTaken?: number;
 }) {
   return (
-    <div className="not-prose my-4 flex items-baseline space-x-2 rounded bg-white p-4">
+    <div className="not-prose my-4 flex items-baseline space-x-2 rounded-sm bg-white p-4">
       <div className="">⎿</div>
       <div className="min-w-0 flex-1">
-        <div className="max-h-20 overflow-x-auto overflow-y-auto text-xs [&_pre]:!p-0">
+        <div className="max-h-20 overflow-x-auto overflow-y-auto text-xs [&_pre]:p-0!">
           <Fence code={outString} language="javascript" />
         </div>
       </div>
@@ -418,7 +418,7 @@ function DemoApp({
   const fullURI = `${isDev ? 'http://localhost:3000' : 'https://instantdb.com'}${uri}`;
   return (
     <div className="pointer-events-none" style={{ height: '750px' }}>
-      <div className="not-prose pointer-events-auto absolute left-0 right-0 p-4">
+      <div className="not-prose pointer-events-auto absolute right-0 left-0 p-4">
         <div className="mx-auto max-w-4xl">
           <div className="space-y-2">
             <div

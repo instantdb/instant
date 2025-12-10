@@ -201,7 +201,7 @@ function ImageUpload() {
       ) : previewURL && (
         <div className="mt-5 flex flex-col items-center gap-3">
           <img src={previewURL} alt="Preview" className="max-w-xs max-h-xs object-contain" />
-          <button onClick={handleUpload} className="py-2 px-4 bg-green-500 text-white border-none rounded cursor-pointer font-mono">
+          <button onClick={handleUpload} className="py-2 px-4 bg-green-500 text-white border-none rounded-sm cursor-pointer font-mono">
             Upload Image
           </button>
         </div>

@@ -20,7 +20,7 @@ export function InstallationIcon({ id, color }) {
         <path
           d="m8 8 9 21 2-10 10-2L8 8Z"
           fillOpacity={0.5}
-          className="fill-[var(--icon-background)] stroke-[color:var(--icon-foreground)]"
+          className="fill-(--icon-background) stroke-(--icon-foreground)"
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"

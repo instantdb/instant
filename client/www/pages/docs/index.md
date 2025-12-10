@@ -6,8 +6,6 @@ description: How to use Instant with React
 
 Instant is the easy to use backend for your frontend. With Instant you can build delightful apps in less than 10 minutes. Follow the quick start below to **build a live app!**
 
-{% copy-prompt-box id="react" /%}
-
 To use Instant in a brand new project, fire up your terminal and run the following:
 
 ```shell {% showCopy=true %}
@@ -148,7 +146,7 @@ function TodoForm({ todos }: { todos: Todo[] }) {
         }}
       >
         <input
-          className="w-full h-full px-2 outline-none bg-transparent"
+          className="w-full h-full px-2 outline-hidden bg-transparent"
           autoFocus
           placeholder="What needs to be done?"
           type="text"

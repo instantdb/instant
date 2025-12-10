@@ -88,20 +88,20 @@ function NavItems() {
       <NavLink href="/docs">Docs</NavLink>
       <NavLink href="/hiring">Hiring</NavLink>
       <NavLink href="https://discord.com/invite/VU53p7uQcE">
-        <span className="hidden md:inline">
+        <span className="hidden min-[60rem]:inline">
           <img src="/marketing/discord-icon.svg" className="h-5 w-5" />
         </span>
-        <span className="md:hidden">Discord</span>
+        <span className="min-[60rem]:hidden">Discord</span>
       </NavLink>
       <NavLink href="https://github.com/instantdb/instant">
-        <span className="hidden md:inline">
+        <span className="hidden min-[60rem]:inline">
           <img
-            src="https://img.shields.io/github/stars/instantdb/instant?style=flat-square&logo=github&label=GitHub&labelColor=000000&color=EA570C"
+            src="https://img.shields.io/github/stars/instantdb/instant?style=flat-square&logo=github&label=GitHub&labelColor=000000&color=F54900"
             alt="GitHub stars"
             className="h-5"
           />
         </span>
-        <span className="md:hidden">GitHub</span>
+        <span className="min-[60rem]:hidden">GitHub</span>
       </NavLink>
       {isAuthed ? (
         <div>
@@ -132,30 +132,30 @@ export function BareNav({ children }: PropsWithChildren) {
   return (
     <div className="flex flex-row items-center justify-between gap-4 text-lg md:text-base">
       <LogoType />
-      <button className="md:hidden" onClick={() => setIsOpen(true)}>
+      <button className="min-[60rem]:hidden" onClick={() => setIsOpen(true)}>
         <Bars3Icon height={'1em'} />
       </button>
       <div
         onClick={() => setIsOpen(false)}
         className={cn(
           // viz
-          'hidden md:flex',
+          'hidden min-[60rem]:flex',
           // pos
-          'fixed inset-0 z-40 md:relative',
+          'fixed inset-0 z-40 min-[60rem]:relative',
           // scroll
-          'overflow-y-scroll md:overflow-y-auto',
+          'overflow-y-scroll min-[60rem]:overflow-y-auto',
           // size
-          'h-full w-full md:h-12 md:w-auto',
+          'h-full w-full min-[60rem]:h-12 min-[60rem]:w-auto',
           // layout
-          'flex-col items-start gap-6 px-8 py-4 md:flex-row md:items-center md:gap-4 md:p-0',
+          'flex-col items-start gap-6 px-8 py-4 min-[60rem]:flex-row min-[60rem]:items-center min-[60rem]:gap-4 min-[60rem]:p-0',
           // look and feel
-          'bg-white/90 backdrop-blur-xl md:bg-transparent',
+          'bg-white/90 backdrop-blur-xl min-[60rem]:bg-transparent',
           {
             flex: isOpen,
           },
         )}
       >
-        <div className="flex justify-between self-stretch md:hidden">
+        <div className="flex justify-between self-stretch min-[60rem]:hidden">
           <LogoType />
           <button className="z-50 mt-0.5" onClick={() => setIsOpen(false)}>
             <XMarkIcon height="1em" />
@@ -244,7 +244,7 @@ export function PageProgressBar() {
   }, []);
 
   return (
-    <div className="fixed left-0 right-0 top-0 z-50 h-0.5 bg-gray-200">
+    <div className="fixed top-0 right-0 left-0 z-50 h-0.5 bg-gray-200">
       <div
         className="h-full bg-orange-600 transition-all duration-150 ease-out"
         style={{ width: `${progress}%` }}

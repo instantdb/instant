@@ -6,6 +6,7 @@
    [clojure.tools.logging :as log]
    [compojure.core :refer [defroutes GET POST routes wrap-routes]]
    [instant.admin.routes :as admin-routes]
+   [instant.admin.transact-queue :as admin-tx-queue]
    [instant.auth.jwt :as jwt]
    [instant.auth.oauth :as oauth]
    [instant.config :as config]
@@ -13,6 +14,7 @@
    [instant.dash.routes :as dash-routes]
    [instant.db.indexing-jobs :as indexing-jobs]
    [instant.db.hint-testing :as hint-testing]
+   [instant.db.model.wal-log :as wal-log-model]
    [instant.storage.sweeper :as storage-sweeper]
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
@@ -34,6 +36,7 @@
    [instant.scripts.analytics :as analytics]
    [instant.scripts.daily-metrics :as daily-metrics]
    [instant.scripts.welcome-email :as welcome-email]
+   [instant.join-room-logger :as join-room-logger]
    [instant.session-counter :as session-counter]
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
@@ -122,8 +125,7 @@
                                            "Cache-Control" (str "public, max-age=" max-age)}))))))
 
 (defn add-security-headers [resp]
-  (let [default-headers {
-                         ;; Don't let anyone put us in an iframe
+  (let [default-headers {;; Don't let anyone put us in an iframe
                          "X-Frame-Options" "DENY"
                          ;; Don't leak path info in referrer
                          "Referrer-Policy" "strict-origin"
@@ -187,19 +189,21 @@
   nil)
 
 (defn start []
-  (tracer/record-info! {:name "server/start" :attributes {:port (config/get-server-port)}})
-  (lang/set-var! server
-                 (undertow-adapter/run-undertow
-                  (handler)
-                  (merge
-                   {:host "0.0.0.0"
-                    :port (config/get-server-port)
-                    :configurator (fn [^Undertow$Builder builder]
-                                    (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
-                   (when (.exists (io/file "dev-resources/certs/dev.jks"))
-                     {:ssl-port 8889
-                      :keystore "dev-resources/certs/dev.jks"
-                      :key-password "changeit"}))))
+  (let [config (merge
+                {:host "0.0.0.0"
+                 :port (config/get-server-port)
+                 :configurator (fn [^Undertow$Builder builder]
+                                 (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
+                (when (.exists (io/file "dev-resources/certs/dev.jks"))
+                  {:ssl-port (config/get-server-ssl-port)
+                   :keystore "dev-resources/certs/dev.jks"
+                   :key-password "changeit"}))]
+    (tracer/record-info! {:name "server/start"
+                          :attributes (select-keys config {:port :ssl-port})})
+    (lang/set-var! server
+                   (undertow-adapter/run-undertow
+                    (handler)
+                    config)))
   (lang/set-var! stop-gauge
                  (gauges/add-gauge-metrics-fn
                   (fn [_]
@@ -245,7 +249,10 @@
           (eph/stop)))
       (future
         (tracer/with-span! {:name "stop-indexing-jobs"}
-          (indexing-jobs/stop)))))
+          (indexing-jobs/stop)))
+      (future
+        (tracer/with-span! {:name "stop-join-room-logger"}
+          (join-room-logger/stop)))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
@@ -316,12 +323,16 @@
         (ephemeral-app/start))
       (with-log-init :session-counter
         (session-counter/start))
+      (with-log-init :join-room-logger
+        (join-room-logger/start))
       (with-log-init :indexing-jobs
         (indexing-jobs/start))
       (with-log-init :storage-sweeper
         (storage-sweeper/start))
       (with-log-init :hard-deletion-sweeper
         (hard-deletion-sweeper/start))
+      (with-log-init :wal-log-truncator
+        (wal-log-model/start))
       (when (= (config/get-env) :prod)
         (with-log-init :analytics
           (analytics/start)))
@@ -334,6 +345,8 @@
 
       (with-log-init :hint-testing
         (hint-testing/start))
+      (with-log-init :admin-tx-queue
+        (admin-tx-queue/start))
       (with-log-init :web-server
         (start))
       (log/info "Finished initializing"))

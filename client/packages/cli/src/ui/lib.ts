@@ -3,6 +3,34 @@ import { cursor, erase } from 'sisteransi';
 import throttle from 'lodash.throttle';
 import readline from 'readline';
 
+const isWindows = process.platform === 'win32';
+
+/**
+ * Set terminal raw mode on stdin, with a Windows workaround.
+ *
+ * Raw mode (true):
+ * - Input available character-by-character (not line-buffered)
+ * - No echo of typed characters
+ * - Ctrl+C doesn't send SIGINT (must handle manually)
+ * - Required to capture arrow keys and other special keys
+ *
+ * Normal mode (false):
+ * - Input is line-buffered (available after Enter)
+ * - Typed characters are echoed
+ * - Ctrl+C sends SIGINT as normal
+ *
+ * Windows workaround: We skip disabling raw mode on Windows because
+ * toggling it between prompts causes a race condition that breaks
+ * subsequent keypress events. Raw mode is automatically reset when
+ * the process exits, so this is safe.
+ *
+ * See: https://github.com/bombshell-dev/clack/issues/176
+ */
+export function setRawModeWindowsFriendly(input: ReadStream, value: boolean) {
+  if (!value && isWindows) return;
+  input.setRawMode(value);
+}
+
 export interface Closable {
   close(): void;
 }
@@ -162,7 +190,7 @@ export class Terminal implements ITerminal {
     private readonly stdout: WriteStream,
     private readonly closable: Closable,
   ) {
-    if (this.stdin.isTTY) this.stdin.setRawMode(true);
+    if (this.stdin.isTTY) setRawModeWindowsFriendly(this.stdin, true);
 
     const keypress = (str: string | undefined, key: AnyKey) => {
       if (key.name === 'c' && key.ctrl === true) {
@@ -224,7 +252,7 @@ export class Terminal implements ITerminal {
   private tearDown(keypress: (...args: any[]) => void) {
     this.stdout.write(cursor.show);
     this.stdin.removeListener('keypress', keypress);
-    if (this.stdin.isTTY) this.stdin.setRawMode(false);
+    if (this.stdin.isTTY) setRawModeWindowsFriendly(this.stdin, false);
     this.closable.close();
   }
 

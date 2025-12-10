@@ -4,6 +4,7 @@ import { ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 import Highlight, { defaultProps } from 'prism-react-renderer';
 import { useState } from 'react';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
+import { rosePineDawnTheme } from '@/lib/rosePineDawnTheme';
 
 export function Fence({ children, language, showCopy }) {
   const [copyLabel, setCopyLabel] = useState('Copy');
@@ -25,7 +26,7 @@ export function Fence({ children, language, showCopy }) {
       {...defaultProps}
       code={code}
       language={language}
-      theme={undefined}
+      theme={rosePineDawnTheme}
     >
       {({ className, style, tokens, getTokenProps }) => (
         <div className="relative text-sm">
@@ -43,7 +44,7 @@ export function Fence({ children, language, showCopy }) {
             ))}
           </pre>
           {showCopy && (
-            <div className="absolute right-0 top-0 m-2">
+            <div className="absolute top-0 right-0 m-2">
               <CopyToClipboard text={code}>
                 <button
                   onClick={() => {
@@ -52,7 +53,7 @@ export function Fence({ children, language, showCopy }) {
                       setCopyLabel('Copy');
                     }, 2500);
                   }}
-                  className="flex items-center gap-x-1 bg-white px-2 py-1 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                  className="flex items-center gap-x-1 bg-white px-2 py-1 text-xs font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50"
                 >
                   <ClipboardDocumentIcon
                     className="-ml-0.5 h-4 w-4"

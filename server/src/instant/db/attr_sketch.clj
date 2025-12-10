@@ -2,6 +2,8 @@
   (:require
    [clojure.pprint]
    [honey.sql :as hsql]
+   [instant.config :as config]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.util.cache :as cache]
@@ -20,11 +22,17 @@
 
 (def debug-queries false)
 
+;; n.b. the bins are not immutable, use copy if you want to isolate your changes
 (defrecord Sketch [width
                    depth
-                   bins
+                   ^longs bins
                    total
                    total-not-binned])
+
+(defn copy
+  "Generates a copy of the sketch"
+  [sketch]
+  (assoc sketch :bins (long-array (:bins sketch))))
 
 (defn printable-sketch
   "Removes the bins when we print the sketch."
@@ -53,7 +61,7 @@
                                   ln2)))]
      (map->Sketch {:width width
                    :depth depth
-                   :bins (vec (repeat (* width depth) 0))
+                   :bins (long-array (* width depth) 0)
                    :total 0
                    :total-not-binned 0}))))
 
@@ -122,25 +130,28 @@
       :nil (.hashChar xx \u0000))))
 
 (defn add
+  "Increments the sketch. Returns a new sketch, but updates the bins in-place."
   ([^Sketch sketch checked-data-type v]
    (add sketch checked-data-type v 1))
   ([^Sketch sketch checked-data-type v_ n]
    (if-let [[data-type v] (data-type-for-hash checked-data-type v_)]
      ;; Only track counts for the items that you can query for
      (let [seed (hash-val 0 -1 data-type v)
-           bins (persistent!
-                  (reduce (fn [bins i]
-                            (let [hash (hash-val seed i data-type v)
-                                  bin-idx (int (+ (Long/remainderUnsigned hash
-                                                                          (:width sketch))
-                                                  (* i (:width sketch))))]
-                              (assoc! bins bin-idx (+ (get bins bin-idx)
-                                                      n))))
-                          (transient (:bins sketch))
-                          (range (:depth sketch))))]
+           bin-idxes (mapv (fn [i]
+                             (let [hash (hash-val seed i data-type v)]
+                               (int (+ (Long/remainderUnsigned hash
+                                                               (:width sketch))
+                                       (* i (:width sketch))))))
+                           (range (:depth sketch)))]
+       ;; Lock the bins so that we don't get concurrent changes.
+       ;; This shouldn't be a problem because we only ever add from the
+       ;; single-threaded aggregator
+       (let [^longs bins (:bins sketch)]
+         (locking bins
+           (doseq [bin-idx bin-idxes]
+             (aset bins bin-idx (+ (aget bins bin-idx) ^long n)))))
        (-> sketch
-           (update :total + n)
-           (assoc :bins bins)))
+           (update :total + n)))
      ;; Track totals even if you can't query for the item
      (-> sketch
          (update :total + n)
@@ -148,35 +159,43 @@
 
 (defn add-batch
   "Expects items to be a map of {:value, :checked-data-type} => n, will add all
-   items to the sketch in a single batch."
+   items to the sketch in a single batch.
+   Returns a new sketch, but updates the bins in-place."
   ([^Sketch sketch items]
-   (let [{:keys [bins item-count not-binned-count]}
+   (let [{:keys [bin-changes item-count not-binned-count]}
          (persistent!
-           (reduce-kv (fn [acc {:keys [value checked-data-type]} n]
-                        (if-let [[data-type v] (data-type-for-hash checked-data-type value)]
-                          (let [seed (hash-val 0 -1 data-type v)
-                                bins (reduce (fn [bins i]
-                                               (let [hash (hash-val seed i data-type v)
-                                                     bin-idx (int (+ (Long/remainderUnsigned hash
-                                                                                             (:width sketch))
-                                                                     (* i (:width sketch))))]
-                                                 (assoc! bins bin-idx (+ n (get bins bin-idx)))))
-                                             (:bins acc)
-                                             (range (:depth sketch)))]
-                            (-> acc
-                                (assoc! :bins bins)
-                                (assoc! :item-count (+ (:item-count acc) n))))
-                          (-> acc
-                              (assoc! :item-count (+ (:item-count acc) n))
-                              (assoc! :not-binned-count (+ (:not-binned-count acc) n)))))
-                      (transient {:bins (transient (:bins sketch))
-                                  :item-count 0
-                                  :not-binned-count 0})
-                      items))]
+          (reduce-kv (fn [acc {:keys [value checked-data-type]} n]
+                       (if-let [[data-type v] (data-type-for-hash checked-data-type value)]
+                         (let [seed (hash-val 0 -1 data-type v)
+                               bin-changes (reduce (fn [acc i]
+                                                     (let [hash (hash-val seed i data-type v)
+                                                           bin-idx (int (+ (Long/remainderUnsigned hash
+                                                                                                   (:width sketch))
+                                                                           (* i (:width sketch))))]
+
+                                                       (conj! acc {:bin-idx bin-idx :n n})))
+                                                   (:bin-changes acc)
+                                                   (range (:depth sketch)))]
+                           (-> acc
+                               (assoc! :bin-changes bin-changes)
+                               (assoc! :item-count (+ (:item-count acc) n))))
+                         (-> acc
+                             (assoc! :item-count (+ (:item-count acc) n))
+                             (assoc! :not-binned-count (+ (:not-binned-count acc) n)))))
+                     (transient {:bin-changes (transient [])
+                                 :item-count 0
+                                 :not-binned-count 0})
+                     items))]
+     (let [^longs bins (:bins sketch)]
+       ;; Lock the bins so that we don't get concurrent changes.
+       ;; This shouldn't be a problem because we only ever add from the
+       ;; single-threaded aggregator
+       (locking bins
+         (doseq [{:keys [bin-idx n]} (persistent! bin-changes)]
+           (aset bins bin-idx (+ (aget bins bin-idx) ^long n)))))
      (-> sketch
          (update :total + item-count)
-         (update :total-not-binned + not-binned-count)
-         (assoc :bins (persistent! bins))))))
+         (update :total-not-binned + not-binned-count)))))
 
 (defn check
   "Returns the estimated count for a value from the skech.
@@ -236,27 +255,56 @@
 
 ;;; Compression
 
-(defn compress-bins
+(defn longs->bytes [^longs longs]
+  (let [bb (ByteBuffer/allocate (* (alength longs)
+                                   Long/BYTES))]
+    (.put (.asLongBuffer bb)
+          ^longs longs)
+    (.array bb)))
+
+(defn compress-new
+  "Returns the bins as bytes compressed with JavaFastPFOR, then zstd."
+  ^bytes [sketch]
+  (->> (:bins sketch)
+       (.compress (me.lemire.longcompression.LongCompressor.))
+       (longs->bytes)
+       (Zstd/compress)))
+
+(defn compress-old
   "Returns the bins as bytes compressed with zstd."
   ^bytes [sketch]
   (let [bb (ByteBuffer/allocate (* (:width sketch)
                                    (:depth sketch)
                                    Long/BYTES))]
-    (doseq [l (:bins sketch)]
-      (.putLong bb l))
+    (.put (.asLongBuffer bb)
+          ^longs (:bins sketch))
     (Zstd/compress (.array bb))))
 
-(defn bytes->longs [^bytes b]
-  (let [bb (ByteBuffer/wrap b)]
-    (loop [arr (transient [])]
-      (if (.hasRemaining bb)
-        (recur (conj! arr (.getLong bb)))
-        (persistent! arr)))))
+(defn compress-bins ^bytes [sketch]
+  ;; Temporary flag for backwards compatibility while new version deploys
+  (if (flags/toggled? :compress-bins-with-pfor (config/test?))
+    (compress-new sketch)
+    (compress-old sketch)))
+
+(defn bytes->longs ^longs [^bytes b]
+  (let [bb (ByteBuffer/wrap b)
+        len (/ (alength b)
+               Long/BYTES)
+        longs (long-array len)]
+    (.get (.asLongBuffer bb) longs)
+    longs))
 
 (defn decompress-bins [width depth ^bytes compressed-bin-bytes]
-  (let [dst (byte-array (* width depth Long/BYTES))]
-    (Zstd/decompress dst compressed-bin-bytes)
-    (bytes->longs dst)))
+  (let [dst (byte-array (Zstd/decompressedSize compressed-bin-bytes))
+        _ (Zstd/decompress dst compressed-bin-bytes)
+        longs (bytes->longs dst)]
+
+    (if (= (alength longs) (* width depth))
+      ;; We got the original length back, it must have been
+      ;; compressed without LongCompressor
+      longs
+      (.uncompress (me.lemire.longcompression.LongCompressor.)
+                   longs))))
 
 ;;; Queries
 
@@ -365,7 +413,8 @@
   ([keys]
    (lookup (aurora/conn-pool :read) keys))
   ([conn keys]
-   (if (= conn (aurora/conn-pool :read))
+   (if (or (= conn (aurora/conn-pool :read))
+           (= conn (aurora/conn-pool :read-replica)))
      @(cache/get-all-async lookup-cache keys #(lookup* conn %))
      (lookup* conn keys))))
 

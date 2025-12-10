@@ -37,7 +37,7 @@ export function PageDrilldown({ pageId, onBack }: PageDrilldownProps) {
         <div className="animate-pulse">
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-24 rounded bg-gray-200"></div>
+              <div key={i} className="h-24 rounded-sm bg-gray-200"></div>
             ))}
           </div>
         </div>
@@ -209,7 +209,7 @@ function FeedbackItem({ feedback }: { feedback: Rating }) {
       </div>
 
       {feedback.extraComment && (
-        <div className="rounded bg-gray-50 p-2 text-sm text-gray-700">
+        <div className="rounded-sm bg-gray-50 p-2 text-sm text-gray-700">
           {feedback.extraComment}
         </div>
       )}

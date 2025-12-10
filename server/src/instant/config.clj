@@ -21,19 +21,25 @@
 (def ^:dynamic *env*
   nil)
 
+(def staging-env (System/getenv "STAGING"))
+(def prod-env (System/getenv "PRODUCTION"))
+
 (defn get-env []
   (cond
-    (some? *env*)                           *env*
+    (some? *env*)                                 *env*
     ;; n.b. make sure this the staging check is first so that we can
     ;;      override it in the eb env vars
-    (= "true" (System/getenv "STAGING"))    :staging
-    (= "true" (System/getenv "PRODUCTION")) :prod
-    (= "true" (System/getenv "TEST"))       :test
-    :else                                   :dev))
+    (= "true" staging-env)                        :staging
+    (= "true" prod-env)                           :prod
+    (= "test" (System/getProperty "instant.env")) :test
+    (= "true" (System/getenv "TEST"))             :test
+    :else                                         :dev))
 
 (defn prod? [] (= :prod (get-env)))
 
 (defn dev? [] (= :dev (get-env)))
+
+(defn test? [] (= :test (get-env)))
 
 (defn aws-env? []
   (contains? #{:prod :staging} (get-env)))
@@ -140,16 +146,16 @@
                 "jdbc:postgresql://localhost:5432/instant")]
     (db-url->config url)))
 
-(defn aurora-config-from-cluster-id []
+(defn aurora-config-from-cluster-id [application-name]
   (when-let [cluster-id (or (System/getenv "DATABASE_CLUSTER_ID")
                             (some-> @config-map :database-cluster-id))]
-    (aurora-config/rds-cluster-id->db-config cluster-id)))
+    (aurora-config/rds-cluster-id->db-config cluster-id application-name)))
 
 (defn get-aurora-config []
   (let [application-name (uri/query-encode (format "%s, %s"
                                                    @hostname
                                                    @process-id))
-        config (or (aurora-config-from-cluster-id)
+        config (or (aurora-config-from-cluster-id application-name)
                    (aurora-config-from-database-url))]
     (assoc config
            :ApplicationName application-name)))
@@ -157,10 +163,11 @@
 (defn get-next-aurora-config []
   (when-let [cluster-id (or (System/getenv "NEXT_DATABASE_CLUSTER_ID")
                             (some-> @config-map :next-database-cluster-id))]
-    (assoc (aurora-config/rds-cluster-id->db-config cluster-id)
-           :ApplicationName (uri/query-encode (format "%s, %s"
-                                                      @hostname
-                                                      @process-id)))))
+    (let [application-name (uri/query-encode (format "%s, %s"
+                                                     @hostname
+                                                     @process-id))]
+      (assoc (aurora-config/rds-cluster-id->db-config cluster-id application-name)
+             :ApplicationName application-name))))
 
 (defn dashboard-origin
   ([] (dashboard-origin {:env (get-env)}))
@@ -218,11 +225,6 @@
 (defn get-google-oauth-client []
   (-> @config-map :google-oauth-client))
 
-(def server-origin (case (get-env)
-                     :prod "https://api.instantdb.com"
-                     :staging "https://api-staging.instantdb.com"
-                     "http://localhost:8888"))
-
 (def s3-bucket-name
   (case (get-env)
     :prod "instant-storage"
@@ -240,7 +242,23 @@
     (Integer/parseInt envvar)))
 
 (defn get-server-port []
-  (or (env-integer "PORT") (env-integer "BEANSTALK_PORT") 8888))
+  (or (env-integer "PORT")
+      (env-integer "BEANSTALK_PORT")
+      (if-not (= :test (get-env))
+        8888
+        8886)))
+
+(defn get-server-ssl-port []
+  (or (env-integer "SSL_PORT")
+      (if-not (= :test (get-env))
+        8889
+        8887)))
+
+(def server-origin
+  (case (get-env)
+    :prod "https://api.instantdb.com"
+    :staging "https://api-staging.instantdb.com"
+    (str "http://localhost:" (get-server-port))))
 
 (defn get-nrepl-port []
   (or (env-integer "NREPL_PORT") 6005))

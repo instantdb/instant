@@ -53,7 +53,7 @@ export default function InstantTypingIndicator() {
             >
               {peer.name?.slice(0, 1)}
               {activeMap[peer.id] ? (
-                <div className="absolute -right-1 bottom-0 rounded-sm bg-black px-1 leading-3 text-white shadow">
+                <div className="absolute -right-1 bottom-0 rounded-xs bg-black px-1 leading-3 text-white shadow-sm">
                   ⋯
                 </div>
               ) : null}

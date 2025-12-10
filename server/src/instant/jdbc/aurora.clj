@@ -28,6 +28,9 @@
 (defonce read-only-memoize
   (atom nil))
 
+(defonce replica-read-only-memoize
+  (atom nil))
+
 (defn read-only-wrapper [^HikariDataSource pool]
   (proxy [HikariDataSource] []
     (getConnection
@@ -57,6 +60,15 @@
     wrapper
     (let [wrapper (read-only-wrapper pool)]
       (reset! read-only-memoize [pool wrapper])
+      wrapper)))
+
+(defn memoized-replica-read-only-wrapper [^HikariDataSource pool]
+  (if-let [wrapper (when-let [[memo-pool wrapper] @replica-read-only-memoize]
+                     (when (= memo-pool pool)
+                       wrapper))]
+    wrapper
+    (let [wrapper (read-only-wrapper pool)]
+      (reset! replica-read-only-memoize [pool wrapper])
       wrapper)))
 
 (defn filter-closed-connections-wrapper
@@ -162,7 +174,7 @@
                            (when-not @shutdown?
                              (Thread/sleep sleep-ms)
                              (let [next-config (try (merge aurora-config
-                                                           (rds-cluster-id->db-config cluster-id))
+                                                           (rds-cluster-id->db-config cluster-id (:application-name aurora-config)))
                                                     (catch Exception e
                                                       (tracer/record-exception-span! e {:name "failover-watcher-error"})
                                                       last-config))]
@@ -196,7 +208,8 @@
   (binding [socket-track/*connection-id* (random-uuid)]
     (let [conn (next-jdbc/get-connection (assoc config
                                                 :socketFactory "instant.SocketWrapper"))]
-      (socket-track/add-connection socket-track/*connection-id* conn)
+      (socket-track/add-connection socket-track/*connection-id* conn {:cluster-id (:cluster-id config)
+                                                                      :db-host (:host config)})
       (next-jdbc/execute! conn ["select set_config('idle_in_transaction_session_timeout', ?::text, false)"
                                 (flags/flag :idle-in-transaction-session-timeout (* 1000 60))])
       conn)))
@@ -254,12 +267,20 @@
 
 (defonce -conn-pool nil)
 
+(defonce -replica-conn-pool nil)
+
 (defn conn-pool
-  "Takes a single argument that should be either :read for a read-only connection
-   or :write for a read-write connection."
+  "Takes a single argument that should be either :read for a read-only connection,
+   :read-replica for a read-only connection on the replica (or primary if replica
+   does not exist), or :write for a read-write connection."
   [rw]
-  (if (= rw :read)
+  (case rw
+    :read
     (memoized-read-only-wrapper -conn-pool)
+    :read-replica
+    (if -replica-conn-pool
+      (memoized-replica-read-only-wrapper -replica-conn-pool)
+      (memoized-read-only-wrapper -conn-pool))
     -conn-pool))
 
 (defn patch-hikari []
@@ -309,14 +330,27 @@
     pool))
 
 (defn start []
-  (let [conn-pool-size (config/get-connection-pool-size)]
+  (let [conn-pool-size (config/get-connection-pool-size)
+        config (config/get-aurora-config)
+        next-config (config/get-next-aurora-config)]
     (lang/set-var! -conn-pool
-      (start-pool conn-pool-size (config/get-aurora-config)))))
+      (start-pool conn-pool-size config))
+    (when next-config
+      (tracer/with-span! {:name "aurora/start-replica"}
+        (try
+          (lang/set-var! -replica-conn-pool
+            (start-pool conn-pool-size next-config))
+          (catch Throwable t
+            (tracer/add-exception! t {:escaping? false})))))
+    nil))
 
 (defn stop []
   (lang/clear-var! -conn-pool (fn [^HikariDataSource d]
                                 (.close d)
-                                (.shutdown ^HikariPool (.getHikariPoolMXBean d)))))
+                                (.shutdown ^HikariPool (.getHikariPoolMXBean d))))
+  (lang/clear-var! -replica-conn-pool (fn [^HikariDataSource d]
+                                        (.close d)
+                                        (.shutdown ^HikariPool (.getHikariPoolMXBean d)))))
 
 (defn restart []
   (stop)

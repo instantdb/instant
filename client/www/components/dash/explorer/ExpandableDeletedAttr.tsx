@@ -16,13 +16,8 @@ type SoftDeletedAttr = DBAttr & {
   'deletion-marked-at': string;
 };
 
-type AttrWithNames = SoftDeletedAttr & {
-  names: Record<string, string>;
-};
-
 interface ExpandableDeletedAttrProps {
-  attr: AttrWithNames;
-  namespace: SchemaNamespace;
+  attr: SoftDeletedAttr;
   gracePeriodDays: number;
   onRestore: (attrId: string) => void;
   isExpanded: boolean;
@@ -31,7 +26,6 @@ interface ExpandableDeletedAttrProps {
 
 export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
   attr,
-  namespace,
   gracePeriodDays,
   isExpanded,
   setIsExpanded,
@@ -41,18 +35,18 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
     days: gracePeriodDays,
   });
 
-  const getForwardAttrName = () => {
-    return attr['forward-identity'][2].split('$')[1];
+  const getForwardLabel = () => {
+    return attr['forward-identity'][2];
   };
 
-  const getReverseAttrName = () => {
-    return attr['reverse-identity']?.[2].split('$')[1];
+  const getReverseLabel = () => {
+    return attr['reverse-identity']?.[2];
   };
 
-  const getEntityNames = () => {
-    const forwardEntity = attr['forward-identity'][1].split('$')[1];
-    const reverseEntity = attr['reverse-identity']?.[1].split('$')[1];
-    return { forwardEntity, reverseEntity };
+  const getEtypes = () => {
+    const forwardEtype = attr['forward-identity'][1];
+    const reverseEtype = attr['reverse-identity']?.[1];
+    return { forwardEtype: forwardEtype, reverseEtype };
   };
 
   const getRelationshipType = (): RelationshipKinds => {
@@ -70,9 +64,10 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
     }
 
     const relationshipType = getRelationshipType();
-    const { forwardEntity, reverseEntity } = getEntityNames();
-    const forwardAttrName = getForwardAttrName();
-    const reverseAttrName = getReverseAttrName();
+    const { forwardEtype: forwardEtype, reverseEtype: reverseEtype } =
+      getEtypes();
+    const forwardLabel = getForwardLabel();
+    const reverseLabel = getReverseLabel();
 
     const getCardinalityText = (
       relType: RelationshipKinds,
@@ -90,9 +85,9 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
         label: 'forward',
         value: (
           <span>
-            <strong>{forwardEntity}</strong>{' '}
+            <strong>{forwardEtype}</strong>{' '}
             {getCardinalityText(relationshipType, true)}{' '}
-            <strong>{forwardAttrName}</strong>
+            <strong>{forwardLabel}</strong>
           </span>
         ),
       },
@@ -100,9 +95,9 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
         label: 'reverse',
         value: (
           <span>
-            <strong>{reverseEntity}</strong>{' '}
+            <strong>{reverseEtype}</strong>{' '}
             {getCardinalityText(relationshipType, false)}{' '}
-            <strong>{reverseAttrName}</strong>
+            <strong>{reverseLabel}</strong>
           </span>
         ),
       },
@@ -127,7 +122,7 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
             <ChevronRightIcon width={14} className="text-gray-400" />
           )}
           <span className="font-mono text-sm font-medium">
-            {attr.names[namespace.name]}
+            {attr['forward-identity'][2]}
           </span>
           <span className="font-mono text-xs text-gray-400">
             expires {formatDistanceToNow(date, { includeSeconds: false })}
@@ -160,7 +155,7 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
                       : 'border-b border-gray-200'
                   }
                 >
-                  <td className="py-1 pl-2 pr-4 font-medium text-gray-700">
+                  <td className="py-1 pr-4 pl-2 font-medium text-gray-700">
                     {row.label}
                   </td>
                   <td className="py-1 text-gray-600">{row.value}</td>

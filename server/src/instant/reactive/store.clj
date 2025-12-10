@@ -19,6 +19,7 @@
    [datascript.core :as d]
    [datascript.conn :as d-conn]
    [instant.config :as config]
+   [instant.db.model.attr :as attr-model]
    [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
@@ -28,6 +29,7 @@
    [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
+   [instant.util.instaql :refer [forms-hash]]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer])
   (:import
@@ -68,6 +70,7 @@
    :tx-meta/processed-tx-id {:db/type :db.type/integer}
 
    :instaql-query/query {:db/index true}
+   :instaql-query/forms-hash {}
    :instaql-query/session-id {:db/type :db.type/uuid
                               :db/index true}
    :instaql-query/stale? {:db/type :db.type/boolean}
@@ -79,6 +82,7 @@
     :db/unique :db.unique/identity}
    :instaql-query/return-type {} ;; :join-rows or :tree
    :instaql-query/inference? {:db/type :db.type/boolean}
+   :instaql-query/topic {}
 
    :subscription/app-id {:db/type :db.type/integer}
    :subscription/session-id {:db/index true
@@ -212,7 +216,6 @@
                  :app-id app-id)
     conn))
 
-
 (defn app-conn [store app-id]
   (Map/.computeIfAbsent (:conns store) app-id #(create-conn schema %)))
 
@@ -330,12 +333,36 @@
         (catch clojure.lang.ExceptionInfo e
           (translate-datascript-exceptions e))))))
 
+(defn deleted-subscriptions-datalog-query-ids [report]
+  (keep (fn [datom]
+          (when (and (= (:a datom)
+                        :subscription/datalog-query)
+                     (not (:added datom))
+                     (d/entity (:db-after report) (:v datom)))
+            (:v datom)))
+        (:tx-data report)))
+
+(defn clean-stale-datalog-queries-tx-data [db datalog-query-eids]
+  (ucoll/reduce-tr (fn [acc e]
+                     (if-not (d/find-datom db :avet :subscription/datalog-query e)
+                       (conj! acc [:db/retractEntity e])
+                       acc))
+                   []
+                   datalog-query-eids))
+
 (defn transact! [span-name conn tx-data]
-  (if (or (flags/toggled? :enable-store-batching-globally)
-          (contains? (flags/flag :enable-store-batching-apps)
-                     (:app-id (meta conn))))
-    (transact-new! span-name conn tx-data)
-    (transact-old! span-name conn tx-data)))
+  (let [report (if (or (flags/toggled? :enable-store-batching-globally)
+                       (contains? (flags/flag :enable-store-batching-apps)
+                                  (:app-id (meta conn))))
+                 (transact-new! span-name conn tx-data)
+                 (transact-old! span-name conn tx-data))]
+    (if-let [eids (seq (deleted-subscriptions-datalog-query-ids report))]
+      (do
+        (transact! "store/clean-datalog-queries"
+                   conn
+                   [[:db.fn/call clean-stale-datalog-queries-tx-data (distinct eids)]])
+        report)
+      report)))
 
 ;; -----
 ;; reports
@@ -447,6 +474,7 @@
         :instaql-query/stale? false}])
     [{:instaql-query/session-id session-id
       :instaql-query/query instaql-query
+      :instaql-query/forms-hash (forms-hash instaql-query)
       :instaql-query/stale? false
       :instaql-query/version 1
       :instaql-query/return-type return-type
@@ -457,7 +485,13 @@
         conn       (app-conn store app-id)
         tx         [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type inference?]]
         report     (transact! "store/bump-instaql-version!" conn tx)]
-    (:instaql-query/version (d/entity (:db-after report) lookup-ref))))
+    (d/entity (:db-after report) lookup-ref)))
+
+(defn set-instaql-topic! [store app-id instaql-query-eid topic]
+  (let [conn (app-conn store app-id)]
+    (transact! "store/set-instaql-topic!"
+               conn
+               [[:db/add instaql-query-eid :instaql-query/topic topic]])))
 
 ;; ----
 ;; remove instaql queries
@@ -473,21 +507,10 @@
      [[:db/retractEntity query-eid]])
     []))
 
-;; TODO: We could do this in the background by listening to transactions
-;;       and noticing whenever we remove a reference to a datalog entry
-(defn- clean-stale-datalog-tx-data
-  "Should be used in a db.fn/call. Returns transactions.
-   Retracts datalog queries that are no longer referenced in any subscriptions."
-  [db]
-  (for [datom (d/datoms db :aevt :datalog-query/app-id)
-        :when (nil? (d/datoms db :avet :subscription/datalog-query (:e datom)))]
-    [:db/retractEntity (:e datom)]))
-
 (defn remove-query! [store app-id sess-id q]
   (transact! "store/remove-query!"
              (app-conn store app-id)
-             [[:db.fn/call remove-subscriptions-tx-data sess-id q]
-              [:db.fn/call clean-stale-datalog-tx-data]]))
+             [[:db.fn/call remove-subscriptions-tx-data sess-id q]]))
 
 ;; --------------
 ;; adding queries
@@ -519,7 +542,6 @@
         report          (transact! "store/add-instaql-query!"
                                    conn
                                    [[:db.fn/call clean-stale-subscriptions-tx-data lookup-ref v]
-                                    [:db.fn/call clean-stale-datalog-tx-data]
                                     [:db.fn/call set-instaql-query-result-tx-data lookup-ref result-hash]])
         hash-before     (:instaql-query/hash (d/entity (:db-before report) lookup-ref))
         hash-after      (:instaql-query/hash (d/entity (:db-after report) lookup-ref))
@@ -559,8 +581,7 @@
     (transact! "store/remove-session-data!"
                (app-conn store app-id)
                [[:db.fn/call remove-session-queries-tx-data sess-id]
-                [:db.fn/call remove-session-subscriptions-tx-data sess-id]
-                [:db.fn/call clean-stale-datalog-tx-data]]))
+                [:db.fn/call remove-session-subscriptions-tx-data sess-id]]))
   (let [sessions-conn (:sessions store)]
     (transact! "store/remove-session!"
                sessions-conn
@@ -582,7 +603,7 @@
   "Should be used in a db.fn/call. Returns transactions.
    Updates or creates the datalog query with data needed to manage the cache."
   [db app-id query watcher-id]
-  (if-let [existing (d/entity db [:datalog-query/app-id+query [app-id query]])]
+  (when-let [existing (d/entity db [:datalog-query/app-id+query [app-id query]])]
     (let [watchers (:datalog-query/watchers existing)
           id (:db/id existing)]
       (if (or (not watchers)
@@ -598,13 +619,7 @@
          [:db/add id :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)]
          [:db/add id :datalog-query/child-vfutures (ua/new-child-vfutures)]]
 
-        []))
-    [{:datalog-query/app-id app-id
-      :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)
-      :datalog-query/child-vfutures (ua/new-child-vfutures)
-      :datalog-query/query query
-      :datalog-query/watchers (atom {:canceled? false
-                                     :watchers #{watcher-id}})}]))
+        []))))
 
 (defn swap-datalog-cache!
   "Adds a query to the datalog cache.
@@ -627,56 +642,59 @@
                                         swap-datalog-cache-tx-data
                                         app-id
                                         datalog-query
-                                        watcher-id]])
+                                        watcher-id]])]
+    (if-let [query-ent (d/entity db-after lookup-ref)]
+      (let [query-id (:db/id query-ent)
 
-        query-ent (d/entity db-after lookup-ref)
+            stmt-tracker (:datalog-query/stmt-tracker query-ent)
 
-        query-id (:db/id query-ent)
+            child-vfutures (:datalog-query/child-vfutures query-ent)
 
-        stmt-tracker (:datalog-query/stmt-tracker query-ent)
+            cache (conn->datalog-query-cache conn)
 
-        child-vfutures (:datalog-query/child-vfutures query-ent)
+            ^CompletableFuture existing-result
+            (when-let [res (cache/get-if-present-async cache query-id)]
+              (if (.isCompletedExceptionally res)
+                ;; caffeine invalidates errors, but sometimes it takes a bit
+                (cache/invalidate-async cache query-id)
+                res))
 
-        cache (conn->datalog-query-cache conn)
+            ^CompletableFuture result
+            (or existing-result
+                ;; bindings to let us cancel in-progress queries
+                ;; once all listeners drop off
+                (binding [ua/*child-vfutures* child-vfutures
+                          sql/*in-progress-stmts* stmt-tracker]
+                  (cache/get-async cache
+                                   query-id
+                                   (fn [_]
+                                     (datalog-query-fn ctx datalog-query)))))]
 
-        ^CompletableFuture existing-result
-        (when-let [res (cache/get-if-present-async cache query-id)]
-          (if (.isCompletedExceptionally res)
-            ;; caffeine invalidates errors, but sometimes it takes a bit
-            (cache/invalidate-async cache query-id)
-            res))
+        (tracer/add-data! {:attributes {:cache-hit (not (nil? existing-result))
+                                        :realized (and (not (nil? existing-result))
+                                                       (.isDone existing-result))}})
 
-        ^CompletableFuture result
-        (or existing-result
-            ;; bindings to let us cancel in-progress queries
-            ;; once all listeners drop off
-            (binding [ua/*child-vfutures* child-vfutures
-                      sql/*in-progress-stmts* stmt-tracker]
-              (cache/get-async cache
-                               query-id
-                               (fn [_]
-                                 (datalog-query-fn ctx datalog-query)))))]
-
-    (tracer/add-data! {:attributes {:cache-hit (not (nil? existing-result))
-                                    :realized (and (not (nil? existing-result))
-                                                   (.isDone existing-result))}})
-
-    (try
-      (deref result)
-      (catch Throwable t
-        (when (and (not (.isDone result))
-                   (or (instance? InterruptedException t)
-                       (instance? CancellationException t))
-                   (:canceled? (swap! (:datalog-query/watchers query-ent)
-                                      (fn [watchers]
-                                        (let [watchers' (update watchers :watchers disj watcher-id)]
-                                          (if (empty? (:watchers watchers'))
-                                            (assoc watchers' :canceled? true)
-                                            watchers'))))))
-          (cancel-in-progress-datalog-query cache query-ent))
-        (throw t))
-      (finally
-        (swap! (:datalog-query/watchers query-ent) update :watchers disj watcher-id)))))
+        (try
+          (deref result)
+          (catch Throwable t
+            (when (and (not (.isDone result))
+                       (or (instance? InterruptedException t)
+                           (instance? CancellationException t))
+                       (:canceled? (swap! (:datalog-query/watchers query-ent)
+                                          (fn [watchers]
+                                            (let [watchers' (update watchers :watchers disj watcher-id)]
+                                              (if (empty? (:watchers watchers'))
+                                                (assoc watchers' :canceled? true)
+                                                watchers'))))))
+              (cancel-in-progress-datalog-query cache query-ent))
+            (throw t))
+          (finally
+            (swap! (:datalog-query/watchers query-ent) update :watchers disj watcher-id))))
+      ;; There was no query in the store, it was likely removed by the session leaving.
+      ;; We're going to run it just in case
+      ;; TODO: Throw an exception here once we confirm that it's not running in prod
+      (tracer/with-span! {:name "orphaned-datalog-query"}
+        (datalog-query-fn ctx datalog-query)))))
 
 ;; --------------
 ;; datalog loader
@@ -695,7 +713,6 @@
                        [[:db.fn/call upsert-datalog-loader-tx-data sess-id make-loader-fn]])]
         (:session/datalog-loader (d/entity db-after [:session/id sess-id]))))))
 
-
 ;; -------------
 ;; subscriptions
 
@@ -706,22 +723,22 @@
                conn
                [[:db.fn/call
                  (fn [db]
-                   (let [lookup-ref             [:datalog-query/app-id+query [app-id datalog-query]]
+                   (let [lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
                          existing-datalog-query (d/entity db lookup-ref)
-                         datalog-query-eid      (or (:db/id existing-datalog-query) -1)]
+                         datalog-query-eid (or (:db/id existing-datalog-query) -1)]
                      (concat
                       (if existing-datalog-query
                         (when-not (:datalog-query/topics existing-datalog-query)
-                          [{:db/id                datalog-query-eid
+                          [{:db/id datalog-query-eid
                             :datalog-query/topics coarse-topics}])
-                        [{:db/id                datalog-query-eid
+                        [{:db/id datalog-query-eid
                           :datalog-query/app-id app-id
                           :datalog-query/query  datalog-query
                           :datalog-query/topics coarse-topics}])
                       (when-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
-                        [{:subscription/app-id        app-id
-                          :subscription/session-id    session-id
-                          :subscription/v             v
+                        [{:subscription/app-id app-id
+                          :subscription/session-id session-id
+                          :subscription/v v
                           :subscription/instaql-query query-eid
                           :subscription/datalog-query datalog-query-eid}]))))]])))
 
@@ -731,19 +748,15 @@
                                     {:keys [topics] :as _result}]
 
   (let [{:keys [app-id]} ctx
-        conn       (app-conn store app-id)
+        conn (app-conn store app-id)
         lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]]
     (transact!
      "store/record-datalog-query-finish!"
      conn
      [[:db.fn/call
        (fn [db]
-         (if-some [existing (d/entity db lookup-ref)]
-           [[:db/add (:db/id existing) :datalog-query/topics topics]]
-           [{:datalog-query/app-id app-id
-             :datalog-query/query datalog-query
-             :datalog-query/topics topics}]))]])))
-
+         (when-some [existing (d/entity db lookup-ref)]
+           [[:db/add (:db/id existing) :datalog-query/topics topics]]))]])))
 
 ;; ------------
 ;; invalidation
@@ -801,7 +814,7 @@
                        0))))
 
 (defn make-like-match? [case-insensitive? text pattern]
-  (let [regex-pattern (like-pattern case-insensitive? pattern )]
+  (let [regex-pattern (like-pattern case-insensitive? pattern)]
     (re-matches regex-pattern text)))
 
 (def like-match?
@@ -960,6 +973,146 @@
     (for [e datalog-query-eids]
       [:db.fn/retractEntity e]))))
 
+;; ----------
+;; Topic Trie
+
+(def empty-topic-trie
+  {:children {}
+   :wildcard nil
+   :topics ()})
+
+(def ^:private topic-trie-order
+  "Topic structure: [idx e a v]
+
+  Our traversal order: idx -> a -> e -> v.
+
+  Reasoning: most selective parts first."
+  [0 2 1 3])
+
+(defn- topic->ordered-parts [topic]
+  (map #(nth topic %) topic-trie-order))
+
+(defn- topic-part->trie-keys [part]
+  (if-not (set? part)
+    [:wildcard]
+    part))
+
+(defn- insert-topic-into-trie [trie topic]
+  (letfn [(step [node [part & rest-parts]]
+            (let [ks (topic-part->trie-keys part)]
+              (reduce
+               (fn [n k]
+                 (let [child-path (if (= k :wildcard)
+                                    [:wildcard]
+                                    [:children k])
+                       child (get-in n child-path empty-topic-trie)
+                       child' (if (seq rest-parts)
+                                (step child rest-parts)
+                                (update child :topics conj topic))]
+                   (assoc-in n child-path child')))
+               node
+               ks)))]
+    (step trie (topic->ordered-parts topic))))
+
+(defn- topics->topic-trie [topics]
+  (reduce insert-topic-into-trie empty-topic-trie topics))
+
+(defn- topic-trie-next-nodes [node part]
+  (let [{:keys [children wildcard]} (or node {})
+        children (or children {})
+        base (cond-> [] wildcard (conj wildcard))]
+    (if-not (set? part)
+      (into base (vals children))
+      (if (< (count children) (count part))
+        (into base (keep (fn [[k v]] (when (contains? part k) v)) children))
+        (into base (keep children part))))))
+
+(defn- topic-trie-match? [trie topic]
+  (letfn [(step [node [part & rest-parts]]
+            (let [candidates (topic-trie-next-nodes node part)]
+              (if (empty? rest-parts)
+                (ucoll/seek
+                 (fn [child]
+                   (ucoll/seek
+                    (fn [iv-topic] (match-topic? iv-topic topic))
+                    (:topics child)))
+                 candidates)
+                (ucoll/seek #(step % rest-parts) candidates))))]
+    (step trie (topic->ordered-parts topic))))
+
+(defn matching-topic-intersection-trie? [iv-topic-trie dq-topics]
+  (ucoll/seek
+   (fn [dq-topic]
+     (topic-trie-match? iv-topic-trie dq-topic))
+   dq-topics))
+
+(defn- get-datalog-queries-for-topics-v3 [db app-id iv-topics]
+  (let [iv-topic-trie (topics->topic-trie iv-topics)]
+    (vec (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
+               :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
+               :when dq-topics
+               :when (matching-topic-intersection-trie? iv-topic-trie dq-topics)]
+           (:e datom)))))
+
+;; ----------
+;; Topic Index based on attribute values
+
+(defn- topics->topic-index
+  "Given a list of topics, returns an index for attribute values
+  i.e:
+  [#{:ea} _ {uid1} _]
+  [#{:ea} _ _ v1]
+
+  Would produce the index:
+
+  {uid1 #{[#{:ea} _ {uid1} _]}
+
+   :catchall #{[#{:ea} _ _ v1]}
+
+   :all #{[#{:ea} _ {uid1} _]
+          [#{:ea} _ _ v1]}}
+
+  This helps us quickly prune topics when trying to do a match."
+  [topics]
+  (reduce
+   (fn [acc [_idx _e a :as topic]]
+     (let [acc (update acc :all conj topic)]
+       (if-not (set? a)
+         (update acc :catchall conj topic)
+         (reduce
+          (fn [acc' a-val]
+            (update acc' a-val (fnil conj ()) topic))
+          acc
+          a))))
+   {:catchall ()
+    :all ()}
+   topics))
+
+(defn- topic-index-candidates
+  [iv-topic-index [_idx _e a :as _topic]]
+  (if-not (set? a)
+    (get iv-topic-index :all ())
+    (concat (get iv-topic-index :catchall ())
+            (mapcat iv-topic-index a))))
+
+(defn matching-topic-intersection-indexed? [iv-topic-a-index dq-topics]
+  (ucoll/seek
+   (fn [dq-topic]
+     (let [iv-candidates (topic-index-candidates iv-topic-a-index dq-topic)]
+       (ucoll/seek
+        (fn [iv-topic]
+          (match-topic? iv-topic dq-topic))
+        iv-candidates)))
+   dq-topics))
+
+(defn- get-datalog-queries-for-topics-v2 [db app-id iv-topics]
+  (let [iv-topic-index (topics->topic-index iv-topics)]
+    (vec (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
+               :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
+               :when dq-topics
+               :when (matching-topic-intersection-indexed? iv-topic-index dq-topics)]
+           (:e datom)))))
+
 (defn- get-datalog-queries-for-topics [db app-id iv-topics]
   (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
         :let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
@@ -977,13 +1130,135 @@
           :when (and sent-tx-id topics (matching-topic-intersection? iv-topics topics))]
       ent)))
 
+(defn hard-coded-should-remove-query? [app-id db iv-topics eid]
+  (when-let [q (some->> (d/datoms db :avet :subscription/datalog-query eid)
+                        first
+                        :e
+                        (d/entity db)
+                        :subscription/instaql-query)]
+    (when (= (:instaql-query/forms-hash q)
+             889158316)
+      (let [wid (some-> q
+                        :instaql-query/query
+                        :edenItem
+                        :$
+                        :where
+                        :workspaceId)
+            deleted-nil? (some-> q
+                                 :instaql-query/query
+                                 :edenItem
+                                 :$
+                                 :where
+                                 :deleted
+                                 :$isNull)
+            type (some-> q
+                         :instaql-query/query
+                         :edenItem
+                         :$
+                         :where
+                         :type)]
+        (when (and wid deleted-nil? type)
+          (let [attrs (attr-model/get-by-app-id app-id)
+                waid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "workspaceId"] attrs))
+                deleted-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "deleted"] attrs))
+                type-aid (:id (attr-model/seek-by-fwd-ident-name ["edenItem" "type"] attrs))
+                creates (reduce (fn [acc [_idx e a v]]
+                                  (let [e (first e)
+                                        a (first a)]
+                                    (if (or (= a waid)
+                                            (= a deleted-aid)
+                                            (= a type-aid))
+                                      (if (not= 1 (count v))
+                                        ;; We got an update, so we'll just bail out
+                                        (reduced nil)
+                                        (assoc-in acc [e a] (first v)))
+                                      acc)))
+                                {}
+                                iv-topics)]
+            (when creates
+              (not (some (fn [[_e ent]]
+                           (and (= (get ent waid) wid)
+                                (= deleted-nil? (nil? (get ent deleted-aid)))
+                                (= (get ent type-aid) type)))
+                         creates)))))))))
+
+(defn instaql-query-ent-for-datalog-query-eid [db eid]
+  (->> (d/find-datom db :avet :subscription/datalog-query eid)
+       :e
+       (d/entity db)
+       :subscription/instaql-query))
+
+(defn instaql-topic-matching-item [{:keys [program]} entities]
+  (reduce-kv
+   (fn [_ etype by-eid]
+     (reduce-kv
+      (fn [_ _eid attrs]
+        (let [item {:etype etype
+                    :attrs attrs}]
+          (if (program item)
+            (reduced item)
+            nil)))
+      nil
+      by-eid))
+   nil
+   entities))
+
+(defn instaql-topic-should-remove-query? [app-id db wal-record eid]
+  (try
+    (when (or (seq (:messages wal-record))
+              (seq (:wal-logs wal-record)))
+      (when-let [iql-topic (-> (instaql-query-ent-for-datalog-query-eid db eid)
+                               :instaql-query/topic)]
+        (let [entities-after (topics/extract-entities-after wal-record)]
+          (and (not (instaql-topic-matching-item iql-topic entities-after))
+               (let [entities-before (topics/extract-entities-before (attr-model/get-by-app-id app-id)
+                                                                     entities-after
+                                                                     wal-record)]
+                 (not (instaql-topic-matching-item iql-topic entities-before)))))))
+    (catch Throwable t
+      (tracer/record-exception-span! t {:name "instaql-topic-should-remove-query?-error"}))))
+
+(defn filter-queries [app-id db iv-topics wal-record query-ids]
+  (if-not (flags/toggled? :filter-query)
+    query-ids
+    (let [iql-topic-remove
+          (remove (fn [eid]
+                    (instaql-topic-should-remove-query? app-id db wal-record eid))
+                  query-ids)
+          hardcoded-remove
+          (remove (fn [eid]
+                    (hard-coded-should-remove-query? app-id db iv-topics eid))
+                  iql-topic-remove)]
+      (tracer/record-info! {:name "store/filter-queries-summary"
+                            :attributes {:app-id app-id
+                                         :wal-log-enabled (flags/enable-wal-entity-log? app-id)
+                                         :iv-topics-count (count iv-topics)
+                                         :initial-count (count query-ids)
+                                         :iq-topic-removed (- (count query-ids) (count iql-topic-remove))
+                                         :hardcode-removed (- (count iql-topic-remove) (count hardcoded-remove))}})
+      hardcoded-remove)))
+
 (defn mark-stale-topics!
   "Given topics, invalidates all relevant datalog qs and associated instaql queries.
 
   Returns affected session-ids"
-  [store app-id tx-id topics]
-  (let [conn               (app-conn store app-id)
-        datalog-query-eids (get-datalog-queries-for-topics @conn app-id topics)
+  [store app-id tx-id topics wal-record]
+  (let [conn (app-conn store app-id)
+        db @conn
+        datalog-query-eids
+        (vec (filter-queries app-id
+                             db
+                             topics
+                             wal-record
+                             (cond
+                               (flags/use-get-datalog-queries-for-topics-v3?)
+                               (get-datalog-queries-for-topics-v3 db app-id topics)
+
+                               (flags/use-get-datalog-queries-for-topics-v2?)
+                               (get-datalog-queries-for-topics-v2 db app-id topics)
+
+                               :else
+                               (vec (get-datalog-queries-for-topics db app-id topics)))))
 
         report
         (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)
@@ -996,7 +1271,6 @@
                          (:db-before report)
                          datalog-query-eids)]
     session-ids))
-
 
 ;; ----------
 ;; sync table
@@ -1104,7 +1378,8 @@
 ;; Websocket Helpers
 
 (defn send-event! [store app-id sess-id event]
-  (let [socket (:session/socket (session store sess-id))]
+  (let [socket (:session/socket (session store sess-id))
+        event (assoc event :trace-id (tracer/current-trace-id))]
     (when-not socket
       (ex/throw-socket-missing! sess-id))
     (when-let [sse-conn (:sse-conn socket)]
@@ -1224,7 +1499,7 @@
 
       (println "mark-stale")
       (time
-       (mark-stale-topics! test-store app-id 1 dummy-coarse-topics))
+       (mark-stale-topics! test-store app-id 1 dummy-coarse-topics {}))
 
       (println "get-stale")
       (time

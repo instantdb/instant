@@ -1,5 +1,5 @@
 // 1. patternMatch
-import { getTriples } from './store.js';
+import { getTriples } from './store.ts';
 
 function isVariable(x) {
   return typeof x === 'string' && x.startsWith('?');

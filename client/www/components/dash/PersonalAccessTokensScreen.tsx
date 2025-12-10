@@ -248,7 +248,7 @@ export default function PersonalAccessTokensTab({
         />
       ) : null}
       <div className="flex flex-row items-center justify-between">
-        <div className="pb-4 pt-1">
+        <div className="pt-1 pb-4">
           <div className="prose dark:text-neutral-300">
             <SectionHeading className="font-bold">
               Personal Access Tokens <sup className="text-sm">[BETA]</sup>
@@ -296,7 +296,7 @@ export default function PersonalAccessTokensTab({
                 </div>
                 <div className="flex flex-col gap-1">
                   <input
-                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
+                    className="flex w-full flex-1 rounded-xs border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
                     placeholder="My default token"
                     value={newPersonalAccessTokenName ?? ''}
                     onChange={(e) =>
@@ -353,21 +353,21 @@ export const TokensTable = ({
         <tr>
           <th
             className={cn(
-              'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+              'z-10 cursor-pointer px-4 py-1 whitespace-nowrap select-none',
             )}
           >
             Name
           </th>
           <th
             className={cn(
-              'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+              'z-10 cursor-pointer px-4 py-1 whitespace-nowrap select-none',
             )}
           >
             Created
           </th>
           <th
             className={cn(
-              'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+              'z-10 cursor-pointer px-4 py-1 whitespace-nowrap select-none',
             )}
           ></th>
         </tr>
@@ -378,8 +378,8 @@ export const TokensTable = ({
             key={id}
             className="group border-b bg-white dark:border-b-neutral-700 dark:bg-neutral-800"
           >
-            <td className="whitespace-nowrap px-4 py-1">{name}</td>
-            <td className="whitespace-nowrap px-4 py-1">
+            <td className="px-4 py-1 whitespace-nowrap">{name}</td>
+            <td className="px-4 py-1 whitespace-nowrap">
               {format(new Date(created_at), 'MMM dd, h:mma')}
             </td>
             <td className="px-4 py-1" style={{}}>

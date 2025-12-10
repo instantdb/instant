@@ -245,7 +245,16 @@
                          :transactions
                          :rules
                          :apps
-                         :instant_users])
+                         :instant_users
+                         :wal_logs
+                         :wal_logs_0
+                         :wal_logs_1
+                         :wal_logs_2
+                         :wal_logs_3
+                         :wal_logs_4
+                         :wal_logs_5
+                         :wal_logs_6
+                         :wal_logs_7])
 
 (defn- create-replication-stream
   "Given a PGConnection (with replication settings), a slot,
@@ -315,7 +324,10 @@
 
 (def produce-start-state {:next-action :begin
                           :records []
+                          :messages []
                           :tx-bytes 0})
+
+(def watched-message-prefixes #{"update_ents" "delete_ents"})
 
 (defn- produce
   "Repeatedly read from the stream and >!! records to the `to` channel.
@@ -357,7 +369,11 @@
 
                                    (:update :delete) (assoc state :next-action :close-ignore)
 
-                                   (:truncate :message) state
+                                   :message (if (contains? watched-message-prefixes (:prefix record))
+                                              (update state :messages conj record)
+                                              state)
+
+                                   :truncate state
 
                                    :close (assoc state :next-action :advance)
 
@@ -375,8 +391,12 @@
                              :close (case (:action record)
                                       (:insert :update :delete) (update state :records conj record)
 
-                                      ;; Don't handle truncate or message
-                                      (:truncate :message) state
+                                      :message (if (contains? watched-message-prefixes (:prefix record))
+                                                 (update state :messages conj record)
+                                                 state)
+
+                                      ;; Don't handle truncate
+                                      :truncate state
 
                                       :close (assoc state :next-action :deliver)
 
@@ -413,6 +433,7 @@
                        (recur (.read stream) produce-start-state)))
           :deliver (let [last-receive-lsn ^LogSequenceNumber (.getLastReceiveLSN stream)
                          msg {:changes (:records state)
+                              :messages (:messages state)
                               :nextlsn (LogSequenceNumber/valueOf ^String (:nextlsn record))
                               :lsn (LogSequenceNumber/valueOf ^String (:lsn record))
                               :tx-bytes (:tx-bytes state)}

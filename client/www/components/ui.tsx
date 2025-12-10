@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/select';
+import { rosePineDawnTheme } from '@/lib/rosePineDawnTheme';
 
 import {
   MouseEventHandler,
@@ -114,7 +115,7 @@ export function ToggleCollection({
             {...a.link}
             rel="noopener noreferer"
             className={cn(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400 dark:bg-neutral-800/40 dark:hover:bg-neutral-700/80',
+              'block cursor-pointer truncate rounded bg-none px-3 py-1 text-left whitespace-nowrap hover:bg-gray-100 disabled:text-gray-400 dark:bg-neutral-800/40 dark:hover:bg-neutral-700/80',
               {
                 'bg-gray-200 dark:bg-neutral-600/50': selectedId === a.id,
               },
@@ -131,7 +132,7 @@ export function ToggleCollection({
               onChange(a);
             }}
             className={cn(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-700/80',
+              'block cursor-pointer truncate rounded bg-none px-3 py-1 text-left whitespace-nowrap hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-700/80',
               {
                 'bg-gray-200 dark:bg-neutral-600/50': selectedId === a.id,
               },
@@ -470,7 +471,7 @@ export function NavTabBar({
             {...t.link}
             rel="noopener noreferer"
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap rounded bg-none p-2 py-0.5 disabled:text-gray-400',
+              'flex cursor-pointer rounded bg-none p-2 py-0.5 whitespace-nowrap disabled:text-gray-400',
               {
                 'bg-gray-200': selectedId === t.id && !disabled,
               },
@@ -484,9 +485,9 @@ export function NavTabBar({
             disabled={disabled}
             onClick={() => onSelect(t)}
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap rounded bg-none decoration-gray-400 transition-colors hover:underline disabled:text-gray-400',
+              'flex cursor-pointer rounded bg-none whitespace-nowrap decoration-gray-400 transition-colors hover:underline disabled:text-gray-400',
               {
-                'underline !decoration-[#606AF4] decoration-2':
+                'underline decoration-[#606AF4]! decoration-2':
                   selectedId === t.id && !disabled,
               },
             )}
@@ -526,7 +527,7 @@ export function TabBar({
             {...t.link}
             rel=""
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap rounded bg-none px-4 py-0.5 hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-600',
+              'flex cursor-pointer rounded bg-none px-4 py-0.5 whitespace-nowrap hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-600',
               {
                 'bg-gray-200 dark:bg-neutral-700':
                   selectedId === t.id && !disabled,
@@ -541,7 +542,7 @@ export function TabBar({
             disabled={disabled}
             onClick={() => onSelect(t)}
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap rounded bg-none px-4 py-0.5 hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-600',
+              'flex cursor-pointer rounded bg-none px-4 py-0.5 whitespace-nowrap hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-600',
               {
                 'bg-gray-200 dark:bg-neutral-700':
                   selectedId === t.id && !disabled,
@@ -762,7 +763,7 @@ export function Dialog({
         >
           {!hideCloseButton && (
             <XMarkIcon
-              className="absolute right-3 top-[18px] h-4 w-4 cursor-pointer"
+              className="absolute top-[18px] right-3 h-4 w-4 cursor-pointer"
               onClick={onClose}
             />
           )}
@@ -927,9 +928,9 @@ export function SmallCopyable({
       <Tooltip open={tooltipOpen}>
         <TooltipTrigger asChild>
           <pre
-            className={clsx('flex-1 cursor-pointer select-text px-2 py-1.5', {
+            className={clsx('flex-1 cursor-pointer px-2 py-1.5 select-text', {
               truncate: !multiline,
-              'whitespace-pre-wrap break-all': multiline,
+              'break-all whitespace-pre-wrap': multiline,
             })}
             title={hideValue || hidden ? 'Copy to clipboard' : value}
             onClick={(e) => {
@@ -977,6 +978,7 @@ export function Copyable({
   hideValue,
   onChangeHideValue,
   multiline,
+  onCopy,
 }: {
   value: string;
   label?: string;
@@ -985,6 +987,7 @@ export function Copyable({
   hideValue?: boolean;
   onChangeHideValue?: () => void;
   multiline?: boolean;
+  onCopy?: () => void;
 }) {
   const [hidden, setHidden] = useState(defaultHidden);
   const [tooltipOpen, setTooltipOpen] = useState(false);
@@ -1016,9 +1019,9 @@ export function Copyable({
       <Tooltip open={tooltipOpen}>
         <TooltipTrigger asChild>
           <pre
-            className={clsx('flex-1 cursor-pointer select-text px-2 py-1.5', {
+            className={clsx('flex-1 cursor-pointer px-2 py-1.5 select-text', {
               truncate: !multiline,
-              'whitespace-pre-wrap break-all': multiline,
+              'break-all whitespace-pre-wrap': multiline,
             })}
             title={hideValue || hidden ? 'Copy to clipboard' : value}
             onClick={(e) => {
@@ -1028,6 +1031,7 @@ export function Copyable({
                 window.navigator.clipboard.writeText(value);
                 setTooltipOpen(true);
                 setTimeout(() => setTooltipOpen(false), 1000);
+                onCopy?.();
               }
             }}
           >
@@ -1041,7 +1045,7 @@ export function Copyable({
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600',
+              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -1059,9 +1063,10 @@ export function Copyable({
               setTimeout(() => {
                 setCopyLabel('Copy');
               }, 2500);
+              onCopy?.();
             }}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600',
+              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -1188,7 +1193,7 @@ export function JSONEditor(props: {
           Save
         </Button>
       </div>
-      <div className="min-h-0 flex-grow">
+      <div className="min-h-0 grow">
         <CodeEditor
           language="json"
           value={props.value}
@@ -1262,7 +1267,7 @@ export function Fence({
               },
               styles: [],
             }
-          : undefined
+          : rosePineDawnTheme
       }
     >
       {({ className, style, tokens, getTokenProps }) => (
@@ -1275,7 +1280,7 @@ export function Fence({
           }}
         >
           {copyable ? (
-            <div className="absolute right-0 top-0 flex items-center px-2">
+            <div className="absolute top-0 right-0 flex items-center px-2">
               <button
                 onClick={(e) => {
                   copy(code);
@@ -1286,7 +1291,7 @@ export function Fence({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 text-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-neutral-800 dark:ring-neutral-700"
+                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 text-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-800 dark:ring-neutral-700"
               >
                 <ClipboardDocumentIcon
                   className="-ml-0.5 h-4 w-4"
@@ -1469,7 +1474,7 @@ function TooltipContent({
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          'text-primary-foreground origin-(--radix-tooltip-content-transform-origin) text-balance z-50 w-fit border border-gray-100 bg-white px-3 py-1.5 text-xs animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700',
+          'text-primary-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) border border-gray-100 bg-white px-3 py-1.5 text-xs text-balance dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700',
           className,
         )}
         {...props}
@@ -1504,7 +1509,7 @@ function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          'z-50 min-w-[12rem] overflow-visible rounded-md border border-neutral-200 bg-white p-1 text-neutral-950 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-50',
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-48 overflow-visible rounded-md border border-neutral-200 bg-white p-1 text-neutral-950 shadow-lg dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-50',
           className,
         )}
         {...props}
@@ -1520,7 +1525,7 @@ function DropdownMenuItem({
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
-        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-neutral-100 focus:text-neutral-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:focus:bg-neutral-700 dark:focus:text-neutral-50',
+        'relative flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none focus:bg-neutral-100 focus:text-neutral-900 data-disabled:pointer-events-none data-disabled:opacity-50 dark:focus:bg-neutral-700 dark:focus:text-neutral-50',
         className,
       )}
       {...props}

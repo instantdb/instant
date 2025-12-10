@@ -31,7 +31,7 @@ const UserSettingsPage: NextPageWithLayout = () => {
   return (
     <>
       <BackToAppsButton />
-      <div className="mx-auto w-full px-8 pt-8 dark:text-white md:max-w-4xl">
+      <div className="mx-auto w-full px-8 pt-8 md:max-w-4xl dark:text-white">
         <div className="flex items-center justify-between">
           <div className="flex flex-col items-baseline pb-4 md:flex-row md:gap-4">
             <div className="text-lg font-semibold">User Settings</div>

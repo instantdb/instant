@@ -4,6 +4,7 @@
    [datascript.core :as ds]
    [instant.config :as config]
    [instant.db.pg-introspect :as pg-introspect]
+   [instant.flags :as flags]
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
@@ -17,7 +18,7 @@
    (java.sql Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (java.util Map)
+   (java.util Map Queue)
    (java.util.concurrent ConcurrentHashMap)
    (org.postgresql.replication LogSequenceNumber)))
 
@@ -31,7 +32,7 @@
   ;; process-id used for tests
   [_process-id store {:keys [app-id tx-id] :as wal-record}]
   (let [topics      (topics/topics-for-changes wal-record)
-        session-ids (rs/mark-stale-topics! store app-id tx-id topics)
+        session-ids (rs/mark-stale-topics! store app-id tx-id topics wal-record)
         sockets     (keep #(:session/socket (rs/session store %)) session-ids)
         sync-subs (rs/get-stale-sync-subs store app-id topics)]
     {:sockets sockets
@@ -42,7 +43,7 @@
   sockets to be refreshed."
   [table-info app-id store {:keys [tx-id] :as record}]
   (let [topics      (topics/topics-for-byop-changes table-info record)
-        session-ids (rs/mark-stale-topics! store app-id tx-id topics)
+        session-ids (rs/mark-stale-topics! store app-id tx-id topics record)
         sockets     (keep #(:session/socket (rs/session store %)) session-ids)]
     sockets))
 
@@ -74,10 +75,11 @@
   (when-let [^String created-at (topics/get-column columns "created_at")]
     (.toInstant (Timestamp/valueOf created-at))))
 
-(defn transform-wal-record [{:keys [changes tx-bytes] :as _record}]
+(defn transform-wal-record [{:keys [changes messages tx-bytes] :as _record}]
   ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
   ;;      or else we will never be notified about it.
-  (let [{:strs [idents triples attrs transactions]}
+  (let [{:strs [idents triples attrs transactions
+                wal_logs wal_logs_0 wal_logs_1 wal_logs_2 wal_logs_3 wal_logs_4 wal_logs_5 wal_logs_6 wal_logs_7]}
         (group-by :table changes)
 
         some-changes (or (seq idents)
@@ -85,6 +87,7 @@
                          (seq attrs))
         transactions-change (first transactions)
         app-id (extract-app-id transactions-change)]
+
 
     (when (and some-changes app-id)
       (let [tx-id (extract-tx-id transactions-change)
@@ -100,7 +103,10 @@
          :app-id app-id
          :tx-created-at tx-created-at
          :tx-id tx-id
-         :tx-bytes tx-bytes}))))
+         :tx-bytes tx-bytes
+         :messages messages
+         :wal-logs (concat wal_logs wal_logs_0 wal_logs_1 wal_logs_2 wal_logs_3
+                           wal_logs_4 wal_logs_5 wal_logs_6 wal_logs_7)}))))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"
@@ -112,7 +118,7 @@
    We combine all of the change lists and advance the tx-id to the
    latest tx-id in the list."
   [r1 r2]
-  (when (< (::grouped-queue/combined r1 1) 100)
+  (when (< (::grouped-queue/combined r1 1) (flags/flag :invalidator-batch-limit 500))
     ;; Complain loudly if we accidently mix wal-records from multiple apps
     (when (not= (:app-id r1) (:app-id r2))
       (throw (ex-info "app-id mismatch in combine-wal-records" {:r1 r1 :r2 r2})))
@@ -124,6 +130,8 @@
         (update :attr-changes   (fnil into []) (:attr-changes r2))
         (update :ident-changes  (fnil into []) (:ident-changes r2))
         (update :triple-changes (fnil into []) (:triple-changes r2))
+        (update :messages       (fnil into []) (:messages r2))
+        (update :wal-logs       (fnil into []) (:wal-logs r2))
         (update :tx-bytes       (fnil + 0) (:tx-bytes r2))
         (assoc :tx-id           (:tx-id r2)))))
 
@@ -195,6 +203,19 @@
           (def -store-value (store-snapshot store app-id))
           (tracer/add-exception! t {:escaping? false}))))))
 
+(defn drop-backpressure? [queue wal-record]
+  (let [app-id (:app-id wal-record)
+        group (get (:groups queue) app-id)
+        head (when group (Queue/.peek group))
+        put-at (some-> head :instant.grouped-queue/put-at)
+        latency (if put-at (- (System/currentTimeMillis) put-at) 0)]
+    (when (and (flags/invalidator-drop-backpressure? app-id)
+               (> latency (flags/invalidator-drop-tx-latency-ms)))
+      (tracer/record-info! {:name "invalidator/drop-backpressure"
+                            :attributes {:app-id app-id
+                                         :latency latency}})
+      true)))
+
 (defn start-worker [process-id store wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start"})
   (let [queue
@@ -211,7 +232,8 @@
     (a/go
       (loop []
         (when-some [wal-record (a/<! wal-chan)]
-          (grouped-queue/put! queue wal-record)
+          (when-not (drop-backpressure? queue wal-record)
+            (grouped-queue/put! queue wal-record))
           (recur)))
       (grouped-queue/stop queue)
       (tracer/record-info! {:name "invalidation-worker/shutdown"}))

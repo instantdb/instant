@@ -14,6 +14,8 @@
   "unpkg": "dist/index.js",
   "scripts": {
     "test": "vitest",
+    "test:types": "tsc -p tsconfig.test.json --noEmit",
+    "test:ci": "pnpm run test:types",
     "build": "rm -rf dist; npm run build:main && npm run build:module",
     "dev:main": "tsc -p tsconfig.json -w --skipLibCheck --preserveWatchOutput | grep -v '^$'",
     "dev:module": "tsc -p tsconfig.module.json -w --skipLibCheck --preserveWatchOutput | grep -v '^$'",
@@ -21,7 +23,7 @@
     "clean": "rm -rf dist",
     "build:main": "tsc -p tsconfig.json",
     "build:module": "tsc -p tsconfig.module.json",
-    "publish-package": "pnpm publish --access public --no-git-checks"
+    "publish-package": "pnpm pack && npm publish *.tgz --access public"
   },
   "devDependencies": {
     "@babel/core": "^7.17.9",

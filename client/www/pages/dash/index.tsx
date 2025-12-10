@@ -25,6 +25,7 @@ import Head from 'next/head';
 import NextLink from 'next/link';
 import { useRouter } from 'next/router';
 import { ReactElement, useContext, useEffect, useRef, useState } from 'react';
+import { usePostHog } from 'posthog-js/react';
 
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
@@ -34,6 +35,7 @@ import { InstantApp, SchemaNamespace } from '@/lib/types';
 import { titleComparator } from '@/lib/app';
 
 import { Explorer } from '@/components/dash/explorer/Explorer';
+import { AppStart } from '@/components/dash/HomeStartGuide';
 import { Perms } from '@/components/dash/Perms';
 import { Schema } from '@/components/dash/Schema';
 
@@ -245,6 +247,7 @@ function Dashboard() {
   const token = useContext(TokenContext);
   const router = useReadyRouter();
   const fetchedDash = useFetchedDash();
+  const posthog = usePostHog();
   const apps = fetchedDash.data.apps;
 
   const appId =
@@ -424,7 +427,10 @@ function Dashboard() {
     };
   }, [app?.id, app?.admin_token]);
 
-  function nav(q: { s: string; app?: string; t?: string }, cb?: () => void) {
+  function nav(
+    q: { s: string; app?: string; t?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) {
     // TODO: update for orgs
     if (q.app)
       setLocallySavedApp({
@@ -432,13 +438,21 @@ function Dashboard() {
         orgId: dashResponse.data.currentWorkspaceId,
       });
 
+    // Track tab navigation only for user-initiated clicks
+    if (q.t && opts?.trackClick) {
+      posthog.capture('dashboard_tab_click', {
+        tab: q.t,
+        app_id: q.app || appId,
+      });
+    }
+
     router
       .push({
         query: q,
       })
       .then(() => {
-        if (cb) {
-          cb();
+        if (opts?.cb) {
+          opts.cb();
         }
       });
   }
@@ -499,7 +513,6 @@ function Dashboard() {
       return {
         id: t.id,
         label: t.title,
-        link: { href: `/dash?s=main&app=${appId}&t=${t.id}` },
         icon: t.icon,
       };
     });
@@ -507,7 +520,7 @@ function Dashboard() {
   return (
     <>
       <div className="bg-gray-50 dark:bg-neutral-800/90">
-        <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 dark:border-b-neutral-700 md:flex-row md:gap-4">
+        <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 md:flex-row md:gap-4 dark:border-b-neutral-700">
           <div className="flex items-center gap-2">
             <h2 className="font-mono font-bold md:text-xl">{app.title}</h2>
             {dashResponse.data.workspace.type === 'org' && (
@@ -534,7 +547,9 @@ function Dashboard() {
           appId={appId}
           tab={tab as MainTabId}
           availableTabs={availableTabs}
-          nav={(params) => nav({ s: 'main', app: appId, ...params })}
+          nav={(params, opts) =>
+            nav({ s: 'main', app: appId, ...params }, opts)
+          }
           screen={screen}
         />
         <>
@@ -549,24 +564,25 @@ function Dashboard() {
                 selectedId={tab}
                 disabled={!Boolean(appId)}
                 onSelect={(t) => {
-                  nav({ s: 'main', app: app.id, t: t.id });
+                  nav(
+                    { s: 'main', app: app.id, t: t.id },
+                    { trackClick: true },
+                  );
                 }}
               />
-              <div className="flex flex-1 flex-col overflow-hidden">
-                <div className="flex flex-1 flex-col overflow-y-scroll">
-                  {connection ? (
-                    <DashboardContent
-                      role={role}
-                      connection={connection}
-                      app={app}
-                      appId={appId}
-                      tab={tab}
-                      nav={nav}
-                      onDeleteApp={onDeleteApp}
-                      workspace={dashResponse.data.workspace}
-                    />
-                  ) : null}
-                </div>
+              <div className="flex flex-1 grow flex-col overflow-y-auto">
+                {connection ? (
+                  <DashboardContent
+                    role={role}
+                    connection={connection}
+                    app={app}
+                    appId={appId}
+                    tab={tab}
+                    nav={nav}
+                    onDeleteApp={onDeleteApp}
+                    workspace={dashResponse.data.workspace}
+                  />
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -679,15 +695,18 @@ export function HomeButton({
   href,
   title,
   children,
+  onClick,
 }: {
   href: string;
   title: string;
   children: React.ReactNode;
+  onClick?: () => void;
 }) {
   return (
     <NextLink
       href={formatRouteParams(href)}
-      className="cursor-pointer justify-start space-y-2 rounded border bg-white p-4 shadow-sm transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
+      className="cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
+      onClick={onClick}
     >
       <div>
         <div className="font-mono font-bold">{title}</div>
@@ -699,7 +718,9 @@ export function HomeButton({
   );
 }
 
-function Home({ appId, token }: { appId: string; token: string }) {
+function Home({ app, token }: { app: InstantApp; token: string }) {
+  const { id: appId } = app;
+  const posthog = usePostHog();
   const { stats, isLoading, error } = useAppConnectionStats(token, appId);
   const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
 
@@ -709,19 +730,39 @@ function Home({ appId, token }: { appId: string; token: string }) {
     : [];
 
   return (
-    <div className="mx-auto max-w-2xl p-4 text-sm md:pt-14 md:text-base">
-      <SectionHeading>Getting Started</SectionHeading>
+    <div className="max-w-2xl p-4 text-sm md:text-base">
+      <div className="pb-10">
+        <AppStart app={app} />
+      </div>
+
+      <SectionHeading>Next Steps</SectionHeading>
       <div className="pt-1">
-        Welcome to Instant! Here are some resources to help you get started.
+        Now that you have your app running, here's some helpful links on what to
+        do next!
       </div>
 
       <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
-        <HomeButton href="/docs" title="Read the Docs">
+        <HomeButton
+          href="/docs"
+          title="Read the Docs"
+          onClick={() =>
+            posthog.capture('getting_started_click', {
+              action: 'read_docs',
+              app_id: appId,
+            })
+          }
+        >
           Jump into our docs to start learning how to use Instant.
         </HomeButton>
         <HomeButton
           href="https://discord.com/invite/VU53p7uQcE"
           title="Join the community"
+          onClick={() =>
+            posthog.capture('getting_started_click', {
+              action: 'join_discord',
+              app_id: appId,
+            })
+          }
         >
           Join our Discord to meet like-minded hackers, and to give us feedback
           too!
@@ -755,7 +796,7 @@ function Home({ appId, token }: { appId: string; token: string }) {
       {/* Connection Count Display */}
       <div className="mt-10">
         <SectionHeading>Your App Statistics</SectionHeading>
-        <div className="mt-4 space-y-2 rounded border bg-white p-4 shadow-sm transition-colors dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="mt-4 space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors dark:border-neutral-700 dark:bg-neutral-800">
           <div className="flex items-center justify-between">
             <div className="mt-1">
               {isLoading ? (
@@ -832,7 +873,10 @@ function DashboardContent({
   appId: string;
   tab: string;
   role: Role;
-  nav: (q: { s: string; app?: string; t?: string }, cb?: () => void) => void;
+  nav: (
+    q: { s: string; app?: string; t?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) => void;
   onDeleteApp: (app: InstantApp) => void;
   workspace: Workspace;
 }) {
@@ -842,7 +886,7 @@ function DashboardContent({
   return (
     <>
       {tab === 'home' ? (
-        <Home appId={appId} token={useContext(TokenContext)!} />
+        <Home app={app} token={useContext(TokenContext)!} />
       ) : tab === 'explorer' ? (
         <ExplorerTab
           appId={appId}
@@ -922,7 +966,10 @@ function AppCombobox({
   tab,
 }: {
   apps: InstantApp[];
-  nav: (p: { s: string; t?: string; app?: string }, cb?: () => void) => void;
+  nav: (
+    p: { s: string; t?: string; app?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) => void;
   appId: string;
   tab: MainTabId;
 }) {
@@ -948,7 +995,10 @@ function AppCombobox({
         setAppQuery('');
         nav(
           { s: 'main', app: app.id, t: tab },
-          () => comboboxInputRef.current && comboboxInputRef.current.blur(),
+          {
+            cb: () =>
+              comboboxInputRef.current && comboboxInputRef.current.blur(),
+          },
         );
       }}
       onClose={() => setAppQuery('')}
@@ -957,9 +1007,9 @@ function AppCombobox({
         <ComboboxInput
           ref={comboboxInputRef}
           className={clsx(
-            'w-full !min-w-0 basis-[35%] truncate rounded-sm border-gray-300 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-700/40 md:w-full md:basis-full',
-            'pl-3 pr-8 text-sm/6',
-            'ring-0 focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
+            'w-full min-w-0! basis-[35%] truncate rounded-xs border-gray-300 py-1 text-sm md:w-full md:basis-full dark:border-neutral-700 dark:bg-neutral-700/40',
+            'pr-8 pl-3 text-sm/6',
+            'ring-0 focus:outline-hidden data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25',
           )}
           displayValue={(app: InstantApp | null) => (app ? app.title : '')}
           onChange={(e) => setAppQuery(e.target.value)}
@@ -975,16 +1025,16 @@ function AppCombobox({
         anchor="bottom"
         transition
         className={clsx(
-          'z-50 border border-gray-300 bg-white shadow-lg empty:invisible dark:divide-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white md:min-w-[var(--input-width)]',
+          'z-50 border border-gray-300 bg-white shadow-lg empty:invisible md:min-w-(--input-width) dark:divide-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white',
           'mx-2 my-1 border [--anchor-gap:var(--spacing-1)]',
-          'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
+          'transition duration-100 ease-in data-leave:data-closed:opacity-0',
         )}
       >
         {sortedApps.map((app) => (
           <ComboboxOption
             key={app.id}
             value={app}
-            className="group cursor-pointer px-3 py-1 data-[focus]:bg-gray-100 dark:data-[focus]:bg-neutral-700/80"
+            className="group cursor-pointer px-3 py-1 data-focus:bg-gray-100 dark:data-focus:bg-neutral-700/80"
           >
             <div className="">{app.title}</div>
           </ComboboxOption>
@@ -1002,7 +1052,10 @@ function Nav({
   availableTabs,
 }: {
   apps?: InstantApp[];
-  nav: (p: { s?: string; t?: string; app?: string }, cb?: () => void) => void;
+  nav: (
+    p: { s?: string; t?: string; app?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) => void;
   appId: string;
   tab: MainTabId | UserSettingsTabId;
   availableTabs: TabItem[];
@@ -1010,7 +1063,7 @@ function Nav({
 }) {
   const showAppNav = apps;
   return (
-    <div className="flex flex-col gap-2 border-b border-gray-300 bg-gray-50 dark:border-neutral-700/80 dark:bg-neutral-800/40 md:w-48 md:gap-0 md:border-b-0 md:border-r">
+    <div className="flex flex-col gap-2 border-b border-gray-300 bg-gray-50 md:w-48 md:gap-0 md:border-r md:border-b-0 dark:border-neutral-700/80 dark:bg-neutral-800/40">
       {showAppNav ? (
         <>
           {createPortal(
@@ -1024,11 +1077,11 @@ function Nav({
           )}
         </>
       ) : null}
-      <div className="hidden h-full flex-row overflow-auto bg-gray-50 dark:bg-neutral-800/40 md:visible md:static md:flex md:flex-col">
+      <div className="hidden h-full flex-row overflow-auto bg-gray-50 md:visible md:static md:flex md:flex-col dark:bg-neutral-800/40">
         <ToggleCollection
           className="gap-0 text-sm"
           buttonClassName="rounded-none py-2"
-          onChange={(t) => nav({ t: t.id })}
+          onChange={(t) => nav({ t: t.id }, { trackClick: true })}
           selectedId={tab}
           items={availableTabs.map((t) => ({
             ...t,
@@ -1051,7 +1104,7 @@ function Nav({
 export function FullscreenErrorMessage({ message }: { message: string }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-2">
-      <div className="rounded bg-red-100 p-4 text-red-700">{message}</div>
+      <div className="rounded-sm bg-red-100 p-4 text-red-700">{message}</div>
     </div>
   );
 }

@@ -22,6 +22,7 @@ import { jsonFetch } from '@/lib/fetch';
 import { useRouter } from 'next/router';
 import { useFetchedDash } from './MainDashLayout';
 import { useReadyRouter } from '../clientOnlyPage';
+import { usePostHog } from 'posthog-js/react';
 
 type ProfileCreateState = { isLoading: boolean; error?: string };
 type AppError = { body: { message: string } | undefined };
@@ -178,7 +179,7 @@ function ProfileScreen(props: {
           <textarea
             id="build"
             name="build"
-            className="w-full appearance-none rounded border-gray-200 font-normal placeholder-gray-400 outline-none"
+            className="placeholder:gray-400 w-full appearance-none rounded-sm border-gray-200 font-normal outline-hidden dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500"
             placeholder="Social media for books -- like goodreads, but with a better design. Something like zeneca.io but realtime!"
             value={build}
             onChange={(e) => setBuild(e.target.value)}
@@ -192,7 +193,7 @@ function ProfileScreen(props: {
           {isLoading ? '...' : 'Onwards!'}
         </Button>
         {error ? (
-          <div className="mb-4 rounded bg-gray-200 p-2 text-orange-500">
+          <div className="mb-4 rounded-sm bg-gray-200 p-2 text-orange-500">
             {error}
           </div>
         ) : null}
@@ -240,7 +241,7 @@ function CreateFirstAppScreen(props: {
             Let's build!
           </Button>
           {props.error ? (
-            <div className="mb-4 rounded bg-gray-200 p-2 text-orange-500">
+            <div className="mb-4 rounded-sm bg-gray-200 p-2 text-orange-500">
               {props.error}
             </div>
           ) : null}
@@ -288,6 +289,7 @@ export function OnboardingScreen(props: {
 
 export function Onboarding() {
   const token = useContext(TokenContext);
+  const posthog = usePostHog();
   const [dashState, setDashState] = useDash();
   const [appCreateState, setAppCreateState] = useState<AppCreateState>({
     isLoading: false,
@@ -350,6 +352,14 @@ export function Onboarding() {
 
     createApp(token, toCreate).then(
       async () => {
+        posthog.capture('onboarding_complete', {
+          heard_from: dashState.profile?.meta?.heard,
+          build_choice: dashState.profile?.meta?.build,
+        });
+        posthog.capture('app_create', {
+          app_id: toCreate.id,
+          is_first_app: true,
+        });
         await dash.mutate();
         router.replace('/dash');
         console.log('App created successfully');

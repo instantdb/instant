@@ -14,6 +14,7 @@ import remarkMath from 'remark-math';
 import 'katex/dist/katex.min.css';
 
 import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
+import { Lightbox } from '@/components/Lightbox';
 
 import ReactMarkdown, { Components } from 'react-markdown';
 import { Fence } from '@/components/ui';
@@ -48,7 +49,7 @@ const Post = ({ post }: { post: Post }) => {
       <MainNav />
       <div className="mt-6 space-y-4 p-4">
         <div className="mx-auto mb-4 max-w-prose py-4">
-          <h1 className="mb-2 font-mono text-4xl font-bold leading-snug">
+          <h1 className="mb-2 font-mono text-4xl leading-snug font-bold">
             {title}
           </h1>
           <div className="flex text-sm text-gray-500">
@@ -74,10 +75,10 @@ const Post = ({ post }: { post: Post }) => {
         </div>
         {hero && (
           <div className="mx-auto max-w-3xl">
-            <img src={hero} className="w-full rounded" />
+            <img src={hero} className="w-full rounded-sm" />
           </div>
         )}
-        <div className="prose mx-auto prose-headings:font-mono prose-headings:font-bold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-8 prose-h2:mb-2 prose-h2:mt-4 prose-pre:bg-gray-100">
+        <div className="prose prose-headings:font-mono prose-headings:font-bold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-8 prose-h2:mb-2 prose-h2:mt-4 prose-pre:bg-gray-100 mx-auto">
           <ReactMarkdown
             rehypePlugins={[rehypeRaw, rehypeKatex]}
             remarkPlugins={[remarkGfm, remarkMath]}
@@ -91,7 +92,7 @@ const Post = ({ post }: { post: Post }) => {
                 },
 
                 p: ({ children }) => (
-                  <div className="prose mb-[1.25em] mt-[1.25em] text-base leading-[1.75] leading-relaxed">
+                  <div className="prose mt-[1.25em] mb-[1.25em] text-base leading-[1.75] leading-relaxed">
                     {children}
                   </div>
                 ),
@@ -156,6 +157,14 @@ const Post = ({ post }: { post: Post }) => {
                       language={language}
                     ></Fence>
                   );
+                },
+                img(props) {
+                  const { src, alt, ...rest } = props;
+                  if (src?.includes('?lightbox')) {
+                    const cleanSrc = src.replace('?lightbox', '');
+                    return <Lightbox src={cleanSrc} alt={alt} />;
+                  }
+                  return <img src={src} alt={alt} {...rest} />;
                 },
               } as Components
             }

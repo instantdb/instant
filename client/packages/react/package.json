@@ -38,13 +38,15 @@
   },
   "scripts": {
     "test": "vitest",
+    "test:types": "tsc -p tsconfig.test.json --noEmit",
+    "test:ci": "pnpm run test:types",
     "check-exports": "attw --pack .",
     "dev": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
     "clean": "rm -rf dist",
     "build:tshy": "tshy",
     "build:standalone": "vite build",
     "build": "rm -rf dist; npm run build:tshy && npm run build:standalone && npm run check-exports",
-    "publish-package": "pnpm publish --access public --no-git-checks"
+    "publish-package": "pnpm pack && npm publish *.tgz --access public"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",

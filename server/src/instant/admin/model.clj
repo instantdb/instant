@@ -399,6 +399,33 @@
 (defn coercible-uuid? [x]
   (or (uuid? x) (and (string? x) (parse-uuid x))))
 
+(defn invalid-eid?
+  "Returns true if eid is clearly invalid (not a UUID, lookup, vector, or map)"
+  [eid]
+  (not (or (coercible-uuid? eid)
+           (lookup? eid)
+           (sequential? eid)
+           (map? eid))))
+
+(def ops-with-eid
+  "Admin ops that have an entity ID at index 2"
+  #{"create" "update" "merge" "link" "unlink" "delete" "ruleParams"})
+
+(defn check-for-invalid-entity-ids!
+  "Checks admin steps for invalid entity IDs and throws a helpful error."
+  [steps]
+  (doseq [[idx step] (map-indexed vector steps)
+          :when (and (coll? step)
+                     (>= (count step) 3)
+                     (contains? ops-with-eid (first step)))]
+    (let [eid (nth step 2)]
+      (when (invalid-eid? eid)
+        (ex/throw-validation-err!
+         :steps
+         steps
+         [{:message (format "Invalid entity ID '%s'. Entity IDs must be UUIDs or lookup references." eid)
+           :in [idx 2]}])))))
+
 (s/def ::lookup-ref (s/or :vec (s/tuple string? triple-model/value?)
                           :map map?
                           :encoded-lookup lookup?))
@@ -472,6 +499,7 @@
   (let [coerced-admin-steps (<-json (->json steps) false)
         valid? (s/valid? ::ops coerced-admin-steps)
         _ (when-not valid?
+            (check-for-invalid-entity-ids! steps)
             (ex/throw-validation-err!
              :steps
              steps

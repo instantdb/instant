@@ -3,8 +3,11 @@
 ;; and can be required from anywhere.
 (ns instant.flags
   (:require
+   ;; Can't depend on tracer in this file
+   [clojure.tools.logging :as log]
    [clojure.walk :as w]
-   [instant.config :as config]))
+   [instant.config :as config]
+   [instant.util.uuid :as uuid-util]))
 
 ;; Map of query to {:result {result-tree}
 ;;                  :tx-id int}
@@ -31,6 +34,13 @@
             :handle-receive-timeout {}})
 
 (def toggle-defaults {:pg-hints-by-default (= :test (config/get-env))})
+
+(defn parse-uuids-flag [vs]
+  (try
+    (set (map parse-uuid vs))
+    (catch Exception e
+      (log/error e "Error parsing UUIDs")
+      #{})))
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -73,7 +83,7 @@
                                   (get result "rate-limited-apps"))
 
         log-sampled-apps (reduce (fn [acc {:strs [appId sampleRate]}]
-                                   (assoc acc appId sampleRate))
+                                   (assoc acc (uuid-util/coerce appId) sampleRate))
                                  {}
                                  (get result "log-sampled-apps"))
 
@@ -100,18 +110,20 @@
                             (assoc acc (keyword setting) value))
                           {}
                           (get result "flags"))
-                  (update :always-materialize-attr-ids (fn [vs]
-                                                         (set (map parse-uuid vs))))
-                  (update :tika-enabled-apps (fn [vs]
-                                               (set (map parse-uuid vs))))
+                  (update :always-materialize-attr-ids parse-uuids-flag)
+                  (update :tika-enabled-apps parse-uuids-flag)
 
                   (update :reserved-system-catalog-ident-names (fn [vs]
                                                                  (set vs)))
                   (update :disable-hint-query-hashes (fn [vs]
                                                        (set vs)))
-                  (update :enable-store-batching-apps (fn [vs]
-                                                        (set (map parse-uuid vs)))))
-
+                  (update :enable-store-batching-apps parse-uuids-flag)
+                  (update :enable-admin-transact-queue-apps parse-uuids-flag)
+                  (update :invalidator-drop-backpressure-apps parse-uuids-flag)
+                  (update :coarse-topics-apps parse-uuids-flag)
+                  (update :more-vfutures-instances (fn [vs]
+                                                     (set vs)))
+                  (update :enable-wal-entity-log-apps parse-uuids-flag))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -186,8 +198,7 @@
     (contains? (storage-block-list) app-id)))
 
 (defn log-sampled-apps [app-id]
-  (let [app-id (str app-id)]
-    (get-in (query-result) [:log-sampled-apps app-id] nil)))
+  (get-in (query-result) [:log-sampled-apps app-id] nil))
 
 (defn app-rate-limited? [app-id]
   (contains? (:rate-limited-apps (query-result))
@@ -219,8 +230,11 @@
 (defn test-rule-wheres? []
   (:rule-where-testing (query-result)))
 
-(defn toggled? [key]
-  (get-in (query-result) [:toggles key]))
+(defn toggled?
+  ([key]
+   (get-in (query-result) [:toggles key]))
+  ([key not-found]
+   (get-in (query-result) [:toggles key] not-found)))
 
 (defn flag
   ([key] (get-in (query-result) [:flags key]))
@@ -239,3 +253,43 @@
 
 (defn hard-deletion-sweeper-disabled? []
   (toggled? :hard-deletion-sweeper-disabled?))
+
+(defn rate-limit-tx-based-on-conn-pool? []
+  (toggled? :rate-limit-tx-based-on-conn-pool?))
+
+(defn rate-limit-tx-based-on-conn-pool-buffer []
+  (flag :rate-limit-tx-based-on-conn-pool-buffer 5))
+
+(defn admin-tx-queue-enabled? [app-id]
+  (contains? (flag :enable-admin-transact-queue-apps) app-id))
+
+(defn invalidator-drop-tx-latency-ms []
+  (flag :invalidator-drop-tx-latency-ms 30000))
+
+(defn invalidator-drop-backpressure? [app-id]
+  (contains? (flag :invalidator-drop-backpressure-apps) app-id))
+
+(defn use-coarse-topics? [app-id]
+  (contains? (flag :coarse-topics-apps) app-id))
+
+(defn use-get-datalog-queries-for-topics-v3? []
+  (toggled? :use-get-datalog-queries-for-topics-v3? true))
+
+(defn use-get-datalog-queries-for-topics-v2? []
+  (toggled? :use-get-datalog-queries-for-topics-v2? true))
+
+(defn enable-wal-entity-log? [app-id]
+  (contains? (flag :enable-wal-entity-log-apps) app-id))
+
+(defn log-to-wal-log-table? []
+  (toggled? :log-to-wal-log-table false))
+
+(def use-more-vfutures?
+  (case (config/get-env)
+    :dev
+    (fn []
+      (contains? (flag :more-vfutures-instances) @config/hostname))
+    :test
+    (fn [] true)
+    (fn []
+      (contains? (flag :more-vfutures-instances) @config/instance-id))))

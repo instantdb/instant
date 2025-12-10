@@ -58,10 +58,10 @@ import {
   PendingJob,
   useEditBlobConstraints,
 } from '@/lib/hooks/useEditBlobConstraints';
-import { mutate } from 'swr';
-import { RecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
+import { RecentlyDeletedAttrs } from './RecentlyDeleted';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 import { createRenameNamespaceOps } from '@/lib/renames';
+import { useSWRConfig } from 'swr';
 
 export function EditNamespaceDialog({
   db,
@@ -83,6 +83,7 @@ export function EditNamespaceDialog({
   pushNavStack: PushNavStack;
   replaceNav: (nav: Partial<ExplorerNav>) => void;
 }) {
+  const { mutate } = useSWRConfig();
   const [screen, setScreen] = useState<
     | { type: 'main' }
     | { type: 'delete' }
@@ -99,6 +100,10 @@ export function EditNamespaceDialog({
   async function deleteNs() {
     const ops = namespace.attrs.map((attr) => ['delete-attr', attr.id]);
     await db.core._reactor.pushOps(ops);
+    // update the recently deleted attr cache
+    setTimeout(() => {
+      mutate(['recently-deleted', appId]);
+    }, 500);
     onClose({ ok: true });
   }
 
@@ -165,7 +170,7 @@ export function EditNamespaceDialog({
               value={renameNsInput}
               onChange={(n) => setRenameNsInput(n)}
             />
-            <div className="flex flex-col gap-2 rounded py-2">
+            <div className="flex flex-col gap-2 rounded-sm py-2">
               <Button
                 type="submit"
                 disabled={
@@ -658,7 +663,7 @@ function InvalidTriplesSample({
           {indexingJob.invalid_triples_sample.slice(0, 3).map((t, i) => (
             <tr
               key={i}
-              className="cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-gray-200"
+              className="cursor-pointer rounded-md px-2 whitespace-nowrap hover:bg-gray-200"
               onClick={() => onClickSample(t)}
             >
               <td className="pr-2">
@@ -690,7 +695,7 @@ function IndexingJobError({
   if (!indexingJob) return;
   if (indexingJob.error === 'missing-required-error') {
     return (
-      <div className="mb-2 mt-2 border-l-2 border-l-red-500 pl-2">
+      <div className="mt-2 mb-2 border-l-2 border-l-red-500 pl-2">
         <div>
           {indexingJob.error_data?.count} <code>{attr.namespace}</code>{' '}
           {indexingJob.error_data?.count === 1 ? 'entity does' : 'entities do'}{' '}
@@ -723,7 +728,7 @@ function IndexingJobError({
 
   if (indexingJob.error === 'triple-too-large-error') {
     return (
-      <div className="mb-2 mt-2 border-l-2 border-l-red-500 pl-2">
+      <div className="mt-2 mb-2 border-l-2 border-l-red-500 pl-2">
         <div>Some of the existing data is too large to index. </div>
         <InvalidTriplesSample
           indexingJob={indexingJob}
@@ -743,7 +748,7 @@ function IndexingJobError({
 
   if (indexingJob.error === 'invalid-triple-error') {
     return (
-      <div className="mb-2 mt-2 border-l-2 border-l-red-500 pl-2">
+      <div className="mt-2 mb-2 border-l-2 border-l-red-500 pl-2">
         <div>
           The type can't be set to {indexingJob?.checked_data_type} because some
           data is the wrong type.
@@ -766,7 +771,7 @@ function IndexingJobError({
 
   if (indexingJob.error === 'triple-not-unique-error') {
     return (
-      <div className="mb-2 mt-2 border-l-2 border-l-red-500 pl-2">
+      <div className="mt-2 mb-2 border-l-2 border-l-red-500 pl-2">
         <div>Some of the existing data is not unique. </div>
         {indexingJob.invalid_unique_value != null ? (
           <div>
@@ -814,7 +819,7 @@ function IndexingJobError({
   // Catchall for unexpected errors
   if (indexingJob.error) {
     return (
-      <div className="mb-2 mt-2 space-y-2 border-l-2 border-l-red-500 pl-2">
+      <div className="mt-2 mb-2 space-y-2 border-l-2 border-l-red-500 pl-2">
         <div>
           An unexpected error occured while changing constraints. Please share
           these details with the Instant team:
@@ -879,7 +884,7 @@ function RelationshipConfigurator({
             value={attrName}
             onChange={(n) => setAttrName(n)}
           />
-          <div className="rounded-sm py-0.5 text-xs text-gray-500 dark:text-neutral-400">
+          <div className="rounded-xs py-0.5 text-xs text-gray-500 dark:text-neutral-400">
             {isFullLink ? (
               <>
                 <strong>
@@ -901,7 +906,7 @@ function RelationshipConfigurator({
             value={reverseAttrName}
             onChange={(n) => setReverseAttrName(n)}
           />
-          <div className="rounded-sm py-0.5 text-xs text-gray-500 dark:text-neutral-400">
+          <div className="rounded-xs py-0.5 text-xs text-gray-500 dark:text-neutral-400">
             {isFullLink ? (
               <>
                 <strong>
@@ -933,7 +938,9 @@ function RelationshipConfigurator({
           }
         />
         <div
-          className={'break-words text-xs text-gray-500 dark:text-neutral-400'}
+          className={
+            'text-xs wrap-break-word text-gray-500 dark:text-neutral-400'
+          }
         >
           {isFullLink ? (
             relationshipDescriptions[relationship](
@@ -1217,7 +1224,7 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
         <Select
           className={cn(
             pendingJob &&
-              'border-[#606AF4] ring-1 ring-inset ring-[#606AF4] focus:ring-[#606AF4]',
+              'border-[#606AF4] ring-1 ring-[#606AF4] ring-inset focus:ring-[#606AF4]',
           )}
           disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
           title={disabled ? disabledReason : undefined}
@@ -1576,6 +1583,7 @@ function EditAttrForm({
   constraints: SystemConstraints;
   pushNavStack: PushNavStack;
 }) {
+  const { mutate } = useSWRConfig();
   const [screen, setScreen] = useState<{ type: 'main' } | { type: 'delete' }>({
     type: 'main',
   });
@@ -1690,8 +1698,8 @@ function EditAttrForm({
   }
 
   async function deleteAttr() {
-    // update the recently deleted attr cache
     await db._core._reactor.pushOps([['delete-attr', attr.id]]);
+    // update the recently deleted attr cache
     setTimeout(() => {
       mutate(['recently-deleted', appId]);
     }, 500);
@@ -1754,7 +1762,7 @@ function EditAttrForm({
               value={attrName}
               onChange={(n) => setAttrName(n)}
             />
-            <div className="flex flex-col gap-2 rounded py-2">
+            <div className="flex flex-col gap-2 rounded-sm py-2">
               <ActionButton
                 type="submit"
                 label={`Rename ${attr.name} → ${attrName}`}

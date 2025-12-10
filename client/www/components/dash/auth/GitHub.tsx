@@ -159,7 +159,7 @@ export function AddClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 rounded border p-4 dark:border dark:border-neutral-700"
+      className="flex flex-col gap-2 rounded-sm border p-4 dark:border dark:border-neutral-700"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -213,7 +213,7 @@ export function AddClientForm({
         }
       />
 
-      <div className="flex flex-col gap-2 rounded border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
         <p className="overflow-hidden">
           Add{' '}
           <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
@@ -276,7 +276,7 @@ export function Client({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col rounded border"
+        className="flex flex-col rounded-sm border"
       >
         <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
@@ -322,7 +322,7 @@ export function Client({
               <strong>2.</strong> Use the code below to generate a login link in
               your app.
             </Content>
-            <div className="overflow-auto rounded border text-sm">
+            <div className="overflow-auto rounded-sm border text-sm">
               <Fence
                 code={exampleCode({
                   clientName: client.client_name,

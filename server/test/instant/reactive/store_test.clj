@@ -2,6 +2,11 @@
   (:require
    [clojure.test :as test :refer [deftest is testing]]
    [datascript.core :as d]
+   [instant.data.resolvers :as resolvers]
+   [instant.db.model.attr :as attr-model]
+   [instant.fixtures :refer [with-zeneca-app]]
+   [instant.jdbc.aurora :as aurora]
+   [instant.reactive.query :as rq]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.cache :as c]
@@ -31,9 +36,18 @@
   (let [store  (rs/init)
         app-id (random-uuid)
         make-res (fn [v]
-                   (with-meta v {:sql-byte-len 10}))]
+                   (with-meta v {:sql-byte-len 10}))
+        record-start (fn [store app-id dq]
+                       (rs/record-datalog-query-start! store
+                                                       {:app-id app-id
+                                                        :session-id (random-uuid)
+                                                        :instaql-query {:q {:$ {:where {:v (str (random-uuid))}}}}
+                                                        :v 0}
+                                                       dq
+                                                       #{}))]
     (testing "store returns cached data"
       (let [q [[:ea (random-uuid)]]]
+        (record-start store app-id q)
         (is (= {:a :a} (rs/swap-datalog-cache! store
                                                app-id
                                                (fn [_ctx _query]
@@ -49,6 +63,7 @@
 
     (testing "store returns cached data with delay"
       (let [q [[:ea (random-uuid)]]]
+        (record-start store app-id q)
         (is (= {:a :a} (rs/swap-datalog-cache! store
                                                app-id
                                                (fn [_ctx _query]
@@ -65,6 +80,7 @@
 
     (testing "work is canceled with no listeners"
       (let [q [[:ea (random-uuid)]]
+            _ (record-start store app-id q)
             err (promise)
             started (promise)
             canceled (promise)
@@ -91,9 +107,9 @@
     (dotimes [_ 100]
       (testing "work isn't canceled if there are still listeners"
         (let [q [[:ea (random-uuid)]]
+              _ (record-start store app-id q)
               err (promise)
               started (promise)
-
               wait (promise)
               f1 (ua/vfuture (try (rs/swap-datalog-cache! store
                                                           app-id
@@ -132,6 +148,7 @@
 
     (testing "doesn't store failures"
       (let [q [[:ea (random-uuid)]]
+            _ (record-start store app-id q)
             r1 (try (rs/swap-datalog-cache! store
                                             app-id
                                             (fn [_ctx _query]
@@ -323,6 +340,42 @@
   (testing "$not"
     (is-match-topic-part #{1} {:$not 2} true)
     (is-match-topic-part #{1} {:$not 1} false)))
+
+(deftest topic-program-stored-on-datalog-query
+  (with-zeneca-app
+    (fn [app r]
+      (let [store (rs/init)
+            app-id (:id app)
+            session-id (random-uuid)
+            attrs (attr-model/get-by-app-id app-id)
+            instaql-query {:users {:$ {:where {:handle "stopa"}}}}
+            ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                 :app-id app-id
+                 :session-id session-id
+                 :attrs attrs
+                 :current-user nil}]
+        (rq/instaql-query-reactive! store ctx instaql-query :join-rows false)
+
+        (let [conn (rs/app-conn store app-id)
+              db @conn
+              dq-ent (->> (d/datoms db :avet :datalog-query/app-id app-id)
+                          first
+                          :e
+                          (d/entity db))
+              sub-ent (->> (d/datoms db :avet :subscription/datalog-query (:db/id dq-ent))
+                           first
+                           :e
+                           (d/entity db))
+              iq-ent (:subscription/instaql-query sub-ent)
+              program (get-in iq-ent [:instaql-query/topic :program])]
+          (is (some? program))
+
+          (is (true? (program {:etype "users"
+                               :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
+          (is (false? (program {:etype "users"
+                                :attrs {(str (resolvers/->uuid r :users/handle)) "joe"}})))
+          (is (false? (program {:etype "posts"
+                                :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}}))))))))
 
 (comment
   (test/run-tests *ns*))

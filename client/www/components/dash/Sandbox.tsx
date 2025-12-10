@@ -46,7 +46,7 @@ import {
 } from '../resizable';
 import { useDarkMode } from './DarkModeToggle';
 import { Save } from 'lucide-react';
-import { infoToast } from '@/lib/toast';
+import { infoToast, errorToast } from '@/lib/toast';
 import { useSavedQueryState } from '@/lib/hooks/useSavedQueryState';
 import { addInstantLibs } from '@/lib/monaco';
 import { parsePermsJSON } from '@/lib/parsePermsJSON';
@@ -491,8 +491,12 @@ export function Sandbox({
           out('transaction', { response, rules }, execTimeMs);
 
           return { 'tx-id': response['tx-id'] };
-        } catch (error) {
+        } catch (error: any) {
           out('error', { message: JSON.stringify(error, null, '  ') });
+          const errorMessage =
+            error?.hint?.errors?.[0]?.message ||
+            'Transact error, see hint message for details';
+          errorToast(errorMessage, { autoClose: 3000 });
           throw error;
         }
       },
@@ -621,7 +625,7 @@ export function Sandbox({
           <TextInput
             autoFocus
             className="mt-0"
-            label={<div className="pb-0 pt-2 font-[400]">Sandbox Name</div>}
+            label={<div className="pt-2 pb-0 font-normal">Sandbox Name</div>}
             value={newSaveName}
             onChange={setNewSaveName}
           />
@@ -896,7 +900,7 @@ export function Sandbox({
           </div>
           <div
             ref={consoleRef}
-            className="flex w-full flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden bg-gray-100 p-4 text-xs dark:bg-neutral-800/40"
+            className="flex w-full flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 text-xs dark:bg-neutral-800/40"
           >
             {output.map((o, i) =>
               o.type === 'eval' ? (
@@ -908,7 +912,7 @@ export function Sandbox({
                 <div
                   key={i}
                   className={clsx(
-                    'rounded border bg-gray-50 shadow-sm transition-all hover:shadow dark:bg-neutral-800',
+                    'rounded-sm border bg-gray-50 shadow-xs transition-all hover:shadow-sm dark:bg-neutral-800',
                     {
                       'border-sky-200 dark:border-sky-600/50': o.type === 'log',
                       'border-red-200 dark:border-red-600/50':
@@ -969,7 +973,7 @@ export function Sandbox({
                             <div
                               key={cr.entity + '-' + cr.id + cr.label}
                               className={clsx(
-                                'flex flex-col gap-1 rounded border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
+                                'flex flex-col gap-1 rounded-sm border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
                                 {
                                   'border-emerald-200 dark:border-emerald-600':
                                     Boolean(cr.check),
@@ -1021,14 +1025,14 @@ export function Sandbox({
                   {o.type === 'transaction' && !collapseTransaction && (
                     <div className="flex flex-col gap-2 p-3">
                       {o.data.response['all-checks-ok?'] ? (
-                        <p className="rounded border border-emerald-200 bg-white px-1 py-1 dark:border-emerald-600 dark:bg-neutral-800">
+                        <p className="rounded-sm border border-emerald-200 bg-white px-1 py-1 dark:border-emerald-600 dark:bg-neutral-800">
                           <span className="border border-emerald-200 bg-white px-1 font-bold text-emerald-600 dark:border-emerald-600 dark:bg-neutral-800">
                             Success
                           </span>{' '}
                           All checks passed!
                         </p>
                       ) : (
-                        <p className="rounded border border-rose-200 bg-white px-1 py-1 dark:border-rose-600 dark:bg-neutral-800">
+                        <p className="rounded-sm border border-rose-200 bg-white px-1 py-1 dark:border-rose-600 dark:bg-neutral-800">
                           <span className="border border-rose-300 bg-white px-1 font-bold text-rose-600 dark:border-rose-600 dark:bg-neutral-800">
                             Failed
                           </span>{' '}
@@ -1037,7 +1041,7 @@ export function Sandbox({
                       )}
 
                       {o.data.response['committed?'] ? null : (
-                        <p className="rounded border border-amber-200 bg-white px-1 py-1 dark:border-amber-600 dark:bg-neutral-800">
+                        <p className="rounded-sm border border-amber-200 bg-white px-1 py-1 dark:border-amber-600 dark:bg-neutral-800">
                           <span className="border border-amber-300 bg-white px-1 font-bold text-amber-600 dark:border-amber-600 dark:bg-neutral-800">
                             Dry run
                           </span>{' '}
@@ -1050,7 +1054,7 @@ export function Sandbox({
                         <div
                           key={cr.entity + '-' + cr.id}
                           className={clsx(
-                            'flex flex-col gap-1 rounded border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
+                            'flex flex-col gap-1 rounded-sm border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
                             {
                               'border-emerald-200 dark:border-emerald-600':
                                 cr['check-pass?'],
@@ -1163,14 +1167,14 @@ function EmailInput({
       <ComboboxOptions
         anchor="bottom start"
         modal={false}
-        className="z-10 mt-1 w-[var(--input-width)] divide-y overflow-auto border border-gray-300 bg-white shadow-lg dark:divide-neutral-600 dark:border-neutral-600 dark:bg-neutral-700"
+        className="z-10 mt-1 w-(--input-width) divide-y overflow-auto border border-gray-300 bg-white shadow-lg dark:divide-neutral-600 dark:border-neutral-600 dark:bg-neutral-700"
       >
         {!email ? (
           <ComboboxOption
             key="none"
             value=""
             className={clsx(
-              'px-2 py-0.5 text-xs data-[focus]:bg-blue-100 dark:text-white dark:data-[focus]:bg-neutral-600',
+              'px-2 py-0.5 text-xs data-focus:bg-blue-100 dark:text-white dark:data-focus:bg-neutral-600',
               {},
             )}
           >
@@ -1183,7 +1187,7 @@ function EmailInput({
             key={user.id}
             value={user.email}
             className={clsx(
-              'px-2 py-0.5 text-xs data-[focus]:bg-blue-100 dark:text-white dark:data-[focus]:bg-neutral-600',
+              'px-2 py-0.5 text-xs data-focus:bg-blue-100 dark:text-white dark:data-focus:bg-neutral-600',
               {},
             )}
           >
@@ -1206,7 +1210,7 @@ function Data({
   const { darkMode: isDark } = useDarkMode();
 
   return (
-    <div className="rounded bg-white p-1 dark:bg-[#262626]">
+    <div className="rounded-sm bg-white p-1 dark:bg-[#262626]">
       {isObject ? (
         <Json
           value={data}

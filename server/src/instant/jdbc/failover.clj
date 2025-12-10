@@ -19,6 +19,12 @@
 ;; Keep this here just in case
 (declare previous-conn-pool)
 
+;; TODO: failover the aggregator
+;;       1. Create the slot on the new db
+;;       2. Wait for the aggregator to catch up to the lsn from the new slot
+;;       3. Stop the aggregator
+;;       4. Wait for failover to succeed
+;;       5. Start the aggregator using the slot on the new db
 (defn do-failover-to-new-db []
   (println "Failing over to new db")
   (let [next-config (config/get-next-aurora-config)

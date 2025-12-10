@@ -85,7 +85,7 @@ class EventSource implements EventSourceType {
           return;
         }
 
-        const xhr = this._xhr;
+        const xhr = this._xhr!;
 
         this._logDebug(
           `[EventSource][onreadystatechange] ReadyState: ${XMLReadyStateMap[xhr.readyState] || 'Unknown'}(${
@@ -142,9 +142,9 @@ class EventSource implements EventSourceType {
         this.status = this.ERROR;
         this.dispatch('error', {
           type: 'error',
-          message: this._xhr.responseText,
-          xhrStatus: this._xhr.status,
-          xhrState: this._xhr.readyState,
+          message: this._xhr!.responseText,
+          xhrStatus: this._xhr!.status,
+          xhrState: this._xhr!.readyState,
         });
       };
 
@@ -194,8 +194,8 @@ class EventSource implements EventSourceType {
 
     this._lastIndexProcessed = indexOfDoubleNewline;
 
-    let type = undefined;
-    let data = [];
+    let type: string | undefined = undefined;
+    let data: string[] = [];
     let line = '';
 
     for (let i = 0; i < parts.length; i++) {
@@ -239,7 +239,7 @@ class EventSource implements EventSourceType {
 
   _getLastDoubleNewlineIndex(response) {
     const doubleLineEndingCharacter =
-      this.lineEndingCharacter + this.lineEndingCharacter;
+      this.lineEndingCharacter! + this.lineEndingCharacter!;
     const lastIndex = response.lastIndexOf(doubleLineEndingCharacter);
     if (lastIndex === -1) {
       return -1;

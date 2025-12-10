@@ -36,7 +36,7 @@ type SendMessageData = {
 
 type MsgEvent<T extends Conn> = {
   target: Connection<T>;
-  message: MessageData;
+  message: MessageData | MessageData[];
 };
 
 type CloseEvent<T extends Conn> = {
@@ -152,30 +152,40 @@ export class SSEConnection implements Connection<EventSourceType> {
     }, 10000);
 
     this.conn.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      if (msg.op === 'sse-init') {
-        this.initParams = {
-          machineId: msg['machine-id'],
-          sessionId: msg['session-id'],
-          sseToken: msg['sse-token'],
-        };
-        if (this.onopen) {
-          this.onopen({ target: this });
+      const message = JSON.parse(e.data);
+      if (Array.isArray(message)) {
+        for (const msg of message) {
+          this.handleMessage(msg);
         }
-        clearTimeout(this.sseInitTimeout);
-        return;
-      }
-      if (this.onmessage) {
-        this.onmessage({
-          target: this,
-          message: msg,
-        });
+      } else {
+        this.handleMessage(message);
       }
     };
 
     this.conn.onerror = (e) => {
       this.handleError();
     };
+  }
+
+  private handleMessage(msg: MessageData) {
+    if (msg.op === 'sse-init') {
+      this.initParams = {
+        machineId: msg['machine-id'],
+        sessionId: msg['session-id'],
+        sseToken: msg['sse-token'],
+      };
+      if (this.onopen) {
+        this.onopen({ target: this });
+      }
+      clearTimeout(this.sseInitTimeout);
+      return;
+    }
+    if (this.onmessage) {
+      this.onmessage({
+        target: this,
+        message: msg,
+      });
+    }
   }
 
   // Runs the onerror and closes the connection

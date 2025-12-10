@@ -81,10 +81,10 @@ const categories = ['All', 'KPIs', 'Analytics', 'Comms', 'Other'];
 
 const ToolCard = ({ title, href, description, category }: ToolCard) => (
   <Link href={href} className="no-underline">
-    <div className="relative flex h-full flex-col rounded-md border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+    <div className="relative flex h-full flex-col rounded-md border border-gray-200 bg-white p-6 shadow-xs transition-all hover:shadow-md">
       <div className="mb-2 flex items-start justify-between">
         <div className="pr-2 text-xl font-medium text-gray-900">{title}</div>
-        <div className="flex-shrink-0 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+        <div className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
           {category}
         </div>
       </div>
@@ -114,7 +114,7 @@ export default function InternIndexPage() {
         </Head>
         <MainNav />
         <Section>
-          <div className="min-h-64 flex items-center justify-center">
+          <div className="flex min-h-64 items-center justify-center">
             <FullscreenLoading />
           </div>
         </Section>
@@ -131,7 +131,7 @@ export default function InternIndexPage() {
         </Head>
         <MainNav />
         <Section>
-          <div className="mb-8 mt-12 text-center">
+          <div className="mt-12 mb-8 text-center">
             <H2>Access Denied</H2>
             <p className="mt-4 text-gray-600">
               You need to be an Instant admin to access this page.
@@ -172,7 +172,7 @@ export default function InternIndexPage() {
       </Head>
       <MainNav />
       <Section>
-        <div className="mb-8 mt-12">
+        <div className="mt-12 mb-8">
           <div className="mb-6 text-center">
             <H2>Internal Tools</H2>
           </div>
@@ -197,7 +197,7 @@ export default function InternIndexPage() {
               placeholder="Search tools..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
             />
           </div>
           <div className="flex flex-wrap gap-2">

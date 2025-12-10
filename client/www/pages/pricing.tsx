@@ -159,7 +159,7 @@ function Plan({ plan }: { plan: any }) {
 
   return (
     <div
-      className={`box-border rounded-lg ${styles.background} outline ${styles.outlineWidth} -outline-offset-1 ${styles.outline} flex h-full flex-col justify-between gap-4 p-6 ${opacityStyle(ctaDisabled)}`}
+      className={`box-border rounded-lg ${styles.background} outline-solid ${styles.outlineWidth} -outline-offset-1 ${styles.outline} flex h-full flex-col justify-between gap-4 p-6 ${opacityStyle(ctaDisabled)}`}
     >
       <div>
         <div className="my-2 flex items-center justify-between">
@@ -175,7 +175,7 @@ function Plan({ plan }: { plan: any }) {
             className={`my-4 inline-flex items-baseline gap-1 ${styles.textColor}`}
           >
             <h3
-              className={`text-3xl font-medium leading-none tracking-tight sm:text-4xl ${styles.textColor}`}
+              className={`text-3xl leading-none font-medium tracking-tight sm:text-4xl ${styles.textColor}`}
             >
               {price}
             </h3>
@@ -212,7 +212,7 @@ function FourPlanGrid() {
     <div>
       <div className="flex flex-1 flex-col gap-12 px-4 py-8">
         <div className="mx-auto flex max-w-3xl flex-1 flex-col">
-          <h1 className="text-center font-mono text-3xl font-medium leading-10 tracking-tighter text-black">
+          <h1 className="text-center font-mono text-3xl leading-10 font-medium tracking-tighter text-black">
             Never paused.
             <br />
             Unlimited free projects.

@@ -38,12 +38,14 @@
   },
   "scripts": {
     "test": "vitest",
+    "test:types": "tsc -p tsconfig.test.json --noEmit",
+    "test:ci": "pnpm run test:types",
     "dev": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
     "clean": "rm -rf dist",
     "check-exports": "attw --pack .",
     "build:tshy": "tshy",
     "build": "rm -rf dist; npm run build:tshy && npm run check-exports",
-    "publish-package": "pnpm publish --access public --no-git-checks"
+    "publish-package": "pnpm pack && npm publish *.tgz --access public"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",

@@ -57,6 +57,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/solid';
 import {
+  ArrowPathIcon,
   ArrowUpOnSquareIcon,
   PencilSquareIcon,
   TrashIcon,
@@ -92,7 +93,6 @@ import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDia
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
 import { formatBytes } from '@/lib/format';
-import { useRecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
 import { getTableWidthSize } from '@/lib/tableWidthSize';
 import { TableCell, TableHeader } from './TableComponents';
 import { ArrowRightFromLine } from 'lucide-react';
@@ -107,6 +107,11 @@ export type TableColMeta = {
   attr: SchemaAttr;
   copyable?: boolean;
 };
+
+import {
+  RecentlyDeletedNamespaces,
+  useRecentlyDeletedNamespaces,
+} from './RecentlyDeleted';
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -444,14 +449,14 @@ function SearchInput({
       <ComboboxOptions
         anchor="bottom start"
         modal={false}
-        className="z-10 mt-1 w-[var(--input-width)] divide-y overflow-auto rounded-md border border-neutral-300 bg-white shadow-lg dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800"
+        className="z-10 mt-1 w-(--input-width) divide-y overflow-auto rounded-md border border-neutral-300 bg-white shadow-lg dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800"
       >
         {comboOptions.map((o, i) => (
           <ComboboxOption
             key={i}
             value={o.display}
             className={clsx(
-              'px-3 py-1 data-[focus]:bg-blue-100 dark:text-white dark:data-[focus]:bg-neutral-700',
+              'px-3 py-1 data-focus:bg-blue-100 dark:text-white dark:data-focus:bg-neutral-700',
               {},
             )}
           >
@@ -646,6 +651,9 @@ export function Explorer({
   const [searchFilters, setSearchFilters] = useState<SearchFilter[]>([]);
   const [ignoreUrlChanges, setIgnoreUrlChanges] = useState(false);
 
+  const recentlyDeletedNsDialog = useDialog();
+  const deletedNamespaces = useRecentlyDeletedNamespaces(appId);
+
   // nav
   const router = useRouter();
   const selectedNamespaceId = router.query.ns as string;
@@ -685,12 +693,18 @@ export function Explorer({
       }
     };
 
+    const handleWindowBlur = () => {
+      setIsShiftPressed(false);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur-sm', handleWindowBlur);
     };
   }, []);
 
@@ -892,9 +906,6 @@ export function Explorer({
   // auth
   const token = useContext(TokenContext);
 
-  // pre-fetch recently deleted attrs before user opens the edit schema modal
-  useRecentlyDeletedAttrs(appId);
-
   const isSystemCatalogNs = selectedNamespace?.name?.startsWith('$') ?? false;
   const sanitizedNsName = selectedNamespace?.name ?? '';
   const readOnlyNs =
@@ -1060,7 +1071,7 @@ export function Explorer({
             />
             {readOnlyNs ? null : (
               <button
-                className="translate-y-[2px] opacity-0 transition-opacity group-hover:opacity-100"
+                className="translate-y-0.5 opacity-0 transition-opacity group-hover:opacity-100"
                 onClick={() => setEditableRowId(row.id)}
               >
                 <PencilSquareIcon className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
@@ -1097,7 +1108,7 @@ export function Explorer({
             return (
               <div
                 className={cn(
-                  'h-1 translate-y-[2px]',
+                  'h-1 translate-y-0.5',
                   linkCount < 1 && 'opacity-50',
                 )}
               >
@@ -1590,11 +1601,13 @@ export function Explorer({
           }}
         />
       </Dialog>
-
+      <Dialog {...recentlyDeletedNsDialog}>
+        <RecentlyDeletedNamespaces appId={appId} db={db} />
+      </Dialog>
       <div
         ref={nsRef}
         className={clsx(
-          'absolute bottom-0 left-0 top-0 z-40 flex min-w-[200px] flex-col gap-1 border-r bg-white p-2 shadow-md dark:border-neutral-700 dark:bg-neutral-800 md:static md:flex md:shadow-none',
+          'absolute top-0 bottom-0 left-0 z-40 flex min-w-[200px] flex-col gap-1 border-r bg-white p-2 shadow-md md:static md:flex md:shadow-none dark:border-neutral-700 dark:bg-neutral-800',
           {
             hidden: !isNsOpen,
           },
@@ -1603,14 +1616,14 @@ export function Explorer({
         <div className="flex items-center gap-1 text-sm font-semibold dark:text-white">
           <ChevronLeftIcon
             height="1rem"
-            className="cursor-pointer dark:text-white md:hidden"
+            className="cursor-pointer md:hidden dark:text-white"
             onClick={() => setIsNsOpen(false)}
           />
           Namespaces
         </div>
         {namespaces ? (
           <>
-            <div className="overflow-y-auto overflow-x-hidden">
+            <div className="overflow-x-hidden overflow-y-auto">
               {namespaces.length ? (
                 <ToggleCollection
                   className="text-sm"
@@ -1633,6 +1646,19 @@ export function Explorer({
             >
               <PlusIcon height="1rem" /> Create
             </Button>
+            {deletedNamespaces.length ? (
+              <Button
+                className="justify-start gap-2 rounded-sm p-2"
+                variant="subtle"
+                size="nano"
+                onClick={recentlyDeletedNsDialog.onOpen}
+              >
+                <span className="rounded-sm bg-gray-200 px-1">
+                  {deletedNamespaces.length}
+                </span>
+                <span>Recently Deleted</span>
+              </Button>
+            ) : null}
           </>
         ) : (
           <div className="animate-slow-pulse flex w-full flex-col gap-2">
@@ -1645,9 +1671,9 @@ export function Explorer({
           </div>
         )}
       </div>
-      <div className="flex flex-col gap-2 overflow-hidden border-r bg-neutral-100 p-1 dark:border-neutral-700 dark:bg-neutral-800 md:hidden">
+      <div className="flex flex-col gap-2 overflow-hidden border-r bg-neutral-100 p-1 md:hidden dark:border-neutral-700 dark:bg-neutral-800">
         <button
-          className="flex cursor-pointer select-none items-center gap-1 rounded px-1 py-0.5 hover:bg-neutral-300 dark:hover:bg-neutral-700"
+          className="flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 select-none hover:bg-neutral-300 dark:hover:bg-neutral-700"
           onClick={(e) => {
             e.stopPropagation();
             setIsNsOpen(true);
@@ -1660,7 +1686,7 @@ export function Explorer({
         <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-neutral-800">
           <div className="flex items-center overflow-hidden border-b dark:border-neutral-700">
             <div className="flex flex-1 flex-col justify-between py-2 md:flex-row md:items-center">
-              <div className="flex items-center overflow-hidden border-b px-2 py-1 pl-4 dark:border-neutral-700 md:border-b-0">
+              <div className="flex items-center overflow-hidden border-b px-2 py-1 pl-4 md:border-b-0 dark:border-neutral-700">
                 {showBackButton ? (
                   <ArrowLeftIcon
                     className="mr-4 inline cursor-pointer"
@@ -1679,13 +1705,13 @@ export function Explorer({
                     }}
                   />
                 ) : null}
-                <div className="text-ellipses flex-shrink overflow-hidden truncate whitespace-nowrap font-mono text-xs dark:text-white">
+                <div className="text-ellipses shrink truncate overflow-hidden font-mono text-xs whitespace-nowrap dark:text-white">
                   <strong>{selectedNamespace.name}</strong>{' '}
                   {currentNav.where ? (
                     <>
                       {' '}
                       where <strong>{currentNav.where[0]}</strong> ={' '}
-                      <em className="rounded-sm border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
+                      <em className="rounded-xs border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
                         {JSON.stringify(currentNav.where[1])}
                       </em>
                     </>
@@ -1698,7 +1724,7 @@ export function Explorer({
                     >
                       {currentNav.filters.map(([attr, op, search], i) => (
                         <span key={attr}>
-                          <em className="rounded-sm border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
+                          <em className="rounded-xs border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
                             {attr} {op} {search}
                           </em>
                           {currentNav?.filters?.length &&
@@ -1713,7 +1739,7 @@ export function Explorer({
               </div>
               <div className="flex justify-between gap-2 px-2 py-1 md:justify-start">
                 <Button
-                  className="rounded dark:bg-neutral-700/50"
+                  className="rounded-sm dark:bg-neutral-700/50"
                   variant="secondary"
                   size="mini"
                   onClick={() => {
@@ -1734,11 +1760,11 @@ export function Explorer({
           {selectedNamespace.name === '$files' ? (
             <div className="flex gap-2 px-2 py-2">
               <div className="flex w-full gap-2">
-                <div className="flex flex-shrink-0 gap-2">
+                <div className="flex shrink-0 gap-2">
                   <input
                     ref={fileInputRef}
                     type="file"
-                    className="flex cursor-pointer rounded border border-neutral-200 bg-transparent px-1 pt-[6px] text-sm shadow-sm transition-colors file:rounded-sm file:border-none file:border-neutral-200 file:bg-transparent file:text-sm file:font-[500] file:shadow-none placeholder:text-neutral-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white dark:file:border-neutral-700 dark:file:text-white dark:placeholder:text-neutral-400 dark:focus-visible:ring-neutral-400"
+                    className="flex cursor-pointer rounded-sm border border-neutral-200 bg-transparent px-1 pt-1.5 text-sm shadow-xs transition-colors file:rounded-xs file:border-none file:border-neutral-200 file:bg-transparent file:p-2 file:pt-1 file:text-sm file:font-medium file:shadow-none placeholder:text-neutral-500 focus-visible:ring-1 focus-visible:ring-neutral-950 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white dark:file:border-neutral-700 dark:file:text-white dark:placeholder:text-neutral-400 dark:focus-visible:ring-neutral-400"
                     onChange={(e: React.ChangeEvent<any>) => {
                       const files = e.target.files;
                       setSelectedFiles(files);
@@ -1753,12 +1779,12 @@ export function Explorer({
                     size="mini"
                     loading={uploadingFile}
                     onClick={handleUploadFile}
-                    className="rounded"
+                    className="rounded-sm"
                   >
                     {uploadingFile ? 'Uploading...' : 'Upload file'}
                   </Button>
                 </div>
-                <div className="relative flex min-w-0 max-w-[67vw] flex-1">
+                <div className="relative flex max-w-[67vw] min-w-0 flex-1">
                   <span className="absolute inset-y-0 left-0 flex items-center rounded-l bg-neutral-100 px-3 text-sm text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
                     File Path:
                   </span>
@@ -1767,7 +1793,7 @@ export function Explorer({
                     placeholder="Enter a custom path (optional)"
                     value={customPath}
                     onChange={(e) => setCustomPath(e.target.value)}
-                    className="h-9 w-full rounded border-0 bg-transparent py-1 pl-24 pr-3 text-sm outline outline-1 outline-neutral-200 placeholder:text-neutral-500 focus:ring-2 focus:ring-blue-700 dark:bg-neutral-800 dark:text-white dark:outline-neutral-700 dark:placeholder:text-neutral-400 dark:focus:ring-blue-500"
+                    className="h-9 w-full rounded-sm border-0 bg-transparent py-1 pr-3 pl-24 text-sm outline-1 outline-neutral-200 outline-solid placeholder:text-neutral-500 focus:ring-2 focus:ring-blue-700 dark:bg-neutral-800 dark:text-white dark:outline-neutral-700 dark:placeholder:text-neutral-400 dark:focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -1799,7 +1825,7 @@ export function Explorer({
               )}
             >
               <Select
-                className="rounded text-xs"
+                className="rounded-sm text-xs"
                 onChange={(opt) => {
                   if (!opt) return;
 
@@ -1922,7 +1948,7 @@ export function Explorer({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
-                    className="z-[100]"
+                    className="z-100"
                     align="end"
                     side="bottom"
                     sideOffset={5}
@@ -2033,7 +2059,7 @@ export function Explorer({
             <div className="relative flex-1 overflow-hidden bg-neutral-100 dark:bg-neutral-900/50">
               {!tableSmallerThanViewport && (
                 <div
-                  className="absolute bottom-0 right-0 top-0 z-50 w-[30px] bg-gradient-to-l from-black/20 via-black/5 to-transparent transition-opacity duration-150"
+                  className="absolute top-0 right-0 bottom-0 z-50 w-[30px] bg-linear-to-l from-black/20 via-black/5 to-transparent transition-opacity duration-150"
                   style={{
                     pointerEvents: 'none',
                     opacity: rightShadowOpacity,
@@ -2042,7 +2068,7 @@ export function Explorer({
                 />
               )}
               <div
-                className="absolute bottom-0 left-0 top-0 z-50 w-[30px] bg-gradient-to-r from-black/10 via-black/0 to-transparent transition-opacity duration-150"
+                className="absolute top-0 bottom-0 left-0 z-50 w-[30px] bg-linear-to-r from-black/10 via-black/0 to-transparent transition-opacity duration-150"
                 style={{
                   pointerEvents: 'none',
                   opacity: leftShadowOpacity,
@@ -2056,7 +2082,7 @@ export function Explorer({
                   }}
                   className="z-0 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400"
                 >
-                  <div className="sticky top-0 z-10 border-b border-r bg-white text-neutral-700 shadow dark:border-b-neutral-600 dark:border-r-neutral-700 dark:bg-[#303030] dark:text-neutral-300">
+                  <div className="sticky top-0 z-10 border-r border-b bg-white text-neutral-700 shadow-sm dark:border-r-neutral-700 dark:border-b-neutral-600 dark:bg-[#303030] dark:text-neutral-300">
                     {table.getHeaderGroups().map((headerGroup) => (
                       <div className={'flex w-full'} key={headerGroup.id}>
                         <SortableContext
@@ -2091,7 +2117,7 @@ export function Explorer({
                   <div>
                     {table.getRowModel().rows.map((row) => (
                       <div
-                        className="group flex border-b border-r bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
+                        className="group flex border-r border-b bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
                         key={row.id}
                       >
                         {row.getVisibleCells().map((cell) => (
@@ -2127,12 +2153,12 @@ export function Explorer({
           </DndContext>
         </div>
       ) : userNamespaces?.length ? (
-        <div className="px-4 py-2 text-sm italic text-neutral-500 dark:text-neutral-400">
+        <div className="px-4 py-2 text-sm text-neutral-500 italic dark:text-neutral-400">
           Select a namespace
         </div>
       ) : userNamespaces?.length === 0 ? (
         <div className="flex flex-1 flex-col md:items-center md:justify-center">
-          <div className="flex flex-1 flex-col gap-4 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800 md:max-w-[320px] md:flex-none md:border">
+          <div className="flex flex-1 flex-col gap-4 bg-white p-6 md:max-w-[320px] md:flex-none md:border dark:border-neutral-700 dark:bg-neutral-800">
             <SectionHeading>This is your Data Explorer</SectionHeading>
             <Content className="text-sm">
               This is the place where you can explore all your data. Create a

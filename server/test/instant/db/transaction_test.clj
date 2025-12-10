@@ -4129,7 +4129,44 @@
           (is (= #{:string :json}
                  (->> (attr-model/get-by-app-id app-id)
                       (attr-model/seek-by-id attr-id)
-                      :inferred-types))))))))
+                      :inferred-types)))))))
+
+  (testing "Only update inferred types if there is something to update"
+    (with-empty-app
+      (fn [{app-id :id}]
+        (let [attr-id (random-uuid)
+              eid (random-uuid)]
+          (tx/transact! (aurora/conn-pool :write)
+                        (attr-model/get-by-app-id app-id)
+                        app-id
+                        [[:add-attr
+                          {:id attr-id
+                           :forward-identity [(random-uuid) "namespace" "field"]
+                           :value-type :blob
+                           :cardinality :one
+                           :unique? false
+                           :index? false}]])
+          (let [db-attrs (attr-model/get-by-app-id app-id)
+                {base-attrs false
+                 our-attr true}
+                (group-by #(= attr-id (:id %))
+                          db-attrs)
+
+                ;; Pretend like we've already set the inferred type for the attr
+                attrs (attr-model/wrap-attrs
+                       (conj base-attrs
+                             (assoc (first our-attr)
+                                    :inferred-types #{:string})))]
+            (tx/transact! (aurora/conn-pool :write)
+                          attrs
+                          app-id
+                          [[:add-triple eid attr-id "string"]
+                           [:deep-merge-triple eid attr-id "another-string"]])
+            (attr-model/evict-app-id-from-cache app-id)
+            (is (nil? (->> (attr-model/get-by-app-id app-id)
+                           (attr-model/seek-by-id attr-id)
+                           :inferred-types
+                           seq)))))))))
 
 (deftest cant-create-system-catalog-attrs-with-existing-idents
   (with-empty-app
@@ -5570,7 +5607,6 @@
             (testing "connection did not deadlock"
               (is @tx))))))))
 
-
 ;; Test that we don't get a conflict if a bunch of lookup inserts are happening simultaneously
 (deftest multiple-lookups-work
   (with-zeneca-app
@@ -5586,6 +5622,42 @@
         (mapv (fn [tx]
                 (is @tx))
               txes)))))
+
+(deftest soft-delete-in-system-ns-can-see-system-id-attr
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-users-nickname  :$users/nickname}
+            (test-util/make-attrs
+             app-id
+             [[:$users/nickname]])
+
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:delete-attr attr-users-nickname]])
+        (let [deleted (some->> (attr-model/get-soft-deleted-by-app-id (aurora/conn-pool :read) app-id)
+                               (filter (comp (partial = attr-users-nickname) :id))
+                               first)
+
+              id-attr-id (some-> deleted
+                                 :metadata
+                                 (get "soft_delete_snapshot")
+                                 (get "id_attr_id")
+                                 parse-uuid)]
+
+          (is (=  (system-catalog/get-attr-id "$users" "id")
+                  id-attr-id)))))))
 
 (comment
   (test/run-tests *ns*))

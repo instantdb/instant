@@ -282,7 +282,7 @@ export function ClerkClient({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col rounded border"
+        className="flex flex-col rounded-sm border"
       >
         <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100">
           <div className="flex flex-1 items-center justify-between">
@@ -313,7 +313,7 @@ export function ClerkClient({
             {domain ? <Copyable label="Clerk domain" value={domain} /> : null}
 
             {showUpdateVerified ? (
-              <div className="flex flex-col gap-2 rounded border bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
+              <div className="flex flex-col gap-2 rounded-sm border bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
                 <Checkbox
                   checked={allowUnverifiedEmail}
                   onChange={() =>
@@ -356,7 +356,7 @@ export function ClerkClient({
               . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
               button in the <code>Customize session token</code> section. Ensure
               your <code>Claims</code> field has the email claim:
-              <div className="overflow-auto rounded border text-sm">
+              <div className="overflow-auto rounded-sm border text-sm">
                 <Fence
                   copyable
                   code={`{
@@ -372,7 +372,7 @@ export function ClerkClient({
               link your Clerk user to Instant.
             </Content>
 
-            <div className="overflow-auto rounded border text-sm">
+            <div className="overflow-auto rounded-sm border text-sm">
               <Fence copyable code={exampleCode} language="typescript" />
             </div>
 
@@ -487,7 +487,7 @@ export function AddClerkClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 rounded border p-4 dark:border-neutral-700"
+      className="flex flex-col gap-2 rounded-sm border p-4 dark:border-neutral-700"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -519,7 +519,7 @@ export function AddClerkClientForm({
         }
         placeholder=""
       />
-      <div className="flex flex-col gap-2 rounded border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
         <Content>
           Navigate to your{' '}
           <a
@@ -535,7 +535,7 @@ export function AddClerkClientForm({
           <code className="dark:text-white">Customize session token</code>{' '}
           section. Ensure your <code className="dark:text-white">Claims</code>{' '}
           field has the email claim:
-          <div className="overflow-auto rounded border text-sm">
+          <div className="overflow-auto rounded-sm border text-sm">
             <Fence
               copyable
               code={`{

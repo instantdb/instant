@@ -61,7 +61,7 @@ const OrgSettingsPage: NextPageWithLayout = () => {
     <>
       <BackToAppsButton />
       <div className="bg-gray-50 dark:bg-neutral-800">
-        <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 dark:border-b-neutral-800 md:flex-row md:gap-4">
+        <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 md:flex-row md:gap-4 dark:border-b-neutral-800">
           <div className="flex items-center gap-2">
             <h2 className="font-mono font-bold md:text-xl">
               <div className="flex items-center gap-4">

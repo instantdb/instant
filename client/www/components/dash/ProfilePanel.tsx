@@ -52,9 +52,9 @@ export const ProfilePanel = () => {
             <PopoverButton>
               <div
                 className={clsx(
-                  'flex basis-[35%] items-center justify-between gap-9 truncate rounded-sm border border-gray-300 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-700/40 dark:data-[focus]:outline-neutral-400',
+                  'flex basis-[35%] items-center justify-between gap-9 truncate rounded-xs border border-gray-300 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-700/40 dark:data-focus:outline-neutral-400',
                   'px-2 text-sm/6',
-                  'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
+                  'focus:outline-hidden data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25',
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -64,7 +64,7 @@ export const ProfilePanel = () => {
                 <ChevronDownIcon width={15} />
               </div>
             </PopoverButton>
-            <PopoverPanel className="absolute left-2 top-[calc(100%+5px)] z-50 min-w-[300px] rounded-sm border border-gray-300 bg-white shadow dark:border-neutral-700 dark:bg-neutral-800">
+            <PopoverPanel className="absolute top-[calc(100%+5px)] left-2 z-50 min-w-[300px] rounded-xs border border-gray-300 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
               <div
                 className={cn(
                   'flex w-full items-center justify-between gap-2 text-left hover:bg-gray-100 dark:hover:bg-neutral-700',

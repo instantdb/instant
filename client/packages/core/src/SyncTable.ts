@@ -1,5 +1,5 @@
 import { PersistedObject } from './utils/PersistedObject.ts';
-import * as s from './store.js';
+import * as s from './store.ts';
 import weakHash from './utils/weakHash.ts';
 import uuid from './utils/uuid.ts';
 import { Logger } from './Reactor.js';
@@ -31,7 +31,7 @@ type Sub = {
   table: string;
   orderField: string;
   orderDirection: 'asc' | 'desc';
-  orderFieldType?: 'string' | 'number' | 'date' | 'boolean';
+  orderFieldType?: 'string' | 'number' | 'date' | 'boolean' | null;
   state?: SubState;
   values?: SubValues;
   createdAt: number;
@@ -113,6 +113,7 @@ function syncSubToStorage(_k: string, sub: Sub): SubInStorage {
       const store = s.toJSON(e.store);
       // We'll store the attrs once on values, and put the
       // attrs back into the store on hydration
+      // @ts-ignore: ts doesn't want us to delete a non-optional
       delete store['attrs'];
       entities.push({ ...e, store });
     }
@@ -309,7 +310,7 @@ export enum CallbackEventType {
 type QueryEntities<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > = InstaQLResponse<Schema, Q, UseDates>[keyof InstaQLResponse<
   Schema,
   Q,
@@ -319,7 +320,7 @@ type QueryEntities<
 type QueryEntity<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > = QueryEntities<Schema, Q, UseDates> extends (infer E)[] ? E : never;
 
 type ChangedFields<Entity> = {
@@ -332,7 +333,7 @@ type ChangedFields<Entity> = {
 export interface BaseCallbackEvent<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > {
   type: CallbackEventType;
   data: InstaQLResponse<Schema, Q, UseDates>;
@@ -341,7 +342,7 @@ export interface BaseCallbackEvent<
 export interface InitialSyncBatch<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.InitialSyncBatch;
   batch: QueryEntities<Schema, Q, UseDates>;
@@ -350,7 +351,7 @@ export interface InitialSyncBatch<
 export interface InitialSyncComplete<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.InitialSyncComplete;
 }
@@ -358,7 +359,7 @@ export interface InitialSyncComplete<
 export interface SyncTransaction<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.SyncTransaction;
   added: QueryEntities<Schema, Q, UseDates>;
@@ -373,7 +374,7 @@ export interface SyncTransaction<
 export interface LoadFromStorage<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.LoadFromStorage;
 }
@@ -381,7 +382,7 @@ export interface LoadFromStorage<
 export interface SetupError<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.Error;
   error: { message: string; hint?: any; type: string; status: number };
@@ -390,7 +391,7 @@ export interface SetupError<
 export type CallbackEvent<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > =
   | InitialSyncBatch<Schema, Q, UseDates>
   | InitialSyncComplete<Schema, Q, UseDates>
@@ -401,7 +402,7 @@ export type CallbackEvent<
 export type SyncTableCallback<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
-  UseDates extends boolean | undefined,
+  UseDates extends boolean,
 > = (event: CallbackEvent<Schema, Q, UseDates>) => void;
 
 export class SyncTable {
@@ -790,7 +791,7 @@ export class SyncTable {
 
       const orderFieldType = orderFieldTypeMutative(sub, this.createStore);
 
-      sortEntitiesInPlace(sub, orderFieldType, entities);
+      sortEntitiesInPlace(sub, orderFieldType!, entities);
       this.notifyCbs(hash, {
         type: CallbackEventType.SyncTransaction,
         data: subData(sub, sub.values?.entities),

@@ -1,9 +1,12 @@
 (ns instant.reactive.topics
   (:require
    [clojure.set]
+   [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triple-model]
    [instant.util.coll :as ucoll]
-   [instant.util.json :refer [<-json]])
+   [instant.util.json :refer [<-json]]
+   [instant.util.memoize :refer [vmemoize]]
+   [medley.core :as medley])
   (:import
    (java.util UUID)))
 
@@ -16,6 +19,34 @@
                        "created_at" (assoc! acc 3 value)
                        acc))
                    [nil nil nil nil]
+                   cols))
+
+(defn columns->ea [cols]
+  (ucoll/reduce-tr (fn [acc {:keys [name value]}]
+                     (case name
+                       "entity_id" (assoc! acc 0 value)
+                       "attr_id" (let [res (assoc! acc 1 value)]
+                                   (if (and (not (nil? (nth acc 0)))
+                                            (not (nil? (nth acc 1))))
+                                     (reduced res)
+                                     res))
+                       acc))
+                   [nil nil]
+                   cols))
+
+(defn columns->eav [cols]
+  (ucoll/reduce-tr (fn [acc {:keys [name value]}]
+                     (case name
+                       "entity_id" (assoc! acc 0 value)
+                       "attr_id" (assoc! acc 1 value)
+                       "value" (let [res (assoc! acc 2 (<-json value))]
+                                 (if (and (not (nil? (nth acc 0)))
+                                          (not (nil? (nth acc 1)))
+                                          (not (nil? (nth acc 2))))
+                                   (reduced res)
+                                   res))
+                       acc))
+                   [nil nil nil]
                    cols))
 
 (defn columns->map
@@ -38,51 +69,74 @@
           nil
           columns))
 
+(defn parse-v [m]
+  (let [v-parsed (<-json (:value m))]
+    (cond
+      (:eav m)
+      (UUID/fromString v-parsed)
+      (= (:checked_data_type m) "date")
+      (triple-model/parse-date-value v-parsed)
+      :else
+      v-parsed)))
+
 (defn- topics-for-triple-insert [change]
   (let [m (columns->map (:columns change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
-        v-parsed (<-json (:value m))
-        v (cond
-            (:eav m)
-            (UUID/fromString v-parsed)
-            (= (:checked_data_type m) "date")
-            (triple-model/parse-date-value v-parsed)
-            :else
-            v-parsed)
+        v (parse-v m)
         ks (->> #{:ea :eav :av :ave :vae}
-                (filter m))]
-    (map (fn [k] [k #{e} #{a} #{v}])
-         ks)))
+                (filter m)
+                set)]
+    [[ks #{e} #{a} #{v}]]))
 
 (defn- topics-for-triple-update
   [change]
   (let [m (columns->map (:columns change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
+        v (parse-v m)
+
         ks (->> #{:ea :eav :av :ave :vae}
-                (filter m))]
-    ;; (XXX): If we had the old value we wouldn't need to do this wildcard
-    ;; business. Would be better if we can be more specific
-    (map (fn [k] [k #{e} #{a} '_]) ks)))
+                (filter m)
+                set)
+
+        old-m (columns->map (:identity change) true)
+        old-e (UUID/fromString (:entity_id old-m))
+        old-a (UUID/fromString (:attr_id old-m))
+        old-v (parse-v old-m)]
+    (cond (and (= e old-e)
+               (= a old-a)
+               ;; toasted value not included if it didn't change
+               (or (not (contains? m :value))
+                   (= v old-v)))
+          ;; value didn't change, so we can ignore this update
+          []
+
+          (and (= e old-e)
+               (= a old-a))
+          [[ks #{e} #{a} (set [v old-v])]]
+
+          ;; We shouldn't hit this, but just in case
+          :else
+          [[ks #{e} #{a} #{v}]
+           [ks #{e} #{a} #{old-v}]])))
 
 (defn- topics-for-triple-delete [change]
   (let [m (columns->map (:identity change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
-        ;; (XXX): The changeset doesn't include the index cols of the triple
-        ;; so for now we just invalidate all possible indexes
-        ks #{:ea :eav :av :ave :vae}]
-    ;; (XXX): Similar to update, we don't have the prev val, so we use wildcard
-    ;; later on lets think how we can be more specific
-    (map (fn [k] [k #{e} #{a} '_]) ks)))
+        v (parse-v m)
+        ks (->> #{:ea :eav :av :ave :vae}
+                (filter m)
+                set)]
+    [[ks #{e} #{a} #{v}]]))
 
 (defn topics-for-change [{:keys [action] :as change}]
   (case action
     :insert (topics-for-triple-insert change)
     :update (topics-for-triple-update change)
     :delete (topics-for-triple-delete change)
-    #{}))
+    []))
 
 (defn topics-for-triple-changes [changes]
   (->> changes
@@ -91,14 +145,13 @@
 
 (defn- topics-for-ident-upsert [{:keys [columns]}]
   (let [indexes #{:ea :eav :av :ave :vae}
-        attr-id (parse-uuid (get-column columns "attr_id"))
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
-    (set topics)))
+        attr-id (parse-uuid (get-column columns "attr_id"))]
+    #{[indexes '_ #{attr-id} '_]}))
 
 (defn- topics-for-attr-upsert [{:keys [columns identity] :as _change}]
   (let [indexes #{:ea :eav :av :ave :vae}
         attr-id (parse-uuid (get-column columns "id"))
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)
+        topics [[indexes '_ #{attr-id} '_]]
 
         value-type (get-column columns "value_type")
         object-attr? (not= value-type "ref")
@@ -109,15 +162,14 @@
       ;; Queries specifically request object attributes.
       ;; If we are restoring an attr, all queries that require
       ;; object attributes would need to be refreshed
-      (and object-attr? restoration?) (conj [:ea '_ '_ '_])
+      (and object-attr? restoration?) (conj [#{:ea} '_ '_ '_])
 
       true set)))
 
 (defn- topics-for-attr-delete [{:keys [identity] :as _change}]
   (let [attr-id (parse-uuid (get-column identity "id"))
-        indexes #{:ea :eav :av :ave :vae}
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
-    (set topics)))
+        indexes #{:ea :eav :av :ave :vae}]
+    #{[indexes '_ #{attr-id} '_]}))
 
 (defn topics-for-ident-change [{:keys [action] :as change}]
   (case action
@@ -151,6 +203,67 @@
                                   topics-for-attr-changes)]
     topics))
 
+;; Wal entities
+;; ------------
+
+(defn extract-entities-from-messages [init messages]
+  (reduce (fn [acc message]
+            (case (:prefix message)
+              ("update_ents" "delete_ents")
+              (reduce (fn [acc [etype attr-id ent]]
+                        (assoc-in acc [etype attr-id] ent))
+                      acc
+                      (<-json (:content message)))
+              acc))
+          init
+          messages))
+
+(defn extract-entities-from-table [init wal-logs]
+  (let [parsed-logs (keep (fn [wal-log]
+                            (when (= :insert (:action wal-log))
+                              (reduce (fn [acc {:keys [name value]}]
+                                        (case name
+                                          "prefix" (assoc acc :prefix value)
+                                          "content" (assoc acc :content value)
+                                          "created_at" (assoc acc :created-at (triple-model/parse-date-value value))
+                                          acc))
+                                      {}
+                                      (:columns wal-log))))
+                          wal-logs)
+        sorted-logs (sort-by :created-at parsed-logs)]
+    (reduce (fn [acc message]
+              (case (:prefix message)
+                ("update_ents" "delete_ents")
+                (reduce (fn [acc [etype attr-id ent]]
+                          (assoc-in acc [etype attr-id] ent))
+                        acc
+                        (<-json (:content message)))
+                acc))
+            init
+            sorted-logs)))
+
+(defn extract-entities-after [{:keys [messages wal-logs]}]
+  (-> {}
+      (extract-entities-from-messages messages)
+      (extract-entities-from-table wal-logs)))
+
+(defn extract-entities-before [attrs entities-after {:keys [triple-changes]}]
+  (let [attr-etype (vmemoize (fn [id-str]
+                               (let [attr (attr-model/seek-by-id (parse-uuid id-str) attrs)]
+                                 (when (= :one (:cardinality attr))
+                                   (attr-model/fwd-etype attr)))))]
+    (reduce (fn [acc change]
+              (case (:action change)
+                :insert (let [[e a] (columns->eav (:columns change))]
+                          (if-let [etype (attr-etype a)]
+                            (medley.core/dissoc-in acc [etype e a])
+                            acc))
+                (:update :delete) (let [[e a v] (columns->eav (:identity change))]
+                                    (if-let [etype (attr-etype a)]
+                                      (assoc-in acc [etype e a] v)
+                                      acc))))
+            entities-after
+            (reverse triple-changes))))
 
 ;; ----
 ;; BYOP
