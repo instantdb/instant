@@ -34,6 +34,18 @@
     :$lt b/<
     :$lte b/<=))
 
+(defn- resolve-cardinality-one-fwd-attr!
+  [etype label attrs]
+  (cond+
+   :let [rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
+   rev-attr (throw-not-supported! [:reverse-attribute])
+
+   :let [{:keys [id cardinality]} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+   (not id) (throw-not-supported! [:unknown-attribute])
+   (not= :one cardinality) (throw-not-supported! [:cardinality-many])
+
+   :else id))
+
 (defn- single-cond->cel-expr!
   [{:keys [etype attrs]} {:keys [cond-data]}]
   (let [{:keys [path v]} cond-data
@@ -43,61 +55,24 @@
       (throw-not-supported! [:multi-part-path])
 
       (and (= v-type :args-map) (contains? v-data :$isNull))
-      (cond+
-       :let [label (first path)
-             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
-
-       rev-attr  (throw-not-supported! [:reverse-attribute])
-
-       :let [{:keys [id cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-
-       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
-
-       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
-
-       :else
-       (if (:$isNull v-data)
-         (b/= (b/get-in 'entity ["attrs" (str id)]) nil)
-         (b/not= (b/get-in 'entity ["attrs" (str id)]) nil)))
+      (let [id (resolve-cardinality-one-fwd-attr! etype (first path) attrs)]
+        (if (:$isNull v-data)
+          (b/= (b/get-in 'entity ["attrs" (str id)]) nil)
+          (b/not= (b/get-in 'entity ["attrs" (str id)]) nil)))
 
       (and (= v-type :args-map) (some comparison-ops (keys v-data)))
-      (cond+
-       :let [label (first path)
-             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
-
-       rev-attr (throw-not-supported! [:reverse-attribute])
-
-       :let [{:keys [id cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-
-       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
-
-       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
-
-       :let [[op [_ cmp-val]] (first v-data)]
-
-       :else
-       ((comparison-op->cel-fn op)
-        (b/get-in 'entity ["attrs" (str id)])
-        cmp-val))
+      (let [id (resolve-cardinality-one-fwd-attr! etype (first path) attrs)
+            [op [_ cmp-val]] (first v-data)]
+        ((comparison-op->cel-fn op)
+         (b/get-in 'entity ["attrs" (str id)])
+         cmp-val))
 
       (not= v-type :value)
       (throw-not-supported! [:complex-value-type])
 
       :else
-      (cond+
-       :let [label (first path)
-             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
-
-       rev-attr (throw-not-supported! [:reverse-attribute])
-
-       :let [{:keys [id cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-
-       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
-
-       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
-
-       :else
-       (b/= (b/get-in 'entity ["attrs" (str id)]) v-data)))))
+      (let [id (resolve-cardinality-one-fwd-attr! etype (first path) attrs)]
+        (b/= (b/get-in 'entity ["attrs" (str id)]) v-data)))))
 
 (defn- where-cond->cel-expr!
   [ctx {:keys [where-cond]}]
@@ -122,52 +97,19 @@
       (throw-not-supported! [:multi-part-path])
 
       (and (= v-type :args-map) (contains? v-data :$isNull))
-      (cond+
-       :let [label (first path)
-             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
-
-       rev-attr (throw-not-supported! [:reverse-attribute])
-
-       :let [{:keys [cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-
-       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
-
-       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
-
-       :else nil)
+      (do (resolve-cardinality-one-fwd-attr! etype (first path) attrs)
+          nil)
 
       (and (= v-type :args-map) (some comparison-ops (keys v-data)))
-      (cond+
-       :let [label (first path)
-             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
-
-       rev-attr (throw-not-supported! [:reverse-attribute])
-
-       :let [{:keys [cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-
-       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
-
-       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
-
-       :else nil)
+      (do (resolve-cardinality-one-fwd-attr! etype (first path) attrs)
+          nil)
 
       (not= v-type :value)
       (throw-not-supported! [:complex-value-type])
 
       :else
-      (cond+
-       :let [label (first path)
-             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
-
-       rev-attr (throw-not-supported! [:reverse-attribute])
-
-       :let [{:keys [cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-
-       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
-
-       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
-
-       :else nil))))
+      (do (resolve-cardinality-one-fwd-attr! etype (first path) attrs)
+          nil))))
 
 (defn- validate-child-form-where-cond!
   [ctx {:keys [where-cond]}]
