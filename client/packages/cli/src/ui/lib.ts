@@ -342,7 +342,6 @@ export const prepareReadLine = (): {
 
   const rl = readline.createInterface({
     input: stdin,
-    output: stdout,
     escapeCodeTimeout: 50,
   });
 
