@@ -21,49 +21,76 @@
   `(binding [*factory* ~factory]
      ~@body))
 
-(defn cel-expr
-  "Coerce x to CelExpr - pass through if already CelExpr, otherwise convert"
-  ^CelExpr [x]
-  (cond
-    (instance? CelExpr x) x
-    (symbol? x) (.newIdentifier *factory* (name x))
-    (nil? x) (.newConstant *factory* (CelConstant/ofValue NullValue/NULL_VALUE))
-    (string? x) (.newStringLiteral *factory* ^String x)
-    (int? x) (.newIntLiteral *factory* (long x))
-    (float? x) (.newDoubleLiteral *factory* (double x))
-    (boolean? x) (.newBoolLiteral *factory* (boolean x))
-    (uuid? x) (.newStringLiteral *factory* (str x))
-    :else (throw (ex-info "Unsupported value type for CEL" {:value x :type (type x)}))))
+(defprotocol ToCelExpr
+  (->cel-expr [x factory]))
+
+(extend-protocol ToCelExpr
+  CelExpr
+  (->cel-expr [x _factory] x)
+
+  clojure.lang.Symbol
+  (->cel-expr [x factory] (.newIdentifier ^CelExprFactory factory (name x)))
+
+  nil
+  (->cel-expr [_ factory] (.newConstant ^CelExprFactory factory (CelConstant/ofValue NullValue/NULL_VALUE)))
+
+  String
+  (->cel-expr [x factory] (.newStringLiteral ^CelExprFactory factory x))
+
+  Long
+  (->cel-expr [x factory] (.newIntLiteral ^CelExprFactory factory x))
+
+  Integer
+  (->cel-expr [x factory] (.newIntLiteral ^CelExprFactory factory (long x)))
+
+  Double
+  (->cel-expr [x factory] (.newDoubleLiteral ^CelExprFactory factory x))
+
+  Float
+  (->cel-expr [x factory] (.newDoubleLiteral ^CelExprFactory factory (double x)))
+
+  Boolean
+  (->cel-expr [x factory] (.newBoolLiteral ^CelExprFactory factory x))
+
+  java.util.UUID
+  (->cel-expr [x factory] (.newStringLiteral ^CelExprFactory factory (str x))))
 
 (defn get
   "Build obj[key] index expression"
   ^CelExpr [obj key]
   (.newGlobalCall *factory*
                   (.getFunction Operator/INDEX)
-                  ^CelExpr/1 (into-array CelExpr [(cel-expr obj) (cel-expr key)])))
+                  ^"[Ldev.cel.common.ast.CelExpr;"
+                  (into-array CelExpr [(->cel-expr obj *factory*)
+                                       (->cel-expr key *factory*)])))
 
 (defn eq
   "Build a == b expression"
   ^CelExpr [a b]
   (.newGlobalCall *factory*
                   (.getFunction Operator/EQUALS)
-                  ^CelExpr/1 (into-array CelExpr [(cel-expr a) (cel-expr b)])))
+                  ^"[Ldev.cel.common.ast.CelExpr;"
+                  (into-array CelExpr [(->cel-expr a *factory*)
+                                       (->cel-expr b *factory*)])))
 
 (defn not=
   "Build a != b expression"
   ^CelExpr [a b]
   (.newGlobalCall *factory*
                   (.getFunction Operator/NOT_EQUALS)
-                  ^CelExpr/1 (into-array CelExpr [(cel-expr a) (cel-expr b)])))
+                  ^"[Ldev.cel.common.ast.CelExpr;"
+                  (into-array CelExpr [(->cel-expr a *factory*)
+                                       (->cel-expr b *factory*)])))
 
 (defn and
   "Build (a && b && c && ...) from expressions"
   ^CelExpr [& exprs]
-  (let [cel-exprs (map cel-expr exprs)]
+  (let [cel-exprs (map #(->cel-expr % *factory*) exprs)]
     (reduce (fn [^CelExpr acc ^CelExpr expr]
               (.newGlobalCall *factory*
                               (.getFunction Operator/LOGICAL_AND)
-                              ^CelExpr/1 (into-array CelExpr [acc expr])))
+                              ^"[Ldev.cel.common.ast.CelExpr;"
+                              (into-array CelExpr [acc expr])))
             cel-exprs)))
 
 (defn get-in
@@ -71,5 +98,5 @@
   ^CelExpr [obj & keys]
   (reduce (fn [^CelExpr acc k]
             (get acc k))
-          (cel-expr obj)
+          (->cel-expr obj *factory*)
           keys))
