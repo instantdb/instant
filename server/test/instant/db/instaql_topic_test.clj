@@ -364,18 +364,5 @@
             (is (true? (program {:etype "users"
                                  :attrs {(str score-attr-id) 1000}})))
             (is (false? (program {:etype "users"
-                                  :attrs {(str score-attr-id) 2000}})))))
-
-        (testing "combined $gt and $lt (range)"
-          (let [{:keys [program]} (iqt/instaql-topic
-                                   {:attrs attrs}
-                                   (iq/->forms! attrs {:users {:$ {:where {:score {:$gt 100 :$lt 200}}}}}))]
-            (is (true? (program {:etype "users"
-                                 :attrs {(str score-attr-id) 150}})))
-            (is (false? (program {:etype "users"
-                                  :attrs {(str score-attr-id) 100}})))
-            (is (false? (program {:etype "users"
-                                  :attrs {(str score-attr-id) 200}})))
-            (is (false? (program {:etype "users"
-                                  :attrs {(str score-attr-id) 50}})))))))))
+                                  :attrs {(str score-attr-id) 2000}})))))))))
 

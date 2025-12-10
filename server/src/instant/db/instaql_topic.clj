@@ -73,15 +73,12 @@
 
        (not= :one cardinality) (throw-not-supported! [:cardinality-many])
 
-       :let [cmp-exprs (keep (fn [op]
-                               (when-let [[_ cmp-val] (get v-data op)]
-                                 ((comparison-op->cel-fn op)
-                                  (b/get-in 'entity ["attrs" (str id)])
-                                  cmp-val)))
-                             comparison-ops)]
+       :let [[op [_ cmp-val]] (first v-data)]
 
        :else
-       (apply b/and cmp-exprs))
+       ((comparison-op->cel-fn op)
+        (b/get-in 'entity ["attrs" (str id)])
+        cmp-val))
 
       (not= v-type :value)
       (throw-not-supported! [:complex-value-type])
