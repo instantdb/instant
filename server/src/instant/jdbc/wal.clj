@@ -245,7 +245,8 @@
                          :transactions
                          :rules
                          :apps
-                         :instant_users])
+                         :instant_users
+                         :wal_logs])
 
 (defn- create-replication-stream
   "Given a PGConnection (with replication settings), a slot,

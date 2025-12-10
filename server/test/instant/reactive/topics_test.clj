@@ -25,13 +25,14 @@
                                                      (if (= app-id (:id app))
                                                        true
                                                        (enable-wal-entity-log? app-id)))
+                      flags/log-to-wal-log-table? (fn [] true)
                       inv/invalidate!
                       (fn [process-id store {:keys [app-id] :as wal-record}]
                         (if (= machine-id process-id)
                           (when (= (:id app) app-id)
                             (swap! records conj wal-record))
                           (invalidate! process-id store wal-record)))]
-          (let [process (time (inv/start machine-id))]
+          (let [process (inv/start machine-id)]
             (try
               (f app r records)
               (finally
@@ -74,7 +75,8 @@
           (let [record (wait-for-record wal-records)
                 entities-after (topics/extract-entities-after record)
                 entities-before (topics/extract-entities-before attrs entities-after record)]
-            (is (= 1 (count (:messages record))))
+            (is (or (= 1 (count (:messages record)))
+                    (= 1 (count (:wal-logs record)))))
             (is (= (resolvers/walk-friendly r entities-after)
                    {"users"
                     {(str (stuid "dww"))
@@ -116,7 +118,8 @@
                 entities-after (topics/extract-entities-after record)
                 entities-before (topics/extract-entities-before attrs entities-after record)]
 
-            (is (= 1 (count (:messages record))))
+            (is (or (= 1 (count (:messages record)))
+                    (= 1 (count (:wal-logs record)))))
             (is (= (resolvers/walk-friendly r entities-before)
                    {"users"
                     {"eid-alex"
@@ -165,7 +168,8 @@
           (let [record (wait-for-record wal-records)
                 entities-after (topics/extract-entities-after record)
                 entities-before (topics/extract-entities-before attrs entities-after record)]
-            (is (= 1 (count (:messages record))))
+            (is (or (= 1 (count (:messages record)))
+                    (= 1 (count (:wal-logs record)))))
 
             (is (= (resolvers/walk-friendly r entities-before)
                    {"users"
@@ -217,7 +221,8 @@
                 entities-after (topics/extract-entities-after record)
                 entities-before (topics/extract-entities-before attrs entities-after record)]
 
-            (is (= 1 (count (:messages record))))
+            (is (or (= 1 (count (:messages record)))
+                    (= 1 (count (:wal-logs record)))))
             (is (= (resolvers/walk-friendly r entities-after)
                    (resolvers/walk-friendly r entities-before)
                    {"bookshelves"
@@ -246,7 +251,8 @@
           (let [record (wait-for-record wal-records)
                 entities-after (topics/extract-entities-after record)
                 entities-before (topics/extract-entities-before attrs entities-after record)]
-            (is (= 1 (count (:messages record))))
+            (is (or (= 1 (count (:messages record)))
+                    (= 1 (count (:wal-logs record)))))
 
             ;; Many-to-many links
             (is (= (resolvers/walk-friendly r entities-after)
