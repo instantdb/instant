@@ -98,12 +98,10 @@
 (defn- compile-instaql-topic [attrs instaql-query]
   (when (flags/toggled? :instaql-topic-compiler true)
     (try
-      (let [forms (iq/->forms! attrs instaql-query)]
-        (when (and (= 1 (count forms))
-                   (empty? (:child-forms (first forms))))
-          (let [result (iqt/instaql-topic {:attrs attrs} (first forms))]
-            (when (:program result)
-              result))))
+      (let [forms (iq/->forms! attrs instaql-query)
+            result (iqt/instaql-topic {:attrs attrs} forms)]
+        (when (:program result)
+          result))
       (catch Throwable e
         (tracer/record-exception-span! e {:name "compile-instaql-topic-ex"})))))
 

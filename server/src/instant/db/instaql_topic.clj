@@ -159,18 +159,17 @@
   [{:keys [attrs]} {:keys [etype child-forms] :as form}]
   (validate-child-form-where! {:attrs attrs} form)
   (let [etype-check (b/= (b/get 'entity "etype") etype)]
-    (if-not (seq child-forms)
-      etype-check
-      (apply b/or etype-check (map (partial child-form->cel-expr! {:attrs attrs}) child-forms)))))
+    (apply b/or etype-check (map (partial child-form->cel-expr! {:attrs attrs}) child-forms))))
 
-(defn- form->ast!
-  ^CelAbstractSyntaxTree [ctx {:keys [child-forms] :as form}]
+(defn- form->ast! [ctx {:keys [child-forms] :as form}]
+  (let [top-expr (top-form->cel-expr! ctx form)]
+    (apply b/or top-expr (map (partial child-form->cel-expr! ctx) child-forms))))
+
+(defn- forms->ast!
+  ^CelAbstractSyntaxTree [ctx forms]
   (b/with-cel-factory (CelExprFactory/newInstance)
-    (let [top-expr (top-form->cel-expr! ctx form)
-          combined-expr (if-not (seq child-forms)
-                          top-expr
-                          (apply b/or top-expr (map (partial child-form->cel-expr! ctx) child-forms)))]
-      (CelAbstractSyntaxTree/newParsedAst combined-expr cel-source))))
+    (let [exprs (mapv (partial form->ast! ctx) forms)]
+      (CelAbstractSyntaxTree/newParsedAst (apply b/or exprs) cel-source))))
 
 ;; ------
 ;; Compiler and Runtime
@@ -196,16 +195,16 @@
 ;; instaql-topic
 
 (defn- instaql-topic* [ctx form]
-  (let [parsed-ast (form->ast! ctx form)
+  (let [parsed-ast (forms->ast! ctx form)
         checked-ast (.getAst (.check instaql-topic-cel-compiler parsed-ast))
         cel-program (.createProgram instaql-topic-cel-runtime checked-ast)]
     {:ast checked-ast
      :program (fn [entity]
                 (eval-topic-program cel-program entity))}))
 
-(defn instaql-topic [ctx form]
+(defn instaql-topic [ctx forms]
   (try
-    (instaql-topic* ctx form)
+    (instaql-topic* ctx forms)
     (catch ExceptionInfo e
       (if-let [not-supported (::not-supported (ex-data e))]
         {:not-supported not-supported}

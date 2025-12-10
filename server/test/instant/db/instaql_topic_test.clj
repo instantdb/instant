@@ -247,6 +247,36 @@
                 {:attrs attrs}
                 (iq/->forms! attrs {:users {:bookshelves {:$ {:where {:name {:$ilike "%sci%"}}}}}}))))))))
 
+(deftest multiple-top-level-forms
+  (with-zeneca-app
+    (fn [app r]
+      (let [attrs (attr-model/get-by-app-id (:id app))
+            {:keys [program]} (iqt/instaql-topic
+                               {:attrs attrs}
+                               (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}}}
+                                                   :bookshelves {:$ {:where {:name "sci-fi"}}}}))]
+        (is (true? (program {:etype "users"
+                             :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
+        (is (false? (program {:etype "users"
+                              :attrs {(str (resolvers/->uuid r :users/handle)) "joe"}})))
+        (is (true? (program {:etype "bookshelves"
+                             :attrs {(str (resolvers/->uuid r :bookshelves/name)) "sci-fi"}})))
+        (is (false? (program {:etype "bookshelves"
+                              :attrs {(str (resolvers/->uuid r :bookshelves/name)) "romance"}})))
+        (is (false? (program {:etype "books" :attrs {}})))
+        (is (false? (program {:etype "posts" :attrs {}})))))))
+
+(deftest ruleParams-are-ignored
+  (with-zeneca-app
+    (fn [app r]
+      (let [attrs (attr-model/get-by-app-id (:id app))
+            {:keys [program]} (iqt/instaql-topic
+                               {:attrs attrs}
+                               (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}}}
+                                                   :$$ruleParams {:handle "stopa"}}))]
+        (is (true? (program {:etype "users"
+                             :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))))))
+
 (deftest child-forms
   (with-zeneca-app
     (fn [app r]
