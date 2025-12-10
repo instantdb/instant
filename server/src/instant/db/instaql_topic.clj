@@ -25,12 +25,21 @@
 ;; ---------
 ;; form->ast!
 
+(def ^:private comparison-ops #{:$gt :$gte :$lt :$lte})
+
+(defn- comparison-op->cel-fn [op]
+  (case op
+    :$gt b/>
+    :$gte b/>=
+    :$lt b/<
+    :$lte b/<=))
+
 (defn- single-cond->cel-expr!
   [{:keys [etype attrs]} {:keys [cond-data]}]
   (let [{:keys [path v]} cond-data
         [v-type v-data] v]
     (cond
-      (> (count path) 1)
+      (clojure.core/> (count path) 1)
       (throw-not-supported! [:multi-part-path])
 
       (and (= v-type :args-map) (contains? v-data :$isNull))
@@ -50,6 +59,29 @@
        (if (:$isNull v-data)
          (b/= (b/get-in 'entity ["attrs" (str id)]) nil)
          (b/not= (b/get-in 'entity ["attrs" (str id)]) nil)))
+
+      (and (= v-type :args-map) (some comparison-ops (keys v-data)))
+      (cond+
+       :let [label (first path)
+             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
+
+       rev-attr (throw-not-supported! [:reverse-attribute])
+
+       :let [{:keys [id cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+
+       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
+
+       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
+
+       :let [cmp-exprs (keep (fn [op]
+                               (when-let [[_ cmp-val] (get v-data op)]
+                                 ((comparison-op->cel-fn op)
+                                  (b/get-in 'entity ["attrs" (str id)])
+                                  cmp-val)))
+                             comparison-ops)]
+
+       :else
+       (apply b/and cmp-exprs))
 
       (not= v-type :value)
       (throw-not-supported! [:complex-value-type])
@@ -89,10 +121,25 @@
   (let [{:keys [path v]} cond-data
         [v-type v-data] v]
     (cond
-      (> (count path) 1)
+      (clojure.core/> (count path) 1)
       (throw-not-supported! [:multi-part-path])
 
       (and (= v-type :args-map) (contains? v-data :$isNull))
+      (cond+
+       :let [label (first path)
+             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
+
+       rev-attr (throw-not-supported! [:reverse-attribute])
+
+       :let [{:keys [cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+
+       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
+
+       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
+
+       :else nil)
+
+      (and (= v-type :args-map) (some comparison-ops (keys v-data)))
       (cond+
        :let [label (first path)
              rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
