@@ -99,31 +99,69 @@
   (clojure.set/intersection bind-keys
                             (cel/ident-usages compiler expr)))
 
+
+(defn sort-binds
+  "Topological sort of binds, in order of depenency (if a -> b, then (a, b)).
+   Will throw a CelValidationException if there are any cyclic deps."
+  [code bind-references bind-vars]
+  (let [seen (volatile! #{})
+        visiting (volatile! #{})
+        path (volatile! ())
+        visit (fn visit [local-path v]
+                (cond (contains? @seen v)
+                      nil
+
+                      (contains? @visiting v)
+                      (cel/throw-cyclic-dependency-error code local-path)
+
+                      :else
+                      (do (vswap! visiting conj v)
+                          (doseq [ref (get bind-references v)]
+                            (visit (conj local-path ref) ref))
+                          (vswap! seen conj v)
+                          (vswap! path conj v))))]
+    (doseq [v bind-vars]
+      (visit [v] v))
+    @path))
+
 (defn with-binds [rule etype action expr]
   (let [binds (concat
                (get-in rule ["$default" "bind"])
                (get-in rule [etype      "bind"]))]
+    (when (not (even? (count binds)))
+      (cel/throw-cel-validation-error expr "bind should have an even number of elements"))
     (if (empty? binds)
       expr
       (let [compiler (cel/action->compiler action)
             bind-map (apply hash-map binds)
             bind-keys (set (keys bind-map))
-            all-bind-usages (loop [seen #{}
-                                   bind-idents []
-                                   [next-expr & rest-expr] [expr]]
-                              (if-not next-expr
-                                bind-idents
-                                (let [binds (bind-usages compiler bind-keys next-expr)
-                                      new-bind-idents (clojure.set/difference binds seen)]
-                                  (recur (into seen binds)
-                                         (into bind-idents new-bind-idents)
-                                         (concat rest-expr (map (fn [i]
-                                                                  (get bind-map i))
-                                                                new-bind-idents))))))]
+
+            {:keys [bind-usages
+                    bind-references]}
+            (loop [seen #{}
+                   bind-idents #{}
+                   bind-references {}
+                   [next-expr & rest-expr] [{:bind-source nil
+                                             :expr expr}]]
+              (if-not next-expr
+                {:bind-usages bind-idents
+                 :bind-references bind-references}
+                (let [{:keys [expr bind-source]} next-expr
+                      binds (bind-usages compiler bind-keys expr)
+                      new-bind-idents (clojure.set/difference binds seen)]
+                  (recur (into seen binds)
+                         (into bind-idents new-bind-idents)
+                         (if bind-source
+                           (assoc bind-references bind-source binds)
+                           bind-references)
+                         (concat rest-expr (map (fn [i]
+                                                  {:bind-source i
+                                                   :expr (get bind-map i)})
+                                                new-bind-idents))))))]
         (reduce (fn [body var-name]
                   (str "cel.bind(" var-name ", " (get bind-map var-name) ", " body ")"))
                 expr
-                all-bind-usages)))))
+                (sort-binds expr bind-references bind-usages))))))
 
 (defn patch-code
   "Don't break if the perm check is a simple boolean"
@@ -284,7 +322,9 @@
                        repeated
                        (conj errors
                              {:message "bind should only contain a given variable name once"
-                              :in [etype "bind" repeated]}))))
+                              :in [etype "bind" repeated]})
+
+                       :else errors)))
              []
              rules))
 

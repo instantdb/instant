@@ -24,7 +24,7 @@
                              "myetype"
                              "view"))))
 
-  (is (= "cel.bind(test, true, cel.bind(test2, false, test && test2))"
+  (is (= "cel.bind(test2, false, cel.bind(test, true, test && test2))"
          (:code
           (rule/get-program! {:code {"myetype"
                                      {"bind" ["test" "true"
@@ -60,6 +60,24 @@
                                       "allow" {"view" "parent"}}}}
                              "myetype"
                              "view")))))
+
+(deftest does-not-allow-cyclic-dependencies
+  (is (= [{:message "The binds have a cyclic dependency a -> b -> a",
+           :in ["myetype" "allow" "view"]}]
+         (rule/validation-errors {"myetype"
+                                  {"bind" ["a" "b"
+                                           "b" "a"]
+                                   "allow" {"view" "a"}}})))
+
+  (is (= [{:message "The binds have a cyclic dependency d -> e -> a -> b -> c -> d",
+           :in ["myetype" "allow" "view"]}]
+         (rule/validation-errors {"myetype"
+                                  {"bind" ["a" "b"
+                                           "b" "c"
+                                           "c" "d"
+                                           "d" "e"
+                                           "e" "a"]
+                                   "allow" {"view" "e"}}}))))
 
 (deftest validation-errors-passes
   (is (= () (rule/validation-errors {"myetype"
@@ -112,10 +130,18 @@
 (deftest uneven-binds-fail
   (is (= [{:message "bind should have an even number of elements",
            :in ["myetype" "bind"]}
-          {:message "There was an unexpected error evaluating the rules",
+          {:message "bind should have an even number of elements",
            :in ["myetype" "allow" "view"]}]
          (rule/validation-errors {"myetype" {"bind" ["duplicate"]
-                                             "allow" {"view" "duplicate"}}}))))
+                                             "allow" {"view" "duplicate"}}})))
+
+  (is (= [{:message "bind should have an even number of elements",
+           :in ["myetype" "bind"]}
+          {:message "bind should have an even number of elements",
+           :in ["myetype" "allow" "view"]}]
+         (rule/validation-errors  {"myetype" {"bind" ["duplicate"]
+                                              "allow" {"view" "true"}}
+                                   "new-etype" {"allow" {"view" "true"}}}))))
 
 (defn pretty-program [p]
   (select-keys p [:etype :action :code]))
