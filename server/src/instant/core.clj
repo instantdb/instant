@@ -14,6 +14,7 @@
    [instant.dash.routes :as dash-routes]
    [instant.db.indexing-jobs :as indexing-jobs]
    [instant.db.hint-testing :as hint-testing]
+   [instant.db.model.wal-log :as wal-log-model]
    [instant.storage.sweeper :as storage-sweeper]
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
@@ -330,6 +331,8 @@
         (storage-sweeper/start))
       (with-log-init :hard-deletion-sweeper
         (hard-deletion-sweeper/start))
+      (with-log-init :wal-log-truncator
+        (wal-log-model/start))
       (when (= (config/get-env) :prod)
         (with-log-init :analytics
           (analytics/start)))
