@@ -4918,6 +4918,7 @@
         (testing "indexed fields collapse ors"
           (let [attrs (attr-model/get-by-app-id (:id app))]
             (is (= '({:k "etype",
+                      :etype "etype",
                       :option-map
                       {:where-conds
                        ([:cond {:path ["string"], :v [:args-map {:in #{nil "3" "4"}}]}])},
@@ -4929,6 +4930,7 @@
         (testing "non-indexed fields don't collapse ors"
           (let [attrs (attr-model/get-by-app-id (:id app))]
             (is (= '({:k "etype",
+                      :etype "etype",
                       :option-map
                       {:where-conds
                        ([:or

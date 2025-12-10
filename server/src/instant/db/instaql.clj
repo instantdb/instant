@@ -514,6 +514,7 @@
                                                (get v :$ {}))
                     child-forms (dissoc v :$)]
                 {:k (name k)
+                 :etype (:etype state')
                  :option-map option
                  :child-forms (coerce-forms! (update state' :level inc)
                                              attrs

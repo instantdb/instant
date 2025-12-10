@@ -13,15 +13,10 @@
 ;; ----
 ;; Tests
 
-(deftest not-supported
+(deftest top-form-not-supported
   (with-zeneca-app
     (fn [app _r]
       (let [attrs (attr-model/get-by-app-id (:id app))]
-        (is (= {:not-supported [:child-forms]}
-               (iqt/instaql-topic
-                {:attrs attrs}
-                (iq/->forms! attrs {:users {:bookshelves {}}}))))
-
         (is (= {:not-supported [:multi-part-path]}
                (iqt/instaql-topic
                 {:attrs attrs}
@@ -237,3 +232,47 @@
                (iqt/instaql-topic
                 {:attrs attrs}
                 (iq/->forms! attrs {:books {:$ {:where {:favoriteByUsers "some-value"}}}}))))))))
+
+(deftest child-form-not-supported
+  (with-zeneca-app
+    (fn [app _r]
+      (let [attrs (attr-model/get-by-app-id (:id app))]
+        (is (= {:not-supported [:multi-part-path]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:books {:bookshelves {:$ {:where {"users.handle" "stopa"}}}}}))))
+
+        (is (= {:not-supported [:complex-value-type]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:users {:bookshelves {:$ {:where {:name {:$ilike "%sci%"}}}}}}))))))))
+
+(deftest child-forms
+  (with-zeneca-app
+    (fn [app r]
+      (let [_ (tx/transact!
+               (aurora/conn-pool :write)
+               (attr-model/get-by-app-id (:id app))
+               (:id app)
+               [[:add-attr {:id (random-uuid)
+                            :forward-identity [(random-uuid) "users" "favoriteBook"]
+                            :reverse-identity [(random-uuid) "books" "favoritedByUsers"]
+                            :value-type :ref
+                            :cardinality :one
+                            :unique? false
+                            :index? false}]])
+            attrs (attr-model/get-by-app-id (:id app))
+            {:keys [program]} (iqt/instaql-topic
+                               {:attrs attrs}
+                               (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}}
+                                                           :favoriteBook {:$ {:where {:title "Erta"}}
+                                                                          :bookshelves {:$ {:where {:name "sci-fi"}}}}}}))]
+        (is (true? (program {:etype "users"
+                             :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))
+        (is (false? (program {:etype "users"
+                              :attrs {(str (resolvers/->uuid r :users/handle)) "joe"}})))
+        (is (true? (program {:etype "books" :attrs {}})))
+        (is (true? (program {:etype "bookshelves" :attrs {}})))
+        (is (false? (program {:etype "favoriteBook" :attrs {}})))
+        (is (false? (program {:etype "posts" :attrs {}})))))))
+

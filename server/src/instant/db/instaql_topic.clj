@@ -2,7 +2,7 @@
   (:require [instant.db.cel :as cel]
             [instant.db.cel-builder :as b]
             [instant.db.model.attr :as attr-model]
-            [clojure+.core :as clojure+])
+            [clojure+.core :refer [cond+]])
   (:import (clojure.lang ExceptionInfo)
            (dev.cel.common CelAbstractSyntaxTree CelSource)
            (dev.cel.common.ast CelExprFactory)
@@ -34,7 +34,7 @@
       (throw-not-supported! [:multi-part-path])
 
       (and (= v-type :args-map) (contains? v-data :$isNull))
-      (clojure+/cond+
+      (cond+
        :let [label (first path)
              rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
 
@@ -48,14 +48,14 @@
 
        :else
        (if (:$isNull v-data)
-         (b/= (b/get-in 'entity "attrs" (str id)) nil)
-         (b/not= (b/get-in 'entity "attrs" (str id)) nil)))
+         (b/= (b/get-in 'entity ["attrs" (str id)]) nil)
+         (b/not= (b/get-in 'entity ["attrs" (str id)]) nil)))
 
       (not= v-type :value)
       (throw-not-supported! [:complex-value-type])
 
       :else
-      (clojure+/cond+
+      (cond+
        :let [label (first path)
              rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
 
@@ -68,7 +68,7 @@
        (not= :one cardinality) (throw-not-supported! [:cardinality-many])
 
        :else
-       (b/= (b/get-in 'entity "attrs" (str id)) v-data)))))
+       (b/= (b/get-in 'entity ["attrs" (str id)]) v-data)))))
 
 (defn- where-cond->cel-expr!
   [ctx {:keys [where-cond]}]
@@ -78,22 +78,99 @@
       (single-cond->cel-expr! ctx {:cond-data cond-data})
       (throw-not-supported! [:where-cond cond-type]))))
 
+;; ---------
+;; Child form validation
+;; We don't generate CEL expressions for child form where clauses,
+;; but we need to validate they don't contain patterns that would
+;; reference other etypes (like dotted paths).
+
+(defn- validate-child-form-single-cond!
+  [{:keys [etype attrs]} {:keys [cond-data]}]
+  (let [{:keys [path v]} cond-data
+        [v-type v-data] v]
+    (cond
+      (> (count path) 1)
+      (throw-not-supported! [:multi-part-path])
+
+      (and (= v-type :args-map) (contains? v-data :$isNull))
+      (cond+
+       :let [label (first path)
+             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
+
+       rev-attr (throw-not-supported! [:reverse-attribute])
+
+       :let [{:keys [cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+
+       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
+
+       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
+
+       :else nil)
+
+      (not= v-type :value)
+      (throw-not-supported! [:complex-value-type])
+
+      :else
+      (cond+
+       :let [label (first path)
+             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
+
+       rev-attr (throw-not-supported! [:reverse-attribute])
+
+       :let [{:keys [cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+
+       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
+
+       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
+
+       :else nil))))
+
+(defn- validate-child-form-where-cond!
+  [ctx {:keys [where-cond]}]
+  (let [[cond-type cond-data] where-cond]
+    (case cond-type
+      :cond
+      (validate-child-form-single-cond! ctx {:cond-data cond-data})
+      (throw-not-supported! [:where-cond cond-type]))))
+
+(defn- validate-child-form-where!
+  [{:keys [attrs]} {:keys [etype option-map child-forms]}]
+  (let [{:keys [where-conds]} option-map]
+    (doseq [where-cond where-conds]
+      (validate-child-form-where-cond!
+       {:etype etype :attrs attrs}
+       {:where-cond where-cond}))
+    (doseq [child-form child-forms]
+      (validate-child-form-where! {:attrs attrs} child-form))))
+
+(defn- top-form->cel-expr!
+  [{:keys [attrs]} {:keys [etype option-map]}]
+  (let [{:keys [where-conds]} option-map
+        etype-check (b/= (b/get 'entity "etype") etype)
+        attr-checks (mapv (fn [where-cond]
+                            (where-cond->cel-expr!
+                             {:etype etype
+                              :attrs attrs}
+                             {:where-cond where-cond}))
+                          where-conds)]
+    (apply b/and etype-check attr-checks)))
+
+(defn- child-form->cel-expr!
+  [{:keys [attrs]} {:keys [etype child-forms] :as form}]
+  (validate-child-form-where! {:attrs attrs} form)
+  (let [etype-check (b/= (b/get 'entity "etype") etype)]
+    (if-not (seq child-forms)
+      etype-check
+      (apply b/or etype-check (map (partial child-form->cel-expr! {:attrs attrs}) child-forms)))))
+
 (defn- form->ast!
-  "Convert an InstaQL form directly to a CEL AST"
-  ^CelAbstractSyntaxTree [{:keys [attrs]} {etype :k :keys [option-map child-forms]}]
-  (if (seq child-forms)
-    (throw-not-supported! [:child-forms])
-    (b/with-cel-factory (CelExprFactory/newInstance)
-      (let [{:keys [where-conds]} option-map
-            etype-check (b/= (b/get-in 'entity "etype") etype)
-            attr-checks (mapv (fn [where-cond]
-                                (where-cond->cel-expr!
-                                 {:etype etype
-                                  :attrs attrs}
-                                 {:where-cond where-cond}))
-                              where-conds)
-            combined-expr (apply b/and etype-check attr-checks)]
-        (CelAbstractSyntaxTree/newParsedAst combined-expr cel-source)))))
+  ^CelAbstractSyntaxTree [ctx {:keys [child-forms] :as form}]
+  (b/with-cel-factory (CelExprFactory/newInstance)
+    (let [top-expr (top-form->cel-expr! ctx form)
+          combined-expr (if-not (seq child-forms)
+                          top-expr
+                          (apply b/or top-expr (map (partial child-form->cel-expr! ctx) child-forms)))]
+      (CelAbstractSyntaxTree/newParsedAst combined-expr cel-source))))
 
 ;; ------
 ;; Compiler and Runtime
