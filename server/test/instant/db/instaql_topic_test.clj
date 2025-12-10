@@ -210,3 +210,30 @@
           (is (false?
                (program {:etype "users"
                          :attrs {(str favorite-book-attr-id) (str (random-uuid))}}))))))))
+
+(deftest value-attr-validation
+  (with-zeneca-app
+    (fn [app _r]
+      (let [favorite-book-attr-id (random-uuid)
+            _ (tx/transact!
+               (aurora/conn-pool :write)
+               (attr-model/get-by-app-id (:id app))
+               (:id app)
+               [[:add-attr {:id favorite-book-attr-id
+                            :forward-identity [(random-uuid) "users" "favoriteBook"]
+                            :reverse-identity [(random-uuid) "books" "favoriteByUsers"]
+                            :value-type :ref
+                            :cardinality :one
+                            :unique? false
+                            :index? false}]])
+            attrs (attr-model/get-by-app-id (:id app))]
+
+        (is (= {:not-supported [:cardinality-many]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:users {:$ {:where {:bookshelves "some-value"}}}}))))
+
+        (is (= {:not-supported [:reverse-attribute]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:books {:$ {:where {:favoriteByUsers "some-value"}}}}))))))))
