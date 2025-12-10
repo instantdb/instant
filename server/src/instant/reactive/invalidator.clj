@@ -78,7 +78,8 @@
 (defn transform-wal-record [{:keys [changes messages tx-bytes] :as _record}]
   ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
   ;;      or else we will never be notified about it.
-  (let [{:strs [idents triples attrs transactions wal_logs]}
+  (let [{:strs [idents triples attrs transactions
+                wal_logs wal_logs_0 wal_logs_1 wal_logs_2 wal_logs_3 wal_logs_4 wal_logs_5 wal_logs_6 wal_logs_7]}
         (group-by :table changes)
 
         some-changes (or (seq idents)
@@ -104,7 +105,8 @@
          :tx-id tx-id
          :tx-bytes tx-bytes
          :messages messages
-         :wal-logs wal_logs}))))
+         :wal-logs (concat wal_logs wal_logs_0 wal_logs_1 wal_logs_2 wal_logs_3
+                           wal_logs_4 wal_logs_5 wal_logs_6 wal_logs_7)}))))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"

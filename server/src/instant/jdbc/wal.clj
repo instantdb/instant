@@ -246,7 +246,15 @@
                          :rules
                          :apps
                          :instant_users
-                         :wal_logs])
+                         :wal_logs
+                         :wal_logs_0
+                         :wal_logs_1
+                         :wal_logs_2
+                         :wal_logs_3
+                         :wal_logs_4
+                         :wal_logs_5
+                         :wal_logs_6
+                         :wal_logs_7])
 
 (defn- create-replication-stream
   "Given a PGConnection (with replication settings), a slot,

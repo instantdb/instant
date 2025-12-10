@@ -1,9 +1,20 @@
 create table wal_logs (
-  id uuid primary key,
+  id uuid not null,
   created_at timestamp with time zone not null default now(),
+  hour_bucket int not null,
   prefix text not null,
-  content text not null
-);
+  content text not null,
+  primary key (id, hour_bucket)
+) partition by range (hour_bucket);
+
+create table wal_logs_0 partition of wal_logs for values from (0) to (1);
+create table wal_logs_1 partition of wal_logs for values from (1) to (2);
+create table wal_logs_2 partition of wal_logs for values from (2) to (3);
+create table wal_logs_3 partition of wal_logs for values from (3) to (4);
+create table wal_logs_4 partition of wal_logs for values from (4) to (5);
+create table wal_logs_5 partition of wal_logs for values from (5) to (6);
+create table wal_logs_6 partition of wal_logs for values from (6) to (7);
+create table wal_logs_7 partition of wal_logs for values from (7) to (8);
 
 create or replace function triples_update_batch_trigger()
 returns trigger as $$
@@ -110,7 +121,8 @@ begin
 
     if ents_msg is not null then
       if log_to_table_setting is not null and log_to_table_setting then
-        insert into wal_logs (id, prefix, content) values (gen_random_uuid(), 'update_ents', ents_msg);
+        insert into wal_logs (id, created_at, hour_bucket, prefix, content)
+             values (gen_random_uuid(), now(), date_part('hour', now())::int % 8, 'update_ents', ents_msg);
       else
         perform pg_logical_emit_message(true, 'update_ents', ents_msg);
       end if;
@@ -212,7 +224,8 @@ begin
 
     if ents_msg is not null then
       if log_to_table_setting is not null and log_to_table_setting then
-        insert into wal_logs (id, prefix, content) values (gen_random_uuid(), 'delete_ents', ents_msg);
+        insert into wal_logs (id, created_at, hour_bucket, prefix, content)
+             values (gen_random_uuid(), now(), date_part('hour', now())::int % 8, 'delete_ents', ents_msg);
       else
         perform pg_logical_emit_message(true, 'delete_ents', ents_msg);
       end if;
