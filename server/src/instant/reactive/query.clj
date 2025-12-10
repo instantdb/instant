@@ -99,7 +99,7 @@
   (when (flags/toggled? :instaql-topic-compiler true)
     (try
       (let [forms (iq/->forms! attrs instaql-query)
-            result (iqt/instaql-topic {:attrs attrs} (first forms))]
+            result (iqt/instaql-topic {:attrs attrs} forms)]
         (when (:program result)
           result))
       (catch Throwable e

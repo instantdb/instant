@@ -521,7 +521,7 @@
                                              child-forms)})))))
 
 (defn ->forms! [attrs o]
-  (let [o (dissoc o :$$ruleParams)
+  (let [o (cond-> o (associative? o) (dissoc :$$ruleParams))
         coerced (coerce-forms! {:root o :in [] :level 0} attrs o)
         conformed (s/conform ::forms coerced)]
     (when (s/invalid? conformed)
