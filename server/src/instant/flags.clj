@@ -281,6 +281,9 @@
 (defn enable-wal-entity-log? [app-id]
   (contains? (flag :enable-wal-entity-log-apps) app-id))
 
+(defn log-to-wal-log-table? []
+  (toggled? :log-to-wal-log-table false))
+
 (def use-more-vfutures?
   (case (config/get-env)
     :dev

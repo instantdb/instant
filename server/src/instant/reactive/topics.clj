@@ -206,7 +206,7 @@
 ;; Wal entities
 ;; ------------
 
-(defn extract-entities-after [{:keys [messages]}]
+(defn extract-entities-from-messages [init messages]
   (reduce (fn [acc message]
             (case (:prefix message)
               ("update_ents" "delete_ents")
@@ -215,8 +215,37 @@
                       acc
                       (<-json (:content message)))
               acc))
-          {}
+          init
           messages))
+
+(defn extract-entities-from-table [init wal-logs]
+  (let [parsed-logs (keep (fn [wal-log]
+                            (when (= :insert (:action wal-log))
+                              (reduce (fn [acc {:keys [name value]}]
+                                        (case name
+                                          "prefix" (assoc acc :prefix value)
+                                          "content" (assoc acc :content value)
+                                          "created_at" (assoc acc :created-at (triple-model/parse-date-value value))
+                                          acc))
+                                      {}
+                                      (:columns wal-log))))
+                          wal-logs)
+        sorted-logs (sort-by :created-at parsed-logs)]
+    (reduce (fn [acc message]
+              (case (:prefix message)
+                ("update_ents" "delete_ents")
+                (reduce (fn [acc [etype attr-id ent]]
+                          (assoc-in acc [etype attr-id] ent))
+                        acc
+                        (<-json (:content message)))
+                acc))
+            init
+            sorted-logs)))
+
+(defn extract-entities-after [{:keys [messages wal-logs]}]
+  (-> {}
+      (extract-entities-from-messages messages)
+      (extract-entities-from-table wal-logs)))
 
 (defn extract-entities-before [attrs entities-after {:keys [triple-changes]}]
   (let [attr-etype (vmemoize (fn [id-str]
