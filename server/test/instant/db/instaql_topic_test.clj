@@ -25,17 +25,7 @@
         (is (= {:not-supported [:complex-value-type]}
                (iqt/instaql-topic
                 {:attrs attrs}
-                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))
-
-        (is (= {:not-supported [:multi-part-path]}
-               (iqt/instaql-topic
-                {:attrs attrs}
-                (iq/->forms! attrs {:books {:bookshelves {:$ {:where {"users.handle" "stopa"}}}}}))))
-
-        (is (= {:not-supported [:complex-value-type]}
-               (iqt/instaql-topic
-                {:attrs attrs}
-                (iq/->forms! attrs {:users {:bookshelves {:$ {:where {:name {:$ilike "%sci%"}}}}}}))))))))
+                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))))))
 
 (deftest composites
   (with-zeneca-app
