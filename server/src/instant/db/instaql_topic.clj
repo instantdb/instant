@@ -55,11 +55,20 @@
       (throw-not-supported! [:complex-value-type])
 
       :else
-      (let [label (first path)
-            {:keys [id] :as attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-        (if-not attr
-          (throw-not-supported! [:unknown-attribute])
-          (b/= (b/get-in 'entity "attrs" (str id)) v-data))))))
+      (clojure+/cond+
+       :let [label (first path)
+             rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
+
+       rev-attr (throw-not-supported! [:reverse-attribute])
+
+       :let [{:keys [id cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+
+       (not fwd-attr) (throw-not-supported! [:unknown-attribute])
+
+       (not= :one cardinality) (throw-not-supported! [:cardinality-many])
+
+       :else
+       (b/= (b/get-in 'entity "attrs" (str id)) v-data)))))
 
 (defn- where-cond->cel-expr!
   [ctx {:keys [where-cond]}]
