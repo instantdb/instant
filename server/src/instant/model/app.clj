@@ -67,7 +67,8 @@
   ([{:keys [id]}]
    (cache/get app-cache id get-by-id*))
   ([conn {:keys [id] :as params}]
-   (if (= conn (aurora/conn-pool :read))
+   (if (or (= conn (aurora/conn-pool :read))
+           (= conn (aurora/conn-pool :read-replica)))
      (get-by-id params)
      ;; Don't cache if we're using a custom connection
      (get-by-id* conn id))))

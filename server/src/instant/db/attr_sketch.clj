@@ -413,7 +413,8 @@
   ([keys]
    (lookup (aurora/conn-pool :read) keys))
   ([conn keys]
-   (if (= conn (aurora/conn-pool :read))
+   (if (or (= conn (aurora/conn-pool :read))
+           (= conn (aurora/conn-pool :read-replica)))
      @(cache/get-all-async lookup-cache keys #(lookup* conn %))
      (lookup* conn keys))))
 
