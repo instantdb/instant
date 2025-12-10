@@ -61,7 +61,8 @@
   ([{:keys [app-id]}]
    (cache/get rule-cache app-id get-by-app-id*))
   ([conn {:keys [app-id]}]
-   (if (= conn (aurora/conn-pool :read))
+   (if (or (= conn (aurora/conn-pool :read))
+           (= conn (aurora/conn-pool :read-replica)))
      (get-by-app-id {:app-id app-id})
      ;; Don't cache if we're using a custom connection
      (get-by-app-id* conn app-id))))
