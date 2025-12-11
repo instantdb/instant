@@ -1,8 +1,8 @@
 // @ts-check
 import weakHash from './utils/weakHash.ts';
 import instaql from './instaql.ts';
-import * as instaml from './instaml.js';
-import * as s from './store.ts';
+import * as instaml from './instaml.ts';
+import * as sts from './store.ts';
 import uuid from './utils/uuid.ts';
 import IndexedDBStorage from './IndexedDBStorage.ts';
 import WindowNetworkListener from './WindowNetworkListener.js';
@@ -36,6 +36,8 @@ import { SyncTable } from './SyncTable.ts';
 /** @typedef {import('./Connection.ts').Connection} Connection */
 /** @typedef {import('./Connection.ts').TransportType} TransportType */
 /** @typedef {import('./Connection.ts').EventSourceConstructor} EventSourceConstructor */
+/** @typedef {import('./reactorTypes.ts').QuerySub} QuerySub */
+/** @typedef {import('./reactorTypes.ts').QuerySubInStorage} QuerySubInStorage */
 
 const STATUS = {
   CONNECTING: 'connecting',
@@ -107,15 +109,27 @@ const ignoreLogging = {
   'patch-presence': true,
 };
 
+/**
+ * @param {QuerySubInStorage} x
+ * @param {boolean | null} useDateObjects
+ * @returns {QuerySub}
+ */
 function querySubFromStorage(x, useDateObjects) {
   const v = typeof x === 'string' ? JSON.parse(x) : x;
 
   if (v?.result?.store) {
-    const storeJSON = v.result.store;
-    v.result.store = s.fromJSON({
-      ...storeJSON,
-      useDateObjects: useDateObjects,
-    });
+    const attrsStore = sts.attrsStoreFromJSON(
+      v.result.attrsStore,
+      v.result.store,
+    );
+    if (attrsStore) {
+      const storeJSON = v.result.store;
+      v.result.store = sts.fromJSON(attrsStore, {
+        ...storeJSON,
+        useDateObjects: useDateObjects,
+      });
+      v.result.attrsStore = attrsStore;
+    }
   }
 
   return v;
@@ -123,10 +137,11 @@ function querySubFromStorage(x, useDateObjects) {
 
 function querySubToStorage(_key, sub) {
   const jsonSub = { ...sub };
-  if (sub.result?.store) {
+  if (sub.result?.store || sub.result?.attrsStore) {
     jsonSub.result = {
       ...sub.result,
-      store: s.toJSON(sub.result.store),
+      store: sts.toJSON(sub.result.store),
+      attrsStore: sub.result?.attrsStore.toJSON(),
     };
   }
   return jsonSub;
@@ -176,12 +191,13 @@ function sortedMutationEntries(entries) {
  * @template {import('./presence.ts').RoomSchemaShape} [RoomSchema = {}]
  */
 export default class Reactor {
+  /** @type {sts.AttrsStore | undefined} */
   attrs;
   _isOnline = true;
   _isShutdown = false;
   status = STATUS.CONNECTING;
 
-  /** @type {PersistedObject} */
+  /** @type {PersistedObject<string, QuerySub, QuerySubInStorage>} */
   querySubs;
 
   /** @type {PersistedObject} */
@@ -306,14 +322,14 @@ export default class Reactor {
         useDateObjects: this.config.useDateObjects,
       },
       this._log,
-      (triples) =>
-        s.createStore(
-          this.attrs,
+      (triples) => {
+        return sts.createStore(
+          this.ensureAttrs(),
           triples,
           this.config.enableCardinalityInference,
-          this._linkIndex,
           this.config.useDateObjects,
-        ),
+        );
+      },
     );
 
     this._oauthCallbackResponse = this._oauthLoginInit();
@@ -353,6 +369,13 @@ export default class Reactor {
     }
   }
 
+  ensureAttrs() {
+    if (!this.attrs) {
+      throw new Error('attrs have not loaded.');
+    }
+    return this.attrs;
+  }
+
   updateSchema(schema) {
     this.config = {
       ...this.config,
@@ -383,7 +406,7 @@ export default class Reactor {
       serialize: querySubToStorage,
       parse: (_key, x) => querySubFromStorage(x, this.config.useDateObjects),
       // objectSize
-      objectSize: (x) => x.result?.store?.triples?.length ?? 0,
+      objectSize: (x) => x?.result?.store?.triples?.length ?? 0,
       logger: this._log,
       preloadEntryCount: 10,
       gc: {
@@ -552,13 +575,13 @@ export default class Reactor {
         const pageInfo = result?.[0]?.data?.['page-info'];
         const aggregate = result?.[0]?.data?.['aggregate'];
         const triples = extractTriples(result);
-        const store = s.createStore(
-          this.attrs,
+        const store = sts.createStore(
+          this.ensureAttrs(),
           triples,
           enableCardinalityInference,
-          this._linkIndex,
           this.config.useDateObjects,
         );
+
         this.querySubs.updateInPlace((prev) => {
           if (!prev[hash]) {
             this._log.info('Missing value in querySubs', { hash, q });
@@ -566,6 +589,7 @@ export default class Reactor {
           }
           prev[hash].result = {
             store,
+            attrsStore: this.ensureAttrs(),
             pageInfo,
             aggregate,
             processedTxId: msg['processed-tx-id'],
@@ -603,7 +627,7 @@ export default class Reactor {
         this._cleanupPendingMutationsTimeout();
 
         const rewrittenMutations = this._rewriteMutations(
-          this.attrs,
+          this.ensureAttrs(),
           this._pendingMutations(),
           processedTxId,
         );
@@ -624,15 +648,15 @@ export default class Reactor {
           const result = x['instaql-result'];
           const hash = weakHash(q);
           const triples = extractTriples(result);
-          const store = s.createStore(
-            this.attrs,
+          const store = sts.createStore(
+            this.ensureAttrs(),
             triples,
             enableCardinalityInference,
-            this._linkIndex,
             this.config.useDateObjects,
           );
           const newStore = this._applyOptimisticUpdates(
             store,
+            this.ensureAttrs(),
             mutations,
             processedTxId,
           );
@@ -647,7 +671,13 @@ export default class Reactor {
               this._log.error('Missing value in querySubs', { hash, q });
               return;
             }
-            prev[hash].result = { store, pageInfo, aggregate, processedTxId };
+            prev[hash].result = {
+              store,
+              attrsStore: this.ensureAttrs(),
+              pageInfo,
+              aggregate,
+              processedTxId,
+            };
           });
         });
 
@@ -664,7 +694,7 @@ export default class Reactor {
         this._inFlightMutationEventIds.delete(eventId);
 
         const muts = this._rewriteMutations(
-          this.attrs,
+          this.ensureAttrs(),
           this._pendingMutations(),
         );
         const prevMutation = muts.get(eventId);
@@ -681,12 +711,18 @@ export default class Reactor {
           });
         });
 
-        const newAttrs = prevMutation['tx-steps']
-          .filter(([action, ..._args]) => action === 'add-attr')
-          .map(([_action, attr]) => attr)
-          .concat(Object.values(this.attrs));
-
-        this._setAttrs(newAttrs);
+        const newAttrs = [];
+        for (const step of prevMutation['tx-steps']) {
+          if (step[0] === 'add-attr') {
+            const attr = step[1];
+            newAttrs.push(attr);
+          }
+        }
+        if (newAttrs.length) {
+          const existingAttrs = Object.values(this.ensureAttrs());
+          this._setAttrs([...existingAttrs, ...newAttrs]);
+          this._setAttrs(newAttrs);
+        }
 
         this._finishTransaction('synced', eventId);
 
@@ -870,10 +906,13 @@ export default class Reactor {
   }
 
   _setAttrs(attrs) {
-    this.attrs = attrs.reduce((acc, attr) => {
-      acc[attr.id] = attr;
-      return acc;
-    }, {});
+    this.attrs = new sts.AttrsStore(
+      attrs.reduce((acc, attr) => {
+        acc[attr.id] = attr;
+        return acc;
+      }, {}),
+      this._linkIndex,
+    );
 
     this.notifyAttrsSubs();
   }
@@ -1022,17 +1061,25 @@ export default class Reactor {
   // We remove `add-attr` commands for attrs that already exist.
   // We update `add-triple` and `retract-triple` commands to use the
   // server attr-ids.
+  // XXX: Have this take an attrs store for faster lookups
+  //      Get rid of the instaml functions
+  /**
+   *
+   * @param {sts.AttrsStore} attrs
+   * @param {any} muts
+   * @param {number} [processedTxId]
+   */
   _rewriteMutations(attrs, muts, processedTxId) {
     if (!attrs) return muts;
     if (!muts) return new Map();
     const findExistingAttr = (attr) => {
       const [_, etype, label] = attr['forward-identity'];
-      const existing = instaml.getAttrByFwdIdentName(attrs, etype, label);
+      const existing = sts.getAttrByFwdIdentName(attrs, etype, label);
       return existing;
     };
     const findReverseAttr = (attr) => {
       const [_, etype, label] = attr['forward-identity'];
-      const revAttr = instaml.getAttrByReverseIdentName(attrs, etype, label);
+      const revAttr = sts.getAttrByReverseIdentName(attrs, etype, label);
       return revAttr;
     };
     const mapping = { attrIdMap: {}, refSwapAttrIds: new Set() };
@@ -1109,6 +1156,9 @@ export default class Reactor {
   // ---------------------------
   // Transact
 
+  /**
+   * @returns {sts.AttrsStore}
+   */
   optimisticAttrs() {
     const pendingMutationSteps = [...this._pendingMutations().values()] // hack due to Map()
       .flatMap((x) => x['tx-steps']);
@@ -1126,23 +1176,26 @@ export default class Reactor {
       } else if (
         _action === 'update-attr' &&
         attr.id &&
-        this.attrs?.[attr.id]
+        this.attrs?.getAttr(attr.id)
       ) {
-        const fullAttr = { ...this.attrs[attr.id], ...attr };
+        const fullAttr = { ...this.attrs.getAttr(attr.id), ...attr };
         pendingAttrs.push(fullAttr);
       }
     }
 
-    const attrsWithoutDeleted = [
-      ...Object.values(this.attrs || {}),
-      ...pendingAttrs,
-    ].filter((a) => !deletedAttrIds.has(a.id));
+    if (!deletedAttrIds.size && !pendingAttrs.length) {
+      return this.attrs || new sts.AttrsStore({}, this._linkIndex);
+    }
 
-    const attrsRecord = Object.fromEntries(
-      attrsWithoutDeleted.map((a) => [a.id, a]),
-    );
+    const attrs = { ...(this.attrs?.attrs || {}) };
+    for (const attr of pendingAttrs) {
+      attrs[attr.id] = attr;
+    }
+    for (const id of deletedAttrIds) {
+      delete attrs[id];
+    }
 
-    return attrsRecord;
+    return new sts.AttrsStore(attrs, this._linkIndex);
   }
 
   /** Runs instaql on a query and a store */
@@ -1170,25 +1223,29 @@ export default class Reactor {
       return cached;
     }
 
-    const { store, pageInfo, aggregate, processedTxId } = result;
+    const { store, attrsStore, pageInfo, aggregate, processedTxId } = result;
     const mutations = this._rewriteMutationsSorted(
-      store.attrs,
+      attrsStore,
       pendingMutations,
     );
     const newStore = this._applyOptimisticUpdates(
       store,
+      attrsStore,
       mutations,
       processedTxId,
     );
-    const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
+    const resp = instaql(
+      { store: newStore, attrsStore, pageInfo, aggregate },
+      q,
+    );
 
     return { data: resp, querySubVersion, pendingMutationsVersion };
   }
 
-  _applyOptimisticUpdates(store, mutations, processedTxId) {
+  _applyOptimisticUpdates(store, attrsStore, mutations, processedTxId) {
     for (const [_, mut] of mutations) {
       if (!mut['tx-id'] || (processedTxId && mut['tx-id'] > processedTxId)) {
-        store = s.transact(store, mut['tx-steps']);
+        store = sts.transact(store, attrsStore, mut['tx-steps']);
       }
     }
     return store;
@@ -1248,7 +1305,7 @@ export default class Reactor {
     try {
       const txSteps = instaml.transform(
         {
-          attrs: this.optimisticAttrs(),
+          attrsStore: this.optimisticAttrs(),
           schema: this.config.schema,
           stores: Object.values(this.querySubs.currentValue).map(
             (sub) => sub?.result?.store,
@@ -1366,7 +1423,7 @@ export default class Reactor {
       });
 
     const muts = this._rewriteMutationsSorted(
-      this.attrs,
+      this.ensureAttrs(),
       this._pendingMutations(),
     );
     muts.forEach(([eventId, mut]) => {
@@ -1822,7 +1879,7 @@ export default class Reactor {
     this.attrsCbs.push(cb);
 
     if (this.attrs) {
-      cb(this.attrs);
+      cb(this.attrs.attrs);
     }
 
     return () => {
