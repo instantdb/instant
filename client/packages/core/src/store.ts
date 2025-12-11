@@ -679,10 +679,14 @@ export function getTriples(store, [e, a, v]) {
 
 export function getAsObject(
   store: Store,
-  attrs: Map<string, InstantDBAttr>,
+  attrs: Map<string, InstantDBAttr> | undefined,
   e: string,
 ) {
   const obj = {};
+
+  if (!attrs) {
+    return obj;
+  }
 
   for (const [label, attr] of attrs.entries()) {
     const aMap = store.eav.get(e)?.get(attr.id);
