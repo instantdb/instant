@@ -20,7 +20,7 @@
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
-   [instant.util.instaql :refer [forms-hash]]
+   [instant.util.instaql :as instaql-util]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
@@ -1199,10 +1199,12 @@
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
   [ctx o]
-  (let [query-hash (forms-hash o)]
+  (let [query-normalized (instaql-util/normalized-forms o)
+        query-hash (hash query-normalized)]
     (tracer/with-span! {:name "instaql/query-nested"
                         :attributes {:app-id (:app-id ctx)
                                      :forms o
+                                     :query-normalized query-normalized
                                      :query-hash query-hash}}
       (let [datalog-query-fn (or (:datalog-query-fn ctx)
                                  #'d/query)
@@ -1214,7 +1216,7 @@
 (defn explain
   "Generates a nested datalog query, then runs explain."
   [ctx o]
-  (let [query-hash (forms-hash o)
+  (let [query-hash (instaql-util/forms-hash o)
         explain-fn (or (:datalog-explain-fn ctx)
                        d/explain)
         {:keys [patterns]} (instaql-query->patterns ctx o)]
@@ -2013,7 +2015,7 @@
   (if (contains? ctx :use-rule-wheres?)
     (:use-rule-wheres? ctx)
     (let [app-id (:app-id ctx)
-          query-hash (forms-hash o)]
+          query-hash (instaql-util/forms-hash o)]
       (flags/use-rule-wheres? {:app-id app-id
                                :query-hash query-hash}))))
 
