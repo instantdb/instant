@@ -1,6 +1,6 @@
 // @ts-check
 import weakHash from './utils/weakHash.ts';
-import instaql from './instaql.js';
+import instaql from './instaql.ts';
 import * as instaml from './instaml.js';
 import * as s from './store.ts';
 import uuid from './utils/uuid.ts';
@@ -365,7 +365,7 @@ export default class Reactor {
   _reactorStats() {
     return {
       inFlightMutationCount: this._inFlightMutationEventIds.size,
-      pendingMutationCount: this._pendingMutations().size,
+      storedMutationCount: this._pendingMutations().size,
       transportType: this._transportType,
     };
   }
