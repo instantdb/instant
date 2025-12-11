@@ -110,3 +110,11 @@
             (get acc k))
           (->cel-expr obj *factory*)
           ks))
+
+(defn call
+  "Build a function call: fn-name(arg1, arg2, ...)"
+  ^CelExpr [fn-name & args]
+  (.newGlobalCall *factory*
+                  ^String fn-name
+                  ^"[Ldev.cel.common.ast.CelExpr;"
+                  (into-array CelExpr (map #(->cel-expr % *factory*) args))))

@@ -4,11 +4,14 @@
    [instant.db.cel :as cel]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
-   [instant.fixtures :refer [with-zeneca-app]]
+   [instant.db.model.triple :as triple-model]
+   [instant.fixtures :refer [with-zeneca-app with-zeneca-checked-data-app]]
    [instant.db.instaql-topic :as iqt]
    [instant.data.resolvers :as resolvers]
    [instant.db.transaction :as tx]
-   [instant.jdbc.aurora :as aurora]))
+   [instant.jdbc.aurora :as aurora])
+  (:import
+   (java.time Instant LocalDateTime ZoneOffset)))
 
 ;; ----
 ;; Tests
@@ -276,6 +279,30 @@
                                                    :$$ruleParams {:handle "stopa"}}))]
         (is (true? (program {:etype "users"
                              :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}})))))))
+
+(deftest date-eq-works
+  (with-zeneca-checked-data-app
+    (fn [app r]
+      (let [attrs (attr-model/get-by-app-id (:id app))
+            instant (Instant/now)
+            instant-millis (.toEpochMilli instant)
+            formatter (first triple-model/local-date-time-formatters)
+            instant-str (.format formatter (LocalDateTime/ofInstant instant ZoneOffset/UTC))
+            {:keys [program]} (iqt/instaql-topic
+                               {:attrs attrs}
+                               (iq/->forms! attrs {:users {:$ {:where {:createdAt instant-millis}}}}))]
+        (testing "number in query matches string in db"
+          (is (true?
+               (program {:etype "users"
+                         :attrs {(str (resolvers/->uuid r :users/createdAt)) instant-str}}))))
+        (testing "number in query matches number in db"
+          (is (true?
+               (program {:etype "users"
+                         :attrs {(str (resolvers/->uuid r :users/createdAt)) instant-millis}}))))
+        (testing "null in db does not match"
+          (is (false?
+               (program {:etype "users"
+                         :attrs {(str (resolvers/->uuid r :users/createdAt)) nil}}))))))))
 
 (deftest child-forms
   (with-zeneca-app

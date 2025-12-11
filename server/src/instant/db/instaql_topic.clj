@@ -2,14 +2,16 @@
   (:require [instant.db.cel :as cel]
             [instant.db.cel-builder :as b]
             [instant.db.model.attr :as attr-model]
+            [instant.db.model.triple :as triple-model]
             [clojure+.core :refer [cond+]])
   (:import (clojure.lang ExceptionInfo)
-           (dev.cel.common CelAbstractSyntaxTree CelSource)
+           (com.google.protobuf NullValue)
+           (dev.cel.common CelAbstractSyntaxTree CelFunctionDecl CelOverloadDecl CelSource)
            (dev.cel.common.ast CelExprFactory)
            (dev.cel.common.types MapType SimpleType)
            (dev.cel.compiler CelCompiler CelCompilerFactory)
            (dev.cel.parser CelStandardMacro)
-           (dev.cel.runtime CelRuntime CelRuntimeFactory)
+           (dev.cel.runtime CelFunctionOverload CelRuntime CelRuntime$CelFunctionBinding CelRuntimeFactory)
            (java.util HashMap)))
 
 (defn throw-not-supported! [reason]
@@ -61,14 +63,18 @@
 
        rev-attr (throw-not-supported! [:reverse-attribute])
 
-       :let [{:keys [id cardinality] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+       :let [{:keys [id cardinality checked-data-type] :as fwd-attr} (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
 
        (not fwd-attr) (throw-not-supported! [:unknown-attribute])
 
        (not= :one cardinality) (throw-not-supported! [:cardinality-many])
 
        :else
-       (b/= (b/get-in 'entity ["attrs" (str id)]) v-data)))))
+       (if (= :date checked-data-type)
+         (let [query-millis (.toEpochMilli ^java.time.Instant (triple-model/parse-date-value v-data))]
+           (b/= (b/call "toEpochMillis" (b/get-in 'entity ["attrs" (str id)]))
+                query-millis))
+         (b/= (b/get-in 'entity ["attrs" (str id)]) v-data))))))
 
 (defn- where-cond->cel-expr!
   [ctx {:keys [where-cond]}]
@@ -176,14 +182,45 @@
 
 (def ^MapType entity-type (MapType/create SimpleType/STRING SimpleType/DYN))
 
+(defn- to-epoch-millis
+  "Converts a value (string or number) to epoch milliseconds.
+   Used for date comparisons in CEL expressions.
+   Returns NullValue for null inputs so CEL can properly compare."
+  [x]
+  (cond
+    (nil? x) NullValue/NULL_VALUE
+    (= x NullValue/NULL_VALUE) NullValue/NULL_VALUE
+    (number? x) (long x)
+    (string? x) (.toEpochMilli ^java.time.Instant (triple-model/parse-date-value x))
+    :else NullValue/NULL_VALUE))
+
+(def ^:private to-epoch-millis-decl
+  (CelFunctionDecl/newFunctionDeclaration
+   "toEpochMillis"
+   (into-array CelOverloadDecl
+               [(CelOverloadDecl/newGlobalOverload
+                 "toEpochMillis_dyn"
+                 SimpleType/INT
+                 (into-array [SimpleType/DYN]))])))
+
+(def ^:private to-epoch-millis-binding
+  (CelRuntime$CelFunctionBinding/from
+   "toEpochMillis_dyn"
+   (list Object)
+   (reify CelFunctionOverload
+     (apply [_ args]
+       (to-epoch-millis (first args))))))
+
 (def ^:private ^CelCompiler instaql-topic-cel-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "entity" entity-type)
+      (.addFunctionDeclarations (into-array CelFunctionDecl [to-epoch-millis-decl]))
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
       (.build)))
 
 (def ^:private ^CelRuntime instaql-topic-cel-runtime
   (-> (CelRuntimeFactory/standardCelRuntimeBuilder)
+      (.addFunctionBindings (into-array CelRuntime$CelFunctionBinding [to-epoch-millis-binding]))
       (.build)))
 
 (defn eval-topic-program [program entity]
