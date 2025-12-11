@@ -1191,15 +1191,16 @@
 (defn instaql-topic-matching-item [{:keys [program]} entities]
   (reduce-kv
    (fn [_ etype by-eid]
-     (reduce-kv
-      (fn [_ _eid attrs]
-        (let [item {:etype etype
-                    :attrs attrs}]
-          (if (program item)
-            (reduced item)
-            nil)))
-      nil
-      by-eid))
+     (when-let [found (reduce-kv
+                       (fn [_ _eid attrs]
+                         (let [item {:etype etype
+                                     :attrs attrs}]
+                           (if (program item)
+                             (reduced item)
+                             nil)))
+                       nil
+                       by-eid)]
+       (reduced found)))
    nil
    entities))
 
