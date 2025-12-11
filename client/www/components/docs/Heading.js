@@ -26,22 +26,22 @@ const transformContentToId = (content) => {
 export function Heading({ level = 1, id, children, ...props }) {
   const Tag = `h${level}`;
 
+  // Use the id from collectHeadings if provided, otherwise generate one
   const slugId =
-    typeof children === 'string' ? transformContentToId(children) : id;
+    id ||
+    (typeof children === 'string' ? transformContentToId(children) : undefined);
 
   return (
-    <div className="group flex w-fit -translate-x-5 cursor-pointer items-center gap-2 p-0 pr-4">
-      <div className="text-xl opacity-0 transition-opacity group-hover:opacity-70">
+    <Tag
+      id={slugId}
+      onClick={handleHeaderClick}
+      className="group cursor-pointer"
+      {...props}
+    >
+      <span className="absolute -ml-6 hidden text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 lg:inline">
         #
-      </div>
-      <Tag
-        id={slugId}
-        onClick={handleHeaderClick}
-        style={{ cursor: slugId ? 'pointer' : 'default' }}
-        {...props}
-      >
-        {children}
-      </Tag>
-    </div>
+      </span>
+      {children}
+    </Tag>
   );
 }
