@@ -12,9 +12,9 @@
    (java.time Duration ZonedDateTime ZoneOffset)))
 
 (defn partitions-to-truncate [^ZonedDateTime utc-now]
-  (let [current-partition (tool/inspect (-> utc-now
-                                            (.getHour)
-                                            (mod 8)))]
+  (let [current-partition (-> utc-now
+                              (.getHour)
+                              (mod 8))]
     ;; Truncate the two oldest partitions that aren't the next partition
     ;; We don't want to truncate the next partition because we might be
     ;; executing this near the end of the hour.
@@ -31,7 +31,7 @@
      (doseq [part truncate-partitions]
        (sql/do-execute! ::truncate-old-partitions! conn (hsql/format {:truncate (keyword (str "wal_logs_" part))}))))))
 
-(defn handle-truncate []
+(defn handle-truncate [_]
   (when-not (flags/toggled? :failing-over)
     (truncate-old-partitions!)))
 
