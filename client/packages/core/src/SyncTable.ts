@@ -3,7 +3,7 @@ import * as s from './store.ts';
 import weakHash from './utils/weakHash.ts';
 import uuid from './utils/uuid.ts';
 import { Logger } from './Reactor.js';
-import instaql, { compareOrder } from './instaql.js';
+import instaql, { compareOrder } from './instaql.ts';
 import { InstaQLResponse, ValidQuery } from './queryTypes.ts';
 import { EntitiesDef, IContainEntitiesAndLinks } from './schemaTypes.ts';
 import { StorageInterface } from './index.ts';

@@ -2,17 +2,38 @@ import { query as datalogQuery } from './datalog.js';
 import { uuidCompare } from './utils/uuid.ts';
 import { stringCompare } from './utils/strings.ts';
 import * as s from './store.ts';
+import { InstantDBAttr } from './attrTypes.ts';
+import { Cursor } from './queryTypes.ts';
+
+type Pat = [string | any, string, string | any, string | number];
+type Pats = Array<Pat>;
+type OrPat = {
+  or: {
+    patterns: FullPats;
+    joinSym: string;
+  };
+};
+type AndPat = {
+  and: {
+    patterns: FullPats;
+    joinSym: string;
+  };
+};
+type FullPat = Pat | OrPat | AndPat;
+type FullPats = Array<FullPat>;
 
 // Pattern variables
 // -----------------
 
+type MakeVar = (x: string, level: number) => string;
+
 let _seed = 0;
 
-function wildcard(friendlyName) {
+function wildcard(friendlyName: string) {
   return makeVarImpl(`_${friendlyName}`, _seed++);
 }
 
-function makeVarImpl(x, level) {
+function makeVarImpl(x: string, level: number): string {
   return `?${x}-${level}`;
 }
 
@@ -26,7 +47,7 @@ class AttrNotFoundError extends Error {
   }
 }
 
-function idAttr(store, ns) {
+function idAttr(store: s.Store, ns: string): InstantDBAttr {
   const attr = s.getPrimaryKeyAttr(store, ns);
 
   if (!attr) {
@@ -35,11 +56,21 @@ function idAttr(store, ns) {
   return attr;
 }
 
-function defaultWhere(makeVar, store, etype, level) {
+function defaultWhere(
+  makeVar: MakeVar,
+  store: s.Store,
+  etype: string,
+  level: number,
+): Pats {
   return [eidWhere(makeVar, store, etype, level)];
 }
 
-function eidWhere(makeVar, store, etype, level) {
+function eidWhere(
+  makeVar: MakeVar,
+  store: s.Store,
+  etype: string,
+  level: number,
+): Pat {
   return [
     makeVar(etype, level),
     idAttr(store, etype).id,
@@ -48,11 +79,17 @@ function eidWhere(makeVar, store, etype, level) {
   ];
 }
 
-function replaceInAttrPat(attrPat, needle, v) {
-  return attrPat.map((x) => (x === needle ? v : x));
+function replaceInAttrPat(attrPat: Pat, needle: string, v: any): Pat {
+  return attrPat.map((x) => (x === needle ? v : x)) as Pat;
 }
 
-function refAttrPat(makeVar, store, etype, level, label) {
+function refAttrPat(
+  makeVar: MakeVar,
+  store: s.Store,
+  etype: string,
+  level: number,
+  label: string,
+): [string, number, Pat, InstantDBAttr, boolean] {
   const fwdAttr = s.getAttrByFwdIdentName(store, etype, label);
   const revAttr = s.getAttrByReverseIdentName(store, etype, label);
   const attr = fwdAttr || revAttr;
@@ -66,9 +103,9 @@ function refAttrPat(makeVar, store, etype, level, label) {
   }
 
   const [_f, fwdEtype] = attr['forward-identity'];
-  const [_r, revEtype] = attr['reverse-identity'];
+  const [_r, revEtype] = attr['reverse-identity']!;
   const nextLevel = level + 1;
-  const attrPat = fwdAttr
+  const attrPat: Pat = fwdAttr
     ? [
         makeVar(fwdEtype, level),
         attr.id,
@@ -89,7 +126,7 @@ function refAttrPat(makeVar, store, etype, level, label) {
   return [nextEtype, nextLevel, attrPat, attr, isForward];
 }
 
-function makeLikeMatcher(caseSensitive, pattern) {
+function makeLikeMatcher(caseSensitive: boolean, pattern: string) {
   if (typeof pattern !== 'string') {
     return function likeMatcher(_value) {
       return false;
@@ -112,7 +149,7 @@ function makeLikeMatcher(caseSensitive, pattern) {
   };
 }
 
-function parseValue(attr, v) {
+function parseValue(attr: InstantDBAttr, v: any) {
   if (
     typeof v !== 'object' ||
     v.hasOwnProperty('$in') ||
@@ -196,7 +233,14 @@ function parseValue(attr, v) {
   return v;
 }
 
-function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
+function valueAttrPat(
+  makeVar: MakeVar,
+  store: s.Store,
+  valueEtype: string,
+  valueLevel: number,
+  valueLabel: string,
+  v: any,
+): Pat {
   const fwdAttr = s.getAttrByFwdIdentName(store, valueEtype, valueLabel);
   const revAttr = s.getAttrByReverseIdentName(store, valueEtype, valueLabel);
   const attr = fwdAttr || revAttr;
@@ -234,7 +278,13 @@ function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
   return [v, attr.id, makeVar(valueEtype, valueLevel), wildcard('time')];
 }
 
-function refAttrPats(makeVar, store, etype, level, refsPath) {
+function refAttrPats(
+  makeVar: MakeVar,
+  store: s.Store,
+  etype: string,
+  level: number,
+  refsPath: string[],
+): [string, number, Pats] {
   const [lastEtype, lastLevel, attrPats] = refsPath.reduce(
     (acc, label) => {
       const [etype, level, attrPats] = acc;
@@ -253,7 +303,14 @@ function refAttrPats(makeVar, store, etype, level, refsPath) {
   return [lastEtype, lastLevel, attrPats];
 }
 
-function whereCondAttrPats(makeVar, store, etype, level, path, v) {
+function whereCondAttrPats(
+  makeVar: MakeVar,
+  store: s.Store,
+  etype: string,
+  level: number,
+  path: string[],
+  v: any,
+): Pats {
   const refsPath = path.slice(0, path.length - 1);
   const valueLabel = path[path.length - 1];
   const [lastEtype, lastLevel, refPats] = refAttrPats(
@@ -279,17 +336,17 @@ function withJoin(where, join) {
   return join ? [join].concat(where) : where;
 }
 
-function isOrClauses([k, v]) {
+function isOrClauses([k, v]): boolean {
   return k === 'or' && Array.isArray(v);
 }
 
-function isAndClauses([k, v]) {
+function isAndClauses([k, v]): boolean {
   return k === 'and' && Array.isArray(v);
 }
 
 // Creates a makeVar that will namespace symbols for or clauses
 // to prevent conflicts, except for the base etype
-function genMakeVar(baseMakeVar, joinSym, orIdx) {
+function genMakeVar(baseMakeVar: MakeVar, joinSym: string, orIdx: number) {
   return (x, lvl) => {
     const base = baseMakeVar(x, lvl);
     if (joinSym == base) {
@@ -300,25 +357,25 @@ function genMakeVar(baseMakeVar, joinSym, orIdx) {
 }
 
 function parseWhereClauses(
-  makeVar,
-  clauseType /* 'or' | 'and' */,
-  store,
-  etype,
-  level,
-  whereValue,
-) {
+  makeVar: MakeVar,
+  clauseType: 'or' | 'and' /* 'or' | 'and' */,
+  store: s.Store,
+  etype: string,
+  level: number,
+  whereValue: any,
+): FullPat {
   const joinSym = makeVar(etype, level);
-  const patterns = whereValue.map((w, i) => {
+  const patterns: FullPats = whereValue.map((w, i) => {
     const makeNamespacedVar = genMakeVar(makeVar, joinSym, i);
     return parseWhere(makeNamespacedVar, store, etype, level, w);
   });
-  return { [clauseType]: { patterns, joinSym } };
+  return { [clauseType]: { patterns, joinSym } } as AndPat | OrPat;
 }
 
 // Given a path, returns a list of paths leading up to this path:
 // growPath([1, 2, 3]) -> [[1], [1, 2], [1, 2, 3]]
-function growPath(path) {
-  const ret = [];
+function growPath<T>(path: T[]) {
+  const ret: Array<T[]> = [];
   for (let i = 1; i <= path.length; i++) {
     ret.push(path.slice(0, i));
   }
@@ -327,13 +384,25 @@ function growPath(path) {
 
 // Returns array of pattern arrays that should be grouped in OR
 // to capture any intermediate nulls
-function whereCondAttrPatsForNullIsTrue(makeVar, store, etype, level, path) {
+function whereCondAttrPatsForNullIsTrue(
+  makeVar: MakeVar,
+  store: s.Store,
+  etype: string,
+  level: number,
+  path: string[],
+): Pats[] {
   return growPath(path).map((path) =>
     whereCondAttrPats(makeVar, store, etype, level, path, { $isNull: true }),
   );
 }
 
-function parseWhere(makeVar, store, etype, level, where) {
+function parseWhere(
+  makeVar: MakeVar,
+  store: s.Store,
+  etype: string,
+  level: number,
+  where: Record<string, any>,
+): FullPats {
   return Object.entries(where).flatMap(([k, v]) => {
     if (isOrClauses([k, v])) {
       return parseWhereClauses(makeVar, 'or', store, etype, level, v);
@@ -399,7 +468,12 @@ function parseWhere(makeVar, store, etype, level, where) {
   });
 }
 
-function makeWhere(store, etype, level, where) {
+function makeWhere(
+  store: s.Store,
+  etype: string,
+  level: number,
+  where: Record<string, any> | null,
+): FullPats {
   const makeVar = makeVarImpl;
   if (!where) {
     return defaultWhere(makeVar, store, etype, level);
@@ -411,14 +485,21 @@ function makeWhere(store, etype, level, where) {
 // Find
 // -----------------
 
-function makeFind(makeVar, etype, level) {
+function makeFind(makeVar: MakeVar, etype: string, level: number) {
   return [makeVar(etype, level), makeVar('time', level)];
 }
 
 // extendObjects
 // -----------------
 
-function makeJoin(makeVar, store, etype, level, label, eid) {
+function makeJoin(
+  makeVar: MakeVar,
+  store: s.Store,
+  etype: string,
+  level: number,
+  label: string,
+  eid: string,
+) {
   const [nextEtype, nextLevel, pat, attr, isForward] = refAttrPat(
     makeVar,
     store,
@@ -497,7 +578,7 @@ function compareDisparateValues(a, b, dataType) {
   return -1;
 }
 
-export function compareOrder(id_a, v_a, id_b, v_b, dataType) {
+export function compareOrder(id_a: string, v_a, id_b: string, v_b, dataType) {
   if (v_a === v_b || (v_a == null && v_b == null)) {
     return uuidCompare(id_a, id_b);
   }
@@ -512,7 +593,11 @@ export function compareOrder(id_a, v_a, id_b, v_b, dataType) {
   return compareDisparateValues(v_a, v_b, dataType);
 }
 
-function compareOrderTriples([id_a, v_a], [id_b, v_b], dataType) {
+function compareOrderTriples(
+  [id_a, v_a]: [string, any],
+  [id_b, v_b]: [string, any],
+  dataType,
+) {
   return compareOrder(id_a, v_a, id_b, v_b, dataType);
 }
 
@@ -539,17 +624,17 @@ function isBefore(startCursor, orderAttr, direction, idVec) {
   );
 }
 
-function orderAttrFromCursor(store, cursor) {
+function orderAttrFromCursor(store: s.Store, cursor) {
   const cursorAttrId = cursor[1];
   return store.attrs[cursorAttrId];
 }
 
-function orderAttrFromOrder(store, etype, order) {
+function orderAttrFromOrder(store: s.Store, etype, order) {
   const label = Object.keys(order)[0];
   return s.getAttrByFwdIdentName(store, etype, label);
 }
 
-function getOrderAttr(store, etype, cursor, order) {
+function getOrderAttr(store: s.Store, etype, cursor, order) {
   if (cursor) {
     return orderAttrFromCursor(store, cursor);
   }
@@ -558,7 +643,11 @@ function getOrderAttr(store, etype, cursor, order) {
   }
 }
 
-function objectAttrs(store, etype, dq) {
+function objectAttrs(
+  store: s.Store,
+  etype,
+  dq,
+): Map<string, InstantDBAttr> | undefined {
   if (!Array.isArray(dq.fields)) {
     return s.getBlobAttrs(store, etype);
   }
@@ -584,7 +673,10 @@ function objectAttrs(store, etype, dq) {
   return attrs;
 }
 
-function runDataloadAndReturnObjects(store, { etype, pageInfo, dq, form }) {
+function runDataloadAndReturnObjects(
+  store: s.Store,
+  { etype, pageInfo, dq, form },
+) {
   const order = form?.$?.order;
   const isLeadingQuery = isLeading(form);
   const direction = determineDirection(form);
@@ -677,7 +769,10 @@ function isLeading(form) {
  * into a datalog query. We then run the datalog query,
  * and reduce all the triples into objects.
  */
-function resolveObjects(store, { etype, level, form, join, pageInfo }) {
+function resolveObjects(
+  store: s.Store,
+  { etype, level, form, join, pageInfo },
+) {
   // Wait for server to tell us where we start if we don't start from the beginning
   if (!isLeading(form) && (!pageInfo || !pageInfo['start-cursor'])) {
     return [];
@@ -721,7 +816,7 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
  * This swallows the missing attr error and returns
  * an empty result instead
  */
-function guardedResolveObjects(store, opts) {
+function guardedResolveObjects(store: s.Store, opts) {
   try {
     return resolveObjects(store, opts);
   } catch (e) {
@@ -744,12 +839,22 @@ function guardedResolveObjects(store, opts) {
  * `guardResolveObjects` will return the relevant `users` objects
  * `extendObjects` will then extend each `user` object with relevant `posts`.
  */
-function queryOne(store, opts) {
+function queryOne(store: s.Store, opts) {
   const objects = guardedResolveObjects(store, opts);
   return extendObjects(makeVarImpl, store, opts, objects);
 }
 
-function formatPageInfo(pageInfo) {
+function formatPageInfo(
+  pageInfo: Record<
+    string,
+    {
+      'start-cursor'?: Cursor | null;
+      'end-cursor'?: Cursor | null;
+      'has-next-page?'?: boolean | null;
+      'has-previous-page?'?: boolean | null;
+    }
+  >,
+) {
   const res = {};
   for (const [k, v] of Object.entries(pageInfo)) {
     res[k] = {
@@ -762,7 +867,18 @@ function formatPageInfo(pageInfo) {
   return res;
 }
 
-export default function query({ store, pageInfo, aggregate }, q) {
+export default function query(
+  {
+    store,
+    pageInfo,
+    aggregate,
+  }: {
+    store: s.Store;
+    pageInfo: any;
+    aggregate: any;
+  },
+  q,
+) {
   const data = Object.keys(q).reduce(function reduceResult(res, k) {
     if (aggregate?.[k] || '$$ruleParams' === k) {
       // Aggregate doesn't return any join rows and has no children,
@@ -778,7 +894,7 @@ export default function query({ store, pageInfo, aggregate }, q) {
     return res;
   }, {});
 
-  const result = { data };
+  const result: { data: any; pageInfo?: any; aggregate?: any } = { data };
   if (pageInfo) {
     result.pageInfo = formatPageInfo(pageInfo);
   }
