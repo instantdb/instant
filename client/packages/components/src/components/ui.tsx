@@ -1,4 +1,5 @@
 'use client';
+import { Toaster, toast } from 'sonner';
 import { Editor, Monaco, OnMount } from '@monaco-editor/react';
 import type { ClassValue } from 'clsx';
 import clsx from 'clsx';
@@ -1554,5 +1555,7 @@ function Switch({
     </SwitchPrimitive.Root>
   );
 }
+
+export { Toaster, toast };
 
 export { Switch };

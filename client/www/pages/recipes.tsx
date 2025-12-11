@@ -14,7 +14,6 @@ import {
   init,
 } from '@instantdb/react';
 import { errorToast } from '@/lib/toast';
-import { ToastContainer } from 'react-toastify';
 import {
   H3,
   LandingContainer,
@@ -23,6 +22,7 @@ import {
 } from '@/components/marketingUi';
 import { useAuthToken } from '@/lib/auth';
 import * as og from '@/lib/og';
+import { Toaster } from '@instantdb/components';
 
 export async function getStaticProps() {
   const files = getFiles();
@@ -161,7 +161,7 @@ function Main({ files }: { files: File[] }) {
           content={og.url({ section: 'recipes' })}
         />
       </Head>
-      <ToastContainer />
+      <Toaster />
 
       {dbRef.current ? (
         <RoomStatus db={dbRef.current?.db} appId={dbRef.current.appId} />

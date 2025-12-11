@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import './App.css';
-import { Explorer } from '../src/index';
+import { Explorer, Toaster } from '../src/index';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -20,7 +20,9 @@ function App() {
           darkMode={false}
           apiURI={'http://localhost:8888'}
           websocketURI={'ws://localhost:8888/runtime/session'}
+          // @ts-expect-error
           appId={import.meta.env.VITE_INSTANT_APP_ID}
+          // @ts-expect-error
           adminToken={import.meta.env.VITE_INSTANT_ADMIN_TOKEN}
         />
       </div>
@@ -51,6 +53,7 @@ function App() {
           Edit <code>src/App.tsx</code> and save to test HMR
         </p>
       </div>
+      <Toaster position="top-right" />
     </>
   );
 }
