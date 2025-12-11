@@ -191,6 +191,16 @@
         _ (.put bindings "entity" (cel/->CelMap entity))]
     (cel/eval-program-with-bindings program bindings)))
 
+(defn eval-cel-str
+  [cel-str entity]
+  (let [parsed-ast (.getAst (.parse instaql-topic-cel-compiler cel-str))
+        checked-ast (.getAst (.check instaql-topic-cel-compiler parsed-ast))
+        program (.createProgram instaql-topic-cel-runtime checked-ast)]
+    (eval-topic-program program entity)))
+
+(comment
+  (eval-cel-str "entity['attrs']['a-uuid'] == 'bar'" {:etype "users" :attrs {}}))
+
 ;; ------
 ;; instaql-topic
 
