@@ -31,7 +31,7 @@
      (doseq [part truncate-partitions]
        (sql/do-execute! ::truncate-old-partitions! conn (hsql/format {:truncate (keyword (str "wal_logs_" part))}))))))
 
-(defn handle-truncate []
+(defn handle-truncate [_]
   (when-not (flags/toggled? :failing-over)
     (truncate-old-partitions!)))
 
