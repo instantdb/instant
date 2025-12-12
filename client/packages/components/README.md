@@ -3,13 +3,25 @@
 ## Using the Explorer component
 
 ```tsx
-<Explorer
-  className="h-full"
-  useShadowDOM // only necessary if your project doesn't use tailwind
-  darkMode={false}
-  appId="<your-app-id>"
-  adminToken="<your-admin-token>"
-/>
+import './App.css';
+import { Explorer, Toaster } from '../src/index';
+
+function App() {
+  return (
+    <>
+      <Explorer
+        className="h-full"
+        useShadowDOM
+        darkMode={false}
+        appId={import.meta.env.VITE_INSTANT_APP_ID}
+        adminToken={import.meta.env.VITE_INSTANT_ADMIN_TOKEN}
+      />
+      <Toaster position="top-right" />
+    </>
+  );
+}
+
+export default App;
 ```
 
 # Styles
