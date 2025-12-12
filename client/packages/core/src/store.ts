@@ -283,12 +283,12 @@ export function fromJSON(attrsStore: AttrsStore, storeJSON: StoreJson): Store {
 
 export function attrsStoreFromJSON(
   attrsStoreJSON: AttrsStoreJson | null,
-  storeJSON: StoreJson,
+  storeJSON: StoreJson | null,
 ): AttrsStore | undefined {
   if (attrsStoreJSON) {
     return new AttrsStore(attrsStoreJSON.attrs, attrsStoreJSON.linkIndex);
   }
-  if ('__type' in storeJSON) {
+  if (storeJSON && '__type' in storeJSON) {
     return new AttrsStore(storeJSON.attrs, storeJSON.linkIndex);
   }
 }

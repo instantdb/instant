@@ -135,14 +135,26 @@ function querySubFromStorage(x, useDateObjects) {
   return v;
 }
 
+/**
+ *
+ * @param {string} _key
+ * @param {QuerySub} sub
+ * @returns QuerySubInStorage
+ */
 function querySubToStorage(_key, sub) {
-  const jsonSub = { ...sub };
-  if (sub.result?.store || sub.result?.attrsStore) {
-    jsonSub.result = {
-      ...sub.result,
-      store: sts.toJSON(sub.result.store),
-      attrsStore: sub.result?.attrsStore.toJSON(),
+  const { result, ...rest } = sub;
+  const jsonSub = /** @type {import('./reactorTypes.ts').QuerySubInStorage} */ (
+    rest
+  );
+  if (result) {
+    /** @type {import('./reactorTypes.ts').QuerySubResultInStorage} */
+    const jsonResult = {
+      ...result,
+      store: sts.toJSON(result.store),
+      attrsStore: result.attrsStore.toJSON(),
     };
+
+    jsonSub.result = jsonResult;
   }
   return jsonSub;
 }
@@ -330,6 +342,7 @@ export default class Reactor {
           this.config.useDateObjects,
         );
       },
+      () => this.ensureAttrs(),
     );
 
     this._oauthCallbackResponse = this._oauthLoginInit();
@@ -1061,8 +1074,6 @@ export default class Reactor {
   // We remove `add-attr` commands for attrs that already exist.
   // We update `add-triple` and `retract-triple` commands to use the
   // server attr-ids.
-  // XXX: Have this take an attrs store for faster lookups
-  //      Get rid of the instaml functions
   /**
    *
    * @param {sts.AttrsStore} attrs

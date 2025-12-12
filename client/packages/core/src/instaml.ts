@@ -576,7 +576,13 @@ function createMissingAttrs(
       | InstantDBAttr
       | undefined,
   ) {
-    if (attr && 'isUnsynced' in attr && !addedIds.has(attr.id)) {
+    if (
+      attr &&
+      'isUnsynced' in attr &&
+      attr.isUnsynced &&
+      !addedIds.has(attr.id)
+    ) {
+      localAttrs.push(attr);
       addOps.push(['add-attr', attr]);
       addedIds.add(attr.id);
     }
