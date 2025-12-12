@@ -83,11 +83,11 @@ function AIBadge({ ai, style }: { ai: AIName; style?: React.CSSProperties }) {
       className="absolute flex items-center justify-center transition-all duration-700 ease-out"
       style={style}
     >
-      <div className="w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center p-2 border border-gray-200">
+      <div className="w-8 h-8 rounded-sm bg-white dark:bg-neutral-700 flex items-center justify-center p-1.5 border border-gray-200 dark:border-neutral-600">
         <img
           src={aiLogos[ai]}
           alt={aiLabels[ai]}
-          className="w-full h-full object-contain"
+          className="w-full h-full object-contain dark:invert dark:brightness-200"
         />
       </div>
     </div>
@@ -140,19 +140,21 @@ function ScoreRow({
         const indexInGroup = aisHere.indexOf(ai);
         const totalInGroup = aisHere.length;
 
-        const badgeSize = 36;
-        const verticalSpacing = 20;
-        const baseTop = 14;
+        const badgeSize = 32;
+        const verticalSpacing = 18;
+        const baseTop = 16;
 
         let offsetY = 0;
         if (totalInGroup === 2) {
-          offsetY = indexInGroup === 0 ? -verticalSpacing / 2 : verticalSpacing / 2;
+          offsetY =
+            indexInGroup === 0 ? -verticalSpacing / 2 : verticalSpacing / 2;
         } else if (totalInGroup === 3) {
           offsetY = (indexInGroup - 1) * verticalSpacing;
         }
 
         newPositions[ai] = {
-          left: colRect.left - rowRect.left + colRect.width / 2 - badgeSize / 2,
+          left:
+            colRect.left - rowRect.left + colRect.width / 2 - badgeSize / 2,
           top: baseTop + offsetY,
         };
       });
@@ -166,8 +168,13 @@ function ScoreRow({
   }, [rankings, columnRefs]);
 
   return (
-    <tr ref={rowRef} className="border-b border-gray-100 relative h-16">
-      <td className="py-4 px-8 text-gray-700">{category.name}</td>
+    <tr
+      ref={rowRef}
+      className="border-b border-gray-100 dark:border-neutral-700 relative h-16"
+    >
+      <td className="py-4 px-6 text-gray-700 dark:text-neutral-300 font-mono text-sm">
+        {category.name}
+      </td>
       <td className="py-4 px-4"></td>
       <td className="py-4 px-4"></td>
       <td className="py-4 px-4"></td>
@@ -187,9 +194,11 @@ function ScoreRow({
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <tr className="bg-gray-50">
-      <td colSpan={4} className="py-2.5 px-8">
-        <span className="font-semibold text-gray-900 text-sm">{title}</span>
+    <tr className="bg-gray-50 dark:bg-neutral-800">
+      <td colSpan={4} className="py-2 px-6">
+        <span className="font-mono font-bold text-gray-900 dark:text-white text-xs uppercase tracking-wider">
+          {title}
+        </span>
       </td>
     </tr>
   );
@@ -208,63 +217,60 @@ export function GPT52Leaderboard() {
     setIsVersion52(!isVersion52);
   };
 
+  const currentModel = isVersion52 ? "GPT 5.2" : "Codex 5.1 Max";
+  const otherModel = isVersion52 ? "Codex 5.1 Max" : "GPT 5.2";
+
   return (
-    <div className="flex flex-col items-center py-8">
+    <div className="flex flex-col items-center py-6">
       {/* Header */}
-      <div className="mb-8 text-center">
+      <div className="mb-6 flex flex-col items-center gap-3">
+        <div className="font-mono text-lg text-gray-700 dark:text-neutral-300">
+          Current Model:{" "}
+          <span className="font-bold text-gray-900 dark:text-white">
+            {currentModel}
+          </span>
+        </div>
         <button
           onClick={handleToggle}
-          className="text-4xl font-bold text-gray-900 hover:text-gray-600 transition-colors duration-200 cursor-pointer"
+          className={`font-mono text-sm font-bold px-4 py-1.5 rounded-sm transition-all duration-200 ${
+            isVersion52
+              ? "bg-[#606AF4] text-white hover:bg-[#4543e9]"
+              : "bg-white dark:bg-neutral-700 text-gray-700 dark:text-neutral-200 border border-gray-200 dark:border-neutral-600 hover:bg-gray-50 dark:hover:bg-neutral-600"
+          }`}
         >
-          {isVersion52 ? "GPT 5.2" : "Codex 5.1 Max"}
+          See {otherModel}
         </button>
       </div>
 
-      {/* Legend */}
-      <div className="flex gap-6 mb-4">
-        {(["claude", "codex", "gemini"] as AIName[]).map((ai) => (
-          <div key={ai} className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center p-1 border border-gray-200">
-              <img
-                src={aiLogos[ai]}
-                alt={aiLabels[ai]}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <span className="text-sm text-gray-600">{aiLabels[ai]}</span>
-          </div>
-        ))}
-      </div>
-
       {/* Scorecard Table */}
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full max-w-[600px]">
+      <div className="bg-white dark:bg-neutral-800 rounded-sm border border-gray-200 dark:border-neutral-700 overflow-hidden w-full max-w-[550px]">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-gray-200">
-              <th className="py-6 px-8 text-left w-52"></th>
+            <tr className="border-b border-gray-200 dark:border-neutral-700">
+              <th className="py-4 px-6 text-left w-44"></th>
               <th
                 ref={(el) => {
                   columnRefs.current[1] = el;
                 }}
-                className="py-6 px-4 text-center w-28"
+                className="py-4 px-3 text-center w-24"
               >
-                <span className="text-5xl">🥇</span>
+                <span className="text-3xl">🥇</span>
               </th>
               <th
                 ref={(el) => {
                   columnRefs.current[2] = el;
                 }}
-                className="py-6 px-4 text-center w-28"
+                className="py-4 px-3 text-center w-24"
               >
-                <span className="text-5xl">🥈</span>
+                <span className="text-3xl">🥈</span>
               </th>
               <th
                 ref={(el) => {
                   columnRefs.current[3] = el;
                 }}
-                className="py-6 px-4 text-center w-28"
+                className="py-4 px-3 text-center w-24"
               >
-                <span className="text-5xl">🥉</span>
+                <span className="text-3xl">🥉</span>
               </th>
             </tr>
           </thead>
@@ -299,10 +305,6 @@ export function GPT52Leaderboard() {
         </table>
       </div>
 
-      {/* Footer */}
-      <p className="mt-6 text-sm text-gray-400">
-        Click the title to see rankings change
-      </p>
     </div>
   );
 }
