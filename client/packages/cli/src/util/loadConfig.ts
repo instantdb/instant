@@ -8,10 +8,11 @@ import path from 'path';
 import { findProjectDir } from './projectDir.js';
 
 /**
- * Resolve @instantdb/core from CLI's dependency tree.
- * CLI depends on @instantdb/platform which depends on @instantdb/core.
+ * Resolve @instantdb packages from CLI's dependency tree.
+ * For Deno projects, we alias all common @instantdb packages to @instantdb/core
+ * since they all re-export the schema types from core.
  */
-function getInstantCoreAlias(): Record<string, string> | null {
+function getInstantAliases(): Record<string, string> | null {
   try {
     const require = createRequire(import.meta.url);
     const platformPath = require.resolve('@instantdb/platform');
@@ -21,7 +22,14 @@ function getInstantCoreAlias(): Record<string, string> | null {
       '@instantdb/core/package.json',
     );
     const coreDir = path.dirname(corePackageJson);
-    return { '@instantdb/core': coreDir };
+    // All @instantdb packages re-export schema types from core,
+    // so we can alias them all to core for schema loading purposes
+    return {
+      '@instantdb/core': coreDir,
+      '@instantdb/react': coreDir,
+      '@instantdb/react-native': coreDir,
+      '@instantdb/admin': coreDir,
+    };
   } catch {
     return null;
   }
@@ -33,7 +41,7 @@ export async function loadConfig<T>(
   // Only use alias for Deno projects (Node projects use their own node_modules)
   const projectInfo = await findProjectDir();
   const isDeno = projectInfo?.type === 'deno';
-  const alias = isDeno ? getInstantCoreAlias() : null;
+  const alias = isDeno ? getInstantAliases() : null;
 
   const res = await _loadConfig({
     ...opts,
