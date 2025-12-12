@@ -5,9 +5,9 @@ import * as instaml from '../../src/instaml';
 import zenecaTriples from './data/zeneca/triples.json';
 import { createStore, transact, getAllTriples } from '../../src/store';
 import query from '../../src/instaql';
-import { id, txInit } from '../../src';
+import { id, TransactionChunk, txInit } from '../../src';
 
-function generateRandomString(length) {
+function generateRandomString(length: number) {
   const characters =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
@@ -27,7 +27,7 @@ const store = createStore(zenecaIdToAttr, zenecaTriples);
 
 bench('big query', () => {
   query(
-    { store },
+    { store, aggregate: null, pageInfo: null },
     {
       users: {
         bookshelves: {
@@ -45,7 +45,7 @@ describe('entity caching', () => {
   const emptyStore = createStore({}, []);
   const tx = txInit();
 
-  const chunks = [];
+  const chunks: TransactionChunk<any, any>[] = [];
   for (let i = 0; i < 10000; i++) {
     chunks.push(
       tx.hi[id()].create({
@@ -74,34 +74,5 @@ describe('entity caching', () => {
   const triples = getAllTriples(newStore);
   console.log(triples.length);
 
-  const withoutCacheStore = createStore(attrs, triples);
-  withoutCacheStore.useCache = false;
-  bench(
-    'without caching',
-    () => {
-      query(
-        { store: withoutCacheStore },
-        {
-          hi: {},
-        },
-      );
-    },
-    { iterations: 200 },
-  );
-
-  const withCacheStore = createStore(attrs, triples);
-  withCacheStore.useCache = true;
-
-  bench(
-    'with caching',
-    () => {
-      query(
-        { store: withoutCacheStore },
-        {
-          hi: {},
-        },
-      );
-    },
-    { iterations: 200 },
-  );
+  const testingStore = createStore(attrs, triples);
 });

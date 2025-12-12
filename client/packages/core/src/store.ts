@@ -677,11 +677,16 @@ export function getTriples(store, [e, a, v]) {
   }
 }
 
+const cache = {};
+
 export function getAsObject(
   store: Store,
   attrs: Map<string, InstantDBAttr> | undefined,
   e: string,
 ) {
+  if (cache[e]) {
+    return cache[e];
+  }
   const obj = {};
 
   if (!attrs) {
@@ -695,6 +700,7 @@ export function getAsObject(
       obj[label] = triple[2];
     }
   }
+  cache[e] = obj;
 
   return obj;
 }
