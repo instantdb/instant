@@ -15,12 +15,8 @@ import { findProjectDir } from './projectDir.js';
 function getInstantAliases(): Record<string, string> | null {
   try {
     const require = createRequire(import.meta.url);
-    const platformPath = require.resolve('@instantdb/platform');
-    const platformRequire = createRequire(platformPath);
-    // Resolve the package.json to get the actual package root
-    const corePackageJson = platformRequire.resolve(
-      '@instantdb/core/package.json',
-    );
+    // Resolve @instantdb/core directly from CLI's dependencies
+    const corePackageJson = require.resolve('@instantdb/core/package.json');
     const coreDir = path.dirname(corePackageJson);
     // All @instantdb packages re-export schema types from core,
     // so we can alias them all to core for schema loading purposes
@@ -38,14 +34,16 @@ function getInstantAliases(): Record<string, string> | null {
 export async function loadConfig<T>(
   opts: LoadConfigOptions<T>,
 ): Promise<LoadConfigResult<T>> {
-  // Only use alias for Deno projects (Node projects use their own node_modules)
   const projectInfo = await findProjectDir();
   const isDeno = projectInfo?.type === 'deno';
-  const alias = isDeno ? getInstantAliases() : null;
 
-  const res = await _loadConfig({
-    ...opts,
-    ...(alias && {
+  // Deno projects don't have node_modules, so we need to alias @instantdb/*
+  // packages to resolve from the CLI's own dependencies
+  let res;
+  if (isDeno) {
+    const alias = getInstantAliases();
+    res = await _loadConfig({
+      ...opts,
       importx: {
         ...opts.importx,
         loaderOptions: {
@@ -56,8 +54,10 @@ export async function loadConfig<T>(
           },
         },
       },
-    }),
-  });
+    });
+  } else {
+    res = await _loadConfig(opts);
+  }
 
   // Unconfig seems to add an __esModule property to the config object
   // Removing it.
