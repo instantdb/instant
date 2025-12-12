@@ -3,7 +3,8 @@
             [instant.db.cel-builder :as b]
             [instant.db.model.attr :as attr-model]
             [instant.db.model.triple :as triple-model]
-            [clojure+.core :refer [cond+]])
+            [clojure+.core :refer [cond+]]
+            [instant.util.tracer :as tracer])
   (:import (clojure.lang ExceptionInfo)
            (com.google.protobuf NullValue)
            (dev.cel.common CelAbstractSyntaxTree CelSource)
@@ -266,7 +267,11 @@
         cel-program (.createProgram instaql-topic-cel-runtime checked-ast)]
     {:ast checked-ast
      :program (fn [entity]
-                (eval-topic-program cel-program entity))}))
+                (try
+                  (eval-topic-program cel-program entity)
+                  (catch Throwable e
+                    (tracer/record-exception-span! e {:name "instaql-topic/runtime-error"})
+                    true)))}))
 
 (defn instaql-topic [ctx forms]
   (try
