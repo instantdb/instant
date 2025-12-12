@@ -237,7 +237,9 @@ export function GPT52Leaderboard() {
         <div className="relative flex rounded-lg bg-gray-100 p-1 dark:bg-neutral-700">
           {/* Sliding shadow/highlight */}
           <div
-            className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-md bg-white shadow-md transition-all duration-300 ease-out dark:bg-neutral-600"
+            className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-md shadow-md transition-all duration-300 ease-out ${
+              isVersion52 ? 'bg-[#606AF4]' : 'bg-white dark:bg-neutral-600'
+            }`}
             style={{
               left: isVersion52 ? 'calc(50% + 2px)' : '4px',
             }}
@@ -246,22 +248,28 @@ export function GPT52Leaderboard() {
           {/* Predecessor option */}
           <button
             onClick={() => setIsVersion52(false)}
-            className={`relative z-10 flex flex-1 flex-col items-center rounded-md px-4 py-2 transition-colors duration-200 ${
-              !isVersion52 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-neutral-400'
+            className={`relative z-10 flex flex-1 cursor-pointer flex-col items-center rounded-md px-4 py-2 transition-colors duration-200 ${
+              !isVersion52
+                ? 'text-gray-900 dark:text-white'
+                : 'text-gray-500 dark:text-neutral-400'
             }`}
           >
-            <span className="text-xs font-medium uppercase tracking-wide opacity-60">Predecessor</span>
+            <span className="text-xs font-medium tracking-wide uppercase opacity-60">
+              Predecessor
+            </span>
             <span className="font-mono text-sm font-bold">Codex 5.1 Max</span>
           </button>
 
           {/* Now option */}
           <button
             onClick={() => setIsVersion52(true)}
-            className={`relative z-10 flex flex-1 flex-col items-center rounded-md px-4 py-2 transition-colors duration-200 ${
-              isVersion52 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-neutral-400'
+            className={`relative z-10 flex flex-1 cursor-pointer flex-col items-center rounded-md px-4 py-2 transition-colors duration-200 ${
+              isVersion52 ? 'text-white' : 'text-gray-500 dark:text-neutral-400'
             }`}
           >
-            <span className="text-xs font-medium uppercase tracking-wide opacity-60">Now</span>
+            <span className="text-xs font-medium tracking-wide uppercase opacity-60">
+              Now
+            </span>
             <span className="font-mono text-sm font-bold">GPT 5.2</span>
           </button>
         </div>
