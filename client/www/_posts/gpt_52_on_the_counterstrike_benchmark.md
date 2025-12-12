@@ -191,9 +191,16 @@ Next up was making sure shots worked. GPT 5.2 got a lot better with making shots
 >
 > Now let's make shots work. When I shoot, send the shot as a topic, and make it affect the target's HP. When the target HP goes to zero, they should die and respawn.
 
-Just like Claude, it got this done in one shot. Codex 5.1 Max needed quite a few tries getting the API right.
+Just like Claude, GPT 5.2 got this done in one shot:
 
-<HERE>
+<iframe
+  src="https://player.mux.com/MMhn300c6g1OF5J02WPMPULnQaygq7o8O02jTnXObJ800Tk"
+  style="width: 100%; border: none; aspect-ratio: 1024/575;"
+  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+  allowfullscreen
+></iframe>
+
+5.1 Codex Max needed more shots to get this right.
 
 ## 6. Maps
 
@@ -206,14 +213,17 @@ Make the UI look like the old counter strike map selection screen. I want you to
 > Then, push up some permissions so that anyone can view maps, but they cannot create or edit them.
 > When you join a map, you can just use the map id as the room id for presence.
 
-GPT 5.2 improved quite from it's predecessor. It got everything done in one shot. We think Gemini's UI is a bit better, but the backends were similar.
+We remember Claude having a lot of trouble with this. Codex 5.1 Max needed a few shots to get this right, and Gemini 3 Pro got this done in one shot.
 
-One surprise here though, was that GPT 5.2 was a lot more sheepish about running CLI commands. It simply asked us to run the commands for it. We first thought this was a gotcha for Instant, but after prodding it to push it's changes to Vercel, it made the same mistake.
+Well, GPT 5.2 now got this done in one shot too. We think Gemini's UI is a bit better, but the backends were similar.
+
+One surprise here though, was that GPT 5.2 was a lot more sheepish about running CLI commands. It simply asked us to run the commands for it.
+
+We first thought this was a gotcha for this particular task, but after prodding it to push it's changes to Vercel, it also made the mistake of just "telling" us vercel cli commands, rather than running it.
 
 ## Finishing thoughts
 
-GPT 5.2 did do better than Codex 5.1 Max. It chose some surprising steps (like using REPLs instead of reading docs, or sharing commands rather than running them), but overall it did a good job. We're excited to see how the 5.2 codex model feels.
-
+GPT 5.2 did do better than Codex 5.1 Max. It chose some surprising steps (like using REPLs instead of reading docs, or sharing commands rather than running them), but overall it's an improvement. We're excited to see how the 5.2 codex model feels.
 
 [^1]: You may ask: why medium? Lots of hackers prefer using `high`. For now we choose whatever the CLI default is. We didn't want to start customizing CLIs and introduce bias that way.
 
