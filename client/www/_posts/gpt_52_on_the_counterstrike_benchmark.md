@@ -52,6 +52,9 @@ GPT 5.2 got one type error in it's first try. But we pasted the error back it bu
 
 Here's GPT 5.2 versus it's predecessor:
 
+| Codex 5.1 Max                                     | GPT 5.2                                            |
+| ------------------------------------------------- | -------------------------------------------------- |
+| ![](/posts/counter_strike/map_codex.png?lightbox) | ![](/posts/counter_strike/map_claude.png?lightbox) |
 
 [CODEX] | [GPT 5.2]
 
