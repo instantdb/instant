@@ -89,12 +89,6 @@ const potentialAdminTokenEnvs = {
 };
 
 async function detectEnvType({ pkgDir }) {
-  // Check if Deno project
-  const projectInfo = await findProjectDir(pkgDir);
-  if (projectInfo?.type === 'deno') {
-    return 'catchall'; // Uses INSTANT_APP_ID
-  }
-
   const packageJSON = await getPackageJson(pkgDir);
   if (!packageJSON) {
     return 'catchall';
@@ -1115,7 +1109,12 @@ async function enforcePackageAndAuthInfoWithErrorLogging(_opts) {
     if (!authToken) {
       return;
     }
-    return { pkgDir, instantModuleName: '@instantdb/core', authToken };
+    return {
+      pkgDir,
+      projectType,
+      instantModuleName: '@instantdb/core',
+      authToken,
+    };
   }
 
   const pkgJson = await getPackageJSONWithErrorLogging(pkgDir);
@@ -1130,7 +1129,7 @@ async function enforcePackageAndAuthInfoWithErrorLogging(_opts) {
   if (!authToken) {
     return;
   }
-  return { pkgDir, instantModuleName, authToken };
+  return { pkgDir, projectType, instantModuleName, authToken };
 }
 
 async function getOrPromptPackageAndAuthInfoWithErrorLogging(opts) {
@@ -1146,7 +1145,12 @@ async function getOrPromptPackageAndAuthInfoWithErrorLogging(opts) {
     if (!authToken) {
       return;
     }
-    return { pkgDir, instantModuleName: '@instantdb/core', authToken };
+    return {
+      pkgDir,
+      projectType,
+      instantModuleName: '@instantdb/core',
+      authToken,
+    };
   }
 
   const instantModuleName = await getOrInstallInstantModuleWithErrorLogging(
@@ -1160,7 +1164,7 @@ async function getOrPromptPackageAndAuthInfoWithErrorLogging(opts) {
   if (!authToken) {
     return;
   }
-  return { pkgDir, instantModuleName, authToken };
+  return { pkgDir, projectType, instantModuleName, authToken };
 }
 
 async function pullSchema(appId, { pkgDir, instantModuleName }) {

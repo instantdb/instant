@@ -12,7 +12,10 @@ export interface ProjectInfo {
 export async function findProjectDir(
   cwd?: string,
 ): Promise<ProjectInfo | null> {
-  // Check for Deno first (more specific - if they have deno.json, they want Deno)
+  // Check for Deno first. A Deno project may also have a package.json (for npm
+  // compatibility), but if deno.json exists, the user intends to use Deno and
+  // we should use Deno-specific behavior (e.g., resolving @instantdb/* from
+  // CLI's dependencies instead of node_modules).
   const denoConfig =
     (await findUp('deno.json', { cwd })) ||
     (await findUp('deno.jsonc', { cwd }));
