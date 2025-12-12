@@ -21,6 +21,7 @@
     "instant-cli": "bin/index.js"
   },
   "dependencies": {
+    "@instantdb/core": "workspace:*",
     "@instantdb/platform": "workspace:*",
     "@instantdb/version": "workspace:*",
     "ansi-escapes": "4.3.2",

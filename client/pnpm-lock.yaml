@@ -63,6 +63,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@instantdb/core':
+        specifier: workspace:*
+        version: link:../core
       '@instantdb/platform':
         specifier: workspace:*
         version: link:../platform
