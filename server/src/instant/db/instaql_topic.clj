@@ -2,15 +2,19 @@
   (:require [instant.db.cel :as cel]
             [instant.db.cel-builder :as b]
             [instant.db.model.attr :as attr-model]
+            [instant.db.model.triple :as triple-model]
             [clojure+.core :refer [cond+]])
   (:import (clojure.lang ExceptionInfo)
+           (com.google.protobuf NullValue)
            (dev.cel.common CelAbstractSyntaxTree CelSource)
            (dev.cel.common.ast CelExprFactory)
-           (dev.cel.common.types MapType SimpleType)
+           (dev.cel.common CelFunctionDecl CelOverloadDecl)
+           (dev.cel.common.types CelType MapType SimpleType)
            (dev.cel.compiler CelCompiler CelCompilerFactory)
            (dev.cel.parser CelStandardMacro)
-           (dev.cel.runtime CelRuntime CelRuntimeFactory)
-           (java.util HashMap)))
+           (dev.cel.runtime CelFunctionOverload CelRuntime CelRuntime$CelFunctionBinding CelRuntimeFactory)
+           (java.time Instant)
+           (java.util Date HashMap)))
 
 (defn throw-not-supported! [reason]
   (throw (ex-info "not-supported" {::not-supported reason})))
@@ -24,6 +28,12 @@
 
 ;; ---------
 ;; form->ast!
+
+(defn- normalize-date-literal! [x]
+  (try
+    (.toEpochMilli ^Instant (triple-model/parse-date-value x))
+    (catch Throwable t
+      (throw-not-supported! [:invalid-date-literal {:value x :message (.getMessage t)}]))))
 
 (defn- single-cond->cel-expr!
   [{:keys [etype attrs]} {:keys [cond-data]}]
@@ -68,7 +78,10 @@
        (not= :one cardinality) (throw-not-supported! [:cardinality-many])
 
        :else
-       (b/= (b/get-in 'entity ["attrs" (str id)]) v-data)))))
+       (let [left (b/get-in 'entity ["attrs" (str id)])]
+         (if (= :date (:checked-data-type fwd-attr))
+           (b/call "instant_date_eq" left (normalize-date-literal! v-data))
+           (b/= left v-data)))))))
 
 (defn- where-cond->cel-expr!
   [ctx {:keys [where-cond]}]
@@ -176,14 +189,58 @@
 
 (def ^MapType entity-type (MapType/create SimpleType/STRING SimpleType/DYN))
 
+(def ^:private ^CelFunctionDecl instant-date-eq-fn-decl
+  (CelFunctionDecl/newFunctionDeclaration
+   "instant_date_eq"
+   (into-array
+    CelOverloadDecl
+    [(CelOverloadDecl/newGlobalOverload
+      "_instant_date_eq_dyn_int"
+      SimpleType/BOOL
+      (into-array CelType [SimpleType/DYN SimpleType/INT]))])))
+
+(def ^:private ^CelRuntime$CelFunctionBinding instant-date-eq-fn-binding
+  (CelRuntime$CelFunctionBinding/from
+   "_instant_date_eq_dyn_int"
+   [Object Long]
+   (reify CelFunctionOverload
+     (apply [_this args]
+       (let [[x ^Long epoch-millis] args
+             epoch-millis (long epoch-millis)]
+         (try
+           (cond
+             (= x NullValue/NULL_VALUE)
+             false
+
+             (nil? x)
+             false
+
+             (instance? Instant x)
+             (= (.toEpochMilli ^Instant x) epoch-millis)
+
+             (instance? Date x)
+             (= (.getTime ^Date x) epoch-millis)
+
+             (string? x)
+             (= (normalize-date-literal! x) epoch-millis)
+
+             (instance? Number x)
+             (= (.longValue ^Number x) epoch-millis)
+
+             :else false)
+           (catch Throwable _t
+             false)))))))
+
 (def ^:private ^CelCompiler instaql-topic-cel-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "entity" entity-type)
+      (.addFunctionDeclarations (into-array CelFunctionDecl [instant-date-eq-fn-decl]))
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
       (.build)))
 
 (def ^:private ^CelRuntime instaql-topic-cel-runtime
   (-> (CelRuntimeFactory/standardCelRuntimeBuilder)
+      (.addFunctionBindings (into-array CelRuntime$CelFunctionBinding [instant-date-eq-fn-binding]))
       (.build)))
 
 (defn eval-topic-program [program entity]

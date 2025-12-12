@@ -322,5 +322,13 @@
         (is (true? (program {:etype "users"
                              :attrs {(str (resolvers/->uuid r :users/createdAt)) epoch-millis}})))
         (is (true? (program {:etype "users"
-                             :attrs {(str (resolvers/->uuid r :users/createdAt)) iso-string}})))))))
+                             :attrs {(str (resolvers/->uuid r :users/createdAt)) iso-string}})))
+
+        (is (false? (program {:etype "users"
+                              :attrs {(str (resolvers/->uuid r :users/createdAt)) (.toString (.plusSeconds instant 1))}})))
+
+        (is (false? (program {:etype "users"
+                              :attrs {(str (resolvers/->uuid r :users/createdAt)) nil}})))
+        (is (false? (program {:etype "users"
+                              :attrs {}})))))))
 
