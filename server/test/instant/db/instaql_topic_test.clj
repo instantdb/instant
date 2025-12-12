@@ -27,7 +27,19 @@
         (is (= {:not-supported [:complex-value-type]}
                (iqt/instaql-topic
                 {:attrs attrs}
-                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))))))
+                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))
+
+        (is (= {:not-supported [:pagination {:options [:limit]}]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}
+                                              :limit 1}}}))))
+
+        (is (= {:not-supported [:pagination {:options [:offset]}]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}
+                                              :offset 0}}}))))))))
 
 (deftest composites
   (with-zeneca-app
@@ -331,4 +343,3 @@
                               :attrs {(str (resolvers/->uuid r :users/createdAt)) nil}})))
         (is (false? (program {:etype "users"
                               :attrs {}})))))))
-
