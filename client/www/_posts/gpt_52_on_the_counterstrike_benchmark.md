@@ -54,30 +54,35 @@ Here's GPT 5.2 versus it's predecessor:
 
 | Codex 5.1 Max                                     | GPT 5.2                                            |
 | ------------------------------------------------- | -------------------------------------------------- |
-| ![](/posts/counter_strike_52/map_codex51.png?lightbox) | ![](/posts/counter_strike_52/map_gpt52.png?lightbox) |
+| ![](/posts/counter_strike/map_codex.png?lightbox) | ![](/posts/counter_strike_52/map_gpt52.png?lightbox) |
 
-[CODEX] | [GPT 5.2]
+GPT 5.2 makes clear improvement over Codex 5.1 Max. If you compare this to Claude and Gemini, we think Claude still did the best job. The map and the lighting look the most interesting. But at this point it feels like GPT 5.2 did about as well as Gemini:
 
+| Claude 4.5 Opus                                             | Gemini 3 Pro                                             |
+| -------------------------------------------------- | -------------------------------------------------- |
+| ![](/posts/counter_strike/map_claude.png?lightbox) | ![](/posts/counter_strike/map_gemini.png?lightbox) |
 
-GPT 5.2 makes clear improvement over Codex 5.1 Max. If you compare this to Claude and Gemini, we think Claude still did the best job (the map and the lighting look more interesting), but at this point it feels like GPT 5.2 did about as well as Gemini.
-
-[PREV]
 
 ## 2. Characters
 
-The next challenge was to make the characters more interested. Instead of a simple box, we wanted enemis that looked like people:
+The next challenge was to make the characters more interesting. Instead of a simple box, we wanted enemis that looked like people:
 
 > **Prompt**
 >
 > I want you to make the enemies look more like people. Use a bunch of square polygons to represent a person, and maybe a little gun
 
-Here's what GPT 5.2 built in one shot, compared to 5.1 Max:
+GPT 5.2 improved a bunch here:
 
-[CODEX] | [GPT 5.2]
+| Codex 5.1 Max                                             | GPT 5.2                                        |
+| --------------------------------------------------- | ---------------------------------------------------- |
+| ![](/posts/counter_strike/enemy_codex.png?lightbox) | ![](/posts/counter_strike_52/character_gpt52.png?lightbox) |
 
 That's a noticeable improvement in our book. If you compare to Claude and Gemini, it feels like Claude still wins, but GPT 5.2 is about as good as Gemini again:
 
-[PREV]
+| Codex                                               | Claude                                               | Gemini                                               |
+| --------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+| ![](/posts/counter_strike/enemy_codex.png?lightbox) | ![](/posts/counter_strike/enemy_claude.png?lightbox) | ![](/posts/counter_strike/enemy_gemini.png?lightbox) |
+
 
 ## 3. Gun in our field-of-view
 
