@@ -4,11 +4,13 @@
    [instant.db.cel :as cel]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
-   [instant.fixtures :refer [with-zeneca-app]]
+   [instant.fixtures :refer [with-zeneca-app with-zeneca-checked-data-app]]
    [instant.db.instaql-topic :as iqt]
    [instant.data.resolvers :as resolvers]
    [instant.db.transaction :as tx]
-   [instant.jdbc.aurora :as aurora]))
+   [instant.jdbc.aurora :as aurora])
+  (:import
+   (java.time Instant)))
 
 ;; ----
 ;; Tests
@@ -25,7 +27,19 @@
         (is (= {:not-supported [:complex-value-type]}
                (iqt/instaql-topic
                 {:attrs attrs}
-                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))))))
+                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))
+
+        (is (= {:not-supported [:pagination {:options [:limit]}]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}
+                                              :limit 1}}}))))
+
+        (is (= {:not-supported [:pagination {:options [:before]}]}
+               (iqt/instaql-topic
+                {:attrs attrs}
+                (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}
+                                              :before [(random-uuid) (random-uuid) "cursor-value" 0]}}}))))))))
 
 (deftest composites
   (with-zeneca-app
@@ -306,3 +320,26 @@
         (is (false? (program {:etype "favoriteBook" :attrs {}})))
         (is (false? (program {:etype "posts" :attrs {}})))))))
 
+(deftest date-eq-works-with-different-representations
+  (with-zeneca-checked-data-app
+    (fn [app r]
+      (let [attrs (attr-model/get-by-app-id (:id app))
+            instant (Instant/now)
+            iso-string (.toString instant)
+            epoch-millis (.toEpochMilli instant)
+
+            {:keys [program]} (iqt/instaql-topic
+                               {:attrs attrs}
+                               (iq/->forms! attrs {:users {:$ {:where {:createdAt epoch-millis}}}}))]
+        (is (true? (program {:etype "users"
+                             :attrs {(str (resolvers/->uuid r :users/createdAt)) epoch-millis}})))
+        (is (true? (program {:etype "users"
+                             :attrs {(str (resolvers/->uuid r :users/createdAt)) iso-string}})))
+
+        (is (false? (program {:etype "users"
+                              :attrs {(str (resolvers/->uuid r :users/createdAt)) (.toString (.plusSeconds instant 1))}})))
+
+        (is (false? (program {:etype "users"
+                              :attrs {(str (resolvers/->uuid r :users/createdAt)) nil}})))
+        (is (false? (program {:etype "users"
+                              :attrs {}})))))))
