@@ -23,11 +23,17 @@ We evaluated GPT 5 on the Codex CLI set to medium. [^1]. All prompts were the sa
 
 <gpt52-leaderboard></gpt52-leaderboard>
 
-Claude still holds the top position on frontend changes (maps, characters, and threejs). But GPT 5.2 did much better than it's predecessor overall. The frontend changes were better, and the backend changes were about as good as Gemini: both of them effectively one shotted multiplayer positions, shots, and maps.
+Claude still holds the top position on frontend changes (maps, characters, and threejs).
+
+But GPT 5.2 did much better than it's predecessor overall. GPT 5.2's frontend changes were noticeably better than Codex 5.1 Max.
+
+And the backend changes were about as good as Gemini 3 Pro: both of them effectively one shotted multiplayer positions, shots, and maps.
+
+You can see for yourself: let's dive into the prompts.
 
 ## 1. Boxes and Physics
 
-The first thing we asked it to do was build a basic 3d map with polygons.
+The first thing we asked it to do was build a basic 3D map with polygons.
 
 > **Prompt**
 >
@@ -44,9 +50,11 @@ The first thing we asked it to do was build a basic 3d map with polygons.
 
 GPT 5.2 got one type error in it's first try. But we pasted the error back it built a working frontend.
 
-Here's a side-by-side view of Codex Max 5.1 vs GPT 5.2:
+Here's GPT 5.2 versus it's predecessor:
+
 
 [CODEX] | [GPT 5.2]
+
 
 GPT 5.2 makes clear improvement over Codex 5.1 Max. If you compare this to Claude and Gemini, we think Claude still did the best job (the map and the lighting look more interesting), but at this point it feels like GPT 5.2 did about as well as Gemini.
 
