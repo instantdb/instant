@@ -77,6 +77,18 @@ const aiLabels: Record<AIName, string> = {
   gemini: "Gemini",
 };
 
+const aiVersions51: Record<AIName, string> = {
+  codex: "Codex 5.1 Max",
+  claude: "Claude Opus 4",
+  gemini: "Gemini 2.5 Pro",
+};
+
+const aiVersions52: Record<AIName, string> = {
+  codex: "GPT 5.2",
+  claude: "Claude Opus 4",
+  gemini: "Gemini 2.5 Pro",
+};
+
 function AIBadge({ ai, style }: { ai: AIName; style?: React.CSSProperties }) {
   return (
     <div
@@ -172,12 +184,12 @@ function ScoreRow({
       ref={rowRef}
       className="flex border-b border-gray-100 dark:border-neutral-700 relative h-12"
     >
-      <div className="py-2 px-4 text-gray-700 dark:text-neutral-300 font-mono text-sm w-40 flex items-center">
+      <div className="py-2 px-4 text-gray-700 dark:text-neutral-300 font-mono text-sm flex-1 flex items-center">
         {category.name}
       </div>
-      <div className="py-2 px-2 w-20 flex-shrink-0"></div>
-      <div className="py-2 px-2 w-20 flex-shrink-0"></div>
-      <div className="py-2 px-2 w-20 flex-shrink-0"></div>
+      <div className="py-2 px-2 w-16 flex-shrink-0"></div>
+      <div className="py-2 px-2 w-16 flex-shrink-0"></div>
+      <div className="py-2 px-2 w-16 flex-shrink-0"></div>
       {(["codex", "claude", "gemini"] as AIName[]).map((ai) => (
         <AIBadge
           key={ai}
@@ -215,28 +227,18 @@ export function GPT52Leaderboard() {
     setIsVersion52(!isVersion52);
   };
 
-  const currentModel = isVersion52 ? "GPT 5.2" : "Codex 5.1 Max";
   const otherModel = isVersion52 ? "Codex 5.1 Max" : "GPT 5.2";
+  const aiVersions = isVersion52 ? aiVersions52 : aiVersions51;
 
   return (
     <div className="flex flex-col items-center py-4">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between w-full max-w-[500px]">
-        <div className="font-mono text-base text-gray-700 dark:text-neutral-300">
-          Current Model:{" "}
-          <span className="font-bold text-gray-900 dark:text-white">
-            {currentModel}
-          </span>
-        </div>
+      <div className="mb-4 flex items-center justify-start w-full max-w-[500px]">
         <button
           onClick={handleToggle}
-          className={`font-mono text-sm font-bold px-4 py-1.5 rounded-sm transition-colors duration-200 border ${
-            isVersion52
-              ? "bg-white dark:bg-neutral-700 text-gray-700 dark:text-neutral-200 border-gray-200 dark:border-neutral-600 hover:bg-gray-50 dark:hover:bg-neutral-600"
-              : "bg-[#606AF4] text-white border-[#606AF4] hover:bg-[#4543e9] hover:border-[#4543e9]"
-          }`}
+          className="font-mono text-sm font-bold px-4 py-1.5 rounded-sm transition-colors duration-200 border bg-[#606AF4] text-white border-[#606AF4] hover:bg-[#4543e9] hover:border-[#4543e9]"
         >
-          See {otherModel}
+          See {otherModel}'s results
         </button>
       </div>
 
@@ -244,30 +246,30 @@ export function GPT52Leaderboard() {
       <div className="bg-white dark:bg-neutral-800 rounded-sm border border-gray-200 dark:border-neutral-700 overflow-hidden w-full max-w-[500px]">
         {/* Header row */}
         <div className="flex border-b border-gray-200 dark:border-neutral-700">
-          <div className="py-2 px-4 w-40"></div>
+          <div className="py-2 px-4 flex-1"></div>
           <div
             ref={(el) => {
               columnRefs.current[1] = el;
             }}
-            className="py-2 px-2 w-20 flex-shrink-0 flex items-center justify-center"
+            className="py-2 px-2 w-16 flex-shrink-0 flex items-center justify-center"
           >
-            <span className="text-3xl">🥇</span>
+            <span className="text-4xl">🥇</span>
           </div>
           <div
             ref={(el) => {
               columnRefs.current[2] = el;
             }}
-            className="py-2 px-2 w-20 flex-shrink-0 flex items-center justify-center"
+            className="py-2 px-2 w-16 flex-shrink-0 flex items-center justify-center"
           >
-            <span className="text-3xl">🥈</span>
+            <span className="text-4xl">🥈</span>
           </div>
           <div
             ref={(el) => {
               columnRefs.current[3] = el;
             }}
-            className="py-2 px-2 w-20 flex-shrink-0 flex items-center justify-center"
+            className="py-2 px-2 w-16 flex-shrink-0 flex items-center justify-center"
           >
-            <span className="text-3xl">🥉</span>
+            <span className="text-4xl">🥉</span>
           </div>
         </div>
 
@@ -300,6 +302,26 @@ export function GPT52Leaderboard() {
           isVersion52={isVersion52}
           columnRefs={columnRefs}
         />
+
+        {/* Legend */}
+        <div className="border-t border-gray-200 dark:border-neutral-700 py-3 px-4">
+          <div className="flex justify-start gap-6">
+            {(["claude", "gemini", "codex"] as AIName[]).map((ai) => (
+              <div key={ai} className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-sm bg-white dark:bg-neutral-700 flex items-center justify-center p-0.5 border border-gray-200 dark:border-neutral-600">
+                  <img
+                    src={aiLogos[ai]}
+                    alt={aiLabels[ai]}
+                    className="w-full h-full object-contain dark:invert dark:brightness-200"
+                  />
+                </div>
+                <span className="font-mono text-xs text-gray-600 dark:text-neutral-400">
+                  {aiVersions[ai]}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -4,24 +4,22 @@ date: '2025-12-12'
 authors: stopachka
 ---
 
-About 2 weeks ago we asked all the latest AI models to a basic version of Counter Strike. The game had to be a 3D UI and it had to be multiplayer. They did a pretty [good job](/essays/agents_building_counterstrike).
+About 2 weeks ago we asked Codex 5.1 Max, Claude 4.5 Opus, and Gemini 3 Pro to [build Counter Strike](/essays/agents_building_counterstrike). It had to be a 3D UI, and it had to be multiplayer.
 
-Well GPT 5.2 just came out. How does it do building Counter-Strike? We tried and found out.
+How good of a job does GPT 5.2 do at this task?
 
 **Here's the TL:DR:** Even though GPT 5.2 is not a coding model, it did better than Codex 5.1 Max on almost every prompt. GPT 5.2 was still behind Claude on frontend changes, but it began to go toe-to-toe with Gemini on the backend.
 
-Want to try the Counter-Strike GPT 5.2 built? Here are the links:
+You can try out the version that GPT 5.2 built here:
 
-1. **Version 1**: https://codex52strike.vercel.app/
-2. **Version 2: De Dust2**: https://codex52dust.vercel.app/
+1. **GPT 5.2's first attempt**: https://codex52strike.vercel.app/
+2. **A second version with a map reminiscient of de dust 2**: https://codex52dust.vercel.app/
 
-Here's a full video of us going through the build [here](https://www.youtube.com/watch?v=MeKBO9QOUFA), but for those who prefer text you get this post.
+Here's a full [video](https://www.youtube.com/watch?v=MeKBO9QOUFA) of us going through the build, but for those who prefer text you get this post.
 
 ## Overview
 
-We evaluated GPT 5 on the Codex CLI set to medium. [^]. All prompts were the same as our last benchmark post.
-
-Take a look at how the leaderboard changed with GPT 5.2:
+We evaluated GPT 5 on the Codex CLI set to medium. [^1]. All prompts were the same as our last benchmark post. Take a look at how the leaderboard [^2] changed with GPT 5.2:
 
 <gpt52-leaderboard></gpt52-leaderboard>
 
@@ -151,3 +149,8 @@ One surprise here though, was that GPT 5.2 was a lot more sheepish about running
 ## Finishing thoughts
 
 GPT 5.2 did do better than Codex 5.1 Max. It chose some surprising steps (like using REPLs instead of reading docs, or sharing commands rather than running them), but overall it did a good job. We're excited to see how the 5.2 codex model feels.
+
+
+[^1]: You may ask: why medium? Lots of hackers prefer using `high`. For now we choose whatever the CLI default is. We didn't want to start customizing CLIs and introduce bias that way.
+
+[^2]: A bit of a revealed preference in this leaderboard: we vibe-coded the animations using Claude 4.5 Opus.
