@@ -120,6 +120,34 @@ Previously Codex 5.1 Max needed a few iterations to get things right. Codex 5.1 
 [leaderboard-but-just-this-bit]
 
 It was interesting to note that like Codex, GPT 5.2 was the rate model that relied _very_ heavily on REPLing to understand an API, rather than reading docs.
+
 ## 5. Sharing shots
 
-Next up was making sure shots worked.
+Next up was making sure shots worked. GPT 5.2 got a lot better with making shots work.
+
+> **Prompt**
+>
+> Now let's make shots work. When I shoot, send the shot as a topic, and make it affect the target's HP. When the target HP goes to zero, they should die and respawn.
+
+Just like Claude, it got this done in one shot. Codex 5.1 Max needed quite a few tries getting the API right.
+
+[leaderboard-but-just-this-bit]
+
+## 6. Maps
+
+The final part of the game was to build maps. This included creating schema, seeding data, and making sure permissions worked.
+
+> **Prompt**
+>
+> So, now I want you to make it so the front page is actually a list of maps. Since our UI is using lots of polygons, make the style kind of polygonish
+Make the UI look like the old counter strike map selection screen. I want you to save these maps in the database. Each map has a name. Use a script to generate 5 random maps with cool names.
+> Then, push up some permissions so that anyone can view maps, but they cannot create or edit them.
+> When you join a map, you can just use the map id as the room id for presence.
+
+GPT 5.2 improved quite from it's predecessor. It got everything done in one shot. We think Gemini's UI is a bit better, but the backends were similar.
+
+One surprise here though, was that GPT 5.2 was a lot more sheepish about running CLI commands. It simply asked us to run the commands for it. We first thought this was a gotcha for Instant, but after prodding it to push it's changes to Vercel, it made the same mistake.
+
+## Finishing thoughts
+
+GPT 5.2 did do better than Codex 5.1 Max. It chose some surprising steps (like using REPLs instead of reading docs, or sharing commands rather than running them), but overall it did a good job. We're excited to see how the 5.2 codex model feels.
