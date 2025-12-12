@@ -253,27 +253,46 @@
                {:email email
                 :app-id app-id
                 :sub sub
-                :provider-id provider-id})]
-    (cond
-      (< 1 (count users))
-      (let [err (format "Got multiple app users for email=%s, sub=%s, provider-id=%s."
-                        email
-                        sub
-                        provider-id)]
-        (tracer/record-exception-span!
-         (Exception. err)
-         {:name "oauth/upsert-oauth-link!"
-          :escaping? false
-          :attributes {:email email
-                       :sub sub
-                       :user-ids (pr-str (map :app_user/id users))}})
-        nil)
+                :provider-id provider-id})
 
-      (= 1 (count users))
-      (let [user (first users)]
+        {:keys [user existing-oauth-link]}
+        (if (<= (count users) 1)
+          {:user (first users)
+           :existing-oauth-link nil}
+          (let [email-matches (when email
+                                (filter #(= email (:app_users/email %)) users))]
+            (when-not (= 1 (count email-matches))
+              (ex/throw-oauth-err! "Could not disambiguate between multiple users for this account."))
+            (let [selected (first email-matches)
+                  oauth-link (first (filter :app_user_oauth_links/id users))]
+              (tracer/record-info! {:name "oauth/disambiguated-by-email"
+                                    :attributes {:email email
+                                                 :sub sub
+                                                 :user-ids (mapv :app_users/id users)
+                                                 :selected-user-id (:app_users/id selected)}})
+              {:user selected
+               :existing-oauth-link (when oauth-link
+                                      {:id (:app_user_oauth_links/id oauth-link)
+                                       :sub (:app_user_oauth_links/sub oauth-link)})})))]
+
+    (if-not user
+      (let [created (app-user-model/create!
+                     {:id guest-user-id
+                      :app-id app-id
+                      :email email
+                      :imageURL imageURL
+                      :type "user"})]
+        (app-user-oauth-link-model/create! {:id (random-uuid)
+                                            :app-id app-id
+                                            :provider-id provider-id
+                                            :sub sub
+                                            :user-id (:id created)}))
+
+      (do
         ;; extra caution because it would be really bad to
         ;; return users for a different app
         (assert (= app-id (:app_users/app_id user)))
+
         (when guest-user-id
           (app-user-model/link-guest {:app-id app-id
                                       :guest-user-id guest-user-id
@@ -298,6 +317,14 @@
                                                :email email})
                 (ucoll/select-keys-no-ns user :app_user_oauth_links))
 
+              (and existing-oauth-link (not (:app_user_oauth_links/id user)))
+              (tracer/with-span! {:name "oauth-link/reassign"
+                                  :attributes {:link-id (:id existing-oauth-link)
+                                               :to-user-id (:app_users/id user)}}
+                (app-user-oauth-link-model/update-user! {:id (:id existing-oauth-link)
+                                                         :app-id app-id
+                                                         :user-id (:app_users/id user)}))
+
               (not (:app_user_oauth_links/id user))
               (tracer/with-span! {:name "oauth-link/create"
                                   :attributes {:id (:app_users/id user)
@@ -309,20 +336,7 @@
                                                     :sub sub
                                                     :user-id (:app_users/id user)}))
 
-              :else (ucoll/select-keys-no-ns user :app_user_oauth_links)))
-
-      (= 0 (count users))
-      (let [user (app-user-model/create!
-                  {:id guest-user-id
-                   :app-id app-id
-                   :email email
-                   :imageURL imageURL
-                   :type "user"})]
-        (app-user-oauth-link-model/create! {:id (random-uuid)
-                                            :app-id app-id
-                                            :provider-id provider-id
-                                            :sub sub
-                                            :user-id (:id user)})))))
+              :else (ucoll/select-keys-no-ns user :app_user_oauth_links))))))
 
 (defn oauth-callback-landing
   "Used for external apps to prevent a dangling page on redirect.
@@ -567,7 +581,6 @@
                                          :ignore-audience? true}))
         email (email/coerce email)
 
-
         current-refresh-token (when current-refresh-token-id
                                 (app-user-refresh-token-model/get-by-id
                                  {:app-id app-id
@@ -615,12 +628,12 @@
                                                       :app-id app-id}))
         attrs (attr-model/get-by-app-id app-id)
         ctx {:db {:conn-pool (aurora/conn-pool :read)}
-                  :app-id app-id
-                  :attrs attrs
-                  :datalog-query-fn d/query
-                  :datalog-loader (d/make-loader)
-                  :current-user user
-                  :versions (-> req :body :versions)}
+             :app-id app-id
+             :attrs attrs
+             :datalog-query-fn d/query
+             :datalog-loader (d/make-loader)
+             :current-user user
+             :versions (-> req :body :versions)}
         nodes (iq/permissioned-query ctx query)
         result (collect-instaql-results-for-client nodes)]
     (response/ok {:result result :attrs attrs})))
