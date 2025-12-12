@@ -54,7 +54,7 @@ Here's GPT 5.2 versus it's predecessor:
 
 | Codex 5.1 Max                                     | GPT 5.2                                            |
 | ------------------------------------------------- | -------------------------------------------------- |
-| ![](/posts/counter_strike/map_codex.png?lightbox) | ![](/posts/counter_strike/map_claude.png?lightbox) |
+| ![](/posts/counter_strike_52/map_codex51.png?lightbox) | ![](/posts/counter_strike_52/map_gpt52.png?lightbox) |
 
 [CODEX] | [GPT 5.2]
 
