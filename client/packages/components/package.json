@@ -1,9 +1,17 @@
 {
   "name": "@instantdb/components",
+  "private": false,
   "version": "0.0.0",
-  "description": "",
   "type": "module",
-  "main": "index.js",
+  "description": "Instant's UI components",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/components",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/core"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "vite build",
