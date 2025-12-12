@@ -37,9 +37,12 @@
     (when (seq present)
       (throw-not-supported! [:pagination {:options present}]))))
 
+(defn- normalize-date-value [v]
+  (.toEpochMilli ^Instant (triple-model/parse-date-value v)))
+
 (defn- normalize-date-literal! [x]
   (try
-    (.toEpochMilli ^Instant (triple-model/parse-date-value x))
+    (normalize-date-value x)
     (catch Throwable t
       (throw-not-supported! [:invalid-date-literal {:value x :message (.getMessage t)}]))))
 
@@ -216,29 +219,26 @@
      (apply [_this args]
        (let [[x ^Long epoch-millis] args
              epoch-millis (long epoch-millis)]
-         (try
-           (cond
-             (= x NullValue/NULL_VALUE)
-             false
+         (cond
+           (= x NullValue/NULL_VALUE)
+           false
 
-             (nil? x)
-             false
+           (nil? x)
+           false
 
-             (instance? Instant x)
-             (= (.toEpochMilli ^Instant x) epoch-millis)
+           (instance? Instant x)
+           (= (.toEpochMilli ^Instant x) epoch-millis)
 
-             (instance? Date x)
-             (= (.getTime ^Date x) epoch-millis)
+           (instance? Date x)
+           (= (.getTime ^Date x) epoch-millis)
 
-             (string? x)
-             (= (normalize-date-literal! x) epoch-millis)
+           (string? x)
+           (= (normalize-date-value x) epoch-millis)
 
-             (instance? Number x)
-             (= (.longValue ^Number x) epoch-millis)
+           (instance? Number x)
+           (= (.longValue ^Number x) epoch-millis)
 
-             :else false)
-           (catch Throwable _t
-             false)))))))
+           :else false))))))
 
 (def ^:private ^CelCompiler instaql-topic-cel-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)

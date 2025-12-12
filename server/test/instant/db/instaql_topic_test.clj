@@ -35,11 +35,11 @@
                 (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}
                                               :limit 1}}}))))
 
-        (is (= {:not-supported [:pagination {:options [:offset]}]}
+        (is (= {:not-supported [:pagination {:options [:before]}]}
                (iqt/instaql-topic
                 {:attrs attrs}
                 (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}
-                                              :offset 0}}}))))))))
+                                              :before [(random-uuid) (random-uuid) "cursor-value" 0]}}}))))))))
 
 (deftest composites
   (with-zeneca-app
