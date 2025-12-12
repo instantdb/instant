@@ -221,7 +221,7 @@ export function GPT52Leaderboard() {
   return (
     <div className="flex flex-col items-center py-4">
       {/* Header */}
-      <div className="mb-4 flex flex-col items-center gap-2">
+      <div className="mb-4 flex items-center justify-between w-full max-w-[500px]">
         <div className="font-mono text-base text-gray-700 dark:text-neutral-300">
           Current Model:{" "}
           <span className="font-bold text-gray-900 dark:text-white">
@@ -230,10 +230,10 @@ export function GPT52Leaderboard() {
         </div>
         <button
           onClick={handleToggle}
-          className={`font-mono text-xs font-bold px-3 py-1 rounded-sm transition-all duration-200 ${
+          className={`font-mono text-sm font-bold px-4 py-1.5 rounded-sm transition-colors duration-200 border ${
             isVersion52
-              ? "bg-white dark:bg-neutral-700 text-gray-700 dark:text-neutral-200 border border-gray-200 dark:border-neutral-600 hover:bg-gray-50 dark:hover:bg-neutral-600"
-              : "bg-[#606AF4] text-white hover:bg-[#4543e9]"
+              ? "bg-white dark:bg-neutral-700 text-gray-700 dark:text-neutral-200 border-gray-200 dark:border-neutral-600 hover:bg-gray-50 dark:hover:bg-neutral-600"
+              : "bg-[#606AF4] text-white border-[#606AF4] hover:bg-[#4543e9] hover:border-[#4543e9]"
           }`}
         >
           See {otherModel}
@@ -251,7 +251,7 @@ export function GPT52Leaderboard() {
             }}
             className="py-2 px-2 w-20 flex-shrink-0 flex items-center justify-center"
           >
-            <span className="text-2xl">🥇</span>
+            <span className="text-3xl">🥇</span>
           </div>
           <div
             ref={(el) => {
@@ -259,7 +259,7 @@ export function GPT52Leaderboard() {
             }}
             className="py-2 px-2 w-20 flex-shrink-0 flex items-center justify-center"
           >
-            <span className="text-2xl">🥈</span>
+            <span className="text-3xl">🥈</span>
           </div>
           <div
             ref={(el) => {
@@ -267,7 +267,7 @@ export function GPT52Leaderboard() {
             }}
             className="py-2 px-2 w-20 flex-shrink-0 flex items-center justify-center"
           >
-            <span className="text-2xl">🥉</span>
+            <span className="text-3xl">🥉</span>
           </div>
         </div>
 
