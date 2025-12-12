@@ -14,6 +14,7 @@ import remarkMath from 'remark-math';
 import 'katex/dist/katex.min.css';
 
 import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
+import { GPT52Leaderboard } from '@/components/essays/GPT52Leaderboard';
 import { Lightbox } from '@/components/Lightbox';
 
 import ReactMarkdown, { Components } from 'react-markdown';
@@ -90,6 +91,7 @@ const Post = ({ post }: { post: Post }) => {
                 'sketch-demo': (props: { demo: string }) => {
                   return <SketchDemo demo={props.demo} />;
                 },
+                'gpt52-leaderboard': GPT52Leaderboard,
 
                 p: ({ children }) => (
                   <div className="prose mt-[1.25em] mb-[1.25em] text-base leading-[1.75] leading-relaxed">
