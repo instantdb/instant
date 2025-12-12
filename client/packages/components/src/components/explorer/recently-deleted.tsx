@@ -1,17 +1,17 @@
-import { ActionForm, Button, Divider, useDialog } from '@/components/ui';
-import config from '@/lib/config';
-import { SchemaNamespace, DBAttr } from '@/lib/types';
+import React from 'react';
+import { ActionForm, Button, Divider, useDialog } from '@lib/components/ui';
+import { errorToast } from '../toast';
+import { SchemaNamespace, DBAttr } from '@lib/types';
 import useSWR from 'swr';
-import { errorToast } from '@/lib/toast';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { useEffect, useState } from 'react';
 import { ArrowPathIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { InstantAPIError } from '@instantdb/core';
-import { ExpandableDeletedAttr } from './ExpandableDeletedAttr';
-import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
-import { useAuthToken } from '@/lib/auth';
+import { ExpandableDeletedAttr } from './expandable-deleted-attr';
+import { useAttrNotes } from '@lib/hooks/useAttrNotes';
 import { useMemo } from 'react';
 import { add, formatDistanceToNow, format } from 'date-fns';
+import { useExplorerProps } from '.';
 
 // -----
 // Types
@@ -36,10 +36,12 @@ type DeletedNamespace = {
 // Hooks
 
 export const useRecentlyDeletedAttrs = (appId: string) => {
-  const token = useAuthToken();
+  const explorerProps = useExplorerProps();
+
+  const token = explorerProps.adminToken;
   const result = useSWR(['recently-deleted', appId], async () => {
     const response = await fetch(
-      `${config.apiURI}/dash/apps/${appId}/soft_deleted_attrs`,
+      `${explorerProps.apiURI}/dash/apps/${appId}/soft_deleted_attrs`,
       {
         method: 'GET',
         headers: {
@@ -110,7 +112,7 @@ export function RecentlyDeletedNamespaces({
     if (!db) return;
     if (!data) return;
     const ids = [idAttr, ...remainingCols].map((a) => a.id);
-    await db._core._reactor.pushOps(
+    await db.core._reactor.pushOps(
       ids.map((attrId) => ['restore-attr', attrId]),
     );
     const idSet = new Set(ids);

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { CheckedDataType, InstantIndexingJob, SchemaAttr } from '../types';
-import config from '../config';
-import { jobFetchLoop } from '../indexingJobs';
+import { jobFetchLoop } from '../utils/indexingJobs';
+import { useExplorerProps } from '@lib/components/explorer';
 
 type JobConstraintTypes = 'require' | 'index' | 'unique' | 'type';
 
@@ -36,6 +36,8 @@ export const useEditBlobConstraints = ({
   }>({});
 
   const [progress, setProgress] = useState<{ [jobType: string]: number }>({});
+
+  const explorerProps = useExplorerProps();
 
   useEffect(() => {
     // If running jobs, don't update any pending
@@ -111,7 +113,7 @@ export const useEditBlobConstraints = ({
     Object.entries(pendingJobs).forEach(async ([jobType, pendingJob]) => {
       if (!pendingJob) return;
       const res = await fetch(
-        `${config.apiURI}/dash/apps/${appId}/indexing-jobs`,
+        `${explorerProps.apiURI}/dash/apps/${appId}/indexing-jobs`,
         {
           method: 'POST',
           headers: {
@@ -130,7 +132,12 @@ export const useEditBlobConstraints = ({
       setRunningJobs((p) => ({ ...p, [jobType]: json.job }));
       setPendingJobs((p) => ({ ...p, [jobType]: undefined }));
       setIsCreatingJobs(false);
-      const fetchLoop = jobFetchLoop(appId, json.job.id, token);
+      const fetchLoop = jobFetchLoop(
+        appId,
+        json.job.id,
+        token,
+        explorerProps.apiURI,
+      );
       await fetchLoop.start((updatedJob, error) => {
         if (error) {
           return;
