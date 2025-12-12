@@ -98,3 +98,10 @@ Create a `.env` file in client/packages/components/.env
 VITE_INSTANT_APP_ID=<your app id>
 VITE_INSTANT_ADMIN_TOKEN=<your app id>
 ```
+
+# Build System Notes
+This package only uses Vite as the build system.
+It builds to both esm modules and cjs.
+In StyleMe (virtual dom wrapper util) the tailwind styles are compiled inline and placed in a style tag at the root of the virtual DOM.
+
+Tried to use tshy, but there was no good story for bundling the css.
