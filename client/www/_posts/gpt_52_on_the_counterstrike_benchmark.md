@@ -52,16 +52,15 @@ GPT 5.2 got one type error in it's first try. But we pasted the error back it bu
 
 Here's GPT 5.2 versus it's predecessor:
 
-| Codex 5.1 Max                                     | GPT 5.2                                            |
-| ------------------------------------------------- | -------------------------------------------------- |
+| Codex 5.1 Max                                     | GPT 5.2                                              |
+| ------------------------------------------------- | ---------------------------------------------------- |
 | ![](/posts/counter_strike/map_codex.png?lightbox) | ![](/posts/counter_strike_52/map_gpt52.png?lightbox) |
 
 GPT 5.2 makes clear improvement over Codex 5.1 Max. If you compare this to Claude and Gemini, we think Claude still did the best job. The map and the lighting look the most interesting. But at this point it feels like GPT 5.2 did about as well as Gemini:
 
-| Claude 4.5 Opus                                             | Gemini 3 Pro                                             |
+| Claude 4.5 Opus                                    | Gemini 3 Pro                                       |
 | -------------------------------------------------- | -------------------------------------------------- |
 | ![](/posts/counter_strike/map_claude.png?lightbox) | ![](/posts/counter_strike/map_gemini.png?lightbox) |
-
 
 ## 2. Characters
 
@@ -73,8 +72,8 @@ The next challenge was to make the characters more interesting. Instead of a sim
 
 GPT 5.2 improved a bunch here:
 
-| Codex 5.1 Max                                             | GPT 5.2                                        |
-| --------------------------------------------------- | ---------------------------------------------------- |
+| Codex 5.1 Max                                       | GPT 5.2                                                    |
+| --------------------------------------------------- | ---------------------------------------------------------- |
 | ![](/posts/counter_strike/enemy_codex.png?lightbox) | ![](/posts/counter_strike_52/character_gpt52.png?lightbox) |
 
 That's a noticeable improvement in our book. If you compare to Claude and Gemini, it feels like Claude still wins, but GPT 5.2 is about as good as Gemini again:
@@ -82,7 +81,6 @@ That's a noticeable improvement in our book. If you compare to Claude and Gemini
 | Claude 4.5 Opus                                      | Gemini 3 Pro                                         |
 | ---------------------------------------------------- | ---------------------------------------------------- |
 | ![](/posts/counter_strike/enemy_claude.png?lightbox) | ![](/posts/counter_strike/enemy_gemini.png?lightbox) |
-
 
 ## 3. Gun in our field-of-view
 
@@ -94,8 +92,8 @@ Next up was adding a gun in our field of view alongside an animation when we sho
 
 We didn't notice much of an improvement here. In fact, GPT 5.2 had an error, when 5.1 Max got it done in one shot. Here's the side-by-side with it's predecessor:
 
-| Codex 5.1 Max                                        | GPT 5.2                                               |
-| ---------------------------------------------------- | ----------------------------------------------------- |
+| Codex 5.1 Max                                        | GPT 5.2                                                  |
+| ---------------------------------------------------- | -------------------------------------------------------- |
 | ![](/posts/counter_strike/recoil_codex.gif?lightbox) | ![](/posts/counter_strike_52/recoil_gpt_52.gif?lightbox) |
 
 It's interesting to note that the error it had was similar to Gemini's (troubles attaching the gun to the field of view).
@@ -209,7 +207,7 @@ The final part of the game was to build maps. This included creating schema, see
 > **Prompt**
 >
 > So, now I want you to make it so the front page is actually a list of maps. Since our UI is using lots of polygons, make the style kind of polygonish
-Make the UI look like the old counter strike map selection screen. I want you to save these maps in the database. Each map has a name. Use a script to generate 5 random maps with cool names.
+> Make the UI look like the old counter strike map selection screen. I want you to save these maps in the database. Each map has a name. Use a script to generate 5 random maps with cool names.
 > Then, push up some permissions so that anyone can view maps, but they cannot create or edit them.
 > When you join a map, you can just use the map id as the room id for presence.
 

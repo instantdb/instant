@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from 'react';
 
 type Rankings = {
   codex: number;
@@ -16,22 +16,22 @@ type Category = {
 
 const frontendCategories: Category[] = [
   {
-    name: "Boxes + Physics",
+    name: 'Boxes + Physics',
     rankings51: { codex: 3, claude: 1, gemini: 2 },
     rankings52: { codex: 2, claude: 1, gemini: 2 },
   },
   {
-    name: "Characters + guns",
+    name: 'Characters + guns',
     rankings51: { codex: 3, claude: 1, gemini: 2 },
     rankings52: { codex: 2, claude: 1, gemini: 2 },
   },
   {
-    name: "POV gun",
+    name: 'POV gun',
     rankings51: { codex: 2, claude: 1, gemini: 3 },
     rankings52: { codex: 2, claude: 1, gemini: 3 },
   },
   {
-    name: "Sounds",
+    name: 'Sounds',
     rankings51: { codex: 2, claude: 1, gemini: 3 },
     rankings52: { codex: 2, claude: 1, gemini: 3 },
   },
@@ -39,54 +39,54 @@ const frontendCategories: Category[] = [
 
 const backendCategories: Category[] = [
   {
-    name: "Moving",
+    name: 'Moving',
     rankings51: { codex: 2, claude: 3, gemini: 1 },
     rankings52: { codex: 1, claude: 3, gemini: 1 },
   },
   {
-    name: "Shooting",
+    name: 'Shooting',
     rankings51: { codex: 3, claude: 1, gemini: 2 },
     rankings52: { codex: 1, claude: 1, gemini: 3 },
   },
   {
-    name: "Saving rooms",
+    name: 'Saving rooms',
     rankings51: { codex: 2, claude: 3, gemini: 1 },
     rankings52: { codex: 2, claude: 3, gemini: 1 },
   },
 ];
 
 const bonusCategory: Category = {
-  name: "Bonus",
+  name: 'Bonus',
   rankings51: { codex: 2, claude: 3, gemini: 1 },
   rankings52: { codex: 1, claude: 3, gemini: 1 },
 };
 
-type AIName = "codex" | "claude" | "gemini";
+type AIName = 'codex' | 'claude' | 'gemini';
 
 const aiLogos: Record<AIName, string> = {
   claude:
-    "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/claude-ai-icon.svg",
+    'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/claude-ai-icon.svg',
   gemini:
-    "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/google-gemini-icon.svg",
-  codex: "https://www.svgrepo.com/show/306500/openai.svg",
+    'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/google-gemini-icon.svg',
+  codex: 'https://www.svgrepo.com/show/306500/openai.svg',
 };
 
 const aiLabels: Record<AIName, string> = {
-  codex: "Codex",
-  claude: "Claude",
-  gemini: "Gemini",
+  codex: 'Codex',
+  claude: 'Claude',
+  gemini: 'Gemini',
 };
 
 const aiVersions51: Record<AIName, string> = {
-  codex: "Codex 5.1 Max",
-  claude: "Claude Opus 4",
-  gemini: "Gemini 2.5 Pro",
+  codex: 'Codex 5.1 Max',
+  claude: 'Claude Opus 4',
+  gemini: 'Gemini 2.5 Pro',
 };
 
 const aiVersions52: Record<AIName, string> = {
-  codex: "GPT 5.2",
-  claude: "Claude Opus 4",
-  gemini: "Gemini 2.5 Pro",
+  codex: 'GPT 5.2',
+  claude: 'Claude Opus 4',
+  gemini: 'Gemini 2.5 Pro',
 };
 
 function AIBadge({ ai, style }: { ai: AIName; style?: React.CSSProperties }) {
@@ -95,11 +95,11 @@ function AIBadge({ ai, style }: { ai: AIName; style?: React.CSSProperties }) {
       className="absolute flex items-center justify-center transition-all duration-700 ease-out"
       style={style}
     >
-      <div className="w-7 h-7 rounded-sm bg-white dark:bg-neutral-700 flex items-center justify-center p-1 border border-gray-200 dark:border-neutral-600">
+      <div className="flex h-7 w-7 items-center justify-center rounded-sm border border-gray-200 bg-white p-1 dark:border-neutral-600 dark:bg-neutral-700">
         <img
           src={aiLogos[ai]}
           alt={aiLabels[ai]}
-          className="w-full h-full object-contain dark:invert dark:brightness-200"
+          className="h-full w-full object-contain dark:brightness-200 dark:invert"
         />
       </div>
     </div>
@@ -137,12 +137,12 @@ function ScoreRow({
       };
 
       const aisAtPosition: Record<number, AIName[]> = { 1: [], 2: [], 3: [] };
-      (["codex", "claude", "gemini"] as AIName[]).forEach((ai) => {
+      (['codex', 'claude', 'gemini'] as AIName[]).forEach((ai) => {
         const pos = rankings[ai];
         aisAtPosition[pos].push(ai);
       });
 
-      (["codex", "claude", "gemini"] as AIName[]).forEach((ai) => {
+      (['codex', 'claude', 'gemini'] as AIName[]).forEach((ai) => {
         const pos = rankings[ai];
         const colEl = columnRefs.current?.[pos];
         if (!colEl) return;
@@ -159,14 +159,19 @@ function ScoreRow({
         // Calculate horizontal offset for ties (stack side by side)
         let offsetX = 0;
         if (totalInGroup === 2) {
-          offsetX = indexInGroup === 0 ? -horizontalSpacing / 2 : horizontalSpacing / 2;
+          offsetX =
+            indexInGroup === 0 ? -horizontalSpacing / 2 : horizontalSpacing / 2;
         } else if (totalInGroup === 3) {
           offsetX = (indexInGroup - 1) * horizontalSpacing;
         }
 
         newPositions[ai] = {
           left:
-            colRect.left - rowRect.left + colRect.width / 2 - badgeSize / 2 + offsetX,
+            colRect.left -
+            rowRect.left +
+            colRect.width / 2 -
+            badgeSize / 2 +
+            offsetX,
           top: baseTop,
         };
       });
@@ -175,22 +180,22 @@ function ScoreRow({
     };
 
     calculatePositions();
-    window.addEventListener("resize", calculatePositions);
-    return () => window.removeEventListener("resize", calculatePositions);
+    window.addEventListener('resize', calculatePositions);
+    return () => window.removeEventListener('resize', calculatePositions);
   }, [rankings, columnRefs]);
 
   return (
     <div
       ref={rowRef}
-      className="flex border-b border-gray-100 dark:border-neutral-700 relative h-12"
+      className="relative flex h-12 border-b border-gray-100 dark:border-neutral-700"
     >
-      <div className="py-2 px-4 text-gray-700 dark:text-neutral-300 font-mono text-sm flex-1 flex items-center">
+      <div className="flex flex-1 items-center px-4 py-2 font-mono text-sm text-gray-700 dark:text-neutral-300">
         {category.name}
       </div>
-      <div className="py-2 px-2 w-16 flex-shrink-0"></div>
-      <div className="py-2 px-2 w-16 flex-shrink-0"></div>
-      <div className="py-2 px-2 w-16 flex-shrink-0"></div>
-      {(["codex", "claude", "gemini"] as AIName[]).map((ai) => (
+      <div className="w-16 flex-shrink-0 px-2 py-2"></div>
+      <div className="w-16 flex-shrink-0 px-2 py-2"></div>
+      <div className="w-16 flex-shrink-0 px-2 py-2"></div>
+      {(['codex', 'claude', 'gemini'] as AIName[]).map((ai) => (
         <AIBadge
           key={ai}
           ai={ai}
@@ -206,8 +211,8 @@ function ScoreRow({
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <div className="bg-gray-50 dark:bg-neutral-800 py-1.5 px-4">
-      <span className="font-mono font-bold text-gray-900 dark:text-white text-xs uppercase tracking-wider">
+    <div className="bg-gray-50 px-4 py-1.5 dark:bg-neutral-800">
+      <span className="font-mono text-xs font-bold tracking-wider text-gray-900 uppercase dark:text-white">
         {title}
       </span>
     </div>
@@ -227,31 +232,31 @@ export function GPT52Leaderboard() {
     setIsVersion52(!isVersion52);
   };
 
-  const otherModel = isVersion52 ? "Codex 5.1 Max" : "GPT 5.2";
+  const otherModel = isVersion52 ? 'Codex 5.1 Max' : 'GPT 5.2';
   const aiVersions = isVersion52 ? aiVersions52 : aiVersions51;
 
   return (
     <div className="flex flex-col items-center py-4">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-start w-full max-w-[500px]">
+      <div className="mb-4 flex w-full max-w-[500px] items-center justify-start">
         <button
           onClick={handleToggle}
-          className="font-mono text-sm font-bold px-4 py-1.5 rounded-sm transition-colors duration-200 border bg-[#606AF4] text-white border-[#606AF4] hover:bg-[#4543e9] hover:border-[#4543e9]"
+          className="rounded-sm border border-[#606AF4] bg-[#606AF4] px-4 py-1.5 font-mono text-sm font-bold text-white transition-colors duration-200 hover:border-[#4543e9] hover:bg-[#4543e9]"
         >
           See {otherModel}'s results
         </button>
       </div>
 
       {/* Scorecard */}
-      <div className="bg-white dark:bg-neutral-800 rounded-sm border border-gray-200 dark:border-neutral-700 overflow-hidden w-full max-w-[500px]">
+      <div className="w-full max-w-[500px] overflow-hidden rounded-sm border border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-800">
         {/* Header row */}
         <div className="flex border-b border-gray-200 dark:border-neutral-700">
-          <div className="py-2 px-4 flex-1"></div>
+          <div className="flex-1 px-4 py-2"></div>
           <div
             ref={(el) => {
               columnRefs.current[1] = el;
             }}
-            className="py-2 px-2 w-16 flex-shrink-0 flex items-center justify-center"
+            className="flex w-16 flex-shrink-0 items-center justify-center px-2 py-2"
           >
             <span className="text-4xl">🥇</span>
           </div>
@@ -259,7 +264,7 @@ export function GPT52Leaderboard() {
             ref={(el) => {
               columnRefs.current[2] = el;
             }}
-            className="py-2 px-2 w-16 flex-shrink-0 flex items-center justify-center"
+            className="flex w-16 flex-shrink-0 items-center justify-center px-2 py-2"
           >
             <span className="text-4xl">🥈</span>
           </div>
@@ -267,7 +272,7 @@ export function GPT52Leaderboard() {
             ref={(el) => {
               columnRefs.current[3] = el;
             }}
-            className="py-2 px-2 w-16 flex-shrink-0 flex items-center justify-center"
+            className="flex w-16 flex-shrink-0 items-center justify-center px-2 py-2"
           >
             <span className="text-4xl">🥉</span>
           </div>
@@ -304,15 +309,15 @@ export function GPT52Leaderboard() {
         />
 
         {/* Legend */}
-        <div className="border-t border-gray-200 dark:border-neutral-700 py-3 px-4">
+        <div className="border-t border-gray-200 px-4 py-3 dark:border-neutral-700">
           <div className="flex justify-start gap-6">
-            {(["claude", "gemini", "codex"] as AIName[]).map((ai) => (
+            {(['claude', 'gemini', 'codex'] as AIName[]).map((ai) => (
               <div key={ai} className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-sm bg-white dark:bg-neutral-700 flex items-center justify-center p-0.5 border border-gray-200 dark:border-neutral-600">
+                <div className="flex h-5 w-5 items-center justify-center rounded-sm border border-gray-200 bg-white p-0.5 dark:border-neutral-600 dark:bg-neutral-700">
                   <img
                     src={aiLogos[ai]}
                     alt={aiLabels[ai]}
-                    className="w-full h-full object-contain dark:invert dark:brightness-200"
+                    className="h-full w-full object-contain dark:brightness-200 dark:invert"
                   />
                 </div>
                 <span className="font-mono text-xs text-gray-600 dark:text-neutral-400">
