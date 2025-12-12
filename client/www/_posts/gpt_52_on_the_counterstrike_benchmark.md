@@ -79,9 +79,9 @@ GPT 5.2 improved a bunch here:
 
 That's a noticeable improvement in our book. If you compare to Claude and Gemini, it feels like Claude still wins, but GPT 5.2 is about as good as Gemini again:
 
-| Codex                                               | Claude                                               | Gemini                                               |
-| --------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
-| ![](/posts/counter_strike/enemy_codex.png?lightbox) | ![](/posts/counter_strike/enemy_claude.png?lightbox) | ![](/posts/counter_strike/enemy_gemini.png?lightbox) |
+| Claude 4.5 Opus                                      | Gemini 3 Pro                                         |
+| ---------------------------------------------------- | ---------------------------------------------------- |
+| ![](/posts/counter_strike/enemy_claude.png?lightbox) | ![](/posts/counter_strike/enemy_gemini.png?lightbox) |
 
 
 ## 3. Gun in our field-of-view
@@ -92,13 +92,17 @@ Next up was adding a gun in our field of view alongside an animation when we sho
 >
 > I want you to make it so I also have a gun in my field of view. When I shoot, the gun moves a bit.
 
-We didn't notice much of an improvement here. In fact, GPT 5.2 had an error, when 5.1 Max got it done in one shot. Here's 5.1 max and 5.2 side by side:
+We didn't notice much of an improvement here. In fact, GPT 5.2 had an error, when 5.1 Max got it done in one shot. Here's the side-by-side with it's predecessor:
 
-[CODEX] | [GPT 5.2]
+| Codex 5.1 Max                                        | GPT 5.2                                               |
+| ---------------------------------------------------- | ----------------------------------------------------- |
+| ![](/posts/counter_strike/recoil_codex.gif?lightbox) | ![](/posts/counter_strike_52/recoil_gpt_52.gif?lightbox) |
 
- t's interesting to note that the error it had was similar to Gemini's (troubles attaching the gun to the field of view).
+It's interesting to note that the error it had was similar to Gemini's (troubles attaching the gun to the field of view).
 
-[PREV]
+| Claude 4.5 Opus                                       | Gemini 3 Pro                                          |
+| ----------------------------------------------------- | ----------------------------------------------------- |
+| ![](/posts/counter_strike/recoil_claude.gif?lightbox) | ![](/posts/counter_strike/recoil_gemini.gif?lightbox) |
 
 In our last test Gemini 3 Pro got really stuck here, so despite the slight error from 5.2, the rankings didn't change.
 
@@ -107,15 +111,54 @@ In our last test Gemini 3 Pro got really stuck here, so despite the slight error
 The final challenge for the frontend was sounds and animations:
 
 > **Prompt**
+>
 > I want you to use chiptunes to animate the sound of shots. I also want to animate deaths.
 
-Here's 5.2's attempt:
+Here's predecessor vs 5.2:
 
-[CODEX] | [GPT 5.2]
+<div class="grid grid-cols-1 md:grid-cols-2 grap-4">
+  <div>
+    <div class="text-center font-mono text-sm font-bold">Codex 5.1 Max</div>
+    <iframe
+      src="https://player.mux.com/UTCslk3hyNOnXSVlZmodcIqkFoHwgkPIl007aJxQINJ00?metadata-video-title=sound_codex&video-title=sound_codex"
+      style="width: 100%; border: none; aspect-ratio: 885/626;"
+      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+      allowfullscreen
+    ></iframe>
+  </div>
+  <div>
+    <div class="text-center font-mono text-sm font-bold">GPT 5.2</div>
+    <iframe
+      src="https://player.mux.com/BnBA9Hg4HQgo19Ey8Ul02GnFzhTGZGTLOBY3shHvaF4Q"
+      style="width: 100%; border: none; aspect-ratio: 1024/703;"
+      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+      allowfullscreen
+    ></iframe>
+  </div>
+</div>
 
 We didn't change the ratings here. We like the 5.2's animation, but Claude's version still felt more interesting.
 
-[PREV]
+<div class="grid grid-cols-1 md:grid-cols-2 grap-4">
+  <div>
+    <div class="text-center font-mono text-sm font-bold">Claude 4.5 Opus</div>
+    <iframe
+      src="https://player.mux.com/E2bse7dt01Pap3Yrwr9aKyr00Hxw7pV5rXsJSMIx006TqM?metadata-video-title=sound_claude&video-title=sound_claude"
+      style="width: 100%; border: none; aspect-ratio: 769/631;"
+      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+      allowfullscreen
+    ></iframe>
+  </div>
+  <div>
+    <div class="text-center font-mono text-sm font-bold">Gemini 3 Pro</div>
+    <iframe
+      src="https://player.mux.com/knIuqiEW9yVL4FB6BOCHl02102026GX4ZakdwIYb01y7WNg?metadata-video-title=sound_gemini&video-title=sound_gemini"
+      style="width: 100%; border: none; aspect-ratio: 943/663;"
+      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+      allowfullscreen
+    ></iframe>
+  </div>
+</div>
 
 ## 4. Sharing positions
 
@@ -129,9 +172,14 @@ Things started to change when time came to add the backend! Goal 1 was to just m
 > You no longer the need to have the enemies that are randomly placed. All the players are what get placed.
 > For now, don't worry about shots. Let's just make it so the positions of the players are what get set in presence.
 
-Previously Codex 5.1 Max needed a few iterations to get things right. Codex 5.1 got this done out of the box.
+Previously Codex 5.1 Max needed a few iterations to get things right. GPT 5.2 got this done out of the box. Here's a snippet of how it felt:
 
-[leaderboard-but-just-this-bit]
+<iframe
+  src="https://player.mux.com/027a01R1LsOJ00rv88aD1T8KpFEHSx1qHwZopOOo02MVI02A"
+  style="width: 100%; border: none; aspect-ratio: 1024/575;"
+  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+  allowfullscreen
+></iframe>
 
 It was interesting to note that like Codex, GPT 5.2 was the rate model that relied _very_ heavily on REPLing to understand an API, rather than reading docs.
 
@@ -145,7 +193,7 @@ Next up was making sure shots worked. GPT 5.2 got a lot better with making shots
 
 Just like Claude, it got this done in one shot. Codex 5.1 Max needed quite a few tries getting the API right.
 
-[leaderboard-but-just-this-bit]
+<HERE>
 
 ## 6. Maps
 
