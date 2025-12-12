@@ -10,12 +10,13 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/instantdb/instant.git",
-    "directory": "client/packages/core"
+    "directory": "client/packages/components"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "vite build",
     "dev": "vite build --watch",
+    "publish-package": "pnpm pack && npm publish *.tgz --access public",
     "dev:demo": "vite"
   },
   "exports": {
