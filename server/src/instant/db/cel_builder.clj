@@ -1,5 +1,5 @@
 (ns instant.db.cel-builder
-  (:refer-clojure :exclude [get get-in and or = not=])
+  (:refer-clojure :exclude [get get-in and or = not= < <= > >=])
   (:import (com.google.protobuf NullValue)
            (dev.cel.common.ast CelConstant CelExpr CelExprFactory)
            (dev.cel.parser Operator)))
@@ -104,9 +104,40 @@
               cel-exprs))))
 
 (defn get-in
-  "Build nested index: obj[k1][k2][k3]..."
   ^CelExpr [obj ks]
   (reduce (fn [^CelExpr acc k]
             (get acc k))
           (->cel-expr obj *factory*)
           ks))
+
+(defn <
+  ^CelExpr [a b]
+  (.newGlobalCall *factory*
+                  (.getFunction Operator/LESS)
+                  ^CelExpr/1
+                  (into-array CelExpr [(->cel-expr a *factory*)
+                                       (->cel-expr b *factory*)])))
+
+(defn <=
+  ^CelExpr [a b]
+  (.newGlobalCall *factory*
+                  (.getFunction Operator/LESS_EQUALS)
+                  ^CelExpr/1
+                  (into-array CelExpr [(->cel-expr a *factory*)
+                                       (->cel-expr b *factory*)])))
+
+(defn >
+  ^CelExpr [a b]
+  (.newGlobalCall *factory*
+                  (.getFunction Operator/GREATER)
+                  ^CelExpr/1
+                  (into-array CelExpr [(->cel-expr a *factory*)
+                                       (->cel-expr b *factory*)])))
+
+(defn >=
+  ^CelExpr [a b]
+  (.newGlobalCall *factory*
+                  (.getFunction Operator/GREATER_EQUALS)
+                  ^CelExpr/1
+                  (into-array CelExpr [(->cel-expr a *factory*)
+                                       (->cel-expr b *factory*)])))

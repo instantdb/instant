@@ -306,3 +306,63 @@
         (is (false? (program {:etype "favoriteBook" :attrs {}})))
         (is (false? (program {:etype "posts" :attrs {}})))))))
 
+(deftest comparison-operators
+  (with-zeneca-app
+    (fn [app _r]
+      (let [score-attr-id (random-uuid)
+            _ (tx/transact!
+               (aurora/conn-pool :write)
+               (attr-model/get-by-app-id (:id app))
+               (:id app)
+               [[:add-attr {:id score-attr-id
+                            :forward-identity [(random-uuid) "users" "score"]
+                            :value-type :blob
+                            :cardinality :one
+                            :unique? false
+                            :index? false}]])
+            attrs (attr-model/get-by-app-id (:id app))]
+
+        (testing "$gt"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:score {:$gt 1000}}}}}))]
+            (is (true? (program {:etype "users"
+                                 :attrs {(str score-attr-id) 2000}})))
+            (is (false? (program {:etype "users"
+                                  :attrs {(str score-attr-id) 1000}})))
+            (is (false? (program {:etype "users"
+                                  :attrs {(str score-attr-id) 500}})))))
+
+        (testing "$gte"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:score {:$gte 1000}}}}}))]
+            (is (true? (program {:etype "users"
+                                 :attrs {(str score-attr-id) 2000}})))
+            (is (true? (program {:etype "users"
+                                 :attrs {(str score-attr-id) 1000}})))
+            (is (false? (program {:etype "users"
+                                  :attrs {(str score-attr-id) 500}})))))
+
+        (testing "$lt"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:score {:$lt 1000}}}}}))]
+            (is (true? (program {:etype "users"
+                                 :attrs {(str score-attr-id) 500}})))
+            (is (false? (program {:etype "users"
+                                  :attrs {(str score-attr-id) 1000}})))
+            (is (false? (program {:etype "users"
+                                  :attrs {(str score-attr-id) 2000}})))))
+
+        (testing "$lte"
+          (let [{:keys [program]} (iqt/instaql-topic
+                                   {:attrs attrs}
+                                   (iq/->forms! attrs {:users {:$ {:where {:score {:$lte 1000}}}}}))]
+            (is (true? (program {:etype "users"
+                                 :attrs {(str score-attr-id) 500}})))
+            (is (true? (program {:etype "users"
+                                 :attrs {(str score-attr-id) 1000}})))
+            (is (false? (program {:etype "users"
+                                  :attrs {(str score-attr-id) 2000}})))))))))
+
