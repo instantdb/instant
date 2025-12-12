@@ -1,17 +1,7 @@
 import { CheckIcon } from '@heroicons/react/24/outline';
+import { slugifyWithCounter } from '@sindresorhus/slugify';
 import { cn } from '@instantdb/components';
 import { useState } from 'react';
-
-const transformContentToId = (content) => {
-  return content
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '') // remove special characters
-    .replace(/\s+/g, '-') // replace whitespace with hyphens
-    .replace(/-+/g, '-') // collapse multiple hyphens
-    .replace(/^-|-$/g, '') // trim leading/trailing hyphens
-    .slice(0, 50); // keep it short
-};
 
 export function Heading({ level = 1, id, children, ...props }) {
   const Tag = `h${level}`;
@@ -40,7 +30,7 @@ export function Heading({ level = 1, id, children, ...props }) {
   // Use the id from collectHeadings if provided, otherwise generate one
   const slugId =
     id ||
-    (typeof children === 'string' ? transformContentToId(children) : undefined);
+    (typeof children === 'string' ? slugifyWithCounter(children) : undefined);
 
   return (
     <Tag
