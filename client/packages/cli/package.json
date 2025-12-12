@@ -21,6 +21,7 @@
     "instant-cli": "bin/index.js"
   },
   "dependencies": {
+    "@instantdb/core": "workspace:*",
     "@instantdb/platform": "workspace:*",
     "@instantdb/version": "workspace:*",
     "ansi-escapes": "4.3.2",
@@ -30,10 +31,11 @@
     "dotenv": "^16.3.1",
     "dotenv-flow": "^4.1.0",
     "env-paths": "^3.0.0",
+    "find-up-simple": "^1.0.0",
     "json-diff": "^1.0.6",
     "lodash.throttle": "^4.1.1",
     "open": "^10.1.0",
-    "pkg-dir": "^8.0.0",
+    "package-directory": "^8.1.0",
     "prettier": "^3.3.3",
     "sisteransi": "^1.0.5",
     "string-width": "^8.1.0",
