@@ -228,23 +228,43 @@ export function GPT52Leaderboard() {
     null,
   ]);
 
-  const handleToggle = () => {
-    setIsVersion52(!isVersion52);
-  };
-
-  const otherModel = isVersion52 ? 'Codex 5.1 Max' : 'GPT 5.2';
   const aiVersions = isVersion52 ? aiVersions52 : aiVersions51;
 
   return (
     <div className="flex flex-col items-center py-4">
-      {/* Header */}
-      <div className="mb-4 flex w-full max-w-[500px] items-center justify-start">
-        <button
-          onClick={handleToggle}
-          className="rounded-sm border border-[#606AF4] bg-[#606AF4] px-4 py-1.5 font-mono text-sm font-bold text-white transition-colors duration-200 hover:border-[#4543e9] hover:bg-[#4543e9]"
-        >
-          See {otherModel}'s results
-        </button>
+      {/* Version Switcher */}
+      <div className="mb-4 w-full max-w-[500px]">
+        <div className="relative flex rounded-lg bg-gray-100 p-1 dark:bg-neutral-700">
+          {/* Sliding shadow/highlight */}
+          <div
+            className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-md bg-white shadow-md transition-all duration-300 ease-out dark:bg-neutral-600"
+            style={{
+              left: isVersion52 ? 'calc(50% + 2px)' : '4px',
+            }}
+          />
+
+          {/* Predecessor option */}
+          <button
+            onClick={() => setIsVersion52(false)}
+            className={`relative z-10 flex flex-1 flex-col items-center rounded-md px-4 py-2 transition-colors duration-200 ${
+              !isVersion52 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-neutral-400'
+            }`}
+          >
+            <span className="text-xs font-medium uppercase tracking-wide opacity-60">Predecessor</span>
+            <span className="font-mono text-sm font-bold">Codex 5.1 Max</span>
+          </button>
+
+          {/* Now option */}
+          <button
+            onClick={() => setIsVersion52(true)}
+            className={`relative z-10 flex flex-1 flex-col items-center rounded-md px-4 py-2 transition-colors duration-200 ${
+              isVersion52 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-neutral-400'
+            }`}
+          >
+            <span className="text-xs font-medium uppercase tracking-wide opacity-60">Now</span>
+            <span className="font-mono text-sm font-bold">GPT 5.2</span>
+          </button>
+        </div>
       </div>
 
       {/* Scorecard */}
