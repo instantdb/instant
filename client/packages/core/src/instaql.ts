@@ -900,8 +900,8 @@ export default function query(
   }: {
     store: s.Store;
     attrsStore: s.AttrsStore;
-    pageInfo: any;
-    aggregate: any;
+    pageInfo?: any;
+    aggregate?: any;
   },
   q,
 ) {

@@ -18,23 +18,23 @@ export type Store = {
   eav: Map<string, Map<string, Map<any, Triple>>>;
   aev: Map<string, Map<string, Map<any, Triple>>>;
   vae: Map<any, Map<string, Map<string, Triple>>>;
-  useDateObjects: boolean | null;
-  cardinalityInference: boolean | null;
+  useDateObjects: boolean | null | undefined;
+  cardinalityInference: boolean | null | undefined;
 };
 
 type StoreJsonVersion0 = {
   __type: 'store';
   attrs: Attrs;
   triples: Triple[];
-  cardinalityInference: boolean | null;
+  cardinalityInference: boolean | null | undefined;
   linkIndex: LinkIndex | null;
-  useDateObjects: boolean | null;
+  useDateObjects: boolean | null | undefined;
 };
 
 type StoreJsonVersion1 = {
   triples: Triple[];
-  cardinalityInference: boolean | null;
-  useDateObjects: boolean | null;
+  cardinalityInference: boolean | null | undefined;
+  useDateObjects: boolean | null | undefined;
   version: 1;
 };
 
@@ -45,7 +45,22 @@ export type AttrsStoreJson = {
   linkIndex: LinkIndex | null;
 };
 
-export class AttrsStore {
+export interface AttrsStore {
+  attrs: Attrs;
+  linkIndex: LinkIndex | null;
+  resetAttrIndexes(): void;
+  addAttr(attr: InstantDBAttr): void;
+  deleteAttr(attrId: string): void;
+  updateAttr(partialAttr: Partial<InstantDBAttr> & { id: string }): void;
+  getAttr(id: string): InstantDBAttr | undefined;
+  blobAttrs: Map<string, Map<string, InstantDBAttr>>;
+  primaryKeys: Map<string, InstantDBAttr>;
+  forwardIdents: Map<string, Map<string, InstantDBAttr>>;
+  revIdents: Map<string, Map<string, InstantDBAttr>>;
+  toJSON(): AttrsStoreJson;
+}
+
+export class AttrsStoreClass implements AttrsStore {
   public attrs: Attrs;
   public linkIndex: LinkIndex | null;
   private _blobAttrs: Map<string, Map<string, InstantDBAttr>> | null = null;
@@ -53,7 +68,6 @@ export class AttrsStore {
   private _forwardIdents: Map<string, Map<string, InstantDBAttr>> | null = null;
   private _revIdents: Map<string, Map<string, InstantDBAttr>> | null = null;
   constructor(attrs: Attrs, linkIndex: LinkIndex | null) {
-    console.log('attrs init', new Error('trace'));
     this.attrs = attrs;
     this.linkIndex = linkIndex;
   }
@@ -209,7 +223,7 @@ function isDateAttr(attr: InstantDBAttr) {
 function createTripleIndexes(
   attrsStore: AttrsStore,
   triples: Triple[],
-  useDateObjects: boolean | null,
+  useDateObjects: boolean | null | undefined,
 ): Pick<Store, 'eav' | 'aev' | 'vae'> {
   const eav = new Map();
   const aev = new Map();
@@ -286,10 +300,10 @@ export function attrsStoreFromJSON(
   storeJSON: StoreJson | null,
 ): AttrsStore | undefined {
   if (attrsStoreJSON) {
-    return new AttrsStore(attrsStoreJSON.attrs, attrsStoreJSON.linkIndex);
+    return new AttrsStoreClass(attrsStoreJSON.attrs, attrsStoreJSON.linkIndex);
   }
   if (storeJSON && '__type' in storeJSON) {
-    return new AttrsStore(storeJSON.attrs, storeJSON.linkIndex);
+    return new AttrsStoreClass(storeJSON.attrs, storeJSON.linkIndex);
   }
 }
 
@@ -304,8 +318,8 @@ export function hasEntity(store: Store, e: string) {
 export function createStore(
   attrsStore: AttrsStore,
   triples: Triple[],
-  enableCardinalityInference: boolean | null,
-  useDateObjects: boolean | null,
+  enableCardinalityInference?: boolean | null,
+  useDateObjects?: boolean | null,
 ): Store {
   const store = createTripleIndexes(
     attrsStore,
@@ -876,7 +890,11 @@ function findTriple(
   return getInMap(store.eav, [eid, aid]);
 }
 
-export function transact(store: Store, attrsStore: AttrsStore, txSteps) {
+export function transact(
+  store: Store,
+  attrsStore: AttrsStore,
+  txSteps,
+): { store: Store; attrsStore: AttrsStore } {
   const txStepsFiltered = txSteps.filter(
     ([action, eid, attrId, value, opts]) => {
       if (action !== 'add-triple' && action !== 'deep-merge-triple') {
@@ -915,9 +933,19 @@ export function transact(store: Store, attrsStore: AttrsStore, txSteps) {
     },
   );
 
-  return create(store, (draft) => {
-    txStepsFiltered.forEach((txStep) => {
-      applyTxStep(draft, attrsStore, txStep);
-    });
-  });
+  return create(
+    { store, attrsStore },
+    (draft) => {
+      txStepsFiltered.forEach((txStep) => {
+        applyTxStep(draft.store, draft.attrsStore, txStep);
+      });
+    },
+    {
+      mark: (target) => {
+        if (target instanceof AttrsStoreClass) {
+          return 'immutable';
+        }
+      },
+    },
+  );
 }

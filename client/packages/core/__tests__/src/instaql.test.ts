@@ -2,23 +2,37 @@ import { test, expect, vi } from 'vitest';
 
 import zenecaAttrs from './data/zeneca/attrs.json';
 import zenecaTriples from './data/zeneca/triples.json';
-import { createStore, transact } from '../../src/store';
+import {
+  createStore,
+  transact,
+  AttrsStoreClass,
+  Store,
+  AttrsStore,
+} from '../../src/store';
 import query from '../../src/instaql';
 import { tx, lookup } from '../../src/instatx';
 import { i } from '../../src/index';
 import * as instaml from '../../src/instaml';
 import { randomUUID } from 'crypto';
 
-const zenecaIdToAttr = zenecaAttrs.reduce((res, x) => {
-  res[x.id] = x;
-  return res;
-}, {});
+const zenecaAttrsStore = new AttrsStoreClass(
+  zenecaAttrs.reduce((res, x) => {
+    res[x.id] = x;
+    return res;
+  }, {}),
+  null,
+);
 
-const store = createStore(zenecaIdToAttr, zenecaTriples);
+const store = createStore(
+  zenecaAttrsStore,
+  zenecaTriples as [string, string, any, number][],
+);
+
+const ctx = { store, attrsStore: zenecaAttrsStore };
 
 test('Simple Query Without Where', () => {
   expect(
-    query({ store }, { users: {} })
+    query(ctx, { users: {} })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(['alex', 'joe', 'nicolegf', 'stopa']);
@@ -26,7 +40,7 @@ test('Simple Query Without Where', () => {
 
 test('Simple Where', () => {
   expect(
-    query({ store }, { users: { $: { where: { handle: 'joe' } } } })
+    query(ctx, { users: { $: { where: { handle: 'joe' } } } })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(['joe']);
@@ -35,45 +49,38 @@ test('Simple Where', () => {
 test('Simple Where has expected keys', () => {
   expect(
     Object.keys(
-      query({ store }, { users: { $: { where: { handle: 'joe' } } } }).data
-        .users[0],
+      query(ctx, { users: { $: { where: { handle: 'joe' } } } }).data.users[0],
     ).sort(),
   ).toEqual(['createdAt', 'email', 'fullName', 'handle', 'id']);
 });
 
 test('Simple Where with multiple clauses', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: {
-            where: {
-              'bookshelves.books.title': 'The Count of Monte Cristo',
-              handle: 'stopa',
-            },
+    query(ctx, {
+      users: {
+        $: {
+          where: {
+            'bookshelves.books.title': 'The Count of Monte Cristo',
+            handle: 'stopa',
           },
         },
       },
-    )
+    })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(['stopa']);
 
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: {
-            where: {
-              'bookshelves.books.title': 'Title nobody has',
-              handle: 'stopa',
-            },
+    query(ctx, {
+      users: {
+        $: {
+          where: {
+            'bookshelves.books.title': 'Title nobody has',
+            handle: 'stopa',
           },
         },
       },
-    )
+    })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual([]);
@@ -81,35 +88,29 @@ test('Simple Where with multiple clauses', () => {
 
 test('Where in', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: {
-            where: {
-              handle: { in: ['stopa', 'joe'] },
-            },
+    query(ctx, {
+      users: {
+        $: {
+          where: {
+            handle: { in: ['stopa', 'joe'] },
           },
         },
       },
-    )
+    })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(['joe', 'stopa']);
 
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: {
-            where: {
-              handle: { $in: ['stopa', 'joe'] },
-            },
+    query(ctx, {
+      users: {
+        $: {
+          where: {
+            handle: { $in: ['stopa', 'joe'] },
           },
         },
       },
-    )
+    })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(['joe', 'stopa']);
@@ -117,18 +118,15 @@ test('Where in', () => {
 
 test('Where %like%', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: {
-            where: {
-              handle: { $like: '%o%' },
-            },
+    query(ctx, {
+      users: {
+        $: {
+          where: {
+            handle: { $like: '%o%' },
           },
         },
       },
-    )
+    })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(['joe', 'nicolegf', 'stopa']);
@@ -136,18 +134,15 @@ test('Where %like%', () => {
 
 test('Where like equality', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: {
-            where: {
-              handle: { $like: 'joe' },
-            },
+    query(ctx, {
+      users: {
+        $: {
+          where: {
+            handle: { $like: 'joe' },
           },
         },
       },
-    )
+    })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(['joe']);
@@ -155,18 +150,15 @@ test('Where like equality', () => {
 
 test('Where startsWith deep', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: {
-            where: {
-              'bookshelves.books.title': { $like: '%Monte Cristo' },
-            },
+    query(ctx, {
+      users: {
+        $: {
+          where: {
+            'bookshelves.books.title': { $like: '%Monte Cristo' },
           },
         },
       },
-    )
+    })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(['nicolegf', 'stopa']);
@@ -174,18 +166,15 @@ test('Where startsWith deep', () => {
 
 test('Where endsWith deep', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: {
-            where: {
-              'bookshelves.books.title': { $like: 'Anti%' },
-            },
+    query(ctx, {
+      users: {
+        $: {
+          where: {
+            'bookshelves.books.title': { $like: 'Anti%' },
           },
         },
       },
-    )
+    })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(['alex', 'nicolegf', 'stopa']);
@@ -193,18 +182,15 @@ test('Where endsWith deep', () => {
 
 test('like case sensitivity', () => {
   function runQuery(where) {
-    return query(
-      { store },
-      {
-        users: {
-          $: {
-            where: {
-              fullName: where,
-            },
+    return query(ctx, {
+      users: {
+        $: {
+          where: {
+            fullName: where,
           },
         },
       },
-    )
+    })
       .data.users.map((x) => x.fullName)
       .sort();
   }
@@ -237,41 +223,35 @@ test('like special regex characters', () => {
     const chunk = tx.users[lookup('handle', 'stopa')].update({
       fullName: newName,
     });
-    const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
-    return transact(store, txSteps);
+    const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunk);
+    return transact(store, zenecaAttrsStore, txSteps);
   }
 
   for (const [char, newName] of specialChars) {
-    const newStore = renameStopa(store, newName);
-    const res = query(
-      { store: newStore },
-      {
-        users: {
-          $: { where: { fullName: { $like: `%${char}%` } } },
-        },
+    const newCtx = renameStopa(store, newName);
+    const res = query(newCtx, {
+      users: {
+        $: { where: { fullName: { $like: `%${char}%` } } },
       },
-    ).data.users;
+    }).data.users;
     expect(res[0]?.fullName).toBe(newName);
   }
 });
 
 test('Where and', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: {
-            where: {
-              and: [
-                { 'bookshelves.books.title': 'The Count of Monte Cristo' },
-                { 'bookshelves.books.title': 'Antifragile' },
-              ],
-            },
+    query(ctx, {
+      users: {
+        $: {
+          where: {
+            and: [
+              { 'bookshelves.books.title': 'The Count of Monte Cristo' },
+              { 'bookshelves.books.title': 'Antifragile' },
+            ],
           },
         },
       },
-    )
+    })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(['nicolegf', 'stopa']);
@@ -388,16 +368,13 @@ test.each([
   ],
 ])('Where OR %s', (_, whereQuery, expected) => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: {
-            where: whereQuery,
-          },
+    query(ctx, {
+      users: {
+        $: {
+          where: whereQuery,
         },
       },
-    )
+    })
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(expected);
@@ -405,15 +382,12 @@ test.each([
 
 test('Get association', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          bookshelves: {},
-          $: { where: { handle: 'alex' } },
-        },
+    query(ctx, {
+      users: {
+        bookshelves: {},
+        $: { where: { handle: 'alex' } },
       },
-    ).data.users.map((x) => [
+    }).data.users.map((x) => [
       x.handle,
       x.bookshelves.map((x) => x.name).sort(),
     ]),
@@ -422,15 +396,12 @@ test('Get association', () => {
 
 test('Get reverse association', () => {
   expect(
-    query(
-      { store },
-      {
-        bookshelves: {
-          users: {},
-          $: { where: { name: 'Short Stories' } },
-        },
+    query(ctx, {
+      bookshelves: {
+        users: {},
+        $: { where: { name: 'Short Stories' } },
       },
-    ).data.bookshelves.map((x) => [
+    }).data.bookshelves.map((x) => [
       x.name,
       x.users.map((x) => x.handle).sort(),
     ]),
@@ -439,15 +410,12 @@ test('Get reverse association', () => {
 
 test('Get deep association', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          bookshelves: { books: {} },
-          $: { where: { handle: 'alex' } },
-        },
+    query(ctx, {
+      users: {
+        bookshelves: { books: {} },
+        $: { where: { handle: 'alex' } },
       },
-    )
+    })
       .data.users.flatMap((x) => x.bookshelves)
       .flatMap((x) => x.books)
       .map((x) => x.title),
@@ -466,18 +434,15 @@ test('Get deep association', () => {
 
 test('Nested wheres', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          bookshelves: {
-            books: {},
-            $: { where: { name: 'Short Stories' } },
-          },
-          $: { where: { handle: 'alex' } },
+    query(ctx, {
+      users: {
+        bookshelves: {
+          books: {},
+          $: { where: { name: 'Short Stories' } },
         },
+        $: { where: { handle: 'alex' } },
       },
-    )
+    })
       .data.users.flatMap((x) => x.bookshelves)
       .flatMap((x) => x.books)
       .map((x) => x.title),
@@ -490,20 +455,17 @@ test('Nested wheres', () => {
 
 test('Nested wheres with OR queries', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          bookshelves: {
-            books: {},
-            $: {
-              where: { or: [{ name: 'Short Stories' }] },
-            },
+    query(ctx, {
+      users: {
+        bookshelves: {
+          books: {},
+          $: {
+            where: { or: [{ name: 'Short Stories' }] },
           },
-          $: { where: { handle: 'alex' } },
         },
+        $: { where: { handle: 'alex' } },
       },
-    )
+    })
       .data.users.flatMap((x) => x.bookshelves)
       .flatMap((x) => x.books)
       .map((x) => x.title),
@@ -516,20 +478,17 @@ test('Nested wheres with OR queries', () => {
 
 test('Nested wheres with AND queries', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          bookshelves: {
-            books: {},
-            $: {
-              where: { and: [{ name: 'Short Stories' }, { order: 0 }] },
-            },
+    query(ctx, {
+      users: {
+        bookshelves: {
+          books: {},
+          $: {
+            where: { and: [{ name: 'Short Stories' }, { order: 0 }] },
           },
-          $: { where: { handle: 'alex' } },
         },
+        $: { where: { handle: 'alex' } },
       },
-    )
+    })
       .data.users.flatMap((x) => x.bookshelves)
       .flatMap((x) => x.books)
       .map((x) => x.title),
@@ -542,32 +501,26 @@ test('Nested wheres with AND queries', () => {
 
 test('Deep where', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: { where: { 'bookshelves.books.title': "Aesop's Fables" } },
-        },
+    query(ctx, {
+      users: {
+        $: { where: { 'bookshelves.books.title': "Aesop's Fables" } },
       },
-    ).data.users.map((x) => x.handle),
+    }).data.users.map((x) => x.handle),
   ).toEqual(['alex']);
 });
 
 test('Missing etype', () => {
-  expect(query({ store }, { moopy: {} }).data).toEqual({ moopy: [] });
+  expect(query(ctx, { moopy: {} }).data).toEqual({ moopy: [] });
 });
 
 test('Missing inner etype', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          moopy: {},
-          $: { where: { handle: 'joe' } },
-        },
+    query(ctx, {
+      users: {
+        moopy: {},
+        $: { where: { handle: 'joe' } },
       },
-    )
+    })
       .data.users.map((x) => [x.handle, x.moopy])
       .sort(),
   ).toEqual([['joe', []]]);
@@ -575,29 +528,23 @@ test('Missing inner etype', () => {
 
 test('Missing filter attr', () => {
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: { where: { 'bookshelves.moopy': 'joe' } },
-        },
+    query(ctx, {
+      users: {
+        $: { where: { 'bookshelves.moopy': 'joe' } },
       },
-    ).data,
+    }).data,
   ).toEqual({ users: [] });
 });
 
 test('multiple connections', () => {
   expect(
-    query(
-      { store },
-      {
-        bookshelves: {
-          books: {},
-          users: {},
-          $: { where: { name: 'Short Stories' } },
-        },
+    query(ctx, {
+      bookshelves: {
+        books: {},
+        users: {},
+        $: { where: { name: 'Short Stories' } },
       },
-    ).data.bookshelves.map((x) => [
+    }).data.bookshelves.map((x) => [
       x.name,
       x.users.map((x) => x.handle).sort(),
       x.books.map((x) => x.title).sort(),
@@ -616,73 +563,52 @@ test('multiple connections', () => {
 });
 
 test('query forward references work with and without id', () => {
-  const bookshelf = query(
-    { store },
-    {
-      bookshelves: {
-        $: { where: { 'users.handle': 'stopa' } },
-      },
+  const bookshelf = query(ctx, {
+    bookshelves: {
+      $: { where: { 'users.handle': 'stopa' } },
     },
-  ).data.bookshelves[0];
+  }).data.bookshelves[0];
 
-  const usersByBookshelfId = query(
-    { store },
-    {
-      users: {
-        $: { where: { 'bookshelves.id': bookshelf.id } },
-      },
+  const usersByBookshelfId = query(ctx, {
+    users: {
+      $: { where: { 'bookshelves.id': bookshelf.id } },
     },
-  ).data.users.map((x) => x.handle);
+  }).data.users.map((x) => x.handle);
 
-  const usersByBookshelfLinkFIeld = query(
-    { store },
-    {
-      users: {
-        $: { where: { bookshelves: bookshelf.id } },
-      },
+  const usersByBookshelfLinkFIeld = query(ctx, {
+    users: {
+      $: { where: { bookshelves: bookshelf.id } },
     },
-  ).data.users.map((x) => x.handle);
+  }).data.users.map((x) => x.handle);
 
   expect(usersByBookshelfId).toEqual(['stopa']);
   expect(usersByBookshelfLinkFIeld).toEqual(['stopa']);
 });
 
 test('query reverse references work with and without id', () => {
-  const stopa = query(
-    { store },
-    {
-      users: {
-        $: { where: { handle: 'stopa' } },
-      },
+  const stopa = query(ctx, {
+    users: {
+      $: { where: { handle: 'stopa' } },
     },
-  ).data.users[0];
+  }).data.users[0];
 
-  const stopaBookshelvesByHandle = query(
-    { store },
-    {
-      bookshelves: {
-        $: { where: { 'users.handle': 'stopa' } },
-      },
+  const stopaBookshelvesByHandle = query(ctx, {
+    bookshelves: {
+      $: { where: { 'users.handle': 'stopa' } },
     },
-  ).data.bookshelves;
+  }).data.bookshelves;
 
-  const stopaBookshelvesById = query(
-    { store },
-    {
-      bookshelves: {
-        $: { where: { 'users.id': stopa.id } },
-      },
+  const stopaBookshelvesById = query(ctx, {
+    bookshelves: {
+      $: { where: { 'users.id': stopa.id } },
     },
-  ).data.bookshelves;
+  }).data.bookshelves;
 
-  const stopaBookshelvesByLinkField = query(
-    { store },
-    {
-      bookshelves: {
-        $: { where: { users: stopa.id } },
-      },
+  const stopaBookshelvesByLinkField = query(ctx, {
+    bookshelves: {
+      $: { where: { users: stopa.id } },
     },
-  ).data.bookshelves;
+  }).data.bookshelves;
 
   expect(stopaBookshelvesByHandle.length).toBe(16);
 
@@ -691,46 +617,41 @@ test('query reverse references work with and without id', () => {
 });
 
 test('objects are created by etype', () => {
-  const stopa = query(
-    { store },
-    {
-      users: {
-        $: { where: { handle: 'stopa' } },
-      },
+  const stopa = query(ctx, {
+    users: {
+      $: { where: { handle: 'stopa' } },
     },
-  ).data.users[0];
+  }).data.users[0];
   expect(stopa.email).toEqual('stopa@instantdb.com');
   const chunk = tx.not_users[stopa.id].update({
     email: 'this-should-not-change-users-stopa@gmail.com',
   });
-  const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
-  const newStore = transact(store, txSteps);
-  const newStopa = query(
-    { store: newStore },
-    {
-      users: {
-        $: { where: { handle: 'stopa' } },
-      },
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunk);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
+  const newStopa = query(newCtx, {
+    users: {
+      $: { where: { handle: 'stopa' } },
     },
-  ).data.users[0];
+  }).data.users[0];
   expect(newStopa.email).toEqual('stopa@instantdb.com');
 });
 
 test('create and update triples in one tx', () => {
   const userId = randomUUID();
 
-  const getUser = (store) =>
-    query({ store }, { users: { $: { where: { id: userId } } } }).data.users[0];
+  const getUser = (ctx: { store: Store; attrsStore: AttrsStore }) =>
+    query(ctx, { users: { $: { where: { id: userId } } } }).data.users[0];
 
   const chunk1 = tx.users[userId].create({
     email: 'e@mail',
     handle: 'handle',
   });
-  const store1 = transact(
+  const ctx1 = transact(
     store,
-    instaml.transform({ attrs: store.attrs }, chunk1),
+    zenecaAttrsStore,
+    instaml.transform({ attrsStore: zenecaAttrsStore }, chunk1),
   );
-  const user1 = getUser(store1);
+  const user1 = getUser(ctx1);
   expect(user1.email).toEqual('e@mail');
   expect(user1.fullName).toEqual(undefined);
 
@@ -741,54 +662,46 @@ test('create and update triples in one tx', () => {
     },
     { upsert: false },
   );
-  const store2 = transact(
-    store1,
-    instaml.transform({ attrs: store.attrs }, chunk2),
+  const ctx2 = transact(
+    ctx1.store,
+    ctx1.attrsStore,
+    instaml.transform({ attrsStore: zenecaAttrsStore }, chunk2),
   );
-  const user2 = getUser(store2);
+  const user2 = getUser(ctx2);
   expect(user2.email).toEqual('e@mail 2');
   expect(user2.fullName).toEqual('Full Name');
 });
 
 test('object values', () => {
-  const stopa = query(
-    { store },
-    {
-      users: {
-        $: { where: { handle: 'stopa' } },
-      },
+  const stopa = query(ctx, {
+    users: {
+      $: { where: { handle: 'stopa' } },
     },
-  ).data.users[0];
+  }).data.users[0];
   expect(stopa.email).toEqual('stopa@instantdb.com');
   const chunk = tx.users[stopa.id].update({
     jsonField: { hello: 'world' },
     otherJsonField: { world: 'hello' },
   });
-  const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
-  const newStore = transact(store, txSteps);
-  const newStopa = query(
-    { store: newStore },
-    {
-      users: {
-        $: { where: { handle: 'stopa' } },
-      },
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunk);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
+  const newStopa = query(newCtx, {
+    users: {
+      $: { where: { handle: 'stopa' } },
     },
-  ).data.users[0];
+  }).data.users[0];
 
   expect(newStopa.jsonField).toEqual({ hello: 'world' });
 });
 
 test('pagination limit', () => {
-  const books = query(
-    { store },
-    {
-      books: {
-        $: {
-          limit: 10,
-        },
+  const books = query(ctx, {
+    books: {
+      $: {
+        limit: 10,
       },
     },
-  ).data.books;
+  }).data.books;
 
   expect(books.length).toEqual(10);
 });
@@ -798,18 +711,15 @@ test('nested limit works but warns', () => {
     .spyOn(console, 'warn')
     .mockImplementation(() => undefined);
 
-  const result = query(
-    { store },
-    {
-      bookshelves: {
-        books: {
-          $: {
-            limit: 4,
-          },
+  const result = query(ctx, {
+    bookshelves: {
+      books: {
+        $: {
+          limit: 4,
         },
       },
     },
-  );
+  });
 
   expect(result.data.bookshelves.length).toEqual(45);
   // Should be "6" but is limited to 4
@@ -825,23 +735,21 @@ test('pagination offset waits for pageInfo', () => {
   // wait to know which items in the store we should return.
   // Otherwise, we might render optimistic changes for items
   // that aren't in our range.
-  const booksWithOffset = query(
-    { store },
-    {
-      books: {
-        $: {
-          offset: 10,
-          limit: 5,
-        },
+  const booksWithOffset = query(ctx, {
+    books: {
+      $: {
+        offset: 10,
+        limit: 5,
       },
     },
-  ).data.books;
+  }).data.books;
 
   expect(booksWithOffset.length).toEqual(0);
 
   const booksWithPageInfo = query(
     {
       store,
+      attrsStore: zenecaAttrsStore,
       pageInfo: {
         books: {
           'start-cursor': [
@@ -881,6 +789,7 @@ test('pagination offset waits for pageInfo', () => {
   const booksWithPageInfoAsc = query(
     {
       store,
+      attrsStore: zenecaAttrsStore,
       pageInfo: {
         books: {
           'start-cursor': [
@@ -919,31 +828,25 @@ test('pagination offset waits for pageInfo', () => {
 });
 
 test('pagination last', () => {
-  const books = query(
-    { store },
-    {
-      books: {
-        $: {
-          last: 10,
-        },
+  const books = query(ctx, {
+    books: {
+      $: {
+        last: 10,
       },
     },
-  ).data.books;
+  }).data.books;
 
   expect(books.length).toEqual(10);
 });
 
 test('pagination first', () => {
-  const books = query(
-    { store },
-    {
-      books: {
-        $: {
-          first: 10,
-        },
+  const books = query(ctx, {
+    books: {
+      $: {
+        first: 10,
       },
     },
-  ).data.books;
+  }).data.books;
 
   expect(books.length).toEqual(10);
 });
@@ -954,8 +857,8 @@ test('Leading queries should ignore the start cursor', () => {
       createdAt: '2025-09-05 18:53:07.993689',
     });
 
-    const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
-    return transact(store, txSteps);
+    const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunk);
+    return transact(store, zenecaAttrsStore, txSteps);
   }
 
   function storeWithBob() {
@@ -966,8 +869,8 @@ test('Leading queries should ignore the start cursor', () => {
       createdAt: '2025-09-05 18:53:07.993689',
     });
 
-    const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
-    return transact(store, txSteps);
+    const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunk);
+    return transact(store, zenecaAttrsStore, txSteps);
   }
 
   // Existing pageInfo from server: starts at Nicole (2021-02-05), ends at Alex (2021-01-09)
@@ -988,7 +891,7 @@ test('Leading queries should ignore the start cursor', () => {
     },
   };
   const existingUsers = query(
-    { store, pageInfo },
+    { store, attrsStore: zenecaAttrsStore, pageInfo },
     {
       users: {
         $: {
@@ -1006,7 +909,7 @@ test('Leading queries should ignore the start cursor', () => {
   // She should _still_ show up,
   // even though the cursor says otherwise
   const usersWithUpdatedNicole = query(
-    { store: storeWithUpdatedNicole(), pageInfo },
+    { ...storeWithUpdatedNicole(), pageInfo },
     {
       users: {
         $: {
@@ -1024,7 +927,7 @@ test('Leading queries should ignore the start cursor', () => {
   // Bob _should_ show up,
   // even though the cursor says otherwise
   const usersWithBob = query(
-    { store: storeWithBob(), pageInfo },
+    { ...storeWithBob(), pageInfo },
     {
       users: {
         $: {
@@ -1040,10 +943,9 @@ test('Leading queries should ignore the start cursor', () => {
 });
 
 test('arbitrary ordering', () => {
-  const books = query(
-    { store },
-    { books: { $: { first: 10, order: { title: 'asc' } } } },
-  );
+  const books = query(ctx, {
+    books: { $: { first: 10, order: { title: 'asc' } } },
+  });
 
   const titles = books.data.books.map((x) => x.title);
   expect(titles).toEqual([
@@ -1071,7 +973,7 @@ test('arbitrary ordering with dates', () => {
     },
   });
 
-  const txSteps = [];
+  const txSteps: any[] = [];
   let id = 0;
   for (let i = -5; i < 5; i++) {
     txSteps.push(
@@ -1112,20 +1014,22 @@ test('arbitrary ordering with dates', () => {
     }),
   );
 
-  const newStore = transact(
+  const newCtx = transact(
     store,
-    instaml.transform({ attrs: store.attrs, schema: schema }, txSteps),
+    zenecaAttrsStore,
+    instaml.transform(
+      { attrsStore: zenecaAttrsStore, schema: schema },
+      txSteps,
+    ),
   );
 
-  const descRes = query(
-    { store: newStore },
-    { tests: { $: { order: { date: 'desc' } } } },
-  ).data.tests.map((x) => x.date);
+  const descRes = query(newCtx, {
+    tests: { $: { order: { date: 'desc' } } },
+  }).data.tests.map((x) => x.date);
 
-  const numDescRes = query(
-    { store: newStore },
-    { tests: { $: { order: { num: 'desc' } } } },
-  ).data.tests.map((x) => x.num);
+  const numDescRes = query(newCtx, {
+    tests: { $: { order: { num: 'desc' } } },
+  }).data.tests.map((x) => x.num);
 
   const descExpected = [
     4,
@@ -1148,15 +1052,13 @@ test('arbitrary ordering with dates', () => {
 
   expect(numDescRes).toEqual(descExpected);
 
-  const ascRes = query(
-    { store: newStore },
-    { tests: { $: { order: { date: 'asc' } } } },
-  ).data.tests.map((x) => x.date);
+  const ascRes = query(newCtx, {
+    tests: { $: { order: { date: 'asc' } } },
+  }).data.tests.map((x) => x.date);
 
-  const numAscRes = query(
-    { store: newStore },
-    { tests: { $: { order: { num: 'asc' } } } },
-  ).data.tests.map((x) => x.num);
+  const numAscRes = query(newCtx, {
+    tests: { $: { order: { num: 'asc' } } },
+  }).data.tests.map((x) => x.num);
 
   const ascExpected = [
     null,
@@ -1188,7 +1090,7 @@ test('arbitrary ordering with strings', () => {
     },
   });
 
-  const txSteps = [];
+  const txSteps: any[] = [];
   const vs = ['10', '2', 'a0', 'Zz'];
   for (const v of vs) {
     txSteps.push(
@@ -1198,36 +1100,39 @@ test('arbitrary ordering with strings', () => {
     );
   }
 
-  const newStore = transact(
+  const newCtx = transact(
     store,
-    instaml.transform({ attrs: store.attrs, schema: schema }, txSteps),
+    zenecaAttrsStore,
+    instaml.transform(
+      { attrsStore: zenecaAttrsStore, schema: schema },
+      txSteps,
+    ),
   );
 
-  const ascRes = query(
-    { store: newStore },
-    { tests: { $: { order: { string: 'asc' } } } },
-  ).data.tests.map((x) => x.string);
+  const ascRes = query(newCtx, {
+    tests: { $: { order: { string: 'asc' } } },
+  }).data.tests.map((x) => x.string);
 
   expect(ascRes).toEqual(vs);
 
-  const descRes = query(
-    { store: newStore },
-    { tests: { $: { order: { string: 'desc' } } } },
-  ).data.tests.map((x) => x.string);
+  const descRes = query(newCtx, {
+    tests: { $: { order: { string: 'desc' } } },
+  }).data.tests.map((x) => x.string);
 
+  // @ts-expect-error: doesn't like toReversed()
   expect(descRes).toEqual(vs.toReversed());
 });
 
 test('$isNull', () => {
   const q = { books: { $: { where: { title: { $isNull: true } } } } };
-  expect(query({ store }, q).data.books.length).toEqual(0);
+  expect(query(ctx, q).data.books.length).toEqual(0);
   const chunks = [
     tx.books[randomUUID()].update({ title: null }),
     tx.books[randomUUID()].update({ pageCount: 20 }),
   ];
-  const txSteps = instaml.transform({ attrs: store.attrs }, chunks);
-  const newStore = transact(store, txSteps);
-  expect(query({ store: newStore }, q).data.books.map((x) => x.title)).toEqual([
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunks);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
+  expect(query(newCtx, q).data.books.map((x) => x.title)).toEqual([
     null,
     undefined,
   ]);
@@ -1235,47 +1140,37 @@ test('$isNull', () => {
 
 test('$isNull with relations', () => {
   const q = { users: { $: { where: { bookshelves: { $isNull: true } } } } };
-  expect(query({ store }, q).data.users.length).toEqual(0);
+  expect(query(ctx, q).data.users.length).toEqual(0);
   const chunks = [tx.users[randomUUID()].update({ handle: 'dww' })];
-  const txSteps = instaml.transform({ attrs: store.attrs }, chunks);
-  const newStore = transact(store, txSteps);
-  expect(query({ store: newStore }, q).data.users.map((x) => x.handle)).toEqual(
-    ['dww'],
-  );
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunks);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
+  expect(query(newCtx, q).data.users.map((x) => x.handle)).toEqual(['dww']);
 
-  const bookId = query(
-    { store },
-    { books: { $: { where: { title: 'The Count of Monte Cristo' } } } },
-  ).data.books[0].id;
+  const bookId = query(ctx, {
+    books: { $: { where: { title: 'The Count of Monte Cristo' } } },
+  }).data.books[0].id;
 
-  const usersWithBook = query(
-    { store },
-    {
-      users: {
-        $: {
-          where: { 'bookshelves.books.title': 'The Count of Monte Cristo' },
-        },
+  const usersWithBook = query(ctx, {
+    users: {
+      $: {
+        where: { 'bookshelves.books.title': 'The Count of Monte Cristo' },
       },
     },
-  ).data.users.map((x) => x.handle);
+  }).data.users.map((x) => x.handle);
 
-  const storeWithNullTitle = transact(
-    newStore,
-    instaml.transform({ attrs: newStore.attrs }, [
-      tx.books[bookId].update({ title: null }),
-    ]),
+  const ctxWithNullTitle = transact(
+    newCtx.store,
+    newCtx.attrsStore,
+    instaml.transform(newCtx, [tx.books[bookId].update({ title: null })]),
   );
 
-  const usersWithNullTitle = query(
-    { store: storeWithNullTitle },
-    {
-      users: {
-        $: {
-          where: { 'bookshelves.books.title': { $isNull: true } },
-        },
+  const usersWithNullTitle = query(ctxWithNullTitle, {
+    users: {
+      $: {
+        where: { 'bookshelves.books.title': { $isNull: true } },
       },
     },
-  ).data.users.map((x) => x.handle);
+  }).data.users.map((x) => x.handle);
 
   expect(usersWithNullTitle).toEqual([...usersWithBook, 'dww']);
 });
@@ -1284,16 +1179,16 @@ test('$isNull with reverse relations', () => {
   const q = {
     bookshelves: { $: { where: { 'users.id': { $isNull: true } } }, users: {} },
   };
-  expect(query({ store }, q).data.bookshelves.length).toBe(0);
+  expect(query(ctx, q).data.bookshelves.length).toBe(0);
 
   const chunks = [
     tx.bookshelves[randomUUID()].update({ name: 'Lonely shelf' }),
   ];
-  const txSteps = instaml.transform({ attrs: store.attrs }, chunks);
-  const newStore = transact(store, txSteps);
-  expect(
-    query({ store: newStore }, q).data.bookshelves.map((x) => x.name),
-  ).toEqual(['Lonely shelf']);
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunks);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
+  expect(query(newCtx, q).data.bookshelves.map((x) => x.name)).toEqual([
+    'Lonely shelf',
+  ]);
 });
 
 test('$not and $ne', () => {
@@ -1306,15 +1201,11 @@ test('$not and $ne', () => {
     tx.tests[randomUUID()].update({ val: null }),
     tx.tests[randomUUID()].update({ undefinedVal: 'd' }),
   ];
-  const txSteps = instaml.transform({ attrs: store.attrs }, chunks);
-  const newStore = transact(store, txSteps);
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunks);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
   const expected = ['b', 'c', null, undefined];
-  expect(query({ store: newStore }, qNot).data.tests.map((x) => x.val)).toEqual(
-    expected,
-  );
-  expect(query({ store: newStore }, qNe).data.tests.map((x) => x.val)).toEqual(
-    expected,
-  );
+  expect(query(newCtx, qNot).data.tests.map((x) => x.val)).toEqual(expected);
+  expect(query(newCtx, qNe).data.tests.map((x) => x.val)).toEqual(expected);
 });
 
 test('comparators', () => {
@@ -1329,7 +1220,7 @@ test('comparators', () => {
     },
   });
 
-  const txSteps = [];
+  const txSteps: any[] = [];
   for (let i = 0; i < 5; i++) {
     txSteps.push(
       tx.tests[randomUUID()].update({
@@ -1341,20 +1232,21 @@ test('comparators', () => {
     );
   }
 
-  const newStore = transact(
+  const newCtx = transact(
     store,
-    instaml.transform({ attrs: store.attrs, schema: schema }, txSteps),
+    zenecaAttrsStore,
+    instaml.transform(
+      { attrsStore: zenecaAttrsStore, schema: schema },
+      txSteps,
+    ),
   );
 
   function runQuery(dataType, op, value) {
-    const res = query(
-      { store: newStore },
-      {
-        tests: {
-          $: { where: { [dataType]: { [op]: value } } },
-        },
+    const res = query(newCtx, {
+      tests: {
+        $: { where: { [dataType]: { [op]: value } } },
       },
-    );
+    });
     return res.data.tests.map((x) => x[dataType]);
   }
 
@@ -1394,9 +1286,7 @@ test('comparators', () => {
 });
 
 test('fields', () => {
-  expect(
-    query({ store }, { users: { $: { fields: ['handle'] } } }).data,
-  ).toEqual({
+  expect(query(ctx, { users: { $: { fields: ['handle'] } } }).data).toEqual({
     users: [
       { handle: 'joe', id: 'ce942051-2d74-404a-9c7d-4aa3f2d54ae4' },
       { handle: 'alex', id: 'ad45e100-777a-4de8-8978-aa13200a4824' },
@@ -1406,15 +1296,12 @@ test('fields', () => {
   });
 
   expect(
-    query(
-      { store },
-      {
-        users: {
-          $: { where: { handle: 'alex' }, fields: ['handle'] },
-          bookshelves: { $: { fields: ['name'] } },
-        },
+    query(ctx, {
+      users: {
+        $: { where: { handle: 'alex' }, fields: ['handle'] },
+        bookshelves: { $: { fields: ['name'] } },
       },
-    ).data,
+    }).data,
   ).toEqual({
     users: [
       {
@@ -1435,7 +1322,7 @@ test('fields', () => {
   });
 
   // id is always included
-  expect(query({ store }, { users: { $: { fields: [] } } }).data).toEqual({
+  expect(query(ctx, { users: { $: { fields: [] } } }).data).toEqual({
     users: [
       { id: 'ce942051-2d74-404a-9c7d-4aa3f2d54ae4' },
       { id: 'ad45e100-777a-4de8-8978-aa13200a4824' },

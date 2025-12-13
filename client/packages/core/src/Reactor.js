@@ -661,38 +661,49 @@ export default class Reactor {
           const result = x['instaql-result'];
           const hash = weakHash(q);
           const triples = extractTriples(result);
+          const attrsStore = this.ensureAttrs();
           const store = sts.createStore(
-            this.ensureAttrs(),
+            attrsStore,
             triples,
             enableCardinalityInference,
             this.config.useDateObjects,
           );
-          const newStore = this._applyOptimisticUpdates(
-            store,
-            this.ensureAttrs(),
-            mutations,
-            processedTxId,
-          );
+          const { store: newStore, attrsStore: newAttrsStore } =
+            this._applyOptimisticUpdates(
+              store,
+              attrsStore,
+              mutations,
+              processedTxId,
+            );
           const pageInfo = result?.[0]?.data?.['page-info'];
           const aggregate = result?.[0]?.data?.['aggregate'];
-          return { q, hash, store: newStore, pageInfo, aggregate };
+          return {
+            q,
+            hash,
+            store: newStore,
+            attrsStore: newAttrsStore,
+            pageInfo,
+            aggregate,
+          };
         });
 
-        updates.forEach(({ hash, q, store, pageInfo, aggregate }) => {
-          this.querySubs.updateInPlace((prev) => {
-            if (!prev[hash]) {
-              this._log.error('Missing value in querySubs', { hash, q });
-              return;
-            }
-            prev[hash].result = {
-              store,
-              attrsStore: this.ensureAttrs(),
-              pageInfo,
-              aggregate,
-              processedTxId,
-            };
-          });
-        });
+        updates.forEach(
+          ({ hash, q, store, attrsStore, pageInfo, aggregate }) => {
+            this.querySubs.updateInPlace((prev) => {
+              if (!prev[hash]) {
+                this._log.error('Missing value in querySubs', { hash, q });
+                return;
+              }
+              prev[hash].result = {
+                store,
+                attrsStore,
+                pageInfo,
+                aggregate,
+                processedTxId,
+              };
+            });
+          },
+        );
 
         this._cleanupPendingMutationsQueries();
 
@@ -919,7 +930,7 @@ export default class Reactor {
   }
 
   _setAttrs(attrs) {
-    this.attrs = new sts.AttrsStore(
+    this.attrs = new sts.AttrsStoreClass(
       attrs.reduce((acc, attr) => {
         acc[attr.id] = attr;
         return acc;
@@ -1195,7 +1206,7 @@ export default class Reactor {
     }
 
     if (!deletedAttrIds.size && !pendingAttrs.length) {
-      return this.attrs || new sts.AttrsStore({}, this._linkIndex);
+      return this.attrs || new sts.AttrsStoreClass({}, this._linkIndex);
     }
 
     const attrs = { ...(this.attrs?.attrs || {}) };
@@ -1206,7 +1217,7 @@ export default class Reactor {
       delete attrs[id];
     }
 
-    return new sts.AttrsStore(attrs, this._linkIndex);
+    return new sts.AttrsStoreClass(attrs, this._linkIndex);
   }
 
   /** Runs instaql on a query and a store */
@@ -1239,14 +1250,10 @@ export default class Reactor {
       attrsStore,
       pendingMutations,
     );
-    const newStore = this._applyOptimisticUpdates(
-      store,
-      attrsStore,
-      mutations,
-      processedTxId,
-    );
+    const { store: newStore, attrsStore: newAttrsStore } =
+      this._applyOptimisticUpdates(store, attrsStore, mutations, processedTxId);
     const resp = instaql(
-      { store: newStore, attrsStore, pageInfo, aggregate },
+      { store: newStore, attrsStore: newAttrsStore, pageInfo, aggregate },
       q,
     );
 
@@ -1256,10 +1263,12 @@ export default class Reactor {
   _applyOptimisticUpdates(store, attrsStore, mutations, processedTxId) {
     for (const [_, mut] of mutations) {
       if (!mut['tx-id'] || (processedTxId && mut['tx-id'] > processedTxId)) {
-        store = sts.transact(store, attrsStore, mut['tx-steps']);
+        const result = sts.transact(store, attrsStore, mut['tx-steps']);
+        store = result.store;
+        attrsStore = result.attrsStore;
       }
     }
-    return store;
+    return { store, attrsStore };
   }
 
   /** Re-run instaql and call all callbacks with new data */

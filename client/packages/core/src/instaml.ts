@@ -1,6 +1,7 @@
 import {
   allMapValues,
   AttrsStore,
+  AttrsStoreClass,
   getAttrByFwdIdentName,
   getAttrByReverseIdentName,
   Store,
@@ -205,7 +206,7 @@ function expandUnlink({ attrsStore }: Ctx, [etype, eidA, obj]) {
 }
 
 function checkEntityExists(
-  stores: (Store | undefined)[],
+  stores: (Store | undefined)[] | undefined,
   attrsStore: AttrsStore,
   etype: string,
   eid: string,
@@ -241,10 +242,10 @@ function checkEntityExists(
 }
 
 type Ctx = {
-  stores: (Store | undefined)[];
+  stores?: (Store | undefined)[];
   attrsStore: AttrsStore;
-  schema: Schema;
-  useDateObjects: boolean | null;
+  schema?: Schema;
+  useDateObjects?: boolean | null;
 };
 
 function convertOpts({ stores, attrsStore }: Ctx, [etype, eid, obj_, opts]) {
@@ -458,7 +459,7 @@ function refPropsFromSchema(schema: Schema, etype, label) {
 }
 
 function createRefAttr(
-  schema: Schema,
+  schema: Schema | undefined,
   etype: string,
   label: string,
   props?: Partial<InstantDBAttr> | undefined,
@@ -593,7 +594,7 @@ function createMissingAttrs(
       identName.indexOf('.') !== -1 &&
       // attr names can have `.` in them, so use the attr we find with a `.`
       // before assuming it's a ref lookup.
-      !attrByRevIdent(etype, identName)
+      !attrByFwdIdent(etype, identName)
     );
   }
 
@@ -694,7 +695,7 @@ function createMissingAttrs(
     for (const attr of localAttrs) {
       nextAttrs[attr.id] = attr;
     }
-    return [new AttrsStore(nextAttrs, attrsStore.linkIndex), addOps];
+    return [new AttrsStoreClass(nextAttrs, attrsStore.linkIndex), addOps];
   }
   return [attrsStore, addOps];
 }
