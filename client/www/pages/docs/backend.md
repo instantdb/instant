@@ -444,7 +444,7 @@ app.post('/custom_endpoint', async (req, res) => {
 
 ### Syncing Auth
 
-Sometimes you want to get the logged in user in the backend. Instant can automatically sync the logged in user for you. Here's how to do it.
+Sometimes you want to get the logged in user in the backend without needing to explicitly pass in the refresh token from the frontend. Here's how you can do it.
 
 Instant provides a `createInstantRouteHandler` function that generates a web standard endpoint that can be used to sync the refresh token to a cookie that your server can read.
 
