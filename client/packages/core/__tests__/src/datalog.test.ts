@@ -7,10 +7,22 @@ import {
   querySingle,
   queryWhere,
 } from '../../src/datalog';
-import { createStore } from '../../src/store';
-import { getAttrByFwdIdentName } from '../../src/instaml';
+import {
+  AttrsStoreClass,
+  createStore,
+  getAttrByFwdIdentName,
+} from '../../src/store';
+import { InstantDBAttr } from '../../src';
 
-const store = createStore(movieAttrs, movieTriples);
+const movieAttrsStore = new AttrsStoreClass(
+  movieAttrs as unknown as Record<string, InstantDBAttr>,
+  null,
+);
+
+const store = createStore(
+  movieAttrsStore,
+  movieTriples as [string, string, any, number][],
+);
 
 test('matchPattern', () => {
   expect(
@@ -31,8 +43,8 @@ test('matchPattern', () => {
 
 function aid(friendlyName) {
   const [etype, label] = friendlyName.split('/');
-  const attr = getAttrByFwdIdentName(store.attrs, etype, label);
-  return attr.id;
+  const attr = getAttrByFwdIdentName(movieAttrsStore, etype, label);
+  return attr?.id;
 }
 
 function mid(movieName) {

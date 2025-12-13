@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { createStore } from '../../src/store';
+import { createStore, AttrsStoreClass } from '../../src/store';
 import query from '../../src/instaql';
 import { i, id } from '../../src';
 import { createLinkIndex } from '../../src/utils/linkIndex';
@@ -221,19 +221,23 @@ test('one-to-one without inference', () => {
   expect(result.data.profiles.at(0).user.at(0).id).toBe(ids.user1);
 });
 
-function indexAttrs(attrs) {
-  return attrs.reduce((res, x) => {
-    res[x.id] = x;
-    return res;
-  }, {});
+function indexAttrs(attrs, schema) {
+  const linkIndex = schema ? createLinkIndex(schema) : undefined;
+  return new AttrsStoreClass(
+    attrs.reduce((acc, attr) => {
+      acc[attr.id] = attr;
+      return acc;
+    }, {}),
+    linkIndex,
+  );
 }
 
 function queryData(config, attrs, triples, q) {
-  const store = createStore(indexAttrs(attrs), triples);
+  const attrsStore = indexAttrs(attrs, config.schema);
+  const store = createStore(attrsStore, triples);
   store.cardinalityInference = config.cardinalityInference;
-  store.linkIndex = config.schema ? createLinkIndex(config.schema) : undefined;
 
-  const result = query({ store }, q);
+  const result = query({ store, attrsStore }, q);
 
   return { result, store };
 }

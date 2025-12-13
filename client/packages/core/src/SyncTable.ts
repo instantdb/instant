@@ -16,12 +16,12 @@ type SubState = {
 
 type SubEntity = {
   entity: any;
-  store: any;
+  store: s.Store;
   serverCreatedAt: number;
 };
 
 type SubValues = {
-  attrs: Record<string, any>;
+  attrsStore: s.AttrsStore;
   entities: Array<SubEntity>;
 };
 
@@ -38,8 +38,21 @@ type Sub = {
   updatedAt: number;
 };
 
+type SubEntityInStorage = {
+  entity: any;
+  store: s.StoreJson;
+  serverCreatedAt: number;
+};
+
+type SubValuesInStorage = {
+  attrsStore: s.AttrsStoreJson;
+  entities: Array<SubEntityInStorage>;
+};
+
 // We could make a better type for this if we had a return type for s.toJSON
-type SubInStorage = Sub;
+type SubInStorage = Omit<Sub, 'values'> & {
+  values: SubValuesInStorage;
+};
 
 type StartMsg = {
   op: 'start-sync';
@@ -96,36 +109,38 @@ type Config = { useDateObjects: boolean };
 function syncSubFromStorage(sub: SubInStorage, useDateObjects: boolean): Sub {
   const values = sub.values;
   if (values) {
-    for (const e of values.entities || []) {
-      e.store.useDateObjects = useDateObjects;
-      e.store.attrs = values.attrs;
-      e.store = s.fromJSON(e.store);
+    const attrsStore = s.attrsStoreFromJSON(values.attrsStore, null);
+    if (attrsStore) {
+      for (const e of values.entities || []) {
+        e.store.useDateObjects = useDateObjects;
+        (e as unknown as SubEntity).store = s.fromJSON(attrsStore, e.store);
+      }
+      (values as unknown as SubValues).attrsStore = attrsStore;
     }
   }
 
-  return sub;
+  return sub as unknown as Sub;
 }
 
 function syncSubToStorage(_k: string, sub: Sub): SubInStorage {
-  if (sub.values?.entities) {
-    const entities: SubEntity[] = [];
+  if (sub.values) {
+    const entities: SubEntityInStorage[] = [];
     for (const e of sub.values?.entities) {
       const store = s.toJSON(e.store);
-      // We'll store the attrs once on values, and put the
-      // attrs back into the store on hydration
-      // @ts-ignore: ts doesn't want us to delete a non-optional
-      delete store['attrs'];
       entities.push({ ...e, store });
     }
-    return { ...sub, values: { ...sub.values, entities } };
+    return {
+      ...sub,
+      values: { attrsStore: sub.values.attrsStore.toJSON(), entities },
+    };
   } else {
-    return sub;
+    return sub as unknown as SubInStorage;
   }
 }
 
 function onMergeSub(
   _key: string,
-  storageSub: SubInStorage,
+  storageSub: Sub,
   inMemorySub: Sub | null,
 ): Sub {
   const storageTxId = storageSub?.state?.txId;
@@ -142,13 +157,21 @@ function onMergeSub(
   return storageSub || inMemorySub;
 }
 
-function queryEntity(sub: Sub, store: any) {
-  const res = instaql({ store, pageInfo: null, aggregate: null }, sub.query);
+function queryEntity(sub: Sub, store: s.Store, attrsStore: s.AttrsStore) {
+  const res = instaql(
+    { store, attrsStore, pageInfo: null, aggregate: null },
+    sub.query,
+  );
   return res.data[sub.table][0];
 }
 
-function getServerCreatedAt(sub: Sub, store: any, entityId: string): number {
-  const aid = s.getAttrByFwdIdentName(store, sub.table, 'id')?.id;
+function getServerCreatedAt(
+  sub: Sub,
+  store: s.Store,
+  attrsStore: s.AttrsStore,
+  entityId: string,
+): number {
+  const aid = s.getAttrByFwdIdentName(attrsStore, sub.table, 'id')?.id;
   if (!aid) {
     return -1;
   }
@@ -160,23 +183,25 @@ function getServerCreatedAt(sub: Sub, store: any, entityId: string): number {
 }
 
 function applyChangesToStore(
-  store: any,
+  store: s.Store,
+  attrsStore: s.AttrsStore,
   changes: SyncUpdateTriplesMsg['txes'][number]['changes'],
 ): void {
   for (const { action, triple } of changes) {
     switch (action) {
       case 'added':
-        s.addTriple(store, triple);
+        s.addTriple(store, attrsStore, triple);
         break;
       case 'removed':
-        s.retractTriple(store, triple);
+        s.retractTriple(store, attrsStore, triple);
         break;
     }
   }
 }
 
 function changedFieldsOfChanges(
-  store: any,
+  store: s.Store,
+  attrsStore: s.AttrsStore,
   changes: SyncUpdateTriplesMsg['txes'][number]['changes'],
 ): {
   [eid: string]: SyncTransaction<
@@ -190,7 +215,7 @@ function changedFieldsOfChanges(
   const changedFields = {};
   for (const { action, triple } of changes) {
     const [e, a, v] = triple;
-    const field = store.attrs[a]?.['forward-identity']?.[2];
+    const field = attrsStore.getAttr(a)?.['forward-identity']?.[2];
     if (!field) continue;
 
     const fields = changedFields[e] ?? {};
@@ -225,17 +250,19 @@ function subData(sub: Sub, entities: NonNullable<Sub['values']>['entities']) {
   return { [sub.table]: entities.map((e) => e.entity) };
 }
 
+type CreateStore = (triples: Triple[]) => s.Store;
+
 // Updates the sub order field type if it hasn't been set
 // and returns the type. We have to wait until the attrs
 // are loaded before we can determine the type.
-function orderFieldTypeMutative(sub: Sub, createStore) {
+function orderFieldTypeMutative(sub: Sub, getAttrs: () => s.AttrsStore) {
   if (sub.orderFieldType) {
     return sub.orderFieldType;
   }
   const orderFieldType =
     sub.orderField === 'serverCreatedAt'
       ? 'number'
-      : s.getAttrByFwdIdentName(createStore([]), sub.table, sub.orderField)?.[
+      : s.getAttrByFwdIdentName(getAttrs(), sub.table, sub.orderField)?.[
           'checked-data-type'
         ];
 
@@ -414,19 +441,22 @@ export class SyncTable {
   private config: Config;
   private idToHash: { [subscriptionId: string]: string } = {};
   private log: Logger;
-  private createStore: (triples: Triple[]) => any;
+  private createStore: CreateStore;
+  private getAttrs: () => s.AttrsStore;
 
   constructor(
     trySend: TrySend,
     storage: StorageInterface,
     config: Config,
     log: Logger,
-    createStore: (triples: Triple[]) => any,
+    createStore: CreateStore,
+    getAttrs: () => s.AttrsStore,
   ) {
     this.trySend = trySend;
     this.config = config;
     this.log = log;
     this.createStore = createStore;
+    this.getAttrs = getAttrs;
 
     this.subs = new PersistedObject<string, Sub, SubInStorage>({
       persister: storage,
@@ -624,19 +654,23 @@ export class SyncTable {
 
     const values: SubValues = sub.values ?? {
       entities: [],
-      attrs: this.createStore([]).attrs,
+      attrsStore: this.getAttrs(),
     };
     sub.values = values;
     const entities = values.entities;
 
     for (const entRows of joinRows) {
       const store = this.createStore(entRows);
-      values.attrs = store.attrs;
-      const entity = queryEntity(sub, store);
+      const entity = queryEntity(sub, store, values.attrsStore);
       entities.push({
         store,
         entity,
-        serverCreatedAt: getServerCreatedAt(sub, store, entity.id),
+        serverCreatedAt: getServerCreatedAt(
+          sub,
+          store,
+          values.attrsStore,
+          entity.id,
+        ),
       });
       batch.push(entity);
     }
@@ -727,7 +761,7 @@ export class SyncTable {
 
       const values: SubValues = sub.values ?? {
         entities: [],
-        attrs: this.createStore([]).attrs,
+        attrsStore: this.getAttrs(),
       };
       const entities = values.entities;
       sub.values = values;
@@ -738,11 +772,13 @@ export class SyncTable {
         for (let i = 0; i < entities.length; i++) {
           const ent = entities[i];
           if (s.hasEntity(ent.store, eid)) {
-            applyChangesToStore(ent.store, changes);
-            const entity = queryEntity(sub, ent.store);
-            const changedFields = changedFieldsOfChanges(ent.store, changes)[
-              eid
-            ];
+            applyChangesToStore(ent.store, values.attrsStore, changes);
+            const entity = queryEntity(sub, ent.store, values.attrsStore);
+            const changedFields = changedFieldsOfChanges(
+              ent.store,
+              values.attrsStore,
+              changes,
+            )[eid];
             if (entity) {
               updated.push({
                 oldEntity: ent.entity,
@@ -763,9 +799,8 @@ export class SyncTable {
       // If we have anything left in byEid, then this must be a new entity we don't know about
       for (const [_eid, changes] of Object.entries(byEid)) {
         const store = this.createStore([]);
-        values.attrs = store.attrs;
-        applyChangesToStore(store, changes);
-        const entity = queryEntity(sub, store);
+        applyChangesToStore(store, values.attrsStore, changes);
+        const entity = queryEntity(sub, store, values.attrsStore);
         if (!entity) {
           this.log.error('No entity found after applying change', {
             sub,
@@ -777,7 +812,12 @@ export class SyncTable {
         entities.push({
           store,
           entity,
-          serverCreatedAt: getServerCreatedAt(sub, store, entity.id),
+          serverCreatedAt: getServerCreatedAt(
+            sub,
+            store,
+            values.attrsStore,
+            entity.id,
+          ),
         });
         added.push(entity);
       }
@@ -789,7 +829,7 @@ export class SyncTable {
         entities.splice(idx, 1);
       }
 
-      const orderFieldType = orderFieldTypeMutative(sub, this.createStore);
+      const orderFieldType = orderFieldTypeMutative(sub, this.getAttrs);
 
       sortEntitiesInPlace(sub, orderFieldType!, entities);
       this.notifyCbs(hash, {

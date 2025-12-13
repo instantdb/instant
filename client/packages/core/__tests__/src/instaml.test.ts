@@ -3,27 +3,33 @@ import * as instaml from '../../src/instaml';
 import * as instatx from '../../src/instatx';
 import zenecaAttrs from './data/zeneca/attrs.json';
 import zenecaTriples from './data/zeneca/triples.json';
-import { createStore, transact } from '../../src/store';
+import { createStore, transact, AttrsStoreClass } from '../../src/store';
 import uuid from '../../src/utils/uuid';
-import { i } from '../../src/index';
+import { i, InstantDBAttr } from '../../src/index';
 
 const zenecaAttrToId = zenecaAttrs.reduce((res, x) => {
   res[`${x['forward-identity'][1]}/${x['forward-identity'][2]}`] = x.id;
   return res;
 }, {});
 
-const zenecaIdToAttr = zenecaAttrs.reduce((res, x) => {
-  res[x.id] = x;
-  return res;
-}, {});
+const zenecaAttrsStore = new AttrsStoreClass(
+  zenecaAttrs.reduce((res, x) => {
+    res[x.id] = x;
+    return res;
+  }, {}),
+  null,
+);
 
-const store = createStore(zenecaIdToAttr, zenecaTriples);
+const store = createStore(
+  zenecaAttrsStore,
+  zenecaTriples as [string, string, any, number][],
+);
 
 test('simple update transform', () => {
   const testId = uuid();
 
   const ops = instatx.tx.books[testId].update({ title: 'New Title' });
-  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
 
   const expected = [
     ['add-triple', testId, zenecaAttrToId['books/title'], 'New Title'],
@@ -43,7 +49,7 @@ test('undefined is ignored in update', () => {
     handle: 'bobby',
     fullName: undefined,
   });
-  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
 
   const expected = [
     ['add-triple', testId, zenecaAttrToId['users/id'], testId],
@@ -63,7 +69,7 @@ test('ignores id attrs', () => {
     title: 'New Title',
     id: 'ploop',
   });
-  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
 
   const expected = [
     ['add-triple', testId, zenecaAttrToId['books/title'], 'New Title'],
@@ -80,7 +86,7 @@ test("optimistically adds attrs if they don't exist", () => {
 
   const ops = instatx.tx.books[testId].update({ newAttr: 'New Title' });
 
-  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
 
   const expected = [
     [
@@ -114,7 +120,7 @@ test('lookup resolves attr ids', () => {
 
   const stopaLookup = [zenecaAttrToId['users/email'], 'stopa@instantdb.com'];
 
-  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
 
   const expected = [
     ['add-triple', stopaLookup, zenecaAttrToId['users/handle'], 'stopa'],
@@ -140,7 +146,7 @@ test('lookup creates unique attrs for custom lookups', () => {
     'newAttrValue',
   ];
 
-  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
   const expected = [
     [
       'add-attr',
@@ -170,7 +176,10 @@ test('lookup creates unique attrs for lookups in link values', () => {
     .update({})
     .link({ posts: instatx.lookup('slug', 'life-is-good') });
 
-  const result = instaml.transform({ attrs: {} }, ops);
+  const result = instaml.transform(
+    { attrsStore: new AttrsStoreClass({}, null) },
+    ops,
+  );
 
   expect(result).toEqual([
     [
@@ -229,7 +238,10 @@ test('lookup creates unique attrs for lookups in link values with arrays', () =>
     ],
   });
 
-  const result = instaml.transform({ attrs: {} }, ops);
+  const result = instaml.transform(
+    { attrsStore: new AttrsStoreClass({}, null) },
+    ops,
+  );
 
   const expected = [
     [
@@ -305,10 +317,10 @@ test('lookup creates unique attrs for lookups in link values when fwd-ident exis
     cardinality: 'one',
     'unique?': true,
     'index?': true,
-  };
+  } as unknown as InstantDBAttr;
 
   const result = instaml.transform(
-    { attrs: { [attrId]: existingRefAttr } },
+    { attrsStore: new AttrsStoreClass({ [attrId]: existingRefAttr }, null) },
     ops,
   );
 
@@ -362,10 +374,10 @@ test('lookup creates unique attrs for lookups in link values when rev-ident exis
     cardinality: 'one',
     'unique?': true,
     'index?': true,
-  };
+  } as unknown as InstantDBAttr;
 
   const result = instaml.transform(
-    { attrs: { [attrId]: existingRefAttr } },
+    { attrsStore: new AttrsStoreClass({ [attrId]: existingRefAttr }, null) },
     ops,
   );
 
@@ -414,35 +426,38 @@ test("lookup doesn't override attrs for lookups in link values", () => {
   const userIdAttrId = uuid();
   const postsSlugAttrId = uuid();
 
-  const attrs = {
-    [refAttrId]: {
-      id: refAttrId,
-      'forward-identity': [uuid(), 'users', 'posts'],
-      'reverse-identity': [uuid(), 'posts', 'users'],
-      'value-type': 'ref',
-      cardinality: 'one',
-      'unique?': true,
-      'index?': true,
+  const attrsStore = new AttrsStoreClass(
+    {
+      [refAttrId]: {
+        id: refAttrId,
+        'forward-identity': [uuid(), 'users', 'posts'],
+        'reverse-identity': [uuid(), 'posts', 'users'],
+        'value-type': 'ref',
+        cardinality: 'one',
+        'unique?': true,
+        'index?': true,
+      } as unknown as InstantDBAttr,
+      [userIdAttrId]: {
+        id: userIdAttrId,
+        'forward-identity': [uuid(), 'users', 'id'],
+        'value-type': 'blob',
+        cardinality: 'one',
+        'unique?': true,
+        'index?': false,
+      } as unknown as InstantDBAttr,
+      [postsSlugAttrId]: {
+        id: postsSlugAttrId,
+        'forward-identity': [uuid(), 'posts', 'slug'],
+        'value-type': 'blob',
+        cardinality: 'one',
+        'unique?': true,
+        'index?': true,
+      } as unknown as InstantDBAttr,
     },
-    [userIdAttrId]: {
-      id: userIdAttrId,
-      'forward-identity': [uuid(), 'users', 'id'],
-      'value-type': 'blob',
-      cardinality: 'one',
-      'unique?': true,
-      'index?': false,
-    },
-    [postsSlugAttrId]: {
-      id: postsSlugAttrId,
-      'forward-identity': [uuid(), 'posts', 'slug'],
-      'value-type': 'blob',
-      cardinality: 'one',
-      'unique?': true,
-      'index?': true,
-    },
-  };
+    null,
+  );
 
-  const result = instaml.transform({ attrs }, ops);
+  const result = instaml.transform({ attrsStore }, ops);
 
   expect(result).toEqual([
     ['add-triple', uid, userIdAttrId, uid],
@@ -455,39 +470,42 @@ test("lookup doesn't override attrs for lookups in self links", () => {
   const postIdAttrId = uuid();
   const postsSlugAttrId = uuid();
 
-  const attrs = {
-    [postIdAttrId]: {
-      id: postIdAttrId,
-      'forward-identity': [uuid(), 'posts', 'id'],
-      'value-type': 'blob',
-      cardinality: 'one',
-      'unique?': true,
-      'index?': false,
+  const attrsStore = new AttrsStoreClass(
+    {
+      [postIdAttrId]: {
+        id: postIdAttrId,
+        'forward-identity': [uuid(), 'posts', 'id'],
+        'value-type': 'blob',
+        cardinality: 'one',
+        'unique?': true,
+        'index?': false,
+      } as unknown as InstantDBAttr,
+      [postsSlugAttrId]: {
+        id: postsSlugAttrId,
+        'forward-identity': [uuid(), 'posts', 'slug'],
+        'value-type': 'blob',
+        cardinality: 'one',
+        'unique?': true,
+        'index?': true,
+      } as unknown as InstantDBAttr,
+      [refAttrId]: {
+        id: refAttrId,
+        'forward-identity': [uuid(), 'posts', 'parent'],
+        'reverse-identity': [uuid(), 'posts', 'child'],
+        'value-type': 'ref',
+        cardinality: 'one',
+        'unique?': true,
+        'index?': true,
+      } as unknown as InstantDBAttr,
     },
-    [postsSlugAttrId]: {
-      id: postsSlugAttrId,
-      'forward-identity': [uuid(), 'posts', 'slug'],
-      'value-type': 'blob',
-      cardinality: 'one',
-      'unique?': true,
-      'index?': true,
-    },
-    [refAttrId]: {
-      id: refAttrId,
-      'forward-identity': [uuid(), 'posts', 'parent'],
-      'reverse-identity': [uuid(), 'posts', 'child'],
-      'value-type': 'ref',
-      cardinality: 'one',
-      'unique?': true,
-      'index?': true,
-    },
-  };
+    null,
+  );
 
   const ops1 = instatx.tx.posts[instatx.lookup('slug', 'life-is-good')]
     .update({})
     .link({ parent: instatx.lookup('slug', 'life-is-good') });
 
-  const result1 = instaml.transform({ attrs }, ops1);
+  const result1 = instaml.transform({ attrsStore }, ops1);
 
   expect(result1.filter((x) => x[0] !== 'add-triple')).toEqual([]);
 
@@ -495,7 +513,7 @@ test("lookup doesn't override attrs for lookups in self links", () => {
     .update({})
     .link({ child: instatx.lookup('slug', 'life-is-good') });
 
-  const result2 = instaml.transform({ attrs }, ops2);
+  const result2 = instaml.transform({ attrsStore }, ops2);
 
   expect(result2.filter((x) => x[0] !== 'add-triple')).toEqual([]);
 });
@@ -513,7 +531,10 @@ test('lookup creates unique ref attrs for ref lookup', () => {
     uid,
   ];
 
-  const result = instaml.transform({ attrs: {} }, ops);
+  const result = instaml.transform(
+    { attrsStore: new AttrsStoreClass({}, null) },
+    ops,
+  );
   const expected = [
     [
       'add-attr',
@@ -576,7 +597,10 @@ test('lookup creates unique ref attrs for ref lookup in link value', () => {
     uid,
   ];
 
-  const result = instaml.transform({ attrs: {} }, ops);
+  const result = instaml.transform(
+    { attrsStore: new AttrsStoreClass({}, null) },
+    ops,
+  );
 
   const expected = [
     [
@@ -621,7 +645,7 @@ test('lookups create entities from links', () => {
     bookshelves: bookshelfId,
   });
 
-  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
   const expectedLookup = [zenecaAttrToId['users/handle'], 'bobby_newuser'];
   const expected = [
     ['add-triple', expectedLookup, zenecaAttrToId['users/id'], expectedLookup],
@@ -648,7 +672,7 @@ test('lookups create entities from unlinks', () => {
     bookshelves: bookshelfId,
   });
 
-  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
   const expectedLookup = [zenecaAttrToId['users/handle'], 'bobby_newuser'];
   const expected = [
     ['add-triple', expectedLookup, zenecaAttrToId['users/id'], expectedLookup],
@@ -670,7 +694,10 @@ test('mode: update', () => {
   // create
   var id = uuid();
   var ops = instatx.tx.users[id].update({ handle: 'test' });
-  var result = instaml.transform({ attrs: zenecaAttrs, stores: [store] }, ops);
+  var result = instaml.transform(
+    { attrsStore: zenecaAttrsStore, stores: [store] },
+    ops,
+  );
   for (const txStep of result) {
     expect(txStep[4]).toEqual(undefined);
   }
@@ -679,7 +706,10 @@ test('mode: update', () => {
   ops = instatx.tx.users['ce942051-2d74-404a-9c7d-4aa3f2d54ae4'].update({
     handle: 'joe2',
   });
-  result = instaml.transform({ attrs: zenecaAttrs, stores: [store] }, ops);
+  result = instaml.transform(
+    { attrsStore: zenecaAttrsStore, stores: [store] },
+    ops,
+  );
   for (const txStep of result) {
     expect(txStep[4]).toEqual({ mode: 'update' });
   }
@@ -688,14 +718,20 @@ test('mode: update', () => {
   ops = instatx.tx.users[instatx.lookup('email', 'stopa@instantdb.com')].update(
     { handle: 'stopa2' },
   );
-  result = instaml.transform({ attrs: zenecaAttrs, stores: [store] }, ops);
+  result = instaml.transform(
+    { attrsStore: zenecaAttrsStore, stores: [store] },
+    ops,
+  );
   for (const txStep of result) {
     expect(txStep[4]).toEqual({ mode: 'update' });
   }
 
   // forced mode
   var ops = instatx.tx.users[id].update({ handle: 'test' }, { upsert: false });
-  var result = instaml.transform({ attrs: zenecaAttrs, stores: [store] }, ops);
+  var result = instaml.transform(
+    { attrsStore: zenecaAttrsStore, stores: [store] },
+    ops,
+  );
   for (const txStep of result) {
     expect(txStep[4]).toEqual({ mode: 'update' });
   }
@@ -704,7 +740,10 @@ test('mode: update', () => {
     { handle: 'test' },
     { upsert: true },
   );
-  var result = instaml.transform({ attrs: zenecaAttrs, stores: [store] }, ops);
+  var result = instaml.transform(
+    { attrsStore: zenecaAttrsStore, stores: [store] },
+    ops,
+  );
   for (const txStep of result) {
     expect(txStep[4]).toEqual(undefined);
   }
@@ -713,7 +752,7 @@ test('mode: update', () => {
 test('it throws if you use an invalid link attr', () => {
   expect(() =>
     instaml.transform(
-      { attrs: {} },
+      { attrsStore: new AttrsStoreClass({}, null) },
       instatx.tx.users[
         instatx.lookup('user_pref.email', 'test@example.com')
       ].update({
@@ -727,36 +766,39 @@ test("it doesn't throw if you have a period in your attr", () => {
   const aid = uuid();
   const iid = uuid();
   const pid = uuid();
-  const attrs = {
-    [aid]: {
-      id: aid,
-      cardinality: 'one',
-      'forward-identity': [uuid(), 'users', 'attr.with.dot'],
-      'index?': true,
-      'unique?': true,
-      'value-type': 'blob',
+  const attrsStore = new AttrsStoreClass(
+    {
+      [aid]: {
+        id: aid,
+        cardinality: 'one',
+        'forward-identity': [uuid(), 'users', 'attr.with.dot'],
+        'index?': true,
+        'unique?': true,
+        'value-type': 'blob',
+      } as unknown as InstantDBAttr,
+      [iid]: {
+        id: iid,
+        cardinality: 'one',
+        'forward-identity': [uuid(), 'users', 'id'],
+        'index?': true,
+        'unique?': false,
+        'value-type': 'blob',
+      } as unknown as InstantDBAttr,
+      [pid]: {
+        id: pid,
+        cardinality: 'one',
+        'forward-identity': [uuid(), 'users', 'a'],
+        'index?': false,
+        'unique?': false,
+        'value-type': 'blob',
+      } as unknown as InstantDBAttr,
     },
-    [iid]: {
-      id: iid,
-      cardinality: 'one',
-      'forward-identity': [uuid(), 'users', 'id'],
-      'index?': true,
-      'unique?': false,
-      'value-type': 'blob',
-    },
-    [pid]: {
-      id: pid,
-      cardinality: 'one',
-      'forward-identity': [uuid(), 'users', 'a'],
-      'index?': false,
-      'unique?': false,
-      'value-type': 'blob',
-    },
-  };
+    null,
+  );
 
   expect(
     instaml.transform(
-      { attrs },
+      { attrsStore },
       instatx.tx.users[instatx.lookup('attr.with.dot', 'value')].update({
         a: 1,
       }),
@@ -775,7 +817,10 @@ test("it doesn't create duplicate ref attrs", () => {
     instatx.tx.nsB[bid].update({}).link({ nsA: aid }),
   ];
 
-  const result = instaml.transform({ attrs: {} }, ops);
+  const result = instaml.transform(
+    { attrsStore: new AttrsStoreClass({}, null) },
+    ops,
+  );
 
   const expected = [
     [
@@ -863,7 +908,7 @@ test('Schema: uses info in `attrs` and `links`', () => {
 
   const result = instaml.transform(
     {
-      attrs: zenecaAttrs,
+      attrsStore: zenecaAttrsStore,
       schema: schema,
     },
     ops,
@@ -947,7 +992,10 @@ test("Schema: doesn't create duplicate ref attrs", () => {
     instatx.tx.books[bookId].update({}).link({ comments: commentId }),
   ];
 
-  const result = instaml.transform({ attrs: zenecaAttrs, schema }, ops);
+  const result = instaml.transform(
+    { attrsStore: zenecaAttrsStore, schema },
+    ops,
+  );
 
   const expected = [
     [
@@ -1007,7 +1055,10 @@ test('Schema: lookup creates unique attrs for custom lookups', () => {
     'stopanator',
   ];
 
-  const result = instaml.transform({ attrs: zenecaAttrs, schema }, ops);
+  const result = instaml.transform(
+    { attrsStore: zenecaAttrsStore, schema },
+    ops,
+  );
   const expected = [
     [
       'add-attr',
@@ -1061,7 +1112,10 @@ test('Schema: lookup creates unique attrs for lookups in link values', () => {
     .update({})
     .link({ authoredPosts: instatx.lookup('slug', 'life-is-good') });
 
-  const result = instaml.transform({ attrs: {}, schema }, ops);
+  const result = instaml.transform(
+    { attrsStore: new AttrsStoreClass({}, null), schema },
+    ops,
+  );
 
   expect(result).toEqual([
     [
@@ -1145,7 +1199,10 @@ test('Schema: lookup creates unique attrs for lookups in link values with arrays
     ],
   });
 
-  const result = instaml.transform({ attrs: {}, schema }, ops);
+  const result = instaml.transform(
+    { attrsStore: new AttrsStoreClass({}, null), schema },
+    ops,
+  );
 
   const expected = [
     [
@@ -1241,7 +1298,10 @@ test('Schema: lookup creates unique ref attrs for ref lookup', () => {
     uid,
   ];
 
-  const result = instaml.transform({ attrs: {}, schema }, ops);
+  const result = instaml.transform(
+    { attrsStore: new AttrsStoreClass({}, null), schema },
+    ops,
+  );
   const expected = [
     [
       'add-attr',
@@ -1324,7 +1384,10 @@ test('Schema: lookup creates unique ref attrs for ref lookup in link value', () 
     uid,
   ];
 
-  const result = instaml.transform({ attrs: {}, schema }, ops);
+  const result = instaml.transform(
+    { attrsStore: new AttrsStoreClass({}, null), schema },
+    ops,
+  );
 
   const expected = [
     [
@@ -1388,7 +1451,7 @@ test('Schema: populates checked-data-type', () => {
 
   const result = instaml.transform(
     {
-      attrs: zenecaAttrs,
+      attrsStore: zenecaAttrsStore,
       schema: schema,
     },
     ops,
@@ -1501,6 +1564,7 @@ test('Schema: populates checked-data-type', () => {
 test('instatx should not be too permissive', () => {
   const ops = instatx.tx.books[uuid()].update({
     title: 'New Title',
+    // @ts-expect-error: testing invalid states
   }).this_is_an_unknown_op;
   expect(ops).toBeUndefined();
 });

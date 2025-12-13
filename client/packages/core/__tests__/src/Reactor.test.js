@@ -13,11 +13,15 @@ import zenecaAttrs from './data/zeneca/attrs.json';
 import zenecaTriples from './data/zeneca/triples.json';
 import uuid from '../../src/utils/uuid';
 import { weakHash } from '../../src';
+import { AttrsStoreClass } from '../../src/store';
 
-const zenecaIdToAttr = zenecaAttrs.reduce((res, x) => {
-  res[x.id] = x;
-  return res;
-}, {});
+const zenecaAttrsStore = new AttrsStoreClass(
+  zenecaAttrs.reduce((res, x) => {
+    res[x.id] = x;
+    return res;
+  }, {}),
+  null,
+);
 
 async function waitForLoaded(reactor) {
   await reactor.querySubs.waitForMetaToLoad();
@@ -123,12 +127,15 @@ test('rewrite mutations', () => {
   ];
 
   // create transactions without any attributes
-  const optimisticSteps = instaml.transform({ attrs: {} }, ops);
+  const optimisticSteps = instaml.transform(
+    { attrsStore: new AttrsStoreClass({}, null) },
+    ops,
+  );
 
   const mutations = new Map([['k', { 'tx-steps': optimisticSteps }]]);
 
   const rewrittenWithoutAttrs = reactor
-    ._rewriteMutations({}, mutations)
+    ._rewriteMutations(new AttrsStoreClass({}, null), mutations)
     .get('k')['tx-steps'];
 
   // Check that we didn't clobber anything in our rewrite
@@ -136,10 +143,10 @@ test('rewrite mutations', () => {
 
   // rewrite them with the new server attributes
   const rewrittenSteps = reactor
-    ._rewriteMutations(zenecaIdToAttr, mutations)
+    ._rewriteMutations(zenecaAttrsStore, mutations)
     .get('k')['tx-steps'];
 
-  const serverSteps = instaml.transform({ attrs: zenecaIdToAttr }, ops);
+  const serverSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
   expect(rewrittenSteps).toEqual(serverSteps);
 });
 
@@ -170,7 +177,7 @@ test('rewrite mutations works with multiple transactions', () => {
 
   for (const k of keys) {
     const attrs = reactor.optimisticAttrs();
-    const steps = instaml.transform({ attrs }, ops);
+    const steps = instaml.transform({ attrsStore: attrs }, ops);
     const mut = {
       op: 'transact',
       'tx-steps': steps,
@@ -183,11 +190,11 @@ test('rewrite mutations works with multiple transactions', () => {
 
   // rewrite them with the new server attributes
   const rewrittenMutations = reactor._rewriteMutations(
-    zenecaIdToAttr,
+    zenecaAttrsStore,
     reactor._pendingMutations(),
   );
 
-  const serverSteps = instaml.transform({ attrs: zenecaIdToAttr }, ops);
+  const serverSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
   for (const k of keys) {
     expect(rewrittenMutations.get(k)['tx-steps']).toEqual(serverSteps);
   }

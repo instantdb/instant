@@ -40,10 +40,12 @@
   into a single jsonb array in v_filter."
   [topic]
   (let [{:strs [idx e a v v_filter]} topic
-        idx-key (keyword (first idx))
-        topic-idx (if (= idx-key :any)
-                    '_
-                    idx-key)
+        topic-idx (reduce (fn [acc idx]
+                            (if (= idx "any")
+                              (reduced '_)
+                              (conj acc (keyword idx))))
+                          #{}
+                          idx)
         e (topic-uuids e)
         a (topic-uuids a)
         func-v (map #(json/->json (json/<-json %) true)
@@ -77,7 +79,7 @@
   (reduce-kv (fn [acc topic-num [idx e a v]]
                (-> acc
                    (update :topic-num conj topic-num)
-                   (update :idx conj [(name idx)])
+                   (update :idx conj (mapv name idx))
                    (update :e conj (if (= e '_)
                                      [(byte-array 0)]
                                      (mapv uuid-util/->bytes e)))
