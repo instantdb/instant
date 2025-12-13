@@ -22,7 +22,6 @@ module.exports = {
     './_posts/**/*.{js,ts,jsx,tsx,md}',
     './components/**/*.{js,ts,jsx,tsx}',
     './utils/**/*.{js,ts,jsx,tsx}',
-    './node_modules/@instantdb/components/src/**/*.{js,ts,jsx,tsx,md}',
   ],
   theme: {
     fontFamily: {

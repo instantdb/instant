@@ -1,11 +1,10 @@
-import React from 'react';
 import {
   cn,
   Fence,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@lib/components/ui';
+} from '@/components/ui';
 import {
   Cell,
   flexRender,
@@ -23,11 +22,10 @@ import {
   ArrowsUpDownIcon,
   ArrowUpIcon,
 } from '@heroicons/react/24/outline';
-import { useIsOverflow } from '@lib/hooks/useIsOverflow';
+import { PushNavStack, TableColMeta } from './Explorer';
+import { useIsOverflow } from '@/lib/hooks/useIsOverflow';
 import { isObject } from 'lodash';
 import copy from 'copy-to-clipboard';
-import { useExplorerProps, useExplorerState } from '.';
-import { TableColMeta } from './inner-explorer';
 
 export const TableHeader = ({
   header,
@@ -188,7 +186,7 @@ export const TableHeader = ({
             }}
           >
             {headerGroup.headers.length - 1 !== index && (
-              <div className="h-full w-0.5 bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="h-full w-[2px] bg-neutral-200 dark:bg-neutral-700"></div>
             )}
           </div>
         </div>
@@ -197,10 +195,14 @@ export const TableHeader = ({
   );
 };
 
-export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
+export const TableCell = ({
+  cell,
+  pushNavStack,
+}: {
+  cell: Cell<any, unknown>;
+  pushNavStack: PushNavStack;
+}) => {
   const resizing = cell.column.getIsResizing();
-
-  const { history } = useExplorerState();
 
   const meta = cell.column.columnDef.meta as TableColMeta | null;
   const { isDragging, setNodeRef, transform } = useSortable({
@@ -276,7 +278,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
                   attr.linkConfig[!attr.isForward ? 'forward' : 'reverse'];
 
                 if (linkConfigDir) {
-                  history.push({
+                  pushNavStack({
                     namespace: linkConfigDir.namespace,
                     where: [`${linkConfigDir.attr}.id`, cell.row.original.id],
                   });
@@ -325,16 +327,9 @@ function formatVal(data: any, pretty?: boolean): string {
 
 function Val({ data, pretty }: { data: any; pretty?: boolean }) {
   const sanitized = formatVal(data, pretty);
-  const explorerProps = useExplorerProps();
 
   if (pretty && isObject(data)) {
-    return (
-      <Fence
-        darkMode={explorerProps.darkMode}
-        code={sanitized}
-        language="json"
-      />
-    );
+    return <Fence code={sanitized} language="json" />;
   }
 
   return <>{sanitized}</>;

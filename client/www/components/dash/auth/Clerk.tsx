@@ -36,7 +36,6 @@ import {
   OAuthClient,
   OAuthServiceProvider,
 } from '@/lib/types';
-import { useDarkMode } from '../DarkModeToggle';
 
 export function AddClerkProviderForm({
   app,
@@ -224,8 +223,6 @@ export function ClerkClient({
   const [showUpdateVerified] = useState(client.meta.allowUnverifiedEmail);
   const deleteDialog = useDialog();
 
-  const { darkMode } = useDarkMode();
-
   const handleDelete = async () => {
     try {
       setIsLoading(true);
@@ -361,7 +358,6 @@ export function ClerkClient({
               your <code>Claims</code> field has the email claim:
               <div className="overflow-auto rounded-sm border text-sm">
                 <Fence
-                  darkMode={darkMode}
                   copyable
                   code={`{
   "email": "{{user.primary_email_address}}",
@@ -377,12 +373,7 @@ export function ClerkClient({
             </Content>
 
             <div className="overflow-auto rounded-sm border text-sm">
-              <Fence
-                darkMode={darkMode}
-                copyable
-                code={exampleCode}
-                language="typescript"
-              />
+              <Fence copyable code={exampleCode} language="typescript" />
             </div>
 
             <Divider />
@@ -442,8 +433,6 @@ export function AddClerkClientForm({
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const [addedEmailClaim, setAddedEmailClaim] = useState(false);
-
-  const { darkMode } = useDarkMode();
 
   const validationError = () => {
     if (!clientName) {
@@ -548,7 +537,6 @@ export function AddClerkClientForm({
           field has the email claim:
           <div className="overflow-auto rounded-sm border text-sm">
             <Fence
-              darkMode={darkMode}
               copyable
               code={`{
   "email": "{{user.primary_email_address}}",

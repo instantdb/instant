@@ -10,7 +10,6 @@ import { init, InstantReactWebDatabase } from '@instantdb/react';
 import { DBAttr, SchemaNamespace } from '@/lib/types';
 import { attrsToSchema } from '@/lib/schema';
 import { apiSchemaToInstantSchemaDef } from '@instantdb/platform';
-import { useDarkMode } from '../DarkModeToggle';
 
 const SAVED_QUERIES_CACHE_KEY = '__instant:explorer-saved-queries';
 const QUERY_HISTORY_CACHE_KEY = '__instant:explorer-query-history';
@@ -97,8 +96,6 @@ export function QueryInspector({
   const { data, isLoading, error } = (
     db as InstantReactWebDatabase<any>
   ).useQuery(query);
-
-  const { darkMode } = useDarkMode();
 
   useEffect(() => {
     const saved = cache.getSavedQueries();
@@ -215,7 +212,6 @@ export function QueryInspector({
 
         <div className="relative h-64 overflow-hidden rounded-sm border-y dark:border-y-neutral-800">
           <CodeEditor
-            darkMode={darkMode}
             language="json"
             value={draft}
             onChange={(code) => setQueryDraft(code)}
@@ -380,7 +376,6 @@ export function QueryInspector({
         <h2 className="mt-4 mb-1 px-3 text-sm font-semibold">Query results</h2>
         <div className="flex-1 overflow-hidden rounded-sm border-y dark:border-y-neutral-700">
           <CodeEditor
-            darkMode={darkMode}
             loading={isLoading}
             language={'json'}
             value={JSON.stringify(data || error || {}, null, 2)}

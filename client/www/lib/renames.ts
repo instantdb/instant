@@ -1,4 +1,4 @@
-import { SchemaNamespace } from '@lib/types';
+import { SchemaNamespace } from './types';
 
 export const createRenameNamespaceOps = (
   newName: string,

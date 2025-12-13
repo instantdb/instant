@@ -1,4 +1,5 @@
-import { toast } from '@instantdb/components';
+import { ToastContainer, toast, Flip } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import {
   ExclamationCircleIcon,
@@ -27,8 +28,22 @@ export function errorToast(text, options) {
       <ExclamationCircleIcon className="text-red-500" width={20} height={20} />
     ),
     toastId: text,
-    autoClose: options?.autoClose ?? 500000000,
+    autoClose: 500000000,
     className: 'whitespace-pre-wrap',
     ...options,
   });
+}
+
+export function StyledToastContainer(props) {
+  return (
+    <ToastContainer
+      theme={props.theme || 'light'}
+      position="top-right"
+      autoClose={3000}
+      hideProgressBar
+      draggablePercent={30}
+      limit={3}
+      closeButton={false}
+    />
+  );
 }

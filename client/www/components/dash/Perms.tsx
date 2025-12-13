@@ -11,7 +11,6 @@ import { HomeButton } from '@/pages/dash';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { FetchedDash, useFetchedDash } from './MainDashLayout';
 import permsJsonSchema from '@/lib/permsJsonSchema';
-import { useDarkMode } from './DarkModeToggle';
 
 export function Perms({
   app,
@@ -33,8 +32,6 @@ export function Perms({
 
   const schema = permsJsonSchema(namespaces);
   const dashResponse = useFetchedDash();
-
-  const { darkMode } = useDarkMode();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -67,7 +64,6 @@ export function Perms({
           </div>
         )}
         <JSONEditor
-          darkMode={darkMode}
           label={
             <span className="text-sm">
               <span
