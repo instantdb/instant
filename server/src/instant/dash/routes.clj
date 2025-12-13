@@ -455,9 +455,7 @@
                                                    :token admin-token}))))
 
 (defn soft-deleted-attrs-get [req]
-  (let [{:keys [app]} (req->app-accepting-superadmin-or-ref-token! :collaborator
-                                                                        :apps/read
-                                                                         req)
+  (let [{:keys [app]} (req->app-and-user! :collaborator req)
         soft-deleted-attrs (attr-model/get-soft-deleted-by-app-id
                             (aurora/conn-pool :read)
                             (:id app))]
@@ -1276,9 +1274,7 @@
 ;; Storage
 
 (defn upload-put [req]
-  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
-                                                                         :apps/read
-                                                                         req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         params (:headers req)
         path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
@@ -1295,9 +1291,7 @@
 
 (defn files-delete [req]
   (let [filenames (ex/get-param! req [:body :filenames] vec)
-        {{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
-                                                                         :apps/write
-                                                                         req)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
         data (storage-coordinator/delete-files! {:app-id app-id
                                                  :paths filenames
                                                  :skip-perms-check? true})]

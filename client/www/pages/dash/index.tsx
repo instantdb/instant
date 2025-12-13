@@ -18,12 +18,12 @@ import {
   MagnifyingGlassIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
-import { Explorer as NewExplorer } from '@instantdb/components';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import { init } from '@instantdb/react';
 import produce from 'immer';
 import Head from 'next/head';
 import NextLink from 'next/link';
+import { useRouter } from 'next/router';
 import { ReactElement, useContext, useEffect, useRef, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 
@@ -34,6 +34,7 @@ import { successToast } from '@/lib/toast';
 import { InstantApp, SchemaNamespace } from '@/lib/types';
 import { titleComparator } from '@/lib/app';
 
+import { Explorer } from '@/components/dash/explorer/Explorer';
 import { AppStart } from '@/components/dash/HomeStartGuide';
 import { Perms } from '@/components/dash/Perms';
 import { Schema } from '@/components/dash/Schema';
@@ -55,6 +56,8 @@ import OAuthApps from '@/components/dash/OAuthApps';
 import { Sandbox } from '@/components/dash/Sandbox';
 import {
   Badge,
+  Button,
+  Content,
   Copyable,
   SectionHeading,
   SmallCopyable,
@@ -63,7 +66,7 @@ import {
   ToggleCollection,
   twel,
 } from '@/components/ui';
-import { SearchFilter, useSchemaQuery } from '@/lib/hooks/explorer';
+import { useSchemaQuery } from '@/lib/hooks/explorer';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 import clsx from 'clsx';
@@ -72,15 +75,6 @@ import { NextPageWithLayout } from '../_app';
 import { capitalize } from 'lodash';
 import { Workspace } from '@/lib/hooks/useWorkspace';
 import AnimatedCounter from '@/components/AnimatedCounter';
-import { useDarkMode } from '@/components/dash/DarkModeToggle';
-import {
-  parseAsBoolean,
-  parseAsInteger,
-  parseAsJson,
-  parseAsString,
-  useQueryStates,
-} from 'nuqs';
-import { useExplorerState } from '@/lib/hooks/useExplorerState';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -951,24 +945,17 @@ function ExplorerTab({
   appId: string;
   namespaces: SchemaNamespace[] | null;
 }) {
-  const { darkMode } = useDarkMode();
-
-  const [explorerState, setExplorerState] = useExplorerState();
-
   return (
-    <>
+    <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex flex-1 flex-col overflow-hidden">
-        <NewExplorer
-          setExplorerState={setExplorerState}
-          explorerState={explorerState}
-          apiURI={config.apiURI}
-          websocketURI={config.websocketURI}
-          darkMode={darkMode}
+        <Explorer
+          db={db}
           appId={appId}
-          adminToken={db.core._reactor.config.__adminToken}
+          namespaces={namespaces}
+          key={db._core._reactor.config.appId}
         />
       </div>
-    </>
+    </div>
   );
 }
 
@@ -1030,7 +1017,7 @@ function AppCombobox({
         <ComboboxButton className="group absolute inset-y-0 right-0 px-2.5">
           <ChevronDownIcon
             height={'1em'}
-            className="fill-gray/300 group-data-hover:fill-gray"
+            className="fill-gray/300 group-data-[hover]:fill-gray"
           />
         </ComboboxButton>
       </div>

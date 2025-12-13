@@ -55,7 +55,7 @@ import {
   generateSchemaTypescriptFile,
 } from '@instantdb/platform';
 import permsJsonSchema from '@/lib/permsJsonSchema';
-import { useMonacoJSONSchema } from '@/lib/hooks/useMonacoJsonSchema';
+import useMonacoJSONSchema from '@/lib/hooks/useMonacoJsonSchema';
 
 const base64Parser = createParser({
   parse(value) {

@@ -1,16 +1,16 @@
+import { Button } from '@/components/ui';
+import { SchemaNamespace, DBAttr } from '@/lib/types';
 import {
-  ArrowUturnLeftIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
-} from '@heroicons/react/24/outline';
-import { Button } from '@lib/components/ui';
-import {
-  DBAttr,
   relationshipConstraintsInverse,
   RelationshipKinds,
-} from '@lib/types';
+} from '@/lib/relationships';
+import {
+  ArrowUturnLeftIcon,
+  ChevronRightIcon,
+  ChevronDownIcon,
+} from '@heroicons/react/24/outline';
 import { add, formatDistanceToNow } from 'date-fns';
-import React, { ReactNode } from 'react';
+import { ReactNode } from 'react';
 
 type SoftDeletedAttr = DBAttr & {
   'deletion-marked-at': string;

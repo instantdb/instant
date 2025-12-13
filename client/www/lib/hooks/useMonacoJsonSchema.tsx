@@ -2,7 +2,7 @@ import { Monaco } from '@monaco-editor/react';
 import { useId } from 'react';
 import { useEffect } from 'react';
 
-export function useMonacoJSONSchema(
+export default function useMonacoJSONSchema(
   path: string,
   monaco?: Monaco,
   schema?: object,

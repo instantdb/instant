@@ -9,12 +9,12 @@ import { TokenContext } from '@/lib/contexts';
 import { CLILoginDialog } from './CLILoginDialog';
 import { useTicketSystem } from '@/lib/hooks/useTicketSystem';
 import { createInitializedContext } from '@/lib/createInitializedContext';
+import { StyledToastContainer } from '@/lib/toast';
 import { TopBar } from './TopBar';
 import { useWorkspace } from '@/lib/hooks/useWorkspace';
 import { InstantApp } from '@/lib/types';
 import { useReadyRouter } from '../clientOnlyPage';
 import { useDarkMode } from './DarkModeToggle';
-import { Toaster } from '@instantdb/components';
 
 export type FetchedDash = ReturnType<typeof useFetchedDash>;
 
@@ -164,7 +164,7 @@ export const MainDashLayout: React.FC<{
           `
         }</style>
       </Head>
-      <Toaster position="top-right" theme={darkMode ? 'dark' : 'light'} />
+      <StyledToastContainer theme={darkMode ? 'dark' : 'light'} />
       <DashFetchProvider
         loading={<FullscreenLoading />}
         error={(error) => (

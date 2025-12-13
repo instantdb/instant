@@ -199,11 +199,7 @@ function LandingProblemStatement() {
             </div>
             <div className="flex flex-1 flex-col gap-4">
               <div className="bg-prism overflow-auto rounded-sm border font-mono text-sm">
-                <Fence
-                  darkMode={false}
-                  language="javascript"
-                  code={queryExampleComponentCode}
-                />
+                <Fence language="javascript" code={queryExampleComponentCode} />
               </div>
             </div>
           </TwoColResponsive>
@@ -352,7 +348,6 @@ function LandingCoreFeatures() {
                     <Tab.Panel>
                       <div className="bg-prism h-80 overflow-auto rounded-sm border text-sm">
                         <Fence
-                          darkMode={false}
                           language="javascript"
                           code={mutationExampleCode}
                         />
@@ -361,7 +356,6 @@ function LandingCoreFeatures() {
                     <Tab.Panel>
                       <div className="bg-prism h-80 overflow-auto rounded-sm border text-sm">
                         <Fence
-                          darkMode={false}
                           language="javascript"
                           code={mutationWithoutInstantExampleCode}
                         />

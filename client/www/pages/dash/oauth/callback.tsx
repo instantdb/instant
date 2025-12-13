@@ -1,3 +1,4 @@
+import { StyledToastContainer } from '@/lib/toast';
 import { NextRouter, useRouter } from 'next/router';
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
@@ -7,8 +8,6 @@ import { messageFromInstantError } from '@/lib/errors';
 import config, { cliOauthParamName } from '@/lib/config';
 import { InstantIssue } from '@/lib/types';
 import { usePostHog } from 'posthog-js/react';
-import { Toaster } from '@instantdb/components';
-import { useDarkMode } from '@/components/dash/DarkModeToggle';
 
 type CallbackState =
   | { type: 'router-loading' }
@@ -95,8 +94,6 @@ export default function OAuthCallback() {
   const router = useRouter();
   const posthog = usePostHog();
 
-  const { darkMode } = useDarkMode();
-
   const [state, setState] = useState<CallbackState>(stateFromRouter(router));
 
   useEffect(() => {
@@ -168,7 +165,7 @@ export default function OAuthCallback() {
         <title>Instant - Log in with Google</title>
       </Head>
       <CallbackScreen state={state} />
-      <Toaster theme={darkMode ? 'dark' : 'light'} position="top-right" />
+      <StyledToastContainer />
     </div>
   );
 }

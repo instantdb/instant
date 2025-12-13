@@ -1,4 +1,3 @@
-import React from 'react';
 import { id, InstantReactWebDatabase, tx } from '@instantdb/react';
 import {
   TextareaHTMLAttributes,
@@ -16,9 +15,9 @@ import {
   Label,
   Select,
   Checkbox,
-} from '@lib/components/ui';
-import { SchemaAttr, SchemaNamespace, SchemaNamespaceMap } from '@lib/types';
-import { errorToast, successToast } from '@lib/components/toast';
+} from '@/components/ui';
+import { SchemaAttr, SchemaNamespace, SchemaNamespaceMap } from '@/lib/types';
+import { errorToast, successToast } from '@/lib/toast';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import {
   Combobox,
@@ -36,7 +35,6 @@ import {
 import { validate } from 'uuid';
 import clsx from 'clsx';
 import { ClockIcon } from '@heroicons/react/24/outline';
-import { useExplorerProps } from '.';
 
 type FieldType = 'string' | 'number' | 'boolean' | 'json';
 type FieldTypeOption = { value: FieldType; label: string };
@@ -424,7 +422,7 @@ function LinkCombobox({
   const options = data?.[namespace.name]?.filter((o) => !ignoreIds.has(o.id));
 
   return (
-    <div className="relative mt-1 w-full">
+    <div className="mt-1 w-full">
       <Combobox
         key={isLoading ? 'query-loading' : 'query-loaded'}
         onChange={(option: any) => {
@@ -453,7 +451,8 @@ function LinkCombobox({
           portal={false}
           unmount={false}
           static={true}
-          className="absolute left-0 z-10 mt-1 max-h-[25vh] w-full divide-y overflow-scroll rounded-md border border-gray-300 bg-white shadow-lg empty:invisible dark:border-neutral-700 dark:bg-neutral-800"
+          className="fixed mt-1 max-h-[25vh] w-(--input-width) divide-y overflow-scroll rounded-md border border-gray-300 bg-white shadow-lg empty:invisible dark:border-neutral-700"
+          style={{ top: inputRef.current?.getBoundingClientRect().bottom }}
         >
           {(options || []).map((o) => (
             <LinkComboboxItem
@@ -466,7 +465,7 @@ function LinkCombobox({
           ))}
         </ComboboxOptions>
         {options?.length || isLoading ? null : (
-          <div className="absolute left-0 z-10 mt-1 w-full divide-y overflow-scroll rounded-md border border-gray-300 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
+          <div className="absolute mt-1 w-(--input-width) divide-y overflow-scroll rounded-md border border-gray-300 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
             No matching rows in <code>{namespace.name}</code>
           </div>
         )}
@@ -598,7 +597,6 @@ export function EditRowDialog({
   onClose: () => void;
 }) {
   const op: 'edit' | 'add' = item.id ? 'edit' : 'add';
-  const explorerProps = useExplorerProps();
 
   const editableBlobAttrs: SchemaAttr[] = [];
   const editableRefAttrs: SchemaAttr[] = [];
@@ -914,7 +912,7 @@ export function EditRowDialog({
       <h5 className="flex text-lg font-bold">
         {op == 'edit' ? 'Edit row' : 'Add row'}
       </h5>
-      <code className="font-mono text-sm font-medium text-gray-500 dark:text-neutral-500">
+      <code className="font-mono text-sm font-medium text-gray-500">
         {op == 'edit' ? (
           <>
             {namespace.name}['{item.id}']
@@ -1009,7 +1007,6 @@ export function EditRowDialog({
                       {type === 'json' ? (
                         <div className="h-32 w-full rounded-sm border">
                           <CodeEditor
-                            darkMode={explorerProps.darkMode}
                             tabIndex={tabIndex}
                             language="json"
                             value={json}
@@ -1055,6 +1052,7 @@ export function EditRowDialog({
                       <Button
                         variant="subtle"
                         size="mini"
+                        className="border"
                         onClick={() => {
                           handleUpdateFieldValue(
                             attr.name,

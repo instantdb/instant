@@ -32,7 +32,6 @@ import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
 
 import linkedinIconSvg from '../../../public/img/linkedin.svg';
-import { useDarkMode } from '../DarkModeToggle';
 
 function exampleCode({
   appId,
@@ -263,8 +262,6 @@ export function Client({
   const [isLoading, setIsLoading] = useState(false);
   const deleteDialog = useDialog();
 
-  const { darkMode } = useDarkMode();
-
   const handleDelete = async () => {
     try {
       setIsLoading(true);
@@ -341,7 +338,6 @@ export function Client({
             </Content>
             <div className="overflow-auto rounded-sm border text-sm">
               <Fence
-                darkMode={darkMode}
                 code={exampleCode({
                   appId: app.id,
                   clientName: client.client_name,
