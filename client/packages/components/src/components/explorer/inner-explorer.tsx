@@ -394,7 +394,19 @@ export const InnerExplorer: React.FC<{
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 
   const distributeRemainingWidth = () => {
-    const result: Record<string, number> = table.getState().columnSizing;
+    const result = Object.entries(table.getState().columnSizing).reduce(
+      (acc, [colId, width]) => {
+        if (colVisiblity.visibility[colId] !== false) {
+          return {
+            ...acc,
+            [colId]: width,
+          };
+        } else {
+          return acc;
+        }
+      },
+      {} as Record<string, number>,
+    );
 
     const fullWidth = tableRef.current?.clientWidth || -1;
 
