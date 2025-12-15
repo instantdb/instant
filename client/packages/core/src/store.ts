@@ -519,6 +519,7 @@ function mergeTriple(store: Store, attrsStore: AttrsStore, rawTriple: Triple) {
   ];
 
   setInMap(store.eav, [eid, aid], new Map([[updatedValue, enhancedTriple]]));
+  setInMap(store.aev, [aid, eid], new Map([[updatedValue, enhancedTriple]]));
 }
 
 function deleteEntity(store: Store, attrsStore: AttrsStore, args: any[]) {

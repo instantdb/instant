@@ -64,8 +64,13 @@ function checkIndexIntegrity({
   const aevTriples = allMapValues(store.aev, 3).sort(tripleSort);
   const vaeTriples = allMapValues(store.vae, 3);
 
-  // Check eav and aev have all the same values
-  expect(eavTriples).toEqual(aevTriples);
+  // Check eav and aev have all the same triples
+  for (let i = 0; i < eavTriples.length; i++) {
+    const et = eavTriples[i];
+    const at = aevTriples[i];
+    expect(et).toEqual(at);
+  }
+  expect(eavTriples.length).toEqual(aevTriples.length);
 
   // Check vae doesn't have extra triples
   for (const triple of vaeTriples) {
@@ -512,6 +517,8 @@ test('deepMerge', () => {
     ),
   );
 
+  checkIndexIntegrity(gameCtx);
+
   const updatedCtx = transact(
     gameCtx.store,
     gameCtx.attrsStore,
@@ -537,6 +544,7 @@ test('deepMerge', () => {
       }),
     ),
   );
+
   const updatedGame = query(updatedCtx, {
     games: { $: { where: { id: gameId } } },
   }).data.games[0];
@@ -551,8 +559,7 @@ test('deepMerge', () => {
     inventory: ['shield'],
     locations: ['forest', undefined, 'castle'],
   });
-  // XXXX: Why does this fail??
-  //checkIndexIntegrity(updatedCtx);
+  checkIndexIntegrity(updatedCtx);
 });
 
 test('recursive links w same id', () => {
