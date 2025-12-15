@@ -57,7 +57,7 @@ query once and returns a result.
 
 ### transact
 
-```javascript {% showCopy=true %}
+```typescript {% showCopy=true %}
 const res = await db.transact([db.tx.todos[id()].update({ title: 'Get fit' })]);
 console.log('New todo entry made for with tx-id', res['tx-id']);
 ```
@@ -471,3 +471,7 @@ export const db = init({
   useDateObjects: true,
 });
 ```
+
+
+## NextJS SSR
+Instant has built in support for SSR using NextJS. See [this example repo](https://github.com/instantdb/instant-ssr-demo) for more information.

@@ -241,10 +241,6 @@ export default abstract class InstantReactAbstractDatabase<
    *
    */
   useAuth = (): AuthState => {
-    return this._useAuth();
-  };
-
-  protected _useAuth(): AuthState {
     // We use a ref to store the result of the query.
     // This is becuase `useSyncExternalStore` uses `Object.is`
     // to compare the previous and next state.
@@ -271,7 +267,7 @@ export default abstract class InstantReactAbstractDatabase<
       () => defaultAuthState,
     );
     return state;
-  }
+  };
 
   /**
    * Subscribe to the currently logged in user.
