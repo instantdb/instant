@@ -565,7 +565,7 @@ export const IconButton = ({
           disabled={disabled}
           onClick={onClick}
           className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-sm p-2',
+            'flex h-9 w-9 cursor-pointer items-center justify-center rounded-sm p-2',
             variant === 'primary' &&
               'bg-[#616AF4] text-white hover:bg-[#4543E9]',
             variant === 'secondary' &&
