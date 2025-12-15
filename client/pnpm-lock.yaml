@@ -63,6 +63,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@instantdb/core':
+        specifier: workspace:*
+        version: link:../core
       '@instantdb/platform':
         specifier: workspace:*
         version: link:../platform
@@ -90,6 +93,9 @@ importers:
       env-paths:
         specifier: ^3.0.0
         version: 3.0.0
+      find-up-simple:
+        specifier: ^1.0.0
+        version: 1.0.0
       json-diff:
         specifier: ^1.0.6
         version: 1.0.6
@@ -99,9 +105,9 @@ importers:
       open:
         specifier: ^10.1.0
         version: 10.1.0
-      pkg-dir:
-        specifier: ^8.0.0
-        version: 8.0.0
+      package-directory:
+        specifier: ^8.1.0
+        version: 8.1.0
       prettier:
         specifier: ^3.3.3
         version: 3.4.2
@@ -11571,6 +11577,10 @@ packages:
   p-wait-for@5.0.2:
     resolution: {integrity: sha512-lwx6u1CotQYPVju77R+D0vFomni/AqRfqLmqQ8hekklqZ6gAY9rONh7lBQ0uxWMkC2AuX9b2DVAl8To0NyP1JA==}
     engines: {node: '>=12'}
+
+  package-directory@8.1.0:
+    resolution: {integrity: sha512-qHKRW0pw3lYdZMQVkjDBqh8HlamH/LCww2PH7OWEp4Qrt3SFeYMNpnJrQzlSnGrDD5zGR51XqBh7FnNCdVNEHA==}
+    engines: {node: '>=18'}
 
   package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
@@ -27250,6 +27260,10 @@ snapshots:
   p-wait-for@5.0.2:
     dependencies:
       p-timeout: 6.1.4
+
+  package-directory@8.1.0:
+    dependencies:
+      find-up-simple: 1.0.0
 
   package-json-from-dist@1.0.1: {}
 
