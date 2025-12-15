@@ -472,6 +472,12 @@
       (with-session
         (fn [store {{sess-id :id :as socket} :socket}]
           (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
+          ;; Reset the tx-id before we test
+          (rs/transact! "store/reset-tx-id"
+                        (rs/app-conn store app-id)
+                        [[:db.fn/call (fn [db]
+                                        [[:db/add (ds/entid db [:tx-meta/app-id app-id]) :tx-meta/processed-tx-id 0]])]])
+
           (blocking-send-msg :add-query-ok socket
                              {:op :add-query
                               :q (:kw-q query-1987)})
