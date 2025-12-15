@@ -1654,7 +1654,10 @@ function EditAttrForm({
 
     await db.core._reactor.pushOps(ops);
 
-    successToast('Updated attribute');
+    // avoid showing 2 success toasts
+    if (isRequired == wasRequired) {
+      successToast('Updated attribute');
+    }
   }
 
   async function renameBlobAttr() {
