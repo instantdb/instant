@@ -744,7 +744,7 @@ export default class Reactor {
           }
         }
         if (newAttrs.length) {
-          const existingAttrs = Object.values(this.ensureAttrs());
+          const existingAttrs = Object.values(this.ensureAttrs().attrs);
           this._setAttrs([...existingAttrs, ...newAttrs]);
           this._setAttrs(newAttrs);
         }
@@ -1919,7 +1919,7 @@ export default class Reactor {
   notifyAttrsSubs() {
     if (!this.attrs) return;
     const oas = this.optimisticAttrs();
-    this.attrsCbs.forEach((cb) => cb(oas));
+    this.attrsCbs.forEach((cb) => cb(oas.attrs));
   }
 
   notifyConnectionStatusSubs(status) {
