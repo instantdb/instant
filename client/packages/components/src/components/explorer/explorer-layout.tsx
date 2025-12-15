@@ -88,17 +88,6 @@ export const ExplorerLayout = ({
           />
           Namespaces
         </div>
-        <div className="flex flex-col gap-2 border-r border-gray-300 bg-neutral-100 p-1 md:hidden dark:border-neutral-700 dark:bg-neutral-800">
-          <button
-            className="flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 select-none hover:bg-neutral-300 dark:hover:bg-neutral-700"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsNsOpen(true);
-            }}
-          >
-            <Bars3Icon height="1rem" className="dark:text-white" />
-          </button>
-        </div>
         {namespaces ? (
           <>
             <div className="overflow-x-hidden overflow-y-auto">
@@ -148,6 +137,17 @@ export const ExplorerLayout = ({
             ))}
           </div>
         )}
+      </div>
+      <div className="flex flex-col gap-2 border-r border-gray-300 bg-neutral-100 p-1 md:hidden dark:border-neutral-700 dark:bg-neutral-800">
+        <button
+          className="flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 select-none hover:bg-neutral-300 dark:hover:bg-neutral-700"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsNsOpen(true);
+          }}
+        >
+          <Bars3Icon height="1rem" className="dark:text-white" />
+        </button>
       </div>
 
       {props.explorerState && <InnerExplorer namespaces={namespaces} db={db} />}
