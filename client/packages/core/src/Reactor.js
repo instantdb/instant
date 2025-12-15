@@ -2,7 +2,7 @@
 import weakHash from './utils/weakHash.ts';
 import instaql from './instaql.ts';
 import * as instaml from './instaml.ts';
-import * as sts from './store.ts';
+import * as s from './store.ts';
 import uuid from './utils/uuid.ts';
 import IndexedDBStorage from './IndexedDBStorage.ts';
 import WindowNetworkListener from './WindowNetworkListener.js';
@@ -118,13 +118,13 @@ function querySubFromStorage(x, useDateObjects) {
   const v = typeof x === 'string' ? JSON.parse(x) : x;
 
   if (v?.result?.store) {
-    const attrsStore = sts.attrsStoreFromJSON(
+    const attrsStore = s.attrsStoreFromJSON(
       v.result.attrsStore,
       v.result.store,
     );
     if (attrsStore) {
       const storeJSON = v.result.store;
-      v.result.store = sts.fromJSON(attrsStore, {
+      v.result.store = s.fromJSON(attrsStore, {
         ...storeJSON,
         useDateObjects: useDateObjects,
       });
@@ -150,7 +150,7 @@ function querySubToStorage(_key, sub) {
     /** @type {import('./reactorTypes.ts').QuerySubResultInStorage} */
     const jsonResult = {
       ...result,
-      store: sts.toJSON(result.store),
+      store: s.toJSON(result.store),
       attrsStore: result.attrsStore.toJSON(),
     };
 
@@ -203,7 +203,7 @@ function sortedMutationEntries(entries) {
  * @template {import('./presence.ts').RoomSchemaShape} [RoomSchema = {}]
  */
 export default class Reactor {
-  /** @type {sts.AttrsStore | undefined} */
+  /** @type {s.AttrsStore | undefined} */
   attrs;
   _isOnline = true;
   _isShutdown = false;
@@ -335,7 +335,7 @@ export default class Reactor {
       },
       this._log,
       (triples) => {
-        return sts.createStore(
+        return s.createStore(
           this.ensureAttrs(),
           triples,
           this.config.enableCardinalityInference,
@@ -589,7 +589,7 @@ export default class Reactor {
         const aggregate = result?.[0]?.data?.['aggregate'];
         const triples = extractTriples(result);
         const attrsStore = this.ensureAttrs();
-        const store = sts.createStore(
+        const store = s.createStore(
           attrsStore,
           triples,
           enableCardinalityInference,
@@ -663,7 +663,7 @@ export default class Reactor {
           const hash = weakHash(q);
           const triples = extractTriples(result);
           const attrsStore = this.ensureAttrs();
-          const store = sts.createStore(
+          const store = s.createStore(
             attrsStore,
             triples,
             enableCardinalityInference,
@@ -746,7 +746,6 @@ export default class Reactor {
         if (newAttrs.length) {
           const existingAttrs = Object.values(this.ensureAttrs().attrs);
           this._setAttrs([...existingAttrs, ...newAttrs]);
-          this._setAttrs(newAttrs);
         }
 
         this._finishTransaction('synced', eventId);
@@ -931,7 +930,7 @@ export default class Reactor {
   }
 
   _setAttrs(attrs) {
-    this.attrs = new sts.AttrsStoreClass(
+    this.attrs = new s.AttrsStoreClass(
       attrs.reduce((acc, attr) => {
         acc[attr.id] = attr;
         return acc;
@@ -1088,7 +1087,7 @@ export default class Reactor {
   // server attr-ids.
   /**
    *
-   * @param {sts.AttrsStore} attrs
+   * @param {s.AttrsStore} attrs
    * @param {any} muts
    * @param {number} [processedTxId]
    */
@@ -1097,12 +1096,12 @@ export default class Reactor {
     if (!muts) return new Map();
     const findExistingAttr = (attr) => {
       const [_, etype, label] = attr['forward-identity'];
-      const existing = sts.getAttrByFwdIdentName(attrs, etype, label);
+      const existing = s.getAttrByFwdIdentName(attrs, etype, label);
       return existing;
     };
     const findReverseAttr = (attr) => {
       const [_, etype, label] = attr['forward-identity'];
-      const revAttr = sts.getAttrByReverseIdentName(attrs, etype, label);
+      const revAttr = s.getAttrByReverseIdentName(attrs, etype, label);
       return revAttr;
     };
     const mapping = { attrIdMap: {}, refSwapAttrIds: new Set() };
@@ -1180,7 +1179,7 @@ export default class Reactor {
   // Transact
 
   /**
-   * @returns {sts.AttrsStore}
+   * @returns {s.AttrsStore}
    */
   optimisticAttrs() {
     const pendingMutationSteps = [...this._pendingMutations().values()] // hack due to Map()
@@ -1207,7 +1206,7 @@ export default class Reactor {
     }
 
     if (!deletedAttrIds.size && !pendingAttrs.length) {
-      return this.attrs || new sts.AttrsStoreClass({}, this._linkIndex);
+      return this.attrs || new s.AttrsStoreClass({}, this._linkIndex);
     }
 
     const attrs = { ...(this.attrs?.attrs || {}) };
@@ -1218,7 +1217,7 @@ export default class Reactor {
       delete attrs[id];
     }
 
-    return new sts.AttrsStoreClass(attrs, this._linkIndex);
+    return new s.AttrsStoreClass(attrs, this._linkIndex);
   }
 
   /** Runs instaql on a query and a store */
@@ -1264,7 +1263,7 @@ export default class Reactor {
   _applyOptimisticUpdates(store, attrsStore, mutations, processedTxId) {
     for (const [_, mut] of mutations) {
       if (!mut['tx-id'] || (processedTxId && mut['tx-id'] > processedTxId)) {
-        const result = sts.transact(store, attrsStore, mut['tx-steps']);
+        const result = s.transact(store, attrsStore, mut['tx-steps']);
         store = result.store;
         attrsStore = result.attrsStore;
       }
