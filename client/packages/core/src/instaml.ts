@@ -162,12 +162,14 @@ function expandLink({ attrsStore }: Ctx, [etype, eidA, obj]) {
             'add-triple',
             extractLookup(attrsStore, etype, eidA),
             fwdAttr.id,
-            // XXX: Better error here
-            extractLookup(attrsStore, fwdAttr!['reverse-identity']![1], eidB),
+            // Uses `!` because if we get here, we should have created the attr if it doesn't
+            // already exist
+            extractLookup(attrsStore, fwdAttr['reverse-identity']![1], eidB),
           ]
         : [
             'add-triple',
-            // XXX: Better error here
+            // Uses `!` because if we get here, we should have created the attr if it doesn't
+            // already exist
             extractLookup(attrsStore, revAttr!['forward-identity']![1], eidB),
             revAttr?.id,
             extractLookup(attrsStore, etype, eidA),
@@ -189,12 +191,14 @@ function expandUnlink({ attrsStore }: Ctx, [etype, eidA, obj]) {
             'retract-triple',
             extractLookup(attrsStore, etype, eidA),
             fwdAttr.id,
-            // XXX: Better error here
+            // Uses `!` because if we get here, we should have created the attr if it doesn't
+            // already exist
             extractLookup(attrsStore, fwdAttr!['reverse-identity']![1], eidB),
           ]
         : [
             'retract-triple',
-            // XXX: Better error here
+            // Uses `!` because if we get here, we should have created the attr if it doesn't
+            // already exist
             extractLookup(attrsStore, revAttr!['forward-identity'][1], eidB),
             revAttr!.id,
             extractLookup(attrsStore, etype, eidA),
@@ -218,7 +222,7 @@ function checkEntityExists(
       const ev = store?.aev.get(entity_a);
       if (ev) {
         // This would be a lot more efficient with a ave index
-        for (const [e_, a_, v] of allMapValues(ev, 2)) {
+        for (const [_e, _a, v] of allMapValues(ev, 2)) {
           if (v === entity_v) {
             return true;
           }
@@ -267,7 +271,7 @@ function expandCreate(ctx: Ctx, step) {
   const attrTuples = [['id', lookup]]
     .concat(Object.entries(obj))
     .map(([identName, value]: [string, any]) => {
-      // XXX: missing attr?
+      // Uses `!` because we should have optimistically created the attr if it doesn't exist
       const attr = getAttrByFwdIdentName(attrsStore, etype, identName)!;
 
       if (attr['checked-data-type'] === 'date' && ctx.useDateObjects) {

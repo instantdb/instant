@@ -588,8 +588,9 @@ export default class Reactor {
         const pageInfo = result?.[0]?.data?.['page-info'];
         const aggregate = result?.[0]?.data?.['aggregate'];
         const triples = extractTriples(result);
+        const attrsStore = this.ensureAttrs();
         const store = sts.createStore(
-          this.ensureAttrs(),
+          attrsStore,
           triples,
           enableCardinalityInference,
           this.config.useDateObjects,
@@ -602,7 +603,7 @@ export default class Reactor {
           }
           prev[hash].result = {
             store,
-            attrsStore: this.ensureAttrs(),
+            attrsStore,
             pageInfo,
             aggregate,
             processedTxId: msg['processed-tx-id'],

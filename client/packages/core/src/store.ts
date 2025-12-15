@@ -100,13 +100,10 @@ export class AttrsStoreClass implements AttrsStore {
     return this.attrs[id];
   }
 
-  // XXX: Might be better to create all of the indexes at once as soon as someone
-  //      requests one index
   get blobAttrs(): Map<string, Map<string, InstantDBAttr>> {
     if (this._blobAttrs) {
       return this._blobAttrs;
     }
-    console.log('blobAttrs');
     this._blobAttrs = new Map();
     for (const attr of Object.values(this.attrs)) {
       if (isBlob(attr)) {
@@ -121,7 +118,6 @@ export class AttrsStoreClass implements AttrsStore {
     if (this._primaryKeys) {
       return this._primaryKeys;
     }
-    console.log('primayKeys');
     this._primaryKeys = new Map();
 
     for (const attr of Object.values(this.attrs)) {
@@ -137,7 +133,6 @@ export class AttrsStoreClass implements AttrsStore {
     if (this._forwardIdents) {
       return this._forwardIdents;
     }
-    console.log('fwdIdents');
     this._forwardIdents = new Map();
 
     for (const attr of Object.values(this.attrs)) {
@@ -152,7 +147,6 @@ export class AttrsStoreClass implements AttrsStore {
     if (this._revIdents) {
       return this._revIdents;
     }
-    console.log('revIdents');
     this._revIdents = new Map();
 
     for (const attr of Object.values(this.attrs)) {
