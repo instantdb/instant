@@ -20,6 +20,7 @@
    [datascript.conn :as d-conn]
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
+   [instant.db.model.transaction :as tx-model]
    [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
@@ -202,7 +203,11 @@
                      :executor executor}))
 
 (defn create-conn [schema app-id]
-  (let [conn (d/create-conn schema)
+  (let [conn (-> (d/empty-db schema)
+                 (d/with [{:tx-meta/app-id app-id
+                           :tx-meta/processed-tx-id (tx-model/max-seen-tx-id)}])
+                 :db-after
+                 d/conn-from-db)
         cache-executor (ua/make-vfuture-executor)]
     (alter-meta! conn
                  assoc

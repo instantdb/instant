@@ -2,7 +2,16 @@
   (:require
    [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
-   [instant.jdbc.aurora :as aurora]))
+   [instant.jdbc.aurora :as aurora])
+  (:import (java.util.concurrent.atomic AtomicLong)))
+
+(defonce -max-seen-tx-id (AtomicLong. 0))
+
+(defn max-seen-tx-id []
+  (.get ^AtomicLong -max-seen-tx-id))
+
+(defn set-max-seen-tx-id [^long v]
+  (.set ^AtomicLong -max-seen-tx-id v))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
@@ -25,3 +34,9 @@
                         (str (flags/log-to-wal-log-table?))
                         app-id]
                        ["insert into transactions (app_id) values (?::uuid)" app-id]))))
+
+(defn max-tx-id [conn]
+  (:max_id (sql/select-one ::max-tx-id conn ["select max(id) as max_id from transactions"])))
+
+(defn init [conn]
+  (set-max-seen-tx-id (max-tx-id conn)))
