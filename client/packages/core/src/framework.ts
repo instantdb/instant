@@ -237,7 +237,7 @@ export class FrameworkClient {
     pageInfo?: any;
   }> => {
     const response = await fetch(
-      `${this.db._reactor.config.apiURI}/runtime/query`,
+      `${this.db._reactor.config.apiURI}/runtime/framework/query`,
       {
         method: 'POST',
         headers: {
