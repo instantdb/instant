@@ -32,6 +32,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
 } from '@heroicons/react/24/solid';
+import { useDarkMode } from '../DarkModeToggle';
 
 function NonceCheckNotice() {
   return (
@@ -319,6 +320,8 @@ export function Client({
   const [isLoading, setIsLoading] = useState(false);
   const deleteDialog = useDialog();
 
+  const { darkMode } = useDarkMode();
+
   const didSkipNonceChecks = client.meta?.skipNonceChecks;
   const appType: AppType = client.meta?.appType || 'web';
 
@@ -457,7 +460,11 @@ const url = db.auth.createAuthorizationURL({
                   link in your app.
                 </Content>
                 <div className="overflow-auto rounded-sm border text-sm">
-                  <Fence code={exampleCode} language="typescript" />
+                  <Fence
+                    darkMode={darkMode}
+                    code={exampleCode}
+                    language="typescript"
+                  />
                 </div>
               </>
             )}
@@ -477,7 +484,11 @@ const url = db.auth.createAuthorizationURL({
                   `react-native-google-signin`:
                 </Content>
                 <div className="overflow-auto rounded-sm border text-sm">
-                  <Fence code={exampleRNCode} language="typescript" />
+                  <Fence
+                    darkMode={darkMode}
+                    code={exampleRNCode}
+                    language="typescript"
+                  />
                 </div>
               </>
             )}

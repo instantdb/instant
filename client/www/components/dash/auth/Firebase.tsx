@@ -30,6 +30,7 @@ import {
   OAuthClient,
   OAuthServiceProvider,
 } from '@/lib/types';
+import { useDarkMode } from '../DarkModeToggle';
 
 export function AddFirebaseProviderForm({
   app,
@@ -133,6 +134,8 @@ export function FirebaseClient({
   const [isLoading, setIsLoading] = useState(false);
   const deleteDialog = useDialog();
 
+  const { darkMode } = useDarkMode();
+
   const handleDelete = async () => {
     try {
       setIsLoading(true);
@@ -200,7 +203,12 @@ export function FirebaseClient({
             </Content>
 
             <div className="overflow-auto rounded-sm border text-sm">
-              <Fence copyable code={exampleCode} language="typescript" />
+              <Fence
+                darkMode={darkMode}
+                copyable
+                code={exampleCode}
+                language="typescript"
+              />
             </div>
 
             <Divider />

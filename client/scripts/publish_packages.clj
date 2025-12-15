@@ -14,7 +14,9 @@
                     :cli "./packages/cli"
                     :platform "./packages/platform"
                     :create-instant-app "./packages/create-instant-app"
-                    :mcp "./packages/mcp"})
+                    :mcp "./packages/mcp"
+                    :components "./packages/components"
+                    })
 
 (defn package-json-path [main]
   (str main "/package.json"))

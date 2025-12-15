@@ -18,6 +18,7 @@ import { displayInstantStandardError, useForm } from '@/lib/hooks/useForm';
 import { errorToast, successToast } from '@/lib/toast';
 import clsx from 'clsx';
 import { useFetchedDash } from '../MainDashLayout';
+import { useDarkMode } from '../DarkModeToggle';
 
 export type EmailValues = {
   from: string;
@@ -69,6 +70,8 @@ export function Email({ app }: { app: InstantApp }) {
     isVerifying: false,
     verification: null,
   });
+
+  const { darkMode } = useDarkMode();
 
   const checkVerification = async () => {
     setVerification((prev) => ({ ...prev, isVerifying: true }));
@@ -206,6 +209,7 @@ export function Email({ app }: { app: InstantApp }) {
           })}
         >
           <CodeEditor
+            darkMode={darkMode}
             className="dark:border-neutral-600"
             language="html"
             {...form.inputProps('bodyHtml')}
