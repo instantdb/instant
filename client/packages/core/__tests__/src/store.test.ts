@@ -11,6 +11,7 @@ import {
   getAttrByFwdIdentName,
   Store,
   AttrsStore,
+  attrsStoreFromJSON,
 } from '../../src/store';
 import query from '../../src/instaql';
 import uuid from '../../src/utils/uuid';
@@ -690,4 +691,21 @@ test('date conversion', () => {
     expect(result.data.todos.length).toBe(1);
     expect(result.data.todos[0].createdAt).toBeTypeOf('number');
   }).not.toThrow();
+});
+
+test('v0 store restores', () => {
+  function toJSONOld(store) {
+    return {
+      __type: store.__type,
+      attrs: store.attrs,
+      triples: allMapValues(store.eav, 3),
+      cardinalityInference: store.cardinalityInference,
+      linkIndex: store.linkIndex,
+      useDateObjects: store.useDateObjects,
+    };
+  }
+  const v0Json = toJSONOld({ ...store, attrs: zenecaAttrsStore.attrs });
+  const attrsStore = attrsStoreFromJSON(null, v0Json);
+  const restored = fromJSON(attrsStore!, v0Json);
+  expect(restored).toEqual(store);
 });
