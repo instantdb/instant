@@ -239,7 +239,8 @@
            (instance? Number x)
            (= (.longValue ^Number x) epoch-millis)
 
-           :else false))))))
+           :else
+           (throw (ex-info "Unsupported date conversion" {::args args}))))))))
 
 (def ^:private ^CelCompiler instaql-topic-cel-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
