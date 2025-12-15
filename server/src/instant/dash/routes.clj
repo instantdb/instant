@@ -455,7 +455,9 @@
                                                    :token admin-token}))))
 
 (defn soft-deleted-attrs-get [req]
-  (let [{:keys [app]} (req->app-and-user! :collaborator req)
+  (let [{:keys [app]} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                   :apps/read
+                                                                   req)
         soft-deleted-attrs (attr-model/get-soft-deleted-by-app-id
                             (aurora/conn-pool :read)
                             (:id app))]
@@ -1274,7 +1276,9 @@
 ;; Storage
 
 (defn upload-put [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :apps/read
+                                                                         req)
         params (:headers req)
         path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
@@ -1291,7 +1295,9 @@
 
 (defn files-delete [req]
   (let [filenames (ex/get-param! req [:body :filenames] vec)
-        {{app-id :id} :app} (req->app-and-user! :collaborator req)
+        {{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :apps/write
+                                                                         req)
         data (storage-coordinator/delete-files! {:app-id app-id
                                                  :paths filenames
                                                  :skip-perms-check? true})]
@@ -1360,7 +1366,7 @@
 ;; Indexing Jobs
 
 (defn indexing-job-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/read req)
         job-id (ex/get-param! req [:params :job_id] uuid-util/coerce)
         job (indexing-jobs/get-by-id-for-client app-id job-id)]
     (response/ok {:job job})))
@@ -1374,7 +1380,9 @@
     (response/ok {:jobs jobs})))
 
 (defn indexing-job-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :apps/write
+                                                                         req)
         attr-id (ex/get-param! req [:body :attr-id] uuid-util/coerce)
         job-type (ex/get-param! req
                                 [:body :job-type]
