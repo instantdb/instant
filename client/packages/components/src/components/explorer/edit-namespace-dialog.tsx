@@ -1,3 +1,4 @@
+import React from 'react';
 import { id } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import {
@@ -15,7 +16,7 @@ import {
   ArrowUturnLeftIcon,
   PencilSquareIcon,
 } from '@heroicons/react/24/solid';
-import { errorToast, successToast } from '@/lib/toast';
+import { errorToast, successToast } from '@lib/components/toast';
 import {
   ActionButton,
   ActionForm,
@@ -31,12 +32,12 @@ import {
   Select,
   TextInput,
   ToggleGroup,
-} from '@/components/ui';
+} from '@lib/components/ui';
 import {
   RelationshipKinds,
   relationshipConstraints,
   relationshipConstraintsInverse,
-} from '@/lib/relationships';
+} from '@lib/types';
 import {
   CheckedDataType,
   DBAttr,
@@ -44,45 +45,41 @@ import {
   InstantIndexingJobInvalidTriple,
   SchemaAttr,
   SchemaNamespace,
-} from '@/lib/types';
+} from '@lib/types';
 import {
   createJob,
   jobFetchLoop,
   jobIsCompleted,
   jobIsErrored,
-} from '@/lib/indexingJobs';
-import { useAuthToken } from '@/lib/auth';
-import type { ExplorerNav, PushNavStack } from './Explorer';
+} from '@lib/utils/indexingJobs';
+import { useExplorerProps, useExplorerState } from './index';
 import { useClose } from '@headlessui/react';
 import {
   PendingJob,
   useEditBlobConstraints,
-} from '@/lib/hooks/useEditBlobConstraints';
-import { RecentlyDeletedAttrs } from './RecentlyDeleted';
-import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
-import { createRenameNamespaceOps } from '@/lib/renames';
+} from '@lib/hooks/useEditBlobConstraints';
+import { RecentlyDeletedAttrs } from './recently-deleted';
+import { useAttrNotes } from '@lib/hooks/useAttrNotes';
+import { createRenameNamespaceOps } from '@lib/utils/renames';
 import { useSWRConfig } from 'swr';
 
 export function EditNamespaceDialog({
   db,
-  appId,
   namespace,
   namespaces,
   onClose,
   isSystemCatalogNs,
-  pushNavStack,
-  replaceNav,
 }: {
   db: InstantReactWebDatabase<any>;
-  appId: string;
   namespace: SchemaNamespace;
   namespaces: SchemaNamespace[];
   onClose: (p?: { ok: boolean }) => void;
   readOnly: boolean;
   isSystemCatalogNs: boolean;
-  pushNavStack: PushNavStack;
-  replaceNav: (nav: Partial<ExplorerNav>) => void;
 }) {
+  const props = useExplorerProps();
+  const appId = props.appId;
+  const { history, explorerState } = useExplorerState();
   const { mutate } = useSWRConfig();
   const [screen, setScreen] = useState<
     | { type: 'main' }
@@ -116,9 +113,12 @@ export function EditNamespaceDialog({
     const ops = createRenameNamespaceOps(newName, namespace, namespaces);
 
     await db.core._reactor.pushOps(ops);
-    replaceNav({
-      namespace: newName,
-    });
+    history.push(
+      {
+        namespace: newName,
+      },
+      true,
+    );
     successToast('Renamed namespace to ' + newName);
     setRenameNsInput('');
     setScreen({ type: 'main' });
@@ -292,7 +292,6 @@ export function EditNamespaceDialog({
         />
       ) : screen.type === 'edit' && screenAttr ? (
         <EditAttrForm
-          appId={appId}
           db={db}
           attr={screenAttr}
           onClose={() => setScreen({ type: 'main' })}
@@ -301,7 +300,6 @@ export function EditNamespaceDialog({
             isSystemCatalogNs: isSystemCatalogNs,
             attr: screenAttr,
           })}
-          pushNavStack={pushNavStack}
         />
       ) : null}
     </>
@@ -684,14 +682,13 @@ function InvalidTriplesSample({
 function IndexingJobError({
   indexingJob,
   attr,
-  pushNavStack,
   onClose,
 }: {
   indexingJob?: InstantIndexingJob | null;
   attr: SchemaAttr;
-  pushNavStack: PushNavStack;
   onClose: () => void;
 }) {
+  const { history } = useExplorerState();
   if (!indexingJob) return;
   if (indexingJob.error === 'missing-required-error') {
     return (
@@ -714,7 +711,7 @@ function IndexingJobError({
           }}
           attr={attr}
           onClickSample={(t) => {
-            pushNavStack({
+            history.push({
               namespace: attr.namespace,
               where: ['id', t.entity_id],
             });
@@ -734,7 +731,7 @@ function IndexingJobError({
           indexingJob={indexingJob}
           attr={attr}
           onClickSample={(t) => {
-            pushNavStack({
+            history.push({
               namespace: attr.namespace,
               where: ['id', t.entity_id],
             });
@@ -757,7 +754,7 @@ function IndexingJobError({
           indexingJob={indexingJob}
           attr={attr}
           onClickSample={(t) => {
-            pushNavStack({
+            history.push({
               namespace: attr.namespace,
               where: ['id', t.entity_id],
             });
@@ -786,11 +783,10 @@ function IndexingJobError({
                 typeof indexingJob.invalid_unique_value === 'object'
                   ? undefined
                   : () => {
-                      pushNavStack({
+                      history.push({
                         namespace: attr.namespace,
                         where: [attr.name, indexingJob.invalid_unique_value],
                       });
-                      // It would be nice to have a way to minimize the dialog so you could go back
                       onClose();
                     }
               }
@@ -805,11 +801,10 @@ function IndexingJobError({
           indexingJob={indexingJob}
           attr={attr}
           onClickSample={(t) => {
-            pushNavStack({
+            history.push({
               namespace: attr.namespace,
               where: ['id', t.entity_id],
             });
-            // It would be nice to have a way to minimize the dialog so you could go back
             onClose();
           }}
         />
@@ -1112,12 +1107,14 @@ async function updateRequired({
   authToken,
   setIndexingJob,
   stopFetchLoop,
+  apiURI,
 }: {
   appId: string;
   attr: SchemaAttr;
   isRequired: boolean;
   authToken: string | undefined;
   setIndexingJob: (job: InstantIndexingJob) => void;
+  apiURI: string;
   stopFetchLoop: MutableRefObject<null | (() => void)>;
 }) {
   if (!authToken || isRequired === attr.isRequired) {
@@ -1131,11 +1128,12 @@ async function updateRequired({
         appId,
         attrId: attr.id,
         jobType: isRequired ? 'required' : 'remove-required',
+        apiURI,
       },
       authToken,
     );
     setIndexingJob(job);
-    const fetchLoop = jobFetchLoop(appId, job.id, authToken);
+    const fetchLoop = jobFetchLoop(appId, job.id, authToken, apiURI);
     stopFetchLoop.current = fetchLoop.stop;
     const finishedJob = await fetchLoop.start((data, error) => {
       if (error) {
@@ -1182,7 +1180,6 @@ type BlobConstraintControlComponent<V> = (props: {
   disabled: boolean;
   disabledReason?: string;
   attr: SchemaAttr;
-  pushNavStack: PushNavStack;
 }) => JSX.Element;
 
 const EditCheckedDataTypeControl: BlobConstraintControlComponent<
@@ -1195,7 +1192,6 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
   disabled,
   disabledReason,
   attr,
-  pushNavStack,
 }) => {
   const notRunning = !runningJob || jobIsCompleted(runningJob);
   const closeDialog = useClose();
@@ -1272,7 +1268,6 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
         <IndexingJobError
           indexingJob={runningJob}
           attr={attr}
-          pushNavStack={pushNavStack}
           onClose={closeDialog}
         />
       )}
@@ -1287,7 +1282,6 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
   setValue,
   disabled,
   disabledReason,
-  pushNavStack,
   attr,
 }) => {
   const closeDialog = useClose();
@@ -1335,7 +1329,6 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
         <IndexingJobError
           indexingJob={runningJob}
           attr={attr}
-          pushNavStack={pushNavStack}
           onClose={closeDialog}
         />
       )}
@@ -1351,7 +1344,6 @@ const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
   disabled,
   disabledReason,
   attr,
-  pushNavStack,
 }) => {
   const closeDialog = useClose();
 
@@ -1398,7 +1390,6 @@ const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
         <IndexingJobError
           indexingJob={runningJob}
           attr={attr}
-          pushNavStack={pushNavStack}
           onClose={closeDialog}
         />
       )}
@@ -1413,7 +1404,6 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
   setValue,
   disabled,
   disabledReason,
-  pushNavStack,
   attr,
 }) => {
   const closeDialog = useClose();
@@ -1461,7 +1451,6 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
         <IndexingJobError
           indexingJob={runningJob}
           attr={attr}
-          pushNavStack={pushNavStack}
           onClose={closeDialog}
         />
       )}
@@ -1473,12 +1462,10 @@ const EditBlobConstraints = ({
   appId,
   attr,
   constraints,
-  pushNavStack,
 }: {
   appId: string;
   attr: SchemaAttr;
   constraints: SystemConstraints;
-  pushNavStack: PushNavStack;
 }) => {
   const [requiredChecked, setRequiredChecked] = useState(
     attr.isRequired || false,
@@ -1492,16 +1479,13 @@ const EditBlobConstraints = ({
     CheckedDataType | 'any'
   >(attr.checkedDataType || 'any');
 
-  const token = useAuthToken();
-  if (!token) {
-    return null;
-  }
+  const explorerProps = useExplorerProps();
 
   const { isPending, pending, apply, isRunning, running, progress } =
     useEditBlobConstraints({
       attr,
       appId,
-      token,
+      token: explorerProps.adminToken,
       isRequired: requiredChecked,
       isIndexed: indexedChecked,
       isUnique: uniqueChecked,
@@ -1520,7 +1504,6 @@ const EditBlobConstraints = ({
           disabled={constraints.require.disabled}
           disabledReason={constraints.require.message}
           attr={attr}
-          pushNavStack={pushNavStack}
         />
         <EditIndexedControl
           pendingJob={pending.index}
@@ -1530,7 +1513,6 @@ const EditBlobConstraints = ({
           disabled={constraints.attr.disabled}
           disabledReason={constraints.attr.message}
           attr={attr}
-          pushNavStack={pushNavStack}
         />
         <EditUniqueControl
           pendingJob={pending.unique}
@@ -1540,7 +1522,6 @@ const EditBlobConstraints = ({
           disabled={constraints.attr.disabled}
           disabledReason={constraints.attr.message}
           attr={attr}
-          pushNavStack={pushNavStack}
         />
         <EditCheckedDataTypeControl
           pendingJob={pending.type}
@@ -1550,7 +1531,6 @@ const EditBlobConstraints = ({
           disabled={constraints.attr.disabled}
           disabledReason={constraints.attr.message}
           attr={attr}
-          pushNavStack={pushNavStack}
         />
         <ProgressButton
           loading={!!progress}
@@ -1570,19 +1550,17 @@ const EditBlobConstraints = ({
 
 function EditAttrForm({
   db,
-  appId,
   attr,
   onClose,
   constraints,
-  pushNavStack,
 }: {
   db: InstantReactWebDatabase<any>;
-  appId: string;
   attr: SchemaAttr;
   onClose: () => void;
   constraints: SystemConstraints;
-  pushNavStack: PushNavStack;
 }) {
+  const props = useExplorerProps();
+  const appId = props.appId;
   const { mutate } = useSWRConfig();
   const [screen, setScreen] = useState<{ type: 'main' } | { type: 'delete' }>({
     type: 'main',
@@ -1598,6 +1576,8 @@ function EditAttrForm({
     return relKind;
   });
 
+  const explorerProps = useExplorerProps();
+
   const [isCascade, setIsCascade] = useState(() => attr.onDelete === 'cascade');
 
   const [isCascadeReverse, setIsCascadeReverse] = useState(
@@ -1607,7 +1587,6 @@ function EditAttrForm({
   const [isRequired, setIsRequired] = useState(attr.isRequired || false);
   const [wasRequired, _] = useState(isRequired);
 
-  const authToken = useAuthToken();
   const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
     null,
   );
@@ -1641,9 +1620,10 @@ function EditAttrForm({
         appId,
         attr,
         isRequired,
-        authToken,
+        authToken: explorerProps.adminToken,
         setIndexingJob,
         stopFetchLoop,
+        apiURI: explorerProps.apiURI,
       });
 
       if (res != 'completed') return;
@@ -1672,7 +1652,7 @@ function EditAttrForm({
       ],
     ];
 
-    await db._core._reactor.pushOps(ops);
+    await db.core._reactor.pushOps(ops);
 
     successToast('Updated attribute');
   }
@@ -1692,13 +1672,13 @@ function EditAttrForm({
       ],
     ];
 
-    await db._core._reactor.pushOps(ops);
+    await db.core._reactor.pushOps(ops);
 
     successToast('Renamed attribute');
   }
 
   async function deleteAttr() {
-    await db._core._reactor.pushOps([['delete-attr', attr.id]]);
+    await db.core._reactor.pushOps([['delete-attr', attr.id]]);
     // update the recently deleted attr cache
     setTimeout(() => {
       mutate(['recently-deleted', appId]);
@@ -1744,7 +1724,6 @@ function EditAttrForm({
             appId={appId}
             attr={attr}
             constraints={constraints}
-            pushNavStack={pushNavStack}
           />
 
           <Divider />
@@ -1804,7 +1783,6 @@ function EditAttrForm({
           <IndexingJobError
             indexingJob={indexingJob}
             attr={attr}
-            pushNavStack={pushNavStack}
             onClose={() => {
               closeDialog();
               onClose();

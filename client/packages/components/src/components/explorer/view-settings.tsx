@@ -1,6 +1,7 @@
-import { Switch } from '@/components/switch';
-import { Checkbox, Dialog, Divider, IconButton } from '@/components/ui';
-import { useColumnVisibility } from '@/lib/hooks/useColumnVisibility';
+import React from 'react';
+import { Switch } from '@lib/components/ui';
+import { Checkbox, Dialog, Divider, IconButton } from '@lib/components/ui';
+import { useColumnVisibility } from '@lib/hooks/useColumnVisibility';
 import { Cog6ToothIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 
@@ -39,7 +40,7 @@ export const ViewSettings = ({
           <div>Visible Columns</div>
           <div className="py-1">
             {visiblity.attrs?.map((attr) => (
-              <div className="flex gap-2">
+              <div key={attr.id + attr.name} className="flex gap-2">
                 <Checkbox
                   label={attr.name}
                   checked={visiblity.visibility[attr.id + attr.name] !== false}
