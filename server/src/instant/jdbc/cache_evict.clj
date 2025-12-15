@@ -1,6 +1,7 @@
 (ns instant.jdbc.cache-evict
   (:require
    [instant.db.model.attr :as attr-model]
+   [instant.db.model.transaction :as tx-model]
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]))
@@ -55,7 +56,8 @@
                (app-model/evict-app-id-from-cache app-id)
                (instant-user-model/evict-app-id-from-cache app-id))
       "instant_users" (instant-user-model/evict-user-id-from-cache (get-id wal-record))
-
+      "transactions" (when (= :insert (:action wal-record))
+                       (tx-model/set-max-seen-tx-id (get-column (:columns wal-record) "id")))
       nil)
 
     nil))
