@@ -624,7 +624,7 @@
         auth-token (http-util/req->bearer-token req)
         app-id (req->app-id-untrusted! req)
         user (when auth-token
-               (app-user-model/get-by-refresh-token! {:refresh-token auth-token
+               (app-user-model/get-by-refresh-token {:refresh-token auth-token
                                                       :app-id app-id}))
         attrs (attr-model/get-by-app-id app-id)
         ctx {:db {:conn-pool (aurora/conn-pool :read)}
