@@ -30,14 +30,6 @@
 ;; ---------
 ;; form->ast!
 
-(def ^:private pagination-option-keys
-  [:limit :first :last :offset :before :after])
-
-(defn- assert-no-pagination! [{:keys [option-map]}]
-  (let [present (filterv #(contains? option-map %) pagination-option-keys)]
-    (when (seq present)
-      (throw-not-supported! [:pagination {:options present}]))))
-
 (defn- normalize-date-value [v]
   (.toEpochMilli ^Instant (triple-model/parse-date-value v)))
 
@@ -170,7 +162,6 @@
 
 (defn- top-form->cel-expr!
   [{:keys [attrs]} {:keys [etype option-map]}]
-  (assert-no-pagination! {:option-map option-map})
   (let [{:keys [where-conds]} option-map
         etype-check (b/= (b/get 'entity "etype") etype)
         attr-checks (mapv (fn [where-cond]
