@@ -37,7 +37,7 @@
       (request {:method :post
                 :url    "/runtime/auth/send_magic_code"
                 :body   (assoc body
-                         :app-id (:id app))}))
+                               :app-id (:id app))}))
     (re-find #"\d+" (-> @letter :subject))))
 
 (defn post-code-admin [app body]
@@ -66,7 +66,7 @@
   (-> (request {:method :post
                 :url    "/runtime/auth/verify_magic_code"
                 :body   (assoc body
-                         :app-id (:id app))})
+                               :app-id (:id app))})
       :body
       :user))
 
@@ -261,6 +261,7 @@
                                                   :app-id (:id app)})]
               (is (= (:email user) "test@example.com"))
               (is (= (:sub link) sub))))
+
           (testing "sign in with same sub produces same user"
             (let [link (route/upsert-oauth-link! {:email "test@example.com"
                                                   :sub sub
@@ -303,3 +304,49 @@
               (is (= (:email user) "test2@example.com"))
               (is (= "user" (:type user)))
               (is (= (:sub link) sub)))))))))
+
+(deftest upsert-oauth-link-disambiguates-with-email
+  (with-empty-app
+    (fn [app]
+      ;; Apple OAuth lets you provide "relay" emails: 
+      ;; these are anonymous emails that forward to the user's real email. 
+
+      ;; This opens up a potential problem. 
+
+      ;; Consider the following scenario: 
+      ;; (1) User signs in with magic code: stopa@instantdb.com 
+      ;; (2) User signs in with with Apple, private relay on: foo@privaterelay.appleid.com  
+
+      ;; At this point we'll have _2_ separate users. 
+
+      ;; Now 
+      ;; (3) The user signs in with Apple, private relay off: stopa@instantdb.com. 
+
+      ;; Which user should we link this 3rd sign up too? It matches _both_ the 
+      ;; existing email user, and the existing Apple Oauth link. 
+
+      ;; Currently, we choose the existing email user. 
+      ;; This means that the user with the private relay email will get stranded. 
+      ;; However, in the worst case scenario, they can be recovered manually.
+      (let [provider (provider-model/create! {:app-id (:id app)
+                                              :provider-name "apple"})
+            email "stopa@instantdb.com"
+            sub "apple-sub"
+
+            email-user (app-user-model/create! {:app-id (:id app)
+                                                :email email
+                                                :type "user"})
+
+            anon-link (route/upsert-oauth-link! {:email "abcd1234@privaterelay.appleid.com"
+                                                 :sub sub
+                                                 :app-id (:id app)
+                                                 :provider-id (:id provider)})
+
+            revealed-link (route/upsert-oauth-link! {:email email
+                                                     :sub sub
+                                                     :app-id (:id app)
+                                                     :provider-id (:id provider)})]
+        (is email-user)
+        (is anon-link)
+        (is (not= (:id email-user) (:user_id anon-link)))
+        (is (= (:id email-user) (:user_id revealed-link)))))))
