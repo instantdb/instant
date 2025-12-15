@@ -1263,7 +1263,11 @@ export default class Reactor {
 
   _applyOptimisticUpdates(store, attrsStore, mutations, processedTxId) {
     for (const [_, mut] of mutations) {
-      if (!mut['tx-id'] || (processedTxId && mut['tx-id'] > processedTxId)) {
+      if (
+        !mut['tx-id'] ||
+        !processedTxId ||
+        (processedTxId && mut['tx-id'] > processedTxId)
+      ) {
         const result = sts.transact(store, attrsStore, mut['tx-steps']);
         store = result.store;
         attrsStore = result.attrsStore;
