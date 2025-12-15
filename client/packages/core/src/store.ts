@@ -201,19 +201,22 @@ function deleteInMap(m, path) {
   deleteInMap(m.get(head), tail);
 }
 
-function setInMap(m, path, value) {
-  if (path.length === 0) throw new Error('path must have at least one element');
-  if (path.length === 1) {
-    m.set(path[0], value);
-    return;
+function setInMap(m: Map<any, any>, path: any[], value: any) {
+  let current = m;
+  const lastI = path.length - 1;
+  for (let i = 0; i < lastI; i++) {
+    const part = path[i];
+
+    let nextMap = current.get(part);
+    if (nextMap === undefined) {
+      nextMap = new Map();
+      current.set(part, nextMap);
+    }
+    current = nextMap;
   }
-  const [head, ...tail] = path;
-  let nextM = m.get(head);
-  if (!nextM) {
-    nextM = new Map();
-    m.set(head, nextM);
+  if (lastI > -1) {
+    current.set(path[lastI], value);
   }
-  setInMap(nextM, tail, value);
 }
 
 function isDateAttr(attr: InstantDBAttr) {
