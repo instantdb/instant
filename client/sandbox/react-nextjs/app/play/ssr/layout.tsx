@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
-import { db } from './db';
+import { appId } from './db';
 import { InstantSuspenseProvider } from '@instantdb/react/nextjs';
+import schema from './instant.schema';
 
 // (server page)
 export default async function ({ children }: { children: React.ReactNode }) {
@@ -14,7 +15,17 @@ export default async function ({ children }: { children: React.ReactNode }) {
 
   return (
     <div>
-      <InstantSuspenseProvider db={db} user={user}>
+      <InstantSuspenseProvider
+        config={{
+          appId: appId!,
+          cookieEndpoint: '/api/instant',
+          apiURI: 'http://localhost:8888',
+          websocketURI: 'ws://localhost:8888/runtime/session',
+          schema: JSON.stringify(schema),
+          useDateObjects: true,
+        }}
+        user={user}
+      >
         {children}
       </InstantSuspenseProvider>
     </div>
