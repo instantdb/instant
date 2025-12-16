@@ -120,11 +120,16 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
   const [_explorerState, _setExplorerState] = useState<ExplorerNav | null>(
     null,
   );
+
   const props: WithDefaults<ExplorerProps> = fillPropsWithDefaults(
     _props,
     _explorerState,
     _setExplorerState,
   );
+
+  if (!props.adminToken || !props.appId) {
+    throw new Error('Admin token and app ID are required');
+  }
 
   // inside the component avoid setting explorer state directly
   // if change could be useful for history
