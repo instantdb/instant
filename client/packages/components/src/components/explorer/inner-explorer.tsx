@@ -8,6 +8,10 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { markdownTable } from 'markdown-table';
+
+import { mkConfig, generateCsv, download } from 'export-to-csv';
+
 import { restrictToHorizontalAxis } from '@dnd-kit/modifiers';
 import {
   arrayMove,
@@ -77,6 +81,7 @@ import { ViewSettings } from './view-settings';
 import { isObject } from 'lodash';
 import { EditNamespaceDialog } from './edit-namespace-dialog';
 import { EditRowDialog } from './edit-row-dialog';
+import copy from 'copy-to-clipboard';
 
 const fallbackItems: any[] = [];
 
@@ -87,6 +92,147 @@ export type TableColMeta = {
   attr: SchemaAttr;
   copyable?: boolean;
 };
+
+function exportToCSV(
+  rows: any[],
+  columns: ColumnDef<any>[],
+  namespace: string,
+  downloadFile: boolean = false,
+) {
+  if (rows.length === 0) return;
+
+  const visibleColumns = columns.filter(
+    (col) =>
+      col.id !== 'select-col' &&
+      col.header !== undefined &&
+      !(col.meta as TableColMeta | undefined)?.isLink,
+  );
+
+  const data = rows.map((row) => {
+    const rowData: Record<string, any> = {};
+    visibleColumns.forEach((col: any) => {
+      const value = row[col.header];
+      // Handle different data types
+      if (value === null || value === undefined) {
+        rowData[col.header] = '';
+      } else if (typeof value === 'object') {
+        rowData[col.header] = JSON.stringify(value);
+      } else {
+        rowData[col.header] = value;
+      }
+    });
+    return rowData;
+  });
+
+  const csvConfig = mkConfig({
+    fieldSeparator: ',',
+    filename: `${namespace}_export`,
+    decimalSeparator: '.',
+    useKeysAsHeaders: true,
+  });
+
+  const csv = generateCsv(csvConfig)(data);
+
+  if (downloadFile) {
+    download(csvConfig)(csv);
+    successToast('CSV file downloaded');
+  } else {
+    copy(csv.toString());
+    successToast('CSV copied to clipboard');
+  }
+}
+
+function exportToMarkdown(
+  rows: any[],
+  columns: any[],
+  namespace: string,
+  downloadFile: boolean = false,
+) {
+  if (rows.length === 0) return;
+
+  const visibleColumns = columns.filter(
+    (col) =>
+      col.id !== 'select-col' &&
+      col.header !== undefined &&
+      !(col.meta as TableColMeta | undefined)?.isLink,
+  );
+
+  const headers = visibleColumns.map((col: any) => col.header as string);
+
+  const data = rows.map((row) => {
+    return visibleColumns.map((col: any) => {
+      const value = row[col.header];
+      if (value === null || value === undefined) {
+        return ' ';
+      } else if (typeof value === 'object') {
+        return JSON.stringify(value);
+      } else {
+        return String(value);
+      }
+    });
+  });
+
+  const markdown = markdownTable([headers, ...data]);
+
+  if (downloadFile) {
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${namespace}_export.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    successToast('Markdown file downloaded');
+  } else {
+    copy(markdown);
+    successToast('Markdown copied to clipboard');
+  }
+}
+
+function exportToJSON(
+  rows: any[],
+  columns: any[],
+  namespace: string,
+  downloadFile: boolean = false,
+) {
+  if (rows.length === 0) return;
+
+  const visibleColumns = columns.filter(
+    (col) =>
+      col.id !== 'select-col' &&
+      col.header !== undefined &&
+      !(col.meta as TableColMeta | undefined)?.isLink,
+  );
+
+  const data = rows.map((row) => {
+    const rowData: Record<string, any> = {};
+    visibleColumns.forEach((col: any) => {
+      const value = row[col.header];
+      rowData[col.header] = value;
+    });
+    return rowData;
+  });
+
+  const json = JSON.stringify(data, null, 2);
+
+  if (downloadFile) {
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${namespace}_export.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    successToast('JSON file downloaded');
+  } else {
+    copy(json);
+    successToast('JSON copied to clipboard');
+  }
+}
 
 export const InnerExplorer: React.FC<{
   db: InstantReactAbstractDatabase<any, any>;
@@ -1086,12 +1232,12 @@ export const InnerExplorer: React.FC<{
                         allItems,
                         checkedIds,
                       );
-                      // exportToCSV(
-                      //   selectedRows,
-                      //   columns,
-                      //   selectedNamespace.name,
-                      //   isShiftPressed,
-                      // );
+                      exportToCSV(
+                        selectedRows,
+                        columns,
+                        selectedNamespace.name,
+                        isShiftPressed,
+                      );
                       setDropdownOpen(false);
                     }}
                     className="flex items-center gap-2"
@@ -1106,12 +1252,12 @@ export const InnerExplorer: React.FC<{
                         allItems,
                         checkedIds,
                       );
-                      // exportToMarkdown(
-                      //   selectedRows,
-                      //   columns,
-                      //   selectedNamespace.name,
-                      //   isShiftPressed,
-                      // );
+                      exportToMarkdown(
+                        selectedRows,
+                        columns,
+                        selectedNamespace.name,
+                        isShiftPressed,
+                      );
                       setDropdownOpen(false);
                     }}
                     className="flex items-center gap-2"
@@ -1128,12 +1274,12 @@ export const InnerExplorer: React.FC<{
                         allItems,
                         checkedIds,
                       );
-                      // exportToJSON(
-                      //   selectedRows,
-                      //   columns,
-                      //   selectedNamespace.name,
-                      //   isShiftPressed,
-                      // );
+                      exportToJSON(
+                        selectedRows,
+                        columns,
+                        selectedNamespace.name,
+                        isShiftPressed,
+                      );
                       setDropdownOpen(false);
                     }}
                     className="flex items-center gap-2"
