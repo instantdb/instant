@@ -180,7 +180,11 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={deleteDialog.open} onClose={deleteDialog.onClose}>
+      <Dialog
+        title="Remove Member"
+        open={deleteDialog.open}
+        onClose={deleteDialog.onClose}
+      >
         <div className="flex flex-col gap-4">
           <h5 className="flex items-center text-lg font-bold">Remove Member</h5>
 
@@ -200,7 +204,11 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
           />
         </div>
       </Dialog>
-      <Dialog open={leaveOrgDialog.open} onClose={leaveOrgDialog.onClose}>
+      <Dialog
+        title="Confirm Leave Org"
+        open={leaveOrgDialog.open}
+        onClose={leaveOrgDialog.onClose}
+      >
         <div className="flex flex-col gap-4">
           <h5 className="flex items-center text-lg font-bold">
             Leave Organization
@@ -222,6 +230,7 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
         </div>
       </Dialog>
       <Dialog
+        title="Change Role"
         className="max-w-[400px]"
         open={changeRoleDialog.open}
         onClose={changeRoleDialog.onClose}

@@ -358,7 +358,11 @@ function DeleteClientSecret({
 
   return (
     <>
-      <Dialog open={showConfirm} onClose={() => setShowConfirm(false)}>
+      <Dialog
+        title="OAuth Secret"
+        open={showConfirm}
+        onClose={() => setShowConfirm(false)}
+      >
         <SubsectionHeading>Delete client secret</SubsectionHeading>
         <div className="flex flex-col gap-4 p-4">
           <label className="flex flex-col gap-2">
@@ -545,6 +549,7 @@ function Client({ client }: { client: OAuthAppClient }) {
         <TrashIcon height={'1.2em'} />
       </Button>
       <Dialog
+        title="Delete OAuth Client"
         open={showDeleteClientDialog}
         onClose={() => setShowDeleteClientDialog(false)}
       >
@@ -1033,6 +1038,7 @@ function App({ app }: { app: OAuthApp }) {
             <TrashIcon height={'1.2em'} />
           </Button>
           <Dialog
+            title="Delete App"
             open={showDeleteAppDialog}
             onClose={() => setShowDeleteAppDialog(false)}
           >
@@ -1579,6 +1585,7 @@ export default function OAuthApps({ appId }: { appId: string }) {
         <div className="flex flex-col gap-4 p-4">
           {secretToCopy ? (
             <Dialog
+              title="Copy Secret"
               open={Boolean(secretToCopy)}
               onClose={() => setSecretToCopy(null)}
             >

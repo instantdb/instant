@@ -1,5 +1,6 @@
 'use client';
 import { Toaster, toast } from 'sonner';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Editor, Monaco, OnMount } from '@monaco-editor/react';
 import type { ClassValue } from 'clsx';
 import clsx from 'clsx';
@@ -635,6 +636,7 @@ function DialogContent({
   className,
   children,
   showCloseButton = false,
+  title,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
@@ -654,6 +656,9 @@ function DialogContent({
           )}
           {...props}
         >
+          <VisuallyHidden>
+            <DialogTitle>{title}</DialogTitle>
+          </VisuallyHidden>
           {children}
           {showCloseButton && (
             <DialogPrimitive.Close
@@ -677,11 +682,13 @@ export function Dialog({
   children,
   onClose,
   className,
+  title,
   stopFocusPropagation = false,
   hideCloseButton = false,
 }: {
   open: boolean;
   children: React.ReactNode;
+  title: string;
   onClose: () => void;
   className?: string;
   stopFocusPropagation?: boolean;
@@ -697,6 +704,7 @@ export function Dialog({
       open={open}
     >
       <DialogContent
+        title={title}
         onFocusCapture={(e) => {
           if (stopFocusPropagation) {
             e.stopPropagation();
@@ -1533,6 +1541,7 @@ export function Fence({
 import * as SwitchPrimitive from '@radix-ui/react-switch';
 import { rosePineDawnTheme } from './rosePineDawnTheme';
 import { useShadowRoot, useShadowDarkMode } from './StyleMe';
+import { DialogTitle } from '@radix-ui/react-dialog';
 function Switch({
   className,
   ...props

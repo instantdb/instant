@@ -28,6 +28,7 @@ export const CLILoginDialog = ({ tickets }: { tickets: TicketSystem }) => {
   return (
     <>
       <Dialog
+        title="CLI Verification"
         open={cliAuthCompleteDialog.open}
         onClose={cliAuthCompleteDialog.onClose}
       >
@@ -50,6 +51,7 @@ export const CLILoginDialog = ({ tickets }: { tickets: TicketSystem }) => {
         </div>
       </Dialog>
       <Dialog
+        title="CLI Login"
         open={Boolean(loginTicket && token)}
         onClose={() => {
           if (loginTicket) {

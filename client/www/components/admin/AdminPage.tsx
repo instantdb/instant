@@ -170,10 +170,18 @@ export function Admin({
         value={app.admin_token}
       />
       <Divider />
-      <Dialog open={inviteDialog.open} onClose={inviteDialog.onClose}>
+      <Dialog
+        title="Invite Members"
+        open={inviteDialog.open}
+        onClose={inviteDialog.onClose}
+      >
         <InviteTeamMemberDialog app={app} onClose={inviteDialog.onClose} />
       </Dialog>
-      <Dialog open={Boolean(editMember)} onClose={() => setEditMember(null)}>
+      <Dialog
+        title="Edit Member"
+        open={Boolean(editMember)}
+        onClose={() => setEditMember(null)}
+      >
         {editMember ? (
           <div className="flex flex-col gap-4">
             <h5 className="flex items-center text-lg font-bold">
@@ -430,7 +438,7 @@ export function Admin({
               </Button>
             </div>
           </div>
-          <Dialog {...clearDialog}>
+          <Dialog title="Clear App" {...clearDialog}>
             <div className="flex flex-col gap-2">
               <SubsectionHeading className="text-red-600">
                 Clear app
@@ -480,7 +488,7 @@ export function Admin({
               </Button>
             </div>
           </Dialog>
-          <Dialog {...deleteDialog}>
+          <Dialog title="Delete App" {...deleteDialog}>
             <div className="flex flex-col gap-2">
               <SubsectionHeading className="text-red-600">
                 Delete app
@@ -677,7 +685,12 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
   return (
     <div>
       {org ? (
-        <Dialog hideCloseButton className="pt-5" {...confirmationModal}>
+        <Dialog
+          title="Transfer App"
+          hideCloseButton
+          className="pt-5"
+          {...confirmationModal}
+        >
           <div className="-translate-y-1 text-[15px]">
             Are you sure you want to transfer <strong>{app.title}</strong> to{' '}
             <strong>{org.title}</strong>?
