@@ -141,7 +141,7 @@
                (reset! canceled? true))
      :canceled? (fn []
                   @canceled?)
-     :coarse-topics [[:ea '_ (attr-model/ea-ids-for-etype (name tbl) (:attrs ctx)) '_]]
+     :coarse-topics [[#{:ea} '_ (attr-model/ea-ids-for-etype (name tbl) (:attrs ctx)) '_]]
      :start (fn [{:keys [batch-size
                          on-batch
                          on-init-finish]}]
@@ -158,4 +158,4 @@
                                  ;; TODO(sync-table):
                                  ;;   We need to also subscribe to attr changes that would affect us and update
                                  ;;   our topics when the attrs change
-                                 :topics [[:ea '_ (attr-model/ea-ids-for-etype (name tbl) (:attrs ctx)) '_]]})))}))
+                                 :topics [[#{:ea} '_ (attr-model/ea-ids-for-etype (name tbl) (:attrs ctx)) '_]]})))}))

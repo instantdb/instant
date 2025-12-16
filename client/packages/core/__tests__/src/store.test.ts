@@ -3,11 +3,15 @@ import zenecaAttrs from './data/zeneca/attrs.json';
 import zenecaTriples from './data/zeneca/triples.json';
 import {
   createStore,
-  transact,
   allMapValues,
   toJSON,
   fromJSON,
   transact,
+  AttrsStoreClass,
+  getAttrByFwdIdentName,
+  Store,
+  AttrsStore,
+  attrsStoreFromJSON,
 } from '../../src/store';
 import query from '../../src/instaql';
 import uuid from '../../src/utils/uuid';
@@ -18,14 +22,26 @@ import * as instatx from '../../src/instatx';
 import { i, id } from '../../src';
 import { createLinkIndex } from '../../src/utils/linkIndex';
 
-const zenecaIdToAttr = zenecaAttrs.reduce((res, x) => {
-  res[x.id] = x;
-  return res;
-}, {});
+const zenecaAttrsStore = new AttrsStoreClass(
+  zenecaAttrs.reduce((res, x) => {
+    res[x.id] = x;
+    return res;
+  }, {}),
+  null,
+);
 
-const store = createStore(zenecaIdToAttr, zenecaTriples);
+const store = createStore(
+  zenecaAttrsStore,
+  zenecaTriples as [string, string, any, number][],
+);
 
-function checkIndexIntegrity(store) {
+function checkIndexIntegrity({
+  store,
+  attrsStore,
+}: {
+  store: Store;
+  attrsStore: AttrsStore;
+}) {
   const tripleSort = (a, b) => {
     const [e_a, aid_a, v_a, t_a] = a;
     const [e_b, aid_b, v_b, t_b] = b;
@@ -48,8 +64,13 @@ function checkIndexIntegrity(store) {
   const aevTriples = allMapValues(store.aev, 3).sort(tripleSort);
   const vaeTriples = allMapValues(store.vae, 3);
 
-  // Check eav and aev have all the same values
-  expect(eavTriples).toEqual(aevTriples);
+  // Check eav and aev have all the same triples
+  for (let i = 0; i < eavTriples.length; i++) {
+    const et = eavTriples[i];
+    const at = aevTriples[i];
+    expect(et).toEqual(at);
+  }
+  expect(eavTriples.length).toEqual(aevTriples.length);
 
   // Check vae doesn't have extra triples
   for (const triple of vaeTriples) {
@@ -60,7 +81,7 @@ function checkIndexIntegrity(store) {
   // Check vae has all of the triples it should have
   for (const triple of eavTriples) {
     const [e, a, v] = triple;
-    const attr = store.attrs[a];
+    const attr = attrsStore.getAttr(a)!;
     if (attr['value-type'] === 'ref') {
       expect(store.vae.get(v)?.get(a)?.get(e)).toEqual(triple);
     }
@@ -70,13 +91,13 @@ function checkIndexIntegrity(store) {
 test('simple add', () => {
   const id = uuid();
   const chunk = tx.users[id].update({ handle: 'bobby' });
-  const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
-  const newStore = transact(store, txSteps);
-  expect(
-    query({ store: newStore }, { users: {} }).data.users.map((x) => x.handle),
-  ).contains('bobby');
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunk);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
+  expect(query(newCtx, { users: {} }).data.users.map((x) => x.handle)).contains(
+    'bobby',
+  );
 
-  checkIndexIntegrity(newStore);
+  checkIndexIntegrity(newCtx);
 });
 
 test('cardinality-one add', () => {
@@ -84,17 +105,17 @@ test('cardinality-one add', () => {
   const chunk = tx.users[id]
     .update({ handle: 'bobby' })
     .update({ handle: 'bob' });
-  const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
-  const newStore = transact(store, txSteps);
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunk);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
   const ret = datalog
-    .query(newStore, {
+    .query(newCtx.store, {
       find: ['?v'],
       where: [[id, '?attr', '?v']],
     })
     .flatMap((vec) => vec[0]);
   expect(ret).contains('bob');
   expect(ret).not.contains('bobby');
-  checkIndexIntegrity(newStore);
+  checkIndexIntegrity(newCtx);
 });
 
 test('link/unlink', () => {
@@ -106,23 +127,20 @@ test('link/unlink', () => {
   const bookshelfChunk = tx.bookshelves[bookshelfId].update({
     name: 'my books',
   });
-  const txSteps = instaml.transform({ attrs: store.attrs }, [
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, [
     userChunk,
     bookshelfChunk,
   ]);
-  const newStore = transact(store, txSteps);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
   expect(
-    query(
-      { store: newStore },
-      {
-        users: {
-          $: { where: { handle: 'bobby' } },
-          bookshelves: {},
-        },
+    query(newCtx, {
+      users: {
+        $: { where: { handle: 'bobby' } },
+        bookshelves: {},
       },
-    ).data.users.map((x) => [x.handle, x.bookshelves.map((x) => x.name)]),
+    }).data.users.map((x) => [x.handle, x.bookshelves.map((x) => x.name)]),
   ).toEqual([['bobby', ['my books']]]);
-  checkIndexIntegrity(newStore);
+  checkIndexIntegrity(newCtx);
 
   const secondBookshelfId = uuid();
   const secondBookshelfChunk = tx.bookshelves[secondBookshelfId].update({
@@ -133,23 +151,20 @@ test('link/unlink', () => {
       bookshelves: bookshelfId,
     })
     .link({ bookshelves: secondBookshelfId });
-  const secondTxSteps = instaml.transform({ attrs: newStore.attrs }, [
+  const secondTxSteps = instaml.transform({ attrsStore: newCtx.attrsStore }, [
     unlinkFirstChunk,
     secondBookshelfChunk,
   ]);
-  const secondStore = transact(newStore, secondTxSteps);
+  const secondCtx = transact(newCtx.store, newCtx.attrsStore, secondTxSteps);
   expect(
-    query(
-      { store: secondStore },
-      {
-        users: {
-          $: { where: { handle: 'bobby' } },
-          bookshelves: {},
-        },
+    query(secondCtx, {
+      users: {
+        $: { where: { handle: 'bobby' } },
+        bookshelves: {},
       },
-    ).data.users.map((x) => [x.handle, x.bookshelves.map((x) => x.name)]),
+    }).data.users.map((x) => [x.handle, x.bookshelves.map((x) => x.name)]),
   ).toEqual([['bobby', ['my second books']]]);
-  checkIndexIntegrity(secondStore);
+  checkIndexIntegrity(secondCtx);
 });
 
 test('link/unlink multi', () => {
@@ -166,25 +181,22 @@ test('link/unlink multi', () => {
   const bookshelf2Chunk = tx.bookshelves[bookshelfId2].update({
     name: 'my books 2',
   });
-  const txSteps = instaml.transform({ attrs: store.attrs }, [
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, [
     userChunk,
     bookshelf1Chunk,
     bookshelf2Chunk,
   ]);
 
-  const newStore = transact(store, txSteps);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
   expect(
-    query(
-      { store: newStore },
-      {
-        users: {
-          $: { where: { handle: 'bobby' } },
-          bookshelves: {},
-        },
+    query(newCtx, {
+      users: {
+        $: { where: { handle: 'bobby' } },
+        bookshelves: {},
       },
-    ).data.users.map((x) => [x.handle, x.bookshelves.map((x) => x.name)]),
+    }).data.users.map((x) => [x.handle, x.bookshelves.map((x) => x.name)]),
   ).toEqual([['bobby', ['my books 1', 'my books 2']]]);
-  checkIndexIntegrity(newStore);
+  checkIndexIntegrity(newCtx);
 
   const bookshelfId3 = uuid();
   const bookshelf3Chunk = tx.bookshelves[bookshelfId3].update({
@@ -195,23 +207,20 @@ test('link/unlink multi', () => {
       bookshelves: [bookshelfId1, bookshelfId2],
     })
     .link({ bookshelves: bookshelfId3 });
-  const secondTxSteps = instaml.transform({ attrs: newStore.attrs }, [
+  const secondTxSteps = instaml.transform({ attrsStore: newCtx.attrsStore }, [
     unlinkChunk,
     bookshelf3Chunk,
   ]);
-  const secondStore = transact(newStore, secondTxSteps);
+  const secondCtx = transact(newCtx.store, newCtx.attrsStore, secondTxSteps);
   expect(
-    query(
-      { store: secondStore },
-      {
-        users: {
-          $: { where: { handle: 'bobby' } },
-          bookshelves: {},
-        },
+    query(secondCtx, {
+      users: {
+        $: { where: { handle: 'bobby' } },
+        bookshelves: {},
       },
-    ).data.users.map((x) => [x.handle, x.bookshelves.map((x) => x.name)]),
+    }).data.users.map((x) => [x.handle, x.bookshelves.map((x) => x.name)]),
   ).toEqual([['bobby', ['my books 3']]]);
-  checkIndexIntegrity(secondStore);
+  checkIndexIntegrity(secondCtx);
 });
 
 test('link/unlink without update', () => {
@@ -221,30 +230,28 @@ test('link/unlink without update', () => {
   const bookshelfChunk = tx.bookshelves[bookshelfId].update({
     name: 'my books',
   });
-  const txSteps = instaml.transform({ attrs: store.attrs }, [
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, [
     userChunk,
     bookshelfChunk,
   ]);
-  const store2 = transact(store, txSteps);
+  const ctx2 = transact(store, zenecaAttrsStore, txSteps);
 
   const linkChunk = tx.users[userId].link({ bookshelves: bookshelfId });
-  const store3 = transact(
-    store2,
-    instaml.transform({ attrs: store2.attrs }, [linkChunk]),
+  const ctx3 = transact(
+    ctx2.store,
+    ctx2.attrsStore,
+    instaml.transform(ctx2, [linkChunk]),
   );
 
   expect(
-    query(
-      { store: store3 },
-      {
-        users: {
-          $: { where: { handle: 'bobby' } },
-          bookshelves: {},
-        },
+    query(ctx3, {
+      users: {
+        $: { where: { handle: 'bobby' } },
+        bookshelves: {},
       },
-    ).data.users.map((x) => [x.handle, x.bookshelves.map((x) => x.name)]),
+    }).data.users.map((x) => [x.handle, x.bookshelves.map((x) => x.name)]),
   ).toEqual([['bobby', ['my books']]]);
-  checkIndexIntegrity(store3);
+  checkIndexIntegrity(ctx3);
 });
 
 test('delete entity', () => {
@@ -256,21 +263,21 @@ test('delete entity', () => {
   const bookshelfChunk = tx.bookshelves[bookshelfId].update({
     name: 'my books',
   });
-  const txSteps = instaml.transform({ attrs: store.attrs }, [
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, [
     userChunk,
     bookshelfChunk,
   ]);
-  const newStore = transact(store, txSteps);
-  checkIndexIntegrity(newStore);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
+  checkIndexIntegrity(newCtx);
 
   const retOne = datalog
-    .query(newStore, {
+    .query(newCtx.store, {
       find: ['?v'],
       where: [[bookshelfId, '?attr', '?v']],
     })
     .flatMap((vec) => vec[0]);
   const retTwo = datalog
-    .query(newStore, {
+    .query(newCtx.store, {
       find: ['?v'],
       where: [['?v', '?attr', bookshelfId]],
     })
@@ -279,18 +286,18 @@ test('delete entity', () => {
   expect(retTwo).contains(userId);
 
   const txStepsTwo = instaml.transform(
-    { attrs: newStore.attrs },
+    newCtx,
     tx.bookshelves[bookshelfId].delete(),
   );
-  const newStoreTwo = transact(newStore, txStepsTwo);
+  const newCtxTwo = transact(newCtx.store, newCtx.attrsStore, txStepsTwo);
   const retThree = datalog
-    .query(newStoreTwo, {
+    .query(newCtxTwo.store, {
       find: ['?v'],
       where: [[bookshelfId, '?attr', '?v']],
     })
     .flatMap((vec) => vec[0]);
   const retFour = datalog
-    .query(newStoreTwo, {
+    .query(newCtxTwo.store, {
       find: ['?v'],
       where: [['?v', '?attr', bookshelfId]],
     })
@@ -298,7 +305,7 @@ test('delete entity', () => {
 
   expect(retThree).toEqual([]);
   expect(retFour).toEqual([]);
-  checkIndexIntegrity(newStoreTwo);
+  checkIndexIntegrity(newCtxTwo);
 });
 
 test('on-delete cascade', () => {
@@ -315,30 +322,25 @@ test('on-delete cascade', () => {
   const chunk3 = tx.books[book3]
     .update({ title: 'book3', description: 'series' })
     .link({ prequel: book2 });
-  const txSteps = instaml.transform({ attrs: store.attrs }, [
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, [
     chunk1,
     chunk2,
     chunk3,
   ]);
-  const newStore = transact(store, txSteps);
-  checkIndexIntegrity(newStore);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
+  checkIndexIntegrity(newCtx);
   expect(
-    query(
-      { store: newStore },
-      { books: { $: { where: { description: 'series' } } } },
-    ).data.books.map((x) => x.title),
+    query(newCtx, {
+      books: { $: { where: { description: 'series' } } },
+    }).data.books.map((x) => x.title),
   ).toEqual(['book1', 'book2', 'book3']);
 
-  const txStepsTwo = instaml.transform(
-    { attrs: newStore.attrs },
-    tx.books[book1].delete(),
-  );
-  const newStoreTwo = transact(newStore, txStepsTwo);
+  const txStepsTwo = instaml.transform(newCtx, tx.books[book1].delete());
+  const newCtxTwo = transact(newCtx.store, newCtx.attrsStore, txStepsTwo);
   expect(
-    query(
-      { store: newStoreTwo },
-      { books: { $: { where: { description: 'series' } } } },
-    ).data.books.map((x) => x.title),
+    query(newCtxTwo, {
+      books: { $: { where: { description: 'series' } } },
+    }).data.books.map((x) => x.title),
   ).toEqual([]);
 });
 
@@ -361,30 +363,25 @@ test('on-delete-reverse cascade', () => {
       description: 'series',
     })
     .link({ next: [book2, book3] });
-  const txSteps = instaml.transform({ attrs: store.attrs }, [
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, [
     chunk2,
     chunk3,
     chunk1,
   ]);
-  const newStore = transact(store, txSteps);
-  checkIndexIntegrity(newStore);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
+  checkIndexIntegrity(newCtx);
   expect(
-    query(
-      { store: newStore },
-      { books: { $: { where: { description: 'series' } } } },
-    ).data.books.map((x) => x.title),
+    query(newCtx, {
+      books: { $: { where: { description: 'series' } } },
+    }).data.books.map((x) => x.title),
   ).toEqual(['book2', 'book3', 'book1']);
 
-  const txStepsTwo = instaml.transform(
-    { attrs: newStore.attrs },
-    tx.books[book1].delete(),
-  );
-  const newStoreTwo = transact(newStore, txStepsTwo);
+  const txStepsTwo = instaml.transform(newCtx, tx.books[book1].delete());
+  const newCtxTwo = transact(newCtx.store, newCtx.attrsStore, txStepsTwo);
   expect(
-    query(
-      { store: newStoreTwo },
-      { books: { $: { where: { description: 'series' } } } },
-    ).data.books.map((x) => x.title),
+    query(newCtxTwo, {
+      books: { $: { where: { description: 'series' } } },
+    }).data.books.map((x) => x.title),
   ).toEqual([]);
 });
 
@@ -395,49 +392,45 @@ test('new attrs', () => {
     .update({ handle: 'bobby' })
     .link({ colors: colorId });
   const colorChunk = tx.colors[colorId].update({ name: 'red' });
-  const txSteps = instaml.transform({ attrs: store.attrs }, [
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, [
     userChunk,
     colorChunk,
   ]);
-  const newStore = transact(store, txSteps);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
   expect(
-    query(
-      { store: newStore },
-      {
-        users: {
-          $: { where: { handle: 'bobby' } },
-          colors: {},
-        },
+    query(newCtx, {
+      users: {
+        $: { where: { handle: 'bobby' } },
+        colors: {},
       },
-    ).data.users.map((x) => [x.handle, x.colors.map((x) => x.name)]),
+    }).data.users.map((x) => [x.handle, x.colors.map((x) => x.name)]),
   ).toEqual([['bobby', ['red']]]);
 
-  checkIndexIntegrity(newStore);
+  checkIndexIntegrity(newCtx);
 });
 
 test('delete attr', () => {
   expect(
-    query({ store }, { users: {} }).data.users.map((x) => [
-      x.handle,
-      x.fullName,
-    ]),
+    query(
+      { store, attrsStore: zenecaAttrsStore },
+      { users: {} },
+    ).data.users.map((x) => [x.handle, x.fullName]),
   ).toEqual([
     ['joe', 'Joe Averbukh'],
     ['alex', 'Alex'],
     ['stopa', 'Stepan Parunashvili'],
     ['nicolegf', 'Nicole'],
   ]);
-  const fullNameAttr = instaml.getAttrByFwdIdentName(
-    store.attrs,
+  const fullNameAttr = getAttrByFwdIdentName(
+    zenecaAttrsStore,
     'users',
     'fullName',
   );
-  const newStore = transact(store, [['delete-attr', fullNameAttr.id]]);
+  const newCtx = transact(store, zenecaAttrsStore, [
+    ['delete-attr', fullNameAttr!.id],
+  ]);
   expect(
-    query({ store: newStore }, { users: {} }).data.users.map((x) => [
-      x.handle,
-      x.fullName,
-    ]),
+    query(newCtx, { users: {} }).data.users.map((x) => [x.handle, x.fullName]),
   ).toEqual([
     ['joe', undefined],
     ['alex', undefined],
@@ -445,41 +438,38 @@ test('delete attr', () => {
     ['nicolegf', undefined],
   ]);
 
-  checkIndexIntegrity(newStore);
+  checkIndexIntegrity(newCtx);
 });
 
 test('update attr', () => {
   expect(
-    query({ store }, { users: {} }).data.users.map((x) => [
-      x.handle,
-      x.fullName,
-    ]),
+    query(
+      { store, attrsStore: zenecaAttrsStore },
+      { users: {} },
+    ).data.users.map((x) => [x.handle, x.fullName]),
   ).toEqual([
     ['joe', 'Joe Averbukh'],
     ['alex', 'Alex'],
     ['stopa', 'Stepan Parunashvili'],
     ['nicolegf', 'Nicole'],
   ]);
-  const fullNameAttr = instaml.getAttrByFwdIdentName(
-    store.attrs,
+  const fullNameAttr = getAttrByFwdIdentName(
+    zenecaAttrsStore,
     'users',
     'fullName',
   );
-  const fwdIdent = fullNameAttr['forward-identity'];
-  const newStore = transact(store, [
+  const fwdIdent = fullNameAttr!['forward-identity'];
+  const newCtx = transact(store, zenecaAttrsStore, [
     [
       'update-attr',
       {
-        id: fullNameAttr.id,
+        id: fullNameAttr!.id,
         'forward-identity': [fwdIdent[0], 'users', 'fullNamez'],
       },
     ],
   ]);
   expect(
-    query({ store: newStore }, { users: {} }).data.users.map((x) => [
-      x.handle,
-      x.fullNamez,
-    ]),
+    query(newCtx, { users: {} }).data.users.map((x) => [x.handle, x.fullNamez]),
   ).toEqual([
     ['joe', 'Joe Averbukh'],
     ['alex', 'Alex'],
@@ -489,7 +479,7 @@ test('update attr', () => {
 });
 
 test('JSON serialization round-trips', () => {
-  const newStore = fromJSON(toJSON(store));
+  const newStore = fromJSON(zenecaAttrsStore, toJSON(store));
   expect(store).toEqual(newStore);
 });
 
@@ -499,21 +489,22 @@ test('ruleParams no-ops', () => {
     .ruleParams({ guestId: 'bobby' })
     .update({ handle: 'bobby' });
 
-  const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
-  const newStore = transact(store, txSteps);
-  expect(
-    query({ store: newStore }, { users: {} }).data.users.map((x) => x.handle),
-  ).contains('bobby');
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunk);
+  const newCtx = transact(store, zenecaAttrsStore, txSteps);
+  expect(query(newCtx, { users: {} }).data.users.map((x) => x.handle)).contains(
+    'bobby',
+  );
 
-  checkIndexIntegrity(newStore);
+  checkIndexIntegrity(newCtx);
 });
 
 test('deepMerge', () => {
   const gameId = uuid();
-  const gameStore = transact(
+  const gameCtx = transact(
     store,
+    zenecaAttrsStore,
     instaml.transform(
-      { attrs: store.attrs },
+      { attrsStore: zenecaAttrsStore },
       tx.games[gameId].update({
         state: {
           score: 100,
@@ -525,10 +516,14 @@ test('deepMerge', () => {
       }),
     ),
   );
-  const updatedStore = transact(
-    gameStore,
+
+  checkIndexIntegrity(gameCtx);
+
+  const updatedCtx = transact(
+    gameCtx.store,
+    gameCtx.attrsStore,
     instaml.transform(
-      { attrs: gameStore.attrs },
+      gameCtx,
       tx.games[gameId].merge({
         state: {
           // Objects update deeply
@@ -549,10 +544,10 @@ test('deepMerge', () => {
       }),
     ),
   );
-  const updatedGame = query(
-    { store: updatedStore },
-    { games: { $: { where: { id: gameId } } } },
-  ).data.games[0];
+
+  const updatedGame = query(updatedCtx, {
+    games: { $: { where: { id: gameId } } },
+  }).data.games[0];
   expect(updatedGame.state).toEqual({
     playerStats: {
       health: 50,
@@ -564,7 +559,7 @@ test('deepMerge', () => {
     inventory: ['shield'],
     locations: ['forest', undefined, 'castle'],
   });
-  checkIndexIntegrity(updatedGame);
+  checkIndexIntegrity(updatedCtx);
 });
 
 test('recursive links w same id', () => {
@@ -612,33 +607,28 @@ test('recursive links w same id', () => {
     }),
   ];
 
-  const steps = instaml.transform({ attrs: {}, schema }, ops);
-  const store = createStore({}, [], true, createLinkIndex(schema), schema);
-  const newStore = transact(store, steps);
+  const attrsStore = new AttrsStoreClass({}, createLinkIndex(schema));
+  const steps = instaml.transform({ attrsStore, schema }, ops);
+  const store = createStore(attrsStore, [], true, !!schema);
+  const newCtx = transact(store, attrsStore, steps);
 
-  const result = query(
-    { store: newStore, pageInfo: {}, aggregate: {} },
-    {
-      todos: {},
-      fakeUsers: {},
-    },
-  );
+  const result = query(newCtx, {
+    todos: {},
+    fakeUsers: {},
+  });
 
   expect(result.data.todos.length).toBe(1);
   expect(result.data.fakeUsers.length).toBe(1);
 
   const removeOp = [instatx.tx.todos[sameId].delete()];
 
-  const removeSteps = instaml.transform({ attrs: store.attrs }, removeOp);
-  const postRemoveStore = transact(newStore, removeSteps);
+  const removeSteps = instaml.transform(newCtx, removeOp);
+  const postRemoveCtx = transact(newCtx.store, newCtx.attrsStore, removeSteps);
 
-  const removeResult = query(
-    { store: postRemoveStore, pageInfo: {}, aggregate: {} },
-    {
-      todos: {},
-      fakeUsers: {},
-    },
-  );
+  const removeResult = query(postRemoveCtx, {
+    todos: {},
+    fakeUsers: {},
+  });
 
   expect(removeResult.data.todos.length).toBe(0);
   expect(removeResult.data.fakeUsers.length).toBe(1);
@@ -664,16 +654,14 @@ test('date conversion', () => {
       }),
     ];
 
-    const steps = instaml.transform({ attrs: {}, schema }, ops);
-    const store = createStore({}, [], true, createLinkIndex(schema), true);
-    const newStore = transact(store, steps);
+    const attrsStore = new AttrsStoreClass({}, null);
+    const steps = instaml.transform({ attrsStore, schema }, ops);
+    const store = createStore(attrsStore, [], true, true);
+    const newCtx = transact(store, attrsStore, steps);
 
-    const result = query(
-      { store: newStore, pageInfo: {}, aggregate: {} },
-      {
-        todos: {},
-      },
-    );
+    const result = query(newCtx, {
+      todos: {},
+    });
 
     expect(result.data.todos.length).toBe(1);
     expect(result.data.todos[0].createdAt).toBeInstanceOf(Date);
@@ -698,18 +686,33 @@ test('date conversion', () => {
       }),
     ];
 
-    const steps = instaml.transform({ attrs: {}, schema }, ops);
-    const store = createStore({}, [], true, createLinkIndex(schema), false);
-    const newStore = transact(store, steps);
+    const attrsStore = new AttrsStoreClass({}, null);
+    const steps = instaml.transform({ attrsStore, schema }, ops);
+    const store = createStore(attrsStore, [], true, false);
+    const newCtx = transact(store, attrsStore, steps);
 
-    const result = query(
-      { store: newStore, pageInfo: {}, aggregate: {} },
-      {
-        todos: {},
-      },
-    );
+    const result = query(newCtx, {
+      todos: {},
+    });
 
     expect(result.data.todos.length).toBe(1);
     expect(result.data.todos[0].createdAt).toBeTypeOf('number');
   }).not.toThrow();
+});
+
+test('v0 store restores', () => {
+  function toJSONOld(store) {
+    return {
+      __type: store.__type,
+      attrs: store.attrs,
+      triples: allMapValues(store.eav, 3),
+      cardinalityInference: store.cardinalityInference,
+      linkIndex: store.linkIndex,
+      useDateObjects: store.useDateObjects,
+    };
+  }
+  const v0Json = toJSONOld({ ...store, attrs: zenecaAttrsStore.attrs });
+  const attrsStore = attrsStoreFromJSON(null, v0Json);
+  const restored = fromJSON(attrsStore!, v0Json);
+  expect(restored).toEqual(store);
 });

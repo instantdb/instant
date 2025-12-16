@@ -7,11 +7,11 @@ import EphemeralAppPage, {
 const schema = i.schema({
   entities: {
     comments: i.entity({
-      slug: i.string().unique().indexed(),
-      someString: i.string().indexed(),
-      date: i.date().indexed(),
-      order: i.number().indexed(),
-      bool: i.boolean().indexed(),
+      slug: i.string().unique().indexed().optional(),
+      someString: i.string().indexed().optional(),
+      date: i.date().indexed().optional(),
+      order: i.number().indexed().optional(),
+      bool: i.boolean().indexed().optional(),
     }),
     $users: i.entity({
       email: i.string().unique().indexed(),

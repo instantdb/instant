@@ -7,33 +7,162 @@ import { LinkIndex } from './utils/linkIndex.ts';
 type Triple = [string, string, any, number];
 type Attrs = Record<string, InstantDBAttr>;
 
-type AttrIndexes = {
+interface AttrIndexes {
   blobAttrs: Map<string, Map<string, InstantDBAttr>>;
   primaryKeys: Map<string, InstantDBAttr>;
   forwardIdents: Map<string, Map<string, InstantDBAttr>>;
   revIdents: Map<string, Map<string, InstantDBAttr>>;
-};
+}
 
 export type Store = {
   eav: Map<string, Map<string, Map<any, Triple>>>;
   aev: Map<string, Map<string, Map<any, Triple>>>;
   vae: Map<any, Map<string, Map<string, Triple>>>;
-  useDateObjects: boolean | null;
-  attrs: Attrs;
-  attrIndexes: AttrIndexes;
-  cardinalityInference: boolean | null;
-  linkIndex: LinkIndex | null;
-  __type: 'store';
+  useDateObjects: boolean | null | undefined;
+  cardinalityInference: boolean | null | undefined;
 };
 
-export type StoreJson = {
+type StoreJsonVersion0 = {
   __type: 'store';
   attrs: Attrs;
   triples: Triple[];
-  cardinalityInference: boolean | null;
+  cardinalityInference: boolean | null | undefined;
   linkIndex: LinkIndex | null;
-  useDateObjects: boolean | null;
+  useDateObjects: boolean | null | undefined;
 };
+
+type StoreJsonVersion1 = {
+  triples: Triple[];
+  cardinalityInference: boolean | null | undefined;
+  useDateObjects: boolean | null | undefined;
+  version: 1;
+};
+
+export type StoreJson = StoreJsonVersion0 | StoreJsonVersion1;
+
+export type AttrsStoreJson = {
+  attrs: Attrs;
+  linkIndex: LinkIndex | null;
+};
+
+export interface AttrsStore {
+  attrs: Attrs;
+  linkIndex: LinkIndex | null;
+  resetAttrIndexes(): void;
+  addAttr(attr: InstantDBAttr): void;
+  deleteAttr(attrId: string): void;
+  updateAttr(partialAttr: Partial<InstantDBAttr> & { id: string }): void;
+  getAttr(id: string): InstantDBAttr | undefined;
+  blobAttrs: Map<string, Map<string, InstantDBAttr>>;
+  primaryKeys: Map<string, InstantDBAttr>;
+  forwardIdents: Map<string, Map<string, InstantDBAttr>>;
+  revIdents: Map<string, Map<string, InstantDBAttr>>;
+  toJSON(): AttrsStoreJson;
+}
+
+export class AttrsStoreClass implements AttrsStore {
+  public attrs: Attrs;
+  public linkIndex: LinkIndex | null;
+  private _blobAttrs: Map<string, Map<string, InstantDBAttr>> | null = null;
+  private _primaryKeys: Map<string, InstantDBAttr> | null = null;
+  private _forwardIdents: Map<string, Map<string, InstantDBAttr>> | null = null;
+  private _revIdents: Map<string, Map<string, InstantDBAttr>> | null = null;
+  constructor(attrs: Attrs, linkIndex: LinkIndex | null) {
+    this.attrs = attrs;
+    this.linkIndex = linkIndex;
+  }
+
+  public resetAttrIndexes() {
+    this._blobAttrs = null;
+    this._primaryKeys = null;
+    this._forwardIdents = null;
+    this._revIdents = null;
+  }
+
+  public addAttr(attr: InstantDBAttr) {
+    this.attrs[attr.id] = attr;
+    this.resetAttrIndexes();
+  }
+
+  public deleteAttr(attrId: string) {
+    delete this.attrs[attrId];
+    this.resetAttrIndexes();
+  }
+
+  public updateAttr(partialAttr: Partial<InstantDBAttr> & { id: string }) {
+    const attr = this.attrs[partialAttr.id];
+    if (!attr) return;
+    this.attrs[partialAttr.id] = { ...attr, ...partialAttr };
+    this.resetAttrIndexes();
+  }
+
+  public getAttr(id: string): InstantDBAttr | undefined {
+    return this.attrs[id];
+  }
+
+  get blobAttrs(): Map<string, Map<string, InstantDBAttr>> {
+    if (this._blobAttrs) {
+      return this._blobAttrs;
+    }
+    this._blobAttrs = new Map();
+    for (const attr of Object.values(this.attrs)) {
+      if (isBlob(attr)) {
+        const [_, fwdEtype, fwdLabel] = attr['forward-identity'];
+        setInMap(this.blobAttrs, [fwdEtype, fwdLabel], attr);
+      }
+    }
+    return this._blobAttrs;
+  }
+
+  get primaryKeys(): Map<string, InstantDBAttr> {
+    if (this._primaryKeys) {
+      return this._primaryKeys;
+    }
+    this._primaryKeys = new Map();
+
+    for (const attr of Object.values(this.attrs)) {
+      if (attr['primary?']) {
+        const [_, fwdEtype] = attr['forward-identity'];
+        setInMap(this._primaryKeys, [fwdEtype], attr);
+      }
+    }
+    return this._primaryKeys;
+  }
+
+  get forwardIdents(): Map<string, Map<string, InstantDBAttr>> {
+    if (this._forwardIdents) {
+      return this._forwardIdents;
+    }
+    this._forwardIdents = new Map();
+
+    for (const attr of Object.values(this.attrs)) {
+      const fwdIdent = attr['forward-identity'];
+      const [_, fwdEtype, fwdLabel] = fwdIdent;
+      setInMap(this._forwardIdents, [fwdEtype, fwdLabel], attr);
+    }
+    return this._forwardIdents;
+  }
+
+  get revIdents(): Map<string, Map<string, InstantDBAttr>> {
+    if (this._revIdents) {
+      return this._revIdents;
+    }
+    this._revIdents = new Map();
+
+    for (const attr of Object.values(this.attrs)) {
+      const revIdent = attr['reverse-identity'];
+      if (revIdent) {
+        const [_, revEtype, revLabel] = revIdent;
+        setInMap(this._revIdents, [revEtype, revLabel], attr);
+      }
+    }
+    return this._revIdents;
+  }
+
+  public toJSON(): AttrsStoreJson {
+    return { attrs: this.attrs, linkIndex: this.linkIndex };
+  }
+}
 
 function hasEA(attr: InstantDBAttr) {
   return attr['cardinality'] === 'one';
@@ -66,19 +195,22 @@ function deleteInMap(m, path) {
   deleteInMap(m.get(head), tail);
 }
 
-function setInMap(m, path, value) {
-  if (path.length === 0) throw new Error('path must have at least one element');
-  if (path.length === 1) {
-    m.set(path[0], value);
-    return;
+function setInMap(m: Map<any, any>, path: any[], value: any) {
+  let current = m;
+  const lastI = path.length - 1;
+  for (let i = 0; i < lastI; i++) {
+    const part = path[i];
+
+    let nextMap = current.get(part);
+    if (nextMap === undefined) {
+      nextMap = new Map();
+      current.set(part, nextMap);
+    }
+    current = nextMap;
   }
-  const [head, ...tail] = path;
-  let nextM = m.get(head);
-  if (!nextM) {
-    nextM = new Map();
-    m.set(head, nextM);
+  if (lastI > -1) {
+    current.set(path[lastI], value);
   }
-  setInMap(nextM, tail, value);
 }
 
 function isDateAttr(attr: InstantDBAttr) {
@@ -86,18 +218,18 @@ function isDateAttr(attr: InstantDBAttr) {
 }
 
 function createTripleIndexes(
-  attrs: Record<string, InstantDBAttr>,
+  attrsStore: AttrsStore,
   triples: Triple[],
-  useDateObjects: boolean | null,
+  useDateObjects: boolean | null | undefined,
 ): Pick<Store, 'eav' | 'aev' | 'vae'> {
   const eav = new Map();
   const aev = new Map();
   const vae = new Map();
   for (const triple of triples) {
-    let [eid, aid, v, t] = triple;
-    const attr = getAttr(attrs, aid);
+    let [eid, aid, v] = triple;
+    const attr = attrsStore.getAttr(aid);
     if (!attr) {
-      console.warn('no such attr', eid, attrs);
+      console.warn('no such attr', aid, eid);
       continue;
     }
 
@@ -142,25 +274,34 @@ function createAttrIndexes(attrs: Record<string, InstantDBAttr>): AttrIndexes {
   return { blobAttrs, primaryKeys, forwardIdents, revIdents };
 }
 
-export function toJSON(store: Store): StoreJson {
+export function toJSON(store: Store): StoreJsonVersion1 {
   return {
-    __type: store.__type,
-    attrs: store.attrs,
     triples: allMapValues(store.eav, 3),
     cardinalityInference: store.cardinalityInference,
-    linkIndex: store.linkIndex,
     useDateObjects: store.useDateObjects,
+    version: 1,
   };
 }
 
-export function fromJSON(storeJSON: StoreJson): Store {
+export function fromJSON(attrsStore: AttrsStore, storeJSON: StoreJson): Store {
   return createStore(
-    storeJSON.attrs,
+    attrsStore,
     storeJSON.triples,
     storeJSON.cardinalityInference,
-    storeJSON.linkIndex,
     storeJSON.useDateObjects,
   );
+}
+
+export function attrsStoreFromJSON(
+  attrsStoreJSON: AttrsStoreJson | null,
+  storeJSON: StoreJson | null,
+): AttrsStore | undefined {
+  if (attrsStoreJSON) {
+    return new AttrsStoreClass(attrsStoreJSON.attrs, attrsStoreJSON.linkIndex);
+  }
+  if (storeJSON && '__type' in storeJSON) {
+    return new AttrsStoreClass(storeJSON.attrs, storeJSON.linkIndex);
+  }
 }
 
 export function hasTriple(store: Store, [e, a, v]: [string, string, any]) {
@@ -171,29 +312,19 @@ export function hasEntity(store: Store, e: string) {
   return getInMap(store.eav, [e]) !== undefined;
 }
 
-function resetAttrIndexes(store: Store) {
-  store.attrIndexes = createAttrIndexes(store.attrs);
-}
-
 export function createStore(
-  attrs: Record<string, InstantDBAttr>,
+  attrsStore: AttrsStore,
   triples: Triple[],
-  enableCardinalityInference: boolean | null,
-  linkIndex: LinkIndex | null,
-  useDateObjects: boolean | null,
+  enableCardinalityInference?: boolean | null,
+  useDateObjects?: boolean | null,
 ): Store {
   const store = createTripleIndexes(
-    attrs,
+    attrsStore,
     triples,
     useDateObjects,
   ) as unknown as Store;
-  store.useDateObjects = useDateObjects;
-  store.attrs = attrs;
-  store.attrIndexes = createAttrIndexes(attrs);
   store.cardinalityInference = enableCardinalityInference;
-  store.linkIndex = linkIndex;
-  store.__type = 'store';
-
+  store.useDateObjects = useDateObjects;
   return store;
 }
 
@@ -254,13 +385,17 @@ function resolveLookupRefs(store: Store, triple: Triple): Triple | null {
   }
 }
 
-export function retractTriple(store: Store, rawTriple: Triple): void {
+export function retractTriple(
+  store: Store,
+  attrsStore: AttrsStore,
+  rawTriple: Triple,
+): void {
   const triple = resolveLookupRefs(store, rawTriple);
   if (!triple) {
     return;
   }
   const [eid, aid, v] = triple;
-  const attr = getAttr(store.attrs, aid);
+  const attr = attrsStore.getAttr(aid);
   if (!attr) {
     return;
   }
@@ -310,13 +445,17 @@ function getCreatedAt(
   return createdAt || Date.now() * 10 + _seed++;
 }
 
-export function addTriple(store: Store, rawTriple: Triple) {
+export function addTriple(
+  store: Store,
+  attrsStore: AttrsStore,
+  rawTriple: Triple,
+) {
   const triple = resolveLookupRefs(store, rawTriple);
   if (!triple) {
     return;
   }
   let [eid, aid, v] = triple;
-  const attr = getAttr(store.attrs, aid);
+  const attr = attrsStore.getAttr(aid);
   if (!attr) {
     // (XXX): Due to the way we're handling attrs, it's
     // possible to enter a state where we receive a triple without an attr.
@@ -349,14 +488,14 @@ export function addTriple(store: Store, rawTriple: Triple) {
   }
 }
 
-function mergeTriple(store: Store, rawTriple: Triple) {
+function mergeTriple(store: Store, attrsStore: AttrsStore, rawTriple: Triple) {
   const triple = resolveLookupRefs(store, rawTriple);
   if (!triple) {
     return;
   }
 
   const [eid, aid, update] = triple;
-  const attr = getAttr(store.attrs, aid);
+  const attr = attrsStore.getAttr(aid);
 
   if (!attr) return;
 
@@ -380,9 +519,10 @@ function mergeTriple(store: Store, rawTriple: Triple) {
   ];
 
   setInMap(store.eav, [eid, aid], new Map([[updatedValue, enhancedTriple]]));
+  setInMap(store.aev, [aid, eid], new Map([[updatedValue, enhancedTriple]]));
 }
 
-function deleteEntity(store: Store, args: any[]) {
+function deleteEntity(store: Store, attrsStore: AttrsStore, args: any[]) {
   const [lookup, etype] = args;
   const triple = resolveLookupRefs(store, [lookup] as unknown as Triple);
 
@@ -395,13 +535,13 @@ function deleteEntity(store: Store, args: any[]) {
   const eMap = store.eav.get(id);
   if (eMap) {
     for (const a of eMap.keys()) {
-      const attr = store.attrs[a];
+      const attr = attrsStore.getAttr(a);
 
       // delete cascade refs
       if (attr && attr['on-delete-reverse'] === 'cascade') {
         allMapValues(eMap.get(a), 1).forEach(
           ([e, a, v]: [string, string, any]) =>
-            deleteEntity(store, [v, attr['reverse-identity']?.[1]]),
+            deleteEntity(store, attrsStore, [v, attr['reverse-identity']?.[1]]),
         );
       }
 
@@ -430,7 +570,7 @@ function deleteEntity(store: Store, args: any[]) {
   if (vaeTriples) {
     vaeTriples.forEach((triple: Triple) => {
       const [e, a, v] = triple;
-      const attr = store.attrs[a];
+      const attr = attrsStore.getAttr(a);
       if (!etype || !attr || attr['reverse-identity']?.[1] === etype) {
         deleteInMap(store.eav, [e, a, v]);
         deleteInMap(store.aev, [a, e, v]);
@@ -441,7 +581,7 @@ function deleteEntity(store: Store, args: any[]) {
         attr['on-delete'] === 'cascade' &&
         attr['reverse-identity']?.[1] === etype
       ) {
-        deleteEntity(store, [e, attr['forward-identity']?.[1]]);
+        deleteEntity(store, attrsStore, [e, attr['forward-identity']?.[1]]);
       }
     });
   }
@@ -458,9 +598,9 @@ function deleteEntity(store: Store, args: any[]) {
 // * We could batch this reset at the end
 // * We could add an ave index for all triples, so removing the
 //   right triples is easy and fast.
-function resetIndexMap(store: Store, newTriples: Triple[]) {
+function resetIndexMap(store: Store, attrsStore, newTriples: Triple[]) {
   const newIndexMap = createTripleIndexes(
-    store.attrs,
+    attrsStore,
     newTriples,
     store.useDateObjects,
   );
@@ -469,57 +609,55 @@ function resetIndexMap(store: Store, newTriples: Triple[]) {
   });
 }
 
-function addAttr(store: Store, [attr]: [InstantDBAttr]) {
-  store.attrs[attr.id] = attr;
-  resetAttrIndexes(store);
+function addAttr(attrsStore: AttrsStore, [attr]: [InstantDBAttr]) {
+  attrsStore.addAttr(attr);
 }
 
 function getAllTriples(store: Store): Triple[] {
   return allMapValues(store.eav, 3);
 }
 
-function deleteAttr(store: Store, [id]: [string]) {
-  if (!store.attrs[id]) return;
+function deleteAttr(store: Store, attrsStore: AttrsStore, [id]: [string]) {
+  if (!attrsStore.getAttr(id)) return;
   const newTriples = getAllTriples(store).filter(([_, aid]) => aid !== id);
-  delete store.attrs[id];
-  resetAttrIndexes(store);
-  resetIndexMap(store, newTriples);
+  attrsStore.deleteAttr(id);
+  resetIndexMap(store, attrsStore, newTriples);
 }
 
 function updateAttr(
   store: Store,
+  attrsStore: AttrsStore,
   [partialAttr]: [Partial<InstantDBAttr> & { id: string }],
 ) {
-  const attr = store.attrs[partialAttr.id];
+  const attr = attrsStore.getAttr(partialAttr.id);
   if (!attr) return;
-  store.attrs[partialAttr.id] = { ...attr, ...partialAttr };
-  resetAttrIndexes(store);
-  resetIndexMap(store, getAllTriples(store));
+  attrsStore.updateAttr(partialAttr);
+  resetIndexMap(store, attrsStore, getAllTriples(store));
 }
 
-function applyTxStep(store: Store, txStep) {
+function applyTxStep(store: Store, attrsStore: AttrsStore, txStep) {
   const [action, ...args] = txStep;
   switch (action) {
     case 'add-triple':
-      addTriple(store, args);
+      addTriple(store, attrsStore, args);
       break;
     case 'deep-merge-triple':
-      mergeTriple(store, args);
+      mergeTriple(store, attrsStore, args);
       break;
     case 'retract-triple':
-      retractTriple(store, args);
+      retractTriple(store, attrsStore, args);
       break;
     case 'delete-entity':
-      deleteEntity(store, args);
+      deleteEntity(store, attrsStore, args);
       break;
     case 'add-attr':
-      addAttr(store, args);
+      addAttr(attrsStore, args);
       break;
     case 'delete-attr':
-      deleteAttr(store, args);
+      deleteAttr(store, attrsStore, args);
       break;
     case 'update-attr':
-      updateAttr(store, args);
+      updateAttr(store, attrsStore, args);
       break;
     case 'restore-attr':
       break;
@@ -700,35 +838,36 @@ export function getAsObject(
 }
 
 export function getAttrByFwdIdentName(
-  store: Store,
+  attrsStore: AttrsStore,
   inputEtype: string,
   inputLabel: string,
 ) {
-  return store.attrIndexes.forwardIdents.get(inputEtype)?.get(inputLabel);
+  return attrsStore.forwardIdents.get(inputEtype)?.get(inputLabel);
 }
 
 export function getAttrByReverseIdentName(
-  store: Store,
+  attrsStore: AttrsStore,
   inputEtype: string,
   inputLabel: string,
 ) {
-  return store.attrIndexes.revIdents.get(inputEtype)?.get(inputLabel);
+  return attrsStore.revIdents.get(inputEtype)?.get(inputLabel);
 }
 
-export function getBlobAttrs(store: Store, etype: string) {
-  return store.attrIndexes.blobAttrs.get(etype);
+export function getBlobAttrs(attrsStore: AttrsStore, etype: string) {
+  return attrsStore.blobAttrs.get(etype);
 }
 
-export function getPrimaryKeyAttr(store: Store, etype: string) {
-  const fromPrimary = store.attrIndexes.primaryKeys.get(etype);
+export function getPrimaryKeyAttr(attrsStore: AttrsStore, etype: string) {
+  const fromPrimary = attrsStore.primaryKeys.get(etype);
   if (fromPrimary) {
     return fromPrimary;
   }
-  return store.attrIndexes.forwardIdents.get(etype)?.get('id');
+  return attrsStore.forwardIdents.get(etype)?.get('id');
 }
 
 function findTriple(
   store: Store,
+  attrsStore: AttrsStore,
   rawTriple: [string, string, any] | Triple,
 ): Triple | undefined {
   const triple = resolveLookupRefs(store, rawTriple as Triple);
@@ -737,7 +876,7 @@ function findTriple(
   }
 
   const [eid, aid, v] = triple;
-  const attr = getAttr(store.attrs, aid);
+  const attr = attrsStore.getAttr(aid);
   if (!attr) {
     // (XXX): Due to the way we're handling attrs, it's
     // possible to enter a state where we receive a triple without an attr.
@@ -749,7 +888,11 @@ function findTriple(
   return getInMap(store.eav, [eid, aid]);
 }
 
-export function transact(store: Store, txSteps) {
+export function transact(
+  store: Store,
+  attrsStore: AttrsStore,
+  txSteps,
+): { store: Store; attrsStore: AttrsStore } {
   const txStepsFiltered = txSteps.filter(
     ([action, eid, attrId, value, opts]) => {
       if (action !== 'add-triple' && action !== 'deep-merge-triple') {
@@ -763,10 +906,13 @@ export function transact(store: Store, txSteps) {
 
       let exists = false;
 
-      const attr = getAttr(store.attrs, attrId);
+      const attr = attrsStore.getAttr(attrId);
       if (attr) {
-        const idAttr = getPrimaryKeyAttr(store, attr['forward-identity'][1]);
-        exists = !!findTriple(store, [
+        const idAttr = getPrimaryKeyAttr(
+          attrsStore,
+          attr['forward-identity'][1],
+        );
+        exists = !!findTriple(store, attrsStore, [
           eid as string,
           idAttr?.id as string,
           eid,
@@ -785,9 +931,19 @@ export function transact(store: Store, txSteps) {
     },
   );
 
-  return create(store, (draft) => {
-    txStepsFiltered.forEach((txStep) => {
-      applyTxStep(draft, txStep);
-    });
-  });
+  return create(
+    { store, attrsStore },
+    (draft) => {
+      txStepsFiltered.forEach((txStep) => {
+        applyTxStep(draft.store, draft.attrsStore, txStep);
+      });
+    },
+    {
+      mark: (target) => {
+        if (target instanceof AttrsStoreClass) {
+          return 'immutable';
+        }
+      },
+    },
+  );
 }

@@ -7,10 +7,10 @@ import EphemeralAppPage, {
 const schema = i.schema({
   entities: {
     items: i.entity({
-      val: i.string().indexed(),
+      val: i.string().indexed().optional(),
     }),
     link: i.entity({
-      val: i.string().indexed(),
+      val: i.string().indexed().optional(),
     }),
   },
   links: {
