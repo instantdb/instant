@@ -473,12 +473,11 @@ function DevtoolContent({
   dashResponse: FetchedDash;
 }) {
   const schemaData = useSchemaQuery(connection.db);
-  const token = useContext(TokenContext);
 
   return (
     <>
       {tab === 'explorer' ? (
-        <Explorer adminToken={token} appId={appId} />
+        <Explorer adminToken={adminToken} appId={appId} />
       ) : tab === 'sandbox' ? (
         <div className="w-full min-w-[960px]">
           <Sandbox
