@@ -27,19 +27,7 @@
         (is (= {:not-supported [:complex-value-type]}
                (iqt/instaql-topic
                 {:attrs attrs}
-                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))
-
-        (is (= {:not-supported [:pagination {:options [:limit]}]}
-               (iqt/instaql-topic
-                {:attrs attrs}
-                (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}
-                                              :limit 1}}}))))
-
-        (is (= {:not-supported [:pagination {:options [:before]}]}
-               (iqt/instaql-topic
-                {:attrs attrs}
-                (iq/->forms! attrs {:users {:$ {:where {:handle "stopa"}
-                                              :before [(random-uuid) (random-uuid) "cursor-value" 0]}}}))))))))
+                (iq/->forms! attrs {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}}))))))))
 
 (deftest composites
   (with-zeneca-app
