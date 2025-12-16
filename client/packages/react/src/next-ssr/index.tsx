@@ -7,7 +7,6 @@ import {
   InstantUnknownSchema,
   InstaQLResponse,
   PageInfoResponse,
-  parseSchemaFromJSON,
   RuleParams,
   User,
   ValidQuery,
@@ -21,7 +20,6 @@ import version from '../version.ts';
 
 import InstantReactWebDatabase from '../InstantReactWebDatabase.ts';
 import { InstantReactAbstractDatabase } from '@instantdb/react-common';
-import { init as baseInit } from '../init.ts';
 
 type InstantSuspenseProviderProps<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -81,20 +79,13 @@ export const InstantSuspenseProvider = (
 ) => {
   const clientRef = useRef<FrameworkClient | null>(null);
 
-  if (!props.db && !props.config) {
+  if (!props.db) {
     throw new Error(
       'Must provide either a db or config to InstantSuspenseProvider',
     );
   }
 
-  const db = useRef<InstantReactAbstractDatabase<any, any>>(
-    props.db
-      ? props.db
-      : baseInit({
-          ...props.config!,
-          schema: parseSchemaFromJSON(JSON.parse(props.config!.schema)),
-        }),
-  );
+  const db = useRef<InstantReactAbstractDatabase<any, any>>(props.db);
 
   const [trackedKeys] = useState(() => new Set<string>());
 
