@@ -12,10 +12,12 @@ import {
 } from '@instantdb/platform';
 import { Monaco } from '@monaco-editor/react';
 import { useState } from 'react';
+import Highlight, { defaultProps, Prism } from 'prism-react-renderer';
 
 import { attrsToSchema } from '@/lib/schema';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import { addInstantLibs } from '@/lib/monaco';
+import { useDarkMode } from './DarkModeToggle';
 
 type Pkg =
   | '@instantdb/core'
@@ -43,6 +45,8 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
     addInstantLibs(monaco);
   };
 
+  const { darkMode } = useDarkMode();
+
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <div className="flex min-h-0 flex-col gap-4 border-r p-4 text-sm md:text-base lg:basis-96 dark:border-r-neutral-600">
@@ -56,6 +60,7 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
         <p>
           <div className="overflow-auto rounded-sm border bg-white text-sm dark:border-neutral-600 dark:bg-neutral-800">
             <Fence
+              darkMode={darkMode}
               copyable
               code={`npx instant-cli@latest pull`}
               language="bash"
@@ -100,6 +105,7 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
         </div>
         <div className="grow">
           <CodeEditor
+            darkMode={darkMode}
             readOnly={true}
             onChange={() => null}
             language="typescript"

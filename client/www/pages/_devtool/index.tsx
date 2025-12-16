@@ -6,7 +6,6 @@ import { useSchemaQuery } from '@/lib/hooks/explorer';
 import { jsonFetch } from '@/lib/fetch';
 import { APIResponse, signOut, useAuthToken, useTokenFetch } from '@/lib/auth';
 import { Sandbox } from '@/components/dash/Sandbox';
-import { Explorer } from '@/components/dash/explorer/Explorer';
 import { init } from '@instantdb/react';
 import { useEffect, useState, useContext, useMemo } from 'react';
 import {
@@ -24,7 +23,7 @@ import {
   FullscreenLoading,
 } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
-import { FullscreenErrorMessage, getRole, isMinRole } from '@/pages/dash/index';
+import { getRole, isMinRole } from '@/pages/dash/index';
 import { TrashIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import {
@@ -32,6 +31,7 @@ import {
   FetchedDash,
   useFetchedDash,
 } from '@/components/dash/MainDashLayout';
+import { Explorer } from '@instantdb/components';
 
 type InstantReactClient = ReturnType<typeof init>;
 
@@ -380,13 +380,16 @@ function DevtoolWithData({
           }}
         />
         <div className="flex w-full flex-1 overflow-auto">
-          <DevtoolContent
-            connection={connection}
-            app={app}
-            appId={appId}
-            tab={tab}
-            dashResponse={dashResponse}
-          />
+          {adminToken && (
+            <DevtoolContent
+              adminToken={adminToken}
+              connection={connection}
+              app={app}
+              appId={appId}
+              tab={tab}
+              dashResponse={dashResponse}
+            />
+          )}
         </div>
       </div>
     </DevtoolWindow>
@@ -459,24 +462,23 @@ function DevtoolContent({
   app,
   appId,
   tab,
+  adminToken,
   dashResponse,
 }: {
   connection: { state: 'ready'; db: InstantReactClient };
   app: InstantApp;
   appId: string;
+  adminToken: string;
   tab: string;
   dashResponse: FetchedDash;
 }) {
   const schemaData = useSchemaQuery(connection.db);
+  const token = useContext(TokenContext);
 
   return (
     <>
       {tab === 'explorer' ? (
-        <Explorer
-          db={connection.db}
-          appId={appId}
-          namespaces={schemaData.namespaces}
-        />
+        <Explorer adminToken={token} appId={appId} />
       ) : tab === 'sandbox' ? (
         <div className="w-full min-w-[960px]">
           <Sandbox

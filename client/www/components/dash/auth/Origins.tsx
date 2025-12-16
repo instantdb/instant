@@ -6,8 +6,6 @@ import {
   AuthorizedOriginService,
   InstantApp,
   InstantIssue,
-  OAuthClient,
-  OAuthServiceProvider,
 } from '@/lib/types';
 import { jsonFetch } from '@/lib/fetch';
 import { TokenContext } from '@/lib/contexts';
@@ -104,11 +102,12 @@ export function AuthorizedOriginsForm({
   const [service, setService] = useState<AuthorizedOriginService>('generic');
 
   const validateUrl = (
-    originParam: string,
+    _originParam: string,
     service: AuthorizedOriginService,
   ):
     | { type: 'error'; message: string }
     | { type: 'success'; params: string[] } => {
+    const originParam = _originParam.trim();
     switch (service) {
       case 'netlify': {
         return { type: 'success', params: [originParam] };

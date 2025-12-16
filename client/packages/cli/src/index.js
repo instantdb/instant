@@ -19,7 +19,7 @@ import chalk from 'chalk';
 import { program, Option } from 'commander';
 import boxen from 'boxen';
 import { loadConfig } from './util/loadConfig.js';
-import { packageDirectory } from 'pkg-dir';
+import { findProjectDir } from './util/projectDir.js';
 import openInBrowser from 'open';
 import terminalLink from 'terminal-link';
 import { exec } from 'child_process';
@@ -141,12 +141,14 @@ function convertPushPullToCurrentFormat(arg, opts) {
 }
 
 async function packageDirectoryWithErrorLogging() {
-  const pkgDir = await packageDirectory();
-  if (!pkgDir) {
-    error("Couldn't find your root directory. Is there a package.json file?");
+  const projectInfo = await findProjectDir();
+  if (!projectInfo) {
+    error(
+      "Couldn't find your root directory. Is there a package.json or deno.json file?",
+    );
     return;
   }
-  return pkgDir;
+  return projectInfo;
 }
 
 // cli
@@ -1095,10 +1097,26 @@ async function getPackageJSONWithErrorLogging(pkgDir) {
 }
 
 async function enforcePackageAndAuthInfoWithErrorLogging(_opts) {
-  const pkgDir = await packageDirectoryWithErrorLogging();
-  if (!pkgDir) {
+  const projectInfo = await packageDirectoryWithErrorLogging();
+  if (!projectInfo) {
     return;
   }
+  const { dir: pkgDir, type: projectType } = projectInfo;
+
+  // Deno projects don't have package.json or node_modules
+  if (projectType === 'deno') {
+    const authToken = await readConfigAuthTokenWithErrorLogging();
+    if (!authToken) {
+      return;
+    }
+    return {
+      pkgDir,
+      projectType,
+      instantModuleName: '@instantdb/core',
+      authToken,
+    };
+  }
+
   const pkgJson = await getPackageJSONWithErrorLogging(pkgDir);
   if (!pkgJson) {
     return;
@@ -1111,14 +1129,30 @@ async function enforcePackageAndAuthInfoWithErrorLogging(_opts) {
   if (!authToken) {
     return;
   }
-  return { pkgDir, instantModuleName, authToken };
+  return { pkgDir, projectType, instantModuleName, authToken };
 }
 
 async function getOrPromptPackageAndAuthInfoWithErrorLogging(opts) {
-  const pkgDir = await packageDirectoryWithErrorLogging();
-  if (!pkgDir) {
+  const projectInfo = await packageDirectoryWithErrorLogging();
+  if (!projectInfo) {
     return;
   }
+  const { dir: pkgDir, type: projectType } = projectInfo;
+
+  // Deno projects don't have package.json or node_modules
+  if (projectType === 'deno') {
+    const authToken = await readAuthTokenOrLoginWithErrorLogging();
+    if (!authToken) {
+      return;
+    }
+    return {
+      pkgDir,
+      projectType,
+      instantModuleName: '@instantdb/core',
+      authToken,
+    };
+  }
+
   const instantModuleName = await getOrInstallInstantModuleWithErrorLogging(
     pkgDir,
     opts,
@@ -1130,7 +1164,7 @@ async function getOrPromptPackageAndAuthInfoWithErrorLogging(opts) {
   if (!authToken) {
     return;
   }
-  return { pkgDir, instantModuleName, authToken };
+  return { pkgDir, projectType, instantModuleName, authToken };
 }
 
 async function pullSchema(appId, { pkgDir, instantModuleName }) {

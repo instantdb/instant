@@ -15,6 +15,7 @@
    [instant.db.indexing-jobs :as indexing-jobs]
    [instant.db.hint-testing :as hint-testing]
    [instant.db.model.wal-log :as wal-log-model]
+   [instant.db.model.transaction :as tx-model]
    [instant.storage.sweeper :as storage-sweeper]
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
@@ -296,6 +297,8 @@
         (jwt/start))
       (with-log-init :aurora
         (aurora/start))
+      (with-log-init :tx-model
+        (tx-model/init (aurora/conn-pool :read)))
       (with-log-init :system-catalog
         (ensure-attrs-on-system-catalog-app))
       (with-log-init :reactive-store
