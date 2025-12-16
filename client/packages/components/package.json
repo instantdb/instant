@@ -45,6 +45,7 @@
     "@types/react": "^18.3.1",
     "@types/react-copy-to-clipboard": "^5.0.4",
     "@types/react-dom": "^18.3.1",
+    "@types/uuid": "^10.0.0",
     "@types/websocket": "^1.0.5",
     "@vitejs/plugin-react": "^5.1.1",
     "@vitejs/plugin-react-swc": "^4.2.2",
