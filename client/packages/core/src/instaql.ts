@@ -1,5 +1,5 @@
 import { query as datalogQuery } from './datalog.js';
-import { uuidCompare } from './utils/uuid.ts';
+import { uuidCompare } from './utils/id.ts';
 import { stringCompare } from './utils/strings.ts';
 import * as s from './store.ts';
 import { InstantDBAttr } from './attrTypes.ts';
