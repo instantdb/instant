@@ -441,7 +441,7 @@
 (defn add-goal-line!
   "Given an existing line chart for (metrics, x-key, y-key): 
    Overlays a `goal-line`, which goes linearily towards `end-goal`"
-  [chart metrics y-key end-goal ^LocalDate target-date]
+  [^JFreeChart chart metrics y-key end-goal ^LocalDate target-date]
   (let [start-of-month (.withDayOfMonth target-date 1)
         end-of-month (.withDayOfMonth target-date (.lengthOfMonth target-date))
         x-values (->> (iterate #(LocalDate/.plusDays % 1) start-of-month)

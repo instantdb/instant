@@ -4,6 +4,7 @@
             [instant.db.model.attr :as attr-model]
             [instant.db.model.triple :as triple-model]
             [clojure+.core :refer [cond+]]
+            [instant.util.coll :as ucoll]
             [instant.util.tracer :as tracer])
   (:import (clojure.lang ExceptionInfo)
            (com.google.protobuf NullValue)
@@ -16,6 +17,8 @@
            (dev.cel.runtime CelFunctionOverload CelRuntime CelRuntime$CelFunctionBinding CelRuntimeFactory)
            (java.time Instant)
            (java.util Date HashMap)))
+
+(set! *warn-on-reflection* true)
 
 (defn throw-not-supported! [reason]
   (throw (ex-info "not-supported" {::not-supported reason})))
@@ -196,12 +199,12 @@
 (def ^:private ^CelFunctionDecl instant-date-eq-fn-decl
   (CelFunctionDecl/newFunctionDeclaration
    "instant_date_eq"
-   (into-array
+   (ucoll/array-of
     CelOverloadDecl
     [(CelOverloadDecl/newGlobalOverload
       "_instant_date_eq_dyn_int"
       SimpleType/BOOL
-      (into-array CelType [SimpleType/DYN SimpleType/INT]))])))
+      (ucoll/array-of CelType [SimpleType/DYN SimpleType/INT]))])))
 
 (def ^:private ^CelRuntime$CelFunctionBinding instant-date-eq-fn-binding
   (CelRuntime$CelFunctionBinding/from
@@ -236,13 +239,13 @@
 (def ^:private ^CelCompiler instaql-topic-cel-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "entity" entity-type)
-      (.addFunctionDeclarations (into-array CelFunctionDecl [instant-date-eq-fn-decl]))
+      (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl [instant-date-eq-fn-decl]))
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
       (.build)))
 
 (def ^:private ^CelRuntime instaql-topic-cel-runtime
   (-> (CelRuntimeFactory/standardCelRuntimeBuilder)
-      (.addFunctionBindings (into-array CelRuntime$CelFunctionBinding [instant-date-eq-fn-binding]))
+      (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding [instant-date-eq-fn-binding]))
       (.build)))
 
 (defn eval-topic-program [program entity]
