@@ -571,17 +571,18 @@ export default class Reactor {
       throw new Error('Attrs in reactor have not been set');
     }
     const queryHash = weakHash(q);
+    const attrsStore = this.ensureAttrs();
     const store = s.createStore(
       this.attrs,
       result.triples,
       enableCardinalityInference,
-      this._linkIndex,
       this.config.useDateObjects,
     );
     this.querySubs.updateInPlace((prev) => {
       prev[queryHash] = {
         result: {
           store,
+          attrsStore,
           pageInfo: result.pageInfo,
           processedTxId: undefined,
           isExternal: true,

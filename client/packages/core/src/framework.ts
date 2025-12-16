@@ -7,6 +7,7 @@ import {
 import * as s from './store.js';
 import instaql from './instaql.js';
 import { RuleParams } from './schemaTypes.ts';
+import { createLinkIndex } from './utils/linkIndex.ts';
 
 export const isServer = typeof window === 'undefined' || 'Deno' in globalThis;
 
@@ -199,15 +200,27 @@ export class FrameworkClient {
         ? Boolean(this.db?._reactor.config?.cardinalityInference)
         : true);
 
+    const attrsStore = new s.AttrsStoreClass(
+      attrs.reduce((acc, attr) => {
+        acc[attr.id] = attr;
+        return acc;
+      }, {}),
+      createLinkIndex(this.db?._reactor.config.schema),
+    );
+
     const store = s.createStore(
-      attrMap,
+      attrsStore,
       triples,
       enableCardinalityInference,
-      null,
       this.params.db._reactor.config.useDateObjects || false,
     );
     const resp = instaql(
-      { store: store, pageInfo: pageInfo, aggregate: undefined },
+      {
+        store: store,
+        attrsStore: attrsStore,
+        pageInfo: pageInfo,
+        aggregate: undefined,
+      },
       query,
     );
     return resp;
