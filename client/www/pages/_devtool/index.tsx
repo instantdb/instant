@@ -538,7 +538,7 @@ function Admin({
               </Button>
             </div>
           </div>
-          <Dialog {...clearDialog}>
+          <Dialog title="Clear App" {...clearDialog}>
             <div className="flex flex-col gap-2">
               <SubsectionHeading className="text-red-600">
                 Clear app

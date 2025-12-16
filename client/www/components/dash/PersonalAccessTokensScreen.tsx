@@ -174,7 +174,7 @@ function CopyTokenDialog({
   onClose: () => void;
 }) {
   return (
-    <Dialog open={Boolean(token)} onClose={onClose}>
+    <Dialog title="Copy Token" open={Boolean(token)} onClose={onClose}>
       <SubsectionHeading>Copy your token</SubsectionHeading>
       <div className="flex flex-col gap-2 p-2">
         <Content>
@@ -281,6 +281,7 @@ export default function PersonalAccessTokensTab({
           handleDeleteToken={handleDeleteToken}
         />
         <Dialog
+          title="Create Token"
           open={isCreatingNewToken}
           onClose={() => setIsCreatingNewToken(false)}
         >

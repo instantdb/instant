@@ -399,7 +399,7 @@ export function ClerkClient({
           </div>
         </Collapsible.Content>
       </Collapsible.Root>
-      <Dialog {...deleteDialog}>
+      <Dialog title="Delete client" {...deleteDialog}>
         <div className="flex flex-col gap-2">
           <SubsectionHeading>Delete client</SubsectionHeading>
           <Content>

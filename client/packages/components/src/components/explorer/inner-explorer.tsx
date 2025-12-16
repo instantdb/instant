@@ -830,6 +830,7 @@ export const InnerExplorer: React.FC<{
   return (
     <>
       <Dialog
+        title="Delete Rows"
         open={deleteDataConfirmationOpen}
         onClose={() => setDeleteDataConfirmationOpen(false)}
       >
@@ -900,6 +901,7 @@ export const InnerExplorer: React.FC<{
         ) : null}
       </Dialog>
       <Dialog
+        title="Edit Row"
         open={addItemDialogOpen}
         onClose={() => setAddItemDialogOpen(false)}
       >
@@ -913,6 +915,7 @@ export const InnerExplorer: React.FC<{
         ) : null}
       </Dialog>
       <Dialog
+        title="Edit Row"
         open={!!selectedEditableItem}
         onClose={() => setEditableRowId(null)}
       >
@@ -926,6 +929,7 @@ export const InnerExplorer: React.FC<{
         ) : null}
       </Dialog>
       <Dialog
+        title="Edit Namespace"
         stopFocusPropagation={true}
         open={Boolean(editNs)}
         onClose={() => setEditNs(null)}

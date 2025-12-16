@@ -64,7 +64,7 @@ export const CreateOrgModal = ({
 
   return (
     <>
-      <Dialog {...dialog}>
+      <Dialog title="Create Org" {...dialog}>
         <form
           onSubmit={async (e) => {
             e.preventDefault();

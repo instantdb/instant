@@ -346,7 +346,7 @@ export function Client({
           </div>
         </Collapsible.Content>
       </Collapsible.Root>
-      <Dialog {...deleteDialog}>
+      <Dialog title="Delete Client" {...deleteDialog}>
         <div className="flex flex-col gap-2">
           <SubsectionHeading>Delete client</SubsectionHeading>
           <Content>

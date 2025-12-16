@@ -25,6 +25,7 @@ export const ViewSettings = ({
         onClick={() => setDialogOpen(true)}
       />
       <Dialog
+        title="Explorer View Settings"
         hideCloseButton={true}
         onClose={() => setDialogOpen(false)}
         open={dialogOpen}

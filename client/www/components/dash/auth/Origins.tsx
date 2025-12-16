@@ -359,7 +359,7 @@ export function AuthorizedOriginRow({
       <button onClick={deleteDialog.onOpen}>
         <TrashIcon height={'1rem'} className="" />
       </button>
-      <Dialog {...deleteDialog}>
+      <Dialog title="Delete Origin" {...deleteDialog}>
         <div className="flex flex-col gap-2">
           <SubsectionHeading>Delete {originDisplay(origin)}</SubsectionHeading>
           <Content>

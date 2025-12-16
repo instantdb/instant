@@ -609,7 +609,7 @@ export function Sandbox({
 
   return (
     <>
-      <Dialog {...saveCurrentDialog}>
+      <Dialog title="Save Sandbox" {...saveCurrentDialog}>
         <form
           onSubmit={(e) => {
             e.preventDefault();

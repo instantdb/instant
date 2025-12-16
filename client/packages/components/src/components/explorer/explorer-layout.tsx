@@ -55,10 +55,10 @@ export const ExplorerLayout = ({
         props.className,
       )}
     >
-      <Dialog {...recentlyDeletedNsDialog}>
+      <Dialog title="Recently Deleted Namespaces" {...recentlyDeletedNsDialog}>
         <RecentlyDeletedNamespaces appId={props.appId} db={db} />
       </Dialog>
-      <Dialog {...newNsDialog}>
+      <Dialog title="New Namespace" {...newNsDialog}>
         <NewNamespaceDialog
           db={db}
           onClose={(p) => {

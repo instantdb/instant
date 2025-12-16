@@ -56,7 +56,7 @@ export const InviteToOrgDialog = ({
   }
 
   return (
-    <Dialog open={dialog.open} onClose={dialog.onClose}>
+    <Dialog title="Invite To Org" open={dialog.open} onClose={dialog.onClose}>
       <div className="flex flex-col gap-4">
         <h5 className="flex items-center text-lg font-bold">
           Invite to organization
