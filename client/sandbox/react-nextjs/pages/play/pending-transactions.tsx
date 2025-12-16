@@ -20,7 +20,7 @@ function Main() {
     return unsub;
   }, []);
   const pendingTxToPrint = [...(pendingTxs?.values() || [])].map((x) => {
-    return x['tx-steps'][1][3];
+    return x['tx-steps']?.[1]?.[3];
   });
   return (
     <div>
