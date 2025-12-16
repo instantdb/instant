@@ -14,7 +14,7 @@ import {
   attrsStoreFromJSON,
 } from '../../src/store';
 import query from '../../src/instaql';
-import uuid from '../../src/utils/uuid';
+import uuid from '../../src/utils/id';
 import { tx } from '../../src/instatx';
 import * as instaml from '../../src/instaml';
 import * as datalog from '../../src/datalog';
