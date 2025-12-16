@@ -127,8 +127,11 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
     _setExplorerState,
   );
 
-  if (!props.adminToken || !props.appId) {
-    throw new Error('Admin token and app ID are required');
+  if (!props.adminToken) {
+    throw new Error('adminToken is required for explorer');
+  }
+  if (!props.appId) {
+    throw new Error('appId is required for explorer');
   }
 
   // inside the component avoid setting explorer state directly
