@@ -8,7 +8,7 @@ import {
   type TransactionChunk,
 } from './instatx.js';
 import weakHash from './utils/weakHash.js';
-import id from './utils/uuid.js';
+import id from './utils/id.ts';
 import IndexedDBStorage from './IndexedDBStorage.ts';
 import { coerceToDate } from './utils/dates.js';
 import WindowNetworkListener from './WindowNetworkListener.js';

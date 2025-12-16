@@ -9,7 +9,7 @@ import {
 import { getOps, isLookup, parseLookup } from './instatx.ts';
 import { immutableRemoveUndefined } from './utils/object.js';
 import { coerceToDate } from './utils/dates.ts';
-import uuid from './utils/uuid.ts';
+import uuid from './utils/id.ts';
 import {
   EntitiesWithLinks,
   IContainEntitiesAndLinks,

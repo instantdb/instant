@@ -1,7 +1,7 @@
 import { i } from '../../src/schema';
 import { validateTransactions } from '../../src/transactionValidation.ts';
 import { lookup, tx as originalTx, TxChunk } from '../../src/instatx.ts';
-import id from '../../src/utils/uuid.ts';
+import id from '../../src/utils/id.ts';
 import { expect, test } from 'vitest';
 import { InstantSchemaDef } from '../../src';
 
