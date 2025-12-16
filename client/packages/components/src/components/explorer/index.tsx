@@ -91,7 +91,7 @@ const fillPropsWithDefaults = (
     // In uncontrolled mode, use the internal state
     explorerState: controlled ? (input.explorerState ?? null) : _explorerState,
     setExplorerState: input.setExplorerState || setExplorerState,
-    useShadowDOM: input.useShadowDOM || false,
+    useShadowDOM: input.useShadowDOM === undefined ? true : input.useShadowDOM,
   };
 };
 
