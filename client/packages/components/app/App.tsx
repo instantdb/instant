@@ -39,8 +39,10 @@ function App() {
           darkMode={true}
           apiURI={'http://localhost:8888'}
           websocketURI={'ws://localhost:8888/runtime/session'}
-          appId="5696faa0-af6b-4562-ade9-47ffb3b2b87b"
-          adminToken="59cb9109-0e5c-4735-8775-4369d0486d0b"
+          // @ts-expect-error
+          appId={import.meta.env.VITE_INSTANT_APP_ID}
+          // @ts-expect-error
+          adminToken={import.meta.env.VITE_INSTANT_ADMIN_TOKEN}
         />
       </div>
       <h1>Vite + React</h1>
