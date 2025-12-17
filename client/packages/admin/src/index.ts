@@ -305,7 +305,7 @@ function init<
 ): InstantAdminDatabase<Schema, UseDates, InstantConfig<Schema, UseDates>> {
   const configStrict = {
     ...config,
-    appId: config.appId.trim(),
+    appId: config.appId?.trim(),
     adminToken: config.adminToken?.trim(),
     useDateObjects: (config.useDateObjects ?? false) as UseDates,
   };
