@@ -370,7 +370,7 @@
 (defn register-in-progress
   "Registers the statement in the in-progress set (if we're tracking it)
   and returns a closeable that will remove the statement from the set at
-  the end of the query. Calling `.close` on the closeable will return a promise
+  the end of the query. Calling `.cancel` on the Cancelable will return a promise
   that will resolve when the query is finally interrupted."
   ^java.lang.AutoCloseable
   [created-connection? rw ^Connection conn ^PreparedStatement stmt complete]
