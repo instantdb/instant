@@ -813,6 +813,7 @@ function init<
 ): InstantCoreDatabase<Schema, UseDates> {
   const configStrict = {
     ...config,
+    appId: config.appId.trim(),
     useDateObjects: (config.useDateObjects ?? false) as UseDates,
   };
   const existingClient = globalInstantCoreStore[
