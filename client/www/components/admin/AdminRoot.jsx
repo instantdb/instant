@@ -99,10 +99,6 @@ export default function AdminPage() {
               How did you hear about us?:{' '}
               <span className="font-normal">{user.meta?.heard}</span>
             </p>
-            <p className="text-lg font-bold">
-              What do you want to build?:{' '}
-              <span className="font-normal">{user.meta?.build}</span>
-            </p>
           </div>
         );
       })}
