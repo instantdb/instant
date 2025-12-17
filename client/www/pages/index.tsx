@@ -144,7 +144,7 @@ function LandingHero() {
             <ActiveSessionsCallout />
           </div>
           <div className="flex flex-1 flex-col items-center justify-center space-y-2">
-            <MuxPlayer {...muxVideos.createInstantApp} />
+            <MuxPlayer accentColor="#F54A00" {...muxVideos.createInstantApp} />
           </div>
         </TwoColResponsive>
       </SectionWide>
