@@ -6,7 +6,7 @@ export const appId = process.env.NEXT_PUBLIC_INSTANT_APP_ID;
 
 export const db = init({
   appId: appId!,
-  cookieEndpoint: '/api/instant',
+  firstPartyPath: '/api/instant',
   apiURI: 'http://localhost:8888',
   websocketURI: 'ws://localhost:8888/runtime/session',
   schema,

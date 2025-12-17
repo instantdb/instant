@@ -18,7 +18,7 @@ export default async function ({ children }: { children: React.ReactNode }) {
       <InstantSuspenseProvider
         config={{
           appId: appId!,
-          cookieEndpoint: '/api/instant',
+          firstPartyPath: '/api/instant',
           apiURI: 'http://localhost:8888',
           websocketURI: 'ws://localhost:8888/runtime/session',
           schema: JSON.stringify(schema),

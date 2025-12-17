@@ -466,7 +466,7 @@ Then, provide your mounted api url to the `init` function.
 ```typescript {% showCopy=true %}
 export const db = init({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-  cookieEndpoint: '/api/instant', // the endpoint that you registered the route handler at.
+  firstPartyPath: '/api/instant', // the endpoint that you registered the route handler at.
   schema,
   useDateObjects: true,
 });

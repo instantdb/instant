@@ -157,7 +157,7 @@ export type InstantConfig<
   appId: string;
   schema?: S;
   websocketURI?: string;
-  cookieEndpoint?: string;
+  firstPartyPath?: string;
   apiURI?: string;
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;
