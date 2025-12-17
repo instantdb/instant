@@ -142,6 +142,8 @@ export function BareNav({ children }: PropsWithChildren) {
           }
         }}
         className={cn(
+          // iOS Safari touch fix
+          'touch-manipulation',
           // viz
           'hidden min-[60rem]:flex',
           // pos
