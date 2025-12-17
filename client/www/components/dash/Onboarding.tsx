@@ -8,13 +8,7 @@ import React, {
 
 import { v4 } from 'uuid';
 
-import {
-  Button,
-  Content,
-  Label,
-  ScreenHeading,
-  TextInput,
-} from '@/components/ui';
+import { Button, Content, ScreenHeading, TextInput } from '@/components/ui';
 import { signOut } from '@/lib/auth';
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
@@ -26,7 +20,7 @@ import { usePostHog } from 'posthog-js/react';
 
 type ProfileCreateState = { isLoading: boolean; error?: string };
 type AppError = { body: { message: string } | undefined };
-type Profile = { meta?: { heard?: string; build?: string } };
+type Profile = { meta?: { heard?: string } };
 type DashState =
   | { isLoading: true; error: undefined; apps: undefined; profile: undefined }
   | { isLoading: false; error: AppError; apps: undefined; profile?: undefined }
@@ -149,11 +143,10 @@ function ProfileScreen(props: {
 }) {
   const { error, isLoading } = props.profileCreateState;
   const [heard, setHeard] = useState('');
-  const [build, setBuild] = useState('');
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    props.onProfileSubmit({ heard, build });
+    props.onProfileSubmit({ heard });
   };
 
   return (
@@ -173,23 +166,7 @@ function ProfileScreen(props: {
           value={heard}
           onChange={(e) => setHeard(e)}
         />
-
-        <Label className="flex flex-col gap-1">
-          What do you want to build?
-          <textarea
-            id="build"
-            name="build"
-            className="placeholder:gray-400 w-full appearance-none rounded-sm border-gray-200 font-normal outline-hidden dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500"
-            placeholder="Social media for books -- like goodreads, but with a better design. Something like zeneca.io but realtime!"
-            value={build}
-            onChange={(e) => setBuild(e.target.value)}
-            rows={4}
-          />
-        </Label>
-        <Button
-          type="submit"
-          disabled={isBlank(build) || isBlank(heard) || isLoading}
-        >
+        <Button type="submit" disabled={isBlank(heard) || isLoading}>
           {isLoading ? '...' : 'Onwards!'}
         </Button>
         {error ? (
@@ -354,7 +331,6 @@ export function Onboarding() {
       async () => {
         posthog.capture('onboarding_complete', {
           heard_from: dashState.profile?.meta?.heard,
-          build_choice: dashState.profile?.meta?.build,
         });
         posthog.capture('app_create', {
           app_id: toCreate.id,
