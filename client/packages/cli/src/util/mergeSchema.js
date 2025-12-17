@@ -140,6 +140,7 @@ function traverseSchema(node, path, callback) {
         }
 
         if (isEntity) {
+          callback(prop.value, newPath);
           if (prop.value.arguments.length > 0) {
             traverseSchema(prop.value.arguments[0], newPath, callback);
           }
