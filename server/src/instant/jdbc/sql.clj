@@ -354,21 +354,32 @@
                (when remove (remove rw cancelable)))
      :stmts stmts}))
 
-(defn cancel-in-progress [{:keys [stmts]}]
-  (doseq [stmt @stmts]
-    (cancel stmt)))
+(defn cancel-in-progress
+  ([tracker]
+   (cancel-in-progress tracker 0))
+  ([{:keys [stmts]} timeout-ms]
+   (let [max-end-time (+ (System/currentTimeMillis) timeout-ms)
+         complete-promises (mapv (fn [stmt]
+                                   (cancel stmt))
+                                 @stmts)]
+     (doseq [p complete-promises
+             :when p
+             :let [wait-ms (- max-end-time (System/currentTimeMillis))]]
+       (deref p wait-ms nil)))))
 
 (defn register-in-progress
   "Registers the statement in the in-progress set (if we're tracking it)
   and returns a closeable that will remove the statement from the set at
-  the end of the query."
+  the end of the query. Calling `.close` on the closeable will return a promise
+  that will resolve when the query is finally interrupted."
   ^java.lang.AutoCloseable
-  [created-connection? rw ^Connection conn ^PreparedStatement stmt]
+  [created-connection? rw ^Connection conn ^PreparedStatement stmt complete]
   (if-let [{:keys [add remove]} *in-progress-stmts*]
     (let [cancelable (reify Cancelable
                        (cancel [_]
                          (try
                            (.cancel stmt)
+
                            ;; Don't close the connection we opened b/c
                            ;; it seems to cause thread pinning when you
                            ;; close from a different thread and it will
@@ -380,7 +391,8 @@
                              (.close conn))
                            (catch java.sql.SQLException e
                              (when (not= "Connection is closed" (.getMessage e))
-                               (throw e))))))]
+                               (throw e))))
+                         complete))]
       (add rw cancelable)
       (reify java.lang.AutoCloseable
         (close [_]
@@ -468,11 +480,12 @@
                                      ~'conn)
 
                     query# (annotate-query-with-debug-info ~'query)
-                    bytes-before# (socket-track/bytes-transferred c#)]
+                    bytes-before# (socket-track/bytes-transferred c#)
+                    complete# (promise)]
                 (try
                   (apply-postgres-config postgres-config# create-connection?# c#)
                   (with-open [ps# (next-jdbc/prepare c# query# opts#)
-                              _cleanup# (register-in-progress create-connection?# ~rw c# ps#)]
+                              _cleanup# (register-in-progress create-connection?# ~rw c# ps# complete#)]
                     (let [res# (~query-fn ps# nil opts#)
                           bytes-after# (when bytes-before#
                                          (socket-track/bytes-transferred c#))
@@ -491,6 +504,7 @@
                                                  bytes-meta#))
                           (with-meta res# bytes-meta#)))))
                   (finally
+                    (deliver complete# true)
                     ;; Don't close the connection if a java.sql.Connection was
                     ;; passed in, or we'll end transactions before they're done.
                     (when create-connection?#

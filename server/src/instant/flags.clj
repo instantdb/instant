@@ -293,3 +293,6 @@
     (fn [] true)
     (fn []
       (contains? (flag :more-vfutures-instances) @config/instance-id))))
+
+(defn statement-cancel-wait-ms []
+  (flag :statement-cancel-wait-ms 500))

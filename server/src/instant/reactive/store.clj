@@ -240,7 +240,7 @@
 
 (defn cancel-in-progress-datalog-query [cache datalog-query-ent]
   (when-let [stmts (:datalog-query/stmt-tracker datalog-query-ent)]
-    (sql/cancel-in-progress stmts))
+    (sql/cancel-in-progress stmts (flags/statement-cancel-wait-ms)))
   (when-let [children (:datalog-query/child-vfutures datalog-query-ent)]
     (ua/cancel-children children true))
   (cache/invalidate-async cache (:db/id datalog-query-ent)))
@@ -673,7 +673,9 @@
                   (cache/get-async cache
                                    query-id
                                    (fn [_]
-                                     (datalog-query-fn ctx datalog-query)))))]
+                                     (binding [ua/*child-vfutures* child-vfutures
+                                               sql/*in-progress-stmts* stmt-tracker]
+                                       (datalog-query-fn ctx datalog-query))))))]
 
         (tracer/add-data! {:attributes {:cache-hit (not (nil? existing-result))
                                         :realized (and (not (nil? existing-result))
