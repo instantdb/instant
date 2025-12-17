@@ -136,7 +136,11 @@ export function BareNav({ children }: PropsWithChildren) {
         <Bars3Icon height={'1em'} />
       </button>
       <div
-        onClick={() => setIsOpen(false)}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setIsOpen(false);
+          }
+        }}
         className={cn(
           // viz
           'hidden min-[60rem]:flex',
