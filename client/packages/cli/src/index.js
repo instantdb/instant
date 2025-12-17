@@ -50,6 +50,7 @@ import {
   getSchemaPathToWrite,
   getPermsPathToWrite,
 } from './util/findConfigCandidates.js';
+import { mergeSchema } from './util/mergeSchema.js';
 
 const execAsync = promisify(exec);
 
@@ -470,6 +471,10 @@ program
     '-p --package <react|react-native|core|admin>',
     'Which package to automatically install if there is not one installed already.',
   )
+  .option(
+    '--experimental-type-preservation',
+    'Preserve manual type changes in schema file',
+  )
   .description('Pull schema and perm files from production.')
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat(arg, inputOpts);
@@ -639,7 +644,7 @@ async function handlePull(bag, opts) {
     );
     return;
   }
-  await pull(bag, appId, pkgAndAuthInfo);
+  await pull(bag, appId, { ...pkgAndAuthInfo, ...opts });
 }
 
 async function push(bag, appId, opts) {
@@ -1167,7 +1172,10 @@ async function getOrPromptPackageAndAuthInfoWithErrorLogging(opts) {
   return { pkgDir, projectType, instantModuleName, authToken };
 }
 
-async function pullSchema(appId, { pkgDir, instantModuleName }) {
+async function pullSchema(
+  appId,
+  { pkgDir, instantModuleName, experimentalTypePreservation },
+) {
   console.log('Pulling schema...');
 
   const pullRes = await fetchJson({
@@ -1205,15 +1213,22 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
   const shortSchemaPath = getSchemaPathToWrite(prev?.path);
   const schemaPath = join(pkgDir, shortSchemaPath);
 
-  await writeTypescript(
-    schemaPath,
-    generateSchemaTypescriptFile(
-      prev?.schema,
-      apiSchemaToInstantSchemaDef(pullRes.data.schema),
-      instantModuleName,
-    ),
-    'utf-8',
+  let newSchemaContent = generateSchemaTypescriptFile(
+    prev?.schema,
+    apiSchemaToInstantSchemaDef(pullRes.data.schema),
+    instantModuleName,
   );
+
+  if (prev && experimentalTypePreservation) {
+    try {
+      const oldSchemaContent = await readFile(prev.path, 'utf-8');
+      newSchemaContent = mergeSchema(oldSchemaContent, newSchemaContent);
+    } catch (e) {
+      warn('Failed to merge schema with existing file. Overwriting instead.', e);
+    }
+  }
+
+  await writeTypescript(schemaPath, newSchemaContent, 'utf-8');
 
   console.log('✅ Wrote schema to ' + shortSchemaPath);
 
