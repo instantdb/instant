@@ -142,6 +142,10 @@ export const InstantSuspenseProvider = (
       throw entry.error;
     }
 
+    if (entry.status === 'success' && entry.type === 'session') {
+      return entry.data;
+    }
+
     if (entry.status === 'success') {
       const data = entry.data;
       const result = clientRef.current.completeIsomorphic(

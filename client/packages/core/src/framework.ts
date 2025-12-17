@@ -134,6 +134,7 @@ export class FrameworkClient {
         entry.error = error;
         entry.promise = null;
       });
+      this.resultMap.set(hash, entry);
       return entry as any;
     }
 
