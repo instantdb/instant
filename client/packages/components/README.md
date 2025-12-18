@@ -26,7 +26,7 @@
 
 ```tsx
 import './App.css';
-import { Explorer, Toaster } from '../src/index';
+import { Explorer, Toaster } from '@instantdb/components';
 
 function App() {
   return (
