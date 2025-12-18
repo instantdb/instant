@@ -27,10 +27,13 @@ function App() {
 The Toaster component is required for pop-up alerts, unless you are already using [Sonner](https://sonner.emilkowal.ski/) in your project.
 
 # CSS
+
 ## Projects Using Tailwind
+
 For projects using Tailwind, add the component library to your Tailwind configuration.
 
 Tailwind V3:
+
 ```js
 // tailwind.config.js
 module.exports = {
@@ -45,17 +48,19 @@ module.exports = {
 };
 ```
 
-
 Tailwind V4:
+
 ```css
-@import "tailwindcss";
-@source "../node_modules/@instantdb/components";
+@import 'tailwindcss';
+@source '../node_modules/@instantdb/components';
 ```
 
 ---
 
 ## Projects Without Tailwind
+
 For projects without Tailwind, to avoid CSS conflicts, the [Shadow DOM](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) is used to isolate styles of the explorer.
+
 ```tsx
 import './App.css';
 import { Explorer, Toaster } from '@instantdb/components';
