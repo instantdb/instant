@@ -1,16 +1,19 @@
+import type { User } from './clientTypes.js';
+
 export const createInstantRouteHandler = (config: { appId: string }) => {
-  async function handleUserSync(req: Request) {
-    const body = await req.json();
-    if (body.user && body.user.refresh_token) {
-      return new Response('sync', {
+  function createUserSyncResponse(user: User | null) {
+    if (user && user.refresh_token) {
+      return new Response(JSON.stringify({ ok: true }), {
         headers: {
+          'Content-Type': 'application/json',
           // 7 day expiry
-          'Set-Cookie': `instant_user_${config.appId}=${JSON.stringify(body.user)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`,
+          'Set-Cookie': `instant_user_${config.appId}=${JSON.stringify(user)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`,
         },
       });
     } else {
-      return new Response('sync', {
+      return new Response(JSON.stringify({ ok: true }), {
         headers: {
+          'Content-Type': 'application/json',
           // remove the cookie (some browsers)
           'Set-Cookie': `instant_user_${config.appId}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=-1`,
         },
@@ -18,18 +21,36 @@ export const createInstantRouteHandler = (config: { appId: string }) => {
     }
   }
 
+  function errorResponse(status: number, message: string) {
+    return new Response(JSON.stringify({ ok: false, error: message }), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   return {
     POST: async (req: Request) => {
-      const url = new URL(req.url);
-      const pathname = url.pathname;
-      const route = pathname.split('/')[pathname.split('/').length - 1];
-      switch (route) {
-        case 'sync-auth':
-          return await handleUserSync(req);
+      let body: { type?: string; appId?: string; user?: User | null };
+      try {
+        body = await req.json();
+      } catch {
+        return errorResponse(400, 'Invalid JSON body');
       }
-      return new Response('Route not found', {
-        status: 404,
-      });
+
+      if (!body.type) {
+        return errorResponse(400, 'Missing "type" field');
+      }
+
+      if (body.appId !== config.appId) {
+        return errorResponse(403, 'App ID mismatch');
+      }
+
+      switch (body.type) {
+        case 'sync-user':
+          return createUserSyncResponse(body.user ?? null);
+        default:
+          return errorResponse(400, `Unknown type: ${body.type}`);
+      }
     },
   };
 };

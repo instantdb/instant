@@ -2054,6 +2054,7 @@ export default class Reactor {
           method: 'POST',
           body: JSON.stringify({
             type: 'sync-user',
+            appId: this.config.appId,
             user: user,
           }),
           headers: {
