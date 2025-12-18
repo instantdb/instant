@@ -330,4 +330,70 @@ const _schema = i.schema({
     expect(result).toContain("import * as Types from './types';");
     expect(result).toContain('i.entity<Types.User>');
   });
+
+  test('preserves type imports', () => {
+    const oldFile = `
+import { i } from '@instantdb/core';
+import type { User } from './types';
+
+const _schema = i.schema({
+  entities: {
+    users: i.entity<User>({
+      name: i.string(),
+    }),
+  },
+});
+`;
+    const newFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    users: i.entity({
+      name: i.string(),
+    }),
+  },
+});
+`;
+    const result = mergeSchema(oldFile, newFile);
+    expect(result).toContain("import type { User } from './types';");
+    expect(result).toContain('i.entity<User>');
+  });
+
+
+  test('preserves specific type imports', () => {
+    const oldFile = `
+import { i } from '@instantdb/core';
+import { type User, Settings } from './types';
+
+const _schema = i.schema({
+  entities: {
+    users: i.entity<User>({
+      name: i.string(),
+    }),
+    settings: i.entity<Settings>({
+      theme: i.string(),
+    }),
+  },
+});
+`;
+    const newFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    users: i.entity({
+      name: i.string(),
+    }),
+    settings: i.entity({
+      theme: i.string(),
+    }),
+  },
+});
+`;
+    const result = mergeSchema(oldFile, newFile);
+    expect(result).toContain("import { type User, Settings } from './types';");
+    expect(result).toContain('i.entity<User>');
+    expect(result).toContain('i.entity<Settings>');
+  });
 });

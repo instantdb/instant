@@ -6,27 +6,37 @@ const node = acorn.Parser.extend(tsPlugin({ dts: false }));
 // --- Import Handling Helpers ---
 
 function collectImports(ast) {
-  const imports = new Map(); // localName -> { source, importedName, type }
+  const imports = new Map(); // localName -> { source, importedName, type, importKind }
 
   for (const node of ast.body) {
     if (node.type === 'ImportDeclaration') {
       const source = node.source.value;
+      const declImportKind = node.importKind;
+
       for (const specifier of node.specifiers) {
+        let kind = 'value';
+        if (declImportKind === 'type' || specifier.importKind === 'type') {
+          kind = 'type';
+        }
+
         if (specifier.type === 'ImportSpecifier') {
           imports.set(specifier.local.name, {
             source,
             importedName: specifier.imported.name,
             type: 'named',
+            importKind: kind,
           });
         } else if (specifier.type === 'ImportDefaultSpecifier') {
           imports.set(specifier.local.name, {
             source,
             type: 'default',
+            importKind: kind,
           });
         } else if (specifier.type === 'ImportNamespaceSpecifier') {
           imports.set(specifier.local.name, {
             source,
             type: 'namespace',
+            importKind: kind,
           });
         }
       }
@@ -245,7 +255,7 @@ export function mergeSchema(oldFile, newFile) {
   }
 
   // 4. Generate Import Statements
-  const importsToAdd = new Map(); // source -> Set<string> (import lines)
+  const importsToAdd = new Map(); // source -> { named: Map<string, {str, isType}>, default: {str, isType}, namespace: {str, isType} }
 
   for (const id of neededIdentifiers) {
     const importInfo = oldImports.get(id);
@@ -256,46 +266,32 @@ export function mergeSchema(oldFile, newFile) {
         continue; // Already imported
       }
 
-      // Prepare import string
-      let importStr = '';
+      if (!importsToAdd.has(importInfo.source)) {
+        importsToAdd.set(importInfo.source, {
+          named: new Map(),
+          default: null,
+          namespace: null,
+        });
+      }
+      const group = importsToAdd.get(importInfo.source);
+      const isType = importInfo.importKind === 'type';
+
       if (importInfo.type === 'named') {
+        let importStr = id;
         if (importInfo.importedName !== id) {
           importStr = `${importInfo.importedName} as ${id}`;
-        } else {
-          importStr = id;
         }
-
-        if (!importsToAdd.has(importInfo.source)) {
-          importsToAdd.set(importInfo.source, {
-            named: new Set(),
-            default: null,
-            namespace: null,
-          });
-        }
-        importsToAdd.get(importInfo.source).named.add(importStr);
+        group.named.set(importStr, { str: importStr, isType });
       } else if (importInfo.type === 'default') {
-        if (!importsToAdd.has(importInfo.source)) {
-          importsToAdd.set(importInfo.source, {
-            named: new Set(),
-            default: null,
-            namespace: null,
-          });
-        }
-        importsToAdd.get(importInfo.source).default = id;
+        group.default = { str: id, isType };
       } else if (importInfo.type === 'namespace') {
-        if (!importsToAdd.has(importInfo.source)) {
-          importsToAdd.set(importInfo.source, {
-            named: new Set(),
-            default: null,
-            namespace: null,
-          });
-        }
-        importsToAdd.get(importInfo.source).namespace = id;
+        group.namespace = { str: id, isType };
       }
     }
   }
 
-  let importBlock = '';
+  const importBlocks = [];
+
   for (const [source, info] of importsToAdd) {
     // Check if source exists in new file to merge?
     // For simplicity, we append new import lines.
@@ -303,13 +299,32 @@ export function mergeSchema(oldFile, newFile) {
 
     // If we have named imports
     if (info.named.size > 0) {
-      importBlock += `import { ${Array.from(info.named).join(', ')} } from '${source}';\n`;
+      const namedImports = Array.from(info.named.values());
+      const allTypes = namedImports.every((x) => x.isType);
+
+      if (allTypes) {
+        const names = namedImports.map((x) => x.str).join(', ');
+        importBlocks.push(`import type { ${names} } from '${source}';`);
+      } else {
+        const names = namedImports
+          .map((x) => (x.isType ? `type ${x.str}` : x.str))
+          .join(', ');
+        importBlocks.push(`import { ${names} } from '${source}';`);
+      }
     }
     if (info.default) {
-      importBlock += `import ${info.default} from '${source}';\n`;
+      if (info.default.isType) {
+        importBlocks.push(`import type ${info.default.str} from '${source}';`);
+      } else {
+        importBlocks.push(`import ${info.default.str} from '${source}';`);
+      }
     }
     if (info.namespace) {
-      importBlock += `import * as ${info.namespace} from '${source}';\n`;
+      if (info.namespace.isType) {
+        importBlocks.push(`import type * as ${info.namespace.str} from '${source}';`);
+      } else {
+        importBlocks.push(`import * as ${info.namespace.str} from '${source}';`);
+      }
     }
   }
 
@@ -322,7 +337,7 @@ export function mergeSchema(oldFile, newFile) {
   }
 
   // Prepend imports
-  if (importBlock) {
+  if (importBlocks.length > 0) {
     // Check for leading comments (e.g. // Docs: ...)
     // We want to insert imports AFTER the leading comments but BEFORE the first code/import
 
@@ -334,7 +349,7 @@ export function mergeSchema(oldFile, newFile) {
       output =
         output.slice(0, commentEnd) + '\n' + importBlock + output.slice(commentEnd);
     } else {
-      output = importBlock + '\n' + output;
+      output = importBlocks.join('\n') + '\n' + output;
     }
   }
 
