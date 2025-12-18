@@ -868,7 +868,7 @@
           (let [ret (deref event-fut timeout-ms :timeout)]
             (when (= :timeout ret)
               (let [in-progress-count (count @(:stmts in-progress-stmts))
-                    _ (sql/cancel-in-progress in-progress-stmts)
+                    _ (sql/cancel-in-progress in-progress-stmts (flags/statement-cancel-wait-ms))
                     cancel-res (future-cancel event-fut)]
                 (tracer/add-data! {:attributes
                                    {:timedout true
@@ -980,7 +980,7 @@
                                        :in-progress-query-count in-progress-count}}
         (when before-cancel (before-cancel))
         (silence-exceptions true)
-        (sql/cancel-in-progress in-progress-stmts)
+        (sql/cancel-in-progress in-progress-stmts (flags/statement-cancel-wait-ms))
         (future-cancel future)))
 
     (let [app-id (-> (rs/session store id)

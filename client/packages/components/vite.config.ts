@@ -7,7 +7,7 @@ import dts from 'unplugin-dts/vite';
 
 import { peerDependencies, dependencies } from './package.json';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   clearScreen: false,
   plugins: [react({}), tailwindcss({ optimize: true }), dts({})],
   resolve: {
@@ -17,8 +17,9 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    minify: mode !== 'development',
     target: 'esnext',
-    emptyOutDir: false,
+    emptyOutDir: mode !== 'development',
     cssCodeSplit: true,
     lib: {
       formats: ['es', 'cjs'],
@@ -46,4 +47,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

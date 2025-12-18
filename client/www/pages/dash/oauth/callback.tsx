@@ -118,6 +118,10 @@ export default function OAuthCallback() {
           code: state.code,
         })
           .then(async (res) => {
+            posthog.identify(res.user.email, {
+              user_id: res.user.id,
+              signed_up_at: res.user.created_at,
+            });
             posthog.capture('auth_complete', {
               auth_method: 'google',
             });

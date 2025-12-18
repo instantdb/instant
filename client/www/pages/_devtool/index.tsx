@@ -1,6 +1,6 @@
 import { TokenContext } from '@/lib/contexts';
 import { successToast } from '@/lib/toast';
-import { DashResponse, InstantApp } from '@/lib/types';
+import { InstantApp } from '@/lib/types';
 import config from '@/lib/config';
 import { useSchemaQuery } from '@/lib/hooks/explorer';
 import { jsonFetch } from '@/lib/fetch';
@@ -477,7 +477,7 @@ function DevtoolContent({
   return (
     <>
       {tab === 'explorer' ? (
-        <Explorer adminToken={adminToken} appId={appId} />
+        <Explorer useShadowDOM={false} adminToken={adminToken} appId={appId} />
       ) : tab === 'sandbox' ? (
         <div className="w-full min-w-[960px]">
           <Sandbox

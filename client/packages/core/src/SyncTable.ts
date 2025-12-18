@@ -1,7 +1,7 @@
 import { PersistedObject } from './utils/PersistedObject.ts';
 import * as s from './store.ts';
 import weakHash from './utils/weakHash.ts';
-import uuid from './utils/uuid.ts';
+import uuid from './utils/id.ts';
 import { Logger } from './Reactor.js';
 import instaql, { compareOrder } from './instaql.ts';
 import { InstaQLResponse, ValidQuery } from './queryTypes.ts';

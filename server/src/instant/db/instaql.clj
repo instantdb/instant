@@ -1196,19 +1196,32 @@
      :forms forms
      :referenced-etypes referenced-etypes}))
 
+(defn add-query-modifiers
+  "Adds query modifiers from the query-modifiers flag. This lets us add limits to queries
+   that are causing issues."
+  [o modifiers]
+  (reduce (fn [o {:keys [etype params]}]
+            (update-in o [etype :$] merge params))
+          o
+          modifiers))
+
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
   [ctx o]
   (let [query-normalized (instaql-util/normalized-forms o)
-        query-hash (hash query-normalized)]
+        query-hash (hash query-normalized)
+        query-modifiers (flags/query-modifiers (:app-id ctx) query-hash)]
     (tracer/with-span! {:name "instaql/query-nested"
                         :attributes {:app-id (:app-id ctx)
                                      :forms o
                                      :query-normalized query-normalized
-                                     :query-hash query-hash}}
+                                     :query-hash query-hash
+                                     :query-modifiers query-modifiers}}
       (let [datalog-query-fn (or (:datalog-query-fn ctx)
                                  #'d/query)
-            {:keys [patterns forms]} (instaql-query->patterns ctx o)
+            {:keys [patterns forms]} (instaql-query->patterns ctx (if (seq query-modifiers)
+                                                                    (add-query-modifiers o query-modifiers)
+                                                                    o))
             datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
                                              patterns)]
         (collect-query-results ctx (:data datalog-result) forms)))))
@@ -2172,7 +2185,7 @@
       (let [ctx (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
             rule-params (:$$ruleParams o)
             o (dissoc o :$$ruleParams)
-            rules (rule-model/get-by-app-id {:app-id app-id})
+            rules (rule-model/get-by-app-id (:conn-pool (:db ctx)) {:app-id app-id})
 
             rule-wheres (get-rule-wheres ctx rule-params rules o)
             ctx (assoc ctx :rule-wheres rule-wheres)

@@ -959,6 +959,7 @@ function ExplorerTab({
     <>
       <div className="flex flex-1 flex-col overflow-hidden">
         <NewExplorer
+          useShadowDOM={false}
           setExplorerState={setExplorerState}
           explorerState={explorerState}
           apiURI={config.apiURI}

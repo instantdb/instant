@@ -266,7 +266,7 @@
         (cond (= result ::timeout)
               (do
                 (reset! canceled? true)
-                (sql/cancel-in-progress statement-tracker)
+                (sql/cancel-in-progress statement-tracker (flags/statement-cancel-wait-ms))
                 (ua/cancel-children child-vfutures true)
                 (ex/throw-query-timeout!))
 

@@ -11,7 +11,7 @@ import * as instaml from '../../src/instaml';
 import * as instatx from '../../src/instatx';
 import zenecaAttrs from './data/zeneca/attrs.json';
 import zenecaTriples from './data/zeneca/triples.json';
-import uuid from '../../src/utils/uuid';
+import uuid from '../../src/utils/id';
 import { weakHash } from '../../src';
 import { AttrsStoreClass } from '../../src/store';
 

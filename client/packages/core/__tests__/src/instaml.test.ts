@@ -4,7 +4,7 @@ import * as instatx from '../../src/instatx';
 import zenecaAttrs from './data/zeneca/attrs.json';
 import zenecaTriples from './data/zeneca/triples.json';
 import { createStore, transact, AttrsStoreClass } from '../../src/store';
-import uuid from '../../src/utils/uuid';
+import uuid from '../../src/utils/id';
 import { i, InstantDBAttr } from '../../src/index';
 
 const zenecaAttrToId = zenecaAttrs.reduce((res, x) => {

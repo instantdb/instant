@@ -19,7 +19,7 @@ import { PostHogIdentify } from '@/components/PostHogIdentify';
 import { NextPage } from 'next';
 import { SWRConfig } from 'swr';
 import { localStorageProvider } from '@/lib/swrCache';
-import posthog from 'posthog-js';
+import posthog from '@/lib/posthog';
 import { PostHogProvider } from 'posthog-js/react';
 
 declare global {
@@ -54,20 +54,6 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
       <Component {...pageProps} />
     ),
   );
-
-  useEffect(() => {
-    if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
-      posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY, {
-        api_host: '/a',
-        ui_host: 'https://us.posthog.com',
-        defaults: '2025-11-30', // default-settings version from PostHog
-        capture_exceptions: true,
-        debug:
-          process.env.NODE_ENV === 'development' &&
-          !!process.env.NEXT_PUBLIC_POSTHOG_DEBUG,
-      });
-    }
-  }, []);
 
   useEffect(() => {
     patchNumberInputScroll();
