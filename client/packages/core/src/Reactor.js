@@ -2050,9 +2050,10 @@ export default class Reactor {
   async syncUserToEndpoint(user) {
     if (this.config.firstPartyPath) {
       try {
-        fetch(this.config.firstPartyPath + '/sync-auth', {
+        fetch(this.config.firstPartyPath + '/', {
           method: 'POST',
           body: JSON.stringify({
+            type: 'sync-user',
             user: user,
           }),
           headers: {
