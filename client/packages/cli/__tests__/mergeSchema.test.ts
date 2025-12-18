@@ -2,15 +2,16 @@ import { describe, test, expect } from 'vitest';
 import { mergeSchema } from '../src/util/mergeSchema';
 
 describe('mergeSchema', () => {
-  test('preserves entity types', () => {
+  test('preserves record entity types', () => {
     const oldFile = `
 import { i } from '@instantdb/core';
 
 const _schema = i.schema({
   entities: {
-    users: i.entity<{ name: string; age: number }>({
+    users: i.entity({
       name: i.string(),
       age: i.number(),
+      metadata: i.json<{ foo: number }>().indexed(),
     }),
   },
 });
@@ -23,13 +24,111 @@ const _schema = i.schema({
     users: i.entity({
       name: i.string(),
       age: i.number(),
+      metadata: i.json().indexed(),
     }),
   },
 });
 `;
 
     const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain('i.entity<{ name: string; age: number }>');
+    expect(result).toContain('i.json<{ foo: number }>');
+  });
+
+  test('preserves string array entity types', () => {
+    const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    users: i.entity({
+      name: i.string(),
+      age: i.number(),
+      tags: i.json<string[]>().indexed(),
+    }),
+  },
+});
+`;
+    const newFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    users: i.entity({
+      name: i.string(),
+      age: i.number(),
+      tags: i.json().indexed(),
+    }),
+  },
+});
+`;
+
+    const result = mergeSchema(oldFile, newFile);
+    expect(result).toContain('i.json<string[]>');
+  });
+
+
+  test('preserves string entity types', () => {
+    const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    users: i.entity({
+      name: i.string(),
+      age: i.number(),
+      foo: i.json<string>().indexed(),
+    }),
+  },
+});
+`;
+    const newFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    users: i.entity({
+      name: i.string(),
+      age: i.number(),
+      foo: i.json().indexed(),
+    }),
+  },
+});
+`;
+
+    const result = mergeSchema(oldFile, newFile);
+    expect(result).toContain('i.json<string>');
+  });
+
+  test('preserves number entity types', () => {
+    const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    users: i.entity({
+      name: i.string(),
+      age: i.number(),
+      foo: i.json<number>().indexed(),
+    }),
+  },
+});
+`;
+    const newFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    users: i.entity({
+      name: i.string(),
+      age: i.number(),
+      foo: i.json().indexed(),
+    }),
+  },
+});
+`;
+
+    const result = mergeSchema(oldFile, newFile);
+    expect(result).toContain('i.json<number>');
   });
 
   test('preserves imports used in types', () => {
@@ -172,40 +271,6 @@ const _schema = i.schema({
 
     const result = mergeSchema(oldFile, newFile);
     expect(result).not.toContain('users:');
-  });
-
-  test('preserves types in nested objects', () => {
-    // Assuming i.entity can be nested or used in a structure that traverseSchema supports
-    // traverseSchema goes into ObjectExpression properties.
-    const oldFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    auth: {
-      users: i.entity<{ id: string }>({
-        id: i.string(),
-      }),
-    },
-  },
-});
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    auth: {
-      users: i.entity({
-        id: i.string(),
-      }),
-    },
-  },
-});
-`;
-
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain('i.entity<{ id: string }>');
   });
 
   test('preserves default imports', () => {
