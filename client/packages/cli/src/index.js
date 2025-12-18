@@ -473,7 +473,7 @@ program
   )
   .option(
     '--experimental-type-preservation',
-    '[Experimental] Preserve manual type changes like `status: i.json<'online' | 'offline'>()` when doing `instant-cli pull schema`',
+    '[Experimental] Preserve manual type changes like `status: i.json<\'online\' | \'offline\'>()` when doing `instant-cli pull schema`',
   )
   .description('Pull schema and perm files from production.')
   .action(async function (arg, inputOpts) {

@@ -347,7 +347,7 @@ export function mergeSchema(oldFile, newFile) {
     if (commentMatch) {
       const commentEnd = commentMatch[0].length;
       output =
-        output.slice(0, commentEnd) + '\n' + importBlock + output.slice(commentEnd);
+        output.slice(0, commentEnd) + '\n' + importBlocks.join('\n') + output.slice(commentEnd);
     } else {
       output = importBlocks.join('\n') + '\n' + output;
     }
