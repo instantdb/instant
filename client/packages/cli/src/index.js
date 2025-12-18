@@ -425,6 +425,14 @@ program
     'Which package to automatically install if there is not one installed already.',
   )
   .description('Push schema and perm files to production.')
+  .addHelpText(
+    'after',
+    `
+Environment Variables:
+  INSTANT_SCHEMA_FILE_PATH    Override schema file location (default: instant.schema.ts)
+  INSTANT_PERMS_FILE_PATH     Override perms file location (default: instant.perms.ts)
+`,
+  )
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
@@ -471,6 +479,14 @@ program
     'Which package to automatically install if there is not one installed already.',
   )
   .description('Pull schema and perm files from production.')
+  .addHelpText(
+    'after',
+    `
+Environment Variables:
+  INSTANT_SCHEMA_FILE_PATH    Override schema file location (default: instant.schema.ts)
+  INSTANT_PERMS_FILE_PATH     Override perms file location (default: instant.perms.ts)
+`,
+  )
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
