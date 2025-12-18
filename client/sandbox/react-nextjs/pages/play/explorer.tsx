@@ -9,9 +9,8 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import config from '../../config';
 import { provisionEphemeralApp } from '../../components/EphemeralAppPage';
-import { Explorer } from '@instantdb/components';
+import { Explorer, Toaster } from '@instantdb/components';
 function Main({
-  onResetApp,
   appId,
   adminToken,
 }: {
@@ -22,6 +21,7 @@ function Main({
   return (
     <div className="min-h-screen">
       <Explorer appId={appId} adminToken={adminToken} useShadowDOM={true} />
+      <Toaster />
     </div>
   );
 }
