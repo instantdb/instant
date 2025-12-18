@@ -50,6 +50,12 @@ const _schema = i.schema({
       value: i.string(),
     }),
     "rate-limited-apps": i.entity({
+    'query-modifiers': i.entity({
+      'app-id': i.string(),
+      'query-hash': i.number(),
+      'etype': i.string(),
+      'dollar-params': i.json(),
+    }),
       appId: i.string().unique(),
     }),
     "rule-where-testing": i.entity({
