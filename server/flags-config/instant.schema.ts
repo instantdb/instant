@@ -3,16 +3,18 @@
 import { i } from "@instantdb/core";
 
 const _schema = i.schema({
-  // We inferred 3 attributes!
+  // We inferred 2 attributes!
   // Take a look at this schema, and if everything looks good,
   // run `push schema` again to enforce the types.
   entities: {
     $files: i.entity({
+      metadata: i.any().optional(),
       path: i.string().unique().indexed(),
       url: i.string(),
     }),
     $users: i.entity({
       email: i.string().unique().indexed().optional(),
+      imageURL: i.string().optional(),
       type: i.string().optional(),
     }),
     "app-deletion-sweeper": i.entity({
@@ -49,13 +51,13 @@ const _schema = i.schema({
       setting: i.string(),
       value: i.string(),
     }),
-    "rate-limited-apps": i.entity({
-    'query-modifiers': i.entity({
-      'app-id': i.string(),
-      'query-hash': i.number(),
-      'etype': i.string(),
-      'dollar-params': i.json(),
+    "query-modifiers": i.entity({
+      "app-id": i.string(),
+      "dollar-params": i.json(),
+      etype: i.string(),
+      "query-hash": i.number(),
     }),
+    "rate-limited-apps": i.entity({
       appId: i.string().unique(),
     }),
     "rule-where-testing": i.entity({
@@ -63,8 +65,8 @@ const _schema = i.schema({
     }),
     "rule-wheres": i.entity({
       "app-ids": i.json(),
-      "query-hash-blacklist": i.json(),
-      "query-hashes": i.json(),
+      "query-hash-blacklist": i.any(),
+      "query-hashes": i.any(),
     }),
     "storage-block-list": i.entity({
       appId: i.string().unique().indexed(),
