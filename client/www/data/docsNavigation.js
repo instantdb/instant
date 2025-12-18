@@ -98,6 +98,11 @@ module.exports = [
       },
       { title: 'Instant CLI', href: '/docs/cli' },
       { title: 'Devtool', href: '/docs/devtool', optionalLLM: true },
+      {
+        title: 'Explorer Component',
+        href: '/docs/explorer-component',
+        optionalLLM: true,
+      },
       { title: 'Custom emails', href: '/docs/emails', optionalLLM: true },
       { title: 'App teams', href: '/docs/teams', optionalLLM: true },
       { title: 'Storage', href: '/docs/storage' },
