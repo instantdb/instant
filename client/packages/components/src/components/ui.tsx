@@ -560,7 +560,7 @@ export const IconButton = ({
 }: IconButtonProps) => {
   return (
     <Tooltip>
-      <TooltipTrigger>
+      <TooltipTrigger asChild>
         <button
           title={label}
           disabled={disabled}
@@ -616,19 +616,55 @@ function DialogPortal({
   return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
 }
 
-function DialogOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+const DialogOverlay = React.forwardRef<
+  React.ComponentRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Overlay
+    ref={ref}
+    data-slot="dialog-overlay"
+    className={cn(
+      'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50',
+      className,
+    )}
+    {...props}
+  />
+));
+
+/**
+ * Radix Dialog's TitleWarning uses document.getElementById to check for a title,
+ * but this doesn't work in Shadow DOM. This component creates a hidden element
+ * in the main document to satisfy the check, using a ref to get the actual ID
+ * that Radix assigns to the title.
+ */
+function ShadowDialogTitle({ title }: { title: string }) {
+  const shadowRoot = useShadowRoot();
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+
+  React.useEffect(() => {
+    // Only needed in Shadow DOM and in development
+    if (!shadowRoot || process.env.NODE_ENV === 'production') {
+      return;
+    }
+
+    const titleId = titleRef.current?.id;
+    if (!titleId) return;
+
+    // Create a hidden element in the main document to satisfy Radix's getElementById check
+    const hiddenTitle = document.createElement('span');
+    hiddenTitle.id = titleId;
+    hiddenTitle.style.display = 'none';
+    document.body.appendChild(hiddenTitle);
+
+    return () => {
+      hiddenTitle.remove();
+    };
+  }, [shadowRoot]);
+
   return (
-    <DialogPrimitive.Overlay
-      data-slot="dialog-overlay"
-      className={cn(
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50',
-        className,
-      )}
-      {...props}
-    />
+    <VisuallyHidden>
+      <DialogPrimitive.Title ref={titleRef}>{title}</DialogPrimitive.Title>
+    </VisuallyHidden>
   );
 }
 
@@ -640,6 +676,7 @@ function DialogContent({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  title: string;
 }) {
   const shadowRoot = useShadowRoot();
   const darkMode = useShadowDarkMode();
@@ -648,6 +685,7 @@ function DialogContent({
     <DialogPortal container={shadowRoot} data-slot="dialog-portal">
       <DialogOverlay className={cn(darkMode ? 'dark' : '', 'overflow-y-auto')}>
         <DialogPrimitive.Content
+          aria-label={title}
           data-slot="dialog-content"
           className={cn(
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 relative top-[50%] left-[50%] z-50 grid max-h-[calc(100%-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-lg border border-gray-200 bg-white p-6 shadow-lg duration-200 sm:max-w-lg dark:border-neutral-700 dark:bg-neutral-800 dark:text-white',
@@ -656,9 +694,7 @@ function DialogContent({
           )}
           {...props}
         >
-          <VisuallyHidden>
-            <DialogTitle>{title}</DialogTitle>
-          </VisuallyHidden>
+          <ShadowDialogTitle title={title} />
           {children}
           {showCloseButton && (
             <DialogPrimitive.Close
@@ -1541,7 +1577,6 @@ export function Fence({
 import * as SwitchPrimitive from '@radix-ui/react-switch';
 import { rosePineDawnTheme } from './rosePineDawnTheme';
 import { useShadowRoot, useShadowDarkMode } from './StyleMe';
-import { DialogTitle } from '@radix-ui/react-dialog';
 function Switch({
   className,
   ...props
