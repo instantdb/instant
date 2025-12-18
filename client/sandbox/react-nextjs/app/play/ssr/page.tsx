@@ -1,3 +1,4 @@
+'use client';
 import Link from 'next/link';
 import { AddTodo } from './AddTodo';
 import { TodosWithoutSuspense } from './TodosWithoutSuspense';
