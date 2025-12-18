@@ -3,7 +3,7 @@ title: Explorer Component
 description: Use the Explorer Component in your own apps
 ---
 
-The explorer page from the Instant Dashboard is available as an installable React component that you can use in your own apps!
+The explorer page from the Instant Dashboard is available as an installable React component that you can use in your own apps. This is especially useful if you're building **a platform or app builder** powered by Instant
 
 ```tsx
 import './App.css';
@@ -14,6 +14,7 @@ function App() {
     <>
       <Explorer
         className="h-full"
+        useShadowDOM={false}
         darkMode={false}
         appId={import.meta.env.VITE_INSTANT_APP_ID}
         adminToken={import.meta.env.VITE_INSTANT_ADMIN_TOKEN}
