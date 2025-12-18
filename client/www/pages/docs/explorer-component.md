@@ -27,6 +27,10 @@ function App() {
 
 The Toaster component is required for pop-up alerts, unless you are already using [Sonner](https://sonner.emilkowal.ski/) in your project.
 
+{% callout %}
+The component accepts `explorerState` and `setExplorerState` props for manual control over the state of the Explorer.
+{% /callout %}
+
 # CSS
 
 ## Projects Using Tailwind
