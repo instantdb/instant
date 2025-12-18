@@ -187,7 +187,11 @@ export default function Auth(props: {
     }));
 
     verifyMagicCode({ email, code }).then(
-      ({ token }) => {
+      ({ token, user }) => {
+        posthog.identify(user.email, {
+          user_id: user.id,
+          signed_up_at: user.created_at,
+        });
         posthog.capture('auth_complete', {
           auth_method: 'email',
         });
