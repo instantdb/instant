@@ -274,7 +274,7 @@ function DebuggingAccordion() {
         return (
           <div
             key={item.id}
-            className="rounded-lg border border-gray-200 bg-gray-50"
+            className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
           >
             <button
               onClick={() => toggleItem(item.id)}
