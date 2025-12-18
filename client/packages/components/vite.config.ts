@@ -17,9 +17,9 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: 'dist',
-    minify: mode != 'development',
+    minify: mode !== 'development',
     target: 'esnext',
-    emptyOutDir: false,
+    emptyOutDir: mode !== 'development',
     cssCodeSplit: true,
     lib: {
       formats: ['es', 'cjs'],
