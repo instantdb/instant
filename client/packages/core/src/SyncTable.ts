@@ -199,20 +199,18 @@ function applyChangesToStore(
   }
 }
 
+type ChangedFieldsOfChanges = {
+  [eid: string]: { [field: string]: { oldValue: unknown; newValue: unknown } };
+};
+
 function changedFieldsOfChanges(
   store: s.Store,
   attrsStore: s.AttrsStore,
   changes: SyncUpdateTriplesMsg['txes'][number]['changes'],
-): {
-  [eid: string]: SyncTransaction<
-    any,
-    any,
-    any
-  >['updated'][number]['changedFields'];
-} {
+): ChangedFieldsOfChanges {
   // This will be more complicated when we include links, we can either add a
   // changedLinks field or we can have something like 'bookshelves.title`
-  const changedFields = {};
+  const changedFields: ChangedFieldsOfChanges = {};
   for (const { action, triple } of changes) {
     const [e, a, v] = triple;
     const field = attrsStore.getAttr(a)?.['forward-identity']?.[2];
@@ -222,7 +220,6 @@ function changedFieldsOfChanges(
     changedFields[e] = fields;
 
     const oldNew = fields[field] ?? {};
-    fields[field] = oldNew;
 
     switch (action) {
       case 'added':
@@ -235,12 +232,15 @@ function changedFieldsOfChanges(
         }
         break;
     }
+
+    fields[field] = oldNew;
   }
 
-  for (const k of Object.keys(changedFields)) {
-    const { oldValue, newValue } = changedFields[k];
-    if (oldValue === newValue) {
-      delete changedFields[k];
+  for (const [_eid, fields] of Object.entries(changedFields)) {
+    for (const [k, { oldValue, newValue }] of Object.entries(fields)) {
+      if (oldValue === newValue) {
+        delete fields[k];
+      }
     }
   }
   return changedFields;
@@ -783,7 +783,11 @@ export class SyncTable {
               updated.push({
                 oldEntity: ent.entity,
                 newEntity: entity,
-                changedFields: changedFields || {},
+                changedFields: (changedFields || {}) as SyncTransaction<
+                  any,
+                  any,
+                  any
+                >['updated'][number]['changedFields'],
               });
               ent.entity = entity;
             } else {
