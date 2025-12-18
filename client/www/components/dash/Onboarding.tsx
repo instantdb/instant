@@ -20,7 +20,8 @@ import { usePostHog } from 'posthog-js/react';
 
 type ProfileCreateState = { isLoading: boolean; error?: string };
 type AppError = { body: { message: string } | undefined };
-type Profile = { meta?: { heard?: string } };
+type ExperienceLevel = 'vibe-dev' | 'junior-dev' | 'senior-dev';
+type Profile = { meta?: { heard?: string; experience?: ExperienceLevel } };
 type DashState =
   | { isLoading: true; error: undefined; apps: undefined; profile: undefined }
   | { isLoading: false; error: AppError; apps: undefined; profile?: undefined }
@@ -137,23 +138,46 @@ function isBlank(str: string | undefined) {
   return str.trim().length === 0;
 }
 
+const experienceOptions: {
+  value: ExperienceLevel;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'vibe-dev',
+    label: 'Vibe Coder',
+    description: "I can use AI tools to build but I'm not a developer.",
+  },
+  {
+    value: 'junior-dev',
+    label: 'Know some code',
+    description: "I can code but I'm not a pro yet.",
+  },
+  {
+    value: 'senior-dev',
+    label: 'Engineer',
+    description: "I've been coding for several years professionally.",
+  },
+];
+
 function ProfileScreen(props: {
   profileCreateState: ProfileCreateState;
-  onProfileSubmit: (meta: Profile['meta']) => void;
+  onSubmit: (meta: Profile['meta']) => void;
 }) {
   const { error, isLoading } = props.profileCreateState;
   const [heard, setHeard] = useState('');
+  const [experience, setExperience] = useState<ExperienceLevel | undefined>();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    props.onProfileSubmit({ heard });
+    props.onSubmit({ heard, experience });
   };
 
   return (
     <div className="flex h-full w-full items-center justify-center">
       <form
         onSubmit={handleSubmit}
-        className="flex w-full max-w-sm flex-col gap-4 p-4"
+        className="flex w-full max-w-md flex-col gap-6 p-4"
       >
         <div className="flex justify-center text-4xl">👋</div>
         <ScreenHeading className="text-center">
@@ -166,7 +190,34 @@ function ProfileScreen(props: {
           value={heard}
           onChange={(e) => setHeard(e)}
         />
-        <Button type="submit" disabled={isBlank(heard) || isLoading}>
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-bold text-gray-700 dark:text-neutral-400">
+            What's your coding experience?
+          </label>
+          <div className="flex flex-col gap-2">
+            {experienceOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setExperience(option.value)}
+                className={`flex flex-col gap-1 rounded-md border p-3 text-left transition-colors hover:cursor-pointer ${
+                  experience === option.value
+                    ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20'
+                    : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <span className="font-medium">{option.label}</span>
+                <span className="text-sm text-gray-500 dark:text-neutral-400">
+                  {option.description}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <Button
+          type="submit"
+          disabled={isBlank(heard) || !experience || isLoading}
+        >
           {isLoading ? '...' : 'Onwards!'}
         </Button>
         {error ? (
@@ -237,20 +288,19 @@ export function OnboardingScreen(props: {
   onAppCreate: () => void;
 }) {
   const { profile, appCreateState, onAppCreate, onAppNameChange } = props;
-  const [step, setStep] = useState('welcome');
+  const [showWelcome, setShowWelcome] = useState(true);
 
-  if (step === 'welcome') {
-    return (
-      <WelcomeScreen
-        onClick={() => {
-          setStep(profile ? 'create' : 'profile');
-        }}
-      />
-    );
+  if (showWelcome) {
+    return <WelcomeScreen onClick={() => setShowWelcome(false)} />;
   }
 
   if (!profile) {
-    return <ProfileScreen {...props} />;
+    return (
+      <ProfileScreen
+        profileCreateState={props.profileCreateState}
+        onSubmit={props.onProfileSubmit}
+      />
+    );
   }
 
   return (
@@ -331,6 +381,7 @@ export function Onboarding() {
       async () => {
         posthog.capture('onboarding_complete', {
           heard_from: dashState.profile?.meta?.heard,
+          experience_level: dashState.profile?.meta?.experience,
         });
         posthog.capture('app_create', {
           app_id: toCreate.id,
