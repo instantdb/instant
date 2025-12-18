@@ -452,7 +452,7 @@ To use it in NextJS:
 
 ```typescript {% showCopy=true %}
 // src/app/api/instant/[...all]/route.ts
-import { createInstantRouteHandler } from '@instantdb/react';
+import { createInstantRouteHandler } from '@instantdb/react/nextjs';
 
 export const { GET, POST } = createInstantRouteHandler({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
@@ -470,6 +470,30 @@ export const db = init({
   schema,
   useDateObjects: true,
 });
+```
+
+If using NextJS you can call getUserOnServer with the app id to retrieve the user in any server component, or route handler.
+
+```typescript
+import { getUserOnServer } from "@instantdb/react/nextjs";
+
+// This is a server component!
+export default async function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  // Get the instant user from the cookie
+  const user = await getUserOnServer(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
+
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider user={user}>{children}</AuthProvider>
+      </body>
+    </html>
+  );
+}
 ```
 
 ## NextJS SSR
