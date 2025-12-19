@@ -48,6 +48,7 @@
    [instant.util.crypt :as crypt-util]
    [instant.util.http :as http-util]
    [instant.util.lang :as lang]
+   [instant.util.posthog :as posthog]
    [instant.util.tracer :as tracer]
    [instant.hard-deletion-sweeper :as hard-deletion-sweeper]
    [ring.middleware.cookies :refer [CookieDateTime]]
@@ -253,7 +254,11 @@
           (indexing-jobs/stop)))
       (future
         (tracer/with-span! {:name "stop-join-room-logger"}
-          (join-room-logger/stop)))))
+          (join-room-logger/stop))))
+    (when (posthog/enabled?)
+      (tracer/with-span! {:name "stop-posthog"}
+        (posthog/flush!)
+        (posthog/shutdown!))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
@@ -279,6 +284,10 @@
         (crypt-util/init aead-keyset))
 
       (tracer/init)
+
+      (when (config/posthog-enabled?)
+        (with-log-init :posthog
+          (posthog/init! {:api-key (config/get-posthog-api-key)})))
 
       (with-log-init :uncaught-exception-handler
         (Thread/setDefaultUncaughtExceptionHandler

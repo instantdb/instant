@@ -40,6 +40,7 @@
 (s/def ::stripe-secret ::config-value)
 (s/def ::stripe-webhook-secret ::config-value)
 (s/def ::honeycomb-api-key ::config-value)
+(s/def ::posthog-api-key ::config-value)
 (s/def ::google-oauth-client ::oauth-client)
 (s/def ::instant-config-app-id uuid?)
 (s/def ::kms-key-url string?)
@@ -67,6 +68,7 @@
                                  ::stripe-secret
                                  ::stripe-webhook-secret
                                  ::honeycomb-api-key
+                                 ::posthog-api-key
                                  ::google-oauth-client
                                  ::hybrid-keyset]
                         :req-un [::aead-keyset]))

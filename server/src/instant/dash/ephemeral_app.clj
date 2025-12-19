@@ -10,6 +10,7 @@
    [instant.util.exception :as ex]
    [instant.util.lang :as lang]
    [instant.util.string :as string-util]
+   [instant.util.posthog :as posthog]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [ring.util.http-response :as response]
@@ -64,6 +65,10 @@
                                 :check-types? true
                                 :background-updates? false})
            (schema-model/apply-plan! (:id app))))
+    (posthog/track! req
+                    "app:create-ephemeral"
+                    (merge (posthog/extract-metadata req)
+                           {:app-id (str (:id app))}))
     (response/ok {:app app
                   :expires_ms (app-expires-ms app)})))
 

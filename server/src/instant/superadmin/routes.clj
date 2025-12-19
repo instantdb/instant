@@ -14,6 +14,7 @@
             [instant.util.email :as email]
             [instant.util.exception :as ex]
             [instant.util.http :as http-util]
+            [instant.util.posthog :as posthog]
             [instant.util.roles :refer [assert-least-privilege!
                                         get-app-with-role!]]
             [instant.util.string :as string-util]
@@ -162,7 +163,10 @@
                                 :check-types? true
                                 :background-updates? false})
            (schema-model/apply-plan! (:id app))))
-
+    (posthog/track! req
+                    "app:create"
+                    (cond-> {:app-id (str (:id app))}
+                      org-id-param (assoc :org-id (str org-id-param))))
     (response/ok {:app (assoc app
                               :perms (:code perms)
                               :schema (schema-model/attrs->schema
@@ -187,6 +191,9 @@
             ;; just admin to delete an org app
             (ex/assert-permitted! :allowed-member-role? :owner false))
         app (app-model/mark-for-deletion! {:id (:id app)})]
+    (posthog/track! req
+                    "app:delete"
+                    {:app-id (str (:id app))})
     (response/ok {:app app})))
 
 ;; ---------
@@ -248,10 +255,13 @@
 
 (defn app-rules-post [req]
   (let [{app-id :id} (req->superadmin-app! :apps/write :collaborator req)
-        code (ex/get-param! req [:body :code] w/stringify-keys)]
-    (ex/assert-valid! :rule code (rule-model/validation-errors code))
-    (response/ok {:rules (rule-model/put! {:app-id app-id
-                                           :code code})})))
+        code (ex/get-param! req [:body :code] w/stringify-keys)
+        _ (ex/assert-valid! :rule code (rule-model/validation-errors code))
+        rules (rule-model/put! {:app-id app-id :code code})]
+    (posthog/track! req
+                    "perms:push"
+                    {:app-id (str app-id)})
+    (response/ok {:rules rules})))
 
 ;; ------
 ;; Schema
@@ -282,6 +292,9 @@
                                   :background-updates? background-updates?}
                                  client-defs)
         plan-result (schema-model/apply-plan! app-id plan)]
+    (posthog/track! req
+                    "schema:push"
+                    {:app-id (str app-id)})
     (response/ok (merge plan plan-result))))
 
 (comment
