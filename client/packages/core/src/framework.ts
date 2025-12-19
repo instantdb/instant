@@ -304,10 +304,12 @@ export class FrameworkClient {
         pageInfo,
       };
     } catch (err: any) {
-      const err = new Error('Error getting triples from framework client');
+      const errWithMessage = new Error(
+        'Error getting triples from framework client',
+      );
       // @ts-expect-error pre es2022
-      err.cause = err;
-      throw err;
+      errWithMessage.cause = err;
+      throw errWithMessage;
     }
   };
 }
