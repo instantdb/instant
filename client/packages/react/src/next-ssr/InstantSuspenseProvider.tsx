@@ -1,4 +1,5 @@
 'use client';
+
 import {
   FrameworkClient,
   InstantConfig,

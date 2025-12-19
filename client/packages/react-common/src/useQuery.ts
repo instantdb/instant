@@ -1,9 +1,7 @@
 import {
   weakHash,
   coerceQuery,
-  type InstaQLParams,
   type InstaQLOptions,
-  type InstantGraph,
   InstantCoreDatabase,
   InstaQLLifecycleState,
   InstantSchemaDef,
