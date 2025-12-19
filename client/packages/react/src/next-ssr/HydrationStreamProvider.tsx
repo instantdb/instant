@@ -1,4 +1,9 @@
 'use client';
+
+// This allows us to send serialized json from the server to the client using 'useServerInsertedHTML'
+// We are allowed to send whatever json we want, however it must be triggered at the same time as the client is recieving new html to display
+// after a suspsense boundary resolves
+
 export const isServer = typeof window === 'undefined' || 'Deno' in globalThis;
 
 import { useServerInsertedHTML } from 'next/navigation.js';

@@ -451,10 +451,10 @@ Instant provides a `createInstantRouteHandler` function that generates a web sta
 To use it in NextJS:
 
 ```typescript {% showCopy=true %}
-// src/app/api/instant/[...all]/route.ts
+// src/app/api/instant/route.ts
 import { createInstantRouteHandler } from '@instantdb/react/nextjs';
 
-export const { GET, POST } = createInstantRouteHandler({
+export const { POST } = createInstantRouteHandler({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
 });
 ```

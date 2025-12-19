@@ -16,6 +16,8 @@ export type FrameworkConfig = {
   db: InstantCoreDatabase<any, any>;
 };
 
+// represents an eventual result from running a query
+// either via ssr or by using the existing websocket connection.
 type QueryPromise =
   | {
       type: 'http';
@@ -33,6 +35,9 @@ type QueryPromise =
 export class FrameworkClient {
   private params: FrameworkConfig;
   private db: InstantCoreDatabase<any, any>;
+
+  // stores all of the query promises so that ssr can read them
+  // and send the relevant results alongside the html that resulted in the query resolving
   public resultMap: Map<
     string,
     {
@@ -101,6 +106,8 @@ export class FrameworkClient {
     }
   };
 
+  // creates an entry in the results map
+  // and returns the same thing added to the map
   public query = (
     _query: any,
     opts?: {
@@ -184,6 +191,8 @@ export class FrameworkClient {
     return this.resultMap.get(hash);
   };
 
+  // creates a query result from a set of triples, query, and attrs
+  // can be run server side or client side
   public completeIsomorphic = (
     query: any,
     triples: any[],
@@ -240,6 +249,7 @@ export class FrameworkClient {
     return { hash: weakHash(query), query: query };
   };
 
+  // Run by the server to get triples and attrs
   public getTriplesAndAttrsForQuery = async (
     query: any,
   ): Promise<{
@@ -250,46 +260,54 @@ export class FrameworkClient {
     type: 'http';
     pageInfo?: any;
   }> => {
-    const response = await fetch(
-      `${this.db._reactor.config.apiURI}/runtime/framework/query`,
-      {
-        method: 'POST',
-        headers: {
-          'app-id': this.params.db._reactor.config.appId,
-          'Content-Type': 'application/json',
-          Authorization: this.params.token
-            ? `Bearer ${this.params.token}`
-            : undefined,
-        } as Record<string, string>,
-        body: JSON.stringify({
-          query: query,
-        }),
-      },
-    );
+    try {
+      const response = await fetch(
+        `${this.db._reactor.config.apiURI}/runtime/framework/query`,
+        {
+          method: 'POST',
+          headers: {
+            'app-id': this.params.db._reactor.config.appId,
+            'Content-Type': 'application/json',
+            Authorization: this.params.token
+              ? `Bearer ${this.params.token}`
+              : undefined,
+          } as Record<string, string>,
+          body: JSON.stringify({
+            query: query,
+          }),
+        },
+      );
 
-    if (!response.ok) {
-      throw new Error('Error getting triples from server');
+      if (!response.ok) {
+        throw new Error('Error getting triples from server');
+      }
+
+      const data = await response.json();
+
+      const attrs = data?.attrs;
+      if (!attrs) {
+        throw new Error('No attrs');
+      }
+
+      // TODO: make safer
+      const triples =
+        data.result?.[0].data?.['datalog-result']?.['join-rows'][0];
+
+      const pageInfo = data.result?.[0]?.data?.['page-info'];
+
+      return {
+        attrs,
+        triples,
+        type: 'http',
+        queryHash: this.hashQuery(query).hash,
+        query,
+        pageInfo,
+      };
+    } catch (err: any) {
+      const err = new Error('Error getting triples from framework client');
+      // @ts-expect-error pre es2022
+      err.cause = err;
+      throw err;
     }
-
-    const data = await response.json();
-
-    const attrs = data?.attrs;
-    if (!attrs) {
-      throw new Error('No attrs');
-    }
-
-    // TODO: make safer
-    const triples = data.result?.[0].data?.['datalog-result']?.['join-rows'][0];
-
-    const pageInfo = data.result?.[0]?.data?.['page-info'];
-
-    return {
-      attrs,
-      triples,
-      type: 'http',
-      queryHash: this.hashQuery(query).hash,
-      query,
-      pageInfo,
-    };
   };
 }

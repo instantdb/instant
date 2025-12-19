@@ -1,4 +1,5 @@
 'use client';
+// InstantSuspenseProvider can only be used in a client context so this prevents errors from trying to use it in a server component.
 
 import {
   FrameworkClient,

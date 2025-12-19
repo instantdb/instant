@@ -61,6 +61,9 @@ export function useQueryInternal<
       resultCacheRef.current = stateForResult(
         _core._reactor.getPreviousResult(query),
       );
+      // before the subscribeQuery is connected and calls it's own callback,
+      // we might have data in the store via SSR, we need to notify useSyncExternalStore that
+      // the data has changed.
       cb();
 
       // Don't subscribe if query is null

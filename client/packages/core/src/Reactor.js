@@ -352,13 +352,10 @@ export default class Reactor {
       this.syncUserToEndpoint(userInfo.user);
     });
 
-    setInterval(
-      async () => {
-        const currentUser = await this.getCurrentUser();
-        this.syncUserToEndpoint(currentUser.user);
-      },
-      1000 * 60 * 20,
-    );
+    setInterval(async () => {
+      const currentUser = await this.getCurrentUser();
+      this.syncUserToEndpoint(currentUser.user);
+    }, 1000 * 60);
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
@@ -2048,22 +2045,21 @@ export default class Reactor {
   }
 
   async syncUserToEndpoint(user) {
-    if (this.config.firstPartyPath) {
-      try {
-        fetch(this.config.firstPartyPath + '/', {
-          method: 'POST',
-          body: JSON.stringify({
-            type: 'sync-user',
-            appId: this.config.appId,
-            user: user,
-          }),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (error) {
-        console.error('Error syncing user with external endpoint', error);
-      }
+    if (!this.config.firstPartyPath) return;
+    try {
+      fetch(this.config.firstPartyPath + '/', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'sync-user',
+          appId: this.config.appId,
+          user: user,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      this._log.error('Error syncing user with external endpoint', error);
     }
   }
 
