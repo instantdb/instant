@@ -481,11 +481,7 @@ program
   )
   .option(
     '--experimental-type-preservation',
-<<<<<<< HEAD
-    "[Experimental] Preserve manual type changes like `status: i.json<'online' | 'offline'>()` when doing `instant-cli pull schema`",
-=======
     '[Experimental] Preserve manual type changes and schema edits when pulling schema',
->>>>>>> 2cd2e509e (Experiment: what if we made surgical updates)
   )
   .description('Pull schema and perm files from production.')
   .addHelpText(

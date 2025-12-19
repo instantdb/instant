@@ -315,76 +315,100 @@ function collectChanges(
   };
 
   for (const step of steps) {
-    if (step.type === 'add-attr' && step.identifier.attrName === 'id') {
-      buckets.createEntities.add(step.identifier.namespace);
-    }
-    if (step.type === 'delete-attr' && step.identifier.attrName === 'id') {
-      buckets.deleteEntities.add(step.identifier.namespace);
-    }
-  }
-
-  for (const step of steps) {
     const namespace = step.identifier.namespace;
     const attrName = step.identifier.attrName;
     const forwardKey = `${namespace}.${attrName}`;
 
-    if (buckets.createEntities.has(namespace)) continue;
-    if (buckets.deleteEntities.has(namespace)) continue;
-
-    if (step.type === 'add-attr') {
-      if (step['value-type'] === 'ref') {
-        buckets.addLinks.add(forwardKey);
-        continue;
-      }
-      if (attrName !== 'id') {
+    switch (step.type) {
+      case 'add-attr': {
+        if (attrName === 'id') {
+          buckets.createEntities.add(namespace);
+          break;
+        }
+        if (step['value-type'] === 'ref') {
+          buckets.addLinks.add(forwardKey);
+          break;
+        }
         ensureSet(buckets.addAttrs, namespace).add(attrName);
+        break;
       }
-      continue;
-    }
-
-    if (step.type === 'delete-attr') {
-      if (attrName === 'id') continue;
-      if (localLinksByForward.has(forwardKey)) {
-        buckets.deleteLinks.add(forwardKey);
-      } else {
+      case 'delete-attr': {
+        if (attrName === 'id') {
+          buckets.deleteEntities.add(namespace);
+          break;
+        }
+        if (localLinksByForward.has(forwardKey)) {
+          buckets.deleteLinks.add(forwardKey);
+          break;
+        }
         ensureSet(buckets.deleteAttrs, namespace).add(attrName);
+        break;
       }
-      continue;
-    }
-
-    if (step.type === 'update-attr') {
-      if (step.partialAttr?.['value-type'] === 'ref') {
-        buckets.updateLinks.add(forwardKey);
-      } else {
+      case 'update-attr': {
+        if (step.partialAttr?.['value-type'] === 'ref') {
+          buckets.updateLinks.add(forwardKey);
+          break;
+        }
         ensureSet(buckets.updateAttrs, namespace).add(attrName);
+        break;
       }
-      continue;
-    }
-
-    if (
-      step.type === 'index' ||
-      step.type === 'remove-index' ||
-      step.type === 'unique' ||
-      step.type === 'remove-unique' ||
-      step.type === 'required' ||
-      step.type === 'remove-required' ||
-      step.type === 'check-data-type' ||
-      step.type === 'remove-data-type'
-    ) {
-      if (serverLinksByForward.has(forwardKey)) {
-        buckets.updateLinks.add(forwardKey);
-      } else {
+      case 'index':
+      case 'remove-index':
+      case 'unique':
+      case 'remove-unique':
+      case 'required':
+      case 'remove-required':
+      case 'check-data-type':
+      case 'remove-data-type': {
+        if (serverLinksByForward.has(forwardKey)) {
+          buckets.updateLinks.add(forwardKey);
+          break;
+        }
         ensureSet(buckets.updateAttrs, namespace).add(attrName);
+        break;
+      }
+      default: {
+        assertNever(step);
       }
     }
   }
 
+  pruneNamespaceBuckets(buckets);
   return buckets;
 }
 
 function ensureSet(map: Map<string, Set<string>>, key: string) {
   if (!map.has(key)) map.set(key, new Set());
   return map.get(key)!;
+}
+
+function pruneNamespaceBuckets(buckets: ChangeBuckets) {
+  const namespaces = new Set<string>([
+    ...buckets.createEntities,
+    ...buckets.deleteEntities,
+  ]);
+
+  for (const namespace of namespaces) {
+    buckets.addAttrs.delete(namespace);
+    buckets.deleteAttrs.delete(namespace);
+    buckets.updateAttrs.delete(namespace);
+    removeNamespaceLinks(buckets.addLinks, namespace);
+    removeNamespaceLinks(buckets.deleteLinks, namespace);
+    removeNamespaceLinks(buckets.updateLinks, namespace);
+  }
+}
+
+function removeNamespaceLinks(set: Set<string>, namespace: string) {
+  const prefix = `${namespace}.`;
+  for (const key of Array.from(set)) {
+    if (key.startsWith(prefix)) {
+      set.delete(key);
+    }
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled migration step: ${JSON.stringify(value)}`);
 }
 
 function analyzeChain(node: any): { typeParams: acorn.Node | null } {
