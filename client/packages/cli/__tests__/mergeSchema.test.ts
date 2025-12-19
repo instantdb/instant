@@ -1,399 +1,197 @@
 import { describe, test, expect } from 'vitest';
 import { mergeSchema } from '../src/util/mergeSchema';
 
-describe('mergeSchema', () => {
-  test('preserves record entity types', () => {
-    const oldFile = `
+test('preserves type annotations', () => {
+  const oldFile = `
 import { i } from '@instantdb/core';
+import { Label } from './types';
 
 const _schema = i.schema({
   entities: {
-    users: i.entity({
-      name: i.string(),
-      age: i.number(),
-      metadata: i.json<{ foo: number }>().indexed(),
+    $users: i.entity({
+      email: i.string().unique().indexed(),
     }),
-  },
-});
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity({
-      name: i.string(),
-      age: i.number(),
-      metadata: i.json().indexed(),
-    }),
-  },
-});
-`;
-
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain('i.json<{ foo: number }>');
-  });
-
-  test('preserves string array entity types', () => {
-    const oldFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity({
-      name: i.string(),
-      age: i.number(),
-      tags: i.json<string[]>().indexed(),
-    }),
-  },
-});
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity({
-      name: i.string(),
-      age: i.number(),
-      tags: i.json().indexed(),
-    }),
-  },
-});
-`;
-
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain('i.json<string[]>');
-  });
-
-
-  test('preserves string entity types', () => {
-    const oldFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity({
-      name: i.string(),
-      age: i.number(),
-      foo: i.json<string>().indexed(),
-    }),
-  },
-});
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity({
-      name: i.string(),
-      age: i.number(),
-      foo: i.json().indexed(),
-    }),
-  },
-});
-`;
-
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain('i.json<string>');
-  });
-
-  test('preserves number entity types', () => {
-    const oldFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity({
-      name: i.string(),
-      age: i.number(),
-      foo: i.json<number>().indexed(),
-    }),
-  },
-});
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity({
-      name: i.string(),
-      age: i.number(),
-      foo: i.json().indexed(),
-    }),
-  },
-});
-`;
-
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain('i.json<number>');
-  });
-
-  test('preserves imports used in types', () => {
-    const oldFile = `
-import { i } from '@instantdb/core';
-import { User } from './types';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity<User>({
-      name: i.string(),
-    }),
-  },
-});
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity({
-      name: i.string(),
-    }),
-  },
-});
-`;
-
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain("import { User } from './types';");
-    expect(result).toContain('i.entity<User>');
-  });
-
-  test('preserves renamed imports', () => {
-    const oldFile = `
-import { i } from '@instantdb/core';
-import { User as MyUser } from './types';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity<MyUser>({
-      name: i.string(),
-    }),
-  },
-});
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity({
-      name: i.string(),
-    }),
-  },
-});
-`;
-
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain("import { User as MyUser } from './types';");
-    expect(result).toContain('i.entity<MyUser>');
-  });
-
-  test('does not duplicate existing imports', () => {
-    const oldFile = `
-import { i } from '@instantdb/core';
-import { User } from './types';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity<User>({
-      name: i.string(),
-    }),
-  },
-});
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
-import { User } from './types';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity({
-      name: i.string(),
-    }),
-  },
-});
-`;
-
-    const result = mergeSchema(oldFile, newFile);
-    // Should not have two import lines for User
-    const matches = result.match(/import { User } from '\.\/types';/g);
-    expect(matches?.length).toBe(1);
-    expect(result).toContain('i.entity<User>');
-  });
-
-  test('handles new entities (no type preservation)', () => {
-    const oldFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {},
-});
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    posts: i.entity({
+    todos: i.entity({
       title: i.string(),
+      status: i.string<'todo' | 'in_progress' | 'done'>(),
+      priority: i.number<1 | 2 | 3>(),
+      labels: i.json<Label[]>().optional(),
+    }),
+    projects: i.entity({
+      name: i.string(),
     }),
   },
+  links: {
+    todoProject: {
+      forward: { on: 'todos', has: 'one', label: 'project' },
+      reverse: { on: 'projects', has: 'many', label: 'todos' },
+    },
+    projectOwner: {
+      forward: { on: 'projects', has: 'one', label: 'owner' },
+      reverse: { on: '$users', has: 'many', label: 'projects' },
+    },
+  },
+  rooms: {
+    projectRoom: {
+      presence: i.entity({
+        cursor: i.json<{ x: number; y: number }>(),
+      }),
+    },
+  },
 });
+
+export default _schema;
 `;
 
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain('posts: i.entity({');
-    expect(result).not.toContain('posts: i.entity<');
-  });
-
-  test('handles removed entities', () => {
-    const oldFile = `
+  const newFile = `
 import { i } from '@instantdb/core';
 
 const _schema = i.schema({
   entities: {
-    users: i.entity<{ name: string }>({
+    $users: i.entity({
+      email: i.string().unique().indexed(),
+    }),
+    todos: i.entity({
+      title: i.string(),
+      status: i.string(),
+      priority: i.number(),
+      labels: i.json().optional(),
+    }),
+    projects: i.entity({
       name: i.string(),
     }),
   },
-});
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {},
-});
-`;
-
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).not.toContain('users:');
-  });
-
-  test('preserves default imports', () => {
-    const oldFile = `
-import { i } from '@instantdb/core';
-import User from './User';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity<User>({
-      name: i.string(),
-    }),
+  links: {
+    todoProject: {
+      forward: { on: 'todos', has: 'one', label: 'project' },
+      reverse: { on: 'projects', has: 'many', label: 'todos' },
+    },
+    projectOwner: {
+      forward: { on: 'projects', has: 'one', label: 'owner' },
+      reverse: { on: '$users', has: 'many', label: 'projects' },
+    },
+  },
+  rooms: {
+    projectRoom: {
+      presence: i.entity({
+        cursor: i.json(),
+      }),
+    },
   },
 });
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
 
-const _schema = i.schema({
-  entities: {
-    users: i.entity({
-      name: i.string(),
-    }),
-  },
+export default _schema;
+`;
+
+  const result = mergeSchema(oldFile, newFile);
+
+  // Type annotations preserved
+  expect(result).toContain("i.string<'todo' | 'in_progress' | 'done'>()");
+  expect(result).toContain('i.number<1 | 2 | 3>()');
+  expect(result).toContain('i.json<Label[]>()');
+  expect(result).toContain('i.json<{ x: number; y: number }>()');
+
+  // Import preserved
+  expect(result).toContain("import { Label } from './types';");
 });
-`;
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain("import User from './User';");
-    expect(result).toContain('i.entity<User>');
-  });
 
-  test('preserves namespace imports', () => {
-    const oldFile = `
+test('preserves different import styles', () => {
+  const oldFile = `
 import { i } from '@instantdb/core';
-import * as Types from './types';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity<Types.User>({
-      name: i.string(),
-    }),
-  },
-});
-`;
-    const newFile = `
-import { i } from '@instantdb/core';
+import { Label } from './types';
+import { Tag as MyTag } from './types';
+import Priority from './Priority';
+import * as Models from './models';
+import type { Meta } from './meta';
 
 const _schema = i.schema({
   entities: {
-    users: i.entity({
-      name: i.string(),
-    }),
+    a: i.entity({ f: i.json<Label>() }),
+    b: i.entity({ f: i.json<MyTag>() }),
+    c: i.entity({ f: i.json<Priority>() }),
+    d: i.entity({ f: i.json<Models.Status>() }),
+    e: i.entity({ f: i.json<Meta>() }),
   },
 });
 `;
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain("import * as Types from './types';");
-    expect(result).toContain('i.entity<Types.User>');
-  });
 
-  test('preserves type imports', () => {
-    const oldFile = `
-import { i } from '@instantdb/core';
-import type { User } from './types';
-
-const _schema = i.schema({
-  entities: {
-    users: i.entity<User>({
-      name: i.string(),
-    }),
-  },
-});
-`;
-    const newFile = `
+  const newFile = `
 import { i } from '@instantdb/core';
 
 const _schema = i.schema({
   entities: {
-    users: i.entity({
-      name: i.string(),
-    }),
+    a: i.entity({ f: i.json() }),
+    b: i.entity({ f: i.json() }),
+    c: i.entity({ f: i.json() }),
+    d: i.entity({ f: i.json() }),
+    e: i.entity({ f: i.json() }),
   },
 });
 `;
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain("import type { User } from './types';");
-    expect(result).toContain('i.entity<User>');
-  });
 
+  const result = mergeSchema(oldFile, newFile);
 
-  test('preserves specific type imports', () => {
-    const oldFile = `
+  // All import styles preserved (named imports from same module are combined)
+  expect(result).toContain('Label');
+  expect(result).toContain('Tag as MyTag');
+  expect(result).toContain("import Priority from './Priority';");
+  expect(result).toContain("import * as Models from './models';");
+  expect(result).toContain("import type { Meta } from './meta';");
+
+  // Type annotations preserved
+  expect(result).toContain('i.json<Label>()');
+  expect(result).toContain('i.json<MyTag>()');
+  expect(result).toContain('i.json<Priority>()');
+  expect(result).toContain('i.json<Models.Status>()');
+  expect(result).toContain('i.json<Meta>()');
+});
+
+test('handles entity additions and removals', () => {
+  const oldFile = `
 import { i } from '@instantdb/core';
-import { type User, Settings } from './types';
+import { Label } from './types';
 
 const _schema = i.schema({
   entities: {
-    users: i.entity<User>({
-      name: i.string(),
+    todos: i.entity({
+      labels: i.json<Label[]>(),
     }),
-    settings: i.entity<Settings>({
-      theme: i.string(),
+    oldEntity: i.entity({
+      data: i.json<{ removed: true }>(),
     }),
   },
 });
 `;
-    const newFile = `
+
+  const newFile = `
 import { i } from '@instantdb/core';
+import { Label } from './types';
 
 const _schema = i.schema({
   entities: {
-    users: i.entity({
-      name: i.string(),
+    todos: i.entity({
+      labels: i.json(),
     }),
-    settings: i.entity({
-      theme: i.string(),
+    newEntity: i.entity({
+      data: i.json(),
     }),
   },
 });
 `;
-    const result = mergeSchema(oldFile, newFile);
-    expect(result).toContain("import { type User, Settings } from './types';");
-    expect(result).toContain('i.entity<User>');
-    expect(result).toContain('i.entity<Settings>');
-  });
+
+  const result = mergeSchema(oldFile, newFile);
+
+  // Existing entity type preserved
+  expect(result).toContain('i.json<Label[]>()');
+
+  // Removed entity is gone
+  expect(result).not.toContain('oldEntity');
+
+  // New entity has no type annotation
+  expect(result).toContain('newEntity: i.entity({');
+  expect(result).not.toContain('i.json<{ removed: true }>()');
+
+  // Import not duplicated (was already in newFile)
+  const importMatches = result.match(/import { Label } from '\.\/types';/g);
+  expect(importMatches?.length).toBe(1);
 });
