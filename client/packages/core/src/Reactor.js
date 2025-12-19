@@ -50,6 +50,7 @@ const STATUS = {
 const QUERY_ONCE_TIMEOUT = 30_000;
 const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
 const PENDING_MUTATION_CLEANUP_THRESHOLD = 200;
+const ONE_MIN_MS = 1_000 * 60;
 
 const defaultConfig = {
   apiURI: 'https://api.instantdb.com',
@@ -355,7 +356,7 @@ export default class Reactor {
     setInterval(async () => {
       const currentUser = await this.getCurrentUser();
       this.syncUserToEndpoint(currentUser.user);
-    }, 1000 * 60);
+    }, ONE_MIN_MS);
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;

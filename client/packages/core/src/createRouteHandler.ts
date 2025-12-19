@@ -5,8 +5,8 @@ type CreateRouteHandlerConfig = {
 };
 
 function createUserSyncResponse(
-  user: User | null,
   config: CreateRouteHandlerConfig,
+  user: User | null,
 ) {
   if (user && user.refresh_token) {
     return new Response(JSON.stringify({ ok: true }), {
@@ -54,7 +54,7 @@ export const createInstantRouteHandler = (config: CreateRouteHandlerConfig) => {
 
       switch (body.type) {
         case 'sync-user':
-          return createUserSyncResponse(body.user ?? null, config);
+          return createUserSyncResponse(config, body.user ?? null);
         default:
           return errorResponse(400, `Unknown type: ${body.type}`);
       }

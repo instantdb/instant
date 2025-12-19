@@ -3,6 +3,8 @@
 // This allows us to send serialized json from the server to the client using 'useServerInsertedHTML'
 // We are allowed to send whatever json we want, however it must be triggered at the same time as the client is recieving new html to display
 // after a suspsense boundary resolves
+// We do this to send a list of triples and attrs for each query that the server made so they can be pre-filled on the client render.
+// useServerInsertedHTML is called whenever a suspense boundary resolves, resulting in new html being streamed down to the client.
 
 export const isServer = typeof window === 'undefined' || 'Deno' in globalThis;
 

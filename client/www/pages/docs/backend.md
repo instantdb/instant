@@ -464,6 +464,8 @@ The GET and POST functions accept a [Request](https://developer.mozilla.org/en-U
 Then, provide your mounted api url to the `init` function.
 
 ```typescript {% showCopy=true %}
+import { init } from "@instantdb/react";
+
 export const db = init({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
   firstPartyPath: '/api/instant', // the endpoint that you registered the route handler at.

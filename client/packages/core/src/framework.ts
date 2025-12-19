@@ -1,3 +1,6 @@
+// The FrameworkClient class is a mini version of a query store that allows making queries on both the frontend and backend
+// you can register queries, await their results and serialize them over a server/client boundary.
+// The class is generic so that it can be a good starting off point to make other ssr adapters.
 import {
   coerceQuery,
   InstantCoreDatabase,
