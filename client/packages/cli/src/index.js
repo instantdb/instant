@@ -1239,17 +1239,10 @@ async function pullSchema(
   if (prev && experimentalTypePreservation) {
     try {
       const oldSchemaContent = await readFile(prev.path, 'utf-8');
-      const diff = await diffSchemas(
-        prev.schema,
-        serverSchema,
-        async (created) => created,
-        {},
-      );
       newSchemaContent = await updateSchemaFile(
         oldSchemaContent,
-        diff,
-        serverSchema,
         prev.schema,
+        serverSchema,
       );
     } catch (e) {
       warn(

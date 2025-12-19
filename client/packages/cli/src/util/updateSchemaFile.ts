@@ -1,6 +1,6 @@
 import * as acorn from 'acorn';
 import { tsPlugin } from 'acorn-typescript';
-import { type MigrationTx } from '@instantdb/platform';
+import { diffSchemas, type MigrationTx } from '@instantdb/platform';
 import type { DataAttrDef, InstantSchemaDef } from '@instantdb/core';
 
 const parser = (acorn.Parser as any).extend(tsPlugin({ dts: false }) as any);
@@ -8,9 +8,8 @@ const DEFAULT_INDENT = '  ';
 
 export async function updateSchemaFile(
   existingFileContent: string,
-  diff: MigrationTx[],
-  serverSchema: InstantSchemaDef<any, any, any>,
   localSchema: InstantSchemaDef<any, any, any>,
+  serverSchema: InstantSchemaDef<any, any, any>,
 ): Promise<string> {
   const ast = parseFile(existingFileContent);
   const schemaObj = findSchemaObject(ast);
@@ -19,20 +18,17 @@ export async function updateSchemaFile(
   }
 
   const { entitiesObj, linksObj } = getSchemaSections(schemaObj);
+  const diff = await diffSchemas(
+    localSchema,
+    serverSchema,
+    async (created) => created,
+    {},
+  );
   if (diff.length === 0) {
     return existingFileContent;
   }
 
-  const entityKeyStyle = getKeyStyle(entitiesObj);
-  const linkKeyStyle = getKeyStyle(linksObj);
-  const linkValueQuote = linkKeyStyle.quoted ? linkKeyStyle.quote : "'";
-
-  const { entitiesByName, defaultAttrKeyStyle } = buildEntitiesIndex(entitiesObj);
-  const resolvedAttrKeyStyle =
-    defaultAttrKeyStyle ?? {
-      quoted: entityKeyStyle.quoted,
-      quote: entityKeyStyle.quote,
-    };
+  const { entitiesByName } = buildEntitiesIndex(entitiesObj);
 
   const { localLinksByForward, serverLinksByForward } = buildLinkMaps(
     localSchema.links || {},
@@ -52,8 +48,6 @@ export async function updateSchemaFile(
       entitiesByName,
       changeBuckets,
       serverSchema,
-      entityKeyStyle,
-      resolvedAttrKeyStyle,
     ),
   );
   edits.push(
@@ -63,18 +57,11 @@ export async function updateSchemaFile(
       changeBuckets,
       localLinksByForward,
       serverLinksByForward,
-      linkKeyStyle,
-      linkValueQuote,
     ),
   );
 
   return applyEdits(existingFileContent, edits);
 }
-
-type KeyStyle = {
-  quoted: boolean;
-  quote: '"' | "'";
-};
 
 type ObjectExpression = {
   type: 'ObjectExpression';
@@ -95,7 +82,6 @@ type EntityInfo = {
   prop: PropertyNode;
   attrsObj: ObjectExpression;
   attrsByName: Map<string, PropertyNode>;
-  attrKeyStyle: KeyStyle;
 };
 
 type Edit = { start: number; end: number; text: string };
@@ -138,7 +124,6 @@ function getSchemaSections(schemaObj: ObjectExpression) {
 
 function buildEntitiesIndex(entitiesObj: ObjectExpression) {
   const entitiesByName = new Map<string, EntityInfo>();
-  let defaultAttrKeyStyle: KeyStyle | null = null;
 
   for (const prop of entitiesObj.properties) {
     if (!isProperty(prop)) continue;
@@ -155,15 +140,10 @@ function buildEntitiesIndex(entitiesObj: ObjectExpression) {
       attrsByName.set(attrName, attrProp);
     }
 
-    const attrKeyStyle = getKeyStyle(attrsObj);
-    if (!defaultAttrKeyStyle && attrsObj.properties.length > 0) {
-      defaultAttrKeyStyle = attrKeyStyle;
-    }
-
-    entitiesByName.set(name, { prop, attrsObj, attrsByName, attrKeyStyle });
+    entitiesByName.set(name, { prop, attrsObj, attrsByName });
   }
 
-  return { entitiesByName, defaultAttrKeyStyle };
+  return { entitiesByName };
 }
 
 function buildLinkMaps(
@@ -182,8 +162,6 @@ function collectEntityEdits(
   entitiesByName: Map<string, EntityInfo>,
   changeBuckets: ChangeBuckets,
   serverSchema: InstantSchemaDef<any, any, any>,
-  entityKeyStyle: KeyStyle,
-  defaultAttrKeyStyle: KeyStyle,
 ): Edit[] {
   const edits: Edit[] = [];
 
@@ -200,8 +178,6 @@ function collectEntityEdits(
     const propText = entityDefToPropString(
       entityName,
       entityDef.attrs,
-      entityKeyStyle,
-      defaultAttrKeyStyle,
     );
     const indent = getObjectPropIndent(content, entitiesObj);
     edits.push(insertProperty(content, entitiesObj, propText, indent));
@@ -226,11 +202,7 @@ function collectEntityEdits(
     for (const attrName of attrs) {
       const attrDef = entityDef.attrs?.[attrName];
       if (!attrDef) continue;
-      const propText = attrDefToPropString(
-        attrName,
-        attrDef,
-        entity.attrKeyStyle,
-      );
+      const propText = attrDefToPropString(attrName, attrDef);
       edits.push(insertProperty(content, entity.attrsObj, propText, indent));
     }
   }
@@ -257,8 +229,6 @@ function collectLinkEdits(
   changeBuckets: ChangeBuckets,
   localLinksByForward: LinkMap,
   serverLinksByForward: LinkMap,
-  linkKeyStyle: KeyStyle,
-  linkValueQuote: KeyStyle['quote'],
 ): Edit[] {
   const edits: Edit[] = [];
 
@@ -275,9 +245,8 @@ function collectLinkEdits(
     if (!serverLink) continue;
     const linkName = serverLink.name;
     if (findObjectProperty(linksObj, linkName)) continue;
-    const propText = `${formatKey(linkName, linkKeyStyle)}: ${linkDefToValueString(
+    const propText = `${formatKey(linkName)}: ${linkDefToValueString(
       serverLink.link,
-      linkValueQuote,
     )}`;
     const indent = getObjectPropIndent(content, linksObj);
     edits.push(insertProperty(content, linksObj, propText, indent));
@@ -289,7 +258,7 @@ function collectLinkEdits(
     if (!serverLink || !localLink) continue;
     const linkProp = findObjectProperty(linksObj, localLink.name);
     if (!linkProp) continue;
-    const nextValue = linkDefToValueString(serverLink.link, linkValueQuote);
+    const nextValue = linkDefToValueString(serverLink.link);
     edits.push({
       start: linkProp.value.start,
       end: linkProp.value.end,
@@ -510,30 +479,27 @@ function attrDefToCallString(
 function attrDefToPropString(
   name: string,
   attr: DataAttrDef<string, boolean, boolean>,
-  keyStyle: KeyStyle,
 ) {
-  return `${formatKey(name, keyStyle)}: ${attrDefToCallString(attr)}`;
+  return `${formatKey(name)}: ${attrDefToCallString(attr)}`;
 }
 
 function entityDefToPropString(
   name: string,
   attrs: Record<string, DataAttrDef<string, boolean, boolean>>,
-  entityKeyStyle: KeyStyle,
-  attrKeyStyle: KeyStyle,
 ) {
   const attrBlock = sortedEntries(attrs)
     .map(([attrName, attrDef]) =>
-      attrDefToPropString(attrName, attrDef, attrKeyStyle),
+      attrDefToPropString(attrName, attrDef),
     )
     .join(',\n');
   const inner = attrBlock.length
     ? `\n${indentLines(attrBlock, DEFAULT_INDENT)}\n`
     : '';
-  return `${formatKey(name, entityKeyStyle)}: i.entity({${inner}})`;
+  return `${formatKey(name)}: i.entity({${inner}})`;
 }
 
-function linkDefToValueString(link: any, quote: KeyStyle['quote']) {
-  const q = quote;
+function linkDefToValueString(link: any) {
+  const q = "'";
   const forwardLines = [
     `on: ${q}${link.forward.on}${q},`,
     `has: ${q}${link.forward.has}${q},`,
@@ -593,30 +559,15 @@ function getPropName(prop: PropertyNode) {
   return null;
 }
 
-function getKeyStyle(obj: ObjectExpression): KeyStyle {
-  for (const prop of obj.properties) {
-    if (!isProperty(prop)) continue;
-    if (prop.key.type === 'Identifier') {
-      return { quoted: false, quote: "'" };
-    }
-    if (prop.key.type === 'Literal' && typeof prop.key.raw === 'string') {
-      const raw = prop.key.raw.trim();
-      const quote = raw.startsWith("'") ? "'" : '"';
-      return { quoted: true, quote };
-    }
-  }
-  return { quoted: false, quote: "'" };
-}
-
 function isValidIdentifier(name: string) {
   return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
 }
 
-function formatKey(name: string, style: KeyStyle) {
-  if (!style.quoted && isValidIdentifier(name)) {
+function formatKey(name: string) {
+  if (isValidIdentifier(name)) {
     return name;
   }
-  return `${style.quote}${name}${style.quote}`;
+  return `'${name}'`;
 }
 
 function sortedEntries<T>(obj: Record<string, T>) {

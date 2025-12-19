@@ -1,9 +1,5 @@
 import { test, expect } from 'vitest';
-import {
-  diffSchemas,
-  i,
-  schemaTypescriptFileToInstantSchema,
-} from '@instantdb/platform';
+import { i, schemaTypescriptFileToInstantSchema } from '@instantdb/platform';
 import { updateSchemaFile } from '../src/util/updateSchemaFile';
 
 test('preserves type annotations while adding entities', async () => {
@@ -41,12 +37,10 @@ export default _schema;
   });
 
   const localSchema = schemaTypescriptFileToInstantSchema(oldFile);
-  const diff = await diffSchemas(localSchema, serverSchema, async (c) => c, {});
   const result = await updateSchemaFile(
     oldFile,
-    diff,
-    serverSchema,
     localSchema,
+    serverSchema,
   );
 
   expect(result).toContain("status: i.string<'todo' | 'done'>()");
@@ -86,12 +80,10 @@ export default _schema;
   });
 
   const localSchema = schemaTypescriptFileToInstantSchema(oldFile);
-  const diff = await diffSchemas(localSchema, serverSchema, async (c) => c, {});
   const result = await updateSchemaFile(
     oldFile,
-    diff,
-    serverSchema,
     localSchema,
+    serverSchema,
   );
 
   expect(result).not.toContain('oldEntity');
@@ -139,12 +131,10 @@ export default _schema;
   });
 
   const localSchema = schemaTypescriptFileToInstantSchema(oldFile);
-  const diff = await diffSchemas(localSchema, serverSchema, async (c) => c, {});
   const result = await updateSchemaFile(
     oldFile,
-    diff,
-    serverSchema,
     localSchema,
+    serverSchema,
   );
 
   expect(result).toContain(
