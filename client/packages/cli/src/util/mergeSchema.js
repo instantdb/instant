@@ -321,9 +321,13 @@ export function mergeSchema(oldFile, newFile) {
     }
     if (info.namespace) {
       if (info.namespace.isType) {
-        importBlocks.push(`import type * as ${info.namespace.str} from '${source}';`);
+        importBlocks.push(
+          `import type * as ${info.namespace.str} from '${source}';`,
+        );
       } else {
-        importBlocks.push(`import * as ${info.namespace.str} from '${source}';`);
+        importBlocks.push(
+          `import * as ${info.namespace.str} from '${source}';`,
+        );
       }
     }
   }
@@ -347,7 +351,10 @@ export function mergeSchema(oldFile, newFile) {
     if (commentMatch) {
       const commentEnd = commentMatch[0].length;
       output =
-        output.slice(0, commentEnd) + '\n' + importBlocks.join('\n') + output.slice(commentEnd);
+        output.slice(0, commentEnd) +
+        '\n' +
+        importBlocks.join('\n') +
+        output.slice(commentEnd);
     } else {
       output = importBlocks.join('\n') + '\n' + output;
     }

@@ -473,7 +473,7 @@ program
   )
   .option(
     '--experimental-type-preservation',
-    '[Experimental] Preserve manual type changes like `status: i.json<\'online\' | \'offline\'>()` when doing `instant-cli pull schema`',
+    "[Experimental] Preserve manual type changes like `status: i.json<'online' | 'offline'>()` when doing `instant-cli pull schema`",
   )
   .description('Pull schema and perm files from production.')
   .action(async function (arg, inputOpts) {
@@ -1224,7 +1224,10 @@ async function pullSchema(
       const oldSchemaContent = await readFile(prev.path, 'utf-8');
       newSchemaContent = mergeSchema(oldSchemaContent, newSchemaContent);
     } catch (e) {
-      warn('Failed to merge schema with existing file. Overwriting instead.', e);
+      warn(
+        'Failed to merge schema with existing file. Overwriting instead.',
+        e,
+      );
     }
   }
 
