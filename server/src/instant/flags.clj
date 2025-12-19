@@ -7,6 +7,7 @@
    [clojure.tools.logging :as log]
    [clojure.walk :as w]
    [instant.config :as config]
+   [instant.util.json :as json]
    [instant.util.uuid :as uuid-util]))
 
 ;; Map of query to {:result {result-tree}
@@ -31,7 +32,8 @@
             :rule-where-testing {}
             :toggles {}
             :flags {}
-            :handle-receive-timeout {}})
+            :handle-receive-timeout {}
+            :query-modifiers {}})
 
 (def toggle-defaults {:pg-hints-by-default (= :test (config/get-env))})
 
@@ -143,7 +145,18 @@
                                (get "rule-where-testing")
                                first
                                (get "enabled")
-                               (or false))]
+                               (or false))
+        query-modifiers (reduce (fn [acc {:strs [app-id query-hash etype dollar-params]}]
+                                  (update-in acc
+                                             [(parse-uuid app-id) query-hash]
+                                             (fnil conj [])
+                                             {:etype (keyword etype)
+                                              :params (-> dollar-params
+                                                          json/->json
+                                                          (json/<-json true))}))
+
+                                {}
+                                (get result "query-modifiers"))]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :storage-block-list storage-block-list
@@ -159,7 +172,8 @@
      :rule-where-testing rule-where-testing
      :toggles toggles
      :flags flags
-     :handle-receive-timeout handle-receive-timeout}))
+     :handle-receive-timeout handle-receive-timeout
+     :query-modifiers query-modifiers}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -296,3 +310,6 @@
 
 (defn statement-cancel-wait-ms []
   (flag :statement-cancel-wait-ms 500))
+
+(defn query-modifiers [app-id query-hash]
+  (get-in (query-result) [:query-modifiers app-id query-hash]))

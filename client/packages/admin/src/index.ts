@@ -12,7 +12,6 @@ import {
   type InstantIssue,
   type TransactionChunk,
   type AuthToken,
-  type Exactly,
 
   // core types
   type User,
@@ -70,6 +69,7 @@ import {
   type DeleteFileResponse,
   validateQuery,
   validateTransactions,
+  createInstantRouteHandler,
 } from '@instantdb/core';
 
 import version from './version.ts';
@@ -305,6 +305,8 @@ function init<
 ): InstantAdminDatabase<Schema, UseDates, InstantConfig<Schema, UseDates>> {
   const configStrict = {
     ...config,
+    appId: config.appId?.trim(),
+    adminToken: config.adminToken?.trim(),
     useDateObjects: (config.useDateObjects ?? false) as UseDates,
   };
 
@@ -1114,6 +1116,7 @@ export {
   tx,
   lookup,
   i,
+  createInstantRouteHandler,
 
   // error
   InstantAPIError,

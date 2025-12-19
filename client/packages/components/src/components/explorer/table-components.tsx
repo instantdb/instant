@@ -246,7 +246,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
   return (
     <Tooltip>
       {' '}
-      <TooltipTrigger className="text-left">
+      <TooltipTrigger className="text-left" asChild>
         <div
           ref={(el) => {
             setNodeRef(el);

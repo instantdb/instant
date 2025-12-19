@@ -619,12 +619,12 @@
                   :token_endpoint
                   (str config/server-origin "/runtime/" app-id "/oauth/token")})))
 
-(defn query-triples [req]
+(defn framework-query-triples [req]
   (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
         auth-token (http-util/req->bearer-token req)
         app-id (req->app-id-untrusted! req)
         user (when auth-token
-               (app-user-model/get-by-refresh-token! {:refresh-token auth-token
+               (app-user-model/get-by-refresh-token {:refresh-token auth-token
                                                       :app-id app-id}))
         attrs (attr-model/get-by-app-id app-id)
         ctx {:db {:conn-pool (aurora/conn-pool :read)}
@@ -651,7 +651,7 @@
                                                   {:decoder parse-cookie}))
   (POST "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
                                                    {:decoder parse-cookie}))
-  (POST "/runtime/query" [] query-triples)
+  (POST "/runtime/framework/query" [] framework-query-triples)
 
   (POST "/runtime/oauth/token" [] oauth-token-callback)
   (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)
