@@ -57,7 +57,7 @@ query once and returns a result.
 
 ### transact
 
-```javascript
+```typescript {% showCopy=true %}
 const res = await db.transact([db.tx.todos[id()].update({ title: 'Get fit' })]);
 console.log('New todo entry made for with tx-id', res['tx-id']);
 ```
@@ -75,7 +75,7 @@ For example, let's say we wanted to subscribe to a `tasks` table.
 
 You could pass in a callback to `db.subscribeQuery` that gets called with newly updated query results:
 
-```typescript
+```typescript {% showCopy=true %}
 const sub = db.subscribeQuery({ tasks: { $: { limit: 10 } } }, (payload) => {
   if (payload.type === 'error') {
     console.log('error', error);
@@ -93,7 +93,7 @@ sub.close();
 
 Or if you prefer, you can skip providing a callback and use async iterators:
 
-```typescript
+```typescript {% showCopy=true %}
 const sub = db.subscribeQuery({ tasks: { $: { limit: 10 } } });
 
 for await (const payload of sub) {
@@ -117,7 +117,7 @@ Subscriptions keep a live connection open on your backend. Be sure to close them
 
 `init` also accepts a schema argument:
 
-```typescript
+```typescript {% showCopy=true %}
 import { init, id } from '@instantdb/admin';
 import schema from '../instant.schema.ts';
 
@@ -141,7 +141,7 @@ But, sometimes you want to make queries on behalf of your users, and would like 
 
 You can do this with the `db.asUser` function.
 
-```javascript
+```typescript {% showCopy=true %}
 // Scope by their email
 const scopedDb = db.asUser({ email: 'alyssa_p_hacker@instantdb.com' });
 // Or with their auth token
@@ -157,7 +157,7 @@ await scopedDb.query({ logs: {} });
 
 Impersonation can also let you run the Admin SDK _without_ exposing an admin token.
 
-```javascript
+```javascript {% showCopy=true %}
 import { init } from '@instantdb/admin';
 
 // If you only impersonate with a user token or as a guest,
@@ -193,7 +193,7 @@ Without an `adminToken`, you must use `.asUser({ token })` or `asUser({ guest: t
 
 As an admin, you can retrieve an app user record by `email`, `id`, or `refresh_token`. You can do this with the `db.auth.getUser` function.
 
-```javascript
+```typescript {% showCopy=true %}
 const user = await db.auth.getUser({ email: 'alyssa_p_hacker@instantdb.com' });
 const user = await db.auth.getUser({
   id: userId,
@@ -207,7 +207,7 @@ const user = await db.auth.getUser({
 
 You can also delete an app user record by `email`, `id`, or `refresh_token`. You can do this with the `db.auth.deleteUser` function.
 
-```javascript
+```typescript {% showCopy=true %}
 const deletedUser = await db.auth.deleteUser({
   email: 'alyssa_p_hacker@instantdb.com',
 });
@@ -221,7 +221,7 @@ const deletedUser = await db.auth.deleteUser({
 
 Note, this _only_ deletes the user record and any associated data with cascade on delete. If there's additional data you need to clean up you'll need to do it manually:
 
-```javascript
+```typescript {% showCopy=true %}
 const { goals, todos } = await db.query({
   goals: { $: { where: { creator: userId } } },
   todos: { $: { where: { creator: userId } } },
@@ -241,7 +241,7 @@ If you use [rooms & presence](/docs/presence-and-topics), you may want to query 
 
 To do get room data from the admin API, use `db.rooms.getPresence`:
 
-```js
+```typescript {% showCopy=true %}
 const data = await db.rooms.getPresence('chat', 'room-123');
 console.log(Object.values(data));
 // [{
@@ -256,7 +256,7 @@ console.log(Object.values(data));
 
 The `db.auth.signOut` method allows you to log out users. You can log a user out from every session by passing in their `email`, or `id`. Or you can log a user out from a particular session by passing in a `refresh_token`:
 
-```javascript
+```typescript {% showCopy=true %}
 // All sessions for this email sign out
 await db.auth.signOut({ email: 'alyssa_p_hacker@instantdb.com' });
 // All sessions for this user id sign out
@@ -279,7 +279,7 @@ Create a new `sign-in` endpoint in your backend.
 
 This endpoint will use `db.auth.createToken` to generate an authentication token for the user.
 
-```javascript
+```typescript {% showCopy=true %}
 app.post('/sign-in', async (req, res) => {
   // your custom logic for signing users in
   // ...
@@ -291,7 +291,7 @@ app.post('/sign-in', async (req, res) => {
 
 `db.auth.createToken` accepts either an email or a UUID. For the UUID variant:
 
-```javascript
+```typescript {% showCopy=true %}
 const token = await db.auth.createToken({ id });
 ```
 
@@ -303,7 +303,7 @@ Once your frontend calls your `sign-in` endpoint, it can then use the generated 
 
 Here's a full example:
 
-```javascript
+```typescript {% showCopy=true %}
 import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 
@@ -381,7 +381,7 @@ function Login() {
 
 We support a [magic code flow](/docs/auth) out of the box. However, if you'd like to use your own email provider to send the code, you can do this with `db.auth.generateMagicCode` function:
 
-```typescript
+```typescript {% showCopy=true %}
 app.post('/custom-send-magic-code', async (req, res) => {
   const { code } = await db.auth.generateMagicCode(req.body.email);
   // Now you can use your email provider to send magic codes
@@ -392,14 +392,14 @@ app.post('/custom-send-magic-code', async (req, res) => {
 
 You can also use Instant's default email provider to send a magic code with `db.auth.sendMagicCode`:
 
-```typescript
+```typescript {% showCopy=true %}
 // You can trigger a magic code email in your backend with `sendMagicCode`
 const { code } = await db.auth.sendMagicCode(req.body.email);
 ```
 
 Similarly, you can verify a magic code with `db.auth.verifyMagicCode`:
 
-```typescript
+```typescript {% showCopy=true %}
 const user = await db.auth.verifyMagicCode(req.body.email, req.body.code);
 const token = user.refresh_token;
 ```
@@ -431,7 +431,7 @@ function App() {
 
 You can then use `auth.verifyToken` to verify the `refresh_token` that was passed in.
 
-```javascript
+```typescript {% showCopy=true %}
 app.post('/custom_endpoint', async (req, res) => {
   // verify the token this user passed in
   const user = await db.auth.verifyToken(req.headers['token']);
@@ -441,3 +441,63 @@ app.post('/custom_endpoint', async (req, res) => {
   // ...
 });
 ```
+
+### Syncing Auth
+
+Sometimes you want to get the logged in user in the backend without needing to explicitly pass in the refresh token from the frontend. Here's how you can do it.
+
+Instant provides a `createInstantRouteHandler` function that generates a web standard endpoint that can be used to sync the refresh token to a cookie that your server can read.
+
+To use it in NextJS:
+
+```typescript {% showCopy=true %}
+// src/app/api/instant/route.ts
+import { createInstantRouteHandler } from '@instantdb/react/nextjs';
+
+export const { POST } = createInstantRouteHandler({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+});
+```
+
+The GET and POST functions accept a [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) and return a [Response](https://developer.mozilla.org/en-US/docs/Web/API/Request) so they should be able to be used in any framework.
+
+Then, provide your mounted api url to the `init` function.
+
+```typescript {% showCopy=true %}
+import { init } from '@instantdb/react';
+
+export const db = init({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+  firstPartyPath: '/api/instant', // the endpoint that you registered the route handler at.
+  schema,
+  useDateObjects: true,
+});
+```
+
+If using NextJS you can call getUserOnServer with the app id to retrieve the user in any server component, or route handler.
+
+```typescript
+import { getUserOnServer } from "@instantdb/react/nextjs";
+
+// This is a server component!
+export default async function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  // Get the instant user from the cookie
+  const user = await getUserOnServer(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
+
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider user={user}>{children}</AuthProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+## NextJS SSR
+
+Instant has built in support for SSR using NextJS. See [this example repo](https://github.com/instantdb/instant-ssr-demo) for more information.

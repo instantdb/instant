@@ -6,12 +6,13 @@ export type QuerySubResult = {
   attrsStore: AttrsStore;
   pageInfo?: PageInfoResponse<any> | null | undefined;
   aggregate?: any;
-  processedTxId: number;
+  processedTxId?: number;
+  isExternal?: boolean;
 };
 
 export type QuerySub = {
   q: Object;
-  eventId: string;
+  eventId?: string;
   lastAccessed?: number | null | undefined;
   result?: QuerySubResult;
 };
@@ -21,12 +22,12 @@ export type QuerySubResultInStorage = {
   attrsStore: AttrsStoreJson;
   pageInfo?: PageInfoResponse<any> | null | undefined;
   aggregate?: any;
-  processedTxId: number;
+  processedTxId?: number;
 };
 
 export type QuerySubInStorage = {
   q: Object;
-  eventId: string;
+  eventId?: string;
   lastAccessed?: number | null | undefined;
   result?: QuerySubResultInStorage;
 };

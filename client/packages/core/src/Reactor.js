@@ -50,6 +50,7 @@ const STATUS = {
 const QUERY_ONCE_TIMEOUT = 30_000;
 const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
 const PENDING_MUTATION_CLEANUP_THRESHOLD = 200;
+const ONE_MIN_MS = 1_000 * 60;
 
 const defaultConfig = {
   apiURI: 'https://api.instantdb.com',
@@ -348,7 +349,14 @@ export default class Reactor {
     this._oauthCallbackResponse = this._oauthLoginInit();
 
     // kick off a request to cache it
-    this.getCurrentUser();
+    this.getCurrentUser().then((userInfo) => {
+      this.syncUserToEndpoint(userInfo.user);
+    });
+
+    setInterval(async () => {
+      const currentUser = await this.getCurrentUser();
+      this.syncUserToEndpoint(currentUser.user);
+    }, ONE_MIN_MS);
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
@@ -547,6 +555,43 @@ export default class Reactor {
         this._tryBroadcast(roomId, roomType, topic, data);
       }
     }
+  }
+
+  /**
+   * Does the same thing as add-query-ok
+   * but called as a result of receiving query info from ssr
+   * @param {any} q
+   * @param {{ triples: any; pageInfo: any; }} result
+   * @param {boolean} enableCardinalityInference
+   */
+  _addQueryData(q, result, enableCardinalityInference) {
+    if (!this.attrs) {
+      throw new Error('Attrs in reactor have not been set');
+    }
+    const queryHash = weakHash(q);
+    const attrsStore = this.ensureAttrs();
+    const store = s.createStore(
+      this.attrs,
+      result.triples,
+      enableCardinalityInference,
+      this.config.useDateObjects,
+    );
+    this.querySubs.updateInPlace((prev) => {
+      prev[queryHash] = {
+        result: {
+          store,
+          attrsStore,
+          pageInfo: result.pageInfo,
+          processedTxId: undefined,
+          isExternal: true,
+        },
+        q,
+      };
+    });
+    this._cleanupPendingMutationsQueries();
+    this.notifyOne(queryHash);
+    this.notifyOneQueryOnce(queryHash);
+    this._cleanupPendingMutationsTimeout();
   }
 
   _handleReceive(connId, msg) {
@@ -1221,7 +1266,7 @@ export default class Reactor {
   }
 
   /** Runs instaql on a query and a store */
-  dataForQuery(hash) {
+  dataForQuery(hash, applyOptimistic = true) {
     const errorMessage = this._errorMessage;
     if (errorMessage) {
       return { error: errorMessage };
@@ -1245,15 +1290,26 @@ export default class Reactor {
       return cached;
     }
 
-    const { store, attrsStore, pageInfo, aggregate, processedTxId } = result;
+    let store = result.store;
+    let attrsStore = result.attrsStore;
+    const { pageInfo, aggregate, processedTxId } = result;
     const mutations = this._rewriteMutationsSorted(
       attrsStore,
       pendingMutations,
     );
-    const { store: newStore, attrsStore: newAttrsStore } =
-      this._applyOptimisticUpdates(store, attrsStore, mutations, processedTxId);
+    if (applyOptimistic) {
+      const optimisticResult = this._applyOptimisticUpdates(
+        store,
+        attrsStore,
+        mutations,
+        processedTxId,
+      );
+
+      store = optimisticResult.store;
+      attrsStore = optimisticResult.attrsStore;
+    }
     const resp = instaql(
-      { store: newStore, attrsStore: newAttrsStore, pageInfo, aggregate },
+      { store: store, attrsStore: attrsStore, pageInfo, aggregate },
       q,
     );
 
@@ -1989,7 +2045,28 @@ export default class Reactor {
     }
   }
 
+  async syncUserToEndpoint(user) {
+    if (!this.config.firstPartyPath) return;
+    try {
+      fetch(this.config.firstPartyPath + '/', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'sync-user',
+          appId: this.config.appId,
+          user: user,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      this._log.error('Error syncing user with external endpoint', error);
+    }
+  }
+
   updateUser(newUser) {
+    this.syncUserToEndpoint(newUser);
+
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
     this._dataForQueryCache = {};
