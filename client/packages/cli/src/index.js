@@ -10,7 +10,6 @@ import {
   PlatformApi,
 } from '@instantdb/platform';
 import version from './version.js';
-import { existsSync } from 'fs';
 import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
 import path, { join } from 'path';
 import { randomUUID } from 'crypto';
@@ -50,7 +49,8 @@ import {
   getSchemaPathToWrite,
   getPermsPathToWrite,
 } from './util/findConfigCandidates.js';
-import { mergeSchema } from './util/mergeSchema.js';
+
+import { updateSchemaFile } from './util/updateSchemaFile.js';
 
 const execAsync = promisify(exec);
 
@@ -481,7 +481,11 @@ program
   )
   .option(
     '--experimental-type-preservation',
+<<<<<<< HEAD
     "[Experimental] Preserve manual type changes like `status: i.json<'online' | 'offline'>()` when doing `instant-cli pull schema`",
+=======
+    '[Experimental] Preserve manual type changes and schema edits when pulling schema',
+>>>>>>> 2cd2e509e (Experiment: what if we made surgical updates)
   )
   .description('Pull schema and perm files from production.')
   .addHelpText(
@@ -1229,22 +1233,38 @@ async function pullSchema(
   const shortSchemaPath = getSchemaPathToWrite(prev?.path);
   const schemaPath = join(pkgDir, shortSchemaPath);
 
-  let newSchemaContent = generateSchemaTypescriptFile(
-    prev?.schema,
-    apiSchemaToInstantSchemaDef(pullRes.data.schema),
-    instantModuleName,
-  );
+  const serverSchema = apiSchemaToInstantSchemaDef(pullRes.data.schema);
+  let newSchemaContent;
 
   if (prev && experimentalTypePreservation) {
     try {
       const oldSchemaContent = await readFile(prev.path, 'utf-8');
-      newSchemaContent = mergeSchema(oldSchemaContent, newSchemaContent);
+      const diff = await diffSchemas(
+        prev.schema,
+        serverSchema,
+        async (created) => created,
+        {},
+      );
+      newSchemaContent = await updateSchemaFile(
+        oldSchemaContent,
+        diff,
+        serverSchema,
+        prev.schema,
+      );
     } catch (e) {
       warn(
-        'Failed to merge schema with existing file. Overwriting instead.',
+        'Failed to update schema with existing file. Overwriting instead.',
         e,
       );
     }
+  }
+
+  if (!newSchemaContent) {
+    newSchemaContent = generateSchemaTypescriptFile(
+      prev?.schema,
+      serverSchema,
+      instantModuleName,
+    );
   }
 
   await writeTypescript(schemaPath, newSchemaContent, 'utf-8');
