@@ -262,10 +262,11 @@ function collectLinkEdits(
     const linkProp = findObjectProperty(linksObj, localLink.name);
     if (!linkProp) continue;
     const nextValue = renderLinkValue(serverLink.link);
+    const propIndent = getLineIndent(content, linkProp.start);
     edits.push({
       start: linkProp.value.start,
       end: linkProp.value.end,
-      text: nextValue,
+      text: indentValueAfterFirstLine(nextValue, propIndent),
     });
   }
 
@@ -547,6 +548,11 @@ function insertProperty(
   const props = obj.properties.filter(isProperty);
   const closingBrace = obj.end - 1;
   const propTextWithIndent = indentLines(propText, indent);
+  const propTextSingleLine = propText.trim();
+  const innerStart = obj.start + 1;
+  const innerEnd = closingBrace;
+  const innerContent = source.slice(innerStart, innerEnd);
+  const innerWhitespaceOnly = /^[\s]*$/.test(innerContent);
 
   if (props.length === 0) {
     const objSource = source.slice(obj.start, obj.end);
@@ -555,10 +561,17 @@ function insertProperty(
       return {
         start: closingBrace,
         end: closingBrace,
-        text: ` ${propTextWithIndent} `,
+        text: ` ${propTextSingleLine} `,
       };
     }
     const closingIndent = getLineIndent(source, closingBrace);
+    if (innerWhitespaceOnly) {
+      return {
+        start: innerStart,
+        end: innerEnd,
+        text: `\n${propTextWithIndent},\n${closingIndent}`,
+      };
+    }
     return {
       start: closingBrace,
       end: closingBrace,
@@ -567,15 +580,20 @@ function insertProperty(
   }
 
   const lastProp = props[props.length - 1];
-  const multiline = source.slice(lastProp.end, closingBrace).includes('\n');
+  const multiline =
+    source.slice(lastProp.end, closingBrace).includes('\n') ||
+    propText.includes('\n');
   const needsComma = !hasTrailingComma(source, lastProp.end, obj.end);
 
   if (!multiline) {
-    const insertPos = closingBrace;
+    let insertPos = closingBrace;
+    while (insertPos > lastProp.end && /\s/.test(source[insertPos - 1])) {
+      insertPos -= 1;
+    }
     return {
       start: insertPos,
       end: insertPos,
-      text: `${needsComma ? ',' : ''} ${propTextWithIndent}`,
+      text: `${needsComma ? ',' : ''} ${propTextSingleLine}`,
     };
   }
 
@@ -594,6 +612,12 @@ function removeProperty(
 ) {
   let start = prop.start;
   let end = prop.end;
+  const lineStart = source.lastIndexOf('\n', start - 1) + 1;
+  let shouldTrimLineEnd = false;
+  if (/^[\t ]*$/.test(source.slice(lineStart, start))) {
+    start = lineStart;
+    shouldTrimLineEnd = true;
+  }
   const after = skipWhitespaceAndComments(source, end, obj.end);
   if (source[after] === ',') {
     end = after + 1;
@@ -603,7 +627,19 @@ function removeProperty(
       start = before;
     }
   }
+  if (shouldTrimLineEnd) {
+    const lineEnd = source.indexOf('\n', end);
+    if (lineEnd !== -1 && /^[\t ]*$/.test(source.slice(end, lineEnd))) {
+      end = lineEnd + 1;
+    }
+  }
   return { start, end, text: '' };
+}
+
+function indentValueAfterFirstLine(value: string, indent: string) {
+  const lines = value.split('\n');
+  if (lines.length <= 1) return value;
+  return [lines[0], ...lines.slice(1).map((line) => (line ? indent + line : line))].join('\n');
 }
 
 function hasTrailingComma(source: string, afterPos: number, endPos: number) {
