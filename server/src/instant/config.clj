@@ -222,6 +222,14 @@
   (or (System/getenv "HONEYCOMB_ENDPOINT")
       "https://api.honeycomb.io:443"))
 
+;; ---
+;; PostHog
+(defn get-posthog-api-key []
+  (some-> @config-map :posthog-api-key crypt-util/secret-value))
+
+(defn posthog-enabled? []
+  (not (string/blank? (get-posthog-api-key))))
+
 (defn get-google-oauth-client []
   (-> @config-map :google-oauth-client))
 

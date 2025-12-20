@@ -1,6 +1,7 @@
 (ns instant.util.http
   (:require
    [clojure.string :as string]
+   [instant.model.instant-user :as instant-user-model]
    [instant.util.exception :as ex]
    [instant.util.token :as token-util]
    [instant.util.tracer :as tracer]
@@ -24,6 +25,13 @@
   (if-let [header (get-in req [:headers "authorization"])]
     (coerce-bearer-token header)
     nil))
+
+(defn req->auth-user
+  "Extracts authenticated user from request. Returns nil if unauthenticated."
+  [req]
+  (when-let [refresh-token (req->bearer-token req)]
+    (instant-user-model/get-by-refresh-token {:refresh-token refresh-token
+                                              :auth? true})))
 
 ;; ----------
 ;; Middleware
