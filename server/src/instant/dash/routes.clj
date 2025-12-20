@@ -416,9 +416,8 @@
                     owner-fields))]
     (posthog/track! req
                     "app:create"
-                    (merge (posthog/extract-metadata req)
-                           (cond-> {:app-id (str (:id app))}
-                             org-id-input (assoc :org-id (str org-id-input)))))
+                    (cond-> {:app-id (str (:id app))}
+                      org-id-input (assoc :org-id (str org-id-input))))
     (response/ok {:app app})))
 
 (comment

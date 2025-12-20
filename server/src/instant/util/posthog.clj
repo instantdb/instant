@@ -117,7 +117,8 @@
   "Capture an event with context extracted from the request. Use this instead
    of capture! unless you can't extract user-identifer from the request."
   [req event-name extra-properties]
-  (let [ctx (extract-tracking-context req)]
+  (let [ctx (extract-tracking-context req)
+        metadata (extract-metadata req)]
     (capture! (:distinct-id ctx)
               event-name
               (merge (cond-> {:source      (:source ctx)
@@ -134,4 +135,5 @@
 
                        (:command ctx)
                        (assoc :command (:command ctx)))
+                     metadata
                      extra-properties))))

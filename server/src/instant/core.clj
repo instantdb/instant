@@ -254,11 +254,12 @@
           (indexing-jobs/stop)))
       (future
         (tracer/with-span! {:name "stop-join-room-logger"}
-          (join-room-logger/stop))))
-    (when (posthog/enabled?)
-      (tracer/with-span! {:name "stop-posthog"}
-        (posthog/flush!)
-        (posthog/shutdown!))))
+          (join-room-logger/stop)))
+      (future
+        (when (posthog/enabled?)
+          (tracer/with-span! {:name "stop-posthog"}
+            (posthog/flush!)
+            (posthog/shutdown!))))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []

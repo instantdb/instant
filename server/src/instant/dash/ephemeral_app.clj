@@ -67,8 +67,7 @@
            (schema-model/apply-plan! (:id app))))
     (posthog/track! req
                     "app:create-ephemeral"
-                    (merge (posthog/extract-metadata req)
-                           {:app-id (str (:id app))}))
+                    {:app-id (str (:id app))})
     (response/ok {:app app
                   :expires_ms (app-expires-ms app)})))
 
