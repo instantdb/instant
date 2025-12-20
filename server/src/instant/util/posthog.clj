@@ -60,7 +60,7 @@
   "Extracts authenticated user from request. Returns nil if unauthenticated."
   [req]
   (when-let [refresh-token (http-util/req->bearer-token req)]
-    (when (and refresh-token (parse-uuid refresh-token))
+    (when (and refresh-token (uuid? refresh-token))
       (instant-user-model/get-by-refresh-token {:refresh-token refresh-token
                                                 :auth? true}))))
 
