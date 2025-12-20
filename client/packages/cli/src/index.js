@@ -769,6 +769,7 @@ async function login(options) {
     debugName: 'Login register',
     errorMessage: 'Failed to register login.',
     noAuth: true,
+    command: 'login',
   });
 
   if (!registerRes.ok) {
@@ -934,6 +935,7 @@ async function promptCreateApp(opts) {
     method: 'GET',
     path: '/dash',
     errorMessage: 'Failed to fetch apps.',
+    command: 'init',
   });
   if (!res.ok) {
     return { ok: false };
@@ -966,6 +968,7 @@ async function promptCreateApp(opts) {
     debugName: 'App create',
     errorMessage: 'Failed to create app.',
     body: app,
+    command: 'init',
   });
 
   if (!appRes.ok) return { ok: false };
@@ -984,6 +987,7 @@ async function promptImportAppOrCreateApp() {
     method: 'GET',
     path: '/dash',
     errorMessage: 'Failed to fetch apps.',
+    command: 'init',
   });
   if (!res.ok) {
     return { ok: false };
@@ -1003,6 +1007,7 @@ async function promptImportAppOrCreateApp() {
             method: 'GET',
             path: `/dash/orgs/${orgId}`,
             errorMessage: 'Failed to fetch apps.',
+            command: 'init',
           });
           if (!orgsRes.ok) {
             throw new Error('Failed to fetch org apps');
@@ -1032,6 +1037,7 @@ async function createApp(title, orgId) {
     debugName: 'App create',
     errorMessage: 'Failed to create app.',
     body: app,
+    command: 'init',
   });
   if (!appRes.ok) throw new Error('Failed to create app');
   return { appId: id, adminToken: token };
@@ -1198,6 +1204,7 @@ async function pullSchema(
     path: `/dash/apps/${appId}/schema/pull`,
     debugName: 'Schema pull',
     errorMessage: 'Failed to pull schema.',
+    command: 'pull',
   });
 
   if (!pullRes.ok) return pullRes;
@@ -1261,6 +1268,7 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
     path: `/dash/apps/${appId}/perms/pull`,
     debugName: 'Perms pull',
     errorMessage: 'Failed to pull perms.',
+    command: 'pull',
   });
 
   if (!pullRes.ok) return pullRes;
@@ -1507,6 +1515,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
       method: 'GET',
       path: `/dash/apps/${appId}/indexing-jobs/group/${groupId}`,
       errorMessage: 'Failed to check indexing status.',
+      command: 'push',
     });
     if (!res.ok) {
       break;
@@ -1576,6 +1585,7 @@ async function pushSchema(appId, opts) {
     path: `/dash/apps/${appId}/schema/pull`,
     debugName: 'Schema plan',
     errorMessage: 'Failed to get old schema.',
+    command: 'push',
   });
 
   if (!pulledSchemaResponse.ok) return pulledSchemaResponse;
@@ -1666,6 +1676,7 @@ async function pushSchema(appId, opts) {
       body: {
         steps: txSteps,
       },
+      command: 'push',
     });
     console.log(chalk.green('Schema updated!'));
     if (!applyRes.ok) return applyRes;
@@ -1690,6 +1701,7 @@ async function claimEphemeralApp(appId, adminToken) {
     path: `/dash/apps/ephemeral/${appId}/claim`,
     debugName: 'Claim ephemeral app',
     errorMessage: 'Failed to claim ephemeral app.',
+    command: 'claim',
   });
 
   if (!res.ok) return res;
@@ -1710,6 +1722,7 @@ async function pushPerms(appId) {
     path: `/dash/apps/${appId}/perms/pull`,
     debugName: 'Perms pull',
     errorMessage: 'Failed to pull perms.',
+    command: 'push',
   });
 
   if (!prodPerms.ok) return prodPerms;
@@ -1749,6 +1762,7 @@ async function pushPerms(appId) {
     body: {
       code: res.perms,
     },
+    command: 'push',
   });
 
   if (!permsRes.ok) return permsRes;
@@ -1769,6 +1783,7 @@ async function waitForAuthToken({ secret }) {
       body: { secret },
       noAuth: true,
       noLogError: true,
+      command: 'login',
     });
     if (authCheckRes.ok) {
       return authCheckRes.data;
@@ -1797,6 +1812,7 @@ async function waitForAuthToken({ secret }) {
  * @param {Object} [options.body=undefined]
  * @param {boolean} [options.noAuth]
  * @param {boolean} [options.noLogError]
+ * @param {string} [options.command] - The CLI command being executed (e.g., 'push', 'pull', 'login')
  * @returns {Promise<{ ok: boolean; data: any }>}
  */
 async function fetchJson({
@@ -1807,6 +1823,7 @@ async function fetchJson({
   method,
   noAuth,
   noLogError,
+  command,
 }) {
   const withAuth = !noAuth;
   const withErrorLogging = !noLogError;
@@ -1825,7 +1842,9 @@ async function fetchJson({
       headers: {
         ...(withAuth ? { Authorization: `Bearer ${authToken}` } : {}),
         'Content-Type': 'application/json',
-        'Instant-CLI-Version': version,
+        'X-Instant-Source': 'instant-cli',
+        'X-Instant-Version': version,
+        ...(command ? { 'X-Instant-Command': command } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(timeoutMs),
