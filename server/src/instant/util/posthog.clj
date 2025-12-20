@@ -5,7 +5,8 @@
             [clojure.walk :as walk]
             [instant.config :as config]
             [instant.util.http :as http-util]
-            [instant.util.tracer :as tracer])
+            [instant.util.tracer :as tracer]
+            [instant.model.instant-user :as instant-user-model])
   (:import [com.posthog.server PostHog PostHogConfig PostHogInterface PostHogCaptureOptions]))
 
 (defonce ^:private client (atom nil))
@@ -54,6 +55,14 @@
   [request]
   (or (get-in request [:headers "x-instant-source"])
       "unknown"))
+
+(defn req->auth-user
+  "Extracts authenticated user from request. Returns nil if unauthenticated."
+  [req]
+  (when-let [refresh-token (http-util/req->bearer-token req)]
+    (when (and refresh-token (parse-uuid refresh-token))
+      (instant-user-model/get-by-refresh-token {:refresh-token refresh-token
+                                                :auth? true}))))
 
 (defn extract-tracking-context
   "Extract tracking context from a ring request.
