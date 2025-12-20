@@ -37,11 +37,7 @@ export default _schema;
   });
 
   const localSchema = schemaTypescriptFileToInstantSchema(oldFile);
-  const result = await updateSchemaFile(
-    oldFile,
-    localSchema,
-    serverSchema,
-  );
+  const result = await updateSchemaFile(oldFile, localSchema, serverSchema);
 
   expect(result).toContain("status: i.string<'todo' | 'done'>()");
   expect(result).toContain('labels: i.json<Label[]>()');
@@ -80,11 +76,7 @@ export default _schema;
   });
 
   const localSchema = schemaTypescriptFileToInstantSchema(oldFile);
-  const result = await updateSchemaFile(
-    oldFile,
-    localSchema,
-    serverSchema,
-  );
+  const result = await updateSchemaFile(oldFile, localSchema, serverSchema);
 
   expect(result).not.toContain('oldEntity');
   expect(result).not.toContain('priority: i.number()');
@@ -131,15 +123,9 @@ export default _schema;
   });
 
   const localSchema = schemaTypescriptFileToInstantSchema(oldFile);
-  const result = await updateSchemaFile(
-    oldFile,
-    localSchema,
-    serverSchema,
-  );
+  const result = await updateSchemaFile(oldFile, localSchema, serverSchema);
 
-  expect(result).toContain(
-    'title: i.string().unique().indexed().optional()',
-  );
+  expect(result).toContain('title: i.string().unique().indexed().optional()');
   expect(result).toContain("status: i.string<'todo' | 'done'>()");
   expect(result).toContain('todoOwner: {');
   expect(result).toContain("on: 'todos'");

@@ -611,11 +611,7 @@ function hasTrailingComma(source: string, afterPos: number, endPos: number) {
   return source[next] === ',';
 }
 
-function skipWhitespaceAndComments(
-  source: string,
-  start: number,
-  end: number,
-) {
+function skipWhitespaceAndComments(source: string, start: number, end: number) {
   let i = start;
   while (i < end) {
     const ch = source[i];

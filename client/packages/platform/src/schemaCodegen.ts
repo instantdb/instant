@@ -1,4 +1,9 @@
-import type { AttrsDefs, DataAttrDef, LinkDef, LinksDef } from '@instantdb/core';
+import type {
+  AttrsDefs,
+  DataAttrDef,
+  LinkDef,
+  LinksDef,
+} from '@instantdb/core';
 import { indentLines, joinWithTrailingSep, sortedEntries } from './util.ts';
 
 const DEFAULT_INDENT = 2;
@@ -72,14 +77,10 @@ export function renderEntityProperty(
   const keyOptions = options.keyOptions;
   const attrBlock = sortedEntries(attrs)
     .map(([attrName, attrDef]) =>
-      renderAttrProperty(
-        attrName,
-        attrDef,
-        {
-          typeParams: options.typeParamsByAttr?.[attrName] ?? null,
-          keyOptions,
-        },
-      ),
+      renderAttrProperty(attrName, attrDef, {
+        typeParams: options.typeParamsByAttr?.[attrName] ?? null,
+        keyOptions,
+      }),
     )
     .filter(Boolean);
   const attrBlockText = options.trailingComma
@@ -126,13 +127,9 @@ export function renderLinkValue(
   }
 
   const forwardBodyLines =
-    style === 'json'
-      ? forwardLines
-      : forwardLines.map((line) => `${line},`);
+    style === 'json' ? forwardLines : forwardLines.map((line) => `${line},`);
   const reverseBodyLines =
-    style === 'json'
-      ? reverseLines
-      : reverseLines.map((line) => `${line},`);
+    style === 'json' ? reverseLines : reverseLines.map((line) => `${line},`);
 
   return [
     '{',
