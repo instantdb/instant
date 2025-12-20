@@ -62,18 +62,28 @@ export default _schema;
 });
 
 test('preserves type params across chained calls', async () => {
-  const oldFile = schemaStr(
-    `    todos: i.entity({
+  const oldFile = `
+import { i } from '@instantdb/core';
+import { Label } from './types';
+
+const _schema = i.schema({
+  entities: {
+    todos: i.entity({
       title: i.string(),
       status: i.string<'todo' | 'done'>().optional().indexed(),
       labels: i.json<Label[]>(),
     }),
     users: i.entity({
       email: i.string(),
-    }),`,
-    '',
-    "import { Label } from './types';",
-  );
+    }),
+  },
+  links: {
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
   const serverSchema = i.schema({
     entities: {
       todos: i.entity({
@@ -95,13 +105,23 @@ test('preserves type params across chained calls', async () => {
 });
 
 test('drops constraints removed by server', async () => {
-  const oldFile = schemaStr(
-    `    todos: i.entity({
+  const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    todos: i.entity({
       title: i.string().unique().indexed().optional(),
       done: i.boolean().optional(),
-    }),`,
-    '',
-  );
+    }),
+  },
+  links: {
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
   const serverSchema = i.schema({
     entities: {
       todos: i.entity({
@@ -118,18 +138,29 @@ test('drops constraints removed by server', async () => {
 });
 
 test('updates link details', async () => {
-  const oldFile = schemaStr(
-    `    todos: i.entity({
+  const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    todos: i.entity({
       title: i.string(),
     }),
     users: i.entity({
       email: i.string(),
-    }),`,
-    `    todoOwner: {
+    }),
+  },
+  links: {
+    todoOwner: {
       forward: { on: 'todos', has: 'one', label: 'owner' },
       reverse: { on: 'users', has: 'many', label: 'todos' },
-    },`,
-  );
+    },
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
   const serverSchema = i.schema({
     entities: {
       todos: i.entity({ title: i.string() }),
@@ -160,8 +191,12 @@ test('updates link details', async () => {
 });
 
 test('removes a link with surrounding comments and commas', async () => {
-  const oldFile = schemaStr(
-    `    todos: i.entity({
+  const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    todos: i.entity({
       title: i.string(),
     }),
     users: i.entity({
@@ -169,8 +204,10 @@ test('removes a link with surrounding comments and commas', async () => {
     }),
     projects: i.entity({
       name: i.string(),
-    }),`,
-    `    // owner link
+    }),
+  },
+  links: {
+    // owner link
     todoOwner: {
       forward: { on: 'todos', has: 'one', label: 'owner' },
       reverse: { on: 'users', has: 'many', label: 'todos' },
@@ -179,8 +216,13 @@ test('removes a link with surrounding comments and commas', async () => {
     projectTodos: {
       forward: { on: 'projects', has: 'many', label: 'todos' },
       reverse: { on: 'todos', has: 'one', label: 'project' },
-    },`,
-  );
+    },
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
   const serverSchema = i.schema({
     entities: {
       todos: i.entity({ title: i.string() }),
@@ -201,13 +243,23 @@ test('removes a link with surrounding comments and commas', async () => {
 });
 
 test('updates single-line entity in place', async () => {
-  const oldFile = schemaStr(
-    `    projects: i.entity({ name: i.string() }),
+  const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    projects: i.entity({ name: i.string() }),
     todos: i.entity({
       title: i.string(),
-    }),`,
-    '',
-  );
+    }),
+  },
+  links: {
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
   const serverSchema = i.schema({
     entities: {
       projects: i.entity({
@@ -227,13 +279,23 @@ test('updates single-line entity in place', async () => {
 });
 
 test('inserts attrs into multi-line entities with indentation', async () => {
-  const oldFile = schemaStr(
-    `    todos: i.entity({
+  const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    todos: i.entity({
       title: i.string(),
       done: i.boolean().optional(),
-    }),`,
-    '',
-  );
+    }),
+  },
+  links: {
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
   const serverSchema = i.schema({
     entities: {
       todos: i.entity({
@@ -251,8 +313,12 @@ test('inserts attrs into multi-line entities with indentation', async () => {
 });
 
 test('handles quoted keys for entities, attrs, and links', async () => {
-  const oldFile = schemaStr(
-    `    todos: i.entity({
+  const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    todos: i.entity({
       title: i.string(),
     }),
     users: i.entity({
@@ -260,9 +326,15 @@ test('handles quoted keys for entities, attrs, and links', async () => {
     }),
     'user-profiles': i.entity({
       'display-name': i.string(),
-    }),`,
-    '',
-  );
+    }),
+  },
+  links: {
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
   const serverSchema = i.schema({
     entities: {
       todos: i.entity({ title: i.string() }),
@@ -286,15 +358,25 @@ test('handles quoted keys for entities, attrs, and links', async () => {
 });
 
 test('adds a link when links object is empty', async () => {
-  const oldFile = schemaStr(
-    `    todos: i.entity({
+  const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    todos: i.entity({
       title: i.string(),
     }),
     users: i.entity({
       email: i.string(),
-    }),`,
-    '',
-  );
+    }),
+  },
+  links: {
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
   const serverSchema = i.schema({
     entities: {
       todos: i.entity({ title: i.string() }),
@@ -314,18 +396,29 @@ test('adds a link when links object is empty', async () => {
 });
 
 test('removes the last link cleanly', async () => {
-  const oldFile = schemaStr(
-    `    todos: i.entity({
+  const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    todos: i.entity({
       title: i.string(),
     }),
     users: i.entity({
       email: i.string(),
-    }),`,
-    `    todoOwner: {
+    }),
+  },
+  links: {
+    todoOwner: {
       forward: { on: 'todos', has: 'one', label: 'owner' },
       reverse: { on: 'users', has: 'many', label: 'todos' },
-    },`,
-  );
+    },
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
   const serverSchema = i.schema({
     entities: {
       todos: i.entity({ title: i.string() }),
@@ -338,28 +431,6 @@ test('removes the last link cleanly', async () => {
 
   expect(result).toMatchSnapshot();
 });
-
-function schemaStr(
-  entitiesBlock: string,
-  linksBlock: string,
-  extraImports = '',
-) {
-  const linksSection = linksBlock ? `${linksBlock}\n` : '';
-  return `
-import { i } from '@instantdb/core';
-${extraImports ? `${extraImports}\n` : ''}
-const _schema = i.schema({
-  entities: {
-${entitiesBlock}
-  },
-  links: {
-${linksSection}  },
-  rooms: {},
-});
-
-export default _schema;
-`;
-}
 
 async function update(oldFile: string, serverSchema: any) {
   const localSchema = schemaTypescriptFileToInstantSchema(oldFile);
