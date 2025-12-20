@@ -69,7 +69,7 @@
    Automatically extracts auth user from request if present."
   [request]
   (let [headers (:headers request)
-        {:keys [email id]} (http-util/req->auth-user request)]
+        {:keys [email id]} (req->auth-user request)]
     {:distinct-id (or email "anonymous")
      :email       email
      :user-id     id
