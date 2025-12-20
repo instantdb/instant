@@ -15,9 +15,13 @@ import {
   indentLines,
   joinWithTrailingSep,
   sortedEntries,
-  formatKey,
   GenericSchemaDef,
 } from './util.ts';
+import {
+  formatKey,
+  renderEntityProperty,
+  renderLinksObject,
+} from './schemaCodegen.ts';
 
 export type InstantAPIPlatformSchema = {
   refs: Record<string, InstantDBAttr>;
@@ -258,18 +262,6 @@ export type InstantAPISchemaPushStep =
   | InstantAPISchemaPushCheckDataTypeStep
   | InstantAPISchemaPushRemoveDataTypeStep;
 
-function attrDefToCodeString([name, attr]: [
-  string,
-  DataAttrDef<string, boolean, boolean>,
-]) {
-  const type =
-    (attr.metadata.derivedType as any)?.type || attr.valueType || 'any';
-  const unique = attr.config.unique ? '.unique()' : '';
-  const index = attr.config.indexed ? '.indexed()' : '';
-  const required = attr.required ? '' : '.optional()';
-  return `${formatKey(name)}: i.${type}()${unique}${index}${required}`;
-}
-
 function entityDefToCodeStr(
   name: string,
   edef: EntityDef<
@@ -278,14 +270,10 @@ function entityDefToCodeStr(
     any
   >,
 ) {
-  const attrBlock = joinWithTrailingSep(
-    sortedEntries(edef.attrs).map(attrDefToCodeString),
-    ',\n',
-    ',',
-  );
-
-  // a block of code for each entity
-  return `${formatKey(name)}: i.entity({${attrBlock.length ? '\n' : ''}${indentLines(attrBlock, 2)}${attrBlock.length ? '\n' : ''}})`;
+  return renderEntityProperty(name, edef.attrs, {
+    keyOptions: { alwaysQuote: true, quote: '"' },
+    trailingComma: true,
+  });
 }
 
 export function identEtype(ident: InstantDBIdent) {
@@ -338,7 +326,7 @@ function roomDefToCodeStr(room: RoomsDef[string]) {
   }
 
   if (room.topics) {
-    ret += `\n    "topics": {`;
+    ret += `\n    ${formatKey('topics', { alwaysQuote: true, quote: '"' })}: {`;
 
     for (const [topicName, topicConfig] of Object.entries(room.topics)) {
       ret += `\n${indentLines(entityDefToCodeStr(topicName, topicConfig), 6)},`;
@@ -355,7 +343,7 @@ function roomsCodeStr(rooms: RoomsDef) {
   let ret = '{';
 
   for (const [roomType, roomDef] of Object.entries(rooms)) {
-    ret += `\n  ${formatKey(roomType)}: ${roomDefToCodeStr(roomDef)},`;
+    ret += `\n  ${formatKey(roomType, { alwaysQuote: true, quote: '"' })}: ${roomDefToCodeStr(roomDef)},`;
   }
   ret += ret === '{' ? '}' : '\n}';
 
@@ -395,7 +383,11 @@ export function generateSchemaTypescriptFile(
 // run \`push schema\` again to enforce the types.`
       : '';
 
-  const linksEntriesCode = JSON.stringify(newSchema.links, null, 2).trim();
+  const linksEntriesCode = renderLinksObject(newSchema.links, {
+    keyOptions: { alwaysQuote: true, quote: '"' },
+    stringQuote: '"',
+    style: 'json',
+  });
 
   // rooms
   const rooms = prevSchema?.rooms || {};

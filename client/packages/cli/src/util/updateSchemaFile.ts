@@ -1,6 +1,14 @@
 import * as acorn from 'acorn';
 import { tsPlugin } from 'acorn-typescript';
-import { diffSchemas, type MigrationTx } from '@instantdb/platform';
+import {
+  diffSchemas,
+  renderAttrCall,
+  renderAttrProperty,
+  renderEntityProperty,
+  renderLinkProperty,
+  renderLinkValue,
+  type MigrationTx,
+} from '@instantdb/platform';
 import type { DataAttrDef, InstantSchemaDef } from '@instantdb/core';
 
 const parser = (acorn.Parser as any).extend(tsPlugin({ dts: false }) as any);
@@ -175,10 +183,7 @@ function collectEntityEdits(
     if (entitiesByName.has(entityName)) continue;
     const entityDef = serverSchema.entities?.[entityName];
     if (!entityDef) continue;
-    const propText = entityDefToPropString(
-      entityName,
-      entityDef.attrs,
-    );
+    const propText = renderEntityProperty(entityName, entityDef.attrs);
     const indent = getObjectPropIndent(content, entitiesObj);
     edits.push(insertProperty(content, entitiesObj, propText, indent));
   }
@@ -202,7 +207,7 @@ function collectEntityEdits(
     for (const attrName of attrs) {
       const attrDef = entityDef.attrs?.[attrName];
       if (!attrDef) continue;
-      const propText = attrDefToPropString(attrName, attrDef);
+      const propText = renderAttrProperty(attrName, attrDef);
       edits.push(insertProperty(content, entity.attrsObj, propText, indent));
     }
   }
@@ -245,9 +250,7 @@ function collectLinkEdits(
     if (!serverLink) continue;
     const linkName = serverLink.name;
     if (findObjectProperty(linksObj, linkName)) continue;
-    const propText = `${formatKey(linkName)}: ${linkDefToValueString(
-      serverLink.link,
-    )}`;
+    const propText = renderLinkProperty(linkName, serverLink.link);
     const indent = getObjectPropIndent(content, linksObj);
     edits.push(insertProperty(content, linksObj, propText, indent));
   }
@@ -258,7 +261,7 @@ function collectLinkEdits(
     if (!serverLink || !localLink) continue;
     const linkProp = findObjectProperty(linksObj, localLink.name);
     if (!linkProp) continue;
-    const nextValue = linkDefToValueString(serverLink.link);
+    const nextValue = renderLinkValue(serverLink.link);
     edits.push({
       start: linkProp.value.start,
       end: linkProp.value.end,
@@ -278,7 +281,7 @@ function updateAttrEdit(
   const typeParamsText = typeParams
     ? content.slice(typeParams.start, typeParams.end)
     : null;
-  const nextValue = attrDefToCallString(attrDef, typeParamsText);
+  const nextValue = renderAttrCall(attrDef, typeParamsText);
   return {
     start: attrProp.value.start,
     end: attrProp.value.end,
@@ -487,76 +490,6 @@ function getEntityAttrsObject(value: any): ObjectExpression | null {
   return isObjectExpression(attrsObj) ? attrsObj : null;
 }
 
-function attrDefToCallString(
-  attr: DataAttrDef<string, boolean, boolean>,
-  typeParamsText?: string | null,
-) {
-  const type =
-    (attr.metadata?.derivedType as any)?.type || attr.valueType || 'any';
-  const typeParams = typeParamsText ?? '';
-  const unique = attr.config.unique ? '.unique()' : '';
-  const index = attr.config.indexed ? '.indexed()' : '';
-  const required = attr.required ? '' : '.optional()';
-  return `i.${type}${typeParams}()${unique}${index}${required}`;
-}
-
-function attrDefToPropString(
-  name: string,
-  attr: DataAttrDef<string, boolean, boolean>,
-) {
-  return `${formatKey(name)}: ${attrDefToCallString(attr)}`;
-}
-
-function entityDefToPropString(
-  name: string,
-  attrs: Record<string, DataAttrDef<string, boolean, boolean>>,
-) {
-  const attrBlock = sortedEntries(attrs)
-    .map(([attrName, attrDef]) =>
-      attrDefToPropString(attrName, attrDef),
-    )
-    .join(',\n');
-  const inner = attrBlock.length
-    ? `\n${indentLines(attrBlock, DEFAULT_INDENT)}\n`
-    : '';
-  return `${formatKey(name)}: i.entity({${inner}})`;
-}
-
-function linkDefToValueString(link: any) {
-  const q = "'";
-  const forwardLines = [
-    `on: ${q}${link.forward.on}${q},`,
-    `has: ${q}${link.forward.has}${q},`,
-    `label: ${q}${link.forward.label}${q},`,
-  ];
-  if (link.forward.required) {
-    forwardLines.push('required: true,');
-  }
-  if (link.forward.onDelete) {
-    forwardLines.push(`onDelete: ${q}${link.forward.onDelete}${q},`);
-  }
-
-  const reverseLines = [
-    `on: ${q}${link.reverse.on}${q},`,
-    `has: ${q}${link.reverse.has}${q},`,
-    `label: ${q}${link.reverse.label}${q},`,
-  ];
-  if (link.reverse.onDelete) {
-    reverseLines.push(`onDelete: ${q}${link.reverse.onDelete}${q},`);
-  }
-
-  return [
-    '{',
-    `${DEFAULT_INDENT}forward: {`,
-    `${DEFAULT_INDENT}${DEFAULT_INDENT}${forwardLines.join(`\n${DEFAULT_INDENT}${DEFAULT_INDENT}`)}`,
-    `${DEFAULT_INDENT}},`,
-    `${DEFAULT_INDENT}reverse: {`,
-    `${DEFAULT_INDENT}${DEFAULT_INDENT}${reverseLines.join(`\n${DEFAULT_INDENT}${DEFAULT_INDENT}`)}`,
-    `${DEFAULT_INDENT}},`,
-    '}',
-  ].join('\n');
-}
-
 function buildLinkForwardMap(links: Record<string, any>) {
   const map = new Map<string, { name: string; link: any }>();
   for (const [name, link] of Object.entries(links || {})) {
@@ -581,21 +514,6 @@ function getPropName(prop: PropertyNode) {
   if (prop.key.type === 'Identifier') return prop.key.name;
   if (prop.key.type === 'Literal') return String(prop.key.value);
   return null;
-}
-
-function isValidIdentifier(name: string) {
-  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
-}
-
-function formatKey(name: string) {
-  if (isValidIdentifier(name)) {
-    return name;
-  }
-  return `'${name}'`;
-}
-
-function sortedEntries<T>(obj: Record<string, T>) {
-  return Object.entries(obj).sort(([a], [b]) => a.localeCompare(b));
 }
 
 function indentLines(text: string, indent: string) {
