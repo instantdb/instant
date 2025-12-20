@@ -68,7 +68,8 @@ export async function updateSchemaFile(
     ),
   );
 
-  return applyEdits(existingFileContent, edits);
+  const updated = applyEdits(existingFileContent, edits);
+  return normalizeEmptyLinksObject(updated);
 }
 
 type ObjectExpression = {
@@ -639,7 +640,31 @@ function removeProperty(
 function indentValueAfterFirstLine(value: string, indent: string) {
   const lines = value.split('\n');
   if (lines.length <= 1) return value;
-  return [lines[0], ...lines.slice(1).map((line) => (line ? indent + line : line))].join('\n');
+  return [
+    lines[0],
+    ...lines.slice(1).map((line) => (line ? indent + line : line)),
+  ].join('\n');
+}
+
+function normalizeEmptyLinksObject(content: string) {
+  let ast: any;
+  try {
+    ast = parseFile(content);
+  } catch {
+    return content;
+  }
+  const schemaObj = findSchemaObject(ast);
+  if (!schemaObj) return content;
+  const linksProp = findObjectProperty(schemaObj, 'links');
+  if (!linksProp || !isObjectExpression(linksProp.value)) return content;
+  if (linksProp.value.properties.some(isProperty)) return content;
+  const inner = content.slice(linksProp.value.start + 1, linksProp.value.end - 1);
+  if (!/^[\s]*$/.test(inner)) return content;
+  return (
+    content.slice(0, linksProp.value.start) +
+    '{}' +
+    content.slice(linksProp.value.end)
+  );
 }
 
 function hasTrailingComma(source: string, afterPos: number, endPos: number) {

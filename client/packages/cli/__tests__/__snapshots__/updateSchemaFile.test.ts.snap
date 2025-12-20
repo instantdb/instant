@@ -45,8 +45,7 @@ const _schema = i.schema({
       done: i.boolean().optional(),
     }),
   },
-  links: {
-  },
+  links: {},
   rooms: {},
 });
 
@@ -104,8 +103,7 @@ const _schema = i.schema({
       priority: i.number(),
     }),
   },
-  links: {
-  },
+  links: {},
   rooms: {},
 });
 
@@ -129,8 +127,7 @@ const _schema = i.schema({
       email: i.string().unique(),
     }),
   },
-  links: {
-  },
+  links: {},
   rooms: {},
 });
 
@@ -182,8 +179,7 @@ const _schema = i.schema({
       email: i.string(),
     }),
   },
-  links: {
-  },
+  links: {},
   rooms: {},
 });
 
@@ -239,8 +235,7 @@ const _schema = i.schema({
       title: i.string(),
     }),
   },
-  links: {
-  },
+  links: {},
   rooms: {},
 });
 
