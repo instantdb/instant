@@ -658,7 +658,10 @@ function normalizeEmptyLinksObject(content: string) {
   const linksProp = findObjectProperty(schemaObj, 'links');
   if (!linksProp || !isObjectExpression(linksProp.value)) return content;
   if (linksProp.value.properties.some(isProperty)) return content;
-  const inner = content.slice(linksProp.value.start + 1, linksProp.value.end - 1);
+  const inner = content.slice(
+    linksProp.value.start + 1,
+    linksProp.value.end - 1,
+  );
   if (!/^[\s]*$/.test(inner)) return content;
   return (
     content.slice(0, linksProp.value.start) +
