@@ -9,6 +9,7 @@ import {
   fetchJson,
   instantBackendOrigin,
   instantDashOrigin,
+  ScaffoldMetadata,
 } from './utils/fetch.js';
 import { renderUnwrap, UI } from 'instant-cli/ui';
 
@@ -40,6 +41,7 @@ export const createApp = async (
   title: string,
   authToken: string,
   orgId?: string | null,
+  metadata?: ScaffoldMetadata,
 ) => {
   const id = randomUUID();
   const token = randomUUID();
@@ -49,6 +51,7 @@ export const createApp = async (
     authToken,
     path: '/dash/apps',
     body: app,
+    metadata,
   });
   return { appID: id, adminToken: token, source: 'created' };
 };
@@ -168,7 +171,10 @@ type AppTokenResponse = {
   approach: 'ephemeral' | 'import' | 'create';
 };
 
-const createPermissiveEphemeralApp = async (title: string) => {
+const createPermissiveEphemeralApp = async (
+  title: string,
+  metadata?: ScaffoldMetadata,
+) => {
   const response = await fetchJson<{
     app: { id: string; 'admin-token': string };
   }>({
@@ -190,12 +196,14 @@ const createPermissiveEphemeralApp = async (title: string) => {
         },
       },
     },
+    metadata,
   });
   return { appId: response.app.id, adminToken: response.app['admin-token'] };
 };
 
 export const tryConnectApp = async (
   appFlags?: AppFlags,
+  metadata?: ScaffoldMetadata,
 ): Promise<AppTokenResponse | null> => {
   let authToken = await getAuthToken();
 
@@ -302,7 +310,7 @@ export const tryConnectApp = async (
           modifyOutput: UI.ciaModifier(),
         }),
       );
-      const app = await createPermissiveEphemeralApp(name);
+      const app = await createPermissiveEphemeralApp(name, metadata);
       return { ...app, approach: 'ephemeral' };
     }
   }
@@ -323,7 +331,7 @@ export const tryConnectApp = async (
         },
 
         createEphemeralApp(title) {
-          return createPermissiveEphemeralApp(title);
+          return createPermissiveEphemeralApp(title, metadata);
         },
 
         getAppsForOrg: async (orgId: string) => {
@@ -336,6 +344,7 @@ export const tryConnectApp = async (
             title,
             authToken,
             orgId,
+            metadata,
           );
           return { appId: appID, adminToken };
         },

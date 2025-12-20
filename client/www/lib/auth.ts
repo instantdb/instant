@@ -2,7 +2,7 @@ import Cookies from 'js-cookie';
 import { useContext, useEffect, useState } from 'react';
 import useSwr, { SWRResponse } from 'swr';
 import config from './config';
-import { jsonFetch, jsonMutate } from './fetch';
+import { jsonFetch, jsonMutate, trackingHeaders } from './fetch';
 import { TokenContext } from '@/lib/contexts';
 import produce, { Draft } from 'immer';
 
@@ -118,7 +118,7 @@ export function useTokenFetch<Res>(
     path && token ? [path, token] : null,
     async ([path, token]) => {
       const res = await fetch(path, {
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${token}`, ...trackingHeaders },
       });
       const jsonRes = await res.json();
       if (!res.ok) {
