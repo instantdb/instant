@@ -2,33 +2,6 @@ import { test, expect } from 'vitest';
 import { i, schemaTypescriptFileToInstantSchema } from '@instantdb/platform';
 import { updateSchemaFile } from '../src/util/updateSchemaFile';
 
-function schemaStr(
-  entitiesBlock: string,
-  linksBlock: string,
-  extraImports = '',
-) {
-  const linksSection = linksBlock ? `${linksBlock}\n` : '';
-  return `
-import { i } from '@instantdb/core';
-${extraImports ? `${extraImports}\n` : ''}
-const _schema = i.schema({
-  entities: {
-${entitiesBlock}
-  },
-  links: {
-${linksSection}  },
-  rooms: {},
-});
-
-export default _schema;
-`;
-}
-
-async function runUpdate(oldFile: string, serverSchema: any) {
-  const localSchema = schemaTypescriptFileToInstantSchema(oldFile);
-  return updateSchemaFile(oldFile, localSchema, serverSchema);
-}
-
 test('throws when schema call is missing', async () => {
   const oldFile = `
 import { i } from '@instantdb/core';
@@ -107,6 +80,7 @@ test('preserves type params across chained calls', async () => {
         title: i.string(),
         status: i.string().unique().indexed(),
         labels: i.json(),
+        metadata: i.json(),
       }),
       users: i.entity({
         email: i.string().unique(),
@@ -115,7 +89,7 @@ test('preserves type params across chained calls', async () => {
     links: {},
   });
 
-  const result = await runUpdate(oldFile, serverSchema);
+  const result = await update(oldFile, serverSchema);
 
   expect(result).toMatchSnapshot();
 });
@@ -138,12 +112,12 @@ test('drops constraints removed by server', async () => {
     links: {},
   });
 
-  const result = await runUpdate(oldFile, serverSchema);
+  const result = await update(oldFile, serverSchema);
 
   expect(result).toMatchSnapshot();
 });
 
-test('updates link details by forward key', async () => {
+test('updates link details', async () => {
   const oldFile = schemaStr(
     `    todos: i.entity({
       title: i.string(),
@@ -180,7 +154,7 @@ test('updates link details by forward key', async () => {
     },
   });
 
-  const result = await runUpdate(oldFile, serverSchema);
+  const result = await update(oldFile, serverSchema);
 
   expect(result).toMatchSnapshot();
 });
@@ -221,7 +195,7 @@ test('removes a link with surrounding comments and commas', async () => {
     },
   });
 
-  const result = await runUpdate(oldFile, serverSchema);
+  const result = await update(oldFile, serverSchema);
 
   expect(result).toMatchSnapshot();
 });
@@ -247,7 +221,7 @@ test('updates single-line entity in place', async () => {
     links: {},
   });
 
-  const result = await runUpdate(oldFile, serverSchema);
+  const result = await update(oldFile, serverSchema);
 
   expect(result).toMatchSnapshot();
 });
@@ -271,7 +245,7 @@ test('inserts attrs into multi-line entities with indentation', async () => {
     links: {},
   });
 
-  const result = await runUpdate(oldFile, serverSchema);
+  const result = await update(oldFile, serverSchema);
 
   expect(result).toMatchSnapshot();
 });
@@ -306,7 +280,7 @@ test('handles quoted keys for entities, attrs, and links', async () => {
     },
   });
 
-  const result = await runUpdate(oldFile, serverSchema);
+  const result = await update(oldFile, serverSchema);
 
   expect(result).toMatchSnapshot();
 });
@@ -334,7 +308,7 @@ test('adds a link when links object is empty', async () => {
     },
   });
 
-  const result = await runUpdate(oldFile, serverSchema);
+  const result = await update(oldFile, serverSchema);
 
   expect(result).toMatchSnapshot();
 });
@@ -360,7 +334,34 @@ test('removes the last link cleanly', async () => {
     links: {},
   });
 
-  const result = await runUpdate(oldFile, serverSchema);
+  const result = await update(oldFile, serverSchema);
 
   expect(result).toMatchSnapshot();
 });
+
+function schemaStr(
+  entitiesBlock: string,
+  linksBlock: string,
+  extraImports = '',
+) {
+  const linksSection = linksBlock ? `${linksBlock}\n` : '';
+  return `
+import { i } from '@instantdb/core';
+${extraImports ? `${extraImports}\n` : ''}
+const _schema = i.schema({
+  entities: {
+${entitiesBlock}
+  },
+  links: {
+${linksSection}  },
+  rooms: {},
+});
+
+export default _schema;
+`;
+}
+
+async function update(oldFile: string, serverSchema: any) {
+  const localSchema = schemaTypescriptFileToInstantSchema(oldFile);
+  return updateSchemaFile(oldFile, localSchema, serverSchema);
+}

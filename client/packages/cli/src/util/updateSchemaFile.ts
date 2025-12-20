@@ -209,7 +209,11 @@ function collectEntityEdits(
       const attrDef = entityDef.attrs?.[attrName];
       if (!attrDef) continue;
       const propText = renderAttrProperty(attrName, attrDef);
-      edits.push(insertProperty(content, entity.attrsObj, propText, indent));
+      edits.push(
+        insertProperty(content, entity.attrsObj, propText, indent, {
+          preferMultiline: true,
+        }),
+      );
     }
   }
 
@@ -545,11 +549,13 @@ function insertProperty(
   obj: ObjectExpression,
   propText: string,
   indent: string,
+  options: { preferMultiline?: boolean } = {},
 ) {
   const props = obj.properties.filter(isProperty);
   const closingBrace = obj.end - 1;
   const propTextWithIndent = indentLines(propText, indent);
   const propTextSingleLine = propText.trim();
+  const objSource = source.slice(obj.start, obj.end);
   const innerStart = obj.start + 1;
   const innerEnd = closingBrace;
   const innerContent = source.slice(innerStart, innerEnd);
@@ -578,6 +584,19 @@ function insertProperty(
       end: closingBrace,
       text: `\n${propTextWithIndent},\n${closingIndent}`,
     };
+  }
+
+  if (options.preferMultiline && !objSource.includes('\n')) {
+    const closingIndent = getLineIndent(source, closingBrace);
+    const innerIndent = closingIndent + DEFAULT_INDENT;
+    const propTexts = props.map((prop) =>
+      source.slice(prop.start, prop.end).trim(),
+    );
+    const lines = [...propTexts, propTextSingleLine].map(
+      (prop) => `${innerIndent}${prop},`,
+    );
+    const nextObject = `{\n${lines.join('\n')}\n${closingIndent}}`;
+    return { start: obj.start, end: obj.end, text: nextObject };
   }
 
   const lastProp = props[props.length - 1];

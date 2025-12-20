@@ -122,6 +122,7 @@ const _schema = i.schema({
       title: i.string(),
       status: i.string<'todo' | 'done'>().unique().indexed(),
       labels: i.json<Label[]>(),
+      metadata: i.json(),
     }),
     users: i.entity({
       email: i.string().unique(),
@@ -187,7 +188,7 @@ export default _schema;
 "
 `;
 
-exports[`updates link details by forward key 1`] = `
+exports[`updates link details 1`] = `
 "
 import { i } from '@instantdb/core';
 
@@ -230,7 +231,10 @@ import { i } from '@instantdb/core';
 
 const _schema = i.schema({
   entities: {
-    projects: i.entity({ name: i.string(), status: i.string() }),
+    projects: i.entity({
+      name: i.string(),
+      status: i.string(),
+    }),
     todos: i.entity({
       title: i.string(),
     }),
