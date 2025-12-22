@@ -36,7 +36,8 @@
                        ["insert into transactions (app_id) values (?::uuid)" app-id]))))
 
 (defn max-tx-id [conn]
-  (:max_id (sql/select-one ::max-tx-id conn ["select max(id) as max_id from transactions"])))
+  (or (:max_id (sql/select-one ::max-tx-id conn ["select max(id) as max_id from transactions"]))
+      0))
 
 (defn init [conn]
   (set-max-seen-tx-id (max-tx-id conn)))
