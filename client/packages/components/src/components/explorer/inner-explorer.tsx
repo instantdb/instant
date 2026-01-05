@@ -1352,73 +1352,77 @@ export const InnerExplorer: React.FC<{
               }}
             />
             <div ref={tableRef} className="h-full w-full overflow-auto">
-              <div
-                style={{
-                  width: table.getCenterTotalSize(),
-                }}
-                className="z-0 inline-block text-left align-top font-mono text-xs text-neutral-500 dark:text-neutral-400"
-              >
-                <div className="sticky top-0 z-10 border-r border-b border-gray-200 border-r-gray-200 bg-white text-neutral-700 shadow-sm dark:border-r-neutral-700 dark:border-b-neutral-600 dark:bg-[#303030] dark:text-neutral-300">
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <div className={'flex w-full'} key={headerGroup.id}>
-                      <SortableContext
-                        items={columnOrder}
-                        strategy={horizontalListSortingStrategy}
-                      >
-                        {headerGroup.headers.map((header, i) => (
-                          <TableHeader
-                            key={header.id}
-                            header={header}
-                            table={table}
-                            headerGroup={headerGroup}
-                            index={i}
-                            setMinViableColWidth={setMinViableColWidth}
-                            onSort={(attrName, currentAttr, currentAsc) => {
-                              history.push((prev) => ({
-                                ...prev,
-                                sortAttr: attrName,
-                                sortAsc:
-                                  currentAttr !== attrName ? true : !currentAsc,
-                              }));
-                            }}
-                            currentSortAttr={currentNav?.sortAttr}
-                            currentSortAsc={currentNav?.sortAsc}
-                          />
-                        ))}
-                      </SortableContext>
-                    </div>
-                  ))}
-                </div>
-                <div>
-                  {table.getRowModel().rows.map((row) => (
-                    <div
-                      className="group flex border-r border-b border-r-gray-200 border-b-gray-200 bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
-                      key={row.id}
-                    >
-                      {row.getVisibleCells().map((cell) => (
+              <div className="flex w-max items-start">
+                <div
+                  style={{
+                    width: table.getCenterTotalSize(),
+                  }}
+                  className="z-0 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400"
+                >
+                  <div className="sticky top-0 z-10 border-r border-b border-gray-200 border-r-gray-200 bg-white text-neutral-700 shadow-sm dark:border-r-neutral-700 dark:border-b-neutral-600 dark:bg-[#303030] dark:text-neutral-300">
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <div className={'flex w-full'} key={headerGroup.id}>
                         <SortableContext
-                          key={cell.id}
                           items={columnOrder}
                           strategy={horizontalListSortingStrategy}
                         >
-                          <TableCell key={cell.id} cell={cell} />
+                          {headerGroup.headers.map((header, i) => (
+                            <TableHeader
+                              key={header.id}
+                              header={header}
+                              table={table}
+                              headerGroup={headerGroup}
+                              index={i}
+                              setMinViableColWidth={setMinViableColWidth}
+                              onSort={(attrName, currentAttr, currentAsc) => {
+                                history.push((prev) => ({
+                                  ...prev,
+                                  sortAttr: attrName,
+                                  sortAsc:
+                                    currentAttr !== attrName
+                                      ? true
+                                      : !currentAsc,
+                                }));
+                              }}
+                              currentSortAttr={currentNav?.sortAttr}
+                              currentSortAsc={currentNav?.sortAsc}
+                            />
+                          ))}
                         </SortableContext>
-                      ))}
-                    </div>
-                  ))}
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    {table.getRowModel().rows.map((row) => (
+                      <div
+                        className="group flex border-r border-b border-r-gray-200 border-b-gray-200 bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
+                        key={row.id}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <SortableContext
+                            key={cell.id}
+                            items={columnOrder}
+                            strategy={horizontalListSortingStrategy}
+                          >
+                            <TableCell key={cell.id} cell={cell} />
+                          </SortableContext>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 </div>
+                {tableSmallerThanViewport && (
+                  <div className="sticky top-0">
+                    <IconButton
+                      className="opacity-60"
+                      labelDirection="bottom"
+                      label="Fill Width"
+                      icon={<ArrowRightFromLine />}
+                      onClick={distributeRemainingWidth}
+                    />
+                  </div>
+                )}
               </div>
-              {tableSmallerThanViewport && (
-                <div className="sticky top-0 inline-block align-top">
-                  <IconButton
-                    className="opacity-60"
-                    labelDirection="bottom"
-                    label="Fill Width"
-                    icon={<ArrowRightFromLine />}
-                    onClick={distributeRemainingWidth}
-                  />
-                </div>
-              )}
             </div>
           </div>
         </DndContext>
