@@ -219,24 +219,6 @@ One difference between `data.ref` and `newData.ref` is that `newData.ref` does n
 
 ## Common mistakes with transactions
 
-Always use `update` method to create new entities:
-
-❌ **Common mistake**: Using a non-existent `create` method
-
-```
-// ❌ Bad: `create` does not exist, use `update` instead!
-db.transact(db.tx.todos[id()].create({ text: "Buy groceries" }));
-```
-
-✅ **Correction**: Use `update` to create new entities
-
-```
-// ✅ Good: Always use `update` to create new entities
-db.transact(db.tx.todos[id()].update({
-  text: "Properly generated ID todo"
-}));
-```
-
 Use `merge` for updating nested objects without overwriting unspecified fields:
 
 ❌ **Common mistake**: Using `update` for nested objects
