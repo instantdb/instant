@@ -174,16 +174,16 @@ curl -X POST "https://api.instantdb.com/admin/query" \
 ```
 
 **as-guest**
-Alternatively, you can make a query or a transaction, as though you weren’t logged in: 
+Alternatively, you can make a query or a transaction, as though you weren't logged in: 
 
-
-    curl -X POST "https://api.instantdb.com/admin/query" \
-         -H "Content-Type: application/json" \
-         -H "Authorization: Bearer $ADMIN_TOKEN" \
-         -H "App-Id: $APP_ID" \
-         -H "as-guest: true" \
-         -d '{"query": {"goals": {}}}'
-
+```shell {% showCopy=true %}
+curl -X POST "https://api.instantdb.com/admin/query" \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $ADMIN_TOKEN" \
+     -H "App-Id: $APP_ID" \
+     -H "as-guest: true" \
+     -d '{"query": {"goals": {}}}'
+```
 
 # 4. Custom auth
 
