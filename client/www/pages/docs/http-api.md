@@ -38,7 +38,9 @@ JSON.stringify({query: YOUR_INSTAQL_QUERY})
 
 As a refresher, you can learn about InstaQL queries [here](https://www.instantdb.com/docs/instaql).
 
-**By default, admin queries bypass permission checks.** If you want to make a query on behalf of a user, see **Impersonating Users**
+{% callout type="note" %}
+By default, admin queries bypass permission checks. If you want to make a query on behalf of a user, see [Impersonating Users](#3-impersonating-users)
+{% /callout %}
 
 ## 2. Making Transactions
 
@@ -100,7 +102,9 @@ curl -X POST "https://api.instantdb.com/admin/transact" \
 ]
 ```
 
-**By default, admin transactions bypass permission checks.** If you want to make a transaction on behalf of a user, see **Impersonating Users**
+{% callout type="note" %}
+By default, admin transactions bypass permission checks. If you want to make a transaction on behalf of a user, see [Impersonating Users](#3-impersonating-users)
+{% /callout %}
 
 ## 3. Impersonating Users
 
