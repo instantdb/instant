@@ -223,19 +223,20 @@ curl -X POST "https://api.instantdb.com/admin/sign_out" \
 
 ## Custom Auth
 
-Create a refresh token with `POST /admin/refresh_tokens`:
+You can use `POST /admin/refresh_tokens` to generate auth tokens for your users.
+
+Pass in an `email` or an `id` to create a refresh token:
 
 ```shell
+# By email
 curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
   -d '{"email":"alyssa_p_hacker@instantdb.com"}'
-```
 
-For the UUID variant:
+# Or by ID
 
-```shell
 curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
@@ -244,11 +245,11 @@ curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
 ```
 
 If a user with the provider id or email does not exist, Instant will create the
-user for you. The response includes `user.refresh_token`.
+user for you. The response includes `user.refresh_token`. You can pass this token onto your client, and use that to [log in](/docs/backend#2-frontend-db-auth-sign-in-with-token)
 
 ## Custom magic codes
 
-Generate a magic code (use your own email provider):
+We support a [magic code flow](/docs/auth) out of the box. However, if you'd like to use your own email provider to send the code, you can create a magic code with `POST /admin/magic_code`:
 
 ```shell
 curl -X POST "https://api.instantdb.com/admin/magic_code" \
@@ -258,7 +259,7 @@ curl -X POST "https://api.instantdb.com/admin/magic_code" \
   -d '{"email":"alyssa_p_hacker@instantdb.com"}'
 ```
 
-Send a magic code with Instant's email provider:
+You can also use Instant's default email provider to send a magic code:
 
 ```shell
 curl -X POST "https://api.instantdb.com/admin/send_magic_code" \
@@ -268,7 +269,7 @@ curl -X POST "https://api.instantdb.com/admin/send_magic_code" \
   -d '{"email":"alyssa_p_hacker@instantdb.com"}'
 ```
 
-Verify a magic code:
+Similarly, you can verify a magic code too:
 
 ```shell
 curl -X POST "https://api.instantdb.com/admin/verify_magic_code" \
@@ -280,7 +281,7 @@ curl -X POST "https://api.instantdb.com/admin/verify_magic_code" \
 
 ## Authenticated Endpoints
 
-Verify a refresh token with `POST /runtime/auth/verify_refresh_token`:
+To authenticate users, have your frontend pass in a refresh token. Then use `POST /runtime/auth/verify_refresh_token` to verify it:
 
 ```shell
 curl -X POST "https://api.instantdb.com/runtime/auth/verify_refresh_token" \
@@ -288,18 +289,11 @@ curl -X POST "https://api.instantdb.com/runtime/auth/verify_refresh_token" \
   -d "{\"app-id\": \"$APP_ID\", \"refresh-token\": \"$REFRESH_TOKEN\"}"
 ```
 
-## Syncing Auth
-
-If you want to sync auth cookies for server-side frameworks, use the SDK helper
-in `@instantdb/react` instead. See
-[Syncing Auth in the backend docs](/docs/backend#syncing-auth).
-
-## NextJS SSR
-
-Instant has built-in support for SSR using NextJS. See
-[the backend docs](/docs/backend#nextjs-ssr).
-
 ## Storage
+
+You can also manage your app's [storage](/docs/storage) with the HTTP API.
+
+### Upload Files
 
 Upload a file with `PUT /admin/storage/upload`:
 
@@ -311,6 +305,8 @@ curl -X PUT "https://api.instantdb.com/admin/storage/upload" \
   -H "Content-Type: text/plain" \
   --data-binary "@demo.txt"
 ```
+
+### Delete Files
 
 Delete a file by path:
 
@@ -330,6 +326,8 @@ curl -X POST "https://api.instantdb.com/admin/storage/files/delete" \
   -d '{"filenames":["photos/1.txt","photos/2.txt"]}'
 ```
 
+### List Files
+
 List files by querying `$files`:
 
 ```shell
@@ -339,55 +337,3 @@ curl -X POST "https://api.instantdb.com/admin/query" \
   -H "app-id: $APP_ID" \
   -d '{"query":{"$files":{}}}'
 ```
-
-Legacy signed URL endpoints (deprecated by the SDK):
-
-```shell
-curl -X POST "https://api.instantdb.com/admin/storage/signed-upload-url" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
-  -d "{\"app_id\":\"$APP_ID\",\"filename\":\"photos/demo.txt\"}"
-```
-
-```shell
-curl -X GET "https://api.instantdb.com/admin/storage/signed-download-url?app_id=$APP_ID&filename=photos/demo.txt" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID"
-```
-
-## Permissions Debugging
-
-Debug permissions checks for a query with `POST /admin/query_perms_check`:
-
-```shell
-curl -X POST "https://api.instantdb.com/admin/query_perms_check" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
-  -H "as-guest: true" \
-  -d '{"query":{"todos":{}},"rules-override":{"todos":{"allow":{"view":"true"}}}}'
-```
-
-Debug permissions checks for a transaction with `POST /admin/transact_perms_check`:
-
-```shell
-curl -X POST "https://api.instantdb.com/admin/transact_perms_check" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
-  -H "as-guest: true" \
-  -d '{"steps":[["update","todos","__TODO_ID__",{"title":"Perms check"}]],"rules-override":{"todos":{"allow":{"create":"true","update":"true","delete":"true","view":"true"}}}}'
-```
-
-## Reference implementation
-
-`@instantdb/admin` is a light wrapper around this HTTP API. You can use the
-[admin SDK source](https://github.com/instantdb/instant/blob/main/client/packages/admin/src/index.ts)
-as a reference for building integrations in other languages.
-
-## Testing the curl examples
-
-A runnable script that exercises the curl examples (using an ephemeral app) is
-available at `scripts/test-http-api-curls.sh`. It defaults `MAGIC_EMAIL` to
-`stopa@instantdb.com`, or you can override it with an environment variable.
