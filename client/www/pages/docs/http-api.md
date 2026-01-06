@@ -7,7 +7,7 @@ If your backend is written in Javascript, you can use the [`@instantdb/admin`](/
 
 But what if your backend isn't written in Javascript? That's where the HTTP API comes in.
 
-This documents the majority of the endpoints available in the admin SDK. Use them in your favorite backend language to run scripts, create custom auth flows, or evaluate sensitive app logic.
+You can use the HTTP API in your favorite backend language to run scripts, create custom auth flows, or evaluate sensitive app logic.
 
 {% callout type="note" %}
 
@@ -23,8 +23,10 @@ First and foremost, grab your app's `APP_ID` and `ADMIN_TOKEN`. You can get this
 ```shell
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \ # <-- Admin token here
-  -H "app-id: $APP_ID" \ # <-- App ID here
+  # <-- Admin token here
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  # <-- App ID here
+  -H "app-id: $APP_ID" \
   -d '{"query":{"goals":{}}}'
 ```
 
@@ -117,7 +119,8 @@ curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -H "as-email: alyssa_p_hacker@instantdb.com" \ # 👈
+  # 👇
+  -H "as-email: alyssa_p_hacker@instantdb.com" \
   -d '{"query":{"goals":{}}}'
 
 # Or with their auth token
@@ -125,7 +128,8 @@ curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -H "as-token: $REFRESH_TOKEN" \ # 👈
+  # 👇
+  -H "as-token: $REFRESH_TOKEN" \
   -d '{"query":{"goals":{}}}'
 
 # Or use the db as a guest
@@ -133,7 +137,8 @@ curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -H "as-guest: true" \ # 👈
+  # 👇
+  -H "as-guest: true" \
   -d '{"query":{"goals":{}}}'
 ```
 
