@@ -3,41 +3,38 @@ title: Admin HTTP API
 description: Direct HTTP access to Instant's admin API for non-JavaScript environments.
 ---
 
-You can use Instant on the server without JavaScript. This is the underlying API
-used by `@instantdb/admin`, and it's useful for non-JS languages or custom
-integrations.
+If your backend is written in Javascript, you can use the [`@instantdb/admin`](/docs/backend) SDK to connect your server to Instant.
 
-Base URL: `https://api.instantdb.com`
+But what if your backend isn't written in Javascript? That's where the HTTP API comes in.
 
-## Admin HTTP API
+This documents the majority of the endpoints available in the admin SDK. Use them in your favorite backend language to run scripts, create custom auth flows, or evaluate sensitive app logic.
 
-### Auth
+{% callout type="note" %}
 
-Grab your app's `APP_ID` and `ADMIN_TOKEN` from the
-[dashboard](https://instantdb.com/dash).
+If you give this documentation to your AI agent, it can create a custom SDK for your backend language. Here's the [markdown](/docs/http-api.md).
 
-Include them as headers on admin endpoints:
+{% /callout %}
+
+## Auth
+
+First and foremost, grab your app's `APP_ID` and `ADMIN_TOKEN`. You can get this by going to your
+[dashboard](https://instantdb.com/dash). To authenticate requests, include them in your HTTP headers:
 
 ```shell
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \ # <-- Admin token here
+  -H "app-id: $APP_ID" \ # <-- App ID here
   -d '{"query":{"goals":{}}}'
 ```
 
-{% callout type="warning" %}
-`ADMIN_TOKEN` is a full-access credential. Do not ship it to client devices or
-expose it in source control.
-{% /callout %}
-
 ## Reading and Writing Data
 
-`query` and `transact` let you read and write data as an admin.
+`POST /admin/query` and `POST /admin/transact` let your read and write data as an admin.
 
 ### query
 
-To make queries, send `POST /admin/query` with an InstaQL query:
+To make queries, run `POST /admin/query` with an InstaQL query:
 
 ```shell
 curl -X POST "https://api.instantdb.com/admin/query" \
@@ -47,32 +44,17 @@ curl -X POST "https://api.instantdb.com/admin/query" \
   -d '{"query":{"goals":{},"todos":{}}}'
 ```
 
-Request shape:
+If you need [rule params](/docs/permissions#rule-params), include `$$ruleParams` at the top-level:
 
 ```json
 {
-  "query": { "goals": {}, "todos": {} },
-  "inference?": false
-}
-```
-
-If you need rule params (for permissions with `$params`), include
-`$$ruleParams` at the top-level:
-
-```json
-{
-  "$$ruleParams": { "teamId": "team_123" },
+  "$$ruleParams": { "knownGoalId": "..." },
   "query": { "goals": {} }
 }
 ```
 
 As a refresher, you can learn about InstaQL queries
-[here](https://www.instantdb.com/docs/instaql).
-
-{% callout type="note" %}
-By default, admin queries bypass permission checks. If you want to make a query
-on behalf of a user, see [Impersonating users](#impersonating-users).
-{% /callout %}
+[here](/docs/instaql).
 
 ### transact
 
@@ -83,22 +65,11 @@ curl -X POST "https://api.instantdb.com/admin/transact" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -d '{"steps":[["update","todos","__TODO_ID__",{"title":"Get fit"}]]}'
-```
-
-Request shape:
-
-```json
-{
-  "steps": [
-    ["update", "todos", "__TODO_ID__", { "title": "Get fit" }]
-  ],
-  "throw-on-missing-attrs?": false
-}
+  -d '{"steps":[["update","todos","<a-todo-uuid>",{"title":"Get fit"}]]}'
 ```
 
 `steps` is the internal representation of Instant transactions. Here's how they
-map to Instaml:
+map to the [Instant transactions](/docs/instaml) you know:
 
 ```javascript
 // tx.todos[todoId].update({ title: "moop" })
@@ -114,14 +85,10 @@ map to Instaml:
 ["delete", "goals", goalId]
 ```
 
-{% callout type="note" %}
-By default, admin transactions bypass permission checks. If you want to make a
-transaction on behalf of a user, see [Impersonating users](#impersonating-users).
-{% /callout %}
-
 ## Subscriptions on the backend
 
 You can subscribe to queries over SSE with `POST /admin/subscribe-query`.
+
 The connection stays open and streams updates.
 
 ```shell
@@ -137,81 +104,60 @@ Subscriptions keep a live connection open on your backend. Be sure to close them
 when they are no longer needed.
 {% /callout %}
 
-## Schema
-
-The HTTP API does not accept schema definitions directly. If your app already
-has a schema, you can match the Admin SDK behavior by passing these flags:
-
-- `inference?` on `POST /admin/query`
-- `throw-on-missing-attrs?` on `POST /admin/transact`
-
-These flags are set automatically by `@instantdb/admin` when you pass a schema
-to `init`.
-
 ## Impersonating users
 
-When you use the admin API, you can make any query or transaction. As an admin,
-you bypass permissions. But sometimes you want to make requests on behalf of a
-user and respect permissions.
+When you use the admin API, you can make _any_ query or transaction. As an admin, you bypass permissions.
 
-You can do this with the `as-email`, `as-token`, or `as-guest` headers.
-
-### as-email
+But sometimes you want to make requests on behalf of a
+user and respect permissions. You can do this by passing the `as-email`, `as-token`, or `as-guest` headers.
 
 ```shell
+# Scoped by their email
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -H "as-email: alyssa_p_hacker@instantdb.com" \
+  -H "as-email: alyssa_p_hacker@instantdb.com" \ # 👈
   -d '{"query":{"goals":{}}}'
-```
 
-### as-token
-
-```shell
+# Or with their auth token
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -H "as-token: $REFRESH_TOKEN" \
+  -H "as-token: $REFRESH_TOKEN" \ # 👈
   -d '{"query":{"goals":{}}}'
-```
 
-### as-guest
-
-```shell
+# Or use the db as a guest
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -H "as-guest: true" \
+  -H "as-guest: true" \ # 👈
   -d '{"query":{"goals":{}}}'
 ```
 
 {% callout type="note" %}
-`as-email` requires an `ADMIN_TOKEN`. For `as-token` and `as-guest`, you may omit
-`Authorization` if you do not want to use an admin credential.
+`as-email` requires an `ADMIN_TOKEN`. For `as-token` and `as-guest`, you could skip the
+`Authorization` if you want too.
 {% /callout %}
 
 ## Retrieve a user
 
-Retrieve an app user record by `email`, `id`, or `refresh_token` using
-`GET /admin/users`.
+Use `GET /admin/users` to fetch an app user by `email`, `id`, or `refresh_token`.
 
 ```shell
+# By email!
 curl -X GET "https://api.instantdb.com/admin/users?email=alyssa_p_hacker@instantdb.com" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID"
-```
 
-```shell
+# By id
 curl -X GET "https://api.instantdb.com/admin/users?id=$USER_ID" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID"
-```
 
-```shell
+# Or by a refresh token
 curl -X GET "https://api.instantdb.com/admin/users?refresh_token=$REFRESH_TOKEN" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID"
@@ -219,33 +165,28 @@ curl -X GET "https://api.instantdb.com/admin/users?refresh_token=$REFRESH_TOKEN"
 
 ## Delete a user
 
-Delete an app user record by `email`, `id`, or `refresh_token` using
-`DELETE /admin/users`.
+Use `DELETE /admin/users` to delete an app user by `email`, `id`, or `refresh_token`.
 
 ```shell
+# By email
 curl -X DELETE "https://api.instantdb.com/admin/users?email=alyssa_p_hacker@instantdb.com" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID"
-```
 
-```shell
+# By id
 curl -X DELETE "https://api.instantdb.com/admin/users?id=$USER_ID" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID"
-```
 
-```shell
+# Or by an auth token
 curl -X DELETE "https://api.instantdb.com/admin/users?refresh_token=$REFRESH_TOKEN" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID"
 ```
 
-Note, this only deletes the user record. If there's additional data you need to
-clean up you'll need to do it manually.
-
 ## Presence in the Backend
 
-To fetch presence data for a room, use `GET /admin/rooms/presence`:
+If you use [rooms & presence](/docs/presence-and-topics), you may want to query for the data currently in a room. This can be especially useful if you are sending a notification for example, and want to skip it if the user is already online. To do get room data use `GET /admin/rooms/presence`. Make sure to pass in a `room-type` and a `room-id`:
 
 ```shell
 curl -X GET "https://api.instantdb.com/admin/rooms/presence?room-type=chat&room-id=room-123" \
@@ -255,31 +196,29 @@ curl -X GET "https://api.instantdb.com/admin/rooms/presence?room-type=chat&room-
 
 ## Sign Out
 
-Log a user out from every session by passing `email` or `id`, or log them out
-from a specific session by passing `refresh_token`:
+`POST /admin/sign_out` allows you to log out users. You can log out a user out from every session by passing in their `email` or `id`. Or you can log a user out from a particular session by passing in a `refresh_token`:
 
 ```shell
+# All sessions for this email sign out
 curl -X POST "https://api.instantdb.com/admin/sign_out" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -d '{"email":"alyssa_p_hacker@instantdb.com"}'
-```
+  -d '{"email":"alyssa_p_hacker@instantdb.com"}' # 👈
 
-```shell
+# All sessions for this user id sign out
 curl -X POST "https://api.instantdb.com/admin/sign_out" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -d "{\"id\":\"$USER_ID\"}"
-```
+  -d "{\"id\":\"$USER_ID\"}" # 👈
 
-```shell
+# Just sign out the session for this refresh token
 curl -X POST "https://api.instantdb.com/admin/sign_out" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}"
+  -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}" # 👈
 ```
 
 ## Custom Auth
