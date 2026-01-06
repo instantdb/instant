@@ -393,7 +393,7 @@ program
   .option('--title <title>', 'Title for the created app')
   .action(handleInit);
 
-program
+const initWithoutFilesDef = program
   .command('init-without-files')
   .description('Generate a new app id and admin token pair without any files.')
   .option('--title <title>', 'Title for the created app.')
@@ -601,7 +601,11 @@ program
     await handleQuery(queryArg, opts);
   });
 
-program.parse(process.argv);
+// Only parse the old version of the cli if the command is "instant-cli"
+// because this file gets imported places
+if (process.argv[1].split('/').pop() === 'instant-cli') {
+  program.parse(process.argv);
+}
 
 async function handleInit(opts) {
   const pkgAndAuthInfo =
@@ -890,7 +894,7 @@ async function getOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
 
 async function pull(bag, appId, pkgAndAuthInfo) {
   if (bag === 'schema' || bag === 'all') {
-    const { ok } = await pullSchema(appId, pkgAndAuthInfo);
+    const { ok } = await oldPullSchema(appId, pkgAndAuthInfo);
     if (!ok) return process.exit(1);
   }
   if (bag === 'perms' || bag === 'all') {
@@ -1045,80 +1049,6 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
   );
 
   return moduleName;
-}
-
-async function promptCreateApp(opts) {
-  const id = randomUUID();
-  const token = randomUUID();
-
-  let _title;
-  if (opts?.title) {
-    _title = opts.title;
-  } else {
-    _title = await renderUnwrap(
-      new UI.TextInput({
-        prompt: 'What would you like to call it?',
-        placeholder: 'My cool app',
-      }),
-    ).catch(() => null);
-  }
-
-  const title = _title?.trim();
-
-  if (!title) {
-    error('No name provided.');
-    return { ok: false };
-  }
-
-  const res = await fetchJson({
-    debugName: 'Fetching orgs',
-    method: 'GET',
-    path: '/dash',
-    errorMessage: 'Failed to fetch apps.',
-    command: 'init',
-  });
-  if (!res.ok) {
-    return { ok: false };
-  }
-
-  const allowedOrgs = res.data.orgs.filter((org) => org.role !== 'app-member');
-
-  let org_id = opts.org;
-
-  if (!org_id && allowedOrgs.length) {
-    const choices = [{ label: '(No organization)', value: null }];
-    for (const org of allowedOrgs) {
-      choices.push({ label: org.title, value: org.id });
-    }
-    const choice = await renderUnwrap(
-      new UI.Select({
-        promptText: 'Would you like to create the app in an organization?',
-        options: choices,
-      }),
-    );
-    if (choice) {
-      org_id = choice;
-    }
-  }
-
-  const app = { id, title, admin_token: token, org_id };
-  const appRes = await fetchJson({
-    method: 'POST',
-    path: '/dash/apps',
-    debugName: 'App create',
-    errorMessage: 'Failed to create app.',
-    body: app,
-    command: 'init',
-  });
-
-  if (!appRes.ok) return { ok: false };
-  return {
-    ok: true,
-    appId: id,
-    appTitle: title,
-    appToken: token,
-    source: 'created',
-  };
 }
 
 async function promptImportAppOrCreateApp() {
@@ -1356,7 +1286,7 @@ async function getOrPromptPackageAndAuthInfoWithErrorLogging(opts) {
   return { pkgDir, projectType, instantModuleName, authToken };
 }
 
-async function pullSchema(
+async function oldPullSchema(
   appId,
   { pkgDir, instantModuleName, experimentalTypePreservation },
 ) {
@@ -1611,7 +1541,8 @@ function jobGroupDescription(jobs) {
   return joinInSentence([...actions].sort()) || 'updating schema';
 }
 
-async function waitForIndexingJobsToFinish(appId, data) {
+// TODO: rewrite in effect
+export async function waitForIndexingJobsToFinish(appId, data) {
   const spinnerDefferedPromise = deferred();
   const spinner = new UI.Spinner({
     promise: spinnerDefferedPromise.promise,
@@ -1697,7 +1628,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
   }
 }
 
-const resolveRenames = async (created, promptData, extraInfo) => {
+export const resolveRenames = async (created, promptData, extraInfo) => {
   const answer = await renderUnwrap(
     new ResolveRenamePrompt(
       created,
@@ -2053,7 +1984,7 @@ function prettyPrintJSONErr(data) {
   }
 }
 
-async function readLocalPermsFile() {
+export async function readLocalPermsFile() {
   const readCandidates = getPermsReadCandidates();
   const res = await loadConfig({
     sources: readCandidates,
@@ -2074,7 +2005,7 @@ async function readLocalPermsFileWithErrorLogging() {
   return res;
 }
 
-async function readLocalSchemaFile() {
+export async function readLocalSchemaFile() {
   const readCandidates = getSchemaReadCandidates();
   const res = await loadConfig({
     sources: readCandidates,
@@ -2085,7 +2016,7 @@ async function readLocalSchemaFile() {
   return { path: relativePath, schema: res.config };
 }
 
-async function readInstantConfigFile() {
+export async function readInstantConfigFile() {
   return (
     await loadConfig({
       sources: [
@@ -2192,7 +2123,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function countEntities(o) {
+export function countEntities(o) {
   return Object.keys(o).length;
 }
 

@@ -91,8 +91,8 @@
   (def res (http-post-handler {:body {:title "my-app"}}))
   (http-get-handler {:params {:app_id (-> res :body :app :id str)}}))
 
-;; ----------- 
-;; Sweeper 
+;; -----------
+;; Sweeper
 
 (defn period []
   (let [now (date/et-now)
