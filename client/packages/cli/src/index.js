@@ -391,7 +391,7 @@ program
   .option('--title <title>', 'Title for the created app')
   .action(handleInit);
 
-program
+const initWithoutFilesDef = program
   .command('init-without-files')
   .description('Generate a new app id and admin token pair without any files.')
   .option('--title <title>', 'Title for the created app.')
