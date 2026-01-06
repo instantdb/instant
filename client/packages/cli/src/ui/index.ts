@@ -864,7 +864,7 @@ ${inputDisplay}`;
     }
   }
 
-  interface AppSelectorApi {
+  export interface AppSelectorApi {
     getDash: () => { apps: App[]; orgs: Org[] };
     createEphemeralApp: (title: string) => Promise<{
       appId: string;

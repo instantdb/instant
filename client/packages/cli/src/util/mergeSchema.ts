@@ -1,6 +1,12 @@
 import * as acorn from 'acorn';
 import tsPlugin from 'acorn-typescript';
+import { Data } from 'effect';
 
+export class MergeSchemaError extends Data.TaggedError('MergeSchemaError')<{
+  message: string;
+}> {}
+
+// @ts-ignore
 const node = acorn.Parser.extend(tsPlugin({ dts: false }));
 
 // --- Import Handling Helpers ---
@@ -102,7 +108,7 @@ function getPropName(prop) {
   return null;
 }
 
-function analyzeChain(node) {
+function analyzeChain(node): any {
   let curr = node;
   let typeParams = null;
   let baseCall = null;
@@ -192,7 +198,7 @@ function findSchemaObject(ast) {
   return schemaObj;
 }
 
-export function mergeSchema(oldFile, newFile) {
+export function mergeSchema(oldFile, newFile): string {
   const oldParsed = node.parse(oldFile, {
     sourceType: 'module',
     ecmaVersion: 'latest',
@@ -225,7 +231,7 @@ export function mergeSchema(oldFile, newFile) {
   const neededIdentifiers = new Set();
 
   // 3. Apply to new file & Collect needed identifiers
-  const edits = [];
+  const edits: any[] = [];
   const newSchemaObj = findSchemaObject(newParsed);
 
   if (newSchemaObj) {
@@ -290,7 +296,7 @@ export function mergeSchema(oldFile, newFile) {
     }
   }
 
-  const importBlocks = [];
+  const importBlocks: string[] = [];
 
   for (const [source, info] of importsToAdd) {
     // Check if source exists in new file to merge?
@@ -299,7 +305,7 @@ export function mergeSchema(oldFile, newFile) {
 
     // If we have named imports
     if (info.named.size > 0) {
-      const namedImports = Array.from(info.named.values());
+      const namedImports: any[] = Array.from(info.named.values());
       const allTypes = namedImports.every((x) => x.isType);
 
       if (allTypes) {
