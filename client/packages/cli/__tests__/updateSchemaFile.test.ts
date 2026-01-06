@@ -1,5 +1,9 @@
 import { test, expect } from 'vitest';
-import { i, schemaTypescriptFileToInstantSchema } from '@instantdb/platform';
+import {
+  diffSchemas,
+  i,
+  schemaTypescriptFileToInstantSchema,
+} from '@instantdb/platform';
 import { updateSchemaFile } from '../src/util/updateSchemaFile';
 
 test('throws when schema call is missing', async () => {
@@ -278,6 +282,37 @@ export default _schema;
   expect(result).toMatchSnapshot();
 });
 
+test('adds multiple attrs to a single-line entity', async () => {
+  const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    projects: i.entity({ name: i.string() }),
+  },
+  links: {
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
+  const serverSchema = i.schema({
+    entities: {
+      projects: i.entity({
+        name: i.string(),
+        status: i.string(),
+        priority: i.number(),
+      }),
+    },
+    links: {},
+  });
+
+  const result = await update(oldFile, serverSchema);
+
+  await expectNoDiff(result, serverSchema);
+});
+
 test('inserts attrs into multi-line entities with indentation', async () => {
   const oldFile = `
 import { i } from '@instantdb/core';
@@ -310,6 +345,38 @@ export default _schema;
   const result = await update(oldFile, serverSchema);
 
   expect(result).toMatchSnapshot();
+});
+
+test('adds and updates attrs in a single-line entity', async () => {
+  const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    projects: i.entity({ name: i.string().optional(), code: i.string() }),
+  },
+  links: {
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
+  const serverSchema = i.schema({
+    entities: {
+      projects: i.entity({
+        name: i.string(),
+        code: i.string().unique(),
+        status: i.string(),
+        priority: i.number(),
+      }),
+    },
+    links: {},
+  });
+
+  const result = await update(oldFile, serverSchema);
+
+  await expectNoDiff(result, serverSchema);
 });
 
 test('handles quoted keys for entities, attrs, and links', async () => {
@@ -395,6 +462,52 @@ export default _schema;
   expect(result).toMatchSnapshot();
 });
 
+test('adds multiple links when links object is empty', async () => {
+  const oldFile = `
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    todos: i.entity({
+      title: i.string(),
+    }),
+    users: i.entity({
+      email: i.string(),
+    }),
+    projects: i.entity({
+      name: i.string(),
+    }),
+  },
+  links: {
+  },
+  rooms: {},
+});
+
+export default _schema;
+`;
+  const serverSchema = i.schema({
+    entities: {
+      todos: i.entity({ title: i.string() }),
+      users: i.entity({ email: i.string() }),
+      projects: i.entity({ name: i.string() }),
+    },
+    links: {
+      todoOwner: {
+        forward: { on: 'todos', has: 'one', label: 'owner' },
+        reverse: { on: 'users', has: 'many', label: 'todos' },
+      },
+      projectTodos: {
+        forward: { on: 'projects', has: 'many', label: 'todos' },
+        reverse: { on: 'todos', has: 'one', label: 'project' },
+      },
+    },
+  });
+
+  const result = await update(oldFile, serverSchema);
+
+  await expectNoDiff(result, serverSchema);
+});
+
 test('removes the last link cleanly', async () => {
   const oldFile = `
 import { i } from '@instantdb/core';
@@ -435,4 +548,10 @@ export default _schema;
 async function update(oldFile: string, serverSchema: any) {
   const localSchema = schemaTypescriptFileToInstantSchema(oldFile);
   return updateSchemaFile(oldFile, localSchema, serverSchema);
+}
+
+async function expectNoDiff(result: string, serverSchema: any) {
+  const parsed = schemaTypescriptFileToInstantSchema(result);
+  const diff = await diffSchemas(parsed, serverSchema, async (created) => created, {});
+  expect(diff).toEqual([]);
 }
