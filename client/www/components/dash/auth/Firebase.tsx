@@ -169,17 +169,18 @@ export function FirebaseClient({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col rounded-sm border"
+        className="flex flex-col rounded-sm border dark:border-neutral-700"
       >
-        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100">
+        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
-            <div className="flex gap-2">
-              {' '}
+            <div className="flex items-center gap-2">
               <Image alt="firebase logo" src={firebaseLogoSvg} />
-              <SectionHeading>
+              <div className="font-medium">
                 {client.client_name}{' '}
-                <span className="text-gray-400">(Firebase)</span>
-              </SectionHeading>
+                <span className="text-gray-400 dark:text-neutral-500">
+                  (Firebase)
+                </span>
+              </div>
             </div>
             {open ? (
               <ChevronUpIcon height={24} />
@@ -189,7 +190,7 @@ export function FirebaseClient({
           </div>
         </Collapsible.Trigger>
         <Collapsible.Content className="">
-          <div className="flex flex-col gap-4 border-t p-4">
+          <div className="flex flex-col gap-4 border-t p-4 dark:border-t-neutral-700">
             <Copyable label="Client name" value={client.client_name} />
             {projectId ? (
               <Copyable label="Firebase Project ID" value={projectId} />
@@ -198,11 +199,12 @@ export function FirebaseClient({
             <SubsectionHeading>Setup and usage</SubsectionHeading>
 
             <Content>
-              Use <code>db.auth.signInWithIdToken</code> to link your Firebase
-              user to Instant.
+              Use{' '}
+              <code className="dark:text-white">db.auth.signInWithIdToken</code>{' '}
+              to link your Firebase user to Instant.
             </Content>
 
-            <div className="overflow-auto rounded-sm border text-sm">
+            <div className="overflow-auto rounded-sm border text-sm dark:border-none">
               <Fence
                 darkMode={darkMode}
                 copyable

@@ -287,15 +287,20 @@ export function ClerkClient({
         onOpenChange={setOpen}
         className="flex flex-col rounded-sm border"
       >
-        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100">
+        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
-            <div className="flex gap-2">
-              {' '}
-              <Image alt="clerk logo" src={clerkLogoSvg} />
-              <SectionHeading>
+            <div className="flex items-center gap-2">
+              <Image
+                alt="clerk logo"
+                src={clerkLogoSvg}
+                className="dark:invert"
+              />
+              <div className="font-medium">
                 {client.client_name}{' '}
-                <span className="text-gray-400">(Clerk)</span>
-              </SectionHeading>
+                <span className="text-gray-400 dark:text-neutral-500">
+                  (Clerk)
+                </span>
+              </div>
             </div>
             {open ? (
               <ChevronUpIcon height={24} />
@@ -359,7 +364,7 @@ export function ClerkClient({
               . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
               button in the <code>Customize session token</code> section. Ensure
               your <code>Claims</code> field has the email claim:
-              <div className="overflow-auto rounded-sm border text-sm">
+              <div className="overflow-auto rounded-sm border text-sm dark:border-none">
                 <Fence
                   darkMode={darkMode}
                   copyable
@@ -376,7 +381,7 @@ export function ClerkClient({
               link your Clerk user to Instant.
             </Content>
 
-            <div className="overflow-auto rounded-sm border text-sm">
+            <div className="overflow-auto rounded-sm border text-sm dark:border-none">
               <Fence
                 darkMode={darkMode}
                 copyable
@@ -546,7 +551,7 @@ export function AddClerkClientForm({
           <code className="dark:text-white">Customize session token</code>{' '}
           section. Ensure your <code className="dark:text-white">Claims</code>{' '}
           field has the email claim:
-          <div className="overflow-auto rounded-sm border text-sm">
+          <div className="overflow-auto rounded-sm border text-sm dark:border-none">
             <Fence
               darkMode={darkMode}
               copyable
