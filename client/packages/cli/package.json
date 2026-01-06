@@ -18,9 +18,14 @@
     }
   },
   "bin": {
-    "instant-cli": "bin/index.js"
+    "instant-cli": "bin/index.js",
+    "new-instant-cli": "dist/new/index.js"
   },
   "dependencies": {
+    "@commander-js/extra-typings": "^14.0.0",
+    "@effect/cli": "^0.73.0",
+    "@effect/platform": "^0.94.1",
+    "@effect/platform-node": "^0.104.0",
     "@instantdb/core": "workspace:*",
     "@instantdb/platform": "workspace:*",
     "@instantdb/version": "workspace:*",
@@ -32,12 +37,15 @@
     "commander": "^12.1.0",
     "dotenv": "^16.3.1",
     "dotenv-flow": "^4.1.0",
+    "effect": "^3.19.14",
     "env-paths": "^3.0.0",
     "find-up-simple": "^1.0.0",
     "json-diff": "^1.0.6",
     "lodash.throttle": "^4.1.1",
     "open": "^10.1.0",
     "package-directory": "^8.1.0",
+    "package-manager-detector": "^1.6.0",
+    "pkg-types": "^2.3.0",
     "prettier": "^3.3.3",
     "sisteransi": "^1.0.5",
     "string-width": "^8.1.0",
@@ -51,11 +59,13 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "publish-package": "pnpm pack && npm publish *.tgz --access public",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepare": "effect-language-service patch"
   },
   "devDependencies": {
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
+    "@effect/language-service": "^0.64.1",
     "@types/json-diff": "^1.0.3",
     "@types/lodash.throttle": "^4.1.9",
     "@types/node": "^22.6.1",
