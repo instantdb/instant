@@ -11,31 +11,26 @@ First and foremost, grab your app’s **APP_ID** and **ADMIN_TOKEN.** You can ge
 
 You can include **APP_ID** and **ADMIN_TOKEN** in HTTP headers to authenticate
 
-```shell {% showCopy=true %}
-curl -X POST "https://api.instantdb.com/admin/query" \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer $ADMIN_TOKEN" \
-     -H "App-Id: $APP_ID" \
-     # ...
-```
-
+    curl -X POST "https://api.instantdb.com/admin/query" \
+         -H "Content-Type: application/json" \
+         -H "Authorization: Bearer $ADMIN_TOKEN" \
+         -H "App-Id: $APP_ID" \
+         # ...
 # 1. Making Queries
 
 To make queries, you can send a `POST /admin/query`: 
 
-```shell {% showCopy=true %}
-curl -X POST "https://api.instantdb.com/admin/query" \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer $ADMIN_TOKEN" \
-     -H "App-Id: $APP_ID" \
-     -d '{"query": {"goals": {}}}'
-```
+
+    curl -X POST "https://api.instantdb.com/admin/query" \
+         -H "Content-Type: application/json" \
+         -H "Authorization: Bearer $ADMIN_TOKEN" \
+         -H "App-Id: $APP_ID" \
+         -d '{"query": {"goals": {}}}'
 
 We expect a body with a stringified InstaQL `query`: 
 
-```javascript
-JSON.stringify({query: YOUR_INSTAQL_QUERY})
-```
+
+    JSON.stringify({query: YOUR_INSTAQL_QUERY})
 
 As a refresher, you can learn about InstaQL queries [here](https://www.instantdb.com/docs/instaql).
 
@@ -45,60 +40,19 @@ As a refresher, you can learn about InstaQL queries [here](https://www.instantdb
 
 To make transactions, you can send a `POST /admin/transact`:
 
-```shell {% showCopy=true %}
-curl -X POST "https://api.instantdb.com/admin/transact" \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer $ADMIN_TOKEN" \
-     -H "App-Id: $APP_ID" \
-     -d '{
-           "steps": [
-             [
-               "update",
-               "goals",
-               "8aa64e4c-64f9-472e-8a61-3fa28870e6cb",
-               {"title": "Get Fit"}
-             ]
-           ]
-         }'
-```
 
-`steps` is an internal representation of a change on Instant. This isn't exposed externally yet, but no worries, they're not too hairy. Here's how they map to the [instant transactions](https://www.instantdb.com/docs/instaml) you know:
-
-```javascript
-// tx.goals[goalId1].update({title: "moop"})
-[
-    "update",
-    "goals",
-    goalId1,
-    {
-        "title": "moop"
-    }
-]
-// tx.goals[goalId1].link({todos: todoId1})
-[
-    "link",
-    "goals",
-    goalId1,
-    {
-        "todos": todoId1
-    }
-]
-// tx.goals[goalId1].unlink({todos: todoId1})
-[
-    "unlink",
-    "goals",
-    goalId1
-    {
-        "todos": todoId1
-    }
-],
-// tx.goals[goalId1].delete()
-[
-    "delete",
-    "goals",
-    goalId1
-],
-```
+    curl -X POST "https://api.instantdb.com/admin/transact" \
+         -H "Content-Type: application/json" \
+         -H "Authorization: Bearer $ADMIN_TOKEN" \
+         -H "App-Id: $APP_ID" \
+         -d '{
+               "steps": [
+                 [
+                   "update",
+                   "goals",
+                   "8aa64e4c-64f9-472e-8a61-3fa28870e6cb",
+                   {"title": "Get Fit"}
+                 ]
                ]
              }'
 
@@ -149,41 +103,39 @@ Sometimes you want to make queries or transactions *on behalf* of a user. If the
 **as-email**
 You can include the `as-email` header: 
 
-```shell {% showCopy=true %}
-curl -X POST "https://api.instantdb.com/admin/query" \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer $ADMIN_TOKEN" \
-     -H "App-Id: $APP_ID" \
-     -H "as-email: stepan.p@gmail.com" \
-     -d '{"query": {"goals": {}}}'
-```
+
+    curl -X POST "https://api.instantdb.com/admin/query" \
+         -H "Content-Type: application/json" \
+         -H "Authorization: Bearer $ADMIN_TOKEN" \
+         -H "App-Id: $APP_ID" \
+         -H "as-email: stepan.p@gmail.com" \
+         -d '{"query": {"goals": {}}}'
 
 And you will make this transaction as the user `stepan.p@gmailcom`
 
 **as-token**
 
-Or, if you have a user's `refresh_token`, you can use that too: 
+Or, if you have a user’s `refresh_token`, you can use that too: 
 
-```shell {% showCopy=true %}
-curl -X POST "https://api.instantdb.com/admin/query" \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer $ADMIN_TOKEN" \
-     -H "App-Id: $APP_ID" \
-     -H "as-token: $STOPA_REFRESH_TOKEN" \
-     -d '{"query": {"goals": {}}}'
-```
+
+    curl -X POST "https://api.instantdb.com/admin/query" \
+         -H "Content-Type: application/json" \
+         -H "Authorization: Bearer $ADMIN_TOKEN" \
+         -H "App-Id: $APP_ID" \
+         -H "as-token: $STOPA_REFRESH_TOKEN" \
+         -d '{"query": {"goals": {}}}'
 
 **as-guest**
-Alternatively, you can make a query or a transaction, as though you weren't logged in: 
+Alternatively, you can make a query or a transaction, as though you weren’t logged in: 
 
-```shell {% showCopy=true %}
-curl -X POST "https://api.instantdb.com/admin/query" \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer $ADMIN_TOKEN" \
-     -H "App-Id: $APP_ID" \
-     -H "as-guest: true" \
-     -d '{"query": {"goals": {}}}'
-```
+
+    curl -X POST "https://api.instantdb.com/admin/query" \
+         -H "Content-Type: application/json" \
+         -H "Authorization: Bearer $ADMIN_TOKEN" \
+         -H "App-Id: $APP_ID" \
+         -H "as-guest: true" \
+         -d '{"query": {"goals": {}}}'
+
 
 # 4. Custom auth
 
