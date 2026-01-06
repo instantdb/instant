@@ -46,7 +46,13 @@ const main = async () => {
     ruleFilesToAdd: project.ruleFiles,
   });
 
-  const possibleAppTokenPair = await tryConnectApp(appFlags);
+  const scaffoldMetadata = {
+    template: project.base,
+    aiTool: project.ruleFiles ?? 'none',
+    usedAiPrompt: !!project.prompt,
+  };
+
+  const possibleAppTokenPair = await tryConnectApp(appFlags, scaffoldMetadata);
   if (possibleAppTokenPair) {
     applyEnvFile(
       project,

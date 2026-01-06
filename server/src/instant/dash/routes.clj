@@ -64,6 +64,7 @@
                                         get-app-with-role!]]
             [instant.util.semver :as semver]
             [instant.util.string :as string-util]
+            [instant.util.posthog :as posthog]
             [instant.util.tracer :as tracer]
             [instant.util.url :as url-util]
             [instant.util.uuid :as uuid-util]
@@ -413,6 +414,10 @@
                      :title title
                      :admin-token token}
                     owner-fields))]
+    (posthog/track! req
+                    "app:create"
+                    (cond-> {:app-id (str (:id app))}
+                      org-id-input (assoc :org-id (str org-id-input))))
     (response/ok {:app app})))
 
 (comment
@@ -441,11 +446,17 @@
       (ex/assert-permitted! :allowed-member-role? :owner false))
 
     (app-model/mark-for-deletion! {:id app-id})
+    (posthog/track! req
+                    "app:delete"
+                    {:app-id (str app-id)})
     (response/ok {:ok true})))
 
 (defn apps-clear [req]
   (let [{{app-id :id} :app} (req->app-and-user! req)]
     (app-model/clear-by-id! {:id app-id})
+    (posthog/track! req
+                    "app:clear"
+                    {:app-id (str app-id)})
     (response/ok {:ok true})))
 
 (defn admin-tokens-regenerate [req]
@@ -470,10 +481,13 @@
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
                                                                          :apps/write
                                                                          req)
-        code (ex/get-param! req [:body :code] w/stringify-keys)]
-    (ex/assert-valid! :rule code (rule-model/validation-errors code))
-    (response/ok {:rules (rule-model/put! {:app-id app-id
-                                           :code code})})))
+        code (ex/get-param! req [:body :code] w/stringify-keys)
+        _ (ex/assert-valid! :rule code (rule-model/validation-errors code))
+        rules (rule-model/put! {:app-id app-id :code code})]
+    (posthog/track! req
+                    "perms:push"
+                    {:app-id (str app-id)})
+    (response/ok {:rules rules})))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
@@ -577,7 +591,7 @@
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
         token (ex/get-param! req [:body :token] uuid-util/coerce)
         {app-creator-id :creator_id} (app-model/get-by-id! {:id app-id})
-        {user-id :id} (req->auth-user! req)]
+        {user-id :id user-email :email} (req->auth-user! req)]
     (ex/assert-permitted!
      :ephemeral-app?
      app-id
@@ -586,6 +600,13 @@
     (app-admin-token-model/fetch! {:app-id app-id :token token})
     (app-model/change-creator! {:id app-id
                                 :new-creator-id user-id})
+    (posthog/capture! user-email
+                      "app:claim"
+                      {:app-id  (str app-id)
+                       :user-id (str user-id)
+                       :$email  user-email
+                       :$ip     (posthog/extract-client-ip req)
+                       :source  (posthog/extract-source req)})
     (response/ok {})))
 
 ;; --------
@@ -1324,10 +1345,12 @@
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
                                                                          :apps/write
                                                                          req)
-
         input-steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
         coerced (tx/coerce! input-steps)
         plan-result (schema-model/apply-plan-with-deletes! app-id coerced)]
+    (posthog/track! req
+                    "schema:push"
+                    {:app-id (str app-id)})
     (response/ok plan-result)))
 
 (defn schema-push-apply-post [req]
@@ -1352,6 +1375,9 @@
                                                                                           req)
         current-attrs (attr-model/get-by-app-id app-id)
         current-schema (schema-model/attrs->schema current-attrs)]
+    (posthog/track! req
+                    "schema:pull"
+                    {:app-id (str app-id)})
     (response/ok {:schema current-schema :attrs current-attrs :app-title app-title})))
 
 (defn perms-pull-get [req]
@@ -1360,6 +1386,9 @@
                                                                          req)
         perms (rule-model/get-by-app-id {:app-id app-id})
         r {:perms (:code perms)}]
+    (posthog/track! req
+                    "perms:pull"
+                    {:app-id (str app-id)})
     (response/ok r)))
 
 ;; -------------
@@ -1457,6 +1486,12 @@
         token (:id refresh-token)
         {email :email} (instant-user-model/get-by-id! {:id user-id})
         res {:token token :email email}]
+    (posthog/capture! email
+                      "auth:complete"
+                      {:user-id (str user-id)
+                       :$email  email
+                       :$ip     (posthog/extract-client-ip req)
+                       :source  (posthog/extract-source req)})
     (response/ok res)))
 
 ;; -------------

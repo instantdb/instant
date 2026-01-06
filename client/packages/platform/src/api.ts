@@ -303,6 +303,8 @@ async function jsonFetch<T>(
     ...(init?.headers || {}),
     'Instant-Platform-Version': version,
     'Instant-Core-Version': coreVersion,
+    'X-Instant-Source': 'platform-sdk',
+    'X-Instant-Version': version,
   };
   const res = await fetch(input, { ...init, headers });
   if (res.status === 200) {
