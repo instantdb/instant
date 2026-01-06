@@ -71,17 +71,18 @@ export function AppleClient({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col rounded-sm border"
+        className="flex flex-col rounded-sm border dark:border-neutral-700"
       >
-        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
+        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
-            <div className="flex gap-2">
-              {' '}
-              <Image className="dark:bg-white" alt="apple logo" src={logo} />
-              <SectionHeading>
+            <div className="flex items-center gap-2">
+              <Image className="dark:invert" alt="apple logo" src={logo} />
+              <div className="font-medium">
                 {client.client_name}{' '}
-                <span className="text-gray-400">(Apple)</span>
-              </SectionHeading>
+                <span className="text-gray-400 dark:text-neutral-500">
+                  (Apple)
+                </span>
+              </div>
             </div>
             {open ? (
               <ChevronUpIcon height={24} />
@@ -91,7 +92,7 @@ export function AppleClient({
           </div>
         </Collapsible.Trigger>
         <Collapsible.Content className="">
-          <div className="flex flex-col gap-4 border-t p-4">
+          <div className="flex flex-col gap-4 border-t p-4 dark:border-t-neutral-700">
             <Copyable label="Client Name" value={client.client_name} />
 
             <Copyable label="Services ID" value={client.client_id || ''} />
@@ -276,7 +277,7 @@ export function AddClientExpanded({
         onOpenChange={setRedirectOpen}
         className="flex flex-col rounded-sm border dark:border-neutral-700 dark:bg-neutral-800"
       >
-        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
+        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
             Redirect flow for Web (optional)
             {redirectOpen ? (

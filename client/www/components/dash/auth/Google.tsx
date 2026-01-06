@@ -36,7 +36,7 @@ import { useDarkMode } from '../DarkModeToggle';
 
 function NonceCheckNotice() {
   return (
-    <p className="text-sm text-gray-500">
+    <p className="dark:test-neutral-400 text-sm text-gray-500">
       This option skips nonce checks for ID tokens. This is useful in iOS
       environments, because libraries like `react-native-google-signin` do not
       let you pass a nonce over to google.
@@ -204,7 +204,7 @@ export function AddClientForm({
         />
       )}
       {appType === 'web' && (
-        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="dark flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
           <p className="overflow-hidden">
             Add{' '}
             <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
@@ -232,6 +232,7 @@ export function AddClientForm({
       )}
       {isNative(appType) && (
         <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+          {' '}
           <Checkbox
             checked={skipNonceChecks}
             onChange={setSkipNonceChecks}
@@ -387,17 +388,18 @@ const url = db.auth.createAuthorizationURL({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col rounded-sm border"
+        className="flex flex-col rounded-sm border dark:border-neutral-700"
       >
-        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
+        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
-            <div className="flex gap-2">
-              {' '}
+            <div className="flex items-center gap-2">
               <Image alt="google logo" src={googleIconSvg} />
-              <SectionHeading>
+              <div className="font-medium">
                 {client.client_name}{' '}
-                <span className="text-gray-400">(Google)</span>
-              </SectionHeading>
+                <span className="text-gray-400 dark:text-neutral-500">
+                  (Google)
+                </span>
+              </div>
             </div>
             {open ? (
               <ChevronUpIcon height={24} />
@@ -407,18 +409,14 @@ const url = db.auth.createAuthorizationURL({
           </div>
         </Collapsible.Trigger>
         <Collapsible.Content className="">
-          <div className="flex flex-col gap-4 border-t p-4">
-            <div className="flex items-center bg-white font-mono text-sm">
-              <span className="rounded-xs border bg-gray-50 px-2 py-0.5 text-sm font-bold text-gray-500">
-                {appTypeLabel(appType)}
-              </span>
-            </div>
+          <div className="flex flex-col gap-4 border-t p-4 dark:border-t-neutral-700">
+            <div className="">App Type: {appTypeLabel(appType)}</div>
 
             <Copyable label="Client name" value={client.client_name} />
             <Copyable label="Google client ID" value={client.client_id || ''} />
 
             {didSkipNonceChecks ? (
-              <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4">
+              <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
                 <Checkbox
                   checked={client.meta?.skipNonceChecks || false}
                   onChange={() => {}}
@@ -459,7 +457,7 @@ const url = db.auth.createAuthorizationURL({
                   <strong>2.</strong> Use the code below to generate a login
                   link in your app.
                 </Content>
-                <div className="overflow-auto rounded-sm border text-sm">
+                <div className="overflow-auto rounded-sm border text-sm dark:border-none">
                   <Fence
                     darkMode={darkMode}
                     code={exampleCode}
@@ -483,7 +481,7 @@ const url = db.auth.createAuthorizationURL({
                   <strong>1.</strong> Use the code below to sign in with
                   `react-native-google-signin`:
                 </Content>
-                <div className="overflow-auto rounded-sm border text-sm">
+                <div className="overflow-auto rounded-sm border text-sm dark:border-none">
                   <Fence
                     darkMode={darkMode}
                     code={exampleRNCode}

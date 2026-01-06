@@ -290,17 +290,18 @@ export function Client({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col rounded-sm border"
+        className="flex flex-col rounded-sm border dark:border-neutral-700"
       >
-        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
+        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
-            <div className="flex gap-2">
-              {' '}
-              <Image alt="google logo" src={linkedinIconSvg} />
-              <SectionHeading>
+            <div className="flex items-center gap-2">
+              <Image alt="linkedin logo" src={linkedinIconSvg} />
+              <div className="font-medium">
                 {client.client_name}{' '}
-                <span className="text-gray-400">(LinkedIn)</span>
-              </SectionHeading>
+                <span className="text-gray-400 dark:text-neutral-500">
+                  (LinkedIn)
+                </span>
+              </div>
             </div>
             {open ? (
               <ChevronUpIcon height={24} />
@@ -311,7 +312,7 @@ export function Client({
         </Collapsible.Trigger>
 
         <Collapsible.Content>
-          <div className="flex flex-col gap-4 border-t p-4">
+          <div className="flex flex-col gap-4 border-t p-4 dark:border-t-neutral-700">
             <Copyable label="Client name" value={client.client_name} />
             <Copyable
               label="LinkedIn client ID"
@@ -339,7 +340,7 @@ export function Client({
               <strong>2.</strong> Use the code below to generate a login link in
               your app.
             </Content>
-            <div className="overflow-auto rounded-sm border text-sm">
+            <div className="overflow-auto rounded-sm border text-sm dark:border-none">
               <Fence
                 darkMode={darkMode}
                 code={exampleCode({
