@@ -98,7 +98,7 @@ type AddOrDeleteAttr =
   | MigrationTxSpecific<'add-attr'>
   | MigrationTxSpecific<'delete-attr'>;
 
-type SuperMigrationTx =
+export type SuperMigrationTx =
   | MigrationTx
   | { type: 'create-namespace'; namespace: string; innerSteps: MigrationTx[] }
   | { type: 'delete-namespace'; namespace: string; innerSteps: MigrationTx[] };
