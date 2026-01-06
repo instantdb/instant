@@ -75,16 +75,16 @@ map to the [Instant transactions](/docs/instaml) you know:
 
 ```javascript
 // tx.todos[todoId].update({ title: "moop" })
-["update", "todos", todoId, { "title": "moop" }]
-
-// tx.goals[goalId].link({ todos: todoId })
-["link", "goals", goalId, { "todos": todoId }]
-
-// tx.goals[goalId].unlink({ todos: todoId })
-["unlink", "goals", goalId, { "todos": todoId }]
-
-// tx.goals[goalId].delete()
-["delete", "goals", goalId]
+['update', 'todos', todoId, { title: 'moop' }][
+  // tx.goals[goalId].link({ todos: todoId })
+  ('link', 'goals', goalId, { todos: todoId })
+][
+  // tx.goals[goalId].unlink({ todos: todoId })
+  ('unlink', 'goals', goalId, { todos: todoId })
+][
+  // tx.goals[goalId].delete()
+  ('delete', 'goals', goalId)
+];
 ```
 
 ## Subscriptions on the backend
