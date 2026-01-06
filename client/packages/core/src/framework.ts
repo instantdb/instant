@@ -310,7 +310,6 @@ export class FrameworkClient {
       const errWithMessage = new Error(
         'Error getting triples from framework client',
       );
-      // @ts-expect-error pre es2022
       errWithMessage.cause = err;
       throw errWithMessage;
     }

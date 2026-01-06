@@ -6,7 +6,7 @@
     "moduleResolution": "nodenext",
     "sourceMap": true,
     "inlineSources": true,
-    "target": "es2015",
+    "target": "ES2022",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "stripInternal": true,
