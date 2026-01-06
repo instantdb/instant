@@ -11,6 +11,7 @@ First and foremost, grab your app’s **APP_ID** and **ADMIN_TOKEN.** You can ge
 
 You can include **APP_ID** and **ADMIN_TOKEN** in HTTP headers to authenticate
 
+
     curl -X POST "https://api.instantdb.com/admin/query" \
          -H "Content-Type: application/json" \
          -H "Authorization: Bearer $ADMIN_TOKEN" \
@@ -18,7 +19,7 @@ You can include **APP_ID** and **ADMIN_TOKEN** in HTTP headers to authenticate
          # ...
 # 1. Making Queries
 
-To make queries, you can send a `POST /admin/query`: 
+To make queries, you can send a `POST /admin/query`:
 
 
     curl -X POST "https://api.instantdb.com/admin/query" \
@@ -27,7 +28,7 @@ To make queries, you can send a `POST /admin/query`:
          -H "App-Id: $APP_ID" \
          -d '{"query": {"goals": {}}}'
 
-We expect a body with a stringified InstaQL `query`: 
+We expect a body with a stringified InstaQL `query`:
 
 
     JSON.stringify({query: YOUR_INSTAQL_QUERY})
@@ -98,10 +99,10 @@ To make transactions, you can send a `POST /admin/transact`:
 
 # 3. Impersonating Users
 
-Sometimes you want to make queries or transactions *on behalf* of a user. If the user isn’t permitted, you want to fail. You can do this with the admin SDK. 
+Sometimes you want to make queries or transactions *on behalf* of a user. If the user isn’t permitted, you want to fail. You can do this with the admin SDK.
 
 **as-email**
-You can include the `as-email` header: 
+You can include the `as-email` header:
 
 
     curl -X POST "https://api.instantdb.com/admin/query" \
@@ -115,7 +116,7 @@ And you will make this transaction as the user `stepan.p@gmailcom`
 
 **as-token**
 
-Or, if you have a user’s `refresh_token`, you can use that too: 
+Or, if you have a user’s `refresh_token`, you can use that too:
 
 
     curl -X POST "https://api.instantdb.com/admin/query" \
@@ -126,7 +127,7 @@ Or, if you have a user’s `refresh_token`, you can use that too:
          -d '{"query": {"goals": {}}}'
 
 **as-guest**
-Alternatively, you can make a query or a transaction, as though you weren’t logged in: 
+Alternatively, you can make a query or a transaction, as though you weren’t logged in:
 
 
     curl -X POST "https://api.instantdb.com/admin/query" \
@@ -139,11 +140,11 @@ Alternatively, you can make a query or a transaction, as though you weren’t lo
 
 # 4. Custom auth
 
-Sometimes you want to implement custom auth flows. 
+Sometimes you want to implement custom auth flows.
 
 ## createToken
 
-If you want to create a user, or generate a refresh token for them, you can call `POST /admin/refresh_tokens` 
+If you want to create a user, or generate a refresh token for them, you can call `POST /admin/refresh_tokens`
 
 
     curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
@@ -154,7 +155,7 @@ If you want to create a user, or generate a refresh token for them, you can call
 
 If the user doesn’t exist we’ll create one for you. You’ll get back a `refresh_token`, which you can pass down to the frontend to log them in.
 
-## verifyToken 
+## verifyToken
 
 Similarly, if you want to verify a token, use `POST /runtime/auth/verify_refresh_token`
 
@@ -163,7 +164,7 @@ Similarly, if you want to verify a token, use `POST /runtime/auth/verify_refresh
          -H "Content-Type: application/json" \
          -d "{\"app-id\": \"$APP_ID\", \"refresh-token\": \"$REFRESH_TOKEN\"}"
 
-This will parse the $REFRESH_TOKEN return the `user` object 
+This will parse the $REFRESH_TOKEN return the `user` object
 
 To learn more about how to use `createToken` and `verifyToken`, [check out the docs](https://www.instantdb.com/docs/backend#custom-endpoints)
 
