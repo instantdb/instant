@@ -270,7 +270,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
     "allow": {
       "create": "isOwner"
     },
-    "bind": {"isOwner": "auth.id != null && auth.id == data.creatorId"}
+    "bind": { "isOwner": "auth.id != null && auth.id == data.creatorId" }
   }
 }
 ```

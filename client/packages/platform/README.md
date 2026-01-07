@@ -199,7 +199,7 @@ const perms: InstantRules = {
       update: 'isOwner',
       delete: 'isOwner',
     },
-    bind: {'isOwner': 'auth.id != null && auth.id == data.creatorId'},
+    bind: { isOwner: 'auth.id != null && auth.id == data.creatorId' },
   },
 };
 
@@ -271,7 +271,7 @@ const perms: InstantRules = {
       update: 'isOwner',
       delete: 'isOwner',
     },
-    bind: {'isOwner': 'auth.id != null && auth.id == data.creatorId'},
+    bind: { isOwner: 'auth.id != null && auth.id == data.creatorId' },
   },
 };
 
