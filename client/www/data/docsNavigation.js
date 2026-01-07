@@ -80,16 +80,11 @@ module.exports = [
         href: '/docs/auth/firebase',
         optionalLLM: true,
       },
-      {
-        title: 'OAuth apps',
-        href: '/docs/auth/platform-oauth',
-        optionalLLM: true,
-      },
       { title: 'Permissions', href: '/docs/permissions' },
     ],
   },
   {
-    title: 'Platform features',
+    title: 'Instant features',
     links: [
       { title: 'Managing users', href: '/docs/users' },
       {
@@ -98,6 +93,11 @@ module.exports = [
       },
       { title: 'Instant CLI', href: '/docs/cli' },
       { title: 'Devtool', href: '/docs/devtool', optionalLLM: true },
+      {
+        title: 'Platform API',
+        href: '/docs/platform-api',
+        optionalLLM: true,
+      },
       {
         title: 'Explorer Component',
         href: '/docs/explorer-component',
