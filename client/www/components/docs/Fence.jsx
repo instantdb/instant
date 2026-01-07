@@ -78,7 +78,7 @@ export function Fence({ children, language, showCopy, lineHighlight }) {
 
               if (lineHighlight) {
                 if (lineTokens.length === 0) {
-                  lineTokens = [<span key="empty">{' '}</span>];
+                  lineTokens = [<span key="empty"> </span>];
                 }
                 return (
                   <span

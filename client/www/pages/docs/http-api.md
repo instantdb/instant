@@ -72,17 +72,41 @@ curl -X POST "https://api.instantdb.com/admin/transact" \
 map to the [Instant transactions](/docs/instaml) you know:
 
 ```javascript
-// tx.todos[todoId].update({ title: "moop" })
-['update', 'todos', todoId, { title: 'moop' }][
-  // tx.goals[goalId].link({ todos: todoId })
-  ('link', 'goals', goalId, { todos: todoId })
-][
-  // tx.goals[goalId].unlink({ todos: todoId })
-  ('unlink', 'goals', goalId, { todos: todoId })
-][
-  // tx.goals[goalId].delete()
-  ('delete', 'goals', goalId)
-];
+[
+  // tx.goals[goalId1].update({title: "moop"})
+  [
+      "update",
+      "goals",
+      goalId1,
+      {
+          "title": "moop"
+      }
+  ],
+  // tx.goals[goalId1].link({todos: todoId1})
+  [
+      "link",
+      "goals",
+      goalId1,
+      {
+          "todos": todoId1
+      }
+  ],
+  // tx.goals[goalId1].unlink({todos: todoId1})
+  [
+      "unlink",
+      "goals",
+      goalId1
+      {
+          "todos": todoId1
+      }
+  ],
+  // tx.goals[goalId1].delete()
+  [
+      "delete",
+      "goals",
+      goalId1
+  ],
+]
 ```
 
 ## Subscriptions on the backend
@@ -198,27 +222,27 @@ curl -X GET "https://api.instantdb.com/admin/rooms/presence?room-type=chat&room-
 
 `POST /admin/sign_out` allows you to log out users. You can log out a user out from every session by passing in their `email` or `id`. Or you can log a user out from a particular session by passing in a `refresh_token`:
 
-```shell
+```shell {% lineHighlight="6,13,20" %}
 # All sessions for this email sign out
 curl -X POST "https://api.instantdb.com/admin/sign_out" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -d '{"email":"alyssa_p_hacker@instantdb.com"}' # 👈
+  -d '{"email":"alyssa_p_hacker@instantdb.com"}'
 
 # All sessions for this user id sign out
 curl -X POST "https://api.instantdb.com/admin/sign_out" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -d "{\"id\":\"$USER_ID\"}" # 👈
+  -d "{\"id\":\"$USER_ID\"}"
 
 # Just sign out the session for this refresh token
 curl -X POST "https://api.instantdb.com/admin/sign_out" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}" # 👈
+  -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}"
 ```
 
 ## Custom Auth
@@ -227,7 +251,7 @@ You can use `POST /admin/refresh_tokens` to generate auth tokens for your users.
 
 Pass in an `email` or an `id` to create a refresh token:
 
-```shell
+```shell {% lineHighlight="6,13" %}
 # By email
 curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
   -H "Content-Type: application/json" \
@@ -236,7 +260,6 @@ curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
   -d '{"email":"alyssa_p_hacker@instantdb.com"}'
 
 # Or by ID
-
 curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
@@ -301,7 +324,7 @@ Upload a file with `PUT /admin/storage/upload`:
 curl -X PUT "https://api.instantdb.com/admin/storage/upload" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -H "path: photos/demo.txt" \
+  -H "path: snippets/demo.txt" \
   -H "Content-Type: text/plain" \
   --data-binary "@demo.txt"
 ```
@@ -311,7 +334,7 @@ curl -X PUT "https://api.instantdb.com/admin/storage/upload" \
 Delete a file by path:
 
 ```shell
-curl -X DELETE "https://api.instantdb.com/admin/storage/files?filename=photos/demo.txt" \
+curl -X DELETE "https://api.instantdb.com/admin/storage/files?filename=snippets/demo.txt" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID"
 ```
@@ -323,7 +346,7 @@ curl -X POST "https://api.instantdb.com/admin/storage/files/delete" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  -d '{"filenames":["photos/1.txt","photos/2.txt"]}'
+  -d '{"filenames":["snippets/1.txt","snippets/2.txt"]}'
 ```
 
 ### List Files
