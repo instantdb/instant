@@ -389,6 +389,10 @@
                   :invites invites
                   :user {:id id :email email}})))
 
+(defn me-get [req]
+  (let [user (req->auth-user! req)]
+    (response/ok {:user user})))
+
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (member-invites-model/get-pending-for-invitee {:email "marky@instantdb.com"})
@@ -1842,6 +1846,7 @@
   (GET "/dash/admin-debug-uri" [] admin-debug-uri-get)
 
   (GET "/dash" [] dash-get)
+  (GET "/dash/me" [] me-get)
   (POST "/dash/apps" [] apps-post)
   (POST "/dash/profiles" [] profiles-post)
   (GET "/dash/apps/:app_id" [] apps-get)
