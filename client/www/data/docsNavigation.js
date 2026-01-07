@@ -45,6 +45,7 @@ module.exports = [
       { title: 'Writing data', href: '/docs/instaml' },
       { title: 'Reading data', href: '/docs/instaql' },
       { title: 'Instant on the backend', href: '/docs/backend' },
+      { title: 'Admin HTTP API', href: '/docs/http-api' },
       { title: 'Patterns', href: '/docs/patterns' },
     ],
   },
