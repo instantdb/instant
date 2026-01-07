@@ -1,0 +1,366 @@
+'use client';
+
+import { Dialog } from '@instantdb/components';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport, UIMessage } from 'ai';
+import React, { Fragment, useEffect, useState } from 'react';
+import { id } from '@instantdb/core';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import db from '@/lib/intern/docs-feedback/db';
+import {
+  PaperAirplaneIcon,
+  XMarkIcon,
+  PlusIcon,
+  ArrowsPointingOutIcon,
+  ArrowsPointingInIcon,
+} from '@heroicons/react/24/outline';
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from '../ai-elements/conversation';
+import {
+  BookIcon,
+  CopyIcon,
+  MessageSquareIcon,
+  RefreshCcwIcon,
+} from 'lucide-react';
+import { Shimmer } from '../ai-elements/shimmer';
+import {
+  Message,
+  MessageAction,
+  MessageActions,
+  MessageContent,
+  MessageResponse,
+} from '../ai-elements/message';
+import clsx from 'clsx';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui';
+import { Loader } from '../ai-elements/loader';
+import { type DocsUIMessage } from 'app/api/chat/route';
+
+interface ChatWidgetProps {
+  onClose: () => void;
+  isOpen: boolean;
+  forceModal: boolean;
+  setForceModal: (value: boolean) => void;
+}
+
+// Breakpoint for switching between sidebar and modal (matches Tailwind's md)
+const MD_BREAKPOINT = 768;
+
+export function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < MD_BREAKPOINT);
+    };
+
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
+  return isMobile;
+}
+
+export const ChatWidget: React.FC<ChatWidgetProps> = ({
+  isOpen,
+  onClose = () => {},
+  forceModal,
+  setForceModal,
+}) => {
+  const isMobile = useIsMobile();
+
+  const [defaultChatId] = useState(() => id());
+  const [chatId, setChatId] = useLocalStorage(
+    'docs_chat_id',
+    defaultChatId,
+    true,
+  );
+
+  const newChat = () => {
+    setChatId(id());
+  };
+
+  const { data } = db.useQuery({
+    chats: {
+      $: {
+        where: {
+          id: chatId,
+        },
+      },
+      messages: {
+        $: {
+          order: {
+            index: 'asc',
+          },
+        },
+      },
+    },
+  });
+
+  const chat = data?.chats[0];
+  const messages =
+    chat?.id === chatId
+      ? ((chat.messages || []) as unknown as DocsUIMessage[])
+      : [];
+
+  const showModal = isMobile || forceModal;
+
+  const chatHeader = (
+    <div className="flex items-center justify-between border-b px-4 py-3">
+      <h2 className="font-semibold text-gray-900">Chat with AI</h2>
+      <div className="flex items-center gap-1">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={newChat}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                aria-label="New chat"
+              >
+                <PlusIcon className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>New chat</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        {!isMobile && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setForceModal(!forceModal)}
+                  className="cursor-pointer rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                  aria-label={forceModal ? 'Dock to sidebar' : 'Pop out'}
+                >
+                  {forceModal ? (
+                    <ArrowsPointingInIcon className="h-5 w-5" />
+                  ) : (
+                    <ArrowsPointingOutIcon className="h-5 w-5" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{forceModal ? 'Dock to sidebar' : 'Pop out'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        <button
+          onClick={onClose}
+          className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+          aria-label="Close chat"
+        >
+          <XMarkIcon className="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+  );
+
+  const chatContent = (
+    <InnerChat
+      key={chatId}
+      chatId={chatId}
+      initialMessages={messages}
+      isOpen={isOpen}
+    />
+  );
+
+  // Mobile or forced modal: use modal dialog
+  if (showModal) {
+    return (
+      <Dialog
+        title="Chat with AI"
+        onClose={onClose}
+        open={isOpen}
+        hideCloseButton
+        className={clsx(
+          '!grid-rows-[auto_1fr] !gap-0 !overflow-hidden !p-0',
+          isMobile
+            ? '!h-[80vh] !w-[calc(100%-2rem)]'
+            : '!h-[80vh] !w-[calc(100%-4rem)] !max-w-4xl',
+        )}
+      >
+        {chatHeader}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {chatContent}
+        </div>
+      </Dialog>
+    );
+  }
+
+  // Desktop: use sidebar
+  return (
+    <aside
+      className={clsx(
+        'fixed top-14 right-0 bottom-0 z-20 w-96 border-l bg-white 2xl:w-[500px] dark:border-neutral-700 dark:bg-neutral-800',
+        'flex flex-col',
+        'transform transition-transform duration-300 ease-in-out',
+        isOpen ? 'translate-x-0' : 'translate-x-full',
+      )}
+    >
+      {chatHeader}
+      <div className="flex min-h-0 flex-1 flex-col">{chatContent}</div>
+    </aside>
+  );
+};
+
+const ReadFileMessage: React.FC<{ file: string }> = (props) => {
+  return (
+    <div className="flex w-fit items-center gap-1 rounded border bg-gray-50 p-1 px-2 text-sm text-gray-700 opacity-70 dark:border-neutral-500 dark:bg-neutral-600 dark:text-white/70">
+      <BookIcon width={12} />
+      <span>
+        <span className="font-bold">{props.file}</span>
+      </span>
+    </div>
+  );
+};
+
+const InnerChat: React.FC<{
+  chatId: string;
+  initialMessages: DocsUIMessage[];
+  isOpen: boolean;
+}> = ({ chatId, initialMessages, isOpen }) => {
+  const [input, setInput] = React.useState('');
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Focus the input when sidebar opens
+  React.useEffect(() => {
+    if (isOpen && inputRef.current) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  const { messages, sendMessage, status, regenerate } = useChat<DocsUIMessage>({
+    messages: initialMessages,
+    id: chatId,
+    generateId: id,
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      prepareSendMessagesRequest({ messages, id }) {
+        return { body: { message: messages[messages.length - 1], id } };
+      },
+    }),
+    onError: (error) => {
+      console.error('Chat error:', error);
+    },
+  });
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <Conversation className="relative min-h-0 flex-1 p-2">
+        <ConversationContent>
+          {messages.length === 0 ? (
+            <ConversationEmptyState
+              description="Messages will appear here as the conversation progresses."
+              icon={<MessageSquareIcon className="size-6" />}
+              title="Start a conversation"
+            />
+          ) : (
+            messages.map((message, messageIndex) => (
+              <Fragment key={message.id}>
+                {message.parts.map((part, i) => {
+                  switch (part.type) {
+                    case 'data-source':
+                      return <ReadFileMessage file={part.data.file} />;
+                    case 'text':
+                      const isLastMessage =
+                        messageIndex === messages.length - 1;
+                      return (
+                        <Fragment key={`${message.id}-${i}`}>
+                          <Message from={message.role}>
+                            <MessageContent>
+                              <MessageResponse>{part.text}</MessageResponse>
+                            </MessageContent>
+                            {message.role === 'assistant' && isLastMessage && (
+                              <MessageActions>
+                                <MessageAction
+                                  onClick={() => regenerate()}
+                                  label="Retry"
+                                >
+                                  <RefreshCcwIcon className="size-3" />
+                                </MessageAction>
+                                <MessageAction
+                                  onClick={() =>
+                                    navigator.clipboard.writeText(part.text)
+                                  }
+                                  label="Copy"
+                                >
+                                  <CopyIcon className="size-3" />
+                                </MessageAction>
+                              </MessageActions>
+                            )}
+                          </Message>
+                        </Fragment>
+                      );
+                    default:
+                      return null;
+                  }
+                })}
+              </Fragment>
+            ))
+          )}
+          {(status === 'submitted' || status === 'streaming') &&
+            (messages.length === 0 ||
+              messages[messages.length - 1].role !== 'assistant' ||
+              !messages[messages.length - 1].parts?.some(
+                (p) => p.type === 'text' && p.text,
+              )) && (
+              <Message from="assistant">
+                <MessageContent>
+                  <Loader />
+                </MessageContent>
+              </Message>
+            )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+
+      <form
+        className="px-2 pb-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (input.trim()) {
+            sendMessage({ text: input });
+            setInput('');
+          }
+        }}
+      >
+        <div className="flex items-center rounded-md border focus-within:border-[#F54A00]">
+          <input
+            ref={inputRef}
+            className="grow border-none bg-transparent ring-0 outline-none focus:outline-none"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={status !== 'ready'}
+            placeholder={
+              messages.length === 0
+                ? 'Ask a question...'
+                : 'Ask a follow-up question...'
+            }
+          />
+          <button
+            type="submit"
+            className="cursor-pointer px-2"
+            disabled={status !== 'ready'}
+          >
+            <PaperAirplaneIcon width={20} />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};

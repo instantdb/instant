@@ -21,6 +21,20 @@ const rules = {
       update: '(isCreator && updatesAreValid) || isAdmin',
     },
   },
+  chats: {
+    allow: {
+      view: 'true',
+      $default: 'true',
+    },
+  },
+  messages: {
+    allow: {
+      view: 'true',
+      create: 'true',
+      update: 'true',
+      delete: 'true',
+    },
+  },
   $default: {
     allow: {
       $default: 'false',
