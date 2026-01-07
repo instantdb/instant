@@ -101,8 +101,8 @@
 
 (defn normalize-bind
   "Converts bind from either array format or object format to a flat sequence.
-   Array: [\"k1\" \"v1\" \"k2\" \"v2\"] -> (\"k1\" \"v1\" \"k2\" \"v2\")
-   Object: {\"k1\" \"v1\" \"k2\" \"v2\"} -> (\"k1\" \"v1\" \"k2\" \"v2\")"
+   Array: [k1 v1 k2 v2] -> (k1 v1 k2 v2)
+   Object: {k1 v1, k2 v2} -> (k1 v1 k2 v2)"
   [bind]
   (if (map? bind)
     (mapcat identity bind)

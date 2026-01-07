@@ -9,9 +9,7 @@ const rules = {
     },
   },
   tasks: {
-    bind: {
-      isMember: "auth.id in data.ref('project.members.id')",
-    },
+    bind: { isMember: "auth.id in data.ref('project.members.id')" },
     allow: {
       $default: 'isMember',
     },
