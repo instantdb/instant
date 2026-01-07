@@ -45,7 +45,6 @@ module.exports = [
       { title: 'Writing data', href: '/docs/instaml' },
       { title: 'Reading data', href: '/docs/instaql' },
       { title: 'Instant on the backend', href: '/docs/backend' },
-      { title: 'Admin HTTP API', href: '/docs/http-api' },
       { title: 'Patterns', href: '/docs/patterns' },
     ],
   },
@@ -107,6 +106,7 @@ module.exports = [
       { title: 'Custom emails', href: '/docs/emails', optionalLLM: true },
       { title: 'App teams', href: '/docs/teams', optionalLLM: true },
       { title: 'Storage', href: '/docs/storage' },
+      { title: 'Admin HTTP API', href: '/docs/http-api' },
     ],
   },
 ];

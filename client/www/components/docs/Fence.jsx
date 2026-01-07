@@ -6,10 +6,41 @@ import { useState } from 'react';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { rosePineDawnTheme } from '@/lib/rosePineDawnTheme';
 
-export function Fence({ children, language, showCopy }) {
+function parseLineHighlights(lineHighlight) {
+  if (!lineHighlight) {
+    return new Set();
+  }
+
+  const highlights = new Set();
+  const ranges = String(lineHighlight).split(',');
+
+  for (const range of ranges) {
+    const [startRaw, endRaw] = range.split('-').map((part) => part.trim());
+    const start = Number.parseInt(startRaw, 10);
+    if (!Number.isFinite(start)) {
+      continue;
+    }
+
+    const end = endRaw ? Number.parseInt(endRaw, 10) : start;
+    if (!Number.isFinite(end)) {
+      continue;
+    }
+
+    const from = Math.min(start, end);
+    const to = Math.max(start, end);
+    for (let i = from; i <= to; i += 1) {
+      highlights.add(i);
+    }
+  }
+
+  return highlights;
+}
+
+export function Fence({ children, language, showCopy, lineHighlight }) {
   const [copyLabel, setCopyLabel] = useState('Copy');
 
   const app = useContext(SelectedAppContext);
+  const highlightedLines = parseLineHighlights(lineHighlight);
 
   const code = children
     .trimEnd()
@@ -28,20 +59,30 @@ export function Fence({ children, language, showCopy }) {
       language={language}
       theme={rosePineDawnTheme}
     >
-      {({ className, style, tokens, getTokenProps }) => (
+      {({ className, style, tokens, getLineProps, getTokenProps }) => (
         <div className="relative text-sm">
           <pre className={className} style={style}>
-            {tokens.map((line, lineIndex) => (
-              <Fragment key={lineIndex}>
-                {line
-                  .filter((token) => !token.empty)
-                  .map((token, tokenIndex) => {
-                    const { key, ...props } = getTokenProps({ token });
-                    return <span key={key || tokenIndex} {...props} />;
-                  })}
-                {'\n'}
-              </Fragment>
-            ))}
+            {tokens.map((line, lineIndex) => {
+              const isHighlighted = highlightedLines.has(lineIndex + 1);
+              let lineTokens = line
+                .filter((token) => !token.empty)
+                .map((token, tokenIndex) => {
+                  const { key, ...props } = getTokenProps({ token });
+                  return <span key={key || tokenIndex} {...props} />;
+                });
+
+              if (lineTokens.length === 0) {
+                lineTokens = [<span key="empty"> </span>];
+              }
+
+              const lineProps = getLineProps({
+                line,
+                key: lineIndex,
+                className: isHighlighted ? 'highlighted' : undefined,
+              });
+
+              return <div {...lineProps}>{lineTokens}</div>;
+            })}
           </pre>
           {showCopy && (
             <div className="absolute top-0 right-0 m-2">

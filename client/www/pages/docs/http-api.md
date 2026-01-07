@@ -20,13 +20,11 @@ If you give this documentation to your AI agent, it can create a custom SDK for 
 First and foremost, grab your app's `APP_ID` and `ADMIN_TOKEN`. You can get this by going to your
 [dashboard](https://instantdb.com/dash). To authenticate requests, include them in your HTTP headers:
 
-```shell
+```shell {% lineHighlight="3,4" %}
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
-  # <-- Admin token here
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  # <-- App ID here
-  -H "app-id: $APP_ID" \
+  -H "App-Id: $APP_ID" \
   -d '{"query":{"goals":{}}}'
 ```
 
@@ -42,7 +40,7 @@ To make queries, run `POST /admin/query` with an InstaQL query:
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
+  -H "App-Id: $APP_ID" \
   -d '{"query":{"goals":{},"todos":{}}}'
 ```
 
@@ -66,7 +64,7 @@ To make transactions, send `POST /admin/transact` with `steps`:
 curl -X POST "https://api.instantdb.com/admin/transact" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
+  -H "App-Id: $APP_ID" \
   -d '{"steps":[["update","todos","<a-todo-uuid>",{"title":"Get fit"}]]}'
 ```
 
@@ -74,17 +72,41 @@ curl -X POST "https://api.instantdb.com/admin/transact" \
 map to the [Instant transactions](/docs/instaml) you know:
 
 ```javascript
-// tx.todos[todoId].update({ title: "moop" })
-['update', 'todos', todoId, { title: 'moop' }][
-  // tx.goals[goalId].link({ todos: todoId })
-  ('link', 'goals', goalId, { todos: todoId })
-][
-  // tx.goals[goalId].unlink({ todos: todoId })
-  ('unlink', 'goals', goalId, { todos: todoId })
-][
-  // tx.goals[goalId].delete()
-  ('delete', 'goals', goalId)
-];
+[
+  // tx.goals[goalId1].update({title: "moop"})
+  [
+      "update",
+      "goals",
+      goalId1,
+      {
+          "title": "moop"
+      }
+  ],
+  // tx.goals[goalId1].link({todos: todoId1})
+  [
+      "link",
+      "goals",
+      goalId1,
+      {
+          "todos": todoId1
+      }
+  ],
+  // tx.goals[goalId1].unlink({todos: todoId1})
+  [
+      "unlink",
+      "goals",
+      goalId1
+      {
+          "todos": todoId1
+      }
+  ],
+  // tx.goals[goalId1].delete()
+  [
+      "delete",
+      "goals",
+      goalId1
+  ],
+]
 ```
 
 ## Subscriptions on the backend
@@ -97,7 +119,7 @@ The connection stays open and streams updates.
 curl -N -X POST "https://api.instantdb.com/admin/subscribe-query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
+  -H "App-Id: $APP_ID" \
   -d '{"query":{"tasks":{}}}'
 ```
 
@@ -111,39 +133,36 @@ when they are no longer needed.
 When you use the admin API, you can make _any_ query or transaction. As an admin, you bypass permissions.
 
 But sometimes you want to make requests on behalf of a
-user and respect permissions. You can do this by passing the `as-email`, `as-token`, or `as-guest` headers.
+user and respect permissions. You can do this by passing the `As-Email`, `As-Token`, or `As-Guest` headers.
 
-```shell
+```shell {% lineHighlight="6,14,22" %}
 # Scoped by their email
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
-  # 👇
-  -H "as-email: alyssa_p_hacker@instantdb.com" \
+  -H "App-Id: $APP_ID" \
+  -H "As-Email: alyssa_p_hacker@instantdb.com" \
   -d '{"query":{"goals":{}}}'
 
 # Or with their auth token
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
-  # 👇
-  -H "as-token: $REFRESH_TOKEN" \
+  -H "App-Id: $APP_ID" \
+  -H "As-Token: $REFRESH_TOKEN" \
   -d '{"query":{"goals":{}}}'
 
 # Or use the db as a guest
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
-  # 👇
-  -H "as-guest: true" \
+  -H "App-Id: $APP_ID" \
+  -H "As-Guest: true" \
   -d '{"query":{"goals":{}}}'
 ```
 
 {% callout type="note" %}
-`as-email` requires an `ADMIN_TOKEN`. For `as-token` and `as-guest`, you could skip the
+`As-Email` requires an `ADMIN_TOKEN`. For `As-Token` and `As-Guest`, you could skip the
 `Authorization` if you want too.
 {% /callout %}
 
@@ -155,17 +174,17 @@ Use `GET /admin/users` to fetch an app user by `email`, `id`, or `refresh_token`
 # By email!
 curl -X GET "https://api.instantdb.com/admin/users?email=alyssa_p_hacker@instantdb.com" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID"
+  -H "App-Id: $APP_ID"
 
 # By id
 curl -X GET "https://api.instantdb.com/admin/users?id=$USER_ID" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID"
+  -H "App-Id: $APP_ID"
 
 # Or by a refresh token
 curl -X GET "https://api.instantdb.com/admin/users?refresh_token=$REFRESH_TOKEN" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID"
+  -H "App-Id: $APP_ID"
 ```
 
 ## Delete a user
@@ -176,17 +195,17 @@ Use `DELETE /admin/users` to delete an app user by `email`, `id`, or `refresh_to
 # By email
 curl -X DELETE "https://api.instantdb.com/admin/users?email=alyssa_p_hacker@instantdb.com" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID"
+  -H "App-Id: $APP_ID"
 
 # By id
 curl -X DELETE "https://api.instantdb.com/admin/users?id=$USER_ID" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID"
+  -H "App-Id: $APP_ID"
 
 # Or by an auth token
 curl -X DELETE "https://api.instantdb.com/admin/users?refresh_token=$REFRESH_TOKEN" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID"
+  -H "App-Id: $APP_ID"
 ```
 
 ## Presence in the Backend
@@ -196,34 +215,34 @@ If you use [rooms & presence](/docs/presence-and-topics), you may want to query 
 ```shell
 curl -X GET "https://api.instantdb.com/admin/rooms/presence?room-type=chat&room-id=room-123" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID"
+  -H "App-Id: $APP_ID"
 ```
 
 ## Sign Out
 
 `POST /admin/sign_out` allows you to log out users. You can log out a user out from every session by passing in their `email` or `id`. Or you can log a user out from a particular session by passing in a `refresh_token`:
 
-```shell
+```shell {% lineHighlight="6,13,20" %}
 # All sessions for this email sign out
 curl -X POST "https://api.instantdb.com/admin/sign_out" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
-  -d '{"email":"alyssa_p_hacker@instantdb.com"}' # 👈
+  -H "App-Id: $APP_ID" \
+  -d '{"email":"alyssa_p_hacker@instantdb.com"}'
 
 # All sessions for this user id sign out
 curl -X POST "https://api.instantdb.com/admin/sign_out" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
-  -d "{\"id\":\"$USER_ID\"}" # 👈
+  -H "App-Id: $APP_ID" \
+  -d "{\"id\":\"$USER_ID\"}"
 
 # Just sign out the session for this refresh token
 curl -X POST "https://api.instantdb.com/admin/sign_out" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
-  -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}" # 👈
+  -H "App-Id: $APP_ID" \
+  -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}"
 ```
 
 ## Custom Auth
@@ -232,20 +251,19 @@ You can use `POST /admin/refresh_tokens` to generate auth tokens for your users.
 
 Pass in an `email` or an `id` to create a refresh token:
 
-```shell
+```shell {% lineHighlight="6,13" %}
 # By email
 curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
+  -H "App-Id: $APP_ID" \
   -d '{"email":"alyssa_p_hacker@instantdb.com"}'
 
 # Or by ID
-
 curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
+  -H "App-Id: $APP_ID" \
   -d "{\"id\":\"$USER_ID\"}"
 ```
 
@@ -260,7 +278,7 @@ We support a [magic code flow](/docs/auth) out of the box. However, if you'd lik
 curl -X POST "https://api.instantdb.com/admin/magic_code" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
+  -H "App-Id: $APP_ID" \
   -d '{"email":"alyssa_p_hacker@instantdb.com"}'
 ```
 
@@ -270,7 +288,7 @@ You can also use Instant's default email provider to send a magic code:
 curl -X POST "https://api.instantdb.com/admin/send_magic_code" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
+  -H "App-Id: $APP_ID" \
   -d '{"email":"alyssa_p_hacker@instantdb.com"}'
 ```
 
@@ -280,7 +298,7 @@ Similarly, you can verify a magic code too:
 curl -X POST "https://api.instantdb.com/admin/verify_magic_code" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
+  -H "App-Id: $APP_ID" \
   -d '{"email":"alyssa_p_hacker@instantdb.com","code":"123456"}'
 ```
 
@@ -305,8 +323,8 @@ Upload a file with `PUT /admin/storage/upload`:
 ```shell
 curl -X PUT "https://api.instantdb.com/admin/storage/upload" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
-  -H "path: photos/demo.txt" \
+  -H "App-Id: $APP_ID" \
+  -H "Path: snippets/demo.txt" \
   -H "Content-Type: text/plain" \
   --data-binary "@demo.txt"
 ```
@@ -316,9 +334,9 @@ curl -X PUT "https://api.instantdb.com/admin/storage/upload" \
 Delete a file by path:
 
 ```shell
-curl -X DELETE "https://api.instantdb.com/admin/storage/files?filename=photos/demo.txt" \
+curl -X DELETE "https://api.instantdb.com/admin/storage/files?filename=snippets/demo.txt" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID"
+  -H "App-Id: $APP_ID"
 ```
 
 Delete multiple files by path:
@@ -327,8 +345,8 @@ Delete multiple files by path:
 curl -X POST "https://api.instantdb.com/admin/storage/files/delete" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
-  -d '{"filenames":["photos/1.txt","photos/2.txt"]}'
+  -H "App-Id: $APP_ID" \
+  -d '{"filenames":["snippets/1.txt","snippets/2.txt"]}'
 ```
 
 ### List Files
@@ -339,6 +357,6 @@ List files by querying `$files`:
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "app-id: $APP_ID" \
+  -H "App-Id: $APP_ID" \
   -d '{"query":{"$files":{}}}'
 ```

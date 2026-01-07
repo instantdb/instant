@@ -20,6 +20,9 @@ const nodes = {
       language: {
         type: String,
       },
+      lineHighlight: {
+        type: String,
+      },
       showCopy: {
         type: Boolean,
       },
