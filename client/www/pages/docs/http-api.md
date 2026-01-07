@@ -20,12 +20,10 @@ If you give this documentation to your AI agent, it can create a custom SDK for 
 First and foremost, grab your app's `APP_ID` and `ADMIN_TOKEN`. You can get this by going to your
 [dashboard](https://instantdb.com/dash). To authenticate requests, include them in your HTTP headers:
 
-```shell
+```shell {% lineHighlight="3,4" %}
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
-  # <-- Admin token here
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  # <-- App ID here
   -H "app-id: $APP_ID" \
   -d '{"query":{"goals":{}}}'
 ```
@@ -113,13 +111,12 @@ When you use the admin API, you can make _any_ query or transaction. As an admin
 But sometimes you want to make requests on behalf of a
 user and respect permissions. You can do this by passing the `as-email`, `as-token`, or `as-guest` headers.
 
-```shell
+```shell {% lineHighlight="6,14,22" %}
 # Scoped by their email
 curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  # 👇
   -H "as-email: alyssa_p_hacker@instantdb.com" \
   -d '{"query":{"goals":{}}}'
 
@@ -128,7 +125,6 @@ curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  # 👇
   -H "as-token: $REFRESH_TOKEN" \
   -d '{"query":{"goals":{}}}'
 
@@ -137,7 +133,6 @@ curl -X POST "https://api.instantdb.com/admin/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "app-id: $APP_ID" \
-  # 👇
   -H "as-guest: true" \
   -d '{"query":{"goals":{}}}'
 ```

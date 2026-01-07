@@ -164,16 +164,15 @@ pre[class*='language-'] > code[class*='language-'] {
   z-index: 1;
 }
 
-.line-highlight,
-.highlight-lines .highlighted {
+.line-highlight {
   position: absolute;
   left: 0;
   right: 0;
   padding: inherit 0;
   margin-top: 1em;
 
-  background: #dfdad9;
-  box-shadow: inset 5px 0 0 #575279;
+  background: #f4ede8;
+  box-shadow: inset 2px 0 0 #cecacd;
 
   z-index: 0;
 
@@ -181,4 +180,17 @@ pre[class*='language-'] > code[class*='language-'] {
 
   line-height: inherit;
   white-space: pre;
+}
+
+.highlight-lines .highlighted {
+  display: block;
+  margin: 0 -1em;
+  padding: 0 1em;
+
+  background: #f4ede8;
+  box-shadow: inset 2px 0 0 #cecacd;
+}
+
+.highlight-lines .code-line {
+  display: block;
 }
