@@ -172,6 +172,35 @@ newData.ref('x')
 data.ref(someVar + '.members.id')
 ```
 
+## $users Permissions
+
+- Default `view` permission is `auth.id == data.id`
+- Default `create`, `update`, and `delete` permissions is false
+- Can override `view` and `update`
+- Cannot override `create` or `delete`
+
+## Field-level Permissions
+
+Restrict access to specific fields while keeping the entity public:
+
+```json
+{
+  "$users": {
+    "allow": {
+      "view": "true"
+    },
+    "fields": {
+      "email": "auth.id == data.id"
+    }
+  }
+}
+```
+
+Notes:
+
+- Field rules override entity-level `view` for that field
+- Useful for hiding sensitive data (emails, phone numbers) on public entities
+
 # Best Practices
 
 ## Pass `schema` when initializing Instant
