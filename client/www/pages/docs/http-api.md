@@ -133,7 +133,7 @@ when they are no longer needed.
 When you use the admin API, you can make _any_ query or transaction. As an admin, you bypass permissions.
 
 But sometimes you want to make requests on behalf of a
-user and respect permissions. You can do this by passing the `as-email`, `as-token`, or `as-guest` headers.
+user and respect permissions. You can do this by passing the `As-Email`, `As-Token`, or `As-Guest` headers.
 
 ```shell {% lineHighlight="6,14,22" %}
 # Scoped by their email
@@ -162,7 +162,7 @@ curl -X POST "https://api.instantdb.com/admin/query" \
 ```
 
 {% callout type="note" %}
-`as-email` requires an `ADMIN_TOKEN`. For `as-token` and `as-guest`, you could skip the
+`As-Email` requires an `ADMIN_TOKEN`. For `As-Token` and `As-Guest`, you could skip the
 `Authorization` if you want too.
 {% /callout %}
 
