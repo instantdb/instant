@@ -59,14 +59,9 @@ export function Fence({ children, language, showCopy, lineHighlight }) {
       language={language}
       theme={rosePineDawnTheme}
     >
-      {({ className, style, tokens, getTokenProps }) => (
+      {({ className, style, tokens, getLineProps, getTokenProps }) => (
         <div className="relative text-sm">
-          <pre
-            className={
-              lineHighlight ? `${className} highlight-lines` : className
-            }
-            style={style}
-          >
+          <pre className={className} style={style}>
             {tokens.map((line, lineIndex) => {
               const isHighlighted = highlightedLines.has(lineIndex + 1);
               let lineTokens = line
@@ -76,26 +71,17 @@ export function Fence({ children, language, showCopy, lineHighlight }) {
                   return <span key={key || tokenIndex} {...props} />;
                 });
 
-              if (lineHighlight) {
-                if (lineTokens.length === 0) {
-                  lineTokens = [<span key="empty"> </span>];
-                }
-                return (
-                  <span
-                    key={lineIndex}
-                    className={`code-line${isHighlighted ? ' highlighted' : ''}`}
-                  >
-                    {lineTokens}
-                  </span>
-                );
+              if (lineTokens.length === 0) {
+                lineTokens = [<span key="empty"> </span>];
               }
 
-              return (
-                <Fragment key={lineIndex}>
-                  {lineTokens}
-                  {'\n'}
-                </Fragment>
-              );
+              const lineProps = getLineProps({
+                line,
+                key: lineIndex,
+                className: isHighlighted ? 'highlighted' : undefined,
+              });
+
+              return <div {...lineProps}>{lineTokens}</div>;
             })}
           </pre>
           {showCopy && (

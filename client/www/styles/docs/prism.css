@@ -182,15 +182,14 @@ pre[class*='language-'] > code[class*='language-'] {
   white-space: pre;
 }
 
-.highlight-lines .highlighted {
+.token-line {
   display: block;
+}
+
+.token-line.highlighted {
   margin: 0 -1em;
   padding: 0 1em;
 
   background: #f4ede8;
   box-shadow: inset 2px 0 0 #cecacd;
-}
-
-.highlight-lines .code-line {
-  display: block;
 }
