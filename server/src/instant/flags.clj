@@ -313,3 +313,6 @@
 
 (defn query-modifiers [app-id query-hash]
   (get-in (query-result) [:query-modifiers app-id query-hash]))
+
+(defn failing-over? []
+  (toggled? :failing-over))

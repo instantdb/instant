@@ -2,6 +2,7 @@
   (:require
    [chime.core :as chime-core]
    [instant.config :as config]
+   [instant.flags :as flags]
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
@@ -120,12 +121,13 @@
                                  :ids app-ids}))))
 
 (defn handle-sweep [_]
-  (tracer/with-span! {:name "ephemeral-app-sweeper/sweep"}
-    (sweep-for-apps-created-before
-     (-> (date/est-now)
-         ;; give 1 extra day as a grace period
-         (.minusDays (inc expiration-days))
-         (.toInstant)))))
+  (when-not (flags/failing-over?)
+    (tracer/with-span! {:name "ephemeral-app-sweeper/sweep"}
+      (sweep-for-apps-created-before
+       (-> (date/est-now)
+           ;; give 1 extra day as a grace period
+           (.minusDays (inc expiration-days))
+           (.toInstant))))))
 
 (defn start []
   (tracer/record-info! {:name "ephemeral-app-sweeper/schedule"})

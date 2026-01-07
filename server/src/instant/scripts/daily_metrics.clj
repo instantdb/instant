@@ -6,7 +6,7 @@
    [clojure.tools.logging :as log]
    [instant.config :as config]
    [instant.discord :as discord]
-   [instant.flags :refer [get-emails]]
+   [instant.flags :as flags :refer [get-emails]]
    [instant.grab :as grab]
    [instant.intern.metrics :as metrics]
    [instant.jdbc.aurora :as aurora]
@@ -119,27 +119,28 @@
 
 (defn daily-job!
   [^Instant date]
-  (let [date-minus-one (-> date (.minus (Period/ofDays 1)))
-        date-fn (fn [^Instant x] (date/numeric-date-str (.atZone x date/pst-zone)))
-        ;; We run this job for a particular day
-        date-str (date-fn date)
-        ;; But report the metrics for the previous day since we don't
-        ;; have the full day's data yet
-        date-minus-one-str (date-fn date-minus-one)]
-    (grab/run-once!
-     (str "daily-metrics-" date-str)
-     (fn []
-       (insert-new-activity)
-       (let [conn (aurora/conn-pool :read)
-             charts (->> (metrics/overview-metrics conn)
-                         :charts
-                         (map (fn [[k chart]]
-                                {:name (format "%s.png" (name k))
-                                 :content-type "image/png"
-                                 ;; 273/173 is how discord resizes images
-                                 :content (metrics/chart->png-bytes chart
-                                                                    (* 2 273) (* 2 173))})))]
-         (send-metrics-to-discord! conn charts date-minus-one-str))))))
+  (when-not (flags/failing-over?)
+    (let [date-minus-one (-> date (.minus (Period/ofDays 1)))
+          date-fn (fn [^Instant x] (date/numeric-date-str (.atZone x date/pst-zone)))
+          ;; We run this job for a particular day
+          date-str (date-fn date)
+          ;; But report the metrics for the previous day since we don't
+          ;; have the full day's data yet
+          date-minus-one-str (date-fn date-minus-one)]
+      (grab/run-once!
+       (str "daily-metrics-" date-str)
+       (fn []
+         (insert-new-activity)
+         (let [conn (aurora/conn-pool :read)
+               charts (->> (metrics/overview-metrics conn)
+                           :charts
+                           (map (fn [[k chart]]
+                                  {:name (format "%s.png" (name k))
+                                   :content-type "image/png"
+                                   ;; 273/173 is how discord resizes images
+                                   :content (metrics/chart->png-bytes chart
+                                                                      (* 2 273) (* 2 173))})))]
+           (send-metrics-to-discord! conn charts date-minus-one-str)))))))
 
 (comment
   (def t1 (-> (LocalDate/parse "2024-10-09")
