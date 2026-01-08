@@ -123,7 +123,7 @@ To do this, you can use the Platform SDK and set up Oauth. Follow the tutorial i
 When you're done and a user clicks "Sign in with Instant" in your app, you'll get a token that looks like this:
 
 ```bash
-pat_xxx11x1xxx1xx1x11x1x1111xxx1xx11x11xxxx1x1x1x1111xxx11111xxx111x
+prt_xxx11x1xxx1xx1x11x1x1111xxx1xx11x11xxxx1x1x1x1111xxx11111xxx111x
 ```
 
 When you use this token to create apps, they will get associated to that user's account.
