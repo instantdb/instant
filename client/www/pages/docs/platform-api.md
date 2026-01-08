@@ -12,8 +12,8 @@ In this document, we'll show you:
 
 1. The tools at your disposal
 2. How to create temporary apps
-2. How to create long-lived apps
-3. How to manage schemas and permissions
+3. How to create long-lived apps
+4. How to manage schemas and permissions
 
 Let's get into it!
 
@@ -68,11 +68,11 @@ Successfully created new app!
 ```typescript
 import { PlatformApi } from '@instantdb/platform';
 
-const api = new PlatformApi({ });
+const api = new PlatformApi({});
 
 const app = await api.createTemporaryApp({
-  title: 'my-new-app'
-})
+  title: 'my-new-app',
+});
 
 console.log('app ->', app);
 ```

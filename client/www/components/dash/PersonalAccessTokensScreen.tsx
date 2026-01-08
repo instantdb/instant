@@ -184,7 +184,7 @@ function CopyTokenDialog({
             is lost.
           </p>
         </Content>
-        <div className="min-w-0 w-full max-w-full overflow-x-auto">
+        <div className="w-full max-w-full min-w-0 overflow-x-auto">
           <Copyable value={token} label="Token" defaultHidden={true} />
         </div>
       </div>
