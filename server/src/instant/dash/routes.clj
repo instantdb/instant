@@ -50,7 +50,7 @@
             [instant.session-counter :as session-counter]
             [instant.storage.coordinator :as storage-coordinator]
             [instant.stripe :as stripe]
-            [instant.superadmin.routes :refer [req->superadmin-app!]]
+            [instant.superadmin.routes :refer [req->superadmin-app! req->superadmin-user!]]
             [instant.util.async :refer [fut-bg]]
             [instant.util.crypt :as crypt-util]
             [instant.util.date :as date]
@@ -87,6 +87,13 @@
     (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token
                                                :auth? true})))
 
+(defn req->auth-user-accepting-superadmin-token! [scope req]
+  (let [refresh-token (http-util/req->bearer-token! req)]
+    (if (uuid? refresh-token)
+      (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token
+                                                 :auth? true})
+      (req->superadmin-user! scope req))))
+
 (defn req->app-and-user!
   ([req] (req->app-and-user! :owner req))
   ([least-privilege req]
@@ -114,18 +121,19 @@
     {:create-fake-objects? true}
     (instant-user-model/get-by-email {:email "marky@instantdb.com"}) f))
 
+(defn org-with-role-for-user!
+  [least-privilege {:keys [org-id user]}]
+  (let [org-with-role (org-model/get-org-for-user! {:org-id org-id
+                                                    :user-id (:id user)})]
+    (assert-least-privilege! least-privilege (:role org-with-role))
+    {:org org-with-role :user user :role (:role org-with-role)}))
+
 (defn req->org-and-user!
   ([req] (req->org-and-user! :owner req))
   ([least-privilege req]
    (let [org-id (ex/get-param! req [:params :org_id] uuid-util/coerce)
-         {user-id :id :as user} (req->auth-user! req)
-         org-with-role (org-model/get-org-for-user! {:org-id org-id
-                                                     :user-id user-id})]
-
-     (assert-least-privilege!
-      least-privilege
-      (:role org-with-role))
-     {:org org-with-role :user user :role (:role org-with-role)})))
+         user (req->auth-user! req)]
+     (org-with-role-for-user! least-privilege {:org-id org-id :user user}))))
 
 (comment
   (with-team-app-fixtures
@@ -400,15 +408,15 @@
         id (ex/get-param! req [:body :id] uuid-util/coerce)
         token (ex/get-param! req [:body :admin_token] uuid-util/coerce)
         org-id-input (ex/get-optional-param! req [:body :org_id] uuid-util/coerce)
+        user (req->auth-user-accepting-superadmin-token! :apps/write req)
         owner-fields (if org-id-input
-                       (let [org-id (-> (req->org-and-user! :collaborator (assoc-in req
-                                                                                    [:params :org_id]
-                                                                                    org-id-input))
+                       (let [org-id (-> (org-with-role-for-user!
+                                         :collaborator
+                                         {:org-id org-id-input :user user})
                                         :org
                                         :id)]
                          {:org-id org-id})
-                       (let [{creator-id :id} (req->auth-user! req)]
-                         {:creator-id creator-id}))
+                       {:creator-id (:id user)})
         app (app-model/create!
              (merge {:id id
                      :title title
