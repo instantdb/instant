@@ -87,7 +87,7 @@
 (defn advance-primary-aggregator-to-lsn [remote-lsn]
   (let [listener (aggregator/start-slot-listener {:acquire-slot-interval-ms 1000
                                                   :sketch-flush-ms 1000
-                                                  :sketch-flush-max-items 100
+                                                  :sketch-flush-max-items 500
                                                   :process-id @config/process-id
                                                   :skip-empty-updates false
                                                   :max-lsn remote-lsn
@@ -119,7 +119,7 @@
   (aggregator/stop-global)
   (let [listener (aggregator/start-slot-listener {:acquire-slot-interval-ms (* 1000 60)
                                                   :sketch-flush-ms (* 1000 10)
-                                                  :sketch-flush-max-items 100
+                                                  :sketch-flush-max-items 500
                                                   :process-id @config/process-id
                                                   :skip-empty-updates (= :dev (config/get-env))
                                                   :check-disabled (fn [] false)

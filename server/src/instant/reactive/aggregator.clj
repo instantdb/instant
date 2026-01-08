@@ -287,7 +287,7 @@
 ;; ----------
 ;; aggregator
 
-(defn max-lsn ^LogSequenceNumber
+(defn lsn-max ^LogSequenceNumber
   [^LogSequenceNumber a ^LogSequenceNumber b]
   (cond (not a) b
         (not b) a
@@ -310,7 +310,7 @@
                         (cond-> acc
                           true (update-in [key :records record] (fnil + 0) incr)
                           pg-size (update-in [key :triples-pg-size] (fnil + 0) (* incr pg-size))
-                          true (update-in [key :max-lsn] max-lsn lsn)
+                          true (update-in [key :max-lsn] lsn-max lsn)
                           reverse-record (update-in [key :reverse-records reverse-record] (fnil + 0) incr))))
                     changes
                     sketch-changes)})
@@ -588,7 +588,7 @@
            :acquire-slot-interval-ms (* 1000 60)
            ;; Flush sketch changes to db every 10 seconds or 50k items
            :sketch-flush-ms (* 1000 10)
-           :sketch-flush-max-items 100
+           :sketch-flush-max-items 500
            :skip-empty-updates (= :dev (config/get-env))}))
   ([{:keys [slot-suffix process-id copy-sql acquire-slot-interval-ms
             sketch-flush-ms sketch-flush-max-items skip-empty-updates]}]
