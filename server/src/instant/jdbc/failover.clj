@@ -3,8 +3,6 @@
    [clojure.core.async :as a]
    [honey.sql :as hsql]
    [instant.config :as config]
-   [instant.db.attr-sketch :as cms]
-   [instant.db.attr-sketch :as cms]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
    [instant.db.transaction :as tx]
@@ -401,11 +399,11 @@
                                                       (find-missing-rows replica-conn next-batch config))})))
                                 {:invalid []
                                  :batch []}
-                                (with-open [conn (next-jdbc/get-connection
+                                (with-open [conn (next.jdbc/get-connection
                                                   primary-conn
                                                   ;; required to make postgres stream results
                                                   {:auto-commit false})]
-                                  (next-jdbc/plan conn
+                                  (next.jdbc/plan conn
                                                   (hsql/format {:select :*
                                                                 :from tbl})
                                                   {:builder-fn row-builder
