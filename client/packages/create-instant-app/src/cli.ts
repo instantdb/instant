@@ -36,7 +36,7 @@ export const unwrapSkippablePrompt = <T>(result: Promise<T | symbol>) => {
 
 const defaultOptions: Project = {
   base: 'next-js-app-dir',
-  appName: 'awesome-todos',
+  appName: 'Awesome Todos',
   ruleFiles: null,
   createRepo: true,
   prompt: null,
