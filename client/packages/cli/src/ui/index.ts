@@ -1081,10 +1081,11 @@ ${inputDisplay}`;
 
       this.focus.setFocus('appList');
 
+      const defaultAppName = 'Awesome Todos';
       this.appNameInput = new TextInput({
         prompt: 'Enter New App Name',
-        placeholder: 'my-instant-app',
-        defaultValue: 'my-instant-app',
+        placeholder: defaultAppName,
+        defaultValue: defaultAppName,
         headless: true,
       });
 
@@ -1093,7 +1094,7 @@ ${inputDisplay}`;
           this.focus.setFocus('appList');
         }
         if (keyInfo.name === 'return') {
-          const name = this.appNameInput.value || 'my-instant-app';
+          const name = this.appNameInput.value || defaultAppName;
           if (this.creatingEphemeral) {
             this.props.api.createEphemeralApp(name).then((pair) => {
               this.selectedAppName = name;
