@@ -37,6 +37,7 @@
    [instant.util.json :refer [<-json-big]]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
+   [honey.sql :as hsql]
    [lambdaisland.uri :as uri]
    [next.jdbc.connection :refer [jdbc-url]])
   (:import
@@ -265,6 +266,26 @@
    to get the right kind of PGConnection."
   ^PGReplicationStream
   [^PgConnection replication-conn slot-type slot-name ^LogSequenceNumber start-lsn ^Long version]
+  (when (= slot-type :aggregator)
+    ;; Ensure that we're not going to lose updates. For logical
+    ;; streams, postgres will use the greater of confirmed_flush_lsn or
+    ;; the startPosition. The aggregator needs to start from start-lsn
+    ;; or we will lose updates. You can't move the confirmed_flush_lsn back,
+    ;; so there may not be any way to recover the lost data. But this will
+    ;; 1. alert us that there may be lost data, and 2. save us from mistakes (e.g.
+    ;; starting a slot on the primary after migrating to the replica).
+    (let [confirmed-flush-lsn
+          (-> (sql/select-one ::confirmed-flush-lsn
+                              replication-conn
+                              (hsql/format {:select [[:confirmed_flush_lsn :lsn]]
+                                            :from :pg_replication_slots
+                                            :where [:= :slot_name slot-name]}))
+              :lsn)]
+      (when (= -1 (compare start-lsn confirmed-flush-lsn))
+        (throw (ex-info "confirmed-flush-lsn is older than start-lsn, cannot start stream from start-lsn"
+                        {:start-lsn start-lsn
+                         :confirmed-flush-lsn confirmed-flush-lsn
+                         :slot-name slot-name})))))
   (let [tables (case slot-type
                  :invalidator invalidator-tables
                  :aggregator [:triples])
