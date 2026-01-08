@@ -176,7 +176,7 @@ function CopyTokenDialog({
   return (
     <Dialog title="Copy Token" open={Boolean(token)} onClose={onClose}>
       <SubsectionHeading>Copy your token</SubsectionHeading>
-      <div className="flex flex-col gap-2 p-2">
+      <div className="mt-2 flex min-w-0 flex-col gap-2">
         <Content>
           <p>
             Copy and save your token somewhere safe. Instant does not keep a
@@ -184,7 +184,7 @@ function CopyTokenDialog({
             is lost.
           </p>
         </Content>
-        <div>
+        <div className="w-full max-w-full min-w-0 overflow-x-auto">
           <Copyable value={token} label="Token" defaultHidden={true} />
         </div>
       </div>
