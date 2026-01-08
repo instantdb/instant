@@ -5,7 +5,7 @@ description: Spin up Instant apps on demand and manage schema with the Platform 
 
 You can use Instant to programmatically create apps, push schemas and manage permissions. This is particularly powerful in two scenarios:
 
-- **App Builders**: If you're an app builder, you can give your customers a backend. It takes only an hour to set up the platform, and every app your users create gets a full backend as a result. LLMs are great at using Instant: they can make more progress with less tokens and less mistakes.
+- **App Builders**: If you're an app builder, you can give your customers a backend. It takes only an hour to set up the platform, and every app your users create gets a full backend as a result. LLMs are great at using Instant: they can make more progress with fewer tokens and fewer mistakes.
 - **Software teams**: If you're a software team you can improve your development workflows: create apps for different pull requests, or spin up temporary apps for tests.
 
 In this document, we'll show you:
