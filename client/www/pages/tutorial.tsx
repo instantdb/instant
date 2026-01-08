@@ -10,19 +10,15 @@ import {
   H2,
   H3,
 } from '@/components/marketingUi';
-import { Fence, Copyable, SubsectionHeading } from '@/components/ui';
+import { SubsectionHeading } from '@/components/ui';
 import RatingBox from '@/components/docs/RatingBox';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import clsx from 'clsx';
 import { CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/solid';
 import CopyToClipboard from 'react-copy-to-clipboard';
-import { Callout } from '@/components/docs/Callout';
-
-type ClientType = 'claude' | 'codex' | 'cursor' | 'other';
 
 const overviewSteps = [
   'Login to Instant in the terminal',
-  'Install the Instant MCP server',
   'Scaffold a starter Instant app',
   'Prompt an LLM to build us an app (This is the fun part!)',
 ];
@@ -142,19 +138,6 @@ const debuggingItems = [
           running dev server. Simply restart your dev server to continue along.
         </p>
       </div>
-    ),
-  },
-  {
-    id: 'agent-loop',
-    title: 'Agent is in a loop with the same error',
-    content: (
-      <p>
-        Sometimes the agent gets stuck between updating schema, permissions, and
-        fixing types. Right now Instant doesn't support deleting or renaming
-        attributes via the MCP. Sometimes a simple fix is to just tell the agent
-        to create a whole new app. This will ensure the agent can create an app
-        with the latest schema and permissions in your code.
-      </p>
     ),
   },
 ];
@@ -330,67 +313,11 @@ function DebuggingAccordion() {
   );
 }
 
-function MCPSetupInstructions() {
-  const [selectedClient, setSelectedClient] = useState<ClientType>('claude');
-
-  return (
-    <div className="mb-16">
-      <div className="mb-6">
-        <H3>2. Install the Instant MCP server</H3>
-      </div>
-      <p className="mb-6 text-gray-700">
-        Below are instructions on how to add the remote Instant MCP server.
-        Select your preferred tool and follow the instructions.
-      </p>
-
-      {/* Client Selector */}
-      <TabGroup
-        selectedIndex={Object.keys(clientConfigs).indexOf(selectedClient)}
-        onChange={(index) =>
-          setSelectedClient(Object.keys(clientConfigs)[index] as ClientType)
-        }
-      >
-        <TabList className="mb-6 flex space-x-1 rounded-xl bg-gray-100 p-1">
-          {Object.entries(clientConfigs).map(([key, config]) => (
-            <Tab
-              key={key}
-              className={({ selected }) =>
-                clsx(
-                  'w-full rounded-lg py-2.5 text-sm leading-5 font-medium',
-                  'ring-opacity-60 ring-white ring-offset-2 ring-offset-gray-400 focus:ring-2 focus:outline-hidden',
-                  selected
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:bg-white/60 hover:text-gray-900',
-                )
-              }
-            >
-              {config.name}
-            </Tab>
-          ))}
-        </TabList>
-        <TabPanels>
-          {Object.entries(clientConfigs).map(([key, config]) => (
-            <TabPanel key={key} className="py-6 focus:outline-hidden">
-              {config.setupContent}
-            </TabPanel>
-          ))}
-        </TabPanels>
-      </TabGroup>
-
-      <Callout type="warning" title="Authentication Required">
-        After adding the MCP server you'll need to go through an OAuth flow to
-        access the tools. Be sure to go through the auth flow to enable the
-        Instant MCP server in your client!
-      </Callout>
-    </div>
-  );
-}
-
 function BuildAppSection() {
   return (
     <div className="mb-16">
       <div className="mb-6">
-        <H3>4. Prompt the LLM to build us an app! (This is the fun part!)</H3>
+        <H3>3. Prompt the LLM to build us an app! (This is the fun part!)</H3>
       </div>
       <div className="mb-6 space-y-3 text-gray-700">
         <p>
@@ -482,136 +409,6 @@ function ShareCreationSection() {
 
 const pageTitle = 'Whirlwind tour: Build a full-stack app with InstantDB';
 
-const cursorMCPConfig = `{
-  "mcpServers": {
-    "instant": {
-      "url": "https://mcp.instantdb.com/mcp"
-    }
-  }
-}`;
-
-const clientConfigs = {
-  cursor: {
-    name: 'Cursor',
-    setupContent: (
-      <div className="space-y-4">
-        <p>Click this button to install the Instant MCP server in Cursor:</p>
-        <div className="flex">
-          <a
-            href="https://cursor.com/en/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <img
-              width={150}
-              src="https://cursor.com/deeplink/mcp-install-dark.svg"
-              alt="Install MCP Server"
-              className="transition-opacity hover:opacity-80"
-            />
-          </a>
-        </div>
-        <p>
-          Alternatively you can paste this into your `~/.cursor/mcp.json`
-          directly
-        </p>
-        <Fence
-          darkMode={false}
-          code={cursorMCPConfig}
-          copyable={true}
-          language="json"
-        />
-        <p>
-          You should now see the Instant MCP server in your MCP servers list. If
-          you don't you may need to restart Cursor. Once you see it, click the
-          "Needs Login" button to go through the auth flow.
-        </p>
-      </div>
-    ),
-  },
-  claude: {
-    name: 'Claude Code',
-    setupContent: (
-      <div className="space-y-4">
-        <p>
-          If you're on a paid plan, you can add the server via the command line:
-        </p>
-        <Copyable value="claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp" />
-        <p>Now you can run through the following:</p>
-        <ol className="list-inside list-decimal space-y-2">
-          <li>
-            Run <code>claude</code> in your terminal to start the Claude Code
-            CLI.
-          </li>
-          <li>
-            Run <code>/mcp</code> to see your list of MCP servers.
-          </li>
-          <li>
-            See <code>instant</code> listed there!
-          </li>
-          <li>
-            Select it and go through the auth flow to enable the Instant MCP
-            server in your claude code sessions!
-          </li>
-        </ol>
-      </div>
-    ),
-  },
-  codex: {
-    name: 'Codex',
-    setupContent: (
-      <div className="space-y-4">
-        <p>
-          If you haven't already, add this to your codex config in
-          `~/.codex/config.toml` to enable remote mcp support:
-        </p>
-        <Copyable
-          value={`[features]
-rmcp_client = true`}
-          multiline
-        />
-        <p>Now tell codex to add the MCP server:</p>
-        <Copyable value='codex mcp add instant --url "https://mcp.instantdb.com/mcp"' />
-        <p>
-          This should load a browser to authenticate with Instant. After
-          granting access you should be ready to go! Run `codex` to start Codex
-          and then run `/mcp` to see Instant in your mcp list.
-        </p>
-      </div>
-    ),
-  },
-  gemini: {
-    name: 'Gemini',
-    setupContent: (
-      <div className="space-y-4">
-        <p>
-          If you're on a paid plan, you can add the server via the command line:
-        </p>
-        <Copyable value="gemini mcp add --transport http instant https://mcp.instantdb.com/mcp" />
-        <p>
-          This should load a browser to authenticate with Instant. After
-          granting access you should be ready to go! Run `gemini` to start
-          Gemini and then run `/mcp` to see Instant in your mcp list.
-        </p>
-      </div>
-    ),
-  },
-  other: {
-    name: 'Other',
-    setupContent: (
-      <div className="space-y-4">
-        <p>
-          For other tools that support MCP servers, you can configure Instant
-          using either our streamable HTTP endpoint (recommended if your tool
-          supports it):
-        </p>
-        <Copyable value="https://mcp.instantdb.com/mcp" />
-        <p>Or our SSE endpoint:</p>
-        <Copyable value="https://mcp.instantdb.com/sse" />
-      </div>
-    ),
-  },
-};
-
 export default function TutorialNew() {
   return (
     <LandingContainer>
@@ -673,11 +470,9 @@ export default function TutorialNew() {
               </p>
             </div>
 
-            <MCPSetupInstructions />
-
             {/* create-instant-app */}
             <div className="space-y-3">
-              <H3>3. Scaffold a starter instant app</H3>
+              <H3>2. Scaffold a starter instant app</H3>
 
               <p>
                 Now that you're authenticated any app you make will persist
