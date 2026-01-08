@@ -66,12 +66,31 @@ Successfully created new app!
 **And here's how to make a temporary app with the Platform SDK:**
 
 ```typescript
-import { PlatformApi } from '@instantdb/platform';
+import { PlatformApi, i } from '@instantdb/platform';
 
 const api = new PlatformApi({});
 
+const schema = i.schema({
+  entities: {
+    todos: i.entity({
+      title: i.string().indexed(),
+      done: i.boolean(),
+    }),
+  },
+});
+
+const perms = {
+  todos: {
+    allow: {
+      $default: 'true',
+    },
+  },
+};
+
 const app = await api.createTemporaryApp({
   title: 'my-new-app',
+  schema: schema,
+  rules: { code: perms },
 });
 
 console.log('app ->', app);
