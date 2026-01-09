@@ -61,26 +61,27 @@
         (tracer/add-exception! e {:escaping? false})))))
 
 (defn handle-sweep [_]
-  (tracer/with-span! {:name "hard-deletion-sweeper/sweep"}
-    (when-not (flags/hard-deletion-sweeper-disabled?)
-      (let [maximum-marked-date (-> (date-util/pst-now)
-                                    (.minus (Duration/ofDays grace-period-days)))
+  (when-not (flags/failing-over?)
+    (tracer/with-span! {:name "hard-deletion-sweeper/sweep"}
+      (when-not (flags/hard-deletion-sweeper-disabled?)
+        (let [maximum-marked-date (-> (date-util/pst-now)
+                                      (.minus (Duration/ofDays grace-period-days)))
 
-            attrs-to-delete (attr-model/get-for-hard-delete {:maximum-deletion-marked-at
-                                                             (.toInstant maximum-marked-date)})
-            apps-to-delete (app-model/get-apps-to-hard-delete {:maximum-deletion-marked-at
-                                                               (.toInstant maximum-marked-date)})]
-        (tracer/add-data! {:attributes {:attrs-count (count attrs-to-delete)
-                                        :apps-count (count apps-to-delete)}})
+              attrs-to-delete (attr-model/get-for-hard-delete {:maximum-deletion-marked-at
+                                                               (.toInstant maximum-marked-date)})
+              apps-to-delete (app-model/get-apps-to-hard-delete {:maximum-deletion-marked-at
+                                                                 (.toInstant maximum-marked-date)})]
+          (tracer/add-data! {:attributes {:attrs-count (count attrs-to-delete)
+                                          :apps-count (count apps-to-delete)}})
 
-        (doseq [{:keys [id] :as attr} attrs-to-delete]
-          (grab/run-once!
-           (format "delete-attr-%s-%s" id (date-util/numeric-date-str maximum-marked-date))
-           (fn [] (straight-jacket-delete-attr! attr))))
-        (doseq [{:keys [id] :as app} apps-to-delete]
-          (grab/run-once!
-           (format "delete-app-%s-%s" id (date-util/numeric-date-str maximum-marked-date))
-           (fn [] (straight-jacket-delete-app! app))))))))
+          (doseq [{:keys [id] :as attr} attrs-to-delete]
+            (grab/run-once!
+             (format "delete-attr-%s-%s" id (date-util/numeric-date-str maximum-marked-date))
+             (fn [] (straight-jacket-delete-attr! attr))))
+          (doseq [{:keys [id] :as app} apps-to-delete]
+            (grab/run-once!
+             (format "delete-app-%s-%s" id (date-util/numeric-date-str maximum-marked-date))
+             (fn [] (straight-jacket-delete-app! app)))))))))
 
 (defn start []
   (tracer/record-info! {:name "app-deletion-sweeper/schedule"})

@@ -287,7 +287,7 @@
 ;; ----------
 ;; aggregator
 
-(defn max-lsn ^LogSequenceNumber
+(defn lsn-max ^LogSequenceNumber
   [^LogSequenceNumber a ^LogSequenceNumber b]
   (cond (not a) b
         (not b) a
@@ -310,7 +310,7 @@
                         (cond-> acc
                           true (update-in [key :records record] (fnil + 0) incr)
                           pg-size (update-in [key :triples-pg-size] (fnil + 0) (* incr pg-size))
-                          true (update-in [key :max-lsn] max-lsn lsn)
+                          true (update-in [key :max-lsn] lsn-max lsn)
                           reverse-record (update-in [key :reverse-records reverse-record] (fnil + 0) incr))))
                     changes
                     sketch-changes)})
@@ -366,13 +366,13 @@
                                 :slot-name slot-name
                                 :process-id process-id}))))
 
-(defn start-worker
-  "Returns a shutdown function. The shutdown function returns a channel that
-   will close when shutdown is finished."
+(defn- start-worker
+  "Returns a shutdown function and a completed-chan that will resolve if
+   the process exits early (from hitting max-lsn).
+   The shutdown function returns a channel that will close when shutdown finishes."
   [{:keys [wal-chan sketch-flush-ms sketch-flush-max-items close-signal-chan
-           start-lsn flush-lsn-chan on-error slot-name process-id]}]
-
-  ;; sketch cache should live here
+           start-lsn flush-lsn-chan on-error slot-name process-id
+           check-disabled stop-lsn]}]
   (let [sketch-cache (cache/make {:max-size 4096})
         process-chan (ua/chunked-chan {:flush-ms sketch-flush-ms
                                        :max-size sketch-flush-max-items
@@ -382,14 +382,22 @@
                                                (count changes))})
 
         shuffler
-        ;; Shuffles items from the wal-chan to the process-chan, where they are
+        ;; Moves items from the wal-chan to the process-chan, where they are
         ;; combined with combine-sketch-changes
         (a/go
           (try
             (loop []
-              (when-some [wal-record (a/<! wal-chan)]
-                (ua/>!-close-safe close-signal-chan (:in process-chan) wal-record)
-                (recur)))
+              (if (check-disabled)
+                (on-error (ex-info "Aggregator disabled" {}))
+                (when-some [wal-record (a/<! wal-chan)]
+                  (if (and stop-lsn
+                           (= -1 (compare stop-lsn (:lsn wal-record))))
+                    ;; We synced up to the max-lsn, so we can close the channel
+                    ;; The processor channel will close when the changes are all processed
+                    (a/close! (:in process-chan))
+                    (do
+                      (ua/>!-close-safe close-signal-chan (:in process-chan) wal-record)
+                      (recur))))))
             (tracer/record-info! {:name "aggregator-worker/shuffler-shutdown"
                                   :attributes {:pid process-id
                                                :slot-name slot-name}})
@@ -423,12 +431,14 @@
               (tracer/record-exception-span! t {:name "aggregator-worker/processor-error"
                                                 :attributes {:pid process-id
                                                              :slot-name slot-name}}))))]
-    (fn []
-      (let [shutdown-finished ((:shutdown process-chan))]
-        (a/go
-          (a/<! shutdown-finished)
-          (a/<! shuffler)
-          (a/<! processor))))))
+    {:shutdown (fn []
+                 (let [shutdown-finished ((:shutdown process-chan))]
+                   (a/go
+                     (a/<! shutdown-finished)
+                     (a/<! shuffler)
+                     (a/<! processor))))
+     :completed-chan (a/go (a/<! shuffler)
+                           (a/<! processor))}))
 
 ;; -------------
 ;; orchestration
@@ -462,13 +472,17 @@
   changes to the db every `sketch-flush-ms` or after receiving more than
   `sketch-flush-max-items` records.
 
-  Returns a function to shut down the listener."
+  Returns a function to shut down the listener and a completed-chan that will
+  resolve when the process completes."
   [{:keys [slot-suffix
            acquire-slot-interval-ms
            sketch-flush-ms
            sketch-flush-max-items
            process-id
-           skip-empty-updates]}]
+           skip-empty-updates
+           stop-lsn
+           check-disabled
+           get-conn-config]}]
   (let [shutdown-chan (a/chan)
         slot-name (wal/full-slot-name slot-type
                                       slot-suffix)
@@ -476,79 +490,85 @@
         (a/go
           (loop [timeout-ch (a/timeout 0)]
             (when (= timeout-ch (second (a/alts! [shutdown-chan timeout-ch])))
-              (if-let [lsn (cms/get-start-lsn (aurora/conn-pool :read)
-                                              {:slot-name slot-name})]
-                (let [{:keys [wal-chan worker-chan flush-lsn-chan close-signal-chan]}
-                      (create-wal-chans lsn skip-empty-updates)
+              (if (check-disabled)
+                (recur (a/timeout acquire-slot-interval-ms))
+                (if-let [lsn (cms/get-start-lsn (aurora/conn-pool :read)
+                                                {:slot-name slot-name})]
+                  (let [{:keys [wal-chan worker-chan flush-lsn-chan close-signal-chan]}
+                        (create-wal-chans lsn skip-empty-updates)
 
-                      wal-opts (wal/make-wal-opts
-                                 {:wal-chan wal-chan
-                                  :worker-chan worker-chan
-                                  :close-signal-chan close-signal-chan
-                                  :flush-lsn-chan flush-lsn-chan
-                                  :get-conn-config (fn []
-                                                     (config/get-aurora-config))
-                                  :slot-suffix slot-suffix
-                                  :slot-type slot-type
-                                  :lsn lsn})
+                        wal-opts (wal/make-wal-opts
+                                  {:wal-chan wal-chan
+                                   :worker-chan worker-chan
+                                   :close-signal-chan close-signal-chan
+                                   :flush-lsn-chan flush-lsn-chan
+                                   :get-conn-config get-conn-config
+                                   :slot-suffix slot-suffix
+                                   :slot-type slot-type
+                                   :lsn lsn})
 
-                      wal-started-promise (:started-promise wal-opts)
-                      signal-chan (a/chan)
-                      wal-worker (ua/fut-bg
-                                   (try
-                                     (wal/start-aggregator-worker wal-opts)
-                                     (finally
-                                       (deliver wal-started-promise :recur)
-                                       (a/close! close-signal-chan))))
+                        wal-started-promise (:started-promise wal-opts)
+                        signal-chan (a/chan)
+                        wal-worker (ua/fut-bg
+                                     (try
+                                       (wal/start-aggregator-worker wal-opts)
+                                       (finally
+                                         (deliver wal-started-promise :recur)
+                                         (a/close! close-signal-chan))))
 
-                      ;; Wait for the wal worker to potentially claim the slot
-                      _ (ua/vfuture
-                          (let [wal-start-result @wal-started-promise]
-                            (case wal-start-result
-                              :recur (a/put! signal-chan :recur)
-                              true (a/put! signal-chan :slot-claimed))))
+                        ;; Wait for the wal worker to potentially claim the slot
+                        _ (ua/vfuture
+                            (let [wal-start-result @wal-started-promise]
+                              (case wal-start-result
+                                :recur (a/put! signal-chan :recur)
+                                true (a/put! signal-chan :slot-claimed))))
 
-                      [next-v _next-ch] (a/alts! [signal-chan shutdown-chan])]
+                        [next-v _next-ch] (a/alts! [signal-chan shutdown-chan])]
 
-                  (case next-v
-                    nil ;; shutdown
-                    (do (stop wal-opts)
-                        wal-worker)
+                    (case next-v
+                      nil ;; shutdown
+                      (do (stop wal-opts)
+                          wal-worker)
 
-                    :recur ;; we didn't get the slot, wait and try again
-                    (recur (a/timeout acquire-slot-interval-ms))
+                      :recur ;; we didn't get the slot, wait and try again
+                      (recur (a/timeout acquire-slot-interval-ms))
 
-                    :slot-claimed ;; we got the slot, start the worker
-                    (let [stop-worker (start-worker {:wal-chan worker-chan
-                                                     :close-signal-chan close-signal-chan
-                                                     :flush-lsn-chan flush-lsn-chan
-                                                     :slot-name (:slot-name wal-opts)
-                                                     :process-id process-id
-                                                     :start-lsn lsn
-                                                     :sketch-flush-ms sketch-flush-ms
-                                                     :sketch-flush-max-items sketch-flush-max-items
-                                                     :on-error (fn [_t]
-                                                                 (a/close! close-signal-chan))})
-                          [_exit-v exit-ch] (a/alts! [shutdown-chan close-signal-chan])]
-                      (tracer/with-span! {:name "aggregator/wait-for-worker-to-finish"
-                                          :attributes {:pid process-id
-                                                       :slot-name (:slot-name wal-opts)}}
-                        (stop wal-opts)
-                        (a/<! (stop-worker)))
-                      (when (= exit-ch close-signal-chan)
-                        (tracer/record-info! {:name "aggregator/retry"
-                                              :attributes {:wait-ms acquire-slot-interval-ms
-                                                           :attributes {:pid process-id
-                                                                        :slot-name (:slot-name wal-opts)}}})
-                        (recur (a/timeout acquire-slot-interval-ms))))))
-                (recur (a/timeout acquire-slot-interval-ms)))))
+                      :slot-claimed ;; we got the slot, start the worker
+                      (let [{stop-worker :shutdown
+                             worker-exit-chan :completed-chan}
+                            (start-worker {:wal-chan worker-chan
+                                           :close-signal-chan close-signal-chan
+                                           :flush-lsn-chan flush-lsn-chan
+                                           :slot-name (:slot-name wal-opts)
+                                           :process-id process-id
+                                           :start-lsn lsn
+                                           :sketch-flush-ms sketch-flush-ms
+                                           :sketch-flush-max-items sketch-flush-max-items
+                                           :on-error (fn [_t]
+                                                       (a/close! close-signal-chan))
+                                           :stop-lsn stop-lsn
+                                           :check-disabled check-disabled})
+                            [_exit-v exit-ch] (a/alts! [shutdown-chan close-signal-chan worker-exit-chan])]
+                        (tracer/with-span! {:name "aggregator/wait-for-worker-to-finish"
+                                            :attributes {:pid process-id
+                                                         :slot-name (:slot-name wal-opts)}}
+                          (stop wal-opts)
+                          (a/<! (stop-worker)))
+                        (when (= exit-ch close-signal-chan)
+                          (tracer/record-info! {:name "aggregator/retry"
+                                                :attributes {:wait-ms acquire-slot-interval-ms
+                                                             :attributes {:pid process-id
+                                                                          :slot-name (:slot-name wal-opts)}}})
+                          (recur (a/timeout acquire-slot-interval-ms))))))
+                  (recur (a/timeout acquire-slot-interval-ms))))))
           (tracer/record-info! {:name "aggregator/slot-listener-exit"
                                 :attributes {:pid process-id
                                              :slot-name slot-name}}))]
-    (fn []
-      (a/close! shutdown-chan)
-      (when-let [wal-worker-finished (a/<!! process)]
-        @wal-worker-finished))))
+    {:shutdown (fn []
+                 (a/close! shutdown-chan)
+                 (when-let [wal-worker-finished (a/<!! process)]
+                   @wal-worker-finished))
+     :completed-chan process}))
 
 (defn start
   "Entry point for the agggregator.
@@ -568,30 +588,32 @@
            :acquire-slot-interval-ms (* 1000 60)
            ;; Flush sketch changes to db every 10 seconds or 50k items
            :sketch-flush-ms (* 1000 10)
-           :sketch-flush-max-items 50000
+           :sketch-flush-max-items 500
            :skip-empty-updates (= :dev (config/get-env))}))
   ([{:keys [slot-suffix process-id copy-sql acquire-slot-interval-ms
             sketch-flush-ms sketch-flush-max-items skip-empty-updates]}]
 
-   (when-not (flags/toggled? :disable-aggregator)
+   ;; This will be set in production after we've initialized the
+   ;; slot. If something happens to the slot, we don't want to block
+   ;; startup.
+   (when-not (flags/toggled? :skip-aggregator-initialization)
+     (initialize-slot {:slot-name (wal/full-slot-name slot-type slot-suffix)
+                       :process-id process-id
+                       :copy-sql copy-sql}))
 
-     ;; This will be set in production after we've initialized the
-     ;; slot. If something happens to the slot, we don't want to block
-     ;; startup.
-     (when-not (flags/toggled? :skip-aggregator-initialization)
-       (initialize-slot {:slot-name (wal/full-slot-name slot-type slot-suffix)
+   (start-slot-listener {:slot-suffix slot-suffix
+                         :acquire-slot-interval-ms acquire-slot-interval-ms
+                         :sketch-flush-ms sketch-flush-ms
+                         :sketch-flush-max-items sketch-flush-max-items
                          :process-id process-id
-                         :copy-sql copy-sql}))
-
-     (start-slot-listener {:slot-suffix slot-suffix
-                           :acquire-slot-interval-ms acquire-slot-interval-ms
-                           :sketch-flush-ms sketch-flush-ms
-                           :sketch-flush-max-items sketch-flush-max-items
-                           :process-id process-id
-                           :skip-empty-updates skip-empty-updates}))))
+                         :skip-empty-updates skip-empty-updates
+                         :check-disabled (fn []
+                                           (flags/toggled? :disable-aggregator))
+                         :get-conn-config (fn []
+                                            (config/get-aurora-config))})))
 
 (defn start-global []
-  (def shutdown (start)))
+  (def shutdown (:shutdown (start))))
 
 (defn stop-global []
   (when (bound? #'shutdown)

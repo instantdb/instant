@@ -1,19 +1,19 @@
 (ns instant.storage.sweeper
   (:require
    [chime.core :as chime-core]
+   [clojure.tools.logging :as log]
+   [honey.sql :as hsql]
+   [instant.config :as config]
+   [instant.discord :as discord]
+   [instant.flags :as flags]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.storage.s3 :as instant-s3]
    [instant.util.s3 :as s3-util]
-   [instant.util.tracer :as tracer]
-   [clojure.tools.logging :as log]
-   [instant.jdbc.aurora :as aurora]
-   [honey.sql :as hsql]
-   [instant.jdbc.sql :as sql]
-   [instant.config :as config]
-   [instant.discord :as discord])
-
+   [instant.util.tracer :as tracer])
   (:import
-   (java.time Duration Instant)
    (java.lang AutoCloseable)
+   (java.time Duration Instant)
    (java.time.temporal ChronoUnit)))
 
 (def max-loops 10) ;; max loops per sweep job
@@ -108,28 +108,29 @@
   ([conn {:keys [app-id max-loops limit]
           :or {max-loops 10
                limit batch-size}}]
-   (tracer/with-span! {:name "storage-sweeper/handle-sweep!"}
-     (let [start-ms (Instant/now)
-           loop-num 1]
-       (loop [current-loop loop-num]
-         (if (<= current-loop max-loops)
-           (let [n-deleted (count (process-sweep! conn {:app-id app-id
-                                                        :limit limit}))]
-             (if (or (< n-deleted limit) (zero? n-deleted))
-               (tracer/record-info!
-                {:name "storage-sweeper/finsh-sweep!"
-                 :attributes (span-attrs {:loops current-loop
-                                          :max-loops max-loops
-                                          :start-ms start-ms
-                                          :limit limit
-                                          :app-id app-id})})
+   (when-not (flags/failing-over?)
+     (tracer/with-span! {:name "storage-sweeper/handle-sweep!"}
+       (let [start-ms (Instant/now)
+             loop-num 1]
+         (loop [current-loop loop-num]
+           (if (<= current-loop max-loops)
+             (let [n-deleted (count (process-sweep! conn {:app-id app-id
+                                                          :limit limit}))]
+               (if (or (< n-deleted limit) (zero? n-deleted))
+                 (tracer/record-info!
+                   {:name "storage-sweeper/finsh-sweep!"
+                    :attributes (span-attrs {:loops current-loop
+                                             :max-loops max-loops
+                                             :start-ms start-ms
+                                             :limit limit
+                                             :app-id app-id})})
 
-               (recur (inc current-loop))))
-           (warn-too-many-loops!
-            {:current-loop current-loop
-             :max-loops max-loops
-             :start-ms start-ms
-             :app-id app-id})))))))
+                 (recur (inc current-loop))))
+             (warn-too-many-loops!
+               {:current-loop current-loop
+                :max-loops max-loops
+                :start-ms start-ms
+                :app-id app-id}))))))))
 
 (defonce schedule (atom nil))
 

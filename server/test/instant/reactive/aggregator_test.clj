@@ -97,12 +97,12 @@
                 slot-name (wal/full-slot-name agg/slot-type slot-suffix)
                 movies-r (resolvers/make-movies-resolver (:id app))]
             (try
-              (let [shutdown (agg/start {:slot-suffix slot-suffix
-                                         :copy-sql (copy-sql-for-app-ids [(:id app)])
-                                         :acquire-slot-interval-ms 10000
-                                         :sketch-flush-ms 10
-                                         :sketch-flush-max-items 1000
-                                         :skip-empty-updates false})]
+              (let [{:keys [shutdown]} (agg/start {:slot-suffix slot-suffix
+                                                   :copy-sql (copy-sql-for-app-ids [(:id app)])
+                                                   :acquire-slot-interval-ms 10000
+                                                   :sketch-flush-ms 10
+                                                   :sketch-flush-max-items 1000
+                                                   :skip-empty-updates false})]
                 (try
                   (check-sketches app movies-r)
                   (check-sketches app (resolvers/make-zeneca-resolver (:id app)))
@@ -155,19 +155,19 @@
             (try
               (let [pid-a (str "a_" (crypt-util/random-hex 12))
                     pid-b (str "b_" (crypt-util/random-hex 12))
-                    shutdown-a (agg/start {:slot-suffix slot-suffix
-                                           :copy-sql (copy-sql-for-app-ids [(:id app)])
-                                           :acquire-slot-interval-ms 100
-                                           :sketch-flush-ms 10
-                                           :sketch-flush-max-items 1000
-                                           :process-id pid-a
-                                           :skip-empty-updates false})
-                    shutdown-b (agg/start {:slot-suffix slot-suffix
-                                           :copy-sql (copy-sql-for-app-ids [(:id app)])
-                                           :acquire-slot-interval-ms 100
-                                           :sketch-flush-ms 10
-                                           :sketch-flush-max-items 1000
-                                           :process-id pid-b})]
+                    {shutdown-a :shutdown} (agg/start {:slot-suffix slot-suffix
+                                                       :copy-sql (copy-sql-for-app-ids [(:id app)])
+                                                       :acquire-slot-interval-ms 100
+                                                       :sketch-flush-ms 10
+                                                       :sketch-flush-max-items 1000
+                                                       :process-id pid-a
+                                                       :skip-empty-updates false})
+                    {shutdown-b :shutdown} (agg/start {:slot-suffix slot-suffix
+                                                       :copy-sql (copy-sql-for-app-ids [(:id app)])
+                                                       :acquire-slot-interval-ms 100
+                                                       :sketch-flush-ms 10
+                                                       :sketch-flush-max-items 1000
+                                                       :process-id pid-b})]
                 (try
 
                   (wait-for #(contains? #{pid-a pid-b}
@@ -250,23 +250,24 @@
             (try
               (let [pid-a (str "a_" (crypt-util/random-hex 12))
                     pid-b (str "b_" (crypt-util/random-hex 12))
-                    shutdown-a (agg/start {:slot-suffix slot-suffix
-                                           :copy-sql (copy-sql-for-app-ids [(:id app)])
-                                           :acquire-slot-interval-ms 10
-                                           :sketch-flush-ms 10
-                                           :sketch-flush-max-items 1000
-                                           :process-id pid-a
-                                           :skip-empty-updates false})
-                    shutdown-b (agg/start {:slot-suffix slot-suffix
-                                           :copy-sql (copy-sql-for-app-ids [(:id app)])
-                                           :acquire-slot-interval-ms 10
-                                           :sketch-flush-ms 10
-                                           :sketch-flush-max-items 1000
-                                           :process-id pid-b
-                                           :skip-empty-updates false})]
+                    {shutdown-a :shutdown} (agg/start {:slot-suffix slot-suffix
+                                                       :copy-sql (copy-sql-for-app-ids [(:id app)])
+                                                       :acquire-slot-interval-ms 10
+                                                       :sketch-flush-ms 10
+                                                       :sketch-flush-max-items 1000
+                                                       :process-id pid-a
+                                                       :skip-empty-updates false})
+                    {shutdown-b :shutdown} (agg/start {:slot-suffix slot-suffix
+                                                       :copy-sql (copy-sql-for-app-ids [(:id app)])
+                                                       :acquire-slot-interval-ms 10
+                                                       :sketch-flush-ms 10
+                                                       :sketch-flush-max-items 1000
+                                                       :process-id pid-b
+                                                       :skip-empty-updates false})]
                 (try
                   (let [r (resolvers/make-zeneca-resolver (:id app))]
-                    (let [update-res (sql/do-execute! (aurora/conn-pool :write)
+                    (let [update-res (sql/do-execute!
+                                       (aurora/conn-pool :write)
                                        ["update triples set value = '\"alex2\"'::jsonb where app_id = ? and attr_id = ? and entity_id = ?"
                                         (:id app)
                                         (resolvers/->uuid r :users/handle)
@@ -339,12 +340,12 @@
                          (:id app)
                          (resolvers/->uuid r :movie/title)
                          (resolvers/->uuid r "eid-robocop")])
-                    shutdown (agg/start {:slot-suffix slot-suffix
-                                         :copy-sql (copy-sql-for-app-ids [(:id app)])
-                                         :acquire-slot-interval-ms 10000
-                                         :sketch-flush-ms 10
-                                         :sketch-flush-max-items 1000
-                                         :skip-empty-updates false})]
+                    {:keys [shutdown]} (agg/start {:slot-suffix slot-suffix
+                                                   :copy-sql (copy-sql-for-app-ids [(:id app)])
+                                                   :acquire-slot-interval-ms 10000
+                                                   :sketch-flush-ms 10
+                                                   :sketch-flush-max-items 1000
+                                                   :skip-empty-updates false})]
 
                 (try
                   (testing "handles value-too-large in setup"
@@ -435,12 +436,12 @@
                        (:id app)
                        (resolvers/->uuid r :users/createdAt)
                        (resolvers/->uuid r "eid-alex")])
-                    shutdown (agg/start {:slot-suffix slot-suffix
-                                         :copy-sql (copy-sql-for-app-ids [(:id app)])
-                                         :acquire-slot-interval-ms 10000
-                                         :sketch-flush-ms 10
-                                         :sketch-flush-max-items 1000
-                                         :skip-empty-updates false})]
+                    {:keys [shutdown]} (agg/start {:slot-suffix slot-suffix
+                                                   :copy-sql (copy-sql-for-app-ids [(:id app)])
+                                                   :acquire-slot-interval-ms 10000
+                                                   :sketch-flush-ms 10
+                                                   :sketch-flush-max-items 1000
+                                                   :skip-empty-updates false})]
                 (try
 
                   (testing "setting the date worked"

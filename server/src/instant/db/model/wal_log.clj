@@ -32,7 +32,7 @@
        (sql/do-execute! ::truncate-old-partitions! conn (hsql/format {:truncate (keyword (str "wal_logs_" part))}))))))
 
 (defn handle-truncate [_]
-  (when-not (flags/toggled? :failing-over)
+  (when-not (flags/failing-over?)
     (truncate-old-partitions!)))
 
 (defn period []
