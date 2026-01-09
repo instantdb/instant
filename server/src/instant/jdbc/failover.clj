@@ -90,7 +90,7 @@
                                                   :sketch-flush-max-items 500
                                                   :process-id @config/process-id
                                                   :skip-empty-updates false
-                                                  :max-lsn remote-lsn
+                                                  :stop-lsn remote-lsn
                                                   :check-disabled (fn [] false)
                                                   :get-conn-config (fn []
                                                                      (config/get-aurora-config))})]

@@ -372,7 +372,7 @@
    The shutdown function returns a channel that will close when shutdown finishes."
   [{:keys [wal-chan sketch-flush-ms sketch-flush-max-items close-signal-chan
            start-lsn flush-lsn-chan on-error slot-name process-id
-           check-disabled max-lsn]}]
+           check-disabled stop-lsn]}]
   (let [sketch-cache (cache/make {:max-size 4096})
         process-chan (ua/chunked-chan {:flush-ms sketch-flush-ms
                                        :max-size sketch-flush-max-items
@@ -390,8 +390,8 @@
               (if (check-disabled)
                 (on-error (ex-info "Aggregator disabled" {}))
                 (when-some [wal-record (a/<! wal-chan)]
-                  (if (and max-lsn
-                           (= -1 (compare max-lsn (:lsn wal-record))))
+                  (if (and stop-lsn
+                           (= -1 (compare stop-lsn (:lsn wal-record))))
                     ;; We synced up to the max-lsn, so we can close the channel
                     ;; The processor channel will close when the changes are all processed
                     (a/close! (:in process-chan))
@@ -480,7 +480,7 @@
            sketch-flush-max-items
            process-id
            skip-empty-updates
-           max-lsn
+           stop-lsn
            check-disabled
            get-conn-config]}]
   (let [shutdown-chan (a/chan)
@@ -546,7 +546,7 @@
                                            :sketch-flush-max-items sketch-flush-max-items
                                            :on-error (fn [_t]
                                                        (a/close! close-signal-chan))
-                                           :max-lsn max-lsn
+                                           :stop-lsn stop-lsn
                                            :check-disabled check-disabled})
                             [_exit-v exit-ch] (a/alts! [shutdown-chan close-signal-chan worker-exit-chan])]
                         (tracer/with-span! {:name "aggregator/wait-for-worker-to-finish"
