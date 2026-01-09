@@ -178,4 +178,4 @@ Note how there’s no `isLoading` or `error` state from db.useSuspenseQuery! The
 
 ## Questions
 
-This is still a beta. We’d love to hear your feedback on Discord!
+This is still a beta. We'd love to hear your feedback on [Discord](https://discord.com/invite/VU53p7uQcE)!
