@@ -5659,5 +5659,17 @@
           (is (=  (system-catalog/get-attr-id "$users" "id")
                   id-attr-id)))))))
 
+(deftest null-byte-error-message
+  (with-zeneca-app
+    (fn [{app-id :id} r]
+      (let [err (validation-err?
+                 (tx/transact!
+                  (aurora/conn-pool :write)
+                  (attr-model/get-by-app-id app-id)
+                  app-id
+                  [[:add-triple (random-uuid) (resolvers/->uuid r :users/handle) "Hello\u0000World"]]))]
+        (is err)
+        (is (string/includes? (::ex/message (ex-data err)) "null bytes"))))))
+
 (comment
   (test/run-tests *ns*))

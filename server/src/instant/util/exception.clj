@@ -633,9 +633,14 @@
         (default-psql-throw! e data hint))
 
       :untranslatable-character
-      (throw+ {::type ::validation-failed
-               ::message "String contains characters that cannot be stored. The most common cause is null bytes (\\x00)."}
-              e)
+      (let [null-byte? (and (:detail data)
+                            (string/includes? (:detail data) "\\u0000"))]
+        (throw+ {::type ::validation-failed
+                 ::message (if null-byte?
+                             "A value in the transaction contains null bytes, which cannot be stored."
+                             "A value in the transaction contains characters that cannot be stored.")
+                 ::hint hint}
+                e))
 
       :raise-exception
       (case server-message
