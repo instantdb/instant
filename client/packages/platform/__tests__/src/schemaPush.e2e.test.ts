@@ -82,8 +82,13 @@ describe.sequential('schemaPush e2e', () => {
         renames,
       });
 
-      expect(plan.steps.some((step) => step.type === 'delete-attr')).toBe(true);
-      expect(plan.steps.some((step) => step.type === 'update-attr')).toBe(true);
+      const hasDelete = plan.steps.some((step) => step.type === 'delete-attr');
+      const hasUpdate = plan.steps.some((step) => step.type === 'update-attr');
+      if (!hasDelete || !hasUpdate) {
+        console.log('overwrite plan steps', plan.steps);
+      }
+      expect(hasDelete).toBe(true);
+      expect(hasUpdate).toBe(true);
       expect(plan.steps.some((step) => step.type === 'add-attr')).toBe(false);
 
       const push = await adminApi.schemaPush(appId, {
