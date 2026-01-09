@@ -632,6 +632,16 @@
                  ::pg-error-data data})
         (default-psql-throw! e data hint))
 
+      :untranslatable-character
+      (let [null-byte? (and (:detail data)
+                            (string/includes? (:detail data) "\\u0000"))]
+        (throw+ {::type ::validation-failed
+                 ::message (if null-byte?
+                             "A value in the transaction contains null bytes, which cannot be stored."
+                             "A value in the transaction contains characters that cannot be stored.")
+                 ::hint hint}
+                e))
+
       :raise-exception
       (case server-message
         "modify_org_id_on_org_member"
