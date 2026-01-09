@@ -35,75 +35,65 @@ describe.sequential('schemaPush e2e', () => {
     adminApi = new PlatformApi({ auth: { token: adminToken } });
   }, 60000);
 
-  test(
-    'additive push keeps removed attrs',
-    async () => {
-      const additiveSchema = i.schema({
-        entities: {
-          posts: i.entity({
-            slug: i.string(),
-          }),
-        },
-      });
+  test('additive push keeps removed attrs', async () => {
+    const additiveSchema = i.schema({
+      entities: {
+        posts: i.entity({
+          slug: i.string(),
+        }),
+      },
+    });
 
-      const plan = await adminApi.planSchemaPush(appId, {
-        schema: additiveSchema,
-      });
-      expect(plan.steps.some((step) => step.type === 'delete-attr')).toBe(
-        false,
-      );
+    const plan = await adminApi.planSchemaPush(appId, {
+      schema: additiveSchema,
+    });
+    expect(plan.steps.some((step) => step.type === 'delete-attr')).toBe(false);
 
-      const push = await adminApi.schemaPush(appId, { schema: additiveSchema });
-      expect(getStepTypes(push.steps)).toEqual(getStepTypes(plan.steps));
+    const push = await adminApi.schemaPush(appId, { schema: additiveSchema });
+    expect(getStepTypes(push.steps)).toEqual(getStepTypes(plan.steps));
 
-      const { schema } = await adminApi.getSchema(appId);
-      const attrs = getPostAttrs(schema);
-      expect(attrs).toContain('title');
-      expect(attrs).toContain('slug');
-    },
-    60000,
-  );
+    const { schema } = await adminApi.getSchema(appId);
+    const attrs = getPostAttrs(schema);
+    expect(attrs).toContain('title');
+    expect(attrs).toContain('slug');
+  }, 60000);
 
-  test(
-    'overwrite push supports renames and deletes',
-    async () => {
-      const overwriteSchema = i.schema({
-        entities: {
-          posts: i.entity({
-            headline: i.string(),
-          }),
-        },
-      });
+  test('overwrite push supports renames and deletes', async () => {
+    const overwriteSchema = i.schema({
+      entities: {
+        posts: i.entity({
+          headline: i.string(),
+        }),
+      },
+    });
 
-      const renames = { 'posts.title': 'posts.headline' };
-      const plan = await adminApi.planSchemaPush(appId, {
-        schema: overwriteSchema,
-        overwrite: true,
-        renames,
-      });
+    const renames = { 'posts.title': 'posts.headline' };
+    const plan = await adminApi.planSchemaPush(appId, {
+      schema: overwriteSchema,
+      overwrite: true,
+      renames,
+    });
 
-      const hasDelete = plan.steps.some((step) => step.type === 'delete-attr');
-      const hasUpdate = plan.steps.some((step) => step.type === 'update-attr');
-      if (!hasDelete || !hasUpdate) {
-        console.log('overwrite plan steps', plan.steps);
-      }
-      expect(hasDelete).toBe(true);
-      expect(hasUpdate).toBe(true);
-      expect(plan.steps.some((step) => step.type === 'add-attr')).toBe(false);
+    const hasDelete = plan.steps.some((step) => step.type === 'delete-attr');
+    const hasUpdate = plan.steps.some((step) => step.type === 'update-attr');
+    if (!hasDelete || !hasUpdate) {
+      console.log('overwrite plan steps', plan.steps);
+    }
+    expect(hasDelete).toBe(true);
+    expect(hasUpdate).toBe(true);
+    expect(plan.steps.some((step) => step.type === 'add-attr')).toBe(false);
 
-      const push = await adminApi.schemaPush(appId, {
-        schema: overwriteSchema,
-        overwrite: true,
-        renames,
-      });
-      expect(getStepTypes(push.steps)).toEqual(getStepTypes(plan.steps));
+    const push = await adminApi.schemaPush(appId, {
+      schema: overwriteSchema,
+      overwrite: true,
+      renames,
+    });
+    expect(getStepTypes(push.steps)).toEqual(getStepTypes(plan.steps));
 
-      const { schema } = await adminApi.getSchema(appId);
-      const attrs = getPostAttrs(schema);
-      expect(attrs).toContain('headline');
-      expect(attrs).not.toContain('title');
-      expect(attrs).not.toContain('slug');
-    },
-    60000,
-  );
+    const { schema } = await adminApi.getSchema(appId);
+    const attrs = getPostAttrs(schema);
+    expect(attrs).toContain('headline');
+    expect(attrs).not.toContain('title');
+    expect(attrs).not.toContain('slug');
+  }, 60000);
 });

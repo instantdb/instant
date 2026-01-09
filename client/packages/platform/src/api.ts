@@ -1456,7 +1456,11 @@ function schemaPushOverwrite(
           );
 
       const schemaRes = await getAppSchema(apiURI, token, appId);
-      const translatedSteps = translatePushStepsWithAttrs(resp.steps, jobs, attrs);
+      const translatedSteps = translatePushStepsWithAttrs(
+        resp.steps,
+        jobs,
+        attrs,
+      );
       resolve({
         newSchema: schemaRes.schema,
         steps: translatedSteps,
@@ -1868,12 +1872,10 @@ export class PlatformApi {
   ): Promise<InstantAPIPlanSchemaPushResponse> {
     const useOverwrite = shouldOverwriteSchemaPush(body);
     const requestBody = useOverwrite ? body : { schema: body.schema };
-    return this.withRetry(useOverwrite ? planSchemaPushOverwrite : planSchemaPush, [
-      this.#apiURI,
-      this.token(),
-      appId,
-      requestBody,
-    ]);
+    return this.withRetry(
+      useOverwrite ? planSchemaPushOverwrite : planSchemaPush,
+      [this.#apiURI, this.token(), appId, requestBody],
+    );
   }
 
   /**
