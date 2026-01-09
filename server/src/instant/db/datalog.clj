@@ -723,7 +723,9 @@
                                   :from [[:triples alias]]
                                   :where (list* :and
                                                 [:= (kw alias :.app-id) app-id]
-                                                [:= (kw alias :.entity-id) (kw triples-alias :.entity-id)]
+                                                (if reverse-ref?
+                                                  [:= [:cast [:->> (kw alias :.value) :0] :uuid] (kw triples-alias :.entity-id)]
+                                                  [:= (kw alias :.entity-id) (kw triples-alias :.entity-id)])
                                                 [:= (kw alias :.attr-id) (:attr-id val)]
                                                 (when reverse-ref?
                                                   :eav)
