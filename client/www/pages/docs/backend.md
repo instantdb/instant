@@ -497,7 +497,3 @@ export default async function RootLayout({
   );
 }
 ```
-
-## NextJS SSR
-
-Instant has built in support for SSR using NextJS. See [this example repo](https://github.com/instantdb/instant-ssr-demo) for more information.
