@@ -712,48 +712,31 @@
     :function (let [[func val] (first v-value)]
                 (case func
                   :$not [(not-eq-value idx val)]
-                  :$isNull (if (flags/toggled? :exists-for-is-null (config/test?))
-                             [[(if (:nil? val)
-                                 :not-exists
-                                 :exists)
-                               (let [reverse-ref? (and (:ref? val)
-                                                       (:reverse? val))
-                                     alias (kw triples-alias :-subquery)]
-                                 {:select :1
-                                  :from [[:triples alias]]
-                                  :where (list* :and
-                                                [:= (kw alias :.app-id) app-id]
+                  :$isNull [[(if (:nil? val)
+                               :not-in
+                               :in)
+                             :entity-id
+                             (let [reverse-ref? (and (:ref? val)
+                                                     (:reverse? val))
+                                   alias (kw triples-alias :-subquery)]
+                               {:select (if reverse-ref?
+                                          [[[:cast [:->> (kw alias :.value) :0] :uuid]]]
+                                          (kw alias :.entity-id))
+                                :from [[:triples alias]]
+                                :where (list* :and
+                                              [:= (kw alias :.app-id) app-id]
+                                              (if (flags/toggled? :is-null-fix (config/test?))
                                                 (if reverse-ref?
                                                   [:= [:cast [:->> (kw alias :.value) :0] :uuid] (kw triples-alias :.entity-id)]
                                                   [:= (kw alias :.entity-id) (kw triples-alias :.entity-id)])
-                                                [:= (kw alias :.attr-id) (:attr-id val)]
-                                                (when reverse-ref?
-                                                  :eav)
-                                                (if-let [data-type (:indexed-checked-type val)]
-                                                  [:ave
-                                                   (data-type-comparison data-type :not= (kw alias :.value) nil)]
-                                                  [[:not= (kw alias :.value) [:cast (->json nil) :jsonb]]]))})]]
-                             [[(if (:nil? val)
-                                 :not-in
-                                 :in)
-                               :entity-id
-                               (let [reverse-ref? (and (:ref? val)
-                                                       (:reverse? val))
-                                     alias (kw triples-alias :-subquery)]
-                                 {:select (if reverse-ref?
-                                            [[[:cast [:->> (kw alias :.value) :0] :uuid]]]
-                                            (kw alias :.entity-id))
-                                  :from [[:triples alias]]
-                                  :where (list* :and
-                                                [:= (kw alias :.app-id) app-id]
-                                                [:= (kw alias :.entity-id) :entity-id]
-                                                [:= (kw alias :.attr-id) (:attr-id val)]
-                                                (when reverse-ref?
-                                                  :eav)
-                                                (if-let [data-type (:indexed-checked-type val)]
-                                                  [:ave
-                                                   (data-type-comparison data-type :not= (kw alias :.value) nil)]
-                                                  [[:not= (kw alias :.value) [:cast (->json nil) :jsonb]]]))})]])
+                                                [:= (kw alias :.entity-id) :entity-id])
+                                              [:= (kw alias :.attr-id) (:attr-id val)]
+                                              (when reverse-ref?
+                                                :eav)
+                                              (if-let [data-type (:indexed-checked-type val)]
+                                                [:ave
+                                                 (data-type-comparison data-type :not= (kw alias :.value) nil)]
+                                                [[:not= (kw alias :.value) [:cast (->json nil) :jsonb]]]))})]]
                   :$comparator (let [{:keys [op value data-type]} val]
                                  [(data-type-comparison data-type
                                                         (case op
