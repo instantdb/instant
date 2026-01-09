@@ -56,6 +56,23 @@ export const createApp = async (
   return { appID: id, adminToken: token, source: 'created' };
 };
 
+/**
+ * Fire-and-forget tracking for when a user imports/links an existing app.
+ * Captures user info if authenticated, scaffold metadata for analytics.
+ */
+const trackAppImport = (
+  appId: string,
+  authToken: string | null,
+  metadata?: ScaffoldMetadata,
+) => {
+  fetchJson({
+    method: 'POST',
+    path: `/dash/apps/${appId}/track-import`,
+    authToken,
+    metadata,
+  }).catch(() => {});
+};
+
 type App = {
   admin_token: string;
   magic_code_email_template: null;
@@ -218,6 +235,7 @@ export const tryConnectApp = async (
         );
       }
       UI.log(`Linking to app: ${appFlags.app}`, UI.ciaModifier(null));
+      trackAppImport(appFlags.app, appFlags.token, metadata);
       return {
         appId: appFlags.app,
         adminToken: appFlags.token,
@@ -234,6 +252,7 @@ export const tryConnectApp = async (
         );
       }
       UI.log(`Linking to app: ${appFlags.app}`, UI.ciaModifier(null));
+      trackAppImport(appAccess.appId, authToken, metadata);
       return {
         appId: appAccess.appId,
         adminToken: appAccess.adminToken,
@@ -352,6 +371,10 @@ export const tryConnectApp = async (
       modifyOutput: UI.ciaModifier(),
     }),
   );
+
+  if (selectedApp?.approach === 'import') {
+    trackAppImport(selectedApp.appId, authToken, metadata);
+  }
 
   return selectedApp;
 };
