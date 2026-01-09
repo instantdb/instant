@@ -107,6 +107,7 @@ module.exports = [
       { title: 'App teams', href: '/docs/teams', optionalLLM: true },
       { title: 'Storage', href: '/docs/storage' },
       { title: 'Admin HTTP API', href: '/docs/http-api' },
+      { title: '(Experimental) Next.js SSR', href: '/docs/next-ssr' },
     ],
   },
 ];
