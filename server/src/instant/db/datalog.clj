@@ -720,14 +720,14 @@
                                                      (:reverse? val))
                                    alias (kw triples-alias :-subquery)]
                                {:select (if reverse-ref?
-                                          [[[:cast [:->> (kw alias :.value) :0] :uuid]]]
+                                          [[[:json_uuid_to_uuid (kw alias :.value)]]]
                                           (kw alias :.entity-id))
                                 :from [[:triples alias]]
                                 :where (list* :and
                                               [:= (kw alias :.app-id) app-id]
                                               (if (flags/toggled? :is-null-fix (config/test?))
                                                 (if reverse-ref?
-                                                  [:= [:cast [:->> (kw alias :.value) :0] :uuid] (kw triples-alias :.entity-id)]
+                                                  [:= [:json_uuid_to_uuid (kw alias :.value)] (kw triples-alias :.entity-id)]
                                                   [:= (kw alias :.entity-id) (kw triples-alias :.entity-id)])
                                                 [:= (kw alias :.entity-id) :entity-id])
                                               [:= (kw alias :.attr-id) (:attr-id val)]
