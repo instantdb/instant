@@ -157,9 +157,7 @@
    Relies on only a single instance being active."
   []
   (println "Failing over to new db")
-  (let [next-config (config/get-next-aurora-config)
-        _ (assert next-config "missing next database config")
-        next-pool aurora/-replica-conn-pool
+  (let [next-pool aurora/-replica-conn-pool
         _ (assert next-pool "no replica conn pool")
         conn-pool-fn-before aurora/conn-pool
         prev-pool aurora/-conn-pool
