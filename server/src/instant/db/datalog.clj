@@ -725,11 +725,11 @@
                                 :from [[:triples alias]]
                                 :where (list* :and
                                               [:= (kw alias :.app-id) app-id]
-                                              (if (flags/toggled? :is-null-fix (config/test?))
+                                              (if (flags/toggled? :disable-is-null-fix)
+                                                [:= (kw alias :.entity-id) :entity-id]
                                                 (if reverse-ref?
                                                   [:= [:json_uuid_to_uuid (kw alias :.value)] (kw triples-alias :.entity-id)]
-                                                  [:= (kw alias :.entity-id) (kw triples-alias :.entity-id)])
-                                                [:= (kw alias :.entity-id) :entity-id])
+                                                  [:= (kw alias :.entity-id) (kw triples-alias :.entity-id)]))
                                               [:= (kw alias :.attr-id) (:attr-id val)]
                                               (when reverse-ref?
                                                 :eav)
