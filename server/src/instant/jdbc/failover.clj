@@ -149,10 +149,6 @@
 ;; --------
 ;; Failover
 
-;; TODO:
-;;  1. PR to update the config and update aggregator.clj to only look at primary after the db upgrade
-;;  2. Test locally
-
 (defn do-failover-to-new-db
   "Intended to be run from a production repl, will failover making the replica the primary.
    Before running set the `failing-over` and the `disable-aggregator` feature flags to `true`,
