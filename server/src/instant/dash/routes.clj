@@ -467,6 +467,17 @@
                     {:app-id (str app-id)})
     (response/ok {:ok true})))
 
+(defn apps-track-import
+  "Track when a user imports/links an existing app to their project.
+   Used by create-instant-app and instant-cli when linking to existing apps
+   rather than creating new ones."
+  [req]
+  (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)]
+    (posthog/track! req
+                    "app:import"
+                    {:app-id (str app-id)})
+    (response/ok {:ok true})))
+
 (defn admin-tokens-regenerate [req]
   (let [{{app-id :id} :app} (req->app-and-user! :admin req)
         admin-token (ex/get-param! req [:body :admin-token] uuid-util/coerce)]
@@ -1837,6 +1848,7 @@
   (GET "/dash/apps/:app_id/stats" [] app-stats-get)
   (DELETE "/dash/apps/:app_id" [] apps-delete)
   (POST "/dash/apps/:app_id/clear" [] apps-clear)
+  (POST "/dash/apps/:app_id/track-import" [] apps-track-import)
   (POST "/dash/apps/:app_id/rules" [] rules-post)
   (POST "/dash/apps/:app_id/tokens" [] admin-tokens-regenerate)
   (GET "/dash/apps/:app_id/soft_deleted_attrs" [] soft-deleted-attrs-get)
