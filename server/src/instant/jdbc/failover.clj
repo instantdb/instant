@@ -149,22 +149,25 @@
 ;; --------
 ;; Failover
 
-(defn do-failover-to-new-db []
+(defn do-failover-to-new-db
+  "Intended to be run from a production repl, will failover making the replica the primary.
+   Before running set the `failing-over` and the `disable-aggregator` feature flags to `true`,
+   then set them back to `false` after the failover is complete.
+
+   Relies on only a single instance being active."
+  []
   (println "Failing over to new db")
-  (let [next-config (config/get-next-aurora-config)
-        _ (assert next-config "missing next database config")
-        next-pool (start-new-pool next-config)
+  (let [next-pool aurora/-replica-conn-pool
+        _ (assert next-pool "no replica conn pool")
         conn-pool-fn-before aurora/conn-pool
         prev-pool aurora/-conn-pool
         next-pool-promise (promise)]
     (tool/def-locals)
     (println "Started next pool")
-    ;; Make the connections wait. For a future improvement, we could have the
-    ;; caller tell us if they wanted a read-only connection and then we wouldn't
-    ;; have to pause reads until after we waited for writes to complete
+    ;; Make the write connections wait, send the read connections to the replica
     (alter-var-root #'aurora/conn-pool (fn [_] (fn [rw]
-                                                 (if (= :read rw)
-                                                   (aurora/memoized-read-only-wrapper prev-pool)
+                                                 (case rw
+                                                   (:read :read-replica) (aurora/memoized-read-only-wrapper next-pool)
                                                    @next-pool-promise))))
     ;; Give transactions half the receive-timeout to complete
     (println "Waiting for 2.5 seconds for transactions to complete")
@@ -174,11 +177,10 @@
     (sql/cancel-in-progress sql/default-statement-tracker)
     ;; Create a transaction we can use as a proxy for everything syncing over to
     ;; the new instance
-    (let [tx (transaction-model/create! aurora/-conn-pool
+    (let [tx (transaction-model/create! prev-pool
                                         {:app-id (config/instant-config-app-id)})
           quit (fn []
                  (println "Abandoning failover")
-                 (lang/close next-pool)
                  (deliver next-pool-promise prev-pool)
                  (alter-var-root #'aurora/conn-pool (fn [_] conn-pool-fn-before))
                  (throw (Exception. "Abandoning failover, somehow the writes aren't in sync.")))]
@@ -194,15 +196,12 @@
                                      (+ (:id row) 1000)]))
           (do
             (when (> i 100)
-              (println "Waited to long for data to sync")
+              (println "Waited too long for data to sync")
               (quit))
             (println "Not yet synced, waiting for 50ms, i =" i)
             (Thread/sleep 50)
             (recur (inc i))))))
     (println "Synced!")
-    ;; Give it an extra second just for good measure
-    (println "Sleeping for another second")
-    (Thread/sleep 1000)
     (println "Continuing with all queries and transactions on the new db.")
     (deliver next-pool-promise next-pool)
     (alter-var-root #'aurora/-conn-pool (fn [_] next-pool))
@@ -214,7 +213,7 @@
     (lang/close prev-pool)
     (println "NEXT STEPS:")
     (println "  1. Put the old database to sleep so that it doesn't accidentally get written to.")
-    (println "  2. Update the config so that old db is now new db and redeploy")))
+    (println "  2. Deploy a PR that updates the config so that replica is the primary and redeploy")))
 
 ;; ----------------
 ;; Validate replica
