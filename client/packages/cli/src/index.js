@@ -1019,6 +1019,10 @@ async function promptImportAppOrCreateApp() {
     }),
   );
 
+  if (result.approach === 'import') {
+    trackAppImport(result.appId);
+  }
+
   return {
     ok: true,
     appId: result.appId,
@@ -1049,10 +1053,26 @@ async function createEphemeralApp(title) {
   return { appId: app.id, adminToken: app.adminToken };
 }
 
+/**
+ * Fire-and-forget tracking for when a user imports/links an existing app.
+ * Captures user info if authenticated.
+ */
+function trackAppImport(appId) {
+  fetchJson({
+    method: 'POST',
+    path: `/dash/apps/${appId}/track-import`,
+    debugName: 'Track import',
+    errorMessage: '',
+    noLogError: true,
+    command: 'init',
+  }).catch(() => {});
+}
+
 async function detectAppWithErrorLogging(opts) {
   const fromOpts = await detectAppIdFromOptsWithErrorLogging(opts);
   if (!fromOpts.ok) return fromOpts;
   if (fromOpts.appId) {
+    trackAppImport(fromOpts.appId);
     return { ok: true, appId: fromOpts.appId, source: 'opts' };
   }
   const fromEnv = detectAppIdFromEnvWithErrorLogging();
