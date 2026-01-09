@@ -10,6 +10,27 @@ const getPostAttrs = (schema: any) =>
 const getStepTypes = (steps: { type: string }[]) =>
   steps.map((step) => step.type).sort();
 
+const waitForPostAttrs = async (
+  api: PlatformApi,
+  appId: string,
+  predicate: (attrs: string[]) => boolean,
+  timeoutMs = 15000,
+) => {
+  const start = Date.now();
+  let lastAttrs: string[] = [];
+  while (Date.now() - start < timeoutMs) {
+    const { schema } = await api.getSchema(appId);
+    lastAttrs = getPostAttrs(schema);
+    if (predicate(lastAttrs)) {
+      return lastAttrs;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(
+    `Timed out waiting for schema attrs. Last seen: ${lastAttrs.join(', ')}`,
+  );
+};
+
 describe.sequential('schemaPush e2e', () => {
   let appId: string;
   let adminToken: string;
@@ -52,8 +73,12 @@ describe.sequential('schemaPush e2e', () => {
     const push = await adminApi.schemaPush(appId, { schema: additiveSchema });
     expect(getStepTypes(push.steps)).toEqual(getStepTypes(plan.steps));
 
-    const { schema } = await adminApi.getSchema(appId);
-    const attrs = getPostAttrs(schema);
+    const attrs = await waitForPostAttrs(
+      adminApi,
+      appId,
+      (nextAttrs) =>
+        nextAttrs.includes('title') && nextAttrs.includes('slug'),
+    );
     expect(attrs).toContain('title');
     expect(attrs).toContain('slug');
   }, 60000);
@@ -76,9 +101,6 @@ describe.sequential('schemaPush e2e', () => {
 
     const hasDelete = plan.steps.some((step) => step.type === 'delete-attr');
     const hasUpdate = plan.steps.some((step) => step.type === 'update-attr');
-    if (!hasDelete || !hasUpdate) {
-      console.log('overwrite plan steps', plan.steps);
-    }
     expect(hasDelete).toBe(true);
     expect(hasUpdate).toBe(true);
     expect(plan.steps.some((step) => step.type === 'add-attr')).toBe(false);
@@ -90,8 +112,14 @@ describe.sequential('schemaPush e2e', () => {
     });
     expect(getStepTypes(push.steps)).toEqual(getStepTypes(plan.steps));
 
-    const { schema } = await adminApi.getSchema(appId);
-    const attrs = getPostAttrs(schema);
+    const attrs = await waitForPostAttrs(
+      adminApi,
+      appId,
+      (nextAttrs) =>
+        nextAttrs.includes('headline') &&
+        !nextAttrs.includes('title') &&
+        !nextAttrs.includes('slug'),
+    );
     expect(attrs).toContain('headline');
     expect(attrs).not.toContain('title');
     expect(attrs).not.toContain('slug');
