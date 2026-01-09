@@ -12,7 +12,7 @@ This is an experimental feature, and you may not need SSR for many applications.
 3. How Instant works over SSR, particularly with caches
 4. And how to add SSR in your projects
 
-# What is server-side rendering?
+## What is server-side rendering?
 
 Server-side rendering lets you run your react components in two environments. First the server renders your react component, so as soon a browser sees your website, your react component is there. Once the browser loads javascript, the same component runs on the client once more: this way if you have hover effects, or other logic that needs to attach to the component, it can run them in the browser.
 
@@ -23,17 +23,17 @@ To get a sense for how this all works, imagine loading a todo app. Without SSR, 
 
 With SSR, your todo component would run on the server first. The *very* first load in the browser would already show todos. Once javascript loads, the todo component would render one more time and all the hover effects would kick in.
 
-# When is server-side rendering a good idea?
+## When is server-side rendering a good idea?
 
 On first glance, server-side rendering can sound great. Why not run your code right away on the server? Well, there are two costs:
 
-## The costs
+### The costs
 
 **The biggest cost is complexity**: your react code runs in two environments. Once on the sever, and once on the client. NextJS and Instant can do a good job of hiding the difference, but sometimes those differences leak out (as a basic example, there’s no `window` in the server). For many applications, you may not want the added complexity.
 
 **The second cost relates to offline caches:** If you want your application to *feel* like a desktop app, you’ll want to reduce the amount of times your application *has* to go back to the server. Think Google Maps, or Figma. In those cases, server-side rendering may make your application *feel* more sluggish.
 
-## The Benefits
+### The Benefits
 
 But there are also some clear benefits.
 
@@ -43,7 +43,7 @@ But there are also some clear benefits.
 
 Put these benefits together, and sometimes SSR really worth it.
 
-# How Instant works with SSR
+## How Instant works with SSR
 
 So, if the benefits worth it, how can you use Instant with SSR?
 
@@ -55,7 +55,7 @@ That’s where `@instantdb/react/nextjs` comes in. This is a special package wit
 
 When you use this query. (1) On the server it will run a query once and get data. Once loaded on the client, (2) it will turn the re-connect and subscribe to changes on the same query. This means on the first load you have data, *and* it becomes real-time when you load the client.
 
-## What about offline caches?
+### What about offline caches?
 
 But it gets better. If you remember, Instant tends to store your queries in a local cache. This is what lets your app feel snappy and work offline.
 
@@ -68,11 +68,11 @@ For example, imagine you “click” a particular todo:
 
 If the query that’s needed lives inside the local cache, NextJS will render the route client-side — it will never go to the server! And if it isn’t, it will fall back to normal SSR and get to the server. We had to do some serious hacking to make this work, but it means that with Instant, you get *two* speedups with your app!
 
-# Adding SSR to your projects
+## Adding SSR to your projects
 
 If this all sounds good to you, you can add SSR to your projects today. Here’s the step step.
 
-## 1. Replace your `db` client
+### 1. Replace your `db` client
 
 First things first, we’ll want to replace our db client to work with SSR. Instead of an import from `@instantdb/react`, you’ll import from `@instantdb/react/nextjs`:
 
@@ -91,7 +91,7 @@ export const db = init({
 
 Note that we also included `firstPartyPath`. This lets us sync auth between client and server.
 
-## 2. Sync auth
+### 2. Sync auth
 
 To sync auth, we’ll create a route handler in `app/api/instant/route.ts`:
 
@@ -107,7 +107,7 @@ export const { POST } = createInstantRouteHandler({
 
 Once we do this, Instant can start to detect the logged in user both in the browser and in the server.
 
-## 3. Create an InstantProvider
+### 3. Create an InstantProvider
 
 SSR relies on suspense. To support that we’ll need to make an `InstantProvider` component:
 
@@ -126,7 +126,7 @@ export const InstantProvider = ({ children, user }) => (
 ```
 
 
-## 4. Update layout.tsx
+### 4. Update layout.tsx
 
 Now we’ll want to use our InstantProvider at the very top level, usually `app/layout.tsx`:
 
@@ -154,7 +154,7 @@ This (a) fetches the current user, and (b) puts the Instant provider in the Reac
 At this point…we’re ready to use SSR queries!
 
 
-## 5. db.useSuspenseQuery to your heart’s delight
+### 5. db.useSuspenseQuery to your heart's delight
 
 Now that you’ve set up SSR, you should see a new `db.useSuspenseQuery` available. Use it in your pages:
 
@@ -171,6 +171,6 @@ export default function Page() {
 
 Note how there’s no `isLoading` or `error` state from db.useSuspenseQuery! The provider takes care of it all, and makes sure we have the data when we render this page.
 
-# Questions
+## Questions
 
 This is still a beta. We’d love to hear your feedback on Discord!
