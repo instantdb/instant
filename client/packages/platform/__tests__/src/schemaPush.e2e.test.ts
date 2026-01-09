@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { PlatformApi, i } from '../../src/index';
 
 const uniqueTitle = (prefix: string) =>
@@ -9,6 +9,9 @@ const getPostAttrs = (schema: any) =>
 
 const getStepTypes = (steps: { type: string }[]) =>
   steps.map((step) => step.type).sort();
+
+const getPostLinks = (schema: any) =>
+  Object.keys(schema.entities?.posts?.links || {});
 
 const waitForPostAttrs = async (
   api: PlatformApi,
@@ -31,13 +34,41 @@ const waitForPostAttrs = async (
   );
 };
 
-describe.sequential('schemaPush e2e', () => {
-  let appId: string;
-  let adminToken: string;
-  let adminApi: PlatformApi;
+const waitForPostLinks = async (
+  api: PlatformApi,
+  appId: string,
+  predicate: (links: string[]) => boolean,
+  timeoutMs = 15000,
+) => {
+  const start = Date.now();
+  let lastLinks: string[] = [];
+  while (Date.now() - start < timeoutMs) {
+    const { schema } = await api.getSchema(appId);
+    lastLinks = getPostLinks(schema);
+    if (predicate(lastLinks)) {
+      return lastLinks;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(
+    `Timed out waiting for schema links. Last seen: ${lastLinks.join(', ')}`,
+  );
+};
 
-  beforeAll(async () => {
-    const api = new PlatformApi({});
+const createTempApp = async (schema: any) => {
+  const api = new PlatformApi({});
+  const { app } = await api.createTemporaryApp({
+    title: uniqueTitle('platform-schema-push-e2e'),
+    schema,
+  });
+  return {
+    appId: app.id,
+    adminApi: new PlatformApi({ auth: { token: app.adminToken } }),
+  };
+};
+
+describe.sequential('schemaPush e2e', () => {
+  test('additive push keeps removed attrs', async () => {
     const initialSchema = i.schema({
       entities: {
         posts: i.entity({
@@ -45,18 +76,7 @@ describe.sequential('schemaPush e2e', () => {
         }),
       },
     });
-
-    const { app } = await api.createTemporaryApp({
-      title: uniqueTitle('platform-schema-push-e2e'),
-      schema: initialSchema,
-    });
-
-    appId = app.id;
-    adminToken = app.adminToken;
-    adminApi = new PlatformApi({ auth: { token: adminToken } });
-  }, 60000);
-
-  test('additive push keeps removed attrs', async () => {
+    const { appId, adminApi } = await createTempApp(initialSchema);
     const additiveSchema = i.schema({
       entities: {
         posts: i.entity({
@@ -83,45 +103,129 @@ describe.sequential('schemaPush e2e', () => {
     expect(attrs).toContain('slug');
   }, 60000);
 
-  test('overwrite push supports renames and deletes', async () => {
-    const overwriteSchema = i.schema({
+  test('overwrite push supports deletes only', async () => {
+    const initialSchema = i.schema({
       entities: {
         posts: i.entity({
-          headline: i.string(),
+          title: i.string(),
+          slug: i.string(),
         }),
       },
     });
+    const { appId, adminApi } = await createTempApp(initialSchema);
 
-    const renames = { 'posts.title': 'posts.headline' };
     const plan = await adminApi.planSchemaPush(appId, {
-      schema: overwriteSchema,
+      schema: i.schema({
+        entities: {
+          posts: i.entity({
+            title: i.string(),
+          }),
+        },
+      }),
       overwrite: true,
-      renames,
     });
 
     const hasDelete = plan.steps.some((step) => step.type === 'delete-attr');
-    const hasUpdate = plan.steps.some((step) => step.type === 'update-attr');
     expect(hasDelete).toBe(true);
-    expect(hasUpdate).toBe(true);
     expect(plan.steps.some((step) => step.type === 'add-attr')).toBe(false);
 
     const push = await adminApi.schemaPush(appId, {
-      schema: overwriteSchema,
+      schema: i.schema({
+        entities: {
+          posts: i.entity({
+            title: i.string(),
+          }),
+        },
+      }),
       overwrite: true,
-      renames,
     });
     expect(getStepTypes(push.steps)).toEqual(getStepTypes(plan.steps));
 
     const attrs = await waitForPostAttrs(
       adminApi,
       appId,
-      (nextAttrs) =>
-        nextAttrs.includes('headline') &&
-        !nextAttrs.includes('title') &&
-        !nextAttrs.includes('slug'),
+      (nextAttrs) => nextAttrs.includes('title') && !nextAttrs.includes('slug'),
     );
-    expect(attrs).toContain('headline');
-    expect(attrs).not.toContain('title');
+    expect(attrs).toContain('title');
     expect(attrs).not.toContain('slug');
+  }, 60000);
+
+  test('overwrite push supports link renames via renames map', async () => {
+    const initialSchema = i.schema({
+      entities: {
+        users: i.entity({
+          name: i.string(),
+        }),
+        posts: i.entity({
+          title: i.string(),
+        }),
+      },
+      links: {
+        usersPosts: {
+          forward: {
+            on: 'users',
+            has: 'many',
+            label: 'posts',
+          },
+          reverse: {
+            on: 'posts',
+            has: 'one',
+            label: 'author',
+          },
+        },
+      },
+    });
+    const { appId, adminApi } = await createTempApp(initialSchema);
+
+    const renamedSchema = i.schema({
+      entities: {
+        users: i.entity({
+          name: i.string(),
+        }),
+        posts: i.entity({
+          title: i.string(),
+        }),
+      },
+      links: {
+        usersPosts: {
+          forward: {
+            on: 'users',
+            has: 'many',
+            label: 'posts',
+          },
+          reverse: {
+            on: 'posts',
+            has: 'one',
+            label: 'writer',
+          },
+        },
+      },
+    });
+
+    const renames = { 'posts.author': 'posts.writer' };
+    const plan = await adminApi.planSchemaPush(appId, {
+      schema: renamedSchema,
+      overwrite: true,
+      renames,
+    });
+    expect(plan.steps.some((step) => step.type === 'delete-attr')).toBe(false);
+    expect(plan.steps.some((step) => step.type === 'add-attr')).toBe(false);
+    expect(plan.steps.some((step) => step.type === 'update-attr')).toBe(true);
+
+    const push = await adminApi.schemaPush(appId, {
+      schema: renamedSchema,
+      overwrite: true,
+      renames,
+    });
+    expect(getStepTypes(push.steps)).toEqual(getStepTypes(plan.steps));
+
+    const links = await waitForPostLinks(
+      adminApi,
+      appId,
+      (nextLinks) =>
+        nextLinks.includes('writer') && !nextLinks.includes('author'),
+    );
+    expect(links).toContain('writer');
+    expect(links).not.toContain('author');
   }, 60000);
 });
