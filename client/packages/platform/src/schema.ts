@@ -219,6 +219,9 @@ export type WithBackgroundJob<P extends { type: string }> =
 export type InstantAPISchemaPushAddAttrStep =
   WithBackgroundJob<InstantAPISchemaPlanAddAttrStep>;
 
+export type InstantAPISchemaPushDeleteAttrStep =
+  WithBackgroundJob<InstantAPISchemaPlanDeleteAttrStep>;
+
 export type InstantAPISchemaPushUpdateAttrStep =
   WithBackgroundJob<InstantAPISchemaPlanUpdateAttrStep>;
 
@@ -248,6 +251,7 @@ export type InstantAPISchemaPushRemoveDataTypeStep =
 
 export type InstantAPISchemaPushStep =
   | InstantAPISchemaPushAddAttrStep
+  | InstantAPISchemaPushDeleteAttrStep
   | InstantAPISchemaPushUpdateAttrStep
   | InstantAPISchemaPushIndexStep
   | InstantAPISchemaPushRemoveIndexStep

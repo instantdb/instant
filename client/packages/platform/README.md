@@ -301,6 +301,15 @@ const schema = i.schema({
 
 const { steps } = await api.planSchemaPush(YOUR_APP_ID, { schema: schema });
 
+// To allow deletions and renames:
+const { steps: overwriteSteps } = await api.planSchemaPush(YOUR_APP_ID, {
+  schema: schema,
+  overwrite: true,
+  renames: {
+    'posts.name': 'posts.title',
+  },
+});
+
 // steps
 // [
 //   { type: 'index', friendlyDescription: 'Add index to todos.title.' },
@@ -336,6 +345,15 @@ const schema = i.schema({
 });
 
 const pushPromise = api.schemaPush(YOUR_APP_ID, { schema: schema });
+
+// To apply deletes/renames:
+const overwritePromise = api.schemaPush(YOUR_APP_ID, {
+  schema: schema,
+  overwrite: true,
+  renames: {
+    'posts.name': 'posts.title',
+  },
+});
 
 pushPromise.subscribe({
   next(status) {

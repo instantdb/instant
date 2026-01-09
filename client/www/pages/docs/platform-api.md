@@ -219,8 +219,17 @@ const schema = i.schema({
   },
 });
 
-await api.schemaPush(YOUR_APP_ID, { schema: schema });
+// Additive by default. Set overwrite + renames for deletes/renames.
+await api.schemaPush(YOUR_APP_ID, {
+  schema: schema,
+  overwrite: true,
+  renames: {
+    'posts.name': 'posts.title',
+  },
+});
 ```
+
+Use `planSchemaPush` first when `overwrite: true` so you can review deletions.
 
 To see more examples, check out the [Platform SDK reference](https://github.com/instantdb/instant/tree/main/client/packages/platform#making-api-requests).
 
