@@ -632,6 +632,11 @@
                  ::pg-error-data data})
         (default-psql-throw! e data hint))
 
+      :untranslatable-character
+      (throw+ {::type ::validation-failed
+               ::message "String contains characters that cannot be stored. The most common cause is null bytes (\\x00)."}
+              e)
+
       :raise-exception
       (case server-message
         "modify_org_id_on_org_member"
