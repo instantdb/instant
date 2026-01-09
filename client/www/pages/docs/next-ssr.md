@@ -7,7 +7,6 @@ If you use NextJS and want to do server-side rendering, we have an experimental 
 
 This is an experimental feature, and you may not need SSR for many applications. But when you do you can get some exceptional UX from it. In this essay we’ll cover:
 
-
 1. What server-side rendering is
 2. When SSR a good idea
 3. How Instant works over SSR, particularly with caches
@@ -17,7 +16,7 @@ This is an experimental feature, and you may not need SSR for many applications.
 
 Server-side rendering lets you run your react components in two environments. First the server renders your react component, so as soon a browser sees your website, your react component is there. Once the browser loads javascript, the same component runs on the client once more: this way if you have hover effects, or other logic that needs to attach to the component, it can run them in the browser.
 
-![](https://paper-attachments.dropboxusercontent.com/s_E0571E33A5F9D43FD41BC2EB579B67A762400EE52068F1337A6DA69026A85C68_1767915318758_image.png)
+![SSR diagram](/img/docs/next-ssr-diagram.png)
 
 
 To get a sense for how this all works, imagine loading a todo app. Without SSR, when you first load the site you’d see a blank page. Once javascript gets loaded, React would kick in and you’d see your todos show up.
@@ -51,7 +50,7 @@ So, if the benefits worth it, how can you use Instant with SSR?
 That’s where `@instantdb/react/nextjs` comes in. This is a special package with a new hook: `db.useSuspenseQuery`:
 
 
-![](https://paper-attachments.dropboxusercontent.com/s_E0571E33A5F9D43FD41BC2EB579B67A762400EE52068F1337A6DA69026A85C68_1767917243095_image.png)
+![useSuspenseQuery diagram](/img/docs/next-ssr-suspense-query.png)
 
 
 When you use this query. (1) On the server it will run a query once and get data. Once loaded on the client, (2) it will turn the re-connect and subscribe to changes on the same query. This means on the first load you have data, *and* it becomes real-time when you load the client.
@@ -64,7 +63,7 @@ Well, how does this local cache work with SSR? **It can save you trips to the se
 
 For example, imagine you “click” a particular todo:
 
-![](https://paper-attachments.dropboxusercontent.com/s_E0571E33A5F9D43FD41BC2EB579B67A762400EE52068F1337A6DA69026A85C68_1767918110755_image.png)
+![Offline cache diagram](/img/docs/next-ssr-offline-cache.png)
 
 
 If the query that’s needed lives inside the local cache, NextJS will render the route client-side — it will never go to the server! And if it isn’t, it will fall back to normal SSR and get to the server. We had to do some serious hacking to make this work, but it means that with Instant, you get *two* speedups with your app!
@@ -78,15 +77,17 @@ If this all sounds good to you, you can add SSR to your projects today. Here’s
 First things first, we’ll want to replace our db client to work with SSR. Instead of an import from `@instantdb/react`, you’ll import from `@instantdb/react/nextjs`:
 
 
-    // src/lib/db.ts
-    import { init } from "@instantdb/react/nextjs"; // <--
-    import schema from "../instant.schema";
+```typescript {% showCopy=true %}
+// src/lib/db.ts
+import { init } from "@instantdb/react/nextjs"; // <--
+import schema from "../instant.schema";
 
-    export const db = init({
-      appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-      schema,
-      firstPartyPath: "/api/instant", // <--
-    });
+export const db = init({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+  schema,
+  firstPartyPath: "/api/instant", // <--
+});
+```
 
 Note that we also included `firstPartyPath`. This lets us sync auth between client and server.
 
@@ -95,12 +96,14 @@ Note that we also included `firstPartyPath`. This lets us sync auth between clie
 To sync auth, we’ll create a route handler in `app/api/instant/route.ts`:
 
 
-    // src/app/api/instant/route.ts
-    import { createInstantRouteHandler } from "@instantdb/react/nextjs";
+```typescript {% showCopy=true %}
+// src/app/api/instant/route.ts
+import { createInstantRouteHandler } from "@instantdb/react/nextjs";
 
-    export const { POST } = createInstantRouteHandler({
-      appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-    });
+export const { POST } = createInstantRouteHandler({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+});
+```
 
 Once we do this, Instant can start to detect the logged in user both in the browser and in the server.
 
@@ -109,16 +112,18 @@ Once we do this, Instant can start to detect the logged in user both in the brow
 SSR relies on suspense. To support that we’ll need to make an `InstantProvider` component:
 
 
-    // src/InstantProvider.tsx
-    "use client";
-    import { InstantSuspenseProvider } from "@instantdb/react/nextjs";
-    import { db } from "./lib/db";
+```typescript {% showCopy=true %}
+// src/InstantProvider.tsx
+"use client";
+import { InstantSuspenseProvider } from "@instantdb/react/nextjs";
+import { db } from "./lib/db";
 
-    export const InstantProvider = ({ children, user }) => (
-      <InstantSuspenseProvider user={user} db={db}>
-        {children}
-      </InstantSuspenseProvider>
-    );
+export const InstantProvider = ({ children, user }) => (
+  <InstantSuspenseProvider user={user} db={db}>
+    {children}
+  </InstantSuspenseProvider>
+);
+```
 
 
 ## 4. Update layout.tsx
@@ -126,21 +131,23 @@ SSR relies on suspense. To support that we’ll need to make an `InstantProvider
 Now we’ll want to use our InstantProvider at the very top level, usually `app/layout.tsx`:
 
 
-    // src/app/layout.tsx
-    import { getUserOnServer } from "@instantdb/react/nextjs";
-    import { InstantProvider } from "@/InstantProvider";
+```typescript {% showCopy=true %}
+// src/app/layout.tsx
+import { getUserOnServer } from "@instantdb/react/nextjs";
+import { InstantProvider } from "@/InstantProvider";
 
-    export default async function RootLayout({ children }) {
-      const user = await getUserOnServer(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
+export default async function RootLayout({ children }) {
+  const user = await getUserOnServer(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
 
-      return (
-        <html>
-          <body>
-            <InstantProvider user={user}>{children}</InstantProvider>
-          </body>
-        </html>
-      );
-    }
+  return (
+    <html>
+      <body>
+        <InstantProvider user={user}>{children}</InstantProvider>
+      </body>
+    </html>
+  );
+}
+```
 
 This (a) fetches the current user, and (b) puts the Instant provider in the React tree.
 
@@ -152,13 +159,15 @@ At this point…we’re ready to use SSR queries!
 Now that you’ve set up SSR, you should see a new `db.useSuspenseQuery` available. Use it in your pages:
 
 
-    "use client";
-    import { db } from "@/lib/db";
+```typescript
+"use client";
+import { db } from "@/lib/db";
 
-    export default function Page() {
-      // renders on server, no loading state needed
-      const { data } = db.useSuspenseQuery({ posts: {} });
-    }
+export default function Page() {
+  // renders on server, no loading state needed
+  const { data } = db.useSuspenseQuery({ posts: {} });
+}
+```
 
 Note how there’s no `isLoading` or `error` state from db.useSuspenseQuery! The provider takes care of it all, and makes sure we have the data when we render this page.
 
