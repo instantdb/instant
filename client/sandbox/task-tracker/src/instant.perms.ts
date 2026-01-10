@@ -9,7 +9,7 @@ const rules = {
     },
   },
   tasks: {
-    bind: ['isMember', "auth.id in data.ref('project.members.id')"],
+    bind: { isMember: "auth.id in data.ref('project.members.id')" },
     allow: {
       $default: 'isMember',
     },
@@ -29,34 +29,25 @@ const rules = {
     bind: [
       'isAdmin',
       "auth.id in data.ref('admins.id')",
-
       'isMember',
       "auth.id in data.ref('members.id')",
-
       'isNewProject',
       'actions.data == "create"',
-
       'linkingMyself',
       'linkedData.id == auth.id',
     ],
     allow: {
-      create: 'true',
-      $default: 'isMember',
       link: {
-        // admin can't add members directly, only via invite
-        // I can only join as myself
-        // I must know invite secret
+        admins: 'isNewProject ? linkingMyself : isAdmin',
         members:
           'linkingMyself && (isNewProject || ruleParams.secret in data.ref("invites.secret"))',
-
-        // On new projects, I must set myself as admin
-        // Otherwise, admin can promote
-        admins: 'isNewProject ? linkingMyself : isAdmin',
       },
+      create: 'true',
       unlink: {
-        members: 'isAdmin || linkingMyself',
         admins: 'isAdmin || linkingMyself',
+        members: 'isAdmin || linkingMyself',
       },
+      $default: 'isMember',
     },
   },
 } satisfies InstantRules;

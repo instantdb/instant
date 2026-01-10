@@ -21,6 +21,7 @@ export default {
     bind: ['isOwner', "auth.id in data.ref('posts.authors.userId')"],
     allow: {
       view: 'true',
+
       create: 'isOwner',
       update: 'isOwner',
       delete: 'isOwner',

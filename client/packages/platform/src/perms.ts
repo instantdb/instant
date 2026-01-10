@@ -19,7 +19,7 @@ export function generatePermsTypescriptFile(
    *     update: "isOwner",
    *     delete: "isOwner",
    *   },
-   *   bind: ["isOwner", "auth.id != null && auth.id == data.ownerId"],
+   *   bind: {"isOwner": "auth.id != null && auth.id == data.ownerId"},
    * },
    */
 }

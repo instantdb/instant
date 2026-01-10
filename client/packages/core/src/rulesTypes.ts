@@ -16,11 +16,17 @@ export type InstantRulesAllowBlock = InstantRulesAttrsAllowBlock & {
 export type InstantRules<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
 > = {
-  $default?: { bind?: string[]; allow: InstantRulesAllowBlock };
-  attrs?: { bind?: string[]; allow: InstantRulesAttrsAllowBlock };
+  $default?: {
+    bind?: string[] | Record<string, string>;
+    allow: InstantRulesAllowBlock;
+  };
+  attrs?: {
+    bind?: string[] | Record<string, string>;
+    allow: InstantRulesAttrsAllowBlock;
+  };
 } & {
   [EntityName in keyof Schema['entities']]?: {
-    bind?: string[];
+    bind?: string[] | Record<string, string>;
     allow: InstantRulesAllowBlock;
     fields?: {
       [AttrName in Exclude<

@@ -33,6 +33,19 @@
                              "myetype"
                              "view")))))
 
+(deftest binds-works-with-kv-format
+  (is (= "cel.bind(test, true, test)"
+         (:code
+          (rule/get-program! {:code {"myetype"
+                                     {"bind" {"test" "true"}
+                                      "allow" {"view" "test"}}}}
+                             "myetype"
+                             "view"))))
+
+  (is (= () (rule/validation-errors {"myetype"
+                                     {"bind" {"test" "true"}
+                                      "allow" {"view" "test"}}}))))
+
 (deftest binds-can-reference-other-binds
   (is (= "cel.bind(parent, true, cel.bind(child, parent || true, child))"
          (:code

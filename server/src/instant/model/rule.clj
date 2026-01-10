@@ -99,6 +99,15 @@
   (clojure.set/intersection bind-keys
                             (cel/ident-usages compiler expr)))
 
+(defn normalize-bind
+  "Converts bind from either array format or object format to a flat sequence.
+   Array: [k1 v1 k2 v2] -> (k1 v1 k2 v2)
+   Object: {k1 v1, k2 v2} -> (k1 v1 k2 v2)"
+  [bind]
+  (if (map? bind)
+    (mapcat identity bind)
+    bind))
+
 
 (defn sort-binds
   "Topological sort of binds, in order of depenency (if a -> b, then (a, b)).
@@ -126,8 +135,8 @@
 
 (defn with-binds [rule etype action expr]
   (let [binds (concat
-               (get-in rule ["$default" "bind"])
-               (get-in rule [etype      "bind"]))]
+               (normalize-bind (get-in rule ["$default" "bind"]))
+               (normalize-bind (get-in rule [etype      "bind"])))]
     (when (not (even? (count binds)))
       (cel/throw-cel-validation-error expr "bind should have an even number of elements"))
     (if (empty? binds)
@@ -308,7 +317,8 @@
 
 (defn bind-validation-errors [rules]
   (reduce-kv (fn [errors etype {:strs [bind]}]
-               (let [repeated (loop [seen #{}
+               (let [bind (normalize-bind bind)
+                     repeated (loop [seen #{}
                                      [var-name _body & rest] bind]
                                 (if (contains? seen var-name)
                                   var-name
