@@ -31,8 +31,6 @@
  :google-oauth-client {:client-id "785415128641-a5pmq866egf7ti8chk7n7d6d2p4jlugh.apps.googleusercontent.com"
                        :client-secret {:enc "01506bc4f4578c7ed25ebc62d3e685ab755ad83c4e39efe94c21eab013e80ebfd7a77440453373dbf2cb4e51344969861f90c9b4e262d39908e6d82b4126813a5b8cded4bbf16acd5c76bd53fa737236280f691fce32615f"}}
 
- :database-cluster-id "instant-aurora-8"
-
- :next-database-cluster-id "instant-aurora-17"
+ :database-cluster-id "instant-aurora-17"
 
  :instant-config-app-id #uuid "24a4d71b-7bb2-4630-9aee-01146af26239"}
