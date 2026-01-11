@@ -1,13 +1,71 @@
-import { Args, CliConfig, Command, HelpDoc, Span } from '@effect/cli';
+import { Args, CliConfig, HelpDoc, Span } from '@effect/cli';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
-import { Help, program } from 'commander';
-import { Console, Effect, Layer } from 'effect';
+import { program, Option, Command } from '@commander-js/extra-typings';
+import { Effect, Layer } from 'effect';
 import version from '../version.js';
+import chalk from 'chalk';
+import { nodeLayer, printRedErrors } from './layer.js';
+import { initCommand } from './commands/init.js';
+import { initWithoutFilesCommand } from './commands/initWithoutFiles.js';
+import { AuthToken, AuthTokenLive } from './context/authToken.js';
 
-const appIdArg = Args.text({ name: 'appId' }).pipe(
-  Args.optional,
-  Args.withDescription('The ID for the app to use'),
-);
+export type ArgsFromCommand<C> =
+  C extends Command<any, infer R, any> ? R : never;
+
+program
+  .name('instant-cli')
+  .addOption(globalOption('-t --token <token>', 'Auth token override'))
+  .addOption(globalOption('-y --yes', "Answer 'yes' to all prompts"))
+  .addOption(globalOption('--env <file>', 'Use a specific .env file'))
+  .addOption(
+    globalOption('-v --version', 'Print the version number', () => {
+      console.log(version);
+      process.exit(0);
+    }),
+  )
+  .addHelpOption(globalOption('-h --help', 'Print the help text for a command'))
+  .usage(`<command> ${chalk.dim('[options] [args]')}`);
+
+// Command List
+export const initDef = program
+  .command('init')
+  .description('Set up a new project.')
+  .option(
+    '-a --app <app-id>',
+    'If you have an existing app ID, we can pull schema and perms from there.',
+  )
+  .option(
+    '-p --package <react|react-native|core|admin>',
+    'Which package to automatically install if there is not one installed already.',
+  )
+  .option('--title <title>', 'Title for the created app')
+  .action((options) => {
+    return Effect.runPromise(initCommand(options));
+  });
+
+export const initWithoutFilesDef = program
+  .command('init-without-files')
+  .description('Generate a new app id and admin token pair without any files.')
+  .option('--title <title>', 'Title for the created app.')
+  .option(
+    '--org-id <org-id>',
+    'Organization id for app. Cannot be used with --temp flag.',
+  )
+  .option(
+    '--temp',
+    'Create a temporary app which will automatically delete itself after >24 hours.',
+  )
+  .action((opts) => {
+    return Effect.runPromise(
+      initWithoutFilesCommand(opts).pipe(
+        Effect.provide(AuthTokenLive),
+        Effect.catchAll(printRedErrors),
+      ),
+    );
+  });
+
+// Program setup
+
 function globalOption(
   flags: string,
   description?: string,
@@ -27,39 +85,118 @@ function globalOption(
   return opt;
 }
 
-program
-  .name('instant-cli')
-  .addOption(globalOption('-t --token <token>', 'Auth token override'))
-  .addOption(globalOption('-y --yes', "Answer 'yes' to all prompts"))
-  .addOption(globalOption('--env <file>', 'Use a specific .env file'))
-  .addOption(
-    globalOption('-v --version', 'Print the version number', () => {
-      console.log(version);
-      process.exit(0);
-    }),
-  )
-  .addHelpOption(globalOption('-h --help', 'Print the help text for a command'))
-  .usage(`<command> ${chalk.dim('[options] [args]')}`);
-const init = Command.make('init', { appIdArg }, ({ appIdArg }) =>
-  Effect.gen(function* () {
-    yield* Effect.log('hi');
-  }),
-).pipe(Command.withDescription(HelpDoc.p('Init the project')));
+function getLocalAndGlobalOptions(cmd, helper) {
+  const mixOfLocalAndGlobal = helper.visibleOptions(cmd);
+  const localOptionsFromMix = mixOfLocalAndGlobal.filter(
+    (option) => !option.__global,
+  );
+  const globalOptionsFromMix = mixOfLocalAndGlobal.filter(
+    (option) => option.__global,
+  );
+  const globalOptions = helper.visibleGlobalOptions(cmd);
 
-const cliCommand = Command.make('instant-cli').pipe(
-  Command.withSubcommands([init]),
-);
-const cli = Command.run(cliCommand, {
-  name: 'instant-cli',
-  version: '1.0.0',
-  executable: 'instant-cli',
-  footer: HelpDoc.empty,
-  summary: Span.empty,
+  return [localOptionsFromMix, globalOptionsFromMix.concat(globalOptions)];
+}
+
+function formatHelp(cmd, helper) {
+  const termWidth = helper.padWidth(cmd, helper);
+  const helpWidth = helper.helpWidth || 80;
+  const itemIndentWidth = 2;
+  const itemSeparatorWidth = 2; // between term and description
+  function formatItem(term, description) {
+    if (description) {
+      const fullText = `${term.padEnd(termWidth + itemSeparatorWidth)}${description}`;
+      return helper.wrap(
+        fullText,
+        helpWidth - itemIndentWidth,
+        termWidth + itemSeparatorWidth,
+      );
+    }
+    return term;
+  }
+  function formatList(textArray) {
+    return textArray.join('\n').replace(/^/gm, ' '.repeat(itemIndentWidth));
+  }
+
+  // Usage
+  let output = [`${helper.commandUsage(cmd)}`, ''];
+
+  // Description
+  const commandDescription = helper.commandDescription(cmd);
+  if (commandDescription.length > 0) {
+    output = output.concat([helper.wrap(commandDescription, helpWidth, 0), '']);
+  }
+
+  // Arguments
+  const argumentList = helper.visibleArguments(cmd).map((argument) => {
+    return formatItem(
+      helper.argumentTerm(argument),
+      helper.argumentDescription(argument),
+    );
+  });
+  if (argumentList.length > 0) {
+    output = output.concat([
+      chalk.dim.bold('Arguments'),
+      formatList(argumentList),
+      '',
+    ]);
+  }
+  const [visibleOptions, visibleGlobalOptions] = getLocalAndGlobalOptions(
+    cmd,
+    helper,
+  );
+
+  // Options
+  const optionList = visibleOptions.map((option) => {
+    return formatItem(
+      helper.optionTerm(option),
+      helper.optionDescription(option),
+    );
+  });
+  if (optionList.length > 0) {
+    output = output.concat([
+      chalk.dim.bold('Options'),
+      formatList(optionList),
+      '',
+    ]);
+  }
+  // Commands
+  const commandList = helper.visibleCommands(cmd).map((cmd) => {
+    return formatItem(
+      helper.subcommandTerm(cmd),
+      helper.subcommandDescription(cmd),
+    );
+  });
+  if (commandList.length > 0) {
+    output = output.concat([
+      chalk.dim.bold('Commands'),
+      formatList(commandList),
+      '',
+    ]);
+  }
+
+  if (this.showGlobalOptions) {
+    const globalOptionList = visibleGlobalOptions.map((option) => {
+      return formatItem(
+        helper.optionTerm(option),
+        helper.optionDescription(option),
+      );
+    });
+    if (globalOptionList.length > 0) {
+      output = output.concat([
+        chalk.dim.bold('Global Options'),
+        formatList(globalOptionList),
+        '',
+      ]);
+    }
+  }
+
+  return output.join('\n');
+}
+
+program.configureHelp({
+  showGlobalOptions: true,
+  formatHelp,
 });
 
-const cliAndNodeLayer = Layer.merge(
-  CliConfig.layer({ showBuiltIns: false }),
-  NodeContext.layer,
-);
-
-NodeRuntime.runMain(cli(process.argv).pipe(Effect.provide(cliAndNodeLayer)));
+program.parse(process.argv);

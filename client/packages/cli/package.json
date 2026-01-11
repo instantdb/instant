@@ -48,6 +48,7 @@
     "string-width": "^8.1.0",
     "strip-ansi": "^7.1.2",
     "terminal-link": "^3.0.0",
+    "@commander-js/extra-typings": "^14.0.0",
     "unconfig": "^0.5.5"
   },
   "scripts": {
