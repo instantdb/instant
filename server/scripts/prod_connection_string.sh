@@ -4,7 +4,7 @@ set -euo pipefail
 
 output="text"
 
-cluster_id='instant-aurora-8'
+cluster_id='instant-aurora-17'
 
 while [[ "$#" -gt 0 ]]; do
   case $1 in
