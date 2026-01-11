@@ -1,13 +1,11 @@
-import { Args, CliConfig, HelpDoc, Span } from '@effect/cli';
-import { NodeContext, NodeRuntime } from '@effect/platform-node';
-import { program, Option, Command } from '@commander-js/extra-typings';
-import { Effect, Layer } from 'effect';
-import version from '../version.js';
+import { Command, Option, program } from '@commander-js/extra-typings';
 import chalk from 'chalk';
-import { nodeLayer, printRedErrors } from './layer.js';
+import { Effect } from 'effect';
+import version from '../version.js';
 import { initCommand } from './commands/init.js';
 import { initWithoutFilesCommand } from './commands/initWithoutFiles.js';
-import { AuthToken, AuthTokenLive } from './context/authToken.js';
+import { AuthLayerLive, BaseLayerLive, printRedErrors } from './layer.js';
+import { loginCommand } from './commands/login.js';
 
 export type ArgsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -58,13 +56,26 @@ export const initWithoutFilesDef = program
   .action((opts) => {
     return Effect.runPromise(
       initWithoutFilesCommand(opts).pipe(
-        Effect.provide(AuthTokenLive),
-        Effect.catchAll(printRedErrors),
+        Effect.provide(AuthLayerLive),
+        printRedErrors,
       ),
     );
   });
 
-// Program setup
+export const loginDef = program
+  .command('login')
+  .description('Log into your account')
+  .option('-p --print', 'Prints the auth token into the console.')
+  .option(
+    '--headless',
+    'Print the login URL instead of trying to open the browser',
+  )
+  .action(async (opts) => {
+    Effect.runPromise(
+      loginCommand(opts).pipe(Effect.provide(BaseLayerLive), printRedErrors),
+    );
+  });
+//// Program setup /////
 
 function globalOption(
   flags: string,

@@ -1,11 +1,14 @@
+import { FileSystem } from '@effect/platform';
 import { program } from 'commander';
 import { Config, Context, Effect, Layer, Option, Schema } from 'effect';
+import envPaths from 'env-paths';
+import { join } from 'path';
 
 export class AuthToken extends Context.Tag('instant-cli/new/context/authToken')<
   AuthToken,
   {
     authToken: string;
-    source: 'env' | 'opt';
+    source: 'env' | 'opt' | 'file';
   }
   // the authtoken resolves to a string when yielded
 >() {}
@@ -37,6 +40,33 @@ export const AuthTokenLive = Layer.effect(
       };
     }
 
+    const authPaths = yield* getAuthPaths;
+    const fs = yield* FileSystem.FileSystem;
+    const file = yield* fs
+      .readFileString(authPaths.authConfigFilePath, 'utf8')
+      .pipe(
+        Effect.mapError(
+          (e) => new Error("Couldn't read auth file", { cause: e }),
+        ),
+      );
+
+    if (file) {
+      return {
+        authToken: file,
+        source: 'file',
+      };
+    }
+
     return yield* NotAuthedError.make({ message: 'You are not logged in' });
   }),
 );
+
+const getAuthPaths = Effect.gen(function* () {
+  const dev = yield* Config.boolean('INSTANT_CLI_DEV').pipe(
+    Config.withDefault(false),
+  );
+  const key = `instantdb-${dev ? 'dev' : 'prod'}`;
+  const { config: appConfigDirPath } = envPaths(key);
+  const authConfigFilePath = join(appConfigDirPath, 'a');
+  return { authConfigFilePath, appConfigDirPath };
+});
