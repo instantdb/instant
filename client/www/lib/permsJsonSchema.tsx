@@ -15,10 +15,18 @@ type JsonObjectSchema = {
   type: 'object';
   properties?: Record<string, JsonSchema>;
   patternProperties?: Record<string, JsonSchema>;
-  additionalProperties?: boolean;
+  additionalProperties?: boolean | JsonSchema;
 };
 
-type JsonSchema = JsonStringSchema | JsonArraySchema | JsonObjectSchema;
+type JsonOneOfSchema = {
+  oneOf: JsonSchema[];
+};
+
+type JsonSchema =
+  | JsonStringSchema
+  | JsonArraySchema
+  | JsonObjectSchema
+  | JsonOneOfSchema;
 
 const makeRuleBlock = ({
   includeFields,
@@ -42,10 +50,17 @@ const makeRuleBlock = ({
         additionalProperties: false,
       },
       bind: {
-        type: 'array',
-        // Use a combination of "items" and "additionalItems" for validation
-        items: { type: 'string' },
-        minItems: 2,
+        oneOf: [
+          {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 2,
+          },
+          {
+            type: 'object',
+            additionalProperties: { type: 'string' },
+          },
+        ],
       },
     },
     additionalProperties: false,
