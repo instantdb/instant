@@ -255,7 +255,6 @@ export const InnerExplorer: React.FC<{
   const [editNs, setEditNs] = useState<SchemaNamespace | null>(null);
   const [editableRowId, setEditableRowId] = useState<string | null>(null);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
-  const nsRef = useRef<HTMLDivElement>(null);
   const lastSelectedIdRef = useRef<string | null>(null);
   const [offsets, setOffsets] = useState<{ [namespace: string]: number }>({});
 

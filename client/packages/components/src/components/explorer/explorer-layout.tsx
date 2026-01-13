@@ -20,9 +20,11 @@ import { useClickOutside } from '@lib/hooks/useClickOutside';
 export const ExplorerLayout = ({
   namespaces,
   db,
+  appId,
 }: {
   namespaces: SchemaNamespace[];
   db: ReturnType<typeof useStableDB>;
+  appId: string;
 }) => {
   const props = useExplorerProps();
 
@@ -39,10 +41,34 @@ export const ExplorerLayout = ({
     setIsNsOpen(false);
   });
 
+  useEffect(
+    function saveRecentNamespace() {
+      if (selectedNamespace) {
+        window.localStorage.setItem(
+          `${appId}:recentExplorerNamespace`,
+          selectedNamespace.id,
+        );
+      }
+    },
+    [selectedNamespace, appId, namespaces],
+  );
+
   // Auto-select first namespace if none selected
   useEffect(() => {
     if (!selectedNamespace && namespaces.length > 0) {
-      props.setExplorerState({ namespace: namespaces[0].id });
+      const savedNamespaceId = window.localStorage.getItem(
+        `${props.appId}:recentExplorerNamespace`,
+      );
+      if (savedNamespaceId) {
+        const savedNamespace = namespaces.find(
+          (ns) => ns.id === savedNamespaceId,
+        );
+        if (savedNamespace) {
+          props.setExplorerState({ namespace: savedNamespace.id });
+        }
+      } else {
+        props.setExplorerState({ namespace: namespaces[0].id });
+      }
     }
   }, [selectedNamespace, namespaces, props]);
 
