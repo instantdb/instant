@@ -4,6 +4,7 @@
    [clojure.core.async :as a]
    [clojure.string :as string]
    [honey.sql :as hsql]
+   [instant.db.attr-sketch :as cms]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
    [instant.db.model.triple :as triple-model]
@@ -289,26 +290,61 @@
                                [:= :attr-triples.attr-id attr_id]
                                [:= :attr-triples.entity-id :triples.entity-id]]}]]])))
 
-(defn update-work-estimate! [conn job]
-  (let [default-where [:and
-                       [:= :app-id (:app_id job)]
-                       [:= :attr-id (:attr_id job)]]
-        estimate (-> (sql/select-one
-                      ::get-work-estimate!
-                      conn
-                      (hsql/format {:select :%count.*
-                                    :from :triples
-                                    :where (if (= "index" (:job_type job))
-                                             [:or
-                                              default-where
-                                              (missing-null-triple-wheres conn job)]
-                                             default-where)}))
-                     :count)]
-    (sql/execute-one! ::estimate-work-estimate!
+(defn update-work-estimate!
+  "Uses the attr_sketch to update the estimate of the number of triples
+   we need to update for the indexing job."
+  [conn job]
+  (let [{:keys [app_id attr_id]} job
+        sketch-key {:app-id app_id :attr-id attr_id}
+        total (-> (cms/lookup conn [sketch-key])
+                  (get-in [sketch-key :sketch :total])
+                  (or 0)
+                  (max 0))
+        ;; Add 5% to account for aggregator delay
+        estimate (int (* 1.05 total))]
+    (sql/execute-one! ::update-work-estimate!
                       conn (hsql/format {:update :indexing-jobs
                                          :where (job-update-wheres
                                                  [:= :id (:id job)])
                                          :set {:work-estimate estimate}}))))
+
+(defn update-work-estimate-with-undefineds!
+  "Uses the attr_sketch to update the estimate of the number of triples that are undefined."
+  [conn job]
+  (let [{:keys [app_id attr_id]} job
+        attrs (attr-model/get-by-app-id conn app_id)
+        etype (attr-model/fwd-etype (attr-model/seek-by-id attr_id attrs))
+        _ (when-not etype
+            (ex/throw-validation-err! :attr attr_id [{:message "Attribute has no etype"}]))
+        id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)
+        _ (when-not id-attr
+            (ex/throw-validation-err! :attr etype [{:message (str etype " has no id attribute")}]))
+
+        attr-sketch-key {:app-id app_id :attr-id attr_id}
+        entity-sketch-key {:app-id app_id :attr-id (:id id-attr)}
+
+        sketches (cms/lookup [attr-sketch-key
+                              entity-sketch-key])
+
+        attr-count (-> sketches
+                       (get-in [attr-sketch-key :sketch :total])
+                       (or 0)
+                       (max 0))
+        entity-count (-> sketches
+                         (get-in [entity-sketch-key :sketch :total])
+                         (or 0)
+                         (max 0))
+
+        ;; Add at least 1 to account for the time it takes to
+        ;; check for entities missing the attr
+        estimate (max 1 (- entity-count attr-count))]
+
+    (sql/execute-one! ::update-work-estimate-with-undefineds!
+                      conn (hsql/format {:update :indexing-jobs
+                                         :where (job-update-wheres
+                                                 [:= :id (:id job)])
+                                         :set {:work-estimate [:+ [:coalesce :work-estimate :0]
+                                                               estimate]}}))))
 
 (defn add-work-completed! [conn completed-count job]
   (when (pos? completed-count)
@@ -652,6 +688,7 @@
 (def index--stages
   [{:stage "update-attr-start", :fn #'index--update-attr-start}
    {:stage "estimate-work",     :fn #'update-work-estimate!}
+   {:stage "estimate-work-with-undefineds", :fn #'update-work-estimate-with-undefineds!}
    {:stage "update-triples",    :fn #'index--update-triples}
    {:stage "insert-nulls",      :fn #'index--insert-nulls}
    {:stage "update-attr-done",  :fn #'index--update-attr-done}])
