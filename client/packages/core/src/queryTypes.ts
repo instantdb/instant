@@ -218,7 +218,7 @@ type PageInfoResponse<T> = {
  * (XXX)
  * https://github.com/microsoft/TypeScript/issues/26051
  *
- * Typescript can permit extra keys when a generic extends a type.
+ * TypeScript can permit extra keys when a generic extends a type.
  *
  * For some reason, it makes it possible to write a query like so:
  *

@@ -103,7 +103,7 @@ const _schema = i.schema({
   },
 });
 
-// This helps Typescript display better intellisense
+// This helps TypeScript display better intellisense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;

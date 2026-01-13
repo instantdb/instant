@@ -415,7 +415,7 @@ ${kv('links', linksEntriesCode)},
 ${kv('rooms', roomsCode)}
 });
 
-// This helps Typescript display nicer intellisense
+// This helps TypeScript display nicer intellisense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
