@@ -79,7 +79,10 @@
 
 (defn send-async! [channel-id message]
   (send-off send-agent (fn [_]
-                         (send! channel-id message))))
+                         (try
+                           (send! channel-id message)
+                           (catch Throwable t
+                             (tracer/record-exception-span! t {:name "send-discord-message"}))))))
 
 (defn send-error-async! [message]
   (send-async! (if (= :prod (config/get-env))
