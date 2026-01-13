@@ -291,12 +291,11 @@
                                [:= :attr-triples.entity-id :triples.entity-id]]}]]])))
 
 (defn update-work-estimate!
-  "Uses the attr_sketch to estimate the number of null triples we need to insert
-   for the indexing job."
+  "Uses the attr_sketch to update the estimate of the number of triples
+   we need to update afor the indexing job."
   [conn job]
   (let [{:keys [app_id attr_id]} job
         sketch-key {:app-id app_id :attr-id attr_id}
-        _ (tool/def-locals)
         total (-> (cms/lookup conn [sketch-key])
                   (get-in [sketch-key :sketch :total])
                   (or 0)
@@ -310,11 +309,10 @@
                                          :set {:work-estimate estimate}}))))
 
 (defn update-work-estimate-with-undefineds!
-  "Uses the attr_sketch to estimate the number of triples that are undefined."
+  "Uses the attr_sketch to update the estimate of the number of triples that are undefined."
   [conn job]
   (let [{:keys [app_id attr_id]} job
         attrs (attr-model/get-by-app-id conn app_id)
-        _ (tool/def-locals)
         etype (attr-model/fwd-etype (attr-model/seek-by-id attr_id attrs))
         _ (when-not etype
             (ex/throw-validation-err! :attr attr_id [{:message "Attribute has no etype"}]))
