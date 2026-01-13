@@ -22,17 +22,29 @@ const rules = {
     },
   },
   chats: {
+    bind: [
+      'isAdmin',
+      "auth.id != null && auth.email.endsWith('@instantdb.com')",
+      'isCreator',
+      'ruleParams.localId == data.localId',
+    ],
     allow: {
-      view: 'true',
-      $default: 'true',
+      create: 'isCreator',
+      view: 'isCreator || isAdmin',
+      delete: 'isCreator || isAdmin',
+      update: 'isCreator || isAdmin',
     },
   },
   messages: {
+    bind: {
+      isAdmin: "auth.id != null && auth.email.endsWith('@instantdb.com')",
+      isCreator: "ruleParams.localId == data.ref('chat.localId')",
+    },
     allow: {
-      view: 'true',
-      create: 'true',
-      update: 'true',
-      delete: 'true',
+      create: 'isCreator',
+      view: 'isCreator || isAdmin',
+      update: 'isCreator || isAdmin',
+      delete: 'isCreator || isAdmin',
     },
   },
   $default: {

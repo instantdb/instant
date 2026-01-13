@@ -77,6 +77,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   setForceModal,
 }) => {
   const isMobile = useIsMobile();
+  const localId = db.useLocalId('feedback');
 
   const [defaultChatId] = useState(() => id());
   const [chatId, setChatId] = useLocalStorage(
@@ -89,22 +90,35 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     setChatId(id());
   };
 
-  const { data } = db.useQuery({
-    chats: {
-      $: {
-        where: {
-          id: chatId,
-        },
-      },
-      messages: {
-        $: {
-          order: {
-            index: 'asc',
+  const { data } = db.useQuery(
+    chatId && localId
+      ? {
+          chats: {
+            $: {
+              where: {
+                id: chatId,
+              },
+            },
+            messages: {
+              $: {
+                order: {
+                  index: 'asc',
+                },
+              },
+            },
           },
-        },
+        }
+      : null,
+    {
+      ruleParams: {
+        localId: localId,
       },
     },
-  });
+  );
+
+  if (!localId) {
+    return null;
+  }
 
   const chat = data?.chats[0];
   const messages =
@@ -169,6 +183,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
 
   const chatContent = (
     <InnerChat
+      localId={localId}
       key={chatId}
       chatId={chatId}
       initialMessages={messages}
@@ -234,7 +249,8 @@ const InnerChat: React.FC<{
   chatId: string;
   initialMessages: DocsUIMessage[];
   isOpen: boolean;
-}> = ({ chatId, initialMessages, isOpen }) => {
+  localId: string;
+}> = ({ chatId, initialMessages, isOpen, localId }) => {
   const [input, setInput] = React.useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -255,7 +271,13 @@ const InnerChat: React.FC<{
     transport: new DefaultChatTransport({
       api: '/api/chat',
       prepareSendMessagesRequest({ messages, id }) {
-        return { body: { message: messages[messages.length - 1], id } };
+        return {
+          body: {
+            message: messages[messages.length - 1],
+            id,
+            localId: localId,
+          },
+        };
       },
     }),
     onError: (error) => {

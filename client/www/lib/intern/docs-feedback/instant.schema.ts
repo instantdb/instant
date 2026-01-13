@@ -23,6 +23,7 @@ const _schema = i.schema({
     }),
     chats: i.entity({
       createdAt: i.date().indexed().optional(),
+      localId: i.string(),
     }),
     messages: i.entity({
       index: i.number().indexed(),
@@ -43,7 +44,7 @@ const _schema = i.schema({
         on: 'messages',
         has: 'one',
         label: 'chat',
-        required: false,
+        required: true,
       },
     },
   },

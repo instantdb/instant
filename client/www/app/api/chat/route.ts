@@ -78,11 +78,18 @@ const saveChat = async (
   db: ReturnType<typeof getAdminFeedbackDb>,
   messages: UIMessage[],
   id: string,
+  localId: string,
 ) => {
-  console.log('Saving chat:', messages, id);
-
   // ensure chat exists
-  await db.transact(db.tx.chats[id].update({}));
+  await db
+    .transact(
+      db.tx.chats[id].update({
+        localId: localId,
+      }),
+    )
+    .catch((err) => {
+      throw new Error(`Failed to update chat`, { cause: err });
+    });
 
   const txs = messages.map((m, idx) => {
     return db.tx.messages[m.id]
@@ -117,8 +124,11 @@ export async function POST(req: Request) {
     throw adminResult.error;
   }
   const adminDb = adminResult.value;
-  const { message, id }: { message: DocsUIMessage; id: string } =
-    await req.json();
+  const {
+    message,
+    id,
+    localId,
+  }: { message: DocsUIMessage; id: string; localId: string } = await req.json();
   const history = await adminDb
     .query({
       chats: {
@@ -140,7 +150,6 @@ export async function POST(req: Request) {
       throw new Error('Failed to fetch chat history', { cause: e });
     });
 
-  console.log('History:', history);
   const oldMessages = (history?.chats?.[0]?.messages ||
     []) as any as UIMessage[];
 
@@ -194,7 +203,9 @@ export async function POST(req: Request) {
       writer.merge(result.toUIMessageStream());
     },
     onFinish: ({ messages }) => {
-      saveChat(adminDb, messages, id);
+      saveChat(adminDb, messages, id, localId).catch((err) => {
+        console.error(`Failed to save chat`, err);
+      });
     },
     generateId: instantGenId,
     originalMessages: messages,
