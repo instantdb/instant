@@ -985,10 +985,13 @@
         (process-job chan job)
         (tracer/add-data! {:attributes {:job-not-grabbed true}}))
       (catch Throwable t
-        (discord/send-error-async! (format "%s unexpected job error job-id=%s msg=%s"
-                                           (:dww discord/mention-constants)
-                                           job-id
-                                           (.getMessage t)))
+        (try
+          (discord/send-error-async! (format "%s unexpected job error job-id=%s msg=%s"
+                                             (:dww discord/mention-constants)
+                                             job-id
+                                             (.getMessage t)))
+          (catch Throwable t
+            nil))
         (tracer/record-exception-span! t {:name "indexing-jobs/process-error"
                                           :escaping? false
                                           :attributes {:job-id job-id}})
