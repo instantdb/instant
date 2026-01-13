@@ -326,7 +326,10 @@ const InnerChat: React.FC<{
               )) && (
               <Message from="assistant">
                 <MessageContent>
-                  <Loader />
+                  <div className="flex items-center gap-2">
+                    <Loader />{' '}
+                    <span className="opacity-60">Generating Response...</span>
+                  </div>
                 </MessageContent>
               </Message>
             )}
