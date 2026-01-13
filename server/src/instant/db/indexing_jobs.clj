@@ -268,7 +268,7 @@
 (defn missing-null-triple-wheres
   "Where clauses that return the id triples that are missing a value for the
    indexed attr."
-  [conn stage {:keys [app_id attr_id]}]
+  [conn {:keys [app_id attr_id]}]
   (let [attrs (attr-model/get-by-app-id conn app_id)
         etype (attr-model/fwd-etype (attr-model/seek-by-id attr_id attrs))
         _ (assert etype "Attribute has no etype")
@@ -301,7 +301,7 @@
                                     :where (if (= "index" (:job_type job))
                                              [:or
                                               default-where
-                                              (missing-null-triple-wheres conn :estimate job)]
+                                              (missing-null-triple-wheres conn job)]
                                              default-where)}))
                      :count)]
     (sql/execute-one! ::estimate-work-estimate!
@@ -627,7 +627,7 @@
                                      ;; query from deleting the entity while we're
                                      ;; doing our insert
                                      :for :update
-                                     :where (missing-null-triple-wheres conn :update job)
+                                     :where (missing-null-triple-wheres conn job)
                                      :limit batch-size}}]
                :pg-hints [(pg-hints/index-scan :triples :triples_pkey)
                           (pg-hints/index-scan :attr_triples :triples_pkey)
