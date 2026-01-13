@@ -20,10 +20,10 @@ const rules = {
       "update": "isOwner && isStillOwner",
       "delete": "isOwner",
     },
-    "bind": [
-      "isOwner", "auth.id != null && auth.id == data.creatorId",
-      "isStillOwner", "auth.id != null && auth.id == newData.creatorId"
-    ]
+    "bind": {
+      "isOwner": "auth.id != null && auth.id == data.creatorId",
+      "isStillOwner": "auth.id != null && auth.id == newData.creatorId"
+    }
   }
 } satisfies InstantRules;
 
@@ -270,7 +270,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
     "allow": {
       "create": "isOwner"
     },
-    "bind": ["isOwner", "auth.id != null && auth.id == data.creatorId"]
+    "bind": { "isOwner": "auth.id != null && auth.id == data.creatorId" }
   }
 }
 ```
@@ -293,12 +293,10 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
     "allow": {
       "create": "isOwner || isAdmin"
     },
-    "bind": [
-      "isOwner",
-      "auth.id != null && auth.id == data.creatorId",
-      "isAdmin",
-      "auth.email in ['joe@instantdb.com', 'stopa@instantdb.com']"
-    ]
+    "bind": {
+      "isOwner": "auth.id != null && auth.id == data.creatorId",
+      "isAdmin": "auth.email in ['joe@instantdb.com', 'stopa@instantdb.com']"
+    }
   }
 }
 ```
@@ -423,12 +421,10 @@ Or if you want to separate “view links” from “edit links”, you can use t
     "view": "hasViewerSecret || hasEditorSecret",
     "update": "hasEditorSecret",
     "delete": "hasEditorSecret",
-    "bind": [
-      "hasViewerSecret",
-      "ruleParams.secret in data.ref('docViewLinks.secret')",
-      "hasEditorSecret",
-      "ruleParams.secret in data.ref('docEditLinks.secret')"
-    ]
+    "bind": {
+      "hasViewerSecret": "ruleParams.secret in data.ref('docViewLinks.secret')",
+      "hasEditorSecret": "ruleParams.secret in data.ref('docEditLinks.secret')"
+    }
   }
 }
 ```
