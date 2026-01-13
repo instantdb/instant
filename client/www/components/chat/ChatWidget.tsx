@@ -26,7 +26,6 @@ import {
   MessageSquareIcon,
   RefreshCcwIcon,
 } from 'lucide-react';
-import { Shimmer } from '../ai-elements/shimmer';
 import {
   Message,
   MessageAction,
