@@ -14,6 +14,7 @@
    [instant.util.async :as ua]
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
+   [instant.util.pg-hint-plan :as pg-hints]
    [instant.util.tracer :as tracer]
    [instant.jdbc.sql :as sql]
    [next.jdbc :as next-jdbc])
@@ -281,17 +282,9 @@
       [:and
        [:= :triples.app-id app_id]
        [:= :triples.attr-id (:id id-attr)]
-       (when (and (:unique? id-attr)
-                  (not (:setting-unique? id-attr)))
-         :triples.av)
        [:not [:exists {:select :1
                        :from [[:triples :attr-triples]]
                        :where [:and
-                               (if (= stage :estimate)
-                                 ;; If we're estimating, then the triples won't
-                                 ;; be ave yet
-                                 true
-                                 :attr-triples.ave)
                                [:= :attr-triples.app-id app_id]
                                [:= :attr-triples.attr-id attr_id]
                                [:= :attr-triples.entity-id :triples.entity-id]]}]]])))
@@ -609,36 +602,36 @@
 (defn index--insert-nulls [conn job]
   (tracer/with-span! (job-span-attrs "insert-nulls" job)
     (try
-      (let [{:keys [attr_id]} job
-            q {:insert-into [[:triples triple-model/triple-cols]
+      (let [{:keys [attr_id app_id]} job
+            q {:with [[:attr {:select :*
+                              :from :attrs
+                              :where [:and
+                                      [:= :attrs.id attr_id]
+                                      [:= :attrs.app_id app_id]]}]]
+               :insert-into [[:triples triple-model/triple-cols]
                              {:select [[:app_id :app_id]
                                        [:entity_id :entity_id]
                                        [attr_id :attr_id]
                                        [[:cast "null" :jsonb] :value]
                                        [[:inline json-null-md5] :value_md5]
-                                       [[:= :cardinality [:inline "one"]] :ea]
-                                       [[:= :value_type [:inline "ref"]] :eav]
-                                       [:is_unique :av]
-                                       [:is_indexed :ave]
-                                       [[:= :value_type [:inline "ref"]] :vae]
-                                       :checked_data_type]
+                                       [[:= {:select :cardinality :from :attr} [:inline "one"]] :ea]
+                                       [[:= {:select :value_type :from :attr} [:inline "ref"]] :eav]
+                                       [{:select :is_unique :from :attr} :av]
+                                       [{:select :is_indexed :from :attr} :ave]
+                                       [[:= {:select :value_type :from :attr} [:inline "ref"]] :vae]
+                                       [{:select :checked_data_type :from :attr} :checked_data_type]]
                               :from {:select [:triples.app_id
-                                              :triples.entity_id
-                                              :attrs.cardinality
-                                              :attrs.value_type
-                                              :attrs.is_unique
-                                              :attrs.is_indexed
-                                              :attrs.checked_data_type]
+                                              :triples.entity_id]
                                      :from :triples
                                      ;; The `for update` should prevent a concurrent
                                      ;; query from deleting the entity while we're
                                      ;; doing our insert
                                      :for :update
-                                     :join [:attrs [:and
-                                                    [:= :triples.app_id :attrs.app_id]
-                                                    [:= :attrs.id attr_id]]]
                                      :where (missing-null-triple-wheres conn :update job)
-                                     :limit batch-size}}]}
+                                     :limit batch-size}}]
+               :pg-hints [(pg-hints/index-scan :triples :triples_pkey)
+                          (pg-hints/index-scan :attr_triples :triples_pkey)
+                          (pg-hints/merge-join :triples :attr_triples)]}
             res (sql/do-execute! ::insert-nulls-next-batch! conn (hsql/format q))
             update-count (:next.jdbc/update-count (first res))]
         (tracer/add-data! {:attributes {:update-count update-count}})
@@ -837,10 +830,6 @@
                      :where [:and
                              [:= :t-id/app-id app-id]
                              [:= :t-id/attr-id (:id id-attr)]
-                             ;; hsql will filter the nil out
-                             (when (and (:unique? id-attr)
-                                        (not (:setting-unique? id-attr)))
-                               :t-id/av)
                              [:not
                               [:exists
                                {:select :1
@@ -849,8 +838,12 @@
                                         [:= :t-a/entity-id :t-id/entity-id]
                                         [:= :t-a/app-id app-id]
                                         [:= :t-a/attr-id attr-id]
-                                        [:not= :t-a/value [:cast "null" :jsonb]]]}]]]}
-              res (sql/select ::validate-required conn (hsql/format query))]
+                                        [:not= :t-a/value [:cast "null" :jsonb]]]}]]]
+                     :pg-hints [(pg-hints/index-scan :t-a :triples_pkey)
+                                (pg-hints/index-scan :t-id :triples_pkey)
+                                (pg-hints/merge-join :t-id :t-a)]}
+              res (binding [sql/*query-timeout-seconds* 1]
+                    (sql/select ::validate-required conn (hsql/format query)))]
           (when (seq res)
             (update-attr! conn {:app-id  app-id
                                 :attr-id attr-id
