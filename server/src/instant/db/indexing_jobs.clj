@@ -292,7 +292,7 @@
 
 (defn update-work-estimate!
   "Uses the attr_sketch to update the estimate of the number of triples
-   we need to update afor the indexing job."
+   we need to update for the indexing job."
   [conn job]
   (let [{:keys [app_id attr_id]} job
         sketch-key {:app-id app_id :attr-id attr_id}
