@@ -68,7 +68,7 @@ const getAdminFeedbackDb = () => {
       '5d9c6277-e6ac-42d6-8e51-2354b4870c05',
     schema,
     adminToken: process.env.FEEDBACK_ADMIN_TOKEN,
-    apiURI: process.env.FEEDBACK_API_URI,
+    apiURI: process.env.FEEDBACK_API_URI || 'https://api.instantdb.com',
   });
   return adminFeedbackDb;
 };
