@@ -43,6 +43,7 @@ import {
 } from '@/components/ui';
 import { Loader } from '../ai-elements/loader';
 import { type DocsUIMessage } from 'app/api/chat/route';
+import Link from 'next/link';
 
 interface ChatWidgetProps {
   onClose: () => void;
@@ -216,13 +217,17 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
 };
 
 const ReadFileMessage: React.FC<{ file: string }> = (props) => {
+  const url = window.location.origin + '/docs/' + props.file.replace('.md', '');
+
   return (
-    <div className="flex w-fit items-center gap-1 rounded border bg-gray-50 p-1 px-2 text-sm text-gray-700 opacity-70 dark:border-neutral-500 dark:bg-neutral-600 dark:text-white/70">
-      <BookIcon width={12} />
-      <span>
-        <span className="font-bold">{props.file}</span>
-      </span>
-    </div>
+    <Link href={url} className="w-fit">
+      <div className="flex w-fit items-center gap-1 rounded border bg-gray-50 p-1 px-2 text-sm text-gray-700 opacity-70 dark:border-neutral-500 dark:bg-neutral-600 dark:text-white/70">
+        <BookIcon width={12} />
+        <span>
+          <span className="font-bold">{props.file}</span>
+        </span>
+      </div>
+    </Link>
   );
 };
 
