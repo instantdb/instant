@@ -6,12 +6,12 @@ import {
   ButtonGroupText,
 } from '@/components/components/ui/button-group';
 import {
+  cn,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/components/ui/tooltip';
-import { cn } from '@instantdb/components';
+} from '@instantdb/components';
 import type { FileUIPart, UIMessage } from 'ai';
 import {
   ChevronLeftIcon,
