@@ -15,14 +15,17 @@ import {
 import { NewNamespaceDialog } from './new-namespace-dialog';
 import { InnerExplorer } from './inner-explorer';
 import { useClickOutside } from '@lib/hooks/useClickOutside';
+import { useLocalStorage } from '@lib/hooks/useLocalStorage';
 
 // Holds the explorer table itself and also the sidebar to select / create namespaces
 export const ExplorerLayout = ({
   namespaces,
   db,
+  appId,
 }: {
   namespaces: SchemaNamespace[];
   db: ReturnType<typeof useStableDB>;
+  appId: string;
 }) => {
   const props = useExplorerProps();
 
@@ -35,14 +38,38 @@ export const ExplorerLayout = ({
   const [isNsOpen, setIsNsOpen] = useState(false);
   const nsRef = useRef<HTMLDivElement>(null);
 
+  const [recentExplorerNamespaceId, setRecentExplorerNamespaceId] =
+    useLocalStorage<string | null>(
+      `${appId}:recentExplorerNamespace`,
+      selectedNamespace?.id || '',
+    );
+
   useClickOutside(nsRef, () => {
     setIsNsOpen(false);
   });
 
+  useEffect(
+    function saveRecentNamespace() {
+      if (selectedNamespace) {
+        setRecentExplorerNamespaceId(selectedNamespace.id);
+      }
+    },
+    [selectedNamespace, appId, namespaces],
+  );
+
   // Auto-select first namespace if none selected
   useEffect(() => {
     if (!selectedNamespace && namespaces.length > 0) {
-      props.setExplorerState({ namespace: namespaces[0].id });
+      if (recentExplorerNamespaceId) {
+        const savedNamespace = namespaces.find(
+          (ns) => ns.id === recentExplorerNamespaceId,
+        );
+        if (savedNamespace) {
+          props.setExplorerState({ namespace: savedNamespace.id });
+        }
+      } else {
+        props.setExplorerState({ namespace: namespaces[0].id });
+      }
     }
   }, [selectedNamespace, namespaces, props]);
 

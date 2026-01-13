@@ -217,7 +217,11 @@ export const Explorer = (_props: WithOptional<ExplorerProps>) => {
     <ExplorerPropsContext.Provider value={contextValue}>
       <Wrapper>
         <ErrorBoundary>
-          <ExplorerLayout db={db} namespaces={schemaData.namespaces || []} />
+          <ExplorerLayout
+            appId={props.appId}
+            db={db}
+            namespaces={schemaData.namespaces || []}
+          />
         </ErrorBoundary>
       </Wrapper>
     </ExplorerPropsContext.Provider>
