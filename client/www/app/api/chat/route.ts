@@ -1,7 +1,7 @@
 import schema from '@/lib/intern/docs-feedback/instant.schema';
 import { doTry } from '@/lib/parsePermsJSON';
 import { anthropic } from '@ai-sdk/anthropic';
-import { init, id as instantGenId } from '@instantdb/admin';
+import { init, id as instantGenId, TransactionChunk } from '@instantdb/admin';
 import {
   convertToModelMessages,
   streamText,
@@ -74,16 +74,26 @@ const getAdminFeedbackDb = () => {
   return adminFeedbackDb;
 };
 
-const saveChat = async (
-  db: ReturnType<typeof getAdminFeedbackDb>,
-  messages: UIMessage[],
-  id: string,
-  localId: string,
-) => {
+const saveChat = async ({
+  db,
+  messages,
+  oldMessages,
+  id,
+  localId,
+  userId,
+}: {
+  db: ReturnType<typeof getAdminFeedbackDb>;
+  messages: UIMessage[];
+  oldMessages: UIMessage[];
+  id: string;
+  localId: string;
+  userId: string;
+}) => {
   // ensure chat exists
   await db
     .transact(
       db.tx.chats[id].update({
+        createdByUserId: userId,
         localId: localId,
       }),
     )
@@ -92,12 +102,26 @@ const saveChat = async (
     });
 
   const txs = messages.map((m, idx) => {
+    if (oldMessages.find((old) => old.id === m.id)) {
+      return db.tx.messages[m.id]
+        .update({
+          index: idx,
+          metadata: m.metadata,
+          parts: m.parts,
+          role: m.role,
+        })
+        .link({
+          chat: id,
+        });
+    }
+
     return db.tx.messages[m.id]
       .update({
         index: idx,
         metadata: m.metadata,
         parts: m.parts,
         role: m.role,
+        createdAt: new Date(),
       })
       .link({
         chat: id,
@@ -124,10 +148,12 @@ const DashRouteResponseSchema = z.object({
   }),
 });
 
-const validateUser = async (req: Request) => {
+const validateUser = async (
+  req: Request,
+): Promise<{ userId: string } | null> => {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
-    return false;
+    return null;
   }
 
   const apiUrl =
@@ -140,13 +166,15 @@ const validateUser = async (req: Request) => {
   });
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Failed to validate user: ${error}`);
+    console.error('Failed to validate user:', error);
+    return null;
   }
   const data = await response.json();
   const { user } = DashRouteResponseSchema.parse(data);
   if (user) {
-    return true;
+    return { userId: user.id };
   }
+  return null;
 };
 
 export async function POST(req: Request) {
@@ -155,22 +183,28 @@ export async function POST(req: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
+  const userId = userIsValid.userId;
+
   const adminResult = doTry(getAdminFeedbackDb);
   if (adminResult.status === 'error') {
     throw adminResult.error;
   }
+
   const adminDb = adminResult.value;
+
   const {
     message,
     id,
     localId,
   }: { message: DocsUIMessage; id: string; localId: string } = await req.json();
-  const history = await adminDb
+
+  const historyPromise = adminDb
     .query({
       chats: {
         $: {
           where: {
             id,
+            localId,
           },
         },
         messages: {
@@ -185,6 +219,34 @@ export async function POST(req: Request) {
     .catch((e) => {
       throw new Error('Failed to fetch chat history', { cause: e });
     });
+
+  const rateListQuery = {
+    messages: {
+      $: {
+        where: {
+          'chat.createdAt': {
+            $gt: new Date(Date.now() - 60 * 1000 * 10), // 10 minutes
+          },
+          'chat.createdByUserId': userId,
+          role: 'user',
+        },
+      },
+    },
+  };
+  console.log('Rate limit query:', JSON.stringify(rateListQuery));
+
+  const rateLimitPromise = adminDb.query(rateListQuery);
+
+  const [history, rateLimitMessages] = await Promise.all([
+    historyPromise,
+    rateLimitPromise,
+  ]);
+
+  console.info('Rate limit messages:', rateLimitMessages);
+
+  if (rateLimitMessages.messages.length > 5) {
+    throw new Error('Rate limit exceeded');
+  }
 
   const oldMessages = (history?.chats?.[0]?.messages ||
     []) as any as UIMessage[];
@@ -239,7 +301,14 @@ export async function POST(req: Request) {
       writer.merge(result.toUIMessageStream());
     },
     onFinish: ({ messages }) => {
-      saveChat(adminDb, messages, id, localId).catch((err) => {
+      saveChat({
+        db: adminDb,
+        messages,
+        id,
+        localId,
+        userId,
+        oldMessages,
+      }).catch((err) => {
         console.error(`Failed to save chat`, err);
       });
     },
