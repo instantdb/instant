@@ -5,21 +5,27 @@
    [instant.config :as config]
    [instant.db.pg-introspect :as pg-introspect]
    [instant.flags :as flags]
+   [instant.gauges :as gauges]
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
+   [instant.reactive.ephemeral :as eph]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
    [instant.util.e2e-tracer :as e2e-tracer]
+   [instant.util.hazelcast :refer [->WalRecord]]
    [instant.util.tracer :as tracer])
   (:import
+   (com.hazelcast.topic ITopic ReliableMessageListener TopicOverloadPolicy)
+   (instant.util.hazelcast WalRecord)
    (java.sql Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
    (java.util Map Queue)
-   (java.util.concurrent ConcurrentHashMap)
+   (java.util.concurrent ConcurrentHashMap Executors)
+   (java.util.concurrent.atomic AtomicLong)
    (org.postgresql.replication LogSequenceNumber)))
 
 (declare wal-opts)
@@ -75,7 +81,7 @@
   (when-let [^String created-at (topics/get-column columns "created_at")]
     (.toInstant (Timestamp/valueOf created-at))))
 
-(defn transform-wal-record [{:keys [changes messages tx-bytes] :as _record}]
+(defn transform-wal-record [{:keys [changes messages tx-bytes nextlsn] :as _record}]
   ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
   ;;      or else we will never be notified about it.
   (let [{:strs [idents triples attrs transactions
@@ -97,7 +103,8 @@
                                                 :name "transform-wal-record"})
         ;; n.b. make sure to update combine-wal-records below if new
         ;;      items are added to this map
-        {:attr-changes attrs
+        {:nextlsn nextlsn
+         :attr-changes attrs
          :ident-changes idents
          :triple-changes triples
          :app-id app-id
@@ -239,6 +246,32 @@
       (tracer/record-info! {:name "invalidation-worker/shutdown"}))
     queue))
 
+(defn start-singleton-worker [{:keys [wal-chan
+                                      close-signal-chan
+                                      flush-lsn-chan
+                                      process-id
+                                      ^ITopic hz-topic
+                                      on-error
+                                      stop-lsn
+                                      check-disabled]}]
+  (tracer/record-info! {:name "invalidator/singleton-worker-start"})
+  (let [process (a/go
+                  (loop []
+                    (if (check-disabled)
+                      (on-error (ex-info "Invalidator singleton disabled" {}))
+                      (when-let [wal-record (a/<! wal-chan)]
+                        (when-not (and stop-lsn
+                                       (= -1 (compare stop-lsn (:nextlsn wal-record))))
+                          (try
+                            (.publish hz-topic (->WalRecord wal-record))
+                            (a/>! flush-lsn-chan (:nextlsn wal-record))
+                            (catch Exception e
+                              (on-error e)))
+                          (recur)))))
+
+                  (tracer/record-info! {:name "invalidator/singleton-worker-stop"}))]
+    {:completed-chan process}))
+
 (defn handle-byop-record [table-info app-id store wal-record]
   (when-let [record (transform-byop-wal-record wal-record)]
     (try
@@ -287,7 +320,8 @@
     (let [chan (a/chan 1 (wal-record-xf))]
       {:wal-chan chan
        :close-signal-chan (a/chan)
-       :worker-chan chan})
+       :worker-chan chan
+       :flush-lsn-chan (a/chan (a/sliding-buffer 1))})
     (let [wal-chan (a/chan 1)
           mult (a/mult wal-chan)
           worker-chan (a/chan 1 (wal-record-xf))
@@ -301,7 +335,194 @@
        ;; its puts to complete
        :close-signal-chan (a/chan)
        :worker-chan worker-chan
+       :flush-lsn-chan (a/chan (a/sliding-buffer 1))
        :byop-chan byop-chan})))
+
+(defn stop [wal-opts]
+  (let [shutdown-future (future (wal/shutdown! wal-opts))]
+    (loop []
+      (when-not (realized? shutdown-future)
+        (wal/kick-wal (aurora/conn-pool :write))
+        (Thread/sleep 100)
+        (recur))))
+  (a/close! (:to wal-opts))
+  (a/close! (:close-signal-chan wal-opts))
+  (a/close! (:worker-chan wal-opts)))
+
+(defn start-singleton-listener [{:keys [acquire-slot-interval-ms
+                                        process-id
+                                        check-disabled
+                                        stop-lsn
+                                        acquire-slot-interrupt-chan
+                                        get-conn-config
+                                        ^ITopic hz-topic]}]
+  (let [shutdown-chan (a/chan)
+
+        process (a/go
+                  (loop [timeout-ch (a/timeout 0)]
+                    (let [matched-chan (second (a/alts! [shutdown-chan
+                                                         timeout-ch
+                                                         acquire-slot-interrupt-chan]))]
+                      (cond
+                        (= matched-chan shutdown-chan) nil
+                        (check-disabled) (recur (a/timeout acquire-slot-interval-ms))
+                        :else
+                        (let [{:keys [wal-chan worker-chan flush-lsn-chan close-signal-chan]}
+                              (create-wal-chans)
+
+                              wal-opts (wal/make-wal-opts {:wal-chan wal-chan
+                                                           :worker-chan worker-chan
+                                                           :close-signal-chan close-signal-chan
+                                                           :ex-handler wal-ex-handler
+                                                           :get-conn-config get-conn-config
+                                                           :flush-lsn-chan flush-lsn-chan
+                                                           :slot-type :invalidator})
+
+                              wal-started-promise (:started-promise wal-opts)
+                              signal-chan (a/chan)
+
+                              wal-worker (ua/fut-bg
+                                          (try
+                                            (wal/start-singleton-worker wal-opts)
+                                            (finally
+                                              (deliver wal-started-promise :recur)
+                                              (a/close! close-signal-chan))))
+
+                              _ (ua/vfuture
+                                 (let [wal-start-result @wal-started-promise]
+                                   (case wal-start-result
+                                     :recur (a/put! signal-chan :recur)
+                                     true (a/put! signal-chan :slot-claimed))))
+
+                              [next-v _next-ch] (a/alts! [signal-chan shutdown-chan])]
+                          (case next-v
+                            nil ;; shutdown
+                            (do (stop wal-opts)
+                                wal-worker)
+
+                            :recur ;; Didn't get the slot, wait and try again
+                            (recur (a/timeout acquire-slot-interval-ms))
+
+                            :slot-claimed ;; got the slot, start the worker
+                            (let [{worker-exit-chan :completed-chan}
+                                  (start-singleton-worker {:wal-chan worker-chan
+                                                           :close-signal-chan close-signal-chan
+                                                           :flush-lsn-chan flush-lsn-chan
+                                                           :process-id process-id
+                                                           :hz-topic hz-topic
+                                                           :on-error (fn [e]
+                                                                       (tracer/record-exception-span! e {:name "invalidator/singleton-worker-error"})
+                                                                       (a/close! close-signal-chan))
+                                                           :stop-lsn stop-lsn
+                                                           :check-disabled check-disabled})
+                                  [_exit-v exit-ch] (a/alts! [shutdown-chan close-signal-chan worker-exit-chan])]
+                              (tracer/with-span! {:name "invalidator/wait-for-singleton-worker-to-finish"
+                                                  :attributes {:pid process-id
+                                                               :slot-name (:slot-name wal-opts)}}
+                                (stop wal-opts))
+                              ;; serves as a signal to the other instances that they should
+                              ;; grab the topic
+                              (.publish hz-topic process-id)
+                              (when (= exit-ch close-signal-chan)
+                                (tracer/record-info! {:name "invalidator-singleton/retry"
+                                                      :attributes {:wait-ms acquire-slot-interval-ms
+                                                                   :attributes {:pid process-id
+                                                                                :slot-name (:slot-name wal-opts)}}})
+                                (recur (a/timeout acquire-slot-interval-ms)))))))))
+                  (tracer/record-info! {:name "invalidator/singleton-slot-listener-exit"
+                                        :attributes {:pid process-id}}))]
+    {:shutdown (fn []
+                 (a/close! shutdown-chan)
+                 (when-let [wal-worker-finished (a/<!! process)]
+                   @wal-worker-finished))
+     :completed-chan process}))
+
+(defn hz-gauges [^ITopic topic]
+  (let [stats (.getLocalTopicStats topic)]
+    [{:path "hz.invalidator-topic.publishOperationCount"
+      :value (.getPublishOperationCount stats)}
+     {:path "hz.invalidator-topic.receiveOperationCount"
+      :value (.getReceiveOperationCount stats)}]))
+
+(defn hz-topic-listener [queue acquire-slot-interrupt-chan]
+  (let [seq-id (AtomicLong. -1)]
+    (reify ReliableMessageListener
+      (onMessage [_ m]
+        (let [msg (.getMessageObject m)]
+          (if (instance? WalRecord msg)
+            (grouped-queue/put! queue (:record msg))
+            ;; We should try to reconnect, but only if we weren't
+            ;; the ones that sent the message to reconnect (if there
+            ;; is only one machine it will try again within 10 seconds)
+            (when (not (.localMember (.getPublishingMember m)))
+              (a/put! acquire-slot-interrupt-chan true)))))
+      (isLossTolerant [_]
+        true)
+      (isTerminal [_ t]
+        (tracer/record-exception-span! t {:name "invalidator/singleton-listener-error"})
+        false)
+      (retrieveInitialSequence [_]
+        -1)
+      (onCancel [_]
+        nil)
+      (storeSequence [_ s]
+        (let [prev-seq-id (AtomicLong/.getAndSet seq-id s)]
+          (when (and (not= prev-seq-id -1)
+                     (not= s (inc prev-seq-id)))
+            (tracer/record-exception-span! (ex-info "Skipped a message in the reliable topic"
+                                                    {:s s
+                                                     :prev-seq-id prev-seq-id
+                                                     :lost-message-count (inc (- s prev-seq-id))}))))))))
+
+(defn start-singleton-hz-topic [{:keys [process-id
+                                        acquire-slot-interrupt-chan]}]
+  (let [queue
+        (grouped-queue/start
+         {:group-key-fn :app-id
+          :combine-fn combine-wal-records
+          :process-fn (fn [_key wal-record]
+                        ;; Just testing what kind of latency we'll see with the hazelcast topic
+                        (tracer/with-span! {:name "singleton-hz-topic-latency"
+                                            :attributes {:tx-id (:tx-id wal-record)
+                                                         :latency-ms (wal-latency-ms wal-record)}}))
+          :metrics-path "instant.reactive.invalidator.singleton-q"
+          :max-workers 8})
+
+        topic-name "invalidator-wal-logs"
+        hz (eph/get-hz)
+        topic (.getReliableTopic hz topic-name)
+        topic-config (.getReliableTopicConfig (.getConfig hz) "invalidator-wal-logs")
+        _ (.setTopicOverloadPolicy topic-config TopicOverloadPolicy/DISCARD_OLDEST)
+        _ (.setExecutor topic-config (Executors/newSingleThreadExecutor))
+        _ (.setStatisticsEnabled topic-config true)
+        stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
+                                                  (hz-gauges topic)))
+        listener-id (.addMessageListener topic (hz-topic-listener queue acquire-slot-interrupt-chan))]
+    {:topic topic
+     :shutdown (fn []
+                 (.removeMessageListener topic listener-id)
+                 (grouped-queue/stop queue)
+                 (stop-gauge))}))
+
+(defn start-singleton []
+  (let [get-conn-config (fn []
+                          (config/get-aurora-config))
+        _ (wal/ensure-slot (get-conn-config) "invalidator")
+        acquire-slot-interrupt-chan (a/chan (a/sliding-buffer 1))
+        {hz-topic :topic
+         shutdown-topic :shutdown} (start-singleton-hz-topic {:acquire-slot-interrupt-chan acquire-slot-interrupt-chan
+                                                              :process-id @config/process-id})
+        {shutdown-listener :shutdown} (start-singleton-listener {:acquire-slot-interval-ms 10000
+                                                                 :process-id @config/process-id
+                                                                 :check-disabled (fn []
+                                                                                   (flags/toggled? :disable-singleton-invalidator))
+                                                                 :acquire-slot-interrupt-chan acquire-slot-interrupt-chan
+                                                                 :get-conn-config (fn []
+                                                                                    (config/get-aurora-config))
+                                                                 :hz-topic hz-topic})]
+    {:shutdown (fn []
+                 (shutdown-listener)
+                 (shutdown-topic))}))
 
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
@@ -317,16 +538,11 @@
                                       :close-signal-chan close-signal-chan
                                       :ex-handler wal-ex-handler
                                       :get-conn-config (fn []
-                                                         (or (config/get-next-aurora-config)
-                                                             ;; Use the next db so that we don't
-                                                             ;; have to worry about restarting the
-                                                             ;; invalidator when failing over to a
-                                                             ;; new blue/green deployment
-                                                             (config/get-aurora-config)))
+                                                         (config/get-aurora-config))
                                       :slot-suffix process-id
                                       :slot-type :invalidator})]
      (ua/fut-bg
-      (wal/start-worker wal-opts))
+       (wal/start-worker wal-opts))
 
      @(:started-promise wal-opts)
 
@@ -335,27 +551,19 @@
 
      (when byop-chan
        (ua/fut-bg
-        (start-byop-worker rs/store byop-chan)))
+         (start-byop-worker rs/store byop-chan)))
 
      wal-opts)))
 
 (defn start-global []
-  (def wal-opts (start)))
-
-(defn stop [wal-opts]
-  (let [shutdown-future (future (wal/shutdown! wal-opts))]
-    (loop []
-      (when-not (realized? shutdown-future)
-        (wal/kick-wal (aurora/conn-pool :write))
-        (Thread/sleep 100)
-        (recur))))
-  (a/close! (:to wal-opts))
-  (a/close! (:close-signal-chan wal-opts))
-  (a/close! (:worker-chan wal-opts)))
+  (def wal-opts (start))
+  (def shutdown-singleton (:shutdown (start-singleton))))
 
 (defn stop-global []
   (when (bound? #'wal-opts)
-    (stop wal-opts)))
+    (stop wal-opts))
+  (when (bound? #'shutdown-singleton)
+    (shutdown-singleton)))
 
 (defn restart []
   (stop-global)

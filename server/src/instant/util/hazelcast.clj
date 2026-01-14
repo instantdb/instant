@@ -10,7 +10,8 @@
    (java.io DataInputStream ByteArrayInputStream)
    (java.nio ByteBuffer)
    (java.util UUID)
-   (java.util.function BiFunction)))
+   (java.util.function BiFunction)
+   (org.postgresql.replication LogSequenceNumber)))
 
 ;; Be careful when you update the records and serializers in this
 ;; namespace. Hazelcast shares them across the fleet, so they must be
@@ -40,6 +41,18 @@
 (def task-type-id 7)
 (def join-room-v3-type-id 9)
 (def sse-message-type-id 10)
+(def wal-record-type-id 11)
+
+;; ---------------------
+;; Encode LSN with nippy
+
+;; 1 is the custom identifier for this type, no other type can use it and
+;; it must be the same across all machines.
+(nippy/extend-freeze LogSequenceNumber 1 [^LogSequenceNumber lsn data-output]
+  (.writeLong data-output (.asLong lsn)))
+
+(nippy/extend-thaw 1 [data-input]
+  (LogSequenceNumber/valueOf (.readLong data-input)))
 
 ;; --------
 ;; Room key
@@ -298,6 +311,27 @@
   (make-serializer-config Task
                           task-serializer))
 
+;; ----------
+;; Wal record
+
+;; Expects a var that takes no arguments
+(defrecord WalRecord [record])
+
+(def ^ByteArraySerializer wal-record-serializer
+  (reify ByteArraySerializer
+    (getTypeId [_]
+      wal-record-type-id)
+    (write ^bytes [_ {:keys [record]}]
+      (nippy/fast-freeze record))
+    (read [_ ^bytes in]
+      (->WalRecord (nippy/fast-thaw in)))
+    (destroy [_])))
+
+(def wal-record-config
+  (make-serializer-config WalRecord
+                          wal-record-serializer))
+
+
 ;; -----------------
 ;; Global serializer
 
@@ -322,4 +356,5 @@
    set-presence-config
    room-key-config
    task-config
-   sse-message-config])
+   sse-message-config
+   wal-record-config])
