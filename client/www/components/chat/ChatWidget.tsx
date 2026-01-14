@@ -211,6 +211,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
 
   const chatContent = authToken ? (
     <InnerChat
+      authToken={authToken}
       localId={localId}
       key={chatId}
       chatId={chatId}
@@ -280,7 +281,8 @@ const InnerChat: React.FC<{
   initialMessages: DocsUIMessage[];
   isOpen: boolean;
   localId: string;
-}> = ({ chatId, initialMessages, isOpen, localId }) => {
+  authToken: string;
+}> = ({ chatId, initialMessages, isOpen, localId, authToken }) => {
   const [input, setInput] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -307,6 +309,9 @@ const InnerChat: React.FC<{
             message: messages[messages.length - 1],
             id,
             localId: localId,
+          },
+          headers: {
+            Authorization: `Bearer ${authToken}`,
           },
         };
       },

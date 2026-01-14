@@ -118,16 +118,39 @@ export type DocsUIMessage = UIMessage<
   }
 >;
 
-const validateUser = (req: Request) => {
+const DashRouteResponseSchema = z.object({
+  user: z.object({
+    id: z.string(),
+  }),
+});
+
+const validateUser = async (req: Request) => {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return false;
   }
-  return true;
+
+  const apiUrl =
+    process.env.NEXT_PUBLIC_FEEDBACK_API_URI || 'https://api.instantdb.com';
+
+  const response = await fetch(apiUrl + '/dash', {
+    headers: {
+      Authorization: authHeader,
+    },
+  });
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to validate user: ${error}`);
+  }
+  const data = await response.json();
+  const { user } = DashRouteResponseSchema.parse(data);
+  if (user) {
+    return true;
+  }
 };
 
 export async function POST(req: Request) {
-  const userIsValid = validateUser(req);
+  const userIsValid = await validateUser(req);
   if (!userIsValid) {
     return new Response('Unauthorized', { status: 401 });
   }
