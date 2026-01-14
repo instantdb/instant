@@ -118,7 +118,20 @@ export type DocsUIMessage = UIMessage<
   }
 >;
 
+const validateUser = (req: Request) => {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return false;
+  }
+  return true;
+};
+
 export async function POST(req: Request) {
+  const userIsValid = validateUser(req);
+  if (!userIsValid) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
   const adminResult = doTry(getAdminFeedbackDb);
   if (adminResult.status === 'error') {
     throw adminResult.error;

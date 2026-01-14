@@ -43,6 +43,7 @@ import {
 import { Loader } from '../ai-elements/loader';
 import { type DocsUIMessage } from 'app/api/chat/route';
 import Link from 'next/link';
+import { useAuthToken } from '@/lib/auth';
 
 interface ChatWidgetProps {
   onClose: () => void;
@@ -79,6 +80,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   const isMobile = useIsMobile();
   const localId = db.useLocalId('feedback');
 
+  const authToken = useAuthToken();
+
   const [defaultChatId] = useState(() => id());
   const [chatId, setChatId] = useLocalStorage(
     'docs_chat_id',
@@ -91,7 +94,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   };
 
   const { data } = db.useQuery(
-    chatId && localId
+    chatId && localId && authToken
       ? {
           chats: {
             $: {
@@ -252,6 +255,7 @@ const InnerChat: React.FC<{
   localId: string;
 }> = ({ chatId, initialMessages, isOpen, localId }) => {
   const [input, setInput] = React.useState('');
+  const [error, setError] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   // Focus the input when sidebar opens
@@ -282,8 +286,20 @@ const InnerChat: React.FC<{
     }),
     onError: (error) => {
       console.error('Chat error:', error);
+      setError('Failed to send message');
     },
   });
+
+  const submitMessage = async () => {
+    if (!input.trim()) return;
+    try {
+      await sendMessage({ text: input });
+      setInput('');
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError('Failed to send message');
+    }
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -362,16 +378,18 @@ const InnerChat: React.FC<{
         className="px-2 pb-2"
         onSubmit={(e) => {
           e.preventDefault();
-          if (input.trim()) {
-            sendMessage({ text: input });
-            setInput('');
-          }
+          submitMessage();
         }}
       >
-        <div className="flex items-center rounded-md border focus-within:border-[#F54A00]">
+        {error && (
+          <div className="z-20 translate-y-1 rounded-t bg-red-200 px-2 py-2 text-sm">
+            {error}
+          </div>
+        )}
+        <div className="z-30 flex items-center rounded-md border focus-within:border-[#F54A00]">
           <input
             ref={inputRef}
-            className="grow border-none bg-transparent ring-0 outline-none focus:outline-none"
+            className="z-40 grow border-none bg-transparent ring-0 outline-none focus:outline-none"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={status !== 'ready'}

@@ -53,7 +53,6 @@
     "@tanstack/react-table": "^8.21.3",
     "@uiw/react-json-view": "2.0.0-alpha.24",
     "@vercel/og": "^0.6.5",
-    "@xyflow/react": "^12.10.0",
     "ai": "^6.0.19",
     "algoliasearch": "^4.24.0",
     "ansi-to-html": "^0.7.2",
