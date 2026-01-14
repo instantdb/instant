@@ -25,7 +25,7 @@ const _schema = i.schema({
     }),
     flags: i.entity({
       description: i.string().optional(),
-      setting: i.string().unique(),
+      setting: i.string().unique().indexed(),
       value: i.any(),
     }),
     "friend-emails": i.entity({
@@ -89,7 +89,7 @@ const _schema = i.schema({
       email: i.string(),
     }),
     toggles: i.entity({
-      setting: i.string().unique(),
+      setting: i.string().unique().indexed(),
       toggled: i.boolean(),
     }),
     "welcome-email-config": i.entity({
