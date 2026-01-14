@@ -114,11 +114,12 @@ function PaidTable({ data }: { data: any }) {
       if (aVal === null) return 1;
       if (bVal === null) return -1;
       if (numericKeys.has(sortConfig.key)) {
+        if (typeof aVal !== 'number' || typeof bVal !== 'number') return 0;
         const delta = aVal - bVal;
         if (delta === 0) return 0;
         return sortConfig.direction === 'asc' ? delta : -delta;
       }
-      const comparison = collator.compare(aVal, bVal);
+      const comparison = collator.compare(String(aVal), String(bVal));
       if (comparison === 0) return 0;
       return sortConfig.direction === 'asc' ? comparison : -comparison;
     });
