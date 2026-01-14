@@ -77,24 +77,49 @@ function humanBytes(bytes: number) {
   return bytes.toFixed(2) + ' ' + units[index];
 }
 
+const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+const numericKeys = new Set([
+  'monthly_revenue',
+  'start_timestamp',
+  'usage',
+  'triple_count',
+]);
+
 function PaidTable({ data }: { data: any }) {
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: 'asc' | 'desc';
   } | null>(null);
+  const getSortValue = React.useCallback((row: any, key: string) => {
+    const value = row?.[key];
+    if (value === null || value === undefined) return null;
+    if (numericKeys.has(key)) {
+      const numericValue = Number(value);
+      return Number.isNaN(numericValue) ? null : numericValue;
+    }
+    return String(value);
+  }, []);
 
   const sortedData = React.useMemo(() => {
     if (!sortConfig) return data;
 
     return [...data].sort((a, b) => {
-      let aVal = a[sortConfig.key];
-      let bVal = b[sortConfig.key];
+      const aVal = getSortValue(a, sortConfig.key);
+      const bVal = getSortValue(b, sortConfig.key);
 
-      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
+      if (aVal === null && bVal === null) return 0;
+      if (aVal === null) return 1;
+      if (bVal === null) return -1;
+      if (numericKeys.has(sortConfig.key)) {
+        const delta = aVal - bVal;
+        if (delta === 0) return 0;
+        return sortConfig.direction === 'asc' ? delta : -delta;
+      }
+      const comparison = collator.compare(aVal, bVal);
+      if (comparison === 0) return 0;
+      return sortConfig.direction === 'asc' ? comparison : -comparison;
     });
-  }, [data, sortConfig]);
+  }, [data, getSortValue, sortConfig]);
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'desc';
