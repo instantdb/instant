@@ -77,7 +77,10 @@ function humanBytes(bytes: number) {
   return bytes.toFixed(2) + ' ' + units[index];
 }
 
-const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+const collator = new Intl.Collator('en', {
+  numeric: true,
+  sensitivity: 'base',
+});
 const numericKeys = new Set([
   'monthly_revenue',
   'start_timestamp',
