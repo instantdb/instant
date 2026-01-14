@@ -290,7 +290,6 @@
 ;; ---------------
 ;; Executor Helpers
 
-;; Expects a var that takes no arguments
 (defrecord Task [^clojure.lang.Var v]
   Callable
   (call [_]

@@ -508,16 +508,22 @@
                           (config/get-aurora-config))
         _ (wal/ensure-slot (get-conn-config) "invalidator")
         acquire-slot-interrupt-chan (a/chan (a/sliding-buffer 1))
+
         {hz-topic :topic
-         shutdown-topic :shutdown} (start-singleton-hz-topic {:acquire-slot-interrupt-chan acquire-slot-interrupt-chan})
-        {shutdown-listener :shutdown} (start-singleton-listener {:acquire-slot-interval-ms 10000
-                                                                 :process-id @config/process-id
-                                                                 :check-disabled (fn []
-                                                                                   (flags/toggled? :disable-singleton-invalidator))
-                                                                 :acquire-slot-interrupt-chan acquire-slot-interrupt-chan
-                                                                 :get-conn-config (fn []
-                                                                                    (config/get-aurora-config))
-                                                                 :hz-topic hz-topic})]
+         shutdown-topic :shutdown}
+        (start-singleton-hz-topic
+         {:acquire-slot-interrupt-chan acquire-slot-interrupt-chan})
+
+        {shutdown-listener :shutdown}
+        (start-singleton-listener
+         {:acquire-slot-interval-ms 10000
+          :process-id @config/process-id
+          :check-disabled (fn []
+                            (flags/toggled? :disable-singleton-invalidator))
+          :acquire-slot-interrupt-chan acquire-slot-interrupt-chan
+          :get-conn-config (fn []
+                             (config/get-aurora-config))
+          :hz-topic hz-topic})]
     {:shutdown (fn []
                  (shutdown-listener)
                  (shutdown-topic))}))
