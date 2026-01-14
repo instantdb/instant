@@ -233,15 +233,15 @@ export const runCli = async (): Promise<{
           new UI.Select({
             promptText: 'Which AI tool would you like to add rule files for?',
             options: [
-              { value: 'cursor', label: 'Cursor' },
               { value: 'claude', label: 'Claude' },
+              { value: 'cursor', label: 'Cursor' },
               { value: 'codex', label: 'Codex' },
               { value: 'gemini', label: 'Gemini' },
               { value: 'zed', label: 'Zed' },
               { value: 'windsurf', label: 'Windsurf' },
               { value: null, label: 'None' },
             ],
-            defaultValue: null as Project['ruleFiles'],
+            defaultValue: 'claude' satisfies Project['ruleFiles'],
             modifyOutput: UI.ciaModifier(),
           }),
         );
