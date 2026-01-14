@@ -15,45 +15,27 @@ import { z } from 'zod';
 import fs from 'fs/promises';
 import path from 'path';
 
-const DOC_FILES = [
-  'auth.md',
-  'backend.md',
-  'cli.md',
-  'common-mistakes.md',
-  'create-instant-app.md',
-  'devtool.md',
-  'emails.md',
-  'explorer-component.md',
-  'http-api.md',
-  'index.md',
-  'init.md',
-  'instaml.md',
-  'instaql.md',
-  'modeling-data.md',
-  'next-ssr.md',
-  'patterns.md',
-  'permissions.md',
-  'platform-api.md',
-  'presence-and-topics.md',
-  'start-rn.md',
-  'start-vanilla.md',
-  'storage.md',
-  'teams.md',
-  'users.md',
-  'using-llms.md',
-  'workflow.md',
-  'auth/apple.md',
-  'auth/clerk.md',
-  'auth/firebase.md',
-  'auth/github-oauth.md',
-  'auth/google-oauth.md',
-  'auth/guest-auth.md',
-  'auth/linkedin-oauth.md',
-  'auth/magic-codes.md',
-  'auth/platform-oauth.md',
-] as const;
-
 const DOCS_DIR = path.join(process.cwd(), 'public', 'docs');
+
+async function getDocFiles(): Promise<string[]> {
+  const docFiles: string[] = [];
+
+  async function scanDir(dir: string, base: string) {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        await scanDir(path.join(dir, entry.name), path.join(base, entry.name));
+      } else if (entry.name.endsWith('.md')) {
+        docFiles.push(path.join(base, entry.name));
+      }
+    }
+  }
+
+  await scanDir(DOCS_DIR, '');
+  return docFiles.sort();
+}
+
+const DOC_FILES = await getDocFiles();
 
 const getAdminFeedbackDb = () => {
   if (!process.env.NEXT_PUBLIC_FEEDBACK_API_URI) {
@@ -256,11 +238,17 @@ export async function POST(req: Request) {
   const stream = createUIMessageStream<DocsUIMessage>({
     execute: async ({ writer }) => {
       const readDocTool = tool({
+        providerOptions: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
         description: `Read InstantDB documentation. Available docs: ${DOC_FILES.join(', ')}`,
         inputSchema: z.object({
           docName: z
-            .enum(DOC_FILES, {
-              invalid_type_error:
+            .string()
+            .refine((val) => DOC_FILES.includes(val), {
+              message:
                 'Invalid document name. Please provide a valid document name from the list.',
             })
             .describe(
@@ -287,9 +275,14 @@ export async function POST(req: Request) {
         model: anthropic(
           process.env.ANTHROPIC_DOCS_CHAT_MODEL || 'claude-sonnet-4-5',
         ),
-        messages: await convertToModelMessages(messages),
+        messages: (await convertToModelMessages(messages)).map((message) => ({
+          ...message,
+          providerOptions: {
+            anthropic: { cacheControl: { type: 'ephemeral' } },
+          },
+        })),
         system:
-          'You are a helpful assistant for InstantDB documentation. Always use the readDoc tool to look up relevant documentation before answering questions. You can read multiple docs if needed to fully answer the question. Do not say anything when you go to look at information, only speak when giving the final answer. ',
+          'You are a helpful assistant for InstantDB documentation. You can read multiple docs if needed to fully answer the question. Do not say anything when you go to look at information, only speak when giving the final answer. Do not read the same doc more than once. ',
         tools: {
           readDoc: readDocTool,
         },

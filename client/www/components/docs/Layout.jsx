@@ -12,12 +12,11 @@ import config from '@/lib/config';
 import { Select, Button, cn } from '@/components/ui';
 import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
-import { createdAtComparator, titleComparator } from '@/lib/app';
+import { titleComparator } from '@/lib/app';
 import RatingBox from './RatingBox';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 import { ChatWidget, useIsMobile } from '../chat/ChatWidget';
-import { Chat } from '@ai-sdk/react';
 import { ClientOnly } from '../clientOnlyPage';
 
 function useWorkspaceData(workspaceId, token) {

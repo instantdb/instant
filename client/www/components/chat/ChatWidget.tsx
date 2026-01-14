@@ -338,7 +338,8 @@ const InnerChat: React.FC<{
 
   const submitMessage = () => {
     if (!input.trim()) return;
-    sendMessage({ text: input }).then(() => setInput(''));
+    sendMessage({ text: input });
+    setInput('');
   };
 
   return (
@@ -432,7 +433,15 @@ const InnerChat: React.FC<{
             rows={input.split('\n').length}
             className="z-40 grow border-none bg-transparent ring-0 outline-none focus:outline-none"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitMessage();
+              }
+            }}
+            onChange={(e) => {
+              setInput(e.target.value);
+            }}
             disabled={status !== 'ready'}
             placeholder={
               messages.length === 0
