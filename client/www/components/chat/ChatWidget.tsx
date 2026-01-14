@@ -2,7 +2,7 @@
 
 import { Dialog } from '@instantdb/components';
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport, UIMessage } from 'ai';
+import { DefaultChatTransport } from 'ai';
 import React, { Fragment, useEffect, useState } from 'react';
 import { id } from '@instantdb/core';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
@@ -267,7 +267,13 @@ const customAiFetch = async (
 ) => {
   const response = await fetch(url, opts);
   if (response.status === 429) {
-    throw new Error('Rate limit exceeded');
+    throw new Error('Rate limit exceeded.');
+  }
+  if (response.status === 410) {
+    throw new Error('You must be logged in to chat.');
+  }
+  if (!response.ok) {
+    throw new Error('Something went wrong.');
   }
   return response;
 };
