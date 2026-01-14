@@ -301,7 +301,7 @@ const InnerChat: React.FC<{
   authToken: string;
 }> = ({ chatId, initialMessages, isOpen, localId, authToken }) => {
   const [input, setInput] = React.useState('');
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const inputRef = React.useRef<HTMLTextAreaElement>(null);
 
   // Focus the input when sidebar opens
   React.useEffect(() => {
@@ -427,8 +427,9 @@ const InnerChat: React.FC<{
           </div>
         )}
         <div className="z-30 flex items-center rounded-md border focus-within:border-[#F54A00]">
-          <input
+          <textarea
             ref={inputRef}
+            rows={input.split('\n').length}
             className="z-40 grow border-none bg-transparent ring-0 outline-none focus:outline-none"
             value={input}
             onChange={(e) => setInput(e.target.value)}
