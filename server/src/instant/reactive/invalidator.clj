@@ -249,7 +249,6 @@
 (defn start-singleton-worker [{:keys [wal-chan
                                       close-signal-chan
                                       flush-lsn-chan
-                                      process-id
                                       ^ITopic hz-topic
                                       on-error
                                       stop-lsn
@@ -264,7 +263,7 @@
                                        (= -1 (compare stop-lsn (:nextlsn wal-record))))
                           (try
                             (.publish hz-topic (->WalRecord wal-record))
-                            (a/>! flush-lsn-chan (:nextlsn wal-record))
+                            (ua/>!-close-safe close-signal-chan flush-lsn-chan (:nextlsn wal-record))
                             (catch Exception e
                               (on-error e)))
                           (recur)))))
@@ -472,10 +471,10 @@
             (tracer/record-exception-span! (ex-info "Skipped a message in the reliable topic"
                                                     {:s s
                                                      :prev-seq-id prev-seq-id
-                                                     :lost-message-count (inc (- s prev-seq-id))}))))))))
+                                                     :lost-message-count (inc (- s prev-seq-id))})
+                                           {:name "invalidator/singleton-listener-skipped-tx"})))))))
 
-(defn start-singleton-hz-topic [{:keys [process-id
-                                        acquire-slot-interrupt-chan]}]
+(defn start-singleton-hz-topic [{:keys [acquire-slot-interrupt-chan]}]
   (let [queue
         (grouped-queue/start
          {:group-key-fn :app-id
@@ -510,8 +509,7 @@
         _ (wal/ensure-slot (get-conn-config) "invalidator")
         acquire-slot-interrupt-chan (a/chan (a/sliding-buffer 1))
         {hz-topic :topic
-         shutdown-topic :shutdown} (start-singleton-hz-topic {:acquire-slot-interrupt-chan acquire-slot-interrupt-chan
-                                                              :process-id @config/process-id})
+         shutdown-topic :shutdown} (start-singleton-hz-topic {:acquire-slot-interrupt-chan acquire-slot-interrupt-chan})
         {shutdown-listener :shutdown} (start-singleton-listener {:acquire-slot-interval-ms 10000
                                                                  :process-id @config/process-id
                                                                  :check-disabled (fn []

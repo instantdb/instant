@@ -652,7 +652,7 @@
    Note: Blocks the calling thread. Call with fut-bg.
 
    Use `shutdown!` to stop the stream and clean up."
-  [{:keys [get-conn-config slot-name slot-type to ex-handler
+  [{:keys [get-conn-config slot-name slot-type to
            flush-lsn-chan close-signal-chan started-promise]
     :as wal-opts}]
   (when (not= slot-type :invalidator)
