@@ -1238,11 +1238,13 @@ async function pullSchema(
   }
 
   const prev = await readLocalSchemaFile();
+  const shortSchemaPath = getSchemaPathToWrite(prev?.path);
+  const schemaPath = join(pkgDir, shortSchemaPath);
+
   if (prev) {
     const shouldContinue = await promptOk(
       {
-        promptText:
-          'This will overwrite your local instant.schema.ts file, OK to proceed?',
+        promptText: `This will overwrite your local ${shortSchemaPath} file, OK to proceed?`,
         modifyOutput: UI.modifiers.yPadding,
         inline: true,
       },
@@ -1252,9 +1254,6 @@ async function pullSchema(
 
     if (!shouldContinue) return { ok: true };
   }
-
-  const shortSchemaPath = getSchemaPathToWrite(prev?.path);
-  const schemaPath = join(pkgDir, shortSchemaPath);
 
   let newSchemaContent = generateSchemaTypescriptFile(
     prev?.schema,
@@ -1293,11 +1292,13 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
 
   if (!pullRes.ok) return pullRes;
   const prev = await readLocalPermsFile();
+  const shortPermsPath = getPermsPathToWrite(prev?.path);
+  const permsPath = join(pkgDir, shortPermsPath);
+
   if (prev) {
     const shouldContinue = await promptOk(
       {
-        promptText:
-          'This will overwrite your local instant.perms.ts file, OK to proceed?',
+        promptText: `This will overwrite your local ${shortPermsPath} file, OK to proceed?`,
         modifyOutput: UI.modifiers.yPadding,
         inline: true,
       },
@@ -1307,9 +1308,6 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
 
     if (!shouldContinue) return { ok: true };
   }
-
-  const shortPermsPath = getPermsPathToWrite(prev?.path);
-  const permsPath = join(pkgDir, shortPermsPath);
   await writeTypescript(
     permsPath,
     generatePermsTypescriptFile(pullRes.data.perms || {}, instantModuleName),
