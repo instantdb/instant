@@ -136,9 +136,10 @@ export function getSchemaReadCandidates(): ConfigCandidate[] {
 
 export function getPermsReadCandidates(): ConfigCandidate[] {
   const existing = getEnvPermsPathWithLogging();
+  if (existing) {
+    return [{ files: existing, transform: transformImports }];
+  }
   const extensions = ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'];
-  if (existing)
-    return [{ files: existing, extensions, transform: transformImports }];
 
   const candidates: ConfigCandidate[] = [];
 
