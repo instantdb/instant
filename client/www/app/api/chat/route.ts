@@ -95,6 +95,7 @@ const saveChat = async ({
       db.tx.chats[id].update({
         createdByUserId: userId,
         localId: localId,
+        createdAt: new Date(),
       }),
     )
     .catch((err) => {
@@ -245,7 +246,7 @@ export async function POST(req: Request) {
   console.info('Rate limit messages:', rateLimitMessages);
 
   if (rateLimitMessages.messages.length > 5) {
-    throw new Error('Rate limit exceeded');
+    return new Response('Rate limit exceeded', { status: 429 });
   }
 
   const oldMessages = (history?.chats?.[0]?.messages ||

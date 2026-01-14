@@ -261,6 +261,17 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   );
 };
 
+const customAiFetch = async (
+  url: RequestInfo | URL,
+  opts: RequestInit | undefined,
+) => {
+  const response = await fetch(url, opts);
+  if (response.status === 429) {
+    throw new Error('Rate limit exceeded');
+  }
+  return response;
+};
+
 const ReadFileMessage: React.FC<{ file: string }> = (props) => {
   const url = window.location.origin + '/docs/' + props.file.replace('.md', '');
 
@@ -284,7 +295,6 @@ const InnerChat: React.FC<{
   authToken: string;
 }> = ({ chatId, initialMessages, isOpen, localId, authToken }) => {
   const [input, setInput] = React.useState('');
-  const [error, setError] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   // Focus the input when sidebar opens
@@ -297,40 +307,32 @@ const InnerChat: React.FC<{
     }
   }, [isOpen]);
 
-  const { messages, sendMessage, status, regenerate } = useChat<DocsUIMessage>({
-    messages: initialMessages,
-    id: chatId,
-    generateId: id,
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      prepareSendMessagesRequest({ messages, id }) {
-        return {
-          body: {
-            message: messages[messages.length - 1],
-            id,
-            localId: localId,
-          },
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        };
-      },
-    }),
-    onError: (error) => {
-      console.error('Chat error:', error);
-      setError('Failed to send message');
-    },
-  });
+  const { messages, sendMessage, status, regenerate, error } =
+    useChat<DocsUIMessage>({
+      messages: initialMessages,
+      id: chatId,
+      generateId: id,
+      transport: new DefaultChatTransport({
+        api: '/api/chat',
+        fetch: customAiFetch,
+        prepareSendMessagesRequest({ messages, id }) {
+          return {
+            body: {
+              message: messages[messages.length - 1],
+              id,
+              localId: localId,
+            },
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          };
+        },
+      }),
+    });
 
-  const submitMessage = async () => {
+  const submitMessage = () => {
     if (!input.trim()) return;
-    try {
-      await sendMessage({ text: input });
-      setInput('');
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setError('Failed to send message');
-    }
+    sendMessage({ text: input }).then(() => setInput(''));
   };
 
   return (
@@ -415,7 +417,7 @@ const InnerChat: React.FC<{
       >
         {error && (
           <div className="z-20 translate-y-1 rounded-t bg-red-200 px-2 py-2 text-sm">
-            {error}
+            {error.message}
           </div>
         )}
         <div className="z-30 flex items-center rounded-md border focus-within:border-[#F54A00]">

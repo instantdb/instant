@@ -31,7 +31,7 @@ const _schema = i.schema({
       role: i.string(),
       metadata: i.any().optional(),
       parts: i.json<Array<UIMessagePart<any, any>>>(),
-      createdAt: i.date(),
+      createdAt: i.date().indexed(),
     }),
   },
   links: {
