@@ -71,6 +71,29 @@ export function useIsMobile() {
   return isMobile;
 }
 
+const LoggedOutEmptyState: React.FC = () => (
+  <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+    <div className="text-gray-400">
+      <MessageSquareIcon className="size-12" />
+    </div>
+    <div className="space-y-2">
+      <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+        Sign in to chat
+      </h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        Sign in to ask questions about Instant and get AI-powered help with the
+        docs.
+      </p>
+    </div>
+    <Link
+      href="/dash"
+      className="inline-flex items-center rounded-md bg-[#F54A00] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#d94000]"
+    >
+      Sign in
+    </Link>
+  </div>
+);
+
 export const ChatWidget: React.FC<ChatWidgetProps> = ({
   isOpen,
   onClose = () => {},
@@ -135,22 +158,24 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     <div className="flex items-center justify-between border-b px-4 py-3">
       <h2 className="font-semibold text-gray-900">Chat with AI</h2>
       <div className="flex items-center gap-1">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={newChat}
-                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
-                aria-label="New chat"
-              >
-                <PlusIcon className="h-5 w-5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>New chat</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {authToken && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={newChat}
+                  className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                  aria-label="New chat"
+                >
+                  <PlusIcon className="h-5 w-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>New chat</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         {!isMobile && (
           <TooltipProvider>
             <Tooltip>
@@ -184,7 +209,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     </div>
   );
 
-  const chatContent = (
+  const chatContent = authToken ? (
     <InnerChat
       localId={localId}
       key={chatId}
@@ -192,6 +217,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
       initialMessages={messages}
       isOpen={isOpen}
     />
+  ) : (
+    <LoggedOutEmptyState />
   );
 
   // Mobile or forced modal: use modal dialog
