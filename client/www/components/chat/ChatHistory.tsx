@@ -44,6 +44,7 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
             $: {
               where: { localId },
               order: { createdAt: 'desc' },
+              limit: 8,
             },
             messages: {
               $: {
