@@ -10,8 +10,8 @@
     "gen-llm-rules": "pnpm exec tsx scripts/gen-llm-rules.ts",
     "format": "prettier --write --ignore-path .prettierignore --ignore-path ../.gitignore --ignore-path ../../.gitignore \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "check-format": "prettier --check --ignore-path .prettierignore --ignore-path ../.gitignore --ignore-path ../../.gitignore \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "prebuild": "pnpm gen-llm-rules",
-    "postbuild": "pnpm gen-docs && pnpm gen-llms && pnpm gen-rss && next-sitemap",
+    "prebuild": "pnpm gen-llm-rules && pnpm gen-docs",
+    "postbuild": "pnpm gen-llms && pnpm gen-rss && next-sitemap",
     "start": "next start",
     "test": "jest --watch"
   },
