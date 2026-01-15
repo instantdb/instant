@@ -7,11 +7,14 @@
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-zeneca-app]]
    [instant.jdbc.aurora :as aurora]
+   [instant.reactive.ephemeral :as eph]
    [instant.reactive.topics :as topics]
    [instant.reactive.invalidator :as inv]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json]]
-   [instant.util.test :refer [wait-for]]))
+   [instant.util.test :refer [wait-for]])
+  (:import
+   (com.hazelcast.topic Message)))
 
 (defn transform-change [{:keys [columnnames columntypes columnvalues] :as v1}]
   (merge (select-keys v1 [:schema :table])
@@ -530,6 +533,35 @@
 
               (finally
                 (inv/stop process)))))))))
+
+(deftest topic-listener-ignores-old-messages
+  (let [hz (eph/get-hz)
+        topic-name (str "test-topic-" (crypt-util/random-hex 8))
+        topic (.getReliableTopic (eph/get-hz) topic-name)]
+    (try
+      (let [ring-buffer (inv/topic-ring-buffer hz topic-name)
+            ;; Publish some messages to load up the queue
+            _ (dotimes [x 5] (.publish topic {:type :before-listener-added
+                                              :i x}))
+            msgs (atom [])
+            ;; Add listener after the messages were adde
+            listener (inv/hz-topic-listener ring-buffer (fn [^Message m]
+                                                          (swap! msgs conj (.getMessageObject m))))]
+        (.addMessageListener topic listener)
+
+        (dotimes [x 5] (.publish topic {:type :after-listener-added
+                                        :i x}))
+
+        (wait-for (fn []
+                    (<= 5 (count @msgs)))
+                  1000)
+
+        (is (every? (fn [m]
+                      (= :after-listener-added (:type m)))
+                    @msgs)
+            "Listener shouldn't get any of the messages that were added before, but should get all of the messages added after."))
+      (finally
+        (.destroy topic)))))
 
 (comment
   (test/run-tests *ns*))
