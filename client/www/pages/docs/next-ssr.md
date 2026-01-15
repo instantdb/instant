@@ -80,7 +80,6 @@ Using SSR can make data fetching slower in one specific case: If you are using a
 If the component that calls `useSuspenseQuery` is wrapped in a `<Suspense/>`, Then the data will be fetched at the same time in both the client and server and the user will see the result from whatever loaded fastest. For returning users, the usually ends up being the local data, but for non-cached queries, the server is often faster.
 {% /callout %}
 
-
 ## Adding SSR to your projects
 
 If this all sounds good to you, you can add SSR to your projects today.
@@ -162,6 +161,7 @@ export default async function RootLayout({ children }) {
   );
 }
 ```
+
 If using the NextJS pages directory, you can use `getServerSideProps` to get the user and pass it to the provider via the PageProps.
 
 This (a) fetches the current user, and (b) puts the Instant provider in the React tree.
