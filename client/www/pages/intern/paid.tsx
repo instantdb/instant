@@ -164,7 +164,7 @@ function PaidTable({ data }: { data: any }) {
         </thead>
         <tbody>
           {sortedData.map((row: any) => (
-            <tr key={row.user_email + row.app_title}>
+            <tr key={row.user_email + row.title}>
               <td className="border-b border-gray-200 px-4 py-2">
                 {row.user_email}
               </td>
