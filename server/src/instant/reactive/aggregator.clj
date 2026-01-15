@@ -610,9 +610,7 @@
                          :check-disabled (fn []
                                            (flags/toggled? :disable-aggregator))
                          :get-conn-config (fn []
-                                            ;; TODO(dww): Remove next config after failing over
-                                            (or (config/get-next-aurora-config)
-                                                (config/get-aurora-config)))})))
+                                            (config/get-aurora-config))})))
 
 (defn start-global []
   (def shutdown (:shutdown (start))))
