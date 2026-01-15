@@ -1,21 +1,24 @@
 import schema from '@/lib/intern/docs-feedback/instant.schema';
 import { doTry } from '@/lib/parsePermsJSON';
 import { anthropic } from '@ai-sdk/anthropic';
-import { init, id as instantGenId, TransactionChunk } from '@instantdb/admin';
+import { init, id as instantGenId } from '@instantdb/admin';
 import {
   convertToModelMessages,
-  streamText,
-  tool,
-  stepCountIs,
-  UIMessage,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  stepCountIs,
+  streamText,
+  tool,
+  UIMessage,
 } from 'ai';
-import { z } from 'zod';
 import fs from 'fs/promises';
 import path from 'path';
+import { z } from 'zod';
 
 const DOCS_DIR = path.join(process.cwd(), 'public', 'docs');
+
+const RATE_LIMIT_MINUTES = 10;
+const MAX_MESSAGES_IN_PERIOD = 5;
 
 async function getDocFiles(): Promise<string[]> {
   const docFiles: string[] = [];
@@ -203,31 +206,26 @@ export async function POST(req: Request) {
       throw new Error('Failed to fetch chat history', { cause: e });
     });
 
-  const rateListQuery = {
+  const rateLimitPromise = adminDb.query({
     messages: {
       $: {
         where: {
           'chat.createdAt': {
-            $gt: new Date(Date.now() - 60 * 1000 * 10), // 10 minutes
+            $gt: new Date(Date.now() - 60 * 1000 * RATE_LIMIT_MINUTES), // 10 minutes
           },
           'chat.createdByUserId': userId,
           role: 'user',
         },
       },
     },
-  };
-  console.log('Rate limit query:', JSON.stringify(rateListQuery));
-
-  const rateLimitPromise = adminDb.query(rateListQuery);
+  });
 
   const [history, rateLimitMessages] = await Promise.all([
     historyPromise,
     rateLimitPromise,
   ]);
 
-  console.info('Rate limit messages:', rateLimitMessages);
-
-  if (rateLimitMessages.messages.length > 5) {
+  if (rateLimitMessages.messages.length > MAX_MESSAGES_IN_PERIOD) {
     return new Response('Rate limit exceeded', { status: 429 });
   }
 
