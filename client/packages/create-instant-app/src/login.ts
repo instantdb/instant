@@ -273,15 +273,15 @@ export const tryConnectApp = async (
         promptText: 'You are not logged in.',
         options: [
           {
-            label: 'Create temporary app',
-            value: 'ephemeral',
-          },
-          {
-            label: 'Login to choose existing app',
+            label: 'Login to your Instant account',
             value: 'login',
           },
           {
-            label: 'Create app later',
+            label: 'Create a temporary app',
+            value: 'ephemeral',
+          },
+          {
+            label: 'Create an app later',
             value: 'skip',
           },
         ],
