@@ -461,7 +461,7 @@
       (onCancel [_]
         nil)
       (storeSequence [_ s]
-        (let [prev-seq-id (AtomicLong/.getAndSet seq-id (tool/inspect s))]
+        (let [prev-seq-id (AtomicLong/.getAndSet seq-id s)]
           (when (and (not= prev-seq-id -1)
                      (not= s (inc prev-seq-id)))
             (tracer/record-exception-span! (ex-info "Skipped a message in the reliable topic"
