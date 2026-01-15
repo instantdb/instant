@@ -34,6 +34,7 @@ import {
   MessageResponse,
 } from '../ai-elements/message';
 import clsx from 'clsx';
+import { ChatHistory } from './ChatHistory';
 import {
   Tooltip,
   TooltipContent,
@@ -116,7 +117,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     setChatId(id());
   };
 
-  const { data } = db.useQuery(
+  const { data, isLoading } = db.useQuery(
     chatId && localId && authToken
       ? {
           chats: {
@@ -147,10 +148,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   }
 
   const chat = data?.chats[0];
-  const messages =
-    chat?.id === chatId
-      ? ((chat.messages || []) as unknown as DocsUIMessage[])
-      : [];
 
   const showModal = isMobile || forceModal;
 
@@ -159,22 +156,29 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
       <h2 className="font-semibold text-gray-900">Chat with AI</h2>
       <div className="flex items-center gap-1">
         {authToken && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={newChat}
-                  className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
-                  aria-label="New chat"
-                >
-                  <PlusIcon className="h-5 w-5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>New chat</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={newChat}
+                    className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                    aria-label="New chat"
+                  >
+                    <PlusIcon className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>New chat</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <ChatHistory
+              localId={localId}
+              currentChatId={chatId}
+              onSelectChat={setChatId}
+            />
+          </>
         )}
         {!isMobile && (
           <TooltipProvider>
@@ -209,18 +213,23 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     </div>
   );
 
-  const chatContent = authToken ? (
-    <InnerChat
-      authToken={authToken}
-      localId={localId}
-      key={chatId}
-      chatId={chatId}
-      initialMessages={messages}
-      isOpen={isOpen}
-    />
-  ) : (
-    <LoggedOutEmptyState />
-  );
+  const chatContent =
+    authToken && !isLoading ? (
+      <InnerChat
+        authToken={authToken}
+        key={chat?.id || chatId}
+        localId={localId}
+        chatId={chat?.id || chatId}
+        initialMessages={
+          chat?.messages.length && chat.id === chatId
+            ? chat.messages
+            : ([] as any)
+        }
+        isOpen={isOpen}
+      />
+    ) : (
+      <LoggedOutEmptyState />
+    );
 
   // Mobile or forced modal: use modal dialog
   if (showModal) {
@@ -336,6 +345,13 @@ const InnerChat: React.FC<{
       }),
     });
 
+  const completeMessages = [
+    ...initialMessages.filter(
+      (initial) => !messages.find((m) => m.id === initial.id),
+    ),
+    ...messages,
+  ];
+
   const submitMessage = () => {
     if (!input.trim()) return;
     sendMessage({ text: input });
@@ -346,14 +362,14 @@ const InnerChat: React.FC<{
     <div className="flex min-h-0 flex-1 flex-col">
       <Conversation className="relative min-h-0 flex-1 p-2">
         <ConversationContent>
-          {messages.length === 0 ? (
+          {completeMessages.length === 0 ? (
             <ConversationEmptyState
               description="Messages will appear here as the conversation progresses."
               icon={<MessageSquareIcon className="size-6" />}
               title="Start a conversation"
             />
           ) : (
-            messages.map((message, messageIndex) => (
+            completeMessages.map((message, messageIndex) => (
               <Fragment key={message.id}>
                 {message.parts.map((part, i) => {
                   switch (part.type) {
@@ -397,9 +413,10 @@ const InnerChat: React.FC<{
             ))
           )}
           {(status === 'submitted' || status === 'streaming') &&
-            (messages.length === 0 ||
-              messages[messages.length - 1].role !== 'assistant' ||
-              !messages[messages.length - 1].parts?.some(
+            (completeMessages.length === 0 ||
+              completeMessages[completeMessages.length - 1].role !==
+                'assistant' ||
+              !completeMessages[completeMessages.length - 1].parts?.some(
                 (p) => p.type === 'text' && p.text,
               )) && (
               <Message from="assistant">
@@ -444,7 +461,7 @@ const InnerChat: React.FC<{
             }}
             disabled={status !== 'ready'}
             placeholder={
-              messages.length === 0
+              completeMessages.length === 0
                 ? 'Ask a question...'
                 : 'Ask a follow-up question...'
             }

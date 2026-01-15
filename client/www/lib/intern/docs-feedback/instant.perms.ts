@@ -38,7 +38,7 @@ const rules = {
   messages: {
     bind: {
       isAdmin: "auth.id != null && auth.email.endsWith('@instantdb.com')",
-      isCreator: "ruleParams.localId == data.ref('chat.localId')",
+      isCreator: "ruleParams.localId in data.ref('chat.localId')",
     },
     allow: {
       create: 'isCreator',
