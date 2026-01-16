@@ -307,7 +307,7 @@
 (deftest add-query-sets-store
   (with-session
     (fn [store {:keys [socket movies-app-id movies-resolver]
-                     {:keys [id]} :socket}]
+                {:keys [id]} :socket}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (blocking-send-msg :add-query-ok
                          socket
@@ -573,6 +573,32 @@
               (is (= :refresh-ok (:op ret)))
               (is (contains? ret :attrs)))))))))
 
+(deftest refresh-sends-attrs-when-schema-changes-without-queries
+  (with-session
+    (fn [_store {:keys [socket movies-app-id]}]
+      (send-msg socket {:op :init
+                        :app-id movies-app-id
+                        :versions {session/core-version-key "0.20.5"}})
+      (let [ret (read-msg socket)]
+        (is (= :init-ok (:op ret)))
+        (is (contains? ret :attrs)))
+
+      (tx/transact! (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id movies-app-id)
+                    movies-app-id
+                    [[:add-attr {:id (random-uuid)
+                                 :forward-identity [(random-uuid) "profile" "id"]
+                                 :unique? true
+                                 :index? false
+                                 :value-type :blob
+                                 :cardinality :one}]])
+
+      (send-msg socket {:session-id (:id socket)
+                        :op :refresh})
+      (let [ret (read-msg socket)]
+        (is (= :refresh-ok (:op ret)))
+        (is (= [] (:computations ret)))
+        (is (contains? ret :attrs))))))
 
 (deftest refresh-populates-cache
   (with-movies-app
