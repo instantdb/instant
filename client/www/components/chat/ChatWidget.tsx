@@ -278,7 +278,7 @@ const customAiFetch = async (
   if (response.status === 429) {
     throw new Error('Rate limit exceeded.');
   }
-  if (response.status === 410) {
+  if (response.status === 401) {
     throw new Error('You must be logged in to chat.');
   }
   if (!response.ok) {
