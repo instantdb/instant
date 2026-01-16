@@ -19,6 +19,8 @@ const DOCS_DIR = path.join(process.cwd(), 'public', 'docs');
 
 const RATE_LIMIT_MINUTES = 10;
 const MAX_MESSAGES_IN_PERIOD = 5;
+const FEEDBACK_API_URL =
+  process.env.NEXT_PUBLIC_FEEDBACK_API_URI || 'https://api.instantdb.com';
 
 async function getDocFiles(): Promise<string[]> {
   const docFiles: string[] = [];
@@ -41,9 +43,6 @@ async function getDocFiles(): Promise<string[]> {
 const DOC_FILES = await getDocFiles();
 
 const getAdminFeedbackDb = () => {
-  if (!process.env.NEXT_PUBLIC_FEEDBACK_API_URI) {
-    throw new Error('NEXT_PUBLIC_FEEDBACK_API_URI is not set');
-  }
   if (!process.env.FEEDBACK_ADMIN_TOKEN) {
     throw new Error('FEEDBACK_ADMIN_TOKEN is not set');
   }
@@ -53,8 +52,7 @@ const getAdminFeedbackDb = () => {
       '5d9c6277-e6ac-42d6-8e51-2354b4870c05',
     schema,
     adminToken: process.env.FEEDBACK_ADMIN_TOKEN,
-    apiURI:
-      process.env.NEXT_PUBLIC_FEEDBACK_API_URI || 'https://api.instantdb.com',
+    apiURI: FEEDBACK_API_URL,
   });
   return adminFeedbackDb;
 };
@@ -142,10 +140,7 @@ const validateUser = async (
     return null;
   }
 
-  const apiUrl =
-    process.env.NEXT_PUBLIC_FEEDBACK_API_URI || 'https://api.instantdb.com';
-
-  const response = await fetch(apiUrl + '/dash', {
+  const response = await fetch(FEEDBACK_API_URL + '/dash/me', {
     headers: {
       Authorization: authHeader,
     },
