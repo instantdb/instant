@@ -13,7 +13,7 @@ function createUserSyncResponse(
       headers: {
         'Content-Type': 'application/json',
         // 7 day expiry
-        'Set-Cookie': `instant_user_${config.appId}=${JSON.stringify(user)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`,
+        'Set-Cookie': `instant_user_${config.appId}=${encodeURIComponent(JSON.stringify(user))}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`,
       },
     });
   } else {

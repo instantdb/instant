@@ -6,6 +6,6 @@ export const getUserFromInstantCookie = async (
 ): Promise<User | null> => {
   const cookieStore = await cookies();
   const userJSON = cookieStore.get('instant_user_' + appId);
-  const user = userJSON ? JSON.parse(userJSON.value) : null;
+  const user = userJSON ? JSON.parse(decodeURIComponent(userJSON.value)) : null;
   return user;
 };
