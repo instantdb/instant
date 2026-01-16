@@ -32,7 +32,7 @@ const rules = {
       create: 'isCreator',
       view: 'isCreator || isAdmin',
       delete: 'isCreator || isAdmin',
-      update: 'isCreator || isAdmin',
+      update: '(isCreator || isAdmin) && data.localId == newData.localId',
     },
   },
   messages: {
