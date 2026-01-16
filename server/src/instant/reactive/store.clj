@@ -1527,7 +1527,7 @@
 
       (println "mark-stale")
       (time
-       (mark-stale-topics! test-store app-id 1 dummy-coarse-topics {}))
+       (mark-stale-topics! test-store app-id 1 (instant.isn/test-isn 1) dummy-coarse-topics {}))
 
       (println "get-stale")
       (time

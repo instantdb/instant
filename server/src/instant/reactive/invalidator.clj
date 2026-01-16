@@ -7,7 +7,6 @@
    [instant.flags :as flags]
    [instant.gauges :as gauges]
    [instant.grouped-queue :as grouped-queue]
-   [instant.isn :as isn]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.reactive.ephemeral :as eph]
