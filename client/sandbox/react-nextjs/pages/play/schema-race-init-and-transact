@@ -1,0 +1,192 @@
+/**
+ * Demo to reproduce the "record-not-unique" race condition bug.
+ *
+ * The bug occurs when:
+ * 1. App is created with schema (server has workouts.id attr)
+ * 2. Client initializes and immediately transacts BEFORE receiving attrs via init-ok
+ * 3. Client creates optimistic attr with different UUID
+ * 4. Server rejects with "record-not-unique" - "`id` already exists on `workouts`"
+ */
+
+import { useEffect, useState } from 'react';
+import { i, init, id } from '@instantdb/react';
+import config from '../../config';
+import { provisionEphemeralApp } from '../../components/EphemeralAppPage';
+
+// Schema WITH workouts entity - server will have this
+const schema = i.schema({
+  entities: {
+    workouts: i.entity({
+      name: i.string(),
+    }),
+  },
+});
+
+type EphemeralApp = {
+  id: string;
+  'admin-token': string;
+};
+
+export default function Page() {
+  const [app, setApp] = useState<EphemeralApp | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [result, setResult] = useState<any>(null);
+
+  const log = (msg: string) => {
+    console.log(msg);
+    setLogs((prev) => [...prev, `${new Date().toISOString().slice(11, 23)} ${msg}`]);
+  };
+
+  useEffect(() => {
+    provisionEphemeralApp({ schema, useDateObjects: false })
+      .then((res) => {
+        console.log('Created ephemeral app:', res.app);
+        setApp(res.app);
+      })
+      .catch((e) => {
+        console.error('Error creating app:', e);
+        setError(e);
+      });
+  }, []);
+
+  // Race the connection - init and immediately transact
+  const raceConnection = async () => {
+    if (!app) return;
+
+    setLogs([]);
+    setResult(null);
+    setError(null);
+
+    log('Initializing NEW db instance and immediately transacting...');
+
+    // Create a fresh db instance
+    const db = init({
+      ...config,
+      appId: app.id,
+      schema,
+    });
+
+    // Immediately try to transact before init-ok arrives
+    log('Calling transact immediately (racing init-ok)...');
+
+    try {
+      const txResult = await db.transact(
+        db.tx.workouts[id()].update({ name: 'Morning Run' }),
+      );
+      log(`Transaction succeeded: ${JSON.stringify(txResult)}`);
+      setResult(txResult);
+    } catch (e: any) {
+      log(`Transaction error: ${e.message}`);
+      setError(e);
+    }
+  };
+
+  // Try multiple rapid transactions
+  const rapidTransactions = async () => {
+    if (!app) return;
+
+    setLogs([]);
+    setResult(null);
+    setError(null);
+
+    log('Creating fresh db and firing multiple transactions...');
+
+    const db = init({
+      ...config,
+      appId: app.id,
+      schema,
+    });
+
+    // Fire multiple transactions simultaneously
+    const promises = Array.from({ length: 5 }, (_, i) => {
+      log(`Firing transaction ${i}...`);
+      return db.transact(
+        db.tx.workouts[id()].update({ name: `Workout ${i}` }),
+      ).then(
+        (r) => { log(`Transaction ${i} succeeded`); return r; },
+        (e) => { log(`Transaction ${i} failed: ${e.message}`); throw e; }
+      );
+    });
+
+    try {
+      const results = await Promise.allSettled(promises);
+      log(`All transactions complete`);
+      setResult(results);
+    } catch (e: any) {
+      setError(e);
+    }
+  };
+
+  if (!app) {
+    return (
+      <div className="p-4">
+        <p>Creating ephemeral app with workouts schema...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4">
+      <h1 className="mb-4 text-xl font-bold">Schema Race Condition Repro</h1>
+
+      <div className="mb-4 rounded bg-gray-100 p-4">
+        <p className="text-sm">
+          <strong>App ID:</strong> {app.id}
+        </p>
+        <p className="text-sm text-gray-600">
+          App created with workouts schema. Try to race the connection by
+          transacting before init-ok arrives with attrs.
+        </p>
+      </div>
+
+      <div className="mb-4 flex gap-2">
+        <button
+          className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+          onClick={raceConnection}
+        >
+          Race Connection (init + immediate transact)
+        </button>
+
+        <button
+          className="rounded bg-orange-600 px-4 py-2 text-white hover:bg-orange-700"
+          onClick={rapidTransactions}
+        >
+          Rapid Transactions (5x simultaneous)
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded border border-red-500 bg-red-50 p-4">
+          <h3 className="font-bold text-red-700">Error:</h3>
+          <pre className="text-sm text-red-600">
+            {JSON.stringify(error, null, 2)}
+          </pre>
+        </div>
+      )}
+
+      {result && (
+        <div className="mb-4 rounded border border-green-500 bg-green-50 p-4">
+          <h3 className="font-bold text-green-700">Result:</h3>
+          <pre className="text-sm text-green-600">
+            {JSON.stringify(result, null, 2)}
+          </pre>
+        </div>
+      )}
+
+      <div className="rounded bg-black p-4">
+        <h3 className="mb-2 font-bold text-white">Logs:</h3>
+        <div className="max-h-96 overflow-y-auto">
+          {logs.map((l, i) => (
+            <div key={i} className="font-mono text-xs text-green-400">
+              {l}
+            </div>
+          ))}
+          {logs.length === 0 && (
+            <div className="text-gray-500">No logs yet. Click a button to test.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

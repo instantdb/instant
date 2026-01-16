@@ -1498,10 +1498,18 @@ export default class Reactor {
         this._trySendAuthed(eventId, { op: 'add-query', q });
       });
 
-    const muts = this._rewriteMutationsSorted(
+    const rewrittenMutations = this._rewriteMutations(
       this.ensureAttrs(),
       this._pendingMutations(),
     );
+    if (rewrittenMutations !== this._pendingMutations()) {
+      // Persist rewritten mutations to avoid stale attr ids in future txs.
+      this.kv.updateInPlace((prev) => {
+        prev.pendingMutations = rewrittenMutations;
+      });
+    }
+
+    const muts = sortedMutationEntries(rewrittenMutations.entries());
     muts.forEach(([eventId, mut]) => {
       if (!mut['tx-id']) {
         this._sendMutation(eventId, mut);

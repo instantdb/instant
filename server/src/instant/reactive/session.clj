@@ -508,15 +508,15 @@
                                                                :session-id sess-id)})
     (tracer/with-span! {:name "handle-refresh/send-event!"
                         :attributes tracer-attrs}
-      (when (seq computations)
+      (when (or (seq computations) attrs-changed?)
         (rs/send-event! store app-id sess-id (with-meta
                                                (cond->
-                                                   {:op :refresh-ok
-                                                    :processed-tx-id processed-tx-id
-                                                    :processed-isn processed-isn
-                                                    :computations computations}
-                                                   (or (not can-skip-attrs?) attrs-changed?)
-                                                   (assoc :attrs attrs))
+                                                {:op :refresh-ok
+                                                 :processed-tx-id processed-tx-id
+                                                 :processed-isn processed-isn
+                                                 :computations (vec computations)}
+                                                 (or (not can-skip-attrs?) attrs-changed?)
+                                                 (assoc :attrs attrs))
                                                {:tx-id (:tx-id event)
                                                 :tx-created-at (:tx-created-at event)
                                                 :session-id sess-id}))))))

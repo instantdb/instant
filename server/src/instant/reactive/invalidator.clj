@@ -16,7 +16,8 @@
    [instant.util.async :as ua]
    [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.hazelcast :refer [->WalRecord]]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [clojure.set :as set])
   (:import
    (com.hazelcast.core HazelcastInstance)
    (com.hazelcast.ringbuffer Ringbuffer)
@@ -34,6 +35,26 @@
 (declare wal-opts)
 
 (declare invalidator-q)
+
+(defn- schema-changes-require-refreshing-sessions?
+  "All sessions may need to know about some schema changes. 
+
+   For example, if we create an attr, then all sessions should know about this, 
+   so they don't accidentally try create the same attr again. 
+
+   Right now we detect: 
+    - Attr creates or deletes
+    - Ident changes 
+
+   Technically, sessions may need to know about other things: like if an attr 
+   becomes unique. But I am worried we may end up causing too much thrash 
+   for larger apps. 
+
+   For now, I'm only notifying on these changes."
+  [{:keys [attr-changes ident-changes]}]
+  (boolean
+   (or (some #(#{:insert :delete} (:action %)) attr-changes)
+       (seq ident-changes))))
 
 (defn- invalidate!
   "Given a collection of changes, stales all relevant queries and returns
@@ -96,7 +117,6 @@
                          (seq attrs))
         transactions-change (first transactions)
         app-id (extract-app-id transactions-change)]
-
 
     (when (and some-changes app-id)
       (let [tx-id (extract-tx-id transactions-change)
@@ -190,8 +210,19 @@
                                      :tx-bytes tx-bytes}}
 
       (try
-        (let [{:keys [sockets sync-subs]} (invalidate! process-id store wal-record)]
+        (let [{:keys [sync-subs] invalidated-sockets :sockets}
+              (invalidate! process-id store wal-record)
+              schema-changes? (schema-changes-require-refreshing-sessions?
+                               wal-record)
+
+              sockets (if schema-changes?
+                        (set/union (rs/all-sockets-for-app store app-id)
+                                   invalidated-sockets)
+                        invalidated-sockets)]
+
           (tracer/add-data! {:attributes {:num-sockets (count sockets)
+                                          :num-invalidated-sockets (count invalidated-sockets)
+                                          :schema-changes? schema-changes?
                                           :num-sync-subs (count sync-subs)
                                           :tx-latency-ms (e2e-tracer/tx-latency-ms tx-created-at)}})
           (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
