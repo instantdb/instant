@@ -31,7 +31,7 @@
 ;; TODO
 ;; Notes on implementation:
 ;;  1. Should operate similarly to the aggregator migration
-;;  2. Needs to increment invalidator/slot-num
+;;  2. Needs to increment instant.config/invalidator-slot-num
 ;;  3. Instead a disable-invalidator flag, we should set the
 ;;     slot num somewhere and any machine whose slot num does not equal
 ;;     the current slot num won't run the invalidator. This way when we deploy
