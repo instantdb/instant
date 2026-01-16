@@ -18,7 +18,10 @@
    [instant.util.hazelcast :refer [->WalRecord]]
    [instant.util.tracer :as tracer])
   (:import
-   (com.hazelcast.topic ITopic ReliableMessageListener TopicOverloadPolicy)
+   (com.hazelcast.core HazelcastInstance)
+   (com.hazelcast.ringbuffer Ringbuffer)
+   (com.hazelcast.ringbuffer.impl RingbufferService)
+   (com.hazelcast.topic Message ITopic ReliableMessageListener TopicOverloadPolicy)
    (instant.util.hazelcast WalRecord)
    (java.sql Timestamp)
    (java.time Instant)
@@ -443,25 +446,18 @@
      {:path "hz.invalidator-topic.receiveOperationCount"
       :value (.getReceiveOperationCount stats)}]))
 
-(defn hz-topic-listener [queue acquire-slot-interrupt-chan]
+(defn hz-topic-listener [^Ringbuffer ring-buffer on-msg]
   (let [seq-id (AtomicLong. -1)]
     (reify ReliableMessageListener
       (onMessage [_ m]
-        (let [msg (.getMessageObject m)]
-          (if (instance? WalRecord msg)
-            (grouped-queue/put! queue (:record msg))
-            ;; We should try to reconnect, but only if we weren't
-            ;; the ones that sent the message to reconnect (if there
-            ;; is only one machine it will try again within 10 seconds)
-            (when (not (.localMember (.getPublishingMember m)))
-              (a/put! acquire-slot-interrupt-chan true)))))
+        (on-msg m))
       (isLossTolerant [_]
         true)
       (isTerminal [_ t]
         (tracer/record-exception-span! t {:name "invalidator/singleton-listener-error"})
         false)
       (retrieveInitialSequence [_]
-        -1)
+        (inc (.tailSequence ring-buffer)))
       (onCancel [_]
         nil)
       (storeSequence [_ s]
@@ -473,6 +469,9 @@
                                                      :prev-seq-id prev-seq-id
                                                      :lost-message-count (inc (- s prev-seq-id))})
                                            {:name "invalidator/singleton-listener-skipped-tx"})))))))
+
+(defn topic-ring-buffer [^HazelcastInstance hz topic-name]
+  (.getRingbuffer hz (str RingbufferService/TOPIC_RB_PREFIX topic-name)))
 
 (defn start-singleton-hz-topic [{:keys [acquire-slot-interrupt-chan]}]
   (let [queue
@@ -490,13 +489,24 @@
         topic-name "invalidator-wal-logs"
         hz (eph/get-hz)
         topic (.getReliableTopic hz topic-name)
-        topic-config (.getReliableTopicConfig (.getConfig hz) "invalidator-wal-logs")
+        topic-config (.getReliableTopicConfig (.getConfig hz) topic-name)
         _ (.setTopicOverloadPolicy topic-config TopicOverloadPolicy/DISCARD_OLDEST)
         _ (.setExecutor topic-config (Executors/newSingleThreadExecutor))
         _ (.setStatisticsEnabled topic-config true)
+        ring-buffer (topic-ring-buffer hz topic-name)
         stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
                                                   (hz-gauges topic)))
-        listener-id (.addMessageListener topic (hz-topic-listener queue acquire-slot-interrupt-chan))]
+        on-msg (fn [^Message m]
+                 (let [msg (.getMessageObject m)]
+                   (if (instance? WalRecord msg)
+                     (grouped-queue/put! queue (:record msg))
+                     ;; We should try to reconnect, but only if we weren't
+                     ;; the ones that sent the message to reconnect (if there
+                     ;; is only one machine it will try again within 10 seconds)
+                     (when (not (.localMember (.getPublishingMember m)))
+                       (a/put! acquire-slot-interrupt-chan true)))))
+        listener (hz-topic-listener ring-buffer on-msg)
+        listener-id (.addMessageListener topic listener)]
     {:topic topic
      :shutdown (fn []
                  (.removeMessageListener topic listener-id)
