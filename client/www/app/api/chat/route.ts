@@ -14,6 +14,7 @@ import {
 import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
+import docsNavigation from '@/data/docsNavigation';
 
 const DOCS_DIR = path.join(process.cwd(), 'public', 'docs');
 
@@ -22,25 +23,20 @@ const MAX_MESSAGES_IN_PERIOD = 5;
 const FEEDBACK_API_URL =
   process.env.NEXT_PUBLIC_FEEDBACK_API_URI || 'https://api.instantdb.com';
 
-async function getDocFiles(): Promise<string[]> {
+function getDocFiles(): string[] {
   const docFiles: string[] = [];
-
-  async function scanDir(dir: string, base: string) {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        await scanDir(path.join(dir, entry.name), path.join(base, entry.name));
-      } else if (entry.name.endsWith('.md')) {
-        docFiles.push(path.join(base, entry.name));
-      }
+  for (const section of docsNavigation) {
+    for (const link of section.links) {
+      // Convert href like "/docs/auth/google-oauth" to "auth/google-oauth.md"
+      const docPath = link.href.replace(/^\/docs\/?/, '');
+      const fileName = docPath === '' ? 'index.md' : `${docPath}.md`;
+      docFiles.push(fileName);
     }
   }
-
-  await scanDir(DOCS_DIR, '');
   return docFiles.sort();
 }
 
-const DOC_FILES = await getDocFiles();
+const DOC_FILES = getDocFiles();
 
 const getAdminFeedbackDb = () => {
   if (!process.env.FEEDBACK_ADMIN_TOKEN) {
