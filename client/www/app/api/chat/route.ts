@@ -3,6 +3,7 @@ import { doTry } from '@/lib/parsePermsJSON';
 import { anthropic } from '@ai-sdk/anthropic';
 import { init, id as instantGenId } from '@instantdb/admin';
 import {
+  consumeStream,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -283,7 +284,10 @@ export async function POST(req: Request) {
 
       writer.merge(result.toUIMessageStream());
     },
-    onFinish: ({ messages }) => {
+    onFinish: ({ messages, isAborted }) => {
+      if (isAborted) {
+        return;
+      }
       saveChat({
         db: adminDb,
         messages,
@@ -301,5 +305,6 @@ export async function POST(req: Request) {
 
   return createUIMessageStreamResponse({
     stream,
+    consumeSseStream: consumeStream,
   });
 }
