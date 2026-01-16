@@ -448,6 +448,13 @@
                  entity')]
     (transact! "store/assoc-session!" conn [entity])))
 
+(defn all-sockets-for-app [store app-id]
+  (let [db @(:sessions store)]
+    (set
+     (keep (fn [datom]
+             (:session/socket (d/entity db (:e datom))))
+           (d/datoms db :avet :session/app-id app-id)))))
+
 ;; -----
 ;; tx-id
 
