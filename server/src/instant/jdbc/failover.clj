@@ -25,6 +25,18 @@
 ;; Keep this here just in case
 (declare previous-conn-pool)
 
+;; ---------------------
+;; Invalidator migration
+
+;; TODO
+;; Notes on implementation:
+;;  1. Should operate similarly to the aggregator migration
+;;  2. Needs to increment invalidator/slot-num
+;;  3. Instead a disable-invalidator flag, we should set the
+;;     slot num somewhere and any machine whose slot num does not equal
+;;     the current slot num won't run the invalidator. This way when we deploy
+;;     the updated code, the new machines will take over invalidation without any downtime.
+
 ;; --------------------
 ;; Aggregator migration
 
@@ -93,7 +105,8 @@
                                                   :stop-lsn remote-lsn
                                                   :check-disabled (fn [] false)
                                                   :get-conn-config (fn []
-                                                                     (config/get-aurora-config))})]
+                                                                     (config/get-aurora-config))
+                                                  :slot-num (unchecked-inc-int aggregator/global-slot-num)})]
     ;; Intentional def-locals so that we have a way to shut it down if something goes wrong
     (tool/def-locals)
     (a/<!! (:completed-chan listener))))

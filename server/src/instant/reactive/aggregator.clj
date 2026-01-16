@@ -22,6 +22,8 @@
 
 (declare shutdown)
 
+(def global-slot-num (int 0))
+
 ;; --------------
 ;; Initialization
 
@@ -482,7 +484,8 @@
            skip-empty-updates
            stop-lsn
            check-disabled
-           get-conn-config]}]
+           get-conn-config
+           slot-num]}]
   (let [shutdown-chan (a/chan)
         slot-name (wal/full-slot-name slot-type
                                       slot-suffix)
@@ -505,7 +508,8 @@
                                    :get-conn-config get-conn-config
                                    :slot-suffix slot-suffix
                                    :slot-type slot-type
-                                   :lsn lsn})
+                                   :lsn lsn
+                                   :slot-num slot-num})
 
                         wal-started-promise (:started-promise wal-opts)
                         signal-chan (a/chan)
@@ -610,7 +614,8 @@
                          :check-disabled (fn []
                                            (flags/toggled? :disable-aggregator))
                          :get-conn-config (fn []
-                                            (config/get-aurora-config))})))
+                                            (config/get-aurora-config))
+                         :slot-num global-slot-num})))
 
 (defn start-global []
   (def shutdown (:shutdown (start))))

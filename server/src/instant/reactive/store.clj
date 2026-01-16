@@ -22,6 +22,7 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as tx-model]
    [instant.flags :as flags]
+   instant.isn
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
    [instant.lib.ring.sse :as sse]
@@ -35,6 +36,7 @@
    [instant.util.tracer :as tracer])
   (:import
    (clojure.lang PersistentQueue)
+   (instant.isn ISN)
    (java.lang InterruptedException)
    (java.time Instant)
    (java.util Map)
@@ -69,6 +71,7 @@
   schema
   {:tx-meta/app-id {:db/unique :db.unique/identity}
    :tx-meta/processed-tx-id {:db/type :db.type/integer}
+   :tx-meta/processed-isn {}
 
    :instaql-query/query {:db/index true}
    :instaql-query/forms-hash {}
@@ -205,7 +208,8 @@
 (defn create-conn [schema app-id]
   (let [conn (-> (d/empty-db schema)
                  (d/with [{:tx-meta/app-id app-id
-                           :tx-meta/processed-tx-id (tx-model/max-seen-tx-id)}])
+                           :tx-meta/processed-tx-id (tx-model/max-seen-tx-id)
+                           :tx-meta/processed-isn (instant.isn/get-max-seen-isn)}])
                  :db-after
                  d/conn-from-db)
         cache-executor (ua/make-vfuture-executor)]
@@ -455,6 +459,11 @@
   (let [db  @(app-conn store app-id)
         ent (d/entity db [:tx-meta/app-id app-id])]
     (:tx-meta/processed-tx-id ent)))
+
+(defn get-processed-isn [store app-id]
+  (let [db  @(app-conn store app-id)
+        ent (d/entity db [:tx-meta/app-id app-id])]
+    (:tx-meta/processed-isn ent)))
 
 ;; ------
 ;; instaql queries
@@ -965,17 +974,28 @@
     [{:tx-meta/app-id app-id
       :tx-meta/processed-tx-id tx-id}]))
 
+(defn- set-isn
+  "Should be used in a db.fn/call. Returns transactions.
+   Sets the processed-isn to the max of the given value and current value."
+  [db app-id ^ISN isn]
+  (if-some [current (:tx-meta/processed-isn (d/entity db [:tx-meta/app-id app-id]))]
+    [{:tx-meta/app-id app-id
+      :tx-meta/processed-isn (instant.isn/isn-max current isn)}]
+    [{:tx-meta/app-id app-id
+      :tx-meta/processed-isn isn}]))
+
 (defn- mark-datalog-queries-stale!
   "Stale-ing a datalog query has the following side-effects:
    1. Removes the datalog query from the datalog-cache
    2. Marks associated instaql entries as stale
    3. Updates store's latest processed tx-id for the app-id"
-  [conn app-id tx-id datalog-query-eids]
+  [conn app-id tx-id isn datalog-query-eids]
   (transact!
    "store/mark-datalog-queries-stale!"
    conn
    (concat
     [[:db.fn/call set-tx-id app-id tx-id]
+     [:db.fn/call set-isn app-id isn]
      [:db.fn/call mark-instaql-queries-stale-tx-data datalog-query-eids]]
     (for [e datalog-query-eids]
       [:db.fn/retractEntity e]))))
@@ -1250,7 +1270,7 @@
   "Given topics, invalidates all relevant datalog qs and associated instaql queries.
 
   Returns affected session-ids"
-  [store app-id tx-id topics wal-record]
+  [store app-id tx-id isn topics wal-record]
   (let [conn (app-conn store app-id)
         db @conn
         datalog-query-eids
@@ -1269,7 +1289,7 @@
                                (vec (get-datalog-queries-for-topics db app-id topics)))))
 
         report
-        (mark-datalog-queries-stale! conn app-id tx-id datalog-query-eids)
+        (mark-datalog-queries-stale! conn app-id tx-id isn datalog-query-eids)
 
         session-ids (d/q '[:find [?session-id ...]
                            :in   $ [?datalog-query ...]
