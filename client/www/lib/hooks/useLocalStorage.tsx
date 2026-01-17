@@ -1,4 +1,4 @@
-import { useCallback, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 
 function getSnapshot<T>(k: string): T | undefined {
   if (typeof window == 'undefined') return;
@@ -30,6 +30,7 @@ function setItem<T>(k: string, v: T | undefined) {
 export default function useLocalStorage<T>(
   k: string,
   defaultValue: T,
+  saveDefaultValue = false,
 ): [T, (v: T | undefined) => void] {
   const snapshotRef = useRef<T>(getSnapshot<T>(k) || defaultValue);
   const subscribe = useCallback((cb: Function) => {
@@ -47,5 +48,12 @@ export default function useLocalStorage<T>(
     () => snapshotRef.current,
     () => defaultValue,
   );
+
+  useEffect(() => {
+    if (saveDefaultValue && defaultValue == snapshotRef.current) {
+      setItem<T>(k, defaultValue);
+    }
+  }, [k, defaultValue, saveDefaultValue]);
+
   return [state, (v: T | undefined) => setItem<T>(k, v)];
 }
