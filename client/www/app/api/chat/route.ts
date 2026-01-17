@@ -16,6 +16,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
 import docsNavigation from '@/data/docsNavigation';
+import db from '@/lib/intern/docs-feedback/db';
 
 const DOCS_DIR = path.join(process.cwd(), 'public', 'docs');
 
@@ -281,6 +282,17 @@ export async function POST(req: Request) {
 
       // no await: ensure stream runs to completion
       result.consumeStream();
+
+      result.totalUsage.then((usage) => {
+        if (!usage.totalTokens) return;
+        adminDb.transact(
+          adminDb.tx.llmUsage[instantGenId()].create({
+            tokens: usage.totalTokens,
+            usedAt: new Date(),
+            userId: userIsValid.userId,
+          }),
+        );
+      });
 
       writer.merge(result.toUIMessageStream());
     },
