@@ -1,4 +1,4 @@
-import Reactor from "./Reactor";
+import Reactor from './Reactor.js';
 import {
   tx,
   txInit,
@@ -6,22 +6,40 @@ import {
   getOps,
   type TxChunk,
   type TransactionChunk,
-} from "./instatx";
-import weakHash from "./utils/weakHash";
-import id from "./utils/uuid";
-import IndexedDBStorage from "./IndexedDBStorage";
-import WindowNetworkListener from "./WindowNetworkListener";
-import { i } from "./schema";
-import { createDevtool } from "./devtool";
-import version from "./version";
+} from './instatx.js';
+import weakHash from './utils/weakHash.js';
+import id from './utils/id.ts';
+import IndexedDBStorage from './IndexedDBStorage.ts';
+import { coerceToDate } from './utils/dates.js';
+import WindowNetworkListener from './WindowNetworkListener.js';
+import { i } from './schema.js';
+import { createDevtool } from './devtool.js';
+import version from './version.ts';
+import { validateQuery, QueryValidationError } from './queryValidation.ts';
+import {
+  validateTransactions,
+  TransactionValidationError,
+} from './transactionValidation.ts';
+
+import {
+  StorageInterface,
+  type StorageInterfaceStoreName,
+} from './utils/PersistedObject.ts';
+import { createInstantRouteHandler } from './createRouteHandler.ts';
+import { parseSchemaFromJSON } from './parseSchemaFromJSON.ts';
 
 import type {
   PresenceOpts,
   PresenceResponse,
   PresenceSlice,
   RoomSchemaShape,
-} from "./presence";
-import type { IDatabase, IInstantDatabase } from "./coreTypes";
+} from './presence.ts';
+import type {
+  DevtoolConfig,
+  IDatabase,
+  IInstantDatabase,
+  StrictDevtoolConfig,
+} from './coreTypes.ts';
 import type {
   Query,
   QueryResponse,
@@ -30,23 +48,35 @@ import type {
   Exactly,
   InstantObject,
   InstaQLParams,
+  InstaQLOptions,
   InstaQLQueryParams,
   InstaQLEntity,
+  InstaQLEntitySubquery,
   InstaQLResult,
-} from "./queryTypes";
+  InstaQLFields,
+  ValidQuery,
+} from './queryTypes.ts';
+import type { PresencePeer } from './presenceTypes.ts';
 import type {
   AuthState,
   User,
   AuthResult,
   ConnectionStatus,
-} from "./clientTypes";
+} from './clientTypes.ts';
 import type {
   InstantQuery,
   InstantQueryResult,
   InstantSchema,
   InstantEntity,
   InstantSchemaDatabase,
-} from "./helperTypes";
+} from './helperTypes.ts';
+import type {
+  InstantDBAttr,
+  InstantDBAttrOnDelete,
+  InstantDBCheckedDataType,
+  InstantDBIdent,
+  InstantDBInferredType,
+} from './attrTypes.ts';
 import type {
   AttrsDefs,
   CardinalityKind,
@@ -64,12 +94,19 @@ import type {
   ResolveAttrs,
   RoomsOf,
   TopicsOf,
+  TopicOf,
   ValueTypes,
   InstantUnknownSchema,
+  InstantUnknownSchemaDef,
   BackwardsCompatibleSchema,
   UpdateParams,
   LinkParams,
-} from "./schemaTypes";
+  CreateParams,
+  RuleParams,
+} from './schemaTypes.ts';
+import type { InstantRules } from './rulesTypes.ts';
+import type { UploadFileResponse, DeleteFileResponse } from './StorageAPI.ts';
+import { FrameworkClient, type FrameworkConfig } from './framework.ts';
 
 import type {
   ExchangeCodeForTokenParams,
@@ -78,25 +115,55 @@ import type {
   SignInWithIdTokenParams,
   VerifyMagicCodeParams,
   VerifyResponse,
-} from "./authAPI";
+} from './authAPI.ts';
+
+import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
+import { InstantError } from './InstantError.ts';
+import { EventSourceType } from './Connection.ts';
+import { CallbackEventType as SyncTableCallbackEventType } from './SyncTable.ts';
+import type {
+  SyncTableCallback,
+  CallbackEvent as SyncTableCallbackEvent,
+  InitialSyncBatch as SyncTableInitialSyncBatch,
+  InitialSyncComplete as SyncTableInitialSyncComplete,
+  SyncTransaction as SyncTableSyncTransaction,
+  LoadFromStorage as SyncTableLoadFromStorage,
+  SetupError as SyncTableSetupError,
+} from './SyncTable.ts';
 
 const defaultOpenDevtool = true;
 
 // types
 
+type ExactlyOne<T> = {
+  [K in keyof T]: Pick<T, K> & Partial<Record<Exclude<keyof T, K>, never>>;
+}[keyof T];
+
 export type Config = {
   appId: string;
   websocketURI?: string;
   apiURI?: string;
-  devtool?: boolean;
+  devtool?: boolean | DevtoolConfig;
+  verbose?: boolean;
+  queryCacheLimit?: number;
+  useDateObjects: boolean;
+  disableValidation?: boolean;
 };
 
-export type InstantConfig<S extends InstantSchemaDef<any, any, any>> = {
+export type InstantConfig<
+  S extends InstantSchemaDef<any, any, any>,
+  UseDates extends boolean = false,
+> = {
   appId: string;
-  websocketURI?: string;
-  apiURI?: string;
-  devtool?: boolean;
   schema?: S;
+  websocketURI?: string;
+  firstPartyPath?: string;
+  apiURI?: string;
+  devtool?: boolean | DevtoolConfig;
+  verbose?: boolean;
+  queryCacheLimit?: number;
+  useDateObjects: UseDates;
+  disableValidation?: boolean;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
@@ -104,7 +171,7 @@ export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
 };
 
 export type TransactionResult = {
-  status: "synced" | "enqueued";
+  status: 'synced' | 'enqueued';
   clientId: string;
 };
 
@@ -122,7 +189,7 @@ export type SubscribeTopic<PresenceShape, TopicsByKey> = <
 
 export type GetPresence<PresenceShape> = <Keys extends keyof PresenceShape>(
   opts: PresenceOpts<PresenceShape, Keys>,
-) => PresenceResponse<PresenceShape, Keys>;
+) => PresenceResponse<PresenceShape, Keys> | null;
 
 export type SubscribePresence<PresenceShape> = <
   Keys extends keyof PresenceShape,
@@ -150,11 +217,11 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
       pageInfo: PageInfoResponse<Q>;
     };
 
-type InstaQLSubscriptionState<Schema, Q> =
+type InstaQLSubscriptionState<Schema, Q, UseDates extends boolean> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
-      data: InstaQLResponse<Schema, Q>;
+      data: InstaQLResponse<Schema, Q, UseDates>;
       pageInfo: PageInfoResponse<Q>;
     };
 
@@ -166,26 +233,60 @@ type LifecycleSubscriptionState<
   isLoading: boolean;
 };
 
-type InstaQLLifecycleState<Schema, Q> = InstaQLSubscriptionState<Schema, Q> & {
-  isLoading: boolean;
-};
+type InstaQLLifecycleState<Schema, Q, UseDates extends boolean = false> =
+  | (InstaQLSubscriptionState<Schema, Q, UseDates> & {
+      isLoading: boolean;
+    })
+  | {
+      isLoading: true;
+      data: undefined;
+      pageInfo: undefined;
+      error: undefined;
+    };
 
 type UnsubscribeFn = () => void;
 
 // consts
 
 const defaultConfig = {
-  apiURI: "https://api.instantdb.com",
-  websocketURI: "wss://api.instantdb.com/runtime/session",
+  apiURI: 'https://api.instantdb.com',
+  websocketURI: 'wss://api.instantdb.com/runtime/session',
 };
 
 // hmr
+function initSchemaHashStore(): WeakMap<any, string> {
+  globalThis.__instantDbSchemaHashStore =
+    globalThis.__instantDbSchemaHashStore ?? new WeakMap<any, string>();
+  return globalThis.__instantDbSchemaHashStore;
+}
+
 function initGlobalInstantCoreStore(): Record<string, any> {
   globalThis.__instantDbStore = globalThis.__instantDbStore ?? {};
   return globalThis.__instantDbStore;
 }
 
+function reactorKey(config: InstantConfig<any, boolean>): string {
+  // @ts-expect-error
+  const adminToken = config.__adminToken;
+  return (
+    config.appId +
+    '_' +
+    (config.websocketURI || 'default_ws_uri') +
+    '_' +
+    (config.apiURI || 'default_api_uri') +
+    '_' +
+    (adminToken || 'client_only') +
+    '_' +
+    config.useDateObjects
+  );
+}
+
 const globalInstantCoreStore = initGlobalInstantCoreStore();
+const schemaHashStore = initSchemaHashStore();
+
+type SignoutOpts = {
+  invalidateToken?: boolean;
+};
 
 /**
  * Functions to log users in and out.
@@ -243,7 +344,19 @@ class Auth {
   };
 
   /**
-   * Create an authorization url to sign in with an external provider
+   * Sign in as guest, creating a new user without email
+   *
+   * @see https://instantdb.com/docs/auth
+   *
+   * @example
+   *   db.auth.signInAsGuest();
+   */
+  signInAsGuest = (): Promise<VerifyResponse> => {
+    return this.db.signInAsGuest();
+  };
+
+  /**
+   * Create an authorization url to sign in with an external provider.
    *
    * @see https://instantdb.com/docs/auth
    *
@@ -326,10 +439,16 @@ class Auth {
   /**
    * Sign out the current user
    */
-  signOut = (): Promise<void> => {
-    return this.db.signOut();
+  signOut = (opts: SignoutOpts = { invalidateToken: true }): Promise<void> => {
+    return this.db.signOut(opts);
   };
 }
+
+type FileOpts = {
+  contentType?: string;
+  contentDisposition?: string;
+  fileSize?: number; // Required for streaming uploads
+};
 
 /**
  * Functions to manage file storage.
@@ -343,26 +462,14 @@ class Storage {
    * @see https://instantdb.com/docs/storage
    * @example
    *   const [file] = e.target.files; // result of file input
-   *   const isSuccess = await db.storage.upload('photos/demo.png', file);
+   *   const data = await db.storage.uploadFile('photos/demo.png', file);
    */
-  upload = (pathname: string, file: File) => {
-    return this.db.upload(pathname, file);
-  };
-
-  /**
-   * @deprecated Use `db.storage.upload` instead
-   */
-  put = this.upload;
-
-  /**
-   * Retrieves a download URL for the provided path.
-   *
-   * @see https://instantdb.com/docs/storage
-   * @example
-   *   const url = await db.storage.getDownloadUrl('photos/demo.png');
-   */
-  getDownloadUrl = (pathname: string) => {
-    return this.db.getDownloadUrl(pathname);
+  uploadFile = (
+    path: string,
+    file: File | Blob,
+    opts: FileOpts = {},
+  ): Promise<UploadFileResponse> => {
+    return this.db.uploadFile(path, file, opts);
   };
 
   /**
@@ -375,6 +482,40 @@ class Storage {
   delete = (pathname: string) => {
     return this.db.deleteFile(pathname);
   };
+
+  // Deprecated Storage API (Jan 2025)
+  // ---------------------------------
+
+  /**
+   * @deprecated. Use `db.storage.uploadFile` instead
+   * remove in the future.
+   */
+  upload = (pathname: string, file: File) => {
+    return this.db.upload(pathname, file);
+  };
+
+  /**
+   * @deprecated Use `db.storage.uploadFile` instead
+   */
+  put = this.upload;
+
+  /**
+   * @deprecated. getDownloadUrl will be removed in the future.
+   * Use `useQuery` instead to query and fetch for valid urls
+   *
+   * db.useQuery({
+   *   $files: {
+   *     $: {
+   *       where: {
+   *         path: "moop.png"
+   *       }
+   *     }
+   *   }
+   * })
+   */
+  getDownloadUrl = (pathname: string) => {
+    return this.db.getDownloadUrl(pathname);
+  };
 }
 
 // util
@@ -384,8 +525,10 @@ function coerceQuery(o: any) {
   return JSON.parse(JSON.stringify(o));
 }
 
-class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
-  implements IInstantDatabase<Schema>
+class InstantCoreDatabase<
+  Schema extends InstantSchemaDef<any, any, any>,
+  UseDates extends boolean = false,
+> implements IInstantDatabase<Schema>
 {
   public _reactor: Reactor<RoomsOf<Schema>>;
   public auth: Auth;
@@ -407,19 +550,19 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    * @example
    *   // Create a new object in the `goals` namespace
    *   const goalId = id();
-   *   db.transact(tx.goals[goalId].update({title: "Get fit"}))
+   *   db.transact(db.tx.goals[goalId].update({title: "Get fit"}))
    *
    *   // Update the title
-   *   db.transact(tx.goals[goalId].update({title: "Get super fit"}))
+   *   db.transact(db.tx.goals[goalId].update({title: "Get super fit"}))
    *
    *   // Delete it
-   *   db.transact(tx.goals[goalId].delete())
+   *   db.transact(db.tx.goals[goalId].delete())
    *
    *   // Or create an association:
    *   todoId = id();
    *   db.transact([
-   *    tx.todos[todoId].update({ title: 'Go on a run' }),
-   *    tx.goals[goalId].link({todos: todoId}),
+   *    db.tx.todos[todoId].update({ title: 'Go on a run' }),
+   *    db.tx.goals[goalId].link({todos: todoId}),
    *  ])
    */
   transact(
@@ -456,11 +599,15 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    *    console.log(resp.data.goals)
    *  });
    */
-  subscribeQuery<Q extends InstaQLParams<Schema>>(
+  subscribeQuery<
+    Q extends ValidQuery<Q, Schema>,
+    UseDatesLocal extends boolean = UseDates,
+  >(
     query: Q,
-    cb: (resp: InstaQLSubscriptionState<Schema, Q>) => void,
+    cb: (resp: InstaQLSubscriptionState<Schema, Q, UseDatesLocal>) => void,
+    opts?: InstaQLOptions,
   ) {
-    return this._reactor.subscribeQuery(query, cb);
+    return this._reactor.subscribeQuery(query, cb, opts);
   }
 
   /**
@@ -479,6 +626,20 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    */
   subscribeAuth(cb: (auth: AuthResult) => void): UnsubscribeFn {
     return this._reactor.subscribeAuth(cb);
+  }
+
+  /**
+   * One time query for the logged in state. This is useful
+   * for scenarios where you want to know the current auth
+   * state without subscribing to changes.
+   *
+   * @see https://instantdb.com/docs/auth
+   * @example
+   *   const user = await db.getAuth();
+   *   console.log('logged in as', user.email)
+   */
+  getAuth(): Promise<User | null> {
+    return this._reactor.getAuth();
   }
 
   /**
@@ -527,10 +688,13 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    * room.leaveRoom();
    */
   joinRoom<RoomType extends keyof RoomsOf<Schema>>(
-    roomType: RoomType = "_defaultRoomType" as RoomType,
-    roomId: string = "_defaultRoomId",
+    roomType: RoomType = '_defaultRoomType' as RoomType,
+    roomId: string = '_defaultRoomId',
+    opts?: {
+      initialPresence?: Partial<PresenceOf<Schema, RoomType>>;
+    },
   ): RoomHandle<PresenceOf<Schema, RoomType>, TopicsOf<Schema, RoomType>> {
-    const leaveRoom = this._reactor.joinRoom(roomId);
+    const leaveRoom = this._reactor.joinRoom(roomId, opts?.initialPresence);
 
     return {
       leaveRoom,
@@ -547,7 +711,7 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   }
 
   shutdown() {
-    delete globalInstantCoreStore[this._reactor.config.appId];
+    delete globalInstantCoreStore[reactorKey(this._reactor.config)];
     this._reactor.shutdown();
   }
 
@@ -564,14 +728,58 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    *  const resp = await db.queryOnce({ goals: {} });
    *  console.log(resp.data.goals)
    */
-  queryOnce<Q extends InstaQLParams<Schema>>(
+  queryOnce<Q extends ValidQuery<Q, Schema>>(
     query: Q,
+    opts?: InstaQLOptions,
   ): Promise<{
-    data: InstaQLResponse<Schema, Q>;
+    data: InstaQLResponse<Schema, Q, UseDates>;
     pageInfo: PageInfoResponse<Q>;
   }> {
-    return this._reactor.queryOnce(query);
+    return this._reactor.queryOnce(query, opts);
   }
+
+  /**
+   * @deprecated This is an experimental function that is not yet ready for production use.
+   * Use this function to sync an entire namespace.
+   * It has many limitations that will be removed in the future:
+   * 1. Must be used with an admin token
+   * 2. Does not support permissions
+   * 3. Does not support where clauses
+   * 4. Does not support links
+   * It also does not support multiple top-level namespaces. For example,
+   *  {posts: {}, users: {}} is invalid. Only `posts` or `users` is allowed, but not both.
+   */
+  _syncTableExperimental<Q extends ValidQuery<Q, Schema>>(
+    query: ExactlyOne<Q>,
+    cb: SyncTableCallback<Schema, Q, UseDates>,
+  ): (
+    opts?: { keepSubscription: boolean | null | undefined } | null | undefined,
+  ) => void {
+    return this._reactor.subscribeTable(query, cb);
+  }
+}
+
+function schemaHash(schema?: InstantSchemaDef<any, any, any>): string {
+  if (!schema) {
+    return '0';
+  }
+
+  const fromStore = schemaHashStore.get(schema);
+  if (fromStore) {
+    return fromStore;
+  }
+  const hash = weakHash(schema);
+  schemaHashStore.set(schema, hash);
+  return hash;
+}
+
+function schemaChanged(
+  existingClient: InstantCoreDatabase<any, boolean>,
+  newSchema?: InstantSchemaDef<any, any, any>,
+): boolean {
+  return (
+    schemaHash(existingClient._reactor.config.schema) !== schemaHash(newSchema)
+  );
 }
 
 /**
@@ -596,63 +804,82 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+  UseDates extends boolean = false,
 >(
-  config: InstantConfig<Schema>,
+  // Allows config with missing `useDateObjects`, but keeps `UseDates`
+  // as a non-nullable in the InstantConfig type.
+  config: Omit<InstantConfig<Schema, UseDates>, 'useDateObjects'> & {
+    useDateObjects?: UseDates;
+  },
   Storage?: any,
   NetworkListener?: any,
   versions?: { [key: string]: string },
-): InstantCoreDatabase<Schema> {
+  EventSourceImpl?: any,
+): InstantCoreDatabase<Schema, UseDates> {
+  const configStrict = {
+    ...config,
+    appId: config.appId?.trim(),
+    useDateObjects: (config.useDateObjects ?? false) as UseDates,
+  };
   const existingClient = globalInstantCoreStore[
-    config.appId
-  ] as InstantCoreDatabase<any>;
+    reactorKey(configStrict)
+  ] as InstantCoreDatabase<any, UseDates>;
 
   if (existingClient) {
+    if (schemaChanged(existingClient, configStrict.schema)) {
+      existingClient._reactor.updateSchema(configStrict.schema);
+    }
     return existingClient;
   }
 
   const reactor = new Reactor<RoomsOf<Schema>>(
     {
       ...defaultConfig,
-      ...config,
-      cardinalityInference: config.schema ? true : false,
+      ...configStrict,
+      cardinalityInference: configStrict.schema ? true : false,
     },
     Storage || IndexedDBStorage,
     NetworkListener || WindowNetworkListener,
-    { ...(versions || {}), "@instantdb/core": version },
+    { ...(versions || {}), '@instantdb/core': version },
+    EventSourceImpl,
   );
 
-  const client = new InstantCoreDatabase<any>(reactor);
-  globalInstantCoreStore[config.appId] = client;
+  const client = new InstantCoreDatabase<any, UseDates>(reactor);
+  globalInstantCoreStore[reactorKey(configStrict)] = client;
 
-  if (typeof window !== "undefined" && typeof window.location !== "undefined") {
-    const showDevtool =
-      // show widget by default?
-      ("devtool" in config ? Boolean(config.devtool) : defaultOpenDevtool) &&
-      // only run on localhost (dev env)
-      window.location.hostname === "localhost" &&
-      // used by dash and other internal consumers
-      !Boolean((globalThis as any)._nodevtool);
-
-    if (showDevtool) {
-      createDevtool(config.appId);
-    }
-  }
+  handleDevtool(configStrict.appId, configStrict.devtool);
 
   return client;
 }
 
-type InstantRules = {
-  [EntityName: string]: {
-    allow: {
-      view?: string;
-      create?: string;
-      update?: string;
-      delete?: string;
-      $default?: string;
-    };
-    bind?: string[];
+function handleDevtool(
+  appId: string,
+  devtool: boolean | DevtoolConfig | null | undefined,
+) {
+  if (
+    typeof window === 'undefined' ||
+    typeof window.location === 'undefined' ||
+    typeof document === 'undefined'
+  ) {
+    return;
+  }
+
+  if (typeof devtool === 'boolean' && !devtool) {
+    return;
+  }
+
+  const config: StrictDevtoolConfig = {
+    position: 'bottom-right' as const,
+    allowedHosts: ['localhost'],
+    ...(typeof devtool === 'object' ? devtool : {}),
   };
-};
+
+  if (!config.allowedHosts.includes(window.location.hostname)) {
+    return;
+  }
+
+  createDevtool(appId, config);
+}
 
 /**
  * @deprecated
@@ -678,6 +905,15 @@ export {
   tx,
   txInit,
   lookup,
+  validateQuery,
+  QueryValidationError,
+  validateTransactions,
+  parseSchemaFromJSON,
+  TransactionValidationError,
+  FrameworkClient,
+
+  // error
+  InstantAPIError,
 
   // cli
   i,
@@ -686,12 +922,17 @@ export {
   getOps,
   coerceQuery,
   weakHash,
+  coerceToDate,
   IndexedDBStorage,
   WindowNetworkListener,
   InstantCoreDatabase,
   Auth,
   Storage,
   version,
+  InstantError,
+
+  // sync table enums
+  SyncTableCallbackEventType,
 
   // og types
   type IDatabase,
@@ -717,21 +958,26 @@ export {
   type PresenceOpts,
   type PresenceSlice,
   type PresenceResponse,
+  type PresencePeer,
 
   // new query types
   type InstaQLParams,
+  type ValidQuery,
+  type InstaQLOptions,
   type InstaQLQueryParams,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
   type InstantEntity,
   type InstantSchemaDatabase,
+  type InstaQLFields,
 
   // schema types
   type AttrsDefs,
   type CardinalityKind,
   type DataAttrDef,
   type EntitiesDef,
+  type InstantUnknownSchemaDef,
   type EntitiesWithLinks,
   type EntityDef,
   type RoomsDef,
@@ -744,8 +990,10 @@ export {
   type RoomsOf,
   type PresenceOf,
   type TopicsOf,
+  type TopicOf,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type InstantSchemaDef,
   type InstantUnknownSchema,
   type IInstantDatabase,
@@ -753,12 +1001,47 @@ export {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  type CreateParams,
+  type RuleParams,
+
+  // attr types
+  type InstantDBAttr,
+  type InstantDBAttrOnDelete,
+  type InstantDBCheckedDataType,
+  type InstantDBIdent,
+  type InstantDBInferredType,
 
   // auth types
-  type ExchangeCodeForTokenParams, 
-  type SendMagicCodeParams, 
-  type SendMagicCodeResponse, 
-  type SignInWithIdTokenParams, 
-  type VerifyMagicCodeParams, 
-  type VerifyResponse 
+  type ExchangeCodeForTokenParams,
+  type SendMagicCodeParams,
+  type SendMagicCodeResponse,
+  type SignInWithIdTokenParams,
+  type VerifyMagicCodeParams,
+  type VerifyResponse,
+
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
+
+  // SSE
+  type EventSourceType,
+  type FrameworkConfig,
+
+  // sync table types
+  type SyncTableCallback,
+  type SyncTableCallbackEvent,
+  type SyncTableInitialSyncBatch,
+  type SyncTableInitialSyncComplete,
+  type SyncTableSyncTransaction,
+  type SyncTableLoadFromStorage,
+  type SyncTableSetupError,
+
+  // error types
+  type InstantIssue,
+
+  // storage (e.g. indexeddb) interface
+  StorageInterface,
+  type StorageInterfaceStoreName,
+  createInstantRouteHandler,
 };

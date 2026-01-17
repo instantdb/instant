@@ -1,9 +1,9 @@
 // Now in your App.js
 
 // 1. Import Instant
-import { init, tx, id, User } from "@instantdb/react";
-import config from "../../config";
-import Link from "next/link";
+import { init, tx, id, User } from '@instantdb/react';
+import config from '../../config';
+import Link from 'next/link';
 
 // 2. Get your app id
 const { auth, useAuth, transact, useQuery } = init(config);
@@ -30,7 +30,7 @@ function App() {
 // 4. Log users in!
 function Login() {
   const loginURL = auth.createAuthorizationURL({
-    clientName: "google-web",
+    clientName: 'google-web',
     redirectURL: window.location.href,
   });
 
@@ -50,26 +50,36 @@ function Main({ user }: { user: User }) {
   if (error) return <div>Error: {error.message}</div>;
   return (
     <div className="p-4">
-      <Link href="/">{"<-"} Home</Link>
-      <h1>Hi {user.email}!</h1>
+      <Link href="/">{'<-'} Home</Link>
+      <h1>
+        {user.imageURL ? (
+          <img
+            src={user.imageURL}
+            className="mr-2 inline h-8 w-8 rounded-full"
+          />
+        ) : (
+          <span>(no image)</span>
+        )}
+        {user.email}
+      </h1>
       <h2>id: {user.id}</h2>
       <button
-        className="px-4 py-2 bg-blue-500 text-white rounded border-2 my-2"
+        className="my-2 rounded border-2 bg-blue-500 px-4 py-2 text-white"
         onClick={(e) => {
           const todoAId = id();
           const todoBId = id();
           transact([
             tx.todos[todoAId].update({
-              title: "Go on a run",
+              title: 'Go on a run',
               creatorId: user.id,
             }),
             tx.todos[todoBId].update({
-              title: "Drink a protein shake",
+              title: 'Drink a protein shake',
               creatorId: user.id,
             }),
             tx.goals[id()]
               .update({
-                title: "Get six pack abs",
+                title: 'Get six pack abs',
                 priority6: 1,
                 creatorId: user.id,
               })
@@ -81,7 +91,7 @@ function Main({ user }: { user: User }) {
         Create some example data
       </button>
       <button
-        className="px-4 py-2 bg-red-500 text-white rounded border-2 my-2"
+        className="my-2 rounded border-2 bg-red-500 px-4 py-2 text-white"
         onClick={(e) => {
           const goalIds = data.goals.map((g) => g.id);
           const todoIds = data.goals
@@ -97,7 +107,7 @@ function Main({ user }: { user: User }) {
       </button>
 
       <button
-        className="px-4 py-2 rounded border-2 my-2"
+        className="my-2 rounded border-2 px-4 py-2"
         onClick={(e) => {
           auth.signOut();
         }}

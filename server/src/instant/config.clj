@@ -21,26 +21,43 @@
 (def ^:dynamic *env*
   nil)
 
+(def staging-env (System/getenv "STAGING"))
+(def prod-env (System/getenv "PRODUCTION"))
+
 (defn get-env []
   (cond
-    (some? *env*)                           *env*
-    (= "true" (System/getenv "PRODUCTION")) :prod
-    (= "true" (System/getenv "TEST"))       :test
-    :else                                   :dev))
+    (some? *env*)                                 *env*
+    ;; n.b. make sure this the staging check is first so that we can
+    ;;      override it in the eb env vars
+    (= "true" staging-env)                        :staging
+    (= "true" prod-env)                           :prod
+    (= "test" (System/getProperty "instant.env")) :test
+    (= "true" (System/getenv "TEST"))             :test
+    :else                                         :dev))
+
+(defn prod? [] (= :prod (get-env)))
+
+(defn dev? [] (= :dev (get-env)))
+
+(defn test? [] (= :test (get-env)))
+
+(defn aws-env? []
+  (contains? #{:prod :staging} (get-env)))
 
 (defonce instance-id
   (delay
-    (when (= :prod (get-env))
+    (when (aws-env?)
       (aws-util/get-instance-id))))
+
+(defonce machine-id (random-uuid))
 
 (defonce process-id
   (delay
     (string/replace
      (string/join "_"
                   [(name (get-env))
-                   (if (= :prod (get-env))
-                     @instance-id
-                     (crypt-util/random-hex 8))
+                   (or @instance-id
+                       (crypt-util/random-hex 8))
                    (crypt-util/random-hex 8)])
      #"-" "_")))
 
@@ -52,7 +69,7 @@
            (config-edn/decrypted-config crypt-util/obfuscate
                                         crypt-util/get-hybrid-decrypt-primitive
                                         crypt-util/hybrid-decrypt
-                                        (= :prod (get-env))
+                                        (aws-env?)
                                         (config-edn/read-config (get-env))))))
 
 (defn instant-config-app-id []
@@ -67,8 +84,14 @@
 (defn postmark-token []
   (some-> @config-map :postmark-token crypt-util/secret-value))
 
+(defn sendgrid-token []
+  (some-> @config-map :sendgrid-token crypt-util/secret-value))
+
 (defn postmark-account-token []
   (some-> @config-map :postmark-account-token crypt-util/secret-value))
+
+(defn sendgrid-send-disabled? []
+  (not (string/blank? (sendgrid-token))))
 
 (defn postmark-send-enabled? []
   (not (string/blank? (postmark-token))))
@@ -123,16 +146,16 @@
                 "jdbc:postgresql://localhost:5432/instant")]
     (db-url->config url)))
 
-(defn aurora-config-from-cluster-id []
+(defn aurora-config-from-cluster-id [application-name]
   (when-let [cluster-id (or (System/getenv "DATABASE_CLUSTER_ID")
                             (some-> @config-map :database-cluster-id))]
-    (aurora-config/rds-cluster-id->db-config cluster-id)))
+    (aurora-config/rds-cluster-id->db-config cluster-id application-name)))
 
 (defn get-aurora-config []
   (let [application-name (uri/query-encode (format "%s, %s"
                                                    @hostname
                                                    @process-id))
-        config (or (aurora-config-from-cluster-id)
+        config (or (aurora-config-from-cluster-id application-name)
                    (aurora-config-from-database-url))]
     (assoc config
            :ApplicationName application-name)))
@@ -140,10 +163,19 @@
 (defn get-next-aurora-config []
   (when-let [cluster-id (or (System/getenv "NEXT_DATABASE_CLUSTER_ID")
                             (some-> @config-map :next-database-cluster-id))]
-    (assoc (aurora-config/rds-cluster-id->db-config cluster-id)
-           :ApplicationName (uri/query-encode (format "%s, %s"
-                                                      @hostname
-                                                      @process-id)))))
+    (let [application-name (uri/query-encode (format "%s, %s"
+                                                     @hostname
+                                                     @process-id))]
+      (assoc (aurora-config/rds-cluster-id->db-config cluster-id application-name)
+             :ApplicationName application-name))))
+
+(defn dashboard-origin
+  ([] (dashboard-origin {:env (get-env)}))
+  ([{:keys [env]}]
+   (case env
+     :prod "https://www.instantdb.com"
+     :staging "https://staging.instantdb.com"
+     "http://localhost:3000")))
 
 ;; ---
 ;; Stripe
@@ -156,19 +188,14 @@
 (defn stripe-webhook-secret []
   (-> @config-map :stripe-webhook-secret crypt-util/secret-value))
 
-(defn stripe-success-url
-  ([] (stripe-success-url {:env (get-env)}))
-  ([{:keys [env]}]
-   (case env
-     :prod "https://instantdb.com/dash?t=billing"
-     "http://localhost:3000/dash?t=billing")))
-
-(defn stripe-cancel-url
-  ([] (stripe-cancel-url {:env (get-env)}))
-  ([{:keys [env]}]
-   (case env
-     :prod "https://instantdb.com/dash?t=billing"
-     "http://localhost:3000/dash?t=billing")))
+(defn stripe-return-url [type obj-id]
+  (case type
+    :app (str (dashboard-origin)
+              "/dash?t=billing&app="
+              obj-id)
+    :org (str (dashboard-origin)
+              "/dash/org?tab=billing&org="
+              obj-id)))
 
 (def test-pro-subscription "price_1P4ocVL5BwOwpxgU8Fe6oRWy")
 (def prod-pro-subscription "price_1P4nokL5BwOwpxgUpWoidzdL")
@@ -179,6 +206,15 @@
      :prod prod-pro-subscription
      test-pro-subscription)))
 
+(def test-startup-subscription "price_1RvkYbL5BwOwpxgUoDyhZtzN")
+(def prod-startup-subscription "price_1RvkPZL5BwOwpxgUSVW7f2dd")
+(defn stripe-startup-subscription
+  ([] (stripe-startup-subscription {:env (get-env)}))
+  ([{:keys [env]}]
+   (case env
+     :prod prod-startup-subscription
+     test-startup-subscription)))
+
 (defn get-honeycomb-api-key []
   (some-> @config-map :honeycomb-api-key crypt-util/secret-value))
 
@@ -186,29 +222,51 @@
   (or (System/getenv "HONEYCOMB_ENDPOINT")
       "https://api.honeycomb.io:443"))
 
+;; ---
+;; PostHog
+(defn get-posthog-api-key []
+  (some-> @config-map :posthog-api-key crypt-util/secret-value))
+
+(defn posthog-enabled? []
+  (not (string/blank? (get-posthog-api-key))))
+
 (defn get-google-oauth-client []
   (-> @config-map :google-oauth-client))
 
-(def server-origin (case (get-env)
-                     :prod "https://api.instantdb.com"
-                     "http://localhost:8888"))
-
-(defn dashboard-origin
-  ([] (dashboard-origin {:env (get-env)}))
-  ([{:keys [env]}]
-   (case env
-     :prod "https://instantdb.com"
-     "http://localhost:3000")))
+(def s3-bucket-name
+  (case (get-env)
+    :prod "instant-storage"
+    :staging "instant-storage-staging"
+    "instantdb-test-bucket"))
 
 (defn get-connection-pool-size []
-  (if (= :prod (get-env)) 400 20))
+  (if (or (= :prod (get-env))
+          (= :staging (get-env)))
+    400
+    20))
 
 (defn env-integer [var-name]
   (when-let [envvar (System/getenv var-name)]
     (Integer/parseInt envvar)))
 
 (defn get-server-port []
-  (or (env-integer "PORT") (env-integer "BEANSTALK_PORT") 8888))
+  (or (env-integer "PORT")
+      (env-integer "BEANSTALK_PORT")
+      (if-not (= :test (get-env))
+        8888
+        8886)))
+
+(defn get-server-ssl-port []
+  (or (env-integer "SSL_PORT")
+      (if-not (= :test (get-env))
+        8889
+        8887)))
+
+(def server-origin
+  (case (get-env)
+    :prod "https://api.instantdb.com"
+    :staging "https://api-staging.instantdb.com"
+    (str "http://localhost:" (get-server-port))))
 
 (defn get-nrepl-port []
   (or (env-integer "NREPL_PORT") 6005))
@@ -225,7 +283,7 @@
 (defn get-nrepl-bind-address []
   (or (System/getenv "NREPL_BIND_ADDRESS")
       (case (get-env)
-        :prod "0.0.0.0"
+        (:prod :staging) "0.0.0.0"
         nil)))
 
 (defn init []

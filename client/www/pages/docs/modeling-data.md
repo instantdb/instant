@@ -1,5 +1,6 @@
 ---
 title: Modeling data
+description: How to model data with Instant's schema.
 ---
 
 In this section we’ll learn how to model data using Instant's schema. By the end of this document you’ll know how to:
@@ -30,7 +31,7 @@ Open `instant.schema.ts`, and paste the following:
 ```typescript {% showCopy=true %}
 // instant.schema.ts
 
-import { i } from "@instantdb/core";
+import { i } from '@instantdb/react';
 
 const _schema = i.schema({
   entities: {
@@ -56,29 +57,29 @@ const _schema = i.schema({
   },
   links: {
     postAuthor: {
-      forward: { on: "posts", has: "one", label: "author" },
-      reverse: { on: "profiles", has: "many", label: "authoredPosts" },
+      forward: { on: 'posts', has: 'one', label: 'author' },
+      reverse: { on: 'profiles', has: 'many', label: 'authoredPosts' },
     },
     commentPost: {
-      forward: { on: "comments", has: "one", label: "post" },
-      reverse: { on: "posts", has: "many", label: "comments" },
+      forward: { on: 'comments', has: 'one', label: 'post' },
+      reverse: { on: 'posts', has: 'many', label: 'comments' },
     },
     commentAuthor: {
-      forward: { on: "comments", has: "one", label: "author" },
-      reverse: { on: "profiles", has: "many", label: "authoredComments" },
+      forward: { on: 'comments', has: 'one', label: 'author' },
+      reverse: { on: 'profiles', has: 'many', label: 'authoredComments' },
     },
     postsTags: {
-      forward: { on: "posts", has: "many", label: "tags" },
-      reverse: { on: "tags", has: "many", label: "posts" },
+      forward: { on: 'posts', has: 'many', label: 'tags' },
+      reverse: { on: 'tags', has: 'many', label: 'posts' },
     },
     profileUser: {
-      forward: { on: "profiles", has: "one", label: "$user" },
-      reverse: { on: "$users", has: "one", label: "profile" },
+      forward: { on: 'profiles', has: 'one', label: '$user' },
+      reverse: { on: '$users', has: 'one', label: 'profile' },
     },
   },
 });
 
-// This helps Typescript display better intellisense
+// This helps TypeScript display better intellisense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
@@ -91,7 +92,7 @@ Let's unpack what we just wrote. There are three core building blocks to model d
 
 ## 1) Namespaces
 
-Namespaces are equivelant to "tables" in relational databases or "collections" in NoSQL. In our case, these are: `$users`, `profiles`, `posts`, `comments`, and `tags`.
+Namespaces are equivalent to "tables" in relational databases or "collections" in NoSQL. In our case, these are: `$users`, `profiles`, `posts`, `comments`, and `tags`.
 
 They're all defined in the `entities` section:
 
@@ -109,7 +110,7 @@ const _schema = i.schema({
 
 ## 2) Attributes
 
-Attributes are properties associated with namespaces. These are equivelant to a "column" in relational databases or a "field" in NoSQL. For the `posts` entity, we have the `title`, `body`, and `createdAt` attributes:
+Attributes are properties associated with namespaces. These are equivalent to a "column" in relational databases or a "field" in NoSQL. For the `posts` entity, we have the `title`, `body`, and `createdAt` attributes:
 
 ```typescript
 // instant.schema.ts
@@ -154,6 +155,70 @@ const _schema = i.schema({
 
 Instant will _make sure_ that all `title` attributes are strings, and you'll get the proper typescript hints to boot!
 
+### Required constraints
+
+All attributes you define are considered _required_ by default. This constraint is enforced on the backend: Instant guarantees that every entity of that type will have a value and reports errors if you attempt to add an entity without a required attribute.
+
+```typescript
+const _schema = i.schema({
+  entities: {
+    posts: i.entity({
+      title: i.string(), // <-- required
+      published: i.date(), // <-- required
+    }),
+  },
+});
+
+db.transact(
+  db.tx.posts[id()].update({
+    title: 'abc', // <-- no published -- will throw
+  }),
+);
+```
+
+You can mark attribute as optional by calling `.optional()`:
+
+```typescript
+const _schema = i.schema({
+  entities: {
+    posts: i.entity({
+      title: i.string(), // <-- required
+      published: i.date().optional(), // <-- optional
+    }),
+  },
+});
+
+db.transact(
+  db.tx.posts[id()].update({
+    title: 'abc', // <-- no published -- still okay
+  }),
+);
+```
+
+This will also reflect in types: query results containing `posts` will show `title: string` (non-nullable) and `published: string | number | null` (nullable).
+
+You can set required on forward links, too:
+
+```typescript
+postAuthor: {
+  forward: { on: 'posts', has: 'one', label: 'author', required: true },
+  reverse: { on: 'profiles', has: 'many', label: 'authoredPosts' },
+},
+```
+
+Finally, for legacy attributes that are treated as required on your front-end but you are not ready to enable back-end required checks yet, you can use `.clientRequired()`. That will produce TypeScript type without `null` but will not add back-end required check:
+
+```typescript
+const _schema = i.schema({
+  entities: {
+    posts: i.entity({
+      title: i.string().clientRequired(),
+      published: i.date().optional(),
+    }),
+  },
+});
+```
+
 ### Unique constraints
 
 Sometimes you'll want to introduce a unique constraint. For example, say we wanted to add friendly URL's to posts. We could introduce a `slug` attribute:
@@ -174,7 +239,7 @@ const _schema = i.schema({
 
 Since we're going to use post slugs in URLs, we'll want to make sure that no two posts can have the same slug. If we mark `slug` as `unique`, _Instant will guarantee this constraint for us_.
 
-Plus unique attributes come with their own special index. This means that if you use a unique attribute inside a query, we can fetch the object quickly:
+Unique attributes will also speed up queries that filter by that attribute.
 
 ```typescript
 const query = {
@@ -191,18 +256,14 @@ const query = {
 
 ### Indexing attributes
 
-Speaking of fast queries, let's take a look at one:
+You can also use index attributes to speed up querying. An additional
+benefit is that indexed attributes can be used with comparison operators for
+where queries like `$gt`, `$lt`, `$gte`, and `$lte` and can be used in `order`
+clauses.
 
-What if we wanted to query for a post that was published at a particular date? Here's a query to get posts that were published during SpaceX's chopstick launch:
+Suppose we wanted to query for products less than $100 and order by price.
 
-```typescript
-const rocketChopsticks = '2024-10-13T00:00:00Z';
-const query = { posts: { $: { where: { createdAt: rocketChopsticks } } } };
-```
-
-This would work, but the more posts we create, the slower the query would get. We'd have to scan every post and compare the `createdAt` date.
-
-To make this query faster, we can index `createdAt`:
+First we make sure that the `price` attribute is indexed:
 
 ```typescript
 // instant.schema.ts
@@ -210,15 +271,33 @@ To make this query faster, we can index `createdAt`:
 const _schema = i.schema({
   entities: {
     // ...
-    posts: i.entity({
-      createdAt: i.date().indexed(), // 🔥,
+    products: i.entity({
+      price: i.number().indexed(), // 🔥,
       // ...
     }),
   },
 });
 ```
 
-As it says on the tin, this command tells Instant to index the `createdAt` field, which lets us quickly look up entities by this attribute.
+And now we can use `$lt` and `order` in our query:
+
+```typescript
+const query = {
+  products: {
+    $: {
+      where: {
+        price: { $lt: 100 },
+      },
+      order: {
+        price: 'desc',
+      },
+    },
+  },
+};
+```
+
+Even if you're not using comparison operators or order clauses, indexing
+attributes can still speed up queries that filter by that attribute.
 
 ## 3) Links
 
@@ -266,7 +345,7 @@ Our micro-blog example has the following relationship types:
 
 ### Cascade Delete
 
-Forward links defined with `has: "one"` can set `onDelete: "cascade"`. In this case, when the reverse entity is deleted, all forward entities will be deleted too:
+Links defined with `has: "one"` can set `onDelete: "cascade"`. In this case, when the profile entity is deleted, all post entities will be deleted too:
 
 ```typescript
 postAuthor: {
@@ -278,7 +357,16 @@ postAuthor: {
 db.tx.profiles[user_id].delete();
 ```
 
-Without `onDelete: "cascade"`, deleting a user would simply delete the links but not delete the underlying posts.
+Without `onDelete: "cascade"`, deleting a profile would simply delete the links but not delete the underlying posts.
+
+If you prefer to model links in other direction, you can do it, too:
+
+```
+postAuthor: {
+  forward: { on: "profiles", has: "many", label: "authoredPosts" },
+  reverse: { on: "posts", has: "one", label: "author", onDelete: "cascade" },
+}
+```
 
 ## Publishing your schema
 
@@ -337,7 +425,7 @@ const db = init({
 });
 ```
 
-When you do this, all [queries](/docs/instaql) and [transactions](/docs/instaql) will come with typesafety out of the box.
+When you do this, all [queries](/docs/instaql) and [transactions](/docs/instaml) will come with typesafety out of the box.
 
 {% callout %}
 
@@ -411,7 +499,6 @@ The following changes will be applied to your perms:
 {% /ansi %}
 
 You'll still be able to make changes in the explorer or with the CLI, but client-side transactions that try to modify your schema will fail. This means your schema is safe from unwanted changes!
-
 
 ---
 

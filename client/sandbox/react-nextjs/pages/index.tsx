@@ -1,4 +1,4 @@
-import { File, getAppRouterFiles, getPageRouterFiles } from "../lib/files";
+import { File, getAppRouterFiles, getPageRouterFiles } from '../lib/files';
 
 export async function getStaticProps() {
   const pageRouterFiles = getPageRouterFiles();
@@ -19,7 +19,7 @@ const Home = ({
   appRouterFiles: File[];
 }) => {
   return (
-    <div className="mx-w-md mx-auto p-4">
+    <div className="mx-w-md mx-auto p-4 pb-16">
       <div>
         <strong>Pages Router</strong>
       </div>

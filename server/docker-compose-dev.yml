@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: public.ecr.aws/z9j8u5b3/instant-public:postgres-16
+    image: ghcr.io/instantdb/postgresql:postgresql-16-pg-hint-plan
     ports:
       - '8890:5432'
     environment:
@@ -24,6 +24,10 @@ services:
       - "max_replication_slots=4"
       - "-c"
       - "max_wal_senders=4"
+      - "-c"
+      - "shared_preload_libraries=pg_hint_plan"
+      - "-c"
+      - "random_page_cost=1.1"
 
   server:
     depends_on:

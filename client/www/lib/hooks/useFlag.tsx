@@ -19,7 +19,7 @@ export function useFlag(name: keyof typeof flags) {
 
   useEffect(() => {
     const localStorageSavedFlag = Boolean(
-      localStorage.getItem(`${localStorageFlagPrefix}${name}`)
+      localStorage.getItem(`${localStorageFlagPrefix}${name}`),
     );
 
     if (localStorageSavedFlag) {

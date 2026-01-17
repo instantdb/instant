@@ -1,0 +1,82 @@
+<p><img
+src="https://www.instantdb.com/img/emails/mar2025/s_DF8F10A9009F2A236BC7D07C4EC05DDA50E4FB82F40AA98593D3B98A1A7EA3DC_1730238267270_instant_header.png" /></p>
+<p>Hey crew! It’s time for another edition of Instant News 🙂 Here’s a
+slice of what happened last month!</p>
+<p><strong>ruleParams</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/mar2025/s_7B280E1A3BA8AB078D69579372DCD7F97D2F02F6D857FBABC05C42A70756AC62_1743727283805_image.png" /></p>
+<p>Imagine you have a <code>documents</code> namespace, and want to
+implement a rule like <em>“Only people who know my document’s id can
+access it.”</em></p>
+<p>You can now express this kind of logic with <code>ruleParams</code>.
+In the example above we pass a <code>knownDocId</code> param to our
+query and then use it in our permission rules. We leverage this
+ourselves to implement our new feedback feature at the bottom of each
+page in the docs. Click <a
+href="https://www.instantdb.com/docs/permissions#rule-params">here to
+learn more</a></p>
+<p><strong>LLMs.txt</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/mar2025/s_7B280E1A3BA8AB078D69579372DCD7F97D2F02F6D857FBABC05C42A70756AC62_1743788878099_image.png" /></p>
+<p>To make it easier to use Instant we’ve put together an <a
+href="https://www.instantdb.com/llms.txt">llms.txt</a> and <a
+href="https://www.instantdb.com/llms-full.txt">llms-full.txt</a> that
+you can paste or download to use as context for your LLM of choice. Add
+these as context to Cursor or paste them into Claude to easily build
+apps like this <a href="https://instant-llm-test.vercel.app/">blog
+platform</a> and <a
+href="https://instant-evernote-clone.vercel.app/login">Evernote
+clone</a></p>
+<p>If you have any feedback on your experience using LLMs w/ Instant we
+would love to hear it on <a
+href="https://discord.com/invite/VU53p7uQcE">Discord</a>!</p>
+<p><strong>OAuth Platform</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/mar2025/s_7B280E1A3BA8AB078D69579372DCD7F97D2F02F6D857FBABC05C42A70756AC62_1743728983960_CleanShot+2025-04-03+at+18.09.332x.png" /></p>
+<p>Instant supports the standard OAuth 2.0 Authorization Code grant
+flow, enabling users to authorize your application to access their
+Instant data and perform actions on their behalf, like reading app
+details or managing apps.</p>
+<p>If you’re building a platform and want to spin up separate databases
+for your users check out <a
+href="https://www.instantdb.com/docs/auth/platform-oauth">our docs</a>
+for step by step instructions!</p>
+<p><strong>Customer Spotlight</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/mar2025/s_7B280E1A3BA8AB078D69579372DCD7F97D2F02F6D857FBABC05C42A70756AC62_1744060894895_instant_hero.jpeg" /></p>
+<p><a href="https://heroui.chat/">HeroUI Chat</a> is an AI app builder
+that turns prompts or screenshots into React applications. Built on top
+of their open-source HeroUI library (23k+ stars, 600k+ downloads)
+<strong>and Instant!</strong> They hit <a
+href="https://www.producthunt.com/posts/heroui-chat">#1 on Product
+Hunt!</a> We’re thrilled to be powering them!</p>
+<p><strong>And a few more things!</strong></p>
+<p>Here’s a few more wins that got shipped thanks to your feedback!</p>
+<ul>
+<li>You can now shift+click in the explorer to easily select a range of
+values</li>
+<li>You can explicitly set values to <code>null</code> in the
+explorer</li>
+<li><code>db.auth.signOut</code> now accepts <a
+href="https://www.instantdb.com/docs/backend#sign-out">refresh
+tokens</a> and user ids (previously only accepted emails). This means
+you can now log out users from one device instead of all devices if you
+like.</li>
+<li>You can now use <a
+href="https://www.instantdb.com/docs/patterns#making-local-ids">db.useLocalId</a>
+to generate ids for non-authed users. This is especially useful for
+guest-mode features!</li>
+<li>Want to get who’s online in a room from your backend? You can now
+use <a
+href="https://www.instantdb.com/docs/backend#presence-in-the-backend">adminDB.rooms.getPresence</a>!</li>
+<li>Want to integrate db.query in NextJS caching system? Just pass in
+options with <a
+href="https://www.instantdb.com/docs/patterns#making-admin-queries-work-with-next-js-caching">fetchOpts</a></li>
+<li>We published an <a
+href="https://www.instantdb.com/essays/pg_upgrade">essay</a> on why sync
+engines are the future, leading to some great discussion on <a
+href="https://news.ycombinator.com/item?id=43397640">HN</a>.</li>
+</ul>
+<p><strong>What’s next?</strong> We’ve got some more features and LLM
+improvements coming next month. If you have any suggestion on how we can
+make Instant more useful for you, we’re all ears :)</p>

@@ -4,11 +4,11 @@ import {
   InstaQLParams,
   InstaQLEntity,
   InstaQLResult,
-} from "@instantdb/core";
-import { init as react_init } from "@instantdb/react";
-import { init as react_native } from "@instantdb/react-native";
-import { init as admin_init } from "@instantdb/admin";
-import schema, { AppSchema } from "../instant.schema.v2";
+} from '@instantdb/core';
+import { init as react_init } from '@instantdb/react';
+import { init as react_native } from '@instantdb/react-native';
+import { init as admin_init } from '@instantdb/admin';
+import schema, { AppSchema } from '../instant.schema.v2';
 
 // ----
 // Core
@@ -19,11 +19,11 @@ const coreDB = core_init({
 });
 
 // rooms
-const coreRoom = coreDB.joinRoom("chat");
+const coreRoom = coreDB.joinRoom('chat');
 coreRoom.getPresence({});
 
-coreRoom.publishTopic("emoji", {
-  name: "confetti",
+coreRoom.publishTopic('emoji', {
+  name: 'confetti',
   rotationAngle: 0,
   directionAngle: 0,
 });
@@ -41,8 +41,8 @@ coreDB.subscribeQuery({ messages: { creator: {} } }, (result) => {
 
 // transactions
 coreDB.tx.messages[id()]
-  .update({ content: "Hello world" })
-  .link({ creator: "foo" });
+  .update({ content: 'Hello world' })
+  .link({ creator: 'foo' });
 
 // ----
 // React
@@ -56,35 +56,40 @@ function ReactNormalApp() {
   // auth
   const authInfo = reactDB.useAuth();
   if (!authInfo.error && !authInfo.isLoading) {
-    const { user } = authInfo; 
+    const { user } = authInfo;
   }
   // rooms
-  const reactRoom = reactDB.room("chat");
-  const reactPresence = reactRoom.usePresence({ keys: ["name"] });
-  const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
+  const reactRoom = reactDB.room('chat');
+  const reactPresence = reactRoom.usePresence({ keys: ['name'] });
+  const _reactPublishEmoji = reactRoom.usePublishTopic('emoji');
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
-  _reactPresenceUser.name; 
-  _reactPresencePeers[0].name;  
+  _reactPresenceUser.name;
+  _reactPresencePeers[0].name;
 
-  const reactPresenceNew = reactDB.rooms.usePresence(reactRoom, { keys: ["name"] });
-  const _reactPublishEmojiNew = reactDB.rooms.usePublishTopic(reactRoom, "emoji");
+  const reactPresenceNew = reactDB.rooms.usePresence(reactRoom, {
+    keys: ['name'],
+  });
+  const _reactPublishEmojiNew = reactDB.rooms.usePublishTopic(
+    reactRoom,
+    'emoji',
+  );
   const _reactPresenceUserNew = reactPresenceNew.user!;
   const _reactPresencePeersNew = reactPresenceNew.peers!;
-  _reactPresenceUserNew.name; 
-  _reactPresencePeersNew[0].name;  
+  _reactPresenceUserNew.name;
+  _reactPresencePeersNew[0].name;
 
   // More room tsts
-  reactDB.rooms.useTopicEffect(reactRoom, "emoji", (emoji) => {
+  reactDB.rooms.useTopicEffect(reactRoom, 'emoji', (emoji) => {
     emoji.directionAngle;
   });
-  const publish = reactDB.rooms.usePublishTopic(reactRoom, "emoji");
-  publish({ name: "confetti", rotationAngle: 1, directionAngle: 0 })
+  const publish = reactDB.rooms.usePublishTopic(reactRoom, 'emoji');
+  publish({ name: 'confetti', rotationAngle: 1, directionAngle: 0 });
 
   reactDB.rooms.useSyncPresence(reactRoom, { name: 'foo', avatarURI: 'bar' });
   const typing = reactDB.rooms.useTypingIndicator(reactRoom, 'chatInput');
   typing;
-  
+
   // queries
   const { isLoading, error, data } = reactDB.useQuery({
     messages: { creator: {} },
@@ -100,8 +105,8 @@ function ReactNormalApp() {
   // transactions
   reactDB.transact(
     reactDB.tx.messages[id()]
-      .update({ content: "Hello there!" })
-      .link({ creator: "foo" }),
+      .update({ content: 'Hello there!' })
+      .link({ creator: 'foo' }),
   );
 
   // to silence ts warnings
@@ -123,20 +128,25 @@ const reactNativeDB = react_native({
 
 function ReactNativeNormalApp() {
   // rooms
-  const reactRoom = reactNativeDB.room("chat");
-  const reactPresence = reactRoom.usePresence({ keys: ["name"] });
-  const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
+  const reactRoom = reactNativeDB.room('chat');
+  const reactPresence = reactRoom.usePresence({ keys: ['name'] });
+  const _reactPublishEmoji = reactRoom.usePublishTopic('emoji');
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
-  _reactPresenceUser.name; 
-  _reactPresencePeers[0].name;  
+  _reactPresenceUser.name;
+  _reactPresencePeers[0].name;
 
-  const reactPresenceNew = reactNativeDB.rooms.usePresence(reactRoom, { keys: ["name"] });
-  const _reactPublishEmojiNew = reactNativeDB.rooms.usePublishTopic(reactRoom, "emoji");
+  const reactPresenceNew = reactNativeDB.rooms.usePresence(reactRoom, {
+    keys: ['name'],
+  });
+  const _reactPublishEmojiNew = reactNativeDB.rooms.usePublishTopic(
+    reactRoom,
+    'emoji',
+  );
   const _reactPresenceUserNew = reactPresenceNew.user!;
   const _reactPresencePeersNew = reactPresenceNew.peers!;
-  _reactPresenceUserNew.name; 
-  _reactPresencePeersNew[0].name;  
+  _reactPresenceUserNew.name;
+  _reactPresencePeersNew[0].name;
 
   // queries
   const { isLoading, error, data } = reactNativeDB.useQuery({
@@ -175,13 +185,17 @@ message.creator?.email;
 // transacts
 await adminDB.transact(
   adminDB.tx.messages[id()]
-    .update({ content: "Hello world" })
-    .link({ creator: "foo" }),
+    .update({ content: 'Hello world' })
+    .link({ creator: 'foo' }),
 );
 
 // to silence ts warnings
 ReactNormalApp;
 ReactNativeNormalApp;
+
+// rooms
+const presences = await adminDB.rooms.getPresence('chat', 'foo');
+Object.values(presences)[0].data.name;
 
 // ------------
 // type helpers
@@ -192,9 +206,9 @@ const messagesQuery = {
   },
 } satisfies InstaQLParams<AppSchema>;
 
-type CoreMessage = InstaQLEntity<AppSchema, "messages">;
-const mWithOptionalFieldWorks: CoreMessage = { 
-  id: '1', 
+type CoreMessage = InstaQLEntity<AppSchema, 'messages'>;
+const mWithOptionalFieldWorks: CoreMessage = {
+  id: '1',
   content: 'hello',
 };
 
@@ -206,7 +220,7 @@ coreMessage.content;
 
 type CoreMessageWithCreator = InstaQLEntity<
   AppSchema,
-  "messages",
+  'messages',
   { creator: {} }
 >;
 let coreMessageWithCreator: CoreMessageWithCreator = 1 as any;
@@ -227,7 +241,7 @@ function subMessagesWithCreator(
 // Test that the `Q` bit is typed
 type DeeplyNestedQueryWorks = InstaQLEntity<
   AppSchema,
-  "messages",
+  'messages',
   { creator: { createdMessages: { creator: {} } } }
 >;
 let deeplyNestedQuery: DeeplyNestedQueryWorks = 1 as any;
@@ -235,7 +249,7 @@ deeplyNestedQuery.creator?.createdMessages[0].creator?.email;
 
 type DeeplyNestedQueryWillFailsBadInput = InstaQLEntity<
   AppSchema,
-  "messages",
+  'messages',
   // Type '{ foo: {}; }' has no properties in common with type 'InstaQLSubqueryParams<AppSchema, "messages">'
   // @ts-expect-error
   { creator: { createdMessages: { foo: {} } } }

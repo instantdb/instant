@@ -4,15 +4,16 @@ set -euo pipefail
 
 output="text"
 
+cluster_id='instant-aurora-17'
+
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     --output) output="$2"; shift ;;
+    --cluster-id) cluster_id="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
 done
-
-cluster_id='instant-aurora-8'
 
 cluster_info=$(aws rds describe-db-clusters --db-cluster-identifier $cluster_id --query 'DBClusters[0].{host: Endpoint, port: Port, secretArn: MasterUserSecret.SecretArn, dbname: DatabaseName}')
 

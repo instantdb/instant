@@ -1,3 +1,5 @@
+import { InstantIssue } from '@instantdb/core';
+
 export type InstantApp = {
   id: string;
   pro: boolean;
@@ -15,6 +17,7 @@ export type InstantApp = {
     body: string;
     subject: string;
   } | null;
+  org: { id: string; title: string } | null;
 };
 
 export type InstantMember = {
@@ -23,11 +26,12 @@ export type InstantMember = {
   role: 'admin' | 'collaborator';
 };
 
-export type InstantMemberInvite = {
+type InstantMemberInvite = {
   id: string;
-  app_id: string;
-  app_title: string;
-  invitee_role: 'admin' | 'collaborator';
+  type: 'app' | 'org';
+  foreign_key: string;
+  title: string;
+  invitee_role: 'admin' | 'collaborator' | 'owner';
   inviter_email: string;
 };
 
@@ -43,7 +47,14 @@ export type InstantAppInvite = {
 export type InstantIndexingJobInvalidTriple = {
   entity_id: string;
   value: any;
-  json_type: 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array';
+  json_type:
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'null'
+    | 'object'
+    | 'array'
+    | 'date';
 };
 export type InstantIndexingJob = {
   id: string;
@@ -56,14 +67,10 @@ export type InstantIndexingJob = {
     | 'remove-index'
     | 'unique'
     | 'remove-unique'
+    | 'required'
+    | 'remove-required'
     | string;
-  job_status:
-    | 'completed'
-    | 'waiting'
-    | 'processing'
-    | 'canceled'
-    | 'errored'
-    | string;
+  job_status: 'completed' | 'waiting' | 'processing' | 'errored' | string;
   job_stage: string;
   work_estimate: number | null | undefined;
   work_completed: number | null | undefined;
@@ -72,10 +79,15 @@ export type InstantIndexingJob = {
     | 'invalid-attr-state-error'
     | 'triple-not-unique-error'
     | 'triple-too-large-error'
+    | 'missing-required-error'
     | 'unexpected-error'
     | string
     | null
     | undefined;
+  error_data?: {
+    count: number;
+    'entity-ids': number[];
+  };
   checked_data_type: CheckedDataType | null | undefined;
   created_at: string;
   updated_at: string;
@@ -84,16 +96,22 @@ export type InstantIndexingJob = {
   invalid_triples_sample: InstantIndexingJobInvalidTriple[] | null | undefined;
 };
 
+export type OrgSummary = {
+  id: string;
+  title: string;
+  created_at: string;
+  role: 'owner' | 'admin' | 'collaborator' | 'app-member';
+  paid: boolean;
+};
+
 export type DashResponse = {
-  apps?: InstantApp[];
+  apps: InstantApp[];
   invites?: InstantMemberInvite[];
   user: {
     email: string;
     id: string;
   };
-  flags: {
-    storage_enabled_apps?: string[];
-  };
+  orgs?: OrgSummary[];
 };
 
 export type AppError = { body: { message: string } | undefined };
@@ -122,7 +140,7 @@ export type OAuthClient = {
   provider_id: string;
   authorization_endpoint?: string;
   token_endpoint?: string;
-  discovery_url?: string;
+  discovery_endpoint?: string;
   meta?: any;
 };
 
@@ -152,6 +170,7 @@ export interface DBAttr {
   'reverse-identity'?: DBIdent;
   'index?': boolean;
   'unique?': boolean;
+  'required?'?: boolean;
   'primary?'?: boolean | undefined;
   cardinality: 'one' | 'many';
   'value-type': 'ref' | 'blob';
@@ -159,12 +178,20 @@ export interface DBAttr {
   catalog?: 'user' | 'system';
   'checked-data-type'?: CheckedDataType;
   'on-delete'?: 'cascade';
+  'on-delete-reverse'?: 'cascade';
+  metadata?: any;
 }
 
 export interface SchemaNamespace {
   id: string;
   name: string;
   attrs: SchemaAttr[];
+}
+
+export interface SchemaNamespaceMap {
+  id: string;
+  name: string;
+  attrs: Record<string, SchemaAttr>;
 }
 
 export interface SchemaAttr {
@@ -175,44 +202,69 @@ export interface SchemaAttr {
   type: 'ref' | 'blob';
   isIndex: boolean;
   isUniq: boolean;
+  isRequired?: boolean;
   isPrimary?: boolean | undefined;
   cardinality: 'one' | 'many';
   linkConfig: {
-    forward: { id: string; namespace: string; attr: string };
-    reverse: { id: string; namespace: string; attr: string } | undefined;
+    forward: {
+      id: string;
+      namespace: string;
+      attr: string;
+      nsMap: SchemaNamespaceMap;
+    };
+    reverse:
+      | {
+          id: string;
+          namespace: string;
+          attr: string;
+          nsMap: SchemaNamespaceMap;
+        }
+      | undefined;
   };
   inferredTypes?: Array<'string' | 'number' | 'boolean' | 'json'>;
   catalog?: 'user' | 'system';
   checkedDataType?: CheckedDataType;
   sortable: boolean;
   onDelete?: 'cascade';
+  onDeleteReverse?: 'cascade';
 }
 
-export type InstantError = {
-  body:
-    | { type: 'param-missing'; message: string; hint: { in: string[] } }
-    | { type: 'param-malformed'; message: string; hint: { in: string[] } }
-    | {
-        type: 'record-not-found';
-        message: string;
-        hint: { 'record-type': string };
-      }
-    | {
-        type: 'record-not-unique';
-        message: string;
-        hint: { 'record-type': string };
-      }
-    | {
-        type: 'validation-failed';
-        message: string;
-        hint: { 'data-type': 'string'; errors: any[] };
-      }
-    | {
-        type: 'record-expired';
-        message: string;
-        hint: { 'record-type': string };
-      }
-    | { type: undefined; [k: string]: any }
-    | undefined;
-  status: number;
+export type OAuthAppClientSecret = {
+  id: string;
+  clientId: string;
+  firstFour: string;
+  createdAt: string;
 };
+
+export type OAuthAppClient = {
+  clientId: string;
+  oauthAppId: string;
+  clientName: string;
+  authorizedRedirectUrls: string[] | null;
+  clientSecrets: OAuthAppClientSecret[] | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OAuthApp = {
+  id: string;
+  appId: string;
+  appName: string;
+  grantedScopes: string[];
+  isPublic: boolean;
+  supportEmail: string | null;
+  appHomePage: string | null;
+  appPrivacyPolicyLink: string | null;
+  appTosLink: string | null;
+  appLogo: string | null;
+  clients: OAuthAppClient[] | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OAuthAppsResponse = {
+  apps: OAuthApp[];
+};
+
+// re-export InstantIssue from the core library
+export { type InstantIssue };

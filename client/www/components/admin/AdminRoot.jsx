@@ -35,7 +35,7 @@ function useAdminData(token) {
             : { body: { message: err.message || 'Uh oh, we goofed up' } },
           data: undefined,
         });
-      }
+      },
     );
   }, [token]);
 
@@ -54,16 +54,16 @@ export default function AdminPage() {
     return <div>Error: {error.body.message}</div>;
   }
 
-  const sortedUsers = data.users.sort(
-    (a, b) => new Date(b.user_created_at) - new Date(a.user_created_at)
-  ).slice(0, 50);
+  const sortedUsers = data.users
+    .sort((a, b) => new Date(b.user_created_at) - new Date(a.user_created_at))
+    .slice(0, 50);
 
-  window.data = sortedUsers
+  window.data = sortedUsers;
   return (
     <div className="flex flex-col space-y-4">
       {sortedUsers.map((user, idx) => {
         return (
-          <div key={idx} className="rounded border p-4 shadow">
+          <div key={idx} className="rounded-sm border p-4 shadow-sm">
             <p className="text-lg font-bold">
               Email: <span className="font-normal">{user.email}</span>
             </p>
@@ -78,9 +78,9 @@ export default function AdminPage() {
               <span className="font-normal">
                 {user.profile_created_at
                   ? formatDistance(
-                    new Date(user.profile_created_at),
-                    new Date(user.user_created_at)
-                  )
+                      new Date(user.profile_created_at),
+                      new Date(user.user_created_at),
+                    )
                   : ''}
               </span>
             </p>
@@ -89,22 +89,15 @@ export default function AdminPage() {
               <span className="font-normal">
                 {user.app_created_at && user.profile_created_at
                   ? formatDistance(
-                    new Date(user.app_created_at),
-                    new Date(user.profile_created_at)
-                  )
+                      new Date(user.app_created_at),
+                      new Date(user.profile_created_at),
+                    )
                   : ''}
               </span>
             </p>
             <p className="text-lg font-bold">
               How did you hear about us?:{' '}
               <span className="font-normal">{user.meta?.heard}</span>
-            </p>
-            <p className="text-lg font-bold">
-              What do you want to build?:{' '}
-              <span className="font-normal">{user.meta?.build}</span>
-            </p>
-            <p className="text-lg font-bold">
-              Num tx: <span className="font-normal">{user.num_tx}</span>
             </p>
           </div>
         );

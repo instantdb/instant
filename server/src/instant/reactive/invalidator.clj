@@ -1,225 +1,80 @@
 (ns instant.reactive.invalidator
   (:require
    [clojure.core.async :as a]
-   [clojure.set :as clojure-set]
+   [datascript.core :as ds]
    [instant.config :as config]
-   [instant.db.model.attr :as attr-model]
    [instant.db.pg-introspect :as pg-introspect]
+   [instant.flags :as flags]
    [instant.gauges :as gauges]
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
-   [instant.model.app :as app-model]
-   [instant.model.instant-user :as instant-user-model]
-   [instant.model.rule :as rule-model]
+   [instant.reactive.ephemeral :as eph]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
+   [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
-   [instant.util.json :refer [<-json]]
    [instant.util.e2e-tracer :as e2e-tracer]
+   [instant.util.hazelcast :refer [->WalRecord]]
    [instant.util.tracer :as tracer]
-   [instant.db.model.triple :as triple-model])
+   [clojure.set :as set])
   (:import
+   (com.hazelcast.core HazelcastInstance)
+   (com.hazelcast.ringbuffer Ringbuffer)
+   (com.hazelcast.ringbuffer.impl RingbufferService)
+   (com.hazelcast.topic Message ITopic ReliableMessageListener TopicOverloadPolicy)
+   (instant.util.hazelcast WalRecord)
    (java.sql Timestamp)
-   (java.time Duration Instant)
+   (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (java.util UUID)
+   (java.util Map Queue)
+   (java.util.concurrent ConcurrentHashMap Executors)
+   (java.util.concurrent.atomic AtomicLong)
    (org.postgresql.replication LogSequenceNumber)))
 
 (declare wal-opts)
 
-(defn columns->map
-  ([columns]
-   (columns->map columns false))
-  ([columns keywordize]
-   (reduce (fn [acc column]
-             (assoc acc
-                    (if keywordize
-                      (keyword (:name column))
-                      (:name column))
-                    (:value column)))
-           {}
-           columns)))
+(declare invalidator-q)
 
-(defn get-column [columns col-name]
-  (first (keep (fn [col]
-                 (when (= col-name (:name col))
-                   (:value col)))
-               columns)))
+(defn- schema-changes-require-refreshing-sessions?
+  "All sessions may need to know about some schema changes. 
 
-(defn- topics-for-triple-insert [change]
-  (let [m (columns->map (:columns change) true)
-        e (UUID/fromString (:entity_id m))
-        a (UUID/fromString (:attr_id m))
-        v-parsed (<-json (:value m))
-        v (cond
-            (:eav m)
-            (UUID/fromString v-parsed)
-            (= (:checked_data_type m) "date")
-            (triple-model/parse-date-value v-parsed)
-            :else
-            v-parsed)
-        ks (->> #{:ea :eav :av :ave :vae}
-                (filter m))]
-    (map (fn [k] [k #{e} #{a} #{v}])
-         ks)))
+   For example, if we create an attr, then all sessions should know about this, 
+   so they don't accidentally try create the same attr again. 
 
-(defn- topics-for-triple-update
-  [change]
-  (let [m (columns->map (:columns change) true)
-        e (UUID/fromString (:entity_id m))
-        a (UUID/fromString (:attr_id m))
-        ks (->> #{:ea :eav :av :ave :vae}
-                (filter m))]
-    ;; (XXX): If we had the old value we wouldn't need to do this wildcard
-    ;; business. Would be better if we can be more specific
-    (map (fn [k] [k #{e} #{a} '_]) ks)))
+   Right now we detect: 
+    - Attr creates or deletes
+    - Ident changes 
 
-(defn- topics-for-triple-delete [change]
-  (let [m (columns->map (:identity change) true)
-        e (UUID/fromString (:entity_id m))
-        a (UUID/fromString (:attr_id m))
-        ;; (XXX): The changeset doesn't include the index cols of the triple
-        ;; so for now we just invalidate all possible indexes
-        ks #{:ea :eav :av :ave :vae}]
-    ;; (XXX): Similar to update, we don't have the prev val, so we use wildcard
-    ;; later on lets think how we can be more specific
-    (map (fn [k] [k #{e} #{a} '_]) ks)))
+   Technically, sessions may need to know about other things: like if an attr 
+   becomes unique. But I am worried we may end up causing too much thrash 
+   for larger apps. 
 
-(defn- topics-for-change [{:keys [action] :as change}]
-  (case action
-    :insert (topics-for-triple-insert change)
-    :update (topics-for-triple-update change)
-    :delete (topics-for-triple-delete change)
-    #{}))
-
-(defn topics-for-triple-changes [changes]
-  (->> changes
-       (mapcat topics-for-change)
-       set))
-
-(defn- topics-for-ident-upsert [{:keys [columns]}]
-  (let [indexes #{:ea :eav :av :ave :vae}
-        attr-id (parse-uuid (get-column columns "attr_id"))
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
-    (set topics)))
-
-(defn- topics-for-attr-upsert [{:keys [columns]}]
-  (let [indexes #{:ea :eav :av :ave :vae}
-        attr-id (parse-uuid (get-column columns "id"))
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
-    (set topics)))
-
-(defn- topics-for-attr-delete [{:keys [identity]}]
-  (let [attr-id (parse-uuid (get-column identity "id"))
-        indexes #{:ea :eav :av :ave :vae}
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
-    (set topics)))
-
-(defn topics-for-ident-change [{:keys [action] :as change}]
-  (case action
-    :update (topics-for-ident-upsert change)
-    :insert (topics-for-ident-upsert change)
-    #{}))
-
-(defn topics-for-ident-changes [changes]
-  (->> changes
-       (mapcat topics-for-ident-change)
-       set))
-
-(defn topics-for-attr-change [{:keys [action] :as change}]
-  (case action
-    :update (topics-for-attr-upsert change)
-    :insert (topics-for-attr-upsert change)
-    :delete (topics-for-attr-delete change)
-    #{}))
-
-(defn topics-for-attr-changes [changes]
-  (->> changes
-       (mapcat topics-for-attr-change)
-       set))
-
-(defn topics-for-changes [{:keys [ident-changes triple-changes attr-changes]}]
-  (let [topics-for-attr-changes (topics-for-attr-changes attr-changes)
-        topics-for-ident-changes (topics-for-ident-changes ident-changes)
-        topics-for-triple-changes (topics-for-triple-changes triple-changes)
-        topics (clojure-set/union topics-for-ident-changes
-                                  topics-for-triple-changes
-                                  topics-for-attr-changes)]
-    topics))
+   For now, I'm only notifying on these changes."
+  [{:keys [attr-changes ident-changes]}]
+  (boolean
+   (or (some #(#{:insert :delete} (:action %)) attr-changes)
+       (seq ident-changes))))
 
 (defn- invalidate!
   "Given a collection of changes, stales all relevant queries and returns
   sockets to be refreshed."
   ;; process-id used for tests
-  [_process-id store-conn {:keys [app-id tx-id] :as wal-record}]
-  (let [topics (topics-for-changes wal-record)
-        [db session-ids] (rs/mark-stale-topics! store-conn app-id tx-id topics)
-        sockets (keep (partial rs/get-socket db) session-ids)]
-    sockets))
-
-(defn- topics-for-byop-triple-insert [table-info change]
-  (let [m (columns->map (:columns change) true)
-        id-field (get-in table-info [(:table change) :primary-key :field])
-        e (get m id-field)
-        ;; just making everything :ea for now
-        ks [:ea]]
-    (for [k ks
-          [col v] m
-          :let [a (get-in table-info [(:table change) :fields (keyword col) :attr-id])]]
-      [k #{e} #{a} #{v}])))
-
-(defn- topics-for-byop-triple-update
-  [table-info change]
-  (let [m (columns->map (:columns change) true)
-        id-field (get-in table-info [(:table change) :primary-key :field])
-        e (get m id-field)
-        ;; just making everything :ea for now
-        ks [:ea]]
-    ;; (XXX): If we had the old value we wouldn't need to do this wildcard
-    ;; business. Would be better if we can be more specific
-    (for [k ks
-          [col _v] m
-          :let [a (get-in table-info [(:table change) :fields (keyword col) :attr-id])]]
-      [k #{e} #{a} '_])))
-
-(defn- topics-for-byop-triple-delete [table-info change]
-  (let [m (columns->map (:identity change) true)
-        id-field (get-in table-info [(:table change) :primary-key :field])
-        e (get m id-field)
-        ;; just making everything :ea for now
-        ks [:ea]]
-    ;; (XXX): Similar to update, we don't have the prev val, so we use wildcard
-    ;; later on lets think how we can be more specific
-    (for [k ks
-          [col _v] m
-          :let [a (get-in table-info [(:table change) :fields (keyword col) :attr-id])]]
-      [k #{e} #{a} '_])))
-
-(defn- topics-for-byop-change [table-info {:keys [action] :as change}]
-  ;; (XXX): We only handle triples atm, later on we should handle things
-  ;; like add/delete attrs and apps
-  (case action
-    :insert (topics-for-byop-triple-insert table-info change)
-    :update (topics-for-byop-triple-update table-info change)
-    :delete (topics-for-byop-triple-delete table-info change)
-    #{}))
-
-(defn topics-for-byop-triple-changes [table-info changes]
-  (->> changes
-       (mapcat (partial topics-for-byop-change table-info))
-       set))
-
-(defn- topics-for-byop-changes [table-info {:keys [triple-changes]}]
-  (topics-for-byop-triple-changes table-info triple-changes))
+  [_process-id store {:keys [app-id tx-id] :as wal-record}]
+  (let [topics      (topics/topics-for-changes wal-record)
+        session-ids (rs/mark-stale-topics! store app-id tx-id topics wal-record)
+        sockets     (keep #(:session/socket (rs/session store %)) session-ids)
+        sync-subs (rs/get-stale-sync-subs store app-id topics)]
+    {:sockets sockets
+     :sync-subs sync-subs}))
 
 (defn- invalidate-byop!
   "Given a collection of changes, stales all relevant queries and returns
   sockets to be refreshed."
-  [table-info app-id store-conn {:keys [tx-id] :as record}]
-  (let [topics (topics-for-byop-changes table-info record)
-        [db session-ids] (rs/mark-stale-topics! store-conn app-id tx-id topics)
-        sockets (keep (partial rs/get-socket db) session-ids)]
+  [table-info app-id store {:keys [tx-id] :as record}]
+  (let [topics      (topics/topics-for-byop-changes table-info record)
+        session-ids (rs/mark-stale-topics! store app-id tx-id topics record)
+        sockets     (keep #(:session/socket (rs/session store %)) session-ids)]
     sockets))
 
 ;; ------
@@ -227,7 +82,7 @@
 
 (defn app-id-from-columns [columns]
   (some-> columns
-          (get-column "app_id")
+          (topics/get-column "app_id")
           (parse-uuid)))
 
 (defn extract-app-id
@@ -236,7 +91,7 @@
 
 (defn id-from-columns [columns]
   (some-> columns
-          (get-column "id")
+          (topics/get-column "id")
           (parse-uuid)))
 
 (defn extract-id
@@ -244,14 +99,17 @@
   (id-from-columns columns))
 
 (defn extract-tx-id [{:keys [columns] :as _change}]
-  (get-column columns "id"))
+  (topics/get-column columns "id"))
 
 (defn extract-tx-created-at [{:keys [columns] :as _change}]
-  (when-let [^String created-at (get-column columns "created_at")]
+  (when-let [^String created-at (topics/get-column columns "created_at")]
     (.toInstant (Timestamp/valueOf created-at))))
 
-(defn transform-wal-record [{:keys [changes tx-bytes] :as _record}]
-  (let [{:strs [idents triples attrs transactions rules apps instant_users]}
+(defn transform-wal-record [{:keys [changes messages tx-bytes nextlsn] :as _record}]
+  ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
+  ;;      or else we will never be notified about it.
+  (let [{:strs [idents triples attrs transactions
+                wal_logs wal_logs_0 wal_logs_1 wal_logs_2 wal_logs_3 wal_logs_4 wal_logs_5 wal_logs_6 wal_logs_7]}
         (group-by :table changes)
 
         some-changes (or (seq idents)
@@ -259,21 +117,6 @@
                          (seq attrs))
         transactions-change (first transactions)
         app-id (extract-app-id transactions-change)]
-    (doseq [attr attrs]
-      (attr-model/evict-app-id-from-cache (or app-id
-                                              (extract-app-id attr))))
-    (doseq [rule rules]
-      (let [app-id (or app-id (extract-app-id rule))]
-        (rule-model/evict-app-id-from-cache app-id)))
-
-    (doseq [app apps]
-      (let [app-id (or app-id (extract-id app))]
-        (app-model/evict-app-id-from-cache app-id)
-        (instant-user-model/evict-app-id-from-cache app-id)))
-
-    (doseq [user instant_users]
-      (let [id (extract-id user)]
-        (instant-user-model/evict-user-id-from-cache id)))
 
     (when (and some-changes app-id)
       (let [tx-id (extract-tx-id transactions-change)
@@ -283,13 +126,17 @@
                                                 :name "transform-wal-record"})
         ;; n.b. make sure to update combine-wal-records below if new
         ;;      items are added to this map
-        {:attr-changes attrs
+        {:nextlsn nextlsn
+         :attr-changes attrs
          :ident-changes idents
          :triple-changes triples
          :app-id app-id
          :tx-created-at tx-created-at
          :tx-id tx-id
-         :tx-bytes tx-bytes}))))
+         :tx-bytes tx-bytes
+         :messages messages
+         :wal-logs (concat wal_logs wal_logs_0 wal_logs_1 wal_logs_2 wal_logs_3
+                           wal_logs_4 wal_logs_5 wal_logs_6 wal_logs_7)}))))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"
@@ -300,27 +147,23 @@
   "Combines a list of wal-records into a single wal-record.
    We combine all of the change lists and advance the tx-id to the
    latest tx-id in the list."
-  [wal-records]
-  (reduce (fn [acc {:keys [attr-changes
-                           ident-changes
-                           triple-changes
-                           app-id
-                           tx-id
-                           tx-bytes]}]
-            ;; Complain loudly if we accidently mix wal-records from multiple apps
-            (assert (= (:app-id acc) app-id) "app-id mismatch in combine-wal-records")
-            (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id acc)
-                                                    :name "skipped-in-combined-wal-record"})
+  [r1 r2]
+  (when (< (::grouped-queue/combined r1 1) (flags/flag :invalidator-batch-limit 500))
+    ;; Complain loudly if we accidently mix wal-records from multiple apps
+    (when (not= (:app-id r1) (:app-id r2))
+      (throw (ex-info "app-id mismatch in combine-wal-records" {:r1 r1 :r2 r2})))
+    (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id r1)
+                                            :name "skipped-in-combined-wal-record"})
 
-            ;; Keep the old tx-created-at so that we see the
-            ;; worst case wal-latency-ms
-            (-> acc
-                (update :attr-changes (fnil into []) attr-changes)
-                (update :ident-changes (fnil into []) ident-changes)
-                (update :triple-changes (fnil into []) triple-changes)
-                (update :tx-bytes (fnil + 0) tx-bytes)
-                (assoc :tx-id tx-id)))
-          wal-records))
+    ;; Keep the old tx-created-at so that we see the worst case wal-latency-ms
+    (-> r1
+        (update :attr-changes   (fnil into []) (:attr-changes r2))
+        (update :ident-changes  (fnil into []) (:ident-changes r2))
+        (update :triple-changes (fnil into []) (:triple-changes r2))
+        (update :messages       (fnil into []) (:messages r2))
+        (update :wal-logs       (fnil into []) (:wal-logs r2))
+        (update :tx-bytes       (fnil + 0) (:tx-bytes r2))
+        (assoc :tx-id           (:tx-id r2)))))
 
 (defn transform-byop-wal-record [{:keys [changes nextlsn]}]
   ;; TODO(byop): if change is empty, then there might be changes to the schema
@@ -338,11 +181,23 @@
 ;; ------
 ;; invalidator
 
+(defn- store-snapshot [store app-id]
+  (rs/->ReactiveStore
+   (ds/conn-from-db @(:sessions store))
+   (^[Map] ConcurrentHashMap/new
+    (if-let [conn (some-> store
+                          :conns
+                          (Map/.get app-id)
+                          deref
+                          ds/conn-from-db)]
+      {app-id conn}
+      {}))))
+
 (defn wal-latency-ms [{:keys [tx-created-at]}]
   (when tx-created-at
     (.between ChronoUnit/MILLIS tx-created-at (Instant/now))))
 
-(defn process-wal-record [process-id store-conn record-count wal-record]
+(defn process-wal-record [process-id store record-count wal-record]
   (let [{:keys [app-id tx-id tx-created-at tx-bytes]} wal-record]
     (tracer/with-span! {:name "invalidator/work"
                         :attributes {:app-id app-id
@@ -352,75 +207,119 @@
                                      :tx-bytes tx-bytes}}
 
       (try
-        (let [sockets (invalidate! process-id store-conn wal-record)]
+        (let [{:keys [sync-subs] invalidated-sockets :sockets}
+              (invalidate! process-id store wal-record)
+              schema-changes? (schema-changes-require-refreshing-sessions?
+                               wal-record)
+
+              sockets (if schema-changes?
+                        (set/union (rs/all-sockets-for-app store app-id)
+                                   invalidated-sockets)
+                        invalidated-sockets)]
+
           (tracer/add-data! {:attributes {:num-sockets (count sockets)
+                                          :num-invalidated-sockets (count invalidated-sockets)
+                                          :schema-changes? schema-changes?
+                                          :num-sync-subs (count sync-subs)
                                           :tx-latency-ms (e2e-tracer/tx-latency-ms tx-created-at)}})
           (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
                                                   :tx-created-at tx-created-at
                                                   :name "send-refreshes"
                                                   :attributes {:num-sockets (count sockets)}})
+          (when (or (config/dev?) (seq sync-subs))
+            (rs/add-transaction-to-sync-table-txes wal-record))
           (tracer/with-span! {:name "invalidator/send-refreshes"}
             (doseq [{:keys [id]} sockets]
-              (receive-queue/enqueue->receive-q {:op :refresh
-                                                 :session-id id
-                                                 :tx-id tx-id
-                                                 :tx-created-at tx-created-at}))))
+              (receive-queue/put! {:op :refresh
+                                   :session-id id
+                                   :tx-id tx-id
+                                   :tx-created-at tx-created-at}))
+            (doseq [{:sync/keys [session-id id]} sync-subs]
+              (receive-queue/put! {:op :refresh-sync-table
+                                   :app-id app-id
+                                   :session-id session-id
+                                   :subscription-id id}))))
         (catch Throwable t
           (def -wal-record wal-record)
-          (def -store-value @store-conn)
+          (def -store-value (store-snapshot store app-id))
           (tracer/add-exception! t {:escaping? false}))))))
 
-(defn invalidator-q-metrics [{:keys [grouped-queue get-worker-count]}]
-  [{:path "instant.reactive.invalidator.q.size"
-    :value (grouped-queue/size grouped-queue)}
-   {:path "instant.reactive.invalidator.q.longest-waiting-ms"
-    :value (if-let [{:keys [put-at]} (grouped-queue/peek grouped-queue)]
-             (.toMillis (Duration/between put-at (Instant/now)))
-             0)}
-   {:path "instant.reactive.invalidator.q.worker-count"
-    :value (get-worker-count)}])
+(defn drop-backpressure? [queue wal-record]
+  (let [app-id (:app-id wal-record)
+        group (get (:groups queue) app-id)
+        head (when group (Queue/.peek group))
+        put-at (some-> head :instant.grouped-queue/put-at)
+        latency (if put-at (- (System/currentTimeMillis) put-at) 0)]
+    (when (and (flags/invalidator-drop-backpressure? app-id)
+               (> latency (flags/invalidator-drop-tx-latency-ms)))
+      (tracer/record-info! {:name "invalidator/drop-backpressure"
+                            :attributes {:app-id app-id
+                                         :latency latency}})
+      true)))
 
-(defn start-worker [process-id store-conn wal-chan]
+(defn start-worker [process-id store wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start"})
-  (let [queue-with-workers
-        (grouped-queue/start-grouped-queue-with-cpu-workers
-         {:group-fn :app-id
-          :reserve-fn (fn [_ q] (grouped-queue/inflight-queue-reserve 100 q))
-          :process-fn (fn [_key wal-records]
-                        (process-wal-record process-id
-                                            store-conn
-                                            (count wal-records)
-                                            (combine-wal-records wal-records)))
-          :worker-count 8})
-        grouped-queue (:grouped-queue queue-with-workers)
-        cleanup-gauges (gauges/add-gauge-metrics-fn
-                        (fn [_] (invalidator-q-metrics queue-with-workers)))]
+  (let [queue
+        (grouped-queue/start
+         {:group-key-fn :app-id
+          :combine-fn   combine-wal-records
+          :process-fn   (fn [_key wal-record]
+                          (process-wal-record process-id
+                                              store
+                                              (::grouped-queue/combined wal-record 1)
+                                              wal-record))
+          :metrics-path "instant.reactive.invalidator.q"
+          :max-workers  8})]
     (a/go
       (loop []
-        (let [wal-record (a/<! wal-chan)]
-          (if-not wal-record
-            (do
-              (cleanup-gauges)
-              ((:shutdown queue-with-workers))
-              (tracer/record-info! {:name "invalidation-worker/shutdown"}))
-            (do (grouped-queue/put! grouped-queue wal-record)
-                (recur))))))))
+        (when-some [wal-record (a/<! wal-chan)]
+          (when-not (drop-backpressure? queue wal-record)
+            (grouped-queue/put! queue wal-record))
+          (recur)))
+      (grouped-queue/stop queue)
+      (tracer/record-info! {:name "invalidation-worker/shutdown"}))
+    queue))
 
-(defn handle-byop-record [table-info app-id store-conn wal-record]
+(defn start-singleton-worker [{:keys [wal-chan
+                                      close-signal-chan
+                                      flush-lsn-chan
+                                      ^ITopic hz-topic
+                                      on-error
+                                      stop-lsn
+                                      check-disabled]}]
+  (tracer/record-info! {:name "invalidator/singleton-worker-start"})
+  (let [process (a/go
+                  (loop []
+                    (if (check-disabled)
+                      (on-error (ex-info "Invalidator singleton disabled" {}))
+                      (when-let [wal-record (a/<! wal-chan)]
+                        (when-not (and stop-lsn
+                                       (= -1 (compare stop-lsn (:nextlsn wal-record))))
+                          (try
+                            (.publish hz-topic (->WalRecord wal-record))
+                            (ua/>!-close-safe close-signal-chan flush-lsn-chan (:nextlsn wal-record))
+                            (catch Exception e
+                              (on-error e)))
+                          (recur)))))
+
+                  (tracer/record-info! {:name "invalidator/singleton-worker-stop"}))]
+    {:completed-chan process}))
+
+(defn handle-byop-record [table-info app-id store wal-record]
   (when-let [record (transform-byop-wal-record wal-record)]
     (try
-      (let [sockets (invalidate-byop! table-info app-id store-conn record)]
+      (let [sockets (invalidate-byop! table-info app-id store record)]
         (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
         (tracer/with-span! {:name "invalidator/send-refreshes"}
           (doseq [{:keys [id]} sockets]
-            (receive-queue/enqueue->receive-q {:op :refresh
-                                               :session-id id}))))
+            (receive-queue/put! {:op :refresh
+                                 :session-id id}))))
       (catch Throwable t
         (def -wal-record wal-record)
-        (def -store-value @store-conn)
+        (def -store-value (store-snapshot store app-id))
         (tracer/add-exception! t {:escaping? false})))))
 
-(defn start-byop-worker [store-conn wal-chan]
+(defn start-byop-worker [store wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start-byop"})
   (let [app-id config/instant-on-instant-app-id
         {:keys [table-info]} (pg-introspect/introspect (aurora/conn-pool :read)
@@ -431,13 +330,13 @@
           (tracer/record-info! {:name "invalidation-worker/shutdown-byop"})
           (do
             (try
-              (handle-byop-record app-id
-                                  table-info
-                                  store-conn
+              (handle-byop-record table-info
+                                  app-id
+                                  store
                                   wal-record)
               (catch Throwable t
                 (def -wal-record wal-record)
-                (def -store-value @store-conn)
+                (def -store-value store)
                 (tracer/add-exception! t {:escaping? false})))
             (recur)))))))
 
@@ -454,7 +353,8 @@
     (let [chan (a/chan 1 (wal-record-xf))]
       {:wal-chan chan
        :close-signal-chan (a/chan)
-       :worker-chan chan})
+       :worker-chan chan
+       :flush-lsn-chan (a/chan (a/sliding-buffer 1))})
     (let [wal-chan (a/chan 1)
           mult (a/mult wal-chan)
           worker-chan (a/chan 1 (wal-record-xf))
@@ -468,7 +368,206 @@
        ;; its puts to complete
        :close-signal-chan (a/chan)
        :worker-chan worker-chan
+       :flush-lsn-chan (a/chan (a/sliding-buffer 1))
        :byop-chan byop-chan})))
+
+(defn stop [wal-opts]
+  (let [shutdown-future (future (wal/shutdown! wal-opts))]
+    (loop []
+      (when-not (realized? shutdown-future)
+        (wal/kick-wal (aurora/conn-pool :write))
+        (Thread/sleep 100)
+        (recur))))
+  (a/close! (:to wal-opts))
+  (a/close! (:close-signal-chan wal-opts))
+  (a/close! (:worker-chan wal-opts)))
+
+(defn start-singleton-listener [{:keys [acquire-slot-interval-ms
+                                        process-id
+                                        check-disabled
+                                        stop-lsn
+                                        acquire-slot-interrupt-chan
+                                        get-conn-config
+                                        ^ITopic hz-topic]}]
+  (let [shutdown-chan (a/chan)
+
+        process (a/go
+                  (loop [timeout-ch (a/timeout 0)]
+                    (let [matched-chan (second (a/alts! [shutdown-chan
+                                                         timeout-ch
+                                                         acquire-slot-interrupt-chan]))]
+                      (cond
+                        (= matched-chan shutdown-chan) nil
+                        (check-disabled) (recur (a/timeout acquire-slot-interval-ms))
+                        :else
+                        (let [{:keys [wal-chan worker-chan flush-lsn-chan close-signal-chan]}
+                              (create-wal-chans)
+
+                              wal-opts (wal/make-wal-opts {:wal-chan wal-chan
+                                                           :worker-chan worker-chan
+                                                           :close-signal-chan close-signal-chan
+                                                           :ex-handler wal-ex-handler
+                                                           :get-conn-config get-conn-config
+                                                           :flush-lsn-chan flush-lsn-chan
+                                                           :slot-type :invalidator})
+
+                              wal-started-promise (:started-promise wal-opts)
+                              signal-chan (a/chan)
+
+                              wal-worker (ua/fut-bg
+                                          (try
+                                            (wal/start-singleton-worker wal-opts)
+                                            (finally
+                                              (deliver wal-started-promise :recur)
+                                              (a/close! close-signal-chan))))
+
+                              _ (ua/vfuture
+                                 (let [wal-start-result @wal-started-promise]
+                                   (case wal-start-result
+                                     :recur (a/put! signal-chan :recur)
+                                     true (a/put! signal-chan :slot-claimed))))
+
+                              [next-v _next-ch] (a/alts! [signal-chan shutdown-chan])]
+                          (case next-v
+                            nil ;; shutdown
+                            (do (stop wal-opts)
+                                wal-worker)
+
+                            :recur ;; Didn't get the slot, wait and try again
+                            (recur (a/timeout acquire-slot-interval-ms))
+
+                            :slot-claimed ;; got the slot, start the worker
+                            (let [{worker-exit-chan :completed-chan}
+                                  (start-singleton-worker {:wal-chan worker-chan
+                                                           :close-signal-chan close-signal-chan
+                                                           :flush-lsn-chan flush-lsn-chan
+                                                           :process-id process-id
+                                                           :hz-topic hz-topic
+                                                           :on-error (fn [e]
+                                                                       (tracer/record-exception-span! e {:name "invalidator/singleton-worker-error"})
+                                                                       (a/close! close-signal-chan))
+                                                           :stop-lsn stop-lsn
+                                                           :check-disabled check-disabled})
+                                  [_exit-v exit-ch] (a/alts! [shutdown-chan close-signal-chan worker-exit-chan])]
+                              (tracer/with-span! {:name "invalidator/wait-for-singleton-worker-to-finish"
+                                                  :attributes {:pid process-id
+                                                               :slot-name (:slot-name wal-opts)}}
+                                (stop wal-opts))
+                              ;; serves as a signal to the other instances that they should
+                              ;; grab the topic
+                              (.publish hz-topic process-id)
+                              (when (= exit-ch close-signal-chan)
+                                (tracer/record-info! {:name "invalidator-singleton/retry"
+                                                      :attributes {:wait-ms acquire-slot-interval-ms
+                                                                   :attributes {:pid process-id
+                                                                                :slot-name (:slot-name wal-opts)}}})
+                                (recur (a/timeout acquire-slot-interval-ms)))))))))
+                  (tracer/record-info! {:name "invalidator/singleton-slot-listener-exit"
+                                        :attributes {:pid process-id}}))]
+    {:shutdown (fn []
+                 (a/close! shutdown-chan)
+                 (when-let [wal-worker-finished (a/<!! process)]
+                   @wal-worker-finished))
+     :completed-chan process}))
+
+(defn hz-gauges [^ITopic topic]
+  (let [stats (.getLocalTopicStats topic)]
+    [{:path "hz.invalidator-topic.publishOperationCount"
+      :value (.getPublishOperationCount stats)}
+     {:path "hz.invalidator-topic.receiveOperationCount"
+      :value (.getReceiveOperationCount stats)}]))
+
+(defn hz-topic-listener [^Ringbuffer ring-buffer on-msg]
+  (let [seq-id (AtomicLong. -1)]
+    (reify ReliableMessageListener
+      (onMessage [_ m]
+        (on-msg m))
+      (isLossTolerant [_]
+        true)
+      (isTerminal [_ t]
+        (tracer/record-exception-span! t {:name "invalidator/singleton-listener-error"})
+        false)
+      (retrieveInitialSequence [_]
+        (inc (.tailSequence ring-buffer)))
+      (onCancel [_]
+        nil)
+      (storeSequence [_ s]
+        (let [prev-seq-id (AtomicLong/.getAndSet seq-id s)]
+          (when (and (not= prev-seq-id -1)
+                     (not= s (inc prev-seq-id)))
+            (tracer/record-exception-span! (ex-info "Skipped a message in the reliable topic"
+                                                    {:s s
+                                                     :prev-seq-id prev-seq-id
+                                                     :lost-message-count (inc (- s prev-seq-id))})
+                                           {:name "invalidator/singleton-listener-skipped-tx"})))))))
+
+(defn topic-ring-buffer [^HazelcastInstance hz topic-name]
+  (.getRingbuffer hz (str RingbufferService/TOPIC_RB_PREFIX topic-name)))
+
+(defn start-singleton-hz-topic [{:keys [acquire-slot-interrupt-chan]}]
+  (let [queue
+        (grouped-queue/start
+         {:group-key-fn :app-id
+          :combine-fn combine-wal-records
+          :process-fn (fn [_key wal-record]
+                        ;; Just testing what kind of latency we'll see with the hazelcast topic
+                        (tracer/with-span! {:name "singleton-hz-topic-latency"
+                                            :attributes {:tx-id (:tx-id wal-record)
+                                                         :latency-ms (wal-latency-ms wal-record)}}))
+          :metrics-path "instant.reactive.invalidator.singleton-q"
+          :max-workers 8})
+
+        topic-name "invalidator-wal-logs"
+        hz (eph/get-hz)
+        topic (.getReliableTopic hz topic-name)
+        topic-config (.getReliableTopicConfig (.getConfig hz) topic-name)
+        _ (.setTopicOverloadPolicy topic-config TopicOverloadPolicy/DISCARD_OLDEST)
+        _ (.setExecutor topic-config (Executors/newSingleThreadExecutor))
+        _ (.setStatisticsEnabled topic-config true)
+        ring-buffer (topic-ring-buffer hz topic-name)
+        stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
+                                                  (hz-gauges topic)))
+        on-msg (fn [^Message m]
+                 (let [msg (.getMessageObject m)]
+                   (if (instance? WalRecord msg)
+                     (grouped-queue/put! queue (:record msg))
+                     ;; We should try to reconnect, but only if we weren't
+                     ;; the ones that sent the message to reconnect (if there
+                     ;; is only one machine it will try again within 10 seconds)
+                     (when (not (.localMember (.getPublishingMember m)))
+                       (a/put! acquire-slot-interrupt-chan true)))))
+        listener (hz-topic-listener ring-buffer on-msg)
+        listener-id (.addMessageListener topic listener)]
+    {:topic topic
+     :shutdown (fn []
+                 (.removeMessageListener topic listener-id)
+                 (grouped-queue/stop queue)
+                 (stop-gauge))}))
+
+(defn start-singleton []
+  (let [get-conn-config (fn []
+                          (config/get-aurora-config))
+        _ (wal/ensure-slot (get-conn-config) "invalidator")
+        acquire-slot-interrupt-chan (a/chan (a/sliding-buffer 1))
+
+        {hz-topic :topic
+         shutdown-topic :shutdown}
+        (start-singleton-hz-topic
+         {:acquire-slot-interrupt-chan acquire-slot-interrupt-chan})
+
+        {shutdown-listener :shutdown}
+        (start-singleton-listener
+         {:acquire-slot-interval-ms 10000
+          :process-id @config/process-id
+          :check-disabled (fn []
+                            (flags/toggled? :disable-singleton-invalidator))
+          :acquire-slot-interrupt-chan acquire-slot-interrupt-chan
+          :get-conn-config (fn []
+                             (config/get-aurora-config))
+          :hz-topic hz-topic})]
+    {:shutdown (fn []
+                 (shutdown-listener)
+                 (shutdown-topic))}))
 
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
@@ -480,44 +579,36 @@
          (create-wal-chans)
 
          wal-opts (wal/make-wal-opts {:wal-chan wal-chan
+                                      :worker-chan worker-chan
                                       :close-signal-chan close-signal-chan
                                       :ex-handler wal-ex-handler
-                                      :conn-config (or (config/get-next-aurora-config)
-                                                       ;; Use the next db so that we don't
-                                                       ;; have to worry about restarting the
-                                                       ;; invalidator when failing over to a
-                                                       ;; new blue/green deployment
-                                                       (config/get-aurora-config))
-                                      :slot-name process-id})]
+                                      :get-conn-config (fn []
+                                                         (config/get-aurora-config))
+                                      :slot-suffix process-id
+                                      :slot-type :invalidator})]
      (ua/fut-bg
-      (wal/start-worker wal-opts))
+       (wal/start-worker wal-opts))
 
      @(:started-promise wal-opts)
 
-     (start-worker process-id rs/store-conn worker-chan)
+     (def invalidator-q
+       (start-worker process-id rs/store worker-chan))
 
      (when byop-chan
        (ua/fut-bg
-        (start-byop-worker rs/store-conn byop-chan)))
+         (start-byop-worker rs/store byop-chan)))
 
      wal-opts)))
 
 (defn start-global []
-  (def wal-opts (start)))
-
-(defn stop [wal-opts]
-  (let [shutdown-future (future (wal/shutdown! wal-opts))]
-    (loop []
-      (when-not (realized? shutdown-future)
-        (wal/kick-wal (aurora/conn-pool :write))
-        (Thread/sleep 100)
-        (recur))))
-  (a/close! (:to wal-opts))
-  (a/close! (:close-signal-chan wal-opts)))
+  (def wal-opts (start))
+  (def shutdown-singleton (:shutdown (start-singleton))))
 
 (defn stop-global []
   (when (bound? #'wal-opts)
-    (stop wal-opts)))
+    (stop wal-opts))
+  (when (bound? #'shutdown-singleton)
+    (shutdown-singleton)))
 
 (defn restart []
   (stop-global)

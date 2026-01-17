@@ -6,7 +6,7 @@
             [clojure.tools.logging :as log])
   (:import (org.apache.commons.codec.binary Hex)))
 
-(defn hex-encoded? [s]
+(defn hex-encoded? [^String s]
   (try
     (Hex/decodeHex s)
     true
@@ -30,6 +30,7 @@
 (s/def ::s3-storage-access-key ::config-value)
 (s/def ::s3-storage-secret-key ::config-value)
 (s/def ::postmark-token ::config-value)
+(s/def ::sendgrid-token ::config-value)
 (s/def ::postmark-account-token ::config-value)
 (s/def ::secret-discord-token ::config-value)
 (s/def ::database-url ::config-value)
@@ -39,6 +40,7 @@
 (s/def ::stripe-secret ::config-value)
 (s/def ::stripe-webhook-secret ::config-value)
 (s/def ::honeycomb-api-key ::config-value)
+(s/def ::posthog-api-key ::config-value)
 (s/def ::google-oauth-client ::oauth-client)
 (s/def ::instant-config-app-id uuid?)
 (s/def ::kms-key-url string?)
@@ -60,11 +62,13 @@
                                  ::database-url
                                  ::next-database-cluster-id
                                  ::postmark-token
+                                 ::sendgrid-token
                                  ::postmark-account-token
                                  ::secret-discord-token
                                  ::stripe-secret
                                  ::stripe-webhook-secret
                                  ::honeycomb-api-key
+                                 ::posthog-api-key
                                  ::google-oauth-client
                                  ::hybrid-keyset]
                         :req-un [::aead-keyset]))
@@ -77,6 +81,7 @@
                                       ::database-cluster-id
                                       ::postmark-token
                                       ::postmark-account-token
+                                      ::sendgrid-token
                                       ::secret-discord-token
                                       ::stripe-secret
                                       ::stripe-webhook-secret
@@ -93,8 +98,8 @@
 
 (defn valid-config? [prod? config-edn]
   (or
-    (s/valid? (config-spec prod?) config-edn)
-    (s/explain (config-spec prod?) config-edn)))
+   (s/valid? (config-spec prod?) config-edn)
+   (s/explain (config-spec prod?) config-edn)))
 
 (defn read-config [env]
   (let [override (when (= :dev env)
@@ -129,7 +134,7 @@
                     (throw (ex-info "Config property is encrypted, but there is no :hybrid-keyset in the config."
                                     {:config config-edn})))
                   (hybrid-decrypt hybrid
-                                  {:ciphertext (Hex/decodeHex hex-string)
+                                  {:ciphertext (Hex/decodeHex ^String hex-string)
                                    :associated-data associated-data}))]
     (w/postwalk
      (fn [x]
@@ -140,7 +145,7 @@
          x
          (case (first x)
            ::plain (obfuscate (second x))
-           ::encoded (-> (decrypt (-> x second :enc))
+           ::encoded (-> ^bytes (decrypt (-> x second :enc))
                          (String.)
                          obfuscate))))
      (s/conform ::config config-edn))))

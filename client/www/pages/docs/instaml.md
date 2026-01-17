@@ -1,22 +1,23 @@
 ---
 title: Writing data
+description: How to write data with Instant using InstaML.
 ---
 
 Instant uses a **Firebase-inspired** interface for mutations. We call our mutation language **InstaML**
 
-## Update data
+## Creating data
 
-We use the `update` action to create entities.
+We use the `create` action to create entities:
 
 ```typescript
-import { init } from '@instantdb/react';
+import { init, id } from '@instantdb/react';
 
-const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-});
+// Instant app
+const APP_ID = '__APP_ID__';
+const db = init({ appId: APP_ID });
 
 // transact! 🔥
-db.transact(db.tx.goals[id()].update({ title: 'eat' }));
+db.transact(db.tx.goals[id()].create({ title: 'eat' }));
 ```
 
 This creates a new `goal` with the following properties:
@@ -24,33 +25,19 @@ This creates a new `goal` with the following properties:
 - It's identified by a randomly generated id via the `id()` function.
 - It has an attribute `title` with value `eat`.
 
-Similar to NoSQL, you don't need to use the same schema for each entity in a namespace. After creating the previous goal you can run the following:
-
-```javascript
-db.transact(
-  db.tx.goals[id()].update({
-    priority: 'none',
-    isSecret: true,
-    value: 10,
-    aList: [1, 2, 3],
-    anObject: { foo: 'bar' },
-  }),
-);
-```
-
 You can store `strings`, `numbers`, `booleans`, `arrays`, and `objects` as values. You can also generate values via functions. Below is an example for picking a random goal title.
 
 ```javascript
 db.transact(
-  db.tx.goals[id()].update({
+  db.tx.goals[id()].create({
     title: ['eat', 'sleep', 'hack', 'repeat'][Math.floor(Math.random() * 4)],
   }),
 );
 ```
 
----
+## Update data
 
-The `update` action is also used for updating entities. Suppose we had created the following goal
+The `update` action is used for updating entities. Suppose we had created the following goal
 
 ```javascript
 const eatId = id();
@@ -66,6 +53,30 @@ db.transact(db.tx.goals[eatId].update({ lastTimeEaten: 'Today' }));
 ```
 
 This will only update the value of the `lastTimeEaten` attribute for entity `eat`.
+
+Similar to NoSQL, you don't need to use the same schema for each entity in a namespace. After creating the previous goal you can run the following:
+
+```javascript
+db.transact(
+  db.tx.goals[id()].update({
+    priority: 'none',
+    isSecret: true,
+    value: 10,
+    aList: [1, 2, 3],
+    anObject: { foo: 'bar' },
+  }),
+);
+```
+
+`update` function works as create or update depending on whether the entity already exists or not (so called "upsert" mode). If entity doesn’t exist yet, calling `update` will create it, otherwise it will update.
+
+To force “strict update” mode, pass `{ upsert: false }` option:
+
+```javascript
+db.transact(
+  db.tx.goals[eatId].update({ lastTimeEaten: 'Today' }, { upsert: false }),
+);
+```
 
 ## Merge data
 
@@ -101,15 +112,19 @@ db.transact(db.tx.games[gameId].merge({ state: { '0-0': 'red' } }));
 db.transact(db.tx.games[gameId].merge({ state: { '0-1': 'blue' } }));
 
 // ✅ Wohoo! Both states are merged!
-// Final State: {'0-0': 'red', '0-0': 'blue' }
+// Final State: {'0-0': 'red', '0-1': 'blue' }
 ```
 
 `merge` only merges objects. Calling `merge` on **arrays, numbers, or booleans** will overwrite the values.
 
-Sometimes you may want to remove keys from a nested object. You can do so by calling `merge` with a key set to `null` or `undefined`. This will remove the corresponding property from the object.
+Sometimes you may want to remove keys from a nested object. You can do so by calling `merge` with a key set to `null`. This will remove the corresponding property from the object.
+
+{% callout type="note" %}
+Setting a key to `undefined` will have no effect. Set the key to `null` to remove the property.
+{% /callout %}
 
 ```javascript
-// State: {'0-0': 'red', '0-0': 'blue' }
+// State: {'0-0': 'red', '0-1': 'blue' }
 db.transact(db.tx.games[gameId].merge({ state: { '0-1': null } }));
 // New State! {'0-0': 'red' }
 ```
@@ -150,15 +165,17 @@ db.transact([
 We can associate `healthId` with `workoutId` like so:
 
 ```javascript
-db.transact(tx.goals[healthId].link({ todos: workoutId }));
+db.transact(db.tx.goals[healthId].link({ todos: workoutId }));
 ```
 
 We could have done all this in one `transact` too via chaining transaction chunks.
 
 ```javascript
 db.transact([
-  tx.todos[workoutId].update({ title: 'Go on a run' }),
-  tx.goals[healthId].update({ title: 'Get fit!' }).link({ todos: workoutId }),
+  db.tx.todos[workoutId].update({ title: 'Go on a run' }),
+  db.tx.goals[healthId]
+    .update({ title: 'Get fit!' })
+    .link({ todos: workoutId }),
 ]);
 ```
 
@@ -178,7 +195,7 @@ db.transact([
 Links are bi-directional. Say we link `healthId` to `workoutId`
 
 ```javascript
-db.transact(tx.goals[healthId].link({ todos: workoutId }));
+db.transact(db.tx.goals[healthId].link({ todos: workoutId }));
 ```
 
 We can query associations in both directions
@@ -199,7 +216,7 @@ console.log('todos with nested goals', todos);
 Links can be removed via `unlink.`
 
 ```javascript
-db.transact(tx.goals[healthId].unlink({ todos: workoutId }));
+db.transact(db.tx.goals[healthId].unlink({ todos: workoutId }));
 ```
 
 This removes links in both directions. Unlinking can be done in either direction so unlinking `workoutId` from `healthId` would have the same effect.
@@ -212,8 +229,8 @@ We can `unlink` multiple ids too:
 
 ```javascript
 db.transact([
-  tx.goals[healthId].unlink({ todos: [workoutId, proteinId, sleepId] }),
-  tx.goals[workId].unlink({ todos: [standupId, reviewPRsId, focusId] }),
+  db.tx.goals[healthId].unlink({ todos: [workoutId, proteinId, sleepId] }),
+  db.tx.goals[workId].unlink({ todos: [standupId, reviewPRsId, focusId] }),
 ]);
 ```
 
@@ -237,15 +254,22 @@ When it is used in a transaction, the updates will be applied to the entity that
 
 It can be used with `update`, `delete`, `merge`, `link`, and `unlink`.
 
+## Lookups in links
+
 When used with links, it can also be used in place of the linked entity's id.
 
 ```javascript
 db.transact(
-  tx.users[lookup('email', 'eva_lu_ator@instantdb.com')].link({
-    posts: lookup('number', 15),
+  db.tx.users[lookup('email', 'eva_lu_ator@instantdb.com')].link({
+    posts: lookup('number', 15), // using a lookup in place of the id
   }),
 );
 ```
+
+## Transacts are atomic
+
+When you call `db.transact`, all the transactions are committed atomically. If
+any of the transactions fail, none of them will be committed.
 
 ## Typesafety
 
@@ -258,24 +282,10 @@ db.tx.todos[workoutId].update({
 });
 ```
 
-As your app grows, you may want to start enforcing types. When you're ready, you can start using a [schema](/docs/modeling-data):
-
-```typescript
-import { init } from '@instantdb/react';
-
-import schema from '../instant.schema.ts';
-
-const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-  schema,
-});
-```
-
-If your schema includes a `todos.dueDate` for example:
+As your app grows, you may want to start enforcing types. When you're ready, you can start using a [schema](/docs/modeling-data). If your schema includes a `todos.dueDate` for example:
 
 ```typescript
 // instant.schema.ts
-
 const _schema = i.schema({
   entities: {
     todos: i.entity({
@@ -296,10 +306,10 @@ Instant also comes with a few utility types, which can help you write abstractio
 
 ```typescript
 // Goal
-myCustomUpdate('todos', { dueDate: Date.now() } );
+myCustomUpdate('todos', { dueDate: Date.now() });
 ```
 
-You can use the `UpdateParams` utility to make sure arguments follow the schema: 
+You can use the `UpdateParams` utility to make sure arguments follow the schema:
 
 ```typescript
 import { UpdateParams } from '@instantdb/react';
@@ -315,7 +325,7 @@ function myCustomUpdate<EType extends EntityTypes>(
 }
 ```
 
-And the `LinkParams` utility do the same for links: 
+And the `LinkParams` utility do the same for links:
 
 ```typescript
 import { LinkParams } from '@instantdb/react';
@@ -382,8 +392,9 @@ db.tx.NAMESPACE_LABEL[ENTITY_IDENTIFIER].ACTION(ACTION_SPECIFIC_DATA)
 
 - `NAMESPACE_LABEL` refers to the namespace to commit (e.g. `goals`, `todos`)
 - `ENTITY_IDENTIFIER` is the id to look up in the namespace. This id must be a uuid and unique to the namespace. You can use the `id()` function to generate a uuid for convenience.
-- `ACTION` is one of `update`, `delete`, `link`, `unlink`
+- `ACTION` is one of `create`, `update`, `merge`, `delete`, `link`, `unlink`
 - `ACTION_SPECIFIC_DATA` depends on the action
-  - `update` takes in an object of information to commit
+  - `create` and `update` take in an object of information to commit
+  - `merge` takes in an object to deep merge with the existing data
   - `delete` is the only action that doesn't take in any data,
   - `link` and `unlink` takes an object of label-entity pairs to create/delete associations

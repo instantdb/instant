@@ -8,10 +8,10 @@
  *
  */
 
-import { init, i } from "@instantdb/react";
-import Head from "next/head";
-import { useEffect, FormEvent, useRef, useState } from "react";
-import config from "../../config";
+import { init, i } from '@instantdb/react';
+import Head from 'next/head';
+import { useEffect, FormEvent, useRef, useState } from 'react';
+import config from '../../config';
 
 const schema = i.schema({
   entities: {
@@ -39,24 +39,24 @@ function Main() {
   useEffectOnce(() => {
     setTimeout(() => {
       const p1 = db.queryOnce({ posts: {} });
-      window.dispatchEvent(new Event("offline"));
+      window.dispatchEvent(new Event('offline'));
       const p2 = db
         .queryOnce({ posts: {} })
-        .catch((e) => console.log("expected fail, we are offline"));
-      window.dispatchEvent(new Event("online"));
-      window.dispatchEvent(new Event("offline"));
-      window.dispatchEvent(new Event("online"));
+        .catch((e) => console.log('expected fail, we are offline'));
+      window.dispatchEvent(new Event('online'));
+      window.dispatchEvent(new Event('offline'));
+      window.dispatchEvent(new Event('online'));
       const p3 = db.queryOnce({ posts: {} });
       Promise.all([p1, p3]).then(
         (succ) => {
           console.log(
-            "Check inspector; how many active ws connections do you see?",
+            'Check inspector; how many active ws connections do you see?',
           );
           setResult({ succ });
         },
         (err) => {
           console.error(
-            "Uh oh, we should definitely have gotten a response here",
+            'Uh oh, we should definitely have gotten a response here',
           );
           setResult({ err });
         },

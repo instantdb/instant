@@ -1,5 +1,5 @@
 {
-  "name": "sandbox-expo",
+  "name": "sb-react-native-expo",
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@types/react": ">=16",
     "instant-cli": "workspace:*"
   },
   "private": true

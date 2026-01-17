@@ -106,14 +106,18 @@
                       (catch Throwable t
                         [{:path "instant.gauges.metric-fn-error"
                           :value (.getMessage t)}])))])]
-    (into {} (map (juxt :path :value) metrics))))
+    (reduce (fn [acc {:keys [path value]}]
+              (if path
+                (assoc acc path value)
+                acc))
+            metrics)))
 
 (comment
   (gauges))
 
 (defn straight-jacket-record-gauges []
   (try
-    (if (= :prod (config/get-env))
+    (if (config/aws-env?)
       (tracer/record-info! {:name "gauges"
                             :attributes (gauges)})
       ;; Run them in dev so any issues will bubble up, but don't bother

@@ -1,11 +1,11 @@
 // Docs: https://www.instantdb.com/docs/permissions
 
-import { type InstantRules } from "@instantdb/react";
+import { type InstantRules } from '@instantdb/react';
 
 const rules = {
   attrs: {
     allow: {
-      create: "false",
+      create: 'false',
     },
   },
 } satisfies InstantRules;

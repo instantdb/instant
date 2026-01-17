@@ -29,8 +29,8 @@ export function Dev() {
         Object.keys(flags).map((k) => [
           k,
           getLocal(`__instant__flag__${k}`) ?? false,
-        ])
-      )
+        ]),
+      ),
     );
 
     document.addEventListener('keydown', toggleOpen);
@@ -40,8 +40,8 @@ export function Dev() {
   if (!isHydrated || !open) return null;
 
   return (
-    <div className="fixed font-mono z-50 shadow-lg border bottom-2 right-2 top-2 bg-gray-50 max-w-md w-full overflow-auto p-5 gap-4 flex flex-col">
-      <h2 className="font-bold text-lg">Instant WWW Devtools</h2>
+    <div className="fixed top-2 right-2 bottom-2 z-50 flex w-full max-w-md flex-col gap-4 overflow-auto border bg-gray-50 p-5 font-mono shadow-lg">
+      <h2 className="text-lg font-bold">Instant WWW Devtools</h2>
 
       <div>
         <h3 className="font-bold">Backend</h3>
@@ -49,7 +49,7 @@ export function Dev() {
         <div className="flex gap-2">
           {isDevBackend ? (
             <button
-              className="bg-red-400 text-white py-0.5 px-2"
+              className="bg-red-400 px-2 py-0.5 text-white"
               onClick={() => {
                 setTokenAndReload(undefined, false);
               }}
@@ -58,7 +58,7 @@ export function Dev() {
             </button>
           ) : (
             <button
-              className="bg-emerald-400 text-white py-0.5 px-2"
+              className="bg-emerald-400 px-2 py-0.5 text-white"
               onClick={() => {
                 setTokenAndReload(undefined, true);
               }}
@@ -74,7 +74,7 @@ export function Dev() {
         {Object.keys(flagStates).length ? (
           Object.entries(flagStates).map(([name, active]) => (
             <div key={name}>
-              <label className="flex items-center gap-1.5 cursor-pointer">
+              <label className="flex cursor-pointer items-center gap-1.5">
                 <input
                   type="checkbox"
                   className="cursor-pointer"
@@ -97,7 +97,7 @@ export function Dev() {
             </div>
           ))
         ) : (
-          <div className="italic text-gray-400">No flags</div>
+          <div className="text-gray-400 italic">No flags</div>
         )}
       </div>
 
@@ -106,16 +106,16 @@ export function Dev() {
         <div className="flex flex-col gap-1">
           {authTokens.length ? (
             authTokens.map((p) => (
-              <div key={p.name} className="flex justify-between items-center">
+              <div key={p.name} className="flex items-center justify-between">
                 <div>
                   {p.name}{' '}
-                  <span className="italic text-gray-400">
+                  <span className="text-gray-400 italic">
                     ({p.prod ? 'Prod' : 'Dev'})
                   </span>
                 </div>
                 <div className="flex gap-1">
                   <button
-                    className="bg-black text-white py-0.5 px-2"
+                    className="bg-black px-2 py-0.5 text-white"
                     onClick={() => {
                       setTokenAndReload(p.token, p.prod);
                     }}
@@ -123,17 +123,17 @@ export function Dev() {
                     Switch
                   </button>
                   <button
-                    className="bg-black text-white py-0.5 px-2"
+                    className="bg-black px-2 py-0.5 text-white"
                     onClick={() => {
                       const nextTokens = authTokens.filter(
-                        (t) => t.token !== p.token
+                        (t) => t.token !== p.token,
                       );
 
                       setAuthTokens(nextTokens);
 
                       localStorage.setItem(
                         '__instant__authTokens',
-                        JSON.stringify(nextTokens)
+                        JSON.stringify(nextTokens),
                       );
                     }}
                   >
@@ -143,7 +143,7 @@ export function Dev() {
               </div>
             ))
           ) : (
-            <div className="italic text-gray-400">No auth tokens</div>
+            <div className="text-gray-400 italic">No auth tokens</div>
           )}
         </div>
       </div>
@@ -153,11 +153,12 @@ export function Dev() {
           <div className="flex space-x-2">
             <h3 className="font-bold">Current auth token</h3>
             <button
-              className="bg-red-400 text-white py-0.5 px-2"
+              className="bg-red-400 px-2 py-0.5 text-white"
               onClick={() => {
                 setToken(undefined);
                 location.reload();
-              }}>
+              }}
+            >
               Clear
             </button>
           </div>
@@ -194,7 +195,7 @@ export function Dev() {
 
               localStorage.setItem(
                 '__instant__authTokens',
-                JSON.stringify(nextTokens)
+                JSON.stringify(nextTokens),
               );
             }}
           >
@@ -202,9 +203,9 @@ export function Dev() {
               type="text"
               name="name"
               placeholder="Name"
-              className="w-full px-2 py-0.5 border-gray-400"
+              className="w-full border-gray-400 px-2 py-0.5"
             />
-            <button type="submit" className="bg-black text-white p-1 w-full">
+            <button type="submit" className="w-full bg-black p-1 text-white">
               Save token
             </button>
           </form>
@@ -234,7 +235,7 @@ export function Dev() {
                   token,
                   prod,
                 },
-              ])
+              ]),
             );
 
             setTokenAndReload(token);
@@ -244,18 +245,18 @@ export function Dev() {
             type="text"
             name="name"
             placeholder="Name"
-            className="w-full px-2 py-0.5 border-gray-400"
+            className="w-full border-gray-400 px-2 py-0.5"
           />
           <input
             type="text"
             name="token"
             placeholder="Token"
-            className="w-full px-2 py-0.5 border-gray-400"
+            className="w-full border-gray-400 px-2 py-0.5"
           />
           <label className="flex items-center gap-1.5">
             <input type="checkbox" name="prod" /> From Prod backend
           </label>
-          <button type="submit" className="bg-black text-white p-1 w-full">
+          <button type="submit" className="w-full bg-black p-1 text-white">
             Add and use token
           </button>
         </form>
@@ -270,7 +271,7 @@ function setToken(token?: string) {
       '@AUTH',
       JSON.stringify({
         token,
-      })
+      }),
     );
   } else {
     localStorage.removeItem('@AUTH');

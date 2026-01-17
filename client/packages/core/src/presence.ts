@@ -1,5 +1,5 @@
-import { pick } from "./utils/pick";
-import { areObjectsShallowEqual, areObjectKeysEqual } from "./utils/object";
+import { pick } from './utils/pick.js';
+import { areObjectsShallowEqual, areObjectKeysEqual } from './utils/object.js';
 
 export type RoomSchemaShape = {
   [k: string]: {
@@ -16,6 +16,14 @@ export type PresenceOpts<PresenceShape, Keys extends keyof PresenceShape> = {
   user?: boolean;
   peers?: string[];
   keys?: Keys[];
+  /**
+   * If you haven't joined this room yet, initialPresence lets you set
+   * the very first presence state for the user.
+   */
+  initialPresence?: Partial<PresenceShape>;
+
+  /** @deprecated use `initialPresence` */
+  initialData?: Partial<PresenceShape>;
 };
 
 type PresencePeer<PresenceShape, Keys extends keyof PresenceShape> = Pick<
@@ -55,7 +63,7 @@ export function buildPresenceSlice<
     peers: {},
   };
 
-  const includeUser = opts && "user" in opts ? opts.user : true;
+  const includeUser = opts && 'user' in opts ? opts.user : true;
 
   if (includeUser) {
     const user = pick(data.user ?? {}, opts?.keys);

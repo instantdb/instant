@@ -1,5 +1,6 @@
 ---
 title: Getting started with Vanilla JS
+description: How to use Instant with Vanilla JS
 ---
 
 You can use Instant with plain ol' Javascript/Typescript too. You may find this helpful to integrate Instant with a framework that doesn't have an official SDK yet.
@@ -143,7 +144,7 @@ const styles: Record<string, string> = {
     border-bottom-width: 0px;
   `,
   todoText: `
-    flex-grow: 1;
+    grow: 1;
     overflow: hidden;
   `,
   delete: `

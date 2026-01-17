@@ -1,40 +1,75 @@
 {
   "name": "@instantdb/core",
-  "version": "v0.17.12",
+  "version": "0.0.0",
   "description": "Instant's core local abstraction",
-  "main": "dist/index.js",
-  "module": "dist/module/index.js",
-  "types": "dist/module/index.d.ts",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/core",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/core"
+  },
+  "type": "module",
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "module": "./dist/esm/index.js",
   "unpkg": "standalone/index.umd.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    }
+  },
+  "tshy": {
+    "selfLink": false,
+    "main": true,
+    "module": true,
+    "project": "./tsconfig.json",
+    "exports": {
+      "./package.json": "./package.json",
+      ".": "./src/index.ts"
+    }
+  },
   "scripts": {
     "test": "vitest",
     "bench": "vitest bench",
-    "test:ci": "vitest run",
+    "test:types": "tsc -p tsconfig.test.json --noEmit",
+    "test:ci": "vitest run && pnpm run test:types",
     "bench:ci": "vitest bench --run",
     "check": "tsc --noEmit",
-    "build": "rm -rf dist; npm run build:main && npm run build:module && npm run build:standalone",
-    "dev:main": "tsc -p tsconfig.json -w --skipLibCheck",
-    "dev:module": "tsc -p tsconfig.module.json -w --skipLibCheck",
-    "dev": "run-p dev:main dev:module",
-    "build:main": "tsc -p tsconfig.json",
-    "build:module": "tsc -p tsconfig.module.json",
+    "check-exports": "attw --pack .",
+    "dev:module": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
+    "dev:main": "tsc --watch --preserveWatchOutput -p tsconfig.cjs.dev.json",
+    "dev": "run-p dev:module dev:main",
+    "clean": "rm -rf dist",
+    "build": "rm -rf dist; npm run build:tshy && npm run build:standalone && npm run check-exports",
+    "build:tshy": "tshy",
     "build:standalone": "vite build",
-    "publish-package": "npm publish --access public"
+    "publish-package": "pnpm pack && npm publish *.tgz --access public"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.4",
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@types/node": "^18.11.18",
-    "@types/uuid": "^8.3.4",
+    "@types/uuid": "^10.0.0",
     "@types/websocket": "^1.0.5",
     "fake-indexeddb": "^6.0.0",
     "npm-run-all": "^4.1.5",
-    "typescript": "^5.5.4",
+    "tshy": "^3.0.2",
+    "typescript": "^5.9.3",
     "vite": "^5.2.0",
     "vitest": "^1.6.0"
   },
   "dependencies": {
+    "@instantdb/version": "workspace:*",
     "mutative": "^1.0.10",
-    "uuid": "^9.0.0"
+    "uuid": "^11.1.0"
   }
 }

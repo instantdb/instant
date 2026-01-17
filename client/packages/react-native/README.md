@@ -14,10 +14,9 @@
 </p>
 
 <p align="center">
-   <a href="https://www.instantdb.com/docs/start-rn">Get Started</a> · 
-   <a href="https://instantdb.com/examples">Examples</a> · 
-   <a href="https://instantdb.com/tutorial">Try the Demo</a> · 
-   <a href="https://www.instantdb.com/docs/start-rn">Docs</a> · 
+   <a href="https://www.instantdb.com/docs/start-rn">Get Started</a> ·
+   <a href="https://instantdb.com/examples">Examples</a> ·
+   <a href="https://www.instantdb.com/docs/start-rn">Docs</a> ·
    <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
 <p>
 
@@ -29,25 +28,32 @@ Welcome to [Instant's](http://instantdb.com) React Native SDK.
 // * Updates instantly
 // * Multiplayer
 // * Works offline
+
+import { init, id } from '@instantdb/react-native';
+
+const db = init({
+  appId: process.env.NEXT_PUBLIC_APP_ID,
+});
+
 function Chat() {
   // 1. Read
-  const { isLoading, error, data } = useQuery({
+  const { isLoading, error, data } = db.useQuery({
     messages: {},
   });
 
   // 2. Write
   const addMessage = (message) => {
-    transact(tx.messages[id()].update(message));
-  }
+    db.transact(db.tx.messages[id()].update(message));
+  };
 
   // 3. Render!
-  return <UI data={data} onAdd={addMessage} />
+  return <UI data={data} onAdd={addMessage} />;
 }
 ```
 
 # Get Started
 
-Follow the [getting started](https://www.instantdb.com/docs/start-rn) tutorial to set up a live React Native app in under 5 minutes! Or you can try a [demo](https://instantdb.com/tutorial) in your browser :).
+Follow the [getting started](https://www.instantdb.com/docs/start-rn) tutorial to set up a live React Native app in under 5 minutes!
 
 # Questions?
 

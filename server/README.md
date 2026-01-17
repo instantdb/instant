@@ -35,6 +35,26 @@ Ensure your `postgresql.conf` has logical replication enabled:
 wal_level = logical
 ```
 
+Install [`pg_hint_plan`](https://github.com/ossc-db/pg_hint_plan/blob/master/docs/installation.md)
+
+On a mac using postgres.app, it looks something like this:
+
+```sh
+# In a temporary directory
+git clone https://github.com/ossc-db/pg_hint_plan.git
+cd pg_hint_plan
+git checkout PG16
+make USE_PGXS=1 PG_CONFIG=/Applications/Postgres.app/Contents/Versions/16/bin/pg_config install DESTDIR=$HOME/postgres_extensions
+sudo cp $HOME/postgres_extensions/Applications/Postgres.app/Contents/Versions/16/lib/postgresql/pg_hint_plan.dylib /usr/local/lib/
+```
+
+Ensure your `postgresql.conf` can find pg_hint_plan and has pg_hint_plan enabled:
+
+```conf
+dynamic_library_path = '/usr/local/lib:$libdir'
+shared_preload_libraries = 'pg_stat_statements,pg_hint_plan'
+```
+
 Run the migrations to initialize the database:
 
 ```sh
@@ -48,6 +68,7 @@ make bootstrap-oss
 ```
 
 And start the server:
+
 ```sh
 make dev
 ```
@@ -57,8 +78,63 @@ The instant server will run at [localhost:8888](http://localhost:8888) and you c
 To run tests:
 
 ```sh
+make compile-java
 make test
 ```
+
+# Setting up local https and SSE
+
+There are two options for local https.
+
+Use undertow if you don't want any other dependencies and you're not testing SSE or multiple hazelcast instances.
+
+Use caddy if you want to test SSE locally (without hitting connection limits) or want to test with multiple local instant server instances.
+
+## caddy
+
+Add to `/etc/hosts`:
+
+```
+127.0.0.1   dev.instantdb.com
+```
+
+Run `sudo caddy trust` to allow caddy to add its cert to your keychain.
+
+Run `caddy run --config Caddyfile.dev`
+
+In `src/instant/config.clj`, change `server-origin` to
+
+```
+https://dev.instantdb.com:9888
+```
+
+In `client/www/lib/config.ts`, change `localPort` to `'9888'`, `http://localhost` to `https://dev.instantdb.com`, and `ws://localhost` to `wss://dev.instantdb.com`;
+
+To run multiple instantdb instances, do `PORT=8887 NREPL_PORT=6004 make dev`. If you need another, do `PORT=8886 NREPL_PORT=6003 make dev`. If you need more, you'll have to modify the Caddyfile.dev.
+
+## undertow
+
+Add to `/etc/hosts`:
+
+```
+127.0.0.1   dev.instantdb.com
+```
+
+Run `./scripts/install_dev_certs.sh`
+
+- When asked for password, type `changeit` (couple of times)
+- If asked for override, type `yes`
+- Type your macOS password if asked in a popup
+
+After that, certs from `dev-resources/certs` will be picked up by server automatically.
+
+In `src/instant/config.clj`, change `server-origin` to
+
+```
+https://dev.instantdb.com:8889
+```
+
+Server https address is https://dev.instantdb.com:8889
 
 # Config
 

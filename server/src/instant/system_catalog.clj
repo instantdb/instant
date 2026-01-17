@@ -1,6 +1,9 @@
 (ns instant.system-catalog
   (:require [clojure.set :refer [map-invert]]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [instant.flags :as flags])
+  (:import
+   [java.util UUID]))
 
 ;; ---------
 ;; Constants
@@ -35,16 +38,21 @@
    "$oauthUserLinks" "ol"
    "$oauthClients" "oc"
    "$oauthCodes" "co"
-   "$oauthRedirects" "or"})
+   "$oauthRedirects" "or"
+   "$files" "fi"})
 
 (def all-etypes (set (keys etype-shortcodes)))
 
 (def shortcodes-etype (map-invert etype-shortcodes))
 
+;; Must be 10 chars or shorter
 (def label-shortcodes
   {"id" "id"
    "email" "email"
+   "type" "type"
+   "imageURL" "imageurl"
    "codeHash" "codehash"
+   "authCode" "authcode"
    "$user" "user"
    "hashedToken" "hashedtok"
    "name" "name"
@@ -60,12 +68,22 @@
    "stateHash" "statehash"
    "cookieHash" "cookihash"
    "redirectUrl" "redireurl"
-   "$oauthClient" "oauclient"})
+   "$oauthClient" "oauclient"
+   "path" "path"
+   "url" "url"
+   "size" "size"
+   "content-type" "c-type"
+   "content-disposition" "cdisp"
+   "location-id" "lid"
+   "key-version" "kv"
+   "userInfo" "userInfo"
+   "linkedGuestUsers" "lgu"
+   "linkedPrimaryUser" "lpu"})
 
 (def shortcodes-label (map-invert label-shortcodes))
 
 (defn encode-string->long [input]
-  (assert (< (count input) 13))
+  (assert (< (count input) 13) input)
   (let [base (apply str (map (fn [c] (char->bitstring c)) input))
         padded (apply str base (repeat (- 64 (count base)) "1"))]
     (.getLong (java.nio.ByteBuffer/wrap
@@ -103,7 +121,7 @@
                      (bitstring->char bitstring)))))
          (apply str))))
 
-(defn decode-system-uuid [uuid]
+(defn decode-system-uuid [^UUID uuid]
   (let [system-str (decode-long->string (.getMostSignificantBits uuid))
         [etype-shortcode label-shortcode] (string/split (decode-long->string (.getLeastSignificantBits uuid))
                                                         #"\/")]
@@ -122,13 +140,21 @@
   [(encode-system-uuid :ident etype label) etype label])
 
 (defn make-attr [etype label & props]
-  (merge {:id (get-attr-id etype label)
+  (merge {:id               (get-attr-id etype label)
           :forward-identity (get-ident-spec etype label)
-          :unique? false
-          :index? false
-          :value-type :blob
-          :cardinality :one}
+          :unique?          false
+          :index?           false
+          :required?        false
+          :value-type       :blob
+          :cardinality      :one}
          (apply hash-map props)))
+
+(def $users-linked-primary-user
+  (make-attr "$users" "linkedPrimaryUser"
+             :reverse-identity (get-ident-spec "$users" "linkedGuestUsers")
+             :value-type :ref
+             :on-delete :cascade
+             :cardinality :one))
 
 (def $users-attrs
   [(make-attr "$users" "id"
@@ -137,7 +163,12 @@
    (make-attr "$users" "email"
               :unique? true
               :index? true
-              :checked-data-type :string)])
+              :checked-data-type :string)
+   (make-attr "$users" "type"
+              :checked-data-type :string)
+   (make-attr "$users" "imageURL"
+              :checked-data-type :string)
+   $users-linked-primary-user])
 
 (def $magic-code-attrs
   [(make-attr "$magicCodes" "id"
@@ -147,11 +178,10 @@
               :unique? false
               :index? true
               :checked-data-type :string)
-   (make-attr "$magicCodes" "$user"
-              :reverse-identity (get-ident-spec "$users" "$magicCodes")
+   (make-attr "$magicCodes" "email"
+              :unique? false
               :index? true
-              :value-type :ref
-              :on-delete :cascade)])
+              :checked-data-type :string)])
 
 (def $user-refresh-token-attrs
   [(make-attr "$userRefreshTokens" "id"
@@ -229,14 +259,15 @@
               :unique? true
               :index? true
               :checked-data-type :string)
-   (make-attr "$oauthCodes" "$user"
-              :reverse-identity (get-ident-spec "$users" "$oauthCodes")
-              :value-type :ref
-              :on-delete :cascade)
    (make-attr "$oauthCodes" "codeChallengeMethod"
               :checked-data-type :string)
    (make-attr "$oauthCodes" "codeChallenge"
-              :checked-data-type :string)])
+              :checked-data-type :string)
+   (make-attr "$oauthCodes" "userInfo")
+   (make-attr "$oauthCodes" "$oauthClient"
+              :reverse-identity (get-ident-spec "$oauthClients" "$oauthCodes")
+              :value-type :ref
+              :on-delete :cascade)])
 
 (def $oauth-redirect-attrs
   [(make-attr "$oauthRedirects" "id"
@@ -263,6 +294,42 @@
    (make-attr "$oauthRedirects" "codeChallenge"
               :checked-data-type :string)])
 
+(def $files-attrs
+  [(make-attr "$files" "id"
+              :unique? true
+              :index? true)
+   (make-attr "$files" "path"
+              :unique? true
+              :index? true
+              :checked-data-type :string
+              :required? true)
+   (make-attr "$files" "size"
+              :unique? false
+              :index? true
+              :checked-data-type :number
+              :required? true)
+   (make-attr "$files" "content-type"
+              :unique? false
+              :index? true
+              :checked-data-type :string)
+   (make-attr "$files" "content-disposition"
+              :unique? false
+              :index? true
+              :checked-data-type :string)
+   (make-attr "$files" "location-id"
+              :unique? true
+              :index? true
+              :checked-data-type :string
+              :required? true)
+   (make-attr "$files" "key-version"
+              :unique? false
+              :index? false
+              :checked-data-type :number)
+   (make-attr "$files" "url"
+              :unique? false
+              :index? false
+              :checked-data-type :string)])
+
 (def all-attrs (concat $users-attrs
                        $magic-code-attrs
                        $user-refresh-token-attrs
@@ -270,4 +337,53 @@
                        $user-oauth-link-attrs
                        $oauth-client-attrs
                        $oauth-code-attrs
-                       $oauth-redirect-attrs))
+                       $oauth-redirect-attrs
+                       $files-attrs))
+
+(defn- ^:private reserved-ident-names
+  "Want to add a new system catalog attribute? 
+   
+   1. Find a good, unique ident name for it (etype + label). i.e: ['$users' 'fullName'] 
+   2. Head on over to instant-config, and update the flag to include your new ident name. 
+
+   This will reserve the ident name, so users can't create that attribute. 
+
+   Once your PR is ready, deploy the change, create your system catalog attr, then 
+   remove the ident name from the flag."
+  []
+  (flags/flag :reserved-system-catalog-ident-names #{}))
+
+(def ^:private existing-ident-names
+  (->> all-attrs
+       (mapcat (fn [{:keys [forward-identity reverse-identity]}]
+                 (cond-> []
+                   forward-identity (conj (vec (rest forward-identity)))
+                   reverse-identity (conj (vec (rest reverse-identity))))))
+       set))
+
+(defn reserved-ident-name? [[etype label]]
+  (or (contains? (reserved-ident-names) [etype label])
+      (contains? existing-ident-names [etype label])))
+
+(def editable-etypes
+  "We let users create new attributes on these etypes."
+  #{"$users" "$files"})
+
+(def ^:private  editable-triple-ident-names
+  #{["$users" "id"]
+    ["$files" "id"]
+    ["$files" "path"]})
+
+(defn editable-triple-ident-name?
+  "There are some system catalog attributes that we let users edit. 
+  
+  $users.id and $files.id 
+    In order to enable any edits for $users and $files, the `id` triple 
+    has to be editable. This is because we always do an insert for the 
+    id triple when updating entities. 
+
+  $files.path 
+    There may be good reason for a user to change the $files.path for a file."
+  [[etype label]]
+  (contains? editable-triple-ident-names [etype label]))
+

@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState } from 'react';
 
 export default function Login({ auth }) {
   const [state, setState] = useState({
-    sentEmail: "",
-    email: "",
-    code: "",
+    sentEmail: '',
+    email: '',
+    code: '',
   });
   const { sentEmail, email, code } = state;
   return (
@@ -26,8 +26,8 @@ export default function Login({ auth }) {
                 onClick={() => {
                   setState({ ...state, sentEmail: email });
                   auth.sendMagicCode({ email }).catch((err) => {
-                    alert("Uh oh :" + err.body?.message);
-                    setState({ ...state, sentEmail: "" });
+                    alert('Uh oh :' + err.body?.message);
+                    setState({ ...state, sentEmail: '' });
                   });
                 }}
               >
@@ -42,7 +42,7 @@ export default function Login({ auth }) {
               <input
                 type="text"
                 placeholder="Code plz"
-                value={code || ""}
+                value={code || ''}
                 onChange={(e) => setState({ ...state, code: e.target.value })}
               />
             </div>
@@ -51,8 +51,8 @@ export default function Login({ auth }) {
                 auth
                   .signInWithMagicCode({ email: sentEmail, code })
                   .catch((err) => {
-                    alert("Uh oh :" + err.body?.message);
-                    setState({ ...state, code: "" });
+                    alert('Uh oh :' + err.body?.message);
+                    setState({ ...state, code: '' });
                   });
               }}
             >

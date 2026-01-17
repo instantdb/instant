@@ -2,19 +2,24 @@
   (:require
    [chime.core :as chime-core]
    [instant.config :as config]
+   [instant.flags :as flags]
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
+   [instant.model.schema :as schema-model]
    [instant.util.date :as date]
    [instant.util.exception :as ex]
+   [instant.util.lang :as lang]
    [instant.util.string :as string-util]
+   [instant.util.posthog :as posthog]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [ring.util.http-response :as response])
+   [ring.util.http-response :as response]
+   [clojure.walk :as w])
   (:import
-   (java.time Period)
+   (java.time Period ZonedDateTime)
    (java.time.temporal ChronoUnit)
-   (java.util UUID)))
+   (java.util Date UUID)))
 
 (def ephemeral-creator-email (if (= (config/get-env) :dev)
                                "hello+ephemeralappsdev@instantdb.com"
@@ -36,9 +41,9 @@
 
 (defn app-expires-ms [app]
   (-> app
-      :created_at
+      ^Date (:created_at)
       (.toInstant)
-      (.plus expiration-days ChronoUnit/DAYS)
+      (.plus (long expiration-days) ChronoUnit/DAYS)
       (.toEpochMilli)))
 
 ;; -----------
@@ -46,7 +51,8 @@
 
 (defn http-post-handler [req]
   (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
-        rules-code (get-in req [:body :rules :code])
+        schema (get-in req [:body :schema])
+        rules-code (ex/get-optional-param! req [:body :rules :code] w/stringify-keys)
         _ (when rules-code
             (ex/assert-valid! :rule rules-code (rule-model/validation-errors
                                                 rules-code)))
@@ -54,11 +60,22 @@
     (when rules-code
       (rule-model/put! {:app-id (:id app)
                         :code rules-code}))
+    (when schema
+      (->> schema
+           (schema-model/plan! {:app-id (:id app)
+                                :check-types? true
+                                :background-updates? false})
+           (schema-model/apply-plan! (:id app))))
+    (posthog/track! req
+                    "app:create-ephemeral"
+                    {:app-id (str (:id app))})
     (response/ok {:app app
                   :expires_ms (app-expires-ms app)})))
 
 (comment
-  (http-post-handler {:body {:title "my-app"}}))
+  (http-post-handler {:body {:title "my-app"}})
+  (http-post-handler {:body {:title "my-app"
+                             :rules {:code {:ns {:bind ["auth"]}}}}}))
 
 (defn http-get-handler [req]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
@@ -87,7 +104,7 @@
                       (Period/ofDays 1))]
 
     (->> periodic-seq
-         (filter (fn [x] (.isAfter x now))))))
+         (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
 
 (comment
   (first (period)))
@@ -96,29 +113,38 @@
   (let [app-ids (app-model/get-app-ids-created-before {:creator-id (:id @ephemeral-creator)
                                                        :created-before created-before})]
     (tracer/add-data!
-     {:created-before created-before
-      :num-apps (count app-ids)})
+     {:attributes
+      {:created-before created-before
+       :num-apps (count app-ids)}})
     (when (seq app-ids)
       (app-model/delete-by-ids! {:creator-id (:id @ephemeral-creator)
                                  :ids app-ids}))))
 
 (defn handle-sweep [_]
-  (tracer/with-span! {:name "ephemeral-app-sweeper/sweep"}
-    (sweep-for-apps-created-before
-     (-> (date/est-now)
-         ;; give 1 extra day as a grace period
-         (.minusDays (inc expiration-days))
-         (.toInstant)))))
+  (when-not (flags/failing-over?)
+    (tracer/with-span! {:name "ephemeral-app-sweeper/sweep"}
+      (sweep-for-apps-created-before
+       (-> (date/est-now)
+           ;; give 1 extra day as a grace period
+           (.minusDays (inc expiration-days))
+           (.toInstant))))))
 
 (defn start []
   (tracer/record-info! {:name "ephemeral-app-sweeper/schedule"})
-  (def schedule (chime-core/chime-at (period) handle-sweep)))
+  (def schedule
+    (chime-core/chime-at (period) handle-sweep)))
 
 (defn stop []
-  (.close schedule))
+  (lang/close schedule))
 
 (defn restart []
   (stop)
+  (start))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
   (start))
 
 (comment

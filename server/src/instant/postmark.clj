@@ -4,7 +4,10 @@
    [clj-http.client :as clj-http]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
-   [instant.util.exception :as ex]))
+   [instant.util.exception :as ex]
+   [instant.util.email :as email]
+   [medley.core :as medley]
+   [clojure.string :as string]))
 
 ;; ------------
 ;; Error codes
@@ -24,8 +27,10 @@
 (defn signature-exists? [e]
   (= 504
      (-> e ex-data :body :ErrorCode)))
+
 ;; -------- 
 ;; API
+
 (defn send! [{:keys [from to cc bcc subject html text
                      reply-to]
               :or {reply-to "hello@instantdb.com"}}]
@@ -66,23 +71,39 @@
               (throw e))))))))
 
 (comment
-  (send! {:from "auth@pm.instantdb.com"
+  (send! {:from "verify@dash-pm.instantdb.com"
           :to "stopa@instantdb.com"
           :subject "Sending a message from the REPL"
           :html (standard-body "<h1>Hello. This message is from the REPL")})
   ;; inactive recipient
-  (send! {:from "auth@pm.instantdb.com"
+  (send! {:from "verify@dash-pm.instantdb.com"
           :to "hello@hello.com"
           :subject "Sending a message from the REPL"
           :html (standard-body "<h1>Hello. This message is from the REPL")}))
 
-(defn standard-body [& body]
-  (str
-   "<div style='background:#f6f6f6;font-family:Helvetica,Arial,sans-serif;line-height:1.6;font-size:18px'>"
-   "<div style='max-width:650px;margin:0 auto;background:white;padding:20px'>"
-   (apply str body)
-   "</div>"
-   "</div>"))
+(defn structured->email-str [{:keys [name email]}]
+  (str name " <" email ">"))
+
+(defn structured-emails->str [emails]
+  (->> emails
+       (map structured->email-str)
+       (string/join ", ")))
+
+(defn structured->postmark-req [req]
+  (-> req
+      (medley/update-existing :from structured->email-str)
+      (medley/update-existing :to structured-emails->str)
+      (medley/update-existing :cc structured-emails->str)
+      (medley/update-existing :bcc structured-emails->str)))
+
+;; XXX: Eventually we should make all callers use 
+;; this entry point. It will be easier to switch 
+;; providers
+(defn send-structured! [req]
+  (send! (structured->postmark-req req)))
+
+;; XXX: We may want to extract this out if we end up having
+(def standard-body email/standard-body)
 
 (def postmark-user-note "Instant partners with Postmark to send emails.  Please verify your custom sender address.")
 

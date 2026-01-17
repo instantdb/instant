@@ -1,0 +1,96 @@
+<p><img
+src="https://www.instantdb.com/img/emails/feb2025/s_DF8F10A9009F2A236BC7D07C4EC05DDA50E4FB82F40AA98593D3B98A1A7EA3DC_1730238267270_instant_header.png" /></p>
+<p>Hey crew! It’s time for another edition of Instant News 🙂 This time
+it’s a double issue! Here’s a slice of what happened since the start of
+the year!</p>
+<p><strong>Upgraded Explorer</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/feb2025/s_513F5FE60B9BB3BB9CCD1CA54DF394804C0DE8F72ED1A4C65882EB8C31D175AE_1740786465619_add-links.png" /></p>
+<p>Explorer got a slew of updates! Here’s a rundown of what got
+shipped</p>
+<ul>
+<li><p>You can select fields and start querying for strings. Or use a
+comparison operator. Or set an exact match for something like an ID.
+This should make it much easier to find and filter rows!</p></li>
+<li><p>We built a UI for adding links between entities! Beforehand you
+needed to either use the Sandbox or create links via a script. This
+should make working with links much easier</p></li>
+<li><p>We added deep-linking to the explorer. This should hopefully make
+it a little easier to navigate the explorer using the forward/back
+buttons and allow you to directly send links to your team to get to a
+specific explorer state!</p></li>
+</ul>
+<p>We hope these improvements make working with Instant more
+delightful!</p>
+<p><strong>Cascade on delete</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/feb2025/s_513F5FE60B9BB3BB9CCD1CA54DF394804C0DE8F72ED1A4C65882EB8C31D175AE_1741044653859_cascade.png" /></p>
+<p>Sometimes, objects depend on each other. If you delete a ‘post’, all
+its comments should be deleted. Now you can make sure of that with a
+click in your Explorer.</p>
+<p>We wanted to be thoughtful about this feature and make sure that it
+was performant for you so all on-delete cascades happen in one call
+under the hood! <a
+href="https://www.instantdb.com/docs/modeling-data#cascade-delete">Check
+out the docs</a> to learn more!</p>
+<p><strong>Storage available for all</strong></p>
+<p>You should now see a new <code>$files</code> namespace for all apps
+in your explorer. Similar to the <code>$users</code> namespace, this a
+special system namespace which contains data you can use to upload and
+serve assets in your apps.</p>
+<p>Uploading is as easy as one line –
+<code>db.storage.uploadFile("hello-world", file)</code></p>
+<p>You can then retrieve urls by querying the <code>$files</code>
+namespace.</p>
+<p><img
+src="https://www.instantdb.com/img/emails/feb2025/s_513F5FE60B9BB3BB9CCD1CA54DF394804C0DE8F72ED1A4C65882EB8C31D175AE_1740787113300_image.png" /></p>
+<p><code>$files</code> works like any other table. This means you can
+link files to other namespaces, filter them, sort them, and do some cool
+queries.</p>
+<p>It also means you can set <code>CASCADE DELETE</code> on files. So
+when a profile is deleted, all associated assets can be automagically
+deleted for you as well. You can see storage live in our <a
+href="https://x.com/instant_db/status/1892712087245185261">announcement
+tweet</a> and a <a
+href="https://www.instantdb.com/docs/storage#storage-quick-start">full
+example in our docs.</a></p>
+<p>Storage is now available for all apps. Free apps can store up to 1GB
+and paid ups can store up to 10GB and then $0.125/GB after.</p>
+<p><strong>Select fields</strong></p>
+<p>By default InstaQL queries fetch all the fields for an object.
+Sometimes though you don’t need all the data and just want stub or a
+subset. You can now do this via the <code>fields</code> clause.</p>
+<p><img
+src="https://www.instantdb.com/img/emails/feb2025/s_513F5FE60B9BB3BB9CCD1CA54DF394804C0DE8F72ED1A4C65882EB8C31D175AE_1741040505548_image.png" /></p>
+<p>The <code>fields</code> clause can also be used in <a
+href="https://www.instantdb.com/docs/instaql#select-fields">nested
+relations</a>. This is particularly helpful for reducing the payload for
+your queries!</p>
+<p><strong>And a few more things!</strong></p>
+<p>More wins that got shipped thanks to your feedback!</p>
+<ul>
+<li><p><strong><span class="citation"
+data-cites="instandb/react-native">@instandb/react-native</span></strong>
+now uses IndexedDB for react-native-web contexts, matching the behavior
+of our web react package.</p></li>
+<li><p>We updated <strong>rooms</strong> to use static hooks and return
+stable values. This remove type warnings and improve perf when using
+presence!</p></li>
+<li><p>We made the devtool more configurable, you can now choose where
+you want to place the dev tool (vercel puts their dev-tool in the bottom
+left, so you can now move Instant’s to the bottom-right). You can also
+configure the allowed hosts for the devtool in case you run dev outside
+of localhost</p></li>
+<li><p>We also updated the CLI to enabling load
+<strong>instant.schema.ts</strong> and <strong>instant.perms.ts</strong>
+from a custom path.</p></li>
+<li><p>For those who love reading technical content, we published an <a
+href="https://www.instantdb.com/essays/pg_upgrade">essay</a> on our
+zero-downtime migration to Postgres 16, leading to some great discussion
+on <a
+href="https://news.ycombinator.com/item?id=42867657">HN</a></p></li>
+</ul>
+<p><strong>What’s next?</strong></p>
+<p>We’ve got some awesome features coming out next month! We’re also
+going to lean into making LLMs understand Instant. We’re pretty excited
+so stay tuned :)</p>

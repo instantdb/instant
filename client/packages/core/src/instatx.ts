@@ -1,32 +1,60 @@
 import type {
   IContainEntitiesAndLinks,
   LinkParams,
+  CreateParams,
   UpdateParams,
-} from "./schemaTypes";
+  UpdateOpts,
+  RuleParams,
+} from './schemaTypes.ts';
 
-type Action = "update" | "link" | "unlink" | "delete" | "merge";
+type Action =
+  | 'create'
+  | 'update'
+  | 'link'
+  | 'unlink'
+  | 'delete'
+  | 'merge'
+  | 'ruleParams';
 type EType = string;
 type Id = string;
 type Args = any;
 type LookupRef = [string, any];
 type Lookup = string;
-export type Op = [Action, EType, Id | LookupRef, Args];
+type Opts = UpdateOpts;
+export type Op = [Action, EType, Id | LookupRef, Args, Opts?];
 
 export interface TransactionChunk<
   Schema extends IContainEntitiesAndLinks<any, any>,
-  EntityName extends keyof Schema["entities"],
+  EntityName extends keyof Schema['entities'],
 > {
   __ops: Op[];
+  __etype: EntityName;
   /**
-   * Create and update objects:
+   * Create objects. Throws an error if the object with the provided ID already
+   * exists.
+   */
+  create: (
+    args: CreateParams<Schema, EntityName>,
+  ) => TransactionChunk<Schema, EntityName>;
+
+  /**
+   * Create and update objects. By default works in upsert mode (will create
+   * entity if that doesn't exist). Can be optionally put into "strict update"
+   * mode by providing { upsert: false } option as second argument:
    *
    * @example
    *  const goalId = id();
-   *  tx.goals[goalId].update({title: "Get fit", difficulty: 5})
+   *  // upsert
+   *  db.tx.goals[goalId].update({title: "Get fit", difficulty: 5})
+   *
+   *  // strict update
+   *  db.tx.goals[goalId].update({title: "Get fit"}, {upsert: false})
    */
   update: (
     args: UpdateParams<Schema, EntityName>,
+    opts?: UpdateOpts,
   ) => TransactionChunk<Schema, EntityName>;
+
   /**
    * Link two objects together
    *
@@ -34,9 +62,9 @@ export interface TransactionChunk<
    * const goalId = id();
    * const todoId = id();
    * db.transact([
-   *   tx.goals[goalId].update({title: "Get fit"}),
-   *   tx.todos[todoId].update({title: "Go on a run"}),
-   *   tx.goals[goalId].link({todos: todoId}),
+   *   db.tx.goals[goalId].update({title: "Get fit"}),
+   *   db.tx.todos[todoId].update({title: "Go on a run"}),
+   *   db.tx.goals[goalId].link({todos: todoId}),
    * ])
    *
    * // Now, if you query:
@@ -52,7 +80,7 @@ export interface TransactionChunk<
    * Unlink two objects
    * @example
    *  // to "unlink" a todo from a goal:
-   *  tx.goals[goalId].unlink({todos: todoId})
+   *  db.tx.goals[goalId].unlink({todos: todoId})
    */
   unlink: (
     args: LinkParams<Schema, EntityName>,
@@ -61,7 +89,7 @@ export interface TransactionChunk<
    * Delete an object, alongside all of its links.
    *
    * @example
-   *   tx.goals[goalId].delete()
+   *   db.tx.goals[goalId].delete()
    */
   delete: () => TransactionChunk<Schema, EntityName>;
 
@@ -80,7 +108,7 @@ export interface TransactionChunk<
    * You can update the `progress` attribute like so:
    *
    * ```js
-   * tx.goals[goalId].merge({ metrics: { progress: 0.5 }, category: "Fitness" })
+   * db.tx.goals[goalId].merge({ metrics: { progress: 0.5 }, category: "Fitness" })
    * ```
    *
    * And the resulting object will be:
@@ -91,22 +119,47 @@ export interface TransactionChunk<
    *
    * @example
    *  const goalId = id();
-   *  tx.goals[goalId].merge({title: "Get fitter"})
+   *  db.tx.goals[goalId].merge({title: "Get fitter"})
    */
-  merge: (args: {
-    [attribute: string]: any;
-  }) => TransactionChunk<Schema, EntityName>;
+  merge: (
+    args: {
+      [attribute: string]: any;
+    },
+    opts?: UpdateOpts,
+  ) => TransactionChunk<Schema, EntityName>;
+
+  ruleParams: (args: RuleParams) => TransactionChunk<Schema, EntityName>;
 }
+
+// This is a hack to get typescript to enforce that
+// `allTransactionChunkKeys` contains all the keys of `TransactionChunk`
+type TransactionChunkKey = keyof TransactionChunk<any, any>;
+function getAllTransactionChunkKeys(): Set<TransactionChunkKey> {
+  const v: any = 1;
+  const _dummy: TransactionChunk<any, any> = {
+    __etype: v,
+    __ops: v,
+    create: v,
+    update: v,
+    link: v,
+    unlink: v,
+    delete: v,
+    merge: v,
+    ruleParams: v,
+  };
+  return new Set(Object.keys(_dummy)) as Set<TransactionChunkKey>;
+}
+const allTransactionChunkKeys = getAllTransactionChunkKeys();
 
 export interface ETypeChunk<
   Schema extends IContainEntitiesAndLinks<any, any>,
-  EntityName extends keyof Schema["entities"],
+  EntityName extends keyof Schema['entities'],
 > {
   [id: Id]: TransactionChunk<Schema, EntityName>;
 }
 
 export type TxChunk<Schema extends IContainEntitiesAndLinks<any, any>> = {
-  [EntityName in keyof Schema["entities"]]: ETypeChunk<Schema, EntityName>;
+  [EntityName in keyof Schema['entities']]: ETypeChunk<Schema, EntityName>;
 };
 
 function transactionChunk(
@@ -114,13 +167,21 @@ function transactionChunk(
   id: Id | LookupRef,
   prevOps: Op[],
 ): TransactionChunk<any, any> {
-  return new Proxy({} as TransactionChunk<any, any>, {
+  const target = {
+    __etype: etype,
+    __ops: prevOps,
+  };
+  return new Proxy(target as unknown as TransactionChunk<any, any>, {
     get: (_target, cmd: keyof TransactionChunk<any, any>) => {
-      if (cmd === "__ops") return prevOps;
-      return (args: Args) => {
+      if (cmd === '__ops') return prevOps;
+      if (cmd === '__etype') return etype;
+      if (!allTransactionChunkKeys.has(cmd)) {
+        return undefined;
+      }
+      return (args: Args, opts?: Opts) => {
         return transactionChunk(etype, id, [
           ...prevOps,
-          [cmd, etype, id, args],
+          opts ? [cmd, etype, id, args, opts] : [cmd, etype, id, args],
         ]);
       };
     },
@@ -131,26 +192,30 @@ function transactionChunk(
  * Creates a lookup to use in place of an id in a transaction
  *
  * @example
- * tx.users[lookup('email', 'lyndon@example.com')].update({name: 'Lyndon'})
+ * db.tx.users[lookup('email', 'lyndon@example.com')].update({name: 'Lyndon'})
  */
 export function lookup(attribute: string, value: any): Lookup {
   return `lookup__${attribute}__${JSON.stringify(value)}`;
 }
 
 export function isLookup(k: string): boolean {
-  return k.startsWith("lookup__");
+  return k.startsWith('lookup__');
 }
 
 export function parseLookup(k: string): LookupRef {
-  const [_, attribute, ...vJSON] = k.split("__");
-  return [attribute, JSON.parse(vJSON.join("__"))];
+  const [_, attribute, ...vJSON] = k.split('__');
+  return [attribute, JSON.parse(vJSON.join('__'))];
 }
 
 function etypeChunk(etype: EType): ETypeChunk<any, EType> {
   return new Proxy(
-    {},
     {
-      get(_target, id: Id) {
+      __etype: etype,
+    } as unknown as ETypeChunk<any, EType>,
+    {
+      get(_target, cmd: Id) {
+        if (cmd === '__etype') return etype;
+        const id = cmd;
         if (isLookup(id)) {
           return transactionChunk(etype, parseLookup(id), []);
         }
@@ -179,7 +244,7 @@ export function txInit<
  * You must start with the `namespace` you want to change:
  *
  * @example
- *   tx.goals[goalId].update({title: "Get fit"})
+ *   db.tx.goals[goalId].update({title: "Get fit"})
  *   // Note: you don't need to create `goals` ahead of time.
  */
 export const tx = txInit();

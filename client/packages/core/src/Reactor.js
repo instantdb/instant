@@ -1,109 +1,223 @@
 // @ts-check
-import log from "./utils/log";
-import weakHash from "./utils/weakHash";
-import instaql from "./instaql";
-import * as instaml from "./instaml";
-import * as s from "./store";
-import uuid from "./utils/uuid";
-import IndexedDBStorage from "./IndexedDBStorage";
-import WindowNetworkListener from "./WindowNetworkListener";
-import * as authAPI from "./authAPI";
-import * as StorageApi from "./StorageAPI";
-import { buildPresenceSlice, hasPresenceResponseChanged } from "./presence";
-import { Deferred } from "./utils/Deferred";
-import { PersistedObject } from "./utils/PersistedObject";
-import { extractTriples } from "./model/instaqlResult";
-import { areObjectsDeepEqual, assocIn, dissocIn } from "./utils/object";
-import { createLinkIndex } from "./utils/linkIndex";
-import version from "./version";
+import weakHash from './utils/weakHash.ts';
+import instaql from './instaql.ts';
+import * as instaml from './instaml.ts';
+import * as s from './store.ts';
+import uuid from './utils/id.ts';
+import IndexedDBStorage from './IndexedDBStorage.ts';
+import WindowNetworkListener from './WindowNetworkListener.js';
+import * as authAPI from './authAPI.ts';
+import * as StorageApi from './StorageAPI.ts';
+import * as flags from './utils/flags.ts';
+import { buildPresenceSlice, hasPresenceResponseChanged } from './presence.ts';
+import { Deferred } from './utils/Deferred.js';
+import { PersistedObject } from './utils/PersistedObject.ts';
+
+import { extractTriples } from './model/instaqlResult.js';
+import {
+  areObjectsDeepEqual,
+  assocInMutative,
+  dissocInMutative,
+  insertInMutative,
+} from './utils/object.js';
+import { createLinkIndex } from './utils/linkIndex.ts';
+import version from './version.ts';
+import { create } from 'mutative';
+import createLogger from './utils/log.ts';
+import { validateQuery } from './queryValidation.ts';
+import { validateTransactions } from './transactionValidation.ts';
+import { InstantError } from './InstantError.ts';
+import { InstantAPIError } from './utils/fetch.ts';
+import { validate as validateUUID } from 'uuid';
+import { WSConnection, SSEConnection } from './Connection.ts';
+import { SyncTable } from './SyncTable.ts';
+
+/** @typedef {import('./utils/log.ts').Logger} Logger */
+/** @typedef {import('./Connection.ts').Connection} Connection */
+/** @typedef {import('./Connection.ts').TransportType} TransportType */
+/** @typedef {import('./Connection.ts').EventSourceConstructor} EventSourceConstructor */
+/** @typedef {import('./reactorTypes.ts').QuerySub} QuerySub */
+/** @typedef {import('./reactorTypes.ts').QuerySubInStorage} QuerySubInStorage */
 
 const STATUS = {
-  CONNECTING: "connecting",
-  OPENED: "opened",
-  AUTHENTICATED: "authenticated",
-  CLOSED: "closed",
-  ERRORED: "errored",
+  CONNECTING: 'connecting',
+  OPENED: 'opened',
+  AUTHENTICATED: 'authenticated',
+  CLOSED: 'closed',
+  ERRORED: 'errored',
 };
 
 const QUERY_ONCE_TIMEOUT = 30_000;
-
-const WS_CONNECTING_STATUS = 0;
-const WS_OPEN_STATUS = 1;
+const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
+const PENDING_MUTATION_CLEANUP_THRESHOLD = 200;
+const ONE_MIN_MS = 1_000 * 60;
 
 const defaultConfig = {
-  apiURI: "https://api.instantdb.com",
-  websocketURI: "wss://api.instantdb.com/runtime/session",
+  apiURI: 'https://api.instantdb.com',
+  websocketURI: 'wss://api.instantdb.com/runtime/session',
 };
 
 // Param that the backend adds if this is an oauth redirect
-const OAUTH_REDIRECT_PARAM = "_instant_oauth_redirect";
+const OAUTH_REDIRECT_PARAM = '_instant_oauth_redirect';
 
 const currentUserKey = `currentUser`;
 
-let _wsId = 0;
-function createWebSocket(uri) {
-  const ws = new WebSocket(uri);
-  // @ts-ignore
-  ws._id = _wsId++;
-  return ws;
+/**
+ * @param {Object} config
+ * @param {TransportType} config.transportType
+ * @param {string} config.appId
+ * @param {string} config.apiURI
+ * @param {string} config.wsURI
+ * @param {EventSourceConstructor} config.EventSourceImpl
+ * @returns {WSConnection | SSEConnection}
+ */
+function createTransport({
+  transportType,
+  appId,
+  apiURI,
+  wsURI,
+  EventSourceImpl,
+}) {
+  if (!EventSourceImpl) {
+    return new WSConnection(`${wsURI}?app_id=${appId}`);
+  }
+  switch (transportType) {
+    case 'ws':
+      return new WSConnection(`${wsURI}?app_id=${appId}`);
+    case 'sse':
+      return new SSEConnection(
+        EventSourceImpl,
+        `${apiURI}/runtime/sse?app_id=${appId}`,
+      );
+    default:
+      throw new Error('Unknown transport type ' + transportType);
+  }
 }
 
 function isClient() {
-  const hasWindow = typeof window !== "undefined";
+  const hasWindow = typeof window !== 'undefined';
   // this checks if we are running in a chrome extension
   // @ts-expect-error
-  const isChrome = typeof chrome !== "undefined";
+  const isChrome = typeof chrome !== 'undefined';
 
   return hasWindow || isChrome;
 }
 
 const ignoreLogging = {
-  "set-presence": true,
-  "set-presence-ok": true,
-  "refresh-presence": true,
-  "patch-presence": true,
+  'set-presence': true,
+  'set-presence-ok': true,
+  'refresh-presence': true,
+  'patch-presence': true,
 };
 
-function querySubsFromJSON(str) {
-  const parsed = JSON.parse(str);
-  for (const key in parsed) {
-    const v = parsed[key];
-    if (v?.result?.store) {
-      v.result.store = s.fromJSON(v.result.store);
-    }
-  }
-  return parsed;
-}
+/**
+ * @param {QuerySubInStorage} x
+ * @param {boolean | null} useDateObjects
+ * @returns {QuerySub}
+ */
+function querySubFromStorage(x, useDateObjects) {
+  const v = typeof x === 'string' ? JSON.parse(x) : x;
 
-function querySubsToJSON(querySubs) {
-  const jsonSubs = {};
-  for (const key in querySubs) {
-    const sub = querySubs[key];
-    const jsonSub = { ...sub };
-    if (sub.result?.store) {
-      jsonSub.result = {
-        ...sub.result,
-        store: s.toJSON(sub.result.store),
-      };
+  if (v?.result?.store) {
+    const attrsStore = s.attrsStoreFromJSON(
+      v.result.attrsStore,
+      v.result.store,
+    );
+    if (attrsStore) {
+      const storeJSON = v.result.store;
+      v.result.store = s.fromJSON(attrsStore, {
+        ...storeJSON,
+        useDateObjects: useDateObjects,
+      });
+      v.result.attrsStore = attrsStore;
     }
-    jsonSubs[key] = jsonSub;
   }
-  return JSON.stringify(jsonSubs);
+
+  return v;
 }
 
 /**
- * @template {import('./presence').RoomSchemaShape} [RoomSchema = {}]
+ *
+ * @param {string} _key
+ * @param {QuerySub} sub
+ * @returns QuerySubInStorage
+ */
+function querySubToStorage(_key, sub) {
+  const { result, ...rest } = sub;
+  const jsonSub = /** @type {import('./reactorTypes.ts').QuerySubInStorage} */ (
+    rest
+  );
+  if (result) {
+    /** @type {import('./reactorTypes.ts').QuerySubResultInStorage} */
+    const jsonResult = {
+      ...result,
+      store: s.toJSON(result.store),
+      attrsStore: result.attrsStore.toJSON(),
+    };
+
+    jsonSub.result = jsonResult;
+  }
+  return jsonSub;
+}
+
+function kvFromStorage(key, x) {
+  switch (key) {
+    case 'pendingMutations':
+      return new Map(typeof x === 'string' ? JSON.parse(x) : x);
+    default:
+      return x;
+  }
+}
+
+function kvToStorage(key, x) {
+  switch (key) {
+    case 'pendingMutations':
+      return [...x.entries()];
+    default:
+      return x;
+  }
+}
+
+function onMergeQuerySub(_k, storageSub, inMemorySub) {
+  const storageResult = storageSub?.result;
+  const memoryResult = inMemorySub?.result;
+  if (storageResult && !memoryResult && inMemorySub) {
+    inMemorySub.result = storageResult;
+  }
+  return inMemorySub || storageSub;
+}
+
+function sortedMutationEntries(entries) {
+  return [...entries].sort((a, b) => {
+    const [ka, muta] = a;
+    const [kb, mutb] = b;
+    const a_order = muta.order || 0;
+    const b_order = mutb.order || 0;
+    if (a_order == b_order) {
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    }
+    return a_order - b_order;
+  });
+}
+
+/**
+ * @template {import('./presence.ts').RoomSchemaShape} [RoomSchema = {}]
  */
 export default class Reactor {
+  /** @type {s.AttrsStore | undefined} */
   attrs;
   _isOnline = true;
   _isShutdown = false;
   status = STATUS.CONNECTING;
 
-  /** @type {PersistedObject} */
+  /** @type {PersistedObject<string, QuerySub, QuerySubInStorage>} */
   querySubs;
+
   /** @type {PersistedObject} */
-  pendingMutations;
+  kv;
+
+  /** @type {SyncTable} */
+  _syncTable;
 
   /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
   queryCbs = {};
@@ -114,17 +228,24 @@ export default class Reactor {
   mutationErrorCbs = [];
   connectionStatusCbs = [];
   config;
-  _persister;
   mutationDeferredStore = new Map();
   _reconnectTimeoutId = null;
   _reconnectTimeoutMs = 0;
-  _ws;
+  /** @type {Connection} */
+  _transport;
+  /** @type {TransportType} */
+  _transportType = 'ws';
+
+  /** @type {EventSourceConstructor} */
+  _EventSource;
+  /** @type {boolean | null} */
+  _wsOk = null;
   _localIdPromises = {};
   _errorMessage = null;
-  /** @type {Promise<null | {error: {message: string}}>}**/
+  /** @type {Promise<null | {error: {message: string}}> | null}**/
   _oauthCallbackResponse = null;
 
-  /** @type {null | import('./utils/linkIndex').LinkIndex}} */
+  /** @type {null | import('./utils/linkIndex.ts').LinkIndex}} */
   _linkIndex = null;
 
   /** @type BroadcastChannel | undefined */
@@ -137,18 +258,39 @@ export default class Reactor {
   _presence = {};
   _broadcastQueue = [];
   _broadcastSubs = {};
+  /** @type {{isLoading: boolean; error: any | undefined, user: any | undefined}} */
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
   _dataForQueryCache = {};
+  /** @type {Logger} */
+  _log;
+  _pendingTxCleanupTimeout;
+  _pendingMutationCleanupThreshold;
+  _inFlightMutationEventIds = new Set();
 
   constructor(
     config,
     Storage = IndexedDBStorage,
     NetworkListener = WindowNetworkListener,
     versions,
+    EventSourceConstructor,
   ) {
+    this._EventSource = EventSourceConstructor;
+
     this.config = { ...defaultConfig, ...config };
-    this.versions = { ...(versions || {}), "@instantdb/core": version };
+    this.queryCacheLimit = this.config.queryCacheLimit ?? 10;
+    this._pendingTxCleanupTimeout =
+      this.config.pendingTxCleanupTimeout ?? PENDING_TX_CLEANUP_TIMEOUT;
+    this._pendingMutationCleanupThreshold =
+      this.config.pendingMutationCleanupThreshold ??
+      PENDING_MUTATION_CLEANUP_THRESHOLD;
+
+    this._log = createLogger(
+      config.verbose || flags.devBackend || flags.instantLogs,
+      () => this._reactorStats(),
+    );
+
+    this.versions = { ...(versions || {}), '@instantdb/core': version };
 
     if (this.config.schema) {
       this._linkIndex = createLinkIndex(this.config.schema);
@@ -159,22 +301,62 @@ export default class Reactor {
     if (!isClient()) {
       return;
     }
-    if (typeof BroadcastChannel === "function") {
-      this._broadcastChannel = new BroadcastChannel("@instantdb");
-      this._broadcastChannel.addEventListener("message", async (e) => {
-        if (e.data?.type === "auth") {
-          const res = await this.getCurrentUser();
-          this.updateUser(res.user);
+
+    if (!config.appId) {
+      throw new Error('Instant must be initialized with an appId.');
+    }
+
+    if (!validateUUID(config.appId)) {
+      throw new Error(
+        `Instant must be initialized with a valid appId. \`${config.appId}\` is not a valid uuid.`,
+      );
+    }
+
+    if (typeof BroadcastChannel === 'function') {
+      this._broadcastChannel = new BroadcastChannel('@instantdb');
+      this._broadcastChannel.addEventListener('message', async (e) => {
+        try {
+          if (e.data?.type === 'auth') {
+            const res = await this.getCurrentUser();
+            this.updateUser(res.user);
+          }
+        } catch (e) {
+          this._log.error('[error] handle broadcast channel', e);
         }
       });
     }
 
-    this._oauthCallbackResponse = this._oauthLoginInit();
-
     this._initStorage(Storage);
 
+    this._syncTable = new SyncTable(
+      this._trySendAuthed.bind(this),
+      new Storage(this.config.appId, 'syncSubs'),
+      {
+        useDateObjects: this.config.useDateObjects,
+      },
+      this._log,
+      (triples) => {
+        return s.createStore(
+          this.ensureAttrs(),
+          triples,
+          this.config.enableCardinalityInference,
+          this.config.useDateObjects,
+        );
+      },
+      () => this.ensureAttrs(),
+    );
+
+    this._oauthCallbackResponse = this._oauthLoginInit();
+
     // kick off a request to cache it
-    this.getCurrentUser();
+    this.getCurrentUser().then((userInfo) => {
+      this.syncUserToEndpoint(userInfo.user);
+    });
+
+    setInterval(async () => {
+      const currentUser = await this.getCurrentUser();
+      this.syncUserToEndpoint(currentUser.user);
+    }, ONE_MIN_MS);
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
@@ -186,47 +368,98 @@ export default class Reactor {
         if (isOnline === this._isOnline) {
           return;
         }
-        log.info("[network] online =", isOnline);
+        this._log.info('[network] online =', isOnline);
         this._isOnline = isOnline;
         if (this._isOnline) {
           this._startSocket();
         } else {
-          log.info("Changing status from", this.status, "to", STATUS.CLOSED);
+          this._log.info(
+            'Changing status from',
+            this.status,
+            'to',
+            STATUS.CLOSED,
+          );
           this._setStatus(STATUS.CLOSED);
         }
       });
     });
 
-    if (typeof addEventListener !== "undefined") {
+    if (typeof addEventListener !== 'undefined') {
       this._beforeUnload = this._beforeUnload.bind(this);
-      addEventListener("beforeunload", this._beforeUnload);
+      addEventListener('beforeunload', this._beforeUnload);
     }
   }
 
+  ensureAttrs() {
+    if (!this.attrs) {
+      throw new Error('attrs have not loaded.');
+    }
+    return this.attrs;
+  }
+
+  updateSchema(schema) {
+    this.config = {
+      ...this.config,
+      schema: schema,
+      cardinalityInference: Boolean(schema),
+    };
+    this._linkIndex = schema ? createLinkIndex(this.config.schema) : null;
+  }
+
+  _reactorStats() {
+    return {
+      inFlightMutationCount: this._inFlightMutationEventIds.size,
+      storedMutationCount: this._pendingMutations().size,
+      transportType: this._transportType,
+    };
+  }
+
+  _onQuerySubLoaded(hash) {
+    this.kv
+      .waitForKeyToLoad('pendingMutations')
+      .then(() => this.notifyOne(hash));
+  }
+
   _initStorage(Storage) {
-    this._persister = new Storage(`instant_${this.config.appId}_5`);
-    this.querySubs = new PersistedObject(
-      this._persister,
-      "querySubs",
-      {},
-      this._onMergeQuerySubs,
-      querySubsToJSON,
-      querySubsFromJSON,
-    );
-    this.pendingMutations = new PersistedObject(
-      this._persister,
-      "pendingMutations",
-      new Map(),
-      this._onMergePendingMutations,
-      (x) => {
-        return JSON.stringify([...x.entries()]);
+    this.querySubs = new PersistedObject({
+      persister: new Storage(this.config.appId, 'querySubs'),
+      merge: onMergeQuerySub,
+      serialize: querySubToStorage,
+      parse: (_key, x) => querySubFromStorage(x, this.config.useDateObjects),
+      // objectSize
+      objectSize: (x) => x?.result?.store?.triples?.length ?? 0,
+      logger: this._log,
+      preloadEntryCount: 10,
+      gc: {
+        maxAgeMs: 1000 * 60 * 60 * 24 * 7 * 52, // 1 year
+        maxEntries: 1000,
+        // Size of each query is the number of triples
+        maxSize: 1_000_000, // 1 million triples
       },
-      (x) => {
-        return new Map(JSON.parse(x));
-      },
-    );
+    });
+    this.querySubs.onKeyLoaded = (k) => this._onQuerySubLoaded(k);
+    this.kv = new PersistedObject({
+      persister: new Storage(this.config.appId, 'kv'),
+      merge: this._onMergeKv,
+      serialize: kvToStorage,
+      parse: kvFromStorage,
+      objectSize: () => 0,
+      logger: this._log,
+      saveThrottleMs: 100,
+      idleCallbackMaxWaitMs: 100,
+      // Don't GC the kv store
+      gc: null,
+    });
+    this.kv.onKeyLoaded = (k) => {
+      if (k === 'pendingMutations') {
+        this.notifyAll();
+      }
+    };
+    // Trigger immediate load for pendingMutations and currentUser
+    this.kv.waitForKeyToLoad('pendingMutations');
+    this.kv.waitForKeyToLoad(currentUserKey);
     this._beforeUnloadCbs.push(() => {
-      this.pendingMutations.flush();
+      this.kv.flush();
       this.querySubs.flush();
     });
   }
@@ -235,29 +468,47 @@ export default class Reactor {
     for (const cb of this._beforeUnloadCbs) {
       cb();
     }
+    this._syncTable.beforeUnload();
   }
 
   /**
    * @param {'enqueued' | 'pending' | 'synced' | 'timeout' |  'error' } status
-   * @param string clientId
-   * @param {{message?: string, hint?: string, error?: Error}} [errDetails]
+   * @param {string} eventId
+   * @param {{message?: string, type?: string, status?: number, hint?: unknown}} [errorMsg]
    */
-  _finishTransaction(status, clientId, errDetails) {
-    const dfd = this.mutationDeferredStore.get(clientId);
-    this.mutationDeferredStore.delete(clientId);
-    const ok = status !== "error" && status !== "timeout";
+  _finishTransaction(status, eventId, errorMsg) {
+    const dfd = this.mutationDeferredStore.get(eventId);
+    this.mutationDeferredStore.delete(eventId);
+    const ok = status !== 'error' && status !== 'timeout';
 
     if (!dfd && !ok) {
       // console.erroring here, as there are no listeners to let know
-      console.error("Mutation failed", { status, clientId, ...errDetails });
+      console.error('Mutation failed', { status, eventId, ...errorMsg });
     }
     if (!dfd) {
       return;
     }
     if (ok) {
-      dfd.resolve({ status, clientId });
+      dfd.resolve({ status, eventId });
     } else {
-      dfd.reject({ status, clientId, ...errDetails });
+      // Check if error comes from server or client
+      if (errorMsg?.type) {
+        const { status, ...body } = errorMsg;
+        dfd.reject(
+          new InstantAPIError({
+            // @ts-expect-error body.type is not constant typed
+            body,
+            status: status ?? 0,
+          }),
+        );
+      } else {
+        dfd.reject(
+          new InstantError(
+            errorMsg?.message || 'Unknown error',
+            errorMsg?.hint,
+          ),
+        );
+      }
     }
   }
 
@@ -267,66 +518,25 @@ export default class Reactor {
     this.notifyConnectionStatusSubs(status);
   }
 
-  /**
-   *  merge querySubs from storage and in memory. Has the following side
-   *  effects:
-   *  - We notify all queryCbs because results may been added during merge
-   */
-  _onMergeQuerySubs = (_storageSubs, inMemorySubs) => {
-    const storageSubs = _storageSubs || {};
-    const ret = { ...inMemorySubs };
-
-    // Consider an inMemorySub with no result;
-    // If we have a result from storageSubs, let's add it
-    Object.entries(inMemorySubs).forEach(([hash, querySub]) => {
-      const storageResult = storageSubs?.[hash]?.result;
-      const memoryResult = querySub.result;
-      if (storageResult && !memoryResult) {
-        ret[hash].result = storageResult;
+  _onMergeKv = (key, storageV, inMemoryV) => {
+    switch (key) {
+      case 'pendingMutations': {
+        const storageEntries = storageV?.entries() ?? [];
+        const inMemoryEntries = inMemoryV?.entries() ?? [];
+        const muts = new Map([...storageEntries, ...inMemoryEntries]);
+        const rewrittenStorageMuts = storageV
+          ? this._rewriteMutationsSorted(this.attrs, storageV)
+          : [];
+        rewrittenStorageMuts.forEach(([k, mut]) => {
+          if (!inMemoryV?.pendingMutations?.has(k) && !mut['tx-id']) {
+            this._sendMutation(k, mut);
+          }
+        });
+        return muts;
       }
-    });
-
-    // Consider a storageSub with no corresponding inMemorySub
-    // This means that at least at this point,
-    // the user has not asked to subscribe to the query.
-    // We may _still_ want to add it, because in just a
-    // few milliseconds, the user will ask to subscribe to the
-    // query.
-    // For now, we can't really tell if the user will ask to subscribe
-    // or not. So for now let's just add the first 10 queries from storage.
-    // Eventually, we could be smarter about this. For example,
-    // we can keep usage information about which queries are popular.
-    const storageKsToAdd = Object.keys(storageSubs)
-      .filter((k) => !inMemorySubs[k])
-      .slice(0, 10);
-
-    storageKsToAdd.forEach((k) => {
-      ret[k] = storageSubs[k];
-    });
-
-    // Okay, now we have merged our querySubs
-    this.querySubs.set((_) => ret);
-
-    this.loadedNotifyAll();
-  };
-
-  /**
-   * merge pendingMutations from storage and in memory. Has a side effect of
-   * sending mutations that were stored but not acked
-   */
-  _onMergePendingMutations = (storageMuts, inMemoryMuts) => {
-    const ret = new Map([...storageMuts.entries(), ...inMemoryMuts.entries()]);
-    this.pendingMutations.set((_) => ret);
-    this.loadedNotifyAll();
-    const rewrittenStorageMuts = this._rewriteMutations(
-      this.attrs,
-      storageMuts,
-    );
-    rewrittenStorageMuts.forEach((mut, k) => {
-      if (!inMemoryMuts.has(k) && !mut["tx-id"]) {
-        this._sendMutation(k, mut);
-      }
-    });
+      default:
+        return inMemoryV || storageV;
+    }
   };
 
   _flushEnqueuedRoomData(roomId) {
@@ -347,140 +557,271 @@ export default class Reactor {
     }
   }
 
-  _handleReceive(wsId, msg) {
+  /**
+   * Does the same thing as add-query-ok
+   * but called as a result of receiving query info from ssr
+   * @param {any} q
+   * @param {{ triples: any; pageInfo: any; }} result
+   * @param {boolean} enableCardinalityInference
+   */
+  _addQueryData(q, result, enableCardinalityInference) {
+    if (!this.attrs) {
+      throw new Error('Attrs in reactor have not been set');
+    }
+    const queryHash = weakHash(q);
+    const attrsStore = this.ensureAttrs();
+    const store = s.createStore(
+      this.attrs,
+      result.triples,
+      enableCardinalityInference,
+      this.config.useDateObjects,
+    );
+    this.querySubs.updateInPlace((prev) => {
+      prev[queryHash] = {
+        result: {
+          store,
+          attrsStore,
+          pageInfo: result.pageInfo,
+          processedTxId: undefined,
+          isExternal: true,
+        },
+        q,
+      };
+    });
+    this._cleanupPendingMutationsQueries();
+    this.notifyOne(queryHash);
+    this.notifyOneQueryOnce(queryHash);
+    this._cleanupPendingMutationsTimeout();
+  }
+
+  _handleReceive(connId, msg) {
     // opt-out, enabled by default if schema
     const enableCardinalityInference =
       Boolean(this.config.schema) &&
-      ("cardinalityInference" in this.config
+      ('cardinalityInference' in this.config
         ? Boolean(this.config.cardinalityInference)
         : true);
     if (!ignoreLogging[msg.op]) {
-      log.info("[receive]", wsId, msg.op, msg);
+      this._log.info('[receive]', connId, msg.op, msg);
     }
     switch (msg.op) {
-      case "init-ok":
+      case 'init-ok': {
         this._setStatus(STATUS.AUTHENTICATED);
         this._reconnectTimeoutMs = 0;
         this._setAttrs(msg.attrs);
         this._flushPendingMessages();
         // (EPH): set session-id, so we know
         // which item is us
-        this._sessionId = msg["session-id"];
+        this._sessionId = msg['session-id'];
 
         for (const roomId of Object.keys(this._rooms)) {
-          this._tryJoinRoom(roomId);
+          const enqueuedUserPresence = this._presence[roomId]?.result?.user;
+          this._tryJoinRoom(roomId, enqueuedUserPresence);
         }
         break;
-      case "add-query-exists":
+      }
+      case 'add-query-exists': {
         this.notifyOneQueryOnce(weakHash(msg.q));
         break;
-      case "add-query-ok":
+      }
+      case 'add-query-ok': {
         const { q, result } = msg;
         const hash = weakHash(q);
-        const pageInfo = result?.[0]?.data?.["page-info"];
-        const aggregate = result?.[0]?.data?.["aggregate"];
+        if (!this._hasQueryListeners() && !this.querySubs.currentValue[hash]) {
+          break;
+        }
+        const pageInfo = result?.[0]?.data?.['page-info'];
+        const aggregate = result?.[0]?.data?.['aggregate'];
         const triples = extractTriples(result);
+        const attrsStore = this.ensureAttrs();
         const store = s.createStore(
-          this.attrs,
+          attrsStore,
           triples,
           enableCardinalityInference,
-          this._linkIndex,
+          this.config.useDateObjects,
         );
-        this.querySubs.set((prev) => {
-          prev[hash].result = { store, pageInfo, aggregate };
-          return prev;
+
+        this.querySubs.updateInPlace((prev) => {
+          if (!prev[hash]) {
+            this._log.info('Missing value in querySubs', { hash, q });
+            return;
+          }
+          prev[hash].result = {
+            store,
+            attrsStore,
+            pageInfo,
+            aggregate,
+            processedTxId: msg['processed-tx-id'],
+          };
         });
+        this._cleanupPendingMutationsQueries();
         this.notifyOne(hash);
         this.notifyOneQueryOnce(hash);
+        this._cleanupPendingMutationsTimeout();
         break;
-      case "refresh-ok":
+      }
+      case 'start-sync-ok': {
+        this._syncTable.onStartSyncOk(msg);
+        break;
+      }
+      case 'sync-load-batch': {
+        this._syncTable.onSyncLoadBatch(msg);
+        break;
+      }
+      case 'sync-init-finish': {
+        this._syncTable.onSyncInitFinish(msg);
+        break;
+      }
+      case 'sync-update-triples': {
+        this._syncTable.onSyncUpdateTriples(msg);
+        break;
+      }
+      case 'refresh-ok': {
         const { computations, attrs } = msg;
-        this._setAttrs(attrs);
+        const processedTxId = msg['processed-tx-id'];
+        if (attrs) {
+          this._setAttrs(attrs);
+        }
+
+        this._cleanupPendingMutationsTimeout();
+
+        const rewrittenMutations = this._rewriteMutations(
+          this.ensureAttrs(),
+          this._pendingMutations(),
+          processedTxId,
+        );
+
+        if (rewrittenMutations !== this._pendingMutations()) {
+          // We know we've changed the mutations to fix the attr ids and removed
+          // processed attrs, so we'll persist those changes to prevent optimisticAttrs
+          // from using old attr definitions
+          this.kv.updateInPlace((prev) => {
+            prev.pendingMutations = rewrittenMutations;
+          });
+        }
+
+        const mutations = sortedMutationEntries(rewrittenMutations.entries());
+
         const updates = computations.map((x) => {
-          const q = x["instaql-query"];
-          const result = x["instaql-result"];
+          const q = x['instaql-query'];
+          const result = x['instaql-result'];
           const hash = weakHash(q);
           const triples = extractTriples(result);
+          const attrsStore = this.ensureAttrs();
           const store = s.createStore(
-            this.attrs,
+            attrsStore,
             triples,
             enableCardinalityInference,
-            this._linkIndex,
+            this.config.useDateObjects,
           );
-          const pageInfo = result?.[0]?.data?.["page-info"];
-          const aggregate = result?.[0]?.data?.["aggregate"];
-          return { hash, store, pageInfo, aggregate };
+          const { store: newStore, attrsStore: newAttrsStore } =
+            this._applyOptimisticUpdates(
+              store,
+              attrsStore,
+              mutations,
+              processedTxId,
+            );
+          const pageInfo = result?.[0]?.data?.['page-info'];
+          const aggregate = result?.[0]?.data?.['aggregate'];
+          return {
+            q,
+            hash,
+            store: newStore,
+            attrsStore: newAttrsStore,
+            pageInfo,
+            aggregate,
+          };
         });
-        updates.forEach(({ hash, store, pageInfo, aggregate }) => {
-          this.querySubs.set((prev) => {
-            prev[hash].result = { store, pageInfo, aggregate };
-            return prev;
-          });
-        });
+
+        updates.forEach(
+          ({ hash, q, store, attrsStore, pageInfo, aggregate }) => {
+            this.querySubs.updateInPlace((prev) => {
+              if (!prev[hash]) {
+                this._log.error('Missing value in querySubs', { hash, q });
+                return;
+              }
+              prev[hash].result = {
+                store,
+                attrsStore,
+                pageInfo,
+                aggregate,
+                processedTxId,
+              };
+            });
+          },
+        );
+
+        this._cleanupPendingMutationsQueries();
+
         updates.forEach(({ hash }) => {
           this.notifyOne(hash);
         });
         break;
-      case "transact-ok":
-        const { "client-event-id": eventId, "tx-id": txId } = msg;
+      }
+      case 'transact-ok': {
+        const { 'client-event-id': eventId, 'tx-id': txId } = msg;
+
+        this._inFlightMutationEventIds.delete(eventId);
+
         const muts = this._rewriteMutations(
-          this.attrs,
-          this.pendingMutations.currentValue,
+          this.ensureAttrs(),
+          this._pendingMutations(),
         );
         const prevMutation = muts.get(eventId);
         if (!prevMutation) {
           break;
         }
 
-        // Now that this transaction is accepted,
-        // We can delete it from our queue.
-        this.pendingMutations.set((prev) => {
-          prev.delete(eventId);
-          return prev;
+        // update pendingMutation with server-side tx-id
+        this._updatePendingMutations((prev) => {
+          prev.set(eventId, {
+            ...prev.get(eventId),
+            'tx-id': txId,
+            confirmed: Date.now(),
+          });
         });
 
-        // We apply this transaction to all our existing queries
-        const txStepsToApply = prevMutation["tx-steps"];
-        this.querySubs.set((prev) => {
-          for (const [hash, sub] of Object.entries(prev)) {
-            const store = sub?.result?.store;
-            if (!store) {
-              continue;
-            }
-            const newStore = s.transact(store, txStepsToApply);
-            prev[hash].result.store = newStore;
+        const newAttrs = [];
+        for (const step of prevMutation['tx-steps']) {
+          if (step[0] === 'add-attr') {
+            const attr = step[1];
+            newAttrs.push(attr);
           }
-          return prev;
-        });
+        }
+        if (newAttrs.length) {
+          const existingAttrs = Object.values(this.ensureAttrs().attrs);
+          this._setAttrs([...existingAttrs, ...newAttrs]);
+        }
 
-        const newAttrs = prevMutation["tx-steps"]
-          .filter(([action, ..._args]) => action === "add-attr")
-          .map(([_action, attr]) => attr)
-          .concat(Object.values(this.attrs));
+        this._finishTransaction('synced', eventId);
 
-        this._setAttrs(newAttrs);
+        this._cleanupPendingMutationsTimeout();
 
-        this._finishTransaction("synced", eventId);
         break;
-      case "patch-presence": {
-        const roomId = msg["room-id"];
-        this._patchPresencePeers(roomId, msg["edits"]);
+      }
+      case 'patch-presence': {
+        const roomId = msg['room-id'];
+        this._trySetRoomConnected(roomId, true);
+        this._patchPresencePeers(roomId, msg['edits']);
         this._notifyPresenceSubs(roomId);
         break;
       }
-      case "refresh-presence": {
-        const roomId = msg["room-id"];
-        this._setPresencePeers(roomId, msg["data"]);
+      case 'refresh-presence': {
+        const roomId = msg['room-id'];
+        this._trySetRoomConnected(roomId, true);
+        this._setPresencePeers(roomId, msg['data']);
         this._notifyPresenceSubs(roomId);
         break;
       }
-      case "server-broadcast":
-        const room = msg["room-id"];
+      case 'server-broadcast': {
+        const room = msg['room-id'];
         const topic = msg.topic;
+        this._trySetRoomConnected(room, true);
         this._notifyBroadcastSubs(room, topic, msg);
         break;
-      case "join-room-ok":
-        const loadingRoomId = msg["room-id"];
+      }
+      case 'join-room-ok': {
+        const loadingRoomId = msg['room-id'];
         const joinedRoom = this._rooms[loadingRoomId];
 
         if (!joinedRoom) {
@@ -492,51 +833,77 @@ export default class Reactor {
           break;
         }
 
-        joinedRoom.isConnected = true;
-        this._notifyPresenceSubs(loadingRoomId);
+        this._trySetRoomConnected(loadingRoomId, true);
         this._flushEnqueuedRoomData(loadingRoomId);
         break;
-      case "join-room-error":
-        const errorRoomId = msg["room-id"];
+      }
+      case 'leave-room-ok': {
+        const roomId = msg['room-id'];
+        this._trySetRoomConnected(roomId, false);
+        break;
+      }
+      case 'join-room-error':
+        const errorRoomId = msg['room-id'];
         const errorRoom = this._rooms[errorRoomId];
         if (errorRoom) {
-          errorRoom.error = msg["error"];
+          errorRoom.error = msg['error'];
         }
         this._notifyPresenceSubs(errorRoomId);
         break;
-      case "error":
+      case 'error':
         this._handleReceiveError(msg);
         break;
       default:
+        this._log.info('Uknown op', msg.op, msg);
         break;
     }
+  }
+
+  _pendingMutations() {
+    return this.kv.currentValue.pendingMutations ?? new Map();
+  }
+
+  _updatePendingMutations(f) {
+    this.kv.updateInPlace((prev) => {
+      const muts = prev.pendingMutations ?? new Map();
+      prev.pendingMutations = muts;
+      f(muts);
+    });
   }
 
   /**
    * @param {'timeout' | 'error'} status
    * @param {string} eventId
-   * @param {{message?: string, hint?: string, error?: Error}} errDetails
+   * @param {{message?: string, type?: string, status?: number, hint?: unknown}} errorMsg
    */
-  _handleMutationError(status, eventId, errDetails) {
-    const mut = this.pendingMutations.currentValue.get(eventId);
+  _handleMutationError(status, eventId, errorMsg) {
+    const mut = this._pendingMutations().get(eventId);
 
-    if (mut && (status !== "timeout" || !mut["tx-id"])) {
-      this.pendingMutations.set((prev) => {
+    if (mut && (status !== 'timeout' || !mut['tx-id'])) {
+      this._updatePendingMutations((prev) => {
         prev.delete(eventId);
         return prev;
       });
+      this._inFlightMutationEventIds.delete(eventId);
+      const errDetails = {
+        message: errorMsg.message,
+        hint: errorMsg.hint,
+      };
       this.notifyAll();
       this.notifyAttrsSubs();
       this.notifyMutationErrorSubs(errDetails);
-      this._finishTransaction(status, eventId, errDetails);
+      this._finishTransaction(status, eventId, errorMsg);
     }
   }
 
   _handleReceiveError(msg) {
-    const eventId = msg["client-event-id"];
-    const prevMutation = this.pendingMutations.currentValue.get(eventId);
+    console.log('error', msg);
+    const eventId = msg['client-event-id'];
+    // This might not be a mutation, but it can't hurt to delete it
+    this._inFlightMutationEventIds.delete(eventId);
+    const prevMutation = this._pendingMutations().get(eventId);
     const errorMessage = {
-      message: msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
+      message: msg.message || 'Uh-oh, something went wrong. Ping Joe & Stopa.',
     };
 
     if (msg.hint) {
@@ -544,31 +911,26 @@ export default class Reactor {
     }
 
     if (prevMutation) {
-      // This must be a transaction error
-      const errDetails = {
-        message: msg.message,
-        hint: msg.hint,
-      };
-      this._handleMutationError("error", eventId, errDetails);
+      this._handleMutationError('error', eventId, msg);
       return;
     }
 
     if (
-      msg["original-event"]?.hasOwnProperty("q") &&
-      msg["original-event"]?.op === "add-query"
+      msg['original-event']?.hasOwnProperty('q') &&
+      msg['original-event']?.op === 'add-query'
     ) {
-      const q = msg["original-event"]?.q;
+      const q = msg['original-event']?.q;
       const hash = weakHash(q);
       this.notifyQueryError(weakHash(q), errorMessage);
       this.notifyQueryOnceError(q, hash, eventId, errorMessage);
       return;
     }
 
-    const isInitError = msg["original-event"]?.op === "init";
+    const isInitError = msg['original-event']?.op === 'init';
     if (isInitError) {
       if (
-        msg.type === "record-not-found" &&
-        msg.hint?.["record-type"] === "app-user"
+        msg.type === 'record-not-found' &&
+        msg.hint?.['record-type'] === 'app-user'
       ) {
         // User has been logged out
         this.changeCurrentUser(null);
@@ -581,6 +943,16 @@ export default class Reactor {
       this.notifyAll();
       return;
     }
+
+    if (msg['original-event']?.op === 'resync-table') {
+      this._syncTable.onResyncError(msg);
+      return;
+    }
+
+    if (msg['original-event']?.op === 'start-sync') {
+      this._syncTable.onStartSyncError(msg);
+      return;
+    }
     // We've caught some error which has no corresponding listener.
     // Let's console.error to let the user know.
     const errorObj = { ...msg };
@@ -589,7 +961,7 @@ export default class Reactor {
     console.error(msg.message, errorObj);
     if (msg.hint) {
       console.error(
-        "This error comes with some debugging information. Here it is: \n",
+        'This error comes with some debugging information. Here it is: \n',
         msg.hint,
       );
     }
@@ -603,10 +975,13 @@ export default class Reactor {
   }
 
   _setAttrs(attrs) {
-    this.attrs = attrs.reduce((acc, attr) => {
-      acc[attr.id] = attr;
-      return acc;
-    }, {});
+    this.attrs = new s.AttrsStoreClass(
+      attrs.reduce((acc, attr) => {
+        acc[attr.id] = attr;
+        return acc;
+      }, {}),
+      this._linkIndex,
+    );
 
     this.notifyAttrsSubs();
   }
@@ -616,18 +991,22 @@ export default class Reactor {
 
   getPreviousResult = (q) => {
     const hash = weakHash(q);
-    return this.dataForQuery(hash);
+    return this.dataForQuery(hash)?.data;
   };
 
   _startQuerySub(q, hash) {
     const eventId = uuid();
-    this.querySubs.set((prev) => {
+    this.querySubs.updateInPlace((prev) => {
       prev[hash] = prev[hash] || { q, result: null, eventId };
-      return prev;
+      prev[hash].lastAccessed = Date.now();
     });
-    this._trySendAuthed(eventId, { op: "add-query", q });
+    this._trySendAuthed(eventId, { op: 'add-query', q });
 
     return eventId;
+  }
+
+  subscribeTable(q, cb) {
+    return this._syncTable.subscribe(q, cb);
   }
 
   /**
@@ -640,7 +1019,14 @@ export default class Reactor {
    *
    *  Returns an unsubscribe function
    */
-  subscribeQuery(q, cb) {
+  subscribeQuery(q, cb, opts) {
+    if (!this.config.disableValidation) {
+      validateQuery(q, this.config.schema);
+    }
+    if (opts && 'ruleParams' in opts) {
+      q = { $$ruleParams: opts['ruleParams'], ...q };
+    }
+
     const hash = weakHash(q);
 
     const prevResult = this.getPreviousResult(q);
@@ -658,7 +1044,15 @@ export default class Reactor {
     };
   }
 
-  queryOnce(q) {
+  queryOnce(q, opts) {
+    if (!this.config.disableValidation) {
+      validateQuery(q, this.config.schema);
+    }
+
+    if (opts && 'ruleParams' in opts) {
+      q = { $$ruleParams: opts['ruleParams'], ...q };
+    }
+
     const dfd = new Deferred();
 
     if (!this._isOnline) {
@@ -685,7 +1079,7 @@ export default class Reactor {
     this.queryOnceDfds[hash].push({ q, dfd, eventId });
 
     setTimeout(
-      () => dfd.reject(new Error("Query timed out")),
+      () => dfd.reject(new Error('Query timed out')),
       QUERY_ONCE_TIMEOUT,
     );
 
@@ -710,16 +1104,19 @@ export default class Reactor {
     this._cleanupQuery(q, hash);
   }
 
+  _hasQueryListeners(hash) {
+    return !!(this.queryCbs[hash]?.length || this.queryOnceDfds[hash]?.length);
+  }
+
   _cleanupQuery(q, hash) {
-    const hasListeners =
-      this.queryCbs[hash]?.length || this.queryOnceDfds[hash]?.length;
-
+    const hasListeners = this._hasQueryListeners(hash);
     if (hasListeners) return;
-
     delete this.queryCbs[hash];
     delete this.queryOnceDfds[hash];
+    delete this._dataForQueryCache[hash];
+    this.querySubs.unloadKey(hash);
 
-    this._trySendAuthed(uuid(), { op: "remove-query", q });
+    this._trySendAuthed(uuid(), { op: 'remove-query', q });
   }
 
   // When we `pushTx`, it's possible that we don't yet have `this.attrs`
@@ -733,20 +1130,29 @@ export default class Reactor {
   // We remove `add-attr` commands for attrs that already exist.
   // We update `add-triple` and `retract-triple` commands to use the
   // server attr-ids.
-  _rewriteMutations(attrs, muts) {
+  /**
+   *
+   * @param {s.AttrsStore} attrs
+   * @param {any} muts
+   * @param {number} [processedTxId]
+   */
+  _rewriteMutations(attrs, muts, processedTxId) {
     if (!attrs) return muts;
+    if (!muts) return new Map();
     const findExistingAttr = (attr) => {
-      const [_, etype, label] = attr["forward-identity"];
-      const existing = instaml.getAttrByFwdIdentName(attrs, etype, label);
+      const [_, etype, label] = attr['forward-identity'];
+      const existing = s.getAttrByFwdIdentName(attrs, etype, label);
       return existing;
     };
     const findReverseAttr = (attr) => {
-      const [_, etype, label] = attr["forward-identity"];
-      const revAttr = instaml.getAttrByReverseIdentName(attrs, etype, label);
+      const [_, etype, label] = attr['forward-identity'];
+      const revAttr = s.getAttrByReverseIdentName(attrs, etype, label);
       return revAttr;
     };
     const mapping = { attrIdMap: {}, refSwapAttrIds: new Set() };
-    const rewriteTxSteps = (txSteps) => {
+    let mappingChanged = false;
+
+    const rewriteTxSteps = (txSteps, txId) => {
       const retTxSteps = [];
       for (const txStep of txSteps) {
         const [action] = txStep;
@@ -754,91 +1160,123 @@ export default class Reactor {
         // Handles add-attr
         // If existing, we drop it, and track it
         // to update add/retract triples
-        if (action === "add-attr") {
+        if (action === 'add-attr') {
           const [_action, attr] = txStep;
           const existing = findExistingAttr(attr);
-          if (existing) {
+          if (existing && attr.id !== existing.id) {
             mapping.attrIdMap[attr.id] = existing.id;
+            mappingChanged = true;
             continue;
           }
-          if (attr["value-type"] === "ref") {
+          if (attr['value-type'] === 'ref') {
             const revAttr = findReverseAttr(attr);
             if (revAttr) {
               mapping.attrIdMap[attr.id] = revAttr.id;
               mapping.refSwapAttrIds.add(attr.id);
+              mappingChanged = true;
               continue;
             }
           }
         }
 
+        if (
+          (processedTxId &&
+            txId &&
+            processedTxId >= txId &&
+            action === 'add-attr') ||
+          action === 'update-attr' ||
+          action === 'delete-attr'
+        ) {
+          mappingChanged = true;
+          // Don't add this step because we already have the newer attrs
+          continue;
+        }
         // Handles add-triple|retract-triple
         // If in mapping, we update the attr-id
-        const newTxStep = instaml.rewriteStep(mapping, txStep);
+        const newTxStep = mappingChanged
+          ? instaml.rewriteStep(mapping, txStep)
+          : txStep;
 
         retTxSteps.push(newTxStep);
       }
-      return retTxSteps;
+
+      return mappingChanged ? retTxSteps : txSteps;
     };
+
     const rewritten = new Map();
     for (const [k, mut] of muts.entries()) {
-      rewritten.set(k, { ...mut, "tx-steps": rewriteTxSteps(mut["tx-steps"]) });
+      rewritten.set(k, {
+        ...mut,
+        'tx-steps': rewriteTxSteps(mut['tx-steps'], mut['tx-id']),
+      });
+    }
+    if (!mappingChanged) {
+      return muts;
     }
     return rewritten;
+  }
+
+  _rewriteMutationsSorted(attrs, muts) {
+    return sortedMutationEntries(this._rewriteMutations(attrs, muts).entries());
   }
 
   // ---------------------------
   // Transact
 
+  /**
+   * @returns {s.AttrsStore}
+   */
   optimisticAttrs() {
-    const pendingMutationSteps = [
-      ...this.pendingMutations.currentValue.values(),
-    ] // hack due to Map()
-      .flatMap((x) => x["tx-steps"]);
+    const pendingMutationSteps = [...this._pendingMutations().values()] // hack due to Map()
+      .flatMap((x) => x['tx-steps']);
 
     const deletedAttrIds = new Set(
       pendingMutationSteps
-        .filter(([action, _attr]) => action === "delete-attr")
+        .filter(([action, _attr]) => action === 'delete-attr')
         .map(([_action, id]) => id),
     );
 
     const pendingAttrs = [];
     for (const [_action, attr] of pendingMutationSteps) {
-      if (_action === "add-attr") {
+      if (_action === 'add-attr') {
         pendingAttrs.push(attr);
       } else if (
-        _action === "update-attr" &&
+        _action === 'update-attr' &&
         attr.id &&
-        this.attrs?.[attr.id]
+        this.attrs?.getAttr(attr.id)
       ) {
-        const fullAttr = { ...this.attrs[attr.id], ...attr };
+        const fullAttr = { ...this.attrs.getAttr(attr.id), ...attr };
         pendingAttrs.push(fullAttr);
       }
     }
 
-    const attrsWithoutDeleted = [
-      ...Object.values(this.attrs || {}),
-      ...pendingAttrs,
-    ].filter((a) => !deletedAttrIds.has(a.id));
+    if (!deletedAttrIds.size && !pendingAttrs.length) {
+      return this.attrs || new s.AttrsStoreClass({}, this._linkIndex);
+    }
 
-    const attrsRecord = Object.fromEntries(
-      attrsWithoutDeleted.map((a) => [a.id, a]),
-    );
+    const attrs = { ...(this.attrs?.attrs || {}) };
+    for (const attr of pendingAttrs) {
+      attrs[attr.id] = attr;
+    }
+    for (const id of deletedAttrIds) {
+      delete attrs[id];
+    }
 
-    return attrsRecord;
+    return new s.AttrsStoreClass(attrs, this._linkIndex);
   }
 
   /** Runs instaql on a query and a store */
-  dataForQuery(hash) {
+  dataForQuery(hash, applyOptimistic = true) {
     const errorMessage = this._errorMessage;
     if (errorMessage) {
       return { error: errorMessage };
     }
     if (!this.querySubs) return;
-    if (!this.pendingMutations) return;
+    if (!this.kv.currentValue.pendingMutations) return;
     const querySubVersion = this.querySubs.version();
     const querySubs = this.querySubs.currentValue;
-    const pendingMutationsVersion = this.pendingMutations.version();
-    const pendingMutations = this.pendingMutations.currentValue;
+    const pendingMutationsVersion = this.kv.version();
+    const pendingMutations = this._pendingMutations();
 
     const { q, result } = querySubs[hash] || {};
     if (!result) return;
@@ -849,40 +1287,62 @@ export default class Reactor {
       querySubVersion === cached.querySubVersion &&
       pendingMutationsVersion === cached.pendingMutationsVersion
     ) {
-      return cached.data;
+      return cached;
     }
 
-    const { store, pageInfo, aggregate } = result;
-    const muts = this._rewriteMutations(store.attrs, pendingMutations);
+    let store = result.store;
+    let attrsStore = result.attrsStore;
+    const { pageInfo, aggregate, processedTxId } = result;
+    const mutations = this._rewriteMutationsSorted(
+      attrsStore,
+      pendingMutations,
+    );
+    if (applyOptimistic) {
+      const optimisticResult = this._applyOptimisticUpdates(
+        store,
+        attrsStore,
+        mutations,
+        processedTxId,
+      );
 
-    const txSteps = [...muts.values()].flatMap((x) => x["tx-steps"]);
-    const newStore = s.transact(store, txSteps);
-    const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
+      store = optimisticResult.store;
+      attrsStore = optimisticResult.attrsStore;
+    }
+    const resp = instaql(
+      { store: store, attrsStore: attrsStore, pageInfo, aggregate },
+      q,
+    );
 
-    this._dataForQueryCache[hash] = {
-      querySubVersion,
-      pendingMutationsVersion,
-      data: resp,
-    };
+    return { data: resp, querySubVersion, pendingMutationsVersion };
+  }
 
-    return resp;
+  _applyOptimisticUpdates(store, attrsStore, mutations, processedTxId) {
+    for (const [_, mut] of mutations) {
+      if (!mut['tx-id'] || (processedTxId && mut['tx-id'] > processedTxId)) {
+        const result = s.transact(store, attrsStore, mut['tx-steps']);
+        store = result.store;
+        attrsStore = result.attrsStore;
+      }
+    }
+    return { store, attrsStore };
   }
 
   /** Re-run instaql and call all callbacks with new data */
   notifyOne = (hash) => {
     const cbs = this.queryCbs[hash] ?? [];
     const prevData = this._dataForQueryCache[hash]?.data;
-    const data = this.dataForQuery(hash);
+    const resp = this.dataForQuery(hash);
 
-    if (!data) return;
-    if (areObjectsDeepEqual(data, prevData)) return;
+    if (!resp?.data) return;
+    this._dataForQueryCache[hash] = resp;
+    if (areObjectsDeepEqual(resp.data, prevData)) return;
 
-    cbs.forEach((r) => r.cb(data));
+    cbs.forEach((r) => r.cb(resp.data));
   };
 
   notifyOneQueryOnce = (hash) => {
     const dfds = this.queryOnceDfds[hash] ?? [];
-    const data = this.dataForQuery(hash);
+    const data = this.dataForQuery(hash)?.data;
 
     dfds.forEach((r) => {
       this._completeQueryOnce(r.q, hash, r.dfd);
@@ -898,20 +1358,36 @@ export default class Reactor {
   /** Re-compute all subscriptions */
   notifyAll() {
     Object.keys(this.queryCbs).forEach((hash) => {
-      this.notifyOne(hash);
+      this.querySubs
+        .waitForKeyToLoad(hash)
+        .then(() => this.notifyOne(hash))
+        .catch(() => this.notifyOne(hash));
     });
   }
 
   loadedNotifyAll() {
-    if (this.pendingMutations.isLoading() || this.querySubs.isLoading()) return;
-    this.notifyAll();
+    this.kv
+      .waitForKeyToLoad('pendingMutations')
+      .then(() => this.notifyAll())
+      .catch(() => this.notifyAll());
   }
 
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
+    // Throws if transactions are invalid
+    if (!this.config.disableValidation) {
+      validateTransactions(chunks, this.config.schema);
+    }
     try {
       const txSteps = instaml.transform(
-        { attrs: this.optimisticAttrs(), schema: this.config.schema },
+        {
+          attrsStore: this.optimisticAttrs(),
+          schema: this.config.schema,
+          stores: Object.values(this.querySubs.currentValue).map(
+            (sub) => sub?.result?.store,
+          ),
+          useDateObjects: this.config.useDateObjects,
+        },
         chunks,
       );
       return this.pushOps(txSteps);
@@ -927,14 +1403,17 @@ export default class Reactor {
    */
   pushOps = (txSteps, error) => {
     const eventId = uuid();
+    const mutations = [...this._pendingMutations().values()];
+    const order = Math.max(0, ...mutations.map((mut) => mut.order || 0)) + 1;
     const mutation = {
-      op: "transact",
-      "tx-steps": txSteps,
+      op: 'transact',
+      'tx-steps': txSteps,
+      created: Date.now(),
       error,
+      order,
     };
-    this.pendingMutations.set((prev) => {
+    this._updatePendingMutations((prev) => {
       prev.set(eventId, mutation);
-      return prev;
     });
 
     const dfd = new Deferred();
@@ -947,8 +1426,9 @@ export default class Reactor {
   };
 
   shutdown() {
+    this._log.info('[shutdown]', this.config.appId);
     this._isShutdown = true;
-    this._ws.close();
+    this._transport?.close();
   }
 
   /**
@@ -960,32 +1440,28 @@ export default class Reactor {
    */
   _sendMutation(eventId, mutation) {
     if (mutation.error) {
-      this._handleMutationError("error", eventId, {
-        error: mutation.error,
+      this._handleMutationError('error', eventId, {
         message: mutation.error.message,
       });
       return;
     }
     if (this.status !== STATUS.AUTHENTICATED) {
-      this._finishTransaction("enqueued", eventId);
+      this._finishTransaction('enqueued', eventId);
       return;
     }
     const timeoutMs = Math.max(
-      5000,
-      this.pendingMutations.currentValue.size * 5000,
+      6000,
+      Math.min(
+        this._inFlightMutationEventIds.size + 1,
+        // Defensive code in case we don't clean up in flight mutation event ids
+        this._pendingMutations().size + 1,
+      ) * 6000,
     );
 
     if (!this._isOnline) {
-      this._finishTransaction("enqueued", eventId);
+      this._finishTransaction('enqueued', eventId);
     } else {
       this._trySend(eventId, mutation);
-
-      // If a transaction is pending for over 3 seconds,
-      // we want to unblock the UX, so mark it as pending
-      // and keep trying to process the transaction in the background
-      setTimeout(() => {
-        this._finishTransaction("pending", eventId);
-      }, 3_000);
 
       setTimeout(() => {
         if (!this._isOnline) {
@@ -994,8 +1470,8 @@ export default class Reactor {
         // If we are here, this means that we have sent this mutation, we are online
         // but we have not received a response. If it's this long, something must be wrong,
         // so we error with a timeout.
-        this._handleMutationError("timeout", eventId, {
-          message: "transaction timed out",
+        this._handleMutationError('timeout', eventId, {
+          message: 'transaction timed out',
         });
       }, timeoutMs);
     }
@@ -1013,22 +1489,76 @@ export default class Reactor {
     // doing this defensively just in case.
     const safeSubs = subs.filter((x) => x);
     safeSubs.forEach(({ eventId, q }) => {
-      this._trySendAuthed(eventId, { op: "add-query", q });
+      this._trySendAuthed(eventId, { op: 'add-query', q });
     });
 
     Object.values(this.queryOnceDfds)
       .flat()
       .forEach(({ eventId, q }) => {
-        this._trySendAuthed(eventId, { op: "add-query", q });
+        this._trySendAuthed(eventId, { op: 'add-query', q });
       });
 
-    const muts = this._rewriteMutations(
-      this.attrs,
-      this.pendingMutations.currentValue,
+    const rewrittenMutations = this._rewriteMutations(
+      this.ensureAttrs(),
+      this._pendingMutations(),
     );
-    muts.forEach((mut, eventId) => {
-      if (!mut["tx-id"]) {
+    if (rewrittenMutations !== this._pendingMutations()) {
+      // Persist rewritten mutations to avoid stale attr ids in future txs.
+      this.kv.updateInPlace((prev) => {
+        prev.pendingMutations = rewrittenMutations;
+      });
+    }
+
+    const muts = sortedMutationEntries(rewrittenMutations.entries());
+    muts.forEach(([eventId, mut]) => {
+      if (!mut['tx-id']) {
         this._sendMutation(eventId, mut);
+      }
+    });
+
+    this._syncTable.flushPending();
+  }
+
+  /**
+   * Clean up pendingMutations that all queries have seen
+   */
+  _cleanupPendingMutationsQueries() {
+    let minProcessedTxId = Number.MAX_SAFE_INTEGER;
+    for (const { result } of Object.values(this.querySubs.currentValue)) {
+      if (result?.processedTxId) {
+        minProcessedTxId = Math.min(minProcessedTxId, result?.processedTxId);
+      }
+    }
+
+    this._updatePendingMutations((prev) => {
+      for (const [eventId, mut] of Array.from(prev.entries())) {
+        if (mut['tx-id'] && mut['tx-id'] <= minProcessedTxId) {
+          prev.delete(eventId);
+        }
+      }
+    });
+  }
+
+  /**
+   * After mutations is confirmed by server, we give each query 30 sec
+   * to update its results. If that doesn't happen, we assume query is
+   * unaffected by this mutation and it’s safe to delete it from local queue
+   */
+  _cleanupPendingMutationsTimeout() {
+    if (this._pendingMutations().size < this._pendingMutationCleanupThreshold) {
+      return;
+    }
+
+    const now = Date.now();
+
+    this._updatePendingMutations((prev) => {
+      for (const [eventId, mut] of Array.from(prev.entries())) {
+        if (
+          mut.confirmed &&
+          mut.confirmed + this._pendingTxCleanupTimeout < now
+        ) {
+          prev.delete(eventId);
+        }
       }
     });
   }
@@ -1041,78 +1571,129 @@ export default class Reactor {
   }
 
   _trySend(eventId, msg, opts) {
-    if (this._ws.readyState !== WS_OPEN_STATUS) {
+    if (!this._transport.isOpen()) {
       return;
     }
     if (!ignoreLogging[msg.op]) {
-      log.info("[send]", this._ws._id, msg.op, msg);
+      this._log.info('[send]', this._transport.id, msg.op, msg);
     }
-    this._ws.send(JSON.stringify({ "client-event-id": eventId, ...msg }));
+    switch (msg.op) {
+      case 'transact': {
+        this._inFlightMutationEventIds.add(eventId);
+        break;
+      }
+      case 'init': {
+        // New connection, so we can't have any mutations in flight
+        this._inFlightMutationEventIds.clear();
+      }
+    }
+    this._transport.send({ 'client-event-id': eventId, ...msg });
   }
 
-  _wsOnOpen = (e) => {
-    const targetWs = e.target;
-    if (this._ws !== targetWs) {
-      log.info(
-        "[socket][open]",
-        targetWs._id,
-        "skip; this is no longer the current ws",
+  _transportOnOpen = (e) => {
+    const targetTransport = e.target;
+    if (this._transport !== targetTransport) {
+      this._log.info(
+        '[socket][open]',
+        targetTransport.id,
+        'skip; this is no longer the current transport',
       );
       return;
     }
-    log.info("[socket][open]", this._ws._id);
+    this._log.info('[socket][open]', this._transport.id);
     this._setStatus(STATUS.OPENED);
-    this.getCurrentUser().then((resp) => {
-      this._trySend(uuid(), {
-        op: "init",
-        "app-id": this.config.appId,
-        "refresh-token": resp.user?.["refresh_token"],
-        versions: this.versions,
-        // If an admin token is provided for an app, we will
-        // skip all permission checks. This is an advanced feature,
-        // to let users write internal tools
-        // This option is not exposed in `Config`, as it's
-        // not ready for prme time
-        "__admin-token": this.config.__adminToken,
+
+    this.getCurrentUser()
+      .then((resp) => {
+        this._trySend(uuid(), {
+          op: 'init',
+          'app-id': this.config.appId,
+          'refresh-token': resp.user?.['refresh_token'],
+          versions: this.versions,
+          // If an admin token is provided for an app, we will
+          // skip all permission checks. This is an advanced feature,
+          // to let users write internal tools
+          // This option is not exposed in `Config`, as it's
+          // not ready for prime time
+          '__admin-token': this.config.__adminToken,
+        });
+      })
+      .catch((e) => {
+        this._log.error('[socket][error]', targetTransport.id, e);
       });
-    });
   };
 
-  _wsOnMessage = (e) => {
-    const targetWs = e.target;
-    const m = JSON.parse(e.data.toString());
-    if (this._ws !== targetWs) {
-      log.info(
-        "[socket][message]",
-        targetWs._id,
+  _transportOnMessage = (e) => {
+    const targetTransport = e.target;
+    const m = e.message;
+    if (this._transport !== targetTransport) {
+      this._log.info(
+        '[socket][message]',
+        targetTransport.id,
         m,
-        "skip; this is no longer the current ws",
+        'skip; this is no longer the current transport',
       );
       return;
     }
-    this._handleReceive(targetWs._id, JSON.parse(e.data.toString()));
+
+    if (!this._wsOk && targetTransport.type === 'ws') {
+      this._wsOk = true;
+    }
+    // Try to reconnect via websocket the next time we connect
+    this._transportType = 'ws';
+    if (Array.isArray(e.message)) {
+      for (const msg of e.message) {
+        this._handleReceive(targetTransport.id, msg);
+      }
+    } else {
+      this._handleReceive(targetTransport.id, e.message);
+    }
   };
 
-  _wsOnError = (e) => {
-    const targetWs = e.target;
-    if (this._ws !== targetWs) {
-      log.info(
-        "[socket][error]",
-        targetWs._id,
-        "skip; this is no longer the current ws",
+  _transportOnError = (e) => {
+    const targetTransport = e.target;
+    if (this._transport !== targetTransport) {
+      this._log.info(
+        '[socket][error]',
+        targetTransport.id,
+        'skip; this is no longer the current transport',
       );
       return;
     }
-    log.error("[socket][error]", targetWs._id, e);
+    this._log.error('[socket][error]', targetTransport.id, e);
   };
 
-  _wsOnClose = (e) => {
-    const targetWs = e.target;
-    if (this._ws !== targetWs) {
-      log.info(
-        "[socket][close]",
-        targetWs._id,
-        "skip; this is no longer the current ws",
+  _scheduleReconnect = () => {
+    // If we couldn't connect with a websocket last time, try sse
+    if (!this._wsOk && this._transportType !== 'sse') {
+      this._transportType = 'sse';
+      this._reconnectTimeoutMs = 0;
+    }
+    setTimeout(() => {
+      this._reconnectTimeoutMs = Math.min(
+        this._reconnectTimeoutMs + 1000,
+        10000,
+      );
+      if (!this._isOnline) {
+        this._log.info(
+          '[socket][close]',
+          this._transport.id,
+          'we are offline, no need to start socket',
+        );
+        return;
+      }
+
+      this._startSocket();
+    }, this._reconnectTimeoutMs);
+  };
+
+  _transportOnClose = (e) => {
+    const targetTransport = e.target;
+    if (this._transport !== targetTransport) {
+      this._log.info(
+        '[socket][close]',
+        targetTransport.id,
+        'skip; this is no longer the current transport',
       );
       return;
     }
@@ -1124,58 +1705,59 @@ export default class Reactor {
     }
 
     if (this._isShutdown) {
-      log.info(
-        "[socket][close]",
-        targetWs._id,
-        "Reactor has been shut down and will not reconnect",
+      this._log.info(
+        '[socket][close]',
+        targetTransport.id,
+        'Reactor has been shut down and will not reconnect',
       );
       return;
     }
-    log.info(
-      "[socket][close]",
-      targetWs._id,
-      "schedule reconnect, ms =",
+    this._log.info(
+      '[socket][close]',
+      targetTransport.id,
+      'schedule reconnect, ms =',
       this._reconnectTimeoutMs,
     );
-    setTimeout(() => {
-      this._reconnectTimeoutMs = Math.min(
-        this._reconnectTimeoutMs + 1000,
-        10000,
-      );
-      if (!this._isOnline) {
-        log.info(
-          "[socket][close]",
-          targetWs._id,
-          "we are offline, no need to start socket",
-        );
-        return;
-      }
-      this._startSocket();
-    }, this._reconnectTimeoutMs);
+    this._scheduleReconnect();
   };
 
   _startSocket() {
-    if (this._ws && this._ws.readyState == WS_CONNECTING_STATUS) {
-      // Our current websocket is in a 'connecting' state.
-      // There's no need to start another one, as the socket is
-      // effectively fresh.
-      log.info(
-        "[socket][start]",
-        this._ws._id,
-        "maintained as current ws, we were still in a connecting state",
+    // Reset whether we support websockets each time we connect
+    // new networks may not support websockets
+    this._wsOk = null;
+    if (this._isShutdown) {
+      this._log.info(
+        '[socket][start]',
+        this.config.appId,
+        'Reactor has been shut down and will not start a new socket',
       );
       return;
     }
-    const prevWs = this._ws;
-    this._ws = createWebSocket(
-      `${this.config.websocketURI}?app_id=${this.config.appId}`,
-    );
-    this._ws.onopen = this._wsOnOpen;
-    this._ws.onmessage = this._wsOnMessage;
-    this._ws.onclose = this._wsOnClose;
-    this._ws.onerror = this._wsOnError;
-    log.info("[socket][start]", this._ws._id);
-    if (prevWs?.readyState === WS_OPEN_STATUS) {
+    if (this._transport && this._transport.isConnecting()) {
+      // Our current websocket is in a 'connecting' state.
+      // There's no need to start another one, as the socket is
+      // effectively fresh.
+      this._log.info(
+        '[socket][start]',
+        this._transport.id,
+        'maintained as current transport, we were still in a connecting state',
+      );
+      return;
+    }
+    const prevTransport = this._transport;
+    this._transport = createTransport({
+      transportType: this._transportType,
+      appId: this.config.appId,
+      apiURI: this.config.apiURI,
+      wsURI: this.config.websocketURI,
+      EventSourceImpl: this._EventSource,
+    });
+    this._transport.onopen = this._transportOnOpen;
+    this._transport.onmessage = this._transportOnMessage;
+    this._transport.onclose = this._transportOnClose;
+    this._transport.onerror = this._transportOnError;
+    this._log.info('[socket][start]', this._transport.id);
+    if (prevTransport?.isOpen()) {
       // When the network dies, it doesn't always mean that our
       // socket connection will fire a close event.
       //
@@ -1184,13 +1766,13 @@ export default class Reactor {
       //
       // This means that we have to make sure to kill the previous one ourselves.
       // c.f https://issues.chromium.org/issues/41343684
-      log.info(
-        "[socket][start]",
-        this._ws._id,
-        "close previous ws id = ",
-        prevWs._id,
+      this._log.info(
+        '[socket][start]',
+        this._transport.id,
+        'close previous transport id = ',
+        prevTransport.id,
       );
-      prevWs.close();
+      prevTransport.close();
     }
   }
 
@@ -1201,54 +1783,56 @@ export default class Reactor {
    *
    * Note: If the user deletes their local storage, this id will change.
    *
-   * We use this._localIdPromises to ensure that we only generate a local
-   * id once, even if multiple callers call this function concurrently.
    */
   async getLocalId(name) {
     const k = `localToken_${name}`;
-    const id = await this._persister.getItem(k);
-    if (id) return id;
-    if (this._localIdPromises[k]) {
-      return this._localIdPromises[k];
+    if (this.kv.currentValue[k]) {
+      return this.kv.currentValue[k];
+    }
+
+    const current = await this.kv.waitForKeyToLoad(k);
+    if (current) {
+      return current;
     }
     const newId = uuid();
-    this._localIdPromises[k] = this._persister
-      .setItem(k, newId)
-      .then(() => newId);
-    return this._localIdPromises[k];
+    this.kv.updateInPlace((prev) => {
+      if (prev[k]) return;
+      prev[k] = newId;
+    });
+    return await this.kv.waitForKeyToLoad(k);
   }
 
   // ----
   // Auth
   _replaceUrlAfterOAuth() {
-    if (typeof URL === "undefined") {
+    if (typeof URL === 'undefined') {
       return;
     }
     const url = new URL(window.location.href);
     if (url.searchParams.get(OAUTH_REDIRECT_PARAM)) {
       const startUrl = url.toString();
       url.searchParams.delete(OAUTH_REDIRECT_PARAM);
-      url.searchParams.delete("code");
-      url.searchParams.delete("error");
+      url.searchParams.delete('code');
+      url.searchParams.delete('error');
       const newPath =
         url.pathname +
-        (url.searchParams.size ? "?" + url.searchParams : "") +
+        (url.searchParams.size ? '?' + url.searchParams : '') +
         url.hash;
       // Note: In next.js, this will revert to the old state if user navigates
       //       back. We would need to allow framework specific routing to work
       //       around that problem.
-      history.replaceState(history.state, "", newPath);
+      history.replaceState(history.state, '', newPath);
 
       // navigation is part of the HTML spec, but not supported by Safari
       // or Firefox yet:
       // https://developer.mozilla.org/en-US/docs/Web/API/Navigation_API#browser_compatibility
       if (
         // @ts-ignore (waiting for ts support)
-        typeof navigation === "object" &&
+        typeof navigation === 'object' &&
         // @ts-ignore (waiting for ts support)
-        typeof navigation.addEventListener === "function" &&
+        typeof navigation.addEventListener === 'function' &&
         // @ts-ignore (waiting for ts support)
-        typeof navigation.removeEventListener === "function"
+        typeof navigation.removeEventListener === 'function'
       ) {
         let ran = false;
 
@@ -1258,18 +1842,18 @@ export default class Reactor {
           if (!ran) {
             ran = true;
             // @ts-ignore (waiting for ts support)
-            navigation.removeEventListener("navigate", listener);
+            navigation.removeEventListener('navigate', listener);
             if (
               !e.userInitiated &&
-              e.navigationType === "replace" &&
+              e.navigationType === 'replace' &&
               e.destination?.url === startUrl
             ) {
-              history.replaceState(history.state, "", newPath);
+              history.replaceState(history.state, '', newPath);
             }
           }
         };
         // @ts-ignore (waiting for ts support)
-        navigation.addEventListener("navigate", listener);
+        navigation.addEventListener('navigate', listener);
       }
     }
   }
@@ -1280,9 +1864,9 @@ export default class Reactor {
    */
   async _oauthLoginInit() {
     if (
-      typeof window === "undefined" ||
-      typeof window.location === "undefined" ||
-      typeof URLSearchParams === "undefined"
+      typeof window === 'undefined' ||
+      typeof window.location === 'undefined' ||
+      typeof URLSearchParams === 'undefined'
     ) {
       return null;
     }
@@ -1291,35 +1875,38 @@ export default class Reactor {
       return null;
     }
 
-    const error = params.get("error");
+    const error = params.get('error');
     if (error) {
       this._replaceUrlAfterOAuth();
       return { error: { message: error } };
     }
-    const code = params.get("code");
+    const code = params.get('code');
     if (!code) {
       return null;
     }
     this._replaceUrlAfterOAuth();
     try {
+      const currentUser = await this._getCurrentUser();
+      const isGuest = currentUser?.type === 'guest';
       const { user } = await authAPI.exchangeCodeForToken({
         apiURI: this.config.apiURI,
         appId: this.config.appId,
         code,
+        refreshToken: isGuest ? currentUser.refresh_token : undefined,
       });
       this.setCurrentUser(user);
       return null;
     } catch (e) {
       if (
-        e?.body?.type === "record-not-found" &&
-        e?.body?.hint?.["record-type"] === "app-oauth-code" &&
+        e?.body?.type === 'record-not-found' &&
+        e?.body?.hint?.['record-type'] === 'app-oauth-code' &&
         (await this._hasCurrentUser())
       ) {
         // We probably just weren't able to clean up the URL, so
         // let's just ignore this error
         return null;
       }
-      const message = e?.body?.message || "Error logging in.";
+      const message = e?.body?.message || 'Error logging in.';
       return { error: { message } };
     }
   }
@@ -1354,6 +1941,14 @@ export default class Reactor {
     };
   }
 
+  async getAuth() {
+    const { user, error } = await this.getCurrentUser();
+    if (error) {
+      throw new InstantError('Could not get current user: ' + error.message);
+    }
+    return user;
+  }
+
   subscribeConnectionStatus(cb) {
     this.connectionStatusCbs.push(cb);
 
@@ -1368,7 +1963,7 @@ export default class Reactor {
     this.attrsCbs.push(cb);
 
     if (this.attrs) {
-      cb(this.attrs);
+      cb(this.attrs.attrs);
     }
 
     return () => {
@@ -1387,7 +1982,7 @@ export default class Reactor {
   notifyAttrsSubs() {
     if (!this.attrs) return;
     const oas = this.optimisticAttrs();
-    this.attrsCbs.forEach((cb) => cb(oas));
+    this.attrsCbs.forEach((cb) => cb(oas.attrs));
   }
 
   notifyConnectionStatusSubs(status) {
@@ -1395,11 +1990,19 @@ export default class Reactor {
   }
 
   async setCurrentUser(user) {
-    await this._persister.setItem(currentUserKey, JSON.stringify(user));
+    this.kv.updateInPlace((prev) => {
+      prev[currentUserKey] = user;
+    });
+    await this.kv.waitForKeyToLoad(currentUserKey);
   }
 
   getCurrentUserCached() {
     return this._currentUserCached;
+  }
+
+  async _getCurrentUser() {
+    const user = await this.kv.waitForKeyToLoad(currentUserKey);
+    return typeof user === 'string' ? JSON.parse(user) : user;
   }
 
   async getCurrentUser() {
@@ -1409,18 +2012,26 @@ export default class Reactor {
       this._currentUserCached = { isLoading: false, ...errorV };
       return errorV;
     }
-    const user = await this._persister.getItem(currentUserKey);
-    const userV = { user: JSON.parse(user), error: undefined };
-    this._currentUserCached = {
-      isLoading: false,
-      ...userV,
-    };
-    return userV;
+    try {
+      const user = await this._getCurrentUser();
+      const userV = { user: user, error: undefined };
+      this._currentUserCached = {
+        isLoading: false,
+        ...userV,
+      };
+      return userV;
+    } catch (e) {
+      return {
+        user: undefined,
+        isLoading: false,
+        error: { message: e?.message || 'Error loading user' },
+      };
+    }
   }
 
   async _hasCurrentUser() {
-    const user = await this._persister.getItem(currentUserKey);
-    return JSON.parse(user) != null;
+    const user = await this.kv.waitForKeyToLoad(currentUserKey);
+    return typeof user === 'string' ? JSON.parse(user) != null : user != null;
   }
 
   async changeCurrentUser(newUser) {
@@ -1436,24 +2047,44 @@ export default class Reactor {
     this.updateUser(newUser);
 
     try {
-      this._broadcastChannel?.postMessage({ type: "auth" });
+      this._broadcastChannel?.postMessage({ type: 'auth' });
     } catch (error) {
-      console.error("Error posting message to broadcast channel", error);
+      console.error('Error posting message to broadcast channel', error);
+    }
+  }
+
+  async syncUserToEndpoint(user) {
+    if (!this.config.firstPartyPath) return;
+    try {
+      fetch(this.config.firstPartyPath + '/', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'sync-user',
+          appId: this.config.appId,
+          user: user,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      this._log.error('Error syncing user with external endpoint', error);
     }
   }
 
   updateUser(newUser) {
+    this.syncUserToEndpoint(newUser);
+
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
     this._dataForQueryCache = {};
-    this.querySubs.set((prev) => {
+    this.querySubs.updateInPlace((prev) => {
       Object.keys(prev).forEach((k) => {
         delete prev[k].result;
       });
-      return prev;
     });
     this._reconnectTimeoutMs = 0;
-    this._ws.close();
+    this._transport.close();
     this._oauthCallbackResponse = null;
     this.notifyAuthSubs(newV);
   }
@@ -1467,11 +2098,14 @@ export default class Reactor {
   }
 
   async signInWithMagicCode({ email, code }) {
+    const currentUser = await this.getCurrentUser();
+    const isGuest = currentUser?.user?.type === 'guest';
     const res = await authAPI.verifyMagicCode({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       email,
       code,
+      refreshToken: isGuest ? currentUser.user.refresh_token : undefined,
     });
     await this.changeCurrentUser(res.user);
     return res;
@@ -1487,23 +2121,46 @@ export default class Reactor {
     return res;
   }
 
-  async signOut() {
-    const currentUser = await this.getCurrentUser();
+  async signInAsGuest() {
+    const res = await authAPI.signInAsGuest({
+      apiURI: this.config.apiURI,
+      appId: this.config.appId,
+    });
+    await this.changeCurrentUser(res.user);
+    return res;
+  }
+
+  potentiallyInvalidateToken(currentUser, opts) {
     const refreshToken = currentUser?.user?.refresh_token;
-    if (refreshToken) {
-      try {
-        await authAPI.signOut({
-          apiURI: this.config.apiURI,
-          appId: this.config.appId,
-          refreshToken,
-        });
-      } catch (e) {}
+    if (!refreshToken) {
+      return;
     }
+    const wantsToSkip = opts.invalidateToken === false;
+    if (wantsToSkip) {
+      this._log.info('[auth-invalidate] skipped invalidateToken');
+      return;
+    }
+    authAPI
+      .signOut({
+        apiURI: this.config.apiURI,
+        appId: this.config.appId,
+        refreshToken,
+      })
+      .then(() => {
+        this._log.info('[auth-invalidate] completed invalidateToken');
+      })
+      .catch((e) => {});
+  }
+
+  async signOut(opts) {
+    const currentUser = await this.getCurrentUser();
+    this.potentiallyInvalidateToken(currentUser, opts);
     await this.changeCurrentUser(null);
   }
 
   /**
    * Creates an OAuth authorization URL.
+   *
    * @param {Object} params - The parameters to create the authorization URL.
    * @param {string} params.clientName - The name of the client requesting authorization.
    * @param {string} params.redirectURL - The URL to redirect users to after authorization.
@@ -1515,16 +2172,19 @@ export default class Reactor {
   }
 
   /**
-   * @param {Object} params 
-   * @param {string} params.code - The code received from the OAuth service. 
+   * @param {Object} params
+   * @param {string} params.code - The code received from the OAuth service.
    * @param {string} [params.codeVerifier] - The code verifier used to generate the code challenge.
    */
   async exchangeCodeForToken({ code, codeVerifier }) {
+    const currentUser = await this.getCurrentUser();
+    const isGuest = currentUser?.user?.type === 'guest';
     const res = await authAPI.exchangeCodeForToken({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       code: code,
       codeVerifier,
+      refreshToken: isGuest ? currentUser.user.refresh_token : undefined,
     });
     await this.changeCurrentUser(res.user);
     return res;
@@ -1560,8 +2220,15 @@ export default class Reactor {
   // --------
   // Rooms
 
-  joinRoom(roomId) {
+  /**
+   * @param {string} roomId
+   * @param {any | null | undefined} [initialPresence] -- initial presence data to send when joining the room
+   * @returns () => void
+   */
+  joinRoom(roomId, initialPresence) {
+    let needsToSendJoin = false;
     if (!this._rooms[roomId]) {
+      needsToSendJoin = true;
       this._rooms[roomId] = {
         isConnected: false,
         error: undefined,
@@ -1569,8 +2236,16 @@ export default class Reactor {
     }
 
     this._presence[roomId] = this._presence[roomId] || {};
+    const previousResult = this._presence[roomId].result;
+    if (initialPresence && !previousResult) {
+      this._presence[roomId].result = this._presence[roomId].result || {};
+      this._presence[roomId].result.user = initialPresence;
+      this._notifyPresenceSubs(roomId);
+    }
 
-    this._tryJoinRoom(roomId);
+    if (needsToSendJoin) {
+      this._tryJoinRoom(roomId, initialPresence);
+    }
 
     return () => {
       this._cleanupRoom(roomId);
@@ -1639,24 +2314,37 @@ export default class Reactor {
 
   _trySetPresence(roomId, data) {
     this._trySendAuthed(uuid(), {
-      op: "set-presence",
-      "room-id": roomId,
+      op: 'set-presence',
+      'room-id': roomId,
       data,
     });
   }
 
-  _tryJoinRoom(roomId) {
-    this._trySendAuthed(uuid(), { op: "join-room", "room-id": roomId });
+  _tryJoinRoom(roomId, data) {
+    this._trySendAuthed(uuid(), { op: 'join-room', 'room-id': roomId, data });
     delete this._roomsPendingLeave[roomId];
   }
 
   _tryLeaveRoom(roomId) {
-    this._trySendAuthed(uuid(), { op: "leave-room", "room-id": roomId });
+    this._trySendAuthed(uuid(), { op: 'leave-room', 'room-id': roomId });
+  }
+
+  _trySetRoomConnected(roomId, isConnected) {
+    const room = this._rooms[roomId];
+    if (room) {
+      room.isConnected = isConnected;
+    }
   }
 
   // TODO: look into typing again
   subscribePresence(roomType, roomId, opts, cb) {
-    const leaveRoom = this.joinRoom(roomId);
+    const leaveRoom = this.joinRoom(
+      roomId,
+      // Oct 28, 2025
+      // Note: initialData is deprecated.
+      // Keeping here for backwards compatibility
+      opts.initialPresence || opts.initialData,
+    );
 
     const handler = { ...opts, roomId, cb, prev: null };
 
@@ -1681,7 +2369,7 @@ export default class Reactor {
   }
 
   _notifyPresenceSub(roomId, handler) {
-    const slice = this.getPresence("", roomId, handler);
+    const slice = this.getPresence('', roomId, handler);
 
     if (!slice) {
       return;
@@ -1700,17 +2388,26 @@ export default class Reactor {
     let sessions = Object.fromEntries(
       Object.entries(peers).map(([k, v]) => [k, { data: v }]),
     );
-    sessions[this._sessionId] = { data: this._presence[roomId]?.result?.user };
-    for (let [path, op, value] of edits) {
-      if (op === "+" || op === "r") {
-        sessions = assocIn(sessions, path, value);
+    const myPresence = this._presence[roomId]?.result;
+    const newSessions = create(sessions, (draft) => {
+      for (let [path, op, value] of edits) {
+        switch (op) {
+          case '+':
+            insertInMutative(draft, path, value);
+            break;
+          case 'r':
+            assocInMutative(draft, path, value);
+            break;
+          case '-':
+            dissocInMutative(draft, path);
+            break;
+        }
       }
-      if (op === "-") {
-        sessions = dissocIn(sessions, path);
-      }
-    }
+      // Ignore our own edits
+      delete draft[this._sessionId];
+    });
 
-    this._setPresencePeers(roomId, sessions);
+    this._setPresencePeers(roomId, newSessions);
   }
 
   _setPresencePeers(roomId, data) {
@@ -1721,11 +2418,9 @@ export default class Reactor {
       Object.entries(sessions).map(([k, v]) => [k, v.data]),
     );
 
-    this._presence = assocIn(
-      this._presence,
-      [roomId, "result", "peers"],
-      peers,
-    );
+    this._presence = create(this._presence, (draft) => {
+      assocInMutative(draft, [roomId, 'result', 'peers'], peers);
+    });
   }
 
   // --------
@@ -1750,8 +2445,8 @@ export default class Reactor {
 
   _tryBroadcast(roomId, roomType, topic, data) {
     this._trySendAuthed(uuid(), {
-      op: "client-broadcast",
-      "room-id": roomId,
+      op: 'client-broadcast',
+      'room-id': roomId,
       roomType,
       topic,
       data,
@@ -1785,9 +2480,9 @@ export default class Reactor {
       const data = msg.data?.data;
 
       const peer =
-        msg.data["peer-id"] === this._sessionId
+        msg.data['peer-id'] === this._sessionId
           ? this._presence[room]?.result?.user
-          : this._presence[room]?.result?.peers?.[msg.data["peer-id"]];
+          : this._presence[room]?.result?.peers?.[msg.data['peer-id']];
 
       return cb(data, peer);
     });
@@ -1795,6 +2490,35 @@ export default class Reactor {
 
   // --------
   // Storage
+
+  async uploadFile(path, file, opts) {
+    const currentUser = await this.getCurrentUser();
+    const refreshToken = currentUser?.user?.refresh_token;
+    return StorageApi.uploadFile({
+      ...opts,
+      apiURI: this.config.apiURI,
+      appId: this.config.appId,
+      path: path,
+      file,
+      refreshToken: refreshToken,
+    });
+  }
+
+  async deleteFile(path) {
+    const currentUser = await this.getCurrentUser();
+    const refreshToken = currentUser?.user?.refresh_token;
+    const result = await StorageApi.deleteFile({
+      apiURI: this.config.apiURI,
+      appId: this.config.appId,
+      path,
+      refreshToken: refreshToken,
+    });
+
+    return result;
+  }
+
+  // Deprecated Storage API (Jan 2025)
+  // ---------------------------------
 
   async upload(path, file) {
     const currentUser = await this.getCurrentUser();
@@ -1822,18 +2546,5 @@ export default class Reactor {
     });
 
     return url;
-  }
-
-  async deleteFile(path) {
-    const currentUser = await this.getCurrentUser();
-    const refreshToken = currentUser?.user?.refresh_token;
-    const result = await StorageApi.deleteFile({
-      apiURI: this.config.apiURI,
-      appId: this.config.appId,
-      path: path,
-      refreshToken: refreshToken,
-    });
-
-    return result;
   }
 }

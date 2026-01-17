@@ -1,29 +1,35 @@
 ---
 title: Permissions
+description: How to secure your data with Instant's Rule Language.
 ---
 
-To secure user data, you can use Instant’s Rule Language. Our rule language
-takes inspiration from Rails’ ActiveRecord, Google’s CEL, and JSON.
-Here’s an example ruleset below
+To secure user data, you can use Instant's Rule Language. Our rule language
+takes inspiration from Rails' ActiveRecord, Google's CEL, and JSON.
+Here's an example ruleset below.
 
-```typescript {% showCopy=true %}
+<!-- prettier-ignore-start -->
+```tsx {% showCopy=true %}
 // instant.perms.ts
-import type { InstantRules } from "@instantdb/react";
+import type { InstantRules } from '@instantdb/react';
 
 const rules = {
-  todos: {
-    allow: {
-      view: "auth.id != null",
-      create: "isOwner",
-      update: "isOwner",
-      delete: "isOwner",
+  "todos": {
+    "allow": {
+      "view": "auth.id != null",
+      "create": "isOwner",
+      "update": "isOwner && isStillOwner",
+      "delete": "isOwner",
     },
-    bind: ["isOwner", "auth.id != null && auth.id == data.creatorId"],
-  },
+    "bind": {
+      "isOwner": "auth.id != null && auth.id == data.creatorId",
+      "isStillOwner": "auth.id != null && auth.id == newData.creatorId"
+    }
+  }
 } satisfies InstantRules;
 
 export default rules;
 ```
+<!-- prettier-ignore-end -->
 
 You can manage permissions via configuration files or through the Instant dashboard.
 
@@ -35,7 +41,7 @@ With Instant you can define your permissions in code. If you haven't already, us
 npx instant-cli@latest init
 ```
 
-The CLI will guide you through picking an Instant app and generate these files for you. Once you've made changes to `instant.perms.ts`, you can use the CLI to push those changes to production: 
+The CLI will guide you through picking an Instant app and generate these files for you. Once you've made changes to `instant.perms.ts`, you can use the CLI to push those changes to production:
 
 ```shell {% showCopy=true %}
 npx instant-cli@latest push perms
@@ -47,30 +53,36 @@ For each app in your dashboard, you’ll see a permissions editor. Permissions a
 
 ## Namespaces
 
-For each namespace you can define `allow` rules for `view`, `create`, `update`, `delete`. Rules must be boolean expressions.
+For each namespace you can define `allow` rules for `view`, `create`, `update`, `delete`, as well as special rules for fields. Rules must be boolean expressions.
 
-If a rule is not set then by default it evaluates to true. The following three rulesets are all equivalent
+If a rule is not set then by default it evaluates to true. The following three rulesets are all equivalent:
 
 In this example we explicitly set each action for `todos` to true
 
 ```json
-"todos": {
-  "allow": {
-    "view": "true",
-    "create": "true",
-    "update": "true",
-    "delete": "true"
-  },
+{
+  "todos": {
+    "allow": {
+      "view": "true",
+      "create": "true",
+      "update": "true",
+      "delete": "true"
+    }
+  }
+}
 ```
 
 In this example we explicitly set `view` to be true. However, all the remaining
 actions for `todo` also default to true.
 
 ```json
-"todos": {
-  "allow": {
-    "view": "true"
-  },
+{
+  "todos": {
+    "allow": {
+      "view": "true"
+    }
+  }
+}
 ```
 
 In this example we set no rules, and thus all permission checks pass.
@@ -95,16 +107,36 @@ a user executes, they’ll _only_ see data that they are allowed to see.
 ### Create, Update, Delete
 
 Similarly, for each object in a transaction, we make sure to evaluate the respective `create`, `update`, and `delete` rule.
+
 Transactions will fail if a user does not have adequate permission.
+
+### Fields
+
+You can also define field-level permissions. For example, you may want to make the `$users` table public, but hide email addresses. Here's how you could do that:
+
+```json
+{
+  "$users": {
+    "allow": {
+      "view": "true"
+    },
+    "fields": {
+      "email": "auth.id == data.id"
+    }
+  }
+}
+```
 
 ### Default permissions
 
 By default, all permissions are considered to be `"true"`. To change that, use `"$default"` key. This:
 
 ```json
-"todos": {
-  "allow": {
-    "$default": "false"
+{
+  "todos": {
+    "allow": {
+      "$default": "false"
+    }
   }
 }
 ```
@@ -112,12 +144,14 @@ By default, all permissions are considered to be `"true"`. To change that, use `
 is equivalent to this:
 
 ```json
-"todos": {
-  "allow": {
-    "view": "false",
-    "create": "false",
-    "update": "false",
-    "delete": "false",
+{
+  "todos": {
+    "allow": {
+      "view": "false",
+      "create": "false",
+      "update": "false",
+      "delete": "false"
+    }
   }
 }
 ```
@@ -125,10 +159,12 @@ is equivalent to this:
 Specific keys can override defaults:
 
 ```json
-"todos": {
-  "allow": {
-    "$default": "false",
-    "view": "true"
+{
+  "todos": {
+    "allow": {
+      "$default": "false",
+      "view": "true"
+    }
   }
 }
 ```
@@ -136,14 +172,16 @@ Specific keys can override defaults:
 You can use `$default` as the namespace:
 
 ```json
-"$default": {
-  "allow": {
-    "view": "false"
-  }
-},
-"todos": {
-  "allow": {
-    "view": "true"
+{
+  "$default": {
+    "allow": {
+      "view": "false"
+    }
+  },
+  "todos": {
+    "allow": {
+      "view": "true"
+    }
   }
 }
 ```
@@ -151,9 +189,11 @@ You can use `$default` as the namespace:
 Finally, the ultimate default:
 
 ```json
-"$default": {
-  "allow": {
-    "$default": "false"
+{
+  "$default": {
+    "allow": {
+      "$default": "false"
+    }
   }
 }
 ```
@@ -161,7 +201,7 @@ Finally, the ultimate default:
 ## Attrs
 
 Attrs are a special kind of namespace for creating new types of data on the fly.
-Currently we only support creating attrs. During development you likely don't
+Currently we only support create rules on attrs. During development you likely don't
 need to lock this rule down, but once you ship you will likely want to set this
 permission to `false`
 
@@ -214,7 +254,7 @@ The above example shows a taste of the kind of rules you can write :)
 
 ### data
 
-`data` refers to the object you have saved. This will be populated when used for `view`, `create`, `update`, and `delete` rules
+`data` refers to the object you have saved. This will be populated when used for `view`, `create`, `update`, `delete` rules.
 
 ### newData
 
@@ -230,7 +270,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
     "allow": {
       "create": "isOwner"
     },
-    "bind": ["isOwner", "auth.id != null && auth.id == data.creatorId"]
+    "bind": { "isOwner": "auth.id != null && auth.id == data.creatorId" }
   }
 }
 ```
@@ -253,12 +293,10 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
     "allow": {
       "create": "isOwner || isAdmin"
     },
-    "bind": [
-      "isOwner",
-      "auth.id != null && auth.id == data.creatorId",
-      "isAdmin",
-      "auth.email in ['joe@instantdb.com', 'stopa@instantdb.com']"
-    ]
+    "bind": {
+      "isOwner": "auth.id != null && auth.id == data.creatorId",
+      "isAdmin": "auth.email in ['joe@instantdb.com', 'stopa@instantdb.com']"
+    }
   }
 }
 ```
@@ -280,14 +318,113 @@ delete to only succeed on todos associated with a specific user email.
 
 `ref` works on the `auth` object too. Here's how you could restrict `deletes` to users with the 'admin' role:
 
-```json 
+```json
 {
-  todos: {
-    allow: {
-      delete: "'admin' in auth.ref('$user.role.type')",
+  "todos": {
+    "allow": {
+      "delete": "'admin' in auth.ref('$user.role.type')"
     },
   },
 };
 ```
 
 See [managing users](/docs/users) to learn more about that.
+
+### ruleParams
+
+Imagine you have a `documents` namespace, and want to implement a rule like _"Only people who know my document's id can access it."_
+
+You can use `ruleParams` to write that rule. `ruleParams` let you pass extra options to your queries and transactions.
+
+For example, pass a `knownDocId` param to our query:
+
+```javascript
+// You could get your doc's id from the URL for example
+const myDocId = getId(window.location);
+
+const query = {
+  docs: {},
+};
+const { data } = db.useQuery(query, {
+  ruleParams: { knownDocId: myDocId }, // Pass the id to ruleParams!
+});
+```
+
+Or to your transactions:
+
+```js
+db.transact(
+  db.tx.docs[id].ruleParams({ knownDocId: id }).update({ title: 'eat' }),
+);
+```
+
+And then use it in your permission rules:
+
+```json
+{
+  "documents": {
+    "allow": {
+      "view": "data.id == ruleParams.knownDocId",
+      "update": "data.id == ruleParams.knownDocId",
+      "delete": "data.id == ruleParams.knownDocId"
+    }
+  }
+}
+```
+
+With that, you've implemented the rule _"Only people who know my document's id can access it."_!
+
+**Here are some more patterns**
+
+If you want to: access a document and _all related comments_ by one `knownDocId`:
+
+```json
+{
+  "docs": {
+    "view": "data.id == ruleParams.knownDocId"
+  },
+  "comment": {
+    "view": "ruleParams.knownDocId in data.ref('parent.id')"
+  }
+}
+```
+
+Or, if you want to allow multiple documents:
+
+```js
+db.useQuery(..., { knownDocIds: [id1, id2, ...] })
+```
+
+```json
+{
+  "docs": {
+    "view": "data.id in ruleParams.knownDocIds"
+  }
+}
+```
+
+To create a “share links” feature, where you have multiple links to the same doc, you can create a separate namespace:
+
+```json
+{
+  "docs": {
+    "view": "ruleParams.secret in data.ref('docLinks.secret')"
+  }
+}
+```
+
+Or if you want to separate “view links” from “edit links”, you can use two namespaces like this:
+
+```json
+{
+  "docs": {
+    "view": "hasViewerSecret || hasEditorSecret",
+    "update": "hasEditorSecret",
+    "delete": "hasEditorSecret",
+    "bind": {
+      "hasViewerSecret": "ruleParams.secret in data.ref('docViewLinks.secret')",
+      "hasEditorSecret": "ruleParams.secret in data.ref('docEditLinks.secret')"
+    }
+  }
+}
+```

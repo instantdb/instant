@@ -4,15 +4,15 @@ import {
   type MouseEvent,
   type TouchEvent,
   type CSSProperties,
-} from "react";
-import type { InstantReactRoom } from "./InstantReactRoom";
-import type { RoomSchemaShape } from "@instantdb/core";
+} from 'react';
+import { type InstantReactRoom } from '@instantdb/react-common';
+import type { RoomSchemaShape } from '@instantdb/core';
 
 export function Cursors<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 >({
-  as = "div",
+  as = 'div',
   spaceId: _spaceId,
   room,
   className,
@@ -32,7 +32,7 @@ export function Cursors<
   children?: ReactNode;
   renderCursor?: (props: {
     color: string;
-    presence: RoomSchema[RoomType]["presence"];
+    presence: RoomSchema[RoomType]['presence'];
   }) => ReactNode;
   propagate?: boolean;
   zIndex?: number;
@@ -41,7 +41,7 @@ export function Cursors<
     _spaceId || `cursors-space-default--${String(room.type)}-${room.id}`;
 
   const cursorsPresence = room.usePresence({
-    keys: [spaceId],
+    keys: [spaceId] as (keyof RoomSchema[RoomType]['presence'])[],
   });
 
   const fullPresence = room._core._reactor.getPresence(room.type, room.id);
@@ -62,7 +62,7 @@ export function Cursors<
         yPercent,
         color: userCursorColor,
       },
-    } as RoomSchema[RoomType]["presence"]);
+    } as RoomSchema[RoomType]['presence']);
   }
 
   function onMouseMove(e: MouseEvent) {
@@ -77,7 +77,7 @@ export function Cursors<
   function onMouseOut(e: MouseEvent) {
     cursorsPresence.publishPresence({
       [spaceId]: undefined,
-    } as RoomSchema[RoomType]["presence"]);
+    } as RoomSchema[RoomType]['presence']);
   }
 
   function onTouchMove(e: TouchEvent) {
@@ -99,7 +99,7 @@ export function Cursors<
   function onTouchEnd(e: TouchEvent) {
     cursorsPresence.publishPresence({
       [spaceId]: undefined,
-    } as RoomSchema[RoomType]["presence"]);
+    } as RoomSchema[RoomType]['presence']);
   }
 
   return createElement(
@@ -111,7 +111,7 @@ export function Cursors<
       onTouchEnd,
       className,
       style: {
-        position: "relative",
+        position: 'relative',
         ...style,
       },
     },
@@ -135,14 +135,14 @@ export function Cursors<
               style={{
                 ...absStyles,
                 transform: `translate(${cursor.xPercent}%, ${cursor.yPercent}%)`,
-                transformOrigin: "0 0",
-                transition: "transform 100ms",
+                transformOrigin: '0 0',
+                transition: 'transform 100ms',
               }}
             >
               {renderCursor ? (
                 renderCursor({
                   color: cursor.color,
-                  presence: fullPresence.peers[id],
+                  presence: fullPresence?.peers[id],
                 })
               ) : (
                 <Cursor {...cursor} />
@@ -157,7 +157,7 @@ export function Cursors<
 
 function Cursor({ color }: { color: string }) {
   const size = 35;
-  const fill = color || "black";
+  const fill = color || 'black';
 
   return (
     <svg
@@ -192,7 +192,7 @@ function Cursor({ color }: { color: string }) {
 }
 
 const absStyles: CSSProperties = {
-  position: "absolute",
+  position: 'absolute',
   top: 0,
   left: 0,
   bottom: 0,
@@ -200,9 +200,9 @@ const absStyles: CSSProperties = {
 };
 
 const inertStyles: CSSProperties = {
-  overflow: "hidden",
-  pointerEvents: "none",
-  userSelect: "none",
+  overflow: 'hidden',
+  pointerEvents: 'none',
+  userSelect: 'none',
 };
 
 const defaultZ = 99999;

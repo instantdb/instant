@@ -25,9 +25,13 @@
                  {:requests (conj requests request)
                   :schedule-delay (or schedule-delay
                                       (delay
-                                        (ua/vfuture
-                                         (Thread/sleep delay-ms)
-                                         (run-batch! dataloader-opts k))))}))
+                                        ;; store/swap-datalog-cache! has a future
+                                        ;; that will be canceled if all of its "watchers"
+                                        ;; are canceled. Something like that would be a
+                                        ;; nice improvement over severed-vfuture here.
+                                        (ua/severed-vfuture
+                                          (Thread/sleep (long delay-ms))
+                                          (run-batch! dataloader-opts k))))}))
         schedule-delay (get-in v [k :schedule-delay])]
     @schedule-delay))
 

@@ -1,6 +1,6 @@
 export function makeAttrComparator(
   sortAttr: string,
-  sortAsc: boolean | undefined
+  sortAsc: boolean | undefined,
 ): ((a: Record<string, any>, b: Record<string, any>) => number) | undefined {
   return (_a, _b) => {
     const a = _a[sortAttr];

@@ -1,13 +1,35 @@
 import { FormEventHandler, useContext, useState } from 'react';
 import { errorToast } from '@/lib/toast';
 import config from '@/lib/config';
-import { AuthorizedOrigin, AuthorizedOriginService, InstantApp, InstantError, OAuthClient, OAuthServiceProvider } from '@/lib/types';
+import {
+  AuthorizedOrigin,
+  AuthorizedOriginService,
+  InstantApp,
+  InstantIssue,
+} from '@/lib/types';
 import { jsonFetch } from '@/lib/fetch';
 import { TokenContext } from '@/lib/contexts';
-import { messageFromInstantError } from '@/lib/auth';
-import { Button, Content, Dialog, Label, SectionHeading, SubsectionHeading, Select, TextInput, useDialog } from '@/components/ui';
-import { InformationCircleIcon, PlusIcon, TrashIcon } from '@heroicons/react/solid'; 
-import { DeviceMobileIcon, GlobeAltIcon } from '@heroicons/react/outline';
+import { messageFromInstantError } from '@/lib/errors';
+import {
+  Button,
+  Content,
+  Dialog,
+  Label,
+  SectionHeading,
+  SubsectionHeading,
+  Select,
+  TextInput,
+  useDialog,
+} from '@/components/ui';
+import {
+  InformationCircleIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@heroicons/react/24/solid';
+import {
+  DevicePhoneMobileIcon,
+  GlobeAltIcon,
+} from '@heroicons/react/24/outline';
 import NetlifyIcon from '../../icons/NetlifyIcon';
 import VercelIcon from '../../icons/VercelIcon';
 
@@ -80,11 +102,12 @@ export function AuthorizedOriginsForm({
   const [service, setService] = useState<AuthorizedOriginService>('generic');
 
   const validateUrl = (
-    originParam: string,
+    _originParam: string,
     service: AuthorizedOriginService,
   ):
     | { type: 'error'; message: string }
     | { type: 'success'; params: string[] } => {
+    const originParam = _originParam.trim();
     switch (service) {
       case 'netlify': {
         return { type: 'success', params: [originParam] };
@@ -144,7 +167,7 @@ export function AuthorizedOriginsForm({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error creating origin.';
+        messageFromInstantError(e as InstantIssue) || 'Error creating origin.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -163,7 +186,7 @@ export function AuthorizedOriginsForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="flex flex-col gap-4 border rounded p-4"
+      className="flex flex-col gap-4 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800/50"
     >
       <div className="flex flex-row gap-2">
         <div className="flex flex-col gap-2">
@@ -178,7 +201,7 @@ export function AuthorizedOriginsForm({
             value={service}
           />
         </div>
-        <div className="flex-grow">
+        <div className="grow">
           <TextInput
             value={url}
             onChange={setUrl}
@@ -232,7 +255,7 @@ export function originIcon(origin: AuthorizedOrigin) {
     case 'vercel':
       return VercelIcon;
     case 'custom-scheme':
-      return DeviceMobileIcon;
+      return DevicePhoneMobileIcon;
     default:
       return GlobeAltIcon;
   }
@@ -311,7 +334,7 @@ export function AuthorizedOriginRow({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error removing origin.';
+        messageFromInstantError(e as InstantIssue) || 'Error removing origin.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -321,14 +344,14 @@ export function AuthorizedOriginRow({
   const Icon = originIcon(origin);
 
   return (
-    <div className="flex items-center justify-between rounded border p-4 bg-gray-50">
+    <div className="flex items-center justify-between rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800/50">
       <div className="flex items-center gap-4">
         <Icon height="1.5em" />
         <div className="flex flex-col leading-4">
-          <span className="text-xs font-light text-gray-500">
+          <span className="text-xs font-light text-gray-500 dark:text-neutral-400">
             {originSource(origin)}
           </span>
-          <span className="font-medium text-gray-700">
+          <span className="font-medium text-gray-700 dark:text-neutral-200">
             {originDisplay(origin)}
           </span>
         </div>
@@ -336,7 +359,7 @@ export function AuthorizedOriginRow({
       <button onClick={deleteDialog.onOpen}>
         <TrashIcon height={'1rem'} className="" />
       </button>
-      <Dialog {...deleteDialog}>
+      <Dialog title="Delete Origin" {...deleteDialog}>
         <div className="flex flex-col gap-2">
           <SubsectionHeading>Delete {originDisplay(origin)}</SubsectionHeading>
           <Content>
@@ -371,10 +394,10 @@ export function AuthorizedOrigins({
     origins.length === 0,
   );
   return (
-    <div className="flex gap-2 flex-col">
+    <div className="flex flex-col gap-2">
       <div>
         <SectionHeading>Redirect Origins </SectionHeading>
-        <Content className="text-gray-500 text-sm">
+        <Content className="text-sm text-gray-500 dark:text-neutral-500">
           Add your site's url so that you can initiate the OAuth flow from your
           site.
         </Content>

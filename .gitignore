@@ -12,6 +12,23 @@ node_modules
 www/.next/
 www/out/
 
+# sitemap
+client/www/public/sitemap.xml
+
+# llms
+client/www/public/llms.txt
+client/www/public/llms-full.txt
+
+# rss
+client/www/public/rss.xml
+
+# static docs
+client/www/public/docs
+client/www/public/docs*
+
+# llm-rules
+client/www/public/llm-rules*
+
 # production
 www/build
 
@@ -40,7 +57,6 @@ server/resources/config/overlay.edn
 
 dist
 
-.lsp
 .calva
 
 .clj-kondo/*
@@ -100,6 +116,10 @@ web_modules/
 # Optional npm cache directory
 .npm
 
+# tshy
+.tshy
+.tshy-build
+
 # Optional eslint cache
 .eslintcache
 
@@ -122,7 +142,7 @@ web_modules/
 .yarn-integrity
 
 # dotenv environment variable files
-.env
+client/sandbox/**/.env
 .env.development.local
 .env.test.local
 .env.production.local
@@ -184,7 +204,7 @@ apps/.DS_Store
 # turbo
 .turbo
 
-# clojure 
+# clojure
 .nrepl-port
 
 .vscode
@@ -197,3 +217,19 @@ server/resources/metrics/*-usage.png
 
 # emails
 server/resources/emails/*
+
+# algolia
+client/www/scripts/algolia-objects.json
+client/packages/mcp/.env
+
+# tshy build temporary package.json files
+client/packages/platform/src/package.json
+client/packages/cli/src/package.json
+client/packages/core/src/package.json
+client/packages/admin/src/package.json
+client/packages/react-native/src/package.json
+client/packages/react/src/package.json
+client/packages/version/src/package.json
+
+# gemini
+.gemini

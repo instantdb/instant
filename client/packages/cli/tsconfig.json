@@ -1,12 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "nodenext",
     "outDir": "dist",
-    "rootDir": "src", 
-    "skipLibCheck": true // `unconfig` currently imports a broken type from `@antfu/utils`
-                         // remove once fixed
+    "rootDir": "src",
+    "sourceMap": true,
+    "skipLibCheck": true, // `unconfig` currently imports a broken type from `@antfu/utils`,
+    "strictNullChecks": true
+    // remove once fixed
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

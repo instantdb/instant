@@ -4,14 +4,14 @@
    [clojure.core.async :as a]
    [clojure.core.async.impl.buffers]
    [clojure.core.async.impl.protocols :as a-impl]
-   [instant.flags :as flags]
    [instant.gauges :as gauges]
    [instant.util.tracer :as tracer])
   (:import
    (java.util.concurrent ConcurrentHashMap
                          Executors
                          ExecutorService
-                         Future)
+                         Future
+                         Semaphore)
    (clojure.core.async.impl.buffers FixedBuffer
                                     DroppingBuffer
                                     SlidingBuffer
@@ -39,7 +39,16 @@
     (uncaughtException [_ thread ex]
       (tracer/record-exception-span! ex {:name        "uncaught-exception"
                                          :escaping?   false
-                                         :thread-name (.getName thread)}))))
+                                         :attributes {:thread-name (.getName thread)}}))))
+
+(defn wrap-catch-unhandled-exceptions [f]
+  (fn [& args]
+    (try
+      (apply f args)
+      (catch Throwable t
+        (when-some [handler (.getUncaughtExceptionHandler (Thread/currentThread))]
+          (.uncaughtException handler (Thread/currentThread) t))
+        (throw t)))))
 
 ;; ---------------
 ;; virtual-threads
@@ -61,7 +70,8 @@
           timeout-val))))
 
 (defn worker-vfuture-call [^ExecutorService executor f]
-  (let [fut (.submit executor ^Callable f)]
+  (let [f   (wrap-catch-unhandled-exceptions f)
+        fut (.submit executor ^Callable f)]
     (reify
       clojure.lang.IDeref
       (deref [_] (deref-future fut))
@@ -88,14 +98,22 @@
 ;; parent is canceled.
 (def ^:dynamic *child-vfutures* nil)
 
+(defn new-child-vfutures ^ConcurrentHashMap []
+  (ConcurrentHashMap.))
+
+(defn cancel-children [^ConcurrentHashMap child-vfutures interrupt?]
+  (doseq [^Future child (.values child-vfutures)]
+    (.cancel child interrupt?)))
+
 (defn future-call
   "Like clojure.core/future-call, but accepts an Executor"
   [^ExecutorService executor {:keys [dont-track-immediate-children?]} f]
   (let [fut-id (Object.)
         ;; Use a ConcurrentHashMap because it plays more nicely with
         ;; virtual threads
-        children (ConcurrentHashMap.)
+        children (new-child-vfutures)
         ^ConcurrentHashMap parent-vfutures *child-vfutures*
+        f (wrap-catch-unhandled-exceptions f)
         f (bound-fn* (^{:once true} fn* []
                       (if dont-track-immediate-children?
                         (f)
@@ -120,8 +138,7 @@
                       (isCancelled [_] (.isCancelled fut))
                       (isDone [_] (.isDone fut))
                       (cancel [_ interrupt?]
-                        (doseq [^Future child (.values children)]
-                          (.cancel child interrupt?))
+                        (cancel-children children interrupt?)
                         (.cancel fut interrupt?)))]
     (when parent-vfutures
       (.put parent-vfutures fut-id wrapped-fut))
@@ -139,6 +156,12 @@
   [& body]
   `(future-call default-virtual-thread-executor nil (^{:once true} fn* [] ~@body)))
 
+(defmacro severed-vfuture
+  "Like vfuture, but won't get canceled if the parent is canceled."
+  [& body]
+  `(binding [*child-vfutures* nil]
+     (future-call default-virtual-thread-executor nil (^{:once true} fn* [] ~@body))))
+
 (defn pmap
   "Like pmap, but uses vfutures to parallelize the work.
 
@@ -153,9 +176,7 @@
   [f coll]
   (->> coll
        ;; mapv to force entire seq
-       (mapv #(if (flags/use-vfutures?)
-                (vfuture (f %))
-                (tracked-future (f %))))
+       (mapv #(vfuture (f %)))
        (mapv deref)))
 
 (defmacro vfut-bg
@@ -177,6 +198,57 @@
                                             :attributes {:forms (pr-str '~forms)}})
          (throw e#))))))
 
+;; Only supports what we currently need for the datalog query cache
+;; See https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ExecutorService.html
+;; for the rest of the interface we might want to implement
+(deftype VFutureExecutor []
+  ExecutorService
+  (^Future submit [_ ^Callable callable]
+   (vfuture (.call callable)))
+
+  (^Future submit [_ ^Runnable runnable]
+   (vfuture (.run runnable)))
+
+  (^void execute [_ ^Runnable runnable]
+   (vfuture (.run runnable))
+   nil)
+
+  (shutdown [_]
+    nil))
+
+(defn make-vfuture-executor []
+  (VFutureExecutor.))
+
+(defmacro execute-with-semaphore [^Semaphore semaphore & body]
+  `(try
+     (.acquire ~semaphore)
+     ~@body
+     (finally
+       (.release ~semaphore))))
+
+(deftype LimitedConcurrencyVFutureExecutor [^ExecutorService executor
+                                            ^Semaphore sem]
+  ExecutorService
+  (^Future submit [_ ^Callable callable]
+   (.submit executor ^Callable (^{:once true} fn* []
+                                (execute-with-semaphore sem (.call callable)))))
+
+  (^Future submit [_ ^Runnable runnable]
+   (.submit executor ^Runnable (^{:once true} fn* []
+                                (execute-with-semaphore sem (.run runnable)))))
+
+  (^void execute [_ ^Runnable runnable]
+   (.execute executor ^Runnable (^{:once true} fn* []
+                                 (execute-with-semaphore sem (.run runnable)))))
+
+  (shutdown [_]
+    (.shutdown executor)))
+
+(defn make-limited-concurrency-executor ^ExecutorService [max-concurrency]
+  (let [executor (Executors/newVirtualThreadPerTaskExecutor)
+        sem (Semaphore. max-concurrency true)]
+    (LimitedConcurrencyVFutureExecutor. executor sem)))
+
 ;; ----
 ;; core.async
 
@@ -191,7 +263,6 @@
               (a/alt!
                 ch ([v] v)
                 timeout-ch :timeout))))))
-
 
 (defn buf-capacity [buf]
   (cond (instance? FixedBuffer buf)
@@ -241,3 +312,70 @@
                           (name chan-name))
             :value (a-impl/full? buf)}])))
      chan)))
+
+(defn all-of [& futures]
+  (future
+    (doseq [f futures]
+      (deref f))))
+
+(defmacro >!-close-safe
+  "Prevents hangs when putting to a channel that is later closed.
+   Takes a close-signal-ch channel that will interrupt the stuck
+   put when the channel is closed.
+
+   This only works if you remember to close the close-signal channel
+   when you close the channel itself."
+  [close-signal-ch ch val]
+  `(a/alt! [[~ch ~val]] ([res#] res#)
+           ~close-signal-ch false))
+
+(defn chunked-chan
+  "Takes a `flush-ms` and a `max-size`. Returns an `in` and `out` chan.
+
+   Put new items in `in`, `out` will receive the items combined with the
+   `combine` function after the buffer length (determined by calling `size`)
+   exceeds `max-items` or when it has not flushed in more than `flush-ms` (and
+   the buffer is not empty).
+
+   `combine` should accept two arguments, the accumulator and the next item."
+  [{:keys [flush-ms
+           max-size
+           combine
+           init
+           size]
+    :or {combine (fn [acc xs] (apply conj acc xs))
+         init []
+         size count}}]
+  (let [in (a/chan)
+        out (a/chan)
+        shutdown-ch (a/chan)
+        process
+        (a/go-loop [items init
+                    timeout-ch nil]
+          (let [[vs ch] (a/alts! (remove nil? [in timeout-ch]))
+                timeout? (= ch timeout-ch)]
+            (cond timeout?
+                  (when (>!-close-safe shutdown-ch out items)
+                    (recur init nil))
+
+                  (nil? vs)
+                  (do
+                    (when (and (not (nil? items))
+                               (not (identical? items init)))
+                      (>!-close-safe shutdown-ch out items))
+                    (a/close! out))
+
+                  :else
+                  (let [items' (combine items vs)]
+                    (if (>= (size items') max-size)
+                      (when (>!-close-safe shutdown-ch out items')
+                        (recur init nil))
+                      (recur items' (or timeout-ch
+                                        (a/timeout flush-ms))))))))]
+    {:in in
+     :out out
+     :shutdown (fn []
+                 (a/close! in)
+                 (a/close! out)
+                 (a/close! shutdown-ch)
+                 process)}))

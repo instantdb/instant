@@ -1,11 +1,13 @@
-import { init } from "@instantdb/admin";
-const APP_ID = "137ace7a-efdd-490f-b0dc-a3c73a14f892";
-const ADMIN_TOKEN = "82900c15-faac-495b-b385-9f9e7743b629";
+import { init } from '@instantdb/admin';
+
+import config from '../../../config';
+
 const db = init({
-  appId: APP_ID,
-  adminToken: ADMIN_TOKEN,
-  apiURI: "http://localhost:8888",
+  ...config,
+  adminToken: process.env.INSTANT_ADMIN_TOKEN!,
 });
+
+export const dynamic = 'force-dynamic';
 
 export default async function Page() {
   const query = await db.query({

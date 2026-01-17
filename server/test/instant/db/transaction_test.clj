@@ -2,6 +2,7 @@
   (:require
    [clojure.string :as string]
    [clojure.test :as test :refer [are deftest is testing]]
+   [instant.config :as config]
    [instant.db.cel :as cel]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :refer [test-user-id]]
@@ -10,27 +11,35 @@
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triple-model]
+   [instant.model.app-file :as app-file-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.transaction :as tx]
-   [instant.fixtures :refer [with-empty-app with-zeneca-app]]
+   [instant.fixtures :refer [with-empty-app
+                             with-zeneca-app
+                             with-zeneca-app-no-indexing]]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
+   [instant.util.crypt :as crypt-util]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
-   [instant.util.test :refer [instant-ex-data pretty-perm-q]])
-  (:import
-   (java.util UUID)))
+   [instant.util.test :as test-util :refer [suid stuid validation-err? perm-err? perm-pass? timeout-err?]]
+   [instant.util.date :as date-util]
+   [instant.system-catalog :as system-catalog :refer [system-catalog-app-id]]
+   [next.jdbc]))
 
 (defn- fetch-triples
   ([app-id] (fetch-triples app-id []))
-  ([app-id where-clause]
+  ([app-id where-clause] (fetch-triples app-id where-clause {}))
+  ([app-id where-clause opts]
    (set (map :triple
              (triple-model/fetch
               (aurora/conn-pool :read)
               app-id
-              where-clause)))))
+              where-clause
+              opts)))))
 
 (deftest attrs-create-delete
   (doseq [{:keys [test tx-fn]} [{:test "tx/transact!"
@@ -104,6 +113,433 @@
                             (map :triple)
                             (map last)
                             set)))))))))))
+
+(deftest required-attrs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-book-id      :book/id
+             attr-book-title   :book/title
+             attr-book-desc    :book/desc
+             attr-user-id      :user/id
+             attr-user-name    :user/name
+             attr-user-company :user/company
+             attr-company-id   :company/id
+             attr-company-name :company/name}
+            (test-util/make-attrs
+             app-id
+             [[:book/id :required? :index? :unique?]
+              [:book/title :required?]
+              [:book/desc]
+              [:user/id :required? :index? :unique?]
+              [:user/name]
+              [[:user/company :company/users] :on-delete]
+              [:company/id :required? :index? :unique?]
+              [:company/name]])
+            attr-book-author (suid "baac")
+            make-ctx         (fn make-ctx
+                               ([]
+                                (make-ctx {}))
+                               ([{:keys [admin?]}]
+                                {:db               {:conn-pool (aurora/conn-pool :write)}
+                                 :app-id           app-id
+                                 :attrs            (attr-model/get-by-app-id app-id)
+                                 :datalog-query-fn d/query
+                                 :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                                 :current-user     nil
+                                 :admin?           admin?}))
+            user-id          (suid "ffff")
+            book-id          (suid "b00c")
+            company-id       (suid "aaaa")
+            extra-user-id    (suid "fffe")
+            extra-book-id    (suid "b00d")]
+
+        (testing "add-attr without existing entities"
+          (permissioned-tx/transact!
+           (make-ctx)
+           [[:add-attr {:id               attr-book-author
+                        :forward-identity [(random-uuid) "book" "author"]
+                        :reverse-identity [(random-uuid) "user" "books"]
+                        :value-type       :ref
+                        :cardinality      :one
+                        :unique?          false
+                        :index?           false
+                        :required?        true}]]))
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple extra-user-id attr-user-id extra-user-id]
+          [:add-triple extra-user-id attr-user-name "extra user"]
+          [:add-triple extra-book-id attr-book-id extra-book-id]
+          [:add-triple extra-book-id attr-book-title "extra title"]
+          [:add-triple extra-book-id attr-book-author extra-user-id]])
+
+        (testing "add-attr with existing entities"
+          (is (validation-err?
+               (permissioned-tx/transact!
+                (make-ctx)
+                [[:add-attr {:id               (random-uuid)
+                             :forward-identity [(random-uuid) "book" "price"]
+                             :reverse-identity [(random-uuid) "user" "books"]
+                             :value-type       :blob
+                             :cardinality      :one
+                             :unique?          false
+                             :index?           false
+                             :required?        true}]]))))
+
+        (doseq [add-op [:add-triple :deep-merge-triple]]
+          (testing add-op
+            (permissioned-tx/transact!
+             (make-ctx)
+             [[add-op      user-id    attr-user-id      user-id]
+              [add-op      user-id    attr-user-name    "user"]
+              [:add-triple user-id    attr-user-company company-id]
+              [add-op      company-id attr-company-id   company-id]
+              [add-op      company-id attr-company-name "company"]])
+
+            (testing "add without required"
+              (is (validation-err?
+                   (permissioned-tx/transact!
+                    (make-ctx)
+                    [[add-op book-id attr-book-id   book-id]
+                     [add-op book-id attr-book-desc "no title"]]))))
+
+            (testing "add with required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         (make-ctx)
+                         [[add-op book-id attr-book-id   book-id]
+                          [add-op book-id attr-book-title "title"]
+                          [add-op book-id attr-book-desc "desc"]
+                          [:add-triple book-id attr-book-author user-id]])))))
+
+            (testing "update-attr"
+              (testing "set :required? with invalid entities"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx {:admin? true})
+                      [[:update-attr {:id attr-book-desc
+                                      :required? true}]]))))
+
+              (testing "unset required"
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx {:admin? true})
+                           [[:update-attr {:id attr-book-title
+                                           :required? false}]])))))
+
+              (testing "set :required? with valid entities"
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx {:admin? true})
+                           [[:update-attr {:id attr-book-title
+                                           :required? true}]]))))))
+
+            (testing "update required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         (make-ctx)
+                         [[add-op book-id attr-book-id    book-id]
+                          [add-op book-id attr-book-title "title upd"]])))))
+
+            (testing "retract + insert required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         (make-ctx)
+                         [[add-op book-id attr-book-id    book-id]
+                          [:retract-triple book-id attr-book-title "title upd"]
+                          [add-op book-id attr-book-title "title upd 2"]])))))
+
+            (testing "update non-required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         (make-ctx)
+                         [[add-op book-id attr-book-id   book-id]
+                          [add-op book-id attr-book-desc "desc upd"]])))))
+
+            (testing "remove required"
+              (testing "regular attr"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[:retract-triple book-id attr-book-title "title upd 2"]]))))
+
+              (testing "link"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[:retract-triple book-id attr-book-author user-id]]))))
+
+              (testing "through delete-entity"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[:delete-entity user-id "user"]]))))
+
+              (testing "through cascade"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[:delete-entity company-id "company"]])))))
+
+            (testing "remove non-required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         (make-ctx)
+                         [[:retract-triple book-id attr-book-desc "desc upd"]])))))
+
+            (testing "update last required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         (make-ctx)
+                         [[add-op book-id attr-book-id    book-id]
+                          [add-op book-id attr-book-title "title upd 3"]])))))
+
+            (testing "remove last required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         (make-ctx)
+                         [[:retract-triple book-id attr-book-id    book-id]
+                          [:retract-triple book-id attr-book-title "title upd 3"]
+                          [:retract-triple book-id attr-book-author user-id]])))))
+
+            (testing "delete-entity"
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[add-op book-id attr-book-id    book-id]
+                [add-op book-id attr-book-title "title"]
+                [add-op book-id attr-book-desc  "desc"]
+                [:add-triple book-id attr-book-author user-id]])
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         (make-ctx)
+                         [[:delete-entity book-id "book"]])))))))))))
+
+(deftest required-attrs-shared-entity
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-users-id   :users/id
+             attr-users-name :users/name
+             attr-profiles-id   :profiles/id
+             attr-profiles-name :profiles/name
+             attr-random-id :random/id}
+            (test-util/make-attrs
+             app-id
+             [[:users/id :required? :index? :unique?]
+              [:users/name :required?]
+              [:profiles/id :required? :index? :unique?]
+              [:profiles/name :required?]
+              [:random/id :required? :index? :unique?]])
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))
+            user-id  (suid "ffff")]
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple user-id attr-profiles-id   user-id]
+          [:add-triple user-id attr-profiles-name "profile name"]
+          [:add-triple user-id attr-users-id      user-id]
+          [:add-triple user-id attr-users-name    "user name"]])
+
+        (is (permissioned-tx/transact!
+             (make-ctx)
+             [[:delete-entity user-id "users"]
+              [:add-triple user-id attr-random-id user-id]]))))))
+
+(deftest add-attr-lookup-ref
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))
+            id-attr-id    (suid "0000")
+            email-attr-id (suid "1111")
+            name-attr-id  (suid "2222")]
+        (testing "add-attr and use it as lookup ref in the same tx"
+          (is (not (validation-err?
+                    (permissioned-tx/transact!
+                     (make-ctx)
+                     [[:add-attr {:id               id-attr-id
+                                  :forward-identity [(random-uuid) "users" "id"]
+                                  :value-type       :blob
+                                  :cardinality      :one
+                                  :unique?          true
+                                  :index?           true
+                                  :required?        true}]
+                      [:add-attr {:id               email-attr-id
+                                  :forward-identity [(random-uuid) "users" "email"]
+                                  :value-type       :blob
+                                  :cardinality      :one
+                                  :unique?          true
+                                  :index?           true
+                                  :required?        true}]
+                      [:add-attr {:id               name-attr-id
+                                  :forward-identity [(random-uuid) "users" "name"]
+                                  :value-type       :blob
+                                  :cardinality      :one
+                                  :unique?          false
+                                  :index?           false
+                                  :required?        false}]
+                      [:add-triple [email-attr-id "niki@email"] id-attr-id [email-attr-id "niki@email"]]
+                      [:add-triple [email-attr-id "niki@email"] name-attr-id "Niki"]]))))
+          (let [[{[user-id _ _] :triple}] (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id id-attr-id]])]
+            (is (= #{[user-id id-attr-id    (str user-id)]
+                     [user-id email-attr-id "niki@email"]
+                     [user-id name-attr-id  "Niki"]}
+                   (->> (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :entity-id user-id]])
+                        (map :triple)
+                        set)))))))))
+
+(deftest update-modes
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-book-title :book/title
+             attr-book-desc  :book/desc}
+            (test-util/make-attrs
+             app-id
+             [[:book/title :unique?]
+              [:book/desc]])
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))
+            book1-id    (suid "b00c")
+            book2-id    (suid "b00d")]
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple book1-id attr-book-title "book 1"]
+          [:add-triple book1-id attr-book-desc "book 1 desc"]
+          [:add-triple book2-id attr-book-title "book 2"]])
+
+        (doseq [op [:add-triple :deep-merge-triple]]
+          (testing op
+            (testing "create"
+              (testing "new id"
+                (let [new-book-id (random-uuid)]
+                  (is (not (validation-err?
+                            (permissioned-tx/transact!
+                             (make-ctx)
+                             [[op new-book-id attr-book-title (str "book " (rand)) {:mode :create}]
+                              [op new-book-id attr-book-desc  (str "book desc " (rand)) {:mode :create}]]))))))
+
+              (testing "new lookup ref"
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           [[op [attr-book-title (str "book " (rand))] attr-book-desc (str "book desc " (rand)) {:mode :create}]])))))
+
+              (testing "existing id"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[op book1-id attr-book-title (str "book 1 " (rand)) {:mode :create}]]))))
+
+              (testing "existing lookup ref"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[op [attr-book-title "book 2"] attr-book-desc (str "book 2 desc " (rand)) {:mode :create}]])))))
+
+            (testing "update"
+              (testing "new id"
+                (let [new-book-id (random-uuid)]
+                  (is (validation-err?
+                       (permissioned-tx/transact!
+                        (make-ctx)
+                        [[op new-book-id attr-book-title (str "book " (rand)) {:mode :update}]
+                         [op new-book-id attr-book-desc  (str "book desc " (rand)) {:mode :update}]])))))
+
+              (testing "new lookup ref"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[op [attr-book-title "book 3"] attr-book-desc (str "book 3 desc " (rand)) {:mode :update}]]))))
+
+              (testing "existing id"
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           [[op book1-id attr-book-title (str "book 1 " (rand)) {:mode :update}]
+                            [op book1-id attr-book-desc  (str "book 1 desc " (rand)) {:mode :update}]])))))
+
+              (testing "existing lookup ref"
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           [[op [attr-book-title "book 2"] attr-book-desc (str "book 2 desc " (rand)) {:mode :update}]]))))))
+
+            (testing "all together"
+              (let [new-book-id (random-uuid)]
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           [[op new-book-id attr-book-title (str "book " (rand)) {:mode :create}]
+                            [op new-book-id attr-book-desc  (str "book desc " (rand)) {:mode :create}]
+                            [op [attr-book-title (str "book " (rand))] attr-book-desc (str "book desc " (rand)) {:mode :create}]
+                            [op book1-id attr-book-title (str "book 1 " (rand)) {:mode :update}]
+                            [op book1-id attr-book-desc  (str "book 1 desc " (rand)) {:mode :update}]
+                            [op [attr-book-title "book 2"] attr-book-desc (str "book 2 desc " (rand)) {:mode :update}]])))))
+
+              (let [new-book-id (random-uuid)]
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[op book1-id attr-book-title (str "book 1 " (rand)) {:mode :create}]
+                       [op [attr-book-title "book 2"] attr-book-desc (str "book 2 desc " (rand)) {:mode :create}]
+                       [op new-book-id attr-book-title (str "book " (rand)) {:mode :update}]
+                       [op new-book-id attr-book-desc  (str "book desc " (rand)) {:mode :update}]
+                       [op [attr-book-title "book 3"] attr-book-desc (str "book 3 desc " (rand)) {:mode :update}]])))))))))))
+
+;; https://github.com/instantdb/instant/pull/1555
+(deftest create-same-eid-different-etype
+  (with-empty-app
+    (fn [{app-id :id
+          make-ctx :make-ctx}]
+      (let [{attr-users-id      :users/id
+             attr-users-name    :users/name
+             attr-profiles-id   :profiles/id
+             attr-profiles-name :profiles/name}
+            (test-util/make-attrs
+             app-id
+             [[:users/id :required? :index? :unique?]
+              [:users/name :required?]
+              [:profiles/id :required? :index? :unique?]
+              [:profiles/name :required? :index? :unique?]])
+            id (suid "0000")]
+
+        (is (not (validation-err?
+                  (permissioned-tx/transact!
+                   (make-ctx)
+                   [[:add-triple id attr-users-id   id     {:mode :create}]
+                    [:add-triple id attr-users-name "user" {:mode :create}]]))))
+
+        (is (not (validation-err?
+                  (permissioned-tx/transact!
+                   (make-ctx)
+                   [[:add-triple id attr-profiles-id   id        {:mode :create}]
+                    [:add-triple id attr-profiles-name "profile" {:mode :create}]]))))))))
 
 (deftest attrs-update
   (with-empty-app
@@ -195,6 +631,7 @@
                   :cardinality :one
                   :unique? false
                   :index? false
+                  :required? false
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -223,6 +660,7 @@
                   :cardinality :one
                   :unique? true
                   :index? false
+                  :required? false
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -236,6 +674,35 @@
                  (->> (triple-model/fetch (aurora/conn-pool :read) app-id
                                           [[:= :attr-id name-attr-id]])
                       (map :index)))))))))
+
+;; Test passing map to transact that gets expanded into [:add-triple ...] and resolves attr-ids
+(deftest transact-map-form
+  (with-empty-app
+    (fn [{app-id :id
+          make-ctx :make-ctx}]
+      (let [user-id (random-uuid)]
+        (test-util/make-attrs
+         app-id
+         [[:users/id :required? :index? :unique?]
+          [:users/name]])
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-attr
+           {:id               (random-uuid)
+            :forward-identity [(random-uuid) "users" "age"]
+            :value-type       :blob
+            :cardinality      :one
+            :unique?          false
+            :index?           false}]
+          {:id    user-id
+           :etype "users"
+           :name  "Niki"
+           :age   40}])
+        (is (= #{{:users/age  40
+                  :users/id   (str user-id)
+                  :users/name "Niki"
+                  :db/id      user-id}}
+               (test-util/find-entities-by-ids app-id [user-id])))))))
 
 (deftest obj-normal
   (with-empty-app
@@ -263,6 +730,7 @@
                   [name-fwd-ident "users" "name"],
                   :unique? false,
                   :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -324,6 +792,7 @@
                   [zip-fwd-ident "users" "zip"],
                   :unique? false,
                   :index? true,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -383,7 +852,8 @@
                   :forward-identity
                   [email-fwd-ident "users" "email"],
                   :unique? true,
-                  :index? true
+                  :index? true,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -416,14 +886,76 @@
                   app-id
                   [[:= :attr-id email-attr-id]]))))
         (testing "unicity throws"
-          (is
-           (= ::ex/record-not-unique
-              (::ex/type (instant-ex-data
+          (let [ex-data  (test-util/instant-ex-data
                           (tx/transact!
                            (aurora/conn-pool :write)
                            (attr-model/get-by-app-id app-id)
                            app-id
-                           [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))))))))))
+                           [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))]
+            (is (= ::ex/record-not-unique
+                   (::ex/type ex-data)))
+            (is (= "`email` is a unique attribute on `users` and an entity already exists with `users.email` = \"test2@instantdb.com\""
+                   (::ex/message ex-data)))))))))
+
+(deftest duplicate-ident-data-test
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [created-at-attr-id #uuid "5f3b1902-0025-4f5a-9624-12c5ee27a192"
+            created-at-fwd-ident #uuid "9fb42d0d-40f6-4baa-b7d6-982b9ba55ac8"
+            duplicate-attr-id #uuid "6f3b1902-0025-4f5a-9624-12c5ee27a193"
+            duplicate-fwd-ident #uuid "7fb42d0d-40f6-4baa-b7d6-982b9ba55ac7"]
+
+        ;; Add the original createdAt attribute
+        (tx/transact!
+         (aurora/conn-pool :write)
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-attr
+           {:id created-at-attr-id
+            :forward-identity [created-at-fwd-ident "todos" "createdAt"]
+            :value-type :instant
+            :cardinality :one
+            :unique? false
+            :index? true}]])
+
+        (testing "original attribute is created successfully"
+          (is (= {:id created-at-attr-id
+                  :value-type :instant,
+                  :cardinality :one,
+                  :forward-identity
+                  [created-at-fwd-ident "todos" "createdAt"],
+                  :unique? false,
+                  :index? true,
+                  :required? false,
+                  :inferred-types nil,
+                  :catalog :user}
+                 (attr-model/seek-by-id
+                  created-at-attr-id
+                  (attr-model/get-by-app-id app-id)))))
+
+        (testing "adding duplicate attribute label throws with proper error message"
+          (let [ex-data (test-util/instant-ex-data
+                         (tx/transact!
+                          (aurora/conn-pool :write)
+                          (attr-model/get-by-app-id app-id)
+                          app-id
+                          [[:add-attr
+                            {:id duplicate-attr-id
+                             :forward-identity [duplicate-fwd-ident "todos" "createdAt"]
+                             :value-type :string
+                             :cardinality :one
+                             :index? true}]]))]
+
+            (is (= ::ex/record-not-unique
+                   (::ex/type ex-data)))
+
+            (is (= "`createdAt` already exists on `todos`"
+                   (::ex/message ex-data)))
+
+            (is (= {:record-type :ident
+                    :etype "todos"
+                    :label "createdAt"}
+                   (::ex/hint ex-data)))))))))
 
 (deftest tx-ref-many-to-many
   (with-empty-app
@@ -457,6 +989,7 @@
                   [tag-rev-ident "tags" "taggers"],
                   :unique? false,
                   :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -491,27 +1024,23 @@
                        [[:= :attr-id tag-attr-id]])))))
         (testing "invalid uuids are rejected"
           (is
-           (= :invalid-text-representation
-              (->  (instant-ex-data
+           (= ::ex/validation-failed
+              (->  (test-util/instant-ex-data
                     (tx/transact!
                      (aurora/conn-pool :write)
                      (attr-model/get-by-app-id app-id)
                      app-id
                      [[:add-triple stopa-eid tag-attr-id "Foo"]]))
-                   ::ex/hint
-                   :condition)))
+                   ::ex/type)))
           (is
-           (= "Check Violation: ref_values_are_uuid"
-              (-> (instant-ex-data
+           (= "Linked value must be a valid uuid."
+              (-> (test-util/instant-ex-data
                    (tx/transact!
                     (aurora/conn-pool :write)
                     (attr-model/get-by-app-id app-id)
                     app-id
                     [[:add-triple stopa-eid tag-attr-id {:foo "bar"}]]))
-                  ::ex/hint
-                  :errors
-                  first
-                  :message))))))))
+                  ::ex/message))))))))
 
 (deftest tx-ref-many-to-one
   (with-empty-app
@@ -546,6 +1075,7 @@
                   [owner-rev-ident "users" "posts"],
                   :unique? false,
                   :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -605,7 +1135,8 @@
                   :reverse-identity
                   [config-rev-ident "configObjects" "user"],
                   :unique? true,
-                  :index? false
+                  :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -635,7 +1166,7 @@
 
         (is
          (= ::ex/record-not-unique
-            (::ex/type (instant-ex-data
+            (::ex/type (test-util/instant-ex-data
                         (tx/transact!
                          (aurora/conn-pool :write)
                          (attr-model/get-by-app-id app-id)
@@ -695,7 +1226,7 @@
                 user (-> res (get "users") first)]
             (is (= {"handle" "id-test", "email" "id-test@example.com"}
                    (select-keys user ["handle" "email"])))
-            (is (uuid? (get user "id")))))
+            (is (uuid? (parse-uuid (get user "id"))))))
 
         (testing "retractions work"
           (tx/transact! (aurora/conn-pool :write)
@@ -707,13 +1238,18 @@
                                         [:= :entity-id alex-eid]]))))
 
         (testing "delete entity works"
-          (is (seq (fetch-triples app-id [[:= :entity-id stopa-eid]])))
-          (tx/transact! (aurora/conn-pool :write)
-                        (attr-model/get-by-app-id app-id)
-                        app-id
-                        [[:delete-entity [handle-attr-id "stopa"]]])
-          (is (= #{}
-                 (fetch-triples app-id [[:= :entity-id stopa-eid]]))))
+          (let [fetch-etype (fn [eid etype]
+                              (->> (fetch-triples app-id [[:= :entity-id eid]])
+                                   (filter (fn [[_e a _v]]
+                                             (= etype (namespace (resolvers/->friendly r a)))))
+                                   (set)))]
+            (is (seq (fetch-etype stopa-eid "users")))
+            (tx/transact! (aurora/conn-pool :write)
+                          (attr-model/get-by-app-id app-id)
+                          app-id
+                          [[:delete-entity [handle-attr-id "stopa"] "users"]])
+            (is (= #{}
+                   (fetch-etype stopa-eid "users")))))
 
         (testing "value lookup refs work"
           (let [feynman-isbn "9780393079814"]
@@ -913,7 +1449,7 @@
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
          app-id
-         [[:delete-entity billy-eid]])
+         [[:delete-entity billy-eid "users"]])
 
         (is (= #{[stopa-eid fav-nickname-attr-id "Stopa"]
                  [joe-eid fav-nickname-attr-id "Joski"]
@@ -923,30 +1459,30 @@
 (deftest delete-entity-cleans-references
   (with-empty-app
     (fn [{app-id :id}]
-      (let [board-id-attr-id (UUID/randomUUID)
-            node-id-attr-id (UUID/randomUUID)
-            board-nodes-attr-id (UUID/randomUUID)
-            ex-board (UUID/randomUUID)
-            ex-node (UUID/randomUUID)]
+      (let [board-id-attr-id (random-uuid)
+            node-id-attr-id (random-uuid)
+            board-nodes-attr-id (random-uuid)
+            ex-board (random-uuid)
+            ex-node (random-uuid)]
         (tx/transact!
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
          app-id
          [[:add-attr {:id board-id-attr-id
-                      :forward-identity [(UUID/randomUUID) "boards" "id"]
+                      :forward-identity [(random-uuid) "boards" "id"]
                       :value-type :blob
                       :cardinality :one
                       :unique? false
                       :index? false}]
           [:add-attr {:id node-id-attr-id
-                      :forward-identity [(UUID/randomUUID) "nodes" "id"]
+                      :forward-identity [(random-uuid) "nodes" "id"]
                       :value-type :blob
                       :cardinality :one
                       :unique? false
                       :index? false}]
           [:add-attr {:id board-nodes-attr-id
-                      :forward-identity [(UUID/randomUUID) "boards" "nodes"]
-                      :reverse-identity [(UUID/randomUUID) "nodes" "board"]
+                      :forward-identity [(random-uuid) "boards" "nodes"]
+                      :reverse-identity [(random-uuid) "nodes" "board"]
                       :value-type :ref
                       :cardinality :many
                       :unique? true
@@ -965,22 +1501,122 @@
         (is (= #{[ex-board board-id-attr-id (str ex-board)]}
                (fetch-triples app-id)))))))
 
+(deftest delete-without-etype
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [{attr-users-id      :users/id
+             attr-users-email   :users/email
+             attr-profiles-id   :profiles/id
+             attr-profiles-name :profiles/name}
+            (test-util/make-attrs
+             app-id
+             [[:users/id :required? :index? :unique?]
+              [:users/email]
+              [:profiles/id :required? :index? :unique?]
+              [:profiles/name]])
+            user-id (suid "0001")]
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple user-id attr-users-id      user-id]
+          [:add-triple user-id attr-users-email   "email@"]
+          [:add-triple user-id attr-profiles-id   user-id]
+          [:add-triple user-id attr-profiles-name "User"]])
+
+        (is (= #{[user-id attr-users-id      (str user-id)]
+                 [user-id attr-users-email   "email@"]
+                 [user-id attr-profiles-id   (str user-id)]
+                 [user-id attr-profiles-name "User"]}
+               (fetch-triples app-id [[:= :entity-id user-id]])))
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:delete-entity user-id]])
+
+        (is (= #{}
+               (fetch-triples app-id [[:= :entity-id user-id]])))))))
+
+(deftest delete-with-updates
+  (doseq [[title transact-fn]
+          [["tx/transact!"
+            (fn [app-id tx-steps]
+              (tx/transact!
+               (aurora/conn-pool :write)
+               (attr-model/get-by-app-id app-id)
+               app-id
+               tx-steps))]
+           ["permissioned-tx/transact!"
+            (fn [app-id tx-steps]
+              (let [ctx {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil}]
+                (permissioned-tx/transact! ctx tx-steps)))]]]
+    (testing title
+      (with-empty-app
+        (fn [{app-id :id}]
+          (let [id-aid    (random-uuid)
+                field-aid (random-uuid)
+                id        (random-uuid)]
+            (transact-fn app-id
+                         [[:add-attr {:id id-aid
+                                      :forward-identity [(random-uuid) "ns" "id"]
+                                      :value-type :blob
+                                      :cardinality :one
+                                      :unique? true
+                                      :index? false}]
+                          [:add-attr {:id field-aid
+                                      :forward-identity [(random-uuid) "ns" "field"]
+                                      :value-type :blob
+                                      :cardinality :one
+                                      :unique? false
+                                      :index? false}]])
+
+            (testing "delete happens last"
+              (transact-fn app-id
+                           [[:add-triple id id-aid id]
+                            [:add-triple id field-aid "value"]
+                            [:delete-entity id "ns"]])
+              (is (= #{}
+                     (fetch-triples app-id))))
+
+            (testing "delete happens first"
+              (transact-fn app-id
+                           [[:delete-entity id "ns"]
+                            [:add-triple id id-aid id]
+                            [:add-triple id field-aid "value"]])
+
+              (is (= #{[id id-aid (str id)]
+                       [id field-aid "value"]}
+                     (fetch-triples app-id))))
+
+            ;; This is just recording the current behavior. If this
+            ;; test is failing, it might mean that transact was improved
+            ;; to run all operations in the order they were received.
+            (testing "mixed deletes have undesirable behavior"
+              (transact-fn app-id
+                           [[:delete-entity id "ns"]
+                            [:add-triple id id-aid id]
+                            [:add-triple id field-aid "value"]
+                            [:delete-entity id "ns"]])
+
+              (is (= #{[id id-aid (str id)]
+                       [id field-aid "value"]}
+                     (fetch-triples app-id))))))))))
+
 (comment
   (def app-id #uuid "2f23dfa2-c921-4988-9243-adf602339bab")
   (def app
     (app-model/create! {:title "test app"
                         :creator-id test-user-id
                         :id app-id
-                        :admin-token (UUID/randomUUID)}))
+                        :admin-token (random-uuid)}))
   (bootstrap/add-zeneca-to-app! app-id)
   (def r (resolvers/make-zeneca-resolver app-id))
-  (app-model/delete-by-id! {:id app-id}))
-
-(defmacro perm-err? [& body]
-  `(is (= ::ex/permission-denied (::ex/type (instant-ex-data ~@body)))))
-
-(defmacro validation-err? [& body]
-  `(is (= ::ex/validation-failed (::ex/type (instant-ex-data ~@body)))))
+  (app-model/delete-immediately-by-id! {:id app-id}))
 
 (deftest write-perms-merged
   (with-zeneca-app
@@ -1005,7 +1641,7 @@
              (resolvers/->uuid r :users/handle) {:bar "2"}]])
           (is
            (= #{"alex" "joe" "nicolegf" {:foo "1" :bar "2" :baz "3"}}
-              (->>  (pretty-perm-q
+              (->>  (test-util/pretty-perm-q
                      {:app-id app-id :current-user nil}
                      {:users {}})
                     :users
@@ -1013,8 +1649,8 @@
                     set))))))))
 
 (deftest write-perms
-  (doseq [[title get-lookup] [[" with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
-                              [" with lookup ref" (fn [r] [(resolvers/->uuid r :users/email) "stopa@instantdb.com"])]]]
+  (doseq [[title get-lookup] [["with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
+                              ["with lookup ref" (fn [r] [(resolvers/->uuid r :users/email) "stopa@instantdb.com"])]]]
     (with-zeneca-app
       (fn [{app-id :id :as _app} r]
         (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
@@ -1024,72 +1660,72 @@
                                :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
                                :current-user nil})
               lookup (get-lookup r)]
-          (testing (str "no perms accepts" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {}})
-            (permissioned-tx/transact!
-             (make-ctx)
-             [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa2"]])
-            (is
-             (= #{"alex" "joe" "nicolegf" "stopa2"}
-                (->>  (pretty-perm-q
-                       {:app-id app-id :current-user nil}
-                       {:users {}})
-                      :users
-                      (map :handle)
-                      set))))
-          (testing (str "false blocks updates" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:users {:allow {:update "false"}}}})
-            (is
-             (perm-err?
+          (testing title
+            (testing "no perms accepts"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {}})
               (permissioned-tx/transact!
                (make-ctx)
-               [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa3"]]))))
-          (testing (str "right value successfully updates" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:users {:allow {:update "newData.handle == 'stopado'"}}}})
-            (permissioned-tx/transact!
-             (make-ctx)
-             [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopado"]])
-            (is
-             (= #{"alex" "joe" "nicolegf" "stopado"}
-                (->>  (pretty-perm-q
-                       {:app-id app-id :current-user nil}
-                       {:users {}})
-                      :users
-                      (map :handle)
-                      set))))
-          (testing (str "wrong value blocks update" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:users {:allow {:update "newData.handle == 'stopado'"}}}})
-            (is
-             (perm-err?
+               [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa2"]])
+              (is
+               (= #{"alex" "joe" "nicolegf" "stopa2"}
+                  (->>  (test-util/pretty-perm-q
+                         {:app-id app-id :current-user nil}
+                         {:users {}})
+                        :users
+                        (map :handle)
+                        set))))
+            (testing "false blocks updates"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:users {:allow {:update "false"}}}})
+              (is
+               (perm-err?
+                (permissioned-tx/transact!
+                 (make-ctx)
+                 [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa3"]]))))
+            (testing "right value successfully updates"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:users {:allow {:update "newData.handle == 'stopado'"}}}})
               (permissioned-tx/transact!
                (make-ctx)
-               [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa"]]))))
-          (testing (str "bind works" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:users {:allow {:update "newData.handle == handle"}
-                                            :bind ["handle" "'strooper'"]}}})
-            (permissioned-tx/transact!
-             (make-ctx)
-             [[:add-triple lookup (resolvers/->uuid r :users/handle) "strooper"]])
-            (is
-             (= #{"alex" "joe" "nicolegf" "strooper"}
-                (->>  (pretty-perm-q
-                       {:app-id app-id :current-user nil}
-                       {:users {}})
-                      :users
-                      (map :handle)
-                      set))))
+               [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopado"]])
+              (is
+               (= #{"alex" "joe" "nicolegf" "stopado"}
+                  (->>  (test-util/pretty-perm-q
+                         {:app-id app-id :current-user nil}
+                         {:users {}})
+                        :users
+                        (map :handle)
+                        set))))
+            (testing "wrong value blocks update"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:users {:allow {:update "newData.handle == 'stopado'"}}}})
+              (is
+               (perm-err?
+                (permissioned-tx/transact!
+                 (make-ctx)
+                 [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa"]]))))
+            (testing "bind works"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:users {:allow {:update "newData.handle == handle"}
+                                              :bind ["handle" "'strooper'"]}}})
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:add-triple lookup (resolvers/->uuid r :users/handle) "strooper"]])
+              (is
+               (= #{"alex" "joe" "nicolegf" "strooper"}
+                  (->>  (test-util/pretty-perm-q
+                         {:app-id app-id :current-user nil}
+                         {:users {}})
+                        :users
+                        (map :handle)
+                        set))))
 
-          (testing (str "ref works" title)
             (rule-model/put!
              (aurora/conn-pool :write)
              {:app-id app-id :code {:bookshelves {:allow {:update "handle in data.ref('users.handle')"}
@@ -1099,239 +1735,1406 @@
              [[:add-triple (resolvers/->uuid r "eid-short-stories") (resolvers/->uuid r :bookshelves/name) "Long Stories"]])
             (is
              (= #{"Long Stories" "Nonfiction"}
-                (->>  (pretty-perm-q
+                (->>  (test-util/pretty-perm-q
                        {:app-id app-id :current-user nil}
                        {:bookshelves {:$ {:where {:users.handle "alex"}}}})
                       :bookshelves
                       (map :name)
-                      set))))
-          (testing (str "invalid ref blocks" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:bookshelves {:allow {:update "handle in data.ref('users.handle')"}
-                                                  :bind ["handle" "'alex'"]}}})
-            (is
-             (perm-err?
-              (permissioned-tx/transact!
-               (make-ctx)
-               [[:add-triple (resolvers/->uuid r "eid-2022") (resolvers/->uuid r :bookshelves/name) "2022!"]]))))
+                      set)))
 
-          (testing (str "correct auth works" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:bookshelves {:allow {:update "handle in data.ref('users.handle')"}
-                                                  :bind ["handle" "auth.handle"]}}})
-            (permissioned-tx/transact!
-             (assoc (make-ctx)
-                    :current-user {:handle "alex"})
-             [[:add-triple (resolvers/->uuid r "eid-short-stories") (resolvers/->uuid r :bookshelves/name) "Longer Stories"]])
-            (is
-             (= #{"Longer Stories" "Nonfiction"}
-                (->>  (pretty-perm-q
-                       {:app-id app-id :current-user nil}
-                       {:bookshelves {:$ {:where {:users.handle "alex"}}}})
-                      :bookshelves
-                      (map :name)
-                      set))))
-
-          (testing (str "incorrect auth fails" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:bookshelves {:allow {:update "handle in data.ref('users.handle')"}
-                                                  :bind ["handle" "auth.handle"]}}})
-            (is
-             (perm-err?
-              (permissioned-tx/transact!
-               (assoc (make-ctx)
-                      :current-user {:handle "joe"})
-               [[:add-triple (resolvers/->uuid r "eid-short-stories") (resolvers/->uuid r :bookshelves/name) "Longer Stories"]]))))
-          (testing (str "admin can do anything" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:users {:allow {:update "false"}}}})
-            (permissioned-tx/transact!
-             (assoc (make-ctx) :admin? true)
-             [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa-admin"]])
-            (is
-             (= #{"alex" "joe" "nicolegf" "stopa-admin"}
-                (->>  (pretty-perm-q
-                       {:app-id app-id :current-user nil}
-                       {:users {}})
-                      :users
-                      (map :handle)
-                      set))))
-
-          (testing (str "create can block" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:users {:allow {:create "false"}}}})
-            (let [boop-id (UUID/randomUUID)]
+            (testing "invalid ref blocks"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:bookshelves {:allow {:update "handle in data.ref('users.handle')"}
+                                                    :bind ["handle" "'alex'"]}}})
               (is
                (perm-err?
                 (permissioned-tx/transact!
                  (make-ctx)
-                 [[:add-triple boop-id (resolvers/->uuid r :users/id) boop-id]
-                  [:add-triple boop-id (resolvers/->uuid r :users/handle) "boop"]])))))
+                 [[:add-triple (resolvers/->uuid r "eid-2022") (resolvers/->uuid r :bookshelves/name) "2022!"]]))))
 
-          (testing (str "ref in create allows" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:bookshelves {:allow {:create "handle in data.ref('users.handle')"}
-                                                  :bind ["handle" "auth.handle"]}}})
-            (let [alex-id (resolvers/->uuid r "eid-alex")
-                  adventure-bookshelf-id (UUID/randomUUID)]
+            (testing "correct auth works"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:bookshelves {:allow {:update "handle in data.ref('users.handle')"}
+                                                    :bind ["handle" "auth.handle"]}}})
               (permissioned-tx/transact!
                (assoc (make-ctx)
                       :current-user {:handle "alex"})
-               [[:add-triple adventure-bookshelf-id (resolvers/->uuid r :bookshelves/id) adventure-bookshelf-id]
-                [:add-triple adventure-bookshelf-id (resolvers/->uuid r :bookshelves/name) "Adventure"]
-                [:add-triple alex-id  (resolvers/->uuid r :users/bookshelves) adventure-bookshelf-id]])
+               [[:add-triple (resolvers/->uuid r "eid-short-stories") (resolvers/->uuid r :bookshelves/name) "Longer Stories"]])
               (is
-               (= #{"Longer Stories" "Nonfiction" "Adventure"}
-                  (->>  (pretty-perm-q
+               (= #{"Longer Stories" "Nonfiction"}
+                  (->>  (test-util/pretty-perm-q
                          {:app-id app-id :current-user nil}
                          {:bookshelves {:$ {:where {:users.handle "alex"}}}})
                         :bookshelves
                         (map :name)
-                        set)))))
-          (testing (str "ref in create blocks" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:bookshelves {:allow {:create "handle in data.ref('users.handle')"}
-                                                  :bind ["handle" "auth.handle"]}}})
-            (let [joe-id (resolvers/->uuid r "eid-joe-averbukh")
-                  scifi-bookshelf-id (UUID/randomUUID)]
+                        set))))
+
+            (testing "incorrect auth fails"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:bookshelves {:allow {:update "handle in data.ref('users.handle')"}
+                                                    :bind ["handle" "auth.handle"]}}})
               (is
                (perm-err?
                 (permissioned-tx/transact!
                  (assoc (make-ctx)
-                        :current-user {:handle "alex"})
-                 [[:add-triple scifi-bookshelf-id (resolvers/->uuid r :bookshelves/id) scifi-bookshelf-id]
-                  [:add-triple scifi-bookshelf-id (resolvers/->uuid r :bookshelves/name) "Scifi"]
-                  [:add-triple joe-id  (resolvers/->uuid r :users/bookshelves) scifi-bookshelf-id]])))))
-
-          (testing (str "delete can block" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:users {:allow {:delete "false"}}}})
-            (is
-             (perm-err?
-              (permissioned-tx/transact!
-               (make-ctx)
-               [[:delete-entity lookup]]))))
-          (testing (str "delete non-existent-entity" title)
-            (is
-             (validation-err?
-              (permissioned-tx/transact!
-               (make-ctx)
-               [[:delete-entity (random-uuid)]]))))
-          (testing (str "attr can block" title)
-            (rule-model/put!
-             (aurora/conn-pool :write)
-             {:app-id app-id :code {:attrs {:allow {:create "false"}}}})
-            (is
-             (perm-err?
-              (permissioned-tx/transact!
-               (make-ctx)
-               [[:add-attr
-                 {:id (UUID/randomUUID)
-                  :forward-identity [(UUID/randomUUID) "users" "favoriteColor"]
-                  :value-type :blob
-                  :cardinality :one
-                  :unique? false
-                  :index? false}]]))))
-          (testing (str "attr update/delete blocks unless admin" title)
-            (is
-             (perm-err?
-              (permissioned-tx/transact!
-               (make-ctx)
-               [[:delete-attr
-                 (resolvers/->uuid r :users/handle)]])))
-
-            (is
-             (perm-err?
-              (permissioned-tx/transact!
-               (make-ctx)
-               [[:update-attr
-                 {:id (resolvers/->uuid r :users/fullName)
-                  :index? true}]]))))
-          (testing (str "attr update/delete succeed when admin" title)
-            (let [bloop-attr-id (UUID/randomUUID)
-                  bloop-fwd-ident (UUID/randomUUID)
-                  bloop-attr {:id bloop-attr-id
-                              :forward-identity [bloop-fwd-ident "users" "bloop"]
-                              :value-type :blob
-                              :cardinality :one
-                              :unique? false
-                              :index? false}]
+                        :current-user {:handle "joe"})
+                 [[:add-triple (resolvers/->uuid r "eid-short-stories") (resolvers/->uuid r :bookshelves/name) "Longer Stories"]]))))
+            (testing "admin can do anything"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:users {:allow {:update "false"}}}})
               (permissioned-tx/transact!
                (assoc (make-ctx) :admin? true)
-               [[:add-attr bloop-attr]])
+               [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa-admin"]])
+              (is
+               (= #{"alex" "joe" "nicolegf" "stopa-admin"}
+                  (->>  (test-util/pretty-perm-q
+                         {:app-id app-id :current-user nil}
+                         {:users {}})
+                        :users
+                        (map :handle)
+                        set))))
 
-              (is (not (nil?
+            (testing "create can block"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:users {:allow {:create "false"}}}})
+              (let [boop-id (random-uuid)]
+                (is
+                 (perm-err?
+                  (permissioned-tx/transact!
+                   (make-ctx)
+                   [[:add-triple boop-id (resolvers/->uuid r :users/id) boop-id]
+                    [:add-triple boop-id (resolvers/->uuid r :users/handle) "boop"]])))))
+
+            (testing "ref in create allows"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:bookshelves {:allow {:create "handle in data.ref('users.handle')"}
+                                                    :bind ["handle" "auth.handle"]}}})
+              (let [alex-id (resolvers/->uuid r "eid-alex")
+                    adventure-bookshelf-id (random-uuid)]
+                (permissioned-tx/transact!
+                 (assoc (make-ctx)
+                        :current-user {:handle "alex"})
+                 [[:add-triple adventure-bookshelf-id (resolvers/->uuid r :bookshelves/id) adventure-bookshelf-id]
+                  [:add-triple adventure-bookshelf-id (resolvers/->uuid r :bookshelves/name) "Adventure"]
+                  [:add-triple alex-id  (resolvers/->uuid r :users/bookshelves) adventure-bookshelf-id]])
+                (is
+                 (= #{"Longer Stories" "Nonfiction" "Adventure"}
+                    (->>  (test-util/pretty-perm-q
+                           {:app-id app-id :current-user nil}
+                           {:bookshelves {:$ {:where {:users.handle "alex"}}}})
+                          :bookshelves
+                          (map :name)
+                          set)))))
+            (testing "ref in create blocks"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:bookshelves {:allow {:create "handle in data.ref('users.handle')"}
+                                                    :bind ["handle" "auth.handle"]}}})
+              (let [joe-id (resolvers/->uuid r "eid-joe-averbukh")
+                    scifi-bookshelf-id (random-uuid)]
+                (is
+                 (perm-err?
+                  (permissioned-tx/transact!
+                   (assoc (make-ctx)
+                          :current-user {:handle "alex"})
+                   [[:add-triple scifi-bookshelf-id (resolvers/->uuid r :bookshelves/id) scifi-bookshelf-id]
+                    [:add-triple scifi-bookshelf-id (resolvers/->uuid r :bookshelves/name) "Scifi"]
+                    [:add-triple joe-id  (resolvers/->uuid r :users/bookshelves) scifi-bookshelf-id]])))))
+
+            (testing "delete can block"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:users {:allow {:delete "false"}}}})
+              (is
+               (perm-err?
+                (permissioned-tx/transact!
+                 (make-ctx)
+                 [[:delete-entity lookup "users"]]))))
+
+            (testing "delete non-existent-entity"
+              (is
+               (perm-err?
+                (permissioned-tx/transact!
+                 (make-ctx)
+                 [[:delete-entity (random-uuid) "users"]]))))
+
+            (testing "attr can block"
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:attrs {:allow {:create "false"}}}})
+              (is
+               (perm-err?
+                (permissioned-tx/transact!
+                 (make-ctx)
+                 [[:add-attr
+                   {:id (random-uuid)
+                    :forward-identity [(random-uuid) "users" "favoriteColor"]
+                    :value-type :blob
+                    :cardinality :one
+                    :unique? false
+                    :index? false}]]))))
+
+            (testing "attr update/delete blocks unless admin"
+              (is
+               (perm-err?
+                (permissioned-tx/transact!
+                 (make-ctx)
+                 [[:delete-attr
+                   (resolvers/->uuid r :users/handle)]])))
+
+              (is
+               (perm-err?
+                (permissioned-tx/transact!
+                 (make-ctx)
+                 [[:update-attr
+                   {:id (resolvers/->uuid r :users/fullName)
+                    :index? true}]]))))
+            (testing "attr update/delete succeed when admin"
+              (let [bloop-attr-id (random-uuid)
+                    bloop-fwd-ident (random-uuid)
+                    bloop-attr {:id bloop-attr-id
+                                :forward-identity [bloop-fwd-ident "users" "bloop"]
+                                :value-type :blob
+                                :cardinality :one
+                                :unique? false
+                                :index? false}]
+                (permissioned-tx/transact!
+                 (assoc (make-ctx) :admin? true)
+                 [[:add-attr bloop-attr]])
+
+                (is (not (nil?
+                          (attr-model/seek-by-id
+                           bloop-attr-id
+                           (attr-model/get-by-app-id app-id)))))
+
+                (permissioned-tx/transact!
+                 (assoc (make-ctx) :admin? true)
+                 [[:update-attr
+                   {:id bloop-attr-id
+                    :index? true}]])
+                (is (= true
+                       (:index?
                         (attr-model/seek-by-id
                          bloop-attr-id
                          (attr-model/get-by-app-id app-id)))))
+                (permissioned-tx/transact!
+                 (assoc (make-ctx) :admin? true)
+                 [[:delete-attr bloop-attr-id]])
+                (is (nil?
+                     (attr-model/seek-by-id
+                      bloop-attr-id
+                      (attr-model/get-by-app-id app-id))))))
+            (testing "you can't smuggle in transactions"
+              (let [common-id (random-uuid)
+                    delete-id (random-uuid)]
+                (rule-model/put!
+                 (aurora/conn-pool :write)
+                 {:app-id app-id :code {:users {:allow {:delete "false"
+                                                        :view "false"
+                                                        :update "false"
+                                                        :create "false"}}}})
 
-              (permissioned-tx/transact!
-               (assoc (make-ctx) :admin? true)
-               [[:update-attr
-                 {:id bloop-attr-id
-                  :index? true}]])
-              (is (= true
-                     (:index?
-                      (attr-model/seek-by-id
-                       bloop-attr-id
-                       (attr-model/get-by-app-id app-id)))))
-              (permissioned-tx/transact!
-               (assoc (make-ctx) :admin? true)
-               [[:delete-attr bloop-attr-id]])
-              (is (nil?
-                   (attr-model/seek-by-id
-                    bloop-attr-id
-                    (attr-model/get-by-app-id app-id))))))
-          (testing "you can't smuggle in transactions"
-            (let [common-id (random-uuid)
-                  delete-id (random-uuid)]
+                (testing "adding triples"
+                  (is
+                   (perm-err?
+                    (permissioned-tx/transact! (make-ctx)
+                                               [[:add-triple common-id (resolvers/->uuid r :users/id) common-id]
+                                                [:add-triple common-id (resolvers/->uuid r :users/handle) "dww"]])))
+                  (is
+                   (perm-err?
+                    (permissioned-tx/transact! (make-ctx)
+                                               [[:add-triple common-id (resolvers/->uuid r :books/id) common-id]
+                                                [:add-triple common-id (resolvers/->uuid r :users/id) common-id]
+                                                [:add-triple common-id (resolvers/->uuid r :users/handle) "dww"]]))))
+
+                (testing "deleting entities"
+                ;; setup
+                  (permissioned-tx/transact! (assoc (make-ctx) :admin? true)
+                                             [[:add-triple delete-id (resolvers/->uuid r :users/id) delete-id]])
+                  (is (= delete-id
+                         (-> (triple-model/fetch
+                              (aurora/conn-pool :read)
+                              app-id
+                              [[:= :entity-id delete-id]])
+                             first
+                             :triple
+                             first)))
+
+                  (permissioned-tx/transact! (make-ctx)
+                                             [[:add-triple delete-id (resolvers/->uuid r :books/id) delete-id]])
+                  (is
+                   (perm-err?
+                    (permissioned-tx/transact! (make-ctx)
+                                               [[:delete-entity delete-id "users"]]))))))))))))
+
+(deftest create-perms-rule-params
+  (with-zeneca-app
+    (fn [{app-id :id :as _app} r]
+      (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                             :current-user nil})]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id :code {:users {:allow {:create "newData.handle == ruleParams.handle"}}}})
+
+        (testing "with eid"
+          (let [eid (random-uuid)]
+            (is (perm-err? (permissioned-tx/transact!
+                            (make-ctx)
+                            [[:add-triple eid (resolvers/->uuid r :users/id) eid]
+                             [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]])))
+
+            (is (perm-err? (permissioned-tx/transact!
+                            (make-ctx)
+                            [[:rule-params eid "users" {"handle" "not alyssa"}]
+                             [:add-triple eid (resolvers/->uuid r :users/id) eid]
+                             [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]])))
+
+            (is (not (perm-err? (permissioned-tx/transact!
+                                 (make-ctx)
+                                 [[:rule-params eid "users" {"handle" "alyssa"}]
+                                  [:add-triple eid (resolvers/->uuid r :users/id) eid]
+                                  [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]]))))
+
+            (is (contains?
+                 (->> (test-util/pretty-perm-q {:app-id app-id :current-user nil} {:users {}})
+                      :users
+                      (map :handle)
+                      set)
+                 "alyssa"))))
+
+        (testing "with lookup ref"
+          (let [lookup [(resolvers/->uuid r :users/handle) "louis"]]
+            (is (perm-err? (permissioned-tx/transact!
+                            (make-ctx)
+                            [[:add-triple lookup (resolvers/->uuid r :users/id) lookup]
+                             [:add-triple lookup (resolvers/->uuid r :users/email) "louis@instantdb.com"]])))
+
+            (is (perm-err? (permissioned-tx/transact!
+                            (make-ctx)
+                            [[:rule-params lookup "users" {"handle" "not louis"}]
+                             [:add-triple lookup (resolvers/->uuid r :users/id) lookup]
+                             [:add-triple lookup (resolvers/->uuid r :users/email) "louis@instantdb.com"]])))
+
+            (is (not (perm-err? (permissioned-tx/transact!
+                                 (make-ctx)
+                                 [[:rule-params lookup "users" {"handle" "louis"}]
+                                  [:add-triple lookup (resolvers/->uuid r :users/id) lookup]
+                                  [:add-triple lookup (resolvers/->uuid r :users/email) "louis@instantdb.com"]]))))
+
+            (is (contains?
+                 (->> (test-util/pretty-perm-q {:app-id app-id :current-user nil} {:users {}})
+                      :users
+                      (map :handle)
+                      set)
+                 "louis"))))))))
+
+(deftest update-perms-rule-params
+  (doseq [[title get-lookup] [["with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
+                              ["with lookup ref" (fn [r] [(resolvers/->uuid r :users/email) "stopa@instantdb.com"])]]
+          op [:add-triple :deep-merge-triple]]
+    (with-zeneca-app
+      (fn [{app-id :id :as _app} r]
+        (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                               :app-id app-id
+                               :attrs (attr-model/get-by-app-id app-id)
+                               :datalog-query-fn d/query
+                               :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                               :current-user nil})
+              lookup (get-lookup r)
+              full-name-attr-id (resolvers/->uuid r :users/fullName)]
+          (testing title
+            (testing op
               (rule-model/put!
                (aurora/conn-pool :write)
-               {:app-id app-id :code {:users {:allow {:delete "false"
-                                                      :view "false"
-                                                      :update "false"
-                                                      :create "false"}}}})
+               {:app-id app-id :code {:users {:allow {:update "data.handle == ruleParams.handle"}}}})
+              (is (perm-err? (permissioned-tx/transact! (make-ctx) [[op lookup full-name-attr-id "Stepashka"]])))
+              (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "not stopa"}]
+                                                                    [op lookup full-name-attr-id "Stepashka"]])))
+              (is (not (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "stopa"}]
+                                                                         [op lookup full-name-attr-id "Stepashka"]])))))))))))
 
-              (testing "adding triples"
-                (is
-                 (perm-err?
-                  (permissioned-tx/transact! (make-ctx)
-                                             [[:add-triple common-id (resolvers/->uuid r :users/id) common-id]
-                                              [:add-triple common-id (resolvers/->uuid r :users/handle) "dww"]])))
-                (is
-                 (perm-err?
-                  (permissioned-tx/transact! (make-ctx)
-                                             [[:add-triple common-id (resolvers/->uuid r :books/id) common-id]
-                                              [:add-triple common-id (resolvers/->uuid r :users/id) common-id]
-                                              [:add-triple common-id (resolvers/->uuid r :users/handle) "dww"]]))))
+(deftest delete-without-etype-perms-rule-params
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [id (suid "abcd")
 
-              (testing "deleting entities"
-                ;; setup
-                (permissioned-tx/transact! (assoc (make-ctx) :admin? true)
-                                           [[:add-triple delete-id (resolvers/->uuid r :users/id) delete-id]])
-                (is (= delete-id
-                       (-> (triple-model/fetch
-                            (aurora/conn-pool :read)
-                            app-id
-                            [[:= :entity-id delete-id]])
-                           first
-                           :triple
-                           first)))
+            {attr-users-id      :users/id
+             attr-users-handle  :users/handle
+             attr-profiles-id   :profiles/id
+             attr-profiles-name :profiles/name}
+            (test-util/make-attrs
+             app-id
+             [[:users/id :required? :index? :unique?]
+              [:users/handle :required? :index? :unique?]
+              [:profiles/id :required? :index? :unique?]
+              [:profiles/name :required? :index? :unique?]])
 
-                (permissioned-tx/transact! (make-ctx)
-                                           [[:add-triple delete-id (resolvers/->uuid r :books/id) delete-id]])
-                (is
-                 (perm-err?
-                  (permissioned-tx/transact! (make-ctx)
-                                             [[:delete-entity delete-id]])))))))))))
+            make-ctx
+            (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                    :app-id app-id
+                    :attrs (attr-model/get-by-app-id app-id)
+                    :datalog-query-fn d/query
+                    :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                    :current-user nil})]
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id :code {:users    {:allow {:delete "data.handle == ruleParams.handle"}}
+                                :profiles {:allow {:delete "true"}}}})
+
+        (doseq [[title lookup] [["eid" id]
+                                ["lookup ref" [attr-users-handle "user"]]]]
+          (testing title
+            (permissioned-tx/transact!
+             (make-ctx)
+             [[:add-triple id attr-users-id id]
+              [:add-triple id attr-users-handle "user"]
+              [:add-triple id attr-profiles-id id]
+              [:add-triple id attr-profiles-name "profile"]])
+            (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:delete-entity lookup]])))
+            (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "not user"}]
+                                                                  [:delete-entity lookup]])))
+            (is (not (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "user"}]
+                                                                       [:delete-entity lookup]]))))))))))
+
+(deftest delete-perms-rule-params
+  (doseq [[title get-lookup] [["with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
+                              ["with lookup ref" (fn [r] [(resolvers/->uuid r :users/email) "stopa@instantdb.com"])]]]
+    (with-zeneca-app
+      (fn [{app-id :id :as _app} r]
+        (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                               :app-id app-id
+                               :attrs (attr-model/get-by-app-id app-id)
+                               :datalog-query-fn d/query
+                               :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                               :current-user nil})
+              lookup (get-lookup r)]
+          (testing title
+            (rule-model/put!
+             (aurora/conn-pool :write)
+             {:app-id app-id :code {:users {:allow {:delete "data.handle == ruleParams.handle"}}}})
+            (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:delete-entity lookup "users"]])))
+            (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "not stopa"}]
+                                                                  [:delete-entity lookup "users"]])))
+            (is (not (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "stopa"}]
+                                                                       [:delete-entity lookup "users"]]))))))))))
+
+(deftest cascade-delete-with-rule-params
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [attr->id (test-util/make-attrs
+                      app-id
+                      [[:posts/id :unique? :index?]
+                       [:posts/localId :index?]
+                       [:posts/text]
+                       [[:comments/post :posts/comments] :on-delete]
+                       [:comments/id :unique? :index?]
+                       [:comments/localId :index?]
+                       [:comments/text]])
+
+            post-id (random-uuid)
+            comment-id (random-uuid)
+            local-id "test-user-123"
+
+              ;; Setup permission rules
+            _ (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id
+                :code {:posts {:allow {:delete "isCreator"}
+                               :bind ["isCreator" "data.localId == ruleParams.localId"]}
+                       :comments {:allow {:delete "isCreator"}
+                                  :bind ["isCreator" "data.localId == ruleParams.localId"]}}})
+
+              ;; Create test data
+            _ (test-util/insert-entities
+               app-id
+               attr->id
+               [{:db/id post-id
+                 :posts/id post-id
+                 :posts/localId local-id
+                 :posts/text "Hello world"}
+                {:db/id comment-id
+                 :comments/id comment-id
+                 :comments/localId local-id
+                 :comments/text "I like turtles"
+                 :comments/post post-id}])
+
+            ctx {:db {:conn-pool (aurora/conn-pool :write)}
+                 :app-id app-id
+                 :attrs (attr-model/get-by-app-id app-id)
+                 :datalog-query-fn d/query
+                 :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                 :current-user nil}]
+
+        (testing "Delete fails without wrong ruleParams"
+          (is (not (perm-pass? (permissioned-tx/transact! ctx
+                                                          [[:delete-entity post-id "posts"]
+                                                           [:rule-params post-id "posts" {:localId "wrong-user"}]])))))
+
+        (testing "Delete succeeds with right ruleParams and cascades to comments"
+          (is (perm-pass? (permissioned-tx/transact! ctx
+                                                     [[:delete-entity post-id "posts"]
+                                                      [:rule-params post-id "posts" {:localId local-id}]]))))))))
+
+(deftest cascade-delete-with-mulitple-rule-params
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [attr->id (test-util/make-attrs
+                      app-id
+                      [[:posts/id :unique? :index?]
+                       [:posts/localId :index?]
+                       [:posts/text]
+                       [[:comments/post :posts/comments] :on-delete]
+                       [:comments/id :unique? :index?]
+                       [:comments/localId :index?]
+                       [:comments/text]])
+
+              ;; Create two posts with different localIds
+            post-a-id (random-uuid)
+            post-b-id (random-uuid)
+            comment-a1-id (random-uuid)
+            comment-a2-id (random-uuid)
+            comment-b1-id (random-uuid)
+            comment-b2-id (random-uuid)
+            local-id-alice "alice-123"
+            local-id-bob "bob-456"
+
+              ;; Setup permission rules
+            _ (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id
+                :code {:posts {:allow {:delete "isCreator"}
+                               :bind ["isCreator" "data.localId == ruleParams.localId"]}
+                       :comments {:allow {:delete "isCreator"}
+                                  :bind ["isCreator" "data.localId == ruleParams.localId"]}}})
+
+              ;; Create test data
+            _ (test-util/insert-entities
+               app-id
+               attr->id
+               [;; Alice's post and comments
+                {:db/id post-a-id
+                 :posts/id post-a-id
+                 :posts/localId local-id-alice
+                 :posts/text "Alice's post"}
+                {:db/id comment-a1-id
+                 :comments/id comment-a1-id
+                 :comments/localId local-id-alice
+                 :comments/text "Alice's comment 1"
+                 :comments/post post-a-id}
+                {:db/id comment-a2-id
+                 :comments/id comment-a2-id
+                 :comments/localId local-id-alice
+                 :comments/text "Alice's comment 2"
+                 :comments/post post-a-id}
+                  ;; Bob's post and comments
+                {:db/id post-b-id
+                 :posts/id post-b-id
+                 :posts/localId local-id-bob
+                 :posts/text "Bob's post"}
+                {:db/id comment-b1-id
+                 :comments/id comment-b1-id
+                 :comments/localId local-id-bob
+                 :comments/text "Bob's comment 1"
+                 :comments/post post-b-id}
+                {:db/id comment-b2-id
+                 :comments/id comment-b2-id
+                 :comments/localId local-id-bob
+                 :comments/text "Bob's comment 2"
+                 :comments/post post-b-id}])
+
+            ctx {:db {:conn-pool (aurora/conn-pool :write)}
+                 :app-id app-id
+                 :attrs (attr-model/get-by-app-id app-id)
+                 :datalog-query-fn d/query
+                 :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                 :current-user nil}]
+
+          ;; Test that wrong ruleParams fail appropriately
+        (testing "Delete posts with incorrect ruleParams fails"
+          (is (not (perm-pass? (permissioned-tx/transact!
+                                ctx
+                                [[:delete-entity post-a-id "posts"]
+                                 [:rule-params post-a-id "posts" {:localId local-id-alice}]
+                                 [:delete-entity post-b-id "posts"]
+                                 [:rule-params post-b-id "posts" {:localId local-id-alice}]])))))
+
+        (testing "Delete posts with correct ruleParams succeeds"
+          (is (perm-pass? (permissioned-tx/transact!
+                           ctx
+                           [[:delete-entity post-a-id "posts"]
+                            [:rule-params post-a-id "posts" {:localId local-id-alice}]
+                            [:delete-entity post-b-id "posts"]
+                            [:rule-params post-b-id "posts" {:localId local-id-bob}]]))))))))
+
+(deftest cascade-delete-with-lookup-ref-rule-params
+  (testing "Cascade delete with lookup ref and ruleParams propagates correctly"
+    (with-empty-app
+      (fn [{app-id :id}]
+        (let [attr->id (test-util/make-attrs
+                        app-id
+                        [[:posts/id :unique? :index?]
+                         [:posts/handle :unique? :index?]
+                         [:posts/localId :index?]
+                         [:posts/text]
+                         [[:comments/post :posts/comments] :on-delete]
+                         [:comments/id :unique? :index?]
+                         [:comments/localId :index?]
+                         [:comments/text]])
+
+              post-id (random-uuid)
+              post-handle "unique-post-handle"
+              comment-id (random-uuid)
+              local-id "test-user-123"
+
+              ;; Setup permission rules
+              _ (rule-model/put!
+                 (aurora/conn-pool :write)
+                 {:app-id app-id
+                  :code {:posts {:allow {:delete "isCreator"}
+                                 :bind ["isCreator" "data.localId == ruleParams.localId"]}
+                         :comments {:allow {:delete "isCreator"}
+                                    :bind ["isCreator" "data.localId == ruleParams.localId"]}}})
+
+              ;; Create test data
+              _ (test-util/insert-entities
+                 app-id
+                 attr->id
+                 [{:db/id post-id
+                   :posts/id post-id
+                   :posts/handle post-handle
+                   :posts/localId local-id
+                   :posts/text "Post with unique handle"}
+                  {:db/id comment-id
+                   :comments/id comment-id
+                   :comments/localId local-id
+                   :comments/text "Comment on post"
+                   :comments/post post-id}])
+
+              ctx {:db {:conn-pool (aurora/conn-pool :write)}
+                   :app-id app-id
+                   :attrs (attr-model/get-by-app-id app-id)
+                   :datalog-query-fn d/query
+                   :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                   :current-user nil}
+
+              lookup-ref [(:posts/handle attr->id) post-handle]]
+
+          (testing "Delete with lookup ref and wrong ruleParams fails"
+            (is (not (perm-pass?
+                      (permissioned-tx/transact!
+                       ctx
+                       [[:delete-entity lookup-ref "posts"]
+                        [:rule-params lookup-ref "posts" {:localId "wrong-user"}]])))))
+
+          (testing "Delete with lookup ref and correct ruleParams succeeds and cascades"
+            (is (perm-pass?
+                 (permissioned-tx/transact!
+                  ctx
+                  [[:delete-entity lookup-ref "posts"]
+                   [:rule-params lookup-ref "posts" {:localId local-id}]])))))))))
+
+(deftest rule-params-view-check-on-link
+  (with-zeneca-app
+    (fn [{app-id :id} r]
+      (let [bookshelf-id (resolvers/->uuid r "eid-nonfiction")
+            book-id (resolvers/->uuid r "eid-how-to-win-friends-and-influence-people")
+
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                             :current-user nil})]
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:books {:allow {:view "data.id == ruleParams.knownBookId"}}}})
+        (testing "Link with correct ruleParams works"
+          (is (not (perm-err?
+                    (permissioned-tx/transact!
+                     (make-ctx)
+                     [[:rule-params bookshelf-id "bookshelves" {"knownBookId" book-id}]
+                      [:add-triple bookshelf-id (resolvers/->uuid r :bookshelves/books) book-id]]))))
+
+          (is (contains?
+               (->> (triple-model/fetch
+                     (aurora/conn-pool :read)
+                     app-id
+                     [[:= :entity-id bookshelf-id]
+                      [:= :attr-id (resolvers/->uuid r :bookshelves/books)]])
+                    (map (comp last :triple))
+                    set)
+               book-id)))))))
+
+(deftest refs-in-default-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs      (test-util/make-attrs
+                        app-id
+                        [[:users/id :required? :index? :unique?]
+                         [:users/email]
+                         [:posts/id :required? :index? :unique?]
+                         [:posts/title]
+                         [[:posts/author :users/posts]]])
+            transact!  #(when (seq %)
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           (test-util/resolve-attrs attrs %)))
+            user-id #uuid "f7914f50-0fb0-4223-bace-ea5317a1f907"
+            post-id #uuid "0fe6c627-3781-411b-a3d6-8d127d5979ae"]
+
+        (transact!
+         [[:add-triple user-id :users/id     user-id]
+          [:add-triple user-id :users/email  "e@mail.com"]
+          [:add-triple post-id :posts/id     post-id]
+          [:add-triple post-id :posts/title  "title"]
+          [:add-triple post-id :posts/author user-id]])
+
+        (test-util/test-matrix
+         [perms [{:$default
+                  {:allow
+                   {:update "true"}}
+                  :posts
+                  {:allow
+                   {:$default "true"
+                    :update   "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:update "true"}}
+                  :posts
+                  {:allow
+                   {:$default "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:update "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:$default "!('e@mail.com' in data.ref('author.email'))"}}}]]
+
+         (rule-model/put!
+          (aurora/conn-pool :write)
+          {:app-id app-id
+           :code perms})
+
+         (is (perm-err?
+              (transact!
+               [[:add-triple post-id :posts/id post-id]
+                [:add-triple post-id :posts/title "new title"]]))))))))
+
+(deftest bind-in-default-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs      (test-util/make-attrs
+                        app-id
+                        [[:posts/id :required? :index? :unique?]
+                         [:posts/title]])
+            transact!  #(when (seq %)
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           (test-util/resolve-attrs attrs %)))
+            post-id #uuid "0fe6c627-3781-411b-a3d6-8d127d5979ae"]
+
+        (transact!
+         [[:add-triple post-id :posts/id    post-id]
+          [:add-triple post-id :posts/title "title"]])
+
+        (test-util/test-matrix
+         [perms [{:posts
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:update "bind"}}}
+
+                 {:posts
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:$default "bind"}}}
+
+                 {:$default
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:update "bind"}}}
+
+                 {:$default
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:$default "bind"}}}]]
+
+         (rule-model/put!
+          (aurora/conn-pool :write)
+          {:app-id app-id
+           :code perms})
+
+         (is (perm-err?
+              (transact!
+               [[:add-triple post-id :posts/id post-id]
+                [:add-triple post-id :posts/title "new title"]]))))))))
+
+(deftest link-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/fallback :users/rev-fallback]]
+              [[:posts/fwd-only :users/rev-fwd-only]]
+              [[:posts/rev-only :users/rev-rev-only]]
+              [[:posts/fwd-rev  :users/rev-fwd-rev]]])
+            transact! #(when (seq %)
+                         (permissioned-tx/transact!
+                          (make-ctx)
+                          (test-util/resolve-attrs attrs %)))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:create "ruleParams.posts_create"
+                   :update "ruleParams.posts_update"
+                   :link   {"fwd-only" "ruleParams.posts_fwd_only"
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"}}}
+
+                 :users
+                 {:allow
+                  {:view   "ruleParams.users_view"
+                   :create "ruleParams.users_create"
+                   :update "ruleParams.users_update"
+                   :link   {"rev-rev-only" "ruleParams.users_rev_only"
+                            "rev-fwd-rev"  "ruleParams.users_fwd_rev"}}}}})
+
+        (test-util/test-matrix
+         ;; we test both cases when either user or post are created in the same
+         ;; transaction or already exist
+         [user-action       [:create :update]
+          post-action       [:create :update]
+          ref-type          [:id :lookup]
+          ;; link check can be not defined at all (then update/view fallback is used),
+          ;; defined only for one side (then other side will use a fallback), or be
+          ;; defined for both sides
+          attr              [:posts/fallback
+                             :posts/fwd-only
+                             :posts/rev-only
+                             :posts/fwd-rev]
+          rule-params       (cond
+                              (and (= :posts/fallback attr) (= :create post-action))
+                              [{"posts_create" false "users_view" false}
+                               {"posts_create" true  "users_view" false}
+                               {"posts_create" false "users_view" true}
+                               {"posts_create" true  "users_view" true}]
+
+                              (and (= :posts/fallback attr) (= :update post-action))
+                              [{"posts_update" false "users_view" false}
+                               {"posts_update" true  "users_view" false}
+                               {"posts_update" false "users_view" true}
+                               {"posts_update" true  "users_view" true}]
+
+                              (= :posts/fwd-only attr)
+                              [{"posts_fwd_only" false}
+                               {"posts_fwd_only" true}]
+
+                              (= :posts/rev-only attr)
+                              [{"users_rev_only" false}
+                               {"users_rev_only" true}]
+
+                              (= :posts/fwd-rev attr)
+                              [{"posts_fwd_rev" false "users_fwd_rev" false}
+                               {"posts_fwd_rev" true  "users_fwd_rev" false}
+                               {"posts_fwd_rev" false "users_fwd_rev" true}
+                               {"posts_fwd_rev" true  "users_fwd_rev" true}])
+
+          ;; rule params can be placed on either side of the link
+          rule-params-pos [:post :user]]
+         (let [user-id     (random-uuid)
+               user-email  (test-util/rand-email)
+               user-ref    (case ref-type
+                             :id     user-id
+                             :lookup [:users/email user-email])
+               post-id     (random-uuid)
+               post-title  (test-util/rand-string)
+               post-ref    (case ref-type
+                             :id     post-id
+                             :lookup [:posts/title post-title])
+               user-tx     (case ref-type
+                             :id
+                             [[:add-triple  user-id :users/id    user-id]
+                              [:add-triple  user-id :users/email user-email]
+                              [:rule-params user-id "users"      {"users_create" true}]]
+                             :lookup
+                             [[:add-triple  user-ref :users/id   user-ref]
+                              [:rule-params user-ref "users"     {"users_create" true}]])
+               post-tx     (case ref-type
+                             :id
+                             [[:add-triple  post-id :posts/id    post-id]
+                              [:add-triple  post-id :posts/title post-title]
+                              [:rule-params post-id "posts"      {"posts_create" (get rule-params "posts_create" true)}]]
+                             :lookup
+                             [[:add-triple  post-ref :posts/id   post-ref]
+                              [:rule-params post-ref "posts"     {"posts_create" (get rule-params "posts_create" true)}]])
+
+               _           (transact!
+                            (concat
+                             (when (= :update user-action)
+                               user-tx)
+                             (when (= :update post-action)
+                               post-tx)))
+
+               tx          (concat
+                            (when (= :create user-action)
+                              user-tx)
+                            (when (= :create post-action)
+                              post-tx)
+                            (case rule-params-pos
+                              :user
+                              [[:rule-params user-ref "users" rule-params]]
+                              :post
+                              [[:rule-params post-ref "posts" rule-params]])
+                            [[:add-triple post-ref attr user-ref]])
+
+               expected    (every? true? (vals rule-params))]
+
+           (is (= expected (perm-pass? (transact! tx))))))))))
+
+(deftest unlink-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/fallback :users/rev-fallback]]
+              [[:posts/fwd-only :users/rev-fwd-only]]
+              [[:posts/rev-only :users/rev-rev-only]]
+              [[:posts/fwd-rev  :users/rev-fwd-rev]]])
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:update "ruleParams.posts_update"
+                   :unlink {"fwd-only" "ruleParams.posts_fwd_only"
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"}}}
+
+                 :users
+                 {:allow
+                  {:view   "ruleParams.users_view"
+                   :update "ruleParams.users_update"
+                   :unlink {"rev-rev-only" "ruleParams.users_rev_only"
+                            "rev-fwd-rev"  "ruleParams.users_fwd_rev"}}}}})
+
+        (test-util/test-matrix
+         [ref-type     [:id :lookup]
+          ;; link check can be not defined at all (then update/view fallback is used),
+          ;; defined only for one side (then other side will use a fallback), or be
+          ;; defined for both sides
+          attr              [:posts/fallback
+                             :posts/fwd-only
+                             :posts/rev-only
+                             :posts/fwd-rev]
+          rule-params        (case attr
+                               :posts/fallback
+                               [{"posts_update" false "users_view" false}
+                                {"posts_update" true  "users_view" false}
+                                {"posts_update" false "users_view" true}
+                                {"posts_update" true  "users_view" true}]
+
+                               :posts/fwd-only
+                               [{"posts_fwd_only" false}
+                                {"posts_fwd_only" true}]
+
+                               :posts/rev-only
+                               [{"users_rev_only" false}
+                                {"users_rev_only" true}]
+
+                               :posts/fwd-rev
+                               [{"posts_fwd_rev" false "users_fwd_rev" false}
+                                {"posts_fwd_rev" true  "users_fwd_rev" false}
+                                {"posts_fwd_rev" false "users_fwd_rev" true}
+                                {"posts_fwd_rev" true  "users_fwd_rev" true}])
+
+          ;; rule params can be placed on either side of the link
+          rule-params-pos   [:post :user]]
+         (let [user-id     (random-uuid)
+               user-email  (test-util/rand-email)
+               user-ref    (case ref-type
+                             :id     user-id
+                             :lookup [:users/email user-email])
+               post-id     (random-uuid)
+               post-title  (test-util/rand-string)
+               post-ref    (case ref-type
+                             :id     post-id
+                             :lookup [:posts/title post-title])
+               _           (transact!
+                            [[:add-triple  user-id :users/id    user-id]
+                             [:add-triple  user-id :users/email user-email]
+                             [:add-triple  post-id :posts/id    post-id]
+                             [:add-triple  post-id :posts/title post-title]])
+
+               tx          (concat
+                            [[:retract-triple post-ref attr user-ref]]
+                            (case rule-params-pos
+                              :user
+                              [[:rule-params user-ref "users" rule-params]]
+                              :post
+                              [[:rule-params post-ref "posts" rule-params]]))
+
+               expected    (every? true? (vals rule-params))]
+
+           (is (= expected (perm-pass? (transact! tx))))))))))
+
+(deftest default-link-unlink-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/fallback :users/rev-fallback]]
+              [[:posts/fwd-only :users/rev-fwd-only]]
+              [[:posts/rev-only :users/rev-rev-only]]
+              [[:posts/fwd-rev  :users/rev-fwd-rev]]])
+            transact! #(when (seq %)
+                         (permissioned-tx/transact!
+                          (make-ctx)
+                          (test-util/resolve-attrs attrs %)))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:create "ruleParams.posts_create"
+                   :update "ruleParams.posts_update"
+                   :link   {"$default" "ruleParams.posts_default"
+                            "fwd-only" "ruleParams.posts_fwd_only"
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"}
+                   :unlink {"$default" "ruleParams.posts_default"
+                            "fwd-only" "ruleParams.posts_fwd_only"
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"}}}
+
+                 :users
+                 {:allow
+                  {:view   "ruleParams.users_view"
+                   :create "ruleParams.users_create"
+                   :update "ruleParams.users_update"
+                   :link   {"$default"     "ruleParams.users_default"
+                            "rev-rev-only" "ruleParams.users_rev_only"
+                            "rev-fwd-rev"  "ruleParams.users_fwd_rev"}
+                   :unlink {"$default"     "ruleParams.users_default"
+                            "rev-rev-only" "ruleParams.users_rev_only"
+                            "rev-fwd-rev"  "ruleParams.users_fwd_rev"}}}}})
+
+        (test-util/test-matrix
+         [attr [:posts/fallback
+                :posts/fwd-only
+                :posts/rev-only
+                :posts/fwd-rev]
+          :let [[posts-attr users-attr] (case attr
+                                          :posts/fallback ["posts_default"  "users_default"]
+                                          :posts/fwd-only ["posts_fwd_only" "users_default"]
+                                          :posts/rev-only ["posts_default"  "users_rev_only"]
+                                          :posts/fwd-rev  ["posts_fwd_rev"  "users_fwd_rev"])]
+          rule-params [{posts-attr false users-attr false}
+                       {posts-attr true  users-attr false}
+                       {posts-attr false users-attr true}
+                       {posts-attr true  users-attr true}]
+          :let [user-id     (random-uuid)
+                user-email  (test-util/rand-email)
+                post-id     (random-uuid)
+                post-title  (test-util/rand-string)
+                expected    (every? true? (vals rule-params))]]
+         (transact!
+          [[:add-triple  user-id :users/id    user-id]
+           [:add-triple  user-id :users/email user-email]
+           [:rule-params user-id "users"      {"users_create" true}]
+           [:add-triple  post-id :posts/id    post-id]
+           [:add-triple  post-id :posts/title post-title]
+           [:rule-params post-id "posts"      {"posts_create" true}]])
+
+         (is (= expected
+                (perm-pass?
+                 (transact!
+                  [[:add-triple post-id attr user-id]
+                   [:rule-params post-id "posts" rule-params]]))))
+
+         (when-not expected
+           (transact!
+            [[:add-triple post-id attr user-id]
+             [:rule-params post-id "posts" {posts-attr true users-attr true}]]))
+
+         (is (= expected
+                (perm-pass?
+                 (transact! [[:retract-triple post-id attr user-id]
+                             [:rule-params post-id "posts" rule-params]])))))))))
+
+(deftest link-unlink-non-existing-entities
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/user :users/post]]])
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:link   {"user" "ruleParams.posts_user"}
+                   :unlink {"user" "ruleParams.posts_user"}}}
+                 :users
+                 {:allow
+                  {:link   {"post" "false"}
+                   :unlink {"post" "false"}}}}})
+        (let [post-id (random-uuid)
+              _       (transact!
+                       [[:add-triple post-id :posts/id post-id]])]
+          ;; if user doesn't exist, we don't check permissions on it
+          (is (perm-pass? (transact! [[:add-triple post-id :posts/user (random-uuid)]
+                                      [:rule-params post-id "posts" {"posts_user" true}]])))
+          (is (perm-pass? (transact! [[:retract-triple post-id :posts/user (random-uuid)]
+                                      [:rule-params post-id "posts" {"posts_user" true}]]))))))))
+
+(deftest linked-data-etype
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:profiles/id    :required? :index? :unique?]
+
+              [:users/id       :required? :index? :unique?]
+              [[:users/profile :profiles/user]]
+
+              [:posts/id       :required? :index? :unique?]
+              [[:posts/user    :users/posts]]
+
+              [:comments/id    :required? :index? :unique?]
+              [[:comments/post :posts/comments]]])
+            transact!   #(permissioned-tx/transact!
+                          (make-ctx)
+                          (test-util/resolve-attrs attrs %))
+            profile-id (random-uuid)
+            user-id    (random-uuid)
+            post-id    (random-uuid)
+            comment-id (random-uuid)]
+
+        (transact!
+         [[:add-triple profile-id  :profiles/id    profile-id]
+          [:add-triple user-id     :users/id       user-id]
+          [:add-triple user-id     :users/profile  profile-id]
+          [:add-triple post-id     :posts/id       post-id]
+          [:add-triple comment-id  :comments/id    comment-id]
+          [:add-triple comment-id  :comments/post  post-id]])
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:link   {"user" "ruleParams.profile_id in linkedData.ref('profile.id')"}
+                   :unlink {"user" "ruleParams.comment_id in linkedData.ref('posts.comments.id')"}}}
+                 :users
+                 {:allow
+                  {:link   {"posts" "ruleParams.comment_id in linkedData.ref('comments.id')"}
+                   :unlink {"posts" "ruleParams.profile_id in linkedData.ref('user.profile.id')"}}}}})
+
+        (test-util/test-matrix
+         [post-params [nil {"profile_id" profile-id}]
+          user-params [nil {"comment_id" comment-id}]
+          :let [expected (boolean (and post-params user-params))]]
+         (is (= expected
+                (perm-pass?
+                 (transact!
+                  [[:add-triple  post-id :posts/user user-id]
+                   [:rule-params post-id "posts" post-params]
+                   [:rule-params user-id "users" user-params]])))))
+
+        (test-util/test-matrix
+         [post-params [nil {"comment_id" comment-id}]
+          user-params [nil {"profile_id" profile-id}]
+          :let [expected (boolean (and post-params user-params))]]
+         (is (= expected
+                (perm-pass?
+                 (transact!
+                  [[:retract-triple post-id :posts/user user-id]
+                   [:rule-params post-id "posts" post-params]
+                   [:rule-params user-id "users" user-params]])))))))))
+
+(deftest unlink-perms-during-delete
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/fallback :users/rev-fallback]]
+              [[:posts/fwd-only :users/rev-fwd-only]]
+              [[:posts/rev-only :users/rev-rev-only]]
+              [[:posts/fwd-rev  :users/rev-fwd-rev]]
+              [[:posts/$user    :$users/post]]
+              [[:posts/$file    :$files/post]]])
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:update "ruleParams.posts_update"
+                   :delete "ruleParams.posts_delete"
+                   :unlink {"fwd-only" "ruleParams.posts_fwd_only"
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"
+                            "$user"    "ruleParams.$user"
+                            "$file"    "ruleParams.$file"}}}
+
+                 :users
+                 {:allow
+                  {:view   "ruleParams.users_view"
+                   :delete "ruleParams.users_delete"
+                   :unlink {"rev-rev-only" "ruleParams.users_rev_only"
+                            "rev-fwd-rev"  "ruleParams.users_fwd_rev"}}}}})
+
+        (testing "deleting post"
+          (test-util/test-matrix
+           [ref-type [:id :lookup]]
+           (let [user-id    (random-uuid)
+                 user-email (test-util/rand-email)
+                 post-id    (random-uuid)
+                 post-title (test-util/rand-string)
+                 post-ref   (case ref-type
+                              :id     post-id
+                              :lookup [:posts/title post-title])]
+             (transact!
+              [[:add-triple  user-id :users/id       user-id]
+               [:add-triple  user-id :users/email    user-email]
+               [:rule-params user-id "users"         {"users_view" true}]
+               [:add-triple  post-id :posts/id       post-id]
+               [:add-triple  post-id :posts/title    post-title]
+               [:add-triple  post-id :posts/fallback user-id]
+               [:add-triple  post-id :posts/fwd-only user-id]
+               [:add-triple  post-id :posts/rev-only user-id]
+               [:add-triple  post-id :posts/fwd-rev  user-id]])
+             (is (not (perm-pass? (transact! [[:delete-entity post-ref "posts"]]))))
+             ;; unlink perms are not checked during delete
+             (is (perm-pass? (transact! [[:delete-entity post-ref "posts"]
+                                         [:rule-params post-ref "posts" {"posts_delete" true}]]))))))
+
+        (testing "system namespaces"
+          (let [user-id (random-uuid)
+                file-id (random-uuid)
+                post-id (random-uuid)
+                _       (tx/transact!
+                         (aurora/conn-pool :write)
+                         (attr-model/get-by-app-id app-id)
+                         app-id
+                         (test-util/resolve-attrs
+                          attrs
+                          [[:add-triple  user-id :$users/id          user-id]
+                           [:add-triple  file-id :$files/id          file-id]
+                           [:add-triple  file-id :$files/path        (test-util/rand-string)]
+                           [:add-triple  file-id :$files/location-id (random-uuid)]
+                           [:add-triple  file-id :$files/size 100]
+                           [:add-triple  post-id :posts/id           post-id]
+                           [:add-triple  post-id :posts/$user        user-id]
+                           [:add-triple  post-id :posts/$file        file-id]])
+                         {:allow-$files-update? true})]
+            (is (not (perm-pass? (transact! [[:delete-entity post-id "posts"]]))))
+            ;; unlink perms are not checked during delete
+            (is (perm-pass? (transact! [[:delete-entity post-id "posts"]
+                                        [:rule-params   post-id "posts" {"posts_delete" true}]])))))
+
+        (testing "deleting user"
+          (test-util/test-matrix
+           [attr     [:posts/fallback
+                      :posts/fwd-only
+                      :posts/rev-only
+                      :posts/fwd-rev]
+            ref-type [:id :lookup]]
+           (let [user-id    (random-uuid)
+                 user-email (test-util/rand-email)
+                 user-ref   (case ref-type
+                              :id     user-id
+                              :lookup [:users/email user-email])
+                 post-id    (random-uuid)
+                 post-title (test-util/rand-string)]
+             (transact!
+              [[:add-triple  user-id :users/id    user-id]
+               [:add-triple  user-id :users/email user-email]
+               [:rule-params user-id "users"      {"users_view" true}]
+               [:add-triple  post-id :posts/id    post-id]
+               [:add-triple  post-id :posts/title post-title]
+               [:add-triple  post-id attr         user-id]])
+
+             (is (not (perm-pass? (transact! [[:delete-entity user-ref "users"]]))))
+
+             ;; unlink perms are not checked during delete
+             (is (perm-pass? (transact! [[:delete-entity user-ref "users"]
+                                         [:rule-params   user-ref "users" {"users_delete" true}]]))))))))))
+
+;; Check that during link/unlink `linkedData` contains object from other side of relation
+(deftest linked-data-perm
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/ref :users/rev-ref]]])
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:link   {"ref" "newData.title == linkedData.email"}
+                   :unlink {"ref" "data.title == linkedData.email"}}}
+                 :users
+                 {:allow
+                  {:link   {"rev-ref" "newData.email == linkedData.title"}
+                   :unlink {"rev-ref" "data.email == linkedData.title"}}}}})
+
+        (testing "pre-checks"
+          (let [user-id     (random-uuid)
+                user-email  (test-util/rand-email)
+                post-id     (random-uuid)
+                post-title  user-email]
+            (transact!
+             [[:add-triple user-id :users/id    user-id]
+              [:add-triple user-id :users/email user-email]
+              [:add-triple post-id :posts/id    post-id]
+              [:add-triple post-id :posts/title post-title]])
+            (is (not (perm-err?
+                      (transact!
+                       [[:add-triple post-id :posts/ref user-id]]))))
+            (is (not (perm-err?
+                      (transact!
+                       [[:retract-triple post-id :posts/ref user-id]]))))))
+
+        (testing "post-checks"
+          (let [user-id     (random-uuid)
+                user-email  (test-util/rand-email)
+                post-id     (random-uuid)
+                post-title  user-email]
+            (is (not (perm-err?
+                      (transact!
+                       [[:add-triple user-id :users/id    user-id]
+                        [:add-triple user-id :users/email user-email]
+                        [:add-triple post-id :posts/id    post-id]
+                        [:add-triple post-id :posts/title post-title]
+                        [:add-triple post-id :posts/ref user-id]]))))
+
+            (is (not (perm-err?
+                      (transact!
+                       [[:retract-triple post-id :posts/ref user-id]]))))))))))
+
+;; Test actions.data and actions.linkedData in link permission checks
+(deftest link-actions-perm
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/ref :users/rev-ref]]])
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:link {"ref" "actions.data == ruleParams.post_post_action && actions.linkedData == ruleParams.post_user_action"}}}
+                 :users
+                 {:allow
+                  {:link {"rev-ref" "actions.data == ruleParams.user_user_action && actions.linkedData == ruleParams.user_post_action"}}}}})
+
+        (test-util/test-matrix
+         [post-action      [:create :update]
+          user-action      [:create :update]
+          post-post-action [:create :update]
+          post-user-action [:create :update]
+          user-post-action [:create :update]
+          user-user-action [:create :update]]
+         (let [user-id     (random-uuid)
+               user-email  (test-util/rand-email)
+               post-id     (random-uuid)
+               post-title  user-email
+               user-tx     [[:add-triple user-id :users/id user-id]
+                            [:add-triple user-id :users/email user-email]]
+               post-tx      [[:add-triple post-id :posts/id    post-id]
+                             [:add-triple post-id :posts/title post-title]]
+               _            (transact!
+                             (concat
+                              (when (= :update post-action) post-tx)
+                              (when (= :update user-action) user-tx)))
+               tx           (concat
+                             (when (= :create post-action) post-tx)
+                             (when (= :create user-action) user-tx)
+                             [[:add-triple post-id :posts/ref user-id]
+                              [:rule-params post-id "posts" {:post_post_action post-post-action
+                                                             :post_user_action post-user-action}]
+                              [:rule-params user-id "users" {:user_post_action user-post-action
+                                                             :user_user_action user-user-action}]])
+               expected     (and
+                             (= post-action post-post-action user-post-action)
+                             (= user-action post-user-action user-user-action))]
+           (is (= expected (perm-pass? (transact! tx))))))))))
+
 (deftest lookup-perms
   (with-empty-app
     (fn [{app-id :id}]
@@ -1408,10 +3211,10 @@
                  (aurora/conn-pool :write)
                  {:app-id app-id
                   :code {:profiles {:allow
-                                    {:create "size(data.ref('org.id')) == 1"
-                                     :update  "size(data.ref('org.id')) == 1"
-                                     :view  "size(data.ref('org.id')) == 1"
-                                     :delete  "size(data.ref('org.id')) == 1"}}}})
+                                    {:create "size(data.ref('org.id')) == 1 // create"
+                                     :update "size(data.ref('org.id')) == 1 // update"
+                                     :view   "size(data.ref('org.id')) == 1 // view"
+                                     :delete "size(data.ref('org.id')) == 1 // delete"}}}})
               rules (rule-model/get-by-app-id {:app-id app-id})
               ctx {:db {:conn-pool (aurora/conn-pool :write)}
                    :app-id app-id
@@ -1459,7 +3262,6 @@
                                             app-id
                                             [[:= :attr-id p-fullname-aid]
                                              [:= :entity-id stopa-eid]])
-
                         first
                         :triple
                         last))))
@@ -1480,6 +3282,147 @@
                         first
                         :triple
                         last))))))))))
+
+(deftest indexed-attrs-get-nulls
+  (testing "no nulls for unindexed attrs"
+    (with-zeneca-app-no-indexing
+      (fn [app r]
+        (let [handles-before (triple-model/fetch (aurora/conn-pool :read)
+                                                 (:id app)
+                                                 [[:= :attr_id (resolvers/->uuid r :users/handle)]])
+              id (random-uuid)
+              _ (tx/transact! (aurora/conn-pool :write)
+                              (attr-model/get-by-app-id (:id app))
+                              (:id app)
+                              [[:add-triple id (resolvers/->uuid r :users/id) (str id)]
+                               [:add-triple id (resolvers/->uuid r :users/email) "test@example.com"]])
+              handles-after (triple-model/fetch (aurora/conn-pool :read)
+                                                (:id app)
+                                                [[:= :attr_id (resolvers/->uuid r :users/handle)]])]
+          (is (pos? (count handles-before)))
+          (is (= handles-before
+                 handles-after))
+          (is (= #{"alex" "stopa" "joe" "nicolegf"}
+                 (set (map (fn [h]
+                             (-> h :triple (nth 2)))
+                           handles-after))))))))
+  (testing "nulls for indexed attrs"
+    ;; handles are indexed in zeneca-app
+    (with-zeneca-app
+      (fn [app r]
+        (let [handles-before (triple-model/fetch (aurora/conn-pool :read)
+                                                 (:id app)
+                                                 [[:= :attr_id (resolvers/->uuid r :users/handle)]])
+              id (random-uuid)
+              _ (tx/transact! (aurora/conn-pool :write)
+                              (attr-model/get-by-app-id (:id app))
+                              (:id app)
+                              [[:add-triple id (resolvers/->uuid r :users/id) (str id)]
+                               [:add-triple id (resolvers/->uuid r :users/email) "test@example.com"]])
+              handles-after (triple-model/fetch (aurora/conn-pool :read)
+                                                (:id app)
+                                                [[:= :attr_id (resolvers/->uuid r :users/handle)]])]
+          (is (pos? (count handles-before)))
+          (is (= (inc (count handles-before))
+                 (count handles-after))
+              "created a single handle")
+          (is (= #{nil "alex" "stopa" "joe" "nicolegf"}
+                 (set (map (fn [h]
+                             (-> h :triple (nth 2)))
+                           handles-after)))))))))
+
+(deftest new-indexed-blobs-get-nulls
+  (with-zeneca-app
+    (fn [app _r]
+      (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                             :app-id (:id app)
+                             :attrs (attr-model/get-by-app-id (:id app))
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id (:id app)})
+                             :current-user nil})
+            attr-id (random-uuid)]
+        (permissioned-tx/transact! (make-ctx)
+                                   [[:add-attr {:id attr-id
+                                                :forward-identity [(random-uuid) "users" "new-attr"]
+                                                :value-type :blob
+                                                :cardinality :one
+                                                :unique? false
+                                                :index? true}]])
+        (let [new-attr-triples (triple-model/fetch (aurora/conn-pool :read)
+                                                   (:id app)
+                                                   [[:= :attr-id attr-id]])]
+          (is (= [nil nil nil nil] (map (fn [r] (-> r :triple (nth 2)))
+                                        new-attr-triples))))))))
+
+(deftest perms-rejects-updates-to-lookups
+  (with-empty-app
+    (fn [app]
+      (let [id-attr-id (random-uuid)
+            handle-attr-id (random-uuid)
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                             :app-id (:id app)
+                             :attrs (attr-model/get-by-app-id (:id app))
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id (:id app)})
+                             :current-user nil})
+            existing-id (random-uuid)]
+        (tx/transact!
+         (aurora/conn-pool :write)
+         (attr-model/get-by-app-id (:id app))
+         (:id app)
+         [[:add-attr
+           {:id id-attr-id
+            :forward-identity [(random-uuid) "profiles" "id"]
+            :value-type :blob
+            :cardinality :one
+            :unique? true
+            :index? false}]
+          [:add-attr
+           {:id handle-attr-id
+            :forward-identity [(random-uuid) "profiles" "handle"]
+            :value-type :blob
+            :cardinality :one
+            :unique? true
+            :index? false}]
+          [:add-triple existing-id id-attr-id (str existing-id)]
+          [:add-triple existing-id handle-attr-id "c"]])
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id (:id app)
+          :code {:profiles {:allow
+                            {:create "data.handle != 'a'"
+                             :update "newData.handle != 'b'"}}}})
+
+        (testing "non-lookups-fail"
+          (testing "create"
+            (let [id (random-uuid)]
+              (is (perm-err?
+                   (permissioned-tx/transact! (make-ctx)
+                                              [[:add-triple id id-attr-id (str id)]
+                                               [:add-triple id handle-attr-id "a"]])))))
+
+          (testing "update"
+            (is (perm-err?
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple existing-id handle-attr-id "b"]])))))
+
+        (testing "lookup fail"
+          (testing "create"
+            (is (perm-err?
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple [handle-attr-id "a"] id-attr-id [handle-attr-id "a"]]])))
+
+            ;; n.b. if this validation-err? is fixed, make sure that this is still a permisison error
+            ;;      right now you can't edit a lookup attr in the same transaction you create the lookup attr
+            (is (validation-err?
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple [handle-attr-id "a"] id-attr-id [handle-attr-id "a"]]
+                                             [:add-triple [handle-attr-id "a"] handle-attr-id "c"]]))))
+          (testing "update"
+            (is (perm-err?
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple [handle-attr-id "c"] handle-attr-id "b"]])))))))))
 
 (deftest rejects-bad-lookups
   (with-zeneca-app
@@ -1502,7 +3445,7 @@
 
 (defn validation-err [input]
   (try
-    (tx/validate! (tx/coerce! input))
+    (tx/validate! {:attrs (attr-model/wrap-attrs [])} (tx/coerce! input))
     (catch clojure.lang.ExceptionInfo e
       (->> e ex-data ::ex/hint :errors first))))
 
@@ -1513,12 +3456,18 @@
     (is (= '{:expected coll?, :in [0]}
            (validation-err [1]))))
   (testing "bad triples"
-    (is (= '{:expected vector?, :in [0 1]}
-           (validation-err
-            [[:add-triple :eid-not-uuid (UUID/randomUUID) "value"]])))
     (is (= '{:expected :instant.db.model.triple/value, :in [0]}
            (validation-err
-            [[:add-triple (UUID/randomUUID) (UUID/randomUUID)]]))))
+            [[:add-triple (random-uuid) (random-uuid)]]))))
+  (testing "non-UUID entity IDs"
+    (doseq [[op entity-id value] [[:add-triple :eid-not-uuid (random-uuid) "value"]
+                                  [:deep-merge-triple :eid-not-uuid {:foo "bar"}]
+                                  [:retract-triple :eid-not-uuid (random-uuid) "value"]
+                                  [:delete-entity :eid-not-uuid "namespace"]]]
+      (is (= {:message (format "Invalid entity ID '%s'. Entity IDs must be UUIDs. Use id() or lookup() to generate a valid UUID." entity-id)
+              :in [0 1]}
+             (validation-err
+              [[op entity-id (random-uuid) value]])))))
   (testing "bad attrs"
     (is (= '{:expected instant.db.model.attr/value-type, :in [0 1]}
            (validation-err
@@ -1527,7 +3476,7 @@
            (validation-err
             [[:add-attr
               {:id nil
-               :forward-identity [(UUID/randomUUID) "users" "name"]
+               :forward-identity [(random-uuid) "users" "name"]
                :value-type :blob
                :cardinality :one
                :unique? false
@@ -1535,8 +3484,8 @@
     (is (= '{:expected :instant.db.model.attr/label, :in [0 1 :forward-identity]}
            (validation-err
             [[:add-attr
-              {:id (UUID/randomUUID)
-               :forward-identity [(UUID/randomUUID) "users"]
+              {:id (random-uuid)
+               :forward-identity [(random-uuid) "users"]
                :value-type :blob
                :cardinality :one
                :unique? false
@@ -1545,9 +3494,9 @@
 (deftest expected-errors
   (with-empty-app
     (fn [{app-id :id}]
-      (let [stopa-eid (UUID/randomUUID)
-            email-attr-id (UUID/randomUUID)
-            email-fwd-ident (UUID/randomUUID)]
+      (let [stopa-eid (random-uuid)
+            email-attr-id (random-uuid)
+            email-fwd-ident (random-uuid)]
         (testing "add-attr twice triggers unicity constraints"
           (tx/transact!
            (aurora/conn-pool :write)
@@ -1563,7 +3512,7 @@
             [:add-triple stopa-eid email-attr-id "test@instantdb.com"]])
           (is (= ::ex/record-not-unique
                  (::ex/type
-                  (instant-ex-data
+                  (test-util/instant-ex-data
                    (tx/transact!
                     (aurora/conn-pool :write)
                     (attr-model/get-by-app-id app-id)
@@ -1576,15 +3525,61 @@
                        :unique? true
                        :index? true}]
                      [:add-triple stopa-eid email-attr-id "test@instantdb.com"]]))))))
-        (testing "invalid foreign key for attrs triggers foreign key violation"
-          (is (= ::ex/record-foreign-key-invalid
-                 (->  (instant-ex-data
+        (testing "invalid foreign key for attrs triggers sql raise"
+          (is (= ::ex/sql-raise
+                 (->  (test-util/instant-ex-data
                        (tx/transact!
                         (aurora/conn-pool :write)
                         (attr-model/get-by-app-id app-id)
                         app-id
-                        [[:add-triple stopa-eid (UUID/randomUUID) "Stopa"]]))
+                        [[:add-triple stopa-eid (random-uuid) "Stopa"]]))
                       ::ex/type))))))))
+
+(deftest good-error-for-invalid-ref-uuid
+  (with-zeneca-app
+    (fn [app r]
+      (let [alex-eid (resolvers/->uuid r "eid-alex")
+            bookshelf-aid (resolvers/->uuid r :users/bookshelves)
+            ex (test-util/instant-ex-data
+                (tx/transact!
+                 (aurora/conn-pool :write)
+                 (attr-model/get-by-app-id (:id app))
+                 (:id app)
+                 [[:add-triple alex-eid bookshelf-aid ""]]))]
+        (is ex)
+        (is (= ::ex/validation-failed
+               (::ex/type ex)))
+        (is (= "" (-> ex
+                      ::ex/hint
+                      :value)))))))
+
+;; Users could do [:add-triple [:id id-lookup-value] a v] and
+;; put something like {"id" 1} for the id-lookup-value and then
+;; we'd store '{"id" 1}' as the value for the id attr. Check that we
+;; prevent that
+(deftest checks-for-invalid-id-lookups
+  (with-zeneca-app
+    (fn [app r]
+      (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+                             :app-id (:id app)
+                             :attrs (attr-model/get-by-app-id (:id app))
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id (:id app)})
+                             :current-user nil})]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"Invalid lookup"
+                              (tx/validate! (make-ctx) [[:add-triple
+                                                         [(resolvers/->uuid r :users/id)
+                                                          {:id (resolvers/->uuid r "eid-alex")}]
+                                                         (resolvers/->uuid r :users/handle)
+                                                         "alex2"]])))
+
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"Invalid lookup"
+                              (tx/validate! (make-ctx) [[:add-triple
+                                                         (resolvers/->uuid r "eid-alex")
+                                                         (resolvers/->uuid r :users/bookshelves)
+                                                         [(resolvers/->uuid r :bookshelves/id) {:id (random-uuid)}]]])))))))
 
 (deftest rejects-invalid-data-for-checked-attrs
   (with-empty-app
@@ -1620,21 +3615,19 @@
           (let [eid (random-uuid)]
             (is (= #:instant.util.exception{:type
                                             :instant.util.exception/validation-failed,
-                                            :message "Validation failed for triple",
-                                            :hint
-                                            {:data-type :triple,
-                                             :input 10,
-                                             :errors
-                                             [{:message "Invalid value type for triple.",
-                                               :hint {:value 10,
-                                                      :checked-data-type "string",
-                                                      :attr-id (str email-attr-id)
-                                                      :entity-id (str eid)}}]}}
-                   (instant-ex-data
-                    (tx/transact! (aurora/conn-pool :write)
-                                  (attr-model/get-by-app-id app-id)
-                                  app-id
-                                  [[:add-triple eid email-attr-id 10]]))))))))))
+                                            :message "Invalid value type for users.email. Value must be a string but the provided value type is number.",
+                                            :hint {:namespace "users",
+                                                   :attribute "email",
+                                                   :value 10,
+                                                   :checked-data-type "string",
+                                                   :attr-id (str email-attr-id)
+                                                   :entity-id (str eid)}}
+                   (dissoc (test-util/instant-ex-data
+                            (tx/transact! (aurora/conn-pool :write)
+                                          (attr-model/get-by-app-id app-id)
+                                          app-id
+                                          [[:add-triple eid email-attr-id 10]]))
+                           ::ex/trace-id)))))))))
 
 (deftest rejects-large-values-for-indexed-data
   (with-empty-app
@@ -1668,49 +3661,48 @@
           (let [eid (random-uuid)]
             (is (= #:instant.util.exception{:type
                                             :instant.util.exception/validation-failed,
-                                            :message "Validation failed for triple",
-                                            :hint
-                                            {:data-type :triple,
-                                             :input "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
-                                             :errors
-                                             [{:message "Value is too large for an indexed attribute.",
-                                               :hint {:value "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
-                                                      :checked-data-type "string",
-                                                      :attr-id (str email-attr-id)
-                                                      :entity-id (str eid)
-                                                      :value-too-large? true}}]}}
-                   (instant-ex-data
-                    (tx/transact! (aurora/conn-pool :write)
-                                  (attr-model/get-by-app-id app-id)
-                                  app-id
-                                  [[:add-triple eid email-attr-id (apply str (repeat 1000000 "a"))]]))))))
+                                            :message "Value is too large for an indexed attribute."
+                                            :hint {:namespace "users",
+                                                   :attribute "email",
+                                                   :value
+                                                   "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...",
+                                                   :checked-data-type "string",
+                                                   :attr-id (str email-attr-id)
+                                                   :entity-id (str eid)
+                                                   :value-too-large? true}}
+                   (dissoc (test-util/instant-ex-data
+                            (tx/transact! (aurora/conn-pool :write)
+                                          (attr-model/get-by-app-id app-id)
+                                          app-id
+                                          [[:add-triple eid email-attr-id (apply str (repeat 1000000 "a"))]]))
+                           ::ex/trace-id)))))
         (testing "returns a friendly error message for unique data"
           (let [eid (random-uuid)]
             (is (= #:instant.util.exception{:type
                                             :instant.util.exception/validation-failed,
-                                            :message "Validation failed for triple",
+                                            :message "Value is too large for a unique attribute.",
                                             :hint
-                                            {:data-type :triple,
-                                             :input "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
-                                             :errors
-                                             [{:message "Value is too large for a unique attribute.",
-                                               :hint {:value "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
-                                                      :checked-data-type "string",
-                                                      :attr-id (str unique-attr-id)
-                                                      :entity-id (str eid)
-                                                      :value-too-large? true}}]}}
-                   (instant-ex-data
-                    (tx/transact! (aurora/conn-pool :write)
-                                  (attr-model/get-by-app-id app-id)
-                                  app-id
-                                  [[:add-triple eid unique-attr-id (apply str (repeat 1000000 "a"))]]))))))))))
+                                            {:namespace "users",
+                                             :attribute "unique",
+                                             :value "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+                                             :checked-data-type "string",
+                                             :attr-id (str unique-attr-id)
+                                             :entity-id (str eid)
+                                             :value-too-large? true}}
+                   (dissoc
+                    (test-util/instant-ex-data
+                     (tx/transact! (aurora/conn-pool :write)
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:add-triple eid unique-attr-id (apply str (repeat 1000000 "a"))]]))
+                    ::ex/trace-id)))))))))
 
 (deftest deep-merge-existing-object
   (with-empty-app
     (fn [{app-id :id}]
-      (let [info-attr-id (UUID/randomUUID)
-            info-fwd-ident (UUID/randomUUID)
-            target-eid (UUID/randomUUID)]
+      (let [info-attr-id (random-uuid)
+            info-fwd-ident (random-uuid)
+            target-eid (random-uuid)]
         (tx/transact!
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
@@ -1739,9 +3731,9 @@
 (deftest deep-merge-existing-scalar
   (with-empty-app
     (fn [{app-id :id}]
-      (let [info-attr-id (UUID/randomUUID)
-            info-fwd-ident (UUID/randomUUID)
-            target-eid (UUID/randomUUID)]
+      (let [info-attr-id (random-uuid)
+            info-fwd-ident (random-uuid)
+            target-eid (random-uuid)]
         (tx/transact!
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
@@ -1770,9 +3762,9 @@
 (deftest deep-merge-deep-object-with-scalar
   (with-empty-app
     (fn [{app-id :id}]
-      (let [info-attr-id (UUID/randomUUID)
-            info-fwd-ident (UUID/randomUUID)
-            target-eid (UUID/randomUUID)]
+      (let [info-attr-id (random-uuid)
+            info-fwd-ident (random-uuid)
+            target-eid (random-uuid)]
         (tx/transact!
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
@@ -1801,9 +3793,9 @@
 (deftest deep-merge-deep-scalar-with-object
   (with-empty-app
     (fn [{app-id :id}]
-      (let [info-attr-id (UUID/randomUUID)
-            info-fwd-ident (UUID/randomUUID)
-            target-eid (UUID/randomUUID)]
+      (let [info-attr-id (random-uuid)
+            info-fwd-ident (random-uuid)
+            target-eid (random-uuid)]
         (tx/transact!
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
@@ -1832,9 +3824,9 @@
 (deftest deep-merge-new
   (with-empty-app
     (fn [{app-id :id}]
-      (let [info-attr-id (UUID/randomUUID)
-            info-fwd-ident (UUID/randomUUID)
-            target-eid (UUID/randomUUID)]
+      (let [info-attr-id (random-uuid)
+            info-fwd-ident (random-uuid)
+            target-eid (random-uuid)]
         (tx/transact!
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
@@ -1862,9 +3854,9 @@
 (deftest deep-merge-many
   (with-empty-app
     (fn [{app-id :id}]
-      (let [info-attr-id (UUID/randomUUID)
-            info-fwd-ident (UUID/randomUUID)
-            target-eid (UUID/randomUUID)]
+      (let [info-attr-id (random-uuid)
+            info-fwd-ident (random-uuid)
+            target-eid (random-uuid)]
         (tx/transact!
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
@@ -1893,9 +3885,9 @@
 (deftest deep-merge-deep
   (with-empty-app
     (fn [{app-id :id}]
-      (let [info-attr-id (UUID/randomUUID)
-            info-fwd-ident (UUID/randomUUID)
-            target-eid (UUID/randomUUID)]
+      (let [info-attr-id (random-uuid)
+            info-fwd-ident (random-uuid)
+            target-eid (random-uuid)]
         (tx/transact!
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
@@ -1924,9 +3916,9 @@
 (deftest deep-merge-many-with-top-level-nullification
   (with-empty-app
     (fn [{app-id :id}]
-      (let [info-attr-id (UUID/randomUUID)
-            info-fwd-ident (UUID/randomUUID)
-            target-eid (UUID/randomUUID)]
+      (let [info-attr-id (random-uuid)
+            info-fwd-ident (random-uuid)
+            target-eid (random-uuid)]
         (tx/transact!
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
@@ -1956,9 +3948,9 @@
 (deftest deep-delete
   (with-empty-app
     (fn [{app-id :id}]
-      (let [info-attr-id (UUID/randomUUID)
-            info-fwd-ident (UUID/randomUUID)
-            target-eid (UUID/randomUUID)]
+      (let [info-attr-id (random-uuid)
+            info-fwd-ident (random-uuid)
+            target-eid (random-uuid)]
         (tx/transact!
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
@@ -1987,33 +3979,33 @@
 (deftest deep-merge-ref
   (with-empty-app
     (fn [{app-id :id}]
-      (let [info-attr-id (UUID/randomUUID)
-            buds-fwd-ident (UUID/randomUUID)
-            target-eid (UUID/randomUUID)]
+      (let [info-attr-id (random-uuid)
+            buds-fwd-ident (random-uuid)
+            target-eid (random-uuid)]
         (testing "throws when deep-merging into ref"
           (is
            (string/includes?
-            (::ex/message (instant-ex-data (tx/transact!
-                                            (aurora/conn-pool :write)
-                                            (attr-model/get-by-app-id app-id)
-                                            app-id
-                                            [[:add-attr
-                                              {:id info-attr-id
-                                               :forward-identity [buds-fwd-ident "users" "buds"]
-                                               :value-type :ref
-                                               :cardinality :one
-                                               :unique? false
-                                               :index? false}]
-                                             [:deep-merge-triple target-eid info-attr-id {:name "Patchy"}]])))
+            (::ex/message (test-util/instant-ex-data (tx/transact!
+                                                      (aurora/conn-pool :write)
+                                                      (attr-model/get-by-app-id app-id)
+                                                      app-id
+                                                      [[:add-attr
+                                                        {:id info-attr-id
+                                                         :forward-identity [buds-fwd-ident "users" "buds"]
+                                                         :value-type :ref
+                                                         :cardinality :one
+                                                         :unique? false
+                                                         :index? false}]
+                                                       [:deep-merge-triple target-eid info-attr-id {:name "Patchy"}]])))
 
             "merge operation is not supported for links")))))))
 
 (deftest deep-merge-top-level-with-scalar
   (with-empty-app
     (fn [{app-id :id}]
-      (let [info-attr-id (UUID/randomUUID)
-            info-fwd-ident (UUID/randomUUID)
-            target-eid (UUID/randomUUID)]
+      (let [info-attr-id (random-uuid)
+            info-fwd-ident (random-uuid)
+            target-eid (random-uuid)]
         (tx/transact!
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
@@ -2042,25 +4034,27 @@
 (deftest inferred-types []
   (testing "inferred types update on triple save"
     (are [value inferred-types]
-         (with-empty-app
-           (fn [{app-id :id}]
-             (let [attr-id (random-uuid)
-                   target-eid (random-uuid)]
-               (try (tx/transact!
-                     (aurora/conn-pool :write)
-                     (attr-model/get-by-app-id app-id)
-                     app-id
-                     [[:add-attr
-                       {:id attr-id
-                        :forward-identity [(random-uuid) "namespace" "field"]
-                        :value-type :blob
-                        :cardinality :one
-                        :unique? false
-                        :index? false}]
-                      [:add-triple target-eid attr-id value]])
-                    (catch Exception e
-                      (is (not e))))
-               (testing (format "(%s -> %s)" value inferred-types)
+         (testing (str value "->" inferred-types)
+           (with-empty-app
+             (fn [{app-id :id}]
+               (let [attr-id (random-uuid)
+                     target-eid (random-uuid)]
+
+                 (try (tx/transact!
+                       (aurora/conn-pool :write)
+                       (attr-model/get-by-app-id app-id)
+                       app-id
+                       [[:add-attr
+                         {:id attr-id
+                          :forward-identity [(random-uuid) "namespace" "field"]
+                          :value-type :blob
+                          :cardinality :one
+                          :unique? false
+                          :index? false}]
+                        [:add-triple target-eid attr-id value]])
+                      (catch Exception e
+                        (is (not e))))
+
                  (attr-model/evict-app-id-from-cache app-id)
                  (is (= inferred-types
                         (->> (attr-model/get-by-app-id app-id)
@@ -2135,53 +4129,244 @@
           (is (= #{:string :json}
                  (->> (attr-model/get-by-app-id app-id)
                       (attr-model/seek-by-id attr-id)
-                      :inferred-types))))))))
+                      :inferred-types)))))))
 
-(deftest rejects-users-attrs
+  (testing "Only update inferred types if there is something to update"
+    (with-empty-app
+      (fn [{app-id :id}]
+        (let [attr-id (random-uuid)
+              eid (random-uuid)]
+          (tx/transact! (aurora/conn-pool :write)
+                        (attr-model/get-by-app-id app-id)
+                        app-id
+                        [[:add-attr
+                          {:id attr-id
+                           :forward-identity [(random-uuid) "namespace" "field"]
+                           :value-type :blob
+                           :cardinality :one
+                           :unique? false
+                           :index? false}]])
+          (let [db-attrs (attr-model/get-by-app-id app-id)
+                {base-attrs false
+                 our-attr true}
+                (group-by #(= attr-id (:id %))
+                          db-attrs)
+
+                ;; Pretend like we've already set the inferred type for the attr
+                attrs (attr-model/wrap-attrs
+                       (conj base-attrs
+                             (assoc (first our-attr)
+                                    :inferred-types #{:string})))]
+            (tx/transact! (aurora/conn-pool :write)
+                          attrs
+                          app-id
+                          [[:add-triple eid attr-id "string"]
+                           [:deep-merge-triple eid attr-id "another-string"]])
+            (attr-model/evict-app-id-from-cache app-id)
+            (is (nil? (->> (attr-model/get-by-app-id app-id)
+                           (attr-model/seek-by-id attr-id)
+                           :inferred-types
+                           seq)))))))))
+
+(deftest cant-create-system-catalog-attrs-with-existing-idents
   (with-empty-app
     (fn [{app-id :id}]
-      (validation-err?
-       (tx/transact! (aurora/conn-pool :write)
-                     (attr-model/get-by-app-id app-id)
-                     app-id
-                     [[:add-attr {:id (random-uuid)
-                                  :forward-identity [(random-uuid) "$users" "id"]
-                                  :value-type :blob
-                                  :cardinality :one
-                                  :unique? false
-                                  :index? false}]])))))
+      (tx/transact! (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:add-attr {:id (random-uuid)
+                                 :forward-identity [(random-uuid) "$users" "forward"]
+                                 :reverse-identity [(random-uuid) "$users" "backward"]
+                                 :value-type :ref
+                                 :cardinality :many
+                                 :unique? false
+                                 :index? false}]])
 
-(deftest perms-rejects-writes-to-users-table
+      (letfn [(run-test! [label]
+                (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+                  (testing label
+                    (let [ex-data
+                          (test-util/instant-ex-data
+                           (attr-model/insert-multi! conn
+                                                     system-catalog-app-id
+                                                     [{:id (random-uuid)
+                                                       :forward-identity [(random-uuid) "$users" label]
+                                                       :value-type :blob
+                                                       :cardinality :one
+                                                       :unique? false
+                                                       :index? false}]
+                                                     {:allow-reserved-names? true}))]
+
+                      (is (string/starts-with?
+                           (::ex/message ex-data)
+                           (str "Validation failed for attributes: $users." label)))))
+
+                  (.rollback conn)))]
+
+        (run-test! "forward")
+        (run-test! "backward")))))
+
+(deftest cant-update-system-catalog-attrs
+  (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+    (try
+      (let [ex-data
+            (test-util/instant-ex-data
+             (attr-model/update-multi! conn
+                                       system-catalog-app-id
+                                       [{:id (system-catalog/get-attr-id "$users" "email")
+                                         :unique? false}]))]
+
+        (is (string/starts-with?
+             (::ex/message ex-data)
+             "Raised Exception: Updating attrs on the system catalog app is not allowed.")))
+      (finally
+        (.rollback conn)))))
+
+(deftest cant-create-system-attr-with-system-catalog-ident-name
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [ex-data (test-util/instant-ex-data
+                     (tx/transact! (aurora/conn-pool :write)
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:add-attr {:id (random-uuid)
+                                                :forward-identity [(random-uuid) "$users" "email"]
+                                                :value-type :blob
+                                                :cardinality :one
+                                                :unique? false
+                                                :index? false}]]))]
+        (is (string/starts-with?
+             (::ex/message ex-data)
+             "Validation failed for attributes: $users.email is a system column"))))))
+
+(deftest cant-create-system-attr-with-$-name
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [ex-data (test-util/instant-ex-data
+                     (tx/transact! (aurora/conn-pool :write)
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:add-attr {:id (random-uuid)
+                                                :forward-identity [(random-uuid) "$moop" "id"]
+                                                :value-type :blob
+                                                :cardinality :one
+                                                :unique? false
+                                                :index? false}]]))]
+        (is (string/starts-with?
+             (::ex/message ex-data)
+             "Validation failed for attributes: $ is reserved for system tables. You can't create $moop"))))))
+(deftest cant-update-system-attr-with-system-catalog-ident-name
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [aid (random-uuid)
+            fwd-ident-id (random-uuid)
+            _ (tx/transact! (aurora/conn-pool :write)
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-attr {:id aid
+                                         :forward-identity [fwd-ident-id "$users" "fullName"]
+                                         :value-type :blob
+                                         :cardinality :one
+                                         :unique? false
+                                         :index? false}]])
+            ex-data (test-util/instant-ex-data
+                     (tx/transact! (aurora/conn-pool :write)
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:update-attr {:id aid
+                                                   :forward-identity [fwd-ident-id "$users" "email"]
+                                                   :value-type :blob
+                                                   :cardinality :one
+                                                   :unique? false
+                                                   :index? false}]]))]
+        (is (string/starts-with?
+             (::ex/message ex-data)
+             "Validation failed for attributes: $users.email is a system column"))))))
+
+(deftest cant-create-required-system-attr
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [ex-data (test-util/instant-ex-data
+                     (tx/transact! (aurora/conn-pool :write)
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:add-attr {:id (random-uuid)
+                                                :forward-identity [(random-uuid) "$users" "fullName"]
+                                                :value-type :blob
+                                                :cardinality :one
+                                                :required? true
+                                                :unique? false
+                                                :index? false}]]))]
+        (is (string/starts-with?
+             (::ex/message ex-data)
+             "You can't create a required system attribute. Make sure it's optional."))))))
+
+(deftest perms-rejects-writes-to-reserved-users-columns
   (with-empty-app
     (fn [{app-id :id}]
       (let [r (resolvers/make-movies-resolver app-id)
             id (random-uuid)
-            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
                              :app-id app-id
                              :attrs (attr-model/get-by-app-id app-id)
                              :datalog-query-fn d/query
                              :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
                              :current-user nil})]
-        (validation-err?
-         (permissioned-tx/transact! (make-ctx)
-                                    [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]]))
-        (validation-err?
-         (permissioned-tx/transact! (make-ctx)
-                                    [[:retract-triple id (resolvers/->uuid r :$users/id) (str id)]]))
+        (is (validation-err?
+             (permissioned-tx/transact! (make-ctx)
+                                        [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]
+                                         [:add-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
+        (is (validation-err?
+             (permissioned-tx/transact! (make-ctx)
+                                        [[:retract-triple id (resolvers/->uuid r :$users/id) (str id)]
+                                         [:retract-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
 
-        (validation-err?
-         (permissioned-tx/transact! (make-ctx)
-                                    [[:deep-merge-triple id (resolvers/->uuid r :$users/id) {:hello :world}]]))
+        (is (validation-err?
+             (permissioned-tx/transact! (make-ctx)
+                                        [[:deep-merge-triple id (resolvers/->uuid r :$users/id) {:hello :world}]
+                                         [:deep-merge-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
 
-        (validation-err?
-         (permissioned-tx/transact! (make-ctx)
-                                    [[:delete-entity id "$users"]]))))))
+        (is (validation-err?
+             (permissioned-tx/transact! (make-ctx)
+                                        [[:delete-entity id "$users"]])))))))
 
+(deftest perms-accepts-writes-to-custom-user-columns
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [r                     (resolvers/make-movies-resolver app-id)
+            attr-id               #(resolvers/->uuid r %)
+            fullname-attr-id (random-uuid)
+            user-id (random-uuid)
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                             :current-user nil})
+            _ (tx/transact!
+               (aurora/conn-pool :write)
+               (attr-model/get-by-app-id app-id)
+               app-id
+               [[:add-attr {:id fullname-attr-id
+                            :forward-identity [(random-uuid) "$users" "fullName"]
+                            :value-type :blob
+                            :cardinality :one
+                            :unique? false
+                            :index? false}]])
+
+            tx-steps [[:add-triple user-id (attr-id :$users/id) (str user-id)]
+                      [:add-triple user-id fullname-attr-id "Alyssa Hacker"]]]
+
+        (app-user-model/create! (aurora/conn-pool :write) {:app-id app-id
+                                                           :id user-id
+                                                           :email "test@example.com"})
+        (is (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
+        (is (permissioned-tx/transact! (assoc (make-ctx)
+                                              :current-user {:id user-id}) tx-steps))))))
 (deftest perms-accepts-writes-to-reverse-links-to-users-table
   (with-empty-app
     (fn [{app-id :id}]
-      (let [r (resolvers/make-movies-resolver app-id)
-            book-id-attr-id (random-uuid)
+      (let [book-id-attr-id (random-uuid)
             book-creator-attr-id (random-uuid)
             book-id (random-uuid)
             user-id (random-uuid)
@@ -2207,9 +4392,9 @@
                       [:add-triple book-id book-id-attr-id book-id]
                       [:add-triple book-id book-creator-attr-id user-id]]]
         (app-user-model/create! (aurora/conn-pool :write) {:app-id app-id
-                                                    :id user-id
-                                                    :email "test@example.com"})
-        (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
+                                                           :id user-id
+                                                           :email "test@example.com"})
+        (is (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
         (is (permissioned-tx/transact! (assoc (make-ctx)
                                               :current-user {:id user-id}) tx-steps))))))
 
@@ -2254,17 +4439,21 @@
                 [:add-triple book-id book-id-attr-id book-id]
                 [:add-triple book-id book-isbn-attr-id "1234"]])
             _ (app-user-model/create! (aurora/conn-pool :write) {:app-id app-id
-                                                          :id user-id
-                                                          :email "test@example.com"})
+                                                                 :id user-id
+                                                                 :email "test@example.com"})
             tx-steps [[:add-triple
                        [book-isbn-attr-id "1234"]
                        book-creator-attr-id
                        [(resolvers/->uuid r :$users/email) "test@example.com"]]]]
 
-        (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
-        (permissioned-tx/transact! (assoc (make-ctx)
-                                          :current-user {:id user-id}) tx-steps)
-        (is (= (pretty-perm-q
+        (is (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
+
+        (is (not (perm-err? (permissioned-tx/transact!
+                             (assoc (make-ctx)
+                                    :current-user {:id user-id})
+                             tx-steps))))
+
+        (is (= (test-util/pretty-perm-q
                 (assoc (make-ctx) :current-user {:id user-id})
                 {:books {:$ {:where {:creator (str user-id)}}
                          :creator {}}})
@@ -2276,47 +4465,210 @@
 (deftest admins-can-write-to-users-table
   (with-empty-app
     (fn [{app-id :id}]
-      (let [r (resolvers/make-movies-resolver app-id)
-            id (random-uuid)
-            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
-                             :app-id app-id
-                             :admin? true
-                             :attrs (attr-model/get-by-app-id app-id)
-                             :datalog-query-fn d/query
-                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
-                             :current-user nil})]
+      (let [r                     (resolvers/make-movies-resolver app-id)
+            attr-id               #(resolvers/->uuid r %)
+            user-id               (random-uuid)
+            user-refresh-token-id (random-uuid)
+            magic-code-id         (random-uuid)
+            make-ctx (fn []
+                       {:db {:conn-pool (aurora/conn-pool :write)}
+                        :app-id app-id
+                        :admin? true
+                        :attrs (attr-model/get-by-app-id app-id)
+                        :datalog-query-fn d/query
+                        :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                        :current-user nil})]
 
-        (permissioned-tx/transact! (make-ctx)
-                                   [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]
-                                    [:add-triple id (resolvers/->uuid r :$users/email) "test@example.com"]])
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple user-id (attr-id :$users/id) (str user-id)]
+          [:add-triple user-id (attr-id :$users/email) "test@example.com"]])
 
         (is (app-user-model/get-by-email {:app-id app-id
                                           :email "test@example.com"}))
 
-        (permissioned-tx/transact! (make-ctx)
-                                   [[:delete-entity id "$users"]])
+        (tx/transact!
+         (aurora/conn-pool :write)
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-triple user-refresh-token-id (attr-id :$userRefreshTokens/id) user-refresh-token-id]
+          [:add-triple user-refresh-token-id (attr-id :$userRefreshTokens/$user) user-id]
+          [:add-triple user-refresh-token-id (attr-id :$userRefreshTokens/hashedToken) "abc"]
+          [:add-triple magic-code-id (attr-id :$magicCodes/id) magic-code-id]
+          [:add-triple magic-code-id (attr-id :$magicCodes/email) "test@example.com"]
+          [:add-triple magic-code-id (attr-id :$magicCodes/codeHash) "abc"]])
+
+        (is (permissioned-tx/transact!
+             (make-ctx)
+             [[:delete-entity user-id "$users"]]))
 
         (is (empty? (app-user-model/get-by-email {:app-id app-id
                                                   :email "test@example.com"})))))))
 
-(deftest auth-refs-requires-users
+(deftest $files-updates
   (with-empty-app
-    (fn [{app-id :id :as app}]
-      (testing "auth.ref requires $users namespace"
-        (is (= []
-               (rule-model/validation-errors
-                {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
+    (fn [{app-id :id}]
+      (let [conn (aurora/conn-pool :write)
+            app-attrs (attr-model/get-by-app-id app-id)
+            path-attr-id (attr-model/resolve-attr-id app-attrs "$files" "path")
+            id-attr-id (attr-model/resolve-attr-id app-attrs "$files" "id")
+            {file-id :id} (app-file-model/create! conn
+                                                  {:app-id app-id
+                                                   :path "test.jpg"
+                                                   :location-id "loc1"
+                                                   :metadata {:size 100
+                                                              :content-type "image/jpeg"
+                                                              :content-disposition "inline"}})
 
-        (is (= [{:message "auth.ref arg must start with `$user.`",
-                 :in ["bookshelves" :allow "update"]}]
-               (rule-model/validation-errors
-                {"bookshelves" {"allow" {"update" "auth.ref('a.b')"}}})))))))
+            fav-attr-id (random-uuid)
+
+            _ (tx/transact!
+               (aurora/conn-pool :write)
+               (attr-model/get-by-app-id app-id)
+               app-id
+               [[:add-attr {:id fav-attr-id
+                            :forward-identity [(random-uuid) "$files" "isFavorite"]
+                            :value-type :blob
+                            :cardinality :one
+                            :unique? false
+                            :index? false}]])
+
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id :code {:$files {:allow {:create "true"
+                                                 :update "true"
+                                                 :delete "true"
+                                                 :view "true"}}}})
+
+        (testing "Updates on path are allowed"
+          (let [new-path "new-path.jpg"]
+            (permissioned-tx/transact! (make-ctx)
+                                       [[:add-triple file-id id-attr-id file-id]
+                                        [:add-triple file-id path-attr-id new-path]])
+            (is (= new-path
+                   (:path (app-file-model/get-by-path {:app-id app-id :path new-path}))))))
+
+        (testing "Updates on custom columns are allowed"
+          (permissioned-tx/transact! (make-ctx)
+                                     [[:add-triple file-id id-attr-id file-id]
+                                      [:add-triple file-id fav-attr-id true]])
+
+          (is (:isFavorite  (app-file-model/get-by-id {:app-id app-id :id file-id}))))
+
+        (testing "Updates on non-existing files should fail"
+          (let [new-id (random-uuid)]
+            (is (validation-err?
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple new-id id-attr-id new-id]])))))
+
+        (testing "Updates on non-existing lookups should fail"
+          (let [new-id #uuid "3edbebab-c179-4ce7-94ab-b597377c7875"]
+            (is (validation-err?
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple [id-attr-id new-id] path-attr-id "random-path.jpg"]])))))
+
+        (testing "Updating to an existing path should fail"
+          (let [existing-path "existing-path.jpg"]
+            (app-file-model/create! conn
+                                    {:app-id app-id
+                                     :path existing-path
+                                     :location-id "loc2"
+                                     :metadata {:size 100
+                                                :content-type "image/jpeg"
+                                                :content-disposition "inline"}})
+            (let [ex-data  (test-util/instant-ex-data
+                            (permissioned-tx/transact!
+                             (make-ctx)
+                             [[:add-triple file-id path-attr-id existing-path]]))]
+              (is (= ::ex/record-not-unique
+                     (::ex/type ex-data)))
+              (is (= "`path` is a unique attribute on `$files` and an entity already exists with `$files.path` = \"existing-path.jpg\""
+                     (::ex/message ex-data))))))
+
+        (testing "Even admins can't update reserved attrs"
+          (let [loc-attr-id  (attr-model/resolve-attr-id app-attrs "$files" "location-id")]
+            (is (validation-err?
+                 (permissioned-tx/transact! (make-ctx {:admin? true})
+                                            [[:add-triple file-id id-attr-id file-id]
+                                             [:add-triple file-id loc-attr-id "new-location"]])))))))))
+
+(deftest cascade-works-with-guests
+  (with-empty-app
+    (fn [app]
+      (let [transact (fn [txes]
+                       (tx/transact! (aurora/conn-pool :write)
+                                     (attr-model/get-by-app-id (:id app))
+                                     (:id app)
+                                     txes))
+            u (app-user-model/create! {:app-id (:id app)
+                                       :email (format "%s@example.com" (crypt-util/random-hex 8))
+                                       :type "user"})
+            guest1 (app-user-model/create! {:app-id (:id app)
+                                            :type "guest"})
+            guest2 (app-user-model/create! {:app-id (:id app)
+                                            :type "guest"})
+            guest3 (app-user-model/create! {:app-id (:id app)
+                                            :type "guest"})]
+
+        (app-user-model/link-guest {:app-id (:id app)
+                                    :primary-user-id (:id u)
+                                    :guest-user-id (:id guest1)})
+        (app-user-model/link-guest {:app-id (:id app)
+                                    :primary-user-id (:id u)
+                                    :guest-user-id (:id guest2)})
+        (app-user-model/link-guest {:app-id (:id app)
+                                    :primary-user-id (:id u)
+                                    :guest-user-id (:id guest3)})
+
+        (testing "deleting a guest does not delete its linked user"
+          (transact [[:delete-entity (:id guest1) "$users"]])
+
+          (is (not (app-user-model/get-by-id {:id (:id guest1)
+                                              :app-id (:id app)})))
+          (is (= u (app-user-model/get-by-id {:id (:id u)
+                                              :app-id (:id app)})))
+          (is (= (:id guest2) (:id (app-user-model/get-by-id {:id (:id guest2)
+                                                              :app-id (:id app)}))))
+          (is (= (:id guest3) (:id (app-user-model/get-by-id {:id (:id guest3)
+                                                              :app-id (:id app)})))))
+
+        (testing "deleting the primary user deletes the guest"
+
+          (transact [[:delete-entity (:id u) "$users"]])
+
+          (is (not (app-user-model/get-by-id {:id (:id u)
+                                              :app-id (:id app)})))
+          (is (not (app-user-model/get-by-id {:id (:id guest2)
+                                              :app-id (:id app)})))
+          (is (not (app-user-model/get-by-id {:id (:id guest3)
+                                              :app-id (:id app)}))))))))
+
+(deftest auth-refs-requires-users
+  (is (= []
+         (rule-model/validation-errors
+          {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
+
+  (is (= [{:message "auth.ref arg must start with `$user.`",
+           :in ["bookshelves" "allow" "update"]}]
+         (rule-model/validation-errors
+          {"bookshelves" {"allow" {"update" "auth.ref('a.b')"}}}))))
 
 (deftest users-write-perms
   (with-empty-app
     (fn [{app-id :id}]
-      (let [r (resolvers/make-movies-resolver app-id)
-            book-id-attr-id (random-uuid)
+      (let [book-id-attr-id (random-uuid)
             book-creator-attr-id (random-uuid)
             book-isbn-attr-id (random-uuid)
             book-title-attr-id (random-uuid)
@@ -2329,8 +4681,8 @@
                              :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
                              :current-user nil})
             user (app-user-model/create! (aurora/conn-pool :write) {:app-id app-id
-                                                             :id user-id
-                                                             :email "test@example.com"})
+                                                                    :id user-id
+                                                                    :email "test@example.com"})
             _ (tx/transact!
                (aurora/conn-pool :write)
                (attr-model/get-by-app-id app-id)
@@ -2392,237 +4744,308 @@
 (deftest on-delete-cascade
   (with-empty-app
     (fn [{app-id :id}]
-      (let [r (resolvers/make-movies-resolver app-id)
-            user-id-attr-id (random-uuid)
-            book-id-attr-id (random-uuid)
-            book-creator-attr-id (random-uuid)
-            book-id (random-uuid)
-            other-book-id (random-uuid)
-            user-id (random-uuid)
-            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
-                             :app-id app-id
-                             :attrs (attr-model/get-by-app-id app-id)
-                             :datalog-query-fn d/query
-                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
-                             :current-user nil})
-            insert-res (attr-model/insert-multi!
-                        (aurora/conn-pool :write)
+      ;;; user <- book
+      (let [attr->id   (test-util/make-attrs
                         app-id
-                        [{:id user-id-attr-id
-                          :forward-identity [(random-uuid) "users" "id"]
-                          :value-type :blob
-                          :cardinality :one
-                          :unique? true
-                          :index? true}
-                         {:id book-id-attr-id
-                          :forward-identity [(random-uuid) "books" "id"]
-                          :value-type :blob
-                          :cardinality :one
-                          :unique? true
-                          :index? false}
-                         {:id book-creator-attr-id
-                          :forward-identity [(random-uuid) "books" "creator"]
-                          :reverse-identity [(random-uuid) "users" "books"]
-                          :value-type :ref
-                          :cardinality :one
-                          :unique? true
-                          :index? false
-                          ;; Delete this book if its creator is deleted
-                          :on-delete :cascade}]
-                        {})
+                        [[:user/name :unique? :index?]
+                         [:book/title :unique? :index?]
+                         [[:book/author :user/books] :on-delete]])
+            ids        #{(suid "a") (suid "b1") (suid "b2") (suid "b3")}
+            attr-model (attr-model/get-by-app-id app-id)]
 
-            tx-res (tx/transact!
-                    (aurora/conn-pool :write)
-                    (attr-model/get-by-app-id app-id)
-                    app-id
-                    [[:add-triple book-id book-id-attr-id book-id]
-                     [:add-triple other-book-id book-id-attr-id other-book-id]
-                     [:add-triple user-id user-id-attr-id user-id]
-                     [:add-triple book-id book-creator-attr-id user-id]])]
+        (test-util/insert-entities
+         app-id attr->id
+         [{:db/id (suid "a")  :user/name "Leo Tolstoy"}
+          {:db/id (suid "b1") :book/title "War and Peace" :book/author (suid "a")}
+          {:db/id (suid "b2") :book/title "Anna Karenina" :book/author (suid "a")}
+          {:db/id (suid "b3") :book/title "Death of Ivan Ilyich" :book/author (suid "a")}])
+        (is (= #{(suid "a") (suid "b1") (suid "b2") (suid "b3")}
+               (test-util/find-entids-by-ids app-id attr->id ids)))
 
-        (testing "setup worked"
-          (is (= #{{:triple
-                    [book-id
-                     book-id-attr-id
-                     (str book-id)],
-                    :index #{:ea :av}}
-                   {:triple
-                    [other-book-id
-                     book-id-attr-id
-                     (str other-book-id)],
-                    :index #{:ea :av}}}
-                 (set (map #(dissoc % :md5)
-                           (triple-model/fetch
-                            (aurora/conn-pool :read)
-                            app-id
-                            [[:= :attr-id book-id-attr-id]]))))))
+        (testing "deleting book doesn’t delete user"
+          (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "b1") "book"]])
+          (is (= #{(suid "a") (suid "b2") (suid "b3")}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))
 
-        (testing "deleting the user deletes the book"
-          (tx/transact! (aurora/conn-pool :write)
-                        (attr-model/get-by-app-id app-id)
+        (testing "deleting user deletes its books"
+          (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "user"]])
+          (is (= #{}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))))))
+
+(deftest on-delete-cascade-reverse
+  (with-empty-app
+    (fn [{app-id :id}]
+      ;;; user -> book
+      (let [attr->id   (test-util/make-attrs
                         app-id
-                        [[:delete-entity user-id "users"]])
+                        [[:user/name :unique? :index?]
+                         [:book/title :unique? :index?]
+                         [[:user/books :book/author] :many :unique? :on-delete-reverse]])
+            ids        #{(suid "a") (suid "b1") (suid "b2") (suid "b3")}
+            attr-model (attr-model/get-by-app-id app-id)]
 
-          (is (= [{:triple
-                   [other-book-id
-                    book-id-attr-id
-                    (str other-book-id)],
-                   :index #{:ea :av}}]
-                 (map #(dissoc % :md5)
-                      (triple-model/fetch
-                       (aurora/conn-pool :read)
-                       app-id
-                       [[:= :attr-id book-id-attr-id]])))))
+        (test-util/insert-entities
+         app-id attr->id
+         [{:db/id (suid "a")  :user/name "Leo Tolstoy" :user/books [(suid "b1") (suid "b2") (suid "b3")]}
+          {:db/id (suid "b1") :book/title "War and Peace"}
+          {:db/id (suid "b2") :book/title "Anna Karenina"}
+          {:db/id (suid "b3") :book/title "Death of Ivan Ilyich"}])
+        (is (= #{(suid "a") (suid "b1") (suid "b2") (suid "b3")}
+               (test-util/find-entids-by-ids app-id attr->id ids)))
 
-        (testing "deleting the book doesn't delete the user"
-          (tx/transact!
-           (aurora/conn-pool :write)
-           (attr-model/get-by-app-id app-id)
-           app-id
-           [[:add-triple user-id user-id-attr-id user-id]
-            [:add-triple book-id book-id-attr-id book-id]
-            [:add-triple book-id book-creator-attr-id user-id]])
+        (testing "deleting book doesn’t delete user"
+          (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "b1") "book"]])
+          (is (= #{(suid "a") (suid "b2") (suid "b3")}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))
 
-          (is (= [{:triple
-                   [user-id
-                    user-id-attr-id
-                    (str user-id)],
-                   :index #{:ea :av :ave}}]
-                 (map #(dissoc % :md5)
-                      (triple-model/fetch
-                       (aurora/conn-pool :read)
-                       app-id
-                       [[:= :attr-id user-id-attr-id]]))))
+        (testing "deleting user does delete book"
+          (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "user"]])
+          (is (= #{}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))))))
 
-          (tx/transact! (aurora/conn-pool :write)
-                        (attr-model/get-by-app-id app-id)
-                        app-id
-                        [[:delete-entity book-id "books"]])
-          (is (= [{:triple
-                   [user-id
-                    user-id-attr-id
-                    (str user-id)],
-                   :index #{:ea :av :ave}}]
-                 (map #(dissoc % :md5)
-                      (triple-model/fetch
-                       (aurora/conn-pool :read)
-                       app-id
-                       [[:= :attr-id user-id-attr-id]])))))))))
+(deftest on-delete-cascade-mixed
+  (with-empty-app
+    (fn [{app-id :id}]
+      ;;; A <- B -> C <- D -> E <- F
+      (let [attr->id (test-util/make-attrs
+                      app-id
+                      [[:A/id :unique? :index?]
+                       [:B/id :unique? :index?]
+                       [[:B/a :A/bs] :on-delete]
+                       [[:B/c :C/bs] :many :unique? :on-delete-reverse]
+                       [:C/id :unique? :index?]
+                       [:D/id :unique? :index?]
+                       [[:D/c :C/ds] :on-delete]
+                       [[:D/e :E/ds] :many :unique? :on-delete-reverse]
+                       [:E/id :unique? :index?]
+                       [:F/id :unique? :index?]
+                       [[:F/e :E/fs] :on-delete]])
+            ids #{(suid "a") (suid "b") (suid "c") (suid "d") (suid "e") (suid "f")}
+            attr-model (attr-model/get-by-app-id app-id)]
+
+        (test-util/insert-entities
+         app-id attr->id
+         [{:db/id (suid "a") :A/id (suid "a")}
+          {:db/id (suid "b") :B/id (suid "b") :B/a (suid "a") :B/c (suid "c")}
+          {:db/id (suid "c") :C/id (suid "c")}
+          {:db/id (suid "d") :D/id (suid "d") :D/c (suid "c") :D/e (suid "e")}
+          {:db/id (suid "e") :E/id (suid "e")}
+          {:db/id (suid "f") :F/id (suid "f") :F/e (suid "e")}])
+        (is (= ids (test-util/find-entids-by-ids app-id attr->id ids)))
+
+        (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "A"]])
+        (is (= #{} (test-util/find-entids-by-ids app-id attr->id ids)))))))
 
 (deftest on-delete-cascade-cycle
   (with-empty-app
     (fn [{app-id :id}]
-      (let [user-id-attr-id     (random-uuid)
-            user-parent-attr-id (random-uuid)
-            insert-res (attr-model/insert-multi!
-                        (aurora/conn-pool :write)
+      (let [attr->id   (test-util/make-attrs
                         app-id
-                        [{:id user-id-attr-id
-                          :forward-identity [(random-uuid) "users" "id"]
-                          :value-type :blob
-                          :cardinality :one
-                          :unique? true
-                          :index? true}
-                         {:id user-parent-attr-id
-                          :forward-identity [(random-uuid) "users" "friend"]
-                          :reverse-identity [(random-uuid) "users" "friends"]
-                          :value-type :ref
-                          :cardinality :one
-                          :unique? false
-                          :index? false
-                          :on-delete :cascade}]
-                        {})
-            user1-id (random-uuid)
-            user2-id (random-uuid)
-            ctx      {:db               {:conn-pool (aurora/conn-pool :write)}
-                      :app-id           app-id
-                      :attrs            (attr-model/get-by-app-id app-id)
-                      :datalog-query-fn d/query
-                      :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
-                      :current-user     nil}]
+                        [[:users/name :unique? :index?]
+                         [[:users/friend :users/friend-of] :unique? :on-delete]])
+            ids        #{(suid "a") (suid "b")}
+            attr-model (attr-model/get-by-app-id app-id)]
 
-        ;; insert
-        (tx/transact!
-         (aurora/conn-pool :write)
-         (attr-model/get-by-app-id app-id)
-         app-id
-         [[:add-triple user1-id user-id-attr-id     user1-id]
-          [:add-triple user1-id user-parent-attr-id user2-id]
-          [:add-triple user2-id user-id-attr-id     user2-id]
-          [:add-triple user2-id user-parent-attr-id user1-id]])
+        (test-util/insert-entities
+         app-id attr->id
+         [{:db/id (suid "a") :users/name "Ivan" :users/friend (suid "b")}
+          {:db/id (suid "b") :users/name "Oleg" :users/friend (suid "a")}])
+        (is (= #{(suid "a") (suid "b")}
+               (test-util/find-entids-by-ids app-id attr->id ids)))
 
-        ;; check
-        (is (= #{user1-id user2-id}
-               (into #{} (map #(-> % :triple first))
-                     (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id user-id-attr-id]]))))
-
-        ;; delete
-        (let [res (permissioned-tx/transact! ctx [[:delete-entity user1-id "users"]])]
-          (is (= 4 (count (:delete-entity (:results res))))))
-
-        ;; check
+        (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "users"]])
         (is (= #{}
-               (into #{} (map #(-> % :triple first))
-                     (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id user-id-attr-id]]))))))))
+               (test-util/find-entids-by-ids app-id attr->id ids)))))))
+
+(deftest on-delete-cascade-etypes
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [attr->id   (test-util/make-attrs
+                        app-id
+                        [[:users/name :unique? :index?]
+                         [[:users/comments :comments/author] :many :on-delete-reverse]
+                         [:posts/id :unique? :index?]
+                         [[:posts/author :users/posts] :unique? :on-delete]
+                         [:comments/id :unique? :index?]
+                         [:person/height]
+                         [:car/model]
+                         [:train/weight]])
+            entities   [{:db/id          (suid "a")
+                         :users/name     "Ivan"
+                         :users/comments (suid "c")
+                         :person/height  170}
+
+                        {:db/id          (suid "b")
+                         :posts/id       123
+                         :posts/author   (suid "a")
+                         :car/model      "BMW"}
+
+                        {:db/id          (suid "c")
+                         :comments/id    456
+                         :train/weight   1000}]
+            ids        (into #{} (map :db/id) entities)
+            attr-model (attr-model/get-by-app-id app-id)]
+
+        (test-util/insert-entities app-id attr->id entities)
+        (is (= (set entities)
+               (test-util/find-entities-by-ids app-id attr->id ids)))
+
+        (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "users"]])
+        (is (= #{{:db/id          (suid "a")
+                  :person/height  170}
+
+                 {:db/id          (suid "b")
+                  :car/model      "BMW"}
+
+                 {:db/id          (suid "c")
+                  :train/weight   1000}}
+               (test-util/find-entities-by-ids app-id attr->id ids)))))))
+
+(deftest on-delete-cascade-reused-entity-ids-forward
+  (with-empty-app
+    (fn [app]
+      (tx/transact! (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id (:id app))
+                    (:id app)
+                    [[:add-attr
+                      {:id (stuid "uid")
+                       :forward-identity [(random-uuid) "users" "id"]
+                       :value-type :blob
+                       :cardinality :one
+                       :unique? true
+                       :index? false}]
+                     [:add-attr
+                      {:id (stuid "user")
+                       :forward-identity [(random-uuid) "profiles" "user"]
+                       :reverse-identity [(random-uuid) "users" "profile"]
+                       :value-type :ref
+                       :cardinality :one
+                       :unique? true
+                       :index? false
+                       :on-delete :cascade}]
+                     [:add-attr
+                      {:id (stuid "pid")
+                       :forward-identity [(random-uuid) "profiles" "id"]
+                       :value-type :blob
+                       :cardinality :one
+                       :unique? true
+                       :index? false}]
+                     [:add-triple (stuid "a") (stuid "uid") (str (stuid "a"))]
+                     [:add-triple (stuid "a") (stuid "pid") (str (stuid "a"))]
+                     [:add-triple (stuid "a") (stuid "user") (str (stuid "a"))]])
+
+      (testing "setup worked"
+        (is (= 3 (count (triple-model/fetch (aurora/conn-pool :read) (:id app))))))
+
+      (testing "delete cascade works"
+        (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+          (is (tx/transact-without-tx-conn! conn
+                                            (attr-model/get-by-app-id (:id app))
+                                            (:id app)
+                                            [[:delete-entity (stuid "a") "users"]]
+                                            {}))
+
+          (is (= [] (triple-model/fetch conn (:id app))))
+
+          (.rollback conn)))
+
+      (testing "rollback worked"
+        (is (= 3 (count (triple-model/fetch (aurora/conn-pool :read) (:id app))))))
+
+      (testing "doesn't cascade in the reverse direction"
+        (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+          (is (tx/transact-without-tx-conn! conn
+                                            (attr-model/get-by-app-id (:id app))
+                                            (:id app)
+                                            [[:delete-entity (stuid "a") "profiles"]]
+                                            {}))
+
+          (is (= 1 (count (triple-model/fetch conn (:id app)))))
+
+          (.rollback conn))))))
+
+(deftest on-delete-cascade-reused-entity-ids-reverse
+  (with-empty-app
+    (fn [app]
+      (tx/transact! (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id (:id app))
+                    (:id app)
+                    [[:add-attr
+                      {:id (stuid "uid")
+                       :forward-identity [(random-uuid) "users" "id"]
+                       :value-type :blob
+                       :cardinality :one
+                       :unique? true
+                       :index? false}]
+                     [:add-attr
+                      {:id (stuid "user")
+                       :forward-identity [(random-uuid) "profiles" "user"]
+                       :reverse-identity [(random-uuid) "users" "profile"]
+                       :value-type :ref
+                       :cardinality :one
+                       :unique? true
+                       :index? false
+                       :on-delete-reverse :cascade}]
+                     [:add-attr
+                      {:id (stuid "pid")
+                       :forward-identity [(random-uuid) "profiles" "id"]
+                       :value-type :blob
+                       :cardinality :one
+                       :unique? true
+                       :index? false}]
+                     [:add-triple (stuid "a") (stuid "uid") (str (stuid "a"))]
+                     [:add-triple (stuid "a") (stuid "pid") (str (stuid "a"))]
+                     [:add-triple (stuid "a") (stuid "user") (str (stuid "a"))]])
+
+      (testing "setup worked"
+        (is (= 3 (count (triple-model/fetch (aurora/conn-pool :read) (:id app))))))
+
+      (testing "delete cascade works"
+        (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+          (is (tx/transact-without-tx-conn! conn
+                                            (attr-model/get-by-app-id (:id app))
+                                            (:id app)
+                                            [[:delete-entity (stuid "a") "profiles"]]
+                                            {}))
+
+          (is (= [] (triple-model/fetch conn (:id app))))
+
+          (.rollback conn)))
+
+      (testing "rollback worked"
+        (is (= 3 (count (triple-model/fetch (aurora/conn-pool :read) (:id app))))))
+
+      (testing "doesn't cascade in the reverse direction"
+        (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+          (is (tx/transact-without-tx-conn! conn
+                                            (attr-model/get-by-app-id (:id app))
+                                            (:id app)
+                                            [[:delete-entity (stuid "a") "users"]]
+                                            {}))
+
+          (is (= 1 (count (triple-model/fetch conn (:id app)))))
+
+          (.rollback conn))))))
 
 (deftest on-delete-cascade-refs
   (with-empty-app
     (fn [{app-id :id}]
-      (let [user-id-attr-id     (random-uuid)
-            user-email-attr-id  (random-uuid)
-            user-parent-attr-id (random-uuid)
-            insert-res (attr-model/insert-multi!
-                        (aurora/conn-pool :write)
+      (let [attr->id   (test-util/make-attrs
                         app-id
-                        [{:id user-id-attr-id
-                          :forward-identity [(random-uuid) "users" "id"]
-                          :value-type :blob
-                          :cardinality :one
-                          :unique? true
-                          :index? true}
-                         {:id user-email-attr-id
-                          :forward-identity [(random-uuid) "users" "email"]
-                          :value-type :blob
-                          :cardinality :one
-                          :unique? true
-                          :index? true}
-                         {:id user-parent-attr-id
-                          :forward-identity [(random-uuid) "users" "friend"]
-                          :reverse-identity [(random-uuid) "users" "friends"]
-                          :value-type :ref
-                          :cardinality :one
-                          :unique? false
-                          :index? false
-                          :on-delete :cascade}]
-                        {})
-            user1-id (random-uuid)
-            user2-id (random-uuid)
-            ctx      {:db               {:conn-pool (aurora/conn-pool :write)}
-                      :app-id           app-id
-                      :attrs            (attr-model/get-by-app-id app-id)
-                      :datalog-query-fn d/query
-                      :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
-                      :current-user     nil}]
+                        [[:users/email :unique? :index?]
+                         [[:users/friend :users/friend-of] :unique? :on-delete]])
+            ids        #{(suid "1") (suid "2")}
+            ctx        (test-util/make-ctx app-id {:rw :write})]
 
-        ;; insert
-        (tx/transact!
-         (aurora/conn-pool :write)
-         (attr-model/get-by-app-id app-id)
-         app-id
-         [[:add-triple user1-id user-id-attr-id     user1-id]
-          [:add-triple user1-id user-parent-attr-id user2-id]
-          [:add-triple user1-id user-email-attr-id  "user1@example.com"]
-          [:add-triple user2-id user-id-attr-id     user2-id]
-          [:add-triple user2-id user-parent-attr-id user1-id]
-          [:add-triple user2-id user-email-attr-id  "user2@example.com"]])
-
-        ;; check
-        (is (= #{user1-id user2-id}
-               (into #{} (map #(-> % :triple first))
-                     (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id user-id-attr-id]]))))
+        (test-util/insert-entities
+         app-id attr->id
+         [{:db/id (suid "1") :users/email "user1@example.com" :users/friend (suid "2")}
+          {:db/id (suid "2") :users/email "user2@example.com" :users/friend (suid "1")}])
+        (is (= #{(suid "1") (suid "2")}
+               (test-util/find-entids-by-ids app-id attr->id ids)))
 
         (testing "you can try to delete a user that doesn't exist with a lookup ref"
-          (let [res (permissioned-tx/transact! ctx [[:delete-entity [user-email-attr-id "user3@example.com"] "users"]])]
+          (let [res (permissioned-tx/transact! ctx [[:delete-entity [(attr->id :users/email) "user3@example.com"] "users"]])]
             (is (= 0 (count (:delete-entity (:results res)))))))))))
 
 (deftest on-delete-cascade-perf
@@ -2630,24 +5053,24 @@
     (fn [{app-id :id}]
       (let [user-id-attr-id     (random-uuid)
             user-parent-attr-id (random-uuid)
-            insert-res (attr-model/insert-multi!
-                        (aurora/conn-pool :write)
-                        app-id
-                        [{:id user-id-attr-id
-                          :forward-identity [(random-uuid) "users" "id"]
-                          :value-type :blob
-                          :cardinality :one
-                          :unique? true
-                          :index? true}
-                         {:id user-parent-attr-id
-                          :forward-identity [(random-uuid) "users" "parent"]
-                          :reverse-identity [(random-uuid) "users" "children"]
-                          :value-type :ref
-                          :cardinality :one
-                          :unique? false
-                          :index? false
-                          :on-delete :cascade}]
-                        {})
+            _ (attr-model/insert-multi!
+               (aurora/conn-pool :write)
+               app-id
+               [{:id user-id-attr-id
+                 :forward-identity [(random-uuid) "users" "id"]
+                 :value-type :blob
+                 :cardinality :one
+                 :unique? true
+                 :index? true}
+                {:id user-parent-attr-id
+                 :forward-identity [(random-uuid) "users" "parent"]
+                 :reverse-identity [(random-uuid) "users" "children"]
+                 :value-type :ref
+                 :cardinality :one
+                 :unique? false
+                 :index? false
+                 :on-delete :cascade}]
+               {})
             root-user-id (random-uuid)
             children     (atom 0)]
 
@@ -2672,8 +5095,7 @@
               (swap! children + (/ (count tx) 2))
               (recur (inc i) (into #{} (map second tx))))))
 
-        (let [t0       (System/nanoTime)
-              ctx      {:db               {:conn-pool (aurora/conn-pool :write)}
+        (let [ctx      {:db               {:conn-pool (aurora/conn-pool :write)}
                         :app-id           app-id
                         :attrs            (attr-model/get-by-app-id app-id)
                         :datalog-query-fn d/query
@@ -2681,9 +5103,573 @@
                         :current-user     nil}
               tx-steps [[:delete-entity root-user-id "users"]]
               res      (permissioned-tx/transact! ctx tx-steps)
-              dt       (-> (System/nanoTime) (- t0) (/ 1000000.0))
               deleted-triples (count (:delete-entity (:results res)))]
-          (is (= (-> @children (* 2) (+ 1)) deleted-triples))
-          #_(is (< dt 500)))))))
+          (is (= (-> @children (* 2) (+ 1)) deleted-triples)))))))
+
+(deftest too-many-params
+  (with-zeneca-app
+    (fn [app r]
+      (let [txes (for [_i (range 100000)
+                       :let [id (random-uuid)]]
+                   [:add-triple id (resolvers/->uuid r :users/id) (str id)])
+
+            instant-ex-data (test-util/instant-ex-data
+                             (tx/transact!
+                              (aurora/conn-pool :write)
+                              (attr-model/get-by-app-id (:id app))
+                              (:id app)
+                              txes))]
+        (is (= ::ex/parameter-limit-exceeded
+               (::ex/type instant-ex-data)))))))
+
+(deftest soft-delete-obj-attrs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-posts-id          :posts/id
+             attr-posts-title       :posts/title
+             attr-posts-slug        :posts/slug
+             attr-posts-description :posts/description}
+            (test-util/make-attrs
+             app-id
+             [[:posts/id :required? :unique? :index?]
+              [:posts/title :required?]
+              [:posts/slug :required? :unique?]
+              [:posts/description]])
+            p1       (random-uuid)
+            p2       (random-uuid)
+            pd       (random-uuid)
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple p1 attr-posts-id          (str p1)]
+          [:add-triple p1 attr-posts-title       "First Post"]
+          [:add-triple p1 attr-posts-slug        "first-post"]
+          [:add-triple p1 attr-posts-description "This is the first post"]
+          [:add-triple pd attr-posts-id (str pd)]
+          [:add-triple pd attr-posts-title "I will delete this post"]
+          [:add-triple pd attr-posts-slug "delete-me"]
+          [:add-triple pd attr-posts-description "I will delete this post later"]])
+
+        (testing "We get back posts"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {}}))]
+            (is (= #{{"slug" "first-post",
+                      "title" "First Post",
+                      "description" "This is the first post",
+                      "id" (str p1)}
+                     {"description" "I will delete this post later",
+                      "slug" "delete-me",
+                      "id" (str pd)
+                      "title" "I will delete this post"}}
+                   (set (get result "posts"))))))
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:delete-attr attr-posts-title]
+          [:delete-attr attr-posts-slug]])
+
+        (testing "Soft deletes remove columns from query results"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {}}))]
+            (is (= #{{"description" "This is the first post",
+                      "id" (str p1)}
+                     {"id" (str pd)
+                      "description" "I will delete this post later"}}
+                   (set (get result "posts"))))))
+
+        (testing "Soft deleted attrs have metadata"
+          (is (= {[(str attr-posts-slug "_deleted$posts")
+                   (str attr-posts-slug  "_deleted$slug")]
+                  {"soft_delete_snapshot" {"is_indexed" false, "is_required" true,
+                                           "id_attr_id" (str attr-posts-id)}},
+
+                  [(str attr-posts-title "_deleted$posts")
+                   (str attr-posts-title "_deleted$title")]
+                  {"soft_delete_snapshot" {"is_indexed" false, "is_required" true,
+                                           "id_attr_id" (str attr-posts-id)}}}
+                 (->> (attr-model/get-soft-deleted-by-app-id (aurora/conn-pool :read) app-id)
+                      (map (fn [attr]
+                             [(vec (attr-model/fwd-ident-name attr))
+                              (:metadata attr)]))
+
+                      (into {})))))
+
+        (testing "We can't create new triples for deleted attrs"
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:add-triple p1 attr-posts-title "This will fail"]])))))
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:deep-merge-triple p1 attr-posts-title "This will fail"]])))))
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:add-triple
+                      [attr-posts-slug "new-slug"]
+                      attr-posts-id
+                      [attr-posts-slug "new-slug"]]])))))
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:deep-merge-triple
+                      [attr-posts-slug "new-slug"]
+                      attr-posts-id
+                      [attr-posts-slug "new-slug"]]]))))))
+
+        (testing "We can create new objects without uniqueness errors"
+          (permissioned-tx/transact!
+           (make-ctx)
+           [[:add-triple p2 attr-posts-id (str p2)]
+            [:add-triple p2 attr-posts-description "No title needed"]]))
+
+        (let [{new-attr-posts-title :posts/title}
+              (test-util/make-attrs
+               app-id
+               [[:posts/title]])]
+          (testing "We can create new attrs with the same label as deleted ones"
+            (permissioned-tx/transact!
+             (make-ctx)
+             [[:add-triple p1 new-attr-posts-title "p1"]
+              [:add-triple p2 new-attr-posts-title "p2"]
+              [:add-triple pd new-attr-posts-title "pd"]])
+            (let [result (instaql-nodes->object-tree
+                          (make-ctx)
+                          (iq/query (make-ctx)
+                                    {:posts {}}))]
+
+              (is (= #{{"title" "p1",
+                        "description" "This is the first post",
+                        "id" (str p1)}
+                       {"title" "pd",
+                        "description" "I will delete this post later",
+                        "id" (str pd)}
+                       {"title" "p2",
+                        "id" (str p2)
+                        "description" "No title needed"}}
+                     (set (get result "posts")))))
+
+            (permissioned-tx/transact!
+             (make-ctx {:admin? true})
+             [[:delete-attr new-attr-posts-title]]))
+
+          (permissioned-tx/transact!
+           (make-ctx)
+           [[:delete-entity pd]])
+
+          (permissioned-tx/transact!
+           (make-ctx {:admin? true})
+           [[:restore-attr attr-posts-slug]])
+
+          (testing "only admins can restore attrs"
+            (is
+             (perm-err?
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:restore-attr attr-posts-title]]))))
+
+          (testing "Restored attrs restore triples"
+            (let [result (instaql-nodes->object-tree
+                          (make-ctx)
+                          (iq/query (make-ctx)
+                                    {:posts {}}))]
+
+              (is (= #{{"description" "No title needed",
+                        "id" (str p2)}
+                       {"slug" "first-post",
+                        "description" "This is the first post",
+                        "id" (str p1)}}
+                     (set (get result "posts"))))
+              result))
+
+          (testing "Restored attrs do not have uniqueness or index constraints"
+            (let [attrs (attr-model/get-by-app-id app-id)
+                  slug-attr (attr-model/seek-by-id  attr-posts-slug attrs)]
+              (is {:unique? false :required? false :index? false}
+                  (select-keys slug-attr [:unique? :required? :index?]))))
+
+          (testing "hard-deletes work"
+            (let [get-hard-deleted
+                  (fn [date] (->>  (attr-model/get-for-hard-delete (aurora/conn-pool :read)
+                                                                   {:maximum-deletion-marked-at date})
+                                   (filter (fn [{:keys [app_id]}]
+                                             (= app_id app-id)))))]
+
+              (is (empty? (get-hard-deleted (-> (date-util/pst-now)
+                                                (.minusDays 1)
+                                                (.toInstant)))))
+
+              (is (= #{new-attr-posts-title attr-posts-title}
+                     (set  (map :id (get-hard-deleted (-> (date-util/pst-now)
+                                                          (.toInstant)))))))
+              (attr-model/hard-delete-multi!
+               (aurora/conn-pool :write)
+               app-id
+               #{new-attr-posts-title attr-posts-title})
+
+              (is (empty? (get-hard-deleted (-> (date-util/pst-now)
+                                                (.toInstant))))))))))))
+
+(deftest soft-delete-can-delete-full-ns
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-posts-id          :posts/id
+             attr-posts-title       :posts/title
+             attr-posts-slug        :posts/slug
+             attr-posts-description :posts/description}
+            (test-util/make-attrs
+             app-id
+             [[:posts/id :required? :unique? :index?]
+              [:posts/title :required?]
+              [:posts/slug :required? :unique?]
+              [:posts/description]])
+            p1       (random-uuid)
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple p1 attr-posts-id          (str p1)]
+          [:add-triple p1 attr-posts-title       "First Post"]
+          [:add-triple p1 attr-posts-slug        "first-post"]
+          [:add-triple p1 attr-posts-description "This is the first post"]])
+
+        (testing "We get back posts"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {}}))]
+            (is (= #{{"slug" "first-post",
+                      "title" "First Post",
+                      "description" "This is the first post",
+                      "id" (str p1)}}
+                   (set (get result "posts"))))))
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:delete-attr attr-posts-id]
+          [:delete-attr attr-posts-title]
+          [:delete-attr attr-posts-slug]
+          [:delete-attr attr-posts-description]])
+
+        (testing "Soft deleted attrs have metadata"
+          (is (= {[(str attr-posts-id "_deleted$posts")
+                   (str attr-posts-id  "_deleted$id")]
+                  {"soft_delete_snapshot" {"is_indexed" true, "is_required" true,
+                                           "id_attr_id" (str attr-posts-id)}},
+
+                  [(str attr-posts-slug "_deleted$posts")
+                   (str attr-posts-slug  "_deleted$slug")]
+                  {"soft_delete_snapshot" {"is_indexed" false, "is_required" true,
+                                           "id_attr_id" (str attr-posts-id)}},
+
+                  [(str attr-posts-title "_deleted$posts")
+                   (str attr-posts-title "_deleted$title")]
+                  {"soft_delete_snapshot" {"is_indexed" false, "is_required" true,
+                                           "id_attr_id" (str attr-posts-id)}}
+
+                  [(str attr-posts-description "_deleted$posts")
+                   (str attr-posts-description "_deleted$description")]
+                  {"soft_delete_snapshot" {"is_indexed" false, "is_required" false,
+                                           "id_attr_id" (str attr-posts-id)}}}
+                 (->> (attr-model/get-soft-deleted-by-app-id (aurora/conn-pool :read) app-id)
+                      (map (fn [attr]
+                             [(vec (attr-model/fwd-ident-name attr))
+                              (:metadata attr)]))
+
+                      (into {})))))))))
+
+(deftest soft-delete-refs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-posts-id       :posts/id
+             attr-posts-title    :posts/title
+             attr-comments-id    :comments/id
+             attr-comments-text  :comments/text
+             attr-comments-post  :comments/post}
+            (test-util/make-attrs
+             app-id
+             [[:posts/id :required? :unique? :index?]
+              [:posts/title :required?]
+              [:comments/id :required? :unique? :index?]
+              [:comments/text :required?]
+              [[:comments/post :posts/comments] :many]])
+            p1       (random-uuid)
+            c1       (random-uuid)
+            c2       (random-uuid)
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        ;; Create 1 post and 2 comments
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple p1 attr-posts-id    (str p1)]
+          [:add-triple p1 attr-posts-title "Test Post"]
+          [:add-triple c1 attr-comments-id   (str c1)]
+          [:add-triple c1 attr-comments-text "First comment"]
+          [:add-triple c1 attr-comments-post p1]
+          [:add-triple c2 attr-comments-id   (str c2)]
+          [:add-triple c2 attr-comments-text "Second comment"]
+          [:add-triple c2 attr-comments-post p1]])
+
+        (testing "We get 1 post with 2 comments"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {:comments {}}}))]
+            (is (= #{"Test Post"}
+                   (set (map #(get % "title") (get result "posts")))))
+
+            (is (= #{"First comment"
+                     "Second comment"}
+                   (set (map #(get % "text") (-> result (get "posts") first (get "comments"))))))))
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:delete-attr attr-comments-post]])
+
+        (testing "After deleting link attr, post has no comments"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {:comments {}}}))]
+            (is (= #{"Test Post"}
+                   (set (map #(get % "title") (get result "posts")))))
+            (is (empty? (-> result (get "posts") first (get "comments"))))))
+
+        (testing "But we still have two soft-deleted triples"
+          (is (empty?
+               (fetch-triples app-id [[:= :attr-id attr-comments-post]])))
+          (is (= 2
+                 (count  (fetch-triples app-id [[:= :attr-id attr-comments-post]]
+                                        {:include-soft-deleted? true})))))
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:delete-entity c1]])
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:restore-attr attr-comments-post]])
+
+        (testing "After restore, we get 1 post with 1 comment (since we deleted c1)"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {:comments {}}}))]
+            (is (= #{"Test Post"}
+                   (set (map #(get % "title") (get result "posts")))))
+
+            (is (= #{"Second comment"}
+                   (set (map #(get % "text") (-> result (get "posts") first (get "comments"))))))
+
+            (is (= 1 (count (fetch-triples app-id [[:= :attr-id attr-comments-post]]))))
+            (is (= 1 (count (fetch-triples app-id [[:= :attr-id attr-comments-post]]
+                                           {:include-soft-deleted? true}))))))))))
+
+(deftest array-as-lookup
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [{attr-todos-id      :todos/id
+             attr-todos-text    :todos/text}
+            (test-util/make-attrs
+             app-id
+             [[:todos/id :required? :index? :unique?]
+              [:todos/text]])
+            todo-id (suid "0001")]
+        (is (map?
+             (permissioned-tx/transact!
+              (make-ctx)
+              [[:add-triple todo-id attr-todos-id   todo-id]
+               [:add-triple todo-id attr-todos-text [#uuid "2473c57f-6a58-4167-96b7-cf9e034a670a" #uuid "7758b4b1-7c0b-4c90-9532-f41a54812f76"]]])))))))
+
+(deftest idle-in-transaction-error
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      ;; Add a rule so that the transaction takes longer than 1ms
+      (rule-model/put!
+       (aurora/conn-pool :write)
+       {:app-id app-id :code {:books {:allow {:update "newData.title == 'Test'"}}}})
+      (let [book-id (random-uuid)
+            {title-aid :books/title
+             :as attr->id}
+            (test-util/make-attrs
+             app-id
+             [[:books/id :required? :index? :unique?]
+              [:books/title]])]
+        (test-util/insert-entities
+         app-id attr->id
+         [{:db/id book-id :books/id book-id :books/title "Original title"}])
+        (with-open [conn (next.jdbc/get-connection (config/get-aurora-config))]
+          (sql/execute! conn ["select set_config('idle_in_transaction_session_timeout', '1ms', false)"])
+          (is (timeout-err? (permissioned-tx/transact!
+                             (assoc (make-ctx) :db {:conn-pool conn})
+                             [[:add-triple book-id title-aid "Test"]]))))))))
+
+(deftest deadlock
+  (with-zeneca-app
+    (fn [{app-id :id} r]
+      (with-open [pool (aurora/start-pool 12 (config/get-aurora-config))
+                  conn1 (next.jdbc/get-connection pool)
+                  conn2 (next.jdbc/get-connection pool)
+                  conn3 (next.jdbc/get-connection pool)
+                  conn4 (next.jdbc/get-connection pool)
+                  conn5 (next.jdbc/get-connection pool)
+                  conn6 (next.jdbc/get-connection pool)
+                  conn7 (next.jdbc/get-connection pool)
+                  conn8 (next.jdbc/get-connection pool)
+                  conn9 (next.jdbc/get-connection pool)
+                  conn10 (next.jdbc/get-connection pool)]
+        (let [attrs (attr-model/get-by-app-id app-id)
+              id-attr-id (resolvers/->uuid r :users/id)
+              handle-attr-id (resolvers/->uuid r :users/handle)
+              bookshelves-attr-id (resolvers/->uuid r :users/bookshelves)
+              alex-eid (resolvers/->uuid r "eid-alex")
+              stopa-eid (resolvers/->uuid r "eid-stepan-parunashvili")
+              nicole-eid (resolvers/->uuid r "eid-nicole")
+              eid-nonfiction (resolvers/->uuid r "eid-nonfiction")
+
+              conns [conn1 conn2 conn3 conn4 conn5 conn6 conn7 conn8 conn9 conn10]
+
+              tx-datas (mapv (fn [_]
+                               (let [id (random-uuid)]
+                                 [[:add-triple id id-attr-id (str id)]
+                                  [:add-triple id handle-attr-id (str id)]
+                                  [:add-triple alex-eid id-attr-id (str alex-eid)]
+                                  [:add-triple alex-eid handle-attr-id (str "alex" id)]
+                                  [:add-triple alex-eid bookshelves-attr-id eid-nonfiction]
+                                  [:add-triple stopa-eid id-attr-id (str stopa-eid)]
+                                  [:add-triple stopa-eid handle-attr-id (str "stopa" id)]
+                                  [:add-triple stopa-eid bookshelves-attr-id eid-nonfiction]
+                                  [:add-triple nicole-eid id-attr-id (str nicole-eid)]
+                                  [:add-triple nicole-eid handle-attr-id (str "nicole" id)]
+                                  [:add-triple nicole-eid bookshelves-attr-id eid-nonfiction]]))
+                             (range (count conns)))
+
+              txes (mapv (fn [conn tx-data]
+                           (future
+                             (triple-model/insert-multi! conn attrs app-id (map rest tx-data))))
+                         conns tx-datas)]
+
+          (doseq [tx txes]
+            (testing "connection did not deadlock"
+              (is @tx))))))))
+
+;; Test that we don't get a conflict if a bunch of lookup inserts are happening simultaneously
+(deftest multiple-lookups-work
+  (with-zeneca-app
+    (fn [{make-ctx :make-ctx}
+         r]
+      (let [handle-aid (resolvers/->uuid r :users/handle)
+            lookup [handle-aid (random-uuid)]
+            tx-data [[:add-triple lookup (resolvers/->uuid r :users/id) lookup]
+                     [:add-triple lookup (resolvers/->uuid r :users/bookshelves) (random-uuid)]]
+            txes (mapv (fn [_]
+                         (future (permissioned-tx/transact! (make-ctx) tx-data)))
+                       (range 20))]
+        (mapv (fn [tx]
+                (is @tx))
+              txes)))))
+
+(deftest soft-delete-in-system-ns-can-see-system-id-attr
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-users-nickname  :$users/nickname}
+            (test-util/make-attrs
+             app-id
+             [[:$users/nickname]])
+
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:delete-attr attr-users-nickname]])
+        (let [deleted (some->> (attr-model/get-soft-deleted-by-app-id (aurora/conn-pool :read) app-id)
+                               (filter (comp (partial = attr-users-nickname) :id))
+                               first)
+
+              id-attr-id (some-> deleted
+                                 :metadata
+                                 (get "soft_delete_snapshot")
+                                 (get "id_attr_id")
+                                 parse-uuid)]
+
+          (is (=  (system-catalog/get-attr-id "$users" "id")
+                  id-attr-id)))))))
+
+(deftest null-byte-error-message
+  (with-zeneca-app
+    (fn [{app-id :id} r]
+      (let [err (validation-err?
+                 (tx/transact!
+                  (aurora/conn-pool :write)
+                  (attr-model/get-by-app-id app-id)
+                  app-id
+                  [[:add-triple (random-uuid) (resolvers/->uuid r :users/handle) "Hello\u0000World"]]))]
+        (is err)
+        (is (string/includes? (::ex/message (ex-data err)) "null bytes"))))))
+
 (comment
   (test/run-tests *ns*))

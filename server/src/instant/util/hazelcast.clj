@@ -1,13 +1,17 @@
 (ns instant.util.hazelcast
-  (:require [instant.util.uuid :as uuid-util]
-            [medley.core :refer [update-existing]]
-            [taoensso.nippy :as nippy])
-  (:import (com.hazelcast.config GlobalSerializerConfig SerializerConfig)
-           (com.hazelcast.map IMap)
-           (com.hazelcast.nio.serialization ByteArraySerializer)
-           (java.nio ByteBuffer)
-           (java.util UUID)
-           (java.util.function BiFunction)))
+  (:require
+   [instant.util.uuid :as uuid-util]
+   [medley.core :refer [update-existing]]
+   [taoensso.nippy :as nippy])
+  (:import
+   (com.hazelcast.config GlobalSerializerConfig SerializerConfig)
+   (com.hazelcast.map IMap)
+   (com.hazelcast.nio.serialization ByteArraySerializer)
+   (java.io DataInputStream ByteArrayInputStream)
+   (java.nio ByteBuffer)
+   (java.util UUID)
+   (java.util.function BiFunction)
+   (org.postgresql.replication LogSequenceNumber)))
 
 ;; Be careful when you update the records and serializers in this
 ;; namespace. Hazelcast shares them across the fleet, so they must be
@@ -28,6 +32,28 @@
       (.setTypeClass protocol)
       (.setImplementation serializer)))
 
+;; Must be unique within the project
+(def remove-session-type-id 1)
+(def set-presence-type-id 3)
+(def room-key-type-id 4)
+(def global-type-id 5)
+(def room-broadcast-type-id 6)
+(def task-type-id 7)
+(def join-room-v3-type-id 9)
+(def sse-message-type-id 10)
+(def wal-record-type-id 11)
+
+;; ---------------------
+;; Encode LSN with nippy
+
+;; 1 is the custom identifier for this type, no other type can use it and
+;; it must be the same across all machines.
+(nippy/extend-freeze LogSequenceNumber 1 [^LogSequenceNumber lsn data-output]
+  (.writeLong data-output (.asLong lsn)))
+
+(nippy/extend-thaw 1 [data-input]
+  (LogSequenceNumber/valueOf (.readLong data-input)))
+
 ;; --------
 ;; Room key
 
@@ -35,8 +61,8 @@
 
 (def ^ByteArraySerializer room-key-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 4)
+    (getTypeId [_]
+      room-key-type-id)
     (write ^bytes [_ obj]
       (let [uuid-bytes (uuid-util/->bytes (:app-id obj))
             ^String room-id (:room-id obj)
@@ -89,8 +115,8 @@
 
 (def ^ByteArraySerializer remove-session-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 1)
+    (getTypeId [_]
+      remove-session-type-id)
     (write ^bytes [_ obj]
       (uuid-util/->bytes (:session-id obj)))
     (read [_ ^bytes in]
@@ -106,52 +132,44 @@
 ;; Join room
 
 ;; Helper to add a session to the room in the hazelcast map
-(defrecord JoinRoomMergeV1 [^UUID session-id ^UUID user-id]
+(defrecord JoinRoomMergeV3 [^UUID session-id ^String instance-id ^UUID user-id data]
   BiFunction
   (apply [_ room-data _]
     (update room-data
             session-id
-            (fnil merge {:data {}})
-            {:peer-id session-id
-             :user (when user-id
-                     {:id user-id})})))
+            (fn [existing]
+              (merge existing
+                     {:peer-id     session-id
+                      :instance-id instance-id
+                      :user        (when user-id
+                                     {:id user-id})
+                      :data (or (:data existing) data {})})))))
 
-(defn join-room! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^UUID user-id]
-  (.merge hz-map
-          room-key
-          {session-id {:peer-id session-id
-                       :user (when user-id
-                               {:id user-id})
-                       :data {}}}
-          (->JoinRoomMergeV1 session-id user-id)))
-
-
-(def ^ByteArraySerializer join-room-serializer
+(def ^ByteArraySerializer join-room-v3-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 2)
+    (getTypeId [_]
+      join-room-v3-type-id)
     (write ^bytes [_ obj]
-      (let [{:keys [^UUID session-id ^UUID user-id]} obj
-            byte-buffer (ByteBuffer/allocate (if user-id 32 16))]
-        (.putLong byte-buffer (.getMostSignificantBits session-id))
-        (.putLong byte-buffer (.getLeastSignificantBits session-id))
-        (when user-id
-          (.putLong byte-buffer (.getMostSignificantBits user-id))
-          (.putLong byte-buffer (.getLeastSignificantBits user-id)))
-        (.array byte-buffer)))
+      (let [{:keys [^UUID session-id ^String instance-id ^UUID user-id data]} obj]
+        (nippy/fast-freeze [session-id instance-id user-id data])))
     (read [_ ^bytes in]
-      (let [buf (ByteBuffer/wrap in)
-            session-id (UUID. (.getLong buf)
-                              (.getLong buf))
-            user-id (when (.hasRemaining buf)
-                      (UUID. (.getLong buf)
-                             (.getLong buf)))]
-        (->JoinRoomMergeV1 session-id user-id)))
+      (let [[session-id instance-id user-id data] (nippy/fast-thaw in)]
+        (->JoinRoomMergeV3 session-id instance-id user-id data)))
     (destroy [_])))
 
-(def join-room-config
-  (make-serializer-config JoinRoomMergeV1
-                          join-room-serializer))
+(def join-room-v3-config
+  (make-serializer-config JoinRoomMergeV3
+                          join-room-v3-serializer))
+
+(defn join-room! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^String instance-id ^UUID user-id data]
+  (.merge hz-map
+          room-key
+          {session-id {:peer-id     session-id
+                       :instance-id instance-id
+                       :user        (when user-id
+                                      {:id user-id})
+                       :data        (or data {})}}
+          (->JoinRoomMergeV3 session-id instance-id user-id data)))
 
 ;; ------------
 ;; Set presence
@@ -175,8 +193,8 @@
 
 (def ^ByteArraySerializer set-presence-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 3)
+    (getTypeId [_]
+      set-presence-type-id)
     (write ^bytes [_ obj]
       (let [{:keys [^UUID session-id data]} obj]
         (nippy/fast-freeze [session-id data])))
@@ -199,8 +217,8 @@
 
 (def ^ByteArraySerializer room-broadcast-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 6)
+    (getTypeId [_]
+      room-broadcast-type-id)
     (write ^bytes [_ obj]
       (nippy/fast-freeze obj))
     (read [_ ^bytes in]
@@ -211,13 +229,115 @@
   (make-serializer-config RoomBroadcastV1
                           room-broadcast-serializer))
 
+;; -----------
+;; SSE Message
+
+;; Hack to avoid a cyclic dependency
+(def send-messages (delay (resolve (symbol "instant.reactive.sse/send-messages-callable"))))
+
+(defrecord SSEMessage [^UUID app-id ^UUID session-id ^bytes sse-token-hash messages]
+  Callable
+  (call [_]
+    (@send-messages app-id session-id sse-token-hash messages)))
+
+(defn thaw-with-offset
+  "Like nipppy/fast-thaw, but takes an offset and length from the byte array so that you
+   can use a byte array with extra stuff at the beginnning without copying"
+  [^bytes ba offset length]
+  (let [dis (DataInputStream. (ByteArrayInputStream. ba offset length))]
+    (try
+      (.set nippy/-cache-proxy (volatile! nil))
+      (nippy/thaw-from-in! dis)
+      (finally (.remove nippy/-cache-proxy)))))
+
+(def ^ByteArraySerializer sse-message-serializer
+  (let [fixed-len (+ 16   ;; app-id
+                     16   ;; session-id
+                     32)] ;; token-hash
+    (reify ByteArraySerializer
+      (getTypeId [_]
+        sse-message-type-id)
+      (write ^bytes [_ obj]
+        (let [{:keys [messages
+                      ^UUID app-id
+                      ^UUID session-id
+                      ^bytes sse-token-hash]} obj
+              ^bytes msg-bytes (nippy/fast-freeze messages)
+              bb (ByteBuffer/allocate (+ fixed-len
+                                         (count msg-bytes)))]
+          (.putLong bb (.getMostSignificantBits app-id))
+          (.putLong bb (.getLeastSignificantBits app-id))
+          (.putLong bb (.getMostSignificantBits session-id))
+          (.putLong bb (.getLeastSignificantBits session-id))
+          (.put bb sse-token-hash)
+          (.put bb msg-bytes)
+          (.array bb)))
+      (read [_ ^bytes in]
+        (let [bb (ByteBuffer/wrap in)
+              app-id (UUID. (.getLong bb) (.getLong bb))
+              session-id (UUID. (.getLong bb) (.getLong bb))
+              sse-token-hash (let [hash-bytes (byte-array 32)]
+                               (.get bb hash-bytes)
+                               hash-bytes)
+              messages (thaw-with-offset in (.position bb) (.remaining bb))]
+          (SSEMessage. app-id session-id sse-token-hash messages)))
+      (destroy [_]))))
+
+(def sse-message-config
+  (make-serializer-config SSEMessage
+                          sse-message-serializer))
+
+;; ---------------
+;; Executor Helpers
+
+(defrecord Task [^clojure.lang.Var v]
+  Callable
+  (call [_]
+    (v)))
+
+(def ^ByteArraySerializer task-serializer
+  (reify ByteArraySerializer
+    (getTypeId [_]
+      task-type-id)
+    (write ^bytes [_ {:keys [v]}]
+      (assert (var? v) "Expected Task to get a resolved var.")
+      (nippy/fast-freeze (str (symbol v))))
+    (read [_ ^bytes in]
+      (->Task (resolve (symbol (nippy/fast-thaw in)))))
+    (destroy [_])))
+
+(def task-config
+  (make-serializer-config Task
+                          task-serializer))
+
+;; ----------
+;; Wal record
+
+;; Expects a var that takes no arguments
+(defrecord WalRecord [record])
+
+(def ^ByteArraySerializer wal-record-serializer
+  (reify ByteArraySerializer
+    (getTypeId [_]
+      wal-record-type-id)
+    (write ^bytes [_ {:keys [record]}]
+      (nippy/fast-freeze record))
+    (read [_ ^bytes in]
+      (->WalRecord (nippy/fast-thaw in)))
+    (destroy [_])))
+
+(def wal-record-config
+  (make-serializer-config WalRecord
+                          wal-record-serializer))
+
+
 ;; -----------------
 ;; Global serializer
 
 (def ^ByteArraySerializer global-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 5)
+    (getTypeId [_]
+      global-type-id)
     (write ^bytes [_ obj]
       (nippy/fast-freeze obj))
     (read [_ ^bytes in]
@@ -231,6 +351,9 @@
 (def serializer-configs
   [remove-session-config
    room-broadcast-config
-   join-room-config
+   join-room-v3-config
    set-presence-config
-   room-key-config])
+   room-key-config
+   task-config
+   sse-message-config
+   wal-record-config])

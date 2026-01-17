@@ -12,7 +12,8 @@
                     token app-id])))
 
 (defn fetch! [params]
-  (ex/assert-record! (fetch params) :app-admin-token {:args [params]}))
+  (ex/assert-record! (fetch params) :app-admin-token {:args [params]
+                                                      :message "This admin token may be expired or invalid. Or you may have provided an incorrect app ID."}))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))

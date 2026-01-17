@@ -1,5 +1,6 @@
 ---
 title: Presence, Cursors, and Activity
+description: How to add ephemeral features like presence and cursors to your Instant app.
 ---
 
 Sometimes you want to show real-time updates to users without persisting the
@@ -18,13 +19,13 @@ A room represents a temporary context for realtime events. Users in the same roo
 
 **Presence**
 
-Presence is an object that each peer shares with every other peer. When a user updates their presence, it's instantly replicated to all users in that room. Presence persists throughout the remainder of a user's connection, and is automatically cleaned up when a user leaves the room
+Presence is an object that each peer shares with every other peer. When a user updates their presence, it's instantly replicated to all users in that room. Presence persists throughout the remainder of a user's connection, and is automatically cleaned up when a user leaves the room.
 
 You can use presence to build features like "who's online." Instant's cursor and typing indicator are both built on top of the presence API.
 
 **Topics**
 
-Topics have "fire and forget" semantics, and are better suited for data that don't need any sort of persistence. When a user publishes a topic, a callback is fired for every other user in the room listening for that topic.
+Topics have "fire and forget" semantics, and are better suited for data that doesn't need any sort of persistence. When a user publishes a topic, a callback is fired for every other user in the room listening for that topic.
 
 You can use topics to build features like "live reactions." The real-time emoji button panel on Instant's homepage is built using the topics API.
 
@@ -102,7 +103,7 @@ const _schema = i.schema({
   },
 });
 
-// This helps Typescript display better intellisense
+// This helps TypeScript display better intellisense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
@@ -113,7 +114,7 @@ export default schema;
 
 Once you've updated your schema, you'll start seeing types in your intellisense:
 
-{% screenshot src="/img/docs/presence-intellisence.png" /%}
+{% screenshot src="/img/docs/presence-intellisense.png" /%}
 
 ## Presence
 
@@ -121,11 +122,11 @@ One common use case for presence is to show who's online.
 
 Instant's `usePresence` is similar in feel to `useState`. It returns an object containing the current user's presence state, the presence state of every other user in the room, and a function (`publishPresence`) to update the current user's presence. `publishPresence` is similar to React's `setState`, and will merge the current and new presence objects.
 
-```typescript
+```tsx
 import { init } from '@instantdb/react';
 
 // Instant app
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID });
 
 const room = db.room('chat', 'hacker-chat-room-id');
@@ -135,12 +136,20 @@ const user = {
 };
 
 function App() {
-  const { user: myPresence, peers, publishPresence } = db.rooms.usePresence(room);
+  const {
+    user: myPresence,
+    peers,
+    publishPresence,
+  } = db.rooms.usePresence(
+    room,
+    // Publish your presence when you join the room
+    { initialPresence: { name: user.name } },
+  );
 
-  // Publish your presence to the room
+  // Update your presence when your name changes
   useEffect(() => {
     publishPresence({ name: user.name });
-  }, []);
+  }, [user.name]);
 
   if (!myPresence) {
     return <p>App loading...</p>;
@@ -152,7 +161,7 @@ function App() {
       <p>You are: {myPresence.name}</p>
       <h2>Others:</h2>
       <ul>
-      {/* Loop through all peers and render their names. Peers will have the
+        {/* Loop through all peers and render their names. Peers will have the
           same properties as what you publish to the room. In this case, `name`
           is the only property we're publishing. Use RoomSchema to get type
           safety for your presence object.
@@ -166,7 +175,7 @@ function App() {
 }
 ```
 
-`usePresence` accepts a second parameter to select specific slices of user's presence object.
+`usePresence` accepts a second parameter to select specific slices of the user's presence object.
 
 ```typescript
 const room = db.room('chat', 'hacker-chat-room-id');
@@ -194,16 +203,16 @@ const { publishPresence } = db.rooms.usePresence(room, {
 
 Instant provides 2 hooks for sending and handling events for a given topic. `usePublishTopic` returns a function you can call to publish an event, and `useTopicEffect` will be called each time a peer in the same room publishes a topic event.
 
-Here's a live reaction feature using topics. You can also play with it live on [our examples page](https://www.instantdb.com/examples?#5-reactions)
+Here's a live reaction feature using topics. You can also play with it live on [our recipes page](https://www.instantdb.com/recipes?#5-reactions)
 
-```typescript {% showCopy=true %}
+```tsx {% showCopy=true %}
 'use client';
 
 import { init } from '@instantdb/react';
 import { RefObject, createRef, useRef } from 'react';
 
 // Instant app
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 // Set up room schema
 const emoji = {
@@ -227,14 +236,18 @@ export default function InstantTopics() {
 
   // Use useTopicEffect to listen for `emoji` events from peers
   // and animate their emojis on the screen.
-  db.rooms.useTopicEffect(room, 'emoji', ({ name, directionAngle, rotationAngle }) => {
-    if (!emoji[name]) return;
+  db.rooms.useTopicEffect(
+    room,
+    'emoji',
+    ({ name, directionAngle, rotationAngle }) => {
+      if (!emoji[name]) return;
 
-    animateEmoji(
-      { emoji: emoji[name], directionAngle, rotationAngle },
-      elRefsRef.current[name].current
-    );
-  });
+      animateEmoji(
+        { emoji: emoji[name], directionAngle, rotationAngle },
+        elRefsRef.current[name].current,
+      );
+    },
+  );
 
   const elRefsRef = useRef<{
     [k: string]: RefObject<HTMLDivElement>;
@@ -262,7 +275,7 @@ export default function InstantTopics() {
                     rotationAngle: params.rotationAngle,
                     directionAngle: params.directionAngle,
                   },
-                  elRefsRef.current[name].current
+                  elRefsRef.current[name].current,
                 );
 
                 /* Broadcast our emoji to our peers! */
@@ -283,7 +296,7 @@ export default function InstantTopics() {
 const emojiNames = Object.keys(emoji) as EmojiName[];
 
 const refsInit = Object.fromEntries(
-  emojiNames.map((name) => [name, createRef<HTMLDivElement>()])
+  emojiNames.map((name) => [name, createRef<HTMLDivElement>()]),
 );
 
 const containerClassNames =
@@ -294,7 +307,7 @@ const emojiButtonClassNames =
 
 function animateEmoji(
   config: { emoji: string; directionAngle: number; rotationAngle: number },
-  target: HTMLDivElement | null
+  target: HTMLDivElement | null,
 ) {
   if (!target) return;
 
@@ -348,22 +361,22 @@ We wanted to make adding real-time features to your apps as simple as possible, 
 
 Adding multiplayer cursors to your app is as simple as importing our `<Cursors>` component!
 
-```typescript {% showCopy=true %}
+```tsx {% showCopy=true %}
 'use client';
 
 import { init, Cursors } from '@instantdb/react';
 
 // Instant app
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 const db = init({ appId: APP_ID });
 
-const room = db.room("chat", "main");
+const room = db.room('chat', 'main');
 
 export default function App() {
   return (
     <Cursors room={room} className="h-full w-full" userCursorColor="tomato">
-      <div style={{ width: "100vw", height: "100vh" }}>
+      <div style={{ width: '100vw', height: '100vh' }}>
         Open two tabs, and move your cursor around!
       </div>
     </Cursors>
@@ -373,7 +386,7 @@ export default function App() {
 
 You can provide a `renderCursor` function to return your own custom cursor component.
 
-```typescript
+```tsx
 <Cursors
   room={room}
   className="cursors"
@@ -384,7 +397,7 @@ You can provide a `renderCursor` function to return your own custom cursor compo
 
 You can render multiple cursor spaces. For instance, imagine you're building a screen with multiple tabs. You want to only show cursors on the same tab as the current user. You can provide each `<Cursors />` element with their own `spaceId`.
 
-```typescript
+```tsx
 <Tabs>
   {tabs.map((tab) => (
     <Tab>
@@ -400,7 +413,7 @@ You can render multiple cursor spaces. For instance, imagine you're building a s
 
 `useTypingIndicator` is a small utility useful for building inputs for chat-style apps. You can use this hook to show things like "<user> is typing..." in your chat app.
 
-```javascript {% showCopy=true %}
+```tsx {% showCopy=true %}
 'use client';
 
 import { init } from '@instantdb/react';
@@ -459,5 +472,46 @@ function typingInfo(users) {
     return `${users[0].name} and ${users[1].name} are typing...`;
 
   return `${users[0].name} and ${users.length - 1} others are typing...`;
+}
+```
+
+## PresencePeer Type
+
+When working with presence, you can use `PresencePeer` for typing `user` and `peers`
+values returned from `db.rooms.usePresence`.
+
+```typescript
+import { PresencePeer } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
+import { db } from '../lib/db.ts';
+
+type ChatPeer = PresencePeer<AppSchema, 'chat'>;
+// Result: { peerId: string; avatar: string; name: string }
+
+const room = db.room('chat')
+
+function UserAvatar({ peer }: { peer: ChatPeer }) {
+  return (
+    <div>
+      <img src={peer.avatar} alt={peer.name} />
+    </div>
+  );
+}
+
+function OnlineAvatars({ name, avatar }: { name: string; avatar: string }) {
+  // Subcribe and publish initial presence
+  const { user: myPresence, peers } = db.rooms.usePresence(room, {
+    initialPresence: { name, avatar },
+  });
+
+  // Render my avatar and all peer avatars
+  return (
+    <div>
+      {myPresence && <UserAvatar key={myPresence.peerId} peer={myPresence} />}
+      {Object.values(peers).map((peer: ChatPeer) => (
+        <UserAvatar key={peer.peerId} peer={peer} />
+      ))}
+    </div>
+  );
 }
 ```

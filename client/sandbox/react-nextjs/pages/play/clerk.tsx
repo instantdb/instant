@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   ClerkProvider,
   useAuth,
@@ -6,19 +6,19 @@ import {
   SignedOut,
   SignInButton,
   UserButton,
-} from "@clerk/nextjs";
+} from '@clerk/nextjs';
 
-import { init, InstantReactWebDatabase } from "@instantdb/react";
-import config from "../../config";
+import { init, InstantReactWebDatabase } from '@instantdb/react';
+import config from '../../config';
 
 function App({ db }: { db: InstantReactWebDatabase<any> }) {
   const { getToken, signOut } = useAuth();
   const signInWithToken = () => {
     getToken().then((jwt) => {
       if (!jwt) {
-        throw new Error("no jwt");
+        throw new Error('no jwt');
       }
-      db.auth.signInWithIdToken({ idToken: jwt, clientName: "clerk" });
+      db.auth.signInWithIdToken({ idToken: jwt, clientName: 'clerk' });
     });
   };
   useEffect(() => {
@@ -34,27 +34,29 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
   if (user) {
     return (
       <div>
-        Logged in with clerk and instant.
-        <div>
+        <h3 className="mb-2 text-lg font-bold">
+          Logged in with Clerk and Instant
+        </h3>
+
+        <div className="mb-4">
           <button
+            className="m-2 bg-black p-2 text-white"
             onClick={() => {
               db.auth.signOut();
             }}
           >
             Sign out Instant only
           </button>
-        </div>
-        <div>
           <button
+            className="m-2 bg-black p-2 text-white"
             onClick={() => {
               signOut();
             }}
           >
             Sign out Clerk only
           </button>
-        </div>
-        <div>
           <button
+            className="m-2 bg-black p-2 text-white"
             onClick={() => {
               db.auth.signOut().then(() => {
                 signOut();
@@ -63,11 +65,19 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
           >
             Sign out both
           </button>
-        </div>
-        <div>
-          <button onClick={signInWithToken}>
+          <button
+            className="m-2 bg-black p-2 text-white"
+            onClick={signInWithToken}
+          >
             Sign in to Instant again, just for fun
           </button>
+        </div>
+
+        <div className="mb-4">
+          <h4 className="mb-1 font-semibold">Instant User Object:</h4>
+          <pre className="rounded border bg-gray-100 p-2 text-xs">
+            {JSON.stringify(user, null, 2)}
+          </pre>
         </div>
       </div>
     );
@@ -107,7 +117,7 @@ function Wrapper() {
     <div style={{ margin: 40 }}>
       <ClerkProvider
         publishableKey={clerkPublishableKey}
-        afterSignOutUrl={"/play/clerk"}
+        afterSignOutUrl={'/play/clerk'}
       >
         <SignedOut>
           <SignInButton />

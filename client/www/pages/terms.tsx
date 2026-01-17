@@ -7,7 +7,7 @@ import {
 
 function TermsContent() {
   return (
-    <div className="prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100">
+    <div className="prose prose-h1:mb-4 prose-h1:mt-8 prose-h2:mb-2 prose-h2:mt-4 prose-pre:bg-gray-100">
       <h1 id="terms-and-conditions">Terms and Conditions</h1>
       <p>Effective Date: March 19, 2024</p>
       <p>
@@ -24,9 +24,8 @@ function TermsContent() {
         Services.
       </p>
       <p>
-        <strong>Privacy</strong>. See our{' '}
-        <a href="/privacy">Privacy Policy</a> for details on how we
-        collect, store, and share user information.
+        <strong>Privacy</strong>. See our <a href="/privacy">Privacy Policy</a>{' '}
+        for details on how we collect, store, and share user information.
       </p>
       <p>
         <strong>Age Restrictions</strong>. The Services are not intended for
@@ -170,8 +169,7 @@ export default function Page() {
   return (
     <LandingContainer>
       <Head>
-        <title>Essays</title>
-        <meta name="description" content="A Graph Database on the Client" />
+        <title>Instant Terms of Service</title>
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav />

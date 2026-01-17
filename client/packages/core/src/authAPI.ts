@@ -1,5 +1,5 @@
-import { User } from "./clientTypes";
-import { jsonFetch } from "./utils/fetch";
+import { User } from './clientTypes.ts';
+import { jsonFetch } from './utils/fetch.js';
 
 type SharedInput = {
   apiURI: string;
@@ -17,13 +17,17 @@ export function sendMagicCode({
   email,
 }: SharedInput & SendMagicCodeParams): Promise<SendMagicCodeResponse> {
   return jsonFetch(`${apiURI}/runtime/auth/send_magic_code`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ "app-id": appId, email }),
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ 'app-id': appId, email }),
   });
 }
 
-export type VerifyMagicCodeParams = { email: string; code: string };
+export type VerifyMagicCodeParams = {
+  email: string;
+  code: string;
+  refreshToken?: string | undefined;
+};
 export type VerifyResponse = {
   user: User;
 };
@@ -32,11 +36,17 @@ export async function verifyMagicCode({
   appId,
   email,
   code,
+  refreshToken,
 }: SharedInput & VerifyMagicCodeParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ "app-id": appId, email, code }),
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      'app-id': appId,
+      email,
+      code,
+      ...(refreshToken ? { 'refresh-token': refreshToken } : {}),
+    }),
   });
   return res;
 }
@@ -48,11 +58,25 @@ export async function verifyRefreshToken({
   refreshToken,
 }: SharedInput & VerifyRefreshTokenParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_refresh_token`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      "app-id": appId,
-      "refresh-token": refreshToken,
+      'app-id': appId,
+      'refresh-token': refreshToken,
+    }),
+  });
+  return res;
+}
+
+export async function signInAsGuest({
+  apiURI,
+  appId,
+}: SharedInput): Promise<VerifyResponse> {
+  const res = await jsonFetch(`${apiURI}/runtime/auth/sign_in_guest`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      'app-id': appId,
     }),
   });
   return res;
@@ -61,6 +85,7 @@ export async function verifyRefreshToken({
 export type ExchangeCodeForTokenParams = {
   code: string;
   codeVerifier?: string;
+  refreshToken?: string | undefined;
 };
 
 export async function exchangeCodeForToken({
@@ -68,21 +93,23 @@ export async function exchangeCodeForToken({
   appId,
   code,
   codeVerifier,
+  refreshToken,
 }: SharedInput & ExchangeCodeForTokenParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/token`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       app_id: appId,
       code: code,
       code_verifier: codeVerifier,
+      refresh_token: refreshToken,
     }),
   });
   return res;
 }
 
 export type SignInWithIdTokenParams = {
-  nonce?: string;
+  nonce?: string | null | undefined;
   idToken: string;
   clientName: string;
   refreshToken?: string;
@@ -97,8 +124,8 @@ export async function signInWithIdToken({
   refreshToken,
 }: SharedInput & SignInWithIdTokenParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/id_token`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       app_id: appId,
       nonce,
@@ -117,9 +144,9 @@ export async function signOut({
   refreshToken,
 }: SharedInput & SignoutParams): Promise<{}> {
   const res = await jsonFetch(`${apiURI}/runtime/signout`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "content-type": "application/json",
+      'content-type': 'application/json',
     },
     body: JSON.stringify({
       app_id: appId,

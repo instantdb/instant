@@ -1,29 +1,43 @@
-// http://localhost:3000/dash?s=main&t=home&app=24a4d71b-7bb2-4630-9aee-01146af26239
-// Docs: https://www.instantdb.com/docs/schema
+// Docs: https://www.instantdb.com/docs/modeling-data
 
 import { i } from "@instantdb/core";
 
-const graph = i.graph(
-  {
+const _schema = i.schema({
+  // We inferred 2 attributes!
+  // Take a look at this schema, and if everything looks good,
+  // run `push schema` again to enforce the types.
+  entities: {
+    $files: i.entity({
+      metadata: i.any().optional(),
+      path: i.string().unique().indexed(),
+      url: i.string(),
+    }),
     $users: i.entity({
-      email: i.string().unique().indexed(),
+      email: i.string().unique().indexed().optional(),
+      imageURL: i.string().optional(),
+      type: i.string().optional(),
+    }),
+    "app-deletion-sweeper": i.entity({
+      "disabled?": i.boolean(),
     }),
     "e2e-logging": i.entity({
       "invalidator-rate": i.number(),
     }),
-    "drop-refresh-spam": i.entity({
-      "default-value": i.boolean(),
-      "disabled-apps": i.any(),
-      "enabled-apps": i.any(),
+    flags: i.entity({
+      description: i.string().optional(),
+      setting: i.string().unique().indexed(),
+      value: i.any(),
     }),
     "friend-emails": i.entity({
       email: i.string().unique(),
     }),
-    "use-patch-presence": i.entity({
-      "default-value": i.boolean(),
-      disabled: i.boolean(),
-      "disabled-apps": i.any(),
-      "enabled-apps": i.any(),
+    "handle-receive-timeout": i.entity({
+      appId: i.string().unique(),
+      timeoutMs: i.number(),
+    }),
+    "log-sampled-apps": i.entity({
+      appId: i.string().unique(),
+      sampleRate: i.number(),
     }),
     "power-user-emails": i.entity({
       email: i.string().unique(),
@@ -31,12 +45,41 @@ const graph = i.graph(
     "promo-emails": i.entity({
       email: i.string(),
     }),
+    "query-flags": i.entity({
+      description: i.string(),
+      "query-hash": i.number(),
+      setting: i.string(),
+      value: i.string(),
+    }),
+    "query-modifiers": i.entity({
+      "app-id": i.string(),
+      "dollar-params": i.json(),
+      etype: i.string(),
+      "query-hash": i.number(),
+    }),
     "rate-limited-apps": i.entity({
       appId: i.string().unique(),
     }),
+    "rule-where-testing": i.entity({
+      enabled: i.boolean(),
+    }),
+    "rule-wheres": i.entity({
+      "app-ids": i.json(),
+      "query-hash-blacklist": i.any(),
+      "query-hashes": i.any(),
+    }),
+    "storage-block-list": i.entity({
+      appId: i.string().unique().indexed(),
+      isDisabled: i.boolean(),
+    }),
+    "storage-migration": i.entity({
+      "disableLegacy?": i.boolean(),
+      "dualWrite?": i.boolean().optional(),
+      "useLocationId?": i.boolean(),
+    }),
     "storage-whitelist": i.entity({
       appId: i.string().unique().indexed(),
-      email: i.string(),
+      email: i.string().optional(),
       isEnabled: i.boolean(),
     }),
     "team-emails": i.entity({
@@ -45,19 +88,37 @@ const graph = i.graph(
     "test-emails": i.entity({
       email: i.string(),
     }),
-    "welcome-email-config": i.entity({
-      'enabled?': i.boolean(),
-      limit: i.number()
+    toggles: i.entity({
+      setting: i.string().unique().indexed(),
+      toggled: i.boolean(),
     }),
-    "threading": i.entity({
-      "use-vfutures": i.boolean()
-    })
+    "welcome-email-config": i.entity({
+      "enabled?": i.boolean(),
+      limit: i.number(),
+    }),
   },
-  // You can define links here.
-  // For example, if `posts` should have many `comments`.
-  // More in the docs:
-  // https://www.instantdb.com/docs/schema#defining-links
-  {}
-);
+  links: {
+    $usersLinkedPrimaryUser: {
+      forward: {
+        on: "$users",
+        has: "one",
+        label: "linkedPrimaryUser",
+        onDelete: "cascade",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "linkedGuestUsers",
+      },
+    },
+  },
+  rooms: {},
+});
 
-export default graph;
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export type { AppSchema };
+export default schema;

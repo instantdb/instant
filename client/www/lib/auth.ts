@@ -2,17 +2,21 @@ import Cookies from 'js-cookie';
 import { useContext, useEffect, useState } from 'react';
 import useSwr, { SWRResponse } from 'swr';
 import config from './config';
-import { jsonFetch, jsonMutate } from './fetch';
+import { jsonFetch, jsonMutate, trackingHeaders } from './fetch';
 import { TokenContext } from '@/lib/contexts';
-import { InstantError } from './types';
-import { capitalize } from 'lodash';
 import produce, { Draft } from 'immer';
 
 // ----------
 // Auth State
 
-type Sub = (token: string | undefined) => void;
-type AuthInfo = { token: string | undefined };
+type AuthUser = {
+  id: string;
+  email: string;
+  created_at: string;
+};
+
+type AuthInfo = { token: string | undefined; user: AuthUser | undefined };
+type Sub = (authInfo: AuthInfo) => void;
 export type APIResponse<Data> = SWRResponse<Data> & {
   optimisticUpdate: <MutationResponse>(
     mutationPromiseToWaitFor: Promise<MutationResponse>,
@@ -25,10 +29,10 @@ function recordLoggedInStateInCookie(authInfo: AuthInfo) {
 }
 
 function bootstrapAuthInfo(): AuthInfo {
-  const empty = { token: undefined };
+  const empty: AuthInfo = { token: undefined, user: undefined };
   if (typeof window == 'undefined') return empty;
   const fromStorage = localStorage.getItem('@AUTH');
-  const res = fromStorage ? JSON.parse(fromStorage) : empty;
+  const res: AuthInfo = fromStorage ? JSON.parse(fromStorage) : empty;
   recordLoggedInStateInCookie(res);
   return res;
 }
@@ -50,14 +54,11 @@ function subscribe(fn: Sub) {
   };
 }
 
-function change(newToken: string | undefined) {
-  _AUTH_INFO.token = newToken;
+function setAuthInfo(authInfo: AuthInfo) {
+  _AUTH_INFO.token = authInfo.token;
+  _AUTH_INFO.user = authInfo.user;
   saveAuthInfo(_AUTH_INFO);
-  _SUBS.forEach(({ fn }) => fn(_AUTH_INFO.token));
-}
-
-function clearToken() {
-  change(undefined);
+  _SUBS.forEach(({ fn }) => fn(_AUTH_INFO));
 }
 
 // --------
@@ -66,17 +67,46 @@ function clearToken() {
 export function useAuthToken(): string | undefined {
   const [authToken, setAuthToken] = useState(_AUTH_INFO.token);
   useEffect(() => {
-    const unsub = subscribe((newToken) => {
-      setAuthToken(newToken);
+    const unsub = subscribe((authInfo) => {
+      setAuthToken(authInfo.token);
     });
     return unsub;
   }, []);
   return authToken;
 }
 
+export function useAuthInfo(): AuthInfo {
+  const [authInfo, setAuthInfo] = useState<AuthInfo>(_AUTH_INFO);
+  useEffect(() => {
+    const unsub = subscribe((newAuthInfo) => {
+      setAuthInfo(newAuthInfo);
+    });
+    return unsub;
+  }, []);
+  return authInfo;
+}
+
+function clearAuthInfo() {
+  setAuthInfo({ token: undefined, user: undefined });
+}
+
 export function useAuthedFetch<Res = any>(path: string) {
   const token = useContext(TokenContext);
-  return useTokenFetch<Res>(path, token, clearToken);
+  return useTokenFetch<Res>(path, token, clearAuthInfo);
+}
+
+export function useAdmin() {
+  const token = useAuthToken();
+  const { data, error, isLoading } = useTokenFetch<{ ok: boolean }>(
+    `${config.apiURI}/dash/check-admin`,
+    token,
+  );
+
+  return {
+    isAdmin: data?.ok === true,
+    isLoading,
+    error,
+  };
 }
 
 export function useTokenFetch<Res>(
@@ -88,7 +118,7 @@ export function useTokenFetch<Res>(
     path && token ? [path, token] : null,
     async ([path, token]) => {
       const res = await fetch(path, {
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${token}`, ...trackingHeaders },
       });
       const jsonRes = await res.json();
       if (!res.ok) {
@@ -119,47 +149,10 @@ export function useTokenFetch<Res>(
   };
 }
 
-// --------
-// Error Messages
-
-const friendlyName = (s: string) => {
-  return s.replaceAll(/[_-]/g, ' ');
-};
-
-const friendlyNameFromIn = (inArr: string[]) => {
-  return friendlyName(inArr[inArr.length - 1]);
-};
-
-/* Standardize error messages from Instant */
-export const messageFromInstantError = (
-  e: InstantError,
-): string | undefined => {
-  const body = e.body;
-  if (!body) return;
-  switch (body.type) {
-    case 'param-missing':
-      return `${capitalize(friendlyNameFromIn(body.hint.in))} is missing.`;
-    case 'param-malformed':
-      return `${capitalize(friendlyNameFromIn(body.hint.in))} is malformed`;
-    case 'record-not-found':
-      return `We couldn't find this ${friendlyName(body.hint['record-type'])}`;
-    case 'record-not-unique':
-      return `This ${friendlyName(body.hint['record-type'])} already exists`;
-    case 'validation-failed':
-      const error = body.hint.errors?.[0]?.message;
-      if (typeof error === 'string') {
-        return error;
-      }
-      return;
-    default:
-      return body.message;
-  }
-};
-
 /**
-  * Friendly error messages to display to our users
-  * We can add more cases as we encounter them
-*/
+ * Friendly error messages to display to our users
+ * We can add more cases as we encounter them
+ */
 export function friendlyErrorMessage(label: string, message: string) {
   switch (label) {
     case 'dash-billing':
@@ -194,7 +187,7 @@ export async function verifyMagicCode({
   email: string;
   code: string;
 }) {
-  const res: { token: string } = await jsonFetch(
+  const res: { token: string; user: AuthUser } = await jsonFetch(
     `${config.apiURI}/dash/auth/verify_magic_code`,
     {
       method: 'POST',
@@ -202,7 +195,7 @@ export async function verifyMagicCode({
       body: JSON.stringify({ email, code }),
     },
   );
-  change(res.token);
+  setAuthInfo({ token: res.token, user: res.user });
   return res;
 }
 
@@ -222,22 +215,20 @@ export async function signOut() {
   } catch (e) {
     console.error('Error signing out', e);
   }
-  change(undefined);
+  clearAuthInfo();
 }
 
 // ---------
 // OAuth API
 
 export async function exchangeOAuthCodeForToken({ code }: { code: string }) {
-  const res: { token: string; redirect_path: string } = await jsonFetch(
-    `${config.apiURI}/dash/oauth/token`,
-    {
+  const res: { token: string; redirect_path: string; user: AuthUser } =
+    await jsonFetch(`${config.apiURI}/dash/oauth/token`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ code }),
-    },
-  );
-  change(res.token);
+    });
+  setAuthInfo({ token: res.token, user: res.user });
   return res;
 }
 

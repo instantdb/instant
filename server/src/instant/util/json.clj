@@ -1,13 +1,25 @@
 (ns instant.util.json
   (:require [cheshire.core :as cheshire]
-            [cheshire.generate :refer [add-encoder encode-nil]])
+            [cheshire.generate :refer [encode-nil encode-str]]
+            [cheshire.factory :as factory]
+            [cheshire.parse :as parse])
   (:import (com.google.protobuf NullValue)
            (dev.cel.expr Value)
-           (com.fasterxml.jackson.core JsonGenerator)
-           (com.google.protobuf.util JsonFormat)))
+           (com.fasterxml.jackson.core JsonGenerator JsonFactory)
+           (com.google.protobuf.util JsonFormat)
+           (java.time Instant)
+           (java.util Map List)))
+
+(def add-encoder cheshire.generate/add-encoder)
+(def encode-java-map (fn [^Map m ^JsonGenerator jg]
+                       (cheshire.generate/encode-map (into {} m) jg)))
+(def encode-java-list (fn [^List l ^JsonGenerator jg]
+                       (cheshire.generate/encode-seq (seq l) jg)))
 
 ;; Encode NullValue as nil
 (add-encoder NullValue encode-nil)
+
+(add-encoder Instant encode-str)
 
 (defn encode-cel-expr-value
   "Encode cel expression values using the protobuf json encoder"
@@ -26,6 +38,36 @@
   "Converts a JSON string to a Clojure data structure."
   cheshire/parse-string)
 
+(def <-json-stream
+  cheshire/parse-stream)
+
+(def big-factory (factory/make-json-factory
+                               ;; default is 20000000
+                  {:max-input-string-length 200000000}))
+
+(defn <-json-big
+  "Converts a JSON string to a Clojure data structure.
+   Allows for larger stings than <-json.
+
+   Used to parse wal records that are very large, to prevent a large
+   string from stopping the entire wal parser. Should not be used
+   for user-facing input in general."
+  ([s]
+   (<-json-big s nil))
+  ([s key-fn]
+   (binding [factory/*json-factory* big-factory]
+     (<-json s key-fn))))
+
+(defn parse-bytes [^bytes bytes ^Integer offset ^Integer len]
+  (parse/parse
+   (.createParser ^JsonFactory (or factory/*json-factory*
+                                   factory/json-factory)
+                  bytes
+                  offset
+                  len)
+   nil nil nil))
+
+
 (defn json-type-of-clj [v]
   (cond (string? v)
         "string"
@@ -36,6 +78,7 @@
         (nil? v)
         "null"
         (or (vector? v)
-            (list? v))
+            (list? v)
+            (seq? v))
         "array"
         :else "object"))

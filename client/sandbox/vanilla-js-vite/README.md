@@ -5,13 +5,13 @@
   <h1 align="center">sandbox/vanilla-js-vite</h1>
 </p>
 
-This is sandbox app to play with [@instantdb/core](../../packages/core/). 
+This is sandbox app to play with [@instantdb/core](../../packages/core/).
 
 # Development
 
 First, let's set up your environment. Create an Instant app, either on your local backend or prod, and fill out the token info in your `.env` file.
 
-```bash 
+```bash
 cp .env.example .env
 # fill in the variables in .env
 ```

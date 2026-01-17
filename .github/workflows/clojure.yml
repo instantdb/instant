@@ -1,54 +1,119 @@
 name: Clojure CI
 
+env:
+  INSTANT_TIMINGS_APP_ID: 'b6003065-8152-4b15-8bcd-09a70e322854'
+
 on:
-  pull_request:
   push:
 
 jobs:
-  detect_clj:
+  detect_changes:
     runs-on: ubuntu-latest
     outputs:
-      did_change: ${{ steps.detect-change.outputs.did_change }}
+      clj_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).clj_did_change }}
+      refinery_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).refinery_did_change }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+    - name: Detect changes
+      id: detect_changes
+      uses: actions/github-script@v7
       with:
-        fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
-    - name: Get changed files
-      id: changed-files
+        script: |
+          const base = context.payload.before || context.payload.pull_request?.base.sha;
+          const head = context.payload.after || context.payload.pull_request?.head.sha;
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const { data } = await (base === '0000000000000000000000000000000000000000'
+            ? github.rest.repos.getCommit({
+                owner,
+                repo,
+                ref: head,
+              })
+            : github.rest.repos.compareCommits({
+                owner,
+                repo,
+                base,
+                head,
+              }));
+          const files = data.files.map((f) => f.filename);
+
+          const output = {
+            clj_did_change: false,
+            refinery_did_change: false,
+          };
+
+          for (const file of files) {
+            const changes = {
+              server: file.startsWith('server/'),
+              refinery: file.startsWith('server/refinery/'),
+              workflowFile: file === '.github/workflows/clojure.yml'
+            };
+            console.log('file', file);
+            console.log('changes', changes);
+            if (changes.server || changes.workflowFile) {
+              console.log('clj_did_change', true);
+              output.clj_did_change = true;
+            }
+
+            if (changes.refinery) {
+              console.log('clj_did_change', true);
+              output.clj_did_change = true;
+              console.log('refinery_did_change', true);
+              output.refinery_did_change = true;
+            }
+          }
+
+          console.log('output', output);
+          return output;
+    - name: Fetch timings
+      if: ${{ fromJSON(steps.detect_changes.outputs.result) }}
+      env:
+        INSTANT_TIMINGS_ADMIN_TOKEN: ${{ secrets.INSTANT_TIMINGS_ADMIN_TOKEN }}
+      continue-on-error: true
       run: |
-        if ${{ github.event_name == 'pull_request' || github.event.before == '0000000000000000000000000000000000000000' }}; then
-            echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | xargs)" >> $GITHUB_OUTPUT
+        if [ -n "$INSTANT_TIMINGS_ADMIN_TOKEN" ]; then
+          curl 'https://api.instantdb.com/admin/query' \
+            -v \
+            -H "app-id: $INSTANT_TIMINGS_APP_ID" \
+            -H "Authorization: Bearer $INSTANT_TIMINGS_ADMIN_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-raw '{"query": {"timings": {}}}' \
+            -o timings.json || echo "curl failed to fetch timings"
         else
-            echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
+          echo "No admin token, skipping timings fetch"
         fi
-    - name: Detect clojure changes
-      id: detect-change
-      run: |
-        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
-        echo "did_change=False" >> $GITHUB_OUTPUT
-        for file in ${changeArr[*]}
-        do
-          if echo $file | grep -E '^server/' | grep -E -v '^server/refinery/'; then
-            echo "did_change=True" >> $GITHUB_OUTPUT
-            break
-          fi
-        done
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: timings
+        path: timings.json
+
 
   clj-check:
     runs-on: ubuntu-latest
-    needs: [ detect_clj ]
-    if: needs.detect_clj.outputs.did_change == 'True'
+    needs: [ detect_changes ]
+    if: needs.detect_changes.outputs.clj_did_change == 'true'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # List of indicies from 0 to NODE_COUNT
+        # Make sure this matches NODE_COUNT below
+        node_index: [0, 1, 2, 3, 4]
 
     services:
       postgres:
-        image: public.ecr.aws/z9j8u5b3/instant-public:postgres-17
+        image: ghcr.io/instantdb/postgresql:postgresql-17-pg-hint-plan
         ports:
           - 5432:5432
         env:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_password
           POSTGRES_DB: test_db
+        options: >-
+          --health-cmd "exit 0"
+          --health-interval 1s
+          --health-timeout 1s
+          --health-retries 1
 
     steps:
     - name: Checkout
@@ -63,6 +128,7 @@ jobs:
     - name: Prepare database
       env:
         DATABASE_URL: "postgres://test_user:test_password@localhost:5432/test_db?sslmode=disable"
+      timeout-minutes: 1
       run: |
         curl -L "https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz" | tar xvz
         chmod +x migrate
@@ -74,26 +140,56 @@ jobs:
            -source file://server/resources/migrations \
            -database $DATABASE_URL \
            up
-        ./server/dev-resources/import_test_data.sh
+
+        psql -d $DATABASE_URL -c "select version()"
+
+        # Uncomment to see auto explain logs at the end of tests in the stop containers step
+        # psql -d $DATABASE_URL -v ON_ERROR_STOP=1 <<'SQL'
+        # ALTER SYSTEM SET session_preload_libraries = 'auto_explain';
+        # SELECT pg_reload_conf();
+        # SQL
+
+        # psql -d $DATABASE_URL -v ON_ERROR_STOP=1 <<'SQL'
+        # ALTER SYSTEM SET auto_explain.log_min_duration = '100ms';
+        # ALTER SYSTEM SET auto_explain.log_analyze = on;
+        # ALTER SYSTEM SET auto_explain.log_nested_statements = on;
+        # ALTER SYSTEM SET auto_explain.log_timing = on;
+        # ALTER SYSTEM SET auto_explain.log_triggers = on;
+        # ALTER SYSTEM SET auto_explain.log_verbose = on;
+        # ALTER SYSTEM SET auto_explain.log_buffers = on;
+        # ALTER SYSTEM SET auto_explain.log_parameter_max_length = 0;
+        # SELECT pg_reload_conf();
+        # SQL
 
     - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
+      uses: DeLaGuardo/setup-clojure@13.1
       with:
         cli: 1.11.3.1463
 
-    - name: Cache Clojure Dependencies
-      uses: actions/cache@v3
+    - name: Restore Clojure Dependencies Cache
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.m2/repository
           ~/.gitlibs
           ~/.deps.clj
         key: cljdeps-${{ hashFiles('server/deps.edn') }}
-        restore-keys: cljdeps
+        restore-keys: |
+          cljdeps-
+
+    - name: Get timings
+      uses: actions/download-artifact@v4
+      with:
+        pattern: timings
+        path: server
 
     - name: Install Clojure dependencies
       working-directory: server
       run: clojure -P
+
+    - name: Compile java src files
+      working-directory: server
+      run: clojure -T:build compile-java
 
     - name: Run Clojure tests
       working-directory: server
@@ -101,6 +197,11 @@ jobs:
         DATABASE_URL: "jdbc:postgresql://localhost:5432/test_db?user=test_user&password=test_password"
         TEST: "true"
         STRIPE_API_KEY: ${{ secrets.STRIPE_TEST_KEY }}
+        INSTANT_TIMINGS_ADMIN_TOKEN: ${{ secrets.INSTANT_TIMINGS_ADMIN_TOKEN }}
+        SAVE_TIMINGS: ${{ github.ref == 'refs/heads/main' }}
+        NODE_INDEX: ${{ matrix.node_index }}
+        # Make sure this matches the length of the matrix
+        NODE_COUNT: "5"
       run: clojure -M:test
 
     - name: Publish Test Report
@@ -109,10 +210,21 @@ jobs:
       with:
         report_paths: '**/server/target/test-results/*.xml'
 
+    - name: Save Clojure Dependencies Cache
+      if: github.ref == 'refs/heads/main'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.m2/repository
+          ~/.gitlibs
+          ~/.deps.clj
+        key: cljdeps-${{ hashFiles('server/deps.edn') }}
+
+
   clj-build-check:
     runs-on: ubuntu-latest
-    needs: [ detect_clj ]
-    if: needs.detect_clj.outputs.did_change == 'True'
+    needs: [ detect_changes ]
+    if: needs.detect_changes.outputs.clj_did_change == 'true'
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -124,12 +236,12 @@ jobs:
         java-version: '22'
 
     - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
+      uses: DeLaGuardo/setup-clojure@13.1
       with:
         cli: 1.11.3.1463
 
     - name: Cache Clojure Dependencies
-      uses: actions/cache@v3
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.m2/repository
@@ -148,8 +260,8 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-    needs: [ detect_clj ]
-    if: needs.detect_clj.outputs.did_change == 'True'
+    needs: [ detect_changes ]
+    if: needs.detect_changes.outputs.clj_did_change == 'true'
 
     steps:
     - name: Checkout
@@ -162,12 +274,12 @@ jobs:
         java-version: '22'
 
     - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
+      uses: DeLaGuardo/setup-clojure@13.1
       with:
         cli: 1.11.3.1463
 
     - name: Cache Clojure Dependencies
-      uses: actions/cache@v3
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.m2/repository
@@ -186,9 +298,9 @@ jobs:
 
   publish-image:
     runs-on: ubuntu-latest
-    if: needs.detect_clj.outputs.did_change == 'True' && github.ref == 'refs/heads/main'
+    if: (needs.detect_changes.outputs.clj_did_change == 'true' && github.ref == 'refs/heads/main') || contains(github.event.head_commit.message, '[staging]')
     # Start publish image if we have clj changes
-    needs: [ detect_clj ]
+    needs: [ detect_changes ]
     permissions:
       id-token: write
       contents: read
@@ -250,47 +362,16 @@ jobs:
       uses: "./.github/actions/elastic-beanstalk"
       with:
         working-directory: "server"
-        files: '["docker-compose.yml", ".ebextensions/resources.config", ".ebextensions/sysctl.config", ".platform/hooks/prebuild/prebuild.sh"]'
+        files: '["docker-compose.yml", ".ebextensions/resources.config", ".ebextensions/sysctl.config", ".platform/hooks/prebuild/prebuild.sh", ".platform/hooks/postdeploy/cloudwatch.sh", ".platform/confighooks/prebuild/prebuild.sh", ".platform/confighooks/postdeploy/cloudwatch.sh"]'
         aws-region: "us-east-1"
         bucket: "elasticbeanstalk-us-east-1-597134865416"
         application-name: "instant-docker-prod"
 
-  detect_refinery:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    outputs:
-      did_change: ${{ steps.detect-change.outputs.did_change }}
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
-    - name: Get changed files
-      id: changed-files
-      run: |
-        if ${{ github.event_name == 'pull_request' || github.event.before == '0000000000000000000000000000000000000000' }}; then
-            echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | xargs)" >> $GITHUB_OUTPUT
-        else
-            echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
-        fi
-    - name: Detect refinery changes
-      id: detect-change
-      run: |
-        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
-        echo "did_change=False" >> $GITHUB_OUTPUT
-        for file in ${changeArr[*]}
-        do
-          if echo $file | grep -E '^server/refinery/'; then
-            echo "did_change=True" >> $GITHUB_OUTPUT
-            break
-          fi
-        done
-
   publish-refinery-eb:
     runs-on: ubuntu-latest
-    if: needs.detect_refinery.outputs.did_change == 'True'
+    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.refinery_did_change == 'true'
     needs:
-      - detect_refinery
+      - detect_changes
     permissions:
       id-token: write
       contents: read

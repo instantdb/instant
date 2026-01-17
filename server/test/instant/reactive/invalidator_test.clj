@@ -1,6 +1,5 @@
 (ns instant.reactive.invalidator-test
   (:require
-   [clojure.core.async :as a]
    [clojure.string :as string]
    [clojure.test :as test :refer [deftest testing is]]
    [instant.data.resolvers :as resolvers]
@@ -8,10 +7,14 @@
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-zeneca-app]]
    [instant.jdbc.aurora :as aurora]
+   [instant.reactive.ephemeral :as eph]
+   [instant.reactive.topics :as topics]
    [instant.reactive.invalidator :as inv]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json]]
-   [instant.util.test :refer [wait-for]]))
+   [instant.util.test :refer [wait-for]])
+  (:import
+   (com.hazelcast.topic Message)))
 
 (defn transform-change [{:keys [columnnames columntypes columnvalues] :as v1}]
   (merge (select-keys v1 [:schema :table])
@@ -145,38 +148,76 @@
        false
        false],
       :oldkeys
-      {:keynames ["app_id" "entity_id" "attr_id" "value_md5"],
-       :keytypes ["uuid" "uuid" "uuid" "text"],
+      {:keynames ["app_id" "entity_id" "attr_id" "value" "value_md5"],
+       :keytypes ["uuid" "uuid" "uuid" "text" "text"],
        :keyvalues
        ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
         "7c6b379b-d841-46e1-8970-2da7e0cbc490"
         "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"
+        "\"Old Movie\""
         "01a892b6f33fa54aa3e8056d49b790db"]}})))
 
 (def delete-triple-changes
-  (->wal2jsonv2
-   '({:kind "delete",
-      :schema "public",
-      :table "triples",
-      :oldkeys
-      {:keynames ["app_id" "entity_id" "attr_id" "value_md5"],
-       :keytypes ["uuid" "uuid" "uuid" "text"],
-       :keyvalues
-       ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
-        "7c6b379b-d841-46e1-8970-2da7e0cbc490"
-        "6a631008-d315-4bbd-8665-c92aed9abc9c"
-        "d68a18275455ae3eaa2c291eebb46e6d"]}}
-     {:kind "delete",
-      :schema "public",
-      :table "triples",
-      :oldkeys
-      {:keynames ["app_id" "entity_id" "attr_id" "value_md5"],
-       :keytypes ["uuid" "uuid" "uuid" "text"],
-       :keyvalues
-       ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
-        "7c6b379b-d841-46e1-8970-2da7e0cbc490"
-        "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"
-        "26833117de9ecb130a208c6da76eb18b"]}})))
+  [{:action :delete,
+    :lsn "2D4/71E9E610",
+    :schema "public",
+    :table "triples",
+    :identity
+    [{:name "app_id",
+      :type "uuid",
+      :value "ecf244fe-87bf-489a-8618-b617e822d65d"}
+     {:name "entity_id",
+      :type "uuid",
+      :value "12f213cf-c7a7-420e-b47a-f148c9e36f21"}
+     {:name "attr_id",
+      :type "uuid",
+      :value "cb1d86ce-8dad-4cf9-87bc-e00d79fb0fa3"}
+     {:name "value",
+      :type "jsonb",
+      :value "\"12f213cf-c7a7-420e-b47a-f148c9e36f21\""}
+     {:name "value_md5",
+      :type "text",
+      :value "76a76d67743140985b3fdb82eb087754"}
+     {:name "ea", :type "boolean", :value true}
+     {:name "eav", :type "boolean", :value false}
+     {:name "av", :type "boolean", :value true}
+     {:name "ave", :type "boolean", :value false}
+     {:name "vae", :type "boolean", :value false}
+     {:name "created_at", :type "bigint", :value 1764627956167}
+     {:name "checked_data_type",
+      :type "checked_data_type",
+      :value nil}
+     {:name "pg_size", :type "integer", :value 180}],
+    :tx-bytes 889}
+   {:action :delete,
+    :lsn "2D4/71E9E720",
+    :schema "public",
+    :table "triples",
+    :identity
+    [{:name "app_id",
+      :type "uuid",
+      :value "ecf244fe-87bf-489a-8618-b617e822d65d"}
+     {:name "entity_id",
+      :type "uuid",
+      :value "12f213cf-c7a7-420e-b47a-f148c9e36f21"}
+     {:name "attr_id",
+      :type "uuid",
+      :value "f9ae4e62-b193-4b99-bdd4-a5ede7b923c1"}
+     {:name "value", :type "jsonb", :value "\"hello\""}
+     {:name "value_md5",
+      :type "text",
+      :value "5deaee1c1332199e5b5bc7c5e4f7f0c2"}
+     {:name "ea", :type "boolean", :value true}
+     {:name "eav", :type "boolean", :value false}
+     {:name "av", :type "boolean", :value false}
+     {:name "ave", :type "boolean", :value false}
+     {:name "vae", :type "boolean", :value false}
+     {:name "created_at", :type "bigint", :value 1764627956167}
+     {:name "checked_data_type",
+      :type "checked_data_type",
+      :value "string"}
+     {:name "pg_size", :type "integer", :value 152}],
+    :tx-bytes 863}])
 
 (def create-ident-changes
   (->wal2jsonv2
@@ -248,6 +289,85 @@
        :keytypes ["uuid"],
        :keyvalues ["a684c2ba-27af-4d54-8c02-68832b4566f0"]}})))
 
+(def restore-attr-changes
+  [{:action :update,
+    :lsn "8/BB2BEB60",
+    :schema "public",
+    :table "attrs",
+    :columns
+    [{:name "id",
+      :type "uuid",
+      :value "d57f071f-737d-4d12-baaf-298ee202d24d"}
+     {:name "app_id",
+      :type "uuid",
+      :value "6384b04c-e790-48a2-86b1-fc6ee294adb7"}
+     {:name "value_type", :type "text", :value "blob"}
+     {:name "cardinality", :type "text", :value "one"}
+     {:name "is_unique", :type "boolean", :value false}
+     {:name "is_indexed", :type "boolean", :value false}
+     {:name "forward_ident",
+      :type "uuid",
+      :value "2e05dc1b-6e9e-4844-820d-7cf15813fdf6"}
+     {:name "reverse_ident", :type "uuid", :value nil}
+     {:name "inferred_types",
+      :type "bit(32)",
+      :value "00000000000000000000000000000010"}
+     {:name "on_delete", :type "attr_on_delete", :value nil}
+     {:name "checked_data_type",
+      :type "checked_data_type",
+      :value "string"}
+     {:name "checking_data_type", :type "boolean", :value nil}
+     {:name "indexing", :type "boolean", :value nil}
+     {:name "setting_unique", :type "boolean", :value nil}
+     {:name "on_delete_reverse", :type "attr_on_delete", :value nil}
+     {:name "is_required", :type "boolean", :value false}
+     {:name "etype", :type "text", :value "posts"}
+     {:name "label", :type "text", :value "title"}
+     {:name "reverse_etype", :type "text", :value nil}
+     {:name "reverse_label", :type "text", :value nil}
+     {:name "deletion_marked_at",
+      :type "timestamp with time zone",
+      :value nil}],
+    :identity
+    [{:name "id",
+      :type "uuid",
+      :value "d57f071f-737d-4d12-baaf-298ee202d24d"}
+     {:name "app_id",
+      :type "uuid",
+      :value "6384b04c-e790-48a2-86b1-fc6ee294adb7"}
+     {:name "value_type", :type "text", :value "blob"}
+     {:name "cardinality", :type "text", :value "one"}
+     {:name "is_unique", :type "boolean", :value false}
+     {:name "is_indexed", :type "boolean", :value false}
+     {:name "forward_ident",
+      :type "uuid",
+      :value "2e05dc1b-6e9e-4844-820d-7cf15813fdf6"}
+     {:name "reverse_ident", :type "uuid", :value nil}
+     {:name "inferred_types",
+      :type "bit(32)",
+      :value "00000000000000000000000000000010"}
+     {:name "on_delete", :type "attr_on_delete", :value nil}
+     {:name "checked_data_type",
+      :type "checked_data_type",
+      :value "string"}
+     {:name "checking_data_type", :type "boolean", :value nil}
+     {:name "indexing", :type "boolean", :value nil}
+     {:name "setting_unique", :type "boolean", :value nil}
+     {:name "on_delete_reverse", :type "attr_on_delete", :value nil}
+     {:name "is_required", :type "boolean", :value false}
+     {:name "etype",
+      :type "text",
+      :value "d57f071f-737d-4d12-baaf-298ee202d24d_deleted$posts"}
+     {:name "label",
+      :type "text",
+      :value "d57f071f-737d-4d12-baaf-298ee202d24d_deleted$title"}
+     {:name "reverse_etype", :type "text", :value nil}
+     {:name "reverse_label", :type "text", :value nil}
+     {:name "deletion_marked_at",
+      :type "timestamp with time zone",
+      :value "2025-08-01 09:16:58.402186-07"}],
+    :tx-bytes 2763}])
+
 (def update-ident-changes
   (->wal2jsonv2
    '({:kind "update",
@@ -288,101 +408,51 @@
 
 (deftest changes-produce-correct-topics
   (testing "insert triples"
-    (is (= #{[:ea
-              #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
+    (is (= #{[#{:ea} #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
               #{"New Movie"}]
-             [:ea
-              #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
+             [#{:ea} #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
               #{1987}]}
-           (inv/topics-for-changes {:triple-changes create-triple-changes}))))
+           (topics/topics-for-changes {:triple-changes create-triple-changes}))))
   (testing "update triples"
-    (is (= '#{[:ea
+    (is (= '#{[#{:ea}
                #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
                #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]}
-           (inv/topics-for-changes {:triple-changes update-triple-changes}))))
-  (testing "update triples"
-    (is (= '#{[:ave
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]
-              [:eav
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]
-              [:av
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]
-              [:vae
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
-               _]
-              [:eav
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
-               _]
-              [:ave
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
-               _]
-              [:ea
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
-               _]
-              [:av
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
-               _]
-              [:ea
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]
-              [:vae
-               #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
-               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
-               _]}
-           (inv/topics-for-changes {:triple-changes delete-triple-changes}))))
+               #{"Updated Movie3" "Old Movie"}]}
+           (topics/topics-for-changes {:triple-changes update-triple-changes}))))
+  (testing "delete triples"
+    (is (= #{[#{:ea}
+              #{#uuid "12f213cf-c7a7-420e-b47a-f148c9e36f21"}
+              #{#uuid "f9ae4e62-b193-4b99-bdd4-a5ede7b923c1"}
+              #{"hello"}]
+             [#{:av :ea}
+              #{#uuid "12f213cf-c7a7-420e-b47a-f148c9e36f21"}
+              #{#uuid "cb1d86ce-8dad-4cf9-87bc-e00d79fb0fa3"}
+              #{"12f213cf-c7a7-420e-b47a-f148c9e36f21"}]}
+           (topics/topics-for-changes {:triple-changes delete-triple-changes}))))
   (testing "create attrs + idents (these happen together)"
-    (is (= '#{[:ave _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
-              [:eav _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
-              [:vae _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
-              [:av _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
-              [:ea _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]}
-           (inv/topics-for-changes {:ident-changes create-ident-changes
-                                    :attr-changes create-attr-changes}))))
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]}
+           (topics/topics-for-changes {:ident-changes create-ident-changes
+                                       :attr-changes create-attr-changes}))))
   (testing "update idents isolated"
-    (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ea _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
-           (inv/topics-for-changes {:ident-changes update-ident-changes}))))
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
+           (topics/topics-for-changes {:ident-changes update-ident-changes}))))
   (testing "update attrs isolated"
-    (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ea _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
-           (inv/topics-for-changes {:attr-changes update-attr-changes}))))
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
+           (topics/topics-for-changes {:attr-changes update-attr-changes}))))
   (testing "update attr + idents"
-    (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ea _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
-              [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
-           (inv/topics-for-changes {:ident-changes update-ident-changes
-                                    :attr-changes update-attr-changes}))))
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
+           (topics/topics-for-changes {:ident-changes update-ident-changes
+                                       :attr-changes update-attr-changes}))))
+  (testing "restoring an attr includes a full wildcard for :ea"
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
+              [#{:ea} _ _ _]}
+           (topics/topics-for-changes {:attr-changes restore-attr-changes}))))
   (testing "delete attr + idents (these happen together)"
-    (is (= '#{[:ea _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
-              [:vae _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
-              [:ave _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
-              [:eav _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
-              [:av _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]}
-           (inv/topics-for-changes {:ident-changes delete-ident-changes
-                                    :attr-changes delete-attr-changes})))))
+    (is (= '#{[#{:av :ea :eav :vae :ave} _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]}
+           (topics/topics-for-changes {:ident-changes delete-ident-changes
+                                       :attr-changes delete-attr-changes})))))
 
 (defn ->md5 [s]
   (-> s
@@ -401,10 +471,10 @@
                                        #"-"
                                        "_")]
         (with-redefs [inv/invalidate!
-                      (fn [process-id store-conn {:keys [app-id tx-id] :as wal-record}]
+                      (fn [process-id store {:keys [app-id] :as wal-record}]
                         (if (and (= machine-id process-id) (= (:id app) app-id))
                           (swap! records conj wal-record)
-                          (invalidate! store-conn wal-record)))]
+                          (invalidate! process-id store wal-record)))]
           (let [process (inv/start machine-id)
                 uid (random-uuid)]
             (try
@@ -422,7 +492,8 @@
                 (is (= (set (map (fn [change]
                                    (-> change
                                        xform-change
-                                       (dissoc "created_at")))
+                                       (dissoc "created_at")
+                                       (dissoc "pg_size")))
                                  (:triple-changes rec)))
                        #{{"eav" false,
                           "av" true,
@@ -435,20 +506,62 @@
                           "vae" false,
                           "app_id" (str (:id app))
                           "checked_data_type" nil}
-                         {"eav" true,
+                         {"eav" false,
                           "av" true,
-                          "ave" true,
+                          "ave" false,
                           "value_md5" (->md5 (->json (str uid)))
                           "entity_id" (str uid)
                           "attr_id" (str (resolvers/->uuid r :users/id))
                           "ea" true,
                           "value" (->json (str uid))
-                          "vae" true,
+                          "vae" false,
                           "app_id" (str (:id app))
-                          "checked_data_type" nil}})))
+                          "checked_data_type" nil}
+                         ;; null that is automatically inserted for the
+                         ;; indexed blob attr
+                         {"eav" false,
+                          "av" true,
+                          "ave" true,
+                          "value_md5" "37a6259cc0c1dae299a7866489dff0bd",
+                          "entity_id" (str uid)
+                          "attr_id" (str (resolvers/->uuid r :users/email))
+                          "ea" true,
+                          "value" "null",
+                          "checked_data_type" nil,
+                          "vae" false,
+                          "app_id" (str (:id app))}})))
 
               (finally
                 (inv/stop process)))))))))
+
+(deftest topic-listener-ignores-old-messages
+  (let [hz (eph/get-hz)
+        topic-name (str "test-topic-" (crypt-util/random-hex 8))
+        topic (.getReliableTopic (eph/get-hz) topic-name)]
+    (try
+      (let [ring-buffer (inv/topic-ring-buffer hz topic-name)
+            ;; Publish some messages to load up the queue
+            _ (dotimes [x 5] (.publish topic {:type :before-listener-added
+                                              :i x}))
+            msgs (atom [])
+            ;; Add listener after the messages were adde
+            listener (inv/hz-topic-listener ring-buffer (fn [^Message m]
+                                                          (swap! msgs conj (.getMessageObject m))))]
+        (.addMessageListener topic listener)
+
+        (dotimes [x 5] (.publish topic {:type :after-listener-added
+                                        :i x}))
+
+        (wait-for (fn []
+                    (<= 5 (count @msgs)))
+                  1000)
+
+        (is (every? (fn [m]
+                      (= :after-listener-added (:type m)))
+                    @msgs)
+            "Listener shouldn't get any of the messages that were added before, but should get all of the messages added after."))
+      (finally
+        (.destroy topic)))))
 
 (comment
   (test/run-tests *ns*))

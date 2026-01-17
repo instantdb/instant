@@ -6,16 +6,15 @@
    [clojure.core :as c]
    [instant.flags :refer [get-emails]]
    [instant.stripe :as stripe]
-   [instant.model.app :as app-model]
-   [instant.util.storage :as storage-util]))
+   [instant.model.app-file :as app-file-model]))
 
-;; Fetch our last 50 sign-ups. We want to
-;; see whether people are finishing sign-up and
-;; how they found us / what they're doing.
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
     (vec (concat test team friend))))
 
+;; Fetch our last 50 sign-ups. We want to
+;; see whether people are finishing sign-up and
+;; how they found us / what they're doing.
 (defn get-recent
   ([]
    (get-recent (aurora/conn-pool :read)))
@@ -24,8 +23,7 @@
                ["SELECT
                    u.*,
                    a.app_created_at,
-                   a2.title as app_title,
-                   t.num_tx
+                   a2.title as app_title
                 FROM (
                   SELECT
                      u.id,
@@ -43,18 +41,14 @@
                  GROUP BY 1
                 ) a ON a.creator_id = u.id
                 LEFT JOIN apps a2 on a2.creator_id = a.creator_id AND a2.created_at = a.app_created_at
-                LEFT JOIN (
-                  SELECT app_id, COUNT(id) as num_tx
-                  FROM transactions
-                  GROUP BY 1
-                ) t ON t.app_id = a2.id
-                ORDER BY u.user_created_at DESC"])))
+                ORDER BY u.user_created_at DESC
+                LIMIT 50"])))
 
 (defn get-top-users
   "Fetches the users with their transactions in the last `n` days."
   ([]
    (get-top-users (aurora/conn-pool :read) 7))
-   ([n]
+  ([n]
    (get-top-users (aurora/conn-pool :read) n))
   ([conn n]
    (let [interval (str n " days")]  ;; Create the interval string dynamically
@@ -72,64 +66,90 @@
                         ORDER BY total_transactions DESC;")
                   (with-meta (excluded-emails) {:pgtype "text[]"})]))))
 
+(defn get-revenue-generating-subscriptions
+  []
+  (filter (fn [s] (pos? (:monthly-revenue s)))
+          (stripe/subscriptions)))
+
 (defn get-paid
   ([] (get-paid (aurora/conn-pool :read)))
   ([conn]
-   (let [subscriptions (stripe/subscriptions)]
-     (sql/select conn
-                 (hsql/format
-                  {:with [[[:stripe-subs
-                            {:columns [:subscription-id
-                                       :monthly-revenue
-                                       :start-timestamp]}]
-                           {:values (keep (fn [s]
-                                            (when (pos? (:monthly-revenue s))
-                                              [(:subscription-id s)
-                                               (:monthly-revenue s)
-                                               (:start-timestamp s)]))
-                                          subscriptions)}]]
-                   :select [[:apps.title :app_title]
-                            [:i_users.email :user_email]
-                            :monthly-revenue
-                            :start-timestamp
-                            [{:select [[[:coalesce
-                                         [:*
-                                          [:sum [:pg_column_size :t]]
-                                          [:case
-                                           [:= [:pg_relation_size "triples"] 0] 1
-                                           :else [:/
-                                                  [:pg_total_relation_size "triples"]
-                                                  [:pg_relation_size "triples"]]]]
-                                         0]]]
-                              :from [[:triples :t]]
-                              :where [:= :t.app_id :apps.id]}
-                             :usage]]
-                   :from :stripe-subs
-                   :join [[:instant_subscriptions :i_subs] [:=
-                                                            :stripe-subs.subscription-id
-                                                            :i_subs.stripe-subscription-id]
-                          :apps [:= :i_subs.app_id :apps.id]
-                          [:instant_users :i_users] [:= :i_subs.user_id :i_users.id]]
-                   :order-by [[:start-timestamp :desc]]})))))
+   (let [subscriptions (get-revenue-generating-subscriptions)
+         query {:with [[[:stripe-subs
+                         {:columns [:subscription-id
+                                    :monthly-revenue
+                                    :start-timestamp
+                                    :customer-email]}]
+                        {:values (map (fn [s]
+                                        [(:subscription-id s)
+                                         (:monthly-revenue s)
+                                         (:start-timestamp s)
+                                         (:customer-email s)])
+                                      subscriptions)}]
+                       [:app-paid {:select [[[:inline "app"] :type]
+                                            [:apps.title :title]
+                                            [:customer-email :user_email]
+                                            :monthly-revenue
+                                            :start-timestamp
+                                            [{:select [[[:coalesce
+                                                         [:*
+                                                          [:sum :s.triples_pg_size]
+                                                          [:case
+                                                           [:= [:pg_relation_size "triples"] 0] 1
+                                                           :else [:/
+                                                                  [:cast [:pg_total_relation_size "triples"] :numeric]
+                                                                  [:pg_relation_size "triples"]]]]
+                                                         0]]]
+                                              :from [[:attr-sketches :s]]
+                                              :where [:= :s.app_id :apps.id]}
+                                             :usage]
+                                            [{:select [[[:coalesce [:sum :s.total] 0]]]
+                                              :from [[:attr_sketches :s]]
+                                              :where [:= :s.app_id :apps.id]}
+                                             :triple-count]]
+                                   :from :stripe-subs
+                                   :join [[:instant_subscriptions :i_subs] [:=
+                                                                            :stripe-subs.subscription-id
+                                                                            :i_subs.stripe-subscription-id]
+                                          :apps [:= :i_subs.app_id :apps.id]]}]
+                       [:org-paid {:select [[[:inline "org"] :type]
+                                            [:orgs.title :title]
+                                            [:customer-email :user_email]
+                                            :monthly-revenue
+                                            :start-timestamp
+                                            [{:select [[[:coalesce
+                                                         [:*
+                                                          [:sum :s.triples_pg_size]
+                                                          [:case
+                                                           [:= [:pg_relation_size "triples"] 0] 1
+                                                           :else [:/
+                                                                  [:cast [:pg_total_relation_size "triples"] :numeric]
+                                                                  [:pg_relation_size "triples"]]]]
+                                                         0]]]
+                                              :from [[:attr-sketches :s]]
+                                              :where [:in :s.app_id {:select :id :from :apps :where [:= :apps.org_id :orgs.id]}]}
+                                             :usage]
+                                            [{:select [[[:coalesce [:sum :s.total] 0]]]
+                                              :from [[:attr_sketches :s]]
+                                              :where [:in :s.app_id {:select :id :from :apps :where [:= :apps.org_id :orgs.id]}]}
+                                             :triple-count]]
+                                   :from :stripe-subs
+                                   :join [[:instant_subscriptions :i_subs] [:=
+                                                                            :stripe-subs.subscription-id
+                                                                            :i_subs.stripe-subscription-id]
+                                          :orgs [:= :i_subs.org_id :orgs.id]]}]]
+                :select :*
+                :from {:union [{:select :* :from :app-paid}
+                               {:select :* :from :org-paid}]}
+                :order-by [[:start-timestamp :desc]]}]
+     (sql/select ::get-paid
+                 conn
+                 (hsql/format query)))))
 
-(defn format-app-storage-usage [{:keys [app-id app metrics]}]
-  (merge app {:app_id app-id
-              :total_byte_size (:total-byte-size metrics)
-              :total_file_count (:total-file-count metrics)}))
-
-(defn get-storage-metrics []
-  (let [metrics-by-app-id (storage-util/calculate-app-metrics)
-        app-ids (keys metrics-by-app-id)
-        apps (app-model/get-with-creator-by-ids app-ids)
-        apps-by-id (into {} (map (fn [app] [(str (:id app)) app]) apps))]
-    (->> app-ids
-         (map #(format-app-storage-usage
-                {:app-id %
-                 :app (apps-by-id %)
-                 :metrics (metrics-by-app-id %)}))
-         (sort-by :total_byte_size >))))
+(def get-storage-metrics app-file-model/get-all-apps-usage)
 
 (comment
+  (get-recent)
   (get-top-users)
   (get-paid)
   (get-storage-metrics))

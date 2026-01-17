@@ -5,7 +5,7 @@ authors: stopachka, dww
 ---
 
 <div class="text-lg font-medium">
-We’re Instant, a modern Firebase. <a href="https://www.instantdb.com/tutorial">Try out the demo</a>, you can spin up a database and make queries within a minute — no login required.
+We’re Instant, a modern Firebase. You can spin up a database and make queries within a minute — no login required.
 </div>
 
 Right before Christmas we discovered that our Aurora Postgres instance needed a major version upgrade. We found a great essay by the [Lyft team](https://eng.lyft.com/postgres-aurora-db-major-version-upgrade-with-minimal-downtime-4e26178f07a0), showing how they ran their upgrade with about 7 minutes of downtime.
@@ -56,7 +56,7 @@ The easiest choice would have been to run an in-place upgrade. Put the database 
 
 The big problem is the downtime. Your DB is in maintenance mode for the entirety of the upgrade. The Lyft team said an in-place upgrade would have caused them a [30 minute](https://eng.lyft.com/postgres-aurora-db-major-version-upgrade-with-minimal-downtime-4e26178f07a0#4831) outage.
 
-We wanted to test this for ourselves though, in a case smaller database upgraded more quickly. So we cloned our production database and tested an in-place upgrade. Even with our smaller size, it took about 15 minutes for the clone to come back online.
+We wanted to test this for ourselves though, in case a smaller database upgraded more quickly. So we cloned our production database and tested an in-place upgrade. Even with our smaller size, it took about 15 minutes for the clone to come back online.
 
 Crunch or not, a 15-minute outage was off the table for us. Since launch we had folks sign up across the U.S, Europe and Asia; traffic ebbed and flowed, but there wasn’t a period where 15 minutes of downtime felt tolerable.
 
@@ -76,9 +76,9 @@ We spun up a complete staging environment, this time with active sync servers an
 
 > Creation of blue/green deployment failed due to incompatible parameter settings. See [link](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/blue-green-deployments-creating.html#blue-green-deployments-creating-preparing-postgres) to help resolve the issues, then delete and recreate the blue/green deployment.
 
-The next few hours was frustrating: we would change a setting, start again, wait 30 minutes, and invariably end up with the same error.
+The next few hours were frustrating: we would change a setting, start again, wait 30 minutes, and invariably end up with the same error.
 
-Once we exhausted the suggestions from in error message, we began a process of elimination: when did the upgrade work, and what change made it fail? Eliminating the sync servers revealed the issue: active replication slots.
+Once we exhausted the suggestions from this error message, we began a process of elimination: when did the upgrade work, and what change made it fail? Eliminating the sync servers revealed the issue: active replication slots.
 
 Remember how our sync servers listen to Postgres’ write-ahead log? To do this, we opened [replication slots](https://www.postgresql.org/docs/current/logicaldecoding-explanation.html#LOGICALDECODING-REPLICATION-SLOTS). We couldn’t create a blue-green deployment when the master DB had active replication slots. The AWS docs did not mention this. [^6]
 
@@ -172,7 +172,7 @@ Thankfully, we had a special `transactions` table — it’s an immutable table 
 ```text
 instant=> \d transactions;
 
-   Column   |            Type             | -- ... 
+   Column   |            Type             | -- ...
 ------------+-----------------------------+
  id         | bigint                      |
  app_id     | uuid                        |
@@ -201,7 +201,7 @@ So we cooked up an alternate approach:
 
 ![](/posts/pg_upgrade/create_replicate.png)
 
-Instead of creating, cloning, and then upgrading, we would start with a fresh database running Postgres 16, and replicate from scratch. Lyft chose to clone their DB, because they had over 30TB of data and could leverage [Aurora Cloning](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Managing.Clone.html#Aurora.Clone.Overview). But we had less than a terabyte of data; starting replication from scratch wasn’t a big a deal for us. [^11]
+Instead of creating, cloning, and then upgrading, we would start with a fresh database running Postgres 16, and replicate from scratch. Lyft chose to clone their DB, because they had over 30TB of data and could leverage [Aurora Cloning](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Managing.Clone.html#Aurora.Clone.Overview). But we had less than a terabyte of data; starting replication from scratch wasn’t a big deal for us. [^11]
 
 So we created a checklist and ended up with 7 steps:
 
@@ -211,46 +211,45 @@ So we created a checklist and ended up with 7 steps:
 
 <h3 class="font-bold font-mono text-center bg-gray-100 p-2 mt-0">Checklist: Create an upgraded Replica</h3>
 
-<div class="mr-2"> 
+<div class="mr-2">
 
 1. **16: Create a new Postgres Aurora Database on Postgres 16.**
 
-    Make sure to set `wal_level = logical`
+   Make sure to set `wal_level = logical`
 
 2. **13: Extract the schema**
-   
+
    ```bash
    pg_dump ${DATABASE_URL} --schema-only -f dump.schema.sql
    ```
 
 3. **16: Import the schema into 16**
-   
+
    ```bash
    psql ${NEW_DATABASE_URL} -f dump.schema.sql
    ```
 
 4. **13: Create a publication**
-   
+
    ```sql
    create publication pub_all_table for all tables;
    ```
 
+5. **16: Create a subscription with copy_data = true**
 
-1. **16: Create a subscription with copy_data = true**
-   
    ```sql
-   create subscription pub_from_scratch 
+   create subscription pub_from_scratch
    connection 'host=host_here dbname=name_here port=5432 user=user_here password=password_here'
    publication pub_from_scratch
-   with ( 
-     copy_data = true, create_slot = true, enabled = true, 
-     connect = true, 
+   with (
+     copy_data = true, create_slot = true, enabled = true,
+     connect = true,
      slot_name = 'pub_from_scratch'
    );
    ```
 
-1. **Confirm that there’s no data loss**
-   
+6. **Confirm that there’s no data loss**
+
    ```sql
     -- On 13
     select max(id) from transactions;
@@ -259,10 +258,10 @@ So we created a checklist and ended up with 7 steps:
     -- Wait for :max-id to replicate ...
     -- On 16
     select count(*) from transactions where id < :max-id;
-    ```
+   ```
 
-1. **16: Run vaccum analyze**
-   
+7. **16: Run vacuum analyze**
+
    ```sql
     vacuum (verbose, analyze, full);
    ```
@@ -270,7 +269,6 @@ So we created a checklist and ended up with 7 steps:
 </div>
 
 </div>
-
 
 We ran step 6 with bated breath...and it all turned out well! [^12] Now we had a replica running Postgres 16.
 
@@ -282,7 +280,7 @@ Next step, to switch subscriptions. Let’s remind ourselves what we’re lookin
 
 We’d need to get our sync servers to create replication slots in 16, rather than 13.
 
-To do this, we added a `next-database-url` variable to our sync servers. During startup, if `next-database-url` was set, sync servers would subscribe from from there:
+To do this, we added a `next-database-url` variable to our sync servers. During startup, if `next-database-url` was set, sync servers would subscribe from there:
 
 ```clojure
 ;; invalidator.clj
@@ -312,12 +310,12 @@ Now to worry about writes:
 Ultimately, we needed to click some button and trigger a switch. To make the switch work, we’d need to follow two rules:
 
 1. **16 must be caught up**
-    
-    If there are _any_ writes in 13 that haven’t replicated to 16 yet, we can’t turn on writes to 16. Otherwise transactions would come in the wrong order
+
+   If there are _any_ writes in 13 that haven’t replicated to 16 yet, we can’t turn on writes to 16. Otherwise transactions would come in the wrong order
 
 1. **Once caught up, all new writes must go to 16**
-    
-    If _any_ write accidentally goes to 13, we could lose data.
+
+   If _any_ write accidentally goes to 13, we could lose data.
 
 So, how could we follow these rules?
 
@@ -349,7 +347,7 @@ Sounds good in theory, but it can be hard to pull off. Unless of course you run 
 
 Our switching algorithm hinges on being able to control all active connections. If you have tons of machines, how could you control all active connections?
 
-Well, since our throughput was still modest, we could temporarily scale our sync servers down to just one giant machine. Clojure and java came handy here too. We had threads and the JVM is efficient, so we could take full advantage of the [m6a.16xlarge](https://instances.vantage.sh/aws/ec2/m6a.16xlarge?region=us-east-1&os=linux&cost_duration=monthly&reserved_term=Standard.noUpfront) sync server we moved to for the switch.
+Well, since our throughput was still modest, we could temporarily scale our sync servers down to just one giant machine. Clojure and Java came handy here too. We had threads and the JVM is efficient, so we could take full advantage of the [m6a.16xlarge](https://instances.vantage.sh/aws/ec2/m6a.16xlarge?region=us-east-1&os=linux&cost_duration=monthly&reserved_term=Standard.noUpfront) sync server we moved to for the switch.
 
 ### Writing out a failover function
 
@@ -408,7 +406,7 @@ If you’re curious, here’s how the actual failover [function](https://github.
 
 ### Running in Prod
 
-Now that we had a good practice run, we got ourselves ready, had our sparkling waters in hand, and began to ran our steps in production. 
+Now that we had a good practice run, we got ourselves ready, had our sparkling waters in hand, and began to run our steps in production.
 
 After about a 3.5 second pause [^13], the failover function completed smoothly! We had a new Postgres instance serving requests, and best of all, nobody noticed. [^14]
 
@@ -437,12 +435,13 @@ Aand that’s our story of how did our major version upgrade. We wanted to finis
 
 Hopefully, this was a fun read for you :)
 
-_Thanks to Nikita Prokopov, Joe Averbukh, Martin Raison, Irakli Safareli, Ian Sinnott for reviewing drafts of this essay_
+[Dicussion on HN](https://news.ycombinator.com/item?id=42867657)
 
+_Thanks to Nikita Prokopov, Joe Averbukh, Martin Raison, Irakli Safareli, Ian Sinnott for reviewing drafts of this essay_
 
 [^1]: Our sync strategy was inspired by Figma’s LiveGraph and Asana’s Luna. The LiveGraph team wrote a [great essay](https://www.figma.com/blog/livegraph-real-time-data-fetching-at-figma/) that explains the sync strategy. You can read our original [design essay](https://www.instantdb.com/essays/next_firebase) to learn more about Instant
 
-[^2]: You may be wondering: how do we host multiple "Instant databases", under one "Aurora database"? The short answer is that we wrote a query engine on top of Postgres. This lets us create a multi-tenant system., where we can "spin up" dbs on demand. I hope to share more about this in a separate essay.
+[^2]: You may be wondering: how do we host multiple "Instant databases", under one "Aurora database"? The short answer is that we wrote a query engine on top of Postgres. This lets us create a multi-tenant system where we can "spin up" dbs on demand. I hope to share more about this in a separate essay.
 
 [^3]: All of the code (including this blog) is open sourced [here](https://github.com/instantdb/instant).
 

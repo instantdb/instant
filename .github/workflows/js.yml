@@ -7,10 +7,101 @@ on:
     types: [opened, synchronize]
 
 jobs:
+  detect_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      client_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).client_did_change }}
+      docs_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).docs_did_change }}
+      mcp_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).mcp_did_change }}
+      packages_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).packages_did_change }}
+      version_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).version_did_change }}
+    steps:
+    - name: Detect changes
+      id: detect_changes
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const base = context.payload.before || context.payload.pull_request?.base.sha;
+          const head = context.payload.after || context.payload.pull_request?.head.sha;
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const { data } = await (base === '0000000000000000000000000000000000000000'
+            ? github.rest.repos.getCommit({
+                owner,
+                repo,
+                ref: head,
+              })
+            : github.rest.repos.compareCommits({
+                owner,
+                repo,
+                base,
+                head,
+              }));
+
+          const files = data.files.map((f) => f.filename);
+
+          const output = {
+            client_did_change: false,
+            docs_did_change: false,
+            mcp_did_change: false,
+            packages_did_change: false,
+            version_did_change: false
+          };
+
+          for (const file of files) {
+            const changes = {
+              client: file.startsWith('client'),
+              docs: /docs/.test(file),
+              mcpPackages: /^client\/packages\/(mcp|core|platform|admin)/.test(file),
+              mcpDockerfile: file === 'client/Dockerfile.mcp',
+              mcpFly: file === 'client/fly.toml',
+              workflowFile: file === '.github/workflows/js.yml',
+              packages: file.startsWith('client/packages'),
+              version: file === 'client/packages/version/src/version.ts',
+            };
+            console.log('file', file);
+            console.log('changes', changes);
+
+            if (changes.client || changes.workflowFile) {
+              console.log('client_did_change', true);
+              output.client_did_change = true;
+            }
+
+            if (changes.docs) {
+              console.log('docs_did_change', true);
+              output.docs_did_change = true;
+            }
+
+            if (
+              changes.mcpPackages ||
+              changes.mcpDockerfile ||
+              changes.mcpFly ||
+              changes.workflowFile
+            ) {
+              console.log('mcp_did_change', true);
+              output.mcp_did_change = true;
+            }
+
+            if (changes.packages || changes.workflowFile) {
+              console.log('packages_did_change', true);
+              output.packages_did_change = true;
+            }
+
+            if (changes.version) {
+              console.log('version_did_change', true);
+              output.version_did_change = true;
+            }
+          }
+
+          console.log('output', output);
+          return output;
+
   build:
     name: Build & Test packages
     timeout-minutes: 15
     runs-on: ubuntu-latest
+    needs: [ detect_changes ]
+    if: needs.detect_changes.outputs.client_did_change == 'true'
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -25,20 +116,30 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - name: Enable corepack
-        working-directory: client
-        run: corepack enable
+      - uses: pnpm/action-setup@v2
+        with:
+          version: '10.2.0'
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: client
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Get pnpm cache directory path
+        id: pnpm-cache-dir-path
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
         working-directory: client
-        run: pnpm i
+        run: pnpm i --frozen-lockfile
 
       - name: Build packages
         working-directory: client
@@ -56,42 +157,72 @@ jobs:
         working-directory: client
         run: pnpm run bench
 
-  detect_docs:
+      - name: Prune cache
+        if: github.ref == 'refs/heads/main'
+        working-directory: client
+        run: pnpm prune
+
+      - uses: actions/cache/save@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
+
+  check_formatting:
+    name: Check formatting
+    timeout-minutes: 15
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    outputs:
-      did_change: ${{ steps.detect-change.outputs.did_change }}
+    needs: [ detect_changes ]
+    if: needs.detect_changes.outputs.client_did_change == 'true'
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
-    - name: Get changed files
-      id: changed-files
-      run: |
-        if ${{ github.event_name == 'pull_request' }}; then
-            echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | xargs)" >> $GITHUB_OUTPUT
-        else
-            echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
-        fi
-    - name: Detect docs changes
-      id: detect-change
-      run: |
-        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
-        echo "did_change=False" >> $GITHUB_OUTPUT
-        for file in ${changeArr[*]}
-        do
-          if echo $file | grep -E 'docs'; then
-            echo "did_change=True" >> $GITHUB_OUTPUT
-            break
-          fi
-        done
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Cache turbo build setup
+        uses: actions/cache@v4
+        with:
+          path: client/.turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: '10.2.0'
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+          cache-dependency-path: client/pnpm-lock.yaml
+
+      - name: Get pnpm cache directory path
+        id: pnpm-cache-dir-path
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        working-directory: client
+        run: pnpm i --frozen-lockfile
+
+      - name: Check prettier formatting
+        working-directory: client
+        run: pnpm run check-format
 
   publish-docs:
     name: Publish algolia changes
     runs-on: ubuntu-latest
-    needs: [ build, detect_docs ]
-    if: needs.detect_docs.outputs.did_change == 'True'
+    needs: [ build, detect_changes ]
+    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.docs_did_change == 'true'
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -102,28 +233,207 @@ jobs:
         key: ${{ runner.os }}-turbo-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-turbo-
-    - name: Enable corepack
-      working-directory: client
-      run: corepack enable
-    - name: Setup Node.js environment
-      uses: actions/setup-node@v4
+    - uses: pnpm/action-setup@v2
       with:
-        node-version: 20
-        cache: 'pnpm'
-        cache-dependency-path: client
+        version: '10.2.0'
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v5
+      with:
+        node-version: 24
+        package-manager-cache: false
+
+    - name: Get pnpm cache directory path
+      id: pnpm-cache-dir-path
+      run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
     - name: Install dependencies
       working-directory: 'client'
-      run: pnpm i
+      run: pnpm i --frozen-lockfile
     - name: Reindex Algolia
       env:
         ALGOLIA_API_KEY: ${{ secrets.ALGOLIA_API_KEY }}
       working-directory: 'client'
-      run: node ./www/scripts/index-docs.mjs
+      run: pnpm exec tsx ./www/scripts/index-docs.ts
+
+  deploy-remote-mcp:
+    name: Deploy remote MCP
+    runs-on: ubuntu-latest
+    needs: [ build, detect_changes ]
+    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.mcp_did_change == 'true'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup fly
+      uses: superfly/flyctl-actions/setup-flyctl@1.5
+
+    - name: Deploy
+      working-directory: 'client'
+      run: flyctl deploy --remote-only
+      env:
+        FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  publish-experimental-package:
+    name: Publish experimental packages
+    runs-on: ubuntu-latest
+    needs: [ detect_changes ]
+    if: github.ref != 'refs/heads/main' && github.event_name == 'push' && needs.detect_changes.outputs.packages_did_change == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.0'
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Get pnpm cache directory path
+        id: pnpm-cache-dir-path
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        working-directory: client
+        run: pnpm i --frozen-lockfile
+
+      - name: Install babashka
+        working-directory: client
+        run: |
+          curl -L https://github.com/babashka/babashka/releases/download/v1.12.206/babashka-1.12.206-linux-amd64.tar.gz | tar xvz
+          chmod +x bb
+          sudo mv bb /usr/local/bin/
+          bb --version
+
+      - name: Set branch name
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BRANCH_NAME="${{ github.head_ref }}"
+          else
+            BRANCH_NAME="${{ github.ref_name }}"
+          fi
+          # Sanitize branch name for npm version compatibility
+          # Replace / and other invalid characters with -
+          SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
+          echo "BRANCH_NAME=$SAFE_BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Update version file
+        working-directory: client/packages/version/src
+        run: |
+          bb -e '(let [file "version.ts"
+                       version-js (slurp file)
+                       version (->> version-js
+                                    (re-find #"const version = '"'"'(v\d+\.\d+\.\d+)'"'"'")
+                                    last)
+                       new-version (format "%s-experimental.%s.%s.%s"
+                                           version
+                                           (System/getenv "BRANCH_NAME")
+                                           (System/getenv "GITHUB_RUN_ID")
+                                           (System/getenv "GITHUB_RUN_ATTEMPT"))]
+                   (spit file (clojure.string/replace version-js version new-version)))'
+          cat version.ts
+
+      - name: Publish experimental
+        working-directory: client
+        run: make publish-experimental
+        env:
+          NPM_CONFIG_PROVENANCE: true
+
+      - name: Debug
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-logs
+          path: /home/runner/.npm/_logs/
+
+  publish-packages:
+    name: Publish packages
+    runs-on: ubuntu-latest
+    needs: [ build, detect_changes ]
+    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.version_did_change == 'true'
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.0'
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Get pnpm cache directory path
+        id: pnpm-cache-dir-path
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        working-directory: client
+        run: pnpm i --frozen-lockfile
+
+      - name: Install babashka
+        working-directory: client
+        run: |
+          curl -L https://github.com/babashka/babashka/releases/download/v1.12.206/babashka-1.12.206-linux-amd64.tar.gz | tar xvz
+          chmod +x bb
+          sudo mv bb /usr/local/bin/
+          bb --version
+
+
+      - name: Publish
+        working-directory: client
+        run: make publish-ci
+        env:
+          NPM_CONFIG_PROVENANCE: true
+
+      - name: Debug
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-logs
+          path: /home/runner/.npm/_logs/
 
   vercel-preview:
     name: Deploy to vercel preview
     runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/main'
+    needs: [ detect_changes ]
+    if: github.ref != 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -137,15 +447,26 @@ jobs:
         key: ${{ runner.os }}-turbo-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-turbo-
-    - name: Enable corepack
-      working-directory: client
-      run: corepack enable
-    - name: Setup Node.js environment
-      uses: actions/setup-node@v4
+    - uses: pnpm/action-setup@v2
       with:
-        node-version: 20
-        cache: 'pnpm'
-        cache-dependency-path: client
+        version: '10.2.0'
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v5
+      with:
+        node-version: 24
+        package-manager-cache: false
+
+    - name: Get pnpm cache directory path
+      id: pnpm-cache-dir-path
+      run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
     - name: Install Vercel CLI
       run: npm install --g vercel@canary
     - name: Pull Vercel Environment Information
@@ -168,7 +489,7 @@ jobs:
           safeBranch=$(echo $BRANCH_NAME | sed 's/[^a-zA-Z0-9-]/-/g')
           aliasUrl="instant-www-js-$safeBranch-jsv.vercel.app"
           echo "ALIAS_URL=$aliasUrl" >> $GITHUB_ENV
-          echo "aiasing $deploymentUrl to $aliasUrl"
+          echo "aliasing $deploymentUrl to https://$aliasUrl"
           vercel alias $deploymentUrl $aliasUrl --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
         else
             echo "There was an error"
@@ -203,7 +524,8 @@ jobs:
   vercel-prod-deploy:
     name: Deploy to vercel production
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    needs: [ detect_changes ]
+    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -217,15 +539,25 @@ jobs:
         key: ${{ runner.os }}-turbo-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-turbo-
-    - name: Enable corepack
-      working-directory: client
-      run: corepack enable
-    - name: Setup Node.js environment
-      uses: actions/setup-node@v4
+    - uses: pnpm/action-setup@v2
       with:
-        node-version: 20
-        cache: 'pnpm'
-        cache-dependency-path: client
+        version: '10.2.0'
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v5
+      with:
+        node-version: 24
+        package-manager-cache: false
+    - name: Get pnpm cache directory path
+      id: pnpm-cache-dir-path
+      run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
     - name: Install Vercel CLI
       run: npm install --g vercel@canary
     - name: Pull Vercel Environment Information
@@ -234,3 +566,49 @@ jobs:
       run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
     - name: Deploy Project Artifacts to Vercel
       run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  vercel-staging-deploy:
+    name: Deploy to vercel staging
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, '[staging]')
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Cache turbo build setup
+      uses: actions/cache@v4
+      with:
+        path: client/.turbo
+        key: ${{ runner.os }}-turbo-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-turbo-
+    - uses: pnpm/action-setup@v2
+      with:
+        version: '10.2.0'
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v5
+      with:
+        node-version: 24
+        package-manager-cache: false
+
+    - name: Get pnpm cache directory path
+      id: pnpm-cache-dir-path
+      run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
+    - name: Install Vercel CLI
+      run: npm install --g vercel@canary
+    - name: Pull Vercel Environment Information
+      run: vercel pull --yes --environment=staging --token=${{ secrets.VERCEL_TOKEN }}
+    - name: Build Project Artifacts
+      run: vercel build --target=staging --token=${{ secrets.VERCEL_TOKEN }}
+    - name: Deploy Project Artifacts to Vercel
+      run: vercel deploy --prebuilt --target=staging --token=${{ secrets.VERCEL_TOKEN }}

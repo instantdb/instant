@@ -1,4 +1,4 @@
-import NetInfo from "@react-native-community/netinfo";
+import NetInfo from '@react-native-community/netinfo';
 
 export default class NetworkListener {
   static async getIsOnline() {

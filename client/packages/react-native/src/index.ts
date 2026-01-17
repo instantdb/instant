@@ -1,14 +1,31 @@
-import "react-native-get-random-values";
+import 'react-native-get-random-values';
 
-import Storage from "./Storage";
-import NetworkListener from "./NetworkListener";
-import version from "./version";
+import Storage from './Storage';
+import EventSourceImpl from './EventSourceImpl';
+import NetworkListener from './NetworkListener';
+import version from './version';
+
+import { InstantReactAbstractDatabase } from '@instantdb/react-common';
 
 import {
-  // react
-  InstantReactAbstractDatabase,
+  i,
+  id,
+  tx,
+  lookup,
+  // error
+  InstantAPIError,
+
+  // sync table enums
+  SyncTableCallbackEventType,
 
   // types
+  createInstantRouteHandler,
+  type RoomSchemaShape,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
+  type InstantSchemaDatabase,
+  type ConnectionStatus,
   type BackwardsCompatibleSchema,
   type IInstantDatabase,
   type Config,
@@ -17,18 +34,9 @@ import {
   type InstantObject,
   type AuthState,
   type User,
-} from "@instantdb/react";
-import {
-  i,
-  id,
-  tx,
-  lookup,
-  type RoomSchemaShape,
-  type InstantQuery,
-  type InstantQueryResult,
-  type InstantSchema,
-  type InstantSchemaDatabase,
-  type ConnectionStatus,
+
+  // presence types
+  type PresencePeer,
 
   // schema types
   type AttrsDefs,
@@ -38,6 +46,7 @@ import {
   type EntitiesWithLinks,
   type EntityDef,
   type InstantGraph,
+  type InstantUnknownSchemaDef,
   type LinkAttrDef,
   type LinkDef,
   type LinksDef,
@@ -47,20 +56,43 @@ import {
   type ConfigWithSchema,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
+  type RoomsOf,
+  type RoomsDef,
+  type PresenceOf,
+  type TopicsOf,
+  type TopicOf,
+  type RoomHandle,
+  type CreateParams,
   type InstantConfig,
   type InstantSchemaDef,
   type InstantUnknownSchema,
+  type TransactionChunk,
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  type ValidQuery,
+  type ExchangeCodeForTokenParams,
+  type SendMagicCodeParams,
+  type SendMagicCodeResponse,
+  type SignInWithIdTokenParams,
+  type VerifyMagicCodeParams,
+  type VerifyResponse,
 
-  type ExchangeCodeForTokenParams, 
-  type SendMagicCodeParams, 
-  type SendMagicCodeResponse, 
-  type SignInWithIdTokenParams, 
-  type VerifyMagicCodeParams, 
-  type VerifyResponse 
-} from "@instantdb/core";
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
+
+  // sync table types
+  type SyncTableCallback,
+  type SyncTableCallbackEvent,
+  type SyncTableInitialSyncBatch,
+  type SyncTableInitialSyncComplete,
+  type SyncTableSyncTransaction,
+  type SyncTableLoadFromStorage,
+  type SyncTableSetupError,
+} from '@instantdb/core';
 
 /**
  *
@@ -79,21 +111,40 @@ import {
  *  import schema from ""../instant.schema.ts";
  *
  *  const db = init({ appId: "my-app-id", schema })
- *  
+ *
  *  // To learn more: https://instantdb.com/docs/modeling-data
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
->(config: InstantConfig<Schema>) {
-  return new InstantReactNativeDatabase<Schema>(config, {
-    "@instantdb/react-native": version,
+  UseDates extends boolean = false,
+>(
+  // Allows config with missing `useDateObjects`, but keeps `UseDates`
+  // as a non-nullable in the InstantConfig type.
+  config: Omit<InstantConfig<Schema, UseDates>, 'useDateObjects'> & {
+    useDateObjects?: UseDates;
+  },
+): InstantReactNativeDatabase<
+  Schema,
+  UseDates,
+  InstantConfig<Schema, UseDates>
+> {
+  const configStrict = {
+    ...config,
+    useDateObjects: (config.useDateObjects ?? false) as UseDates,
+  };
+  return new InstantReactNativeDatabase<
+    Schema,
+    UseDates,
+    InstantConfig<Schema, UseDates>
+  >(configStrict, {
+    '@instantdb/react': version,
   });
 }
 
 /**
  * @deprecated
  * `init_experimental` is deprecated. You can replace it with `init`.
- * 
+ *
  * @example
  *
  * // Before
@@ -108,9 +159,15 @@ const init_experimental = init;
 
 class InstantReactNativeDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-> extends InstantReactAbstractDatabase<Schema> {
+  UseDates extends boolean,
+  Config extends InstantConfig<Schema, UseDates> = InstantConfig<
+    Schema,
+    UseDates
+  >,
+> extends InstantReactAbstractDatabase<Schema, UseDates, Config> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
+  static EventSourceImpl = EventSourceImpl;
 }
 
 export {
@@ -120,6 +177,14 @@ export {
   tx,
   lookup,
   i,
+  createInstantRouteHandler,
+  InstantReactNativeDatabase,
+
+  // error
+  InstantAPIError,
+
+  // sync table enums
+  SyncTableCallbackEventType,
 
   // types
   type Config,
@@ -137,6 +202,9 @@ export {
   type InstantEntity,
   type RoomSchemaShape,
 
+  // presence types
+  type PresencePeer,
+
   // schema types
   type AttrsDefs,
   type CardinalityKind,
@@ -145,24 +213,49 @@ export {
   type EntitiesWithLinks,
   type EntityDef,
   type InstantGraph,
+  type CreateParams,
   type LinkAttrDef,
+  type InstantConfig,
   type LinkDef,
+  type InstantUnknownSchemaDef,
   type LinksDef,
+  type RoomsOf,
+  type RoomsDef,
+  type RoomHandle,
+  type PresenceOf,
+  type TopicsOf,
+  type TopicOf,
   type ResolveAttrs,
   type ValueTypes,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type InstantSchemaDef,
   type InstantUnknownSchema,
   type BackwardsCompatibleSchema,
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  type ValidQuery,
+  type ExchangeCodeForTokenParams,
+  type SendMagicCodeParams,
+  type TransactionChunk,
+  type SendMagicCodeResponse,
+  type SignInWithIdTokenParams,
+  type VerifyMagicCodeParams,
+  type VerifyResponse,
 
-  type ExchangeCodeForTokenParams, 
-  type SendMagicCodeParams, 
-  type SendMagicCodeResponse, 
-  type SignInWithIdTokenParams, 
-  type VerifyMagicCodeParams, 
-  type VerifyResponse 
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
+
+  // sync table types
+  type SyncTableCallback,
+  type SyncTableCallbackEvent,
+  type SyncTableInitialSyncBatch,
+  type SyncTableInitialSyncComplete,
+  type SyncTableSyncTransaction,
+  type SyncTableLoadFromStorage,
+  type SyncTableSetupError,
 };

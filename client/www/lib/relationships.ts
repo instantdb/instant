@@ -52,5 +52,5 @@ export const relationshipConstraintsInverse: Record<string, RelationshipKinds> =
     Object.entries(relationshipConstraints).map(([k, v]) => [
       `${v.cardinality}-${v['unique?']}`,
       k as RelationshipKinds,
-    ])
+    ]),
   );

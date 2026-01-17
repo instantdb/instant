@@ -9,11 +9,11 @@ export default class WindowNetworkListener {
     const onOffline = () => {
       f(false);
     };
-    addEventListener("online", onOnline);
-    addEventListener("offline", onOffline);
+    addEventListener('online', onOnline);
+    addEventListener('offline', onOffline);
     return () => {
-      removeEventListener("online", onOnline);
-      removeEventListener("offline", onOffline);
+      removeEventListener('online', onOnline);
+      removeEventListener('offline', onOffline);
     };
   }
 }

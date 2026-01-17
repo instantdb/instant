@@ -3,9 +3,8 @@
    [clojure.set :as set :refer [map-invert]]
    [clojure.spec.alpha :as s]
    [clojure.string :as string]
-   [clojure.walk :as walk]
    [honey.sql :as hsql]
-   [instant.data.constants :refer [zeneca-app-id]]
+
    [instant.data.resolvers :as resolvers]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
@@ -13,16 +12,22 @@
    [instant.db.model.attr-pat :as attr-pat]
    [instant.db.model.entity :as entity-model]
    [instant.db.model.triple :as triple-model]
+   [instant.db.hint-testing :as hint-testing]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.rule :as rule-model]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
+   [instant.util.instaql :as instaql-util]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [medley.core :refer [update-existing-in]])
+   [instant.system-catalog :as system-catalog]
+   [medley.core :refer [update-existing-in assoc-some]]
+   [instant.storage.s3 :as instant-s3]
+   [instant.comment :as c])
   (:import
    (java.util UUID)))
 
@@ -32,7 +37,11 @@
 (defn where-value-valid? [x]
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
 
-(s/def ::$in (s/coll-of where-value-valid?
+(defn in-value-valid? [x]
+  (or (where-value-valid? x)
+      (nil? x)))
+
+(s/def ::$in (s/coll-of in-value-valid?
                         :kind vector?
                         :min-count 0
                         :into #{}))
@@ -40,6 +49,7 @@
 (s/def ::in ::$in)
 
 (s/def ::$not where-value-valid?)
+(s/def ::$ne where-value-valid?)
 (s/def ::$isNull boolean?)
 (s/def ::comparator (s/or :string string?
                           :number number?
@@ -51,17 +61,21 @@
 (s/def ::$lte ::comparator)
 (s/def ::$like ::comparator)
 (s/def ::$ilike ::comparator)
+;; Temporary hack used by the dashboard until we have support for uuid index on id
+(s/def ::$entityIdStartsWith string?)
 
 (defn where-value-valid-keys? [m]
   (every? #{:in :$in
-            :$not :$isNull
+            :$not :$ne :$isNull
             :$gt :$gte :$lt :$lte
-            :$like :$ilike}
+            :$like :$ilike
+            :$entityId}
           (keys m)))
 
 (s/def ::where-args-map (s/and
-                         (s/keys :opt-un [::in ::$in ::$not ::$isNull
-                                          ::$gt ::$gte ::$lt ::$lte ::$like ::$ilike])
+                         (s/keys :opt-un [::in ::$in ::$not ::$ne ::$isNull
+                                          ::$gt ::$gte ::$lt ::$lte ::$like ::$ilike
+                                          ::$entityIdStartsWith])
                          where-value-valid-keys?))
 
 (s/def ::where-v
@@ -77,8 +91,8 @@
 
 (s/def ::k string?)
 
-(s/def ::or (s/coll-of ::where-conds))
-(s/def ::and (s/coll-of ::where-conds))
+(s/def ::or (s/coll-of ::where-cond))
+(s/def ::and (s/coll-of ::where-cond))
 (s/def ::direction #{:asc :desc})
 
 (s/def ::order (s/keys :req-un [::k ::direction]))
@@ -99,6 +113,7 @@
 (s/def ::before ::cursor)
 (s/def ::after ::cursor)
 (s/def ::aggregate #{:count})
+(s/def ::fields (s/coll-of string?))
 
 (s/def ::option-map (s/keys :opt-un [::where-conds
                                      ::order
@@ -108,7 +123,8 @@
                                      ::offset
                                      ::before
                                      ::after
-                                     ::aggregate]))
+                                     ::aggregate
+                                     ::fields]))
 
 (s/def ::forms (s/coll-of ::form))
 (s/def ::child-forms ::forms)
@@ -122,78 +138,171 @@
   (and (= "and" (name k))
        (sequential? v)))
 
-(defn- collapse-or-where-conds
-  "Converts {:or [{:or [{:handle \"Jack\"}]}]} -> {:or [{:handle \"Jack\"}]}"
+(defn- collapse-coerced-conds
+  "Converts {:or [{:or [{:k v}]}]} to its simplest form of {:k v}.
+   Will collapse both nested `and`s and `or`s."
   [conds]
-  (reduce (fn [acc [_k v :as c]]
-            (if (or-where-cond? c)
-              (apply conj acc (mapcat collapse-or-where-conds v))
-              (conj acc c)))
+  (reduce (fn [acc c]
+            (cond (:or c)
+                  (let [cs (reduce (fn [acc cs]
+                                     (if-let [ors (:or cs)]
+                                       (apply conj acc ors)
+                                       (conj acc cs)))
+                                   []
+                                   (collapse-coerced-conds (:or c)))]
+                    (if (= 1 (count cs))
+                      (conj acc (first cs))
+                      (conj acc {:or cs})))
+
+                  (:and c)
+                  (let [cs (reduce (fn [acc cs]
+                                     (if-let [ands (:and cs)]
+                                       (apply conj acc ands)
+                                       (conj acc cs)))
+                                   []
+                                   (collapse-coerced-conds (:and c)))]
+                    (if (= 1 (count cs))
+                      (conj acc (first cs))
+                      (conj acc {:and cs})))
+
+                  :else
+                  (conj acc c)))
           []
           conds))
+
+(def sentinel (Object.))
+
+(defn link-etype [attrs etype link-attr-name]
+  (or (when-let [attr (attr-model/seek-by-fwd-ident-name
+                       [etype link-attr-name]
+                       attrs)]
+        (attr-model/rev-etype attr))
+      (when-let [attr (attr-model/seek-by-rev-ident-name
+                       [etype link-attr-name]
+                       attrs)]
+        (attr-model/fwd-etype attr))))
+
+(defn indexed-attr?
+  "Checks if the cond path is a top-level indexed attr so that we can
+   avoid checking for `isNull` on a `not` query."
+  [attrs initial-etype path]
+  (loop [etype initial-etype
+         [segment & rest-path] path]
+    (if (seq rest-path) ;; we're in a link
+      (recur (link-etype attrs etype segment)
+             rest-path)
+      (let [attr (attr-model/seek-by-fwd-ident-name [etype segment] attrs)]
+        (and (:index? attr)
+             (not (:indexing? attr)))))))
+
+(defn- combine-or-where-conds
+  "Converts {:or [{:a 1} {:a 2}] -> {:or [{:a {:in [1 2]}}]}"
+  [attrs initial-etype conds]
+  (let [{:keys [uncombined optimized]}
+        (reduce (fn [acc c]
+                  (if-not (or (and (= (count c) 1)
+                                   (= (second (first c)) {:$isNull true})
+                                   (indexed-attr? attrs initial-etype (string/split (name (ffirst c)) #"\.")))
+                              (and (= (count c) 1)
+                                   (where-value-valid? (second (first c)))
+                                   (not (string/starts-with? (name (ffirst c)) "$"))))
+                    (update acc :uncombined conj c)
+                    (let [[k v] (first c)
+                          v (if (= v {:$isNull true})
+                              nil
+                              v)
+                          existing (get-in acc [:optimized k] sentinel)]
+                      (if (= existing sentinel)
+                        (assoc-in acc [:optimized k] {:in [v]})
+                        (update-in acc [:optimized k :in] conj v)))))
+
+                {:uncombined []
+                 :optimized {}}
+                conds)]
+    (into uncombined (map (fn [[k v]]
+                            {k v})
+                          optimized))))
 
 (defn grow-paths
   "Given a path, creates a list of paths leading up to that path,
    including the path itself.
    (grow-paths [1 2 3]) => ((1) (1 2) (1 2 3))"
   [path]
-  (map (fn [i]
-         (take (inc i) path))
-       (range (count path))))
+  (mapv (fn [i]
+          (take (inc i) path))
+        (range (count path))))
+
+(defn- normalize-ne-to-not
+  "Treat `$ne` as an alias for `$not`."
+  [where-cond-v]
+  (if (contains? where-cond-v :$ne)
+    (-> where-cond-v
+        (assoc :$not (:$ne where-cond-v))
+        (dissoc :$ne))
+    where-cond-v))
 
 (defn- coerce-where-cond
   "Splits keys into segments."
-  [state [k v :as c]]
-  (cond (or-where-cond? c)
-        {:or (let [conds (map (fn [conds]
-                                (map (partial coerce-where-cond state)
-                                     (collapse-or-where-conds conds)))
-                              v)]
-               (if (seq conds)
-                 conds
-                 (ex/throw-validation-err!
-                  :query
-                  (:root state)
-                  [{:expected 'non-empty-list?
-                    :in (conj (:in state) :or)
-                    :message "The list of `or` conditions can't be empty."}])))}
-        (and-where-cond? c)
-        {:and (let [conds (map (fn [conds]
-                                 (map (partial coerce-where-cond state)
-                                      conds))
-                               v)]
-                (if (seq conds)
-                  conds
-                  (ex/throw-validation-err!
-                   :query
-                   (:root state)
-                   [{:expected 'non-empty-list?
-                     :in (conj (:in state) :and)
-                     :message "The list of `and` conditions can't be empty."}])))}
+  [state attrs [k v :as c]]
+  (collapse-coerced-conds
+   (cond (or-where-cond? c)
+         (let [conds (->> v
+                          (combine-or-where-conds attrs (:etype state))
+                          (map (fn [conds]
+                                 {:and
+                                  (mapcat (partial coerce-where-cond state attrs)
+                                          conds)})))]
+           (if-not (zero? (count conds))
+             [{:or conds}]
 
-        (and (map? v) (contains? v :$not))
-        ;; If the where cond has `not`, then the check will only include
-        ;; entities where the entity has a triple with the attr. If the
-        ;; attr is missing, then we won't find it. We add an extra
-        ;; `isNull` check to ensure that we find the entity.
-        (let [path (string/split (name k) #"\.")]
-          {:or (concat [[[path v]]]
-                       (map (fn [p]
-                              [[p {:$isNull true}]])
-                            (grow-paths path)))})
+             (ex/throw-validation-err!
+              :query
+              (:root state)
+              [{:expected 'non-empty-list?
+                :in (conj (:in state) :or)
+                :message "The list of `or` conditions can't be empty."}])))
 
-        (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
-        ;; If the where cond has `$isNull=true`, then we need it to
-        ;; match if any of the intermediate paths are null
-        (let [path (string/split (name k) #"\.")
-              conds (map (fn [p]
-                           [[p {:$isNull true}]])
-                         (grow-paths path))]
-          (if (= 1 (count conds))
-            {:and conds}
-            {:or conds}))
+         (and-where-cond? c)
+         (let [conds (mapcat (fn [conds]
+                               (mapcat (partial coerce-where-cond state attrs)
+                                       conds))
+                             v)]
+           (if-not (zero? (count conds))
+             [{:and conds}]
 
-        :else [(string/split (name k) #"\.") v]))
+             (ex/throw-validation-err!
+              :query
+              (:root state)
+              [{:expected 'non-empty-list?
+                :in (conj (:in state) :and)
+                :message "The list of `and` conditions can't be empty."}])))
+
+         (and (map? v) (or (contains? v :$not) (contains? v :$ne)))
+         ;; If the where cond has `$not`, then the check will only include
+         ;; entities where the entity has a triple with the attr. If the
+         ;; attr is missing, then we won't find it. We add an extra
+         ;; `isNull` check to ensure that we find the entity.
+         (let [v (normalize-ne-to-not v)
+               path (string/split (name k) #"\.")
+               is-null-paths (cond-> (mapv (fn [p]
+                                             [p {:$isNull true}])
+                                           (grow-paths path))
+                               (indexed-attr? attrs (:etype state) path) drop-last)]
+           [{:or (concat [[path v]]
+                         is-null-paths)}])
+
+         (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
+         ;; If the where cond has `$isNull=true`, then we need it to
+         ;; match if any of the intermediate paths are null
+         (let [path (string/split (name k) #"\.")
+               conds (mapv (fn [p]
+                             [p {:$isNull true}])
+                           (grow-paths path))]
+           (if (= 1 (count conds))
+             [{:and conds}]
+             [{:or conds}]))
+
+         :else [[(string/split (name k) #"\.") v]])))
 
 (defn coerce-order [state order-map]
   (case (count order-map)
@@ -276,7 +385,7 @@
      [{:expected 'supported-options?
        :in (conj (:in state) :first)
        :message (format "The first field must be a positive integer. Got %s."
-                        (->json first))}])))
+                        (->json limit))}])))
 
 (defn- coerce-last! [state limit]
   (if (and (int? limit) (pos? limit))
@@ -313,10 +422,10 @@
 
 (defn- coerce-option-map!
   "Coerce the where conditions into paths and values."
-  [state x]
+  [state attrs x]
   (let [where-conds (some->> (get x :where)
                              (assert-map! (update state :in conj :where))
-                             (map (partial coerce-where-cond state)))
+                             (mapcat (partial coerce-where-cond state attrs)))
         order (let [order-state (update state :in conj :order)]
                 (some->> (:order x)
                          (assert-map! order-state)
@@ -343,7 +452,9 @@
         aggregate (when-let [aggregate (:aggregate x)]
                     (coerce-aggregate! state aggregate))
 
-        x (dissoc x :where :order :limit :first :last :offset :before :after :aggregate)]
+        fields (:fields x)
+
+        x (dissoc x :where :order :limit :first :last :offset :before :after :aggregate :fields)]
 
     (when (seq x)
       (ex/throw-validation-err!
@@ -354,13 +465,13 @@
          :message "We only support `where`, `order`, `limit`, `offset`, `before`, and `after` clauses."}]))
 
     (when (and (< 0 (:level state))
-               (or limit offset after before))
+               (or offset after before))
       (ex/throw-validation-err!
        :query
        (:root state)
        [{:expected 'supported-options?
          :in (:in state)
-         :message "We currently only support `limit`, `offset`, `before`, and `after` clauses on the top-level field."}]))
+         :message "We currently only support `offset`, `before`, and `after` clauses on the top-level field. Limit fields will be ignored"}]))
 
     (let [limit-opts (filter identity [(when limit "`limit`")
                                        (when first "`first`")
@@ -382,26 +493,36 @@
       offset (assoc :offset offset)
       after (assoc :after after)
       before (assoc :before before)
-      aggregate (assoc :aggregate aggregate))))
+      aggregate (assoc :aggregate aggregate)
+      fields (assoc :fields fields))))
 
 (defn- coerce-forms!
   "Converts our InstaQL object into a list of forms."
-  [state o]
+  [state attrs o]
   (assert-map! state o)
   (->> o
        (map (fn [[k v]]
-              (let [state' (update state :in conj k)
+              (let [state' (-> state
+                               (update :in conj k)
+                               (update :etype (fn [etype]
+                                                (if etype
+                                                  (link-etype attrs etype (name k))
+                                                  (name k)))))
                     _ (assert-map! state' v)
                     option (coerce-option-map! (update state' :in conj :$)
+                                               attrs
                                                (get v :$ {}))
                     child-forms (dissoc v :$)]
                 {:k (name k)
+                 :etype (:etype state')
                  :option-map option
                  :child-forms (coerce-forms! (update state' :level inc)
+                                             attrs
                                              child-forms)})))))
 
-(defn ->forms! [o]
-  (let [coerced (coerce-forms! {:root o :in [] :level 0} o)
+(defn ->forms! [attrs o]
+  (let [o (cond-> o (associative? o) (dissoc :$$ruleParams))
+        coerced (coerce-forms! {:root o :in [] :level 0} attrs o)
         conformed (s/conform ::forms coerced)]
     (when (s/invalid? conformed)
       (ex/throw-validation-err!
@@ -413,7 +534,9 @@
 
 (comment
   (coerce-option-map!
-   {:in []}
+   {:in []
+    :level 0}
+   (attr-model/wrap-attrs [])
    {:where {:bookshelves.books.title "The Count of Monte Cristo"
             :email {:in ["test@example.com"]}
             :or [{:email "test"}
@@ -422,6 +545,7 @@
                   {:handle "test"}]}})
   (coerce-forms!
    {:in []}
+   (attr-model/wrap-attrs [])
    {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"
                                         ;:email "test@example.com"
                         }}
@@ -429,17 +553,20 @@
 
   (coerce-forms!
    {:in []}
+   (attr-model/wrap-attrs [])
    {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"}
                 :order {:serverCreatedAt "desc"}}
             :books {}}})
 
   (->forms!
+   (attr-model/wrap-attrs [])
    {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"
                         :email "test@example.com"}}
             :books {}}
     :bookshelves {}})
 
   (->forms!
+   (attr-model/wrap-attrs [])
    {:users {:$ {:where {:handle {:in ["stopa", "joe"]}
                         :or [{:email "test"}
                              {:or [{:a "b"}]}]
@@ -448,6 +575,7 @@
             :books {}}})
 
   (->forms!
+   (attr-model/wrap-attrs [])
    {:users {:$ {:where {:and [{:or [{:handle "somebody"}
                                     {:handle "joe"}
                                     {:handle "nobody"}]}]}}}}))
@@ -481,10 +609,10 @@
 
 (defn- level-sym-gen
   "Generates a level-sym function that will namespace all but the join variable."
-  [base-level-sym etype idx]
+  [base-level-sym join-sym idx]
   (fn level-sym [x level]
     (let [base (base-level-sym x level)]
-      (if (= x etype)
+      (if (= join-sym base)
         base
         (symbol (str base "-" idx))))))
 
@@ -515,29 +643,42 @@
         [last-etype last-level ref-attr-pats referenced-etypes]
         (attr-pat/->ref-attr-pats ctx level-sym etype level refs-path)
 
-        value-attr-pats (if (and (map? v) (contains? v :$isNull))
-                          (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)
-                                fwd-attr (attr-model/seek-by-fwd-ident-name [last-etype value-label] attrs)
-                                rev-attr (attr-model/seek-by-rev-ident-name [last-etype value-label] attrs)
-                                value-attr (or fwd-attr
-                                               rev-attr)]
-                            (ex/assert-record!
-                             id-attr :attr {:args [last-etype "id"]})
-                            (ex/assert-record!
-                             value-attr :attr {:args [last-etype value-label]})
+        value-attr-pats
+        (cond (and (map? v) (contains? v :$isNull))
+              (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)
+                    fwd-attr (attr-model/seek-by-fwd-ident-name [last-etype value-label] attrs)
+                    rev-attr (attr-model/seek-by-rev-ident-name [last-etype value-label] attrs)
+                    value-attr (or fwd-attr
+                                   rev-attr)]
+                (ex/assert-record!
+                 id-attr :attr {:args [last-etype "id"]})
+                (ex/assert-record!
+                 value-attr :attr {:args [last-etype value-label]})
 
-                            [[(level-sym last-etype last-level)
-                              (:id id-attr)
-                              {:$isNull {:attr-id (:id value-attr)
-                                         :nil? (:$isNull v)
-                                         :ref? (= :ref (:value-type value-attr))
-                                         :reverse? (= value-attr rev-attr)}}]])
-                          [(attr-pat/->value-attr-pat ctx
-                                                      level-sym
-                                                      last-etype
-                                                      last-level
-                                                      value-label
-                                                      v)])]
+                [[(level-sym last-etype last-level)
+                  (:id id-attr)
+                  {:$isNull {:attr-id (:id value-attr)
+                             :indexed? (and (:index? value-attr)
+                                            (not (:indexing? value-attr)))
+                             :indexed-checked-type (when (and (:index? value-attr)
+                                                              (not (:indexing? value-attr)))
+                                                     (:checked-data-type value-attr))
+                             :nil? (:$isNull v)
+                             :ref? (= :ref (:value-type value-attr))
+                             :reverse? (= value-attr rev-attr)}}]])
+
+              (= value-label "$entityIdStartsWith")
+              (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)]
+                [[(level-sym last-etype last-level) (:id id-attr) {:$entityIdStartsWith v}]])
+
+              :else
+              [(attr-pat/->value-attr-pat ctx
+                                          level-sym
+                                          last-etype
+                                          last-level
+                                          value-label
+                                          v)])]
+
     {:pats (concat ref-attr-pats value-attr-pats)
      :referenced-etypes (conj referenced-etypes
                               etype)}))
@@ -629,11 +770,14 @@
           ret
           (update ret :pats optimize-attr-pats)))
       :or (-> (reduce
-               (fn [acc [i conds]]
-                 (let [level-sym (level-sym-gen level-sym (:etype form) i)]
-                   (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
-                                                form
-                                                conds) %
+               (fn [acc [i cond]]
+                 (let [join-sym (level-sym
+                                 (:etype form)
+                                 (:level form))
+                       level-sym (level-sym-gen level-sym join-sym i)]
+                   (as-> (where-cond->patterns (assoc ctx :level-sym level-sym)
+                                               form
+                                               cond) %
                      (update % :pats (fn [pats] [{:and pats}]))
                      (merge-with into acc %))))
                {:pats []
@@ -646,11 +790,14 @@
                                                 (:level form))}}])))
 
       :and (-> (reduce
-                (fn [acc [i conds]]
-                  (let [level-sym (level-sym-gen level-sym (:etype form) i)]
-                    (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
-                                                 form
-                                                 conds) %
+                (fn [acc [i cond]]
+                  (let [join-sym (level-sym
+                                  (:etype form)
+                                  (:level form))
+                        level-sym (level-sym-gen level-sym join-sym i)]
+                    (as-> (where-cond->patterns (assoc ctx :level-sym level-sym)
+                                                form
+                                                cond) %
                       (update % :pats (fn [pats] [{:and pats}]))
                       (merge-with into acc %))))
                 {:pats []
@@ -742,11 +889,8 @@
 (defn page-info-of-form [{:keys [state] :as ctx}
                          {:keys [etype level option-map] :as _form}]
   (let [{:keys [order limit first last offset before after]} option-map]
-    ;; We don't need to do extra work to order the results if we're returning
-    ;; everything. We only need to order if there is pagination.
-    ;; The client is just going to get a set of triples anyway, so it can handle
-    ;; ordering on the frontend.
-    (when (or limit first last offset before after order)
+    (when (and (= level 0) ;; Don't bother ordering child forms since you can't paginate them
+               (or limit first last offset before after order))
       (let [{:keys [k direction]} (or order default-order)
             eid-sym (attr-pat/default-level-sym etype level)
             order-sym (if (= "serverCreatedAt" k)
@@ -777,13 +921,13 @@
                                 (format "The `%s` attribute is still in the process of indexing. It must finish before ordering by the attribute."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not (:index? order-attr))
-                                (format "The `%s` attribute is not indexed. Only indexed and type-checked attrs can be used to order by."
+                                (format "The `%s` attribute is not indexed. Only indexed and typed attributes can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not (:checked-data-type order-attr))
-                                (format "The `%s` attribute is not type-checked. Only type-checked and indexed attrs can be used to order by."
+                                (format "The `%s` attribute is not typed. Only typed and indexed attributes can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not= :one (:cardinality order-attr))
-                                (format "The `%s` attribute has cardinality `%s`. Only attrs with cardinality `one` can be used to order by."
+                                (format "The `%s` attribute has cardinality `%s`. Only attributes with cardinality `one` can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)
                                         (name (:cardinality order-attr))))])]
             (when (seq errors)
@@ -858,22 +1002,66 @@
                     (assoc :join-attr-pat join-attr-pat))]
       form')))
 
+(defn find-row-by-aid [rows aid]
+  (->> rows
+       (filter #(= aid (second (first %))))
+       first))
+
+(def $file-location-id-attr-id (system-catalog/get-attr-id "$files" "location-id"))
+(def $file-url-attr-id (system-catalog/get-attr-id "$files" "url"))
+
+(defn- add-url-to-join-rows [join-rows {:keys [app-id]}]
+  (let [[eid _ _ t] (ffirst join-rows)
+        location-id (some-> (find-row-by-aid join-rows $file-location-id-attr-id)
+                            first
+                            (nth 2))]
+    (if-not (and eid location-id)
+      join-rows
+      (conj join-rows
+            [[eid
+              $file-url-attr-id
+              (instant-s3/create-signed-download-url! app-id location-id)
+              t]]))))
+
+(defn remove-location-id-from-join-rows  [join-rows]
+  (->> join-rows
+       (remove (fn [row]
+                 (let [first-triple (first row)
+                       [_ aid] first-triple]
+                   (= aid $file-location-id-attr-id))))))
+
+(defn transform-$files-result [ctx form result]
+  (let [fields (some-> form :option-map :fields set)
+        asked-for-url? (or (not fields)
+                           (contains? fields "url"))
+        did-not-ask-for-location-id? (and fields
+                                          (not (contains? fields "location-id")))]
+    (cond-> result
+      asked-for-url? (update :join-rows add-url-to-join-rows ctx)
+      did-not-ask-for-location-id? (update :join-rows remove-location-id-from-join-rows))))
+
 (defn collect-query-results
   "Takes the datalog result from a nested query and the forms to constructs the
    query output.
 
    Assumes the structure of the datalog result matches the structure of the forms."
-  [datalog-result forms]
+  [ctx datalog-result forms]
   (mapv (fn [form child]
           (let [nodes (map (fn [child]
                              (add-children
-                              (make-node {:datalog-query (:datalog-query (first child))
-                                          :datalog-result (:result (first child))})
-                              (collect-query-results (first (:children (first child)))
+                              (make-node {:etype (:etype form)
+                                          :datalog-query (:datalog-query (first child))
+                                          :datalog-result (let [result (:result (first child))]
+                                                            (if (= (:etype form) "$files")
+                                                              (transform-$files-result ctx form result)
+                                                              result))})
+
+                              (collect-query-results ctx (first (:children (first child)))
                                                      (:child-forms form))))
                            (:children child))]
             (add-children
              (make-node {:k (:k form)
+                         :etype (:etype form)
                          :option-map (:option-map form)
                          :datalog-query (:datalog-query child)
                          :datalog-result (:result child)})
@@ -901,13 +1089,35 @@
         patterns))
 
 (defn collect-query-one [query-one-results]
-  (reduce (fn [acc {:keys [pattern-group referenced-etypes]}]
+  (reduce (fn [acc {:keys [pattern-group referenced-etypes form]}]
             (-> acc
+                (update :forms conj form)
                 (update :pattern-groups conj pattern-group)
                 (update :referenced-etypes into referenced-etypes)))
-          {:pattern-groups []
+          {:forms []
+           :pattern-groups []
            :referenced-etypes #{}}
           query-one-results))
+
+(defn etype-attr-ids [{:keys [attrs]} etype fields]
+  (if fields
+    (let [attr-ids (reduce (fn [acc field]
+                             (let [attr (attr-model/seek-by-fwd-ident-name
+                                         [etype field]
+                                         attrs)]
+                               (if (= :one (:cardinality attr))
+                                 (conj acc (:id attr))
+                                 acc)))
+                           #{}
+                           ;; Make sure we give them the id or else the client
+                           ;; won't be able to find the entity
+                           (conj fields "id"))]
+      (if (contains? attr-ids $file-url-attr-id)
+        ;; If the user asked for the url, we need to make sure to
+        ;; include `location-id` too; we use location-id to generate the url.
+        (conj attr-ids $file-location-id-attr-id)
+        attr-ids))
+    (attr-model/ea-ids-for-etype etype attrs)))
 
 (defn- query-one
   "Generates nested datalog query that combines all datalog queries into a
@@ -926,12 +1136,13 @@
         sym-placeholder (or (get-in ctx [:sym-placeholders sym])
                             (random-uuid))
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
-        child-forms (form->child-forms ctx form sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
-        etype-attr-ids (attr-model/attr-ids-for-etype etype (:attrs ctx))
+        fields (get-in form [:option-map :fields])
+        attr-ids (etype-attr-ids ctx etype fields)
         child-patterns (collect-query-one
                         (mapv (partial query-one ctx)
-                              child-forms))]
+                              (form->child-forms ctx form sym-placeholder)))
+        child-forms (:forms child-patterns)]
     (when (and aggregate (not (:admin? ctx)))
       (ex/throw-validation-err!
        :query
@@ -948,7 +1159,8 @@
          :in (apply conj (:in (:state ctx)) [:$ :aggregate])
          :message "You can not combine aggregates with child queries at this time."}]))
 
-    {:referenced-etypes (set/union #{etype}
+    {:form (assoc form :child-forms child-forms)
+     :referenced-etypes (set/union #{etype}
                                    (:referenced-etypes child-patterns)
                                    where-etypes)
      :pattern-group
@@ -956,7 +1168,7 @@
       {:patterns (replace-sym-placeholders (map-invert (:sym-placeholders ctx))
                                            patterns)
        :children {:pattern-groups
-                  [(merge {:patterns [[:ea sym etype-attr-ids]]}
+                  [(merge {:patterns [[:ea sym attr-ids]]}
                           (when (seq child-forms)
                             {:children {:pattern-groups (:pattern-groups child-patterns)
                                         :join-sym sym}}))]
@@ -970,60 +1182,59 @@
          :children nil}))}))
 
 (defn instaql-query->patterns [ctx o]
-  (let [forms (->> (->forms! o)
-                   ;; at the top-level, `k` _must_ be the etype
-                   (mapv (fn [{:keys [k] :as form}]
-                           (assoc form :etype k :level 0))))
+  (let [forms* (->> (->forms! (:attrs ctx) o)
+                    ;; at the top-level, `k` _must_ be the etype
+                    (mapv (fn [{:keys [k] :as form}]
+                            (assoc form :etype k :level 0))))
         {:keys [pattern-groups
-                referenced-etypes]}
+                referenced-etypes
+                forms]}
         (collect-query-one
          (map (partial query-one (assoc ctx :state {:root o :in []}))
-              forms))]
+              forms*))]
     {:patterns {:children {:pattern-groups pattern-groups}}
      :forms forms
      :referenced-etypes referenced-etypes}))
 
-(defn clean-where-for-hash [where]
-  (walk/postwalk (fn [x]
-                   (cond (string? x)
-                         :string
-                         (number? x)
-                         :number
-                         (uuid? x)
-                         :uuid
-                         (boolean? x)
-                         :boolean
-                         :else x))
-                 where))
-
-(defn clean-forms-for-hash [forms]
-  (walk/postwalk (fn [v]
-                   (if (and (map? v)
-                            (contains? v :$))
-                     (-> v
-                         (update-existing-in [:$ :where] clean-where-for-hash)
-                         (update-existing-in [:$ :before] (constantly :cursor))
-                         (update-existing-in [:$ :after] (constantly :cursor)))
-                     v))
-                 forms))
-
-(defn forms-hash [forms]
-  (hash (clean-forms-for-hash forms)))
+(defn add-query-modifiers
+  "Adds query modifiers from the query-modifiers flag. This lets us add limits to queries
+   that are causing issues."
+  [o modifiers]
+  (reduce (fn [o {:keys [etype params]}]
+            (update-in o [etype :$] merge params))
+          o
+          modifiers))
 
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
   [ctx o]
-  (let [query-hash (forms-hash o)]
+  (let [query-normalized (instaql-util/normalized-forms o)
+        query-hash (hash query-normalized)
+        query-modifiers (flags/query-modifiers (:app-id ctx) query-hash)]
     (tracer/with-span! {:name "instaql/query-nested"
                         :attributes {:app-id (:app-id ctx)
                                      :forms o
-                                     :query-hash query-hash}}
+                                     :query-normalized query-normalized
+                                     :query-hash query-hash
+                                     :query-modifiers query-modifiers}}
       (let [datalog-query-fn (or (:datalog-query-fn ctx)
                                  #'d/query)
-            {:keys [patterns forms]} (instaql-query->patterns ctx o)
+            {:keys [patterns forms]} (instaql-query->patterns ctx (if (seq query-modifiers)
+                                                                    (add-query-modifiers o query-modifiers)
+                                                                    o))
             datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
                                              patterns)]
-        (collect-query-results (:data datalog-result) forms)))))
+        (collect-query-results ctx (:data datalog-result) forms)))))
+
+(defn explain
+  "Generates a nested datalog query, then runs explain."
+  [ctx o]
+  (let [query-hash (instaql-util/forms-hash o)
+        explain-fn (or (:datalog-explain-fn ctx)
+                       d/explain)
+        {:keys [patterns]} (instaql-query->patterns ctx o)]
+    (explain-fn (assoc ctx :query-hash query-hash)
+                patterns)))
 
 ;; BYOP InstaQL
 
@@ -1130,7 +1341,7 @@
                             [:= field [:cast value field-type]]))))]}]
      :topics (if (seq rest)
                topics
-               [[:ea
+               [[#{:ea}
                  '_
                  (get-in table-info [(name other-table) :fields field :attr-id])
                  ;; TODO(byop): Should be able to use values to narrow the topics,
@@ -1206,7 +1417,7 @@
         {:sql-conds (list* :or
                            (for [value values]
                              [comparison field [:cast value field-type]]))
-         :topics [[:ea '_ #{(:attr-id field-info)} '_]]}))))
+         :topics [[#{:ea} '_ #{(:attr-id field-info)} '_]]}))))
 
 (defn where-cond->sql [state table-info table-name [tag where-cond]]
   (case tag
@@ -1468,9 +1679,9 @@
         id-attr (:attr-id primary-key)
 
         ;; TODO(byop): narrow this down if there is a where clause
-        catch-all [[:ea '_ #{id-attr} '_]]
+        catch-all [[#{:ea} '_ #{id-attr} '_]]
         entity-topics (map (fn [{:strs [row]}]
-                             [:ea #{(get row id-field)} '_ '_])
+                             [#{:ea} #{(get row id-field)} '_ '_])
                            rows)
 
         relations (get-in table-info [etype :relations])
@@ -1480,7 +1691,7 @@
            (map (fn [child]
                   (let [relation (get relations (get child "k"))]
                     ;; TODO(byop): narrow these down to relevant topics for this relation
-                    [:ea '_ #{(:attr-id relation)} '_]))
+                    [#{:ea} '_ #{(:attr-id relation)} '_]))
                 children))
          rows)]
     (concat catch-all
@@ -1570,31 +1781,48 @@
 (defn- join-rows->etype-maps
   "Takes a set of join-rows and returns maps from entity id to etype and
    etype to program."
-  [acc {:keys [attrs rules]} join-rows]
+  [acc {:keys [attrs rules rule-wheres]} data]
   (reduce
    (fn [acc join-rows]
      (reduce
       (fn [acc [e a]]
-        (let [etype (-> (attr-model/seek-by-id a attrs)
-                        attr-model/fwd-etype)]
-          (-> acc
-              (update-in [:etype->eids+program etype :eids] (fnil conj #{}) e)
-              (update-in [:etype->eids+program etype :program] (fn [p]
-                                                                 (or p
-                                                                     (rule-model/get-program! rules etype "view")))))))
+        (let [[etype label] (-> (attr-model/seek-by-id a attrs)
+                                attr-model/fwd-ident-name)
+              rule-where (get rule-wheres (:etype data))
+              checked-by-rule-where? (and rule-where
+                                          (= etype (:etype data))
+                                          (not (:short-circuit? rule-where)))]
+
+          (cond-> acc
+            checked-by-rule-where? (update-in [:etype->eids+program etype :checked-eids]
+                                              (fnil conj #{}) e)
+            true (update-in [:etype->eids+program etype :eids]
+                            (fnil conj #{}) e)
+            true (update-in [:etype->eids+program etype :program]
+                            (fn [p]
+                              (or p
+                                  (rule-model/get-program! rules etype "view"))))
+            true (update-in [:etype->eids+program etype :field-programs]
+                            (fn [field-programs]
+                              (if (contains? field-programs label)
+                                field-programs
+                                (assoc-some
+                                 field-programs
+                                 label
+                                 (rule-model/get-field-program! rules etype label))))))))
+
       acc
       join-rows))
    acc
-   join-rows))
+   (get-in data [:datalog-result :join-rows])))
 
 (defn extract-permission-helpers*
   ([acc ctx instaql-res]
    (reduce (fn [acc {:keys [data child-nodes]}]
-             (let [join-rows (get-in data [:datalog-result :join-rows])
-                   next-acc (-> acc
+             (let [next-acc (-> acc
                                 (assoc-in [:query-cache (:datalog-query data)]
                                           (:datalog-result data))
-                                (join-rows->etype-maps ctx join-rows))]
+                                (join-rows->etype-maps ctx data))]
                (if (seq child-nodes)
                  (extract-permission-helpers* next-acc ctx child-nodes)
                  next-acc)))
@@ -1614,30 +1842,31 @@
    (tracer/with-span! {:name "extract-permission-helpers"}
      (extract-permission-helpers* acc ctx instaql-res))))
 
+(defn viewable-triple? [attrs etype+eid->check [e a]]
+  (let [[etype label] (-> (attr-model/seek-by-id a attrs)
+                          attr-model/fwd-ident-name)
+        view-check (get etype+eid->check [etype e])
+        field-check (get etype+eid->check [etype e label] {:result true})]
+    (and (:result view-check)
+         (:result field-check))))
+
+(defn viewable-join-row? [attrs etype+eid->check join-row]
+  (every? (partial viewable-triple? attrs etype+eid->check) join-row))
+
 (defn permissioned-node [{:keys [attrs] :as ctx} etype+eid->check res]
   (let [cleaned-join-rows (->> res
                                :data
                                :datalog-result
                                :join-rows
-                               (filter (fn [triples]
-                                         (every? (fn [[e a]]
-                                                   (let [etype (-> (attr-model/seek-by-id a attrs)
-                                                                   attr-model/fwd-etype)
-                                                         check (get etype+eid->check [etype e])]
-                                                     (:result check)))
-                                                 triples)))
+                               (filter (partial viewable-join-row? attrs etype+eid->check))
                                set)
-
         cleaned-page-info
         (when (get-in res [:data :datalog-result :page-info])
-          (when-let [filtered-rows (seq (filter (fn [[e a]]
-                                                  (let [etype (-> (attr-model/seek-by-id a attrs)
-                                                                  attr-model/fwd-etype)
-                                                        check (get etype+eid->check [etype e])]
-                                                    (:result check)))
-                                                (get-in res [:data
-                                                             :datalog-result
-                                                             :page-info-rows])))]
+          (let [filtered-rows (seq (filter
+                                    (partial viewable-triple? attrs etype+eid->check)
+                                    (get-in res [:data
+                                                 :datalog-result
+                                                 :page-info-rows])))]
             {:start-cursor (first filtered-rows)
              :end-cursor (last filtered-rows)
              ;; nb: this may be incorrect if rows are filtered by permissions
@@ -1668,85 +1897,280 @@
                   query-cache
                   etype
                   eid]
-  (let [datalog-query [[:ea eid (attr-model/attr-ids-for-etype etype attrs)]]
+  (let [datalog-query [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
         datalog-result
         (or (get query-cache datalog-query)
             (datalog-query-fn ctx datalog-query))]
     (entity-model/datalog-result->map ctx datalog-result)))
 
-(defn extract-refs
-  "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
-   Returns: [{:etype string path-str string eids #{uuid}}]"
-  [user-id etype->eids+program]
-  (reduce-kv (fn [acc etype {:keys [eids program]}]
-               (if-let [refs (some-> program
-                                     :cel-ast
-                                     cel/collect-ref-uses
-                                     seq)]
-                 (reduce (fn [acc {:keys [obj path]}]
-                           (case obj
-                             "data" (conj acc {:etype etype
-                                               :path-str path
-                                               :eids eids})
-                             "auth" (conj acc {:etype "$users"
-                                               :path-str path
-                                               :eids (if user-id
-                                                       #{user-id}
-                                                       #{})})
+(defn preload-entity-maps
+  "Returns a query cache for entities that are missing from the existing
+  query cache, but that we'll need to fetch for a rule.
+  If the user uses `:fields` in their query to limit what they fetch, we'll
+  still need to fetch the full object to perform permission checks. We do it
+  in a batch to reduce latency."
+  [{:keys [datalog-query-fn attrs] :as ctx} query-cache etype->eids+program]
+  (let [patterns (keep (fn [[etype {:keys [eids program field-programs]}]]
+                         (when (or program
+                                   (seq field-programs))
+                           (let [attr-ids (attr-model/ea-ids-for-etype etype attrs)
+                                 missing-eids (reduce (fn [acc eid]
+                                                        (if (contains? query-cache [[:ea eid attr-ids]])
+                                                          acc
+                                                          (conj acc eid)))
+                                                      #{}
+                                                      eids)]
+                             (when (seq missing-eids)
+                               {:patterns [[:ea missing-eids attr-ids]]}))))
+                       etype->eids+program)]
+    (when (seq patterns)
+      (let [query {:children {:pattern-groups patterns}}
+            result (datalog-query-fn ctx query)]
+        (reduce (fn [cache {:keys [result datalog-query]}]
+                  (let [eid->join-rows (reduce (fn [acc join-row]
+                                                 (update acc
+                                                         (ffirst join-row)
+                                                         (fnil conj #{})
+                                                         join-row))
+                                               {}
+                                               (:join-rows result))
+                        attr-ids (-> datalog-query
+                                     first
+                                     last)]
+                    (reduce-kv (fn [cache eid join-rows]
+                                 (assoc cache [[:ea eid attr-ids]] {:join-rows join-rows
+                                                                    :symbol-values {}
+                                                                    :topics [[#{:ea} #{eid} attr-ids '_]]}))
+                               cache
+                               eid->join-rows)))
+                {}
+                (:data result))))))
 
-                             acc))
-                         acc
-                         refs)
-                 acc))
-             []
-             etype->eids+program))
-
-(defn preload-refs [ctx etype->eids+program]
-  (let [refs (extract-refs (-> ctx
-                               :current-user
-                               :id)
-                           etype->eids+program)]
-    (if (seq refs)
-      (cel/prefetch-data-refs ctx refs)
-      {})))
-
-(defn get-etype+eid-check-result! [{:keys [current-user] :as ctx}
-                                   {:keys [etype->eids+program query-cache]}]
+(defn get-etype+eid-check-result! [ctx
+                                   {:keys [etype->eids+program query-cache]}
+                                   rule-params]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
-    (let [preloaded-refs (tracer/with-span! {:name "instaql/preload-refs"}
-                           (let [res (preload-refs ctx etype->eids+program)]
-                             (tracer/add-data! {:attributes {:ref-count (count res)}})
-                             res))]
-      (reduce-kv (fn [acc etype {:keys [eids program]}]
-                   (reduce (fn [acc eid]
-                             (assoc acc
-                                    [etype eid]
-                                    (if-not program
-                                      {:result true}
-                                      {:program program
-                                       :result
-                                       (let [em (io/warn-io :instaql/entity-map
-                                                            (entity-map ctx
-                                                                        query-cache
-                                                                        etype
-                                                                        eid))
-                                             ctx (assoc ctx
-                                                        :preloaded-refs preloaded-refs)]
-                                         (io/warn-io :instaql/eval-program
-                                                     (cel/eval-program!
-                                                      program
-                                                      {"auth" (cel/->cel-map {:ctx ctx
-                                                                              :type :auth
-                                                                              :etype "$users"}
-                                                                             current-user)
-                                                       "data" (cel/->cel-map {:ctx ctx
-                                                                              :etype etype
-                                                                              :type :data}
-                                                                             em)})))})))
-                           acc
-                           eids))
-                 {}
-                 etype->eids+program))))
+    (let [preloaded-entity-maps (tracer/with-span! {:name "instaql/preload-entity-maps"}
+                                  (let [res (preload-entity-maps ctx
+                                                                 query-cache
+                                                                 etype->eids+program)]
+                                    (tracer/add-data! {:attributes {:entity-count (count res)}})
+                                    res))
+          query-cache (merge query-cache preloaded-entity-maps)
+
+          acc-view-program (fn [acc etype {:keys [checked-eids eid program]}]
+                             (let [k [etype eid]]
+                               (cond (contains? checked-eids eid)
+                                     (assoc-in acc
+                                               [:no-programs k]
+                                               {:result true
+                                                :checked-by-rule-where true
+                                                :program program})
+
+                                     program
+                                     (let [data (io/warn-io :instaql/entity-map
+                                                  (entity-map ctx
+                                                              query-cache
+                                                              etype
+                                                              eid))
+                                           bindings {:rule-params rule-params
+                                                     :data data}]
+                                       (update acc :programs conj
+                                               {:key k
+                                                :program program
+                                                :bindings bindings}))
+
+                                     :else
+                                     (assoc-in acc
+                                               [:no-programs k]
+                                               {:result true}))))
+
+          acc-field-programs (fn [acc etype {:keys [field-programs eid]}]
+                               (reduce-kv
+                                (fn [acc label program]
+                                  (let [k [etype eid label]
+                                        data (io/warn-io :instaql/entity-map
+                                               (entity-map ctx
+                                                           query-cache
+                                                           etype
+                                                           eid))
+                                        bindings {:rule-params rule-params
+                                                  :data data}]
+                                    (update acc :programs conj
+                                            {:key k
+                                             :program program
+                                             :bindings bindings})))
+
+                                acc
+                                field-programs))
+          {:keys [programs no-programs]}
+          (reduce-kv (fn [acc etype {:keys [eids checked-eids program field-programs]}]
+                       (reduce (fn [acc eid]
+                                 (let [acc (acc-view-program acc etype
+                                                             {:checked-eids checked-eids
+                                                              :program program
+                                                              :eid eid})
+
+                                       acc (acc-field-programs acc etype
+                                                               {:field-programs field-programs
+                                                                :eid eid})]
+
+                                   acc))
+                               acc
+                               eids))
+                     {:programs []
+                      :no-programs {}}
+                     etype->eids+program)]
+      (merge no-programs
+             (ucoll/map-by :key (cel/eval-programs! ctx programs))))))
+
+(defn use-rule-wheres? [ctx o]
+  (if (contains? ctx :use-rule-wheres?)
+    (:use-rule-wheres? ctx)
+    (let [app-id (:app-id ctx)
+          query-hash (instaql-util/forms-hash o)]
+      (flags/use-rule-wheres? {:app-id app-id
+                               :query-hash query-hash}))))
+
+(defn rule-wheres->where-conds [attrs etype wheres]
+  (let [forms {etype {:$ {:where wheres}}}]
+    (->> forms
+         (->forms! attrs)
+         first
+         :option-map
+         :where-conds)))
+
+(defn prefix-all-clauses
+  "(prefix-all-clauses \"owner\" {\"id\" 1, \"tags.name\" \"tag\"})
+   => {\"owner.id\" 1, \"owner.tags.name\" \"tag-name\"} "
+  [prefix clauses]
+  (reduce-kv (fn [acc k v]
+               (case k
+                 (:or :and)
+                 (assoc acc k (mapv (partial prefix-all-clauses prefix) v))
+
+                 (assoc acc (str prefix "." (name k)) v)))
+             {}
+             clauses))
+
+(defn get-rule-wheres [ctx rule-params rules o]
+  (when (use-rule-wheres? ctx o)
+    (tracer/with-span! {:name "instaql/get-rule-wheres"}
+      (let [{:keys [referenced-etypes]} (instaql-query->patterns ctx o)
+            programs (keep (fn [etype]
+                             (rule-model/get-program! rules etype "view"))
+                           referenced-etypes)
+
+            program-results
+            (tracer/with-span! {:name "instaql/get-all-where-clauses"}
+              (cel/get-all-where-clauses ctx rule-params programs))
+            rule-wheres
+            (reduce-kv
+             (fn [acc etype result]
+               (try
+                 (when-let [t (:thrown result)]
+                   (throw t))
+                 (when (seq (:where-clauses result))
+                   ;; Ensures we got valid where clauses back
+                   (rule-wheres->where-conds (:attrs ctx)
+                                             etype
+                                             (:where-clauses result)))
+                 (assoc acc etype {:short-circuit? (:short-circuit? result)
+                                   :where-clauses (:where-clauses result)})
+                 (catch Exception e
+                   (tracer/with-span!
+                     {:name "instaql/rule-where-exception"
+                      :attributes {:code (:code (rule-model/get-program! rules
+                                                                         etype
+                                                                         "view"))
+                                   :error e}}
+                     acc))))
+             {}
+             program-results)]
+        (tracer/add-data! {:attributes {:rule-wheres rule-wheres}})
+        rule-wheres))))
+
+(defn update-where-with-rule-refs [initial-etype attrs rule-wheres where k v]
+  (loop [[segment & rest-path] (string/split (name k) #"\.")
+         current-path [segment]
+         etype initial-etype
+         where (assoc where k v)]
+    (if-let [segment-etype (link-etype attrs etype segment)]
+      (let [rule-where (if (-> rule-wheres (get segment-etype) :short-circuit?)
+                         {:id (str (random-uuid))}
+                         (-> rule-wheres (get segment-etype) :where-clauses))
+            where (if-not (seq rule-where)
+                    where
+                    (update where
+                            :and
+                            (fnil conj [])
+                            (prefix-all-clauses (string/join "." current-path) rule-where)))]
+        (if-not (seq rest-path)
+          where
+          (recur rest-path
+                 (conj current-path (first rest-path))
+                 segment-etype
+                 where)))
+      where)))
+
+(defn extend-where-with-rule-refs [etype ctx rule-wheres where]
+  (reduce-kv (fn [new-where k v]
+               (if (or (or-where-cond? [k v])
+                       (and-where-cond? [k v]))
+                 (assoc new-where k (concat (map
+                                             (fn [where]
+                                               (extend-where-with-rule-refs etype
+                                                                            ctx
+                                                                            rule-wheres
+                                                                            where))
+                                             v)
+                                            ;; We may have added our own ands/or
+                                            ;; in add-rule-wheres-to-query
+                                            (get new-where k)))
+                 (update-where-with-rule-refs etype
+                                              (:attrs ctx)
+                                              rule-wheres
+                                              new-where
+                                              k
+                                              v)))
+             {}
+             where))
+
+(defn add-rule-wheres-to-query
+  ([ctx rule-wheres o]
+   (add-rule-wheres-to-query nil ctx rule-wheres o))
+  ([etype ctx rule-wheres o]
+   (reduce-kv (fn [new-o k v]
+                (let [etype (if etype
+                              (link-etype (:attrs ctx) etype (name k))
+                              (name k))
+                      etype-rule-where (if (get-in rule-wheres [etype :short-circuit?])
+                                         {:id (str (random-uuid))}
+                                         (get-in rule-wheres [etype :where-clauses]))]
+                  (if-not etype
+                    (assoc new-o k v)
+                    (assoc new-o
+                           k
+                           (cond-> v
+                             true (update-existing-in [:$ :where]
+                                                      (partial extend-where-with-rule-refs
+                                                               etype
+                                                               ctx
+                                                               rule-wheres))
+                             true (select-keys [:$])
+                             true (merge (add-rule-wheres-to-query etype
+                                                                   ctx
+                                                                   rule-wheres
+                                                                   (dissoc v :$)))
+                             (seq etype-rule-where)
+                             (update-in [:$ :where]
+                                        (fn [where]
+                                          (if where
+                                            {:and [where
+                                                   etype-rule-where]}
+                                            etype-rule-where))))))))
+              {}
+              o)))
 
 (defn permissioned-query [{:keys [app-id current-user admin?] :as ctx} o]
   (tracer/with-span! {:name "instaql/permissioned-query"
@@ -1754,33 +2178,56 @@
                                    :current-user (pr-str current-user)
                                    :admin? admin?
                                    :query (pr-str o)}}
+    (when-not (:testing-rule-wheres ctx) ;; Prevent infinite cycle
+      (hint-testing/queue-for-testing ctx permissioned-query o))
+    (if admin?
+      (query ctx (dissoc o :$$ruleParams))
+      (let [ctx (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
+            rule-params (:$$ruleParams o)
+            o (dissoc o :$$ruleParams)
+            rules (rule-model/get-by-app-id (:conn-pool (:db ctx)) {:app-id app-id})
 
-    (let [res (query ctx o)]
-      (if admin?
-        res
-        (let [rules (rule-model/get-by-app-id {:app-id app-id})
-              perm-helpers
-              (extract-permission-helpers {:attrs (:attrs ctx)
-                                           :rules rules}
-                                          res)
-              etype+eid->check (get-etype+eid-check-result! ctx perm-helpers)
-              res' (tracer/with-span! {:name "instaql/map-permissioned-node"}
-                     (mapv (partial permissioned-node ctx etype+eid->check) res))]
-          res')))))
+            rule-wheres (get-rule-wheres ctx rule-params rules o)
+            ctx (assoc ctx :rule-wheres rule-wheres)
+            o (if (seq rule-wheres)
+                (add-rule-wheres-to-query ctx rule-wheres o)
+                o)
+            res (query ctx o)
+
+            perm-helpers
+            (extract-permission-helpers {:attrs (:attrs ctx)
+                                         :rules rules
+                                         :rule-wheres rule-wheres}
+                                        res)
+            etype+eid->check (get-etype+eid-check-result! ctx perm-helpers rule-params)
+            res' (tracer/with-span! {:name "instaql/map-permissioned-node"}
+                   (mapv (partial permissioned-node ctx etype+eid->check) res))]
+        res'))))
 
 (defn permissioned-query-check [{:keys [app-id] :as ctx} o rules-override]
-  (let [res (query ctx o)
+  (let [ctx (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
+        rule-params (:$$ruleParams o)
+        o (dissoc o :$$ruleParams)
         rules (or (when rules-override {:app_id app-id :code rules-override})
-                  (rule-model/get-by-app-id {:app-id app-id}))
+                  (rule-model/get-by-app-id (:conn-pool (:db ctx)) {:app-id app-id}))
+
+        rule-wheres (get-rule-wheres ctx rule-params rules o)
+        ctx (assoc ctx :rule-wheres rule-wheres)
+        o (if (seq rule-wheres)
+            (add-rule-wheres-to-query ctx rule-wheres o)
+            o)
+        res (query ctx o)
         perm-helpers
         (extract-permission-helpers {:attrs (:attrs ctx)
-                                     :rules rules}
+                                     :rules rules
+                                     :rule-wheres rule-wheres}
                                     res)
-        etype+eid->check (get-etype+eid-check-result! ctx perm-helpers)
+        etype+eid->check (get-etype+eid-check-result! ctx perm-helpers rule-params)
         check-results (map
-                       (fn [[[etype id] {:keys [result program]}]]
+                       (fn [[[etype id label] {:keys [result program]}]]
                          {:id id
                           :entity etype
+                          :label label
                           :record (entity-map ctx
                                               (:query-cache perm-helpers)
                                               etype
@@ -1792,16 +2239,18 @@
                           :check result})
                        etype+eid->check)
         nodes (mapv (partial permissioned-node ctx etype+eid->check) res)]
-    {:nodes nodes :check-results check-results}))
+    {:nodes nodes :check-results check-results :rule-wheres rule-wheres}))
 
 ;; ----
 ;; play
 
 (comment
-  (def r (resolvers/make-zeneca-resolver))
-  (def attrs (attr-model/get-by-app-id zeneca-app-id))
+  (def z (c/zeneca-app!))
+  (def z-id (:id z))
+  (def r (resolvers/make-zeneca-resolver z-id))
+  (def attrs (attr-model/get-by-app-id z-id))
   (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :app-id zeneca-app-id
+            :app-id z-id
             :datalog-query-fn #'d/query
             :attrs attrs})
   (resolvers/walk-friendly
@@ -1810,40 +2259,3 @@
   (resolvers/walk-friendly
    r
    (permissioned-query ctx {:users {}})))
-
-;; Kein query
-
-(comment
-  (def rec-app-id #uuid "f8cac3ee-b867-4651-b02e-e16d0397eb50")
-
-  (def attrs (attr-model/get-by-app-id rec-app-id))
-
-  (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :app-id rec-app-id
-            :attrs attrs})
-
-  (require 'instant.util.instaql)
-  (instant.util.instaql/instaql-nodes->object-tree
-   ctx
-   (query ctx {:eb {:child {}}})))
-
-;; Inspect query
-(comment
-  (def r (resolvers/make-zeneca-resolver))
-  (def attrs (attr-model/get-by-app-id zeneca-app-id))
-  (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :app-id zeneca-app-id
-            :attrs attrs})
-  (resolvers/walk-friendly
-   r
-   (query ctx {:users {:$ {:where {:handle "alex"}}
-                       :bookshelves {}}})))
-
-;; Time query
-(comment
-  (def app-id #uuid "6a0e56c8-f847-4890-8ae9-06bba6249d34")
-  (query
-   {:db {:conn-pool (aurora/conn-pool :read)}
-    :app-id app-id
-    :attrs (attr-model/get-by-app-id app-id)}
-   {:tables {:rows {}, :$ {:where {:id "b2f7658d-c5b5-4486-b298-e811098009b9"}}}}))

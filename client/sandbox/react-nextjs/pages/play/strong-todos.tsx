@@ -1,17 +1,19 @@
 import {
   i,
+  id,
   init,
   InstaQLEntity,
   type InstaQLParams,
-} from "@instantdb/react";
+} from '@instantdb/react';
 
-import config from "../../config";
+import config from '../../config';
 
 const _schema = i.schema({
   entities: {
     todos: i.entity({
       text: i.string(),
       completed: i.boolean(),
+      author: i.string().optional(),
     }),
     owner: i.entity({
       name: i.string(),
@@ -20,19 +22,19 @@ const _schema = i.schema({
   links: {
     todosOwner: {
       forward: {
-        on: "todos",
-        has: "one",
-        label: "owner",
+        on: 'todos',
+        has: 'one',
+        label: 'owner',
       },
       reverse: {
-        on: "owner",
-        has: "many",
-        label: "ownedTodos",
+        on: 'owner',
+        has: 'many',
+        label: 'ownedTodos',
       },
     },
   },
 });
-// This helps Typescript display nicer intellisense
+// This helps TypeScript display nicer intellisense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
@@ -48,7 +50,17 @@ const todosQuery = {
   },
 } satisfies InstaQLParams<AppSchema>;
 
-export type Todo = InstaQLEntity<AppSchema, "todos">;
+export type Todo = InstaQLEntity<AppSchema, 'todos'>;
+
+function addTodo(text: string) {
+  db.transact(
+    db.tx.todos[id()].create({
+      text: '',
+      completed: false,
+      author: 'aaa',
+    }),
+  );
+}
 
 export default function TodoApp() {
   const result = db.useQuery(todosQuery);
@@ -61,5 +73,5 @@ export default function TodoApp() {
 // a react component using `Todos`
 function TodoList({ todos }: { todos: Todo[] }) {
   // render todos...
-  return "Number of todos: " + todos.length;
+  return 'Number of todos: ' + todos.length;
 }

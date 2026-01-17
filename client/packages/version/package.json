@@ -1,0 +1,59 @@
+{
+  "name": "@instantdb/version",
+  "version": "0.0.0",
+  "description": "Instant's shared version package",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/version",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/version"
+  },
+  "type": "module",
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "module": "./dist/esm/index.js",
+  "unpkg": "standalone/index.umd.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    }
+  },
+  "tshy": {
+    "selfLink": false,
+    "main": true,
+    "module": true,
+    "project": "./tsconfig.json",
+    "exports": {
+      "./package.json": "./package.json",
+      ".": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "check-exports": "attw --pack .",
+    "dev:module": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
+    "dev:main": "tsc --watch --preserveWatchOutput -p tsconfig.cjs.dev.json",
+    "dev": "run-p dev:module dev:main",
+    "clean": "rm -rf dist",
+    "build": "rm -rf dist; npm run build:tshy && npm run build:standalone && npm run check-exports",
+    "build:tshy": "tshy",
+    "build:standalone": "vite build",
+    "publish-package": "npm publish --access public --no-git-checks"
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.18",
+    "tshy": "^3.0.2",
+    "npm-run-all": "^4.1.5",
+    "@arethetypeswrong/cli": "^0.17.4",
+    "typescript": "^5.9.3",
+    "vite": "^5.2.0"
+  }
+}

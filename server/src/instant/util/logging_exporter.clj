@@ -3,14 +3,22 @@
   (:require
    [clojure.string :as string]
    [clojure.tools.logging :as log]
-   [instant.config :as config])
+   [instant.config :as config]
+   [instant.flags :as flags]
+   [instant.util.coll :as ucoll])
   (:import
+   (instant SpanTrackException)
    (io.opentelemetry.api.common AttributeKey)
+   (io.opentelemetry.api.trace Span SpanId)
    (io.opentelemetry.sdk.common CompletableResultCode)
-   (io.opentelemetry.sdk.trace.data SpanData EventData)
+   (io.opentelemetry.sdk.trace.data SpanData
+                                    EventData
+                                    ExceptionEventData)
    (io.opentelemetry.sdk.trace.export SpanExporter)
    (java.util.concurrent TimeUnit)
    (java.util.concurrent.atomic AtomicBoolean)))
+
+(set! *warn-on-reflection* true)
 
 ;; ------
 ;; Colors
@@ -36,7 +44,7 @@
     (format "\033[1;38;5;%dm%s\033[0m" (colors i) s)))
 
 (defn colorize [color-f s]
-  (if (= :prod (config/get-env))
+  (if (config/aws-env?)
     s
     (color-f s)))
 
@@ -59,6 +67,7 @@
      "detailed_patterns"
      "detailed_tx_steps"
      "process_id"
+     "machine_id"
      "instance_id"
      "query"
      "fewer_vfutures") true
@@ -76,25 +85,50 @@
   (let [k (str k)]
     (when-not (exclude? k)
       (.append sb (if (and (= k "exception.message")
-                           (not= :prod (config/get-env)))
+                           (not (config/aws-env?)))
                     (colorize error-color k)
                     k))
       (.append sb "=")
       (.append sb (format-attr-value v))
       (.append sb " "))))
 
+(defn add-span-tracker-to-exception [^Span span ^Throwable t]
+  (when-not (ucoll/exists?
+             (fn [s] (instance? SpanTrackException s))
+             (.getSuppressed t))
+    (.addSuppressed t (SpanTrackException. (-> span
+                                               (.getSpanContext)
+                                               (.getSpanId))))))
+
+(defn exception-belongs-to-span? [^Throwable t ^SpanId spanId]
+  (ucoll/exists?
+   (fn [t]
+     (and (instance? SpanTrackException t)
+          (= spanId (.getMessage ^SpanTrackException t))))
+   (some-> t .getSuppressed)))
+
+(defn exception-belongs-to-child-span? [^Throwable t ^SpanId spanId]
+  (ucoll/exists?
+   (fn [t]
+     (and (instance? SpanTrackException t)
+          (not= spanId (.getMessage ^SpanTrackException t))))
+   (some-> t .getSuppressed)))
+
 (defn attr-str [^SpanData span]
   (let [sb (StringBuilder.)]
     (doseq [attr (.asMap (.getAttributes span))]
       (append-attr sb attr))
     (doseq [^EventData event (.getEvents span)]
-      (doseq [attr (.asMap (.getAttributes event))]
-        (append-attr sb attr)))
+      (if (and (instance? ExceptionEventData event)
+               (exception-belongs-to-child-span? (.getException ^ExceptionEventData event) (.getSpanId span)))
+        (append-attr sb ["child-threw-exception" true])
+        (doseq [attr (.asMap (.getAttributes event))]
+          (append-attr sb attr))))
     (.toString sb)))
 
 (defn friendly-trace [trace-id]
   (if (seq trace-id)
-    (if (= :prod (config/get-env))
+    (if (config/aws-env?)
       trace-id
       (subs trace-id 0 4))
     "unk"))
@@ -103,7 +137,7 @@
   (.replace s "\n" "\\\\n"))
 
 (def span-str
-  (if (= :prod (config/get-env))
+  (if (config/aws-env?)
     (fn [^SpanData span]
       (let [attr-str (attr-str span)]
         (format "[%s/%s] %sms [%s] %s"
@@ -121,9 +155,10 @@
                 attr-str)))))
 
 (def op-attr-key (AttributeKey/stringKey "op"))
+(def app-id-attr-key (AttributeKey/stringKey "app_id"))
 
 (def exclude-span?
-  (if (= :prod (config/get-env))
+  (if (config/aws-env?)
     (fn [^SpanData span]
       (let [n (.getName span)]
         (case n
@@ -132,17 +167,30 @@
            "gauges"
            "ws/send-json!"
            "handle-refresh/send-event!"
+           "handle-refresh/spam"
            "store/record-datalog-query-finish!"
            "store/record-datalog-query-start!"
            "store/swap-datalog-cache!"
            "store/bump-instaql-version!"
            "store/add-instaql-query!"
+           "store/mark-datalog-queries-stale!"
+           "store/remove-query!"
+           "store/assoc-session!"
+           "store/remove-session!"
+           "store/remove-session-data!"
+           "store/upsert-datalog-loader!"
            "instaql/get-eid-check-result!"
            "extract-permission-helpers"
-           "instaql/map-permissioned-node") true
+           "instaql/map-permissioned-node"
+           "datalog-query-reactive!"
+           "instaql/preload-entity-maps"
+           "datalog/send-query-nested"
+           "join-room-logger/process"
+           "singleton-hz-topic-latency") true
 
           ("receive-worker/handle-event"
            "receive-worker/handle-receive")
+
           (case (-> (.getAttributes span)
                     (.get op-attr-key))
             (":set-presence"
@@ -161,14 +209,27 @@
 
           (string/starts-with? n "e2e"))))))
 
+(defn include-span? [^SpanData span]
+  (let [name (.getName span)]
+    (= "postmark/send-disabled" name)))
+
 (def log-spans?
   (not= "false" (System/getenv "INSTANT_LOG_SPANS")))
 
+(defn should-log? [^SpanData span]
+  (if-let [app-id (-> span .getAttributes (.get app-id-attr-key))]
+    (if-let [sample-rate (flags/log-sampled-apps app-id)]
+      (<= (rand) sample-rate)
+      true)  ; App ID not in config, always log
+    true))  ; No app ID, always log
+
 (defn log-spans [spans]
-  (when log-spans?
-    (doseq [span spans
-            :when (not (exclude-span? span))]
-      (log/info (span-str span)))))
+  (doseq [span spans
+          :when (or (include-span? span)
+                    (and log-spans?
+                         (should-log? span)
+                         (not (exclude-span? span))))]
+    (log/info (span-str span))))
 
 (defn export [^AtomicBoolean shutdown? spans]
   (if (.get shutdown?)

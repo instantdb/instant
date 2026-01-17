@@ -22,10 +22,11 @@ export default function weakHash(input: any): string {
 
   // For strings, use FNV-1a algorithm
   if (typeof input === 'string') {
-    let hash = 0x811C9DC5; // FNV offset basis (32 bit)
+    let hash = 0x811c9dc5; // FNV offset basis (32 bit)
     for (let i = 0; i < input.length; i++) {
       hash ^= input.charCodeAt(i);
-      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+      hash +=
+        (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
       hash = hash >>> 0; // Convert to unsigned 32-bit after each iteration
     }
     return hash.toString(16);
@@ -33,7 +34,7 @@ export default function weakHash(input: any): string {
 
   // For arrays, hash elements directly
   if (Array.isArray(input)) {
-    let hash = 0x811C9DC5;
+    let hash = 0x811c9dc5;
     for (let i = 0; i < input.length; i++) {
       // Add array position to hash calculation
       hash ^= (i + 1) * 2654435761;
@@ -51,7 +52,7 @@ export default function weakHash(input: any): string {
 
   // For objects, hash keys and values
   if (typeof input === 'object') {
-    let hash = 0x811C9DC5;
+    let hash = 0x811c9dc5;
     const keys = Object.keys(input).sort(); // Sort for consistency
 
     for (let i = 0; i < keys.length; i++) {

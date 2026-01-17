@@ -1,5 +1,6 @@
 ---
 title: Sign In with Apple
+description: How to add Sign In with Apple to your Instant app.
 ---
 
 {% nav-default value="web-popup" %}
@@ -7,9 +8,9 @@ title: Sign In with Apple
 Instant supports Sign In with Apple on the Web and in native applications.
 
 {% nav-group %}
-  {% nav-button param="method" value="web-popup" title="Web Popup (recommended)" description="Use Apple-provided popup to authenticate users" /%}
-  {% nav-button param="method" value="web-redirect" title="Web Redirect" description="Use redirect flow to authenticate users" /%}
-  {% nav-button param="method" value="native" title="React Native" description="Authenticating in React Native app" /%}
+{% nav-button param="method" value="web-popup" title="Web Popup (recommended)" description="Use Apple-provided popup to authenticate users" /%}
+{% nav-button param="method" value="web-redirect" title="Web Redirect" description="Use redirect flow to authenticate users" /%}
+{% nav-button param="method" value="native" title="React Native" description="Authenticating in React Native app" /%}
 {% /nav-group %}
 
 ## Step 1: Create App ID
@@ -32,6 +33,7 @@ Instant supports Sign In with Apple on the Web and in native applications.
 - Click _Register_
 
 {% conditional param="method" value="web-popup" %}
+
 ## Step 3: Configure Services ID (Web Popup flow)
 
 - Select newly created Services ID
@@ -41,9 +43,11 @@ Instant supports Sign In with Apple on the Web and in native applications.
 - To _Domains_, add your app domain (e.g. `myapp.com`)
 - To _Return URLs_, add URL of your app where authentication happens (e.g. `https://myapp.com/signin`)
 - Click _Continue_ → _Save_
+
 {% /conditional %}
 
 {% conditional param="method" value="web-redirect" %}
+
 ## Step 3: Configure Services ID (Web Redirect flow)
 
 - Select newly created Services ID
@@ -63,9 +67,11 @@ Instant supports Sign In with Apple on the Web and in native applications.
 - Configure → select _App ID_ from Step 1
 - _Continue_ → _Register_
 - Download key file
+
 {% /conditional %}
 
 {% conditional param="method" value="native" %}
+
 ## Step 3: Configure Services ID (React Native flow)
 
 This step is not needed for Expo.
@@ -73,25 +79,39 @@ This step is not needed for Expo.
 
 ## Step 4: Register your OAuth client with Instant
 
+{% conditional param="method" value="web-redirect" %}
+
 - Go to the Instant dashboard and select _Auth_ tab.
 - Select _Add Apple Client_
 - Select unique _clientName_ (`apple` by default, will be used in `db.auth` calls)
 - Fill in _Services ID_ from Step 2
-{% conditional param="method" value="web-redirect" %}
 - Fill in _Team ID_ from [Membership details](https://developer.apple.com/account#MembershipDetailsCard)
 - Fill in _Key ID_ from Step 3.5
 - Fill in _Private Key_ by copying file content from Step 3.5
-{% /conditional %}
 - Click `Add Apple Client`
 
+{% else %}
+
+- Go to the Instant dashboard and select _Auth_ tab.
+- Select _Add Apple Client_
+- Select unique _clientName_ (`apple` by default, will be used in `db.auth` calls)
+- Fill in _Services ID_ from Step 2
+- Click `Add Apple Client`
+
+{% /else %}
+{% /conditional %}
+
 {% conditional param="method" value="web-redirect" %}
+
 ## Step 4.5: Whitelist your domain in Instant (Web Redirect flow only)
 
 - In Instant Dashboard, Click _Redirect Origins_ → _Add an origin_
 - Add your app’s domain (e.g. `myapp.com`)
+
 {% /conditional %}
 
 {% conditional param="method" value="web-popup" %}
+
 ## Step 5: Add Sign In code to your app (Web Popup flow)
 
 Add Apple Sign In library to your app:
@@ -102,29 +122,29 @@ https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.aut
 
 Initialize with `Services ID` from Step 2:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 AppleID.auth.init({
-  clientId : '<Services ID>',
-  scope : 'name email',
+  clientId: '<Services ID>',
+  scope: 'name email',
   redirectURI: window.location.href,
 });
 ```
 
 Implement `signInPopup` using `clientName` from Step 4:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 async function signInPopup() {
   let nonce = crypto.randomUUID();
 
   // authenticate with Apple
   let resp = await AppleID.auth.signIn({
     nonce: nonce,
-    usePopup: true
+    usePopup: true,
   });
 
   // authenticate with Instant
   await db.auth.signInWithIdToken({
-    clientName: "<clientName>",
+    clientName: '<clientName>',
     idToken: resp.authorization.id_token,
     nonce: nonce,
   });
@@ -133,15 +153,14 @@ async function signInPopup() {
 
 Add Sign In button:
 
-```javascript {% showCopy=true %}
-<button onClick={signInPopup}>
-  Sign In with Apple
-</button>
+```jsx {% showCopy=true %}
+<button onClick={signInPopup}>Sign In with Apple</button>
 ```
 
 {% /conditional %}
 
 {% conditional param="method" value="web-redirect" %}
+
 ## Step 5: Add Sign In code to your app (Web Popup flow)
 
 Create Sign In link using `clientName` from Step 4:
@@ -163,6 +182,7 @@ That’s it!
 {% /conditional %}
 
 {% conditional param="method" value="native" %}
+
 ## Step 5: Add Sign In code to your app (React Native flow)
 
 Instant comes with support for [Expo AppleAuthentication library](https://docs.expo.dev/versions/latest/sdk/apple-authentication/).
@@ -191,8 +211,8 @@ Add `exp://` for development with Expo.
 
 Authenticate with Apple and then pass identityToken to Instant along with `clientName` from Step 4:
 
-```javascript {% showCopy=true %}
-const [nonce] = useState("" + Math.random());
+```jsx {% showCopy=true %}
+const [nonce] = useState('' + Math.random());
 try {
   // sign in with Apple
   const credential = await AppleAuthentication.signInAsync({
@@ -200,17 +220,19 @@ try {
       AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
       AppleAuthentication.AppleAuthenticationScope.EMAIL,
     ],
-    nonce: nonce
+    nonce: nonce,
   });
 
   // pass identityToken to Instant
-  db.auth.signInWithIdToken({
-    clientName: "<clientName>",
-    idToken: credential.identityToken,
-    nonce: nonce
-  }).catch((err) => {
-    console.log('Error', err.body?.message, err);
-  });
+  db.auth
+    .signInWithIdToken({
+      clientName: '<clientName>',
+      idToken: credential.identityToken,
+      nonce: nonce,
+    })
+    .catch((err) => {
+      console.log('Error', err.body?.message, err);
+    });
 } catch (e) {
   if (e.code === 'ERR_REQUEST_CANCELED') {
     // handle that the user canceled the sign-in flow
@@ -222,48 +244,56 @@ try {
 
 Sign out code:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 <Button
   title="Sign Out"
-  onPress={async() => {
-    await db.auth.signOut(user.email);
-  }} />
+  onPress={async () => {
+    await db.auth.signOut();
+  }}
+/>
 ```
 
 Full example:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 import React, { useState } from 'react';
 import { Button, View, Text, StyleSheet } from 'react-native';
 import { init, tx } from '@instantdb/react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 
 const APP_ID = '__APP_ID__';
-const db = init({appId: APP_ID});
+const db = init({ appId: APP_ID });
 
-export default function App() {
-  const { isLoading, user, error } = db.useAuth();
-  if (isLoading) {
-    return <View style={styles.container}><Text>Loading...</Text></View>;
-  }
-  if (error) {
-    return <View style={styles.container}><Text>Uh oh! {error.message}</Text></View>;
-  }
-  if (user) {
-    return <View style={styles.container}>
+function App() {
+  return (
+    <>
+      <db.SignedIn>
+        <UserInfo />
+      </db.SignedIn>
+      <db.SignedOut>
+        <Login />
+      </db.SignedOut>
+    </>
+  );
+}
+
+function UserInfo() {
+  const user = db.useUser();
+  return (
+    <View style={styles.container}>
       <Text>Hello {user.email}!</Text>
       <Button
         title="Sign Out"
-        onPress={async() => {
-          await db.auth.signOut(user.email);
-        }}/>
-    </View>;
-  }
-  return <Login />;
+        onPress={async () => {
+          await db.auth.signOut();
+        }}
+      />
+    </View>
+  );
 }
 
 function Login() {
-  const [nonce] = useState("" + Math.random());
+  const [nonce] = useState('' + Math.random());
   return (
     <View style={styles.container}>
       <AppleAuthentication.AppleAuthenticationButton
@@ -278,16 +308,18 @@ function Login() {
                 AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
                 AppleAuthentication.AppleAuthenticationScope.EMAIL,
               ],
-              nonce: nonce
+              nonce: nonce,
             });
             // signed in
-            db.auth.signInWithIdToken({
-              clientName: "apple",
-              idToken: credential.identityToken,
-              nonce: nonce
-            }).catch((err) => {
-              console.log('Error', err.body?.message, err);
-            });
+            db.auth
+              .signInWithIdToken({
+                clientName: 'apple',
+                idToken: credential.identityToken,
+                nonce: nonce,
+              })
+              .catch((err) => {
+                console.log('Error', err.body?.message, err);
+              });
           } catch (e) {
             if (e.code === 'ERR_REQUEST_CANCELED') {
               // handle that the user canceled the sign-in flow
@@ -312,7 +344,10 @@ const styles = StyleSheet.create({
     height: 44,
   },
 });
+
+export default App;
 ```
+
 {% /conditional %}
 
 {% /nav-default %}

@@ -1,0 +1,24 @@
+{
+	# Silence active health-checker runtime logs
+	log default {
+		exclude http.handlers.reverse_proxy.health_checker.active
+	}
+}
+
+dev.instantdb.com:9888 {
+	tls internal
+	encode {
+		zstd
+		gzip
+		minimum_length 1
+	}
+	reverse_proxy {
+		to localhost:8888 localhost:8887 localhost:8886
+		lb_policy round_robin
+
+		health_uri /
+		health_interval 5s
+		health_timeout 2s
+		health_status 200
+	}
+}

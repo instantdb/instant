@@ -1,7 +1,8 @@
 (ns instant.admin.routes-test
   (:require [clojure.test :as test :refer [deftest is testing]]
-            [instant.fixtures :refer [with-empty-app with-zeneca-app]]
-            [instant.data.constants :refer [movies-app-id zeneca-app-id]]
+            [instant.fixtures :refer [with-empty-app with-zeneca-app with-movies-app]]
+            [instant.data.constants :as constants]
+            [instant.data.resolvers :as resolvers]
             [instant.admin.routes :as admin-routes]
             [instant.model.app :as app-model]
             [instant.db.model.attr :as attr-model]
@@ -9,7 +10,12 @@
             [instant.util.exception :as ex]
             [instant.admin.model :as admin-model]
             [instant.util.http :as http-util]
-            [instant.model.app-user-refresh-token :as app-user-refresh-token-model])
+            [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
+            [instant.model.app-user :as app-user-model]
+            [instant.model.rule :as rule-model]
+            [instant.util.s3 :as s3-util]
+            [instant.storage.s3 :as s3-storage]
+            [instant.reactive.ephemeral :as eph])
   (:import [java.util UUID]))
 
 (defn query-post [& args]
@@ -33,149 +39,183 @@
 (defn transact-ok? [transact-res]
   (= 200 (:status transact-res)))
 
+(defn presence-get [& args]
+  (apply (http-util/wrap-errors admin-routes/presence-get) args))
+
+(defn upload-put [& args]
+  (apply (http-util/wrap-errors admin-routes/upload-put) args))
+
+(defn file-delete [& args]
+  (apply (http-util/wrap-errors admin-routes/file-delete) args))
+
+(defn files-delete [& args]
+  (apply (http-util/wrap-errors admin-routes/files-delete) args))
+
+(defn soft-deleted-attrs-get [& args]
+  (apply (http-util/wrap-errors admin-routes/soft-deleted-attrs-get) args))
+
 (deftest query-test
-  (with-zeneca-app
-    (fn [{app-id :id admin-token :admin-token :as _app} _r]
-      (testing "no app-id fails"
-        (let [ret (query-post
-                   {:body {:query {:users {}}}
-                    :headers {"app-id" nil
-                              "authorization" (str "Bearer " admin-token)}})]
-          (is (= 400 (:status ret)))
-          (is (= :param-missing (-> ret :body :type)))))
-      (testing "no token fails"
-        (let [ret (query-post
-                   {:body {:query {:users {}}}
-                    :headers {"app-id" (str app-id)
-                              "authorization" nil}})]
-          (is (= 400 (:status ret)))
-          (is (= :param-missing (-> ret :body :type)))))
-      (testing "wrong combo fails"
-        (let [ret (query-post
-                   {:body {:query {:users {}}}
-                    :headers {"app-id" (str movies-app-id)
-                              "authorization" (str "Bearer " admin-token)}})]
-          (is (= 400 (:status ret)))
-          (is (= :record-not-found (-> ret :body :type)))))
-      (testing "correct combo succeeds"
-        (let [ret (query-post
-                   {:body {:query {:users {}}}
-                    :headers {"app-id" (str app-id)
-                              "authorization" (str "Bearer " admin-token)}})]
-          (is (= 200 (:status ret)))
-          (is
-           #{"alex" "stopa" "joe" "nicolegf"}
-           (set (map #(get % "handle")
-                     (-> ret
-                         :body
-                         (get "users")))))))
-      (testing "a tree is returned"
-        (let [ret (query-post
-                   {:body {:query {:users {:bookshelves {}}}}
-                    :headers {"app-id" (str app-id)
-                              "authorization" (str "Bearer " admin-token)}})]
-          (is (= 200 (:status ret)))
-          (is (->> (-> ret
-                       :body
-                       (get "users"))
-                   (map #(get % "bookshelves"))
-                   (every? seq)))))
-      (testing "invalid queries return an error"
-        (let [ret (query-post
-                   {:body {:query {:users {:bookshelves []}}}
-                    :headers {"app-id" (str app-id)
-                              "authorization" (str "Bearer " admin-token)}})]
-          (is (= 400 (:status ret)))
-          (is (= :validation-failed (-> ret :body :type))))))))
+  (with-movies-app
+    (fn [{movies-app-id :id} _r]
+      (with-zeneca-app
+        (fn [{app-id :id admin-token :admin-token :as _app} r]
+          (testing "no app-id fails"
+            (let [ret (query-post
+                       {:body {:query {:users {}}}
+                        :headers {"app-id" nil
+                                  "authorization" (str "Bearer " admin-token)}})]
+              (is (= 400 (:status ret)))
+              (is (= :param-missing (-> ret :body :type)))))
+          (testing "no token fails"
+            (let [ret (query-post
+                       {:body {:query {:users {}}}
+                        :headers {"app-id" (str app-id)
+                                  "authorization" nil}})]
+              (is (= 400 (:status ret)))
+              (is (= :param-missing (-> ret :body :type)))))
+          (testing "wrong combo fails"
+            (let [ret (query-post
+                       {:body {:query {:users {}}}
+                        :headers {"app-id" (str movies-app-id)
+                                  "authorization" (str "Bearer " admin-token)}})]
+              (is (= 400 (:status ret)))
+              (is (= :record-not-found (-> ret :body :type)))))
+          (testing "correct combo succeeds"
+            (let [ret (query-post
+                       {:body {:query {:users {}}}
+                        :headers {"app-id" (str app-id)
+                                  "authorization" (str "Bearer " admin-token)}})]
+              (is (= 200 (:status ret)))
+              (is
+               #{"alex" "stopa" "joe" "nicolegf"}
+               (set (map #(get % "handle")
+                         (-> ret
+                             :body
+                             (get "users")))))))
+          (testing "a tree is returned"
+            (let [ret (query-post
+                       {:body {:query {:users {:bookshelves {}}}}
+                        :headers {"app-id" (str app-id)
+                                  "authorization" (str "Bearer " admin-token)}})]
+              (is (= 200 (:status ret)))
+              (is (->> (-> ret
+                           :body
+                           (get "users"))
+                       (map #(get % "bookshelves"))
+                       (every? seq)))))
+          (testing "invalid queries return an error"
+            (let [ret (query-post
+                       {:body {:query {:users {:bookshelves []}}}
+                        :headers {"app-id" (str app-id)
+                                  "authorization" (str "Bearer " admin-token)}})]
+              (is (= 400 (:status ret)))
+              (is (= :validation-failed (-> ret :body :type)))))
+          (testing "fields"
+            (let [ret (query-post
+                       {:body {:query {:users {:$ {:fields ["handle"]}}}}
+                        :headers {"app-id" (str app-id)
+                                  "authorization" (str "Bearer " admin-token)}})]
+              (is (= 200 (:status ret)))
+              (is (= {"users" [{"id" (str (resolvers/->uuid r "eid-stepan-parunashvili"))
+                                "handle" "stopa"}
+                               {"id" (str (resolvers/->uuid r "eid-joe-averbukh"))
+                                "handle" "joe"}
+                               {"id" (str (resolvers/->uuid r "eid-alex"))
+                                "handle" "alex"}
+                               {"id" (str (resolvers/->uuid r "eid-nicole"))
+                                "handle" "nicolegf"}]}
+                     (:body ret))))))))))
 
 (comment
   (def app-id #uuid "2f23dfa2-c921-4988-9243-adf602339bab")
   (def admin-token #uuid "af5c8213-a2c4-46fb-a092-f7adae37799a")
   (def app
     (app-model/create! {:title "test app"
-                        :creator-id instant.data.constants/test-user-id
+                        :creator-id constants/test-user-id
                         :id app-id
                         :admin-token admin-token}))
-  (app-model/delete-by-id! {:id app-id}))
+  (app-model/delete-immediately-by-id! {:id app-id}))
 
 (deftest transact-test
-  (with-empty-app
-    (fn [{app-id :id admin-token :admin-token :as _app}]
-      (let [steps [["update" "goals"
-                    "8aa64e4c-64f9-472e-8a61-3fa28870e6cb"
-                    {"title" "moop"}]]]
-        (testing "no app-id fails"
-          (let [ret (transact-post
-                     {:body {:steps steps}
-                      :headers {"app-id" nil
-                                "authorization" (str "Bearer " admin-token)}})]
-            (is (= 400 (:status ret)))
-            (is (= :param-missing (-> ret :body :type)))))
-        (testing "no token fails"
-          (let [ret (transact-post
-                     {:body {:steps steps}
-                      :headers {"app-id" (str app-id)
-                                "authorization" nil}})]
-            (is (= 400 (:status ret)))
-            (is (= :param-missing (-> ret :body :type)))))
-        (testing "wrong combo fails"
-          (let [ret (transact-post
-                     {:body {:steps steps}
-                      :headers {"app-id" (str movies-app-id)
-                                "authorization" (str "Bearer " app-id)}})]
-            (is (= 400 (:status ret)))
-            (is (= :record-not-found (-> ret :body :type)))))
-        (testing "correct combo succeeds"
-          (let [ret (transact-post
-                     {:body {:steps steps}
-                      :headers {"app-id" (str app-id)
-                                "authorization" (str "Bearer " admin-token)}})]
-            (is (= 200 (:status ret)))
-            (is (number? (-> ret :body :tx-id)))))
-        (with-zeneca-app
-          (fn [{app-id :id admin-token :admin-token} _r]
-            (testing "invalid transaction return an error"
+  (with-movies-app
+    (fn [{movies-app-id :id} _r]
+      (with-empty-app
+        (fn [{app-id :id admin-token :admin-token :as _app}]
+          (let [steps [["update" "goals"
+                        "8aa64e4c-64f9-472e-8a61-3fa28870e6cb"
+                        {"title" "moop"}]]]
+            (testing "no app-id fails"
               (let [ret (transact-post
-                         {:body {:steps (-> steps
-                                            (assoc-in [0 0] "updatez"))}
-                          :headers {"app-id" (str app-id)
+                         {:body {:steps steps}
+                          :headers {"app-id" nil
                                     "authorization" (str "Bearer " admin-token)}})]
                 (is (= 400 (:status ret)))
-                (is (= :validation-failed (-> ret :body :type)))))))
-        (testing "add-attr works"
-          (let [ret (transact-post
-                     {:body {:steps [["add-attr"
-                                      {:id (UUID/randomUUID)
-                                       :forward-identity [(UUID/randomUUID) "floopy" "flip"]
-                                       :value-type "blob"
-                                       :cardinality "one"
-                                       :unique? false
-                                       :index? false}]]}
-                      :headers {"app-id" (str app-id)
-                                "authorization" (str "Bearer " admin-token)}})]
-            (is (= 200 (:status ret)))
-            (is (number? (-> ret :body :tx-id)))
-            (is (seq (attr-model/seek-by-fwd-ident-name ["floopy" "flip"]
-                                                        (attr-model/get-by-app-id
-                                                         app-id))))))
-        (testing "delete-attr works"
-          (let [eid (UUID/randomUUID)
-                ret (transact-post
-                     {:body {:steps [["add-attr"
-                                      {:id eid
-                                       :forward-identity [(UUID/randomUUID) "floopy" "flop"]
-                                       :value-type "blob"
-                                       :cardinality "one"
-                                       :unique? false
-                                       :index? false}]
-                                     ["delete-attr" eid]]}
-                      :headers {"app-id" (str app-id)
-                                "authorization" (str "Bearer " admin-token)}})]
-            (is (= 200 (:status ret)))
-            (is (number? (-> ret :body :tx-id)))
-            (is (nil? (attr-model/seek-by-fwd-ident-name ["floopy" "flop"]
-                                                         (attr-model/get-by-app-id
-                                                          app-id))))))))))
+                (is (= :param-missing (-> ret :body :type)))))
+            (testing "no token fails"
+              (let [ret (transact-post
+                         {:body {:steps steps}
+                          :headers {"app-id" (str app-id)
+                                    "authorization" nil}})]
+                (is (= 400 (:status ret)))
+                (is (= :param-missing (-> ret :body :type)))))
+            (testing "wrong combo fails"
+              (let [ret (transact-post
+                         {:body {:steps steps}
+                          :headers {"app-id" (str movies-app-id)
+                                    "authorization" (str "Bearer " app-id)}})]
+                (is (= 400 (:status ret)))
+                (is (= :record-not-found (-> ret :body :type)))))
+            (testing "correct combo succeeds"
+              (let [ret (transact-post
+                         {:body {:steps steps}
+                          :headers {"app-id" (str app-id)
+                                    "authorization" (str "Bearer " admin-token)}})]
+                (is (= 200 (:status ret)))
+                (is (number? (-> ret :body :tx-id)))))
+            (with-zeneca-app
+              (fn [{app-id :id admin-token :admin-token} _r]
+                (testing "invalid transaction return an error"
+                  (let [ret (transact-post
+                             {:body {:steps (-> steps
+                                                (assoc-in [0 0] "updatez"))}
+                              :headers {"app-id" (str app-id)
+                                        "authorization" (str "Bearer " admin-token)}})]
+                    (is (= 400 (:status ret)))
+                    (is (= :validation-failed (-> ret :body :type)))))))
+            (testing "add-attr works"
+              (let [ret (transact-post
+                         {:body {:steps [["add-attr"
+                                          {:id (UUID/randomUUID)
+                                           :forward-identity [(UUID/randomUUID) "floopy" "flip"]
+                                           :value-type "blob"
+                                           :cardinality "one"
+                                           :unique? false
+                                           :index? false}]]}
+                          :headers {"app-id" (str app-id)
+                                    "authorization" (str "Bearer " admin-token)}})]
+                (is (= 200 (:status ret)))
+                (is (number? (-> ret :body :tx-id)))
+                (is (seq (attr-model/seek-by-fwd-ident-name ["floopy" "flip"]
+                                                            (attr-model/get-by-app-id
+                                                             app-id))))))
+            (testing "delete-attr works"
+              (let [eid (UUID/randomUUID)
+                    ret (transact-post
+                         {:body {:steps [["add-attr"
+                                          {:id eid
+                                           :forward-identity [(UUID/randomUUID) "floopy" "flop"]
+                                           :value-type "blob"
+                                           :cardinality "one"
+                                           :unique? false
+                                           :index? false}]
+                                         ["delete-attr" eid]]}
+                          :headers {"app-id" (str app-id)
+                                    "authorization" (str "Bearer " admin-token)}})]
+                (is (= 200 (:status ret)))
+                (is (number? (-> ret :body :tx-id)))
+                (is (nil? (attr-model/seek-by-fwd-ident-name ["floopy" "flop"]
+                                                             (attr-model/get-by-app-id
+                                                              app-id))))))))))))
 
 (deftest strong-init-and-inference
   (with-empty-app
@@ -250,47 +290,147 @@
                        :attributes
                        set)))))))))
 
+(deftest obj-actions-optimistically-create-attrs
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (testing "all obj-actions operations optimistically create attributes"
+        (let [create-id (UUID/randomUUID)
+              update-id (UUID/randomUUID)
+              merge-id (UUID/randomUUID)
+              link-source-id (UUID/randomUUID)
+              link-target-id (UUID/randomUUID)
+              unlink-source-id (UUID/randomUUID)
+              unlink-target-id (UUID/randomUUID)
+
+              tx-ret (transact-post
+                      {:body {:steps [["create" "test_entities" create-id
+                                       {"created_attr" "created_value"}]
+
+                                      ["update" "test_entities" update-id
+                                       {"updated_attr" "updated_value"}]
+
+                                      ["merge" "test_entities" merge-id
+                                       {"merged_attr" "merged_value"}]
+
+                                      ["update" "test_sources" link-source-id {"name" "source"}]
+                                      ["update" "test_targets" link-target-id {"name" "target"}]
+                                      ["link" "test_sources" link-source-id
+                                       {"test_targets" link-target-id}]
+
+                                      ["update" "test_sources" unlink-source-id {"name" "unlink-source"}]
+                                      ["update" "test_targets" unlink-target-id {"name" "unlink-target"}]
+                                      ["link" "test_sources" unlink-source-id
+                                       {"test_targets" unlink-target-id}]
+                                      ["unlink" "test_sources" unlink-source-id
+                                       {"test_targets" unlink-target-id}]]}
+                       :headers {"app-id" (str app-id)
+                                 "authorization" (str "Bearer " admin-token)}})
+
+              ;; Verify transaction succeeded
+              _ (is (= 200 (:status tx-ret)))
+
+              query-ret (query-post
+                         {:body {:query {:test_entities {}
+                                         :test_sources {:test_targets {}}}}
+                          :headers {"app-id" (str app-id)
+                                    "authorization" (str "Bearer " admin-token)}})]
+
+          ;; Verify all operations created their entities with the correct attributes
+          (is (= 200 (:status query-ret)))
+          (let [entities (-> query-ret :body (get "test_entities"))
+                sources (-> query-ret :body (get "test_sources"))
+                created-entity (first (filter #(= (str create-id) (get % "id")) entities))
+                updated-entity (first (filter #(= (str update-id) (get % "id")) entities))
+                merged-entity (first (filter #(= (str merge-id) (get % "id")) entities))
+                linked-source (first (filter #(= (str link-source-id) (get % "id")) sources))
+                unlinked-source (first (filter #(= (str unlink-source-id) (get % "id")) sources))]
+
+            (is (= "created_value" (get created-entity "created_attr")))
+            (is (= "updated_value" (get updated-entity "updated_attr")))
+            (is (= "merged_value" (get merged-entity "merged_attr")))
+
+            ;; Verify link worked
+            (is (= 1 (count (get linked-source "test_targets"))))
+
+            ;; Verify unlink worked
+            (is (= 0 (count (get unlinked-source "test_targets"))))))))))
+
 (deftest refresh-tokens-test
   (with-empty-app
-    (let [email "stopa@instantdb.com"]
-      (fn [{app-id :id admin-token :admin-token :as _app}]
-        (testing "can create refresh token"
-          (let [ret (refresh-tokens-post
-                     {:body {:email email}
-                      :headers {"app-id" app-id
-                                "authorization" (str "Bearer " admin-token)}})]
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (testing "can create refresh token with email"
+        (let [email "stopa1@instantdb.com"
+              ret (refresh-tokens-post
+                   {:body {:email email}
+                    :headers {"app-id" app-id
+                              "authorization" (str "Bearer " admin-token)}})]
 
-            (is (= 200 (:status ret)))
-            (is (= email (-> ret :body :user :email)))
-            (is (some? (-> ret :body :user :refresh_token)))))))))
+          (is (= 200 (:status ret)))
+          (is (= email (-> ret :body :user :email)))
+          (is (some? (-> ret :body :user :refresh_token)))))
+
+      (testing "can create refresh token with id"
+        (let [id (random-uuid)
+              ret (refresh-tokens-post
+                   {:body {:id id}
+                    :headers {"app-id" app-id
+                              "authorization" (str "Bearer " admin-token)}})]
+
+          (is (= 200 (:status ret)))
+          (is (= id (-> ret :body :user :id)))
+          (is (some? (-> ret :body :user :refresh_token))))))))
 
 (deftest sign-out-test
   (with-empty-app
-    (let [email "stopa@instantdb.com"]
-      (fn [{app-id :id admin-token :admin-token :as _app}]
-        (testing "no refresh tokens after signing out"
-          (let [refresh-ret (refresh-tokens-post
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (let [user-id (random-uuid)
+            email "stopa@instantdb.com"
+            _ (app-user-model/create! {:id user-id
+                                       :app-id app-id
+                                       :email email})
+
+            make-token #(-> (refresh-tokens-post
                              {:body {:email email}
                               :headers {"app-id" app-id
                                         "authorization" (str "Bearer " admin-token)}})
-                token (-> refresh-ret :body :user :refresh_token)]
+                            :body
+                            :user
+                            :refresh_token)
 
-            ;; token is created
-            (is (= 200 (:status refresh-ret)))
-            (is (some? token))
-            (is (some? (app-user-refresh-token-model/get-by-id {:id token
-                                                                :app-id app-id})))
-
-            ;; sign-out
-            (let [sign-out-ret (sign-out-post
-                                {:body {:email email}
-                                 :headers {"app-id" app-id
-                                           "authorization" (str "Bearer " admin-token)}})]
-
-              ;; token is deleted
-              (is (= 200 (:status sign-out-ret)))
-              (is (nil? (app-user-refresh-token-model/get-by-id {:id token
-                                                                 :app-id app-id}))))))))))
+            get-token #(app-user-refresh-token-model/get-by-id {:id %
+                                                                :app-id app-id})
+            sign-out #(sign-out-post
+                       {:body %
+                        :headers {"app-id" app-id
+                                  "authorization" (str "Bearer " admin-token)}})]
+        (testing "sign out by email deletes all tokens"
+          (let [tok1 (make-token)
+                tok2 (make-token)
+                _ (is (get-token tok1))
+                _ (is (get-token tok2))
+                ret (sign-out {:email email})]
+            (is (= 200 (:status ret)))
+            (is (nil? (get-token tok1)))
+            (is (nil? (get-token tok2)))))
+        (testing "sign out by user-id deletes all tokens"
+          (let [tok1 (make-token)
+                tok2 (make-token)
+                _ (is (get-token tok1))
+                _ (is (get-token tok2))
+                ret (sign-out {:id user-id})]
+            (is (= 200 (:status ret)))
+            (is (nil? (get-token tok1)))
+            (is (nil? (get-token tok2)))))
+        (testing "sign out by refresh-tokens deletes one token"
+          (let [tok1 (make-token)
+                tok2 (make-token)
+                _ (is (get-token tok1))
+                _ (is (get-token tok2))
+                ret (sign-out {:refresh_token tok2})]
+            (def ret ret)
+            (is (= 200 (:status ret)))
+            (is (get-token tok1))
+            (is (nil? (get-token tok2)))))))))
 
 (deftest app-users-get-test
   (with-empty-app
@@ -362,7 +502,7 @@
             (is (= 200 (:status refresh-ret)))
             (is (some? token))
 
-;; retrieve user by refresh token
+            ;; retrieve user by refresh token
             (let [get-user-ret (app-users-get
                                 {:params {:refresh_token token}
                                  :headers {"app-id" app-id
@@ -458,7 +598,7 @@
       (let [expected-id (UUID/randomUUID)
             id-to-ignore (UUID/randomUUID)
             update-step ["update" "items" expected-id {"id" id-to-ignore "name" "book"}]
-            update-tx (transact-post
+            update-tx (admin-routes/transact-post
                        {:body {:steps [update-step]}
                         :headers {"app-id" (str app-id)
                                   "authorization" (str "Bearer " admin-token)}})
@@ -627,22 +767,69 @@
           (is (= (count bookshelves-before)
                  (count bookshelves-after-relink))))))))
 
+(deftest lookups-in-links-create-entities
+  (with-zeneca-app
+    (fn [{app-id :id admin-token :admin-token} _r]
+      (let [bookshelf-id (random-uuid)]
+        (transact-post
+         {:body {:steps [["update" "bookshelves" bookshelf-id {"name" "bobby's bookshelf"
+                                                               "slug" "bobbys_bookshelf"}]]}
+          :headers {"app-id" (str app-id)
+                    "authorization" (str "Bearer " admin-token)}})
+
+        (testing "link"
+          (let [new-handle "bobby_newuser"]
+            (transact-post
+             {:body {:steps [["link" "users" ["handle" new-handle]
+                              {"bookshelves" bookshelf-id}]]}
+              :headers {"app-id" (str app-id)
+                        "authorization" (str "Bearer " admin-token)}})
+            (let [users (-> (query-post
+                             {:body {:query {:users {}}}
+                              :headers {"app-id" (str app-id)
+                                        "authorization" (str "Bearer " admin-token)}})
+                            :body
+                            (get "users"))
+                  handles (->> users
+                               (map (fn [x] (get x "handle")))
+                               set)]
+
+              (is (contains? handles new-handle)))))
+        (testing "unlink"
+          (let [new-handle "tommy_newuser"]
+            (transact-post
+             {:body {:steps [["unlink" "users" ["handle" new-handle]
+                              {"bookshelves" bookshelf-id}]]}
+              :headers {"app-id" (str app-id)
+                        "authorization" (str "Bearer " admin-token)}})
+            (let [users (-> (query-post
+                             {:body {:query {:users {}}}
+                              :headers {"app-id" (str app-id)
+                                        "authorization" (str "Bearer " admin-token)}})
+                            :body
+                            (get "users"))
+                  handles (->> users
+                               (map (fn [x] (get x "handle")))
+                               set)]
+
+              (is (contains? handles new-handle)))))))))
+
 (deftest lookup-creates-attrs
   (with-empty-app
     (fn [{app-id :id admin-token :admin-token}]
       (testing "good error message for create + update with lookup"
         ;; We may be able to fix with merge in postgres 16
         ;; https://www.postgresql.org/docs/current/sql-merge.html
-        (= "Updates with lookups can only update the lookup attribute if an entity with the unique attribute value already exists."
-           (-> (transact-post
-                {:body {:steps [["update" "users" ["handle" "stopa"] {"handle" "stopa2"}]]}
-                 :headers {"app-id" (str app-id)
-                           "authorization" (str "Bearer " admin-token)}})
-               :body
-               :hint
-               :errors
-               first
-               :message)))
+        (is (= "Updates with lookups can only update the lookup attribute if an entity with the unique attribute value already exists."
+               (-> (transact-post
+                    {:body {:steps [["update" "users" ["handle" "stopa"] {"handle" "stopa2"}]]}
+                     :headers {"app-id" (str app-id)
+                               "authorization" (str "Bearer " admin-token)}})
+                   :body
+                   :hint
+                   :errors
+                   first
+                   :message))))
       (testing "update"
         (is (transact-ok?
              (transact-post
@@ -659,8 +846,7 @@
                    first
                    (get "name")))))
       (testing "create link attrs"
-        (let [pref-id (str (random-uuid))
-              stopa-id (-> (query-post
+        (let [stopa-id (-> (query-post
                             {:body {:query {:users {:$ {:where {:handle "stopa"}}}}}
                              :headers {"app-id" (str app-id)
                                        "authorization" (str "Bearer " admin-token)}})
@@ -686,30 +872,58 @@
                    first
                    (get "pref_b"))))))))
 
+(deftest link-without-update
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (let [headers {"app-id" (str app-id)
+                     "authorization" (str "Bearer " admin-token)}
+            user-id (random-uuid)
+            task-id (random-uuid)
+            _       (is (transact-ok?
+                         (transact-post
+                          {:body {:steps [["create" "users" user-id {}]
+                                          ["create" "tasks" task-id {}]]}
+                           :headers headers})))
+            _       (is (transact-ok?
+                         (transact-post
+                          {:body {:steps [["link" "users" user-id {"tasks" task-id}]]}
+                           :headers headers})))
+            res     (-> (query-post
+                         {:body {:query {:users {:$ {:where {:id user-id}}
+                                                 :tasks {}}}}
+                          :headers headers})
+                        :body)
+            user    (-> res
+                        (get "users")
+                        first)
+            tasks   (-> user
+                        (get "tasks"))]
+        (is (= (str user-id) (get user "id")))
+        (is (= #{(str task-id)} (set (map #(get % "id") tasks))))))))
+
 (deftest lookups-in-links-create-attrs
   (with-empty-app
     (fn [{app-id :id admin-token :admin-token}]
-      (testing "update"
-        (is (transact-ok?
-             (transact-post
-              {:body {:steps [["update" "users" ["handle" "stopa"] {"name" "Stepan"}]
-                              ["update" "tasks" ["slug" "task-a"] {}]
-                              ["link" "users" ["handle" "stopa"] {"tasks" {"slug" "task-a"}}]]}
-               :headers {"app-id" (str app-id)
-                         "authorization" (str "Bearer " admin-token)}})))
-        (let [query-result (-> (query-post
-                                {:body {:query {:users {:$ {:where {:handle "stopa"}}
-                                                        :tasks {}}}}
-                                 :headers {"app-id" (str app-id)
-                                           "authorization" (str "Bearer " admin-token)}})
-                               :body)
-              user (-> query-result
-                       (get "users")
-                       first)
-              tasks (-> user
-                        (get "tasks"))]
-          (is (= "Stepan" (get user "name")))
-          (is (= #{"task-a"} (set (map #(get % "slug") tasks)))))))))
+      (is (transact-ok?
+           (transact-post
+            {:body {:steps [["update" "users" ["handle" "stopa"] {"name" "Stepan"}]
+                            ["update" "tasks" ["slug" "task-a"] {}]
+                            ["link" "users" ["handle" "stopa"] {"tasks" {"slug" "task-a"}}]]}
+             :headers {"app-id" (str app-id)
+                       "authorization" (str "Bearer " admin-token)}})))
+      (let [query-result (-> (query-post
+                              {:body {:query {:users {:$ {:where {:handle "stopa"}}
+                                                      :tasks {}}}}
+                               :headers {"app-id" (str app-id)
+                                         "authorization" (str "Bearer " admin-token)}})
+                             :body)
+            user (-> query-result
+                     (get "users")
+                     first)
+            tasks (-> user
+                      (get "tasks"))]
+        (is (= "Stepan" (get user "name")))
+        (is (= #{"task-a"} (set (map #(get % "slug") tasks))))))))
 
 (deftest lookups-in-links-dont-override-attrs
   (with-empty-app
@@ -749,35 +963,402 @@
       (-> e ex-data ::ex/hint :errors first))))
 
 (deftest transact-validations
-  (let [attrs (attr-model/get-by-app-id zeneca-app-id)]
-    (is (= '{:expected string?, :in [0 1]}
-           (tx-validation-err
-            attrs [["update" 1 (UUID/randomUUID) {"title" "moop"}]])))
-    (is (= '{:expected map?, :in [0 3]}
-           (tx-validation-err
-            attrs [["update" "goals" (UUID/randomUUID) 2]])))
-    (is (= '{:expected map?, :in [0 1]}
-           (tx-validation-err
-            attrs [["add-attr" "goals" (UUID/randomUUID) 2]])))
-    (is (= {:message "title is not a unique attribute on books"}
-           (tx-validation-err
-            attrs [["update" "books" ["title" "test"] {"title" "test"}]])))
-    (is (= {:message "test.isbn is not a valid lookup attribute."}
-           (tx-validation-err
-            attrs [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))
-    (is (= {:message "lookup value is invalid", :hint {:attribute "linkOn"
-                                                       :value "undefined"}}
-           (tx-validation-err
-            attrs [["link"
-                    "spans"
-                    "6fd7b6eb-6fa2-4943-b5a3-2d73c8bd6904"
-                    {:parentSpan "lookup__linkOn__undefined"}]])))
-    (is (= {:message "test.isbn is not a unique attribute on books"}
-           (tx-validation-err
-            (conj attrs {:id (random-uuid)
-                         :forward-identity [(random-uuid) "books" "test.isbn"]
-                         :unique? false})
-            [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))))
+  (with-zeneca-app
+    (fn [app _r]
+      (let [attrs (attr-model/get-by-app-id (:id app))]
+        (is (= '{:expected string?, :in [0 1]}
+               (tx-validation-err
+                attrs [["update" 1 (UUID/randomUUID) {"title" "moop"}]])))
+        (is (= '{:expected map?, :in [0 3]}
+               (tx-validation-err
+                attrs [["update" "goals" (UUID/randomUUID) 2]])))
+        (is (= '{:expected map?, :in [0 1]}
+               (tx-validation-err
+                attrs [["add-attr" "goals" (UUID/randomUUID) 2]])))
+        (is (= {:message "title is not a unique attribute on books"}
+               (tx-validation-err
+                attrs [["update" "books" ["title" "test"] {"title" "test"}]])))
+        (is (= {:message "test.isbn is not a valid lookup attribute."}
+               (tx-validation-err
+                attrs [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))
+        (is (= {:message "lookup value is invalid", :hint {:attribute "linkOn"
+                                                           :value "undefined"}}
+               (tx-validation-err
+                attrs [["link"
+                        "spans"
+                        "6fd7b6eb-6fa2-4943-b5a3-2d73c8bd6904"
+                        {:parentSpan "lookup__linkOn__undefined"}]])))
+        (is (= {:message "test.isbn is not a unique attribute on books"}
+               (tx-validation-err
+                (conj attrs {:id (random-uuid)
+                             :forward-identity [(random-uuid) "books" "test.isbn"]
+                             :unique? false})
+                [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))
+        (is (= {:message "Invalid entity ID '12345'. Entity IDs must be UUIDs or lookup references."
+                :in [0 2]}
+               (tx-validation-err
+                attrs [["delete" "goals" 12345]])))
+        (is (= {:message "Invalid entity ID 'bad-id'. Entity IDs must be UUIDs or lookup references."
+                :in [1 2]}
+               (tx-validation-err
+                attrs [["update" "goals" (random-uuid) {"title" "test"}]
+                       ["link" "goals" "bad-id" {"todos" (random-uuid)}]])))))))
+
+(deftest presence-get-test
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (let [room-id "room-1"
+            louis-sess-id (random-uuid)
+            anon-sess-id (random-uuid)
+            {louis-id :id
+             louis-email :email
+             louis-created-at :created_at}
+            (app-user-model/create! {:id (random-uuid) :app-id app-id :email "lous_reasoner@instantdb.com"})]
+        (with-redefs
+         [eph/get-room-data
+          (fn [app-id room-id]
+            (when (and (= app-id app-id) (= room-id "room-1"))
+              {anon-sess-id {:data {:color "red"}
+                             :peer-id anon-sess-id
+                             :user nil}
+               louis-sess-id {:data {:color "blue"}
+                              :peer-id louis-sess-id :user {:id louis-id}}}))]
+          (let [{:keys [status body]} (presence-get
+                                       {:params {:room-type "_defaultRoomType" :room-id room-id}
+                                        :headers {"app-id" app-id
+                                                  "authorization" (str "Bearer " admin-token)}})]
+
+            (is (= 200 status))
+            (is (= {:sessions
+                    {anon-sess-id
+                     {:data {:color "red"},
+                      :peer-id anon-sess-id
+                      :user nil},
+                     louis-sess-id
+                     {:data {:color "blue"},
+                      :peer-id louis-sess-id
+                      :user
+                      {:app_id app-id
+                       :id louis-id
+                       :created_at louis-created-at
+                       :email louis-email
+                       :isGuest false}}}}
+                   body))))))))
+
+(deftest storage-impersonation-test
+  (with-redefs [;; Prevent AWS SDK initialization to avoid CI issues
+                s3-storage/s3-client (constantly nil)
+                s3-storage/s3-async-client (constantly nil)
+                ;; Mock the S3 operations that would use these clients
+                s3-util/upload-stream-to-s3 (constantly nil)
+                s3-util/delete-object (constantly nil)
+                s3-util/delete-objects-paginated (constantly nil)
+                ;; Mock head-object which is called after upload to get metadata
+                s3-util/head-object (fn [_client _bucket _key]
+                                      {:object-metadata
+                                       {:content-length 5
+                                        :content-type "text/plain"
+                                        :last-modified (java.time.Instant/now)}})]
+    (with-empty-app
+      (fn [{app-id :id admin-token :admin-token :as _app}]
+        (let [user-email "test-user@example.com"
+              user-ret (refresh-tokens-post
+                        {:body {:email user-email}
+                         :headers {"app-id" app-id
+                                   "authorization" (str "Bearer " admin-token)}})
+              user-token (-> user-ret :body :user :refresh_token)
+
+              ;; Only authenticated users can create/delete files
+              _ (rule-model/put!
+                 {:app-id app-id
+                  :code {"$files" {:allow {:create "auth.id != null"
+                                           :delete "auth.id != null"
+                                           :view "true"}}}})
+
+              make-file-content (fn [] (java.io.ByteArrayInputStream. (byte-array [1 2 3 4 5])))]
+
+          (testing "admin can upload"
+            (let [ret (upload-put
+                       {:body (make-file-content)
+                        :headers {"app-id" app-id
+                                  "authorization" (str "Bearer " admin-token)
+                                  "path" "admin-file.txt"
+                                  "content-type" "text/plain"}
+                        :content-length 5})]
+              (is (= 200 (:status ret)))
+              (is (some? (-> ret :body :data :id)))))
+
+          (testing "user with email can upload"
+            (let [ret (upload-put
+                       {:body (make-file-content)
+                        :headers {"app-id" app-id
+                                  "authorization" (str "Bearer " admin-token)
+                                  "as-email" user-email
+                                  "path" "user-file.txt"
+                                  "content-type" "text/plain"}
+                        :content-length 5})]
+              (is (= 200 (:status ret)))
+              (is (some? (-> ret :body :data :id)))))
+
+          (testing "guest cannot upload"
+            (let [ret (upload-put
+                       {:body (make-file-content)
+                        :headers {"app-id" app-id
+                                  "authorization" (str "Bearer " admin-token)
+                                  "as-guest" "true"
+                                  "path" "guest-file.txt"
+                                  "content-type" "text/plain"}
+                        :content-length 5})]
+              (is (= 400 (:status ret)))
+              (is (= :permission-denied (-> ret :body :type)))))
+
+          (testing "user with token can upload"
+            (let [ret (upload-put
+                       {:body (make-file-content)
+                        :headers {"app-id" app-id
+                                  "authorization" (str "Bearer " admin-token)
+                                  "as-token" user-token
+                                  "path" "token-file.txt"
+                                  "content-type" "text/plain"}
+                        :content-length 5})]
+              (is (= 200 (:status ret)))
+              (is (some? (-> ret :body :data :id)))))
+
+          (testing "admin can delete"
+            (let [upload-ret (upload-put
+                              {:body (make-file-content)
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)
+                                         "path" "delete-test.txt"
+                                         "content-type" "text/plain"}
+                               :content-length 5})
+                  _ (is (= 200 (:status upload-ret)))
+                  delete-ret (file-delete
+                              {:params {:filename "delete-test.txt"}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)}})]
+              (is (= 200 (:status delete-ret)))
+              (is (some? (-> delete-ret :body :data :id)))))
+
+          (testing "user can delete"
+            (let [upload-ret (upload-put
+                              {:body (make-file-content)
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)
+                                         "path" "user-delete-test.txt"
+                                         "content-type" "text/plain"}
+                               :content-length 5})
+                  _ (is (= 200 (:status upload-ret)))
+                  delete-ret (file-delete
+                              {:params {:filename "user-delete-test.txt"}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)
+                                         "as-email" user-email}})]
+              (is (= 200 (:status delete-ret)))
+              (is (some? (-> delete-ret :body :data :id)))))
+
+          (testing "guest cannot delete"
+            (let [;; First upload a file as admin
+                  upload-ret (upload-put
+                              {:body (make-file-content)
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)
+                                         "path" "guest-delete-test.txt"
+                                         "content-type" "text/plain"}
+                               :content-length 5})
+                  _ (is (= 200 (:status upload-ret)))
+                  ;; Try to delete it as guest
+                  delete-ret (file-delete
+                              {:params {:filename "guest-delete-test.txt"}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)
+                                         "as-guest" "true"}})]
+              (is (= 400 (:status delete-ret)))
+              (is (= :permission-denied (-> delete-ret :body :type)))))
+
+          (testing "admin can bulk delete"
+            (let [_ (upload-put
+                     {:body (make-file-content)
+                      :headers {"app-id" app-id
+                                "authorization" (str "Bearer " admin-token)
+                                "path" "bulk1.txt"
+                                "content-type" "text/plain"}
+                      :content-length 5})
+                  _ (upload-put
+                     {:body (make-file-content)
+                      :headers {"app-id" app-id
+                                "authorization" (str "Bearer " admin-token)
+                                "path" "bulk2.txt"
+                                "content-type" "text/plain"}
+                      :content-length 5})
+                  ;; Then delete them
+                  delete-ret (files-delete
+                              {:body {:filenames ["bulk1.txt" "bulk2.txt"]}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)}})]
+              (is (= 200 (:status delete-ret)))
+              (is (= 2 (count (-> delete-ret :body :data :ids))))))
+
+          (testing "user can bulk delete"
+            (let [_ (upload-put
+                     {:body (make-file-content)
+                      :headers {"app-id" app-id
+                                "authorization" (str "Bearer " admin-token)
+                                "path" "user-bulk1.txt"
+                                "content-type" "text/plain"}
+                      :content-length 5})
+                  _ (upload-put
+                     {:body (make-file-content)
+                      :headers {"app-id" app-id
+                                "authorization" (str "Bearer " admin-token)
+                                "path" "user-bulk2.txt"
+                                "content-type" "text/plain"}
+                      :content-length 5})
+                  ;; Then delete them as impersonated user
+                  delete-ret (files-delete
+                              {:body {:filenames ["user-bulk1.txt" "user-bulk2.txt"]}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)
+                                         "as-email" user-email}})]
+              (is (= 200 (:status delete-ret)))
+              (is (= 2 (count (-> delete-ret :body :data :ids))))))
+
+          (testing "guest cannot bulk delete"
+            (let [_ (upload-put
+                     {:body (make-file-content)
+                      :headers {"app-id" app-id
+                                "authorization" (str "Bearer " admin-token)
+                                "path" "guest-bulk1.txt"
+                                "content-type" "text/plain"}
+                      :content-length 5})
+                  _ (upload-put
+                     {:body (make-file-content)
+                      :headers {"app-id" app-id
+                                "authorization" (str "Bearer " admin-token)
+                                "path" "guest-bulk2.txt"
+                                "content-type" "text/plain"}
+                      :content-length 5})
+                  ;; Try to delete them as guest
+                  delete-ret (files-delete
+                              {:body {:filenames ["guest-bulk1.txt" "guest-bulk2.txt"]}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)
+                                         "as-guest" "true"}})]
+              (is (= 400 (:status delete-ret)))
+              (is (= :permission-denied (-> delete-ret :body :type))))))))))
+
+(deftest soft-and-hard-delete-attrs-test
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (let [aid-1 (UUID/randomUUID)
+            aid-2 (UUID/randomUUID)
+            _ (transact-post
+               {:body {:steps [[:add-attr {:id aid-1
+                                           :forward-identity [(UUID/randomUUID) "goals" "id"]
+                                           :value-type :blob
+                                           :cardinality :one
+                                           :unique? false
+                                           :index? false}]
+                               [:add-attr {:id aid-2
+                                           :forward-identity [(UUID/randomUUID) "goals" "title"]
+                                           :value-type :blob
+                                           :cardinality :one
+                                           :unique? false
+                                           :index? false}]]}
+                :headers {"app-id" (str app-id)
+                          "authorization" (str "Bearer " admin-token)}})
+
+            ;; no soft-deleted attrs initially
+            initial-soft-deleted (soft-deleted-attrs-get
+                                  {:headers {"app-id" (str app-id)
+                                             "authorization" (str "Bearer " admin-token)}})
+            _ (is (= 200 (:status initial-soft-deleted)))
+            _ (is (empty? (-> initial-soft-deleted :body :attrs)))
+
+            ;; Soft-delete one attr 
+            _ (transact-post
+               {:body {:steps [[:delete-attr aid-2]]}
+                :headers {"app-id" (str app-id)
+                          "authorization" (str "Bearer " admin-token)}})
+
+            ;; Check that attr appears 
+            after-delete (soft-deleted-attrs-get
+                          {:headers {"app-id" (str app-id)
+                                     "authorization" (str "Bearer " admin-token)}})
+            _ (is (= 200 (:status after-delete)))
+            soft-deleted-attrs (-> after-delete :body :attrs)
+            _ (is (= #{aid-2}
+                     (set (map :id soft-deleted-attrs))))]))))
+
+(deftest optional-admin-token-test
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (let [email "alyssa_p_hacker@instantdb.com"
+            refresh-ret (refresh-tokens-post
+                         {:body {:email email}
+                          :headers {"app-id" app-id
+                                    "authorization" (str "Bearer " admin-token)}})
+            user-token (-> refresh-ret :body :user :refresh_token)]
+
+        (testing "normal-query + null-admin-token = fail"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-missing (-> ret :body :type)))))
+
+        (testing "normal-query + admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 200 (:status ret)))))
+
+        (testing "as-token + null-admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "as-token" (str user-token)}})]
+            (is (= 200 (:status ret)))))
+
+        (testing "as-token + admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)
+                                "as-token" (str user-token)}})]
+            (is (= 200 (:status ret)))))
+
+        (testing "as-email + null-admin-token = fail"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "as-email" email}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-missing (-> ret :body :type)))))
+
+        (testing "as-email + admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)
+                                "as-email" email}})]
+            (is (= 200 (:status ret)))))
+
+        (testing "as-guest + null-admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "as-guest" "true"}})]
+            (is (= 200 (:status ret)))))
+
+        (testing "as-guest + admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)
+                                "as-guest" "true"}})]
+            (is (= 200 (:status ret)))))))))
 
 (comment
   (test/run-tests *ns*))

@@ -1,24 +1,27 @@
 (ns tool
-  "Handy functions to use when you're in the REPL. 
-   
-   This is required in the `core` namespace, so you can use it anywhere. 
+  "Handy functions to use when you're in the REPL.
 
-   The most popular: 
+   This is required in the `core` namespace, so you can use it anywhere.
+
+   The most popular:
      (tool/def-locals)
-     (tool/copy) 
+     (tool/copy)
      (tool/hsql-pretty ...) and more!"
   (:require
-   [clojure.pprint :as pprint]
+   [cheshire.core :as cheshire]
    [clojure.string :as str]
-   [clojure.walk :as walk]
    [honey.sql :as hsql]
+   [lambdaisland.uri :as uri]
    [portal.api :as p]
    [clj-async-profiler.core :as prof])
   (:import
-   (clojure.lang Compiler TaggedLiteral)
    (com.github.vertical_blank.sqlformatter SqlFormatter)
-   (java.awt Toolkit)
-   (java.awt.datatransfer StringSelection)))
+   (com.zaxxer.hikari HikariDataSource)
+   (java.net InetAddress)
+   (java.time Instant)
+   (java.util UUID)
+   (org.apache.commons.codec.binary Hex)
+   (org.postgresql.replication LogSequenceNumber)))
 
 (defmacro def-locals*
   [prefix]
@@ -95,24 +98,165 @@
            [:bar {:select :* :from :bar}]]
     :select :* :from :bar}))
 
+
+;; Copied from sql.clj
+(defn ->pg-text-array
+  "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
+  [col]
+  (format
+   "{%s}"
+   (str/join
+    ","
+    (map (fn [s] (format "\"%s\""
+                         ;; Escape quotes (but don't double esc)
+                         (str/replace s #"(?<!\\)\"" "\\\"")))
+         col))))
+
+(defn ->pg-text-2d-array
+  [col]
+  (format
+   "{%s}"
+   (str/join
+    ","
+    (map (fn [c] (->pg-text-array c))
+         col))))
+
+;; Copied from sql.clj
+(defn ->pg-uuid-array
+  "Formats as uuid[] in pg, i.e. {item-1, item-2, item3}"
+  [uuids]
+  (let [s (StringBuilder. "{")]
+    (doseq [^UUID uuid uuids]
+      (when (not= 1 (.length s))
+        (.append s \,))
+      (.append s (.toString uuid)))
+    (.append s "}")
+    (.toString s)))
+
+(defn ->pg-stringable-array
+  "Formats stringable list, i.e. {item-1, item-2, item-3}. Works for
+  things you can call toString on that return the representation
+  postgres expects.  Doesn't work on things that might contain a
+  comma."
+  [items]
+  (let [s (StringBuilder. "{")]
+    (doseq [item items]
+      (when (not= 1 (.length s))
+        (.append s \,))
+      (.append s (if (nil? item)
+                   "null"
+                   (.toString ^Object item))))
+    (.append s "}")
+    (.toString s)))
+
+(defn ->pg-json-array [items]
+  (let [s (StringBuilder. "ARRAY[")]
+    (doseq [item items]
+      (when (not= 6 (.length s))
+        (.append s \,))
+      (.append s \')
+      (.append s (str/replace (cheshire/generate-string item) #"(?<!\\)'" "\\'"))
+      (.append s \'))
+    (.append s "]::jsonb[]")))
+
+(defn ->pg-json-2d-array [items]
+  (let [s (StringBuilder. "ARRAY[")]
+    (doseq [item items]
+      (when (not= 6 (.length s))
+        (.append s \,))
+      (.append s (->pg-json-array item)))
+    (.append s "]::jsonb[][]")))
+
 (defn unsafe-sql-format-query
   "Use with caution: this inlines parameters in the query, so it could
    be used with sql injection.
    Useful for running queries in psql"
   [[q & params]]
   (let [idx (atom 0)]
-    (sql-pretty
-     (clojure.string/replace q
-                             #"\?"
-                             (fn [_] (let [i @idx
-                                           v (nth params i)]
-                                       (swap! idx inc)
-                                       (str (if (int? v)
-                                              (format "%s" v)
-                                              (format "'%s'" v))
-                                            (if (uuid? v)
-                                              "::uuid"
-                                              ""))))))))
+    (-> q
+        (clojure.string/replace #"\?"
+                                (fn [_] (let [i @idx
+                                              v (nth params i)]
+                                          (swap! idx inc)
+                                          (str (cond
+                                                 (int? v) (format "%s" v)
+                                                 (string? v) (format "'%s'" (-> ^String v
+                                                                                (.replace "'" "''")))
+
+                                                 (= "text[]" (-> v meta :pgtype))
+                                                 (format "'%s'" (->pg-text-array v))
+
+                                                 (= "text[][]" (-> v meta :pgtype))
+                                                 (format "'%s'" (->pg-text-2d-array v))
+
+                                                 (= "jsonb[]" (-> v meta :pgtype))
+                                                 (->pg-json-array v)
+
+                                                 (= "jsonb[][]" (-> v meta :pgtype))
+                                                 (->pg-json-2d-array v)
+
+                                                 (or (= "uuid[]" (-> v meta :pgtype))
+                                                     (= "boolean[]" (-> v meta :pgtype))
+                                                     (= "float8[]" (-> v meta :pgtype))
+                                                     (= "timestamptz[]" (-> v meta :pgtype))
+                                                     (= "integer[]" (-> v meta :pgtype))
+                                                     (= "bigint[]" (-> v meta :pgtype))
+                                                     (and (set? v)
+                                                          (or (every? uuid? v)
+                                                              (every? boolean? v)
+                                                              (every? number? v)
+                                                              (every? (fn [x] (instance? Instant x)) v))))
+                                                 (format "'%s'%s"
+                                                         (->pg-stringable-array v)
+                                                         (if-let [pgtype (-> v meta :pgtype)]
+                                                           (str "::" pgtype)
+                                                           ""))
+
+                                                 (= "bigint[][]" (-> v meta :pgtype))
+                                                 (format "'%s'::bigint[][]"
+                                                         (->pg-stringable-array
+                                                          (map (fn [a]
+                                                                 (->pg-stringable-array a))
+                                                               v)))
+
+                                                 (or (= "bytea[]" (-> v meta :pgtype))
+                                                     (and (coll? v)
+                                                          (every? (fn [x]
+                                                                    (or (bytes? x)
+                                                                        (nil? x)))
+                                                                  v)))
+                                                 (format "'%s'::bytea[]"
+                                                         (->pg-stringable-array
+                                                          (map (fn [x]
+                                                                 (when x
+                                                                   (str "\\x" (String. (Hex/encodeHex ^bytes x)))))
+                                                               v)))
+
+                                                 (= "bytea[][]" (-> v meta :pgtype))
+                                                 (format "'%s'::bytea[]"
+                                                         (->pg-stringable-array
+                                                          (map (fn [v]
+                                                                 (->pg-stringable-array
+                                                                  (map (fn [x]
+                                                                         (when x
+                                                                           (str "\\x" (String. (Hex/encodeHex ^bytes x)))))
+                                                                       v)))
+                                                               v)))
+
+                                                 (instance? LogSequenceNumber v)
+                                                 (format "'%s'::pg_lsn" (LogSequenceNumber/.asString v))
+
+                                                 ;; Fallback to JSON
+                                                 (set? v)
+                                                 (->pg-json-array v)
+
+                                                 :else (format "'%s'" v))
+                                               (if (uuid? v)
+                                                 "::uuid"
+                                                 "")))))
+        ^String sql-pretty
+        ;; Fix a bug with the pretty printer where the || operator gets a space
+        (.replace "| |" "||"))))
 
 (defn unsafe-hsql-format
   "Use with caution: this inlines parameters in the query, so it could
@@ -130,12 +274,21 @@
          " -d \"" param-str "\"")))
 
 (defn copy
-  "Stringifies the argument and copies it to the clipboard."
+  "Stringifies the argument and copies it to the clipboard"
   [x]
-  (.. Toolkit
-      (getDefaultToolkit)
-      (getSystemClipboard)
-      (setContents (StringSelection. (str x)) nil)))
+  (let [pb (ProcessBuilder. ["pbcopy"])
+        p (.start pb)
+        os (.getOutputStream p)]
+    (.write os (.getBytes (str x)))
+    (.close os)
+    (.waitFor p)
+    x))
+
+(defn copy-quiet
+  "Stringifies the argument and copies it to the clipboard"
+  [x]
+  (copy x)
+  nil)
 
 (def ^:dynamic *time-tracker* nil)
 
@@ -173,65 +326,79 @@
        res#)
     (cons 'do body)))
 
+(defn copy-unsafe-sql-format-query
+  "Formats the [sql, ...params] query as sql and copies it to the clipboard,
+   returning the query as something that portal will display nicely."
+  [query]
+  (with-meta [(copy (unsafe-sql-format-query query))]
+    {:portal.viewer/default :tool/sql-query}))
+
+;; Adds a :tool/sql-query viewer
+(def portal-sql-query-viewer "
+  (require '[portal.ui.api :as p])
+  (require '[portal.ui.inspector :as ins])
+  (require '[portal.ui.viewer.text :as text])
+  (require '[portal.ui.commands :as cmd])
+
+
+  (p/register-viewer!
+   {:name :tool/sql-query
+    :predicate (fn [x] (and (vector? x) (string? (first x))))
+    :component (fn [query]
+                 [:<>
+                  [text/inspect-text (first query)]])})")
+
+(defonce taplist (atom (with-meta (list)
+                         {:portal.viewer/default :portal.viewer/inspector})))
+
+(def taplist-limit 1000)
+(defn add-to-taplist
+  ([v]
+   (add-to-taplist taplist v))
+  ([l v]
+   (swap! l (fn [x]
+              (take taplist-limit (conj x v))))))
+
 (defn start-portal!
   "Lets you inspect data using Portal.
 
    (start-portal!)
    ;; all tap> calls will be sent to portal
-   (tap> @instant.reactive.store/store-conn)
+   (tap> @instant.reactive.store/store)
 
    For a guide, see:
    https://www.youtube.com/watch?v=Tj-iyDo3bq0"
-  []
-  (def portal (p/open))
-  (add-tap #'p/submit))
+  ([]
+   (start-portal! taplist))
+  ([v]
+   (let [s (p/open {:value v})]
+     (when (identical? v taplist)
+       (remove-tap #'add-to-taplist)
+       (add-tap #'add-to-taplist)
+       (def portal s))
+     (p/register! #'copy-unsafe-sql-format-query)
+     (p/eval-str s portal-sql-query-viewer)
+     s)))
 
 (comment
   (start-portal!)
   (tap> {:hello [1 2 3]}))
 
-(def ^:private p-lock
-  (Object.))
-
-(defn p-pos []
-  (let [trace (->> (Thread/currentThread)
-                   (.getStackTrace)
-                   (seq))
-        el    ^StackTraceElement (nth trace 4)]
-    (str "[" (Compiler/demunge (.getClassName el)) " " (.getFileName el) ":" (.getLineNumber el) "]")))
-
-(defn pprint [o]
-  (->>
-   (binding [pprint/*print-right-margin* 120]
-     (with-out-str (pprint/pprint o)))
-   (str/split-lines)
-   (map #(str "   " %))
-   (str/join "\n")
-   (#(subs % 3))))
-
-(defn p-impl [position form res]
-  (let [form (walk/postwalk
-              (fn [form]
-                (if (and
-                     (list? form)
-                     (= 'tool/p-impl (first form)))
-                  (TaggedLiteral/create 'p (nth form 3))
-                  form))
-              form)]
-    (locking p-lock
-      (println (str "#p " form " " position "\n=> " (pprint res))))
-    res))
-
-(defn p
-  "Add #p before any form to quickly print its value to output next time
-   it is evaluated. Dev only"
-  [form]
-  `(p-impl (p-pos) '~form ~form))
+(defmacro inspect
+  "prints the expression '<name> is <value>', and returns the value"
+  [value]
+  `(do
+     (let [name# (quote ~value)
+           result# ~value]
+       (println "INSPECT" (pr-str name#) "is" (pr-str result#))
+       result#)))
 
 (defmacro profile [options? & body]
-  `(prof/profile ~options? ~body))
+  `(prof/profile ~options? ~@body))
 
-(def prof-serve-ui prof/serve-ui)
+(defn prof-serve-ui
+  ([] (prof/serve-ui 8080))
+  ([port] (prof/serve-ui port)))
 
 (defmacro bench [& body]
   `(do
@@ -248,6 +415,35 @@
                          clojure.edn/read-string
                          :database-cluster-id)
          rds-cluster-id->db-config# (requiring-resolve 'instant.aurora-config/rds-cluster-id->db-config)
-         start-pool# (requiring-resolve 'instant.jdbc.aurora/start-pool)]
-     (with-open [~conn-name (start-pool# 1 (rds-cluster-id->db-config# cluster-id#))]
+         start-pool# (requiring-resolve 'instant.jdbc.aurora/start-pool)
+         application-name# (uri/query-encode (.getHostName (InetAddress/getLocalHost)))]
+     (with-open [~conn-name ^HikariDataSource (start-pool# 1 (rds-cluster-id->db-config# cluster-id# application-name#))]
        ~@body)))
+
+(defn recompile-java
+  "Recompiles java files in src/java.
+   Can only be used in development.
+   May still require a restart to get rid of any instances using the old
+   definitions."
+  []
+  (require 'virgil)
+  (let [compile-java (resolve 'virgil/compile-java)]
+    (compile-java ["src"] :options ["-Xlint:all"])))
+
+(defn memory-size
+  "Measures the size of objects with https://github.com/clojure-goes-fast/clj-memory-meter
+   Can only be used in development with the memory-meter profile enabled:
+     `make memory-meter-dev` # starts the dev server and loads the memory meter library
+
+  Takes an optional options map:
+  {
+    :bytes true // defaults to false, will return bytes as a long instead of humanized
+    :shallow true // defaults to false
+    :debug true // defaults to false, will print memory usage of each level
+  }"
+  ([obj]
+   (memory-size obj {}))
+  ([obj opts]
+   (require 'clj-memory-meter.core)
+   (let [measure (resolve 'clj-memory-meter.core/measure)]
+     (measure obj opts))))

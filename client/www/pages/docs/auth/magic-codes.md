@@ -1,5 +1,6 @@
 ---
 title: Magic Code Auth
+description: How to add magic code auth to your Instant app.
 ---
 
 Instant supports a "magic-code" flow for auth. Users provide their email, we send
@@ -13,146 +14,154 @@ The example below shows how to use magic codes in a React app. If you're looking
 for an example with vanilla JS, check out this [sandbox](https://github.com/instantdb/instant/blob/main/client/sandbox/vanilla-js-vite/src/main.ts).
 {% /callout %}
 
-```javascript {% showCopy=true %}
+Open up your `app/page.tsx` file, and replace the entirety of it with the following code:
+
+```jsx {% showCopy=true %}
 'use client';
 
 import React, { useState } from 'react';
-import { init } from '@instantdb/react';
+import { init, User } from '@instantdb/react';
 
 // Instant app
-const APP_ID = "__APP_ID__";
-
+const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID });
 
 function App() {
-  const { isLoading, user, error } = db.useAuth();
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-  if (error) {
-    return <div>Uh oh! {error.message}</div>;
-  }
-  if (user) {
-    return <h1>Hello {user.email}!</h1>;
-  }
-  return <Login />;
+  return (
+    <>
+      <db.SignedIn>
+        <Main />
+      </db.SignedIn>
+      <db.SignedOut>
+        <Login />
+      </db.SignedOut>
+    </>
+  );
 }
 
-function Login() {
-  const [sentEmail, setSentEmail] = useState('');
+function Main() {
+  const user = db.useUser();
   return (
-    <div style={authStyles.container}>
-      {!sentEmail ? (
-        <Email setSentEmail={setSentEmail} />
-      ) : (
-        <MagicCode sentEmail={sentEmail} />
-      )}
+    <div className="space-y-4 p-4">
+      <h1 className="text-2xl font-bold">Hello {user.email}!</h1>
+      <button
+        onClick={() => db.auth.signOut()}
+        className="bg-blue-600 px-3 py-1 font-bold text-white hover:bg-blue-700"
+      >
+        Sign out
+      </button>
     </div>
   );
 }
 
-function Email({ setSentEmail }) {
-  const [email, setEmail] = useState('');
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!email) return;
-    setSentEmail(email);
-    db.auth.sendMagicCode({ email }).catch((err) => {
-      alert('Uh oh :' + err.body?.message);
-      setSentEmail('');
-    });
-  };
+function Login() {
+  const [sentEmail, setSentEmail] = useState('');
 
   return (
-    <form onSubmit={handleSubmit} style={authStyles.form}>
-      <h2 style={{ color: '#333', marginBottom: '20px' }}>Let's log you in!</h2>
-      <div>
-        <input
-          style={authStyles.input}
-          placeholder="Enter your email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="max-w-sm">
+        {!sentEmail ? (
+          <EmailStep onSendEmail={setSentEmail} />
+        ) : (
+          <CodeStep sentEmail={sentEmail} />
+        )}
       </div>
-      <div>
-        <button type="submit" style={authStyles.button}>
-          Send Code
-        </button>
-      </div>
-    </form>
+    </div>
   );
 }
 
-function MagicCode({ sentEmail }) {
-  const [code, setCode] = useState('');
-
+function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
+    const inputEl = inputRef.current!;
+    const email = inputEl.value;
+    onSendEmail(email);
+    db.auth.sendMagicCode({ email }).catch((err) => {
       alert('Uh oh :' + err.body?.message);
-      setCode('');
+      onSendEmail('');
     });
   };
-
   return (
-    <form onSubmit={handleSubmit} style={authStyles.form}>
-      <h2 style={{ color: '#333', marginBottom: '20px' }}>
-        Okay, we sent you an email! What was the code?
-      </h2>
-      <div>
-        <input
-          style={authStyles.input}
-          type="text"
-          placeholder="123456..."
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-        />
-      </div>
-      <button type="submit" style={authStyles.button}>
-        Verify
+    <form
+      key="email"
+      onSubmit={handleSubmit}
+      className="flex flex-col space-y-4"
+    >
+      <h2 className="text-xl font-bold">Let's log you in</h2>
+      <p className="text-gray-700">
+        Enter your email, and we'll send you a verification code. We'll create
+        an account for you too if you don't already have one.
+      </p>
+      <input
+        ref={inputRef}
+        type="email"
+        className="w-full border border-gray-300 px-3 py-1"
+        placeholder="Enter your email"
+        required
+        autoFocus
+      />
+      <button
+        type="submit"
+        className="w-full bg-blue-600 px-3 py-1 font-bold text-white hover:bg-blue-700"
+      >
+        Send Code
       </button>
     </form>
   );
 }
 
-const authStyles: Record<string, React.CSSProperties> = {
-  container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100vh',
-    fontFamily: 'Arial, sans-serif',
-  },
-  input: {
-    padding: '10px',
-    marginBottom: '15px',
-    border: '1px solid #ddd',
-    borderRadius: '5px',
-    width: '300px',
-  },
-  button: {
-    padding: '10px 20px',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-};
+function CodeStep({ sentEmail }: { sentEmail: string }) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const inputEl = inputRef.current!;
+    const code = inputEl.value;
+    db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
+      inputEl.value = '';
+      alert('Uh oh :' + err.body?.message);
+    });
+  };
+
+  return (
+    <form
+      key="code"
+      onSubmit={handleSubmit}
+      className="flex flex-col space-y-4"
+    >
+      <h2 className="text-xl font-bold">Enter your code</h2>
+      <p className="text-gray-700">
+        We sent an email to <strong>{sentEmail}</strong>. Check your email, and
+        paste the code you see.
+      </p>
+      <input
+        ref={inputRef}
+        type="text"
+        className="w-full border border-gray-300 px-3 py-1"
+        placeholder="123456..."
+        required
+        autoFocus
+      />
+      <button
+        type="submit"
+        className="w-full bg-blue-600 px-3 py-1 font-bold text-white hover:bg-blue-700"
+      >
+        Verify Code
+      </button>
+    </form>
+  );
+}
 
 export default App;
 ```
 
-This creates a `Login` component to handle our auth flow. Of note is `auth.sendMagicCode`
+Go to `localhost:3000`, and huzzah 🎉 You've got auth.
+
+---
+
+**Let's dig deeper.**
+
+We created a `Login` component to handle our auth flow. Of note is `auth.sendMagicCode`
 and `auth.signInWithMagicCode`.
 
 On successful validation, Instant's backend will return a user object with a refresh token.
@@ -163,14 +172,12 @@ on the backend during permission checks.
 
 On the client, `useAuth` will set `isLoading` to `false` and populate `user` -- huzzah!
 
-{% partial file="auth/useAuth.md" /%}
-
 ## Send a Magic Code
 
 ```javascript
 db.auth.sendMagicCode({ email }).catch((err) => {
   alert('Uh oh :' + err.body?.message);
-  setState({ ...state, sentEmail: '' });
+  onSendEmail('');
 });
 ```
 
@@ -180,19 +187,9 @@ Use `auth.sendMagicCode` to generate a magic code on instant's backend and email
 
 ```javascript
 db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
+  inputEl.value = '';
   alert('Uh oh :' + err.body?.message);
-  setState({ ...state, code: '' });
 });
 ```
 
 You can then use `auth.signInWithMagicCode` to authenticate the user with the magic code they provided.
-
-## Sign out
-
-```javascript
-db.auth.signOut();
-```
-
-Use `auth.signOut` from the client to invalidate the user's refresh token and
-sign them out.You can also use the admin SDK to sign out the user [from the
-server](/docs/backend#sign-out).

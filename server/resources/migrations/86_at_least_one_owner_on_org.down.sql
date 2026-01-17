@@ -1,0 +1,5 @@
+drop trigger org_members_after_delete_trigger on org_members;
+drop trigger org_members_after_update_trigger on org_members;
+
+drop function org_members_after_delete_trigger;
+drop function org_members_after_update_trigger;

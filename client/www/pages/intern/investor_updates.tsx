@@ -54,7 +54,7 @@ function useGraphData(token: string | undefined) {
   return state;
 }
 
-function round(num: number, precision = 2) { 
+function round(num: number, precision = 2) {
   return Math.round(num * Math.pow(10, precision)) / Math.pow(10, precision);
 }
 
@@ -84,13 +84,19 @@ function Page() {
         <meta name="description" content="Welcome to Instant." />
       </Head>
       <div className="p-4">
-        <div>Monthly Active Apps M/M Growth: {round(data.metrics['monthly-active-apps-mom'])}%</div>
-        <div>Monthly Active Devs M/M Growth: {round(data.metrics['monthly-active-devs-mom'])}%</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 justify-items-center">
-          <img src={data.metrics.charts['weekly-active-apps']} />
+        <div>
+          Monthly Active Apps M/M Growth:{' '}
+          {round(data.metrics['monthly-active-apps-mom'], /* precision = */ 1)}%
+        </div>
+        <div>
+          Monthly Active Devs M/M Growth:{' '}
+          {round(data.metrics['monthly-active-devs-mom'], /* precision = */ 1)}%
+        </div>
+        <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2">
           <img src={data.metrics.charts['monthly-active-apps']} />
-          <img src={data.metrics.charts['weekly-active-devs']} />
           <img src={data.metrics.charts['monthly-active-devs']} />
+          <img src={data.metrics.charts['weekly-active-apps']} />
+          <img src={data.metrics.charts['weekly-active-devs']} />
         </div>
       </div>
     </div>

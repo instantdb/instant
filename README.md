@@ -40,7 +40,7 @@ How does it look? Here's a barebones chat app in about 12 lines:
 // * Multiplayer
 // * Works offline
 
-import { init, tx, id } from "@instantdb/react";
+import { init, id } from "@instantdb/react";
 
 const db = init({ 
   appId: process.env.NEXT_PUBLIC_APP_ID,
@@ -54,7 +54,7 @@ function Chat() {
 
   // 2. Write
   const addMessage = (message) => {
-    db.transact(tx.messages[id()].update(message));
+    db.transact(db.tx.messages[id()].update(message));
   };
 
   // 3. Render!
@@ -127,9 +127,3 @@ If you have any questions, you can jump in on our [discord](https://discord.com/
 You can start by joining our [discord](https://discord.com/invite/VU53p7uQcE) and introducing yourself. Even if you don't contribute code, we always love feedback.
 
 If you want to make changes, start by reading the [`client`](./client/) and [`server`](./server/) READMEs. There you'll find instructions to start Instant locally.
-
-## YourKit
-
-We're using YourKit to help us debug Instant. They are kindly supporting Instant and other open source projects with their [full-featured Java Profiler](https://www.yourkit.com/java/profiler/index.jsp).
-
-![yklogo](https://github.com/user-attachments/assets/64788da3-1dc4-4aa6-84cd-e051fd059fd0)

@@ -11,8 +11,10 @@ import {
 import config, { isDev } from '@/lib/config';
 import googleIconSvg from '../../public/img/google_g.svg';
 import Image from 'next/image';
-import { InstantError } from '@/lib/types';
+import { InstantIssue } from '@/lib/types';
 import { url } from '@/lib/url';
+import { useRouter } from 'next/router';
+import { usePostHog } from 'posthog-js/react';
 
 type State = {
   sentEmail: string | undefined;
@@ -49,7 +51,7 @@ function CodeStep(props: {
       </Content>
       <TextInput
         autoFocus
-        className="w-full appearance-none rounded outline-none"
+        className="w-full appearance-none rounded-sm outline-hidden"
         placeholder="Your code"
         inputMode="numeric"
         value={props.code}
@@ -78,6 +80,8 @@ function EmailStep(props: {
   error?: string;
   ticket?: string;
 }) {
+  const router = useRouter();
+
   return (
     <div className="flex flex-col gap-4">
       <form
@@ -94,7 +98,7 @@ function EmailStep(props: {
         </Content>
         <TextInput
           autoFocus
-          className="w-full rounded"
+          className="w-full rounded-sm"
           placeholder="Enter your email address"
           type="email"
           value={props.email}
@@ -119,6 +123,7 @@ function EmailStep(props: {
             href={url(config.apiURI, `/dash/oauth/start`, {
               ticket: props.ticket,
               redirect_to_dev: isDev ? 'true' : undefined,
+              redirect_path: router.asPath,
             })}
           >
             <span className="flex items-center space-x-2">
@@ -138,6 +143,7 @@ export default function Auth(props: {
   ticket?: string;
   onVerified?: ({ token, ticket }: { token: string; ticket?: string }) => void;
 }) {
+  const posthog = usePostHog();
   const [{ sentEmail, email, code, error, isLoading }, setState] =
     useState<State>({
       sentEmail: '',
@@ -155,14 +161,23 @@ export default function Auth(props: {
       isLoading: false,
     }));
 
-    sendMagicCode({ email }).catch((err) => {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        sentEmail: undefined,
-        error: errorFromSendMagicCode(err),
-      }));
-    });
+    sendMagicCode({ email })
+      .then(() => {
+        const emailDomain = email.split('@')[1];
+        if (emailDomain) {
+          posthog.capture('auth_start', {
+            email_domain: emailDomain,
+          });
+        }
+      })
+      .catch((err) => {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          sentEmail: undefined,
+          error: errorFromSendMagicCode(err),
+        }));
+      });
   };
 
   const verifyCode = () => {
@@ -172,7 +187,14 @@ export default function Auth(props: {
     }));
 
     verifyMagicCode({ email, code }).then(
-      ({ token }) => {
+      ({ token, user }) => {
+        posthog.identify(user.email, {
+          user_id: user.id,
+          signed_up_at: user.created_at,
+        });
+        posthog.capture('auth_complete', {
+          auth_method: 'email',
+        });
         props.onVerified?.({ token, ticket: props.ticket });
       },
       (err) => {
@@ -181,7 +203,7 @@ export default function Auth(props: {
           isLoading: false,
           error: errorFromVerifyMagicCode(err),
         }));
-      }
+      },
     );
   };
 
@@ -200,11 +222,11 @@ export default function Auth(props: {
     }));
   };
   return (
-    <div className="flex h-screen items-center justify-center p-4">
+    <div className="flex h-full items-center justify-center p-4">
       <div className="max-w-sm">
         <span className="inline-flex items-center space-x-2">
           <LogoIcon />
-          <span className="font-mono text-sm lowercase text-gray-400">
+          <span className="font-mono text-sm text-gray-400 lowercase">
             Instant
           </span>
         </span>
@@ -240,7 +262,7 @@ export default function Auth(props: {
   );
 }
 
-function errorFromVerifyMagicCode(res: InstantError): string {
+function errorFromVerifyMagicCode(res: InstantIssue): string {
   const errorType = res.body?.type;
   switch (errorType) {
     case 'param-missing':
@@ -256,7 +278,7 @@ function errorFromVerifyMagicCode(res: InstantError): string {
   }
 }
 
-function errorFromSendMagicCode(res: InstantError): string {
+function errorFromSendMagicCode(res: InstantIssue): string {
   const errorType = res.body?.type;
   const defaultMsg =
     'Uh oh, something went wrong sending you a magic code, please ping us!';

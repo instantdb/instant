@@ -2,21 +2,44 @@
   "Job to ping discord with daily active metrics. We also use this job to
   populate the daily_app_transactions table with new transactions."
   (:require
-   [instant.jdbc.aurora :as aurora]
-   [instant.util.date :as date]
-   [clojure.tools.logging :as log]
-   [instant.discord :as discord]
    [chime.core :as chime-core]
-   [instant.flags :refer [get-emails]]
+   [clojure.tools.logging :as log]
    [instant.config :as config]
+   [instant.discord :as discord]
+   [instant.flags :as flags :refer [get-emails]]
+   [instant.grab :as grab]
+   [instant.intern.metrics :as metrics]
+   [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.grab :as grab])
+   [instant.util.date :as date]
+   [instant.util.lang :as lang])
   (:import
-   (java.time Instant Period LocalDate DayOfWeek)))
+   (java.time Instant Period LocalDate ZonedDateTime)))
 
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
     (vec (concat test team friend))))
+
+(defn get-daily-signups
+  "Returns the number of signups for a day"
+  ([date-str]
+   (get-daily-signups (aurora/conn-pool :read) date-str))
+  ([conn date-str]
+   (sql/select-one conn
+                   ["SELECT
+                      DATE_TRUNC('day', u.created_at) AS signup_date,
+                      COUNT(u.id) AS signup_count
+                    FROM instant_users u
+                WHERE DATE_TRUNC('day', u.created_at) = DATE(?)
+                  AND u.email NOT IN (SELECT unnest(?::text[]))
+                GROUP BY 1
+                ORDER BY 1"
+                    date-str
+                    (with-meta (excluded-emails) {:pgtype "text[]"})])))
+
+(comment
+  (tool/with-prod-conn [conn]
+    (get-daily-signups conn "2025-07-21")))
 
 (defn get-daily-actives
   "Returns the number of active devs and apps for a day"
@@ -39,22 +62,27 @@
                     date-str
                     (with-meta (excluded-emails) {:pgtype "text[]"})])))
 
-(defn send-discord!
-  "Ping the discord channel with the metrics for a specific date"
-  [stats date-str]
-  (let [{:keys [distinct_users distinct_apps]} stats
-        message (str "🎯 Daily metrics for " date-str
+(defn send-metrics-to-discord!
+  "Send daily metrics to Discord"
+  [conn charts date-str]
+  (let [stats (get-daily-actives conn date-str)
+        {:keys [distinct_users distinct_apps]} stats
+        signups (get-daily-signups conn date-str)
+        message (str "🎯 Daily active metrics for " date-str
                      ": Active Devs: **" distinct_users
                      "**, Active Apps: **" distinct_apps
+                     "**, Num signups: **" (:signup_count signups)
                      "**")]
-    (discord/send! config/discord-teams-channel-id message)))
+    (discord/send-with-files! config/discord-teams-channel-id
+                              charts
+                              message)))
 
 (defn insert-new-activity
   "Insert new transactions into the daily_app_transactions table.
   This is intended to run daily to speed up monthly metrics generation."
   ([] (insert-new-activity (aurora/conn-pool :write)))
   ([conn]
-   (binding [sql/*query-timeout-seconds* 180]
+   (binding [sql/*query-timeout-seconds* 360]
      (sql/do-execute! conn
                       ["WITH date_range AS (
                     SELECT
@@ -91,19 +119,28 @@
 
 (defn daily-job!
   [^Instant date]
-  (let [date-minus-one (-> date (.minus (Period/ofDays 1)))
-        date-fn (fn [x] (date/numeric-date-str (.atZone x date/pst-zone)))
-        ;; We run this job for a particular day
-        date-str (date-fn date)
-        ;; But report the metrics for the previous day since we don't
-        ;; have the full day's data yet
-        date-minus-one-str (date-fn date-minus-one)]
-    (grab/run-once!
-     (str "daily-metrics-" date-str)
-     (fn []
-       (insert-new-activity)
-       (let [stats (get-daily-actives date-minus-one-str)]
-         (send-discord! stats date-minus-one-str))))))
+  (when-not (flags/failing-over?)
+    (let [date-minus-one (-> date (.minus (Period/ofDays 1)))
+          date-fn (fn [^Instant x] (date/numeric-date-str (.atZone x date/pst-zone)))
+          ;; We run this job for a particular day
+          date-str (date-fn date)
+          ;; But report the metrics for the previous day since we don't
+          ;; have the full day's data yet
+          date-minus-one-str (date-fn date-minus-one)]
+      (grab/run-once!
+       (str "daily-metrics-" date-str)
+       (fn []
+         (insert-new-activity)
+         (let [conn (aurora/conn-pool :read)
+               charts (->> (metrics/overview-metrics conn)
+                           :charts
+                           (map (fn [[k chart]]
+                                  {:name (format "%s.png" (name k))
+                                   :content-type "image/png"
+                                   ;; 273/173 is how discord resizes images
+                                   :content (metrics/chart->png-bytes chart
+                                                                      (* 2 273) (* 2 173))})))]
+           (send-metrics-to-discord! conn charts date-minus-one-str)))))))
 
 (comment
   (def t1 (-> (LocalDate/parse "2024-10-09")
@@ -121,21 +158,15 @@
                       nine-am-pst
                       (Period/ofDays 1))]
     (->> periodic-seq
-         (filter (fn [x] (.isAfter x now)))
-         ;; Only run on weekdays
-         (filter (fn [x]
-                   (let [day-of-week (.getDayOfWeek x)]
-                     (and
-                      (not= day-of-week DayOfWeek/SATURDAY)
-                      (not= day-of-week DayOfWeek/SUNDAY))))))))
+         (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
 
 (defn start []
   (log/info "Starting daily metrics daemon")
-  (def schedule (chime-core/chime-at (period) daily-job!)))
+  (def schedule
+    (chime-core/chime-at (period) daily-job!)))
 
 (defn stop []
-  (when (bound? #'schedule)
-    (.close schedule)))
+  (lang/close schedule))
 
 (defn restart []
   (stop)

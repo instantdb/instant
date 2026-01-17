@@ -24,7 +24,7 @@ export function PluginsIcon({ id, color }) {
         <circle cx={20} cy={20} r={12} fill={`url(#${id}-gradient)`} />
         <g
           fillOpacity={0.5}
-          className="fill-[var(--icon-background)] stroke-[color:var(--icon-foreground)]"
+          className="fill-(--icon-background) stroke-(--icon-foreground)"
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -35,10 +35,10 @@ export function PluginsIcon({ id, color }) {
         <path
           d="M11 4h8v2l6 3-10 6L5 9l6-3V4Z"
           fillOpacity={0.5}
-          className="fill-[var(--icon-background)]"
+          className="fill-(--icon-background)"
         />
         <g
-          className="stroke-[color:var(--icon-foreground)]"
+          className="stroke-(--icon-foreground)"
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"

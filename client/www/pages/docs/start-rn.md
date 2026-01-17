@@ -1,8 +1,11 @@
 ---
 title: Getting started with React Native
+description: How to use Instant with React Native
 ---
 
-You can use Instant in React Native projects too! Below is an example using Expo. Open up your terminal and do the following:
+You can use Instant in React Native projects too! Below is an example using Expo.
+
+Open up your terminal and do the following:
 
 ```shell {% showCopy=true %}
 # Create an app with expo
@@ -18,12 +21,12 @@ npm i @react-native-async-storage/async-storage @react-native-community/netinfo 
 
 Now open up `app/(tabs)/index.tsx` in your favorite editor and replace the entirety of the file with the following code.
 
-```typescript {% showCopy=true %}
-import { init, i, InstaQLEntity } from "@instantdb/react-native";
-import { View, Text, Button, StyleSheet } from "react-native";
+```tsx {% showCopy=true %}
+import { init, i, InstaQLEntity } from '@instantdb/react-native';
+import { View, Text, Button, StyleSheet } from 'react-native';
 
 // Instant app
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 // Optional: You can declare a schema!
 const schema = i.schema({
@@ -34,11 +37,11 @@ const schema = i.schema({
   },
 });
 
-type Color = InstaQLEntity<typeof schema, "colors">;
+type Color = InstaQLEntity<typeof schema, 'colors'>;
 
 const db = init({ appId: APP_ID, schema });
 
-const selectId = "4d39508b-9ee2-48a3-b70d-8192d9c5a059";
+const selectId = '4d39508b-9ee2-48a3-b70d-8192d9c5a059';
 
 function App() {
   const { isLoading, error, data } = db.useQuery({
@@ -65,14 +68,14 @@ function App() {
 }
 
 function Main(props: { color?: Color }) {
-  const { value } = props.color || { value: "lightgray" };
+  const { value } = props.color || { value: 'lightgray' };
 
   return (
-    <View style={[styles.container, { backgroundColor: value  }]}>
+    <View style={[styles.container, { backgroundColor: value }]}>
       <View style={[styles.contentSection]}>
         <Text style={styles.header}>Hi! pick your favorite color</Text>
         <View style={styles.spaceX4}>
-          {["green", "blue", "purple"].map((c) => {
+          {['green', 'blue', 'purple'].map((c) => {
             return (
               <Button
                 title={c}
@@ -92,26 +95,26 @@ function Main(props: { color?: Color }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   spaceY4: {
     marginVertical: 16,
   },
   spaceX4: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginHorizontal: 16,
   },
   contentSection: {
-    backgroundColor: "white",
+    backgroundColor: 'white',
     opacity: 0.8,
     padding: 12,
     borderRadius: 8,
   },
   header: {
     fontSize: 24,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 16,
   },
 });

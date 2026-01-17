@@ -1,27 +1,36 @@
 (ns instant.reactive.ephemeral
   "Handles our ephemeral data apis for a session (presence, cursors)"
   (:require
+   [chime.core :as chime-core]
+   [clojure.java.jmx :as jmx]
    [datascript.core :as ds]
    [editscript.core :as editscript]
    [instant.config :as config]
+   [instant.gauges :as gauges]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.aws :as aws-util]
    [instant.util.coll :as coll]
    [instant.util.hazelcast :as hazelcast]
+   [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
+   [instant.util.uuid :as uuid-util]
    [medley.core :as medley])
   (:import
    (com.hazelcast.config Config)
    (com.hazelcast.core Hazelcast HazelcastInstance)
+   (com.hazelcast.cluster Cluster Member InitialMembershipListener)
    (com.hazelcast.map IMap)
    (com.hazelcast.map.impl DataAwareEntryEvent)
    (com.hazelcast.map.listener EntryAddedListener
                                EntryRemovedListener
                                EntryUpdatedListener)
+   (com.hazelcast.spi.properties ClusterProperty HazelcastProperty)
    (com.hazelcast.topic ITopic MessageListener Message)
-   (java.util AbstractMap$SimpleImmutableEntry)
-   (java.util.concurrent Future)))
+   (java.time Duration Instant)
+   (java.util Map$Entry)
+   (java.util.concurrent Future ConcurrentHashMap)
+   (javax.management ObjectName)))
 
 ;; ------
 ;; Setup
@@ -38,28 +47,69 @@
 
 (declare handle-broadcast-message)
 
-(defn init-hz [env store-conn {:keys [instance-name cluster-name]
-                               :or {instance-name "instant-hz-v3"
-                                    cluster-name "instant-server-v2"}}]
+(defonce hz-member-by-machine-id-cache ^ConcurrentHashMap (ConcurrentHashMap.))
+
+(defn add-member-listener [^HazelcastInstance hz]
+  (.addMembershipListener (.getCluster hz)
+                          (reify InitialMembershipListener
+                            (init [_ e]
+                              (doseq [^Member m (.getMembers e)]
+                                (when-let [member-id (-> m
+                                                         (.getAttribute "machine-id")
+                                                         uuid-util/coerce)]
+                                  (.put ^ConcurrentHashMap hz-member-by-machine-id-cache member-id m))))
+                            (memberAdded [_ e]
+                              (let [m (.getMember e)]
+                                (when-let [member-id (-> m
+                                                         (.getAttribute "machine-id")
+                                                         uuid-util/coerce)]
+                                  (.put ^ConcurrentHashMap hz-member-by-machine-id-cache member-id m))))
+                            (memberRemoved [_ e]
+                              (let [m (.getMember e)]
+                                (when-let [member-id (-> m
+                                                         (.getAttribute "machine-id")
+                                                         uuid-util/coerce)]
+                                  (.remove ^ConcurrentHashMap hz-member-by-machine-id-cache member-id m)))))))
+
+(defn init-hz [env store {:keys [instance-name cluster-name]
+                          :or {instance-name "instant-hz-v3"
+                               cluster-name "instant-server-v2"}}]
   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
-      (.setLevel (if (= env :prod)
+      (.setLevel (if (config/aws-env?)
                    java.util.logging.Level/INFO
                    java.util.logging.Level/WARNING)))
   (.setLevel (java.util.logging.Logger/getLogger "com.hazelcast.system.logo")
              java.util.logging.Level/OFF)
-  (System/setProperty "hazelcast.shutdownhook.enabled" "false")
-  (System/setProperty "hazelcast.phone.home.enabled" "false")
   (let [config               (Config.)
         network-config       (.getNetworkConfig config)
         join-config          (.getJoin network-config)
         tcp-ip-config        (.getTcpIpConfig join-config)
         aws-config           (.getAwsConfig join-config)
         serialization-config (.getSerializationConfig config)
-        metrics-config       (.getMetricsConfig config)]
+        metrics-config       (.getMetricsConfig config)
+        instance-id          (or @config/instance-id "dev")
+        member-attribute-config (doto (com.hazelcast.config.MemberAttributeConfig.)
+                                  (.setAttribute "instance-id" instance-id)
+                                  (.setAttribute "machine-id" (str config/machine-id)))]
+
+    ;; Docs: https://docs.hazelcast.com/hazelcast/5.5/system-properties
+    (doseq [[prop value] [[ClusterProperty/PHONE_HOME_ENABLED "false"]
+                          [ClusterProperty/SHUTDOWNHOOK_ENABLED "false"]
+
+                          ;; Make sure max join seconds is less than the startup timeout
+                          ;; Default is 300
+                          [ClusterProperty/MAX_JOIN_SECONDS "45"]
+
+                          ;; Timeout to connect all other cluster members when a member is joining to a cluster.
+                          ;; Default is 120
+                          [ClusterProperty/CONNECT_ALL_WAIT_SECONDS "60"]]]
+      (.setProperty config (.getName ^HazelcastProperty prop) value))
+
+    (.setMemberAttributeConfig config member-attribute-config)
     (.setInstanceName config instance-name)
     (.setEnabled (.getMulticastConfig join-config) false)
     (case env
-      :prod
+      (:prod :staging)
       (let [ip (aws-util/get-instance-ip)]
         (.setPublicAddress network-config ip)
         (.setPort network-config (config/get-hz-port))
@@ -74,7 +124,7 @@
       (do
         (.setEnabled tcp-ip-config true)
         (.setMembers tcp-ip-config (list "127.0.0.1"))
-        (.setEnabled metrics-config false))
+        (.setEnabled metrics-config true))
 
       :test
       (do
@@ -106,15 +156,15 @@
                          (reify
                            EntryAddedListener
                            (entryAdded [_ event]
-                             (handle-event store-conn event))
+                             (handle-event store event))
 
                            EntryRemovedListener
                            (entryRemoved [_ event]
-                             (handle-event store-conn event))
+                             (handle-event store event))
 
                            EntryUpdatedListener
                            (entryUpdated [_ event]
-                             (handle-event store-conn event)))
+                             (handle-event store event)))
 
                          true)
       (.addMessageListener hz-broadcast-topic
@@ -123,18 +173,26 @@
                              (onMessage [_ message]
                                ;; Don't bother handling messages that we put on the topic
                                (when (not= local-member (.getPublishingMember message))
-                                 (handle-broadcast-message store-conn message)))))
-      {:hz hz
-       :hz-rooms-map hz-rooms-map
-       :hz-broadcast-topic hz-broadcast-topic})))
+                                 (handle-broadcast-message store message)))))
+      (add-member-listener hz)
+      {:hz                 hz
+       :hz-rooms-map       hz-rooms-map
+       :hz-broadcast-topic hz-broadcast-topic
+       :instance-id        instance-id})))
 
 (defonce hz
   (delay
-    (init-hz (config/get-env) rs/store-conn {})))
+    (init-hz (config/get-env) rs/store {})))
 
 (defn get-hz ^HazelcastInstance []
   (:hz @hz))
 
+;; {{:room-id <room-id> :app-id <app-id>}
+;;  {<sess-id>
+;;   {:peer-id     <session-id>
+;;    :instance-id <instance-id>
+;;    :user        {:id <user-id>}
+;;    :data        <data>}}
 (defn get-hz-rooms-map ^IMap []
   (:hz-rooms-map @hz))
 
@@ -144,7 +202,7 @@
 ;; ---------
 ;; Hazelcast
 
-(defn handle-event [store-conn ^DataAwareEntryEvent event]
+(defn handle-event [store ^DataAwareEntryEvent event]
   (let [room-key                 (.getKey event)
         {:keys [app-id room-id]} room-key
         {:keys [session-ids]}    (get-in @room-maps [:rooms room-key])]
@@ -155,33 +213,33 @@
                         (editscript/get-edits
                          (editscript/diff last-data room-data {:algo :a-star :str-diff :none})))]
         (doseq [[sess-id _] room-data
-                :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+                :let [q (-> (rs/session store sess-id) :session/socket :receive-q)]
                 :when q
                 :let [just-joined? (and (contains? room-data sess-id)
                                         (not (contains? last-data sess-id)))]]
-          (receive-queue/enqueue->receive-q q
-                                            {:op         :refresh-presence
-                                             :app-id     app-id
-                                             :room-id    room-id
-                                             :data       room-data
-                                             :edits      (when-not just-joined?
-                                                           edits)
-                                             :session-id sess-id}))))))
+          (receive-queue/put! q
+                              {:op         :refresh-presence
+                               :app-id     app-id
+                               :room-id    room-id
+                               :data       room-data
+                               :edits      (when-not just-joined?
+                                             edits)
+                               :session-id sess-id}))))))
 
 (defn handle-broadcast-message
   "Handles the message on the topic we use to broadcast a client-broadcast
    message to sessions that are in the room, but live on a different physical
    machine."
-  [store-conn ^Message m]
+  [store ^Message m]
   (let [{:keys [app-id session-ids base-msg]} (.getMessageObject m)]
     (doseq [sess-id session-ids
-            :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+            :let [q (-> (rs/session store sess-id) :session/socket :receive-q)]
             :when q]
-      (receive-queue/enqueue->receive-q q
-                                        (assoc base-msg
-                                               :op :server-broadcast
-                                               :session-id sess-id
-                                               :app-id app-id)))))
+      (receive-queue/put! q
+                          (assoc base-msg
+                                 :op :server-broadcast
+                                 :session-id sess-id
+                                 :app-id app-id)))))
 
 (defn broadcast [app-id session-ids base-msg]
   (.publish (get-hz-broadcast-topic)
@@ -221,12 +279,37 @@
                                              session-ids)))))
     (hazelcast/remove-session! (get-hz-rooms-map) room-key sess-id)))
 
+(defn clean-orphan-sessions [_time]
+  (tracer/with-span! {:name "clean-orphan-sessions"}
+    (let [instance-ids (-> (:hz @hz)
+                           HazelcastInstance/.getCluster
+                           Cluster/.getMembers
+                           (->>
+                            (map #(Member/.getAttribute % "instance-id"))
+                            (into #{})))]
+      (doseq [^Map$Entry entry (IMap/.entrySet (:hz-rooms-map @hz))
+              :let [{:keys [app-id room-id]} (.getKey entry)
+                    v (.getValue entry)]
+              :when (and app-id room-id)
+              [sess-id {:keys [instance-id]}] v
+              :when (or
+                     (nil? instance-id)
+                     (not (contains? instance-ids instance-id))
+                     (and (= instance-id (:instance-id @hz))
+                          (nil? (rs/session rs/store sess-id))))]
+        (tracer/with-span! {:name "clean-orphan-session"
+                            :attributes {:app-id      app-id
+                                         :room-id     room-id
+                                         :session-id  sess-id
+                                         :instance-id instance-id}}
+          (remove-session! app-id room-id sess-id))))))
+
 (defn clean-old-sessions []
   (let [oldest-timestamp (aws-util/oldest-instance-timestamp)
         hz-map (get-hz-rooms-map)]
     (when-not oldest-timestamp
       (throw (Exception. "Could not determine oldest instance timestamp")))
-    (doseq [^AbstractMap$SimpleImmutableEntry entry (.entrySet hz-map)
+    (doseq [^Map$Entry entry (.entrySet hz-map)
             :let [{:keys [app-id room-id]} (.getKey entry)
                   v (.getValue entry)]
             :when (and app-id room-id)
@@ -239,7 +322,7 @@
                                        :session-id sess-id
                                        :squuid-timestamp squuid-timestamp}}
         (remove-session! app-id room-id sess-id)))
-    (doseq [^AbstractMap$SimpleImmutableEntry entry (.entrySet hz-map)
+    (doseq [^Map$Entry entry (.entrySet hz-map)
             :let [{:keys [app-id room-id]} (.getKey entry)
                   v (.getValue entry)]
             :when (and app-id room-id (empty? v))]
@@ -260,12 +343,14 @@
   [app-id room-id sess-id]
   (contains? (get-room-data app-id room-id) sess-id))
 
-(defn join-room! [app-id sess-id current-user room-id]
+(defn join-room! [app-id sess-id current-user room-id data]
   (register-session! app-id room-id sess-id)
   (hazelcast/join-room! (get-hz-rooms-map)
                         (hazelcast/room-key app-id room-id)
                         sess-id
-                        (:id current-user)))
+                        (:instance-id @hz)
+                        (:id current-user)
+                        data))
 
 (defn leave-room! [app-id sess-id room-id]
   (remove-session! app-id room-id sess-id))
@@ -280,17 +365,101 @@
   (doseq [room-id (get-in @room-maps [:sessions sess-id])]
     (remove-session! app-id room-id sess-id)))
 
+(defn hz-jmx-stats []
+  (for [^ObjectName n (jmx/mbean-names "com.hazelcast:*")
+        a (jmx/attribute-names n)
+        ;; Filter out properties with tags or else we'll
+        ;; overload honeycomb
+        :when (not (.getKeyProperty n "tag0"))
+        :let [prefix (.getKeyProperty n "prefix")
+              k (format "hz.%s.%s" prefix (name a))]]
+    [{:path k
+      :value (clojure.java.jmx/read n a)}]))
+
+(defn hz-gauges [{:keys [^IMap hz-rooms-map ^ITopic hz-broadcast-topic]}]
+  (let [{:keys [putOperationCount
+                totalPutLatency
+                getOperationCount
+                totalGetLatency
+                removeOperationCount
+                totalRemoveLatency
+                setOperationCount
+                totalSetLatency] :as map-stats} (bean (.getLocalMapStats hz-rooms-map))]
+    (concat
+     (hz-jmx-stats)
+     (for [[k v] (select-keys map-stats
+                              [:maxGetLatency
+                               :otherOperationCount
+                               :maxPutLatency
+                               :maxRemoveLatency
+                               :heapCost
+                               :totalSetLatency
+                               :ownedEntryMemoryCost
+                               :setOperationCount
+                               :eventOperationCount
+                               :totalPutLatency
+                               :hits
+                               :backupCount
+                               :backupEntryMemoryCost
+                               :totalGetLatency
+                               :totalRemoveLatency
+                               :dirtyEntryCount
+                               :removeOperationCount
+                               :backupEntryCount
+                               :maxSetLatency
+                               :lockedEntryCount
+                               :ownedEntryCount
+                               :putOperationCount
+                               :expirationCount
+                               :evictionCount
+                               :getOperationCount])]
+       [{:path (str "hz.hz-rooms-map." (name k))
+         :value v}])
+
+     (when (pos? putOperationCount)
+       [{:path "hz.hz-rooms-map.avgPutLatency"
+         :value (double (/ totalPutLatency
+                           putOperationCount))}])
+     (when (pos? getOperationCount)
+       [{:path "hz.hz-rooms-map.avgGetLatency"
+         :value (double (/ totalGetLatency
+                           getOperationCount))}])
+     (when (pos? removeOperationCount)
+       [{:path "hz.hz-rooms-map.avgRemoveLatency"
+         :value (double (/ totalRemoveLatency
+                           removeOperationCount))}])
+     (when (pos? setOperationCount)
+       [{:path "hz.hz-rooms-map.avgSetLatency"
+         :value (double (/ totalSetLatency
+                           setOperationCount))}])
+
+     (let [stats (.getLocalTopicStats hz-broadcast-topic)]
+       [{:path "hz.hz-broadcast-topic.publishOperationCount"
+         :value (.getPublishOperationCount stats)}
+        {:path "hz.hz-broadcast-topic.receiveOperationCount"
+         :value (.getReceiveOperationCount stats)}]))))
+
 ;; ------
 ;; System
 
 (defn start []
   (def hz
     (delay
-      (init-hz (config/get-env) rs/store-conn {})))
-  (let [^Future f (future @hz)]
-    (.get f (* 60 1000) java.util.concurrent.TimeUnit/MILLISECONDS)))
+      (init-hz (config/get-env) rs/store {})))
+  (def clean-orphan-sessions-schedule
+    (chime-core/chime-at
+     (chime-core/periodic-seq (.plusMillis (Instant/now) 60000) (Duration/ofMinutes 1))
+     clean-orphan-sessions))
+
+  (let [^Future f (future @hz)
+        hz-realized (.get f (* 60 1000 2) java.util.concurrent.TimeUnit/MILLISECONDS)]
+    (def stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
+                                                   (hz-gauges hz-realized))))))
 
 (defn stop []
+  (lang/close clean-orphan-sessions-schedule)
+  (when (bound? #'stop-gauge)
+    (stop-gauge))
   (when-let [^HazelcastInstance hz (try (get-hz) (catch Exception _e nil))]
     (.shutdown hz)))
 

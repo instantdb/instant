@@ -7,8 +7,7 @@ export function Loading() {
 export function ErrorMessage({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-4 p-2">
-      <div className="rounded bg-red-100 p-4 text-red-700">{children}</div>
+      <div className="rounded-sm bg-red-100 p-4 text-red-700">{children}</div>
     </div>
   );
 }
-

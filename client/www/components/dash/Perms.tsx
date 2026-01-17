@@ -1,21 +1,26 @@
-import { useContext, useMemo, useState } from 'react';
-import { SWRResponse } from 'swr';
 import JsonParser from 'json5';
+import { useContext, useMemo, useState } from 'react';
 
-import { errorToast, successToast } from '@/lib/toast';
+import { Content, JSONEditor, SectionHeading } from '@/components/ui';
 import config from '@/lib/config';
-import { jsonFetch } from '@/lib/fetch';
 import { TokenContext } from '@/lib/contexts';
-import { InstantApp, DashResponse } from '@/lib/types';
-import { Button, Content, JSONEditor, SectionHeading } from '@/components/ui';
+import { jsonFetch } from '@/lib/fetch';
+import { errorToast, successToast } from '@/lib/toast';
+import { InstantApp, SchemaNamespace } from '@/lib/types';
 import { HomeButton } from '@/pages/dash';
+import { InstantReactWebDatabase } from '@instantdb/react';
+import { FetchedDash, useFetchedDash } from './MainDashLayout';
+import permsJsonSchema from '@/lib/permsJsonSchema';
+import { useDarkMode } from './DarkModeToggle';
 
 export function Perms({
   app,
-  dashResponse,
+  db,
+  namespaces,
 }: {
   app: InstantApp;
-  dashResponse: SWRResponse<DashResponse>;
+  db: InstantReactWebDatabase<any>;
+  namespaces: SchemaNamespace[] | null;
 }) {
   const [errorRes, setErrorRes] = useState<{
     message: string;
@@ -26,11 +31,16 @@ export function Perms({
     return app.rules ? JSON.stringify(app.rules, null, 2) : '';
   }, [app]);
 
+  const schema = permsJsonSchema(namespaces);
+  const dashResponse = useFetchedDash();
+
+  const { darkMode } = useDarkMode();
+
   return (
-    <div className="flex flex-1 flex-col md:flex-row">
-      <div className="flex flex-col gap-4 border-r p-4 text-sm md:basis-96 md:text-base">
+    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <div className="flex min-h-0 min-w-[260px] flex-col gap-4 border-r p-4 text-sm md:basis-96 md:text-base dark:border-r-neutral-700">
         <SectionHeading>Permissions</SectionHeading>
-        <Content>
+        <Content className="dark:text-neutral-300">
           <p>
             Ready to share your app with the world? You likely need to add some
             permissions. You can define them here
@@ -45,7 +55,7 @@ export function Perms({
           Learn how to use CEL expressions to secure your app
         </HomeButton>
       </div>
-      <div className="flex w-full flex-1 flex-col justify-start">
+      <div className="flex w-full flex-1 flex-col justify-start dark:bg-neutral-800">
         {errorRes && (
           <div className="bg-red-100 p-4 text-sm">
             <div className="max-w-sm">
@@ -57,8 +67,9 @@ export function Perms({
           </div>
         )}
         <JSONEditor
+          darkMode={darkMode}
           label={
-            <>
+            <span className="text-sm">
               <span
                 className="text-sm font-bold text-yellow-600"
                 style={{ letterSpacing: '4px' }}
@@ -66,13 +77,13 @@ export function Perms({
                 {'{}'}
               </span>{' '}
               rules.json
-            </>
+            </span>
           }
           value={value}
-          schema={rulesSchema}
+          schema={schema}
           onSave={async (r) => {
             const er = await onEditRules(dashResponse, app.id, r, token).catch(
-              (error) => error
+              (error) => error,
             );
             setErrorRes(er);
           }}
@@ -83,14 +94,11 @@ export function Perms({
 }
 
 async function onEditRules(
-  dashResponse: SWRResponse<any, any, any>,
+  dashResponse: FetchedDash,
   appId: string,
   newRules: string,
-  token: string
+  token: string,
 ): Promise<void> {
-  if (dashResponse.error || dashResponse.isLoading) {
-    return Promise.reject(null);
-  }
   const prevApps = dashResponse.data.apps;
   const currentApp = prevApps.find((x: any) => x.id === appId);
   if (!currentApp) {
@@ -133,7 +141,7 @@ async function onEditRules(
       }
       errorToast(
         "Oh no, we weren't able to save these rules. Please try again or ping us on Discord if you're stuck!",
-        { autoClose: 3000 }
+        { autoClose: 3000 },
       );
       return Promise.reject();
     });
@@ -149,33 +157,3 @@ function updateRules(token: string, appId: string, newRulesObj: object) {
     body: JSON.stringify({ code: newRulesObj }),
   });
 }
-
-export const rulesSchema = {
-  type: 'object',
-  patternProperties: {
-    '^[$a-zA-Z0-9_\\-]+$': {
-      type: 'object',
-      properties: {
-        allow: {
-          type: 'object',
-          properties: {
-            create: { type: 'string' },
-            update: { type: 'string' },
-            delete: { type: 'string' },
-            view: { type: 'string' },
-            $default: { type: 'string' },
-          },
-          additionalProperties: false,
-        },
-        bind: {
-          type: 'array',
-          // Use a combination of "items" and "additionalItems" for validation
-          items: { type: 'string' },
-          minItems: 2,
-        },
-      },
-      additionalProperties: false,
-    },
-  },
-  additionalProperties: false,
-};

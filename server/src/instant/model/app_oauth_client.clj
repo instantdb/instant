@@ -21,6 +21,7 @@
                  client-secret
                  discovery-endpoint
                  meta]}]
+   ;; Only validate discovery endpoint if provided (OIDC providers)
    (when discovery-endpoint
      (try
        (when-not (-> (oauth/fetch-discovery discovery-endpoint)
@@ -40,7 +41,7 @@
 
          enc-client-secret
          (when client-secret
-           (crypt-util/aead-encrypt {:plaintext (.getBytes client-secret)
+           (crypt-util/aead-encrypt {:plaintext (String/.getBytes client-secret)
                                      :associated-data (uuid-util/->bytes id)}))]
      (update-op
       conn
@@ -59,6 +60,20 @@
                     [:add-triple id (resolve-id :discoveryEndpoint) discovery-endpoint]
                     [:add-triple id (resolve-id :meta) meta]])
         (get-entity id))))))
+
+(defn update-meta!
+  ([params] (update-meta! (aurora/conn-pool :write) params))
+  ([conn {:keys [id app-id meta]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id get-entity]}]
+      (transact! [[:add-triple id (resolve-id :id) id]
+                  [:deep-merge-triple id (resolve-id :meta) meta]])
+      (get-entity id)))))
+
+
 
 (defn get-by-id
   ([params] (get-by-id (aurora/conn-pool :read) params))
@@ -102,21 +117,25 @@
       (Secret.)))
 
 (defn ->OAuthClient [oauth-client]
-  (if-let [discovery-endpoint (:discovery_endpoint oauth-client)]
+  (cond
+    (:discovery_endpoint oauth-client)
     (oauth/generic-oauth-client-from-discovery-url
      {:app-id (:app_id oauth-client)
       :provider-id (:provider_id oauth-client)
       :client-id (:client_id oauth-client)
       :client-secret (when (:client_secret oauth-client)
                        (decrypted-client-secret oauth-client))
-      :discovery-endpoint discovery-endpoint
+      :discovery-endpoint (:discovery_endpoint oauth-client)
       :meta (:meta oauth-client)})
-    (oauth/map->GenericOAuthClient
+
+    (= "github" (get (:meta oauth-client) "providerName"))
+    (oauth/map->GitHubOAuthClient
      {:app-id (:app_id oauth-client)
       :provider-id (:provider_id oauth-client)
       :client-id (:client_id oauth-client)
       :client-secret (when (:client_secret oauth-client)
                        (decrypted-client-secret oauth-client))
-      :authorization-endpoint (:authorization_endpoint oauth-client)
-      :token-endpoint (:token_endpoint oauth-client)
-      :meta (:meta oauth-client)})))
+      :meta (:meta oauth-client)})
+
+    :else
+    (throw (ex-info "Unsupported OAuth client" {:oauth-client oauth-client}))))

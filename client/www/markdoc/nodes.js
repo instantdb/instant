@@ -1,4 +1,5 @@
 import { Fence } from '@/components/docs/Fence';
+import { Heading } from '@/components/docs/Heading';
 
 const nodes = {
   document: {
@@ -19,9 +20,19 @@ const nodes = {
       language: {
         type: String,
       },
+      lineHighlight: {
+        type: String,
+      },
       showCopy: {
         type: Boolean,
       },
+    },
+  },
+  heading: {
+    render: Heading,
+    attributes: {
+      id: { type: String },
+      level: { type: Number, required: true },
     },
   },
 };

@@ -48,8 +48,8 @@
 ;; deploy id format, 1234abcd12acde000111cdef--yoursitename.netlify.app
 ;; live url format, e3757530--yoursitename.netlify.live
 (defn matches-netlify? [host [site-name]]
-  (when (or (.endsWith host "netlify.app")
-            (.endsWith host "netlify.live"))
+  (when (or (string/ends-with? host "netlify.app")
+            (string/ends-with? host "netlify.live"))
     (when-let [[_ matched-site-name] (or (re-matches #"^.+--(.+)\.netlify\.(?:app|live)$" host)
                                          (re-matches #"^(.+)\.netlify\.app$" host))]
       (= site-name matched-site-name))))
@@ -58,8 +58,8 @@
 ;; All vercel urls start with the project-name and end with the deployment suffix
 ;; (usually vercel.app)
 (defn matches-vercel? [host [deployment-suffix project-name]]
-  (and (.endsWith host deployment-suffix)
-       (.startsWith host project-name)))
+  (and (string/ends-with? host deployment-suffix)
+       (string/starts-with? host project-name)))
 
 (defn matches-generic? [host [host-param]]
   (= host host-param))

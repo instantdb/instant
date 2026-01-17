@@ -12,16 +12,25 @@
 (def etype "$users")
 
 (defn create!
-  ([params] (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [id app-id email]}]
-   (update-op
-    conn
-    {:app-id app-id
-     :etype etype}
-    (fn [{:keys [transact! resolve-id get-entity]}]
-      (transact! [[:add-triple id (resolve-id :id) id]
-                  [:add-triple id (resolve-id :email) email]])
-      (get-entity id)))))
+  ([params]
+   (create! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id email id type imageURL] :as params}]
+   (let [id (or id (random-uuid))]
+     (update-op
+      conn
+      {:app-id app-id
+       :etype etype}
+      (fn [{:keys [transact! resolve-id get-entity]}]
+        (transact!
+         (concat
+          [[:add-triple id (resolve-id :id) id]]
+          (when (contains? params :email)
+            [[:add-triple id (resolve-id :email) email]])
+          (when (contains? params :type)
+            [[:add-triple id (resolve-id :type) type]])
+          (when (and (contains? params :imageURL) imageURL)
+            [[:add-triple id (resolve-id :imageURL) imageURL]])))
+        (get-entity id))))))
 
 (defn get-by-id
   ([params] (get-by-id (aurora/conn-pool :read) params))
@@ -32,21 +41,32 @@
              (fn [{:keys [get-entity]}]
                (get-entity id)))))
 
+(defn get-by-ids
+  ([params] (get-by-ids (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id ids]}]
+   (query-op conn
+             {:app-id app-id
+              :etype etype}
+             (fn [{:keys [get-entities]}]
+               (get-entities ids)))))
+
 (defn get-by-refresh-token
   ([params] (get-by-refresh-token (aurora/conn-pool :read) params))
   ([conn {:keys [app-id refresh-token]}]
-   (query-op
-    conn
-    {:app-id app-id
-     :etype etype}
-    (fn [{:keys [get-entity-where]}]
-      (get-entity-where {:$userRefreshTokens.hashedToken (hash-token refresh-token)})))))
+   (when refresh-token
+     (query-op
+      conn
+      {:app-id app-id
+       :etype etype}
+      (fn [{:keys [get-entity-where]}]
+        (get-entity-where {:$userRefreshTokens.hashedToken (hash-token refresh-token)}))))))
 
 (defn get-by-refresh-token! [params]
   (ex/assert-record! (get-by-refresh-token params) :app-user {:args [params]}))
 
 (defn get-by-email
-  ([params] (get-by-email (aurora/conn-pool :read) params))
+  ([params]
+   (get-by-email (aurora/conn-pool :read) params))
   ([conn {:keys [app-id email]}]
    (query-op conn
              {:app-id app-id
@@ -88,7 +108,6 @@
     (fn [{:keys [delete-entity!]}]
       (delete-entity! id)))))
 
-
 (defn get-by-email-or-oauth-link-qualified
   ([params] (get-by-email-or-oauth-link-qualified (aurora/conn-pool :read) params))
   ([conn {:keys [app-id email sub provider-id]}]
@@ -98,16 +117,20 @@
      :etype etype}
     (fn [{:keys [admin-query]}]
       (let [sub+provider (format "%s+%s" sub provider-id)
+            sub-match {:$oauthUserLinks.sub+$oauthProvider sub+provider}
+            ;; When no email is provided, we only match by the oauth link
+            where-clause (if email
+                           {:or [{:email email} sub-match]}
+                           sub-match)
             q {etype
-               {:$ {:where {:or [{:email email}
-                                 {:$oauthUserLinks.sub+$oauthProvider
-                                  sub+provider}]}}
+               {:$ {:where where-clause}
                 :$oauthUserLinks {:$ {:where {:sub+$oauthProvider
                                               sub+provider}}}}}
             res (admin-query q)]
         (map (fn [user]
                (merge {:app_users/id (parse-uuid (get user "id"))
                        :app_users/email (get user "email")
+                       :app_users/image_url (get user "imageURL")
                        :app_users/app_id app-id}
                       (when-let [links (seq (get user "$oauthUserLinks"))]
                         ;; Adding this assert just for extra protection,
@@ -125,6 +148,37 @@
 (defn get-or-create-by-email! [{:keys [email app-id]}]
   (or (get-by-email {:email email :app-id app-id})
       (create! {:id (UUID/randomUUID) :email email :app-id app-id})))
+
+(defn update-image-url!
+  "Updates the imageURL. This happens during logins, in case the user 
+   has changed their profile picture."
+  ([params] (update-image-url! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id id image-url]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      (transact! [[:add-triple
+                   id
+                   (resolve-id :imageURL)
+                   image-url]])))))
+
+(defn link-guest
+  "Links the guest account to a pre-exisiting user.
+   This only happens when a guest upgrades to a user, but the user
+   email already exists."
+  ([params] (link-guest (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id primary-user-id guest-user-id]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      (transact! [[:add-triple
+                   guest-user-id
+                   (resolve-id :linkedPrimaryUser)
+                   (str primary-user-id)]])))))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))

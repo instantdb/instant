@@ -1,6 +1,6 @@
-import { init } from "@instantdb/react";
-import { useEffect, useMemo, useState } from "react";
-import config from "../../config";
+import { init } from '@instantdb/react';
+import { useEffect, useMemo, useState } from 'react';
+import config from '../../config';
 
 const db = init(config);
 
@@ -23,7 +23,7 @@ export default function () {
           cats: {
             $: {
               where: {
-                "people.id": person.id,
+                'people.id': person.id,
               },
             },
           },
@@ -39,10 +39,10 @@ export default function () {
   }, [peopleRes.data]);
 
   return (
-    <div className="p-4 text-sm font-mono flex flex-col mx-auto max-w-md gap-4">
+    <div className="mx-auto flex max-w-md flex-col gap-4 p-4 font-mono text-sm">
       <strong>People</strong>
       <select
-        className="text-sm p-1"
+        className="p-1 text-sm"
         value={selectedPersonId ?? undefined}
         onChange={(e) => setSelectedPersonId(e.target.value)}
       >
@@ -54,7 +54,9 @@ export default function () {
       </select>
       <strong>Cats</strong>
       <ul>
-        {catsRes.data?.cats.map((cat) => <li key={cat.id}>{cat.name}</li>)}
+        {catsRes.data?.cats.map((cat) => (
+          <li key={cat.id}>{cat.name}</li>
+        ))}
       </ul>
     </div>
   );

@@ -43,7 +43,7 @@ function usePaidData(token: string | undefined) {
             : { body: { message: err.message || 'Uh oh, we goofed up' } },
           data: undefined,
         });
-      }
+      },
     );
   }, [token]);
 
@@ -78,49 +78,117 @@ function humanBytes(bytes: number) {
 }
 
 function PaidTable({ data }: { data: any }) {
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: 'asc' | 'desc';
+  } | null>(null);
+
+  const sortedData = React.useMemo(() => {
+    if (!sortConfig) return data;
+
+    return [...data].sort((a, b) => {
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
+
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [data, sortConfig]);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'desc';
+    if (
+      sortConfig &&
+      sortConfig.key === key &&
+      sortConfig.direction === 'desc'
+    ) {
+      direction = 'asc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIndicator = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) return ' ↕️';
+    return sortConfig.direction === 'asc' ? ' ↑' : ' ↓';
+  };
+
   return (
     <div>
-      <table className="min-w-full bg-white border border-gray-200">
+      <table className="min-w-full border border-gray-200 bg-white">
         <thead>
           <tr>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
-              User email
+            <th
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
+              onClick={() => handleSort('user_email')}
+            >
+              User email{getSortIndicator('user_email')}
             </th>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
-              App Title
+            <th
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
+              onClick={() => handleSort('type')}
+            >
+              Type{getSortIndicator('type')}
             </th>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
-              Monthly prevenue
+            <th
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
+              onClick={() => handleSort('title')}
+            >
+              Title{getSortIndicator('title')}
             </th>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
-              Subscribed since
+            <th
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
+              onClick={() => handleSort('monthly_revenue')}
+            >
+              Monthly prevenue{getSortIndicator('monthly_revenue')}
             </th>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
-              DB size
+            <th
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
+              onClick={() => handleSort('start_timestamp')}
+            >
+              Subscribed since{getSortIndicator('start_timestamp')}
+            </th>
+            <th
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
+              onClick={() => handleSort('usage')}
+            >
+              DB size{getSortIndicator('usage')}
+            </th>
+            <th
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase hover:bg-gray-100"
+              onClick={() => handleSort('triple_count')}
+            >
+              Triple count{getSortIndicator('triple_count')}
             </th>
           </tr>
         </thead>
         <tbody>
-          {data.map((row: any) => (
-            <tr key={row.user_email + row.app_title}>
-              <td className="py-2 px-4 border-b border-gray-200">
+          {sortedData.map((row: any) => (
+            <tr key={row.user_email + row.title}>
+              <td className="border-b border-gray-200 px-4 py-2">
                 {row.user_email}
               </td>
-              <td className="py-2 px-4 border-b border-gray-200">
-                {row.app_title}
+              <td className="border-b border-gray-200 px-4 py-2">{row.type}</td>
+              <td className="border-b border-gray-200 px-4 py-2">
+                {row.title}
               </td>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 <span className="ml-2">{formatMoney(row.monthly_revenue)}</span>
               </td>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 <span
                   title={new Date(row.start_timestamp * 1000).toLocaleString()}
                 >
                   {formatStartTimestamp(row.start_timestamp)}
                 </span>
               </td>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 {humanBytes(row.usage)}
+              </td>
+              <td className="border-b border-gray-200 px-4 py-2">
+                {row.triple_count
+                  ? Intl.NumberFormat().format(row.triple_count)
+                  : null}
               </td>
             </tr>
           ))}
@@ -151,7 +219,7 @@ function Page() {
         <title>Instant Paid Apps</title>
         <meta name="description" content="Welcome to Instant." />
       </Head>
-      <div className="flex space-x-0 space-y-4 md:space-x-8 md:space-y-0 m-4 flex-wrap md:flex-nowrap">
+      <div className="m-4 flex flex-wrap space-y-4 space-x-0 md:flex-nowrap md:space-y-0 md:space-x-8">
         <div className="flex flex-col space-y-2">
           <span className="font-xl font-bold">Paid Apps</span>
           <PaidTable data={data} />

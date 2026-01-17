@@ -1,11 +1,16 @@
 (ns instant.util.date
   (:import
-   (java.time ZoneId ZonedDateTime ZoneRegion LocalDate)
+   (java.io Writer)
+   (java.time Instant ZoneId ZonedDateTime ZoneRegion LocalDate)
    (java.time.format DateTimeFormatter)
    (java.time.temporal TemporalAdjusters)))
 
 (def ^ZoneRegion pst-zone (ZoneId/of "America/Los_Angeles"))
 (def ^ZoneRegion est-zone (ZoneId/of "America/New_York"))
+(def ^ZoneRegion utc-zone (ZoneId/of "UTC"))
+
+(defn utc-now ^ZonedDateTime []
+  (ZonedDateTime/now utc-zone))
 
 (defn pst-now ^ZonedDateTime []
   (ZonedDateTime/now pst-zone))
@@ -30,6 +35,12 @@
         first-of-next-month (.with (LocalDate/from today) (TemporalAdjusters/firstDayOfNextMonth))
         start-of-day (.atStartOfDay first-of-next-month est-zone)]
     start-of-day))
+
+(defmethod print-method Instant [o ^Writer w]
+  (.write w (str "#instant \"" o "\"")))
+
+(defn parse-instant [x]
+  (Instant/parse x))
 
 (comment
   (first-of-next-month-est))

@@ -1,13 +1,16 @@
 import JsonParser from 'json5';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { StarIcon, TrashIcon } from '@heroicons/react/outline';
-import { ArrowSmRightIcon } from '@heroicons/react/solid';
+import { StarIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowRightIcon } from '@heroicons/react/24/solid';
 
 import { Button, CodeEditor, cn } from '@/components/ui';
-import { useSchemaQuery } from '@/lib/hooks/explorer';
-import { errorToast, infoToast } from '@/lib/toast';
-import { InstantReactWebDatabase } from '@instantdb/react';
+import { errorToast } from '@/lib/toast';
+import { init, InstantReactWebDatabase } from '@instantdb/react';
+import { DBAttr, SchemaNamespace } from '@/lib/types';
+import { attrsToSchema } from '@/lib/schema';
+import { apiSchemaToInstantSchemaDef } from '@instantdb/platform';
+import { useDarkMode } from '../DarkModeToggle';
 
 const SAVED_QUERIES_CACHE_KEY = '__instant:explorer-saved-queries';
 const QUERY_HISTORY_CACHE_KEY = '__instant:explorer-query-history';
@@ -54,22 +57,48 @@ class QueryInspectorCache {
   }
 }
 
+function dbForAttrs(
+  baseDb: InstantReactWebDatabase<any>,
+  attrs: Record<string, DBAttr> | null,
+): InstantReactWebDatabase<any> {
+  if (!attrs) {
+    return baseDb;
+  }
+  const schema = apiSchemaToInstantSchemaDef(
+    attrsToSchema(Object.values(attrs)),
+  );
+  return init({
+    ...baseDb.core._reactor.config,
+    disableValidation: true,
+    schema,
+  });
+}
+
 export function QueryInspector({
   className,
   appId,
-  db,
+  db: baseDb,
+  namespaces,
+  attrs,
 }: {
   className?: string;
   appId: string;
   db: InstantReactWebDatabase<any>;
+  namespaces: SchemaNamespace[] | null;
+  attrs: Record<string, DBAttr> | null;
 }) {
+  const db = useMemo(() => dbForAttrs(baseDb, attrs), [baseDb, attrs]);
   const cache = new QueryInspectorCache(appId);
   const [query, setQuery] = useState<Record<string, any>>({});
   const [draft, setQueryDraft] = useState('{}');
   const [history, setQueryHistory] = useState<CachedQueryItem[]>([]);
   const [saved, setSavedQueries] = useState<CachedQueryItem[]>([]);
-  const { namespaces } = useSchemaQuery(db);
-  const { data, isLoading, error } = db.useQuery(query);
+
+  const { data, isLoading, error } = (
+    db as InstantReactWebDatabase<any>
+  ).useQuery(query);
+
+  const { darkMode } = useDarkMode();
 
   useEffect(() => {
     const saved = cache.getSavedQueries();
@@ -180,12 +209,13 @@ export function QueryInspector({
   };
 
   return (
-    <div className={cn('flex-1 flex', className)}>
-      <div className="max-w-lg flex flex-col flex-1">
-        <h2 className="px-3 text-sm font-semibold mt-4 mb-1">InstaQL query</h2>
+    <div className={cn('flex flex-1', className)}>
+      <div className="flex max-w-lg flex-1 flex-col dark:bg-neutral-800">
+        <h2 className="mt-4 mb-1 px-3 text-sm font-semibold">InstaQL query</h2>
 
-        <div className="h-64 border-y rounded overflow-hidden relative">
+        <div className="relative h-64 overflow-hidden rounded-sm border-y dark:border-y-neutral-800">
           <CodeEditor
+            darkMode={darkMode}
             language="json"
             value={draft}
             onChange={(code) => setQueryDraft(code)}
@@ -201,17 +231,17 @@ export function QueryInspector({
               );
             }}
           />
-          <div className="absolute bottom-0 w-full py-2 px-3 flex gap-4 items-center justify-between">
+          <div className="absolute bottom-0 flex w-full items-center justify-between gap-4 px-3 py-2">
             <Button
               className="group"
               variant="secondary"
               size="mini"
               onClick={handleSaveQuery}
             >
-              <StarIcon className="w-4 h-4 mr-0.5 group-hover:text-amber-500 transition-colors" />
+              <StarIcon className="mr-0.5 h-4 w-4 transition-colors group-hover:text-amber-500" />
               Save
             </Button>
-            <div className="flex gap-2 items-center">
+            <div className="flex items-center gap-2">
               <Button
                 variant="secondary"
                 size="mini"
@@ -227,7 +257,7 @@ export function QueryInspector({
         </div>
 
         <div className="">
-          <h2 className="px-3 text-sm font-semibold mt-4 mb-1">
+          <h2 className="mt-4 mb-1 px-3 text-sm font-semibold">
             Saved queries
           </h2>
 
@@ -237,18 +267,18 @@ export function QueryInspector({
                 return (
                   <div
                     key={item.ts}
-                    className="group text-gray-700 mb-1 flex items-center justify-between gap-2"
+                    className="group mb-1 flex items-center justify-between gap-2 text-gray-700 dark:text-neutral-200"
                   >
                     <Tooltip.Provider>
                       <Tooltip.Root delayDuration={200}>
                         <Tooltip.Trigger asChild>
-                          <div className="text-xs font-mono truncate">
+                          <div className="truncate font-mono text-xs">
                             {item.query}
                           </div>
                         </Tooltip.Trigger>
                         <Tooltip.Portal>
                           <Tooltip.Content
-                            className="z-50 overflow-hidden rounded-md border bg-white px-3 py-1 text-sm text-gray-900 shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+                            className="animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 overflow-hidden rounded-md border bg-white px-3 py-1 text-sm text-gray-900 shadow-md dark:border-neutral-800"
                             side="top"
                             align="start"
                             sideOffset={8}
@@ -262,20 +292,20 @@ export function QueryInspector({
                     </Tooltip.Provider>
                     <div className="flex items-center gap-1">
                       <Button
-                        className="px-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="px-1 opacity-0 transition-opacity group-hover:opacity-100"
                         variant="destructive"
                         size="mini"
                         onClick={() => handleRemoveFromSaved(item.ts)}
                       >
-                        <TrashIcon className="w-4 h-4" />
+                        <TrashIcon className="h-4 w-4" />
                       </Button>
                       <Button
-                        className="px-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="px-1 opacity-0 transition-opacity group-hover:opacity-100"
                         variant="primary"
                         size="mini"
                         onClick={() => run(item.query)}
                       >
-                        <ArrowSmRightIcon className="w-4 h-4 -rotate-45" />
+                        <ArrowRightIcon className="h-4 w-4 -rotate-45" />
                       </Button>
                     </div>
                   </div>
@@ -287,8 +317,8 @@ export function QueryInspector({
           </div>
         </div>
 
-        <div className="mt-4 py-4 border-t">
-          <h2 className="px-3 text-sm font-semibold mb-1">Query history</h2>
+        <div className="mt-4 border-t py-4 dark:border-t-neutral-700">
+          <h2 className="mb-1 px-3 text-sm font-semibold">Query history</h2>
 
           <div className="px-3 text-sm">
             {history.length > 0 ? (
@@ -296,18 +326,18 @@ export function QueryInspector({
                 return (
                   <div
                     key={item.ts}
-                    className="group text-gray-700 mb-1 flex items-center justify-between gap-2"
+                    className="group mb-1 flex items-center justify-between gap-2 text-gray-700 dark:text-neutral-300"
                   >
                     <Tooltip.Provider>
                       <Tooltip.Root delayDuration={200}>
                         <Tooltip.Trigger asChild>
-                          <div className="text-xs font-mono truncate">
+                          <div className="truncate font-mono text-xs">
                             {item.query}
                           </div>
                         </Tooltip.Trigger>
                         <Tooltip.Portal>
                           <Tooltip.Content
-                            className="z-50 overflow-hidden rounded-md border bg-white px-3 py-1 text-sm text-gray-900 shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+                            className="animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 overflow-hidden rounded-md border bg-white px-3 py-1 text-sm text-gray-900 shadow-md"
                             side="top"
                             align="start"
                             sideOffset={8}
@@ -321,20 +351,20 @@ export function QueryInspector({
                     </Tooltip.Provider>
                     <div className="flex items-center gap-1">
                       <Button
-                        className="px-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="px-1 opacity-0 transition-opacity group-hover:opacity-100"
                         variant="destructive"
                         size="mini"
                         onClick={() => handleRemoveFromHistory(item.ts)}
                       >
-                        <TrashIcon className="w-4 h-4" />
+                        <TrashIcon className="h-4 w-4" />
                       </Button>
                       <Button
-                        className="px-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="px-1 opacity-0 transition-opacity group-hover:opacity-100"
                         variant="primary"
                         size="mini"
                         onClick={() => run(item.query)}
                       >
-                        <ArrowSmRightIcon className="w-4 h-4 -rotate-45" />
+                        <ArrowRightIcon className="h-4 w-4 -rotate-45" />
                       </Button>
                     </div>
                   </div>
@@ -346,12 +376,14 @@ export function QueryInspector({
           </div>
         </div>
       </div>
-      <div className="border-l flex flex-col flex-1 max-h-full overflow-scroll">
-        <h2 className="px-3 text-sm font-semibold mt-4 mb-1">Query results</h2>
-        <div className="flex-1 border-y rounded overflow-hidden">
+      <div className="flex max-h-full flex-1 flex-col overflow-scroll border-l dark:border-l-neutral-700 dark:bg-neutral-800">
+        <h2 className="mt-4 mb-1 px-3 text-sm font-semibold">Query results</h2>
+        <div className="flex-1 overflow-hidden rounded-sm border-y dark:border-y-neutral-700">
           <CodeEditor
-            language="json"
-            value={JSON.stringify(data || {}, null, 2)}
+            darkMode={darkMode}
+            loading={isLoading}
+            language={'json'}
+            value={JSON.stringify(data || error || {}, null, 2)}
             onChange={() => {}}
           />
         </div>

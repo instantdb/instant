@@ -1,0 +1,27 @@
+{
+  "name": "sb-task-tracker",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "schema:push": "INSTANT_CLI_DEV=true pnpm exec instant-cli push --yes",
+    "schema:pull": "INSTANT_CLI_DEV=true pnpm exec instant-cli pull --yes"
+  },
+  "dependencies": {
+    "@instantdb/react": "workspace:*",
+    "next": "latest",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "instant-cli": "workspace:*",
+    "@types/node": "^17.0.35",
+    "@types/react": ">=16",
+    "@types/react-dom": ">=16",
+    "tailwindcss": "^4",
+    "@tailwindcss/postcss": "^4",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,38 @@
+
+Hey crew! It’s time for another edition of Instant News 🙂 Here’s a slice of what happened last month!
+
+**Guest Authentication**
+
+Instant now supports guest authentication! This allows your users to try your app before signing up and ensures they can keep all their data when they decide to create a full account with their email.
+
+Use **`db.auth.signInAsGuest()`** to create a new guest user. This will create a new guest user with an id, but no email address.
+
+When a guest user is ready to create a permanent account, you can use any of Instant's sign-in methods. The guest user will be automatically upgraded to a full user.
+
+[Check out the docs](https://www.instantdb.com/docs/auth/guest-auth) to see a full example!
+
+**Expo Rules**
+
+We released **`create-instant-app`** in September with support for scaffolding Next apps with rules for LLMs. We we have the same experience for Expo! When you run **`create-instant-app`** with the expo template you’ll get a fully working mobile app backed by Instant. You’ll also be able get an expo-specific rules file for your agent of choice.
+
+If you ever wanted to try building a mobile app, this can be a really easy way to give it a shot!
+
+**Upgraded CLI**
+
+**`instant-cli`** got a huge upgrade last month! You can now delete and rename columns simply by pushing schema via **`instant-cli push schema`**. This means you can now manage all your schema operations from the terminal.
+
+**Soft Deletes**
+
+We know how heavily requested deletes and renames from the CLI have been. We were worried about destructive operations though: what if you accidentally deleted the wrong column or namespace?
+
+To solve this, we shipped soft deletes as well. Whenever you delete an attribute you’ll have two days to recover it before it gets fully deleted. This should make it much safer to run delete commands
+
+**And a few more things!**
+
+Here’s a few more wins that got shipped thanks to your feedback!
+
+* We now support [login with Github!](https://www.instantdb.com/docs/auth/github-oauth)
+* [We published a new essay](https://www.instantdb.com/essays/count_min_sketch) on count-min sketches. We use this data structure to power statistics to speed up our query plans
+* We [released a tutorial](https://www.instantdb.com/examples/todos) + live coding video building a todo app from scratch with Instant.
+* You can now save and share sandboxes in the dashboard!
+* Profile pictures are now part of **`$users`** table for users who authenticate via Google and/or LinkedIn Auth.

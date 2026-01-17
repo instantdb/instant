@@ -5,9 +5,9 @@ import { DocSearchModal, useDocSearchKeyboardEvents } from '@docsearch/react';
 import '@docsearch/css';
 
 const docSearchConfig = {
-  appId: "98PPX6H1AS",
-  apiKey: "ee52f4bc250c519ea97596da07560d82", // search only API key
-  indexName: "docs",
+  appId: '98PPX6H1AS',
+  apiKey: 'ee52f4bc250c519ea97596da07560d82', // search only API key
+  indexName: 'docs',
 };
 
 function SearchIcon(props) {
@@ -40,7 +40,7 @@ export function Search() {
 
   useEffect(() => {
     setModifierKey(
-      /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform) ? '⌘' : 'Ctrl '
+      /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform) ? '⌘' : 'Ctrl ',
     );
   }, []);
 
@@ -57,16 +57,16 @@ export function Search() {
     <>
       <button
         type="button"
-        className="group flex h-auto w-80 flex-none py-2.5 my-4 pl-4 pr-3.5 text-sm ring-1 ring-slate-200 hover:ring-slate-300"
+        className="group my-4 flex h-auto w-full flex-none border border-slate-200 py-2.5 pr-3.5 pl-4 text-sm hover:border-slate-300"
         onClick={onOpen}
       >
-        <SearchIcon className="h-5 w-5 flex-none fill-slate-400 group-hover:fill-slate-500 dark:fill-slate-500 md:group-hover:fill-slate-400" />
+        <SearchIcon className="h-5 w-5 flex-none fill-slate-400 group-hover:fill-slate-500 md:group-hover:fill-slate-400 dark:fill-slate-500" />
         <span className="text-md md:hidden">Search Docs</span>
         <span className="sr-only md:not-sr-only md:ml-2 md:text-slate-500 md:dark:text-slate-400">
           Search docs
         </span>
         {modifierKey && (
-          <kbd className="ml-auto hidden font-medium text-slate-400 dark:text-slate-500 md:block">
+          <kbd className="ml-auto hidden font-medium text-slate-400 md:block dark:text-slate-500">
             <kbd className="font-sans">{modifierKey}</kbd>
             <kbd className="font-sans">K</kbd>
           </kbd>
@@ -86,7 +86,7 @@ export function Search() {
               },
             }}
           />,
-          document.body
+          document.body,
         )}
     </>
   );

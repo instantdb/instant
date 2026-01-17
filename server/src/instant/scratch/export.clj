@@ -2,12 +2,9 @@
   (:require [honey.sql :as hsql]
             [instant.jdbc.sql :as sql]
             [instant.util.json :as json]
-            [instant.config :as config]
             [next.jdbc :as next-jdbc]
             [instant.model.instant-user :as instant-user-model]
-            [clojure.java.shell :as shell]
-            [instant.jdbc.aurora :as aurora]
-            [clojure.string :as string]))
+            [instant.jdbc.aurora :as aurora]))
 
 (defn export-app [conn app-id]
   {:app (sql/select-one conn (hsql/format {:select :*
@@ -59,18 +56,13 @@
                                                                            [:cast (json/->json v) :jsonb]))))
                                                     triples)})))))
 
-(defn prod-conn-str []
-  (string/trim (:out (shell/sh "./scripts/prod_connection_string.sh"))))
-
 (defn import!
-  [{:keys [prod-db-uri local-user-email prod-app-id]}]
-  (let [_ (assert prod-db-uri "prod-db-uri is required")
-        _ (assert local-user-email "local-user-email is required")
+  [{:keys [local-user-email prod-app-id]}]
+  (let [_ (assert local-user-email "local-user-email is required")
         _ (assert prod-app-id "prod-app-id is required")
 
         _ (println (format  "Export app_id = %s" prod-app-id))
-        exported-data (with-open [pool (sql/start-pool (assoc (config/db-url->config prod-db-uri)
-                                                              :maximumPoolSize 1))]
+        exported-data (tool/with-prod-conn [pool]
                         (export-app pool prod-app-id))
 
         _ (println "Exported")
@@ -87,8 +79,7 @@
 
 (comment
   (binding [sql/*query-timeout-seconds* 300]
-    (import! {:prod-db-uri (prod-conn-str)
-              :local-user-email "stopa@instantdb.com"
+    (import! {:local-user-email "stopa@instantdb.com"
               :prod-app-id nil})))
 
 

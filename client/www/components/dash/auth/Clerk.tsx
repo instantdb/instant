@@ -19,14 +19,24 @@ import {
   PlusIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-} from '@heroicons/react/solid';
+} from '@heroicons/react/24/solid';
 import clerkLogoSvg from '../../../public/img/clerk_logo_black.svg';
 import Image from 'next/image';
+import { messageFromInstantError } from '@/lib/errors';
 import {
-  messageFromInstantError,
-} from '@/lib/auth';
-import { addProvider, addClient, deleteClient, findName } from './shared';
-import { InstantApp, InstantError, OAuthClient, OAuthServiceProvider } from '@/lib/types';
+  addProvider,
+  addClient,
+  deleteClient,
+  findName,
+  updateClientMeta,
+} from './shared';
+import {
+  InstantApp,
+  InstantIssue,
+  OAuthClient,
+  OAuthServiceProvider,
+} from '@/lib/types';
+import { useDarkMode } from '../DarkModeToggle';
 
 export function AddClerkProviderForm({
   app,
@@ -49,7 +59,7 @@ export function AddClerkProviderForm({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) ||
+        messageFromInstantError(e as InstantIssue) ||
         'There was an error setting up Clerk.';
       errorToast(msg, { autoClose: 5000 });
       // report error
@@ -65,7 +75,7 @@ export function AddClerkProviderForm({
         onClick={addClerkProvider}
       >
         <span className="flex items-center space-x-2">
-          <Image alt="clerk logo" src={clerkLogoSvg} />
+          <Image className="dark:invert" alt="clerk logo" src={clerkLogoSvg} />
           <span>Setup Clerk</span>
         </span>
       </Button>
@@ -198,18 +208,23 @@ export default App;`;
 export function ClerkClient({
   app,
   client,
+  onUpdateClient,
   onDeleteClient,
   defaultOpen = false,
 }: {
   app: InstantApp;
   client: OAuthClient;
+  onUpdateClient: (client: OAuthClient) => void;
   onDeleteClient: (client: OAuthClient) => void;
   defaultOpen?: boolean;
 }) {
   const token = useContext(TokenContext);
   const [open, setOpen] = useState(defaultOpen);
   const [isLoading, setIsLoading] = useState(false);
+  const [showUpdateVerified] = useState(client.meta.allowUnverifiedEmail);
   const deleteDialog = useDialog();
+
+  const { darkMode } = useDarkMode();
 
   const handleDelete = async () => {
     try {
@@ -224,7 +239,7 @@ export function ClerkClient({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error deleting client.';
+        messageFromInstantError(e as InstantIssue) || 'Error deleting client.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -232,6 +247,8 @@ export function ClerkClient({
   };
 
   const clerkPublishableKey = client.meta?.clerkPublishableKey;
+
+  const allowUnverifiedEmail = client.meta?.allowUnverifiedEmail;
 
   const domain = clerkPublishableKey
     ? domainFromClerkKey(clerkPublishableKey)
@@ -243,32 +260,57 @@ export function ClerkClient({
     clerkPublishableKey: clerkPublishableKey || 'YOUR_CLERK_PUBLISHABLE_KEY',
   });
 
+  const updateAllowUnverified = async (allowUnverifiedEmail: boolean) => {
+    try {
+      setIsLoading(true);
+      const resp = await updateClientMeta({
+        token,
+        appId: app.id,
+        clientDatabaseId: client.id,
+        meta: { allowUnverifiedEmail: allowUnverifiedEmail },
+      });
+      onUpdateClient(resp.client);
+    } catch (e) {
+      console.error(e);
+      const msg =
+        messageFromInstantError(e as InstantIssue) || 'Error updating client.';
+      errorToast(msg, { autoClose: 5000 });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="">
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col border rounded"
+        className="flex flex-col rounded-sm border"
       >
-        <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 bg-gray-50">
-          <div className="flex flex-1 justify-between items-center">
-            <div className="flex gap-2">
-              {' '}
-              <Image alt="clerk logo" src={clerkLogoSvg} />
-              <SectionHeading>
+        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
+          <div className="flex flex-1 items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Image
+                alt="clerk logo"
+                src={clerkLogoSvg}
+                className="dark:invert"
+              />
+              <div className="font-medium">
                 {client.client_name}{' '}
-                <span className="text-gray-400">(Clerk)</span>
-              </SectionHeading>
+                <span className="text-gray-400 dark:text-neutral-500">
+                  (Clerk)
+                </span>
+              </div>
             </div>
             {open ? (
-              <ChevronDownIcon height={24} />
-            ) : (
               <ChevronUpIcon height={24} />
+            ) : (
+              <ChevronDownIcon height={24} />
             )}
           </div>
         </Collapsible.Trigger>
         <Collapsible.Content className="">
-          <div className="p-4 flex flex-col gap-4 border-t">
+          <div className="flex flex-col gap-4 border-t p-4">
             <Copyable label="Client name" value={client.client_name} />
             {clerkPublishableKey ? (
               <Copyable
@@ -277,6 +319,36 @@ export function ClerkClient({
               />
             ) : null}
             {domain ? <Copyable label="Clerk domain" value={domain} /> : null}
+
+            {showUpdateVerified ? (
+              <div className="flex flex-col gap-2 rounded-sm border bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
+                <Checkbox
+                  checked={allowUnverifiedEmail}
+                  onChange={() =>
+                    updateAllowUnverified(!client.meta.allowUnverifiedEmail)
+                  }
+                  label="Allow unverified emails"
+                />
+                <Content>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {allowUnverifiedEmail ? (
+                      <>
+                        When checked, we will store the email for users even if
+                        their email is not verified.
+                      </>
+                    ) : (
+                      <>
+                        When unchecked, we will only store the email for users
+                        with verified emails. Make sure your JWT includes the{' '}
+                        <code>email_verified</code> claim. If the claim is
+                        missing or the email is not verified, we won't set the
+                        email for that user when they sign in with Instant.
+                      </>
+                    )}
+                  </p>
+                </Content>
+              </div>
+            ) : null}
 
             <SubsectionHeading>Setup and usage</SubsectionHeading>
             <Content>
@@ -292,11 +364,13 @@ export function ClerkClient({
               . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
               button in the <code>Customize session token</code> section. Ensure
               your <code>Claims</code> field has the email claim:
-              <div className="border rounded text-sm overflow-auto">
+              <div className="overflow-auto rounded-sm border text-sm dark:border-none">
                 <Fence
+                  darkMode={darkMode}
                   copyable
                   code={`{
-  "email": "{{user.primary_email_address}}"
+  "email": "{{user.primary_email_address}}",
+  "email_verified": "{{user.email_verified}}"
 }`}
                   language="json"
                 />
@@ -307,8 +381,13 @@ export function ClerkClient({
               link your Clerk user to Instant.
             </Content>
 
-            <div className="border rounded text-sm overflow-auto">
-              <Fence copyable code={exampleCode} language="typescript" />
+            <div className="overflow-auto rounded-sm border text-sm dark:border-none">
+              <Fence
+                darkMode={darkMode}
+                copyable
+                code={exampleCode}
+                language="typescript"
+              />
             </div>
 
             <Divider />
@@ -325,7 +404,7 @@ export function ClerkClient({
           </div>
         </Collapsible.Content>
       </Collapsible.Root>
-      <Dialog {...deleteDialog}>
+      <Dialog title="Delete client" {...deleteDialog}>
         <div className="flex flex-col gap-2">
           <SubsectionHeading>Delete client</SubsectionHeading>
           <Content>
@@ -360,12 +439,16 @@ export function AddClerkClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
-  const [clientName, setClientName] = useState<string>(() => findName('clerk', usedClientNames));
+  const [clientName, setClientName] = useState<string>(() =>
+    findName('clerk', usedClientNames),
+  );
   const [publishableKey, setPublishableKey] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const [addedEmailClaim, setAddedEmailClaim] = useState(false);
+
+  const { darkMode } = useDarkMode();
 
   const validationError = () => {
     if (!clientName) {
@@ -411,7 +494,7 @@ export function AddClerkClientForm({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error creating client.';
+        messageFromInstantError(e as InstantIssue) || 'Error creating client.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -420,7 +503,7 @@ export function AddClerkClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded border"
+      className="flex flex-col gap-2 rounded-sm border p-4 dark:border-neutral-700"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -452,25 +535,29 @@ export function AddClerkClientForm({
         }
         placeholder=""
       />
-      <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+      <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
         <Content>
           Navigate to your{' '}
           <a
-            className="underline"
+            className="underline dark:text-white"
             href={'https://dashboard.clerk.com/last-active?path=sessions'}
             target="_blank"
             rel="noopener noreferer"
           >
             Clerk dashboard
           </a>
-          . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
-          button in the <code>Customize session token</code> section. Ensure
-          your <code>Claims</code> field has the email claim:
-          <div className="border rounded text-sm overflow-auto">
+          . On the <code className="dark:text-white">Sessions</code> page, click
+          the <code className="dark:text-white">Edit</code> button in the{' '}
+          <code className="dark:text-white">Customize session token</code>{' '}
+          section. Ensure your <code className="dark:text-white">Claims</code>{' '}
+          field has the email claim:
+          <div className="overflow-auto rounded-sm border text-sm dark:border-none">
             <Fence
+              darkMode={darkMode}
               copyable
               code={`{
-  "email": "{{user.primary_email_address}}"
+  "email": "{{user.primary_email_address}}",
+  "email_verified": "{{user.email_verified}}"
 }`}
               language="json"
             />
@@ -498,6 +585,7 @@ export function ClerkClients({
   provider,
   clients,
   onAddClient,
+  onUpdateClient,
   onDeleteClient,
   usedClientNames,
   lastCreatedClientId,
@@ -507,6 +595,7 @@ export function ClerkClients({
   provider: OAuthServiceProvider;
   clients: OAuthClient[];
   onAddClient: (client: OAuthClient) => void;
+  onUpdateClient: (client: OAuthClient) => void;
   onDeleteClient: (client: OAuthClient) => void;
   usedClientNames: Set<string>;
   lastCreatedClientId: string | null;
@@ -521,7 +610,7 @@ export function ClerkClients({
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 bg-white dark:bg-neutral-800">
       {clients.map((c) => {
         return (
           <ClerkClient
@@ -530,12 +619,13 @@ export function ClerkClients({
             key={c.id === lastCreatedClientId ? `${c.id}-last` : c.id}
             app={app}
             client={c}
+            onUpdateClient={onUpdateClient}
             onDeleteClient={onDeleteClient}
             defaultOpen={c.id === lastCreatedClientId}
           />
         );
       })}
-      
+
       {showAddClientForm ? (
         <>
           <AddClerkClientForm
@@ -548,10 +638,10 @@ export function ClerkClients({
         </>
       ) : (
         <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}Clerk app
+          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}
+          Clerk app
         </Button>
       )}
-      
     </div>
   );
 }

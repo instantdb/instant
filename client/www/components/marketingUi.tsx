@@ -1,6 +1,6 @@
 import { useAuthToken } from '@/lib/auth';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import { MenuIcon, XIcon } from '@heroicons/react/solid';
+import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
 import NextLink from 'next/link';
 import { PropsWithChildren, useEffect, useState } from 'react';
@@ -48,11 +48,10 @@ export const TwoColResponsive = ({ children }: PropsWithChildren) => (
 
 export const Link = NextLink;
 
-export const TextLink: React.FC<PropsWithChildren<{ href: string }>> = ({
-  children,
-  href,
-}) => (
-  <NextLink href={href} className="underline">
+export const TextLink: React.FC<
+  PropsWithChildren<{ href: string; target?: string }>
+> = ({ children, href, target }) => (
+  <NextLink href={href} className="underline" target={target}>
     {children}
   </NextLink>
 );
@@ -61,7 +60,7 @@ const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
   href,
   children,
 }) => (
-  <NextLink href={href} className="hover:text-blue-500 whitespace-nowrap">
+  <NextLink href={href} className="whitespace-nowrap hover:text-blue-500">
     {children}
   </NextLink>
 );
@@ -82,21 +81,27 @@ function NavItems() {
   return (
     <>
       <NavLink href="/pricing">Pricing</NavLink>
+      <NavLink href="/tutorial">Tutorial</NavLink>
       <NavLink href="/examples">Examples</NavLink>
+      <NavLink href="/recipes">Recipes</NavLink>
       <NavLink href="/essays">Essays</NavLink>
       <NavLink href="/docs">Docs</NavLink>
-      {/* hiring-page <NavLink href="/hiring">Hiring</NavLink> */}
+      <NavLink href="/hiring">Hiring</NavLink>
       <NavLink href="https://discord.com/invite/VU53p7uQcE">
-        <span className="hidden md:inline">
-          <img src="/marketing/discord-icon.svg" className="w-5 h-5" />
+        <span className="hidden min-[60rem]:inline">
+          <img src="/marketing/discord-icon.svg" className="h-5 w-5" />
         </span>
-        <span className="md:hidden">Discord</span>
+        <span className="min-[60rem]:hidden">Discord</span>
       </NavLink>
       <NavLink href="https://github.com/instantdb/instant">
-        <span className="hidden md:inline">
-          <img src="/marketing/github-icon.svg" className="w-5 h-5" />
+        <span className="hidden min-[60rem]:inline">
+          <img
+            src="https://img.shields.io/github/stars/instantdb/instant?style=flat-square&logo=github&label=GitHub&labelColor=000000&color=F54900"
+            alt="GitHub stars"
+            className="h-5"
+          />
         </span>
-        <span className="md:hidden">GitHub</span>
+        <span className="min-[60rem]:hidden">GitHub</span>
       </NavLink>
       {isAuthed ? (
         <div>
@@ -118,63 +123,77 @@ function NavItems() {
   );
 }
 
-export function MainNav({ children }: PropsWithChildren) {
+export function BareNav({ children }: PropsWithChildren) {
   const [isOpen, setIsOpen] = useState(false);
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : 'auto';
   }, [isOpen]);
 
   return (
-    <div className="py-4">
-      <div className="px-8 max-w-7xl mx-auto">
-        <div className="flex justify-between items-center flex-row gap-4 text-lg md:text-base">
+    <div className="flex flex-row items-center justify-between gap-4 text-lg md:text-base">
+      <LogoType />
+      <button className="min-[60rem]:hidden" onClick={() => setIsOpen(true)}>
+        <Bars3Icon height={'1em'} />
+      </button>
+      <div
+        onClick={() => setIsOpen(false)}
+        className={cn(
+          // viz
+          'hidden min-[60rem]:flex',
+          // pos
+          'fixed inset-0 z-40 min-[60rem]:relative',
+          // scroll
+          'overflow-y-scroll min-[60rem]:overflow-y-auto',
+          // size
+          'h-full w-full min-[60rem]:h-12 min-[60rem]:w-auto',
+          // layout
+          'flex-col items-start gap-6 px-8 py-4 min-[60rem]:flex-row min-[60rem]:items-center min-[60rem]:gap-4 min-[60rem]:p-0',
+          // look and feel
+          'bg-white/90 backdrop-blur-xl min-[60rem]:bg-transparent',
+          {
+            flex: isOpen,
+          },
+        )}
+      >
+        <div className="flex justify-between self-stretch min-[60rem]:hidden">
           <LogoType />
-          <button className="md:hidden" onClick={() => setIsOpen(true)}>
-            <MenuIcon height={'1em'} />
+          <button className="z-50 mt-0.5" onClick={() => setIsOpen(false)}>
+            <XMarkIcon height="1em" />
           </button>
-          <div
-            onClick={() => setIsOpen(false)}
-            className={cn(
-              // viz
-              'hidden md:flex',
-              // pos
-              'fixed inset-0 z-40 md:relative',
-              // scroll
-              'overflow-y-scroll md:overflow-y-auto',
-              // size
-              'w-full md:w-auto h-full md:h-12',
-              // layout
-              'flex-col md:flex-row md:items-center items-start gap-6 md:gap-4 px-8 py-4 md:p-0',
-              // look and feel
-              'bg-white/90 backdrop-blur-xl md:bg-transparent',
-              {
-                flex: isOpen,
-              },
-            )}
-          >
-            <div className="md:hidden flex self-stretch justify-between">
-              <LogoType />
-              <button className="z-50 mt-0.5" onClick={() => setIsOpen(false)}>
-                <XIcon height="1em" />
-              </button>
-            </div>
-
-            {children}
-            <NavItems />
-          </div>
         </div>
+
+        {children}
+        <NavItems />
+      </div>
+    </div>
+  );
+}
+
+export function MainNav({ children }: PropsWithChildren) {
+  return (
+    <div className="py-4">
+      <div className="mx-auto max-w-7xl px-8">
+        <BareNav>{children}</BareNav>
       </div>
     </div>
   );
 }
 
 export const LandingContainer = ({ children }: PropsWithChildren) => (
-  <div className="min-h-full overflow-x-hidden bg-[#F8F9FA]">{children}</div>
+  <div className="min-h-full overflow-x-hidden">{children}</div>
 );
 
 export function LandingFooter() {
   return (
     <div className="text-xs text-gray-500">
+      <style jsx global>
+        {`
+          html,
+          body {
+            background-color: #f8f9fa;
+          }
+        `}
+      </style>
       <SectionWide>
         <hr className="h-px border-0 bg-gray-200" />
         <div className="flex flex-col gap-2 py-6">
@@ -183,27 +202,21 @@ export function LandingFooter() {
               `flex flex-col gap-6 md:flex-row md:justify-between`,
             )}
           >
-            <div className="flex flex-col md:gap-0 gap-2 font-mono">
+            <div className="flex flex-col gap-2 font-mono md:gap-0">
               <div>Instant</div>
               <div>Engineered in San Francisco</div>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
-              <NavLink href="/examples">Examples</NavLink>
-              <NavLink href="/essays">Essays</NavLink>
-              <NavLink href="/docs">Docs</NavLink>
-              {/* hiring-page <NavLink href="/hiring">Hiring</NavLink> */}
+              <NavLink href="/hiring">Hiring</NavLink>
               <NavLink href="https://discord.com/invite/VU53p7uQcE">
                 Discord
               </NavLink>
               <NavLink href="https://github.com/instantdb/instant">
                 GitHub
               </NavLink>
+              <NavLink href="/status">Status</NavLink>
               <NavLink href="/privacy">Privacy Policy</NavLink>
               <NavLink href="/terms">Terms</NavLink>
-              <NavLink href="/dash">Login</NavLink>
-              <div className="text-orange-500">
-                <NavLink href="/dash">Signup</NavLink>
-              </div>
             </div>
           </div>
         </div>
@@ -212,15 +225,30 @@ export function LandingFooter() {
   );
 }
 
-export interface Author {
-  name: string;
-  xHandle: string;
-}
+export function PageProgressBar() {
+  const [progress, setProgress] = useState(0);
 
-export interface Post {
-  title: string;
-  slug: string;
-  date: string;
-  mdHTML: string;
-  authors: Author[];
+  useEffect(() => {
+    const updateProgress = () => {
+      const scrollHeight =
+        document.documentElement.scrollHeight - window.innerHeight;
+      const scrolled = window.scrollY;
+      const progress = Math.min((scrolled / scrollHeight) * 100, 100);
+      setProgress(progress);
+    };
+
+    window.addEventListener('scroll', updateProgress);
+    updateProgress();
+
+    return () => window.removeEventListener('scroll', updateProgress);
+  }, []);
+
+  return (
+    <div className="fixed top-0 right-0 left-0 z-50 h-0.5 bg-gray-200">
+      <div
+        className="h-full bg-orange-600 transition-all duration-150 ease-out"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
 }

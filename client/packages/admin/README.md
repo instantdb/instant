@@ -14,26 +14,25 @@
 </p>
 
 <p align="center">
-   <a href="https://www.instantdb.com/docs/backend">Get Started</a> · 
-   <a href="https://instantdb.com/examples">Examples</a> · 
-   <a href="https://instantdb.com/tutorial">Try the Demo</a> · 
-   <a href="https://www.instantdb.com/docs/backend">Docs</a> · 
+   <a href="https://www.instantdb.com/docs/backend">Get Started</a> ·
+   <a href="https://instantdb.com/examples">Examples</a> ·
+   <a href="https://www.instantdb.com/docs/backend">Docs</a> ·
    <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
 <p>
 
 Welcome to [Instant's](http://instantdb.com) admin SDK.
 
 ```javascript
-import { init, tx, id } from "@instantdb/admin";
+import { init, tx, id } from '@instantdb/admin';
 
 const adminDB = init({
-  appId: "my-instant-app-id",
+  appId: 'my-instant-app-id',
   adminToken: process.env.INSTANT_APP_ADMIN_TOKEN,
 });
 
 const data = await adminDB.query(
-  { bookshelves: { books: {} } } // wohoo!
-); 
+  { bookshelves: { books: {} } }, // wohoo!
+);
 ```
 
 # Get Started

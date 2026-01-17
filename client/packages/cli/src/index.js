@@ -1,34 +1,60 @@
 // @ts-check
-
-import version from "./version.js";
-import { mkdir, writeFile, readFile } from "fs/promises";
-import { join } from "path";
-import { randomUUID } from "crypto";
-import jsonDiff from "json-diff";
-import dotenv from "dotenv";
-import chalk from "chalk";
-import { program, Option } from "commander";
-import { input, select } from "@inquirer/prompts";
-import envPaths from "env-paths";
-import { loadConfig } from "unconfig";
-import { packageDirectory } from "pkg-dir";
-import openInBrowser from "open";
-import ora from "ora";
-import terminalLink from "terminal-link";
-import { exec } from "child_process";
-import { promisify } from "util";
+import {
+  generatePermsTypescriptFile,
+  apiSchemaToInstantSchemaDef,
+  generateSchemaTypescriptFile,
+  diffSchemas,
+  convertTxSteps,
+  validateSchema,
+  SchemaValidationError,
+  PlatformApi,
+} from '@instantdb/platform';
+import version from './version.js';
+import { existsSync } from 'fs';
+import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
+import path, { join } from 'path';
+import { randomUUID } from 'crypto';
+import jsonDiff from 'json-diff';
+import chalk from 'chalk';
+import { program, Option } from 'commander';
+import boxen from 'boxen';
+import { loadConfig } from './util/loadConfig.js';
+import { findProjectDir } from './util/projectDir.js';
+import openInBrowser from 'open';
+import terminalLink from 'terminal-link';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import {
   detectPackageManager,
   getInstallCommand,
-} from "./util/packageManager.js";
-import { pathExists, readJsonFile } from "./util/fs.js";
-import prettier from "prettier";
-import toggle from "./toggle.js";
+} from './util/packageManager.js';
+import { pathExists, readJsonFile } from './util/fs.js';
+import prettier from 'prettier';
+import {
+  CancelSchemaError,
+  groupSteps,
+  renderSchemaPlan,
+} from './renderSchemaPlan.js';
+import { getAuthPaths } from './util/getAuthPaths.js';
+import { renderUnwrap } from './ui/lib.js';
+import { UI } from './ui/index.js';
+import { deferred } from './ui/lib.js';
+import { promptOk } from './util/promptOk.js';
+import { ResolveRenamePrompt } from './util/renamePrompt.js';
+import { buildAutoRenameSelector } from './rename.js';
+import { loadEnv } from './util/loadEnv.js';
+import { isHeadlessEnvironment } from './util/isHeadlessEnvironment.js';
+import {
+  getSchemaReadCandidates,
+  getPermsReadCandidates,
+  getSchemaPathToWrite,
+  getPermsPathToWrite,
+} from './util/findConfigCandidates.js';
+import { mergeSchema } from './util/mergeSchema.js';
 
 const execAsync = promisify(exec);
 
-// config
-dotenv.config();
+loadEnv();
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
@@ -36,112 +62,115 @@ const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 // logs
 
 function warn(firstArg, ...rest) {
-  console.warn(chalk.yellow("[warning]") + " " + firstArg, ...rest);
+  console.warn(chalk.yellow('[warning]') + ' ' + firstArg, ...rest);
 }
 
 function error(firstArg, ...rest) {
-  console.error(chalk.red("[error]") + " " + firstArg, ...rest);
+  console.error(chalk.red('[error]') + ' ' + firstArg, ...rest);
 }
+
+// json response
+
+const toJson = (data) => JSON.stringify(data, null, 2);
 
 // consts
 
 const potentialEnvs = {
-  catchall: "INSTANT_APP_ID",
-  next: "NEXT_PUBLIC_INSTANT_APP_ID",
-  svelte: "PUBLIC_INSTANT_APP_ID",
-  vite: "VITE_INSTANT_APP_ID",
-  expo: "EXPO_PUBLIC_INSTANT_APP_ID",
-  nuxt: "NUXT_PUBLIC_INSTANT_APP_ID",
+  catchall: 'INSTANT_APP_ID',
+  next: 'NEXT_PUBLIC_INSTANT_APP_ID',
+  svelte: 'PUBLIC_INSTANT_APP_ID',
+  vite: 'VITE_INSTANT_APP_ID',
+  expo: 'EXPO_PUBLIC_INSTANT_APP_ID',
+  nuxt: 'NUXT_PUBLIC_INSTANT_APP_ID',
+};
+
+const potentialAdminTokenEnvs = {
+  default: 'INSTANT_APP_ADMIN_TOKEN',
+  short: 'INSTANT_ADMIN_TOKEN',
 };
 
 async function detectEnvType({ pkgDir }) {
   const packageJSON = await getPackageJson(pkgDir);
   if (!packageJSON) {
-    return "catchall";
+    return 'catchall';
   }
   if (packageJSON.dependencies?.next) {
-    return "next";
+    return 'next';
   }
   if (packageJSON.devDependencies?.svelte) {
-    return "svelte";
+    return 'svelte';
   }
   if (packageJSON.devDependencies?.vite) {
-    return "vite";
+    return 'vite';
   }
   if (packageJSON.dependencies?.expo) {
-    return "expo";
+    return 'expo';
   }
   if (packageJSON.dependencies?.nuxt) {
-    return "nuxt";
+    return 'nuxt';
   }
-  return "catchall";
+  return 'catchall';
 }
 
 const instantDashOrigin = dev
-  ? "http://localhost:3000"
-  : "https://instantdb.com";
+  ? 'http://localhost:3000'
+  : 'https://instantdb.com';
 
 const instantBackendOrigin =
   process.env.INSTANT_CLI_API_URI ||
-  (dev ? "http://localhost:8888" : "https://api.instantdb.com");
+  (dev ? 'http://localhost:8888' : 'https://api.instantdb.com');
 
-const PUSH_PULL_OPTIONS = new Set(["schema", "perms", "all"]);
+const PUSH_PULL_OPTIONS = new Set(['schema', 'perms', 'all']);
 
 function convertArgToBagWithErrorLogging(arg) {
   if (!arg) {
-    return { ok: true, bag: "all" };
+    return { ok: true, bag: 'all' };
   } else if (PUSH_PULL_OPTIONS.has(arg.trim().toLowerCase())) {
     return { ok: true, bag: arg };
   } else {
     error(
-      `${chalk.red(arg)} must be one of ${chalk.green(Array.from(PUSH_PULL_OPTIONS).join(", "))}`,
+      `${chalk.red(arg)} is not valid. Must be one of ${chalk.green(Array.from(PUSH_PULL_OPTIONS).join(', '))}`,
     );
     return { ok: false };
   }
 }
 
-// Note: Nov 20, 2024
-// We can eventually deprecate this
-// once we're confident that users no longer
-// provide app ID as their first argument
-function convertPushPullToCurrentFormat(cmdName, arg, opts) {
-  if (arg && !PUSH_PULL_OPTIONS.has(arg) && !opts.app) {
-    warnDeprecation(`${cmdName} ${arg}`, `${cmdName} --app ${arg}`);
-    return { ok: true, bag: "all", opts: { ...opts, app: arg } };
-  }
+function convertPushPullToCurrentFormat(arg, opts) {
   const { ok, bag } = convertArgToBagWithErrorLogging(arg);
   if (!ok) return { ok: false };
   return { ok: true, bag, opts };
 }
 
 async function packageDirectoryWithErrorLogging() {
-  const pkgDir = await packageDirectory();
-  if (!pkgDir) {
-    error("Couldn't find your root directory. Is there a package.json file?");
+  const projectInfo = await findProjectDir();
+  if (!projectInfo) {
+    error(
+      "Couldn't find your root directory. Is there a package.json or deno.json file?",
+    );
     return;
   }
-  return pkgDir;
+  return projectInfo;
 }
 
 // cli
 
 // Header -- this shows up in every command
-const logoChalk = chalk.bold("instant-cli");
+const logoChalk = chalk.bold('instant-cli');
 const versionChalk = chalk.dim(`${version.trim()}`);
-const headerChalk = `${logoChalk} ${versionChalk} ` + "\n";
+const headerChalk = `${logoChalk} ${versionChalk} ` + '\n';
 
 // Help Footer -- this only shows up in help commands
 const helpFooterChalk =
-  "\n" +
-  chalk.dim.bold("Want to learn more?") +
-  "\n" +
-  `Check out the docs: ${chalk.blueBright.underline("https://instantdb.com/docs")}
-Join the Discord:   ${chalk.blueBright.underline("https://discord.com/invite/VU53p7uQcE")}
+  '\n' +
+  chalk.dim.bold('Want to learn more?') +
+  '\n' +
+  `Check out the docs: ${chalk.blueBright.underline('https://instantdb.com/docs')}
+Join the Discord:   ${chalk.blueBright.underline('https://discord.com/invite/VU53p7uQcE')}
 `.trim();
 
-program.addHelpText("after", helpFooterChalk);
+program.addHelpText('after', helpFooterChalk);
 
-program.addHelpText("beforeAll", headerChalk);
+program.addHelpText('beforeAll', headerChalk);
 
 function getLocalAndGlobalOptions(cmd, helper) {
   const mixOfLocalAndGlobal = helper.visibleOptions(cmd);
@@ -175,16 +204,16 @@ function formatHelp(cmd, helper) {
     return term;
   }
   function formatList(textArray) {
-    return textArray.join("\n").replace(/^/gm, " ".repeat(itemIndentWidth));
+    return textArray.join('\n').replace(/^/gm, ' '.repeat(itemIndentWidth));
   }
 
   // Usage
-  let output = [`${helper.commandUsage(cmd)}`, ""];
+  let output = [`${helper.commandUsage(cmd)}`, ''];
 
   // Description
   const commandDescription = helper.commandDescription(cmd);
   if (commandDescription.length > 0) {
-    output = output.concat([helper.wrap(commandDescription, helpWidth, 0), ""]);
+    output = output.concat([helper.wrap(commandDescription, helpWidth, 0), '']);
   }
 
   // Arguments
@@ -196,9 +225,9 @@ function formatHelp(cmd, helper) {
   });
   if (argumentList.length > 0) {
     output = output.concat([
-      chalk.dim.bold("Arguments"),
+      chalk.dim.bold('Arguments'),
       formatList(argumentList),
-      "",
+      '',
     ]);
   }
   const [visibleOptions, visibleGlobalOptions] = getLocalAndGlobalOptions(
@@ -215,9 +244,9 @@ function formatHelp(cmd, helper) {
   });
   if (optionList.length > 0) {
     output = output.concat([
-      chalk.dim.bold("Options"),
+      chalk.dim.bold('Options'),
       formatList(optionList),
-      "",
+      '',
     ]);
   }
   // Commands
@@ -229,9 +258,9 @@ function formatHelp(cmd, helper) {
   });
   if (commandList.length > 0) {
     output = output.concat([
-      chalk.dim.bold("Commands"),
+      chalk.dim.bold('Commands'),
       formatList(commandList),
-      "",
+      '',
     ]);
   }
 
@@ -244,14 +273,14 @@ function formatHelp(cmd, helper) {
     });
     if (globalOptionList.length > 0) {
       output = output.concat([
-        chalk.dim.bold("Global Options"),
+        chalk.dim.bold('Global Options'),
         formatList(globalOptionList),
-        "",
+        '',
       ]);
     }
   }
 
-  return output.join("\n");
+  return output.join('\n');
 }
 
 program.configureHelp({
@@ -276,93 +305,138 @@ function globalOption(flags, description, argParser) {
 
 function warnDeprecation(oldCmd, newCmd) {
   warn(
-    chalk.yellow("`instant-cli " + oldCmd + "` is deprecated.") +
-      " Use " +
-      chalk.green("`instant-cli " + newCmd + "`") +
-      " instead." +
-      "\n",
+    chalk.yellow('`instant-cli ' + oldCmd + '` is deprecated.') +
+      ' Use ' +
+      chalk.green('`instant-cli ' + newCmd + '`') +
+      ' instead.' +
+      '\n',
   );
 }
 
 program
-  .name("instant-cli")
-  .addOption(globalOption("-t --token <token>", "Auth token override"))
-  .addOption(globalOption("-y --yes", "Answer 'yes' to all prompts"))
+  .name('instant-cli')
+  .addOption(globalOption('-t --token <token>', 'Auth token override'))
+  .addOption(globalOption('-y --yes', "Answer 'yes' to all prompts"))
+  .addOption(globalOption('--env <file>', 'Use a specific .env file'))
   .addOption(
-    globalOption("-v --version", "Print the version number", () => {
+    globalOption('-v --version', 'Print the version number', () => {
       console.log(version);
       process.exit(0);
     }),
   )
-  .addHelpOption(globalOption("-h --help", "Print the help text for a command"))
-  .usage(`<command> ${chalk.dim("[options] [args]")}`);
+  .addHelpOption(globalOption('-h --help', 'Print the help text for a command'))
+  .usage(`<command> ${chalk.dim('[options] [args]')}`);
 
 program
-  .command("login")
-  .description("Log into your account")
-  .option("-p --print", "Prints the auth token into the console.")
+  .command('login')
+  .description('Log into your account')
+  .option('-p --print', 'Prints the auth token into the console.')
+  .option(
+    '--headless',
+    'Print the login URL instead of trying to open the browser',
+  )
   .action(async (opts) => {
     console.log("Let's log you in!");
     await login(opts);
   });
 
 program
-  .command("init")
-  .description("Set up a new project.")
-  .option(
-    "-a --app <app-id>",
-    "If you have an existing app ID, we can pull schema and perms from there.",
-  )
-  .action(async function (opts) {
-    await handlePull("all", opts);
+  .command('logout')
+  .description('Log out of your Instant account')
+  .action(async () => {
+    await logout();
   });
+
+program
+  .command('init')
+  .description('Set up a new project.')
+  .option(
+    '-a --app <app-id>',
+    'If you have an existing app ID, we can pull schema and perms from there.',
+  )
+  .option(
+    '-p --package <react|react-native|core|admin>',
+    'Which package to automatically install if there is not one installed already.',
+  )
+  .option('--title <title>', 'Title for the created app')
+  .action(handleInit);
+
+program
+  .command('init-without-files')
+  .description('Generate a new app id and admin token pair without any files.')
+  .option('--title <title>', 'Title for the created app.')
+  .option(
+    '--org-id <org-id>',
+    'Organization id for app. Cannot be used with --temp flag.',
+  )
+  .option(
+    '--temp',
+    'Create a temporary app which will automatically delete itself after >24 hours.',
+  )
+  .action(handleInitWithoutFiles);
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
 // once we know most people use the new pull and push commands
 program
-  .command("push-schema", { hidden: true })
-  .argument("[app-id]")
-  .description("Push schema to production.")
+  .command('push-schema', { hidden: true })
+  .argument('[app-id]')
+  .description('Push schema to production.')
   .option(
-    "--skip-check-types",
+    '--skip-check-types',
     "Don't check types on the server when pushing schema",
   )
   .action(async (appIdOrName, opts) => {
-    warnDeprecation("push-schema", "push schema");
-    await handlePush("schema", { app: appIdOrName, ...opts });
+    warnDeprecation('push-schema', 'push schema');
+    await handlePush('schema', { app: appIdOrName, ...opts });
   });
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
 // once we know most people use the new pull and push commands
 program
-  .command("push-perms", { hidden: true })
-  .argument("[app-id]")
-  .description("Push perms to production.")
+  .command('push-perms', { hidden: true })
+  .argument('[app-id]')
+  .description('Push perms to production.')
   .action(async (appIdOrName) => {
-    warnDeprecation("push-perms", "push perms");
-    await handlePush("perms", { app: appIdOrName });
+    warnDeprecation('push-perms', 'push perms');
+    await handlePush('perms', { app: appIdOrName });
   });
 
 program
-  .command("push")
+  .command('push')
   .argument(
-    "[schema|perms|all]",
-    "Which configuration to push. Defaults to `all`",
+    '[schema|perms|all]',
+    'Which configuration to push. Defaults to `all`',
   )
   .option(
-    "-a --app <app-id>",
-    "App ID to push too. Defaults to *_INSTANT_APP_ID in .env",
+    '-a --app <app-id>',
+    'App ID to push too. Defaults to *_INSTANT_APP_ID in .env',
   )
   .option(
-    "--skip-check-types",
+    '--skip-check-types',
     "Don't check types on the server when pushing schema",
   )
-  .description("Push schema and perm files to production.")
+  .option(
+    '--rename [renames...]',
+    'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator stores.owner:stores.manager`',
+  )
+  .option(
+    '-p --package <react|react-native|core|admin>',
+    'Which package to automatically install if there is not one installed already.',
+  )
+  .description('Push schema and perm files to production.')
+  .addHelpText(
+    'after',
+    `
+Environment Variables:
+  INSTANT_SCHEMA_FILE_PATH    Override schema file location (default: instant.schema.ts)
+  INSTANT_PERMS_FILE_PATH     Override perms file location (default: instant.perms.ts)
+`,
+  )
   .action(async function (arg, inputOpts) {
-    const ret = convertPushPullToCurrentFormat("push", arg, inputOpts);
-    if (!ret.ok) return;
+    const ret = convertPushPullToCurrentFormat(arg, inputOpts);
+    if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
     await handlePush(bag, opts);
   });
@@ -371,72 +445,239 @@ program
 // We can eventually delete this,
 // once we know most people use the new pull and push commands
 program
-  .command("pull-schema", { hidden: true })
-  .argument("[app-id]")
-  .description("Generate instant.schema.ts from production")
+  .command('pull-schema', { hidden: true })
+  .argument('[app-id]')
+  .description('Generate instant.schema.ts from production')
   .action(async (appIdOrName) => {
-    warnDeprecation("pull-schema", "pull schema");
-    await handlePull("schema", { app: appIdOrName });
+    warnDeprecation('pull-schema', 'pull schema');
+    await handlePull('schema', { app: appIdOrName });
   });
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
 // once we know most people use the new pull and push commands
 program
-  .command("pull-perms", { hidden: true })
-  .argument("[app-id]")
-  .description("Generate instant.perms.ts from production.")
+  .command('pull-perms', { hidden: true })
+  .argument('[app-id]')
+  .description('Generate instant.perms.ts from production.')
   .action(async (appIdOrName) => {
-    warnDeprecation("pull-perms", "pull perms");
-    await handlePull("perms", { app: appIdOrName });
+    warnDeprecation('pull-perms', 'pull perms');
+    await handlePull('perms', { app: appIdOrName });
   });
 
 program
-  .command("pull")
+  .command('pull')
   .argument(
-    "[schema|perms|all]",
-    "Which configuration to push. Defaults to `all`",
+    '[schema|perms|all]',
+    'Which configuration to push. Defaults to `all`',
   )
   .option(
-    "-a --app <app-id>",
-    "App ID to push to. Defaults to *_INSTANT_APP_ID in .env",
+    '-a --app <app-id>',
+    'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
   )
-  .description("Pull schema and perm files from production.")
+  .option(
+    '-p --package <react|react-native|core|admin>',
+    'Which package to automatically install if there is not one installed already.',
+  )
+  .option(
+    '--experimental-type-preservation',
+    "[Experimental] Preserve manual type changes like `status: i.json<'online' | 'offline'>()` when doing `instant-cli pull schema`",
+  )
+  .description('Pull schema and perm files from production.')
+  .addHelpText(
+    'after',
+    `
+Environment Variables:
+  INSTANT_SCHEMA_FILE_PATH    Override schema file location (default: instant.schema.ts)
+  INSTANT_PERMS_FILE_PATH     Override perms file location (default: instant.perms.ts)
+`,
+  )
   .action(async function (arg, inputOpts) {
-    const ret = convertPushPullToCurrentFormat("pull", arg, inputOpts);
-    if (!ret.ok) return;
+    const ret = convertPushPullToCurrentFormat(arg, inputOpts);
+    if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
     await handlePull(bag, opts);
   });
 
+program
+  .command('claim')
+  .description('Transfer a tempoary app into your Instant account')
+  .action(async function () {
+    const token = await readConfigAuthToken(false);
+    if (!token) {
+      console.error(
+        `Please log in first with ${chalk.bgGray.white('instant-cli login')} to claim an app`,
+      );
+      process.exit(1);
+    }
+
+    const envResult = detectAppIdAndAdminTokenFromEnvWithErrorLogging();
+    if (!envResult.ok) return process.exit(1);
+
+    if (!envResult.appId) {
+      error('No app ID found in environment variables.');
+      return process.exit(1);
+    }
+
+    if (!envResult.adminToken) {
+      error('No admin token found in environment variables.');
+      return process.exit(1);
+    }
+
+    const appId = envResult.appId.value;
+    const adminToken = envResult.adminToken.value;
+
+    console.log(`Found ${chalk.green(envResult.appId.envName)}: ${appId}`);
+
+    await claimEphemeralApp(appId, adminToken);
+  });
+
 program.parse(process.argv);
 
-// command actions
+async function handleInit(opts) {
+  const pkgAndAuthInfo =
+    await getOrPromptPackageAndAuthInfoWithErrorLogging(opts);
+  if (!pkgAndAuthInfo) return process.exit(1);
+  const { ok, appId } = await getOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts);
+  if (!ok) {
+    return process.exit(1);
+  }
+
+  // Create schema file if it doesn't exist
+  // or ask to push if local schema exists
+  const localSchemaExists = await readLocalSchemaFile();
+  if (!localSchemaExists) {
+    await pull('schema', appId, pkgAndAuthInfo);
+  } else {
+    const doSchemaPush = await promptOk(
+      {
+        promptText: 'Found local schema. Push it to the new app?',
+        inline: true,
+      },
+      program.opts(),
+    );
+    if (doSchemaPush) {
+      await push('schema', appId, opts);
+    }
+  }
+
+  // Create perms file if it doesn't exist
+  // or ask to push if local perms exists
+  const localPermsExists = await readLocalPermsFile();
+  if (!localPermsExists) {
+    await pull('perms', appId, pkgAndAuthInfo);
+  } else {
+    const doPermsPush = await promptOk(
+      {
+        promptText: 'Found local perms. Push it to the new app?',
+        inline: true,
+      },
+      program.opts(),
+    );
+    if (doPermsPush) {
+      await push('perms', appId, opts);
+    }
+  }
+}
+
+async function handleInitWithoutFiles(opts) {
+  try {
+    const authToken = await readConfigAuthToken(false);
+    if (!authToken) {
+      throw new Error(
+        `Please log in first with 'instant-cli login' before running this command.`,
+      );
+    }
+
+    if (!opts?.title) {
+      throw new Error(
+        'Title is required for creating a new app without local files.',
+      );
+    }
+
+    if (opts.title.startsWith('-')) {
+      throw new Error(
+        `Invalid title: "${opts.title}". Title cannot be a flag.`,
+      );
+    }
+
+    if (opts?.temp && opts?.orgId) {
+      throw new Error('Cannot use --temp and --org-id flags together.');
+    }
+
+    let result;
+    if (opts?.temp) {
+      result = await createEphemeralApp(opts.title);
+    } else {
+      result = await createApp(opts.title, opts.orgId);
+    }
+
+    console.error(`${chalk.green('Successfully created new app!')}\n`);
+
+    console.log(
+      toJson({
+        app: result,
+        error: null,
+      }),
+    );
+  } catch (error) {
+    console.error(`${chalk.red('Failed to create app.')}\n`);
+
+    console.log(
+      toJson({
+        app: null,
+        error: { message: error.message },
+      }),
+    );
+    process.exit(1);
+  }
+}
+
 async function handlePush(bag, opts) {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-  if (!pkgAndAuthInfo) return;
-  const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
-    pkgAndAuthInfo,
-    opts,
-  );
-  if (!ok) return;
+  const pkgAndAuthInfo = await enforcePackageAndAuthInfoWithErrorLogging(opts);
+  if (!pkgAndAuthInfo) return process.exit(1);
+  const { ok, appId } = await detectAppWithErrorLogging(opts);
+  if (!ok) return process.exit(1);
+  if (!appId) {
+    error(
+      'No app ID detected. Please specify one with --app or set up with `instant-cli init`',
+    );
+    return;
+  }
   await push(bag, appId, opts);
 }
 
-async function push(bag, appId, opts) {
-  if (bag === "schema" || bag === "all") {
-    const { ok } = await pushSchema(appId, opts);
-    if (!ok) return;
+async function handlePull(bag, opts) {
+  const pkgAndAuthInfo = await enforcePackageAndAuthInfoWithErrorLogging(opts);
+  if (!pkgAndAuthInfo) return process.exit(1);
+  const { ok, appId } = await detectAppWithErrorLogging(opts);
+  if (!ok) {
+    return process.exit(1);
   }
-  if (bag === "perms" || bag === "all") {
-    await pushPerms(appId);
+  if (!appId) {
+    error(
+      'No app ID detected. Please specify one with --app or set up with `instant-cli init`',
+    );
+    return;
+  }
+  await pull(bag, appId, { ...pkgAndAuthInfo, ...opts });
+}
+
+async function push(bag, appId, opts) {
+  if (bag === 'schema' || bag === 'all') {
+    const { ok } = await pushSchema(appId, opts);
+    if (!ok) return process.exit(1);
+  }
+  if (bag === 'perms' || bag === 'all') {
+    const { ok } = await pushPerms(appId);
+    if (!ok) return process.exit(1);
   }
 }
 
 function printDotEnvInfo(envType, appId) {
   console.log(`\nPicked app ${chalk.green(appId)}!\n`);
   console.log(
-    `To use this app automatically from now on, update your ${chalk.green("`.env`")} file:`,
+    `To use this app automatically from now on, update your ${chalk.green('`.env`')} file:`,
   );
   const picked = potentialEnvs[envType];
   const rest = { ...potentialEnvs };
@@ -444,104 +685,128 @@ function printDotEnvInfo(envType, appId) {
   console.log(`  ${chalk.green(picked)}=${appId}`);
   const otherEnvs = Object.values(rest);
   otherEnvs.sort();
-  const otherEnvStr = otherEnvs.map((x) => "  " + chalk.green(x)).join("\n");
+  const otherEnvStr = otherEnvs.map((x) => '  ' + chalk.green(x)).join('\n');
   console.log(`Alternative names: \n${otherEnvStr} \n`);
-  console.log(terminalLink("Dashboard", appDashUrl(appId)) + "\n");
+  console.log(terminalLink('Dashboard:', appDashUrl(appId)) + '\n');
 }
 
-async function handleEnvFile(pkgAndAuthInfo, appId) {
+async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
   const { pkgDir } = pkgAndAuthInfo;
   const envType = await detectEnvType(pkgAndAuthInfo);
   const envName = potentialEnvs[envType];
 
-  const hasEnvFile = await pathExists(join(pkgDir, ".env"));
+  const envFile = program.optsWithGlobals().env ?? '.env';
+  const hasEnvFile = await pathExists(join(pkgDir, envFile));
   if (hasEnvFile) {
     printDotEnvInfo(envType, appId);
     return;
   }
   console.log(
-    `\nLooks like you don't have a ${chalk.green("`.env`")} file yet.`,
+    `\nLooks like you don't have a ${chalk.green(`\`${envFile}\``)} file yet.`,
   );
   console.log(
-    `If we set ${chalk.green("`" + envName + "`")}, we can remember the app that you chose for all future commands.`,
+    `If we set ${chalk.green(envName)} & ${chalk.green('INSTANT_APP_ADMIN_TOKEN')}, we can remember the app that you chose for all future commands.`,
   );
+
+  const saveExtraInfo =
+    envFile !== '.env' ? chalk.green('  (will create `' + envFile + '`)') : '';
+
   const ok = await promptOk(
-    "Want us to create this env file for you?",
-    /*defaultAnswer=*/ true,
+    {
+      inline: true,
+      promptText: 'Want us to create this env file for you?' + saveExtraInfo,
+      modifyOutput: (a) => a,
+    },
+    program.opts(),
+    true,
   );
   if (!ok) {
     console.log(
-      `No .env file created. You can always set ${chalk.green("`" + envName + "`")} later. \n`,
+      `No .env file created. You can always set ${chalk.green('`' + envName + '`')} later. \n`,
     );
     return;
   }
-  await writeFile(join(pkgDir, ".env"), `${envName}=${appId}`, "utf-8");
-  console.log(`Created ${chalk.green("`.env`")} file!`);
+  const content =
+    [
+      [envName, appId],
+      ['INSTANT_APP_ADMIN_TOKEN', appToken],
+    ]
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n') + '\n';
+  await writeFile(join(pkgDir, envFile), content, 'utf-8');
+  if (envFile !== '.env') {
+    console.log(`Created ${chalk.green(envFile)}!`);
+  } else {
+    console.log(`Created ${chalk.green('.env')} file!`);
+  }
 }
 
-async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
+async function getOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
   const ret = await detectOrCreateAppWithErrorLogging(opts);
   if (!ret.ok) return ret;
-  const { appId, source } = ret;
-  if (source === "created" || source === "imported") {
-    await handleEnvFile(pkgAndAuthInfo, appId);
+  const { appId, appToken, source } = ret;
+  if (source === 'created' || source === 'imported') {
+    await handleEnvFile(pkgAndAuthInfo, { appId, appToken });
   }
   return ret;
 }
 
-async function handlePull(bag, opts) {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-  if (!pkgAndAuthInfo) return;
-  const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
-    pkgAndAuthInfo,
-    opts,
-  );
-  if (!ok) return;
-  await pull(bag, appId, pkgAndAuthInfo);
-}
-
 async function pull(bag, appId, pkgAndAuthInfo) {
-  if (bag === "schema" || bag === "all") {
+  if (bag === 'schema' || bag === 'all') {
     const { ok } = await pullSchema(appId, pkgAndAuthInfo);
-    if (!ok) return;
+    if (!ok) return process.exit(1);
   }
-  if (bag === "perms" || bag === "all") {
-    await pullPerms(appId, pkgAndAuthInfo);
+  if (bag === 'perms' || bag === 'all') {
+    const { ok } = await pullPerms(appId, pkgAndAuthInfo);
+    if (!ok) return process.exit(1);
   }
 }
 
 async function login(options) {
   const registerRes = await fetchJson({
-    method: "POST",
-    path: "/dash/cli/auth/register",
-    debugName: "Login register",
-    errorMessage: "Failed to register login.",
+    method: 'POST',
+    path: '/dash/cli/auth/register',
+    debugName: 'Login register',
+    errorMessage: 'Failed to register login.',
     noAuth: true,
+    command: 'login',
   });
 
-  if (!registerRes.ok) return;
+  if (!registerRes.ok) {
+    return process.exit(1);
+  }
 
   const { secret, ticket } = registerRes.data;
 
-  const ok = await promptOk(
-    `This will open instantdb.com in your browser, OK to proceed?`,
-    /*defaultAnswer=*/ true,
-  );
+  console.log();
 
-  if (!ok) return;
+  if (isHeadlessEnvironment(options)) {
+    console.log(
+      `Open this URL in a browser to log in:\n ${instantDashOrigin}/dash?ticket=${ticket}\n`,
+    );
+  } else {
+    const ok = await promptOk(
+      {
+        promptText: `This will open instantdb.com in your browser, OK to proceed?`,
+      },
+      program.opts(),
+      /*defaultAnswer=*/ true,
+    );
 
-  openInBrowser(`${instantDashOrigin}/dash?ticket=${ticket}`);
+    if (!ok) return;
+    openInBrowser(`${instantDashOrigin}/dash?ticket=${ticket}`);
+  }
 
-  console.log("Waiting for authentication...");
+  console.log('Waiting for authentication...');
   const authTokenRes = await waitForAuthToken({ secret });
   if (!authTokenRes) {
-    return;
+    return process.exit(1);
   }
 
   const { token, email } = authTokenRes;
 
   if (options.print) {
-    console.log(chalk.red("[Do not share] Your Instant auth token:", token));
+    console.log(chalk.red('[Do not share] Your Instant auth token:', token));
   } else {
     await saveConfigAuthToken(token);
     console.log(chalk.green(`Successfully logged in as ${email}!`));
@@ -549,12 +814,36 @@ async function login(options) {
   return token;
 }
 
-async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
+async function logout() {
+  const { authConfigFilePath } = getAuthPaths();
+
+  try {
+    await unlink(authConfigFilePath);
+    console.log(chalk.green('Successfully logged out from Instant!'));
+    return true;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.log(chalk.green('You were already logged out!'));
+    } else {
+      error('Failed to logout: ' + error.message);
+    }
+    return false;
+  }
+}
+
+const packageAliasAndFullNames = {
+  react: '@instantdb/react',
+  'react-native': '@instantdb/react-native',
+  core: '@instantdb/core',
+  admin: '@instantdb/admin',
+};
+
+async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
   const pkgJson = await getPackageJSONWithErrorLogging(pkgDir);
   if (!pkgJson) {
     return;
   }
-  console.log("Checking for an Instant SDK...");
+  console.log('Checking for an Instant SDK...');
   const instantModuleName = await getInstantModuleName(pkgJson);
   if (instantModuleName) {
     console.log(
@@ -565,57 +854,121 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
   console.log(
     "Couldn't find an Instant SDK in your package.json, let's install one!",
   );
-  const moduleName = await select({
-    message: "Which package would you like to use?",
-    choices: [
-      { name: "@instantdb/react", value: "@instantdb/react" },
-      { name: "@instantdb/react-native", value: "@instantdb/react-native" },
-      { name: "@instantdb/core", value: "@instantdb/core" },
-      { name: "@instantdb/admin", value: "@instantdb/admin" },
-    ],
-  });
+
+  let moduleName;
+  if (opts.package) {
+    moduleName = packageAliasAndFullNames[opts.package];
+  } else {
+    if (program.optsWithGlobals()?.yes) {
+      console.error(
+        '--yes was provided without a package specificaion and no Instant SDK was found',
+      );
+      process.exit(1);
+    }
+    moduleName = await renderUnwrap(
+      new UI.Select({
+        promptText: 'Which package would you like to use?',
+        options: [
+          { label: '@instantdb/react', value: '@instantdb/react' },
+          {
+            label: '@instantdb/react-native',
+            value: '@instantdb/react-native',
+          },
+          { label: '@instantdb/core', value: '@instantdb/core' },
+          { label: '@instantdb/admin', value: '@instantdb/admin' },
+        ],
+      }),
+    );
+  }
 
   const packageManager = await detectPackageManager(pkgDir);
-  const installCommand = getInstallCommand(packageManager, moduleName);
 
-  const spinner = ora(
-    `Installing ${moduleName} using ${packageManager}...`,
-  ).start();
-
-  try {
-    await execAsync(installCommand, pkgDir);
-    spinner.succeed(`Installed ${moduleName} using ${packageManager}.`);
-  } catch (e) {
-    spinner.fail(`Failed to install ${moduleName} using ${packageManager}.`);
-    error(e.message);
-    return;
+  const packagesToInstall = [moduleName];
+  if (moduleName === '@instantdb/react-native') {
+    packagesToInstall.push(
+      'react-native-get-random-values',
+      '@react-native-async-storage/async-storage',
+    );
   }
+
+  const installCommand = getInstallCommand(
+    packageManager,
+    packagesToInstall.join(' '),
+  );
+
+  await renderUnwrap(
+    new UI.Spinner({
+      promise: execAsync(installCommand, pkgDir),
+      workingText: `Installing ${packagesToInstall.join(', ')} using ${packageManager}...`,
+      doneText: `Installed ${packagesToInstall.join(', ')} using ${packageManager}.`,
+    }),
+  );
 
   return moduleName;
 }
 
-async function promptCreateApp() {
+async function promptCreateApp(opts) {
   const id = randomUUID();
   const token = randomUUID();
-  const _title = await input({
-    message: "What would you like to call it?",
-    default: "My cool app",
-    required: true,
-  }).catch(() => null);
+
+  let _title;
+  if (opts?.title) {
+    _title = opts.title;
+  } else {
+    _title = await renderUnwrap(
+      new UI.TextInput({
+        prompt: 'What would you like to call it?',
+        placeholder: 'My cool app',
+      }),
+    ).catch(() => null);
+  }
 
   const title = _title?.trim();
 
   if (!title) {
-    error("No name provided. Exiting.");
+    error('No name provided.');
     return { ok: false };
   }
-  const app = { id, title, admin_token: token };
+
+  const res = await fetchJson({
+    debugName: 'Fetching orgs',
+    method: 'GET',
+    path: '/dash',
+    errorMessage: 'Failed to fetch apps.',
+    command: 'init',
+  });
+  if (!res.ok) {
+    return { ok: false };
+  }
+
+  const allowedOrgs = res.data.orgs.filter((org) => org.role !== 'app-member');
+
+  let org_id = opts.org;
+
+  if (!org_id && allowedOrgs.length) {
+    const choices = [{ label: '(No organization)', value: null }];
+    for (const org of allowedOrgs) {
+      choices.push({ label: org.title, value: org.id });
+    }
+    const choice = await renderUnwrap(
+      new UI.Select({
+        promptText: 'Would you like to create the app in an organization?',
+        options: choices,
+      }),
+    );
+    if (choice) {
+      org_id = choice;
+    }
+  }
+
+  const app = { id, title, admin_token: token, org_id };
   const appRes = await fetchJson({
-    method: "POST",
-    path: "/dash/apps",
-    debugName: "App create",
-    errorMessage: "Failed to create app.",
+    method: 'POST',
+    path: '/dash/apps',
+    debugName: 'App create',
+    errorMessage: 'Failed to create app.',
     body: app,
+    command: 'init',
   });
 
   if (!appRes.ok) return { ok: false };
@@ -623,94 +976,162 @@ async function promptCreateApp() {
     ok: true,
     appId: id,
     appTitle: title,
-    source: "created",
+    appToken: token,
+    source: 'created',
   };
 }
 
 async function promptImportAppOrCreateApp() {
   const res = await fetchJson({
-    debugName: "Fetching apps",
-    method: "GET",
-    path: "/dash",
-    errorMessage: "Failed to fetch apps.",
+    debugName: 'Fetching apps',
+    method: 'GET',
+    path: '/dash',
+    errorMessage: 'Failed to fetch apps.',
+    command: 'init',
   });
   if (!res.ok) {
     return { ok: false };
   }
-  const { apps } = res.data;
-  if (!apps.length) {
-    const ok = await promptOk(
-      "You don't have any apps. Want to create a new one?",
-      /*defaultAnswer=*/ true,
-    );
-    if (!ok) return { ok: false };
-    return await promptCreateApp();
+
+  const result = await renderUnwrap(
+    new UI.AppSelector({
+      allowEphemeral: true,
+      allowCreate: true,
+      startingMenuIndex: 2,
+      api: {
+        getDash: () => res.data,
+        createEphemeralApp,
+        getAppsForOrg: async (orgId) => {
+          const orgsRes = await fetchJson({
+            debugName: 'Fetching org apps',
+            method: 'GET',
+            path: `/dash/orgs/${orgId}`,
+            errorMessage: 'Failed to fetch apps.',
+            command: 'init',
+          });
+          if (!orgsRes.ok) {
+            throw new Error('Failed to fetch org apps');
+          }
+          return { apps: orgsRes.data.apps };
+        },
+        createApp,
+      },
+    }),
+  );
+
+  if (result.approach === 'import') {
+    trackAppImport(result.appId);
   }
 
-  apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
-
-  const choice = await select({
-    message: "Which app would you like to import?",
-    choices: res.data.apps.map((app) => {
-      return { name: `${app.title} (${app.id})`, value: app.id };
-    }),
-  }).catch(() => null);
-  if (!choice) return { ok: false };
-  return { ok: true, appId: choice, source: "imported" };
+  return {
+    ok: true,
+    appId: result.appId,
+    appToken: result.adminToken,
+    source: result.approach === 'import' ? 'imported' : 'created',
+  };
 }
 
-async function detectOrCreateAppWithErrorLogging(opts) {
+async function createApp(title, orgId) {
+  const id = randomUUID();
+  const token = randomUUID();
+  const app = { id, title, admin_token: token, org_id: orgId };
+  const appRes = await fetchJson({
+    method: 'POST',
+    path: '/dash/apps',
+    debugName: 'App create',
+    errorMessage: 'Failed to create app.',
+    body: app,
+    command: 'init',
+  });
+  if (!appRes.ok) throw new Error('Failed to create app');
+  return { appId: id, adminToken: token };
+}
+
+async function createEphemeralApp(title) {
+  const api = new PlatformApi({ apiURI: instantBackendOrigin });
+  const { app } = await api.createTemporaryApp({ title });
+  return { appId: app.id, adminToken: app.adminToken };
+}
+
+/**
+ * Fire-and-forget tracking for when a user imports/links an existing app.
+ * Captures user info if authenticated.
+ */
+function trackAppImport(appId) {
+  fetchJson({
+    method: 'POST',
+    path: `/dash/apps/${appId}/track-import`,
+    debugName: 'Track import',
+    errorMessage: '',
+    noLogError: true,
+    command: 'init',
+  }).catch(() => {});
+}
+
+async function detectAppWithErrorLogging(opts) {
   const fromOpts = await detectAppIdFromOptsWithErrorLogging(opts);
   if (!fromOpts.ok) return fromOpts;
   if (fromOpts.appId) {
-    return { ok: true, appId: fromOpts.appId, source: "opts" };
+    trackAppImport(fromOpts.appId);
+    return { ok: true, appId: fromOpts.appId, source: 'opts' };
   }
-
   const fromEnv = detectAppIdFromEnvWithErrorLogging();
   if (!fromEnv.ok) return fromEnv;
   if (fromEnv.found) {
     const { envName, value } = fromEnv.found;
     console.log(`Found ${chalk.green(envName)}: ${value}`);
-    return { ok: true, appId: value, source: "env" };
+    return { ok: true, appId: value, source: 'env' };
   }
+  return { ok: true };
+}
 
-  const action = await select({
-    message: "What would you like to do?",
-    choices: [
-      { name: "Create a new app", value: "create" },
-      { name: "Import an existing app", value: "import" },
-    ],
-  }).catch(() => null);
-
-  if (action === "create") {
-    return await promptCreateApp();
+async function detectOrCreateAppWithErrorLogging(opts) {
+  const detected = await detectAppWithErrorLogging(opts);
+  if (!detected.ok) return detected;
+  if (detected.appId) {
+    return detected;
   }
+  let action;
+  if (program.optsWithGlobals().yes) {
+    action = 'create';
+    if (!opts?.title) {
+      console.error(
+        chalk.red(`Title is required when using --yes and no app is linked`),
+      );
+      process.exit(1);
+    }
+    const app = await createApp(opts.title);
 
-  return await promptImportAppOrCreateApp();
+    return { ok: true, appId: app.appId, source: 'created' };
+  } else {
+    console.log();
+    return await promptImportAppOrCreateApp();
+  }
 }
 
 async function writeTypescript(path, content, encoding) {
   const prettierConfig = await prettier.resolveConfig(path);
   const formattedCode = await prettier.format(content, {
     ...prettierConfig,
-    parser: "typescript",
+    parser: 'typescript',
   });
   return await writeFile(path, formattedCode, encoding);
 }
 
 async function getInstantModuleName(pkgJson) {
   const deps = pkgJson.dependencies || {};
+  const devDeps = pkgJson.devDependencies || {};
   const instantModuleName = [
-    "@instantdb/react",
-    "@instantdb/react-native",
-    "@instantdb/core",
-    "@instantdb/admin",
-  ].find((name) => deps[name]);
+    '@instantdb/react',
+    '@instantdb/react-native',
+    '@instantdb/core',
+    '@instantdb/admin',
+  ].find((name) => deps[name] || devDeps[name]);
   return instantModuleName;
 }
 
 async function getPackageJson(pkgDir) {
-  return await readJsonFile(join(pkgDir, "package.json"));
+  return await readJsonFile(join(pkgDir, 'package.json'));
 }
 
 async function getPackageJSONWithErrorLogging(pkgDir) {
@@ -722,13 +1143,67 @@ async function getPackageJSONWithErrorLogging(pkgDir) {
   return pkgJson;
 }
 
-async function resolvePackageAndAuthInfoWithErrorLogging() {
-  const pkgDir = await packageDirectoryWithErrorLogging();
-  if (!pkgDir) {
+async function enforcePackageAndAuthInfoWithErrorLogging(_opts) {
+  const projectInfo = await packageDirectoryWithErrorLogging();
+  if (!projectInfo) {
     return;
   }
-  const instantModuleName =
-    await getOrInstallInstantModuleWithErrorLogging(pkgDir);
+  const { dir: pkgDir, type: projectType } = projectInfo;
+
+  // Deno projects don't have package.json or node_modules
+  if (projectType === 'deno') {
+    const authToken = await readConfigAuthTokenWithErrorLogging();
+    if (!authToken) {
+      return;
+    }
+    return {
+      pkgDir,
+      projectType,
+      instantModuleName: '@instantdb/core',
+      authToken,
+    };
+  }
+
+  const pkgJson = await getPackageJSONWithErrorLogging(pkgDir);
+  if (!pkgJson) {
+    return;
+  }
+  const instantModuleName = await getInstantModuleName(pkgJson);
+  if (!instantModuleName) {
+    error("We couldn't find an Instant SDK. Install one, or run `init`");
+  }
+  const authToken = await readConfigAuthTokenWithErrorLogging();
+  if (!authToken) {
+    return;
+  }
+  return { pkgDir, projectType, instantModuleName, authToken };
+}
+
+async function getOrPromptPackageAndAuthInfoWithErrorLogging(opts) {
+  const projectInfo = await packageDirectoryWithErrorLogging();
+  if (!projectInfo) {
+    return;
+  }
+  const { dir: pkgDir, type: projectType } = projectInfo;
+
+  // Deno projects don't have package.json or node_modules
+  if (projectType === 'deno') {
+    const authToken = await readAuthTokenOrLoginWithErrorLogging();
+    if (!authToken) {
+      return;
+    }
+    return {
+      pkgDir,
+      projectType,
+      instantModuleName: '@instantdb/core',
+      authToken,
+    };
+  }
+
+  const instantModuleName = await getOrInstallInstantModuleWithErrorLogging(
+    pkgDir,
+    opts,
+  );
   if (!instantModuleName) {
     return;
   }
@@ -736,16 +1211,20 @@ async function resolvePackageAndAuthInfoWithErrorLogging() {
   if (!authToken) {
     return;
   }
-  return { pkgDir, instantModuleName, authToken };
+  return { pkgDir, projectType, instantModuleName, authToken };
 }
 
-async function pullSchema(appId, { pkgDir, instantModuleName }) {
-  console.log("Pulling schema...");
+async function pullSchema(
+  appId,
+  { pkgDir, instantModuleName, experimentalTypePreservation },
+) {
+  console.log('Pulling schema...');
 
   const pullRes = await fetchJson({
     path: `/dash/apps/${appId}/schema/pull`,
-    debugName: "Schema pull",
-    errorMessage: "Failed to pull schema.",
+    debugName: 'Schema pull',
+    errorMessage: 'Failed to pull schema.',
+    command: 'pull',
   });
 
   if (!pullRes.ok) return pullRes;
@@ -754,84 +1233,118 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     !countEntities(pullRes.data.schema.refs) &&
     !countEntities(pullRes.data.schema.blobs)
   ) {
-    console.log("Schema is empty. Skipping.");
+    console.log('Schema is empty. Skipping.');
     return { ok: true };
   }
-  const prevSchema = await readLocalSchemaFile();
-  if (prevSchema) {
-    const ok = await promptOk(
-      "This will overwrite your local instant.schema file, OK to proceed?",
-    );
 
-    if (!ok) return { ok: true };
+  const prev = await readLocalSchemaFile();
+  const shortSchemaPath = getSchemaPathToWrite(prev?.path);
+  const schemaPath = join(pkgDir, shortSchemaPath);
+
+  if (prev) {
+    const shouldContinue = await promptOk(
+      {
+        promptText: `This will overwrite your local ${shortSchemaPath} file, OK to proceed?`,
+        modifyOutput: UI.modifiers.yPadding,
+        inline: true,
+      },
+      program.opts(),
+    );
+    console.log();
+
+    if (!shouldContinue) return { ok: true };
   }
 
-  const schemaPath = join(pkgDir, "instant.schema.ts");
-  await writeTypescript(
-    schemaPath,
-    generateSchemaTypescriptFile(
-      prevSchema,
-      pullRes.data.schema,
-      instantModuleName,
-    ),
-    "utf-8",
+  let newSchemaContent = generateSchemaTypescriptFile(
+    prev?.schema,
+    apiSchemaToInstantSchemaDef(pullRes.data.schema),
+    instantModuleName,
   );
 
-  console.log("✅ Wrote schema to instant.schema.ts");
+  if (prev && experimentalTypePreservation) {
+    try {
+      const oldSchemaContent = await readFile(prev.path, 'utf-8');
+      newSchemaContent = mergeSchema(oldSchemaContent, newSchemaContent);
+    } catch (e) {
+      warn(
+        'Failed to merge schema with existing file. Overwriting instead.',
+        e,
+      );
+    }
+  }
+
+  await writeTypescript(schemaPath, newSchemaContent, 'utf-8');
+
+  console.log('✅ Wrote schema to ' + shortSchemaPath);
 
   return { ok: true };
 }
 
 async function pullPerms(appId, { pkgDir, instantModuleName }) {
-  console.log("Pulling perms...");
+  console.log('Pulling perms...');
 
   const pullRes = await fetchJson({
     path: `/dash/apps/${appId}/perms/pull`,
-    debugName: "Perms pull",
-    errorMessage: "Failed to pull perms.",
+    debugName: 'Perms pull',
+    errorMessage: 'Failed to pull perms.',
+    command: 'pull',
   });
 
-  if (!pullRes.ok) return;
+  if (!pullRes.ok) return pullRes;
+  const prev = await readLocalPermsFile();
+  const shortPermsPath = getPermsPathToWrite(prev?.path);
+  const permsPath = join(pkgDir, shortPermsPath);
 
-  if (await pathExists(join(pkgDir, "instant.perms.ts"))) {
-    const ok = await promptOk(
-      "This will overwrite your local instant.perms file, OK to proceed?",
+  if (prev) {
+    const shouldContinue = await promptOk(
+      {
+        promptText: `This will overwrite your local ${shortPermsPath} file, OK to proceed?`,
+        modifyOutput: UI.modifiers.yPadding,
+        inline: true,
+      },
+      program.opts(),
     );
+    console.log();
 
-    if (!ok) return;
+    if (!shouldContinue) return { ok: true };
   }
-
-  const permsPath = join(pkgDir, "instant.perms.ts");
   await writeTypescript(
     permsPath,
     generatePermsTypescriptFile(pullRes.data.perms || {}, instantModuleName),
-    "utf-8",
+    'utf-8',
   );
 
-  console.log("✅ Wrote permissions to instant.perms.ts");
+  console.log('✅ Wrote permissions to ' + shortPermsPath);
 
-  return true;
+  return { ok: true };
 }
 
 function indexingJobCompletedActionMessage(job) {
-  if (job.job_type === "check-data-type") {
+  if (job.job_type === 'check-data-type') {
     return `setting type of ${job.attr_name} to ${job.checked_data_type}`;
   }
-  if (job.job_type === "remove-data-type") {
+  if (job.job_type === 'remove-data-type') {
     return `removing type from ${job.attr_name}`;
   }
-  if (job.job_type === "index") {
+  if (job.job_type === 'index') {
     return `adding index to ${job.attr_name}`;
   }
-  if (job.job_type === "remove-index") {
+  if (job.job_type === 'remove-index') {
     return `removing index from ${job.attr_name}`;
   }
-  if (job.job_type === "unique") {
+  if (job.job_type === 'unique') {
     return `adding uniqueness constraint to ${job.attr_name}`;
   }
-  if (job.job_type === "remove-unique") {
+  if (job.job_type === 'remove-unique') {
     return `removing uniqueness constraint from ${job.attr_name}`;
   }
+  if (job.job_type === 'required') {
+    return `adding required constraint to ${job.attr_name}`;
+  }
+  if (job.job_type === 'remove-required') {
+    return `removing required constraint from ${job.attr_name}`;
+  }
+  return `unexpected job type ${job.job_type} - please ping us on discord with this job id (${job.id})`;
 }
 
 function truncate(s, maxLen) {
@@ -847,50 +1360,77 @@ function formatSamples(triples_samples) {
   });
 }
 
+function createUrl(triple, job) {
+  const urlParams = new URLSearchParams({
+    s: 'main',
+    app: job.app_id,
+    t: 'explorer',
+    ns: job.attr_name.split('.')[0],
+    where: JSON.stringify(['id', triple.entity_id]),
+  });
+  const url = new URL(instantDashOrigin);
+  url.pathname = '/dash';
+  url.search = urlParams.toString();
+  return url;
+}
+
+function padCell(value, width) {
+  const trimmed = value.length > width ? value.substring(0, width) : value;
+  return trimmed + ' '.repeat(width - trimmed.length);
+}
+
 function indexingJobCompletedMessage(job) {
   const actionMessage = indexingJobCompletedActionMessage(job);
-  if (job.job_status === "canceled") {
+  if (job.job_status === 'canceled') {
     return `Canceled ${actionMessage} before it could finish.`;
   }
-  if (job.job_status === "completed") {
+  if (job.job_status === 'completed') {
     return `Finished ${actionMessage}.`;
   }
-  if (job.job_status === "errored") {
+  if (job.job_status === 'errored') {
     if (job.invalid_triples_sample?.length) {
-      const [etype, label] = job.attr_name.split(".");
+      const [etype, label] = job.attr_name.split('.');
       const samples = formatSamples(job.invalid_triples_sample);
       const longestValue = samples.reduce(
         (acc, { value }) => Math.max(acc, value.length),
-        // Start with length of label
         label.length,
       );
 
-      let msg = `${chalk.red("INVALID DATA")} ${actionMessage}.\n`;
+      const columns = [
+        { header: 'namespace', width: 15, getValue: () => etype },
+        {
+          header: 'id',
+          width: 37,
+          getValue: (triple) =>
+            terminalLink(triple.entity_id, createUrl(triple, job).toString(), {
+              fallback: () => triple.entity_id,
+            }),
+        },
+        {
+          header: label,
+          width: longestValue + 2,
+          getValue: (triple) => triple.value,
+        },
+        { header: 'type', width: 8, getValue: (triple) => triple.json_type },
+      ];
+
+      let msg = `${chalk.red('INVALID DATA')} ${actionMessage}.\n`;
       if (job.invalid_unique_value) {
         msg += `  Found multiple entities with value ${truncate(JSON.stringify(job.invalid_unique_value), 64)}.\n`;
       }
-      if (job.error === "triple-too-large-error") {
+      if (job.error === 'triple-too-large-error') {
         msg += `  Some of the existing data is too large to index.\n`;
       }
-      msg += `  First few examples:\n`;
-      msg += `  ${chalk.bold("id")}${" ".repeat(35)}| ${chalk.bold(label)}${" ".repeat(longestValue - label.length)} | ${chalk.bold("type")}\n`;
-      msg += `  ${"-".repeat(37)}|${"-".repeat(longestValue + 2)}|--------\n`;
-      for (const triple of samples) {
-        const urlParams = new URLSearchParams({
-          s: "main",
-          app: job.app_id,
-          t: "explorer",
-          ns: etype,
-          where: JSON.stringify(["id", triple.entity_id]),
-        });
-        const url = new URL(instantDashOrigin);
-        url.pathname = "/dash";
-        url.search = urlParams.toString();
 
-        const link = terminalLink(triple.entity_id, url.toString(), {
-          fallback: () => triple.entity_id,
-        });
-        msg += `  ${link} | ${triple.value}${" ".repeat(longestValue - triple.value.length)} | ${triple.json_type}\n`;
+      msg += `  First few examples:\n`;
+      msg += `  ${columns.map((col) => chalk.bold(padCell(col.header, col.width))).join(' | ')}\n`;
+      msg += `  ${columns.map((col) => '-'.repeat(col.width)).join('-|-')}\n`;
+
+      for (const triple of samples) {
+        const cells = columns.map((col) =>
+          padCell(col.getValue(triple), col.width),
+        );
+        msg += `  ${cells.join(' | ')}\n`;
       }
       return msg;
     }
@@ -900,7 +1440,7 @@ function indexingJobCompletedMessage(job) {
 
 function joinInSentence(items) {
   if (items.length === 0) {
-    return "";
+    return '';
   }
   if (items.length === 1) {
     return items[0];
@@ -908,37 +1448,41 @@ function joinInSentence(items) {
   if (items.length === 2) {
     return `${items[0]} and ${items[1]}`;
   }
-  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
 }
 
 function jobGroupDescription(jobs) {
   const actions = new Set();
   const jobActions = {
-    "check-data-type": "updating types",
-    "remove-data-type": "updating types",
-    index: "updating indexes",
-    "remove-index": "updating indexes",
-    unique: "updating uniqueness constraints",
-    "remove-unique": "updating uniqueness constraints",
+    'check-data-type': 'updating types',
+    'remove-data-type': 'updating types',
+    index: 'updating indexes',
+    'remove-index': 'updating indexes',
+    unique: 'updating uniqueness constraints',
+    'remove-unique': 'updating uniqueness constraints',
+    required: 'making attributes required',
+    'remove-required': 'making attributes optional',
   };
   for (const job of jobs) {
     actions.add(jobActions[job.job_type]);
   }
-  return joinInSentence([...actions].sort()) || "updating schema";
+  return joinInSentence([...actions].sort()) || 'updating schema';
 }
 
 async function waitForIndexingJobsToFinish(appId, data) {
-  const spinner = ora({
-    text: "checking data types",
-  }).start();
-  const groupId = data["group-id"];
+  const spinnerDefferedPromise = deferred();
+  const spinner = new UI.Spinner({
+    promise: spinnerDefferedPromise.promise,
+  });
+  const spinnerRenderPromise = renderUnwrap(spinner);
+
+  const groupId = data['group-id'];
   let jobs = data.jobs;
   let waitMs = 20;
   let lastUpdatedAt = new Date(0);
 
   const completedIds = new Set();
 
-  const completedMessages = [];
   const errorMessages = [];
 
   while (true) {
@@ -953,7 +1497,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
         updated = true;
         lastUpdatedAt = updatedAt;
       }
-      if (job.job_status === "waiting" || job.job_status === "processing") {
+      if (job.job_status === 'waiting' || job.job_status === 'processing') {
         stillRunning = true;
         // Default estimate to high value to prevent % from jumping around
         workEstimateTotal += job.work_estimate ?? 50000;
@@ -962,10 +1506,13 @@ async function waitForIndexingJobsToFinish(appId, data) {
         if (!completedIds.has(job.id)) {
           completedIds.add(job.id);
           const msg = indexingJobCompletedMessage(job);
-          if (job.job_status === "errored") {
-            errorMessages.push(msg);
-          } else {
-            completedMessages.push(msg);
+          if (msg) {
+            if (job.job_status === 'errored') {
+              spinner.addMessage(msg);
+              errorMessages.push(msg);
+            } else {
+              spinner.addMessage(msg);
+            }
           }
         }
       }
@@ -977,227 +1524,296 @@ async function waitForIndexingJobsToFinish(appId, data) {
       const percent = Math.floor(
         (workCompletedTotal / workEstimateTotal) * 100,
       );
-      spinner.text = `${jobGroupDescription(jobs)} ${percent}%`;
-    }
-    if (completedMessages.length) {
-      spinner.prefixText = completedMessages.join("\n") + "\n";
+      spinner.updateText(`${jobGroupDescription(jobs)} ${percent}%`);
     }
     waitMs = updated ? 1 : Math.min(10000, waitMs * 2);
     await sleep(waitMs);
     const res = await fetchJson({
-      debugName: "Check indexing status",
-      method: "GET",
+      debugName: 'Check indexing status',
+      method: 'GET',
       path: `/dash/apps/${appId}/indexing-jobs/group/${groupId}`,
-      errorMessage: "Failed to check indexing status.",
+      errorMessage: 'Failed to check indexing status.',
+      command: 'push',
     });
     if (!res.ok) {
       break;
     }
     jobs = res.data.jobs;
   }
-  spinner.stopAndPersist({
-    text: "",
-    prefixText: completedMessages.join("\n"),
-  });
+
+  spinnerDefferedPromise.resolve(null);
+
+  await spinnerRenderPromise;
 
   // Log errors at the end so that they're easier to see.
   if (errorMessages.length) {
     for (const msg of errorMessages) {
       console.log(msg);
     }
-    console.log(chalk.red("Some steps failed while updating schema."));
+    console.log(chalk.red('Some steps failed while updating schema.'));
     process.exit(1);
   }
 }
 
+const resolveRenames = async (created, promptData, extraInfo) => {
+  const answer = await renderUnwrap(
+    new ResolveRenamePrompt(
+      created,
+      promptData,
+      extraInfo,
+      UI.modifiers.piped([
+        (out) =>
+          boxen(out, {
+            dimBorder: true,
+            padding: {
+              left: 1,
+              right: 1,
+            },
+          }),
+        UI.modifiers.vanishOnComplete,
+      ]),
+    ),
+  );
+  return answer;
+};
+
+function collectSystemCatalogIdentNames(currentAttrs) {
+  const allSystemIdents = currentAttrs
+    .filter((attr) => attr.catalog === 'system')
+    .flatMap((attr) =>
+      [attr['forward-identity'], attr['reverse-identity']].filter(Boolean),
+    );
+
+  /** @type {Record<string, Set<string>>} */
+  let res = {};
+  for (const [_, etype, label] of allSystemIdents) {
+    res[etype] = res[etype] || new Set();
+    res[etype].add(label);
+  }
+  return res;
+}
+
 async function pushSchema(appId, opts) {
-  const schema = await readLocalSchemaFileWithErrorLogging();
-  if (!schema) return { ok: false };
+  const res = await readLocalSchemaFileWithErrorLogging();
+  if (!res) return { ok: false };
+  const { schema } = res;
 
-  console.log("Planning schema...");
-
-  const planRes = await fetchJson({
-    method: "POST",
-    path: `/dash/apps/${appId}/schema/push/plan`,
-    debugName: "Schema plan",
-    errorMessage: "Failed to update schema.",
-    body: {
-      schema,
-      check_types: !opts?.skipCheckTypes,
-      supports_background_updates: true,
-    },
+  const pulledSchemaResponse = await fetchJson({
+    method: 'GET',
+    path: `/dash/apps/${appId}/schema/pull`,
+    debugName: 'Schema plan',
+    errorMessage: 'Failed to get old schema.',
+    command: 'push',
   });
 
-  if (!planRes.ok) return planRes;
+  if (!pulledSchemaResponse.ok) return pulledSchemaResponse;
 
-  if (!planRes.data.steps.length) {
-    console.log("No schema changes detected. Skipping.");
+  const currentAttrs = pulledSchemaResponse.data['attrs'];
+  const currentApiSchema = pulledSchemaResponse.data['schema'];
+  const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema, {
+    disableTypeInference: true,
+  });
+  const systemCatalogIdentNames = collectSystemCatalogIdentNames(currentAttrs);
+
+  try {
+    validateSchema(schema, systemCatalogIdentNames);
+  } catch (error) {
+    if (error instanceof SchemaValidationError) {
+      console.error(chalk.red('Invalid schema:', error.message));
+    } else {
+      console.error('Unexpected error:', error);
+    }
+    return { ok: false };
+  }
+
+  const renameSelector = program.optsWithGlobals().yes
+    ? buildAutoRenameSelector(opts)
+    : resolveRenames;
+
+  const diffResult = await diffSchemas(
+    oldSchema,
+    schema,
+    renameSelector,
+    systemCatalogIdentNames,
+  );
+
+  if (currentAttrs === undefined) {
+    throw new Error("Couldn't get current schema from server");
+  }
+
+  const txSteps = convertTxSteps(diffResult, currentAttrs);
+
+  if (txSteps.length === 0) {
+    console.log(chalk.bgGray('No schema changes to apply!'));
     return { ok: true };
   }
 
-  console.log(
-    "The following changes will be applied to your production schema:",
-  );
-
-  for (const [action, attr] of planRes.data.steps) {
-    switch (action) {
-      case "add-attr":
-      case "update-attr": {
-        const valueType = attr["value-type"];
-        const isAdd = action === "add-attr";
-        if (valueType === "blob" && attrFwdLabel(attr) === "id") {
-          console.log(
-            `${isAdd ? chalk.magenta("ADD ENTITY") : chalk.magenta("UPDATE ENTITY")} ${attrFwdName(attr)}`,
-          );
-          break;
-        }
-
-        if (valueType === "blob") {
-          console.log(
-            `${isAdd ? chalk.green("ADD ATTR") : chalk.blue("UPDATE ATTR")} ${attrFwdName(attr)} :: unique=${attr["unique?"]}, indexed=${attr["index?"]}`,
-          );
-          break;
-        }
-
-        console.log(
-          `${isAdd ? chalk.green("ADD LINK") : chalk.blue("UPDATE LINK")} ${attrFwdName(attr)} <=> ${attrRevName(attr)}`,
-        );
-        break;
-      }
-      case "check-data-type": {
-        console.log(
-          `${chalk.green("CHECK TYPE")} ${attrFwdName(attr)} => ${attr["checked-data-type"]}`,
-        );
-        break;
-      }
-      case "remove-data-type": {
-        console.log(`${chalk.red("REMOVE TYPE")} ${attrFwdName(attr)} => any`);
-        break;
-      }
-      case "index": {
-        console.log("%s on %s", chalk.green("ADD INDEX"), attrFwdName(attr));
-        break;
-      }
-      case "remove-index": {
-        console.log("%s on %s", chalk.red("REMOVE INDEX"), attrFwdName(attr));
-        break;
-      }
-      case "unique": {
-        console.log(
-          "%s to %s",
-          chalk.green("ADD UNIQUE CONSTRAINT"),
-          attrFwdName(attr),
-        );
-        break;
-      }
-      case "remove-unique": {
-        console.log(
-          "%s from %s",
-          chalk.red("REMOVE UNIQUE CONSTRAINT"),
-          attrFwdName(attr),
-        );
-        break;
-      }
+  let wantsToPush = false;
+  try {
+    const groupedSteps = groupSteps(diffResult);
+    const lines = renderSchemaPlan(groupedSteps, currentAttrs);
+    if (program.optsWithGlobals().yes) {
+      console.log('Applying schema changes...');
+      console.log(lines.join('\n'));
     }
+    wantsToPush = await promptOk(
+      {
+        promptText: 'Push these changes?',
+        yesText: 'Push',
+        noText: 'Cancel',
+        modifyOutput: (output) => {
+          let both = lines.join('\n') + '\n\n' + output;
+          return boxen(both, {
+            dimBorder: true,
+            padding: {
+              left: 1,
+              right: 1,
+            },
+          });
+        },
+      },
+      program.opts(),
+    );
+  } catch (error) {
+    if (error instanceof CancelSchemaError) {
+      console.info('Schema migration cancelled!');
+    }
+    return { ok: false };
   }
 
-  const okPush = await promptOk("OK to proceed?");
-  if (!okPush) return { ok: true };
-
-  const applyRes = await fetchJson({
-    method: "POST",
-    path: `/dash/apps/${appId}/schema/push/apply`,
-    debugName: "Schema apply",
-    errorMessage: "Failed to update schema.",
-    body: {
-      schema,
-      check_types: !opts?.skipCheckTypes,
-      supports_background_updates: true,
-    },
-  });
-
-  if (!applyRes.ok) return applyRes;
-
-  if (applyRes.data["indexing-jobs"]) {
-    await waitForIndexingJobsToFinish(appId, applyRes.data["indexing-jobs"]);
+  if (verbose) {
+    console.log(txSteps);
   }
 
-  console.log(chalk.green("Schema updated!"));
+  if (wantsToPush) {
+    const applyRes = await fetchJson({
+      method: 'POST',
+      path: `/dash/apps/${appId}/schema/steps/apply`,
+      debugName: 'Schema apply',
+      errorMessage: 'Failed to update schema.',
+      body: {
+        steps: txSteps,
+      },
+      command: 'push',
+    });
+    console.log(chalk.green('Schema updated!'));
+    if (!applyRes.ok) return applyRes;
+
+    if (applyRes.data['indexing-jobs']) {
+      await waitForIndexingJobsToFinish(appId, applyRes.data['indexing-jobs']);
+    }
+  } else {
+    console.info('Schema migration cancelled!');
+  }
 
   return { ok: true };
 }
 
+async function claimEphemeralApp(appId, adminToken) {
+  const res = await fetchJson({
+    method: 'POST',
+    body: {
+      app_id: appId,
+      token: adminToken,
+    },
+    path: `/dash/apps/ephemeral/${appId}/claim`,
+    debugName: 'Claim ephemeral app',
+    errorMessage: 'Failed to claim ephemeral app.',
+    command: 'claim',
+  });
+
+  if (!res.ok) return res;
+
+  console.log(chalk.green('App claimed!'));
+  return { ok: true };
+}
+
 async function pushPerms(appId) {
-  const perms = await readLocalPermsFileWithErrorLogging();
-  if (!perms) {
-    return;
+  const res = await readLocalPermsFileWithErrorLogging();
+  if (!res) {
+    return { ok: true };
   }
 
-  console.log("Planning perms...");
+  console.log('Planning perms...');
 
   const prodPerms = await fetchJson({
     path: `/dash/apps/${appId}/perms/pull`,
-    debugName: "Perms pull",
-    errorMessage: "Failed to pull perms.",
+    debugName: 'Perms pull',
+    errorMessage: 'Failed to pull perms.',
+    command: 'push',
   });
 
-  if (!prodPerms.ok) return;
+  if (!prodPerms.ok) return prodPerms;
 
   const diffedStr = jsonDiff.diffString(
     prodPerms.data.perms || {},
-    perms || {},
+    res.perms || {},
   );
   if (!diffedStr.length) {
-    console.log("No perms changes detected. Exiting.");
-    return;
+    console.log('No perms changes detected. Skipping.');
+    return { ok: true };
   }
 
-  console.log("The following changes will be applied to your perms:");
-  console.log(diffedStr);
-
-  const okPush = await promptOk("OK to proceed?");
-  if (!okPush) return;
+  const okPush = await promptOk(
+    {
+      promptText: 'Push these changes to your perms?',
+      modifyOutput: (output) => {
+        let both = diffedStr + '\n' + output;
+        return boxen(both, {
+          dimBorder: true,
+          padding: {
+            left: 1,
+            right: 1,
+          },
+        });
+      },
+    },
+    program.opts(),
+  );
+  if (!okPush) return { ok: true };
 
   const permsRes = await fetchJson({
-    method: "POST",
+    method: 'POST',
     path: `/dash/apps/${appId}/rules`,
-    debugName: "Schema apply",
-    errorMessage: "Failed to update schema.",
+    debugName: 'Schema apply',
+    errorMessage: 'Failed to update schema.',
     body: {
-      code: perms,
+      code: res.perms,
     },
+    command: 'push',
   });
 
-  if (!permsRes.ok) return;
+  if (!permsRes.ok) return permsRes;
 
-  console.log(chalk.green("Permissions updated!"));
+  console.log(chalk.green('Permissions updated!'));
 
-  return true;
+  return { ok: true };
 }
 
 async function waitForAuthToken({ secret }) {
   for (let i = 1; i <= 120; i++) {
     await sleep(1000);
     const authCheckRes = await fetchJson({
-      method: "POST",
-      debugName: "Auth check",
-      errorMessage: "Failed to check auth status.",
-      path: "/dash/cli/auth/check",
+      method: 'POST',
+      debugName: 'Auth check',
+      errorMessage: 'Failed to check auth status.',
+      path: '/dash/cli/auth/check',
       body: { secret },
       noAuth: true,
       noLogError: true,
+      command: 'login',
     });
     if (authCheckRes.ok) {
       return authCheckRes.data;
     }
-    if (authCheckRes.data?.hint.errors?.[0]?.issue === "waiting-for-user") {
+    if (authCheckRes.data?.hint.errors?.[0]?.issue === 'waiting-for-user') {
       continue;
     }
-    error("Failed to authenticate ");
+    error('Failed to authenticate ');
     prettyPrintJSONErr(authCheckRes.data);
     return;
   }
-  error("Timed out waiting for authentication");
+  error('Timed out waiting for authentication');
   return null;
 }
 
@@ -1214,6 +1830,7 @@ async function waitForAuthToken({ secret }) {
  * @param {Object} [options.body=undefined]
  * @param {boolean} [options.noAuth]
  * @param {boolean} [options.noLogError]
+ * @param {string} [options.command] - The CLI command being executed (e.g., 'push', 'pull', 'login')
  * @returns {Promise<{ ok: boolean; data: any }>}
  */
 async function fetchJson({
@@ -1224,6 +1841,7 @@ async function fetchJson({
   method,
   noAuth,
   noLogError,
+  command,
 }) {
   const withAuth = !noAuth;
   const withErrorLogging = !noLogError;
@@ -1238,18 +1856,20 @@ async function fetchJson({
 
   try {
     const res = await fetch(`${instantBackendOrigin}${path}`, {
-      method: method ?? "GET",
+      method: method ?? 'GET',
       headers: {
         ...(withAuth ? { Authorization: `Bearer ${authToken}` } : {}),
-        "Content-Type": "application/json",
-        "Instant-CLI-Version": version,
+        'Content-Type': 'application/json',
+        'X-Instant-Source': 'instant-cli',
+        'X-Instant-Version': version,
+        ...(command ? { 'X-Instant-Command': command } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(timeoutMs),
     });
 
     if (verbose) {
-      console.log(debugName, "response:", res.status, res.statusText);
+      console.log(debugName, 'response:', res.status, res.statusText);
     }
 
     let data;
@@ -1259,7 +1879,7 @@ async function fetchJson({
       data = null;
     }
     if (verbose && data) {
-      console.log(debugName, "json:", JSON.stringify(data, null, 2));
+      console.log(debugName, 'json:', JSON.stringify(data, null, 2));
     }
     if (!res.ok) {
       if (withErrorLogging) {
@@ -1272,7 +1892,7 @@ async function fetchJson({
     return { ok: true, data };
   } catch (err) {
     if (withErrorLogging) {
-      if (err.name === "AbortError") {
+      if (err.name === 'AbortError') {
         error(
           `Timeout: It took more than ${timeoutMs / 60000} minutes to get the result.`,
         );
@@ -1290,96 +1910,44 @@ function prettyPrintJSONErr(data) {
   }
   if (Array.isArray(data?.hint?.errors)) {
     for (const err of data.hint.errors) {
-      error(`${err.in ? err.in.join("->") + ": " : ""}${err.message}`);
+      error(`${err.in ? err.in.join('->') + ': ' : ''}${err.message}`);
     }
   }
   if (!data) {
-    error("Failed to parse error response");
+    error('Failed to parse error response');
   }
-}
-
-async function promptOk(message, defaultAnswer = false) {
-  const options = program.opts();
-
-  if (options.yes) return true;
-  return await toggle({
-    message,
-    default: defaultAnswer,
-    theme: {
-      style: {
-        highlight: (x) => chalk.underline.blue(x),
-        answer: (x) => chalk.underline.blue(x),
-      },
-    },
-  }).catch(() => false);
-}
-
-/**
- * We need to do a bit of a hack of `@instantdb/react-native`.
- *
- * If a user writes import { i } from '@instantdb/react-native'
- *
- * We will fail to evaluate the file. This is because
- * `@instantdb/react-native` brings in `react-native`, which
- * does not run in a node context.
- *
- * To bypass this, we have a 'cli' module inside `react-native`, which
- * has all the necessary imports
- */
-function transformImports(code) {
-  return code.replace(
-    /"@instantdb\/react-native"/g,
-    '"@instantdb/react-native/dist/cli"',
-  );
 }
 
 async function readLocalPermsFile() {
-  const { config, sources } = await loadConfig({
-    sources: [
-      // load from `instant.perms.xx`
-      {
-        files: "instant.perms",
-        extensions: ["ts", "mts", "cts", "js", "mjs", "cjs", "json"],
-        transform: transformImports,
-      },
-    ],
-    // if false, the only the first matched will be loaded
-    // if true, all matched will be loaded and deep merged
+  const readCandidates = getPermsReadCandidates();
+  const res = await loadConfig({
+    sources: readCandidates,
     merge: false,
   });
-
-  return {
-    perms: config,
-    path: sources.at(0),
-  };
+  if (!res.config) return;
+  const relativePath = path.relative(process.cwd(), res.sources[0]);
+  return { path: relativePath, perms: res.config };
 }
 
 async function readLocalPermsFileWithErrorLogging() {
-  const { perms } = await readLocalPermsFile();
-  if (!perms) {
+  const res = await readLocalPermsFile();
+  if (!res) {
     error(
-      `We couldn't find your ${chalk.yellow("`instant.perms.ts`")} file. Make sure it's in the root directory.`,
+      `We couldn't find your ${chalk.yellow('`instant.perms.ts`')} file. Make sure it's in the root directory. (Hint: You can use an INSTANT_PERMS_FILE_PATH environment variable to specify it.)`,
     );
   }
-  return perms;
+  return res;
 }
 
 async function readLocalSchemaFile() {
-  return (
-    await loadConfig({
-      sources: [
-        // load from `instant.config.xx`
-        {
-          files: "instant.schema",
-          extensions: ["ts", "mts", "cts", "js", "mjs", "cjs"],
-          transform: transformImports,
-        },
-      ],
-      // if false, the only the first matched will be loaded
-      // if true, all matched will be loaded and deep merged
-      merge: false,
-    })
-  ).config;
+  const readCandidates = getSchemaReadCandidates();
+  const res = await loadConfig({
+    sources: readCandidates,
+    merge: false,
+  });
+  if (!res.config) return;
+  const relativePath = path.relative(process.cwd(), res.sources[0]);
+  return { path: relativePath, schema: res.config };
 }
 
 async function readInstantConfigFile() {
@@ -1388,8 +1956,8 @@ async function readInstantConfigFile() {
       sources: [
         // load from `instant.config.xx`
         {
-          files: "instant.config",
-          extensions: ["ts", "mts", "cts", "js", "mjs", "cjs", "json"],
+          files: 'instant.config',
+          extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json'],
         },
       ],
       // if false, the only the first matched will be loaded
@@ -1400,21 +1968,32 @@ async function readInstantConfigFile() {
 }
 
 async function readLocalSchemaFileWithErrorLogging() {
-  const schema = await readLocalSchemaFile();
+  const res = await readLocalSchemaFile();
 
-  if (!schema) {
+  if (!res) {
     error(
-      `We couldn't find your ${chalk.yellow("`instant.schema.ts`")} file. Make sure it's in the root directory.`,
+      `We couldn't find your ${chalk.yellow('`instant.schema.ts`')} file. Make sure it's in the root directory. (Hint: You can use an INSTANT_SCHEMA_FILE_PATH environment variable to specify it.)`,
     );
     return;
   }
 
-  return schema;
+  if (res.schema?.constructor?.name !== 'InstantSchemaDef') {
+    error("We couldn't find your schema export.");
+    error(
+      'In your ' +
+        chalk.green('`instant.schema.ts`') +
+        ' file, make sure you ' +
+        chalk.green('`export default schema`'),
+    );
+    return;
+  }
+
+  return res;
 }
 
-async function readConfigAuthToken() {
+async function readConfigAuthToken(allowAdminToken = true) {
   const options = program.opts();
-  if (options.token) {
+  if (typeof options.token === 'string') {
     return options.token;
   }
 
@@ -1422,19 +2001,33 @@ async function readConfigAuthToken() {
     return process.env.INSTANT_CLI_AUTH_TOKEN;
   }
 
+  if (allowAdminToken) {
+    const adminTokenNames = Object.values(potentialAdminTokenEnvs);
+    for (const envName of adminTokenNames) {
+      const token = process.env[envName];
+      if (token) {
+        return token;
+      }
+    }
+  }
+
   const authToken = await readFile(
     getAuthPaths().authConfigFilePath,
-    "utf-8",
+    'utf-8',
   ).catch(() => null);
 
-  return authToken;
+  if (authToken) {
+    return authToken;
+  }
+
+  return null;
 }
 
-async function readConfigAuthTokenWithErrorLogging() {
+export async function readConfigAuthTokenWithErrorLogging() {
   const token = await readConfigAuthToken();
   if (!token) {
     error(
-      `Looks like you are not logged in. Please log in with ${chalk.green("`instant-cli login`")}`,
+      `Looks like you are not logged in. Please log in with ${chalk.green('`instant-cli login`')}`,
     );
   }
   return token;
@@ -1455,15 +2048,7 @@ async function saveConfigAuthToken(authToken) {
     recursive: true,
   });
 
-  return writeFile(authPaths.authConfigFilePath, authToken, "utf-8");
-}
-
-function getAuthPaths() {
-  const key = `instantdb-${dev ? "dev" : "prod"}`;
-  const { config: appConfigDirPath } = envPaths(key);
-  const authConfigFilePath = join(appConfigDirPath, "a");
-
-  return { authConfigFilePath, appConfigDirPath };
+  return writeFile(authPaths.authConfigFilePath, authToken, 'utf-8');
 }
 
 // utils
@@ -1485,21 +2070,32 @@ function capitalizeFirstLetter(string) {
 }
 
 // attr helpers
+function identEtype(ident) {
+  return ident[1];
+}
+
+function identLabel(ident) {
+  return ident[2];
+}
+
+function identName(ident) {
+  return `${identEtype(ident)}.${identLabel(ident)}`;
+}
 
 function attrFwdLabel(attr) {
-  return attr["forward-identity"]?.[2];
+  return attr['forward-identity']?.[2];
 }
 
 function attrFwdEtype(attr) {
-  return attr["forward-identity"]?.[1];
+  return attr['forward-identity']?.[1];
 }
 
 function attrRevLabel(attr) {
-  return attr["reverse-identity"]?.[2];
+  return attr['reverse-identity']?.[2];
 }
 
 function attrRevEtype(attr) {
-  return attr["reverse-identity"]?.[1];
+  return attr['reverse-identity']?.[1];
 }
 
 function attrFwdName(attr) {
@@ -1507,7 +2103,7 @@ function attrFwdName(attr) {
 }
 
 function attrRevName(attr) {
-  if (attr["reverse-identity"]) {
+  if (attr['reverse-identity']) {
     return `${attrRevEtype(attr)}.${attrRevLabel(attr)}`;
   }
 }
@@ -1515,15 +2111,15 @@ function attrRevName(attr) {
 // templates and constants
 
 export const rels = {
-  "many-false": ["many", "many"],
-  "one-true": ["one", "one"],
-  "many-true": ["many", "one"],
-  "one-false": ["one", "many"],
+  'many-false': ['many', 'many'],
+  'one-true': ['one', 'one'],
+  'many-true': ['many', 'one'],
+  'one-false': ['one', 'many'],
 };
 
-const uuidRegex =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUUID(uuid) {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(uuid);
 }
 
@@ -1556,277 +2152,40 @@ function detectAppIdFromEnvWithErrorLogging() {
     .find(({ value }) => !!value);
   if (found && !isUUID(found.value)) {
     error(
-      `Found ${chalk.green("`" + found.envName + "`")} but it's not a valid UUID.`,
+      `Found ${chalk.green('`' + found.envName + '`')} but it's not a valid UUID.`,
     );
     return { ok: false, found };
   }
   return { ok: true, found };
 }
 
+function detectAppIdAndAdminTokenFromEnvWithErrorLogging() {
+  const appIdResult = Object.keys(potentialEnvs)
+    .map((type) => {
+      const envName = potentialEnvs[type];
+      const value = process.env[envName];
+      return { type, envName, value };
+    })
+    .find(({ value }) => !!value);
+
+  const adminTokenResult = Object.keys(potentialAdminTokenEnvs)
+    .map((type) => {
+      const envName = potentialAdminTokenEnvs[type];
+      const value = process.env[envName];
+      return { type, envName, value };
+    })
+    .find(({ value }) => !!value);
+
+  if (appIdResult && !isUUID(appIdResult.value)) {
+    error(
+      `Found ${chalk.green('`' + appIdResult.envName + '`')} but it's not a valid UUID.`,
+    );
+    return { ok: false, appId: appIdResult, adminToken: adminTokenResult };
+  }
+
+  return { ok: true, appId: appIdResult, adminToken: adminTokenResult };
+}
+
 function appDashUrl(id) {
   return `${instantDashOrigin}/dash?s=main&t=home&app=${id}`;
-}
-
-function generatePermsTypescriptFile(perms, instantModuleName) {
-  const rulesTxt =
-    perms && Object.keys(perms).length
-      ? JSON.stringify(perms, null, 2)
-      : `
-{
-  /**
-   * Welcome to Instant's permission system!
-   * Right now your rules are empty. To start filling them in, check out the docs:
-   * https://www.instantdb.com/docs/permissions
-   *
-   * Here's an example to give you a feel:
-   * posts: {
-   *   allow: {
-   *     view: "true",
-   *     create: "isOwner",
-   *     update: "isOwner",
-   *     delete: "isOwner",
-   *   },
-   *   bind: ["isOwner", "auth.id != null && auth.id == data.ownerId"],
-   * },
-   */
-}
-`.trim();
-  return `
-// Docs: https://www.instantdb.com/docs/permissions
-
-import type { InstantRules } from "${instantModuleName ?? "@instantdb/core"}";
-
-const rules = ${rulesTxt} satisfies InstantRules;
-
-export default rules;
-  `.trim();
-}
-
-function inferredType(config) {
-  const inferredList = config["inferred-types"];
-  const hasJustOne = inferredList?.length === 1;
-  if (!hasJustOne) return null;
-  return inferredList[0];
-}
-
-function deriveClientType(attr) {
-  if (attr["checked-data-type"]) {
-    return { type: attr["checked-data-type"], origin: "checked" };
-  }
-  const inferred = inferredType(attr);
-  if (inferred) {
-    return { type: inferred, origin: "inferred" };
-  }
-  return { type: "any", origin: "unknown" };
-}
-
-function schemaBlobToCodeStr(name, attrs) {
-  // a block of code for each entity
-  return [
-    `  `,
-    `"${name}"`,
-    `: `,
-    `i.entity`,
-    `({`,
-    `\n`,
-    // a line of code for each attribute in the entity
-    sortedEntries(attrs)
-      .filter(([name]) => name !== "id")
-      .map(([name, config]) => {
-        const { type } = deriveClientType(config);
-
-        return [
-          `    `,
-          `"${name}"`,
-          `: `,
-          `i.${type}()`,
-          config["unique?"] ? ".unique()" : "",
-          config["index?"] ? ".indexed()" : "",
-          `,`,
-        ].join("");
-      })
-      .join("\n"),
-    `\n`,
-    `  `,
-    `})`,
-    `,`,
-  ].join("");
-}
-
-/**
- * Note:
- * This is _very_ similar to `schemaBlobToCodeStr`.
- *
- * Right now, the frontend and backend have slightly different data structures for storing entity info.
- *
- * The backend returns {etype: attrs}, where attr keep things like `value-type`
- * The frontend stores {etype: EntityDef}, where EntityDef has a `valueType` field.
- *
- * For now, keeping the two functions separate.
- */
-function entityDefToCodeStr(name, edef) {
-  // a block of code for each entity
-  return [
-    `  `,
-    `"${name}"`,
-    `: `,
-    `i.entity`,
-    `({`,
-    `\n`,
-    // a line of code for each attribute in the entity
-    sortedEntries(edef.attrs)
-      .map(([name, attr]) => {
-        const type = attr["valueType"] || "any";
-
-        return [
-          `    `,
-          `"${name}"`,
-          `: `,
-          `i.${type}()`,
-          attr?.config["unique"] ? ".unique()" : "",
-          attr?.config["indexed"] ? ".indexed()" : "",
-          `,`,
-        ].join("");
-      })
-      .join("\n"),
-    `\n`,
-    `  `,
-    `})`,
-    `,`,
-  ].join("");
-}
-
-function roomDefToCodeStr(room) {
-  let ret = "{";
-  if (room.presence) {
-    ret += `${entityDefToCodeStr("presence", room.presence)}`;
-  }
-  if (room.topics) {
-    ret += `topics: {`;
-    for (const [topicName, topicConfig] of Object.entries(room.topics)) {
-      ret += entityDefToCodeStr(topicName, topicConfig);
-    }
-    ret += `}`;
-  }
-  ret += "}";
-  return ret;
-}
-
-function roomsCodeStr(rooms) {
-  let ret = "{";
-  for (const [roomType, roomDef] of Object.entries(rooms)) {
-    ret += `"${roomType}": ${roomDefToCodeStr(roomDef)},`;
-  }
-  ret += "}";
-  return ret;
-}
-
-function easyPlural(strn, n) {
-  return n === 1 ? strn : strn + "s";
-}
-
-function generateSchemaTypescriptFile(
-  prevSchema,
-  newSchema,
-  instantModuleName,
-) {
-  // entities
-  const entitiesEntriesCode = sortedEntries(newSchema.blobs)
-    .map(([name, attrs]) => schemaBlobToCodeStr(name, attrs))
-    .join("\n");
-  const inferredAttrs = Object.values(newSchema.blobs)
-    .flatMap(Object.values)
-    .filter(
-      (attr) =>
-        attrFwdLabel(attr) !== "id" &&
-        deriveClientType(attr).origin === "inferred",
-    );
-
-  const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
-  const etypes = Object.keys(newSchema.blobs);
-  const hasOnlyUserTable = etypes.length === 1 && etypes[0] === "$users";
-  const entitiesComment =
-    inferredAttrs.length > 0
-      ? `// We inferred ${inferredAttrs.length} ${easyPlural("attribute", inferredAttrs.length)}!
-// Take a look at this schema, and if everything looks good,
-// run \`push schema\` again to enforce the types.`
-      : hasOnlyUserTable
-        ? `
-// This section lets you define entities: think \`posts\`, \`comments\`, etc
-// Take a look at the docs to learn more:
-// https://www.instantdb.com/docs/modeling-data#2-attributes
-`.trim()
-        : "";
-
-  // links
-  const linksEntries = Object.fromEntries(
-    sortedEntries(newSchema.refs).map(([_name, config]) => {
-      const [, fe, flabel] = config["forward-identity"];
-      const [, re, rlabel] = config["reverse-identity"];
-      const [fhas, rhas] = rels[`${config.cardinality}-${config["unique?"]}`];
-      return [
-        `${fe}${capitalizeFirstLetter(flabel)}`,
-        {
-          forward: {
-            on: fe,
-            has: fhas,
-            label: flabel,
-          },
-          reverse: {
-            on: re,
-            has: rhas,
-            label: rlabel,
-          },
-        },
-      ];
-    }),
-  );
-  const linksEntriesCode = JSON.stringify(linksEntries, null, "  ").trim();
-  const hasNoLinks = Object.keys(linksEntries).length === 0;
-  const linksComment = hasNoLinks
-    ? `
-  // You can define links here.
-  // For example, if \`posts\` should have many \`comments\`.
-  // More in the docs:
-  // https://www.instantdb.com/docs/modeling-data#3-links
-  `.trim()
-    : "";
-
-  // rooms
-  const rooms = prevSchema?.rooms || {};
-  const roomsCode = roomsCodeStr(rooms);
-  const roomsComment =
-    Object.keys(rooms).length === 0
-      ? `
-// If you use presence, you can define a room schema here
-// https://www.instantdb.com/docs/presence-and-topics#typesafety
-  `.trim()
-      : "";
-
-  const kv = (k, v, comment) => {
-    return comment
-      ? `
-        ${comment}
-        ${k}: ${v}
-      `.trim()
-      : `${k}: ${v}`;
-  };
-
-  return `
-import { i } from "${instantModuleName ?? "@instantdb/core"}";
-
-const _schema = i.schema({
-  ${kv("entities", entitiesObjCode, entitiesComment)},
-  ${kv("links", linksEntriesCode, linksComment)},
-  ${kv("rooms", roomsCode, roomsComment)}
-});
-
-// This helps Typescript display nicer intellisense
-type _AppSchema = typeof _schema;
-interface AppSchema extends _AppSchema {}
-const schema: AppSchema = _schema;
-
-export type { AppSchema }
-export default schema;
-`;
 }

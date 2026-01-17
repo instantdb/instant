@@ -1,30 +1,75 @@
 {
   "name": "@instantdb/react",
-  "version": "v0.17.12",
+  "version": "0.0.0",
   "description": "Instant DB for React",
-  "main": "dist/index.js",
-  "module": "dist/module/index.js",
-  "types": "dist/module/index.d.ts",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/react"
+  },
+  "type": "module",
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "module": "./dist/esm/index.js",
   "unpkg": "standalone/index.umd.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    },
+    "./nextjs": {
+      "import": {
+        "types": "./dist/esm/next-ssr/index.d.ts",
+        "default": "./dist/esm/next-ssr/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/next-ssr/index.d.ts",
+        "default": "./dist/commonjs/next-ssr/index.js"
+      }
+    }
+  },
+  "tshy": {
+    "selfLink": false,
+    "main": true,
+    "module": true,
+    "project": "./tsconfig.json",
+    "exports": {
+      "./package.json": "./package.json",
+      ".": "./src/index.ts",
+      "./nextjs": "./src/next-ssr/index.tsx"
+    }
+  },
   "scripts": {
     "test": "vitest",
-    "build": "rm -rf dist; npm run build:main && npm run build:module && npm run build:standalone",
-    "dev:main": "tsc -p tsconfig.json -w --skipLibCheck",
-    "dev:module": "tsc -p tsconfig.module.json -w --skipLibCheck",
-    "dev": "run-p dev:main dev:module",
-    "build:main": "tsc -p tsconfig.json",
-    "build:module": "tsc -p tsconfig.module.json",
+    "test:types": "tsc -p tsconfig.test.json --noEmit",
+    "test:ci": "pnpm run test:types",
+    "check-exports": "attw --profile node16 --pack .",
+    "dev": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
+    "clean": "rm -rf dist",
+    "build:tshy": "tshy",
     "build:standalone": "vite build",
-    "publish-package": "npm publish --access public"
+    "build": "rm -rf dist; npm run build:tshy && npm run build:standalone && npm run check-exports",
+    "publish-package": "pnpm pack && npm publish *.tgz --access public"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.4",
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@types/node": "^22.6.1",
     "@types/react": ">=16",
     "@vitejs/plugin-react": "^4.3.1",
     "npm-run-all": "^4.1.5",
-    "typescript": "^5.5.4",
+    "tshy": "^3.0.2",
+    "typescript": "^5.9.3",
+    "next": "^15.5.6",
     "vite": "^5.2.0",
     "vitest": "^0.21.0"
   },
@@ -32,6 +77,9 @@
     "react": ">=16"
   },
   "dependencies": {
-    "@instantdb/core": "workspace:*"
+    "@instantdb/core": "workspace:*",
+    "@instantdb/react-common": "workspace:*",
+    "@instantdb/version": "workspace:*",
+    "eventsource": "^4.0.0"
   }
 }

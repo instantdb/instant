@@ -1,9 +1,11 @@
 (ns instant.util.instaql
-  (:require [instant.db.model.attr :as attr-model]
+  (:require [clojure.walk :as walk]
+            [instant.db.model.attr :as attr-model]
             [instant.db.model.attr-pat :as attr-pat]
             [instant.db.model.entity :as entity-model]
             [instant.util.uuid :as uuid-util]
-            [instant.db.model.triple :as triple-model]))
+            [instant.db.model.triple :as triple-model]
+            [medley.core :refer [update-existing-in]]))
 
 (declare instaql-ref-nodes->object-tree)
 
@@ -98,3 +100,43 @@
   (let [enriched-nodes
         (map (fn [n] (update n :data (fn [d] (assoc d :etype (:k d))))) nodes)]
     (instaql-ref-nodes->object-tree ctx enriched-nodes)))
+
+(defn instaql-nodes->object-meta
+  "Returns page-info and aggregate for the instaql result."
+  [nodes]
+  (reduce (fn [meta node]
+            (let [page-info (get-in node [:data :datalog-result :page-info])
+                  aggregate (get-in node [:data :datalog-result :aggregate])]
+              (cond-> meta
+                page-info (assoc-in [:page-info (-> node :data :k)] page-info)
+                aggregate (assoc-in [:aggregate (-> node :data :k)] aggregate))))
+          {:page-info {}
+           :aggregate {}}
+          nodes))
+
+(defn- clean-where-for-hash [where]
+  (walk/postwalk (fn [x]
+                   (cond (string? x)
+                         :string
+                         (number? x)
+                         :number
+                         (uuid? x)
+                         :uuid
+                         (boolean? x)
+                         :boolean
+                         :else x))
+                 where))
+
+(defn normalized-forms [forms]
+  (walk/postwalk (fn [v]
+                   (if (and (map? v)
+                            (contains? v :$))
+                     (-> v
+                         (update-existing-in [:$ :where] clean-where-for-hash)
+                         (update-existing-in [:$ :before] (constantly :cursor))
+                         (update-existing-in [:$ :after] (constantly :cursor)))
+                     v))
+                 forms))
+
+(defn forms-hash [forms]
+  (hash (normalized-forms forms)))

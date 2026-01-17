@@ -24,6 +24,10 @@
     (.update ^CRC32 crc bytes)
     (.getValue ^CRC32 crc)))
 
+(defn safe-trim [s]
+  (when (string? s)
+       (string/trim s)))
+
 (defn coerce-non-blank-str [s]
   (cond
     (number? s) (str s)
@@ -42,7 +46,7 @@
   (loop [next-idx 0
          idxes []]
     (if-let [found-idx (string/index-of s value next-idx)]
-      (recur (inc found-idx)
+      (recur (long (inc found-idx))
              (conj idxes found-idx))
       idxes)))
 

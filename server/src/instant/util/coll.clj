@@ -1,5 +1,7 @@
 (ns instant.util.coll
-  (:require [medley.core :as medley]))
+  (:require
+   [clojure+.walk :as walk]
+   [medley.core :as medley]))
 
 (defn split-last [coll]
   (list (butlast coll)
@@ -23,6 +25,15 @@
                (reduced x)
                not-found))
            not-found coll)))
+
+(defn exists?
+  "Returns true if any item in the coll matches (pred item), otherwise false."
+  [pred coll]
+  (reduce (fn [acc x]
+            (if (pred x)
+              (reduced true)
+              acc))
+          false coll))
 
 (defn pad [n val coll]
   (let [cnt (- n (count coll))]
@@ -68,7 +79,7 @@
       (assoc-in m ks (apply f old-v args)))))
 
 (defn update-when
-  "Like update-in, but only updates when `ks` is present"
+  "Like update, but only updates when `k` is present"
   [m k f & args]
   (let [old-v (get m k not-found)]
     (if (identical? old-v not-found)
@@ -136,13 +147,27 @@
   ;; => {:b 1}
   )
 
+(defn split-map-by-namespace
+  "Splits a map into multiple maps by the namespace of each key.
+   Only handles a single level.
+   Example:
+     {:a/b 1 :a/c 2, :d/e 3 :d/f 4 :g 5}
+       -> {:a {:b 1 :c 2} :d {:e 3 :f 4} nil {:g 5}}"
+  [m]
+  (when m
+    (reduce-kv (fn [acc k v]
+                 (if-not (keyword? k)
+                   (assoc-in acc [nil k] v)
+                   (assoc-in acc [(keyword (namespace k)) (keyword (name k))] v)))
+               (empty {})
+               m)))
+
 (defmacro array-of
   [klass vals]
   (let [^Class resolved (resolve klass)]
     (with-meta
       (list 'into-array resolved vals)
       {:tag (str "[L" (.getName resolved) ";")})))
-
 
 (defn third
   "Returns the third element in a collection."
@@ -157,6 +182,36 @@
             (update acc v (fnil conj #{}) k))
           {}
           m))
+
+(defn map-keys
+  "Apply `f` to keys of `m`"
+  [f m]
+  (persistent!
+   (reduce-kv
+    (fn [m k v]
+      (assoc! m (f k) v))
+    (transient (empty m)) m)))
+
+(defn map-vals
+  "Apply `f` to vals of `m`"
+  [f m]
+  (persistent!
+   (reduce-kv
+    (fn [m k v]
+      (assoc! m k (f v)))
+    (transient (empty m)) m)))
+
+(defn filter-keys
+  "Only keep keys in `m` that return truthy for `(pred key)`"
+  [pred m]
+  (when m
+    (persistent!
+     (reduce-kv
+      (fn [m key _]
+        (if (pred key)
+          m
+          (dissoc! m key)))
+      (transient m) m))))
 
 (defn every?-var-args [pred & colls]
   (if (= 1 (count colls))
@@ -175,20 +230,55 @@
                [(transient []) (transient [])] xs)]
     [(persistent! f) (persistent! r)]))
 
+(defn map-by
+  "Given xs, builds a map of {(key-fn x) (val-fn x)}.
+   If omitted, val-fn is assumed to be identity"
+  ([key-fn xs]
+   (map-by key-fn identity xs))
+  ([key-fn val-fn xs]
+   (persistent!
+    (reduce
+     (fn [m x]
+       (assoc! m (key-fn x) (val-fn x)))
+     (transient {}) xs))))
+
 (defn group-by-to
   "Like group-by but applies (val-fn x) to values"
-  [key-fn val-fn xs]
-  (persistent!
-   (reduce
-    (fn [m x]
-      (let [k (key-fn x)
-            v (val-fn x)
-            old-v (get m k [])]
-        (assoc! m k (conj old-v v))))
-    (transient {}) xs)))
+  ([key-fn val-fn xs]
+   (group-by-to key-fn val-fn [] xs))
+  ([key-fn val-fn container xs]
+   (persistent!
+    (reduce
+     (fn [m x]
+       (let [k (key-fn x)
+             v (val-fn x)
+             old-v (get m k container)]
+         (assoc! m k (conj old-v v))))
+     (transient {}) xs))))
 
 (defn reduce-tr
   "Like reduce but makes acc transient/persistent automatically"
   [f init xs]
   (persistent!
    (reduce f (transient init) xs)))
+
+(defn reduce-kv-tr
+  "Like reduce-kv but makes acc transient/persistent automatically"
+  [f init xs]
+  (persistent!
+   (reduce-kv f (transient init) xs)))
+
+(defn update!
+  "update for transients"
+  [m k f & args]
+  (assoc! m k (apply f (get m k) args)))
+
+(defn collect [pred form]
+  (let [res (volatile! (transient []))]
+    (walk/postwalk
+     (fn [form]
+       (when (pred form)
+         (vswap! res conj! form))
+       form)
+     form)
+    (persistent! @res)))

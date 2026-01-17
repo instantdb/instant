@@ -8,7 +8,7 @@ import {
   type LinksDef,
   type RoomsDef,
   type UnknownRooms,
-} from "./schemaTypes";
+} from './schemaTypes.ts';
 
 // ==========
 // API
@@ -25,7 +25,7 @@ import {
  * i.schema({ entities, links, rooms })
  *
  * @see
- * https://instantdb.com/docs/schema
+ * https://instantdb.com/docs/modeling-data
  */
 function graph<
   EntitiesWithoutLinks extends EntitiesDef,
@@ -39,14 +39,14 @@ function graph<
     // correctly aligned and does not allow for substituting a type that might
     // be broader or have additional properties.
     links as LinksDef<any>,
-    undefined as UnknownRooms,
+    undefined as unknown as UnknownRooms,
   );
 }
 
 /**
  * Creates an entity definition, to be used in conjunction with `i.graph`.
  *
- * @see https://instantdb.com/docs/schema
+ * @see https://instantdb.com/docs/modeling-data
  * @example
  *   {
  *     posts: i.entity({
@@ -66,29 +66,30 @@ function entity<Attrs extends AttrsDefs>(
 
 function string<StringEnum extends string = string>(): DataAttrDef<
   StringEnum,
-  true
+  true,
+  false
 > {
-  return new DataAttrDef("string", true);
+  return new DataAttrDef('string', true, false);
 }
 
-function number(): DataAttrDef<number, true> {
-  return new DataAttrDef("number", true);
+function number(): DataAttrDef<number, true, false> {
+  return new DataAttrDef('number', true, false);
 }
 
-function boolean(): DataAttrDef<boolean, true> {
-  return new DataAttrDef("boolean", true);
+function boolean(): DataAttrDef<boolean, true, false> {
+  return new DataAttrDef('boolean', true, false);
 }
 
-function date(): DataAttrDef<string | number, true> {
-  return new DataAttrDef("date", true);
+function date(): DataAttrDef<Date, true, false> {
+  return new DataAttrDef('date', true, false);
 }
 
-function json<T = any>(): DataAttrDef<T, true> {
-  return new DataAttrDef("json", true);
+function json<T = any>(): DataAttrDef<T, true, false> {
+  return new DataAttrDef('json', true, false);
 }
 
-function any(): DataAttrDef<any, true> {
-  return new DataAttrDef("json", true);
+function any(): DataAttrDef<any, true, false> {
+  return new DataAttrDef('json', true, false);
 }
 
 // ==========
@@ -130,7 +131,7 @@ function enrichEntitiesWithLinks<
 }
 
 type LinksIndex = Record<
-  "fwd" | "rev",
+  'fwd' | 'rev',
   Record<string, Record<string, { entityName: string; cardinality: string }>>
 >;
 
@@ -143,7 +144,7 @@ type LinksIndex = Record<
  * You can push this schema to your database with the CLI,
  * or use it inside `init`, to get typesafety and autocompletion.
  *
- * @see https://instantdb.com/docs/schema
+ * @see https://instantdb.com/docs/modeling-data
  * @example
  *   i.schema({
  *     entities: { },
@@ -154,7 +155,7 @@ type LinksIndex = Record<
 function schema<
   EntitiesWithoutLinks extends EntitiesDef,
   const Links extends LinksDef<EntitiesWithoutLinks>,
-  Rooms extends RoomsDef,
+  Rooms extends RoomsDef = {},
 >({
   entities,
   links,
@@ -164,11 +165,11 @@ function schema<
   links?: Links;
   rooms?: Rooms;
 }) {
-  const linksDef = links ?? {} as Links;
-  const roomsDef = rooms ?? {} as Rooms;
+  const linksDef = (links ?? {}) as Links;
+  const roomsDef = (rooms ?? {}) as Rooms;
   return new InstantSchemaDef(
     enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, linksDef),
-    // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
+    // (XXX): LinksDef<any> stems from TypeScript's inability to reconcile the
     // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
     // EntitiesWithoutLinks. TypeScript is strict about ensuring that types are
     // correctly aligned and does not allow for substituting a type that might

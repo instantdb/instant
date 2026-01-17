@@ -229,5 +229,23 @@
     "unique?": false,
     "index?": false,
     "on-delete": "cascade"
+  },
+  {
+    "id": "f187a211-a2ef-48cc-8beb-e1abe01dedfe",
+    "value-type": "ref",
+    "cardinality": "many",
+    "forward-identity": [
+      "e2f733eb-65ba-4a70-aa66-96aa0a51cdaa",
+      "books",
+      "next"
+    ],
+    "reverse-identity": [
+      "67e8fe91-22bd-4d94-b44b-6c8f6bbc9a2a",
+      "books",
+      "previous"
+    ],
+    "unique?": true,
+    "index?": false,
+    "on-delete-reverse": "cascade"
   }
 ]

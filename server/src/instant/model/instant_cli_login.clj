@@ -5,7 +5,8 @@
             [instant.util.exception :as ex])
   (:import
    (java.time Instant)
-   (java.time.temporal ChronoUnit)))
+   (java.time.temporal ChronoUnit)
+   (java.util Date)))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
@@ -35,7 +36,7 @@
 (defn expired?
   ([magic-code] (expired? (Instant/now) magic-code))
   ([now {created-at :created_at}]
-   (> (.between ChronoUnit/MINUTES (.toInstant created-at) now) 2)))
+   (> (.between ChronoUnit/MINUTES (Date/.toInstant created-at) now) 2)))
 
 (defn voided?
   [{used? :used user-id :user_id :as _login}]

@@ -1,0 +1,363 @@
+import config, { stripeKey } from '@/lib/config';
+import { TokenContext } from '@/lib/contexts';
+import { jsonFetch } from '@/lib/fetch';
+import { useContext, useEffect, useState } from 'react';
+import { Button } from '../ui';
+import { friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
+import { loadStripe } from '@stripe/stripe-js';
+import { messageFromInstantError } from '@/lib/errors';
+import { InstantIssue } from '@instantdb/core';
+import { errorToast } from '@/lib/toast';
+import { useFetchedDash } from './MainDashLayout';
+
+function createOrg(token: string, params: { title: string }) {
+  return jsonFetch(`${config.apiURI}/dash/orgs`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(params),
+  });
+}
+
+function deleteOrg(token: string, params: { id: string }) {
+  return jsonFetch(`${config.apiURI}/dash/orgs/${params.id}`, {
+    method: 'DELETE',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+  });
+}
+
+async function createPortalSession(orgId: string, token: string) {
+  const sessionPromise = jsonFetch(
+    `${config.apiURI}/dash/orgs/${orgId}/portal_session`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+  Promise.all([loadStripe(stripeKey), sessionPromise])
+    .then(([stripe, session]) => {
+      if (!stripe || !session) {
+        throw new Error('Failed to create portal session');
+      }
+      window.open(session.url, '_blank');
+    })
+    .catch((err) => {
+      const message =
+        messageFromInstantError(err as InstantIssue) ||
+        'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
+      const friendlyMessage = friendlyErrorMessage('dash-billing', message);
+      errorToast(friendlyMessage);
+      console.error(err);
+    });
+}
+
+async function rename(
+  { orgId, title }: { orgId: string; title: string },
+  token: string,
+) {
+  await jsonFetch(`${config.apiURI}/dash/orgs/${orgId}/rename`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ title: title }),
+  });
+}
+
+async function createCheckoutSession(orgId: string, token: string) {
+  const sessionPromise = jsonFetch(
+    `${config.apiURI}/dash/orgs/${orgId}/checkout_session`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+  Promise.all([loadStripe(stripeKey), sessionPromise])
+    .then(([stripe, session]) => {
+      if (!stripe || !session) {
+        throw new Error('Failed to create checkout session');
+      }
+      stripe.redirectToCheckout({ sessionId: session.id });
+    })
+    .catch((err) => {
+      const message =
+        messageFromInstantError(err as InstantIssue) ||
+        'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
+      const friendlyMessage = friendlyErrorMessage('dash-billing', message);
+      errorToast(friendlyMessage);
+      console.error(err);
+    });
+}
+
+async function transfer(
+  { appId, orgId }: { appId: string; orgId: string },
+  token: string,
+) {
+  return await jsonFetch(
+    `${config.apiURI}/dash/apps/${appId}/transfer_to_org/${orgId}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+}
+
+function OrgDetails({ id }: { id: string }) {
+  const token = useContext(TokenContext);
+  const resp = useAuthedFetch(`${config.apiURI}/dash/orgs/${id}`);
+  const billingResp = useAuthedFetch(
+    `${config.apiURI}/dash/orgs/${id}/billing`,
+  );
+
+  if (resp.isLoading || billingResp.isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (resp.error || !resp.data || billingResp.error || !billingResp.data) {
+    return (
+      <div>
+        Error:{' '}
+        <pre>{JSON.stringify(resp.error || billingResp.error, null, 2)}</pre>
+      </div>
+    );
+  }
+
+  const { apps, members, invites, org } = resp.data;
+
+  return (
+    <div className="p-8">
+      <div>Data</div>
+      <pre className="text-sm">{JSON.stringify(org, null, 2)}</pre>
+      <details open={true}>
+        <summary>Apps</summary>
+        <div className="mb-4 ml-4">
+          {apps.map((app: any) => (
+            <details key={app.id}>
+              <summary>
+                {app.title}{' '}
+                <Button
+                  onClick={async () => {
+                    const orgId = prompt('Enter the org id to transfer to.');
+                    if (!orgId) {
+                      return;
+                    }
+                    try {
+                      const resp = await transfer(
+                        { orgId, appId: app.id },
+                        token,
+                      );
+                      console.log('transfer resp', resp);
+                      if (resp.credit) {
+                        alert(`You get a credit! ${resp.credit * -1}`);
+                      }
+                      resp.mutate();
+                    } catch (e) {
+                      console.log('Error in transfer', e);
+                    }
+                  }}
+                  variant="subtle"
+                >
+                  Transfer to org
+                </Button>
+              </summary>
+
+              <pre className="text-sm">{JSON.stringify(app, null, 2)}</pre>
+            </details>
+          ))}
+        </div>
+      </details>
+      <details open={true}>
+        <summary>Members</summary>
+        <div className="mb-4 ml-4">
+          {members.map((member: any) => (
+            <details key={member.id}>
+              <summary>{member.email}</summary>
+              <pre className="text-sm">{JSON.stringify(member, null, 2)}</pre>
+            </details>
+          ))}
+        </div>
+      </details>
+      <details open={true}>
+        <summary>Invites</summary>
+        <div className="mb-4 ml-4">
+          {invites.map((invite: any) => (
+            <details key={invite.id}>
+              <summary>{invite.email}</summary>
+              <pre className="text-sm">{JSON.stringify(invite, null, 2)}</pre>
+            </details>
+          ))}
+        </div>
+      </details>
+      <div>Billing Data</div>
+      <pre className="text-sm">{JSON.stringify(billingResp.data, null, 2)}</pre>
+      <Button
+        variant="subtle"
+        onClick={async () => {
+          createCheckoutSession(id, token);
+        }}
+      >
+        Setup Billing
+      </Button>
+
+      <Button
+        variant="subtle"
+        onClick={async () => {
+          createPortalSession(id, token);
+        }}
+      >
+        Manage Billing
+      </Button>
+      <Button
+        variant="subtle"
+        onClick={async () => {
+          const title = prompt('What should we call it?');
+          if (title) {
+            await rename({ orgId: id, title }, token);
+            resp.mutate();
+          }
+        }}
+      >
+        Rename
+      </Button>
+    </div>
+  );
+}
+
+export default function Orgs({
+  orgId,
+}: {
+  orgId: string | string[] | undefined;
+}) {
+  const token = useContext(TokenContext);
+
+  const dashResponse = useFetchedDash();
+
+  const [expandedOrgs, setExpandedOrgs] = useState<string[]>(
+    orgId && typeof orgId === 'string' ? [orgId] : [],
+  );
+
+  console.log('orgId', orgId);
+
+  useEffect(() => {
+    if (orgId && typeof orgId === 'string') {
+      setExpandedOrgs((ids) => (ids.includes(orgId) ? ids : [...ids, orgId]));
+    }
+  }, [orgId]);
+
+  const { apps, orgs } = dashResponse.data;
+
+  return (
+    <div className="mx-auto flex max-w-2xl flex-1 flex-col overflow-scroll p-4">
+      <div>
+        {(orgs || []).map((org) => {
+          const expanded = expandedOrgs.includes(org.id);
+          return (
+            <div key={org.id}>
+              <Button
+                variant="subtle"
+                onClick={() => {
+                  if (expanded) {
+                    setExpandedOrgs(expandedOrgs.filter((x) => x !== org.id));
+                  } else {
+                    setExpandedOrgs([...expandedOrgs, org.id]);
+                  }
+                }}
+              >
+                {org.title}
+              </Button>
+              <Button
+                variant="subtle"
+                onClick={async () => {
+                  try {
+                    await deleteOrg(token, { id: org.id });
+
+                    dashResponse.mutate();
+                  } catch (e) {
+                    console.log('Error deleting org', e);
+                    alert((e as Error).message || (e as any).body?.message);
+                  }
+                }}
+              >
+                Delete
+              </Button>
+              {expanded ? <OrgDetails id={org.id} /> : null}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex flex-row items-center justify-between">
+        <Button
+          onClick={async () => {
+            const title = prompt('Give your org a name');
+            try {
+              if (!title) {
+                throw new Error('Missing title.');
+              }
+              await createOrg(token, { title: title });
+              dashResponse.mutate();
+            } catch (e) {
+              console.error('Error creating org', e);
+              alert((e as Error).message || (e as any).body?.message);
+            }
+          }}
+        >
+          Create new org
+        </Button>
+      </div>
+      <div className="mt-8">
+        <details>
+          <summary>Apps</summary>
+          <div className="mb-4 ml-4">
+            {apps?.map((app: any) => (
+              <details key={app.id}>
+                <summary>
+                  {app.title}{' '}
+                  <Button
+                    onClick={async () => {
+                      const orgId = prompt('Enter the org id to transfer to.');
+                      if (!orgId) {
+                        return;
+                      }
+                      try {
+                        const resp = await transfer(
+                          { orgId, appId: app.id },
+                          token,
+                        );
+                        console.log('transfer resp', resp);
+                        if (resp.credit) {
+                          alert(`You get a credit! ${resp.credit * -1}`);
+                        }
+                        dashResponse.mutate();
+                      } catch (e) {
+                        console.log('Error in transfer', e);
+                      }
+                    }}
+                    variant="subtle"
+                  >
+                    Transfer to org
+                  </Button>
+                </summary>
+                <pre className="text-sm">{JSON.stringify(app, null, 2)}</pre>
+              </details>
+            ))}
+          </div>
+        </details>
+      </div>
+    </div>
+  );
+}

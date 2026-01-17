@@ -1,5 +1,6 @@
 ---
 title: Managing users
+description: How to manage users in your Instant app.
 ---
 
 ## See users in your app
@@ -34,15 +35,36 @@ const rules = {
 export default rules;
 ```
 
-Right now `$users` is a read-only namespace. You can override the `view`
-permission to whatever you like, but `create`, `delete`, and `update`
-are restricted.
+Since `$users` is a managed namespace, you can override `view` and `update` rules, but not `create` or `delete`. These are handled by the Instant backend.
+
+## Sharing user data
+
+If you want to make the users table public, you can always change the `view` permission. If you do this, be sure to write an appropriate `field` permission on `emails` so that those columns don't leak.
+
+```javascript
+// instant.perms.ts
+import type { InstantRules } from "@instantdb/react";
+
+const rules = {
+  $users: {
+    allow: {
+      view: 'true', // anyone can see users
+      create: 'false',
+      delete: 'false',
+      update: 'false',
+    },
+    fields: {
+      email: "auth.id == data.id" // but only the logged in user can see their own email.
+    }
+  },
+} satisfies InstantRules;
+
+export default rules;
+```
 
 ## Adding properties
 
-Although you cannot directly add properties to the `$users` namespace, you can
-create links to other namespaces. Here is an example of a schema for a todo app that has users,
-roles, profiles, and todos:
+You can add optional properties on the `$users` table. Here is an example of a schema for a todo app where users have nicknames and roles:
 
 ```javascript
 // instant.schema.ts
@@ -52,38 +74,29 @@ const _schema = i.schema({
   entities: {
     $users: i.entity({
       email: i.any().unique().indexed(),
-    }),
-    profiles: i.entity({
-      nickname: i.string(), // We can't add this directly to `$users`
-      userId: i.string().unique(),
+      nickname: i.string().optional(), // Users now have a `nickname` property
     }),
     roles: i.entity({
-      type: i.string().unique(), // We couldn't add this directly to `$users` either
+      type: i.string().indexed(),
     }),
     todos: i.entity({
       text: i.string(),
-      userId: i.string(),
       completed: i.boolean(),
     }),
   },
   links: {
-    // `$users` is in the reverse direction for all these links!
+    userRoles: {
+      forward: { on: '$users', has: 'many', label: 'roles' },
+      reverse: { on: 'roles', has: 'many', label: 'users' },
+    },
     todoOwner: {
       forward: { on: 'todos', has: 'one', label: 'owner' },
       reverse: { on: '$users', has: 'many', label: 'todos'},
     },
-    userRoles: {
-      forward: { on: 'roles', has: 'many', label: 'users' },
-      reverse: { on: '$users', has: 'one', label: 'role' },
-    },
-    userProfiles: {
-      forward: { on: 'profiles', has: 'one', label: 'user' },
-      reverse: { on: '$users', has: 'one', label: 'profile' },
-    },
   },
 });
 
-// This helps Typescript display nicer intellisense
+// This helps TypeScript display nicer intellisense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
@@ -94,8 +107,7 @@ export default schema;
 
 ### Links
 
-We created three links `todoOwner`, `userRoles`, and `userProfiles` to link the `$users`
-namespace to the `todos`, `roles`, and `profiles` namespaces respectively: 
+We created two links `userRoles`, `todoOwner`:
 
 ```typescript
 // instant.schema.ts
@@ -104,28 +116,23 @@ import { i } from '@instantdb/react';
 const _schema = i.schema({
   // ..
   links: {
-    // `$users` is in the reverse direction for all these links!
+    userRoles: {
+      forward: { on: '$users', has: 'many', label: 'roles' },
+      reverse: { on: 'roles', has: 'many', label: 'users' },
+    },
     todoOwner: {
       forward: { on: 'todos', has: 'one', label: 'owner' },
       reverse: { on: '$users', has: 'many', label: 'todos' },
-    },
-    userRoles: {
-      forward: { on: 'roles', has: 'many', label: 'users' },
-      reverse: { on: '$users', has: 'one', label: 'role' },
-    },
-    userProfiles: {
-      forward: { on: 'profiles', has: 'one', label: 'user' },
-      reverse: { on: '$users', has: 'one', label: 'profile' },
     },
   },
 });
 ```
 
-Notice that the `$users` namespace is in the reverse direction for all links. If you try to create a link with `$users` in the forward direction, you'll get an error. 
+Notice that none of the links are required. You can't require links for `$users`.
 
 ### Attributes
 
-Now take a look at the `profiles` namespace:
+Now look at the `nickname` attribute we just added:
 
 ```typescript
 // instant.schema.ts
@@ -133,21 +140,18 @@ import { i } from '@instantdb/react';
 
 const _schema = i.schema({
   entities: {
-    // ...
-    profiles: i.entity({
-      nickname: i.string(), // We can't add this directly to `$users`
+    $users: i.entity({
+      email: i.any().unique().indexed(),
+      nickname: i.string().optional(), // Users now have a `nickname` property
     }),
   },
   // ...
 });
 ```
 
-You may be wondering why we didn't add `nickname` directly to the `$users` namespace. This is
-because the `$users` namespace is read-only and we cannot add properties to it.
-If you want to add additional properties to a user, you'll need to create a
-new namespace and link it to `$users`.
+Note that `nickname` is optional too. Custom columns on `$users` have to be optional.
 
---- 
+---
 
 Once done, you can include user information in the client like so:
 
@@ -156,8 +160,8 @@ Once done, you can include user information in the client like so:
 const addTodo = (newTodo, currentUser) => {
   const newId = id();
   db.transact(
-    tx.todos[newId]
-      .update({ text: newTodo, userId: currentUser.id, completed: false })
+    db.tx.todos[newId]
+      .update({ text: newTodo, completed: false })
       // Link the todo to the user with the `owner` label we defined in the schema
       .link({ owner: currentUser.id }),
   );
@@ -166,38 +170,11 @@ const addTodo = (newTodo, currentUser) => {
 // Creates or updates a user profile with a nickname and links it to the
 // current user
 const updateNick = (newNick, currentUser) => {
-  const profileId = lookup('email', currentUser.email);
-  db.transact([
-    tx.profiles[profileId]
-      .update({ userId: currentUser.id, nickname: newNick })
-      // Link the profile to the user with the `user` label we defined in the schema
-      .link({ user: currentUser.id }),
-  ]);
+  db.transact([db.tx.$users[currentUser.id].update({ nickname: newNick })]);
 };
 ```
 
-If attr creation on the client [is enabled](/docs/permissions#attrs),
-you can also create new links without having to define them in the schema. In
-this case you can only link to `$users` and not from `$users`.
-
-```javascript
-// Comments is a new namespace! We haven't defined it in the schema.
-
-// ✅ This works!
-const commentId = id()
-db.transact(
-  tx.comments[commentId].update({ text: 'Hello world', userId: currentUser.id })
-    .link({ $user: currentUser.id }));
-
-// ❌ This will not work! Cannot create a forward link on the fly
-const commentId = id()
-db.transact([
-  tx.comments[id()].update({ text: 'Hello world', userId: currentUser.id }),
-  tx.$users[currentUser.id].link({ comment: commentId }))]);
-
-// ❌ This will also not work! Cannot create new properties on `$users`
-db.transact(tx.$users[currentUser.id].update({ nickname: "Alyssa" }))
-```
+At the moment you can only use `transact` to update the custom properties you added. Changing default columns like `email` would cause the transaction to fail.
 
 ## User permissions
 
@@ -239,16 +216,15 @@ more complex permission rules.
 ```javascript
 export default {
   // users perms...
-  "todos": {
-    "bind" : [
-      "isAdmin", "'admin' in auth.ref('$user.role.type')",
-      "isOwner", "data.id in auth.ref('$user.todos.id')"
-    ],
-    "allow": {
+  todos: {
+    bind: {
+      isAdmin: "'admin' in auth.ref('$user.roles.type')",
+      isOwner: "data.id in auth.ref('$user.todos.id')",
+    },
+    allow: {
       // We traverse the users links directly from the auth object
-      "update": "isAdmin || isOwner",
-    }
-  }
+      update: 'isAdmin || isOwner',
+    },
+  },
 };
-
 ```

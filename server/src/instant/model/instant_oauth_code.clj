@@ -5,7 +5,8 @@
             [instant.util.exception :as ex])
   (:import
    (java.time Instant)
-   (java.time.temporal ChronoUnit)))
+   (java.time.temporal ChronoUnit)
+   (java.util Date)))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
@@ -18,7 +19,7 @@
 (defn expired?
   ([oauth-redirect] (expired? (Instant/now) oauth-redirect))
   ([now {created-at :created_at}]
-   (> (.between ChronoUnit/MINUTES (.toInstant created-at) now) 5)))
+   (> (.between ChronoUnit/MINUTES (Date/.toInstant created-at) now) 5)))
 
 (defn consume!
   "Gets and deletes the oauth-code so that it can be used only once."

@@ -12,11 +12,9 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.entity :as entity-model]
    [instant.db.model.triple :as triple-model]
-   [instant.util.spec :as uspec])
-  (:import
-   (java.util UUID)))
+   [instant.util.spec :as uspec]))
 
-(defn extract-zeneca-txes [checked-data?]
+(defn extract-zeneca-txes [{:keys [checked-data? indexed-data?]}]
   (let [imported (<-json (slurp (io/resource "sample_triples/zeneca.json")))
         triples (->> imported
                      (remove (fn [[_ a v]]
@@ -27,7 +25,7 @@
                                    (not v)))))
         eid->uuid (->> triples
                        (map (fn [[id _ _]]
-                              [id (java.util.UUID/randomUUID)]))
+                              [id (random-uuid)]))
                        (into {}))
         triples-with-eids
         (->> triples
@@ -41,7 +39,7 @@
                        v)])))
         attr->uuid (->> triples
                         (map (fn [[_ a _]]
-                               [a (java.util.UUID/randomUUID)]))
+                               [a (random-uuid)]))
                         (into {}))
         triples-with-attr-ids
         (->> triples-with-eids
@@ -62,28 +60,31 @@
                    (cond
                      ref?
                      {:id uuid
-                      :forward-identity [(java.util.UUID/randomUUID) nsp idn]
-                      :reverse-identity [(java.util.UUID/randomUUID) idn nsp]
+                      :forward-identity [(random-uuid) nsp idn]
+                      :reverse-identity [(random-uuid) idn nsp]
                       :cardinality :many
                       :value-type :ref
                       :unique? false
                       :index? false}
                      (= "id" idn)
                      {:id uuid
-                      :forward-identity [(java.util.UUID/randomUUID) nsp "id"]
-                      :reverse-identity [(java.util.UUID/randomUUID) nsp "_id"]
+                      :forward-identity [(random-uuid) nsp "id"]
                       :cardinality :one
-                      :value-type :ref
+                      :value-type :blob
                       :unique? true
-                      :index? true}
+                      :index? false}
                      :else
                      (merge
                       {:id uuid
-                       :forward-identity [(java.util.UUID/randomUUID) nsp idn]
+                       :forward-identity [(random-uuid) nsp idn]
                        :cardinality :one
                        :value-type :blob
-                       :unique? (boolean (#{"email" "handle" "isbn13"} idn))
-                       :index? (boolean (#{"email" "handle" "title" "order"} idn))}
+                       :unique? (if-not indexed-data?
+                                  false
+                                  (boolean (#{"email" "handle" "isbn13"} idn)))
+                       :index? (if-not indexed-data?
+                                 false
+                                 (boolean (#{"email" "handle" "title" "order"} idn)))}
                       (when-let [data-type (when checked-data?
                                              (case idn
                                                ("email"
@@ -110,16 +111,20 @@
 
 (defn add-zeneca-to-app!
   "Bootstraps an app with zeneca data."
-  ([app-id] (add-zeneca-to-app! (aurora/conn-pool :write) false app-id))
-  ([checked-data? app-id]
-   (add-zeneca-to-app! (aurora/conn-pool :write) checked-data? app-id))
-  ([conn checked-data? app-id]
+  ([app-id] (add-zeneca-to-app! (aurora/conn-pool :write)
+                                {:checked-data? false
+                                 :indexed-data? true}
+                                app-id))
+  ([opts app-id]
+   (add-zeneca-to-app! (aurora/conn-pool :write) opts app-id))
+  ([conn {:keys [checked-data? indexed-data?]} app-id]
    ;; Note: This is ugly code, but it works.
    ;; Maybe we clean it up later, but we don't really need to right now.
    ;; One idea for a cleanup, is to create an "exported app" file.
    ;; We can then write a function that works on this kind of file schema.
-   (attr-model/delete-by-app-id! conn app-id)
-   (let [txes (extract-zeneca-txes checked-data?)
+   (attr-model/hard-delete-by-app-id! conn app-id)
+   (let [txes (extract-zeneca-txes {:checked-data? checked-data?
+                                    :indexed-data? indexed-data?})
          _ (tx/transact!
             conn
             (attr-model/get-by-app-id app-id)
@@ -137,8 +142,27 @@
                      :let [{:strs [email id]}
                            (entity-model/triples->map {:attrs attrs} group)]]
                  {:email email
-                  :id id
-                  :app-id app-id})]
+                  :id (parse-uuid id)
+                  :app-id app-id})
+         created-at-triples (filter (fn [{[_e a] :triple}]
+                                      (-> (attr-model/seek-by-id a attrs)
+                                          attr-model/fwd-label
+                                          (= "createdAt")))
+                                    triples)]
+     ;; Set the created_at field on the triples to the right one because
+     ;; the tests rely on it.
+     (doseq [{[e a v] :triple} created-at-triples
+             :let [etype (attr-model/fwd-etype
+                          (attr-model/seek-by-id a attrs))
+                   id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)]]
+       (sql/execute! conn (hsql/format {:update :triples
+                                        :set {:created-at (.toEpochMilli (triple-model/parse-date-value v))}
+                                        :where [:and
+                                                [:= :entity-id e]
+                                                [:= :attr-id (:id id-attr)]
+                                                [:= :value-md5 [:md5 [:cast [:cast (->json e) :json] :text]]]
+                                                [:= :app-id app-id]]
+                                        :returning :*})))
      (doseq [user users]
        (app-user-model/create! conn user))
 
@@ -220,7 +244,7 @@
   ;; Maybe we clean it up later, but we don't really need to right now.
   ;; One idea for a cleanup, is to create an "exported app" file.
   ;; We can then write a function that works on this kind of file schema.
-  (attr-model/delete-by-app-id! (aurora/conn-pool :write) app-id)
+  (attr-model/hard-delete-by-app-id! (aurora/conn-pool :write) app-id)
   (let [json-triples
         (<-json (slurp (io/resource "sample_triples/movie.json")))
         id-triples
@@ -238,7 +262,7 @@
         eid->uuid
         (->> triples
              (map (fn [[id _ _]]
-                    [id (UUID/randomUUID)]))
+                    [id (random-uuid)]))
              (into {}))
 
         triples-with-uuids
@@ -252,7 +276,7 @@
 
         attr->uuid (->> triples
                         (map (fn [[_ a _]]
-                               [a (UUID/randomUUID)]))
+                               [a (random-uuid)]))
                         (into {}))
 
         triples-with-attr-ids
@@ -276,8 +300,8 @@
                    (cond
                      ref?
                      {:id uuid
-                      :forward-identity [(UUID/randomUUID) etype label]
-                      :reverse-identity [(UUID/randomUUID) label etype]
+                      :forward-identity [(random-uuid) etype label]
+                      :reverse-identity [(random-uuid) label etype]
                       :cardinality :many
                       :value-type :ref
                       :unique? false
@@ -285,7 +309,7 @@
 
                      :else
                      {:id uuid
-                      :forward-identity [(UUID/randomUUID) etype label]
+                      :forward-identity [(random-uuid) etype label]
                       :cardinality :one
                       :value-type :blob
                       :unique? false

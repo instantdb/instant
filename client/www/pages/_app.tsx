@@ -3,41 +3,79 @@ import '../styles/docs/tailwind.css';
 
 import type { AppProps } from 'next/app';
 import Script from 'next/script';
+import { NuqsAdapter } from 'nuqs/adapters/next/pages';
 import Head from 'next/head';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { DocsPage } from '@/components/DocsPage';
 import { Button } from '@/components/ui';
 import { isDev } from '@/lib/config';
 import { Dev } from '@/components/Dev';
+import {
+  patchFirefoxClicks,
+  patchNumberInputScroll,
+} from '@/lib/patchBrowserEvents';
+import { ReactElement, ReactNode, useEffect } from 'react';
+import { PostHogIdentify } from '@/components/PostHogIdentify';
+import { NextPage } from 'next';
+import { SWRConfig } from 'swr';
+import { localStorageProvider } from '@/lib/swrCache';
+import posthog from '@/lib/posthog';
+import { PostHogProvider } from 'posthog-js/react';
 
 declare global {
   function __getAppId(): any;
 }
+
+export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
+  getLayout?: (page: ReactElement) => ReactNode;
+};
+
+type AppPropsWithLayout = AppProps & {
+  Component: NextPageWithLayout;
+};
 
 (globalThis as any)._nodevtool = true;
 
 // hack to pass app ID to examples pages
 globalThis.__getAppId = () =>
   typeof window !== 'undefined'
-    ? new URL(location.href).searchParams.get('__appId') ??
-    localStorage.getItem('examples-appId')
+    ? (new URL(location.href).searchParams.get('__appId') ??
+      localStorage.getItem('examples-appId'))
     : undefined;
 
-function App({ Component, pageProps }: AppProps) {
+function App({ Component, pageProps }: AppPropsWithLayout) {
   const isDocsPage = 'markdoc' in pageProps;
-  const mainEl = isDocsPage ? (
-    <DocsPage {...{ Component, pageProps }} />
-  ) : (
-    <Component {...pageProps} />
+  const getLayout = Component.getLayout ?? ((page) => page);
+
+  const mainEl = getLayout(
+    isDocsPage ? (
+      <DocsPage {...{ Component, pageProps }} />
+    ) : (
+      <Component {...pageProps} />
+    ),
   );
 
+  useEffect(() => {
+    patchNumberInputScroll();
+    return patchFirefoxClicks();
+  }, []);
+
   return (
-    <>
+    <PostHogProvider client={posthog}>
       <AppHead />
-      <ErrorBoundary renderError={() => <Oops />}>{mainEl}</ErrorBoundary>
+      <PostHogIdentify />
+      <ErrorBoundary renderError={() => <Oops />}>
+        <SWRConfig
+          value={{
+            provider: localStorageProvider,
+          }}
+        >
+          <NuqsAdapter>{mainEl}</NuqsAdapter>
+        </SWRConfig>
+      </ErrorBoundary>
       {isDev ? null : <GoogleScripts />}
       {isDev ? <Dev /> : null}
-    </>
+    </PostHogProvider>
   );
 }
 
@@ -140,17 +178,9 @@ function AppHead() {
         content="width=device-width, initial-scale=1, maximum-scale=1"
       />
       <meta name="theme-color" content="#ffffff" />
-      <meta property="og:type" content="website" />
-      <meta property="og:url" content="https://www.instantdb.com" />
+      <meta key="og:type" property="og:type" content="website" />
       <meta
-        property="og:title"
-        content="InstantDB: A Modern Firebase"
-      />
-      <meta
-        property="og:description"
-        content="We make you productive by giving your frontend a real-time database."
-      />
-      <meta
+        key="og:image"
         property="og:image"
         content="https://www.instantdb.com/img/og_preview.png"
       />

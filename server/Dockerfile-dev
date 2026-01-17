@@ -10,7 +10,6 @@ RUN chmod +x linux-install.sh
 RUN ./linux-install.sh
 
 RUN mkdir gomigrate && cd gomigrate && \
-
       ARCH=$(uname -m) && \
       if [ "$ARCH" = "x86_64" ]; then \
         ARCH="amd64"; \

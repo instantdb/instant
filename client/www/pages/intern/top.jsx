@@ -42,7 +42,7 @@ function useTopData(token) {
             : { body: { message: err.message || 'Uh oh, we goofed up' } },
           data: undefined,
         });
-      }
+      },
     );
   }, [token]);
 
@@ -54,8 +54,11 @@ function formatNumber(num) {
 }
 
 function TopUsersTable({ data }) {
-  const [sortConfig, setSortConfig] = useState({ key: 'total_transactions', direction: 'desc' });
-  const topData = data.users
+  const [sortConfig, setSortConfig] = useState({
+    key: 'total_transactions',
+    direction: 'desc',
+  });
+  const topData = data.users;
 
   const sortedData = topData.sort((a, b) => {
     if (a[sortConfig.key] < b[sortConfig.key]) {
@@ -68,7 +71,10 @@ function TopUsersTable({ data }) {
   });
 
   const totalApps = sortedData.length;
-  const totalTransactions = sortedData.reduce((acc, app) => acc + app.total_transactions, 0);
+  const totalTransactions = sortedData.reduce(
+    (acc, app) => acc + app.total_transactions,
+    0,
+  );
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -80,42 +86,54 @@ function TopUsersTable({ data }) {
 
   return (
     <div>
-      <table className="min-w-full bg-white border border-gray-200">
+      <table className="min-w-full border border-gray-200 bg-white">
         <thead>
           <tr>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase"
               onClick={() => handleSort('user_email')}
             >
-              User Email ({totalApps}) {sortConfig.key === 'user_email' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              User Email ({totalApps}){' '}
+              {sortConfig.key === 'user_email' &&
+                (sortConfig.direction === 'asc' ? '↑' : '↓')}
             </th>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase"
               onClick={() => handleSort('app_title')}
             >
-              App Title {sortConfig.key === 'app_title' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              App Title{' '}
+              {sortConfig.key === 'app_title' &&
+                (sortConfig.direction === 'asc' ? '↑' : '↓')}
             </th>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-800 uppercase"
               onClick={() => handleSort('total_transactions')}
             >
-              Transactions ({formatNumber(totalTransactions)}) {sortConfig.key === 'total_transactions' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              Transactions ({formatNumber(totalTransactions)}){' '}
+              {sortConfig.key === 'total_transactions' &&
+                (sortConfig.direction === 'asc' ? '↑' : '↓')}
             </th>
           </tr>
         </thead>
         <tbody>
           {sortedData.map((app) => (
             <tr key={app.user_email + app.app_title}>
-              <td className="py-2 px-4 border-b border-gray-200">{app.user_email}</td>
-              <td className="py-2 px-4 border-b border-gray-200">{app.app_title}</td>
-              <td className="py-2 px-4 border-b border-gray-200 flex items-center">
+              <td className="border-b border-gray-200 px-4 py-2">
+                {app.user_email}
+              </td>
+              <td className="border-b border-gray-200 px-4 py-2">
+                {app.app_title}
+              </td>
+              <td className="flex items-center border-b border-gray-200 px-4 py-2">
                 <div
                   className="h-4 bg-green-500"
                   style={{
                     width: `${(app.total_transactions / totalTransactions) * 100}%`,
                   }}
                 />
-                <span className="ml-2">{formatNumber(app.total_transactions)}</span>
+                <span className="ml-2">
+                  {formatNumber(app.total_transactions)}
+                </span>
               </td>
             </tr>
           ))}
@@ -124,7 +142,6 @@ function TopUsersTable({ data }) {
     </div>
   );
 }
-
 
 function Page() {
   const isHydrated = useIsHydrated();
@@ -145,11 +162,12 @@ function Page() {
     <div>
       <Head>
         <title>Instant Top Users</title>
-        <meta name="description" content="Welcome to Instant." />
       </Head>
-      <div className="flex space-x-0 space-y-4 md:space-x-8 md:space-y-0 m-4 flex-wrap md:flex-nowrap">
+      <div className="m-4 flex flex-wrap space-y-4 space-x-0 md:flex-nowrap md:space-y-0 md:space-x-8">
         <div className="flex flex-col space-y-2">
-          <span className="font-xl font-bold">Top Users Last {getDays()} Days</span>
+          <span className="font-xl font-bold">
+            Top Users Last {getDays()} Days
+          </span>
           <TopUsersTable data={data} />
         </div>
       </div>

@@ -1,0 +1,10 @@
+node_modules
+.git
+.gitignore
+*.md
+dist
+.turbo
+www
+sandbox
+scripts
+.env

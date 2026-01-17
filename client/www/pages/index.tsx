@@ -1,14 +1,6 @@
-import {
-  PropsWithChildren,
-  RefObject,
-  createRef,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { PropsWithChildren, useState } from 'react';
 import produce from 'immer';
 import clsx from 'clsx';
-import { i, init } from '@instantdb/react';
 import Head from 'next/head';
 
 import { Tab, Switch as HeadlessSwitch } from '@headlessui/react';
@@ -28,52 +20,19 @@ import {
   Link,
 } from '@/components/marketingUi';
 
-import { ChevronRightIcon } from '@heroicons/react/solid';
+import {
+  ChevronRightIcon,
+  ClipboardDocumentIcon,
+  CheckIcon,
+} from '@heroicons/react/24/solid';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import config from '@/lib/config';
 import MuxPlayer from '@mux/mux-player-react';
 import * as muxVideos from '@/lib/muxVideos';
-
-type EmojiName = keyof typeof emoji;
-
-const emoji = {
-  fire: '🔥',
-  wave: '👋',
-  confetti: '🎉',
-  heart: '❤️',
-} as const;
-
-const emojiNames = Object.keys(emoji) as EmojiName[];
-
-const refsInit = Object.fromEntries(
-  emojiNames.map((a) => [a, createRef<HTMLDivElement>()]),
-);
+import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
+import AnimatedCounter from '@/components/AnimatedCounter';
+import CopyToClipboard from 'react-copy-to-clipboard';
 
 const appId = 'fc5a4977-910a-43d9-ac28-39c7837c1eb5';
-
-const schema = i.schema({
-  entities: {},
-  rooms: {
-    landing: {
-      presence: i.entity({}),
-      topics: {
-        emoji: i.entity({
-          name: i.string<EmojiName>(),
-          rotationAngle: i.number(),
-          directionAngle: i.number(),
-        }),
-      },
-    },
-  },
-});
-
-const db = init({
-  ...config,
-  appId,
-  schema,
-});
-
-const room = db.room('landing', 'landing');
 
 function Switch({
   enabled,
@@ -86,14 +45,12 @@ function Switch({
     <HeadlessSwitch
       checked={enabled}
       onChange={onChange}
-      className={`${enabled ? 'bg-emerald-500' : 'bg-gray-600'}
-          relative inline-flex h-[19px] w-[37px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2  focus-visible:ring-white/75`}
+      className={`${enabled ? 'bg-emerald-500' : 'bg-gray-600'} relative inline-flex h-[19px] w-[37px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white/75`}
     >
       <span className="sr-only">Use setting</span>
       <span
         aria-hidden="true"
-        className={`${enabled ? 'translate-x-[18px]' : 'translate-x-0'}
-            pointer-events-none inline-block h-[15px] w-[15px] transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out`}
+        className={`${enabled ? 'translate-x-[18px]' : 'translate-x-0'} pointer-events-none inline-block h-[15px] w-[15px] transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out`}
       />
     </HeadlessSwitch>
   );
@@ -111,43 +68,83 @@ const GlowBackground = ({ children }: PropsWithChildren) => (
   </div>
 );
 
+const ActiveSessionsCallout = () => {
+  const { isLoading, error, data } = useTotalSessionsCount({
+    refreshSeconds: 3,
+  });
+  const height = 38;
+
+  if (isLoading || error || data <= 0) {
+    return <div style={{ height }}></div>;
+  }
+
+  return (
+    <div className="inline-flex items-center space-x-2" style={{ height }}>
+      <AnimatedCounter number={data} height={38} />
+      <div className="flex-1">sessions are connected on Instant right now</div>
+    </div>
+  );
+};
+
+function CreateInstantApp() {
+  const [showCopySuccess, setShowCopySuccess] = useState(false);
+  const command = 'npx create-instant-app';
+
+  return (
+    <CopyToClipboard
+      text={command}
+      onCopy={() => {
+        setShowCopySuccess(true);
+        setTimeout(() => setShowCopySuccess(false), 2000);
+      }}
+    >
+      <div className="relative inline-flex w-full cursor-pointer items-center border border-black bg-transparent px-4 py-2 font-mono text-lg transition-colors hover:bg-gray-50/30">
+        <div className="absolute top-1/2 right-4 -translate-y-1/2 text-gray-800 transition-colors">
+          {showCopySuccess ? (
+            <CheckIcon className="h-5 w-5 text-orange-600" />
+          ) : (
+            <ClipboardDocumentIcon className="h-5 w-5" />
+          )}
+        </div>
+        <span className="mr-2 select-none" aria-hidden="true">
+          $
+        </span>
+        <span>{command}</span>
+      </div>
+    </CopyToClipboard>
+  );
+}
+
 function LandingHero() {
   return (
-    <div className="pb-16 pt-8">
+    <div className="pt-8 pb-16">
       <SectionWide>
         <TwoColResponsive>
-          <div className="flex flex-1 flex-col gap-8">
-            <H2>Build modern applications today</H2>
-            <p>
-              Instant is a modern Firebase. We make you productive by giving
-              your frontend a real-time database.
-            </p>
-            <div className="flex flex-row gap-2 md:justify-start">
-              <Button type="link" variant="cta" size="large" href="/dash">
-                Get Started
-              </Button>
-              <Button
-                type="link"
-                variant="secondary"
-                size="large"
-                href="/tutorial"
-              >
-                Try the demo
-              </Button>
+          <div className="flex flex-1 flex-col gap-6">
+            <H2>Write your frontend and we handle the rest</H2>
+            <div className="mb-2 max-w-md">
+              <p className="mb-4 text-gray-800">
+                Instant is the easy to use backend for your frontend. With
+                Instant you can build delightful apps in less than 10 minutes.
+              </p>
+              <CreateInstantApp />
+              <div className="mt-4 flex space-x-2">
+                <Button type="link" variant="cta" href="/tutorial">
+                  Build an app
+                </Button>
+                <Button type="link" variant="secondary" href="/docs">
+                  Read the docs
+                </Button>
+              </div>
             </div>
             <div className="flex items-center justify-start space-x-2">
               <img src="/img/yc_logo.png" className="inline h-4 w-4" />
               <span className="text-sm">Backed by Y Combinator</span>
             </div>
+            <ActiveSessionsCallout />
           </div>
           <div className="flex flex-1 flex-col items-center justify-center space-y-2">
-            <MuxPlayer {...muxVideos.walkthrough} />
-            <Link
-              href={'/examples'}
-              className="flex items-center text-sm rounded-full border bg-white backdrop-blur-lg px-2.5 py-0.5 gap-1 hover:bg-gray-50 shadow"
-            >
-              See some examples <ChevronRightIcon height="1rem" />
-            </Link>
+            <MuxPlayer accentColor="#F54A00" {...muxVideos.createInstantApp} />
           </div>
         </TwoColResponsive>
       </SectionWide>
@@ -161,38 +158,52 @@ function LandingProblemStatement() {
       <Section>
         <div className="flex flex-col gap-8">
           <div className="md:mx-auto md:max-w-md md:text-center">
-            <H3>You write your frontend, and we handle the rest</H3>
+            <H3>Instant is a batteries included client-side database</H3>
           </div>
           <TwoColResponsive>
             <div className="flex flex-1 flex-col gap-4">
               <p>
-                The best apps today have a common feature set. Every interaction
-                happens instantly, you rarely see loading screens, collaboration
-                is easy and delightful, and the app still works when offline.
+                To build an app you write two kinds of code. The business logic
+                that solves your specific problem, and the generic stuff that
+                most apps have to take care of: authenticating users, making
+                queries, running permissions, uploading files, and executing
+                transactions.
               </p>
               <p>
-                But building them is a schlep: spin up servers, auth,
-                permissions, endpoints, sockets, then shuffle data, handle
-                optimistic updates, and deal with rollbacks.
+                The generic stuff is critical to get right, full of edge cases,
+                and also not the differentiating factor for your app — unless
+                they’re broken
               </p>
+              <p>If all this work isn’t differentiating, why work on it?</p>
               <p>
                 <strong>
-                  Instant solves these problems for you by giving you a database
-                  you can subscribe to directly in the browser.
-                </strong>{' '}
-                You write relational queries in your app, and we handle the
-                rest.
+                  Instant gives you a database with queries, transactions, auth,
+                  permissions, storage, real-time and offline support. All in a
+                  simple SDK you can use directly in the browser.
+                </strong>
               </p>
               <p>
-                Want to try it yourself?{' '}
-                <TextLink href="https://instantdb.com/docs">
-                  Build a live app in less than 5 minutes.
-                </TextLink>
+                Here we implement chat using three functions:{' '}
+                <code className="font-mono text-sm text-orange-600">
+                  `init`
+                </code>
+                ,{' '}
+                <code className="font-mono text-sm text-orange-600">
+                  `useQuery`
+                </code>
+                , and{' '}
+                <code className="font-mono text-sm text-orange-600">
+                  `transact`
+                </code>
               </p>
             </div>
             <div className="flex flex-1 flex-col gap-4">
-              <div className="overflow-auto rounded border bg-prism font-mono text-sm">
-                <Fence language="javascript" code={queryExampleComponentCode} />
+              <div className="bg-prism overflow-auto rounded-sm border font-mono text-sm">
+                <Fence
+                  darkMode={false}
+                  language="javascript"
+                  code={queryExampleComponentCode}
+                />
               </div>
             </div>
           </TwoColResponsive>
@@ -202,21 +213,77 @@ function LandingProblemStatement() {
   );
 }
 
-function LandingHow() {
+function LandingCore() {
   return (
     <div className="py-16">
       <Section>
         <div className="flex flex-col gap-6">
           <div className="md:mx-auto md:max-w-md md:text-center">
-            <H3>A new kind of client-side infrastructure</H3>
+            <H3>Real-time by default</H3>
           </div>
-          <div className="md:mx-auto md:max-w-2xl md:text-center">
+          <div className="md:mx-auto md:max-w-2xl md:text-left">
             <p>
-              Instant was born when we realized that some of the hardest UI
-              problems are actually database problems in disguise. When you
-              solve problems at the database layer, your software becomes more
-              powerful and succinct. Here’s how:
+              The best apps today have a common feature set. Every interaction
+              happens instantly, you rarely see loading screens, collaboration
+              is easy and delightful, and the app still works when offline.{' '}
+              <strong>
+                When you use Instant, you get these features for free
+              </strong>
+              .
             </p>
+          </div>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+function LandingMulti() {
+  return (
+    <div className="py-16">
+      <Section>
+        <div className="flex flex-col gap-6">
+          <div className="md:mx-auto md:max-w-md md:text-center">
+            <H3>Built for humans and agents</H3>
+          </div>
+          <div className="space-y-2 md:mx-auto md:max-w-2xl md:text-left">
+            <p>
+              When we started building Instant we wanted something great for
+              builders. We wanted to offer a generous free tier where projects
+              aren't limited or paused. To make this work we built Instant to be
+              multi-tenant.{' '}
+              <strong>
+                This means you can spin up a new database in less than 100ms.
+              </strong>
+            </p>
+            <p>
+              Turns out when you make something great for humans, it also works
+              great for agents. Combine a multi-tenant database with a platform
+              SDK and you have infrastructure that lets an agent have a backend
+              for every chat.
+            </p>
+            <p>
+              We wrote an essay to go deeper on what we mean. If this interests
+              you and your team we'd love to chat.
+            </p>
+          </div>
+          <div className="flex flex-row justify-center gap-4">
+            <Button
+              type="link"
+              variant="secondary"
+              size="large"
+              href="/essays/agents"
+            >
+              Read Essay on Agents
+            </Button>
+            <Button
+              type="link"
+              variant="cta"
+              size="large"
+              href="mailto:founders@instantdb.com?subject=InstantDB%20Platform%20Plan%20Inquiry"
+            >
+              Contact Us
+            </Button>
           </div>
         </div>
       </Section>
@@ -232,9 +299,9 @@ const ThemedTab = ({
     <Tab
       className={({ selected }) =>
         clsx(
-          'relative z-10 translate-x-1 px-5 py-2 last:translate-x-0 outline-none',
+          'relative z-10 translate-x-1 px-5 py-2 outline-hidden last:translate-x-0',
           className,
-          selected ? 'z-20 bg-prism-dark' : 'bg-prism',
+          selected ? 'bg-prism-dark z-20' : 'bg-prism',
         )
       }
     >
@@ -274,25 +341,27 @@ function LandingCoreFeatures() {
               {isHydrated ? (
                 <Tab.Group>
                   <Tab.List className="pl-4">
-                    <ThemedTab className="rounded-tl border-l border-t">
+                    <ThemedTab className="rounded-tl border-t border-l">
                       Instant
                     </ThemedTab>
-                    <ThemedTab className="rounded-tr border-r border-t">
+                    <ThemedTab className="rounded-tr border-t border-r">
                       Not Instant
                     </ThemedTab>
                   </Tab.List>
                   <Tab.Panels>
                     <Tab.Panel>
-                      <div className="h-80 overflow-auto rounded border bg-prism text-sm">
+                      <div className="bg-prism h-80 overflow-auto rounded-sm border text-sm">
                         <Fence
+                          darkMode={false}
                           language="javascript"
                           code={mutationExampleCode}
                         />
                       </div>
                     </Tab.Panel>
                     <Tab.Panel>
-                      <div className="h-80 overflow-auto rounded border bg-prism text-sm">
+                      <div className="bg-prism h-80 overflow-auto rounded-sm border text-sm">
                         <Fence
+                          darkMode={false}
                           language="javascript"
                           code={mutationWithoutInstantExampleCode}
                         />
@@ -318,7 +387,7 @@ function LandingCoreFeatures() {
                 transactions, and updates relevant queries.
               </p>
             </div>
-            <div className="flex-1 shrink-0 basis-1/2 flex gap-2 flex-col">
+            <div className="flex flex-1 shrink-0 basis-1/2 flex-col gap-2">
               <ExampleMultiPreview
                 appId={appId}
                 pathName="5-reactions"
@@ -355,72 +424,6 @@ function LandingCoreFeatures() {
   );
 }
 
-function LandingRealtimeFeatures() {
-  return (
-    <div className="bg-gray-100 py-16">
-      <Section>
-        <div className="flex flex-col gap-8">
-          <div className="md:mx-auto md:max-w-md md:text-center">
-            <H3>Cursors, Typing Indicators, and Presence at your fingertips</H3>
-          </div>
-          <TwoColResponsive>
-            <div className="flex flex-1 flex-col gap-4">
-              <p>
-                Once your application becomes multiplayer, you see opportunities
-                for new experiences everywhere: who’s online, who’s typing, and
-                where are their cursors?
-              </p>
-
-              <p>
-                Instant supports these use cases —{' '}
-                <strong>you can add shared cursors in 10 lines.</strong>
-              </p>
-            </div>
-            <div className="flex flex-1 gap-2 flex-col">
-              <ExampleMultiPreview
-                appId={appId}
-                pathName="4-custom-cursors"
-                numViews={2}
-              />
-            </div>
-          </TwoColResponsive>
-        </div>
-      </Section>
-    </div>
-  );
-}
-
-function LandingScaleFeatures() {
-  return (
-    <div className="py-16">
-      <Section>
-        <div className="flex flex-col gap-6">
-          <div className="md:mx-auto md:max-w-md md:text-center">
-            <H3>Start without a backend, scale to complex use cases</H3>
-          </div>
-          <div className="flex flex-col gap-6 md:mx-auto md:max-w-2xl">
-            <p>
-              When you use Instant, you can focus on what’s important: building
-              a great UX for your users, and doing it quickly.
-            </p>
-            <p>
-              You don’t need servers, separate auth providers, custom endpoints,
-              front-end stores, or different APIs for mobile vs web. You get a
-              real-time architecture that makes your frontend smooth.
-            </p>
-            <p>
-              When time comes for custom backend logic, you can spin up a server
-              and use Instant’s admin SDK. Build your next SaaS app, React
-              Native app, web app, or collaborative app on Instant. We’ll help
-              you move fast, and scale alongside you.
-            </p>
-          </div>
-        </div>
-      </Section>
-    </div>
-  );
-}
-
 function Testimonial({
   blurb,
   person,
@@ -434,11 +437,11 @@ function Testimonial({
 }) {
   return (
     <div>
-      <p className="ml-2 h-56 w-80 rounded border bg-white p-4 italic text-gray-700">
+      <p className="ml-2 h-56 w-80 rounded-sm border bg-white p-4 text-gray-700 italic">
         "{blurb}"
       </p>
       <div className="flex -translate-y-1 gap-3">
-        <div className="h-16 w-16 overflow-hidden rounded-[50%] bg-black shadow">
+        <div className="h-16 w-16 overflow-hidden rounded-[50%] bg-black shadow-sm">
           <img src={photo} alt={person} />
         </div>
         <div className="flex flex-col justify-center">
@@ -452,7 +455,7 @@ function Testimonial({
 
 function LandingTestimonials() {
   return (
-    <div className="hiddenscrollbar flex my-16 overflow-auto mx-8 xl:justify-center ">
+    <div className="hiddenscrollbar mx-8 my-16 flex overflow-auto xl:justify-center">
       <div className="hiddenscrollbar flex gap-12 xl:grid xl:grid-cols-3">
         {testimonials.map((t) => (
           <Testimonial key={t.person} {...t} />
@@ -513,24 +516,11 @@ function LandingTeam() {
                 We're backed by YCombinator, SV Angel, and top investors like:
               </p>
               <AngelList />
-              <p>
-                Check out our essay below to learn more why we think Instant is
-                solving one of the largest problems in frontend development
-                today.
-              </p>
             </div>
           </div>
           <div className="flex flex-row justify-center gap-4">
             <Button type="link" variant="cta" size="large" href="/dash">
-              Get Started
-            </Button>
-            <Button
-              type="link"
-              variant="secondary"
-              size="large"
-              href="/essays/next_firebase"
-            >
-              Read Essay
+              Start Building
             </Button>
           </div>
         </div>
@@ -542,169 +532,11 @@ function LandingTeam() {
 const SeeTheCodeButton = ({ href }: { href: string }) => (
   <Link
     href={href}
-    className="flex items-center text-sm rounded-full border bg-white backdrop-blur-lg px-2.5 py-0.5 gap-1 hover:bg-gray-50 shadow"
+    className="flex items-center gap-1 rounded-full border bg-white px-2.5 py-0.5 text-sm shadow-sm backdrop-blur-lg hover:bg-gray-50"
   >
     See the code <ChevronRightIcon height="1rem" />
   </Link>
 );
-
-function LandingParty() {
-  const elRefsRef = useRef<{
-    [k: string]: RefObject<HTMLDivElement>;
-  }>(refsInit);
-
-  const publishEmoji = room.usePublishTopic('emoji');
-
-  db.rooms.useTopicEffect(room, 'emoji', (event) => {
-    const { name, directionAngle, rotationAngle } = event;
-
-    const el = elRefsRef.current[name]?.current;
-    if (!el) return;
-
-    animateEmoji({ emoji: emoji[name], directionAngle, rotationAngle }, el);
-  });
-
-  useEffect(() => {
-    const konamiHandler = __konami(() => {
-      emojiNames.forEach((emote) => {
-        Array(20)
-          .fill(null)
-          .forEach((_, i) => {
-            setTimeout(() => {
-              sendEmoji(emote);
-            }, i * 200);
-          });
-      });
-    });
-
-    window.addEventListener('keydown', konamiHandler);
-
-    return () => {
-      window.removeEventListener('keydown', konamiHandler);
-    };
-  }, []);
-
-  function sendEmoji(name: EmojiName) {
-    const el = elRefsRef.current[name]?.current;
-    if (!el) return;
-
-    const params = {
-      name,
-      rotationAngle: Math.random() * 360,
-      directionAngle: Math.random() * 360,
-    };
-
-    animateEmoji(
-      {
-        emoji: emoji[name],
-        rotationAngle: params.rotationAngle,
-        directionAngle: params.directionAngle,
-      },
-      elRefsRef.current[name].current,
-    );
-
-    publishEmoji(params);
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="hidden text-sm text-gray-600 md:block">
-        This is <strong>live</strong>. Open another tab and press the emojis!
-      </div>
-      <div className="text-sm text-gray-600 md:hidden">
-        This is <strong>live</strong>. Try it with a friend on their device!
-      </div>
-      <div className="inline-flex select-none gap-6 rounded-xl border bg-white p-6 shadow-lg">
-        {emojiNames.map((name, i) => (
-          <div key={i} ref={elRefsRef.current[name]} className="relative">
-            <button
-              className="rounded-lg bg-gray-100 p-2 text-4xl transition-transform hover:scale-110 hover:bg-gray-50 active:scale-90 active:bg-gray-200"
-              onClick={() => {
-                sendEmoji(name);
-              }}
-            >
-              {emoji[name]}
-            </button>
-          </div>
-        ))}
-      </div>
-      <SeeTheCodeButton href="/examples#5-reactions" />
-    </div>
-  );
-}
-
-function LandingMultiplayerGraphic() {
-  const [items, setItems] = useState([
-    { title: 'Hack', done: false },
-    { title: 'Write tests', done: false },
-    { title: 'Ship', done: false },
-    { title: 'Talk to customers', done: false },
-  ]);
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      const i = Math.floor(Math.random() * items.length);
-
-      setItems((items) =>
-        produce(items, (d) => {
-          const nextCheckIdx = items.findIndex((i) => !i.done);
-
-          if (nextCheckIdx > -1) {
-            d[nextCheckIdx].done = !d[nextCheckIdx].done;
-          } else {
-            for (let index = 0; index < items.length; index++) {
-              d[index].done = false;
-            }
-          }
-        }),
-      );
-    }, 2000);
-
-    return () => clearInterval(t);
-  }, []);
-
-  return (
-    <div className="flex h-full items-center justify-center">
-      <div className="flex flex-1 translate-x-2 flex-row">
-        {[1, 2].map((s) => (
-          <div
-            key={s}
-            className={clsx(
-              'w-1/2 rounded bg-gray-500/10 p-1 shadow-xl',
-              '-translate-x-4 first:translate-x-0',
-              'translate-y-3 first:translate-y-0',
-            )}
-          >
-            <div className="flex h-full w-full flex-col gap-1 overflow-auto rounded bg-white p-4 text-sm text-gray-600">
-              {items.map((item, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    type="checkbox"
-                    checked={item.done}
-                    onChange={() =>
-                      setItems(
-                        produce(items, (d) => {
-                          d[i].done = !d[i].done;
-                        }),
-                      )
-                    }
-                  />
-                  <span
-                    className={clsx(
-                      item.done ? 'text-gray-400 line-through' : undefined,
-                    )}
-                  >
-                    {item.title}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function LandingOfflineGraphic() {
   const showQueueLength = 3;
@@ -756,7 +588,7 @@ function LandingOfflineGraphic() {
             onChangeOnline(!state.online);
           }}
           className={clsx(
-            'flex w-36 items-center space-x-2 rounded px-2 py-2 shadow-sm transition-colors cursor-pointer',
+            'flex w-36 cursor-pointer items-center space-x-2 rounded-sm px-2 py-2 shadow-xs transition-colors',
             state.online
               ? 'bg-emerald-500/10 text-emerald-700'
               : 'bg-gray-500/20 text-gray-900',
@@ -771,10 +603,10 @@ function LandingOfflineGraphic() {
           <div key={q} className="flex flex-1 flex-col gap-3">
             <div
               className={clsx(
-                'w-fullrounded-lg aspect-[16/10] rounded bg-gray-500/10 p-1 shadow-xl',
+                'w-fullrounded-lg aspect-16/10 rounded-sm bg-gray-500/10 p-1 shadow-xl',
               )}
             >
-              <div className="flex h-full flex-col items-center justify-center gap-1 rounded bg-white p-2">
+              <div className="flex h-full flex-col items-center justify-center gap-1 rounded-sm bg-white p-2">
                 <button
                   className="bg-orange-600 px-2 py-1 text-white transition-all active:scale-95"
                   onClick={() => onClick(q)}
@@ -791,7 +623,7 @@ function LandingOfflineGraphic() {
                 {state[q].slice(-showQueueLength).map((item, i) => (
                   <div
                     className={clsx(
-                      'overflow-hidden rounded-sm border bg-white px-2 py-1 font-mono text-xs shadow-sm transition-transform',
+                      'overflow-hidden rounded-xs border bg-white px-2 py-1 font-mono text-xs shadow-xs transition-transform',
                     )}
                   >
                     {item.ts}
@@ -816,31 +648,30 @@ export default function Landing2024() {
     <LandingContainer>
       <Head>
         <title>Instant</title>
-        <meta name="description" content="A Graph Database on the Client" />
+        <meta
+          key="og:title"
+          property="og:title"
+          content="InstantDB: A Modern Firebase"
+        />
+        <meta
+          key="og:description"
+          property="og:description"
+          content="We make you productive by giving your frontend a real-time database."
+        />
       </Head>
       <GlowBackground>
-        
-        {/* 
-          hiring-page
-        <div className="w-full bg-gray-50/80 p-1 text-center">
-          <p className="font-mono text-gray-500 text-sm font-semibold">
-            Instant is hiring! Want to build Figma-like tech?{' '}
-            <span className="text-orange-600">
-              <TextLink href="/hiring">Come work with us!</TextLink>
-            </span>
-          </p>
-        </div> */}
         <MainNav />
         <LandingHero />
       </GlowBackground>
       <LandingProblemStatement />
       <LandingTestimonials />
       <GlowBackground>
-        <LandingHow />
+        <LandingCore />
       </GlowBackground>
       <LandingCoreFeatures />
-      <LandingRealtimeFeatures />
-      <LandingScaleFeatures />
+      <GlowBackground>
+        <LandingMulti />
+      </GlowBackground>
       <LandingTeam />
       <LandingFooter />
     </LandingContainer>
@@ -861,19 +692,22 @@ export function ExampleMultiPreview({
       {Array(numViews)
         .fill(null)
         .map((_, i) => (
-          <div key={i} className="flex h-36 bg-white rounded border shadow-sm">
+          <div
+            key={i}
+            className="flex h-36 rounded-sm border bg-white shadow-xs"
+          >
             {appId ? (
               <iframe
                 className="flex-1"
-                src={'/examples/' + pathName + '?__appId=' + appId}
+                src={'/recipes/' + pathName + '?__appId=' + appId}
               />
             ) : (
-              <div className="flex-1 animate-slow-pulse bg-gray-300"></div>
+              <div className="animate-slow-pulse flex-1 bg-gray-300"></div>
             )}
           </div>
         ))}
       <div className="flex justify-center">
-        <SeeTheCodeButton href={`/examples#${pathName}`} />
+        <SeeTheCodeButton href={`/recipes#${pathName}`} />
       </div>
     </div>
   );
@@ -923,7 +757,7 @@ const testimonials = [
 ];
 
 const queryExampleComponentCode = /*js*/ `
-import { init, tx, id } from "@instantdb/react";
+import { init, id } from "@instantdb/react";
 
 const db = init({
   appId: process.env.NEXT_PUBLIC_APP_ID,
@@ -937,7 +771,7 @@ function Chat() {
 
   // 2. Write
   const addMessage = (message) => {
-    db.transact(tx.messages[id()].update(message));
+    db.transact(db.tx.messages[id()].update(message));
   };
 
   // 3. Render!
@@ -948,7 +782,7 @@ const mutationExampleCode = /*js*/ `async function deleteTodo(id) {
   // teams and todos are _immediately_
   // updated. If there's an error,
   // instant rolls back for you
-  transact(tx.todos[id].delete());
+  transact(db.tx.todos[id].delete());
 }`;
 
 const mutationWithoutInstantExampleCode = /*js*/ `async function deleteTodo(id) {
@@ -974,74 +808,3 @@ const mutationWithoutInstantExampleCode = /*js*/ `async function deleteTodo(id) 
     });
   }
 }`;
-
-const presenceExampleComponentCode = /*js*/ `function App() {
-  const { user, peers } = usePresence('home-page', roomId);
-
-  return <Inspector data={{ user, peers }} />
-}`;
-
-const presenceExampleDataCode = /*json*/ `{
-  me: { cursor: { x: 455, y: 232 } },
-  others: [...]
-}`;
-
-function animateEmoji(
-  config: { emoji: string; directionAngle: number; rotationAngle: number },
-  target: HTMLDivElement | null,
-) {
-  if (!target) return;
-
-  const rootEl = document.createElement('div');
-  const directionEl = document.createElement('div');
-  const spinEl = document.createElement('div');
-
-  spinEl.innerText = config.emoji;
-  directionEl.appendChild(spinEl);
-  rootEl.appendChild(directionEl);
-  target.appendChild(rootEl);
-
-  style(rootEl, {
-    transform: `rotate(${config.directionAngle * 360}deg)`,
-    position: 'absolute',
-    top: '0',
-    left: '0',
-    right: '0',
-    bottom: '0',
-    margin: 'auto',
-    zIndex: '10',
-    pointerEvents: 'none',
-  });
-
-  style(spinEl, {
-    transform: `rotateZ(${config.rotationAngle * 400}deg)`,
-    fontSize: `40px`,
-  });
-
-  setTimeout(() => {
-    style(directionEl, {
-      transform: `translateY(20vh) scale(2)`,
-      transition: 'all 400ms',
-      opacity: '0',
-    });
-  }, 20);
-
-  setTimeout(() => rootEl.remove(), 800);
-}
-
-function style(el: HTMLElement, styles: Partial<CSSStyleDeclaration>) {
-  Object.assign(el.style, styles);
-}
-
-function __konami(callback: (event: KeyboardEvent) => void) {
-  let kkeys: number[] = [];
-  // up,up,down,down,left,right,left,right,B,A
-  const konami = '38,38,40,40,37,39,37,39,66,65';
-  return (event: KeyboardEvent) => {
-    kkeys.push(event.keyCode);
-    if (kkeys.toString().indexOf(konami) >= 0) {
-      callback(event);
-      kkeys = [];
-    }
-  };
-}

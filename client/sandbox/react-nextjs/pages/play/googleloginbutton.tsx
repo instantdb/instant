@@ -1,12 +1,12 @@
 // Now in your App.js
 
 // 1. Import Instant
-import { init, tx, id, User } from "@instantdb/react";
-import config from "../../config";
-import Link from "next/link";
+import { init, tx, id, User } from '@instantdb/react';
+import config from '../../config';
+import Link from 'next/link';
 // 2. Import Google login button
-import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
-import { useState } from "react";
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
+import { useState } from 'react';
 
 // 3. Get your app id
 const db = init(config);
@@ -28,10 +28,12 @@ function App() {
   if (user) {
     return <Main user={user} />;
   }
-  return <div>
-    <LoginPopup />
-    <LoginRedirect />
-  </div>;
+  return (
+    <div>
+      <LoginPopup />
+      <LoginRedirect />
+    </div>
+  );
 }
 
 // 4. Create the Google button
@@ -39,7 +41,7 @@ function LoginPopup() {
   const [error, setError] = useState<string | null>(null);
   const [nonce] = useState(crypto.randomUUID());
   return (
-    <div className="p-4 w-6">
+    <div className="w-6 p-4">
       <GoogleOAuthProvider
         // 4a. Use your google client id
         clientId="292083552505-vvdg13drvp8sn49acmi52lcbd163jk64.apps.googleusercontent.com"
@@ -53,22 +55,23 @@ function LoginPopup() {
             // 5. Log in to instant with the id_token
             const idToken = credentialResponse.credential;
             if (!idToken) {
-              setError("Missing id_token.");
+              setError('Missing id_token.');
               return;
             }
-            db.auth.signInWithIdToken({
+            db.auth
+              .signInWithIdToken({
                 // Use the name you created when you registered the client
-                clientName: "google",
+                clientName: 'google',
                 idToken,
                 nonce,
               })
               .catch((err) => {
                 console.log(err.body);
-                alert("Uh oh: " + err.body?.message);
+                alert('Uh oh: ' + err.body?.message);
               });
           }}
           onError={() => {
-            setError("Login failed.");
+            setError('Login failed.');
           }}
           type="standard"
         />
@@ -79,11 +82,17 @@ function LoginPopup() {
 }
 
 function LoginRedirect() {
-  const [url, _] = useState(() => db.auth.createAuthorizationURL({
-    clientName: 'google',
-    redirectURL: window.location.href,
-  }));
-  return <a href={url} className="underline">Sign in with Google Redirect</a>;
+  const [url, _] = useState(() =>
+    db.auth.createAuthorizationURL({
+      clientName: 'google',
+      redirectURL: window.location.href,
+    }),
+  );
+  return (
+    <a href={url} className="underline">
+      Sign in with Google Redirect
+    </a>
+  );
 }
 
 // 6. Make queries to your heart's content!
@@ -95,26 +104,37 @@ function Main({ user }: { user: User }) {
   if (error) return <div>Error: {error.message}</div>;
   return (
     <div className="p-4">
-      <Link href="/">{"<-"} Home</Link>
-      <h1>Hi {user.email}!</h1>
-      <h2>id: {user.id}</h2>
+      <Link href="/">{'<-'} Home</Link>
+      <div className="my-4 flex items-center gap-4">
+        {user.imageURL && (
+          <img
+            src={user.imageURL}
+            alt="Profile"
+            className="h-16 w-16 rounded-full"
+          />
+        )}
+        <div>
+          <h1 className="text-xl font-bold">Hi {user.email}!</h1>
+          <h2 className="text-sm text-gray-600">id: {user.id}</h2>
+        </div>
+      </div>
       <button
-        className="px-4 py-2 bg-blue-500 text-white rounded border-2 my-2"
+        className="my-2 rounded border-2 bg-blue-500 px-4 py-2 text-white"
         onClick={(e) => {
           const todoAId = id();
           const todoBId = id();
           db.transact([
             tx.todos[todoAId].update({
-              title: "Go on a run",
+              title: 'Go on a run',
               creatorId: user.id,
             }),
             tx.todos[todoBId].update({
-              title: "Drink a protein shake",
+              title: 'Drink a protein shake',
               creatorId: user.id,
             }),
             tx.goals[id()]
               .update({
-                title: "Get six pack abs",
+                title: 'Get six pack abs',
                 priority6: 1,
                 creatorId: user.id,
               })
@@ -126,7 +146,7 @@ function Main({ user }: { user: User }) {
         Create some example data
       </button>
       <button
-        className="px-4 py-2 bg-red-500 text-white rounded border-2 my-2"
+        className="my-2 rounded border-2 bg-red-500 px-4 py-2 text-white"
         onClick={(e) => {
           const goalIds = data.goals.map((g) => g.id);
           const todoIds = data.goals
@@ -142,7 +162,7 @@ function Main({ user }: { user: User }) {
       </button>
 
       <button
-        className="px-4 py-2 rounded border-2 my-2"
+        className="my-2 rounded border-2 px-4 py-2"
         onClick={(e) => {
           db.auth.signOut();
         }}

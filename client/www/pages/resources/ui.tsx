@@ -27,7 +27,7 @@ function Example({
   return (
     <div className="flex flex-col gap-0.5">
       <div className="font-mono text-xs text-gray-500">{label}</div>
-      <div className="dots rounded-sm border p-4">{children}</div>
+      <div className="dots rounded-xs border p-4">{children}</div>
     </div>
   );
 }
@@ -171,7 +171,7 @@ export default function UI() {
                 </div>
               </div>
             </Example>
-          ))
+          )),
       )}
       <GroupName>Misc</GroupName>
       <Example label="Copyable">
@@ -179,12 +179,22 @@ export default function UI() {
       </Example>
       <Example label="CodeEditor">
         <div className="h-[30vh]">
-          <CodeEditor language="json" value="{}" onChange={() => {}} />
+          <CodeEditor
+            darkMode={false}
+            language="json"
+            value="{}"
+            onChange={() => {}}
+          />
         </div>
       </Example>
       <Example label="JSONEditor">
         <div className="h-[30vh]">
-          <JSONEditor label={<>rules.json</>} value="{}" onSave={() => {}} />
+          <JSONEditor
+            darkMode={false}
+            label={<>rules.json</>}
+            value="{}"
+            onSave={() => {}}
+          />
         </div>
       </Example>
     </div>

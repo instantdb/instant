@@ -28,8 +28,29 @@ const nextConfig = {
         ],
         destination: 'https://instantdb.com/:path*',
       },
+      {
+        permanent: false,
+        basePath: false,
+        source: '/status',
+        destination: 'https://status.instantdb.com',
+      },
     ];
   },
+  // Proxy to PostHog to avoid ad blockers
+  async rewrites() {
+    return [
+      {
+        source: '/a/static/:path*',
+        destination: 'https://us-assets.i.posthog.com/static/:path*',
+      },
+      {
+        source: '/a/:path*',
+        destination: 'https://us.i.posthog.com/:path*',
+      },
+    ];
+  },
+  // This is required to support PostHog trailing slash API requests
+  skipTrailingSlashRedirect: true,
 };
 
 module.exports = withMarkdoc()(nextConfig);

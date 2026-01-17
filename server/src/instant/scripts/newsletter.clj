@@ -66,7 +66,7 @@
                      :message message}]
     (swap! errors conj error-entry)))
 
-(defn handle-email-error! [e to]
+(defn handle-email-error! [^Throwable e to]
   (if (inactive-recipient? e)
     (add-error! to "INACTIVE_RECIPIENT" "This email address has been marked inactive.")
     (add-error! to "ERROR" (.getMessage e)))
@@ -132,7 +132,7 @@
 
 (comment
   ;; 1. Set your params
-  (def params {:title "Instant News - Oct 2024" :slug "UPDATE ME"})
+  (def params {:title "Instant News - MMM YYYY" :slug "mmmYYYY"})
 
   ;; 2. Send test email to yourself, verify looks good
   (let [htmlBody (read-file base-path (html-path (:slug params)))

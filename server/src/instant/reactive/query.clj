@@ -6,27 +6,32 @@
   queries. See go-datalog-query-reactive! for more details. We also cache datalog
   query results for perf."
   (:require
-   [instant.data.constants :refer [zeneca-app-id]]
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
+   [instant.db.instaql-topic :as iqt]
    [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.reactive.store :as rs]
-   [instant.util.instaql :refer [instaql-nodes->object-tree]]
-   [instant.util.tracer :as tracer]))
+   [instant.util.instaql :refer [instaql-nodes->object-meta
+                                 instaql-nodes->object-tree]]
+   [instant.util.tracer :as tracer]
+   [instant.comment :as c]
+   [instant.flags :as flags]))
 
 (defn- datalog-query-cached!
   "Returns the result of a datalog query. Leverages atom and
   delay to ensure queries are only run once in the face of concurrent requests."
-  [store-conn {:keys [app-id] :as ctx} datalog-query]
-  (rs/swap-datalog-cache! store-conn app-id d/query ctx datalog-query))
+  [store {:keys [app-id] :as ctx} datalog-query]
+  (rs/swap-datalog-cache! store app-id d/query ctx datalog-query))
 
 (comment
+  (def z (c/zeneca-app!))
+  (def z-id (:id z))
   (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :app-id zeneca-app-id})
+            :app-id z-id})
   (def instaql-query '[[:ea ?e ?a "joe"]])
   (time
-   (datalog-query-cached! rs/store-conn ctx instaql-query)))
+   (datalog-query-cached! rs/store ctx instaql-query)))
 
 (defn- datalog-query-reactive!
   "When a datalog query is in-flight we may miss an update. To mitigate this
@@ -35,14 +40,16 @@
   it as stale.
 
   Once the query completes we refine the subscription with the resolved topics"
-  [store-conn ctx datalog-query]
-  (tracer/with-span! {:name "datalog-query-reactive!"
-                      :attributes {:query (pr-str datalog-query)}}
-    (let [coarse-topics (d/pats->coarse-topics datalog-query)
-          _ (rs/record-datalog-query-start! store-conn ctx datalog-query coarse-topics)
-          datalog-result (datalog-query-cached! store-conn ctx datalog-query)]
-      (rs/record-datalog-query-finish! store-conn ctx datalog-query datalog-result)
-      datalog-result)))
+  [store ctx datalog-query]
+  (if (:skip-cache? ctx)
+    (d/query ctx datalog-query)
+    (tracer/with-span! {:name "datalog-query-reactive!"
+                        :attributes {:query (pr-str datalog-query)}}
+      (let [coarse-topics (d/pats->coarse-topics datalog-query)
+            _ (rs/record-datalog-query-start! store ctx datalog-query coarse-topics)
+            datalog-result (datalog-query-cached! store ctx datalog-query)]
+        (rs/record-datalog-query-finish! store ctx datalog-query datalog-result)
+        datalog-result))))
 
 (defn collect-triples [instaql-result]
   (let [join-rows (get-in instaql-result [:data :datalog-result :join-rows])
@@ -88,43 +95,66 @@
                      {:aggregate aggregate}))
       :child-nodes []}]))
 
+(defn- compile-instaql-topic [attrs instaql-query]
+  (when (flags/toggled? :instaql-topic-compiler true)
+    (try
+      (let [forms (iq/->forms! attrs instaql-query)
+            result (iqt/instaql-topic {:attrs attrs} forms)]
+        (when (:program result)
+          result))
+      (catch Throwable e
+        (tracer/record-exception-span! e {:name "compile-instaql-topic-ex"})))))
+
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
   effects in the store. To be used with session"
-  [store-conn {:keys [session-id app-id attrs] :as base-ctx} instaql-query return-type]
+  [store {:keys [session-id app-id attrs] :as base-ctx} instaql-query return-type inference?]
   (tracer/with-span! {:name "instaql-query-reactive!"
                       :attributes {:session-id session-id
                                    :app-id app-id
                                    :instaql-query instaql-query}}
     (try
-      (let [v (rs/bump-instaql-version! store-conn session-id instaql-query return-type)
+      (let [iq-ent (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
+            v (:instaql-query/version iq-ent)
+            iq-topic (or (:instaql-query/topic iq-ent)
+                         (when-let [topic (compile-instaql-topic attrs instaql-query)]
+                           (rs/set-instaql-topic! store app-id (:db/id iq-ent) topic)
+                           topic))
+
+            _ (tracer/add-data! {:attributes {:v v
+                                              :iq-topic? (boolean iq-topic)}})
             ctx (-> base-ctx
                     (assoc :v v
-                           :datalog-query-fn (partial datalog-query-reactive! store-conn)
+                           :datalog-query-fn (partial datalog-query-reactive! store)
                            :instaql-query instaql-query)
                     ((fn [ctx]
                        (-> ctx
-                           (assoc :record-datalog-query-start! (partial rs/record-datalog-query-start! store-conn ctx)
-                                  :record-datalog-query-finish! (partial rs/record-datalog-query-finish! store-conn ctx))))))
+                           (assoc :record-datalog-query-start! (partial rs/record-datalog-query-start! store ctx)
+                                  :record-datalog-query-finish! (partial rs/record-datalog-query-finish! store ctx))))))
 
             instaql-result (iq/permissioned-query ctx instaql-query)
             result-hash (hash {:instaql-result instaql-result
                                :attrs (attr-model/unwrap attrs)})
-            {:keys [result-changed?]} (rs/add-instaql-query! store-conn ctx result-hash)]
+            {:keys [result-changed?]} (rs/add-instaql-query! store ctx result-hash)]
         {:instaql-result (case return-type
                            :join-rows (collect-instaql-results-for-client instaql-result)
-                           :tree (instaql-nodes->object-tree ctx instaql-result)
+                           :tree (instaql-nodes->object-tree (assoc ctx :inference? inference?) instaql-result)
                            (collect-instaql-results-for-client instaql-result))
-         :result-changed? result-changed?})
+         :result-meta (when (= :tree return-type)
+                        (instaql-nodes->object-meta instaql-result))
+         :result-changed? result-changed?
+         :instaql-topic? (boolean iq-topic)})
       (catch Throwable e
-        (rs/remove-query! store-conn session-id app-id instaql-query)
+        (rs/remove-query! store app-id session-id instaql-query)
         (throw e)))))
 
 (comment
+  (def z (c/zeneca-app!))
+  (def z-id (:id z))
   (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :attrs (attr-model/get-by-app-id zeneca-app-id)
-            :app-id zeneca-app-id
+            :attrs (attr-model/get-by-app-id z-id)
+            :app-id z-id
             :current-user nil
             :session-id "moop"})
   (def instaql-query {"users" {}})
-  (instaql-query-reactive! rs/store-conn ctx instaql-query "join-rows"))
+  (instaql-query-reactive! rs/store ctx instaql-query "join-rows" true))

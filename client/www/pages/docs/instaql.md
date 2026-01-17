@@ -1,5 +1,6 @@
 ---
 title: Reading data
+description: How to read data with Instant using InstaQL.
 ---
 
 Instant uses a declarative syntax for querying. It's like GraphQL without the configuration. Here's how you can query data with **InstaQL.**
@@ -11,9 +12,9 @@ One of the simplest queries you can write is to simply get all entities of a nam
 ```javascript
 import { init } from '@instantdb/react';
 
-const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-});
+// Instant app
+const APP_ID = '__APP_ID__';
+const db = init({ appId: APP_ID });
 
 function App() {
   // Queries! 🚀
@@ -87,7 +88,7 @@ const data = {
 
 ## Fetch a specific entity
 
-If you want to filter entities, you can use the `where` keyword. Here we fetch a specific goal
+If you want to filter entities, you can use the `where` keyword. Here we fetch a specific goal.
 
 ```javascript
 const query = {
@@ -298,7 +299,7 @@ const query = {
     todos: {
       $: {
         where: {
-          'todos.title': 'Go on a run',
+          title: 'Go on a run',
         },
       },
     },
@@ -376,6 +377,38 @@ console.log(data)
   ]
 }
 ```
+
+## Defer queries
+
+You can also defer queries until a condition is met. This is useful when you
+need to wait for some data to be available before you can run your query. Here's
+an example of deferring a fetch for todos until a user is logged in.
+
+```javascript
+const { isLoading, user, error } = db.useAuth();
+
+const {
+  isLoading: isLoadingTodos,
+  error,
+  data,
+} = db.useQuery(
+  user
+    ? {
+        // The query will run once user is populated
+        todos: {
+          $: {
+            where: {
+              'owner.id': user.id,
+            },
+          },
+        },
+      }
+    : // Otherwise skip the query, which sets `isLoading` to true
+      null,
+);
+```
+
+**NOTE:** Passing `null` to `db.useQuery` will result in `isLoading` being true. In the example above, this means that `isLoadingTodos` will _always be true_ if the user is not logged in.
 
 ## Pagination
 
@@ -513,7 +546,7 @@ const loadPreviousPage = () => {
 
 ### Ordering
 
-The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map for top-level namespaces:
+The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map for namespaces:
 
 ```javascript
 const query = {
@@ -534,10 +567,10 @@ The `serverCreatedAt` field is a reserved key that orders by the time that the o
 You can also order by any attribute that is indexed and has a checked type.
 
 {% callout %}
-Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
+Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli](/docs/cli).
 {% /callout %}
 
-```javascript
+```typescript
 // Get the todos that are due next
 const query = {
   todos: {
@@ -554,15 +587,56 @@ const query = {
 };
 ```
 
+You can use order in nested namespaces as well:
+
+```typescript
+// Get goals with their associated todos ordered by due date
+const query = {
+  goals: {
+    todos: {
+      $: {
+        order: {
+          dueDate: 'asc',
+        },
+      },
+    },
+  },
+};
+```
+
+Order is not supported on nested attributes. So if todos had an owner you could
+not order todos by "owner.name". This behavior is different from `where`,
+which supports filtering on nested attributes.
+
+```typescript
+// ❌ Order does not support nested attributes
+const query = {
+  todos: {
+    $: {
+      order: {
+        'owner.name': 'asc', // Cannot order by nested attributes
+      },
+    },
+  },
+};
+
+// ✅ Where does support filtering on nested attributes
+const query = {
+  todos: {
+    $: {
+      where: {
+        'owner.name': 'alyssa.p.hacker@instantdb.com',
+      },
+    },
+  },
+};
+```
+
 ## Advanced filtering
 
-### And
+### Multiple `where` conditions
 
 The `where` clause supports multiple keys which will filter entities that match all of the conditions.
-
-You can also provide a list of queries under the `and` key.
-
-**Multiple keys in a single where**:
 
 ```javascript
 const query = {
@@ -591,11 +665,11 @@ console.log(data)
 }
 ```
 
-**`and` key:**
+### And
 
-The `and` key is useful when you want an entity to match multiple conditions.
-In this case we want to find goals that have both `Drink protein` and `Go on a
-run` todos.:
+The `where` clause supports `and` queries which are useful when you want to filter entities that match multiple associated values.
+
+In this example we want to find goals that have todos with the titles `Drink protein` and `Go on a run`
 
 ```javascript
 const query = {
@@ -797,9 +871,9 @@ console.log(error);
 }
 ```
 
-### $not
+### $ne
 
-The `where` clause supports `$not` queries that will return entities that don't
+The `where` clause supports `$ne` queries that will return entities that don't
 match the provided value for the field, including entities where the field is null or undefined.
 
 ```javascript
@@ -807,7 +881,7 @@ const query = {
   todos: {
     $: {
       where: {
-        location: { $not: 'work' },
+        location: { $ne: 'work' },
       },
     },
   },
@@ -1007,6 +1081,87 @@ console.log(data)
 }
 ```
 
+## Select fields
+
+An InstaQL query will fetch all fields for each object.
+
+If you prefer to select the specific fields that you want your query to return, use the `fields` param:
+
+```javascript
+const query = {
+  goals: {
+    $: {
+      fields: ['status'],
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": standupId, // id will always be returned even if not specified
+      "status": "in-progress"
+    },
+    {
+      "id": standId,
+      "status": "completed"
+    }
+  ]
+}
+```
+
+`fields` also works with nested relations:
+
+```javascript
+const query = {
+  goals: {
+    $: {
+      fields: ['title'],
+    },
+    todos: {
+      $: {
+        fields: ['id'],
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": standupId,
+      "title": "Perform standup!",
+      "todos": [{"id": writeJokesId}, {"id": goToOpenMicId}]
+    },
+    {
+      "id": standId,
+      "title": "Stand up a food truck.",
+      "todos": [{"id": learnToCookId}, {"id": buyATruckId}]
+    }
+  ]
+}
+```
+
+Using `fields` can be useful for performance optimization. It reduces the
+amount of data that needs to be transferred from the server and minimizes the
+number of re-renders in your React application if there are no changes to your
+selected fields.
+
+{% callout type="warning" %}
+
+Using `fields` doesn't restrict a client from doing a full query. If you have sensitive data on your entities that you
+don't want to expose you'll want to use [permissions](/docs/permissions#fields) to restrict access.
+
+{% /callout %}
+
 ## Typesafety
 
 By default, `db.useQuery` is permissive. You don't have to tell us your schema upfront, and you can write any kind of query:
@@ -1020,25 +1175,12 @@ const query = {
 const { isLoading, error, data } = db.useQuery(query);
 ```
 
-As your app grows, you may want to start enforcing types. When you're ready you can write a [schema](/docs/modeling-data):
-
-```typescript
-import { init } from '@instantdb/react';
-
-import schema from '../instant.schema.ts';
-
-const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-  schema,
-});
-```
-
-If your schema includes `goals` and `todos` for example:
+As your app grows, you may want to start enforcing types. When you're ready you can write a [schema](/docs/modeling-data). If your schema includes `goals` and `todos` for example:
 
 ```typescript
 // instant.schema.ts
 
-import { i } from '@instantdb/core';
+import { i } from '@instantdb/react';
 
 const _schema = i.schema({
   entities: {
@@ -1047,18 +1189,21 @@ const _schema = i.schema({
     }),
     todos: i.entity({
       title: i.string(),
+      text: i.string(),
+      done: i.boolean(),
+      createdAt: i.date(),
       dueDate: i.date(),
     }),
   },
   links: {
     goalsTodos: {
-      forward: { on: 'todos', has: 'many', label: 'goals' },
-      reverse: { on: 'goals', has: 'many', label: 'todos' },
+      forward: { on: 'goals', has: 'many', label: 'todos' },
+      reverse: { on: 'todos', has: 'many', label: 'goals' },
     },
   },
 });
 
-// This helps Typescript display better intellisense
+// This helps TypeScript display better intellisense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
@@ -1066,8 +1211,6 @@ const schema: AppSchema = _schema;
 export type { AppSchema };
 export default schema;
 ```
-
-### Intellisense
 
 Instant will start giving you intellisense for your queries. For example, if you're querying for goals, you'll see that only `todos` can be associated:
 
@@ -1093,38 +1236,28 @@ const query = {
 } satisfies InstaQLParams<AppSchema>;
 ```
 
-Or you can define your result type: 
+Or you can define your result type:
 
 ```typescript
 import { InstaQLResult } from '@instantdb/react';
 import { AppSchema } from '../instant.schema.ts';
 
-type GoalsTodosResult = InstaQLResult<
-  AppSchema, 
-  { goals: { todos: {} } }
->;
+type GoalsTodosResult = InstaQLResult<AppSchema, { goals: { todos: {} } }>;
 ```
 
-Or you can extract a particular entity: 
+Or you can extract a particular entity:
 
 ```typescript
 import { InstaQLEntity } from '@instantdb/react';
 import { AppSchema } from '../instant.schema.ts';
 
-type Todo = InstaQLEntity<
-  AppSchema, 
-  'todos'
->;
+type Todo = InstaQLEntity<AppSchema, 'todos'>;
 ```
 
-You can specify links relative to your entity too:
+You can specify links relative to your entity:
 
-```typescript 
-type TodoWithGoals = InstaQLEntity<
-  AppSchema, 
-  'todos', 
-  { goals: { } }
->;
+```typescript
+type TodoWithGoals = InstaQLEntity<AppSchema, 'todos', { goals: {} }>;
 ```
 
 To learn more about writing schemas, check out the [Modeling Data](/docs/modeling-data) section.

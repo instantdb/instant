@@ -1,5 +1,6 @@
 (ns instant.util.hazelcast-test
-  (:require [instant.util.hazelcast :as h]
+  (:require [instant.util.crypt :as crypt-util]
+            [instant.util.hazelcast :as h]
             [clojure.test :refer [deftest is testing]]))
 
 (deftest room-key-roundtrips
@@ -16,13 +17,19 @@
 
 (deftest join-room-roundtrips
   (testing "with user"
-    (let [start (h/->JoinRoomMergeV1 (random-uuid) (random-uuid))
-          serializer h/join-room-serializer]
+    (let [start (h/->JoinRoomMergeV3 (random-uuid) "dev" (random-uuid) {"hello" "world"})
+          serializer h/join-room-v3-serializer]
       (is (= start (->> (.write serializer start)
                         (.read serializer))))))
   (testing "without user"
-    (let [start (h/->JoinRoomMergeV1 (random-uuid) nil)
-          serializer h/join-room-serializer]
+    (let [start (h/->JoinRoomMergeV3 (random-uuid) "dev" nil nil)
+          serializer h/join-room-v3-serializer]
+      (is (= start (->> (.write serializer start)
+                        (.read serializer))))))
+
+  (testing "without data"
+    (let [start (h/->JoinRoomMergeV3 (random-uuid) "dev" (random-uuid) nil)
+          serializer h/join-room-v3-serializer]
       (is (= start (->> (.write serializer start)
                         (.read serializer)))))))
 
@@ -31,3 +38,15 @@
         serializer h/set-presence-serializer]
     (is (= start (->> (.write serializer start)
                       (.read serializer))))))
+
+(deftest sse-message-roundtrips
+  (let [start (h/map->SSEMessage {:app-id (random-uuid)
+                                  :session-id (random-uuid)
+                                  :sse-token-hash (crypt-util/uuid->sha256 (random-uuid))
+                                  :messages [{:op :hello-world
+                                              :q {:bookshelves {:$ {:where {:user.handle "alex"}}}}}]})
+        serializer h/sse-message-serializer]
+    (is (= (update start :sse-token-hash crypt-util/bytes->hex-string)
+           (update (->> (.write serializer start)
+                        (.read serializer))
+                   :sse-token-hash crypt-util/bytes->hex-string)))))

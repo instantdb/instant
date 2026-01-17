@@ -386,9 +386,7 @@ Task with id 3 has title "Code"
 These sentences translate to lists:
 
 ```javascript
-[1, 'name', 'Joe']
-[2, 'name', 'Awesome Team']
-[3, 'title', 'Code']
+[1, 'name', 'Joe'][(2, 'name', 'Awesome Team')][(3, 'title', 'Code')];
 ```
 
 Then we want a way to describe references. To say:
@@ -401,8 +399,7 @@ Team with id 2 has a "task" reference to Task with id 3
 Well...these translate to lists just as well:
 
 ```javascript
-[3, 'owner', 1]
-[2, 'tasks', 3]
+[3, 'owner', 1][(2, 'tasks', 3)];
 ```
 
 Put these lists in a table, and you have a triple store! _Triple_ is the name of the list we’ve been writing:
@@ -411,7 +408,7 @@ Put these lists in a table, and you have a triple store! _Triple_ is the name of
 [1, 'name', 'Joe'];
 ```
 
-The first item is always an `id`, the second the `attribute`, and the third, the `value`. Turns out triples are all we need to express a graph. 
+The first item is always an `id`, the second the `attribute`, and the third, the `value`. Turns out triples are all we need to express a graph.
 
 Here’s a more fleshed out example:
 
@@ -456,8 +453,7 @@ This can work well, but we need to be creative about it. Imagine if two of us ch
 How does Figma do this? They store their properties in a special way. They store them as...triples! [^27]
 
 ```javascript
-[1, 'fontSize', 20]
-[1, 'backgroundColor', 'blue'];
+[1, 'fontSize', 20][(1, 'backgroundColor', 'blue')];
 ```
 
 These triples say that the Layer with id 1 has a fontSize 20 and backgroundColor blue. Since they are different rows, there’s no conflict.
@@ -550,11 +546,13 @@ And get back objects:
 
 ```javascript
 {
-  teams: [{
-    id: 1,
-    name: 'Awesome Team',
-    tasks: [{id: 3, title: 'Code', owner: [{id: 1, name: 'Joe'}]}]
-  }]
+  teams: [
+    {
+      id: 1,
+      name: 'Awesome Team',
+      tasks: [{ id: 3, title: 'Code', owner: [{ id: 1, name: 'Joe' }] }],
+    },
+  ];
 }
 ```
 
@@ -563,6 +561,8 @@ Every query works offline, and all changes are applied instantly. The server has
 It's been thrilling to see users try Instant. When they write their first relational query I see delight in their eyes, and boy is that thrilling.
 
 If you’re excited about this stuff, [sign up and give us a try](https://instantdb.com). We will reach out to your personally for feedback.
+
+[Dicussion on HN](https://news.ycombinator.com/item?id=32595895)
 
 _Thanks Joe Averbukh, Alex Reichert, Mark Shlick, Slava Akhmechet, Nicole Garcia Fischer, Daniel Woelfel, Jake Teton-Landis, Rudi Chen, Dan Vingo, Dennis Heihoff for reviewing drafts of this essay._
 

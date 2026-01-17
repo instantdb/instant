@@ -5,14 +5,13 @@
   <h1 align="center">sandbox/react-nextjs</h1>
 </p>
 
-This is sandbox app to play with [@instantdb/react-native](../../packages/react-native/). 
-
+This is sandbox app to play with [@instantdb/react-native](../../packages/react-native/).
 
 # Development
 
 First, let's set up your environment. Create an Instant app, either on your local backend or prod, and fill out the token info in your `.env` file.
 
-```bash 
+```bash
 cp .env.example .env
 # fill in the variables in .env
 ```

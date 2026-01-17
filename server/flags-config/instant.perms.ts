@@ -1,5 +1,7 @@
 // Docs: https://www.instantdb.com/docs/permissions
 
+import type { InstantRules } from "@instantdb/core";
+
 const rules = {
   attrs: {
     allow: {
@@ -11,6 +13,6 @@ const rules = {
       $default: "false",
     },
   },
-};
+} satisfies InstantRules;
 
 export default rules;

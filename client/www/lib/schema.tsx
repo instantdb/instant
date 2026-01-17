@@ -1,4 +1,16 @@
 import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
+import { InstantDBAttr } from '@instantdb/core';
+import { InstantAPIPlatformSchema } from '@instantdb/platform';
+
+// We show most attrs in the explorer except for some system attrs
+function isVisibleAttr(attr: DBAttr) {
+  const [, namespace, label] = attr['forward-identity'];
+  return (
+    attr.catalog !== 'system' ||
+    namespace === '$users' ||
+    namespace === '$files'
+  );
+}
 
 export function dbAttrsToExplorerSchema(
   rawAttrs: Record<string, DBAttr>,
@@ -9,10 +21,8 @@ export function dbAttrsToExplorerSchema(
   > = {};
 
   const oAttrs: Record<string, DBAttr> = {};
-  // Filter out the system catalog attrs, except for $user.id and $user.email
   for (const [id, attrDesc] of Object.entries(rawAttrs)) {
-    const [, namespace, label] = attrDesc['forward-identity'];
-    if (attrDesc.catalog === 'system' && namespace !== '$users') {
+    if (!isVisibleAttr(attrDesc)) {
       continue;
     }
     oAttrs[id] = attrDesc;
@@ -34,12 +44,14 @@ export function dbAttrsToExplorerSchema(
         id: attrDesc['forward-identity'][0],
         namespace: attrDesc['forward-identity'][1],
         attr: attrDesc['forward-identity'][2],
+        nsMap: nsMap[attrDesc['forward-identity'][1]],
       },
       reverse: attrDesc['reverse-identity']
         ? {
             id: attrDesc['reverse-identity'][0],
             namespace: attrDesc['reverse-identity'][1],
             attr: attrDesc['reverse-identity'][2],
+            nsMap: nsMap[attrDesc['reverse-identity'][1]],
           }
         : undefined,
     };
@@ -57,6 +69,7 @@ export function dbAttrsToExplorerSchema(
           type: attrDesc['value-type'],
           isIndex: attrDesc['index?'],
           isUniq: attrDesc['unique?'],
+          isRequired: attrDesc['required?'],
           isPrimary: attrDesc['primary?'],
           cardinality: attrDesc.cardinality,
           linkConfig,
@@ -64,7 +77,8 @@ export function dbAttrsToExplorerSchema(
           catalog: attrDesc.catalog,
           checkedDataType: attrDesc['checked-data-type'],
           sortable: attrDesc['index?'] && !!attrDesc['checked-data-type'],
-          onDelete: attrDesc['on-delete']
+          onDelete: attrDesc['on-delete'],
+          onDeleteReverse: attrDesc['on-delete-reverse'],
         };
       }
     }
@@ -86,9 +100,14 @@ export function dbAttrsToExplorerSchema(
         type: attrDesc['value-type'],
         isIndex: attrDesc['index?'],
         isUniq: attrDesc['unique?'],
+        isRequired: attrDesc['required?'],
         cardinality: attrDesc.cardinality,
         linkConfig,
         sortable: attrDesc['index?'] && !!attrDesc['checked-data-type'],
+        onDelete: attrDesc['on-delete'],
+        onDeleteReverse: attrDesc['on-delete-reverse'],
+        catalog: attrDesc.catalog,
+        checkedDataType: attrDesc['checked-data-type'],
       };
     }
   }
@@ -114,4 +133,153 @@ function nameComparator(a: { name: string }, b: { name: string }) {
     return 1;
   }
   return 0;
+}
+
+// attrsToSchema
+// Converts attrs to the instant API schema format
+// Make sure any changes here match changes to instant.model.schema in Clojure
+
+// Helpers
+
+const FILES_URL_AID = '96653230-13ff-ffff-2a35-48afffffffff';
+
+function dbAttrToInstantDBAttr(attr: DBAttr): InstantDBAttr {
+  return {
+    ...attr,
+    'required?': attr['required?'] ?? false,
+    'inferred-types': attr['inferred-types'] ?? null,
+    catalog: attr['catalog'] ?? 'user',
+    'forward-identity': [
+      attr['forward-identity'][0],
+      attr['forward-identity'][1],
+      attr['forward-identity'][2],
+    ],
+    'reverse-identity': attr['reverse-identity']
+      ? [
+          attr['reverse-identity'][0],
+          attr['reverse-identity'][1],
+          attr['reverse-identity'][2],
+        ]
+      : undefined,
+  };
+}
+
+// Transform $files.url attribute to mark it as required
+function transformFilesUrlAttr(attr: DBAttr) {
+  // $files.url is a derived attribute that we always return from queries.
+  // It does not exist inside our database, so it's marked as optional.
+  // However, to our users, it's seen as a required attribute, since we always
+  // provide it.
+  if (attr.id === FILES_URL_AID) {
+    return { ...attr, required: true };
+  }
+  return attr;
+}
+
+// Remove hidden system attributes
+function removeHidden(attrs: DBAttr[]) {
+  return attrs.filter((attr) => {
+    const catalog = attr.catalog;
+    const fwdEtype = getFwdEtype(attr);
+    const fwdLabel = getFwdLabel(attr);
+
+    // Remove system attrs except $users and $files
+    if (catalog === 'system' && !['$users', '$files'].includes(fwdEtype)) {
+      return false;
+    }
+
+    // Remove specific $files attributes
+    if (
+      fwdEtype === '$files' &&
+      [
+        'content-type',
+        'content-disposition',
+        'size',
+        'location-id',
+        'key-version',
+      ].includes(fwdLabel)
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function getFwdEtype(attr: DBAttr) {
+  return attr['forward-identity'][1];
+}
+
+function getFwdLabel(attr: DBAttr) {
+  return attr['forward-identity'][2];
+}
+
+// Make sure any changes here match changes to instant.model.schema in Clojure
+// Converts attrs to the instant API schema format
+export function attrsToSchema(attrs: DBAttr[]): InstantAPIPlatformSchema {
+  const filteredAttrs = removeHidden(attrs).map(transformFilesUrlAttr);
+
+  const grouped = filteredAttrs.reduce(
+    (acc: { ref: DBAttr[]; blob: DBAttr[] }, attr) => {
+      const valueType = attr['value-type'];
+      if (!acc[valueType]) {
+        acc[valueType] = [];
+      }
+      acc[valueType].push(attr);
+      return acc;
+    },
+    { ref: [], blob: [] },
+  );
+
+  const blobs = grouped.blob || [];
+  const refs = grouped.ref || [];
+
+  const refsIndexed: InstantAPIPlatformSchema['refs'] = refs.reduce(
+    (acc: InstantAPIPlatformSchema['refs'], attr) => {
+      const {
+        'forward-identity': forwardIdentity,
+        'reverse-identity': reverseIdentity,
+      } = attr;
+      const key = JSON.stringify([
+        forwardIdentity[1],
+        forwardIdentity[2],
+        reverseIdentity?.[1],
+        reverseIdentity?.[2],
+      ]);
+      acc[key] = dbAttrToInstantDBAttr(attr);
+      return acc;
+    },
+    {},
+  );
+
+  const blobsGrouped: Record<string, DBAttr[]> = blobs.reduce(
+    (acc: Record<string, DBAttr[]>, blob) => {
+      const entityType = getFwdEtype(blob);
+      if (!acc[entityType]) {
+        acc[entityType] = [];
+      }
+      acc[entityType].push(blob);
+      return acc;
+    },
+    {},
+  );
+
+  const blobsIndexed: InstantAPIPlatformSchema['blobs'] = Object.entries(
+    blobsGrouped,
+  ).reduce((acc: InstantAPIPlatformSchema['blobs'], [entityType, attrs]) => {
+    acc[entityType] = attrs.reduce(
+      (attrMap: Record<string, InstantDBAttr>, attr) => {
+        const attrName = attr['forward-identity'][2];
+        attrMap[attrName] = dbAttrToInstantDBAttr(attr);
+        return attrMap;
+      },
+      {},
+    );
+    return acc;
+  }, {});
+
+  return {
+    refs: refsIndexed,
+    blobs: blobsIndexed,
+  };
 }

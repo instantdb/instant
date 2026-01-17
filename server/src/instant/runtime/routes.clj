@@ -1,154 +1,82 @@
 (ns instant.runtime.routes
-  (:require [clojure.string :as string]
-            [compojure.core :as compojure :refer [defroutes GET POST]]
-            [datascript.core :refer [squuid]]
-            [hiccup2.core :as h]
-            [instant.auth.oauth :as oauth]
-            [instant.config :as config]
-            [instant.db.model.transaction :as transaction-model]
-            [instant.jdbc.aurora :as aurora]
-            [instant.model.app :as app-model]
-            [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
-            [instant.model.app-email-template :as app-email-template-model]
-            [instant.model.app-oauth-client :as app-oauth-client-model]
-            [instant.model.app-oauth-code :as app-oauth-code-model]
-            [instant.model.app-oauth-redirect :as app-oauth-redirect-model]
-            [instant.model.app-user :as app-user-model]
-            [instant.model.app-user-magic-code :as app-user-magic-code-model]
-            [instant.model.app-user-oauth-link :as app-user-oauth-link-model]
-            [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
-            [instant.model.instant-user :as instant-user-model]
-            [instant.postmark :as postmark]
-            [instant.reactive.receive-queue :as receive-queue]
-            [instant.reactive.session :as session]
-            [instant.reactive.store :as rs]
-            [instant.util.coll :as ucoll]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.email :as email]
-            [instant.util.exception :as ex]
-            [instant.util.string :as string-util]
-            [instant.util.tracer :as tracer]
-            [instant.util.url :as url]
-            [instant.util.uuid :as uuid-util]
-            [lambdaisland.uri :as uri]
-            [next.jdbc :as next-jdbc]
-            [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.util.http-response :as response])
-  (:import (java.util UUID)))
+  (:require
+   [clojure.string :as string]
+   [compojure.core :as compojure :refer [defroutes GET POST]]
+   [datascript.core :refer [squuid]]
+   [hiccup2.core :as h]
+   [instant.admin.routes :refer [req->app-id-untrusted!]]
+   [instant.auth.oauth :as oauth]
+   [instant.config :as config]
+   [instant.db.datalog :as d]
+   [instant.db.instaql :as iq]
+   [instant.db.model.attr :as attr-model]
+   [instant.jdbc.aurora :as aurora]
+   [instant.model.app :as app-model]
+   [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
+   [instant.model.app-oauth-client :as app-oauth-client-model]
+   [instant.model.app-oauth-code :as app-oauth-code-model]
+   [instant.model.app-oauth-redirect :as app-oauth-redirect-model]
+   [instant.model.app-user :as app-user-model]
+   [instant.model.app-user-magic-code :as app-user-magic-code-model]
+   [instant.model.app-user-oauth-link :as app-user-oauth-link-model]
+   [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.reactive.query :refer [collect-instaql-results-for-client]]
+   [instant.reactive.receive-queue :as receive-queue]
+   [instant.reactive.session :as session]
+   [instant.reactive.sse :as sse]
+   [instant.reactive.store :as rs]
+   [instant.runtime.magic-code-auth :as magic-code-auth]
+   [instant.util.coll :as ucoll]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.email :as email]
+   [instant.util.exception :as ex]
+   [instant.util.http :as http-util]
+   [instant.util.string :as string-util]
+   [instant.util.tracer :as tracer]
+   [instant.util.url :as url]
+   [instant.util.uuid :as uuid-util]
+   [lambdaisland.uri :as uri]
+   [ring.middleware.cookies :refer [wrap-cookies]]
+   [ring.util.http-response :as response])
+  (:import
+   (java.util UUID)))
 
 ;; ----
 ;; ws
 
 (defn session-get [_req]
-  (session/undertow-config rs/store-conn
+  (session/undertow-config rs/store
                            receive-queue/receive-q
                            {:id (squuid)}))
+
+;; ---
+;; sse
+
+(defn sse-get [req]
+  (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)]
+    (session/undertow-sse-config rs/store
+                                 receive-queue/receive-q
+                                 {:id (squuid)
+                                  :app-id app-id})))
+
+(defn sse-post [req]
+  (let [machine-id (ex/get-param! req [:body :machine_id] uuid-util/coerce)
+        app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
+        session-id (ex/get-param! req [:body :session_id] uuid-util/coerce)
+        sse-token-hash (crypt-util/uuid->sha256 (ex/get-param! req [:body :sse_token] uuid-util/coerce))
+        messages (ex/get-param! req [:body :messages] identity)]
+    (sse/enqueue-messages machine-id app-id session-id sse-token-hash messages)
+    (response/ok {})))
 
 ;; -----------
 ;; Magic codes
 
-(defn default-body [title code]
-  (postmark/standard-body "<p><strong>Welcome,</strong></p>
-        <p>
-          You asked to join " title ". To complete your registration, use this
-          verification code:
-        </p>
-        <h2 style=\"text-align: center\"><strong>" code "</strong></h2>
-       <p>
-         Copy and paste this into the confirmation box, and you'll be on your way.
-       </p>
-       <p>
-         Note: This code will expire in 24 hours, and can only be used once. If you
-         didn't request this code, please reply to this email.
-       </p>"))
-
-(defn magic-code-email [{:keys [user params]}]
-  (let [{:keys [email]} user
-
-        {:keys [sender-name sender-email subject body]} params]
-    {:from (str sender-name " " "<" sender-email ">")
-     :to email
-     :subject subject
-     :reply-to sender-email
-     :html
-     body}))
-
-(comment
-  (def instant-user (instant-user-model/get-by-email
-                     {:email "stopa@instantdb.com"}))
-  (def app (first (app-model/get-all-for-user {:user-id (:id instant-user)})))
-  (def runtime-user (app-user-model/get-by-email {:app-id (:id app)
-                                                  :email "stopa@instantdb.com"}))
-  (def m {:code "123123"})
-  (postmark/send! (magic-code-email {:app app :user runtime-user :magic-code m}))
-
-  (println  (postmark/standard-body (default-body "{app_title}" "{code}"))))
-
-;; ------
-;; Routes
-
-(def postmark-unconfirmed-sender-body-error-code 400)
-(def postmark-not-found-sender-body-error-code 401)
-
-(def default-sender "auth@pm.instantdb.com")
-
-(defn invalid-sender? [e]
-  (let [code (-> e ex-data :body :ErrorCode)]
-    (or (= code postmark-unconfirmed-sender-body-error-code)
-        (= code postmark-not-found-sender-body-error-code))))
-
-(defn template-replace [template params]
-  (reduce
-   (fn [acc [k v]]
-     (string/replace acc (str "{" (name k) "}") v))
-   template
-   params))
-
-(comment
-  (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"}))
-
 (defn send-magic-code-post [req]
-  (let [email (ex/get-param! req [:body :email] email/coerce)
-        app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
-        app (app-model/get-by-id! {:id app-id})
-        {user-id :id :as u} (or (app-user-model/get-by-email {:app-id app-id :email email})
-                                (next-jdbc/with-transaction [conn (aurora/conn-pool :write)]
-                                  (let [app (app-user-model/create! conn {:id (random-uuid)
-                                                                          :app-id app-id
-                                                                          :email email})]
-                                    (transaction-model/create! conn {:app-id app-id})
-                                    app)))
-        magic-code (app-user-magic-code-model/create!
-                    {:app-id app-id
-                     :id (random-uuid)
-                     :code (app-user-magic-code-model/rand-code)
-                     :user-id user-id})
-        template (app-email-template-model/get-by-app-id-and-email-type
-                  {:app-id app-id
-                   :email-type "magic-code"})
-        template-params {:user_email (:email u)
-                         :code (:code magic-code)
-                         :app_title (:title app)}
-        sender-email (or (:email template) default-sender)
-        email-params (if template
-                       {:sender-email sender-email
-                        :sender-name (or (:name template) (:title app))
-                        :subject (template-replace (:subject template) template-params)
-                        :body (template-replace (:body template) template-params)}
-                       {:sender-name (:title app)
-                        :sender-email default-sender
-                        :subject (str (:code magic-code) " is your verification code for " (:title app))
-                        :body (default-body (:title app) (:code magic-code))})]
-    (try
-      (postmark/send! (magic-code-email {:user u
-                                         :params email-params}))
-      (catch clojure.lang.ExceptionInfo e
-        (if (invalid-sender? e)
-          (do
-            (tracer/record-info! {:name "magic-code/unconfirmed-or-unknown-sender" :attributes {:email sender-email :app-id app-id}})
-            (postmark/send! (magic-code-email {:user u
-                                               :params (assoc email-params :sender-email default-sender)})))
-          (throw e))))
+  (let [email   (ex/get-param! req [:body :email]   email/coerce)
+        app-id  (ex/get-param! req [:body :app-id]  uuid-util/coerce)]
+    (magic-code-auth/send! {:app-id app-id
+                            :email  email})
     (response/ok {:sent true})))
 
 (comment
@@ -159,22 +87,24 @@
                                                   :email "stopa@instantdb.com"}))
 
   (send-magic-code-post {:body {:email "stopainstantdb.com"}})
-  (send-magic-code-post {:body {:email "stopa@instantdb.com" :app-id 1}}))
+  (send-magic-code-post {:body {:email "stopa@instantdb.com" :app-id 1}})
+  (send-magic-code-post {:body {:email "stopa@instantdb.com" :app-id (:id app)}}))
 
 (defn verify-magic-code-post [req]
-  (let [email (ex/get-param! req [:body :email] email/coerce)
-        code (ex/get-param! req [:body :code] string/trim)
-        app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
-        m (app-user-magic-code-model/consume!
-           {:app-id app-id
-            :code code
-            :email email})
-        {user-id :user_id} m
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:app-id app-id
-                                                                      :id (random-uuid)
-                                                                      :user-id user-id})
-        user (app-user-model/get-by-id {:app-id app-id :id user-id})]
-    (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
+  (let [email      (ex/get-param! req [:body :email]  email/coerce)
+        code       (ex/get-param! req [:body :code]   string-util/safe-trim)
+        app-id     (ex/get-param! req [:body :app-id] uuid-util/coerce)
+        guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
+                     (let [user (app-user-model/get-by-refresh-token!
+                                 {:app-id        app-id
+                                  :refresh-token refresh-token})]
+                       (when (= "guest" (:type user))
+                         user)))
+        user       (magic-code-auth/verify! {:app-id  app-id
+                                             :email   email
+                                             :code    code
+                                             :guest-user-id (:id guest-user)})]
+    (response/ok {:user user})))
 
 (comment
   (def instant-user (instant-user-model/get-by-email
@@ -184,11 +114,31 @@
                                                   :email "stopa@instantdb.com"}))
 
   (def m (app-user-magic-code-model/create!
-          {:id (random-uuid) :user-id (:id runtime-user) :code (app-user-magic-code-model/rand-code)}))
+          {:id (random-uuid) :user-id (:id runtime-user) :code (app-user-magic-code-model/rand-code)
+           :app-id (:id app)}))
   (verify-magic-code-post {:body {:email "stopainstantdb.com" :code (:code m)}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code (:code m)}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code "0" :app-id (:id app)}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code (:code m) :app-id (:id app)}}))
+
+;; -----
+;; Guest sign in
+
+(defn sign-in-guest-post [req]
+  (let [app-id        (ex/get-param! req [:body :app-id] uuid-util/coerce)
+        ;; create guest user
+        user-id       (random-uuid)
+        user          (app-user-model/create!
+                       {:app-id app-id
+                        :id     user-id
+                        :type   "guest"})
+        ;; create refresh-token for user
+        refresh-token (random-uuid)
+        _             (app-user-refresh-token-model/create!
+                       {:app-id  app-id
+                        :id      refresh-token
+                        :user-id user-id})]
+    (response/ok {:user (assoc user :refresh_token refresh-token)})))
 
 ;; -----
 ;; Refresh Tokens
@@ -210,6 +160,10 @@
 ;; OAuth
 
 (def oauth-redirect-url (str config/server-origin "/runtime/oauth/callback"))
+
+;; For now just supporting `hd` from Google
+;; https://developers.google.com/identity/openid-connect/openid-connect#authenticationuriparameters
+(def oauth-optional-params [:hd])
 
 ;; -------------
 ;; OAuth cookies
@@ -244,6 +198,11 @@
         redirect-uri (ex/get-param! req
                                     [:params :redirect_uri]
                                     string-util/coerce-non-blank-str)
+
+        extra-params (into {} (for [param oauth-optional-params
+                                    :let [value (get-in req [:params param])]
+                                    :when value]
+                                [param value]))
         authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
                             {:app-id (:app_id client)})
         matched-origin (app-authorized-redirect-origin-model/find-match
@@ -265,9 +224,13 @@
                                            ;; 1 hour
                                            (* 1000 60 60)))
         state (random-uuid)
-        state-with-app-id (format "%s%s" app-id state)
 
-        redirect-url (oauth/create-authorization-url oauth-client state-with-app-id oauth-redirect-url)]
+        redirect-url (oauth/create-authorization-url
+                      oauth-client
+                      (str app-id state)
+                      oauth-redirect-url
+                      extra-params)]
+
     (app-oauth-redirect-model/create! {:app-id app-id
                                        :state state
                                        :cookie cookie-uuid
@@ -285,33 +248,66 @@
                               ;; matches everything under the subdirectory
                               :path "/runtime/oauth"}))))
 
-(defn upsert-oauth-link! [{:keys [email sub app-id provider-id]}]
+(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
                 :sub sub
-                :provider-id provider-id})]
-    (cond
-      (< 1 (count users))
-      (let [err (format "Got multiple app users for email=%s, sub=%s, provider-id=%s."
-                        email
-                        sub
-                        provider-id)]
-        (tracer/record-exception-span!
-         (Exception. err)
-         {:name "oauth/upsert-oauth-link!"
-          :escaping? false
-          :attributes {:email email
-                       :sub sub
-                       :user-ids (pr-str (map :app_user/id users))}})
-        nil)
+                :provider-id provider-id})
 
-      (= 1 (count users))
-      (let [user (first users)]
+        {:keys [user existing-oauth-link]}
+        (if (<= (count users) 1)
+          {:user (first users)
+           :existing-oauth-link nil}
+          (let [email-matches (when email
+                                (filter #(= email (:app_users/email %)) users))]
+            (when-not (= 1 (count email-matches))
+              (ex/throw-oauth-err! "Could not disambiguate between multiple users for this account."))
+            (let [selected (first email-matches)
+                  oauth-link (first (filter :app_user_oauth_links/id users))]
+              (tracer/record-info! {:name "oauth/disambiguated-by-email"
+                                    :attributes {:email email
+                                                 :sub sub
+                                                 :user-ids (mapv :app_users/id users)
+                                                 :selected-user-id (:app_users/id selected)}})
+              {:user selected
+               :existing-oauth-link (when oauth-link
+                                      {:id (:app_user_oauth_links/id oauth-link)
+                                       :sub (:app_user_oauth_links/sub oauth-link)})})))]
+
+    (if-not user
+      (let [created (app-user-model/create!
+                     {:id guest-user-id
+                      :app-id app-id
+                      :email email
+                      :imageURL imageURL
+                      :type "user"})]
+        (app-user-oauth-link-model/create! {:id (random-uuid)
+                                            :app-id app-id
+                                            :provider-id provider-id
+                                            :sub sub
+                                            :user-id (:id created)}))
+
+      (do
         ;; extra caution because it would be really bad to
         ;; return users for a different app
         (assert (= app-id (:app_users/app_id user)))
-        (cond (not= (:app_users/email user) email)
+
+        (when guest-user-id
+          (app-user-model/link-guest {:app-id app-id
+                                      :guest-user-id guest-user-id
+                                      :primary-user-id (:app_users/id user)}))
+
+        (when (and imageURL (not= (:app_users/image_url user) imageURL))
+          (tracer/with-span! {:name "app-user/update-image-url!"
+                              :attributes {:id (:app_users/id user)
+                                           :from-image-url (:app_users/image_url user)
+                                           :to-image-url imageURL}}
+            (app-user-model/update-image-url! {:app-id app-id
+                                               :id (:app_users/id user)
+                                               :image-url imageURL})))
+
+        (cond (and email (not= (:app_users/email user) email))
               (tracer/with-span! {:name "app-user/update-email"
                                   :attributes {:id (:app_users/id user)
                                                :from-email (:app_users/email user)
@@ -320,6 +316,14 @@
                                                :app-id app-id
                                                :email email})
                 (ucoll/select-keys-no-ns user :app_user_oauth_links))
+
+              (and existing-oauth-link (not (:app_user_oauth_links/id user)))
+              (tracer/with-span! {:name "oauth-link/reassign"
+                                  :attributes {:link-id (:id existing-oauth-link)
+                                               :to-user-id (:app_users/id user)}}
+                (app-user-oauth-link-model/update-user! {:id (:id existing-oauth-link)
+                                                         :app-id app-id
+                                                         :user-id (:app_users/id user)}))
 
               (not (:app_user_oauth_links/id user))
               (tracer/with-span! {:name "oauth-link/create"
@@ -332,18 +336,7 @@
                                                     :sub sub
                                                     :user-id (:app_users/id user)}))
 
-              :else (ucoll/select-keys-no-ns user :app_user_oauth_links)))
-
-      (= 0 (count users))
-      (let [user (app-user-model/create!
-                  {:id (random-uuid)
-                   :app-id app-id
-                   :email email})]
-        (app-user-oauth-link-model/create! {:id (random-uuid)
-                                            :app-id app-id
-                                            :provider-id provider-id
-                                            :sub sub
-                                            :user-id (:id user)})))))
+              :else (ucoll/select-keys-no-ns user :app_user_oauth_links))))))
 
 (defn oauth-callback-landing
   "Used for external apps to prevent a dangling page on redirect.
@@ -354,16 +347,16 @@
   {:status 200
    :headers {"content-type" "text/html"}
    :body (str (h/html (h/raw "<!DOCTYPE html>")
-                [:html {:lang "en"}
-                 [:head
-                  [:meta {:charset "UTF-8"}]
-                  [:meta {:name "viewport"
-                          :content "width=device-width, initial-scale=1.0"}]
-                  [:meta {:http-equiv "refresh"
-                          :content (format "0; url=%s" redirect-url)}]
+                      [:html {:lang "en"}
+                       [:head
+                        [:meta {:charset "UTF-8"}]
+                        [:meta {:name "viewport"
+                                :content "width=device-width, initial-scale=1.0"}]
+                        [:meta {:http-equiv "refresh"
+                                :content (format "0; url=%s" redirect-url)}]
 
-                  [:title "Finish Sign In"]
-                  [:style "
+                        [:title "Finish Sign In"]
+                        [:style "
                            body {
                              margin: 0;
                              height: 100vh;
@@ -404,17 +397,17 @@
                                background-color: black;
                              }
                            }"]]
-                 [:body
-                  [:p "Logged in as " email]
-                  [:p
-                   [:a {:class "button"
-                        :href redirect-url}
-                    "Open app"]]
-                  [:p [:a {:onclick "(function() { window.close();})()"} "Close"]]
-                  [:script {:type "text/javascript"
-                            :id "redirect-script"
-                            :data-redirect-uri redirect-url}
-                   (h/raw "window.open(document.getElementById('redirect-script').getAttribute('data-redirect-uri'), '_self')")]]]))})
+                       [:body
+                        [:p "Logged in as " email]
+                        [:p
+                         [:a {:class "button"
+                              :href redirect-url}
+                          "Open app"]]
+                        [:p [:a {:onclick "(function() { window.close();})()"} "Close"]]
+                        [:script {:type "text/javascript"
+                                  :id "redirect-script"
+                                  :data-redirect-uri redirect-url}
+                         (h/raw "window.open(document.getElementById('redirect-script').getAttribute('data-redirect-uri'), '_self')")]]]))})
 
 (defn oauth-callback [{:keys [params] :as req}]
   (try
@@ -425,72 +418,73 @@
           _ (when (:error params)
               (return-error (:error params)))
 
-          state-param (if-let [state (:state params)]
-                        state
-                        (return-error "Missing state param in OAuth redirect."))
+          state-param (or (:state params)
+                          (return-error "Missing state param in OAuth redirect."))
 
-          ;; _app-id unused for now, but will be used when we have
-          ;; app_oauth_redirects in triples
-          [app-id state] (let [[app-id state] (case (count state-param)
-                                                72 [(uuid-util/coerce (subs state-param 0 36))
-                                                    (uuid-util/coerce (subs state-param 36))])]
-                           (if (and app-id state)
-                             [app-id state]
-                             (return-error "Invalid state param in OAuth redirect.")))
+          app-id (when (= 72 (count state-param))
+                   (uuid-util/coerce (subs state-param 0 36)))
 
-          cookie (if-let [cookie (-> req
-                                     (get-in [:cookies oauth-cookie-name :value])
-                                     uuid-util/coerce)]
-                   cookie
-                   (return-error "Missing cookie."))
+          state (when (= 72 (count state-param))
+                  (uuid-util/coerce (subs state-param 36)))
 
-          oauth-redirect (if-let [oauth-redirect (app-oauth-redirect-model/consume! {:app-id app-id
-                                                                                     :state state})]
-                           oauth-redirect
-                           (return-error "Could not find OAuth request."))
+          _ (when-not (and app-id state)
+              (return-error "Invalid state param in OAuth redirect."))
+
+          cookie (or (-> req
+                         :cookies
+                         (get oauth-cookie-name)
+                         :value
+                         uuid-util/coerce)
+                     (return-error "Missing cookie."))
+
+          oauth-redirect (or (app-oauth-redirect-model/consume! {:app-id app-id
+                                                                 :state  state})
+                             (return-error "Could not find OAuth request."))
+
           _ (when (app-oauth-redirect-model/expired? oauth-redirect)
               (return-error "The request is expired."))
-          _ (when (not (crypt-util/constant-bytes= (crypt-util/uuid->sha256 cookie)
-                                                   (:cookie-hash-bytes oauth-redirect)))
+
+          _ (when-not (crypt-util/constant-bytes= (crypt-util/uuid->sha256 cookie)
+                                                  (:cookie-hash-bytes oauth-redirect))
               (return-error "Mismatch in OAuth request cookie."))
 
-          code (if-let [code (:code params)]
-                 code
-                 (return-error "Missing code param in OAuth redirect."))
+          auth-code (or (:code params)
+                        (return-error "Missing code param in OAuth redirect."))
 
-          client (if-let [client (app-oauth-client-model/get-by-id {:app-id app-id
-                                                                    :id (:client_id oauth-redirect)})]
-                   client
-                   (return-error "Missing OAuth client."))
+          client (or (app-oauth-client-model/get-by-id {:app-id app-id
+                                                        :id (:client_id oauth-redirect)})
+                     (return-error "Missing OAuth client."))
+
           oauth-client (app-oauth-client-model/->OAuthClient client)
 
-          user-info (let [user-info-response (oauth/get-user-info oauth-client code oauth-redirect-url)]
-                      (if (= :error (:type user-info-response))
-                        (return-error (:message user-info-response) :oauth-redirect oauth-redirect)
-                        user-info-response))
+          user-info (oauth/get-user-info oauth-client auth-code oauth-redirect-url)
 
-          email (if-let [email (email/coerce (:email user-info))]
-                  email
-                  (return-error "Invalid email." :oauth-redirect oauth-redirect))
-          sub (:sub user-info)
+          _ (when (= :error (:type user-info))
+              (return-error (:message user-info) :oauth-redirect oauth-redirect))
 
-          social-login (upsert-oauth-link! {:email email
-                                            :sub sub
-                                            :app-id (:app_id client)
-                                            :provider-id (:provider_id client)})
+          email (email/coerce (:email user-info))
+
+          sub (or (:sub user-info)
+                  (return-error "Missing sub." :oauth-redirect oauth-redirect))
 
           code (random-uuid)
-          _oauth-code (app-oauth-code-model/create!
-                       {:code code
-                        :user-id (:user_id social-login)
-                        :app-id (:app_id social-login)
-                        :code-challenge-method (:code_challenge_method oauth-redirect)
-                        :code-challenge (:code_challenge oauth-redirect)})
-          redirect-url (url/add-query-params (:redirect_url oauth-redirect)
-                                             {:code code :_instant_oauth_redirect "true"})]
-      (if (string/starts-with? (str (:scheme (uri/parse redirect-url))) "http")
-        (response/found (url/add-query-params (:redirect_url oauth-redirect)
-                                              {:code code :_instant_oauth_redirect "true"}))
+
+          _ (app-oauth-code-model/create!
+             (merge
+              {:code code
+               :app-id app-id
+               :code-challenge-method (:code_challenge_method oauth-redirect)
+               :code-challenge (:code_challenge oauth-redirect)
+               :client-id (:client_id oauth-redirect)
+               :user-info {:email email :sub sub :imageURL (:imageURL user-info)}}))
+
+          redirect-url (url/add-query-params
+                        (:redirect_url oauth-redirect)
+                        {:code code
+                         :_instant_oauth_redirect "true"})]
+
+      (if (some-> redirect-url uri/parse :scheme (string/starts-with? "http"))
+        (response/found redirect-url)
         (oauth-callback-landing email redirect-url)))
 
     (catch clojure.lang.ExceptionInfo e
@@ -515,22 +509,48 @@
         oauth-code (app-oauth-code-model/consume! {:code code
                                                    :app-id app-id
                                                    :verifier code-verifier})
-
         _ (when-let [origin (get-in req [:headers "origin"])]
             (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
                                       {:app-id app-id})]
               (when-not (app-authorized-redirect-origin-model/find-match
                          authorized-origins origin)
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
+        {:keys [app_id client_id user_info]} oauth-code
 
-        {user-id :user_id app-id :app_id} oauth-code
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:app-id app-id
-                                                                      :id (random-uuid)
-                                                                      :user-id user-id})
-        user (app-user-model/get-by-id {:app-id app-id :id user-id})]
-    (assert (= app-id (:app_id user)))
-    (response/ok {:user (assoc user
-                               :refresh_token refresh-token-id)
+        _ (assert (= app-id app_id) (str "(= " app-id " " app_id ")"))
+
+        client (or (app-oauth-client-model/get-by-id {:app-id app-id
+                                                      :id client_id})
+                   (ex/throw-oauth-err! "Missing OAuth client"))
+
+        guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh_token] uuid-util/coerce)]
+                     (let [user (app-user-model/get-by-refresh-token!
+                                 {:app-id app-id
+                                  :refresh-token refresh-token})]
+                       (when (= "guest" (:type user))
+                         user)))
+
+        {user-id :user_id} (upsert-oauth-link! {:email (get user_info "email")
+                                                :sub (get user_info "sub")
+                                                :imageURL (get user_info "imageURL")
+                                                :app-id app-id
+                                                :provider-id (:provider_id client)
+                                                :guest-user-id (:id guest-user)})
+
+        refresh-token-id (random-uuid)
+
+        _ (app-user-refresh-token-model/create!
+           {:app-id app-id
+            :user-id user-id
+            :id refresh-token-id})
+
+        user (app-user-model/get-by-id
+              {:app-id app-id
+               :id user-id})]
+
+    (assert (= app-id (:app_id user)) (str "(= " app-id " " (:app_id user) ")"))
+
+    (response/ok {:user (assoc user :refresh_token refresh-token-id)
                   :refresh_token refresh-token-id})))
 
 (defn oauth-id-token-callback [{{:keys [nonce]} :body :as req}]
@@ -550,28 +570,36 @@
               (when-not match
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
-        user-info (let [user-info-response (oauth/get-user-info-from-id-token
-                                            oauth-client
-                                            nonce
-                                            id-token
-                                            (when-not (:client_secret oauth-client)
-                                              {:allow-unverified-email? true
-                                               :ignore-audience? true}))]
-                    (when (= :error (:type user-info-response))
-                      (ex/throw-validation-err!
-                       :id_token
-                       id-token
-                       [(:message user-info-response)]))
-                    user-info-response)
-        email (ex/get-param! user-info [:email] email/coerce)
-        sub (:sub user-info)
+        {:keys [email sub imageURL]} (oauth/get-user-info-from-id-token
+                                      oauth-client
+                                      nonce
+                                      id-token
+                                      (when-not (:client_secret oauth-client)
+                                        {:allow-unverified-email? (-> oauth-client
+                                                                      :meta
+                                                                      (get "allowUnverifiedEmail"))
+                                         :ignore-audience? true}))
+        email (email/coerce email)
+
+        current-refresh-token (when current-refresh-token-id
+                                (app-user-refresh-token-model/get-by-id
+                                 {:app-id app-id
+                                  :id current-refresh-token-id}))
+
+        guest-user (when current-refresh-token-id
+                     (let [user (app-user-model/get-by-refresh-token!
+                                 {:app-id app-id
+                                  :refresh-token current-refresh-token-id})]
+                       (when (= "guest" (:type user))
+                         user)))
+
         social-login (upsert-oauth-link! {:email email
                                           :sub sub
+                                          :imageURL imageURL
                                           :app-id (:app_id client)
-                                          :provider-id (:provider_id client)})
-        current-refresh-token (when current-refresh-token-id
-                                (app-user-refresh-token-model/get-by-id {:app-id app-id
-                                                                         :id current-refresh-token-id}))
+                                          :provider-id (:provider_id client)
+                                          :guest-user-id (:id guest-user)})
+
         {refresh-token-id :id} (if (and current-refresh-token
                                         (= (:user_id social-login)
                                            (:user_id current-refresh-token)))
@@ -591,10 +619,30 @@
                   :token_endpoint
                   (str config/server-origin "/runtime/" app-id "/oauth/token")})))
 
+(defn framework-query-triples [req]
+  (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
+        auth-token (http-util/req->bearer-token req)
+        app-id (req->app-id-untrusted! req)
+        user (when auth-token
+               (app-user-model/get-by-refresh-token {:refresh-token auth-token
+                                                      :app-id app-id}))
+        attrs (attr-model/get-by-app-id app-id)
+        ctx {:db {:conn-pool (aurora/conn-pool :read)}
+             :app-id app-id
+             :attrs attrs
+             :datalog-query-fn d/query
+             :datalog-loader (d/make-loader)
+             :current-user user
+             :versions (-> req :body :versions)}
+        nodes (iq/permissioned-query ctx query)
+        result (collect-instaql-results-for-client nodes)]
+    (response/ok {:result result :attrs attrs})))
+
 (defroutes routes
   (POST "/runtime/auth/send_magic_code" [] send-magic-code-post)
   (POST "/runtime/auth/verify_magic_code" [] verify-magic-code-post)
   (POST "/runtime/auth/verify_refresh_token" [] verify-refresh-token-post)
+  (POST "/runtime/auth/sign_in_guest" [] sign-in-guest-post)
   (GET "/runtime/oauth/start" [] (wrap-cookies oauth-start
                                                {:decoder parse-cookie}))
   (GET "/runtime/:app_id/oauth/start" [] (wrap-cookies oauth-start
@@ -603,10 +651,13 @@
                                                   {:decoder parse-cookie}))
   (POST "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
                                                    {:decoder parse-cookie}))
+  (POST "/runtime/framework/query" [] framework-query-triples)
 
   (POST "/runtime/oauth/token" [] oauth-token-callback)
   (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)
   (POST "/runtime/oauth/id_token" [] oauth-id-token-callback)
   (GET "/runtime/session" [] session-get)
+  (GET "/runtime/sse" [] sse-get)
+  (POST "/runtime/sse" [] sse-post)
   (POST "/runtime/signout" [] signout-post)
   (GET "/runtime/:app_id/.well-known/openid-configuration" [] openid-configuration-get))

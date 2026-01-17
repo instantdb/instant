@@ -1,11 +1,14 @@
-import { StyledToastContainer } from '@/lib/toast';
 import { NextRouter, useRouter } from 'next/router';
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { Button, Content, ScreenHeading } from '@/components/ui';
-import { exchangeOAuthCodeForToken, messageFromInstantError } from '@/lib/auth';
+import { exchangeOAuthCodeForToken } from '@/lib/auth';
+import { messageFromInstantError } from '@/lib/errors';
 import config, { cliOauthParamName } from '@/lib/config';
-import { InstantError } from '@/lib/types';
+import { InstantIssue } from '@/lib/types';
+import { usePostHog } from 'posthog-js/react';
+import { Toaster } from '@instantdb/components';
+import { useDarkMode } from '@/components/dash/DarkModeToggle';
 
 type CallbackState =
   | { type: 'router-loading' }
@@ -23,7 +26,7 @@ function LoadingScreen() {
   );
 }
 const ErrorBubble: React.FC<{ error: string }> = ({ error }) => (
-  <div className="rounded bg-red-100 px-3 py-1.5 text-sm text-red-600">
+  <div className="rounded-sm bg-red-100 px-3 py-1.5 text-sm text-red-600">
     {error}
   </div>
 );
@@ -90,6 +93,9 @@ const CallbackScreen = ({ state }: { state: CallbackState }) => {
 
 export default function OAuthCallback() {
   const router = useRouter();
+  const posthog = usePostHog();
+
+  const { darkMode } = useDarkMode();
 
   const [state, setState] = useState<CallbackState>(stateFromRouter(router));
 
@@ -112,6 +118,14 @@ export default function OAuthCallback() {
           code: state.code,
         })
           .then(async (res) => {
+            posthog.identify(res.user.email, {
+              user_id: res.user.id,
+              signed_up_at: res.user.created_at,
+            });
+            posthog.capture('auth_complete', {
+              auth_method: 'google',
+            });
+
             const ticket = state.ticket;
             const path = res.redirect_path || '/dash';
 
@@ -126,7 +140,7 @@ export default function OAuthCallback() {
             router.push(finalPath);
           })
           .catch((res) => {
-            const error = messageFromInstantError(res as InstantError);
+            const error = messageFromInstantError(res as InstantIssue);
 
             setState({
               type: 'error',
@@ -156,10 +170,9 @@ export default function OAuthCallback() {
     <div className="flex h-screen w-full flex-col overflow-hidden md:flex-row">
       <Head>
         <title>Instant - Log in with Google</title>
-        <meta name="description" content="Welcome to Instant." />
       </Head>
       <CallbackScreen state={state} />
-      <StyledToastContainer />
+      <Toaster theme={darkMode ? 'dark' : 'light'} position="top-right" />
     </div>
   );
 }

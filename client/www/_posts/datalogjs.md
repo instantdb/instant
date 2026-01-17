@@ -6,7 +6,7 @@ authors: stopachka
 
 Query engines make me feel like a wizard. I cast my incantation: “Give me all the directors and the movies where Arnold Schwarzenegger was a cast member”. Then charges zip through wires, algorithms churn on CPUs, and voila, an answer bubbles up.
 
-How do they work? In this essay, we will build a query engine from scratch and find out. In 100 lines of Javascript, we’ll supports joins, indexes, *and* find our answer for Arnold! Let’s get into it.
+How do they work? In this essay, we will build a query engine from scratch and find out. In 100 lines of Javascript, we’ll supports joins, indexes, _and_ find our answer for Arnold! Let’s get into it.
 
 # Choice
 
@@ -26,7 +26,6 @@ SQL databases store data in different tables:
 
 ![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650557040594_image.png)
 
-
 Here we have a `movie` table, which stores one movie per row. The record with the id `200` is `"The Terminator"`.
 
 Notice the `director_id`. This points to a row in yet another `person` table, which keeps the director’s name, and so on.
@@ -37,11 +36,9 @@ In Datalog databases, there are no tables. Or really everything is just stored i
 
 ![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650653844960_image.png)
 
-
 A `triple` is a row with an `id`, `attribute`, and `value`. Triples have a curious property; with just these three columns, they can describe any kind of information!
 
 How? Imagine describing a movie to someone:
-
 
 > It's called "The Terminator"
 > It was released in 1987
@@ -49,8 +46,7 @@ How? Imagine describing a movie to someone:
 Those sentences conveniently translate to triples:
 
 ```javascript
-[200, movie/title, "The Terminator"]
-[200, movie/year, 1987]
+[200, movie / title, 'The Terminator'][(200, movie / year, 1987)];
 ```
 
 And those sentences have a general structure; if you can describe a movie this way, you can describe tomatoes or airplanes just as well.
@@ -70,7 +66,7 @@ SELECT id FROM movie WHERE year = 1987
 This returns:
 
 ```javascript
-[{id: 202}, {id: 203}, {id: 204}]
+[{ id: 202 }, { id: 203 }, { id: 204 }];
 ```
 
 Voila, the movie ids for Predator, Lethal Weapon, and RoboCop.
@@ -83,26 +79,25 @@ Datalog databases rely on pattern matching. We create “patterns” that match 
 [?id, movie/year, 1987]
 ```
 
-Here, `?id` is a variable: we’re telling the query engine that it can be *any* value. But, the `attribute` *must* be `movie/year`, and the `value` *must* be `1987`.
+Here, `?id` is a variable: we’re telling the query engine that it can be _any_ value. But, the `attribute` _must_ be `movie/year`, and the `value` _must_ be `1987`.
 
 ![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650395773008_image.png)
 
-
-Our query engine runs through triple after triple. Since `?id` can be anything, this matches every triple. But, the attribute `movie/year` and the value `1987` filter us down to *just* the triples we care about:
+Our query engine runs through triple after triple. Since `?id` can be anything, this matches every triple. But, the attribute `movie/year` and the value `1987` filter us down to _just_ the triples we care about:
 
 ```javascript
 [
-  [202, movie/year, 1987],
-  [203, movie/year, 1987],
-  [204, movie/year, 1987],
-]
+  [202, movie / year, 1987],
+  [203, movie / year, 1987],
+  [204, movie / year, 1987],
+];
 ```
 
 Notice the `?id` portion; those are the ids for Predator, Lethal Weapon, and RoboCop!
 
 ## Datalog `find`
 
-In SQL, we *just* got back ids though, while our query engine returned more. How can we support returning ids only? Let’s adjust our syntax; here’s `find`:
+In SQL, we _just_ got back ids though, while our query engine returned more. How can we support returning ids only? Let’s adjust our syntax; here’s `find`:
 
 ```javascript
 { find: [?id],
@@ -114,7 +109,7 @@ In SQL, we *just* got back ids though, while our query engine returned more. How
 Our query engine can now use the `find` section to return what we care about. If we implement this right, we should get back:
 
 ```javascript
-[[202], [203], [204]]
+[[202], [203], [204]];
 ```
 
 And now we’re as dandy as SQL.
@@ -138,14 +133,14 @@ WHERE movie.title = "The Terminator"
 Which gets us:
 
 ```javascript
-[{name: "James Cameron"}]
+[{ name: 'James Cameron' }];
 ```
 
 Pretty cool. We used the `JOIN` clause to connect the movie table with the person table, and bam, we got our director’s name.
 
 ## Datalog…Pattern Matching
 
-In Datalog, we still rely on pattern matching. The trick is to match *multiple* patterns:
+In Datalog, we still rely on pattern matching. The trick is to match _multiple_ patterns:
 
 ```javascript
 {
@@ -158,12 +153,11 @@ In Datalog, we still rely on pattern matching. The trick is to match *multiple* 
 }
 ```
 
-Here we tell the query engine to match *three* patterns. The first pattern produces a list of successful triples. For each successful triple, we search again with the *second* pattern, and so on. Notice how the `?movieId` and `?directorId` are repeated; this tells our query engine that for a successful match, those values would need to be the *same* across our different searches.
+Here we tell the query engine to match _three_ patterns. The first pattern produces a list of successful triples. For each successful triple, we search again with the _second_ pattern, and so on. Notice how the `?movieId` and `?directorId` are repeated; this tells our query engine that for a successful match, those values would need to be the _same_ across our different searches.
 
 What do I mean? Let’s make this concrete; here’s how our query engine could find The Terminator’s director:
 
 ![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650461792727_image.png)
-
 
 The first pattern finds:
 
@@ -180,7 +174,7 @@ We bind `?movieId` to `200`. Now we start searching for the second pattern:
 Since `?movieId` needs to be `200`, this finds us
 
 ```javascript
-[200, movie/director, 100]
+[200, movie / director, 100];
 ```
 
 And we can now bind `?directorId` to `100`. Time for the third pattern:
@@ -192,12 +186,12 @@ And we can now bind `?directorId` to `100`. Time for the third pattern:
 Because `?directorId` has to be `100`, our engine finds us:
 
 ```javascript
-[100, person/name, "James Cameron"]
+[100, person / name, 'James Cameron'];
 ```
 
-And perfecto, the `?directorName`  is now bound to `"James Cameron"`! The `find` section would then return `["James Cameron"]`.
+And perfecto, the `?directorName` is now bound to `"James Cameron"`! The `find` section would then return `["James Cameron"]`.
 
-----------
+---
 
 Oky doke, now we grok the basics of Datalog! Let’s get to the code.
 
@@ -212,7 +206,7 @@ First things first, we need a way to represent this syntax. If you look at:
   ] }
 ```
 
-We could *almost* write this in Javascript. We use objects and arrays, but `?id` and `movie/year` get in the way; they would throw an error. We can fix this with a hack: let’s turn them into strings.
+We could _almost_ write this in Javascript. We use objects and arrays, but `?id` and `movie/year` get in the way; they would throw an error. We can fix this with a hack: let’s turn them into strings.
 
 ```javascript
 { find: ["?id"],
@@ -230,10 +224,10 @@ The next thing we’ll need is sample data to play with. There’s a great datal
 ```javascript
 // exampleTriples.js
 export default [
-  [100, "person/name", "James Cameron"],
-  [100, "person/born", "1954-08-16T00:00:00Z"],
+  [100, 'person/name', 'James Cameron'],
+  [100, 'person/born', '1954-08-16T00:00:00Z'],
   // ...
-]
+];
 ```
 
 Let’s plop this in and require it:
@@ -248,10 +242,9 @@ Now for our query engine!
 
 ## Goal
 
-Our first goal is to match *one* pattern with *one* triple. Here’s an example:
+Our first goal is to match _one_ pattern with _one_ triple. Here’s an example:
 
 ![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650419195277_image.png)
-
 
 We have some variable bindings: `{"?movieId": 200}`. Let’s call this a `context`.
 
@@ -268,17 +261,17 @@ This could be the test we play with:
 ```javascript
 expect(
   matchPattern(
-    ["?movieId", "movie/director", "?directorId"],
-    [200, "movie/director", 100],
-    { "?movieId": 200 }
-  )
-).toEqual({ "?movieId": 200, "?directorId": 100 });
+    ['?movieId', 'movie/director', '?directorId'],
+    [200, 'movie/director', 100],
+    { '?movieId': 200 },
+  ),
+).toEqual({ '?movieId': 200, '?directorId': 100 });
 expect(
   matchPattern(
-    ["?movieId", "movie/director", "?directorId"],
-    [200, "movie/director", 100],
-    { "?movieId": 202 }
-  )
+    ['?movieId', 'movie/director', '?directorId'],
+    [200, 'movie/director', 100],
+    { '?movieId': 202 },
+  ),
 ).toEqual(null);
 ```
 
@@ -298,7 +291,6 @@ function matchPattern(pattern, triple, context) {
 We take our pattern, and compare each part to the corresponding one in our triple:
 
 ![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650457636669_image.png)
-
 
 So, we’d compare `"?movieId"` with `200`, and so on.
 
@@ -324,13 +316,13 @@ Next, we check if we’re looking at a variable. `isVariable` is simple enough:
 
 ```javascript
 function isVariable(x) {
-  return typeof x === 'string' && x.startsWith("?");
+  return typeof x === 'string' && x.startsWith('?');
 }
 ```
 
 ## matchVariable
 
-Now, if we *are* looking at a variable, we’d want to handle it especially:
+Now, if we _are_ looking at a variable, we’d want to handle it especially:
 
 ```javascript
 function matchVariable(variable, triplePart, context) {
@@ -342,7 +334,7 @@ function matchVariable(variable, triplePart, context) {
 }
 ```
 
-We would check if we *already* have a binding for this variable. For example, when comparing `?movieId`, we’d already have the binding: “`200`”. In this case, we just compare the bound value with what’s in our triple.
+We would check if we _already_ have a binding for this variable. For example, when comparing `?movieId`, we’d already have the binding: “`200`”. In this case, we just compare the bound value with what’s in our triple.
 
 ```javascript
 // ...
@@ -353,7 +345,7 @@ if (context.hasOwnProperty(variable)) {
 // ...
 ```
 
-When we compare `?directorId` though, we’d see that this variable wasn’t bound. In this case, we’d want to *expand* our context. We’d attach `?directorId` to the corresponding part in our triple (`100`).
+When we compare `?directorId` though, we’d see that this variable wasn’t bound. In this case, we’d want to _expand_ our context. We’d attach `?directorId` to the corresponding part in our triple (`100`).
 
 ```javascript
 return { ...context, [variable]: triplePart };
@@ -373,18 +365,16 @@ And with that, `matchPattern` works as we like!
 
 ## Goal
 
-Now for our second goal. We can already match one pattern with one triple. Let’s now match *one* pattern with *multiple* triples. Here’s the idea:
-
+Now for our second goal. We can already match one pattern with one triple. Let’s now match _one_ pattern with _multiple_ triples. Here’s the idea:
 
 ![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650458051668_image.png)
 
-
-We’ll have *one* pattern and a database of triples. We’ll want to return the contexts for all the successful matches. Here’s the test we can play with:
+We’ll have _one_ pattern and a database of triples. We’ll want to return the contexts for all the successful matches. Here’s the test we can play with:
 
 ```javascript
 expect(
-  querySingle(["?movieId", "movie/year", 1987], exampleTriples, {})
-).toEqual([{ "?movieId": 202 }, { "?movieId": 203 }, { "?movieId": 204 }]);
+  querySingle(['?movieId', 'movie/year', 1987], exampleTriples, {}),
+).toEqual([{ '?movieId': 202 }, { '?movieId': 203 }, { '?movieId': 204 }]);
 ```
 
 ## Code
@@ -405,10 +395,9 @@ We go over each triple and run `matchPattern`. This would return either a `conte
 
 ## Goal
 
-Closer and closer. Now to support joins. We need to handle *multiple* patterns:
+Closer and closer. Now to support joins. We need to handle _multiple_ patterns:
 
 ![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650462526590_image.png)
-
 
 So we go pattern by pattern, and find successful triples. For each successful triple, we apply the next pattern. At the end, we’ll have produced progressively larger contexts.
 
@@ -418,15 +407,15 @@ Here’s the test we can play with:
 expect(
   queryWhere(
     [
-      ["?movieId", "movie/title", "The Terminator"],
-      ["?movieId", "movie/director", "?directorId"],
-      ["?directorId", "person/name", "?directorName"],
+      ['?movieId', 'movie/title', 'The Terminator'],
+      ['?movieId', 'movie/director', '?directorId'],
+      ['?directorId', 'person/name', '?directorName'],
     ],
     exampleTriples,
-    {}
-  )
+    {},
+  ),
 ).toEqual([
-  { "?movieId": 200, "?directorId": 100, "?directorName": "James Cameron" },
+  { '?movieId': 200, '?directorId': 100, '?directorName': 'James Cameron' },
 ]);
 ```
 
@@ -440,7 +429,7 @@ function queryWhere(patterns, db) {
     (contexts, pattern) => {
       return contexts.flatMap((context) => querySingle(pattern, db, context));
     },
-    [{}]
+    [{}],
   );
 }
 ```
@@ -459,16 +448,16 @@ This could be the test we can play with:
 expect(
   query(
     {
-      find: ["?directorName"],
+      find: ['?directorName'],
       where: [
-        ["?movieId", "movie/title", "The Terminator"],
-        ["?movieId", "movie/director", "?directorId"],
-        ["?directorId", "person/name", "?directorName"],
+        ['?movieId', 'movie/title', 'The Terminator'],
+        ['?movieId', 'movie/director', '?directorId'],
+        ['?directorId', 'person/name', '?directorName'],
       ],
     },
-    exampleTriples
-  )
-).toEqual([["James Cameron"]]);
+    exampleTriples,
+  ),
+).toEqual([['James Cameron']]);
 ```
 
 ## Code
@@ -503,18 +492,18 @@ And voila! We have a query engine. Let’s see what we can do.
 ```javascript
 query(
   {
-    find: ["?year"],
+    find: ['?year'],
     where: [
-      ["?id", "movie/title", "Alien"],
-      ["?id", "movie/year", "?year"],
+      ['?id', 'movie/title', 'Alien'],
+      ['?id', 'movie/year', '?year'],
     ],
   },
-  exampleTriples
-)
+  exampleTriples,
+);
 ```
 
 ```javascript
-[[1979]]
+[[1979]];
 ```
 
 **What do I know about the entity with the id `200` ?**
@@ -522,23 +511,23 @@ query(
 ```javascript
 query(
   {
-    find: ["?attr", "?value"],
-    where: [[200, "?attr", "?value"]],
+    find: ['?attr', '?value'],
+    where: [[200, '?attr', '?value']],
   },
-  exampleTriples
-)
+  exampleTriples,
+);
 ```
 
 ```javascript
 [
-  ["movie/title", "The Terminator"],
-  ["movie/year", 1984],
-  ["movie/director", 100],
-  ["movie/cast", 101],
-  ["movie/cast", 102],
-  ["movie/cast", 103],
-  ["movie/sequel", 207],
-]
+  ['movie/title', 'The Terminator'],
+  ['movie/year', 1984],
+  ['movie/director', 100],
+  ['movie/cast', 101],
+  ['movie/cast', 102],
+  ['movie/cast', 103],
+  ['movie/sequel', 207],
+];
 ```
 
 And, last by not least…
@@ -548,29 +537,29 @@ And, last by not least…
 ```javascript
 query(
   {
-    find: ["?directorName", "?movieTitle"],
+    find: ['?directorName', '?movieTitle'],
     where: [
-      ["?arnoldId", "person/name", "Arnold Schwarzenegger"],
-      ["?movieId", "movie/cast", "?arnoldId"],
-      ["?movieId", "movie/title", "?movieTitle"],
-      ["?movieId", "movie/director", "?directorId"],
-      ["?directorId", "person/name", "?directorName"],
+      ['?arnoldId', 'person/name', 'Arnold Schwarzenegger'],
+      ['?movieId', 'movie/cast', '?arnoldId'],
+      ['?movieId', 'movie/title', '?movieTitle'],
+      ['?movieId', 'movie/director', '?directorId'],
+      ['?directorId', 'person/name', '?directorName'],
     ],
   },
-  exampleTriples
-)
+  exampleTriples,
+);
 ```
 
 🤯
 
 ```javascript
 [
-  ["James Cameron", "The Terminator"],
-  ["John McTiernan", "Predator"],
-  ["Mark L. Lester", "Commando"],
-  ["James Cameron", "Terminator 2: Judgment Day"],
-  ["Jonathan Mostow", "Terminator 3: Rise of the Machines"],
-]
+  ['James Cameron', 'The Terminator'],
+  ['John McTiernan', 'Predator'],
+  ['Mark L. Lester', 'Commando'],
+  ['James Cameron', 'Terminator 2: Judgment Day'],
+  ['Jonathan Mostow', 'Terminator 3: Rise of the Machines'],
+];
 ```
 
 Now this is cool!
@@ -603,7 +592,7 @@ But what about our query engine? It’ll have to search every single triple in o
 
 ## Goal
 
-Let’s solve that. We shouldn’t need to search *every* triple for a query like this; it’s time for indexes.
+Let’s solve that. We shouldn’t need to search _every_ triple for a query like this; it’s time for indexes.
 
 Here’s what we can do; Let’s create `entity`, `attribute`, and `value` indexes. Something like:
 
@@ -648,7 +637,7 @@ function createDB(triples) {
     entityIndex: indexBy(triples, 0),
     attrIndex: indexBy(triples, 1),
     valueIndex: indexBy(triples, 2),
-  }
+  };
 }
 ```
 
@@ -705,7 +694,7 @@ function relevantTriples(pattern, db) {
 }
 ```
 
-We take the pattern. We check the id, attribute, and the value. If *any* of them aren’t variables, we can safely use the corresponding index.
+We take the pattern. We check the id, attribute, and the value. If _any_ of them aren’t variables, we can safely use the corresponding index.
 
 With that, we’ve made our query engine faster 🙂
 
@@ -723,7 +712,9 @@ First go through the [Learn Datalog](http://www.learndatalogtoday.org/) website;
 
 Huge credit goes to SICP. When I completed their logic chapter, I realized that query languages didn't have to be so daunting. This essay is just a simplification of their chapter, translated into Javascript. The second credit needs to go to Nikita Tonsky’s essays. His [Datomic](https://tonsky.me/blog/unofficial-guide-to-datomic-internals/) and [Datascript](https://tonsky.me/blog/datascript-internals/) internals essays are a goldmine. Finally, I really enjoyed [Learn Datalog](http://www.learndatalogtoday.org/), and used their dataset for this essay.
 
-*Thanks to Joe Averbukh, Irakli Safareli, Daniel Woelfel, Mark Shlick, Alex Reichert, Ian Sinnott, for reviewing drafts of this essay.*
+[Discussion on HN](https://news.ycombinator.com/item?id=31154039)
+
+_Thanks to Joe Averbukh, Irakli Safareli, Daniel Woelfel, Mark Shlick, Alex Reichert, Ian Sinnott, for reviewing drafts of this essay._
 
 [^1]: ​​[Learn Datalog Today](http://www.learndatalogtoday.org/) — very fun!
 

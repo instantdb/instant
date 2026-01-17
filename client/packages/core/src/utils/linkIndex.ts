@@ -1,4 +1,4 @@
-import type { InstantGraph, LinkDef, LinksDef } from "../schemaTypes";
+import type { InstantGraph, LinkDef, LinksDef } from '../schemaTypes.ts';
 
 export type LinkIndex = Record<
   string,
@@ -17,14 +17,14 @@ export function createLinkIndex(schema: InstantGraph<any, LinksDef<{}>>) {
     linkIndex[link.forward.on] ??= {};
     linkIndex[link.forward.on][link.forward.label] = {
       isForward: true,
-      isSingular: link.forward.has === "one",
+      isSingular: link.forward.has === 'one',
       link,
     };
 
     linkIndex[link.reverse.on] ??= {};
     linkIndex[link.reverse.on][link.reverse.label] = {
       isForward: false,
-      isSingular: link.reverse.has === "one",
+      isSingular: link.reverse.has === 'one',
       link,
     };
 

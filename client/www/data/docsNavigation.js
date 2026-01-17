@@ -5,20 +5,36 @@ module.exports = [
       {
         title: 'Getting started w/ React',
         href: '/docs',
-        nextHref: '/docs/init',
+        nextHref: '/docs/create-instant-app',
       },
       {
         title: 'Getting started w/ React Native',
         href: '/docs/start-rn',
         prevHref: null,
-        nextHref: '/docs/init',
+        nextHref: '/docs/create-instant-app',
+        optionalLLM: true,
       },
       {
         title: 'Getting started w/ Vanilla JS',
         href: '/docs/start-vanilla',
         prevHref: null,
-        nextHref: '/docs/init',
+        nextHref: '/docs/create-instant-app',
+        optionalLLM: true,
       },
+      {
+        title: 'Create Instant App',
+        prevHref: null,
+        href: '/docs/create-instant-app',
+        nextHref: '/docs/workflow',
+        optionalLLM: true,
+      },
+      {
+        title: 'Recommended Workflow',
+        href: '/docs/workflow',
+        nextHref: '/docs/using-llms',
+        optionalLLM: true,
+      },
+      { title: 'Using LLMs', href: '/docs/using-llms', optionalLLM: true },
     ],
   },
   {
@@ -30,7 +46,6 @@ module.exports = [
       { title: 'Reading data', href: '/docs/instaql' },
       { title: 'Instant on the backend', href: '/docs/backend' },
       { title: 'Patterns', href: '/docs/patterns' },
-      { title: 'Showcase', href: '/docs/showcase' },
     ],
   },
   {
@@ -38,14 +53,38 @@ module.exports = [
     links: [
       { title: 'Auth', href: '/docs/auth' },
       { title: 'Magic codes', href: '/docs/auth/magic-codes' },
-      { title: 'Google OAuth', href: '/docs/auth/google-oauth' },
-      { title: 'Sign In with Apple', href: '/docs/auth/apple' },
-      { title: 'Clerk', href: '/docs/auth/clerk' },
+      { title: 'Guest Auth', href: '/docs/auth/guest-auth' },
+      {
+        title: 'Google OAuth',
+        href: '/docs/auth/google-oauth',
+        optionalLLM: true,
+      },
+      {
+        title: 'Sign In with Apple',
+        href: '/docs/auth/apple',
+        optionalLLM: true,
+      },
+      {
+        title: 'GitHub OAuth',
+        href: '/docs/auth/github-oauth',
+        optionalLLM: true,
+      },
+      {
+        title: 'LinkedIn OAuth',
+        href: '/docs/auth/linkedin-oauth',
+        optionalLLM: true,
+      },
+      { title: 'Clerk', href: '/docs/auth/clerk', optionalLLM: true },
+      {
+        title: 'Firebase Auth',
+        href: '/docs/auth/firebase',
+        optionalLLM: true,
+      },
       { title: 'Permissions', href: '/docs/permissions' },
     ],
   },
   {
-    title: 'Platform features',
+    title: 'Instant features',
     links: [
       { title: 'Managing users', href: '/docs/users' },
       {
@@ -53,9 +92,22 @@ module.exports = [
         href: '/docs/presence-and-topics',
       },
       { title: 'Instant CLI', href: '/docs/cli' },
-      { title: 'Custom emails', href: '/docs/emails' },
-      { title: 'App teams', href: '/docs/teams' },
-      { title: 'Storage (beta)', href: '/docs/storage' },
+      { title: 'Devtool', href: '/docs/devtool', optionalLLM: true },
+      {
+        title: 'Platform API',
+        href: '/docs/platform-api',
+        optionalLLM: true,
+      },
+      {
+        title: 'Explorer Component',
+        href: '/docs/explorer-component',
+        optionalLLM: true,
+      },
+      { title: 'Custom emails', href: '/docs/emails', optionalLLM: true },
+      { title: 'App teams', href: '/docs/teams', optionalLLM: true },
+      { title: 'Storage', href: '/docs/storage' },
+      { title: 'Admin HTTP API', href: '/docs/http-api' },
+      { title: '(Experimental) Next.js SSR', href: '/docs/next-ssr' },
     ],
   },
 ];

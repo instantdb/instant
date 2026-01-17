@@ -1,152 +1,337 @@
 (ns instant.fixtures
-  (:require [instant.config :as config]
+  (:require [clojure.core.async :as a]
+            [clojure.test :as test :refer [report]]
+            [instant.config :as config]
             [instant.data.bootstrap :as bootstrap]
             [instant.data.constants :refer [test-user-id]]
             [instant.data.resolvers :as resolvers]
+            [instant.db.datalog :as d]
+            [instant.db.indexing-jobs :as indexing-jobs]
+            [instant.db.model.attr :as attr-model]
             [instant.model.app :as app-model]
-            [instant.model.app-member-invites :as instant-app-member-invites]
             [instant.model.app-members :as instant-app-members]
             [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
             [instant.model.instant-subscription :as instant-subscription-model]
-            [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
-            [instant.stripe :refer [PRO_SUBSCRIPTION_TYPE]]
             [instant.model.instant-user :as instant-user-model]
+            [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
+            [instant.model.member-invites :as member-invites]
+            [instant.model.org :as org-model]
+            [instant.model.org-members :as instant-org-members]
+            [instant.model.rule :as rule-model]
+            [instant.plans :as plans]
+            [instant.stripe :as stripe]
             [instant.db.pg-introspect :as pg-introspect]
             [instant.jdbc.sql :as sql]
             [instant.jdbc.aurora :as aurora]
+            [instant.util.coll :as ucoll]
+            [instant.util.crypt :as crypt-util]
+            [instant.util.io :as io-util]
             [lambdaisland.uri :as uri]
             [next.jdbc.connection :as connection])
-  (:import (java.util UUID)))
+  (:import
+   (java.io File)))
 
 (defn mock-app-req
   ([a] (mock-app-req a (instant-user-model/get-by-id {:id (:creator_id a)})))
   ([a u]
-   (let [r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)})]
+   (let [r (instant-user-refresh-token-model/create! {:id (random-uuid) :user-id (:id u)})]
      {:headers {"authorization" (str "Bearer " (:id r))}
       :params {:app_id (:id a)}
       :body {}})))
 
-(defn with-empty-app [f]
-  (let [app-id (UUID/randomUUID)
-        app (app-model/create! {:title "test app"
-                                :creator-id test-user-id
-                                :id app-id
-                                :admin-token (UUID/randomUUID)})]
+(defmacro with-indexing-job-queue [job-queue & body]
+  `(let [chan# (a/chan 1024)
+         process# (future (indexing-jobs/start-process chan#))
+         ~job-queue chan#]
+     (try
+       ~@body
+       (finally
+         (a/close! chan#)
+         (when (= :timeout (deref process# 1000 :timeout))
+           (throw (Exception. "Timeout in with-queue")))))))
+
+(defn report-warn-io [^String file e]
+  (let [target-file-name (some-> file
+                                 (File.)
+                                 (.getName))
+        stack-line (some-> (ucoll/seek (fn [^StackTraceElement frame]
+                                         (= target-file-name (.getFileName frame)))
+                                       (.getStackTrace (Thread/currentThread)))
+                           (StackTraceElement/.getLineNumber))]
+    (report {:type :fail
+             :message "something is doing IO when it shouldn't"
+             :expected nil
+             :actual {:io-call-source e}
+             :file target-file-name
+             :line stack-line})))
+
+(defmacro with-fail-on-warn-io [& body]
+  (let [file *file*]
+    `(binding [io-util/*tap-io* (partial report-warn-io ~file)]
+       ~@body)))
+
+(defmacro ignore-warn-io [& body]
+  `(binding [io-util/*tap-io* nil]
+     ~@body))
+
+(defn random-email []
+  (str "test-user-" (crypt-util/random-hex 8) "@example.com"))
+
+(defmacro with-user [& args]
+  (let [user-params (if (= 1 (count args))
+                     {}
+                     (first args))
+        f (last args)]
+    `(let [user-id# (random-uuid)
+           email# (random-email)
+           user# (instant-user-model/create! (merge {:id user-id# :email email#}
+                                                    ~user-params))
+           token# (random-uuid)]
+       (instant-user-refresh-token-model/create! {:id token# :user-id user-id#})
+       (try
+         (~f (assoc user# :refresh-token token#))
+         (finally
+           (instant-user-model/delete-by-email! {:email email#}))))))
+
+(defmacro with-org
+  [& args]
+  (let [creator-id (if (= 1 (count args))
+                     test-user-id
+                     (first args))
+        f (last args)]
+    `(let [org# (org-model/create! {:title "empty-org"
+                                    :user-id ~creator-id})]
+       (try
+         (with-fail-on-warn-io
+           (~f org#))
+         (finally
+           (sql/do-execute! (aurora/conn-pool :write)
+                            ["update orgs set subscription_id = null where id = ?::uuid"
+                             (:id org#)])
+           (sql/do-execute! (aurora/conn-pool :write)
+                            ["delete from instant_subscriptions where org_id = ?::uuid"
+                             (:id org#)])
+           (sql/do-execute! (aurora/conn-pool :write)
+                            ["delete from instant_stripe_customers where org_id = ?::uuid"
+                             (:id org#)])
+           (org-model/delete! {:org-id (:id org#)}))))))
+
+(defmacro with-empty-app
+  "Pass a function that takes an app created for the test.
+   Optionally pass a user-id as the first argument to set the creator for the app."
+  [& args]
+  (let [creator-id (if (= 1 (count args))
+                     test-user-id
+                     (first args))
+        f (last args)]
+    `(let [app-id# (random-uuid)
+           app#    (app-model/create! {:title       "empty-app"
+                                       :creator-id  ~creator-id
+                                       :id          app-id#
+                                       :admin-token (random-uuid)})]
+       (try
+         (with-fail-on-warn-io
+           (~f (assoc app#
+                      :make-ctx (fn make-ctx#
+                                  ([]
+                                   (make-ctx# {}))
+                                  ([opts#]
+                                   (merge
+                                    {:db               {:conn-pool (aurora/conn-pool :write)}
+                                     :app-id           app-id#
+                                     :attrs            (attr-model/get-by-app-id app-id#)
+                                     :datalog-query-fn d/query
+                                     :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id#})
+                                     :current-user     nil}
+                                    opts#))))))
+         (finally
+           (app-model/delete-immediately-by-id! {:id app-id#}))))))
+
+(defmacro with-movies-app [f]
+  `(with-empty-app
+     (fn [app#]
+       (bootstrap/add-movies-to-app! (:id app#))
+       (let [r# (resolvers/make-movies-resolver (:id app#))]
+         (~f app# r#)))))
+
+(defmacro with-zeneca-app [f]
+  `(with-empty-app
+     (fn [app#]
+       (bootstrap/add-zeneca-to-app! (:id app#))
+       (let [r# (resolvers/make-zeneca-resolver (:id app#))]
+         (~f app# r#)))))
+
+(defmacro with-zeneca-app-no-indexing [f]
+  `(with-empty-app
+     (fn [app#]
+       (bootstrap/add-zeneca-to-app! {:checked-data? false
+                                      :indexed-data? false}
+                                     (:id app#))
+       (let [r# (resolvers/make-zeneca-resolver (:id app#))]
+         (~f app# r#)))))
+
+(defmacro with-zeneca-checked-data-app [f]
+  `(with-empty-app
+     (fn [app#]
+       (bootstrap/add-zeneca-to-app! {:checked-data? true
+                                      :indexed-data? true}
+                                     (:id app#))
+       (let [r# (resolvers/make-zeneca-resolver (:id app#))]
+         (~f app# r#)))))
+
+(defn run-zeneca-byop [app f]
+  (let [id (:id app)
+        schema (str id)
+        connection-string (-> (config/get-aurora-config)
+                              (connection/jdbc-url)
+                              (uri/assoc-query* {:currentSchema schema})
+                              str)]
     (try
-      (f app)
+      (sql/execute! (aurora/conn-pool :write) [(format "create schema \"%s\"" schema)])
+      (app-model/set-connection-string!
+       {:app-id id
+        :connection-string connection-string})
+      (with-open [conn (sql/start-pool {:jdbcUrl connection-string
+                                        :currentSchema schema
+                                        :maximumPoolSize 1})]
+
+        (bootstrap/add-zeneca-to-byop-app! conn)
+        (let [r (resolvers/make-zeneca-byop-resolver conn schema)
+              {:keys [attrs table-info]} (pg-introspect/introspect conn schema)]
+
+          (f {:db {:conn-pool conn}
+              :app-id id
+              :attrs attrs
+              :table-info table-info}
+             app
+             r)))
       (finally
-        (app-model/delete-by-id! {:id app-id})))))
+        (sql/execute! (aurora/conn-pool :write) [(format "drop schema \"%s\" cascade" schema)])))))
 
-(defn with-movies-app [f]
-  (with-empty-app
-    (fn [{:keys [id] :as app}]
-      (let [_ (bootstrap/add-movies-to-app! id)
-            r (resolvers/make-movies-resolver id)]
-        (f app r)))))
+(defmacro with-zeneca-byop [f]
+  `(with-empty-app
+     (fn [app#]
+       (run-zeneca-byop app# ~f))))
 
-(defn with-zeneca-app [f]
-  (with-empty-app
-    (fn [{:keys [id] :as app}]
-      (let [_ (bootstrap/add-zeneca-to-app! id)
-            r (resolvers/make-zeneca-resolver id)]
-        (f app r)))))
-
-(defn with-zeneca-checked-data-app [f]
-  (with-empty-app
-    (fn [{:keys [id] :as app}]
-      (let [_ (bootstrap/add-zeneca-to-app! true id)
-            r (resolvers/make-zeneca-resolver id)]
-        (f app r)))))
-
-(defn with-zeneca-byop [f]
-  (with-empty-app
-    (fn [{:keys [id] :as app}]
-      (let [schema (str id)
-            connection-string (-> (config/get-aurora-config)
-                                  (connection/jdbc-url)
-                                  (uri/assoc-query* {:currentSchema schema})
-                                  str)]
-        (try
-          (sql/execute! (aurora/conn-pool :write) [(format "create schema \"%s\"" schema)])
-          (app-model/set-connection-string!
-           {:app-id id
-            :connection-string connection-string})
-          (with-open [conn (sql/start-pool {:jdbcUrl connection-string
-                                            :currentSchema schema
-                                            :maximumPoolSize 1})]
-
-            (bootstrap/add-zeneca-to-byop-app! conn)
-            (let [r (resolvers/make-zeneca-byop-resolver conn schema)
-                  {:keys [attrs table-info]} (pg-introspect/introspect conn schema)]
-
-              (f {:db {:conn-pool conn}
-                  :app-id id
-                  :attrs attrs
-                  :table-info table-info}
-                 app
-                 r)))
-          (finally
-            (sql/execute! (aurora/conn-pool :write) [(format "drop schema \"%s\" cascade" schema)])))))))
-
-(defn with-pro-app [owner f]
-  (let [app-id (UUID/randomUUID)
-        app (app-model/create!
-             {:title "test team app"
-              :creator-id (:id owner)
-              :id app-id
-              :admin-token (UUID/randomUUID)})
-        stripe-customer (instant-stripe-customer-model/get-or-create! {:user owner})
-        owner-req (mock-app-req app owner)
-        _ (instant-subscription-model/create!
-           {:user-id (:id owner)
-            :app-id app-id
-            :subscription-type-id 2 ;; Pro
+(defn with-pro-app [{:keys [create-fake-objects? free?
+                            skip-billing-cycle-anchor?]}
+                    owner
+                    f]
+  (binding [stripe/*create-fake-objects* create-fake-objects?]
+    (let [app-id (random-uuid)
+          app (app-model/create!
+               {:title "test team app"
+                :creator-id (:id owner)
+                :id app-id
+                :admin-token (random-uuid)})
+          stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
+          _ (stripe/add-payment-method-for-test-customer (:id stripe-customer))
+          stripe-subscription-id (:id (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
+                                                                       :app app
+                                                                       :user owner
+                                                                       :free? free?
+                                                                       :skip-billing-cycle-anchor? skip-billing-cycle-anchor?}))
+          owner-req (mock-app-req app owner)
+          _ (instant-subscription-model/create!
+             {:user-id (:id owner)
+              :app-id app-id
+              :subscription-type-id 2 ;; Pro
+              :stripe-customer-id (:id stripe-customer)
+              :stripe-subscription-id stripe-subscription-id
+              :stripe-event-id (str "fake_evt_" (random-uuid))})]
+      (try
+        (f {:app app
+            :owner owner
+            :owner-req owner-req
             :stripe-customer-id (:id stripe-customer)
-            :stripe-subscription-id (str "fake_sub_" (UUID/randomUUID))
-            :stripe-event-id (str "fake_evt_" (UUID/randomUUID))})]
-    (try
-      (f {:app app
-          :owner owner
-          :owner-req owner-req})
-      (finally
-        (app-model/delete-by-id! {:id app-id})))))
+            :stripe-subscription-id stripe-subscription-id})
+        (finally
+          (app-model/delete-immediately-by-id! {:id app-id}))))))
 
-(defn with-team-app [owner invitee role f]
-  (let [app-id (UUID/randomUUID)
-        app (app-model/create!
-             {:title "test team app"
-              :creator-id (:id owner)
-              :id app-id
-              :admin-token (UUID/randomUUID)})
-        invite (instant-app-member-invites/create!
-                {:app-id app-id
-                 :inviter-id (:creator_id app)
-                 :role role
-                 :email (:email invitee)})
-        member (instant-app-members/create!
-                {:app-id app-id
-                 :user-id (:id invitee)
-                 :role role})
-        owner-req (mock-app-req app owner)
-        invitee-req (mock-app-req app invitee)
-        stripe-customer (instant-stripe-customer-model/get-or-create! {:user owner})
-        _ (instant-subscription-model/create!
-           {:user-id (:id owner)
-            :app-id app-id
-            :subscription-type-id PRO_SUBSCRIPTION_TYPE
-            :stripe-customer-id (:id stripe-customer)
-            :stripe-subscription-id (str "fake_sub_" (UUID/randomUUID))
-            :stripe-event-id (str "fake_evt_" (UUID/randomUUID))})
-        _ (instant-app-member-invites/accept-by-id! {:id (:id invite)})]
-    (try
-      (f {:app app
-          :owner owner
-          :invitee invitee
-          :invite invite
-          :member member
-          :owner-req owner-req
-          :invitee-req invitee-req})
-      (finally
-        (app-model/delete-by-id! {:id app-id})
-        (instant-app-members/delete-by-id! {:id (:id member)})
-        (instant-app-member-invites/delete-by-id! {:id (:id invite)})))))
+(defn with-team-app [create-fake-objects? owner invitee role f]
+  (binding [stripe/*create-fake-objects* create-fake-objects?]
+    (let [app-id (random-uuid)
+          app (app-model/create!
+               {:title "test team app"
+                :creator-id (:id owner)
+                :id app-id
+                :admin-token (random-uuid)})
+          invite (member-invites/create!
+                  {:app-id app-id
+                   :inviter-id (:creator_id app)
+                   :role role
+                   :email (:email invitee)})
+          member (instant-app-members/create!
+                  {:app-id app-id
+                   :user-id (:id invitee)
+                   :role role})
+          owner-req (mock-app-req app owner)
+          invitee-req (mock-app-req app invitee)
+          stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
+          _ (instant-subscription-model/create!
+             {:user-id (:id owner)
+              :app-id app-id
+              :subscription-type-id plans/PRO_SUBSCRIPTION_TYPE
+              :stripe-customer-id (:id stripe-customer)
+              :stripe-subscription-id (str "fake_sub_" (random-uuid))
+              :stripe-event-id (str "fake_evt_" (random-uuid))})
+          _ (member-invites/accept-by-id! {:id (:id invite)})]
+      (try
+        (f {:app app
+            :owner owner
+            :invitee invitee
+            :invite invite
+            :member member
+            :owner-req owner-req
+            :invitee-req invitee-req})
+        (finally
+          (app-model/delete-immediately-by-id! {:id app-id})
+          (instant-app-members/delete! {:id (:id member)
+                                        :app-id app-id})
+          (member-invites/delete-by-id! {:id (:id invite)}))))))
+
+(defn with-startup-org [create-fake-objects? f]
+  (binding [stripe/*create-fake-objects* create-fake-objects?]
+    (with-user
+      (fn [owner]
+        (with-user
+          (fn [collaborator]
+            (with-user
+              (fn [admin]
+                (with-user
+                  (fn [outside-user]
+                    (with-org
+                      (:id owner)
+                      (fn [org]
+                        (with-empty-app
+                          (fn [app]
+                            (let [stripe-customer (instant-stripe-customer-model/get-or-create-for-org! {:org org
+                                                                                                         :user-email (:email owner)})
+                                  _ (stripe/add-payment-method-for-test-customer (:id stripe-customer))
+                                  stripe-subscription-id (:id (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
+                                                                                               :app app
+                                                                                               :user owner}))
+                                  subscription (instant-subscription-model/create! {:user-id (:id owner)
+                                                                                    :org-id (:id org)
+                                                                                    :subscription-type-id plans/STARTUP_SUBSCRIPTION_TYPE
+                                                                                    :stripe-customer-id (:id stripe-customer)
+                                                                                    :stripe-subscription-id stripe-subscription-id
+                                                                                    :stripe-event-id (str "fake_evt_" (random-uuid))})]
+                              (sql/do-execute! (aurora/conn-pool :write) ["update apps set org_id = ?::uuid, creator_id = null where id = ?::uuid"
+                                                                          (:id org)
+                                                                          (:id app)])
+                              (sql/do-execute! (aurora/conn-pool :write) ["update orgs set subscription_id = ?::uuid where id = ?::uuid"
+                                                                          (:id subscription)
+                                                                          (:id org)])
+                              (instant-org-members/create! {:org-id (:id org)
+                                                            :user-id (:id collaborator)
+                                                            :role "collaborator"})
+                              (instant-org-members/create! {:org-id (:id org)
+                                                            :user-id (:id admin)
+                                                            :role "admin"}))
+                            (f {:app app
+                                :org org
+                                :owner owner
+                                :collaborator collaborator
+                                :admin admin
+                                :outside-user outside-user})))))))))))))))

@@ -7,7 +7,8 @@
    [ring.adapter.undertow.request :refer [build-exchange-map]]
    [ring.adapter.undertow.response :refer [set-exchange-response]]
    [ring.adapter.undertow.ssl :refer [keystore->ssl-context]]
-   [instant.lib.ring.websocket :as ws])
+   [instant.lib.ring.websocket :as ws]
+   [instant.lib.ring.sse :as sse])
   (:import
    [io.undertow Undertow Undertow$Builder UndertowOptions]
    [org.xnio Options SslClientAuthMode]
@@ -17,14 +18,16 @@
     SessionCookieConfig
     SessionManager InMemorySessionManager]))
 
-#_(set! *warn-on-reflection* true)
+(set! *warn-on-reflection* true)
 
 (defn handle-request [websocket? exchange response-map]
-  (if websocket?
-    (if-let [ws-config (:undertow/websocket response-map)]
-      (->> ws-config (ws/ws-callback) (ws/ws-request exchange (:headers response-map)))
-      (set-exchange-response exchange response-map))
-    (set-exchange-response exchange response-map)))
+  (if-let [sse-config (:undertow/sse response-map)]
+    (->> sse-config (sse/sse-callback) (sse/sse-request exchange (:headers response-map)))
+    (if websocket?
+      (if-let [ws-config (:undertow/websocket response-map)]
+        (->> ws-config (ws/ws-callback) (ws/ws-request exchange (:headers response-map)))
+        (set-exchange-response exchange response-map))
+      (set-exchange-response exchange response-map))))
 
 (defn wrap-with-session-handler
   [^SessionManager session-manager ^HttpHandler handler]

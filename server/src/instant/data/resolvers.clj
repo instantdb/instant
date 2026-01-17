@@ -20,12 +20,12 @@
    [instant.db.pg-introspect :as pg-introspect]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.data.constants :refer [movies-app-id zeneca-app-id]]
    [instant.db.datalog :as d]
    [instant.util.uuid :as uuid-util]
    [clojure.string :as string]
    [clojure.set :as clojure-set]
-   [clojure.walk :as w]))
+   [clojure.walk :as w]
+   [instant.comment :as c]))
 
 ;; --------
 ;; resolver
@@ -113,23 +113,21 @@
      :friendly-name->eid (clojure-set/map-invert eid->friendly-name)}))
 
 (defn make-movies-resolver
-  ([] (make-movies-resolver movies-app-id))
-  ([app-id]
-   (make-resolver
-    {:conn-pool (aurora/conn-pool :read)}
-    app-id
-    [["movie" "title"]
-     ["person" "name"]])))
+  [app-id]
+  (make-resolver
+   {:conn-pool (aurora/conn-pool :read)}
+   app-id
+   [["movie" "title"]
+    ["person" "name"]]))
 
 (defn make-zeneca-resolver
-  ([] (make-zeneca-resolver zeneca-app-id))
-  ([app-id]
-   (make-resolver
-    {:conn-pool (aurora/conn-pool :read)}
-    app-id
-    [["users" "fullName"]
-     ["books" "title"]
-     ["bookshelves" "name"]])))
+  [app-id]
+  (make-resolver
+   {:conn-pool (aurora/conn-pool :read)}
+   app-id
+   [["users" "fullName"]
+    ["books" "title"]
+    ["bookshelves" "name"]]))
 
 (defn make-zeneca-byop-resolver [conn namespace]
   (make-byop-resolver
@@ -155,13 +153,6 @@
        (eid->friendly-name (uuid-util/coerce x))
        not-found)))
 
-(comment
-  (def r (make-movies-resolver))
-  (->uuid r :movie/title)
-  (->friendly r (->uuid r :movie/title))
-  (->uuid r "eid-tina-turner")
-  (->friendly r (->uuid r "eid-tina-turner")))
-
 ;; --------
 ;; tranformers
 
@@ -178,10 +169,12 @@
 ;; play
 
 (comment
-  (def r (make-movies-resolver))
+  (def z (c/zeneca-app!))
+  (def z-id (:id z))
+  (def r (make-zeneca-resolver z-id))
   (walk-friendly
    r
    (d/query
     {:db {:conn-pool (aurora/conn-pool :read)}
-     :app-id movies-app-id}
-    [[:ea (->uuid r "eid-tina-turner")]])))
+     :app-id z-id}
+    [[:ea (->uuid r "eid-stepan-parunashvili")]])))

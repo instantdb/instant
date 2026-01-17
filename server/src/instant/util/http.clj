@@ -1,8 +1,9 @@
 (ns instant.util.http
   (:require
    [clojure.string :as string]
-   [instant.util.uuid :as uuid-util]
+   [instant.model.instant-user :as instant-user-model]
    [instant.util.exception :as ex]
+   [instant.util.token :as token-util]
    [instant.util.tracer :as tracer]
    [ring.util.http-response :as response]
    [ring.middleware.cors :as cors]))
@@ -12,7 +13,7 @@
           (string/split #"Bearer ")
           last
           string/trim
-          uuid-util/coerce))
+          token-util/coerce-token-from-string))
 
 (defn req->bearer-token! [req]
   (ex/get-param! req
@@ -24,6 +25,13 @@
   (if-let [header (get-in req [:headers "authorization"])]
     (coerce-bearer-token header)
     nil))
+
+(defn req->auth-user
+  "Extracts authenticated user from request. Returns nil if unauthenticated."
+  [req]
+  (when-let [refresh-token (req->bearer-token req)]
+    (instant-user-model/get-by-refresh-token {:refresh-token refresh-token
+                                              :auth? true})))
 
 ;; ----------
 ;; Middleware
@@ -47,7 +55,13 @@
                  :app-id app-id
                  :cli-version cli-version
                  :core-version core-version
-                 :admin-version admin-version}]
+                 :admin-version admin-version
+                 ;; cloudflare tracking id
+                 :cf-ray-id (get headers "cf-ray")
+                 ;; cloudfront tracking id
+                 :amz-cf-id (get headers "x-amz-cf-id")
+                 ;; amazon load balancer trace id
+                 :amzn-trace-id (get headers "x-amzn-trace-id")}]
       (tracer/add-data! {:attributes attrs})
       (handler request))))
 
@@ -69,39 +83,23 @@
   "Wraps standard http requests within a span."
   [handler]
   (fn [request]
-    (if (or (:websocket? request)
-            (cors/preflight? request))
-      ;; We skip websocket requests;
-      ;; Because websockets are long-lived,
-      ;; a parent-span doesn't make sense.
+    (if (cors/preflight? request)
       (handler request)
-      (tracer/with-span! {:name "http-req"}
+      (tracer/with-span! {:name "http-req"
+                          :attributes (when (:websocket? request)
+                                        {:websocket? true})}
         (let [{:keys [status] :as response}  (handler request)]
           (tracer/add-data! {:attributes {:status status}})
           response)))))
 
 (defn- instant-ex->bad-request [instant-ex]
-  (let [{:keys [::ex/type ::ex/message ::ex/hint]} (ex-data instant-ex)]
+  (let [{:keys [::ex/type ::ex/message ::ex/hint ::ex/trace-id]} (ex-data instant-ex)]
     (condp contains? type
-      #{::ex/record-not-found
-        ::ex/record-expired
-        ::ex/record-not-unique
-        ::ex/record-foreign-key-invalid
-        ::ex/record-check-violation
-        ::ex/sql-raise
-        ::ex/timeout
-        ::ex/rate-limited
-
-        ::ex/permission-denied
-        ::ex/permission-evaluation-failed
-
-        ::ex/param-missing
-        ::ex/param-malformed
-
-        ::ex/validation-failed}
-      {:type (keyword (name type))
-       :message message
-       :hint hint}
+      ex/bad-request-types
+      (cond-> {:type (keyword (name type))
+               :message message
+               :hint hint}
+        trace-id (assoc :trace-id trace-id))
 
       ;; Oauth providers expect an `error` key
       #{::ex/oauth-error}
@@ -109,6 +107,11 @@
        :error message}
 
       nil)))
+
+;; Exception types that we won't log an exception for
+(def silent-types #{::ex/session-missing
+                    ::ex/member-missing
+                    ::ex/connection-closed})
 
 (defn wrap-errors
   "Captures exceptions thrown by the handler. We: 
@@ -122,9 +125,12 @@
       (handler request)
       (catch Exception e
         (let [instant-ex (ex/find-instant-exception e)
-              {:keys [::ex/type ::ex/message ::ex/hint]} (ex-data instant-ex)
+              {::ex/keys [type message hint trace-id]} (ex-data instant-ex)
               bad-request (when instant-ex
                             (instant-ex->bad-request instant-ex))]
+          (tracer/add-data! {:attributes {::ex/type type
+                                          ::ex/message message
+                                          ::ex/hint hint}})
           (cond
             bad-request (cond (-> bad-request :hint :args first :auth?)
                               (do (tracer/record-exception-span! e {:name "instant-ex/unauthorized"})
@@ -141,16 +147,19 @@
                                 (response/too-many-requests bad-request))
 
                               :else
-                              (do (tracer/record-exception-span! e {:name "instant-ex/bad-request"})
+                              (do (when (not (contains? silent-types type))
+                                    (tracer/record-exception-span! e {:name "instant-ex/bad-request"}))
                                   (response/bad-request bad-request)))
 
             instant-ex (do (tracer/add-exception! instant-ex {:escaping? false})
                            (response/internal-server-error
-                            {:type (keyword (name type))
-                             :message message
-                             :hint (assoc hint :debug-uri (tracer/span-uri))}))
-            :else (do  (tracer/add-exception! e {:escaping? false})
-                       (response/internal-server-error
-                        {:type :unknown
-                         :message "Something went wrong. Please ping `debug-uri` in #bug-and-questions, and we'll take a look. Sorry about this!"
-                         :hint {:debug-uri (tracer/span-uri)}}))))))))
+                            (cond-> {:type (keyword (name type))
+                                     :message message
+                                     :hint (assoc hint :debug-uri (tracer/span-uri))}
+                              trace-id (assoc :trace-id trace-id))))
+            :else (do (tracer/add-exception! e {:escaping? false})
+                      (response/internal-server-error
+                       (cond-> {:type :unknown
+                                :message "Something went wrong. Please ping `debug-uri` in #bug-and-questions, and we'll take a look. Sorry about this!"
+                                :hint {:debug-uri (tracer/span-uri)}}
+                         trace-id (assoc :trace-id trace-id))))))))))

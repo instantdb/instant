@@ -1,8 +1,9 @@
 ---
 title: Clerk
+description: How to integrate Clerk's auth flow with Instant.
 ---
 
-Instant supports delegating auth to Clerk.
+Instant supports auth with Clerk.
 
 ## Setup
 
@@ -34,7 +35,7 @@ Go to the Instant dashboard, navigate to the `Auth` tab and add a new clerk app 
 
 Use Clerk's `getToken` helper to get a session JWT for your signed-in user. Then call Instant's `db.auth.signInWithIdToken` with the JWT and the client name you set on the Instant dashboard.
 
-When you call `db.auth.signInWithIdToken`, Instant will verify that the JWT was signed by your Clerk app. If verified, Instant use the email in the JWT's claims to lookup your user or create a new one and create a long-lived session. Be sure to call Instant's `db.auth.signOut` when you want to sign the user out.
+When you call `db.auth.signInWithIdToken`, Instant will verify that the JWT was signed by your Clerk app. If verified, Instant will use the email in the JWT's claims to lookup your user or create a new one and create a long-lived session. Be sure to call Instant's `db.auth.signOut` when you want to sign the user out.
 
 Here is a full example using clerk's next.js library:
 
@@ -52,7 +53,7 @@ import { init } from '@instantdb/react';
 import { useEffect } from 'react';
 
 // Instant app
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 const db = init({ appId: APP_ID });
 

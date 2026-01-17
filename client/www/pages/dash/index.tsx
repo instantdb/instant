@@ -1,75 +1,123 @@
-import { init, InstantReactWebDatabase } from '@instantdb/react';
-import { useContext, useEffect, useMemo, useState } from 'react';
-import { v4 } from 'uuid';
+import {
+  Combobox,
+  ComboboxButton,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+} from '@headlessui/react';
+import {
+  ArrowTopRightOnSquareIcon,
+  BeakerIcon,
+  CodeBracketIcon,
+  CreditCardIcon,
+  CubeIcon,
+  FunnelIcon,
+  HomeIcon,
+  IdentificationIcon,
+  LockClosedIcon,
+  MagnifyingGlassIcon,
+  ShieldCheckIcon,
+} from '@heroicons/react/24/outline';
+import { Explorer as NewExplorer } from '@instantdb/components';
+import { ChevronDownIcon } from '@heroicons/react/24/solid';
+import { init } from '@instantdb/react';
 import produce from 'immer';
 import Head from 'next/head';
 import NextLink from 'next/link';
-import { useRouter } from 'next/router';
-import { capitalize } from 'lodash';
-import { PlusIcon, TrashIcon } from '@heroicons/react/solid';
+import { ReactElement, useContext, useEffect, useRef, useState } from 'react';
+import { usePostHog } from 'posthog-js/react';
 
-import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
-import config, { cliOauthParamName, getLocal, setLocal } from '@/lib/config';
-import { jsonFetch, jsonMutate } from '@/lib/fetch';
-import {
-  APIResponse,
-  signOut,
-  useAuthToken,
-  useAuthedFetch,
-  claimTicket,
-  voidTicket,
-} from '@/lib/auth';
+import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
-import { DashResponse, DBAttr, InstantApp, InstantMember } from '@/lib/types';
+import { jsonFetch, jsonMutate } from '@/lib/fetch';
+import { successToast } from '@/lib/toast';
+import { InstantApp, SchemaNamespace } from '@/lib/types';
+import { titleComparator } from '@/lib/app';
 
+import { AppStart } from '@/components/dash/HomeStartGuide';
 import { Perms } from '@/components/dash/Perms';
-import Auth from '@/components/dash/Auth';
-import { Explorer } from '@/components/dash/explorer/Explorer';
-import { Onboarding } from '@/components/dash/Onboarding';
+import { Schema } from '@/components/dash/Schema';
 
+import { Admin } from '@/components/admin/AdminPage';
 import {
-  ActionButton,
-  ActionForm,
-  Button,
-  Checkbox,
-  Content,
-  Copyable,
-  Dialog,
-  Label,
-  ScreenHeading,
-  SectionHeading,
-  Select,
-  SubsectionHeading,
-  TabBar,
-  TabBarTab,
-  TextInput,
-  ToggleCollection,
-  twel,
-  useDialog,
-} from '@/components/ui';
+  asClientOnlyPage,
+  ClientOnly,
+  useReadyRouter,
+} from '@/components/clientOnlyPage';
 import { AppAuth } from '@/components/dash/AppAuth';
 import Billing from '@/components/dash/Billing';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { QueryInspector } from '@/components/dash/explorer/QueryInspector';
+import {
+  MainDashLayout,
+  useFetchedDash,
+} from '@/components/dash/MainDashLayout';
+import OAuthApps from '@/components/dash/OAuthApps';
 import { Sandbox } from '@/components/dash/Sandbox';
-import { StorageTab } from '@/components/dash/Storage';
-import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
-import { useForm } from '@/lib/hooks/useForm';
-import { useSchemaQuery } from '@/lib/hooks/explorer';
+import {
+  Badge,
+  Copyable,
+  SectionHeading,
+  SmallCopyable,
+  TabBar,
+  TabItem,
+  ToggleCollection,
+  twel,
+} from '@/components/ui';
+import { SearchFilter, useSchemaQuery } from '@/lib/hooks/explorer';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
+import clsx from 'clsx';
+import { createPortal } from 'react-dom';
+import { NextPageWithLayout } from '../_app';
+import { capitalize } from 'lodash';
+import { Workspace } from '@/lib/hooks/useWorkspace';
+import AnimatedCounter from '@/components/AnimatedCounter';
+import { useDarkMode } from '@/components/dash/DarkModeToggle';
+import {
+  parseAsBoolean,
+  parseAsInteger,
+  parseAsJson,
+  parseAsString,
+  useQueryStates,
+} from 'nuqs';
+import { useExplorerState } from '@/lib/hooks/useExplorerState';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
 
-type Role = 'collaborator' | 'admin' | 'owner';
+export type Role = 'collaborator' | 'admin' | 'owner' | 'app-member';
 
-const roleOrder = ['collaborator', 'admin', 'owner'] as const;
+export const roleOrder = [
+  'collaborator',
+  'admin',
+  'owner',
+  'app-member',
+] as const;
 
-const defaultTab: TabId = 'home';
+// Types for connection count
+type AppStatsResponse = {
+  count: number;
+  origins: Record<string, number>;
+};
 
-type TabId =
+// API function to fetch app stats
+async function fetchAppStats(
+  token: string,
+  appId: string,
+): Promise<AppStatsResponse> {
+  return jsonFetch(`${config.apiURI}/dash/apps/${appId}/stats`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+  });
+}
+
+type MainTabId =
   | 'home'
   | 'explorer'
+  | 'schema'
   | 'repl'
   | 'sandbox'
   | 'perms'
@@ -78,30 +126,57 @@ type TabId =
   | 'team'
   | 'admin'
   | 'billing'
-  | 'storage'
-  | 'docs';
+  | 'oauth-apps';
 
-interface Tab {
+type UserSettingsTabId = 'pat' | 'oauth-apps';
+
+type Screen =
+  | 'main' // app details
+  | 'user-settings'
+  | 'invites'
+  | 'new'
+  | 'personal-access-tokens';
+
+function defaultTab(screen: Screen): MainTabId | UserSettingsTabId {
+  return 'home';
+}
+
+interface Tab<TabId> {
   id: TabId;
   title: string;
   icon?: React.ReactNode;
   minRole?: 'admin' | 'owner';
 }
 
-const tabs: Tab[] = [
-  { id: 'home', title: 'Home' },
-  { id: 'explorer', title: 'Explorer' },
-  { id: 'perms', title: 'Permissions' },
-  { id: 'auth', title: 'Auth' },
-  { id: 'storage', title: 'Storage' },
-  { id: 'repl', title: 'Query Inspector' },
-  { id: 'sandbox', title: 'Sandbox' },
-  { id: 'admin', title: 'Admin', minRole: 'admin' },
-  { id: 'billing', title: 'Billing' },
-  { id: 'docs', title: 'Docs' },
+const makeIcon = (Icon: typeof HomeIcon) => {
+  return <Icon width={14} />;
+};
+
+const mainTabs: Tab<MainTabId>[] = [
+  { id: 'home', title: 'Home', icon: makeIcon(HomeIcon) },
+  { id: 'explorer', title: 'Explorer', icon: makeIcon(FunnelIcon) },
+  { id: 'schema', title: 'Schema', icon: makeIcon(CodeBracketIcon) },
+  { id: 'perms', title: 'Permissions', icon: makeIcon(LockClosedIcon) },
+  { id: 'auth', title: 'Auth', icon: makeIcon(IdentificationIcon) },
+  { id: 'repl', title: 'Query Inspector', icon: makeIcon(MagnifyingGlassIcon) },
+  { id: 'sandbox', title: 'Sandbox', icon: makeIcon(BeakerIcon) },
+  {
+    id: 'admin',
+    title: 'Admin',
+    minRole: 'admin',
+    icon: makeIcon(ShieldCheckIcon),
+  },
+  { id: 'billing', title: 'Billing', icon: makeIcon(CreditCardIcon) },
+  { id: 'oauth-apps', title: 'OAuth Apps', icon: makeIcon(CubeIcon) },
 ];
 
-const tabIndex = new Map(tabs.map((t) => [t.id, t]));
+const userTabs: Tab<UserSettingsTabId>[] = [
+  { id: 'oauth-apps', title: 'OAuth Apps' },
+  { id: 'pat', title: 'Access Tokens' },
+];
+
+const mainTabIndex = new Map(mainTabs.map((t) => [t.id, t]));
+const userTabIndex = new Map(userTabs.map((t) => [t.id, t]));
 
 export function isMinRole(minRole: Role, role: Role) {
   return roleOrder.indexOf(role) >= roleOrder.indexOf(minRole);
@@ -109,140 +184,86 @@ export function isMinRole(minRole: Role, role: Role) {
 
 // COMPONENTS
 
-export default function DashV2() {
-  const token = useAuthToken();
-  const isHydrated = useIsHydrated();
-  const router = useRouter();
-  const cliAuthCompleteDialog = useDialog();
-  const [loginTicket, setLoginTicket] = useState<string | undefined>();
+const Dash: NextPageWithLayout = asClientOnlyPage(DashV2);
 
-  const cliNormalTicket = router.query.ticket as string | undefined;
-  const cliOauthTicket = router.query[cliOauthParamName] as string | undefined;
-  const cliTicket = cliNormalTicket || cliOauthTicket;
-  useEffect(() => {
-    if (cliTicket) setLoginTicket(cliTicket);
-  }, [cliTicket]);
+export default Dash;
 
-  async function completeTicketFlow({
-    ticket,
-    token,
-  }: {
-    ticket: string;
-    token: string;
-  }) {
-    try {
-      await claimTicket({ ticket, token });
-      cliAuthCompleteDialog.onOpen();
-    } catch (error) {
-      errorToast('Error completing CLI login.');
-    }
-  }
-
-  if (!isHydrated) {
-    return null;
-  }
-
-  if (!token) {
-    return (
-      <Auth
-        key="anonymous"
-        ticket={cliNormalTicket}
-        onVerified={({ ticket }) => {
-          setLoginTicket(ticket);
-        }}
-      />
-    );
-  }
-
+Dash.getLayout = function getLayout(page: ReactElement) {
   return (
-    <>
-      <Head>
-        <style global>{
-          /* css */ `
-            html {
-              overscroll-behavior-y: none;
-            }
-          `
-        }</style>
-      </Head>
-      <TokenContext.Provider value={token}>
-        <Dashboard key="root" />
-        <Dialog
-          open={cliAuthCompleteDialog.open}
-          onClose={cliAuthCompleteDialog.onClose}
-        >
-          <div className="flex flex-col p-4 gap-4">
-            <SectionHeading>Instant CLI verification complete!</SectionHeading>
-            <Content>
-              You can close this window and return to the terminal.
-            </Content>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                try {
-                  window.close();
-                } catch (error) { }
-                cliAuthCompleteDialog.onClose();
-              }}
-            >
-              Close
-            </Button>
-          </div>
-        </Dialog>
-        <Dialog
-          open={Boolean(loginTicket && token)}
-          onClose={() => {
-            if (loginTicket) {
-              voidTicket({ ticket: loginTicket, token });
-            }
-            setLoginTicket(undefined);
-          }}
-        >
-          <div className="flex flex-col p-4 gap-4">
-            <SectionHeading>Instant CLI login</SectionHeading>
-            <Content>
-              Do you want to grant Instant CLI access to your account?
-            </Content>
-            <Button
-              variant="primary"
-              onClick={() => {
-                if (loginTicket) {
-                  completeTicketFlow({ ticket: loginTicket, token });
-                }
-                setLoginTicket(undefined);
-              }}
-            >
-              Log in
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (loginTicket) {
-                  voidTicket({ ticket: loginTicket, token });
-                }
-                setLoginTicket(undefined);
-              }}
-            >
-              Deny
-            </Button>
-          </div>
-        </Dialog>
-      </TokenContext.Provider>
-    </>
+    <ClientOnly>
+      <MainDashLayout className="bg-gray-100 dark:bg-neutral-800 dark:text-white">
+        {page}
+      </MainDashLayout>
+    </ClientOnly>
   );
+};
+
+function DashV2() {
+  return <Dashboard key="root" />;
 }
 
-function isTabAvailable(tab: Tab, role?: Role) {
+function isTabAvailable(tab: Tab<MainTabId>, role: Role) {
   return tab.minRole ? role && isMinRole(tab.minRole, role) : true;
 }
 
+function screenTab(screen: Screen, tab: string | null | undefined) {
+  return tab && mainTabIndex.has(tab as MainTabId) ? tab : defaultTab(screen);
+}
+
+const getInitialApp = (apps: InstantApp[], workspaceId: string) => {
+  const firstApp = apps?.[0];
+  if (!firstApp) return;
+
+  const lastApp = getLocallySavedApp(workspaceId);
+  const lastAppId =
+    lastApp && Boolean(apps.find((a) => a.id === lastApp.id))
+      ? lastApp.id
+      : null;
+
+  const defaultAppId = lastAppId ?? firstApp.id;
+  if (!defaultAppId) return;
+  return defaultAppId;
+};
+
+const roleIndexed: Role[] = ['collaborator', 'admin', 'owner'];
+
+export const getRole = (
+  dataFromDash: ReturnType<typeof useFetchedDash>['data'],
+  app: InstantApp,
+): Role => {
+  if (dataFromDash.workspace.type === 'personal') {
+    return app.user_app_role;
+  } else {
+    if (dataFromDash.workspace.org.role === 'app_member') {
+      return app.user_app_role;
+    }
+    // return the max between the two roles
+    return roleIndexed.reduce((max, role) => {
+      if (dataFromDash.workspace.type === 'personal') {
+        return app.user_app_role; // should never hit this
+      }
+      if (dataFromDash.workspace.org.role === role) return role;
+      if (app.user_app_role === role) return role;
+      return max;
+    }, roleIndexed[0]);
+  }
+};
+
 function Dashboard() {
   const token = useContext(TokenContext);
-  const router = useRouter();
-  const appId = router.query.app as string;
-  const screen = (router.query.s as string) || 'main';
-  const _tab = router.query.t as TabId;
-  const tab = tabIndex.has(_tab) ? _tab : defaultTab;
+  const router = useReadyRouter();
+  const fetchedDash = useFetchedDash();
+  const posthog = usePostHog();
+  const apps = fetchedDash.data.apps;
+
+  const appId =
+    (router.query.app as string) ||
+    getInitialApp(apps, fetchedDash.data.currentWorkspaceId);
+
+  const screen = ((router.query.s as string) || 'main') as Screen;
+  const tab = screenTab(screen, router.query.t as string);
+
+  const dashResponse = useFetchedDash();
 
   // Local states
   const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
@@ -251,285 +272,333 @@ function Dashboard() {
     db: InstantReactClient;
   } | null>(null);
 
-  const dashResponse = useAuthedFetch<DashResponse>(`${config.apiURI}/dash`);
+  const [agentEssayDemo, setAgentEssayDemo] = useLocalStorage<{
+    appId?: string;
+    adminToken?: string;
+    claimed?: boolean;
+  }>('agents-essay-demo', {});
+
+  // backwards compatible routing
+  useEffect(() => {
+    if (screen === 'new') {
+      router.replace('/dash/new');
+      return;
+    }
+    if (screen === 'invites') {
+      router.replace('/dash/user-settings?tab=invites');
+      return;
+    }
+    if (screen === 'user-settings' || screen === 'personal-access-tokens') {
+      if (tab === 'oauth-apps') {
+        router.replace('/dash/user-settings?tab=oauth');
+        return;
+      }
+      router.replace('/dash/user-settings');
+    }
+  }, []);
 
   useEffect(() => {
     if (!token) return;
-    const state = getLocal('__tutorial-interaction-state');
-    const tutorialAppId = state?.appId;
-    const tutorialToken = state?.t;
+    if (agentEssayDemo.claimed) return;
+    if (!agentEssayDemo.appId || !agentEssayDemo.adminToken) return;
 
-    if (!tutorialAppId || !tutorialToken) return;
-
-    jsonMutate(`${config.apiURI}/dash/apps/ephemeral/${tutorialAppId}/claim`, {
-      token,
-      method: 'POST',
-      body: { token: tutorialToken },
-    }).then(() => {
-      localStorage.removeItem('__tutorial-interaction-state');
-      return dashResponse.mutate();
+    jsonMutate(
+      `${config.apiURI}/dash/apps/ephemeral/${agentEssayDemo.appId}/claim`,
+      {
+        token,
+        method: 'POST',
+        body: { token: agentEssayDemo.adminToken },
+      },
+    ).then(() => {
+      setAgentEssayDemo({ ...agentEssayDemo, claimed: true });
     });
-  }, [token]);
+  }, [token, agentEssayDemo]);
 
-  const apps = useMemo(() => {
-    const apps = [...(dashResponse.data?.apps ?? [])];
-    apps.sort(caComp);
-    return apps;
-  }, [dashResponse.data?.apps]);
   const app = apps?.find((a) => a.id === appId);
-  const isStorageEnabled = useMemo(() => {
-    const storageEnabledAppIds =
-      dashResponse.data?.flags?.storage_enabled_apps ?? [];
-
-    return storageEnabledAppIds.includes(appId);
-  }, [appId, dashResponse.data?.flags?.storage_enabled_apps]);
 
   // ui
-  const availableTabs: TabBarTab[] = tabs
-    .filter((t) => isTabAvailable(t, app?.user_app_role))
-    .map((t) => {
-      if (t.id === 'docs') {
-        return {
-          id: t.id,
-          label: t.title,
-          link: app ? `/docs?app=${app.id}` : '/docs',
-        };
-      }
-      return { id: t.id, label: t.title };
-    });
-  const showAppOnboarding =
-    !dashResponse.data?.apps?.length && !dashResponse.data?.invites?.length;
-  const showNav = !showAppOnboarding;
   const showApp = app && connection && screen === 'main';
-  const hasInvites = Boolean(dashResponse.data?.invites?.length);
-  const showInvitesOnboarding = hasInvites && !dashResponse.data?.apps?.length;
+
+  // set the query params if there are none
+  useEffect(() => {
+    if (!app) return;
+    if (!router.query.app || !router.query.t) {
+      router.replace({
+        query: {
+          s: 'main',
+          app: app.id,
+          t: tab,
+        },
+      });
+    }
+  }, [app, router.query.app]);
 
   useEffect(() => {
-    if (!router.isReady) return;
     if (screen && screen !== 'main') return;
-    if (hasInvites) {
-      nav({
-        s: 'invites',
-      });
-      return;
-    }
 
     const isAppIdValid = Boolean(apps.find((a) => a.id === appId));
     if (appId && isAppIdValid) return;
 
+    const lastApp = getLocallySavedApp(dashResponse.data.currentWorkspaceId);
+
+    const lastAppId =
+      lastApp && Boolean(apps.find((a) => a.id === lastApp.id))
+        ? lastApp.id
+        : null;
+
     const firstApp = apps?.[0];
-    if (!firstApp) return;
 
-    const _lastAppId = getLocal('dash_app_id');
-    const lastAppId = Boolean(apps.find((a) => a.id === _lastAppId))
-      ? _lastAppId
-      : null;
+    const defaultAppId = lastAppId ?? firstApp?.id;
 
-    const defaultAppId = lastAppId ?? firstApp.id;
-    if (!defaultAppId) return;
+    const replaceDefault = () => {
+      if (!defaultAppId) return;
 
-    router.replace({
-      query: {
-        s: 'main',
-        app: defaultAppId,
-        t: tab,
-      },
-    });
+      router.replace({
+        query: {
+          s: 'main',
+          app: defaultAppId,
+          t: tab,
+        },
+      });
 
-    setLocal('dash_app_id', defaultAppId);
-  }, [router.isReady, dashResponse.data]);
+      setLocallySavedApp({
+        id: defaultAppId,
+        orgId: dashResponse.data.currentWorkspaceId,
+      });
+    };
+
+    if (appId && appId !== lastAppId) {
+      let cancel = false;
+      // If we didn't find the app, check if the app lives on
+      // a different org and redirect to that.
+      jsonFetch(`${config.apiURI}/dash/apps/${appId}`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => {
+          if (cancel) return;
+          if (
+            res?.app?.creator_id &&
+            dashResponse.data?.currentWorkspaceId &&
+            dashResponse.data?.currentWorkspaceId !== 'personal'
+          ) {
+            dashResponse.setWorkspace('personal');
+          } else if (
+            res?.app?.org_id &&
+            res?.app?.org_id !== router.query.org
+          ) {
+            dashResponse.setWorkspace(res.app.org_id);
+            router.replace({
+              query: {
+                s: 'main',
+                app: appId,
+                org: res?.app?.org_id,
+                t: tab,
+              },
+            });
+          } else {
+            replaceDefault();
+          }
+        })
+        .catch((e) => {
+          if (!cancel) {
+            replaceDefault();
+          }
+        });
+
+      return () => {
+        cancel = true;
+      };
+    }
+
+    replaceDefault();
+  }, [dashResponse.data?.currentWorkspaceId, appId, router.query.org]);
 
   useEffect(() => {
     if (!app) return;
     if (typeof window === 'undefined') return;
 
     const db = init({
-      appId,
+      appId: app.id,
       apiURI: config.apiURI,
       websocketURI: config.websocketURI,
       // @ts-expect-error
       __adminToken: app?.admin_token,
+      disableValidation: true,
     });
 
     setConnection({ db });
     return () => {
-      db._core.shutdown();
+      db.core.shutdown();
     };
-  }, [router.isReady, app?.id, app?.admin_token]);
+  }, [app?.id, app?.admin_token]);
 
-  function nav(q: { s: string; app?: string; t?: string }) {
-    if (q.app) setLocal('dash_app_id', q.app);
+  function nav(
+    q: { s: string; app?: string; t?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) {
+    // TODO: update for orgs
+    if (q.app)
+      setLocallySavedApp({
+        id: q.app,
+        orgId: dashResponse.data.currentWorkspaceId,
+      });
 
-    router.push({
-      query: q,
-    });
-  }
+    // Track tab navigation only for user-initiated clicks
+    if (q.t && opts?.trackClick) {
+      posthog.capture('dashboard_tab_click', {
+        tab: q.t,
+        app_id: q.app || appId,
+      });
+    }
 
-  function onCreateApp(r: { name: string }) {
-    const app: InstantApp = {
-      id: v4(),
-      pro: false,
-      title: r.name.trim(),
-      admin_token: v4(),
-      created_at: new Date().toISOString(),
-      rules: null,
-      members: [],
-      invites: [],
-      user_app_role: 'owner',
-      magic_code_email_template: null,
-    };
-
-    dashResponse.mutate(
-      produce(dashResponse.data, (d) => {
-        d?.apps!.push(app);
-      }),
-      {
-        revalidate: false,
-      },
-    );
-
-    createApp(token, app).catch((e) => {
-      errorToast('Error creating app: ' + app.title);
-    });
-
-    nav({ s: 'main', app: app.id, t: 'home' });
+    router
+      .push({
+        query: q,
+      })
+      .then(() => {
+        if (opts?.cb) {
+          opts.cb();
+        }
+      });
   }
 
   async function onDeleteApp(app: InstantApp) {
-    const _apps = apps.filter((a) => a.id !== app.id);
-    dashResponse.mutate((data) =>
-      produce(data, (d) => {
-        if (d) {
-          d.apps = _apps;
-        }
-      }),
+    successToast(
+      `${app.title} is marked for deletion. We will remove all data in 24 hours. Ping us on Discord if you did not mean to do this.`,
     );
+    const _apps = apps.filter((a) => a.id !== app.id);
+    if (dashResponse.data.workspace.type === 'personal') {
+      dashResponse.mutate((data) =>
+        produce(data, (d) => {
+          if (d) {
+            d.apps = _apps;
+          }
+        }),
+      );
+    } else {
+      await dashResponse.refetch();
+    }
     const _appId = _apps[0]?.id;
     nav({ s: 'main', app: _appId, t: 'hello' });
   }
-  if (screen === 'personal-access-tokens') {
-    return (
-      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
-        <Head>
-          <title>Instant - {tabIndex.get(tab)?.title}</title>
-          <meta name="description" content="Welcome to Instant." />
-        </Head>
-        <StyledToastContainer />
-        <PersonalAccessTokensScreen />
-      </div>
-    );
+
+  if (
+    apps.length === 0 &&
+    dashResponse.data.invites &&
+    dashResponse.data.invites.length >= 1
+  ) {
+    router.replace('/dash/user-settings?tab=invites', undefined, {
+      shallow: true,
+    });
   }
+
+  if (
+    apps.length === 0 &&
+    (dashResponse.data.orgs || []).length === 0 &&
+    dashResponse.data.invites?.length == 0
+  ) {
+    router.replace('/dash/onboarding', undefined, { shallow: true });
+    return;
+  }
+
+  if (apps.length === 0) {
+    router.replace('/dash/new', undefined, { shallow: true });
+    return;
+  }
+
+  if (!appId || !app) {
+    return <div></div>;
+  }
+
+  // Role is the max between the org and the app
+  const role = getRole(dashResponse.data, app);
+  const availableTabs: TabItem[] = mainTabs
+    .filter((t) => isTabAvailable(t, role))
+    .map((t) => {
+      return {
+        id: t.id,
+        label: t.title,
+        icon: t.icon,
+      };
+    });
+
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
-      <Head>
-        <title>Instant - {tabIndex.get(tab)?.title}</title>
-        <meta name="description" content="Welcome to Instant." />
-      </Head>
-      <StyledToastContainer />
-      {showNav ? (
-        <Nav
-          apps={apps}
-          hasInvites={Boolean(dashResponse.data?.invites?.length)}
-          appId={appId}
-          tab={tab}
-          availableTabs={availableTabs}
-          nav={nav}
-        />
-      ) : null}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {screen === 'new' ? (
-          <CreateApp onDone={onCreateApp} />
-        ) : dashResponse.isLoading ? (
-          <Loading />
-        ) : dashResponse.error ? (
-          <ErrorMessage message={errMessage(dashResponse.error)} />
-        ) : showAppOnboarding ? (
-          <Onboarding
-            onCreate={async (p) => {
-              await dashResponse.mutate();
-              nav({ s: 'main', app: p.id, t: defaultTab });
+    <>
+      <div className="bg-gray-50 dark:bg-neutral-800/90">
+        <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 md:flex-row md:gap-4 dark:border-b-neutral-700">
+          <div className="flex items-center gap-2">
+            <h2 className="font-mono font-bold md:text-xl">{app.title}</h2>
+            {dashResponse.data.workspace.type === 'org' && (
+              <Badge>{capitalize(dashResponse.data.workspace.org.role)}</Badge>
+            )}
+          </div>
+          <SmallCopyable
+            size="normal"
+            label="Public App ID"
+            value={app.id}
+            hideValue={hideAppId}
+            onChangeHideValue={() => {
+              setHideAppId(!hideAppId);
             }}
           />
-        ) : screen === 'invites' || showInvitesOnboarding ? (
-          <Invites nav={nav} dashResponse={dashResponse} />
-        ) : showApp ? (
-          <div
-            key={appId} // Important! Re-mount all main content and reset UI state when the app id changes
-            className="flex w-full flex-1 flex-col overflow-hidden"
-          >
-            <TabBar
-              className="md:hidden"
-              tabs={availableTabs}
-              selectedId={tab}
-              disabled={!Boolean(appId)}
-              onSelect={(t) => {
-                nav({ s: 'main', app: app.id, t: t.id });
-              }}
-            />
-            <div className="border-b">
-              <div className="flex max-w-2xl flex-col gap-2 p-3">
-                <h2 className="font-mono text-lg font-bold">{app.title}</h2>
-                <Copyable
-                  label="Public App ID"
-                  value={app.id}
-                  hideValue={hideAppId}
-                  onChangeHideValue={() => {
-                    setHideAppId(!hideAppId);
-                  }}
-                />
-              </div>
-            </div>
-            <div className="flex flex-1 flex-col overflow-hidden">
-              <div className="flex flex-col flex-1 overflow-y-scroll">
-                {tab === 'home' ? (
-                  <Home />
-                ) : tab === 'explorer' ? (
-                  <ExplorerTab appId={appId} db={connection.db} />
-                ) : tab === 'repl' ? (
-                  <QueryInspector
-                    className="flex-1 w-full"
+        </div>
+      </div>
+      <div className="flex w-full grow flex-col overflow-hidden md:flex-row">
+        <Head>
+          <title>Instant - {mainTabIndex.get(tab as MainTabId)?.title}</title>
+        </Head>
+        <Nav
+          apps={apps}
+          appId={appId}
+          tab={tab as MainTabId}
+          availableTabs={availableTabs}
+          nav={(params, opts) =>
+            nav({ s: 'main', app: appId, ...params }, opts)
+          }
+          screen={screen}
+        />
+        <>
+          {showApp ? (
+            <div
+              key={appId} // Important! Re-mount all main content and reset UI state when the app id changes
+              className="flex w-full flex-1 flex-col overflow-hidden"
+            >
+              <TabBar
+                className="md:hidden"
+                tabs={availableTabs}
+                selectedId={tab}
+                disabled={!Boolean(appId)}
+                onSelect={(t) => {
+                  nav(
+                    { s: 'main', app: app.id, t: t.id },
+                    { trackClick: true },
+                  );
+                }}
+              />
+              <div className="flex flex-1 grow flex-col overflow-y-auto">
+                {connection ? (
+                  <DashboardContent
+                    role={role}
+                    connection={connection}
+                    app={app}
                     appId={appId}
-                    db={connection.db}
-                  />
-                ) : tab === 'sandbox' ? (
-                  <Sandbox key={appId} app={app} />
-                ) : tab === 'perms' ? (
-                  <Perms app={app} dashResponse={dashResponse} />
-                ) : tab === 'auth' ? (
-                  <AppAuth
-                    app={app}
-                    key={app.id}
-                    dashResponse={dashResponse}
+                    tab={tab}
                     nav={nav}
+                    onDeleteApp={onDeleteApp}
+                    workspace={dashResponse.data.workspace}
                   />
-                ) : tab === 'storage' ? (
-                  <StorageTab
-                    key={app.id}
-                    app={app}
-                    isEnabled={isStorageEnabled}
-                  />
-                ) : tab == 'admin' && isMinRole('admin', app.user_app_role) ? (
-                  <Admin
-                    dashResponse={dashResponse}
-                    app={app}
-                    onDelete={() => onDeleteApp(app)}
-                    nav={nav}
-                    db={connection.db}
-                  />
-                ) : tab == 'billing' &&
-                  isMinRole('collaborator', app.user_app_role) ? (
-                  <Billing appId={appId} />
                 ) : null}
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </>
       </div>
-    </div>
+    </>
   );
 }
 
-const TabContent = twel('div', 'flex flex-col max-w-2xl gap-4 p-4');
+export const TabContent = twel('div', 'flex flex-col max-w-2xl gap-4 p-4');
 
 function mergeQueryParams(query: string) {
   const newQuery = new URLSearchParams(query);
@@ -588,922 +657,468 @@ function formatRouteParams(href: string) {
   return formatDashRoute(formatDocsRoute(href));
 }
 
+// Hook to fetch connection stats for the current app
+function useAppConnectionStats(token: string, appId: string) {
+  const [stats, setStats] = useState<AppStatsResponse | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!token || !appId) return;
+
+    let cancel = false;
+
+    const fetchConnectionStats = async () => {
+      try {
+        const data = await fetchAppStats(token, appId);
+        if (cancel) return;
+
+        setStats(data);
+        setError(null);
+      } catch (err) {
+        if (cancel) return;
+        setStats(null);
+        setError(err as Error);
+      }
+    };
+
+    fetchConnectionStats();
+
+    // Refresh every 5 seconds
+    const interval = setInterval(fetchConnectionStats, 5000);
+
+    return () => {
+      cancel = true;
+      clearInterval(interval);
+    };
+  }, [token, appId]);
+
+  const isLoading = stats === null && error === null;
+
+  return { stats, isLoading, error };
+}
+
 export function HomeButton({
   href,
   title,
   children,
+  onClick,
 }: {
   href: string;
   title: string;
   children: React.ReactNode;
+  onClick?: () => void;
 }) {
   return (
     <NextLink
       href={formatRouteParams(href)}
-      className="justify-start p-4 border shadow-sm rounded space-y-2 bg-white hover:bg-gray-50 disabled:text-gray-400 cursor-pointer"
+      className="cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
+      onClick={onClick}
     >
       <div>
-        <div className="font-mono font-bold text-xl">{title}</div>
-        <div className="text-gray-500">{children}</div>
+        <div className="font-mono font-bold">{title}</div>
+        <div className="text-sm text-gray-500 dark:text-neutral-400">
+          {children}
+        </div>
       </div>
     </NextLink>
   );
 }
 
-function Invites({
-  nav,
-  dashResponse,
-}: {
-  dashResponse: APIResponse<DashResponse>;
-  nav: (p: { s: string; t?: string; app?: string }) => void;
-}) {
-  const token = useContext(TokenContext);
-  const invites = dashResponse.data?.invites ?? [];
+function Home({ app, token }: { app: InstantApp; token: string }) {
+  const { id: appId } = app;
+  const posthog = usePostHog();
+  const { stats, isLoading, error } = useAppConnectionStats(token, appId);
+  const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
+
+  // Sort origins by connection count (highest to lowest)
+  const sortedOrigins = stats?.origins
+    ? Object.entries(stats.origins).sort(([, a], [, b]) => b - a)
+    : [];
 
   return (
-    <div className="flex w-full flex-col gap-4 max-w-2xl px-4 py-8">
-      <div className="mb-2 flex text-4xl">📫</div>
-      <SectionHeading>Team Invites</SectionHeading>
-      <div className="flex flex-1 flex-col gap-4">
-        {invites.length ? (
-          invites.map((invite) => (
-            <div
-              key={invite.id}
-              className="flex flex-col justify-between gap-2"
-            >
-              <div>
-                <strong>{invite.inviter_email}</strong> invited you to{' '}
-                <strong>{invite.app_title}</strong> as{' '}
-                <strong>{invite.invitee_role}</strong>.
-              </div>
-              <div className="flex gap-1">
-                <ActionButton
-                  variant="primary"
-                  label="Accept"
-                  submitLabel="Accepting..."
-                  errorMessage="An error occurred when attempting to accept the invite."
-                  successMessage={`You're part of the team for ${invite.app_title}!`}
-                  onClick={async () => {
-                    await jsonMutate(`${config.apiURI}/dash/invites/accept`, {
-                      token,
-                      body: {
-                        'invite-id': invite.id,
-                      },
-                    });
-
-                    await dashResponse.mutate();
-
-                    if (invites.length === 1) {
-                      nav({ s: 'main', t: 'home', app: invite.app_id });
-                    }
-                  }}
-                />
-                <ActionButton
-                  label="Decline"
-                  submitLabel="Decline..."
-                  errorMessage="An error occurred when attempting to decline the invite."
-                  onClick={async () => {
-                    await jsonMutate(`${config.apiURI}/dash/invites/decline`, {
-                      token,
-                      body: {
-                        'invite-id': invite.id,
-                      },
-                    });
-
-                    await dashResponse.mutate();
-
-                    const firstApp = dashResponse.data?.apps?.[0];
-                    if (invites.length === 1 && firstApp) {
-                      nav({ s: 'main', t: 'home', app: firstApp.id });
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          ))
-        ) : (
-          <Content className="text-gray-400 italic">
-            You have no pending invites.
-          </Content>
-        )}
+    <div className="max-w-2xl p-4 text-sm md:text-base">
+      <div className="pb-10">
+        <AppStart app={app} />
       </div>
-    </div>
-  );
-}
 
-function Home() {
-  return (
-    <TabContent className="text-sm md:text-base">
-      <SectionHeading>Getting Started</SectionHeading>
-      <Content>
-        Ready to hack? To get a real-time app in minutes, see our quick example.
-        You can also book some time with the founders to get personalized help
-        (free)
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/docs" title="Quick start">
-          Get running in less than 5 minutes!
-        </HomeButton>
-        <HomeButton href="/tutorial" title="Try the Demo">
-          See the magic of Instant in your browser.
-        </HomeButton>
+      <SectionHeading>Next Steps</SectionHeading>
+      <div className="pt-1">
+        Now that you have your app running, here's some helpful links on what to
+        do next!
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
         <HomeButton
-          href="https://calendly.com/instantdb/talk-with-instant-founders"
-          title="Q&A with founders"
+          href="/docs"
+          title="Read the Docs"
+          onClick={() =>
+            posthog.capture('getting_started_click', {
+              action: 'read_docs',
+              app_id: appId,
+            })
+          }
         >
-          Have some questions? Get personalized help from the founders (free)
+          Jump into our docs to start learning how to use Instant.
         </HomeButton>
         <HomeButton
           href="https://discord.com/invite/VU53p7uQcE"
           title="Join the community"
+          onClick={() =>
+            posthog.capture('getting_started_click', {
+              action: 'join_discord',
+              app_id: appId,
+            })
+          }
         >
           Join our Discord to meet like-minded hackers, and to give us feedback
           too!
         </HomeButton>
       </div>
-      <SectionHeading>Manage your Data</SectionHeading>
-      <Content>
-        Use the explorer to see your data live. You can also use this to manage
-        your schema. To learn more, check out our docs on how to read, write,
-        and model data.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/docs/instaml" title="Writing data">
-          Our write API is very small! Read up on how to write data to your
-          Instant apps.
-        </HomeButton>
-        <HomeButton href="/docs/instaql" title="Reading data">
-          Once you have some data, learn all the different ways you can read it!
-        </HomeButton>
-        <HomeButton href="/docs/modeling-data" title="Modeling data">
-          Learn how to define advanced relationships and leverage Instant's
-          graph capabilities.
-        </HomeButton>
-        <HomeButton href="/dash?t=explorer" title="Explorer">
-          See your live data and edit your schema.
-        </HomeButton>
+
+      {/* Your Public App ID Section */}
+      <div className="mt-10">
+        <SectionHeading>Your Public App ID</SectionHeading>
+        <div className="pt-1">
+          Use this App ID to connect to your database{' '}
+          <a
+            className="underline hover:cursor-pointer dark:text-white"
+            href="/docs/init"
+            target="_blank"
+          >
+            via init
+          </a>
+          . This ID is safe to use in public-facing applications.
+        </div>
+        <div className="mt-4">
+          <Copyable
+            value={appId}
+            size="large"
+            hideValue={hideAppId}
+            onChangeHideValue={() => setHideAppId(!hideAppId)}
+          />
+        </div>
       </div>
-      <SectionHeading>Add Authentication</SectionHeading>
-      <Content>
-        Instant comes with an authentication system. You can use magic codes,
-        Google OAuth, or integrate your own custom flow. We have examples and
-        docs to help you get started.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/docs/auth#magic-codes" title="Magic codes">
-          Passwords are pas·sé, Instant supports magic-code auth out of the box.
-          Read the docs to learn how to add auth into your app in just a few
-          lines of code!
-        </HomeButton>
-        <HomeButton href="/dash?t=auth" title="Manage OAuth">
-          Use the Auth tab to configure Google OAuth. More auth providers to
-          come!
-        </HomeButton>
-        <HomeButton href="/docs/backend#custom-auth" title="Custom auth">
-          Learn how to use the Admin SDK to integrate your auth with Instant.
-        </HomeButton>
+
+      {/* Connection Count Display */}
+      <div className="mt-10">
+        <SectionHeading>Your App Statistics</SectionHeading>
+        <div className="mt-4 space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors dark:border-neutral-700 dark:bg-neutral-800">
+          <div className="flex items-center justify-between">
+            <div className="mt-1">
+              {isLoading ? (
+                <div>Loading...</div>
+              ) : error ? (
+                <div>Error: {error.message}</div>
+              ) : (
+                <div className="inline-flex items-center space-x-2">
+                  <AnimatedCounter number={stats?.count || 0} height={38} />
+                  <div className="flex-1">sessions are connected right now</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Origins List */}
+          {!isLoading && !error && sortedOrigins.length > 0 && (
+            <div className="mt-4 border-gray-200 pt-4 dark:border-neutral-600">
+              <div className="mb-2 text-sm font-medium text-gray-500 dark:text-neutral-400">
+                Per Origin
+              </div>
+              <div className="space-y-2">
+                {sortedOrigins.map(([origin, count]) => {
+                  const isLocalhost = origin.includes('localhost');
+                  return (
+                    <div
+                      key={origin}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex-1 truncate">
+                        {isLocalhost ? (
+                          <span className="text-sm text-gray-700 dark:text-neutral-300">
+                            {origin}
+                          </span>
+                        ) : (
+                          <a
+                            href={origin}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            {origin}
+                          </a>
+                        )}
+                      </div>
+                      <div className="ml-2 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-neutral-700 dark:text-neutral-300">
+                        {count.toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-      <SectionHeading>Ephemeral Collaboration</SectionHeading>
-      <Content>
-        <p>
-          When you use Instant to read and write data, you get optimistic
-          updates, offline support, and real-time collaboration out of the box.
-          Every change you make is instantly synced to all connected clients.
-          This makes it easy to build collaborative apps like Figma, Notion, or
-          Linear.
-        </p>
-        <p>
-          Sometimes you want collaboration to be ephemeral. For example, sharing
-          cursors on a shared document, showing who is online, or showing who is
-          typing. We've got some examples to get you started and docs to help
-          you build your own experiences.
-        </p>
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/examples" title="Examples">
-          Real examples you can copy/paste into your own apps.
-        </HomeButton>
-        <HomeButton
-          href="/docs/presence-and-topics"
-          title="Presence, Cursors, and Activity"
-        >
-          Learn how to use Instant's presence system to build your own ephemeral
-          collaborative features.
-        </HomeButton>
-      </div>
-      <SectionHeading>Secure your app</SectionHeading>
-      <Content>
-        Ready to ship your app to the world? You'll likely want to add some
-        permissions to ensure only the right people see the right data.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/docs/permissions" title="How to use permissions">
-          Instant uses CEL under the hood for writing permission rules. It's an
-          alternative to row-based security!
-        </HomeButton>
-        <HomeButton href="/dash?t=perms" title="Manage permissions">
-          Write permission rules to secure your app
-        </HomeButton>
-      </div>
-      <SectionHeading>Manage your app</SectionHeading>
-      <Content>
-        Want to see your usage, change your billing, or delete your app? You can
-        do that using the admin and billing tabs.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/dash?t=admin" title="Admin">
-          App management and admin secrets for using Instant on the backend.
-        </HomeButton>
-        <HomeButton href="/dash?t=billing" title="Billing">
-          See your current app usage and manage your subscription.
-        </HomeButton>
-      </div>
-      <SectionHeading>Example Applications</SectionHeading>
-      <Content>
-        We've built a few example applications to help you get started. You can
-        reference these to help you build your own apps.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton
-          href="https://github.com/jsventures/instldraw"
-          title="instldraw (Web)"
-        >
-          tldraw + Instant. See how to model teams, use cursors and leverage
-          permissions.
-        </HomeButton>
-        <HomeButton
-          href="https://github.com/jsventures/stroopwafel"
-          title="Stroopwafel (React Native)"
-        >
-          Multiplayer iOS game built with Expo + Instant. See how you can use
-          Instant to build real-time games.
-        </HomeButton>
-      </div>
-    </TabContent>
+    </div>
   );
 }
 
-function ExplorerTab({ db, appId }: { db: InstantReactClient; appId: string }) {
+// Dashboard content component that manages schema subscription
+function DashboardContent({
+  connection,
+  app,
+  appId,
+  tab,
+  nav,
+  role,
+  onDeleteApp,
+  workspace,
+}: {
+  connection: { db: InstantReactClient };
+  app: InstantApp;
+  appId: string;
+  tab: string;
+  role: Role;
+  nav: (
+    q: { s: string; app?: string; t?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) => void;
+  onDeleteApp: (app: InstantApp) => void;
+  workspace: Workspace;
+}) {
+  // Subscribe to schema changes at the dashboard level
+  const schemaData = useSchemaQuery(connection.db);
+
   return (
-    <div className="flex-1 overflow-hidden flex flex-col">
+    <>
+      {tab === 'home' ? (
+        <Home app={app} token={useContext(TokenContext)!} />
+      ) : tab === 'explorer' ? (
+        <ExplorerTab
+          appId={appId}
+          db={connection.db}
+          namespaces={schemaData.namespaces}
+        />
+      ) : tab === 'schema' ? (
+        <Schema attrs={schemaData.attrs} />
+      ) : tab === 'repl' ? (
+        <QueryInspector
+          className="w-full flex-1"
+          appId={appId}
+          db={connection.db}
+          namespaces={schemaData.namespaces}
+          attrs={schemaData.attrs}
+        />
+      ) : tab === 'sandbox' ? (
+        <Sandbox
+          key={appId}
+          app={app}
+          db={connection.db}
+          attrs={schemaData.attrs}
+          namespaces={schemaData.namespaces}
+        />
+      ) : tab === 'perms' ? (
+        <Perms
+          app={app}
+          db={connection.db}
+          namespaces={schemaData.namespaces}
+        />
+      ) : tab === 'auth' ? (
+        <AppAuth app={app} key={app.id} nav={nav} />
+      ) : tab === 'admin' && isMinRole('admin', role) ? (
+        <Admin
+          role={role}
+          app={app}
+          onDelete={() => onDeleteApp(app)}
+          nav={nav}
+          workspace={workspace}
+        />
+      ) : tab === 'billing' && isMinRole('collaborator', role) ? (
+        <Billing appId={appId} />
+      ) : tab === 'oauth-apps' ? (
+        <OAuthApps appId={appId} />
+      ) : null}
+    </>
+  );
+}
+
+function ExplorerTab({
+  db,
+  appId,
+  namespaces,
+}: {
+  db: InstantReactClient;
+  appId: string;
+  namespaces: SchemaNamespace[] | null;
+}) {
+  const { darkMode } = useDarkMode();
+
+  const [explorerState, setExplorerState] = useExplorerState();
+
+  return (
+    <>
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Explorer db={db} appId={appId} key={db._core._reactor.config.appId} />
+        <NewExplorer
+          useShadowDOM={false}
+          setExplorerState={setExplorerState}
+          explorerState={explorerState}
+          apiURI={config.apiURI}
+          websocketURI={config.websocketURI}
+          darkMode={darkMode}
+          appId={appId}
+          adminToken={db.core._reactor.config.__adminToken}
+        />
       </div>
-    </div>
+    </>
+  );
+}
+
+function AppCombobox({
+  apps,
+  appId,
+  nav,
+  tab,
+}: {
+  apps: InstantApp[];
+  nav: (
+    p: { s: string; t?: string; app?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) => void;
+  appId: string;
+  tab: MainTabId;
+}) {
+  const currentApp = apps.find((a) => a.id === appId) || null;
+
+  const [appQuery, setAppQuery] = useState('');
+  const comboboxInputRef = useRef<HTMLInputElement | null>(null);
+
+  const filteredApps = appQuery
+    ? apps.filter((a) => a.title.toLowerCase().includes(appQuery))
+    : apps;
+
+  const sortedApps = filteredApps.toSorted(titleComparator);
+
+  return (
+    <Combobox
+      immediate={true}
+      value={currentApp}
+      onChange={(app: InstantApp | null) => {
+        if (!app) {
+          return;
+        }
+        setAppQuery('');
+        nav(
+          { s: 'main', app: app.id, t: tab },
+          {
+            cb: () =>
+              comboboxInputRef.current && comboboxInputRef.current.blur(),
+          },
+        );
+      }}
+      onClose={() => setAppQuery('')}
+    >
+      <div className="relative">
+        <ComboboxInput
+          ref={comboboxInputRef}
+          className={clsx(
+            'w-full min-w-0! basis-[35%] truncate rounded-xs border-gray-300 py-1 text-sm md:w-full md:basis-full dark:border-neutral-700 dark:bg-neutral-700/40',
+            'pr-8 pl-3 text-sm/6',
+            'ring-0 focus:outline-hidden data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25',
+          )}
+          displayValue={(app: InstantApp | null) => (app ? app.title : '')}
+          onChange={(e) => setAppQuery(e.target.value)}
+        />
+        <ComboboxButton className="group absolute inset-y-0 right-0 px-2.5">
+          <ChevronDownIcon
+            height={'1em'}
+            className="fill-gray/300 group-data-hover:fill-gray"
+          />
+        </ComboboxButton>
+      </div>
+      <ComboboxOptions
+        anchor="bottom"
+        transition
+        className={clsx(
+          'z-50 border border-gray-300 bg-white shadow-lg empty:invisible md:min-w-(--input-width) dark:divide-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white',
+          'mx-2 my-1 border [--anchor-gap:var(--spacing-1)]',
+          'transition duration-100 ease-in data-leave:data-closed:opacity-0',
+        )}
+      >
+        {sortedApps.map((app) => (
+          <ComboboxOption
+            key={app.id}
+            value={app}
+            className="group cursor-pointer px-3 py-1 data-focus:bg-gray-100 dark:data-focus:bg-neutral-700/80"
+          >
+            <div className="">{app.title}</div>
+          </ComboboxOption>
+        ))}
+      </ComboboxOptions>
+    </Combobox>
   );
 }
 
 function Nav({
   apps,
-  hasInvites,
   nav,
   appId,
   tab,
   availableTabs,
 }: {
-  apps: InstantApp[];
-  hasInvites: boolean;
-  nav: (p: { s: string; t?: string; app?: string }) => void;
+  apps?: InstantApp[];
+  nav: (
+    p: { s?: string; t?: string; app?: string },
+    opts?: { cb?: () => void; trackClick?: boolean },
+  ) => void;
   appId: string;
-  tab: TabId;
-  availableTabs: TabBarTab[];
+  tab: MainTabId | UserSettingsTabId;
+  availableTabs: TabItem[];
+  screen: string;
 }) {
-  const router = useRouter();
-  const currentApp = apps.find((a) => a.id === appId);
+  const showAppNav = apps;
   return (
-    <div className="flex flex-col gap-2 border-b border-gray-300 md:w-40 md:gap-0 md:border-b-0 md:border-r bg-gray-50">
-      <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50">
-        <Select
-          className="w-0 basis-[35%] md:w-full md:basis-full truncate text-sm"
-          options={apps.map((a) => ({ label: a.title, value: a.id }))}
-          disabled={apps.length === 0}
-          value={appId}
-          onChange={(app) => {
-            if (!app) {
-              return;
-            }
-
-            nav({ s: 'main', app: app.value, t: tab });
-          }}
-        />
-        <div className="flex md:flex-col gap-2">
-          <Button
-            size="mini"
-            variant="secondary"
-            onClick={() => nav({ s: 'new', app: appId })}
-          >
-            <PlusIcon height={14} /> New app
-          </Button>
-          {hasInvites ? (
-            <Button size="mini" onClick={() => nav({ s: 'invites' })}>
-              Invites
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      <div className="hidden md:visible md:static flex-row overflow-auto md:flex md:flex-col bg-gray-50 h-full">
+    <div className="flex flex-col gap-2 border-b border-gray-300 bg-gray-50 md:w-48 md:gap-0 md:border-r md:border-b-0 dark:border-neutral-700/80 dark:bg-neutral-800/40">
+      {showAppNav ? (
+        <>
+          {createPortal(
+            <AppCombobox
+              apps={apps}
+              appId={appId}
+              nav={nav}
+              tab={tab as MainTabId}
+            />,
+            document.getElementById('left-top-bar')!,
+          )}
+        </>
+      ) : null}
+      <div className="hidden h-full flex-row overflow-auto bg-gray-50 md:visible md:static md:flex md:flex-col dark:bg-neutral-800/40">
         <ToggleCollection
           className="gap-0 text-sm"
           buttonClassName="rounded-none py-2"
-          onChange={(t) => nav({ s: 'main', app: appId, t: t.id })}
+          onChange={(t) => nav({ t: t.id }, { trackClick: true })}
           selectedId={tab}
           items={availableTabs.map((t) => ({
             ...t,
             label: (
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                {t.icon !== undefined && <span>{t.icon}</span>}
                 <span>{t.label}</span>
+                {t.id === 'docs' && (
+                  <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                )}
               </div>
             ),
           }))}
         />
       </div>
-      <div className="p-2 border-t bg-gray-50">
-        <Button
-          className="w-full"
-          size="mini"
-          variant="secondary"
-          onClick={() => {
-            router.push('/');
-            // delay sign out to allow the router to change the page
-            // and avoid a flash of the unauthenticated dashboard
-            setTimeout(() => {
-              signOut();
-            }, 150);
-          }}
-        >
-          Sign out
-        </Button>
-      </div>
     </div>
   );
 }
 
-function InviteTeamMemberDialog({
-  onClose,
-  app,
-  dashResponse,
-}: {
-  onClose: () => void;
-  app: InstantApp;
-  dashResponse: APIResponse<DashResponse>;
-}) {
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'collaborator'>('collaborator');
-  const token = useContext(TokenContext);
-
-  function onSubmit() {
-    onClose();
-
-    return dashResponse.optimisticUpdate(
-      jsonMutate(`${config.apiURI}/dash/apps/${app.id}/invite/send`, {
-        token,
-        body: {
-          'invitee-email': email,
-          role,
-        },
-      }),
-      (d) => {
-        const _app = d?.apps?.find((a) => a.id === app.id);
-        if (!_app) return;
-
-        const _invite = _app.invites?.find((i) => i.email === email);
-
-        if (_invite) {
-          _invite.status = 'pending';
-          _invite.role = role;
-        } else {
-          _app.invites?.push({
-            id: v4(),
-            email,
-            role,
-            status: 'pending',
-            expired: false,
-            sent_at: new Date().toISOString(),
-          });
-        }
-      },
-    );
-  }
-
-  return (
-    <ActionForm className="flex flex-col gap-4">
-      <h5 className="flex items-center text-lg font-bold">
-        Invite a team member
-      </h5>
-
-      <TextInput
-        label="Email"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e)}
-      />
-
-      <div className="flex flex-col gap-1">
-        <Label>Role</Label>
-        <Select
-          value={role}
-          onChange={(o) => {
-            if (!o) return;
-            setRole(o.value as 'admin' | 'collaborator');
-          }}
-          options={[
-            { value: 'admin', label: 'Admin' },
-            { value: 'collaborator', label: 'Collaborator' },
-          ]}
-        />
-      </div>
-
-      <ActionButton
-        type="submit"
-        label="Invite"
-        submitLabel="Inviting..."
-        successMessage="Invite sent!"
-        errorMessage="Failed to send invite."
-        disabled={!email}
-        onClick={onSubmit}
-      />
-    </ActionForm>
-  );
-}
-
-function Admin({
-  dashResponse,
-  app,
-  onDelete,
-  nav,
-  db,
-}: {
-  dashResponse: APIResponse<DashResponse>;
-  app: InstantApp;
-  onDelete: () => void;
-  nav: (p: { s: string; t?: string; app?: string }) => void;
-  db: InstantReactWebDatabase<any>;
-}) {
-  const token = useContext(TokenContext);
-  const [deleteAppOk, updateDeleteAppOk] = useState(false);
-  const [clearAppOk, updateClearAppOk] = useState(false);
-  const [editMember, setEditMember] = useState<InstantMember | null>();
-  const [hideAdminToken, setHideAdminToken] = useState(true);
-  const clearDialog = useDialog();
-  const deleteDialog = useDialog();
-  const inviteDialog = useDialog();
-
-  const displayedInvites = app.invites?.filter(
-    (invite) => invite.status !== 'accepted',
-  );
-
-  async function onClickReset() {
-    if (!dashResponse.data) return;
-    const appIndex = dashResponse.data.apps?.findIndex((a) => a.id === app.id);
-    const newAdminToken = v4();
-    const confirmation =
-      'Are you sure? This will invalidate your previous token.';
-
-    if (!confirm(confirmation)) return;
-
-    try {
-      await regenerateAdminToken(token, app.id, newAdminToken);
-    } catch (error) {
-      errorToast(
-        "Uh oh! We couldn't generate a new admin token. Please ping Joe & Stopa, or try again.",
-      );
-
-      return;
-    }
-
-    dashResponse.mutate(
-      produce(dashResponse.data, (d) => {
-        if (d.apps && appIndex) d.apps[appIndex].admin_token = newAdminToken;
-      }),
-    );
-  }
-
-  const appNameForm = useForm<{ name: string }>({
-    initial: { name: app.title },
-    validators: {
-      name: (n) => (n.length ? undefined : { error: 'Name is required' }),
-    },
-    onSubmit: async (values) => {
-      await dashResponse.optimisticUpdate(
-        jsonMutate(`${config.apiURI}/dash/apps/${app.id}/rename`, {
-          method: 'POST',
-          token,
-          body: {
-            title: values.name,
-          },
-        }),
-        (d) => {
-          const _app = d?.apps?.find((a) => a.id === app.id);
-          if (!_app) return;
-
-          _app.title = values.name;
-        },
-      );
-
-      successToast('App name updated!');
-    },
-  });
-
-  return (
-    <TabContent className="h-full">
-      <Dialog open={inviteDialog.open} onClose={inviteDialog.onClose}>
-        <InviteTeamMemberDialog
-          app={app}
-          dashResponse={dashResponse}
-          onClose={inviteDialog.onClose}
-        />
-      </Dialog>
-      <Dialog open={Boolean(editMember)} onClose={() => setEditMember(null)}>
-        {editMember ? (
-          <div className="flex flex-col gap-4">
-            <h5 className="flex items-center text-lg font-bold">
-              Edit team member
-            </h5>
-            <ActionButton
-              label={
-                editMember.role === 'admin'
-                  ? 'Change to collaborator'
-                  : 'Promote to admin'
-              }
-              submitLabel="Updating role..."
-              successMessage="Update team member role."
-              errorMessage="An error occurred while attempting to update team member."
-              onClick={async () => {
-                await jsonMutate(
-                  `${config.apiURI}/dash/apps/${app.id}/members/update`,
-                  {
-                    token,
-                    body: {
-                      id: editMember.id,
-                      role:
-                        editMember.role === 'admin' ? 'collaborator' : 'admin',
-                    },
-                  },
-                );
-
-                await dashResponse.mutate();
-
-                setEditMember(null);
-              }}
-            />
-            <ActionButton
-              className="w-full"
-              variant="destructive"
-              label="Remove from team"
-              submitLabel="Removing..."
-              successMessage="Removed team member."
-              errorMessage="An error occurred while attempting to remove team member."
-              onClick={async () => {
-                await jsonMutate(
-                  `${config.apiURI}/dash/apps/${app.id}/members/remove`,
-                  {
-                    method: 'DELETE',
-                    token,
-                    body: {
-                      id: editMember.id,
-                    },
-                  },
-                );
-
-                await dashResponse.mutate();
-
-                setEditMember(null);
-              }}
-            />
-          </div>
-        ) : null}
-      </Dialog>
-      {isMinRole('owner', app.user_app_role) ? (
-        <form className="flex flex-col gap-2" {...appNameForm.formProps()}>
-          <TextInput
-            {...appNameForm.inputProps('name')}
-            label="App name"
-            placeholder="My awesome app"
-          />
-          <Button {...appNameForm.submitButtonProps()}>Update app name</Button>
-        </form>
-      ) : null}
-      {app.pro ? (
-        <>
-          <div className="flex flex-col gap-1">
-            <SectionHeading>Team Members</SectionHeading>
-            {app.members?.length ? (
-              <div className="flex flex-col gap-1">
-                {app.members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex justify-between items-center gap-3"
-                  >
-                    <div className="flex justify-between flex-1">
-                      <div>{member.email}</div>
-                      <div className="text-gray-400">
-                        {capitalize(member.role)}
-                      </div>
-                    </div>
-                    <div className="w-28 flex">
-                      <Button
-                        className="w-full"
-                        variant="secondary"
-                        onClick={() => setEditMember(member)}
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-gray-400">No team members</div>
-            )}
-          </div>
-          {displayedInvites?.length ? (
-            <div className="flex flex-col">
-              <SubsectionHeading>Invites</SubsectionHeading>
-              <div className="flex flex-col gap-0.5">
-                {displayedInvites.map((invite) => (
-                  <div
-                    key={invite.id}
-                    className="flex justify-between items-center gap-3"
-                  >
-                    <div className="flex flex-1 justify-between gap-2 overflow-hidden">
-                      <div className="truncate">{invite.email}</div>
-                      <div className="text-gray-400">
-                        {capitalize(invite.role)}
-                      </div>
-                    </div>
-                    <div className="w-28 flex">
-                      {!invite.expired && invite.status === 'pending' ? (
-                        <ActionButton
-                          className="w-full"
-                          label="Revoke"
-                          submitLabel="Revoking..."
-                          successMessage="Revoked team member invite."
-                          errorMessage="An error occurred while attempting to revoke team member invite."
-                          onClick={async () => {
-                            dashResponse.optimisticUpdate(
-                              jsonMutate(
-                                `${config.apiURI}/dash/apps/${app.id}/invite/revoke`,
-                                {
-                                  method: 'DELETE',
-                                  token,
-                                  body: {
-                                    'invite-id': invite.id,
-                                  },
-                                },
-                              ),
-                            );
-                          }}
-                        />
-                      ) : (
-                        <Button className="w-full" variant="secondary" disabled>
-                          {invite.expired
-                            ? 'Expired'
-                            : capitalize(invite.status)}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          <div className="flex flex-col gap-1">
-            {app.pro ? (
-              <Button
-                onClick={() => {
-                  inviteDialog.onOpen();
-                }}
-              >
-                Invite a team member
-              </Button>
-            ) : (
-              <>
-                <Content className="italic">
-                  Team member management is a Pro feature.
-                </Content>
-                <Button
-                  onClick={() => {
-                    nav({ s: 'main', app: app.id, t: 'billing' });
-                  }}
-                >
-                  Upgrade to Pro
-                </Button>
-              </>
-            )}
-          </div>
-        </>
-      ) : null}
-      <SectionHeading>Admin SDK</SectionHeading>
-      <HomeButton href="/docs/backend" title="Instant and your backend">
-        Learn how to use the Admin SDK to integrate Instant with your backend.
-      </HomeButton>
-      <Content>
-        Use the admin token below to authenticate with your backend. Keep this
-        token a secret.{' '}
-        {isMinRole('admin', app.user_app_role) ? (
-          <>
-            If need be, you can regenerate it by{' '}
-            <a onClick={onClickReset}>clicking here</a>.
-          </>
-        ) : null}
-      </Content>
-      <Copyable
-        onChangeHideValue={() => setHideAdminToken(!hideAdminToken)}
-        hideValue={hideAdminToken}
-        label="Secret"
-        value={app.admin_token}
-      />
-      {isMinRole('owner', app.user_app_role) ? (
-        // mt-auto pushes the danger zone to the bottom of the page
-        <div className="mt-auto space-y-2 pb-4">
-          <SectionHeading>Danger zone</SectionHeading>
-          <Content>
-            These are destructive actions and will irreversibly delete
-            associated data.
-          </Content>
-          <div>
-            <div className="flex flex-col space-y-6">
-              <Button variant="destructive" onClick={clearDialog.onOpen}>
-                <TrashIcon height={'1rem'} /> Clear app
-              </Button>
-              <Button variant="destructive" onClick={deleteDialog.onOpen}>
-                <TrashIcon height={'1rem'} /> Delete app
-              </Button>
-            </div>
-          </div>
-          <Dialog {...clearDialog}>
-            <div className="flex flex-col gap-2">
-              <SubsectionHeading className="text-red-600">
-                Clear app
-              </SubsectionHeading>
-              <Content className="space-y-2">
-                <p>
-                  Clearing an app will irreversibly delete all namespaces,
-                  triples, and permissions.
-                </p>
-                <p>
-                  All other data like app id, admin token, users, billing, team
-                  members, etc. will remain.
-                </p>
-                <p>
-                  This is equivalent to deleting all your namespaces in the
-                  explorer and clearing your permissions.
-                </p>
-              </Content>
-              <Checkbox
-                checked={clearAppOk}
-                onChange={(c) => updateClearAppOk(c)}
-                label="I understand and want to clear this app."
-              />
-              <Button
-                disabled={!clearAppOk}
-                variant="destructive"
-                onClick={async () => {
-                  await jsonFetch(
-                    `${config.apiURI}/dash/apps/${app.id}/clear`,
-                    {
-                      method: 'POST',
-                      headers: {
-                        authorization: `Bearer ${token}`,
-                        'content-type': 'application/json',
-                      },
-                    },
-                  );
-
-                  clearDialog.onClose();
-                  dashResponse.mutate();
-                  successToast('App cleared!');
-                }}
-              >
-                Clear data
-              </Button>
-            </div>
-          </Dialog>
-          <Dialog {...deleteDialog}>
-            <div className="flex flex-col gap-2">
-              <SubsectionHeading className="text-red-600">
-                Delete app
-              </SubsectionHeading>
-              <Content>
-                Deleting an app will irreversibly delete all associated data.
-              </Content>
-              <Checkbox
-                checked={deleteAppOk}
-                onChange={(c) => updateDeleteAppOk(c)}
-                label="I understand and want to delete this app."
-              />
-              <Button
-                disabled={!deleteAppOk}
-                variant="destructive"
-                onClick={async () => {
-                  await jsonFetch(`${config.apiURI}/dash/apps/${app.id}`, {
-                    method: 'DELETE',
-                    headers: {
-                      authorization: `Bearer ${token}`,
-                      'content-type': 'application/json',
-                    },
-                  });
-
-                  onDelete();
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          </Dialog>
-        </div>
-      ) : null}
-    </TabContent>
-  );
-}
-
-function CreateApp({ onDone }: { onDone: (o: { name: string }) => void }) {
-  const [name, setName] = useState('');
-
-  return (
-    <div className="flex flex-1 items-center justify-center">
-      <ActionForm className="flex max-w-sm flex-col gap-4">
-        <div className="mb-2 flex justify-center text-4xl">🔥</div>
-        <ScreenHeading>Time for a new app?</ScreenHeading>
-        <Content>We can do that. What would you like to call it?</Content>
-        <TextInput
-          autoFocus
-          placeholder="Name your app"
-          value={name}
-          onChange={(n) => setName(n)}
-        />
-        <Button
-          type="submit"
-          disabled={name.trim().length === 0}
-          onClick={() => onDone({ name })}
-        >
-          Let's go!
-        </Button>
-      </ActionForm>
-    </div>
-  );
-}
-
-function Loading() {
-  return (
-    <div className="animate-slow-pulse flex w-full flex-1 flex-col bg-gray-300"></div>
-  );
-}
-
-function ErrorMessage({ message }: { message: string }) {
+export function FullscreenErrorMessage({ message }: { message: string }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-2">
-      <div className="rounded bg-red-100 p-4 text-red-700">{message}</div>
+      <div className="rounded-sm bg-red-100 p-4 text-red-700">{message}</div>
     </div>
   );
-}
-
-// UTILS
-
-function createApp(
-  token: string,
-  toCreate: { id: string; title: string; admin_token: string },
-) {
-  return jsonFetch(`${config.apiURI}/dash/apps`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(toCreate),
-  });
-}
-
-function regenerateAdminToken(
-  token: string,
-  appId: string,
-  adminToken: string,
-) {
-  return jsonFetch(`${config.apiURI}/dash/apps/${appId}/tokens`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({ 'admin-token': adminToken }),
-  });
-}
-
-function caComp(a: { created_at: string }, b: { created_at: string }) {
-  if (a.created_at < b.created_at) {
-    return 1;
-  }
-
-  if (a.created_at > b.created_at) {
-    return -1;
-  }
-  return 0;
-}
-
-/**
- * (XXX)
- * We could type the result of our fetches, and write a better error
- */
-function errMessage(e: Error) {
-  return e.message || 'An error occurred.';
 }

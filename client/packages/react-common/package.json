@@ -1,0 +1,72 @@
+{
+  "name": "@instantdb/react-common",
+  "version": "0.0.0",
+  "description": "Instant DB shared components for React and React Native",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react-common",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/react-common"
+  },
+  "type": "module",
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "module": "./dist/esm/index.js",
+  "unpkg": "standalone/index.umd.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    }
+  },
+  "tshy": {
+    "selfLink": false,
+    "main": true,
+    "module": true,
+    "project": "./tsconfig.json",
+    "exports": {
+      "./package.json": "./package.json",
+      ".": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest",
+    "check": "tsc --noEmit",
+    "check-exports": "attw --pack .",
+    "dev:module": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
+    "dev:main": "tsc --watch --preserveWatchOutput -p tsconfig.cjs.dev.json",
+    "dev": "run-p dev:module dev:main",
+    "clean": "rm -rf dist",
+    "build:tshy": "tshy",
+    "build:standalone": "vite build",
+    "build": "rm -rf dist; npm run build:tshy && npm run build:standalone && npm run check-exports",
+    "publish-package": "pnpm pack && npm publish *.tgz --access public"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.4",
+    "@babel/core": "^7.17.9",
+    "@babel/preset-env": "^7.16.11",
+    "@types/node": "^22.6.1",
+    "@types/react": ">=16",
+    "@vitejs/plugin-react": "^4.3.1",
+    "npm-run-all": "^4.1.5",
+    "tshy": "^3.0.2",
+    "typescript": "^5.9.3",
+    "vite": "^5.2.0",
+    "vitest": "^0.21.0"
+  },
+  "peerDependencies": {
+    "react": ">=16"
+  },
+  "dependencies": {
+    "@instantdb/core": "workspace:*",
+    "@instantdb/version": "workspace:*"
+  }
+}

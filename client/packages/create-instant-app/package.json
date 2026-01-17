@@ -1,0 +1,58 @@
+{
+  "name": "create-instant-app",
+  "version": "0.0.0",
+  "description": "Scaffold a new web/mobile app with InstantDB",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/create-instant-app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/create-instant-app"
+  },
+  "type": "module",
+  "exports": "./dist/index.js",
+  "bin": {
+    "create-instant-app": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "template",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "typecheck": "tsc",
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist .turbo node_modules",
+    "publish-package": "pnpm pack && npm publish *.tgz --access public",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@clack/core": "^0.5.0",
+    "@clack/prompts": "^0.11.0",
+    "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
+    "@instantdb/version": "workspace:*",
+    "chalk": "5.2.0",
+    "commander": "^10.0.1",
+    "env-paths": "^3.0.0",
+    "execa": "^7.2.0",
+    "fs-extra": "^11.3.1",
+    "gradient-string": "^2.0.2",
+    "open": "^10.1.0",
+    "instant-cli": "workspace:*",
+    "ora": "6.3.1",
+    "slugify": "^1.6.6",
+    "sort-package-json": "^2.10.0"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.60.0",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^18.11.18",
+    "tsup": "^6.7.0",
+    "type-fest": "^4.41.0",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

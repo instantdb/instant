@@ -6,13 +6,13 @@ import {
   InstantQueryResult,
   InstantSchema,
   InstantSchemaDatabase,
-} from "@instantdb/core";
-import { init as react_init } from "@instantdb/react";
-import { init as react_native_init } from "@instantdb/react-native";
-import { init as admin_init } from "@instantdb/admin";
-import graph from "../instant.schema";
+} from '@instantdb/core';
+import { init as react_init } from '@instantdb/react';
+import { init as react_native_init } from '@instantdb/react-native';
+import { init as admin_init } from '@instantdb/admin';
+import graph from '../instant.schema';
 
-type EmojiName = "fire" | "wave" | "confetti" | "heart";
+type EmojiName = 'fire' | 'wave' | 'confetti' | 'heart';
 
 type Rooms = {
   chat: {
@@ -41,11 +41,11 @@ type CoreSchema = InstantSchema<typeof coreDB>;
 const coreSchema: CoreSchema = graph.withRoomSchema<Rooms>();
 
 // rooms
-const coreRoom = coreDB.joinRoom("chat");
+const coreRoom = coreDB.joinRoom('chat');
 coreRoom.getPresence({});
 
-coreRoom.publishTopic("emoji", {
-  name: "confetti",
+coreRoom.publishTopic('emoji', {
+  name: 'confetti',
   rotationAngle: 0,
   directionAngle: 0,
 });
@@ -61,8 +61,8 @@ coreDB.subscribeQuery({ messages: { creator: {} } }, (result) => {
 
 // transactions
 coreDB.tx.messages[id()]
-  .update({ content: "Hello world" })
-  .link({ creator: "foo" });
+  .update({ content: 'Hello world' })
+  .link({ creator: 'foo' });
 
 // type helpers
 type CoreDB = typeof coreDB;
@@ -76,13 +76,13 @@ const coreMessagesQuery = {
   },
 } satisfies InstantQuery<CoreDB>;
 
-type CoreMessage = InstantEntity<CoreDB, "messages">;
+type CoreMessage = InstantEntity<CoreDB, 'messages'>;
 let coreMessage: CoreMessage = 1 as any;
 coreMessage.content;
 
 type CoreMessageWithCreator = InstantEntity<
   CoreDB,
-  "messages",
+  'messages',
   { creator: {} }
 >;
 let coreMessageWithCreator: CoreMessageWithCreator = 1 as any;
@@ -119,9 +119,9 @@ const reactDB = react_init({
 
 function ReactNormalApp() {
   // rooms
-  const reactRoom = reactDB.room("chat");
-  const reactPresence = reactRoom.usePresence({ keys: ["name"] });
-  const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
+  const reactRoom = reactDB.room('chat');
+  const reactPresence = reactRoom.usePresence({ keys: ['name'] });
+  const _reactPublishEmoji = reactRoom.usePublishTopic('emoji');
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
   // queries
@@ -135,8 +135,8 @@ function ReactNormalApp() {
   // transactions
   reactDB.transact(
     reactDB.tx.messages[id()]
-      .update({ content: "Hello there!" })
-      .link({ creator: "foo" }),
+      .update({ content: 'Hello there!' })
+      .link({ creator: 'foo' }),
   );
 
   // to silence ts warnings
@@ -157,13 +157,13 @@ const reactMessagesQuery = {
   },
 } satisfies InstantQuery<ReactDB>;
 
-type ReactMessage = InstantEntity<ReactDB, "messages">;
+type ReactMessage = InstantEntity<ReactDB, 'messages'>;
 let reactMessage: ReactMessage = 1 as any;
 reactMessage.content;
 
 type ReactMessageWithCreator = InstantEntity<
   ReactDB,
-  "messages",
+  'messages',
   { creator: {} }
 >;
 let reactMessageWithCreator: ReactMessageWithCreator = 1 as any;
@@ -193,9 +193,9 @@ const reactNativeDB = react_native_init({
 
 function ReactNativeNormalApp() {
   // rooms
-  const reactRoom = reactNativeDB.room("chat");
-  const reactPresence = reactRoom.usePresence({ keys: ["name"] });
-  const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
+  const reactRoom = reactNativeDB.room('chat');
+  const reactPresence = reactRoom.usePresence({ keys: ['name'] });
+  const _reactPublishEmoji = reactRoom.usePublishTopic('emoji');
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
   // queries
@@ -227,13 +227,13 @@ const reactNativeMessagesQuery = {
   },
 } satisfies InstantQuery<ReactNativeDB>;
 
-type ReactNativeMessage = InstantEntity<ReactNativeDB, "messages">;
+type ReactNativeMessage = InstantEntity<ReactNativeDB, 'messages'>;
 let reactNativeMessage: ReactNativeMessage = 1 as any;
 reactNativeMessage.content;
 
 type ReactNativeMessageWithCreator = InstantEntity<
   ReactNativeDB,
-  "messages",
+  'messages',
   { creator: {} }
 >;
 let reactNativeMessageWithCreator: ReactNativeMessageWithCreator = 1 as any;
@@ -271,8 +271,8 @@ adminQueryResult.messages[0].content;
 // transacts
 await adminDB.transact(
   adminDB.tx.messages[id()]
-    .update({ content: "Hello world" })
-    .link({ creator: "foo" }),
+    .update({ content: 'Hello world' })
+    .link({ creator: 'foo' }),
 );
 
 // type helpers
@@ -283,13 +283,13 @@ const adminMessagesQuery = {
   },
 } satisfies InstantQuery<AdminDB>;
 
-type AdminMessage = InstantEntity<AdminDB, "messages">;
+type AdminMessage = InstantEntity<AdminDB, 'messages'>;
 let adminMessage: AdminMessage = 1 as any;
 adminMessage.content;
 
 type AdminMessageWithCreator = InstantEntity<
   AdminDB,
-  "messages",
+  'messages',
   { creator: {} }
 >;
 let adminMessageWithCreator: AdminMessageWithCreator = 1 as any;
