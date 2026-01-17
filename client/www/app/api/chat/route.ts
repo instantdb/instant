@@ -16,12 +16,14 @@ import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
 import docsNavigation from '@/data/docsNavigation';
-import db from '@/lib/intern/docs-feedback/db';
 
 const DOCS_DIR = path.join(process.cwd(), 'public', 'docs');
 
-const RATE_LIMIT_MINUTES = 10;
-const MAX_MESSAGES_IN_PERIOD = 5;
+const RATE_LIMIT_MINUTES = 30;
+/**
+ * Note: a simple question that reads index.md uses ≈4000 tokens
+ */
+const MAX_TOKENS_IN_PERIOD = 20_000;
 const FEEDBACK_API_URL =
   process.env.NEXT_PUBLIC_FEEDBACK_API_URI || 'https://api.instantdb.com';
 
@@ -199,26 +201,29 @@ export async function POST(req: Request) {
       throw new Error('Failed to fetch chat history', { cause: e });
     });
 
-  const rateLimitPromise = adminDb.query({
-    messages: {
-      $: {
-        where: {
-          'chat.createdAt': {
-            $gt: new Date(Date.now() - 60 * 1000 * RATE_LIMIT_MINUTES), // 10 minutes
+  const rateLimitPromise = adminDb
+    .query({
+      llmUsage: {
+        $: {
+          where: {
+            usedAt: {
+              $gt: new Date(Date.now() - 60 * 1000 * RATE_LIMIT_MINUTES), // 10 minutes
+            },
+            userId: userIsValid.userId,
           },
-          'chat.createdByUserId': userId,
-          role: 'user',
         },
       },
-    },
-  });
+    })
+    .then((results) => {
+      return results.llmUsage.reduce((acc, usage) => acc + usage.tokens, 0);
+    });
 
-  const [history, rateLimitMessages] = await Promise.all([
+  const [history, rateLimitUsage] = await Promise.all([
     historyPromise,
     rateLimitPromise,
   ]);
 
-  if (rateLimitMessages.messages.length > MAX_MESSAGES_IN_PERIOD) {
+  if (rateLimitUsage > MAX_TOKENS_IN_PERIOD) {
     return new Response('Rate limit exceeded', { status: 429 });
   }
 
