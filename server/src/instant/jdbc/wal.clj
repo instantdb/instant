@@ -26,9 +26,11 @@
    [clojure.string]
    [instant.aurora-config :as aurora-config]
    [instant.config :as config]
+   [instant.db.model.transaction :as tx-model]
    [instant.discord :as discord]
    [instant.gauges :as gauges]
    [instant.health :as health]
+   [instant.isn :refer [->ISN set-max-seen-isn]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.cache-evict :as cache-evict]
    [instant.jdbc.pgerrors :as pgerrors]
@@ -363,7 +365,8 @@
 
    We do some book-keeping for the replication stream, by recording the LSN
    for the last record that was pushed to `to`."
-  [^PGReplicationStream stream to close-signal-chan {:keys [auto-flush?]}]
+  [^PGReplicationStream stream to close-signal-chan slot-num {:keys [auto-flush?
+                                                                     evict-cache?]}]
   ;; :next-action is either:
   ;;   :begin, we're waiting for a :begin record
   ;;     :tx, we got :begin and we're waiting to see if the first insert is to the transactions table
@@ -379,7 +382,7 @@
       (when-not (.isClosed stream)
         (recur (.read stream) state))
       (let [record (wal-buffer->record buffer)
-            _ (cache-evict/evict-cache! record)
+            _ (when evict-cache? (cache-evict/evict-cache! record))
             next-state (-> (case (:next-action state)
                              :begin (case (:action record)
                                       :begin (-> state
@@ -393,6 +396,11 @@
                                    :insert (if (= "transactions" (:table record))
                                              (-> state
                                                  (assoc :next-action :close)
+                                                 (assoc :tx-id (-> record
+                                                                   :columns
+                                                                   first
+                                                                   :value
+                                                                   long))
                                                  (update :records conj record))
                                              (assoc state :next-action :close-ignore))
 
@@ -461,15 +469,22 @@
                          (.setFlushedLSN stream last-receive-lsn))
                        (recur (.read stream) produce-start-state)))
           :deliver (let [last-receive-lsn ^LogSequenceNumber (.getLastReceiveLSN stream)
+                         nextlsn (LogSequenceNumber/valueOf ^String (:nextlsn record))
+                         isn (->ISN slot-num nextlsn)
+                         _ (when evict-cache?
+                             (set-max-seen-isn isn))
                          msg {:changes (:records state)
                               :messages (:messages state)
-                              :nextlsn (LogSequenceNumber/valueOf ^String (:nextlsn record))
                               :lsn (LogSequenceNumber/valueOf ^String (:lsn record))
+                              :nextlsn nextlsn
+                              :isn isn
                               :tx-bytes (:tx-bytes state)}
                          put-result (a/alt!! [[to msg]] :put
                                              ;; The close signal chan keeps us from
                                              ;; waiting to put on a closed `to` channel
                                              close-signal-chan :closed)]
+                     (when-let [tx-id (:tx-id state)]
+                       (tx-model/deliver-isn tx-id isn))
                      (when (and (= put-result :put)
                                 (not (.isClosed stream)))
                        (when auto-flush?
@@ -514,7 +529,8 @@
 (defn make-wal-opts [{:keys [wal-chan close-signal-chan
                              ex-handler get-conn-config
                              slot-suffix slot-type
-                             flush-lsn-chan lsn worker-chan]}]
+                             flush-lsn-chan lsn worker-chan
+                             slot-num]}]
   {:to wal-chan
    :close-signal-chan close-signal-chan
    :ex-handler ex-handler
@@ -525,7 +541,8 @@
    :started-promise (promise)
    :flush-lsn-chan flush-lsn-chan
    :lsn lsn
-   :worker-chan worker-chan})
+   :worker-chan worker-chan
+   :slot-num slot-num})
 
 (defn set-shutdown-fn [wal-opts shutdown-fn]
   (swap! (:shutdown-fn wal-opts)
@@ -595,7 +612,8 @@
    Note: Blocks the calling thread. Call with fut-bg.
 
    Use `shutdown!` to stop the stream and clean up."
-  [{:keys [get-conn-config slot-name slot-type to ex-handler close-signal-chan started-promise]
+  [{:keys [get-conn-config slot-name slot-type to ex-handler close-signal-chan
+           started-promise slot-num]
     :as wal-opts}]
   (when (not= slot-type :invalidator)
     (throw (ex-info "Called start-worker with invalid slot-type" {:slot-type slot-type})))
@@ -618,7 +636,8 @@
                                   (close-nicely replication-conn)
                                   (health/mark-wal-healthy-async)))
       (let [produce-error (try
-                            (produce stream to close-signal-chan {:auto-flush? true})
+                            (produce stream to close-signal-chan slot-num {:auto-flush? true
+                                                                           :evict-cache? true})
                             (catch Exception e
                               (tracer/with-span! {:name "wal-worker/produce-error"
                                                   :attributes {:exception e}}
@@ -653,7 +672,7 @@
 
    Use `shutdown!` to stop the stream and clean up."
   [{:keys [get-conn-config slot-name slot-type to
-           flush-lsn-chan close-signal-chan started-promise]
+           flush-lsn-chan close-signal-chan started-promise slot-num]
     :as wal-opts}]
   (when (not= slot-type :invalidator)
     (throw (ex-info "Called start-singleton-worker with invalid slot-type" {:slot-type slot-type})))
@@ -688,7 +707,8 @@
                                       (recur))
                                     (tracer/record-info! {:name "wal-worker/flush-lsn-exit"})))))
               produce-error (try
-                              (produce stream to close-signal-chan {:auto-flush? false})
+                              (produce stream to close-signal-chan slot-num {:auto-flush? false
+                                                                             :evict-cache? true})
                               (catch Exception e
                                 (tracer/with-span! {:name "wal-worker/produce-error"
                                                     :attributes {:exception e}}

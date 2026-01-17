@@ -60,9 +60,9 @@
   "Given a collection of changes, stales all relevant queries and returns
   sockets to be refreshed."
   ;; process-id used for tests
-  [_process-id store {:keys [app-id tx-id] :as wal-record}]
+  [_process-id store {:keys [app-id tx-id isn] :as wal-record}]
   (let [topics      (topics/topics-for-changes wal-record)
-        session-ids (rs/mark-stale-topics! store app-id tx-id topics wal-record)
+        session-ids (rs/mark-stale-topics! store app-id tx-id isn topics wal-record)
         sockets     (keep #(:session/socket (rs/session store %)) session-ids)
         sync-subs (rs/get-stale-sync-subs store app-id topics)]
     {:sockets sockets
@@ -71,9 +71,9 @@
 (defn- invalidate-byop!
   "Given a collection of changes, stales all relevant queries and returns
   sockets to be refreshed."
-  [table-info app-id store {:keys [tx-id] :as record}]
+  [table-info app-id store {:keys [tx-id isn] :as record}]
   (let [topics      (topics/topics-for-byop-changes table-info record)
-        session-ids (rs/mark-stale-topics! store app-id tx-id topics record)
+        session-ids (rs/mark-stale-topics! store app-id tx-id isn topics record)
         sockets     (keep #(:session/socket (rs/session store %)) session-ids)]
     sockets))
 
@@ -105,7 +105,7 @@
   (when-let [^String created-at (topics/get-column columns "created_at")]
     (.toInstant (Timestamp/valueOf created-at))))
 
-(defn transform-wal-record [{:keys [changes messages tx-bytes nextlsn] :as _record}]
+(defn transform-wal-record [{:keys [changes messages tx-bytes nextlsn isn] :as _record}]
   ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
   ;;      or else we will never be notified about it.
   (let [{:strs [idents triples attrs transactions
@@ -127,6 +127,7 @@
         ;; n.b. make sure to update combine-wal-records below if new
         ;;      items are added to this map
         {:nextlsn nextlsn
+         :isn isn
          :attr-changes attrs
          :ident-changes idents
          :triple-changes triples
@@ -163,7 +164,9 @@
         (update :messages       (fnil into []) (:messages r2))
         (update :wal-logs       (fnil into []) (:wal-logs r2))
         (update :tx-bytes       (fnil + 0) (:tx-bytes r2))
-        (assoc :tx-id           (:tx-id r2)))))
+        (assoc :tx-id           (:tx-id r2))
+        (assoc :isn             (:isn r2))
+        (assoc :nextlsn         (:nextlsn r2)))))
 
 (defn transform-byop-wal-record [{:keys [changes nextlsn]}]
   ;; TODO(byop): if change is empty, then there might be changes to the schema
@@ -233,7 +236,8 @@
               (receive-queue/put! {:op :refresh
                                    :session-id id
                                    :tx-id tx-id
-                                   :tx-created-at tx-created-at}))
+                                   :tx-created-at tx-created-at
+                                   :isn (:isn wal-record)}))
             (doseq [{:sync/keys [session-id id]} sync-subs]
               (receive-queue/put! {:op :refresh-sync-table
                                    :app-id app-id
@@ -388,7 +392,8 @@
                                         stop-lsn
                                         acquire-slot-interrupt-chan
                                         get-conn-config
-                                        ^ITopic hz-topic]}]
+                                        ^ITopic hz-topic
+                                        slot-num]}]
   (let [shutdown-chan (a/chan)
 
         process (a/go
@@ -409,7 +414,8 @@
                                                            :ex-handler wal-ex-handler
                                                            :get-conn-config get-conn-config
                                                            :flush-lsn-chan flush-lsn-chan
-                                                           :slot-type :invalidator})
+                                                           :slot-type :invalidator
+                                                           :slot-num slot-num})
 
                               wal-started-promise (:started-promise wal-opts)
                               signal-chan (a/chan)
@@ -564,7 +570,8 @@
           :acquire-slot-interrupt-chan acquire-slot-interrupt-chan
           :get-conn-config (fn []
                              (config/get-aurora-config))
-          :hz-topic hz-topic})]
+          :hz-topic hz-topic
+          :slot-num config/invalidator-slot-num})]
     {:shutdown (fn []
                  (shutdown-listener)
                  (shutdown-topic))}))
@@ -585,7 +592,8 @@
                                       :get-conn-config (fn []
                                                          (config/get-aurora-config))
                                       :slot-suffix process-id
-                                      :slot-type :invalidator})]
+                                      :slot-type :invalidator
+                                      :slot-num config/invalidator-slot-num})]
      (ua/fut-bg
        (wal/start-worker wal-opts))
 

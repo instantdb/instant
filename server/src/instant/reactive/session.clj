@@ -236,6 +236,7 @@
       :else
       (let [return-type (keyword (or return-type "join-rows"))
             processed-tx-id (rs/get-processed-tx-id store app-id)
+            processed-isn (rs/get-processed-isn store app-id)
             {:keys [table-info]} (get-attrs app)
             attrs (attr-model/get-by-app-id app-id)
             ctx {:db {:conn-pool (aurora/conn-pool (db-read-level app-id))}
@@ -252,6 +253,7 @@
                                               :result instaql-result
                                               :result-meta result-meta
                                               :processed-tx-id processed-tx-id
+                                              :processed-isn processed-isn
                                               :client-event-id client-event-id})))))
 
 (defn- handle-start-sync! [store sess-id {:keys [q client-event-id op] :as _event}]
@@ -467,7 +469,9 @@
               :table-info table-info
               :admin? admin?}
         processed-tx-id (rs/get-processed-tx-id store app-id)
+        processed-isn (rs/get-processed-isn store app-id)
         _ (reset! debug-info {:processed-tx-id processed-tx-id
+                              :processed-isn processed-isn
                               :instaql-queries (map :instaql-query/query stale-queries)})
         recompute-results (->> stale-queries
                                (ua/pmap (partial recompute-instaql-query! opts)))
@@ -509,6 +513,7 @@
                                                (cond->
                                                 {:op :refresh-ok
                                                  :processed-tx-id processed-tx-id
+                                                 :processed-isn processed-isn
                                                  :computations (vec computations)}
                                                  (or (not can-skip-attrs?) attrs-changed?)
                                                  (assoc :attrs attrs))
@@ -521,7 +526,8 @@
 
 (defn handle-transact!
   [store sess-id {:keys [tx-steps client-event-id] :as _event}]
-  (let [auth (get-auth! store sess-id)
+  (let [start (System/currentTimeMillis)
+        auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
         coerced (tx/coerce! tx-steps)
         ctx {:db {:conn-pool (aurora/conn-pool :write)}
@@ -532,11 +538,30 @@
              :datalog-query-fn d/query
              :attrs (attr-model/get-by-app-id app-id)}
         _ (tx/validate! ctx coerced)
-        {tx-id :id}
-        (permissioned-tx/transact! ctx coerced)]
+
+        {tx-id :id
+         isn-promise :isn-promise
+         fallback-isn :fallback-isn} (permissioned-tx/transact! ctx coerced)
+
+        ;; We'll wait for the isn to come through the invalidator, but we don't
+        ;; want to wait so long that we cause the transaction to fail.
+        max-wait-ms (-> (- handle-receive-timeout-ms (- (System/currentTimeMillis)
+                                                        start))
+                        (- 1000) ;; Add a one second buffer
+                        (min 2500) ;; Don't wait more then 2.5 seconds
+                        (max 0))
+        isn-wait-start (System/currentTimeMillis)
+        isn (deref isn-promise max-wait-ms nil)
+        isn-waited-ms (- (System/currentTimeMillis) isn-wait-start)]
+
+    (tracer/add-data! {:attributes {:isn-waited-ms isn-waited-ms
+                                    :max-isn-wait-ms max-wait-ms
+                                    :used-fallback-isn (not isn)}})
+
     (rs/send-event! store app-id sess-id
                     {:op :transact-ok
                      :tx-id tx-id
+                     :isn (or isn fallback-isn)
                      :client-event-id client-event-id})))
 
 ;; -----

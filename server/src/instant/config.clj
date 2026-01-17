@@ -286,6 +286,11 @@
         (:prod :staging) "0.0.0.0"
         nil)))
 
+;; Should be increased by 1 every time we move the slot to a new
+;; machine. This gives us a way to have a consistent ordering of LSNs
+;; across database upgrades.
+(def invalidator-slot-num 0)
+
 (defn init []
   ;; instantiate the config-map so we can fail early if it's not
   ;; valid
