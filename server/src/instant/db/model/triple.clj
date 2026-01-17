@@ -401,6 +401,13 @@
 
 (def value-lookup-error-prefix "missing-lookup-value")
 
+;; Helper for :when-not-matched in `insert-multi
+(def triple-t-values
+  (zipmap triple-cols
+          (map (fn [col]
+                 (keyword (str "t." (name col))))
+               triple-cols)))
+
 (defn insert-multi!
   "Given a set of raw triples, we enhance each triple with metadata based on
    the triple's underlying attr and then insert these enhanced triples into
