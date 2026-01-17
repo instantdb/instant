@@ -33,6 +33,11 @@ const _schema = i.schema({
       parts: i.json<Array<UIMessagePart<any, any>>>(),
       createdAt: i.date().indexed(),
     }),
+    llmUsage: i.entity({
+      userId: i.string(),
+      usedAt: i.date().indexed(),
+      tokens: i.number().indexed(),
+    }),
   },
   links: {
     chatMessages: {
