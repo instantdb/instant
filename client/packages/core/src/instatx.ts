@@ -151,12 +151,18 @@ function getAllTransactionChunkKeys(): Set<TransactionChunkKey> {
 }
 const allTransactionChunkKeys = getAllTransactionChunkKeys();
 
-export interface ETypeChunk<
+export type ETypeChunk<
   Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema['entities'],
-> {
+> = {
   [id: Id]: TransactionChunk<Schema, EntityName>;
-}
+} & {
+  lookup: (
+    // Todo: limit to unique fields only
+    attrName: keyof Schema['entities'][EntityName]['attrs'],
+    value: string | number | Date,
+  ) => TransactionChunk<Schema, EntityName>;
+};
 
 export type TxChunk<Schema extends IContainEntitiesAndLinks<any, any>> = {
   [EntityName in keyof Schema['entities']]: ETypeChunk<Schema, EntityName>;
@@ -214,6 +220,11 @@ function etypeChunk(etype: EType): ETypeChunk<any, EType> {
     } as unknown as ETypeChunk<any, EType>,
     {
       get(_target, cmd: Id) {
+        if (cmd === 'lookup') {
+          return (attrName: string, value: any) =>
+            transactionChunk(etype, parseLookup(lookup(attrName, value)), []);
+        }
+        console.log('cmd', cmd);
         if (cmd === '__etype') return etype;
         const id = cmd;
         if (isLookup(id)) {

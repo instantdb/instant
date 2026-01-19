@@ -398,3 +398,17 @@ test('allows lookup values in link', () => {
   beValid(tx.users[id()].link({ posts: lookup('title', 'Hello') }));
   beWrong(tx.users[id()].link({ posts: 'non lookup or uuid' }));
 });
+
+test('lookup proxy', () => {
+  const dbTx = tx.users.lookup('email', 'dsharris').update({
+    email: 'dsharris@example.com',
+    name: 'David Harris',
+  });
+
+  const oldVersion = tx.users[lookup('email', 'dsharris')].update({
+    email: 'dsharris@example.com',
+    name: 'David Harris',
+  });
+
+  expect(oldVersion).toEqual(dbTx);
+});

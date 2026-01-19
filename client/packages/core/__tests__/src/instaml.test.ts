@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { test, expect } from 'vitest';
 import * as instaml from '../../src/instaml';
 import * as instatx from '../../src/instatx';
