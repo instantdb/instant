@@ -1,4 +1,3 @@
-//@ts-nocheck
 import { test, expect } from 'vitest';
 import * as instaml from '../../src/instaml';
 import * as instatx from '../../src/instatx';
@@ -9,12 +8,14 @@ import uuid from '../../src/utils/id';
 import { i, InstantDBAttr } from '../../src/index';
 
 const zenecaAttrToId = zenecaAttrs.reduce((res, x) => {
+  // @ts-expect-error
   res[`${x['forward-identity'][1]}/${x['forward-identity'][2]}`] = x.id;
   return res;
 }, {});
 
 const zenecaAttrsStore = new AttrsStoreClass(
   zenecaAttrs.reduce((res, x) => {
+    // @ts-expect-error
     res[x.id] = x;
     return res;
   }, {}),
@@ -33,7 +34,9 @@ test('simple update transform', () => {
   const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
 
   const expected = [
+    // @ts-expect-error
     ['add-triple', testId, zenecaAttrToId['books/title'], 'New Title'],
+    // @ts-expect-error
     ['add-triple', testId, zenecaAttrToId['books/id'], testId],
   ];
 
@@ -53,7 +56,9 @@ test('undefined is ignored in update', () => {
   const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
 
   const expected = [
+    // @ts-expect-error
     ['add-triple', testId, zenecaAttrToId['users/id'], testId],
+    // @ts-expect-error
     ['add-triple', testId, zenecaAttrToId['users/handle'], 'bobby'],
   ];
 
@@ -73,7 +78,9 @@ test('ignores id attrs', () => {
   const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
 
   const expected = [
+    // @ts-expect-error
     ['add-triple', testId, zenecaAttrToId['books/title'], 'New Title'],
+    // @ts-expect-error
     ['add-triple', testId, zenecaAttrToId['books/id'], testId],
   ];
   expect(result).toHaveLength(expected.length);
@@ -103,6 +110,7 @@ test("optimistically adds attrs if they don't exist", () => {
       },
     ],
     ['add-triple', testId, expect.any(String), 'New Title'],
+    // @ts-expect-error
     ['add-triple', testId, zenecaAttrToId['books/id'], testId],
   ];
 
@@ -119,12 +127,15 @@ test('lookup resolves attr ids', () => {
     handle: 'stopa',
   });
 
+  // @ts-expect-error
   const stopaLookup = [zenecaAttrToId['users/email'], 'stopa@instantdb.com'];
 
   const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
 
   const expected = [
+    // @ts-expect-error
     ['add-triple', stopaLookup, zenecaAttrToId['users/handle'], 'stopa'],
+    // @ts-expect-error
     ['add-triple', stopaLookup, zenecaAttrToId['users/id'], stopaLookup],
   ];
 
@@ -161,7 +172,10 @@ test('lookup creates unique attrs for custom lookups', () => {
         'value-type': 'blob',
       },
     ],
+    // @ts-expect-error
     ['add-triple', lookup, zenecaAttrToId['users/handle'], 'stopa'],
+    // @ts-expect-error
+
     ['add-triple', lookup, zenecaAttrToId['users/id'], lookup],
   ];
 
@@ -647,12 +661,15 @@ test('lookups create entities from links', () => {
   });
 
   const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
+  // @ts-expect-error
   const expectedLookup = [zenecaAttrToId['users/handle'], 'bobby_newuser'];
   const expected = [
+    // @ts-expect-error
     ['add-triple', expectedLookup, zenecaAttrToId['users/id'], expectedLookup],
     [
       'add-triple',
       expectedLookup,
+      // @ts-expect-error
       zenecaAttrToId['users/bookshelves'],
       bookshelfId,
     ],
@@ -674,12 +691,15 @@ test('lookups create entities from unlinks', () => {
   });
 
   const result = instaml.transform({ attrsStore: zenecaAttrsStore }, ops);
+  // @ts-expect-error
   const expectedLookup = [zenecaAttrToId['users/handle'], 'bobby_newuser'];
   const expected = [
+    // @ts-expect-error
     ['add-triple', expectedLookup, zenecaAttrToId['users/id'], expectedLookup],
     [
       'retract-triple',
       expectedLookup,
+      // @ts-expect-error
       zenecaAttrToId['users/bookshelves'],
       bookshelfId,
     ],
@@ -1074,7 +1094,9 @@ test('Schema: lookup creates unique attrs for custom lookups', () => {
         'value-type': 'blob',
       },
     ],
+    // @ts-expect-error
     ['add-triple', lookup, zenecaAttrToId['users/handle'], 'stopa'],
+    // @ts-expect-error
     ['add-triple', lookup, zenecaAttrToId['users/id'], lookup],
   ];
 

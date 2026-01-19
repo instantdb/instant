@@ -239,10 +239,8 @@ db.transact([
 If your entity has a unique attribute, you can use `lookup` in place of the id to perform updates.
 
 ```javascript
-import { lookup } from '@instantdb/react';
-
 db.transact(
-  db.tx.profiles[lookup('email', 'eva_lu_ator@instantdb.com')].update({
+  db.tx.profiles.lookup('email', 'eva_lu_ator@instantdb.com').update({
     name: 'Eva Lu Ator',
   }),
 );
@@ -260,7 +258,7 @@ When used with links, it can also be used in place of the linked entity's id.
 
 ```javascript
 db.transact(
-  db.tx.users[lookup('email', 'eva_lu_ator@instantdb.com')].link({
+  db.tx.users.lookup('email', 'eva_lu_ator@instantdb.com').link({
     posts: lookup('number', 15), // using a lookup in place of the id
   }),
 );
