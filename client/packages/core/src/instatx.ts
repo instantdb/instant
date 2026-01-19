@@ -5,6 +5,8 @@ import type {
   UpdateParams,
   UpdateOpts,
   RuleParams,
+  UniqueKeys,
+  ResolveEntityAttrs,
 } from './schemaTypes.ts';
 
 type Action =
@@ -157,10 +159,9 @@ export type ETypeChunk<
 > = {
   [id: Id]: TransactionChunk<Schema, EntityName>;
 } & {
-  lookup: (
-    // Todo: limit to unique fields only
-    attrName: keyof Schema['entities'][EntityName]['attrs'],
-    value: string | number | Date,
+  lookup: <Name extends UniqueKeys<Schema['entities'][EntityName]['attrs']>>(
+    attrName: Name,
+    value: ResolveEntityAttrs<Schema['entities'][EntityName]>[Name],
   ) => TransactionChunk<Schema, EntityName>;
 };
 
@@ -224,7 +225,6 @@ function etypeChunk(etype: EType): ETypeChunk<any, EType> {
           return (attrName: string, value: any) =>
             transactionChunk(etype, parseLookup(lookup(attrName, value)), []);
         }
-        console.log('cmd', cmd);
         if (cmd === '__etype') return etype;
         const id = cmd;
         if (isLookup(id)) {
