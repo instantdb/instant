@@ -117,7 +117,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     setChatId(id());
   };
 
-  const { data, isLoading } = db.useQuery(
+  const { data } = db.useQuery(
     chatId && localId && authToken
       ? {
           chats: {
@@ -213,23 +213,22 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     </div>
   );
 
-  const chatContent =
-    authToken && !isLoading ? (
-      <InnerChat
-        authToken={authToken}
-        key={chat?.id || chatId}
-        localId={localId}
-        chatId={chat?.id || chatId}
-        initialMessages={
-          chat?.messages.length && chat.id === chatId
-            ? chat.messages
-            : ([] as any)
-        }
-        isOpen={isOpen}
-      />
-    ) : (
-      <LoggedOutEmptyState />
-    );
+  const chatContent = authToken ? (
+    <InnerChat
+      authToken={authToken}
+      key={chat?.id || chatId}
+      localId={localId}
+      chatId={chat?.id || chatId}
+      initialMessages={
+        chat?.messages.length && chat.id === chatId
+          ? chat.messages
+          : ([] as any)
+      }
+      isOpen={isOpen}
+    />
+  ) : (
+    <LoggedOutEmptyState />
+  );
 
   // Mobile or forced modal: use modal dialog
   if (showModal) {
@@ -366,7 +365,7 @@ const InnerChat: React.FC<{
             <ConversationEmptyState
               description="Messages will appear here as the conversation progresses."
               icon={<MessageSquareIcon className="size-6" />}
-              title="Start a conversation"
+              title="Ask a Question"
             />
           ) : (
             completeMessages.map((message, messageIndex) => (
@@ -436,6 +435,8 @@ const InnerChat: React.FC<{
         className="px-2 pb-2"
         onSubmit={(e) => {
           e.preventDefault();
+          console.log(status);
+          if (status !== 'ready') return;
           submitMessage();
         }}
       >
@@ -453,13 +454,14 @@ const InnerChat: React.FC<{
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                submitMessage();
+                if (status === 'ready') {
+                  submitMessage();
+                }
               }
             }}
             onChange={(e) => {
               setInput(e.target.value);
             }}
-            disabled={status !== 'ready'}
             placeholder={
               completeMessages.length === 0
                 ? 'Ask a question...'
