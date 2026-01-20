@@ -104,6 +104,7 @@
                                            [:= :o.id :?org-id]
                                            [:= nil :a.deletion-marked-at]
                                            [:or
+                                            [:< :m.created_at :?free-teams-cutoff]
                                             [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
                                             [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]}]}))
 
@@ -111,7 +112,8 @@
   ([params] (apps-for-org (aurora/conn-pool :read) params))
   ([conn {:keys [user-id org-id]}]
    (let [params {:user-id user-id
-                 :org-id org-id}
+                 :org-id org-id
+                 :free-teams-cutoff config/free-teams-cutoff}
          query (uhsql/formatp apps-for-org-q params)]
      (sql/select ::apps-for-org conn query))))
 
@@ -202,6 +204,7 @@
                                                    [:= :m.user-id :?user-id]
                                                    [:= nil :a.deletion-marked-at]
                                                    [:or
+                                                    [:< :m.created_at :?free-teams-cutoff]
                                                     [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
                                                     [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]
                                            :limit :1}]]
@@ -215,7 +218,8 @@
   ([params] (get-org-for-user! (aurora/conn-pool :read) params))
   ([conn {:keys [org-id user-id]}]
    (let [params {:user-id user-id
-                 :org-id org-id}
+                 :org-id org-id
+                 :free-teams-cutoff config/free-teams-cutoff}
          query (uhsql/formatp org-for-user-q params)]
      (-> (sql/select-one ::get-org-for-user! conn query)
          (update-existing :role keyword)
