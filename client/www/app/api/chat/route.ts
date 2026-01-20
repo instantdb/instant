@@ -1,3 +1,4 @@
+import docsNavigation from '@/data/docsNavigation';
 import schema from '@/lib/intern/docs-feedback/instant.schema';
 import { doTry } from '@/lib/parsePermsJSON';
 import { anthropic } from '@ai-sdk/anthropic';
@@ -12,10 +13,10 @@ import {
   tool,
   UIMessage,
 } from 'ai';
+import { addMinutes } from 'date-fns';
 import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
-import docsNavigation from '@/data/docsNavigation';
 
 const DOCS_DIR = path.join(process.cwd(), 'public', 'docs');
 
@@ -215,16 +216,34 @@ export async function POST(req: Request) {
       },
     })
     .then((results) => {
-      return results.llmUsage.reduce((acc, usage) => acc + usage.tokens, 0);
+      return results.llmUsage;
     });
 
-  const [history, rateLimitUsage] = await Promise.all([
+  const [history, llmUsages] = await Promise.all([
     historyPromise,
     rateLimitPromise,
   ]);
 
+  const rateLimitUsage = llmUsages.reduce(
+    (acc, usage) => acc + usage.tokens,
+    0,
+  );
+
   if (rateLimitUsage > MAX_TOKENS_IN_PERIOD) {
-    return new Response('Rate limit exceeded', { status: 429 });
+    const firstUsage = llmUsages.sort(
+      (a, b) => new Date(a.usedAt).getTime() - new Date(b.usedAt).getTime(),
+    )[0];
+    const nextMessageTime = addMinutes(
+      new Date(firstUsage.usedAt),
+      RATE_LIMIT_MINUTES,
+    );
+    return new Response(
+      JSON.stringify({ nextMessageTime: nextMessageTime.toISOString() }),
+      {
+        status: 429,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
   }
 
   const oldMessages = (history?.chats?.[0]?.messages ||
