@@ -373,7 +373,9 @@ const InnerChat: React.FC<{
                 {message.parts.map((part, i) => {
                   switch (part.type) {
                     case 'data-source':
-                      return <ReadFileMessage file={part.data.file} />;
+                      return (
+                        <ReadFileMessage key={part.id} file={part.data.file} />
+                      );
                     case 'text':
                       const isLastMessage =
                         messageIndex === messages.length - 1;

@@ -22,7 +22,7 @@ const _schema = i.schema({
       isArchived: i.boolean().indexed().optional(),
     }),
     chats: i.entity({
-      createdAt: i.date().indexed().optional(),
+      createdAt: i.date().indexed(),
       localId: i.string(),
       createdByUserId: i.string(),
     }),

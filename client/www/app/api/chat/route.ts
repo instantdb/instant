@@ -207,7 +207,7 @@ export async function POST(req: Request) {
         $: {
           where: {
             usedAt: {
-              $gt: new Date(Date.now() - 60 * 1000 * RATE_LIMIT_MINUTES), // 10 minutes
+              $gt: new Date(Date.now() - 60 * 1000 * RATE_LIMIT_MINUTES),
             },
             userId: userIsValid.userId,
           },
