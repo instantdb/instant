@@ -777,8 +777,8 @@ function Home({ app, token }: { app: InstantApp; token: string }) {
               })
             }
           >
-            Join our Discord to meet like-minded hackers, and to give us feedback
-            too!
+            Join our Discord to meet like-minded hackers, and to give us
+            feedback too!
           </HomeButton>
         </div>
         {areTeamsFree() && (

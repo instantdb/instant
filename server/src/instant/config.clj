@@ -9,7 +9,7 @@
             [lambdaisland.uri.normalize :as normalize])
   (:import
    (java.net InetAddress)
-   (java.time Instant ZoneId ZonedDateTime)))
+   (java.time ZoneId ZonedDateTime)))
 
 (defonce hostname
   (delay
