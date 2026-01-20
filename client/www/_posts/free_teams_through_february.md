@@ -4,7 +4,7 @@ date: '2026-01-19'
 authors: instantdb
 ---
 
-We're making team features free through the end of February. You can invite as many members as you like to your free Instant apps and orgs as long as you add them before the end of February.
+February is all about celebrating the people you care about, so we're making team features free through the end of February. You can invite as many members as you like to your free Instant apps and orgs as long as you add them before the end of February.
 
 At the end of of February, the members you added will still be able to access your app. You just won't be able to add new members until you convert to a paid app.
 
