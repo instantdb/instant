@@ -26,6 +26,7 @@ import {
   ArrowUturnLeftIcon,
   EllipsisHorizontalIcon,
 } from '@heroicons/react/24/solid';
+import Link from 'next/link';
 
 const READABLE_ROLES: Record<string, string> = {
   admin: 'Admin',
@@ -118,11 +119,14 @@ export const Members = () => {
         )}
       </div>
       <InviteToOrgDialog dialog={dialog} />
-      <div className="w-full flex py-2">
+      <div className="flex w-full py-2">
         {canAddMembers && !paid && (
-          <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white w-full flex">
-            Add your team members today to take advantage of free Teams through
-            the end of February!
+          <Content className="flex w-full rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
+            Add your team members today to take advantage of{' '}
+            <Link href="/essays/free_teams_through_february" target="_blank">
+              free Teams
+            </Link>{' '}
+            through the end of February!
           </Content>
         )}
       </div>
