@@ -283,6 +283,9 @@ export async function POST(req: Request) {
           readDoc: readDocTool,
         },
         stopWhen: stepCountIs(5),
+        onError: (error) => {
+          console.error('Error in streamText:', error);
+        },
       });
 
       // no await: ensure stream runs to completion
