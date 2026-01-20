@@ -27,11 +27,15 @@ import NextLink from 'next/link';
 import { ReactElement, useContext, useEffect, useRef, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 
-import config from '@/lib/config';
+import config, { areTeamsFree } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { successToast } from '@/lib/toast';
-import { InstantApp, SchemaNamespace } from '@/lib/types';
+import {
+  AppsSubscriptionResponse,
+  InstantApp,
+  SchemaNamespace,
+} from '@/lib/types';
 import { titleComparator } from '@/lib/app';
 
 import { AppStart } from '@/components/dash/HomeStartGuide';
@@ -711,7 +715,7 @@ export function HomeButton({
   return (
     <NextLink
       href={formatRouteParams(href)}
-      className="cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
+      className="block cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
       onClick={onClick}
     >
       <div>
@@ -747,32 +751,52 @@ function Home({ app, token }: { app: InstantApp; token: string }) {
         do next!
       </div>
 
-      <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
-        <HomeButton
-          href="/docs"
-          title="Read the Docs"
-          onClick={() =>
-            posthog.capture('getting_started_click', {
-              action: 'read_docs',
-              app_id: appId,
-            })
-          }
-        >
-          Jump into our docs to start learning how to use Instant.
-        </HomeButton>
-        <HomeButton
-          href="https://discord.com/invite/VU53p7uQcE"
-          title="Join the community"
-          onClick={() =>
-            posthog.capture('getting_started_click', {
-              action: 'join_discord',
-              app_id: appId,
-            })
-          }
-        >
-          Join our Discord to meet like-minded hackers, and to give us feedback
-          too!
-        </HomeButton>
+      <div className="flex flex-col gap-4 pt-4 md:flex-row md:flex-wrap md:justify-center">
+        <div className="md:w-[calc(50%-0.5rem)]">
+          <HomeButton
+            href="/docs"
+            title="Read the Docs"
+            onClick={() =>
+              posthog.capture('getting_started_click', {
+                action: 'read_docs',
+                app_id: appId,
+              })
+            }
+          >
+            Jump into our docs to start learning how to use Instant.
+          </HomeButton>
+        </div>
+        <div className="md:w-[calc(50%-0.5rem)]">
+          <HomeButton
+            href="https://discord.com/invite/VU53p7uQcE"
+            title="Join the community"
+            onClick={() =>
+              posthog.capture('getting_started_click', {
+                action: 'join_discord',
+                app_id: appId,
+              })
+            }
+          >
+            Join our Discord to meet like-minded hackers, and to give us feedback
+            too!
+          </HomeButton>
+        </div>
+        {areTeamsFree() && (
+          <div className="md:w-[calc(50%-0.5rem)]">
+            <HomeButton
+              href={`/dash?s=main&app={appId}&t=admin`}
+              title="Add your team members"
+              onClick={() =>
+                posthog.capture('getting_started_click', {
+                  action: 'add_team_members',
+                  app_id: appId,
+                })
+              }
+            >
+              Building is more fun with a team.
+            </HomeButton>
+          </div>
+        )}
       </div>
 
       {/* Your Public App ID Section */}

@@ -1,7 +1,10 @@
 (ns instant.model.org-members
   (:require
+   [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
-   [instant.jdbc.sql :as sql]))
+   [instant.jdbc.sql :as sql])
+  (:import
+   (java.util Date)))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
@@ -51,3 +54,6 @@
                      ["DELETE FROM org_members WHERE id = ?::uuid and org_id = ?::uuid"
                       id
                       org-id])))
+
+(defn created-before-free-teams-cutoff? [member]
+  (.isBefore (.toInstant ^Date (:created_at member)) config/free-teams-cutoff))
