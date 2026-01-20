@@ -37,8 +37,8 @@ const AUTHORS: Record<string, Author> = {
   },
   instantdb: {
     name: 'Instant',
-    url: 'https://x.com/instant_db'
-  }
+    url: 'https://x.com/instant_db',
+  },
 };
 
 function getAuthors(authorStr: string): Author[] {
