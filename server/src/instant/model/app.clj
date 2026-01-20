@@ -233,8 +233,8 @@
                          :from [[:apps :a]]
                          :join [[:app_members :m] [:and
                                                    [:= :m.user_id :?user-id]
-                                                   [:= :m.app_id :a.id]]
-                                [:instant_subscriptions :sub] [:= :sub.id :a.subscription_id]]
+                                                   [:= :m.app_id :a.id]]]
+                         :left-join [[:instant_subscriptions :sub] [:= :sub.id :a.subscription_id]]
                          :where [:and
                                  [:= nil :a.deletion-marked-at]
                                  [:= nil :a.org_id]
