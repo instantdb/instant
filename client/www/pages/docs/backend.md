@@ -474,10 +474,10 @@ export const db = init({
 });
 ```
 
-If using NextJS you can call getUserOnServer with the app id to retrieve the user in any server component, or route handler.
+If using NextJS you can call getUserFromInstantCookie with the app id to retrieve the user in any server component, or route handler.
 
 ```typescript
-import { getUserOnServer } from "@instantdb/react/nextjs";
+import { getUserFromInstantCookie } from "@instantdb/react/nextjs";
 
 // This is a server component!
 export default async function RootLayout({
@@ -486,7 +486,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // Get the instant user from the cookie
-  const user = await getUserOnServer(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
+  const user = await getUserFromInstantCookie(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
 
   return (
     <html lang="en">
