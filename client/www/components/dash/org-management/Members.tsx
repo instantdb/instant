@@ -123,7 +123,11 @@ export const Members = () => {
         {canAddMembers && !paid && (
           <Content className="w-full rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
             Add your team members today to take advantage of{' '}
-            <Link href="/essays/free_teams_through_february" target="_blank">
+            <Link
+              href="/essays/free_teams_through_february"
+              target="_blank"
+              className="underline dark:text-white"
+            >
               free Teams
             </Link>{' '}
             through the end of February!
