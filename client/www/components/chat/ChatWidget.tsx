@@ -45,7 +45,6 @@ import { Loader } from '../ai-elements/loader';
 import { type DocsUIMessage } from 'app/api/chat/route';
 import Link from 'next/link';
 import { useAuthToken } from '@/lib/auth';
-import formatDistanceToNow from 'date-fns/formatDistanceToNow';
 import formatDistanceToNowStrict from 'date-fns/formatDistanceToNowStrict';
 
 interface ChatWidgetProps {
@@ -455,8 +454,9 @@ const InnerChat: React.FC<{
         <div className="z-30 flex items-center rounded-md border focus-within:border-[#F54A00]">
           <textarea
             ref={inputRef}
-            rows={input.split('\n').length}
-            className="z-40 grow border-none bg-transparent ring-0 outline-none focus:outline-none"
+            rows={1}
+            className="z-40 max-h-40 grow resize-none overflow-y-auto border-none bg-transparent ring-0 outline-none focus:outline-none"
+            style={{ height: 'auto' }}
             value={input}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -468,6 +468,10 @@ const InnerChat: React.FC<{
             }}
             onChange={(e) => {
               setInput(e.target.value);
+              // Auto-resize based on content
+              const textarea = e.target;
+              textarea.style.height = 'auto';
+              textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
             }}
             placeholder={
               completeMessages.length === 0
