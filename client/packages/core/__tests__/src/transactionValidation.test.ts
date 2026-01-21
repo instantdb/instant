@@ -398,3 +398,53 @@ test('allows lookup values in link', () => {
   beValid(tx.users[id()].link({ posts: lookup('title', 'Hello') }));
   beWrong(tx.users[id()].link({ posts: 'non lookup or uuid' }));
 });
+
+test('lookup proxy', () => {
+  const dbTx = tx.users.lookup('email', 'dsharris').update({
+    email: 'dsharris@example.com',
+    name: 'David Harris',
+  });
+
+  const oldVersion = tx.users[lookup('email', 'dsharris')].update({
+    email: 'dsharris@example.com',
+    name: 'David Harris',
+  });
+
+  expect(oldVersion).toEqual(dbTx);
+
+  const animalSchema = i.schema({
+    entities: {
+      otter: i.entity({
+        name: i.string(),
+        uniqueName: i.string().unique(),
+        uniqueDate: i.date().unique(),
+      }),
+      elephant: i.entity({
+        name: i.string(),
+        uniqueIdNumber: i.string().unique(),
+        favoriteColor: i.string(),
+      }),
+    },
+  });
+
+  const animalTx = originalTx as unknown as TxChunk<typeof animalSchema>;
+
+  const otterNameUnique = animalTx.otter.lookup('uniqueName', '8932');
+  // Note: doesn't allow date type, would have to do a lot of threading to implement, easier to change useDates default
+  const otterDateUnique = animalTx.otter.lookup('uniqueDate', '8932');
+
+  expect(otterNameUnique).toEqual(animalTx.otter[lookup('uniqueName', '8932')]);
+  expect(otterDateUnique).toEqual(animalTx.otter[lookup('uniqueDate', '8932')]);
+
+  const elephantIdNumberUnique = animalTx.elephant.lookup(
+    'uniqueIdNumber',
+    '1234567890',
+  );
+
+  // @ts-expect-error
+  const _invalidLookup = animalTx.elephant.lookup('favoriteColor', 'blue');
+
+  expect(elephantIdNumberUnique).toEqual(
+    animalTx.elephant[lookup('uniqueIdNumber', '1234567890')],
+  );
+});

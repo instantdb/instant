@@ -5,6 +5,8 @@ import type {
   UpdateParams,
   UpdateOpts,
   RuleParams,
+  UniqueKeys,
+  ResolveEntityAttrs,
 } from './schemaTypes.ts';
 
 type Action =
@@ -151,12 +153,17 @@ function getAllTransactionChunkKeys(): Set<TransactionChunkKey> {
 }
 const allTransactionChunkKeys = getAllTransactionChunkKeys();
 
-export interface ETypeChunk<
+export type ETypeChunk<
   Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema['entities'],
-> {
+> = {
   [id: Id]: TransactionChunk<Schema, EntityName>;
-}
+} & {
+  lookup: <Name extends UniqueKeys<Schema['entities'][EntityName]['attrs']>>(
+    attrName: Name,
+    value: ResolveEntityAttrs<Schema['entities'][EntityName]>[Name],
+  ) => TransactionChunk<Schema, EntityName>;
+};
 
 export type TxChunk<Schema extends IContainEntitiesAndLinks<any, any>> = {
   [EntityName in keyof Schema['entities']]: ETypeChunk<Schema, EntityName>;
@@ -214,6 +221,10 @@ function etypeChunk(etype: EType): ETypeChunk<any, EType> {
     } as unknown as ETypeChunk<any, EType>,
     {
       get(_target, cmd: Id) {
+        if (cmd === 'lookup') {
+          return (attrName: string, value: any) =>
+            transactionChunk(etype, parseLookup(lookup(attrName, value)), []);
+        }
         if (cmd === '__etype') return etype;
         const id = cmd;
         if (isLookup(id)) {
