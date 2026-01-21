@@ -50,12 +50,12 @@ export const TopBar: React.FC<{}> = () => {
 
   return (
     <div className="relative flex flex-col gap-2 border-b border-b-gray-300 px-2 py-2 md:px-4 dark:border-b-neutral-700 dark:bg-neutral-800 dark:text-white">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-row items-center gap-2">
           <ProfilePanel />
           <div id="left-top-bar"></div>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 md:gap-6">
           {hasInvites && (
             <Link className="ml-3" href={'/dash/user-settings?tab=invites'}>
               <div className="flex animate-bounce gap-2 text-sm">
