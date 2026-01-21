@@ -52,9 +52,9 @@ function NonceCheckNotice() {
   );
 }
 
-type AppType = 'web' | 'ios' | 'android';
+type AppType = 'web' | 'ios' | 'android' | 'native';
 function isNative(appType: AppType) {
-  return appType === 'ios' || appType === 'android';
+  return appType === 'ios' || appType === 'android' || appType === 'native';
 }
 
 export function AddClientForm({

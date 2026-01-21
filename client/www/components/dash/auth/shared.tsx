@@ -7,7 +7,16 @@ import {
   OAuthServiceProvider,
   OAuthClient,
 } from '@/lib/types';
-import { Button, Content, Copytext, Dialog, InfoTip, SubsectionHeading, TextInput, useDialog } from '@/components/ui';
+import {
+  Button,
+  Content,
+  Copytext,
+  Dialog,
+  InfoTip,
+  SubsectionHeading,
+  TextInput,
+  useDialog,
+} from '@/components/ui';
 import { errorToast, successToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
 
@@ -144,7 +153,7 @@ export function updateClientRedirectTo({
   token: string;
   appId: string;
   clientDatabaseId: string;
-  redirectTo: string;
+  redirectTo: string | null;
 }): Promise<{ client: OAuthClient }> {
   return jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/oauth_clients/${clientDatabaseId}`,
@@ -231,7 +240,8 @@ export function TestRedirectButton({ redirectTo }: { redirectTo: string }) {
             </a>
           </Content>
           <Content className="text-sm text-gray-500 dark:text-neutral-400">
-            If it worked, you should see a page that says your redirect looks good.
+            If it worked, you should see a page that says your redirect looks
+            good.
           </Content>
           <Button variant="secondary" onClick={dialog.onClose}>
             Done
@@ -273,7 +283,9 @@ export function EditableRedirectUrl({
       onUpdateClient(resp.client);
       setIsEditing(false);
       confirmDialog.onClose();
-      successToast(redirectTo ? 'Redirect URL updated' : 'Redirect URL cleared');
+      successToast(
+        redirectTo ? 'Redirect URL updated' : 'Redirect URL cleared',
+      );
     } catch (e) {
       console.error(e);
       const msg =
@@ -299,7 +311,9 @@ export function EditableRedirectUrl({
   };
 
   const isClearing = !redirectTo && hasValue;
-  const testUrl = redirectTo ? `${redirectTo}${redirectTo.includes('?') ? '&' : '?'}test-redirect=true` : '';
+  const testUrl = redirectTo
+    ? `${redirectTo}${redirectTo.includes('?') ? '&' : '?'}test-redirect=true`
+    : '';
 
   if (!hasValue && !isEditing) {
     return (
@@ -349,7 +363,8 @@ export function EditableRedirectUrl({
               </a>
             </Content>
             <Content className="text-sm text-gray-500 dark:text-neutral-400">
-              If it worked, you should see a page that says your redirect looks good.
+              If it worked, you should see a page that says your redirect looks
+              good.
             </Content>
             <div className="flex gap-2">
               <Button loading={isSaving} onClick={handleConfirmedSave}>
