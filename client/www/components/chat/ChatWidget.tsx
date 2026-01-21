@@ -443,7 +443,6 @@ const InnerChat: React.FC<{
         className="px-2 pb-2"
         onSubmit={(e) => {
           e.preventDefault();
-          console.log(status);
           if (status !== 'ready') return;
           submitMessage();
         }}
