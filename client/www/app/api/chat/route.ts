@@ -290,14 +290,25 @@ export async function POST(req: Request) {
         model: anthropic(
           process.env.ANTHROPIC_DOCS_CHAT_MODEL || 'claude-sonnet-4-5',
         ),
-        messages: (await convertToModelMessages(messages)).map((message) => ({
-          ...message,
+        messages: (await convertToModelMessages(messages)).map(
+          (message, i) => ({
+            ...message,
+            providerOptions:
+              i == messages.length - 1
+                ? {
+                    anthropic: { cacheControl: { type: 'ephemeral' } },
+                  }
+                : undefined,
+          }),
+        ),
+        system: {
+          content:
+            'You are a helpful assistant for InstantDB documentation. You can read multiple docs if needed to fully answer the question. Do not say anything when you go to look at information, only speak when giving the final answer. Do not read the same doc more than once. ',
+          role: 'system',
           providerOptions: {
             anthropic: { cacheControl: { type: 'ephemeral' } },
           },
-        })),
-        system:
-          'You are a helpful assistant for InstantDB documentation. You can read multiple docs if needed to fully answer the question. Do not say anything when you go to look at information, only speak when giving the final answer. Do not read the same doc more than once. ',
+        },
         tools: {
           readDoc: readDocTool,
         },
