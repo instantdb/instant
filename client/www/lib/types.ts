@@ -141,6 +141,7 @@ export type OAuthClient = {
   authorization_endpoint?: string;
   token_endpoint?: string;
   discovery_endpoint?: string;
+  redirect_to?: string;
   meta?: any;
 };
 

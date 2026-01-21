@@ -20,7 +20,8 @@
                  client-id
                  client-secret
                  discovery-endpoint
-                 meta]}]
+                 meta
+                 redirect-to]}]
    ;; Only validate discovery endpoint if provided (OIDC providers)
    (when discovery-endpoint
      (try
@@ -58,22 +59,24 @@
                      (when enc-client-secret
                        (crypt-util/bytes->hex-string enc-client-secret))]
                     [:add-triple id (resolve-id :discoveryEndpoint) discovery-endpoint]
-                    [:add-triple id (resolve-id :meta) meta]])
+                    [:add-triple id (resolve-id :meta) meta]
+                    [:add-triple id (resolve-id :redirectTo) redirect-to]])
         (get-entity id))))))
 
-(defn update-meta!
-  ([params] (update-meta! (aurora/conn-pool :write) params))
-  ([conn {:keys [id app-id meta]}]
+(defn update!
+  ([params] (update! (aurora/conn-pool :write) params))
+  ([conn {:keys [id app-id] :as params}]
    (update-op
     conn
     {:app-id app-id
      :etype etype}
     (fn [{:keys [transact! resolve-id get-entity]}]
-      (transact! [[:add-triple id (resolve-id :id) id]
-                  [:deep-merge-triple id (resolve-id :meta) meta]])
+      (transact! (concat [[:add-triple id (resolve-id :id) id]]
+                         (when (contains? params :meta)
+                           [[:deep-merge-triple id (resolve-id :meta) (:meta params)]])
+                         (when (contains? params :redirect-to)
+                           [[:add-triple id (resolve-id :redirectTo) (:redirect-to params)]])))
       (get-entity id)))))
-
-
 
 (defn get-by-id
   ([params] (get-by-id (aurora/conn-pool :read) params))

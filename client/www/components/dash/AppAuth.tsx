@@ -314,6 +314,7 @@ function ClientItem({
         <GoogleClient
           app={app}
           client={client}
+          onUpdateClient={onUpdateClient || (() => {})}
           onDeleteClient={onDeleteClient}
           defaultOpen={defaultOpen}
         />
@@ -332,6 +333,7 @@ function ClientItem({
         <GitHubClient
           app={app}
           client={client}
+          onUpdateClient={onUpdateClient || (() => {})}
           onDeleteClient={onDeleteClient}
           defaultOpen={defaultOpen}
         />
@@ -341,6 +343,7 @@ function ClientItem({
         <LinkedInClient
           app={app}
           client={client}
+          onUpdateClient={onUpdateClient || (() => {})}
           onDeleteClient={onDeleteClient}
           defaultOpen={defaultOpen}
         />

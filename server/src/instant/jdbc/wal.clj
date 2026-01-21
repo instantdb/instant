@@ -217,7 +217,7 @@
                        from pg_replication_slots
                       where active = false
                         and plugin = 'wal2json'
-                        and slot_name like 'invalidator%'"]))
+                        and slot_name like 'invalidator_%'"]))
 
 (defn cleanup-inactive-replication-slots [conn slot-names]
   (sql/select conn ["select slot_name, pg_drop_replication_slot(slot_name)

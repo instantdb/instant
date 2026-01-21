@@ -7,7 +7,15 @@ import {
   OAuthClient,
   OAuthServiceProvider,
 } from '@/lib/types';
-import { addProvider, addClient, deleteClient, findName } from './shared';
+import {
+  addProvider,
+  addClient,
+  deleteClient,
+  findName,
+  RedirectUrlInput,
+  EditableRedirectUrl,
+  TestRedirectButton,
+} from './shared';
 import { messageFromInstantError } from '@/lib/errors';
 import {
   Button,
@@ -69,6 +77,7 @@ export function AddClientForm({
   );
   const [clientId, setClientId] = useState<string>('');
   const [clientSecret, setClientSecret] = useState<string>('');
+  const [redirectTo, setRedirectTo] = useState<string>('');
   const [updatedRedirectURL, setUpdatedRedirectURL] = useState(false);
   const [skipNonceChecks, setSkipNonceChecks] = useState(isNative(appType));
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -115,6 +124,7 @@ export function AddClientForm({
         tokenEndpoint: 'https://oauth2.googleapis.com/token',
         discoveryEndpoint:
           'https://accounts.google.com/.well-known/openid-configuration',
+        redirectTo,
         meta: {
           skipNonceChecks: skipNonceChecks,
           appType,
@@ -204,13 +214,20 @@ export function AddClientForm({
         />
       )}
       {appType === 'web' && (
+        <RedirectUrlInput value={redirectTo} onChange={setRedirectTo} />
+      )}
+      {appType === 'web' && (
         <div className="dark flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
           <p className="overflow-hidden">
             Add{' '}
-            <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
+            <Copytext
+              value={
+                redirectTo || 'https://api.instantdb.com/runtime/oauth/callback'
+              }
+            />{' '}
             to the "Authorized redirect URIs" on your{' '}
             <a
-              className="underline"
+              className="underline dark:text-white"
               target="_blank"
               rel="noopener noreferer"
               href={
@@ -223,6 +240,16 @@ export function AddClientForm({
             </a>
             .
           </p>
+          {redirectTo && (
+            <>
+              <p className="text-sm text-gray-500 dark:text-neutral-400">
+                Your redirect URL should forward to{' '}
+                <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
+                with all query parameters.
+              </p>
+              <TestRedirectButton redirectTo={redirectTo} />
+            </>
+          )}
           <Checkbox
             checked={updatedRedirectURL}
             onChange={setUpdatedRedirectURL}
@@ -309,11 +336,13 @@ export function Client({
   app,
   client,
   onDeleteClient,
+  onUpdateClient,
   defaultOpen = false,
 }: {
   app: InstantApp;
   client: OAuthClient;
   onDeleteClient: (client: OAuthClient) => void;
+  onUpdateClient: (client: OAuthClient) => void;
   defaultOpen?: boolean;
 }) {
   const token = useContext(TokenContext);
@@ -414,6 +443,14 @@ const url = db.auth.createAuthorizationURL({
 
             <Copyable label="Client name" value={client.client_name} />
             <Copyable label="Google client ID" value={client.client_id || ''} />
+            {appType === 'web' && (
+              <EditableRedirectUrl
+                app={app}
+                client={client}
+                token={token}
+                onUpdateClient={onUpdateClient}
+              />
+            )}
 
             {didSkipNonceChecks ? (
               <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
@@ -437,25 +474,37 @@ const url = db.auth.createAuthorizationURL({
                   </a>
                 </SubsectionHeading>
                 <Content>
-                  <strong>1.</strong> Navigate to{' '}
+                  <strong className="dark:text-white">1.</strong> Navigate to{' '}
                   <a
-                    className="underline"
+                    className="underline dark:text-white"
                     href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
                     target="_blank"
                     rel="noopener noreferer"
                   >
                     Google OAuth client
                   </a>{' '}
-                  and add Instant's redirect URL under "Authorized redirect
-                  URIs"
+                  and add the redirect URL under "Authorized redirect URIs"
                 </Content>
                 <Copyable
                   label="Redirect URI"
-                  value="https://api.instantdb.com/runtime/oauth/callback"
+                  value={
+                    client.redirect_to ||
+                    'https://api.instantdb.com/runtime/oauth/callback'
+                  }
                 />
+                {client.redirect_to && (
+                  <>
+                    <Content className="text-sm text-gray-500 dark:text-neutral-400">
+                      Your redirect URL should forward to{' '}
+                      <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
+                      with all query parameters.
+                    </Content>
+                    <TestRedirectButton redirectTo={client.redirect_to} />
+                  </>
+                )}
                 <Content>
-                  <strong>2.</strong> Use the code below to generate a login
-                  link in your app.
+                  <strong className="dark:text-white">2.</strong> Use the code
+                  below to generate a login link in your app.
                 </Content>
                 <div className="overflow-auto rounded-sm border text-sm dark:border-none">
                   <Fence
@@ -478,8 +527,8 @@ const url = db.auth.createAuthorizationURL({
                   </a>
                 </SubsectionHeading>
                 <Content>
-                  <strong>1.</strong> Use the code below to sign in with
-                  `react-native-google-signin`:
+                  <strong className="dark:text-white">1.</strong> Use the code
+                  below to sign in with `react-native-google-signin`:
                 </Content>
                 <div className="overflow-auto rounded-sm border text-sm dark:border-none">
                   <Fence
@@ -533,6 +582,7 @@ export function GoogleClients({
   clients,
   onAddClient,
   onDeleteClient,
+  onUpdateClient,
   usedClientNames,
   lastCreatedClientId,
   defaultOpen,
@@ -542,6 +592,7 @@ export function GoogleClients({
   clients: OAuthClient[];
   onAddClient: (client: OAuthClient) => void;
   onDeleteClient: (client: OAuthClient) => void;
+  onUpdateClient: (client: OAuthClient) => void;
   usedClientNames: Set<string>;
   lastCreatedClientId: string | null;
   defaultOpen: boolean;
@@ -565,6 +616,7 @@ export function GoogleClients({
             app={app}
             client={c}
             onDeleteClient={onDeleteClient}
+            onUpdateClient={onUpdateClient}
             defaultOpen={c.id === lastCreatedClientId}
           />
         );

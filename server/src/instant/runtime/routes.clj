@@ -225,10 +225,13 @@
                                            (* 1000 60 60)))
         state (random-uuid)
 
+        redirect-to (or (:redirect_to client)
+                        oauth-redirect-url)
+
         redirect-url (oauth/create-authorization-url
                       oauth-client
                       (str app-id state)
-                      oauth-redirect-url
+                      redirect-to
                       extra-params)]
 
     (app-oauth-redirect-model/create! {:app-id app-id
@@ -236,6 +239,7 @@
                                        :cookie cookie-uuid
                                        :oauth-client-id (:id client)
                                        :redirect-url app-redirect-url
+                                       :redirect-to redirect-to
                                        :code-challenge code_challenge
                                        :code-challenge-method code_challenge_method})
     (-> (response/found redirect-url)
@@ -338,25 +342,19 @@
 
               :else (ucoll/select-keys-no-ns user :app_user_oauth_links))))))
 
-(defn oauth-callback-landing
-  "Used for external apps to prevent a dangling page on redirect.
-   We don't have a way to close the page when opening an external app, so
-   this opens the external app when we load the page and shows an \"Open app\"
-   button. In case the redirect was dismissed."
-  [email redirect-url]
+
+(def oauth-callback-testing-landing
+  "Helps users test that their redirect is working properly."
   {:status 200
    :headers {"content-type" "text/html"}
    :body (str (h/html (h/raw "<!DOCTYPE html>")
-                      [:html {:lang "en"}
-                       [:head
-                        [:meta {:charset "UTF-8"}]
-                        [:meta {:name "viewport"
-                                :content "width=device-width, initial-scale=1.0"}]
-                        [:meta {:http-equiv "refresh"
-                                :content (format "0; url=%s" redirect-url)}]
-
-                        [:title "Finish Sign In"]
-                        [:style "
+                [:html {:lang "en"}
+                 [:head
+                  [:meta {:charset "UTF-8"}]
+                  [:meta {:name "viewport"
+                          :content "width=device-width, initial-scale=1.0"}]
+                  [:title "Test redirect"]
+                  [:style "
                            body {
                              margin: 0;
                              height: 100vh;
@@ -397,19 +395,80 @@
                                background-color: black;
                              }
                            }"]]
-                       [:body
-                        [:p "Logged in as " email]
-                        [:p
-                         [:a {:class "button"
-                              :href redirect-url}
-                          "Open app"]]
-                        [:p [:a {:onclick "(function() { window.close();})()"} "Close"]]
-                        [:script {:type "text/javascript"
-                                  :id "redirect-script"
-                                  :data-redirect-uri redirect-url}
-                         (h/raw "window.open(document.getElementById('redirect-script').getAttribute('data-redirect-uri'), '_self')")]]]))})
+                 [:body
+                  [:p "Your OAuth redirect looks good!"]]]))})
 
-(defn oauth-callback [{:keys [params] :as req}]
+(defn oauth-callback-landing
+  "Used for external apps to prevent a dangling page on redirect.
+   We don't have a way to close the page when opening an external app, so
+   this opens the external app when we load the page and shows an \"Open app\"
+   button. In case the redirect was dismissed."
+  [email redirect-url]
+  {:status 200
+   :headers {"content-type" "text/html"}
+   :body (str (h/html (h/raw "<!DOCTYPE html>")
+                [:html {:lang "en"}
+                 [:head
+                  [:meta {:charset "UTF-8"}]
+                  [:meta {:name "viewport"
+                          :content "width=device-width, initial-scale=1.0"}]
+                  [:meta {:http-equiv "refresh"
+                          :content (format "0; url=%s" redirect-url)}]
+
+                  [:title "Finish Sign In"]
+                  [:style "
+                           body {
+                             margin: 0;
+                             height: 100vh;
+                             display: flex;
+                             justify-content: center;
+                             align-items: center;
+                             background-color: white;
+                             flex-direction: column;
+                             font-family: sans-serif;
+                           }
+
+                           a.button {
+                             text-decoration: none;
+                             padding: 15px 30px;
+                             font-size: 18px;
+                             border-radius: 5px;
+                             font-family: sans-serif;
+                             text-align: center;
+                           }
+
+                           a {
+                             cursor: pointer;
+                           }
+
+                           @media (prefers-color-scheme: dark) {
+                             body {
+                               background-color: black;
+                             }
+                             a.button {
+                               color: black;
+                               background-color: white;
+                             }
+                           }
+
+                           @media (prefers-color-scheme: light) {
+                             a.button {
+                               color: white;
+                               background-color: black;
+                             }
+                           }"]]
+                 [:body
+                  [:p "Logged in as " email]
+                  [:p
+                   [:a {:class "button"
+                        :href redirect-url}
+                    "Open app"]]
+                  [:script {:type "text/javascript"
+                            :id "redirect-script"
+                            :data-redirect-uri redirect-url}
+                   (h/raw "window.open(document.getElementById('redirect-script').getAttribute('data-redirect-uri'), '_self')")]]]))})
+
+(defn oauth-callback* [{:keys [params] :as req}]
   (try
     (let [return-error (fn return-error [msg & params]
                          (throw (ex-info msg (merge {:type :oauth-error :message msg}
@@ -457,7 +516,10 @@
 
           oauth-client (app-oauth-client-model/->OAuthClient client)
 
-          user-info (oauth/get-user-info oauth-client auth-code oauth-redirect-url)
+          redirect-to (or (:redirect_to oauth-redirect)
+                          oauth-redirect-url)
+
+          user-info (oauth/get-user-info oauth-client auth-code redirect-to)
 
           _ (when (= :error (:type user-info))
               (return-error (:message user-info) :oauth-redirect oauth-redirect))
@@ -496,6 +558,11 @@
         (response/found (url/add-query-params (:redirect_url oauth-redirect)
                                               {:error (-> e ex-data :message)
                                                :_instant_oauth_redirect "true"}))))))
+
+(defn oauth-callback [{:keys [params] :as req}]
+  (if (:test-redirect params)
+    oauth-callback-testing-landing
+    (oauth-callback* req)))
 
 (defn- param-paths [param]
   (mapcat (fn [k]
