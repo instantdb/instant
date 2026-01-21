@@ -52,9 +52,9 @@ function NonceCheckNotice() {
   );
 }
 
-type AppType = 'web' | 'ios' | 'android' | 'native';
+type AppType = 'web' | 'ios' | 'android' | 'button-for-web';
 function isNative(appType: AppType) {
-  return appType === 'ios' || appType === 'android' || appType === 'native';
+  return appType === 'ios' || appType === 'android';
 }
 
 export function AddClientForm({
@@ -71,7 +71,9 @@ export function AddClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
-  const [appType, setAppType] = useState<'web' | 'ios' | 'android'>('web');
+  const [appType, setAppType] = useState<
+    'web' | 'ios' | 'android' | 'button-for-web'
+  >('web');
   const [clientName, setClientName] = useState<string>(() =>
     findName(`google-${appType}`, usedClientNames),
   );
@@ -83,7 +85,7 @@ export function AddClientForm({
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const onChangeAppType = (item: { id: string; label: string }) => {
-    const newAppType = item.id as 'web' | 'ios' | 'android';
+    const newAppType = item.id as 'web' | 'ios' | 'android' | 'button-for-web';
     setAppType(newAppType);
     setClientName(findName(`google-${newAppType}`, usedClientNames));
     setSkipNonceChecks(isNative(newAppType));
@@ -158,6 +160,7 @@ export function AddClientForm({
             { id: 'web', label: 'Web' },
             { id: 'ios', label: 'iOS' },
             { id: 'android', label: 'Android' },
+            { id: 'button-for-web', label: 'Google Button for Web' },
           ]}
           selectedId={appType}
           onChange={onChangeAppType}
@@ -348,12 +351,18 @@ export function Client({
   const token = useContext(TokenContext);
   const [open, setOpen] = useState(defaultOpen);
   const [isLoading, setIsLoading] = useState(false);
+
+  const appType: AppType = client.meta?.appType || 'web';
+  const [nativeExampleType, setNativeExampleType] = useState<'rn' | 'web'>(
+    appType === 'button-for-web' ? 'web' : 'rn',
+  );
+
+  const showNative = isNative(appType) || appType === 'button-for-web';
   const deleteDialog = useDialog();
 
   const { darkMode } = useDarkMode();
 
   const didSkipNonceChecks = client.meta?.skipNonceChecks;
-  const appType: AppType = client.meta?.appType || 'web';
 
   const handleDelete = async () => {
     try {
@@ -412,6 +421,36 @@ const url = db.auth.createAuthorizationURL({
   }}
 />
   `.trim();
+
+  const exampleGoogleButtonCode = `
+import { useState } from 'react';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+
+function Login() {
+  const [nonce] = useState(crypto.randomUUID());
+
+  return (
+    <GoogleOAuthProvider clientId={"${client.client_id}"}>
+      <GoogleLogin
+        nonce={nonce}
+        onError={() => alert('Login failed')}
+        onSuccess={({ credential }) => {
+          db.auth
+            .signInWithIdToken({
+              clientName: "${client.client_name}"
+              idToken: credential,
+              // Make sure this is the same nonce you passed as a prop
+              // to the GoogleLogin button
+              nonce,
+            })
+            .catch((err) => {
+              alert('Uh oh: ' + err.body?.message);
+            });
+        }}
+      />
+    </GoogleOAuthProvider>
+  );
+}`.trim();
   return (
     <div className="">
       <Collapsible.Root
@@ -515,7 +554,7 @@ const url = db.auth.createAuthorizationURL({
                 </div>
               </>
             )}
-            {isNative(appType) && (
+            {showNative && (
               <>
                 <SubsectionHeading>
                   <a
@@ -526,17 +565,49 @@ const url = db.auth.createAuthorizationURL({
                     Setup and usage
                   </a>
                 </SubsectionHeading>
-                <Content>
-                  <strong className="dark:text-white">1.</strong> Use the code
-                  below to sign in with `react-native-google-signin`:
-                </Content>
-                <div className="overflow-auto rounded-sm border text-sm dark:border-none">
-                  <Fence
-                    darkMode={darkMode}
-                    code={exampleRNCode}
-                    language="typescript"
-                  />
-                </div>
+                <ToggleGroup
+                  items={[
+                    { id: 'rn', label: 'React Native' },
+                    { id: 'web', label: 'Google Button for Web' },
+                  ]}
+                  selectedId={nativeExampleType}
+                  onChange={({ id }) =>
+                    setNativeExampleType(id as 'rn' | 'web')
+                  }
+                  ariaLabel="Application type"
+                />
+                {nativeExampleType === 'rn' && (
+                  <>
+                    <Content>
+                      <strong className="dark:text-white">1.</strong> Use the
+                      code below to sign in with{' '}
+                      <code>@react-native-google-signin/google-signin</code>:
+                    </Content>
+                    <div className="overflow-auto rounded-sm border text-sm dark:border-none">
+                      <Fence
+                        darkMode={darkMode}
+                        code={exampleRNCode}
+                        language="typescript"
+                      />
+                    </div>
+                  </>
+                )}
+                {nativeExampleType === 'web' && (
+                  <>
+                    <Content>
+                      <strong className="dark:text-white">1.</strong> Use the
+                      code below to sign in with{' '}
+                      <code>@react-oauth/google</code>:
+                    </Content>
+                    <div className="overflow-auto rounded-sm border text-sm dark:border-none">
+                      <Fence
+                        darkMode={darkMode}
+                        code={exampleGoogleButtonCode}
+                        language="typescript"
+                      />
+                    </div>
+                  </>
+                )}
               </>
             )}
 
