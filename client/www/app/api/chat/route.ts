@@ -13,18 +13,11 @@ import {
   tool,
   UIMessage,
 } from 'ai';
-import { addMinutes } from 'date-fns';
 import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
 
 const DOCS_DIR = path.join(process.cwd(), 'public', 'docs');
-
-const RATE_LIMIT_MINUTES = 30;
-/**
- * Note: a simple question that reads index.md uses ≈4000 tokens
- */
-const MAX_TOKENS_IN_PERIOD = 20_000;
 const MAX_MESSAGES_PER_CHAT = 20;
 const FEEDBACK_API_URL =
   process.env.NEXT_PUBLIC_FEEDBACK_API_URI || 'https://api.instantdb.com';
@@ -181,7 +174,7 @@ export async function POST(req: Request) {
     localId,
   }: { message: DocsUIMessage; id: string; localId: string } = await req.json();
 
-  const historyPromise = adminDb
+  const history = await adminDb
     .query({
       chats: {
         $: {
@@ -202,50 +195,6 @@ export async function POST(req: Request) {
     .catch((e) => {
       throw new Error('Failed to fetch chat history', { cause: e });
     });
-
-  const rateLimitPromise = adminDb
-    .query({
-      llmUsage: {
-        $: {
-          where: {
-            usedAt: {
-              $gt: new Date(Date.now() - 60 * 1000 * RATE_LIMIT_MINUTES),
-            },
-            userId: userIsValid.userId,
-          },
-        },
-      },
-    })
-    .then((results) => {
-      return results.llmUsage;
-    });
-
-  const [history, llmUsages] = await Promise.all([
-    historyPromise,
-    rateLimitPromise,
-  ]);
-
-  const rateLimitUsage = llmUsages.reduce(
-    (acc, usage) => acc + usage.tokens,
-    0,
-  );
-
-  if (rateLimitUsage > MAX_TOKENS_IN_PERIOD) {
-    const firstUsage = llmUsages.sort(
-      (a, b) => new Date(a.usedAt).getTime() - new Date(b.usedAt).getTime(),
-    )[0];
-    const nextMessageTime = addMinutes(
-      new Date(firstUsage.usedAt),
-      RATE_LIMIT_MINUTES,
-    );
-    return new Response(
-      JSON.stringify({ nextMessageTime: nextMessageTime.toISOString() }),
-      {
-        status: 429,
-        headers: { 'Content-Type': 'application/json' },
-      },
-    );
-  }
 
   const oldMessages = (history?.chats?.[0]?.messages ||
     []) as any as UIMessage[];

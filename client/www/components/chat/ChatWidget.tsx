@@ -45,7 +45,6 @@ import { Loader } from '../ai-elements/loader';
 import { type DocsUIMessage } from 'app/api/chat/route';
 import Link from 'next/link';
 import { useAuthToken } from '@/lib/auth';
-import formatDistanceToNowStrict from 'date-fns/formatDistanceToNowStrict';
 
 interface ChatWidgetProps {
   onClose: () => void;
@@ -275,13 +274,6 @@ const customAiFetch = async (
   opts: RequestInit | undefined,
 ) => {
   const response = await fetch(url, opts);
-  if (response.status === 429) {
-    const data = await response.json();
-    const availableTime = new Date(data.nextMessageTime);
-    throw new Error(
-      `Rate limit exceeded. You can message again in ${formatDistanceToNowStrict(availableTime)}.`,
-    );
-  }
   if (response.status === 400) {
     const data = await response.json();
     if (data.error === 'chat_limit_exceeded') {
