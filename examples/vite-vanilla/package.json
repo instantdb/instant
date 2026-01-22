@@ -15,5 +15,6 @@
   "dependencies": {
     "@instantdb/core": "latest",
     "@instantdb/admin": "latest"
-  }
+  },
+  "packageManager": "pnpm@10.2.0"
 }

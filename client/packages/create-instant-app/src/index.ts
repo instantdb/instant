@@ -5,7 +5,7 @@ import fs from 'fs-extra';
 import { type PackageJson } from 'type-fest';
 import { log, outro } from '@clack/prompts';
 import { renderTitle } from './utils/title.js';
-import { scaffoldBase } from './scaffold.js';
+import { scaffoldBaseAndEdit } from './scaffold.js';
 import { runInstallCommand } from './installPackages.js';
 import { getUserPkgManager } from './utils/getUserPkgManager.js';
 import chalk from 'chalk';
@@ -39,7 +39,7 @@ const main = async () => {
 
   const pkgManager = getUserPkgManager();
 
-  const projectDir = await scaffoldBase(project, appDir);
+  const projectDir = await scaffoldBaseAndEdit(project, appDir);
 
   addRuleFiles({
     projectDir,
@@ -62,13 +62,14 @@ const main = async () => {
     );
   }
 
-  await runInstallCommand(getUserPkgManager(), projectDir);
-
   // Update package.json with app name
   const pkgJson = fs.readJSONSync(
     path.join(projectDir, 'package.json'),
   ) as PackageJson;
   pkgJson.name = scopedAppName;
+  if (pkgJson.packageManager) {
+    delete pkgJson.packageManager;
+  }
   if (pkgManager !== 'bun') {
     const { stdout } = await execa(pkgManager, ['-v'], {
       cwd: projectDir,
@@ -79,6 +80,8 @@ const main = async () => {
   fs.writeJSONSync(path.join(projectDir, 'package.json'), pkgJson, {
     spaces: 2,
   });
+
+  await runInstallCommand(getUserPkgManager(), projectDir);
 
   if (project.createRepo) {
     await initializeGit(projectDir);
