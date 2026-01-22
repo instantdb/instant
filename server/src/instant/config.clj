@@ -287,6 +287,11 @@
         (:prod :staging) "0.0.0.0"
         nil)))
 
+;; Should be increased by 1 every time we move the slot to a new
+;; machine. This gives us a way to have a consistent ordering of LSNs
+;; across database upgrades.
+(def invalidator-slot-num 0)
+
 ;; Cuts off when the calendar turns to March in every time zone on Earth
 (def free-teams-cutoff (-> (ZonedDateTime/of 2026 3 1 0 0 0 0 (ZoneId/of "Etc/GMT+12"))
                            (.toInstant)))

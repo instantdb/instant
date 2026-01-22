@@ -11,6 +11,7 @@
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app with-movies-app with-zeneca-app]]
    [instant.grouped-queue :as grouped-queue]
+   instant.isn
    [instant.jdbc.aurora :as aurora]
    [instant.lib.ring.websocket :as ws]
    [instant.reactive.ephemeral :as eph]
@@ -476,7 +477,8 @@
           (rs/transact! "store/reset-tx-id"
                         (rs/app-conn store app-id)
                         [[:db.fn/call (fn [db]
-                                        [[:db/add (ds/entid db [:tx-meta/app-id app-id]) :tx-meta/processed-tx-id 0]])]])
+                                        [[:db/add (ds/entid db [:tx-meta/app-id app-id]) :tx-meta/processed-tx-id 0]
+                                         [:db/add (ds/entid db [:tx-meta/app-id app-id]) :tx-meta/processed-isn (instant.isn/test-isn 0)]])]])
 
           (blocking-send-msg :add-query-ok socket
                              {:op :add-query
@@ -488,24 +490,26 @@
           (rs/mark-stale-topics! store
                                  app-id
                                  5
+                                 (instant.isn/test-isn 5)
                                  [(d/pat->coarse-topic
                                    [:ea
                                     (resolvers/->uuid r "eid-predator")])]
                                  {})
 
-            ;; Now we have a stale query
+          ;; Now we have a stale query
           (is (= [(:kw-q query-1987)]
                  (map :instaql-query/query (rs/get-stale-instaql-queries store app-id sess-id))))
 
-            ;; We also removed datalog queries from cache
+          ;; We also removed datalog queries from cache
           (is (= '#{}
                  (->> (get-datalog-cache-for-app store app-id)
                       (resolvers/walk-friendly r)
                       keys
                       set)))
 
-            ;; we also recorded the tx-id that was processed
-          (is (= 5 (rs/get-processed-tx-id store app-id))))))))
+          ;; we also recorded the tx-id and isn that was processed
+          (is (= 5 (rs/get-processed-tx-id store app-id)))
+          (is (= (instant.isn/test-isn 5) (rs/get-processed-isn store app-id))))))))
 
 (deftest refresh-skip-attrs
   (with-movies-app
@@ -529,6 +533,7 @@
           (rs/mark-stale-topics! store
                                  app-id
                                  0
+                                 (instant.isn/test-isn 0)
                                  [(d/pat->coarse-topic
                                    [:ea
                                     (resolvers/->uuid r "eid-predator")])]
@@ -559,6 +564,7 @@
           (rs/mark-stale-topics! store
                                  app-id
                                  0
+                                 (instant.isn/test-isn 0)
                                  [(d/pat->coarse-topic
                                    [:ea
                                     (resolvers/->uuid r "eid-predator")])]
@@ -613,6 +619,7 @@
           (rs/mark-stale-topics! store
                                  app-id
                                  0
+                                 (instant.isn/test-isn 0)
                                  [(d/pat->coarse-topic
                                    [:ea
                                     (resolvers/->uuid r "eid-predator")])]
@@ -705,6 +712,7 @@
             (rs/mark-stale-topics! store
                                    app-id
                                    0
+                                   (instant.isn/test-isn 0)
                                    [(d/pat->coarse-topic
                                      [:vae '_ '_ john-uuid])]
                                    {})
