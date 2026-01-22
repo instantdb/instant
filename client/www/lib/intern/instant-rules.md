@@ -173,6 +173,13 @@ data.ref(someVar + '.members.id')
 - Can override `view` and `update`
 - Cannot override `create` or `delete`
 
+## $files Permissions
+
+- Default permissions are all false. Override as needed to allow access.
+- `data.ref` does not work for `$files` permissions.
+- Use `data.path.startsWith(...)` or `data.path.endsWith(...)` to write
+  path-based rules.
+
 ## Field-level Permissions
 
 Restrict access to specific fields while keeping the entity public:
