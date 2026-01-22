@@ -6,8 +6,8 @@ const NOW = Date.now();
 const ONE_DAY = 24 * 60 * 60 * 1000;
 const ONE_WEEK = 7 * ONE_DAY;
 
-// Rough cost estimate: ~$2.50 per 1M tokens (blended input/output for Sonnet)
-const COST_PER_TOKEN = 2.5 / 1_000_000;
+// Rough cost estimate: ~$2.8 per 1M tokens (blended input/output for Sonnet)
+const COST_PER_TOKEN = 2.8 / 1_000_000;
 
 function formatTokens(tokens: number): string {
   if (tokens >= 1_000_000) {
