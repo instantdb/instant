@@ -35,6 +35,7 @@ const _schema = i.schema({
     }),
     llmUsage: i.entity({
       userId: i.string(),
+      userEmail: i.string().indexed().optional(),
       usedAt: i.date().indexed(),
       tokens: i.number().indexed(),
     }),

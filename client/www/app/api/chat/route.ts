@@ -124,12 +124,13 @@ export type DocsUIMessage = UIMessage<
 const DashRouteResponseSchema = z.object({
   user: z.object({
     id: z.string(),
+    email: z.string(),
   }),
 });
 
 const validateUser = async (
   req: Request,
-): Promise<{ userId: string } | null> => {
+): Promise<{ userId: string; userEmail: string } | null> => {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return null;
@@ -148,7 +149,7 @@ const validateUser = async (
   const data = await response.json();
   const { user } = DashRouteResponseSchema.parse(data);
   if (user) {
-    return { userId: user.id };
+    return { userId: user.id, userEmail: user.email };
   }
   return null;
 };
@@ -296,6 +297,7 @@ Do not generate application code, write components, or provide implementation de
             tokens: usage.totalTokens,
             usedAt: new Date(),
             userId: userIsValid.userId,
+            userEmail: userIsValid.userEmail,
           }),
         );
       });

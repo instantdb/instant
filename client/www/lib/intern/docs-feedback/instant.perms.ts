@@ -47,6 +47,14 @@ const rules = {
       delete: 'isCreator || isAdmin',
     },
   },
+  llmUsage: {
+    bind: {
+      isAdmin: "auth.id != null && auth.email.endsWith('@instantdb.com')",
+    },
+    allow: {
+      view: 'isAdmin',
+    },
+  },
   $default: {
     allow: {
       $default: 'false',
