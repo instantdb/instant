@@ -28,6 +28,10 @@ export default function RatingBoxContainer({ pageId }: { pageId: string }) {
     { ruleParams: { localId } },
   );
 
+  if (error) {
+    console.error(error);
+  }
+
   if (!localId || isLoading || error) return null;
 
   return (

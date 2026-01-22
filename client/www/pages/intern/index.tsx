@@ -75,6 +75,13 @@ const tools: ToolCard[] = [
       'We let users leave feedback on our docs. This is a quick way to see what they are saying!',
     category: 'Comms',
   },
+  {
+    title: 'AI Chat Usage',
+    href: '/intern/chat',
+    description:
+      'Token usage and cost estimates for the docs AI chat assistant.',
+    category: 'Analytics',
+  },
 ];
 
 const categories = ['All', 'KPIs', 'Analytics', 'Comms', 'Other'];

@@ -15,8 +15,8 @@ export function AnalyticsDashboard() {
   const searchParams = useSearchParams();
 
   // Initialize state from URL params
-  const viewParam = (searchParams.get('view') as View) || 'overview';
-  const pageIdParam = searchParams.get('pageId') || '';
+  const viewParam = (searchParams?.get('view') as View) || 'overview';
+  const pageIdParam = searchParams?.get('pageId') || '';
 
   const [currentView, setCurrentView] = useState<View>(viewParam);
   const [selectedPageId, setSelectedPageId] = useState<string>(pageIdParam);
@@ -48,8 +48,8 @@ export function AnalyticsDashboard() {
 
   // Sync URL changes with component state
   useEffect(() => {
-    const view = (searchParams.get('view') as View) || 'overview';
-    const pageId = searchParams.get('pageId') || '';
+    const view = (searchParams?.get('view') as View) || 'overview';
+    const pageId = searchParams?.get('pageId') || '';
 
     setCurrentView(view);
     setSelectedPageId(pageId);
