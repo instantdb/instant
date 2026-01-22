@@ -210,6 +210,9 @@ export async function POST(req: Request) {
   const messages = [...oldMessages, message] as any as DocsUIMessage[];
   const stream = createUIMessageStream<DocsUIMessage>({
     execute: async ({ writer }) => {
+      const MAX_DOC_READS = 4;
+      let docReadsCount = 0;
+
       const readDocTool = tool({
         providerOptions: {
           anthropic: {
@@ -229,6 +232,14 @@ export async function POST(req: Request) {
             ),
         }),
         execute: async ({ docName }) => {
+          if (docReadsCount >= MAX_DOC_READS) {
+            return {
+              error:
+                'Maximum document reads reached. Please answer with the information you have.',
+            };
+          }
+          docReadsCount++;
+
           writer.write({
             type: 'data-source',
             data: {
@@ -281,7 +292,7 @@ Do not generate application code, write components, or provide implementation de
         tools: {
           readDoc: readDocTool,
         },
-        stopWhen: stepCountIs(5),
+        stopWhen: stepCountIs(6),
         onError: (error) => {
           console.error('Error in streamText:', error);
         },
