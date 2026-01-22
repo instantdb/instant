@@ -25,6 +25,7 @@ const RATE_LIMIT_MINUTES = 30;
  * Note: a simple question that reads index.md uses ≈4000 tokens
  */
 const MAX_TOKENS_IN_PERIOD = 20_000;
+const MAX_MESSAGES_PER_CHAT = 20;
 const FEEDBACK_API_URL =
   process.env.NEXT_PUBLIC_FEEDBACK_API_URI || 'https://api.instantdb.com';
 
@@ -248,6 +249,13 @@ export async function POST(req: Request) {
 
   const oldMessages = (history?.chats?.[0]?.messages ||
     []) as any as UIMessage[];
+
+  if (oldMessages.length >= MAX_MESSAGES_PER_CHAT) {
+    return new Response(JSON.stringify({ error: 'chat_limit_exceeded' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   const messages = [...oldMessages, message] as any as DocsUIMessage[];
   const stream = createUIMessageStream<DocsUIMessage>({

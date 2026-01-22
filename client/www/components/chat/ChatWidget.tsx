@@ -282,6 +282,14 @@ const customAiFetch = async (
       `Rate limit exceeded. You can message again in ${formatDistanceToNowStrict(availableTime)}.`,
     );
   }
+  if (response.status === 400) {
+    const data = await response.json();
+    if (data.error === 'chat_limit_exceeded') {
+      throw new Error(
+        'This chat has reached its message limit. Please start a new chat to continue.',
+      );
+    }
+  }
   if (response.status === 401) {
     throw new Error('You must be logged in to chat.');
   }
