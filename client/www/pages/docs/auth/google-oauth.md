@@ -76,7 +76,11 @@ Head on over to {% blank-link href="https://console.cloud.google.com/apis/creden
 - From Google Console, click "+ CREATE CREDENTIALS"
 - Select "OAuth client ID"
 - Select "Web application" as the application type.
+{% conditional
+   param="method"
+   value=["web-redirect", "rn-web"] %}
 - Add `https://api.instantdb.com/runtime/oauth/callback` as an Authorized redirect URI.
+{% /conditional %}
 - If you're testing from localhost, **add both `http://localhost`** and `http://localhost:3000` to "Authorized JavaScript origins", replacing `3000` with the port you use.
 - For production, add your website's domain.
 
