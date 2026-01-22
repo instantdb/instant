@@ -5,7 +5,7 @@ import fs from 'fs-extra';
 import { type PackageJson } from 'type-fest';
 import { log, outro } from '@clack/prompts';
 import { renderTitle } from './utils/title.js';
-import { scaffoldBase } from './scaffold.js';
+import { scaffoldBaseAndEdit } from './scaffold.js';
 import { runInstallCommand } from './installPackages.js';
 import { getUserPkgManager } from './utils/getUserPkgManager.js';
 import chalk from 'chalk';
@@ -39,7 +39,7 @@ const main = async () => {
 
   const pkgManager = getUserPkgManager();
 
-  const projectDir = await scaffoldBase(project, appDir);
+  const projectDir = await scaffoldBaseAndEdit(project, appDir);
 
   addRuleFiles({
     projectDir,
