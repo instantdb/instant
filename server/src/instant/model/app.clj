@@ -2,6 +2,7 @@
   (:require
    [clojure.set :refer [rename-keys]]
    [honey.sql :as hsql]
+   [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
    [instant.jdbc.aurora :as aurora]
@@ -232,17 +233,20 @@
                          :from [[:apps :a]]
                          :join [[:app_members :m] [:and
                                                    [:= :m.user_id :?user-id]
-                                                   [:= :m.app_id :a.id]]
-                                [:instant_subscriptions :sub] [:= :sub.id :a.subscription_id]]
+                                                   [:= :m.app_id :a.id]]]
+                         :left-join [[:instant_subscriptions :sub] [:= :sub.id :a.subscription_id]]
                          :where [:and
                                  [:= nil :a.deletion-marked-at]
                                  [:= nil :a.org_id]
-                                 [:= :2 :sub.subscription_type_id]]}]}))
+                                 [:or
+                                  [:= :2 :sub.subscription_type_id]
+                                  [:< :m.created_at :?free-teams-cutoff]]]}]}))
 
 (defn get-all-for-user
   ([params] (get-all-for-user (aurora/conn-pool :read) params))
   ([conn {:keys [user-id]}]
-   (let [params {:user-id user-id}
+   (let [params {:user-id user-id
+                 :free-teams-cutoff config/free-teams-cutoff}
          query (uhsql/formatp all-for-user-q params)]
      (sql/select ::get-all-for-user conn query))))
 

@@ -8,7 +8,8 @@
             [lambdaisland.uri :as uri]
             [lambdaisland.uri.normalize :as normalize])
   (:import
-   (java.net InetAddress)))
+   (java.net InetAddress)
+   (java.time ZoneId ZonedDateTime)))
 
 (defonce hostname
   (delay
@@ -290,6 +291,10 @@
 ;; machine. This gives us a way to have a consistent ordering of LSNs
 ;; across database upgrades.
 (def invalidator-slot-num 0)
+
+;; Cuts off when the calendar turns to March in every time zone on Earth
+(def free-teams-cutoff (-> (ZonedDateTime/of 2026 3 1 0 0 0 0 (ZoneId/of "Etc/GMT+12"))
+                           (.toInstant)))
 
 (defn init []
   ;; instantiate the config-map so we can fail early if it's not

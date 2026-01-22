@@ -72,9 +72,9 @@ type WhereClauseValueComplex<V, R, I> = BaseWhereClauseValueComplex<V> &
 
 // Make type display better
 type WhereClauseValue<
-  D extends DataAttrDef<string | number | boolean, boolean, boolean>,
+  D extends DataAttrDef<string | number | boolean, boolean, boolean, boolean>,
 > =
-  D extends DataAttrDef<infer V, infer R, infer I>
+  D extends DataAttrDef<infer V, infer R, infer I, boolean>
     ?
         | (IsAny<V> extends true ? string | number | boolean : V)
         | NonEmpty<WhereClauseValueComplex<V, R, I>>
@@ -82,25 +82,33 @@ type WhereClauseValue<
 
 type WhereClauseColumnEntries<
   T extends {
-    [key: string]: DataAttrDef<any, boolean, boolean>;
+    [key: string]: DataAttrDef<any, boolean, boolean, boolean>;
   },
 > = {
   [key in keyof T]?: WhereClauseValue<T[key]>;
 };
 
 type WhereClauseComboEntries<
-  T extends Record<any, DataAttrDef<any, boolean, boolean>>,
+  T extends Record<any, DataAttrDef<any, boolean, boolean, boolean>>,
 > = {
-  or?: WhereClauses<T>[] | WhereClauseValue<DataAttrDef<any, false, true>>;
-  and?: WhereClauses<T>[] | WhereClauseValue<DataAttrDef<any, false, true>>;
+  or?:
+    | WhereClauses<T>[]
+    | WhereClauseValue<DataAttrDef<any, false, true, boolean>>;
+  and?:
+    | WhereClauses<T>[]
+    | WhereClauseValue<DataAttrDef<any, false, true, boolean>>;
 };
 
-type WhereClauses<T extends Record<any, DataAttrDef<any, boolean, boolean>>> = (
+type WhereClauses<
+  T extends Record<any, DataAttrDef<any, boolean, boolean, boolean>>,
+> = (
   | WhereClauseComboEntries<T>
   | (WhereClauseComboEntries<T> & WhereClauseColumnEntries<T>)
 ) & {
-  id?: WhereClauseValue<DataAttrDef<string, false, true>>;
-  [key: `${string}.${string}`]: WhereClauseValue<DataAttrDef<any, false, true>>;
+  id?: WhereClauseValue<DataAttrDef<string, false, true, boolean>>;
+  [key: `${string}.${string}`]: WhereClauseValue<
+    DataAttrDef<any, false, true, boolean>
+  >;
 };
 
 /**
@@ -115,7 +123,12 @@ type Cursor = [string, string, any, number];
 type Direction = 'asc' | 'desc';
 
 type IndexedKeys<Attrs extends AttrsDefs> = {
-  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, any, infer IsIndexed>
+  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<
+    any,
+    any,
+    infer IsIndexed,
+    boolean
+  >
     ? IsIndexed extends true
       ? K
       : never
@@ -590,8 +603,11 @@ type WhereOperatorObject<Input, V, R, I> = keyof Input extends
               : {}))
   : never;
 
-type ValidWhereValue<Input, AttrDef extends DataAttrDef<any, any, any>> =
-  AttrDef extends DataAttrDef<infer V, infer R, infer I>
+type ValidWhereValue<
+  Input,
+  AttrDef extends DataAttrDef<any, any, any, boolean>,
+> =
+  AttrDef extends DataAttrDef<infer V, infer R, infer I, boolean>
     ? Input extends V
       ? V
       : NonEmpty<WhereOperatorObject<Input, V, R, I>>
@@ -636,7 +652,7 @@ type ValidWhereObject<
         // Special case for id
         id?: ValidWhereValue<
           SafeLookup<Input, ['id']>,
-          DataAttrDef<string, false, false>
+          DataAttrDef<string, false, false, boolean>
         >;
       }
     : never;
@@ -654,7 +670,7 @@ type ExtractAttrFromDotPath<
 > = Path extends keyof Schema['entities'][EntityName]['attrs']
   ? Schema['entities'][EntityName]['attrs'][Path]
   : Path extends 'id'
-    ? DataAttrDef<string, false, false>
+    ? DataAttrDef<string, false, false, boolean>
     : Path extends `${infer LinkName}.${infer RestPath}`
       ? LinkName extends keyof Schema['entities'][EntityName]['links']
         ? ExtractAttrFromDotPath<
@@ -664,7 +680,7 @@ type ExtractAttrFromDotPath<
           >
         : never
       : Path extends keyof Schema['entities'][EntityName]['links']
-        ? DataAttrDef<string, false, false>
+        ? DataAttrDef<string, false, false, boolean>
         : never;
 
 type ValidQuery<

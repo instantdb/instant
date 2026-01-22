@@ -130,10 +130,18 @@ SSR relies on suspense. To support that we’ll need to make an `InstantProvider
 ```typescript {% showCopy=true %}
 // src/InstantProvider.tsx
 "use client";
+import { db } from "@/app/lib/db";
+import { type User } from "@instantdb/react";
 import { InstantSuspenseProvider } from "@instantdb/react/nextjs";
-import { db } from "./lib/db";
+import React from "react";
 
-export const InstantProvider = ({ children, user }) => (
+export const InstantProvider = ({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user: User;
+}) => (
   <InstantSuspenseProvider user={user} db={db}>
     {children}
   </InstantSuspenseProvider>
@@ -146,11 +154,11 @@ Now we’ll want to use our InstantProvider in a server component, usually `app/
 
 ```typescript {% showCopy=true %}
 // src/app/layout.tsx
-import { getUserOnServer } from "@instantdb/react/nextjs";
+import { getUserFromInstantCookie } from "@instantdb/react/nextjs";
 import { InstantProvider } from "@/InstantProvider";
 
 export default async function RootLayout({ children }) {
-  const user = await getUserOnServer(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
+  const user = await getUserFromInstantCookie(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
 
   return (
     <html>

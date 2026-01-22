@@ -29,11 +29,15 @@ const AUTHORS: Record<string, Author> = {
   },
   dww: {
     name: 'Daniel Woelfel',
-    url: 'https://x.com/DanielWoelfel',
+    url: 'https://twitter.com/DanielWoelfel',
   },
   nikitonsky: {
     name: 'Nikita Prokopov',
     url: 'https://mastodon.online/@nikitonsky',
+  },
+  instantdb: {
+    name: 'Instant',
+    url: 'https://x.com/instant_db',
   },
 };
 

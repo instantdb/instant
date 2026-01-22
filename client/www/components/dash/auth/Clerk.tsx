@@ -285,7 +285,7 @@ export function ClerkClient({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col rounded-sm border"
+        className="flex flex-col rounded-sm border dark:border-neutral-600"
       >
         <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
@@ -310,7 +310,7 @@ export function ClerkClient({
           </div>
         </Collapsible.Trigger>
         <Collapsible.Content className="">
-          <div className="flex flex-col gap-4 border-t p-4">
+          <div className="flex flex-col gap-4 border-t p-4 dark:border-neutral-600">
             <Copyable label="Client name" value={client.client_name} />
             {clerkPublishableKey ? (
               <Copyable
@@ -354,16 +354,20 @@ export function ClerkClient({
             <Content>
               <strong>1.</strong> Navigate to your{' '}
               <a
-                className="underline"
+                className="underline dark:text-white"
                 href={`https://dashboard.clerk.com`}
                 target="_blank"
                 rel="noopener noreferer"
               >
                 Clerk dashboard
               </a>
-              . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
-              button in the <code>Customize session token</code> section. Ensure
-              your <code>Claims</code> field has the email claim:
+              . On the <code className="dark:text-white">Sessions</code> page,
+              click the <code className="dark:text-white">Edit</code> button in
+              the{' '}
+              <code className="dark:text-white">Customize session token</code>{' '}
+              section. Ensure your{' '}
+              <code className="dark:text-white">Claims</code> field has the
+              email claim:
               <div className="overflow-auto rounded-sm border text-sm dark:border-none">
                 <Fence
                   darkMode={darkMode}
@@ -376,9 +380,10 @@ export function ClerkClient({
                 />
               </div>
             </Content>
-            <Content>
-              <strong>2.</strong> Use <code>db.auth.signInWithIdToken</code> to
-              link your Clerk user to Instant.
+            <Content className="dark:text-white">
+              <strong>2.</strong> Use{' '}
+              <code className="dark:text-white">db.auth.signInWithIdToken</code>{' '}
+              to link your Clerk user to Instant.
             </Content>
 
             <div className="overflow-auto rounded-sm border text-sm dark:border-none">

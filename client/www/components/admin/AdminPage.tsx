@@ -4,7 +4,7 @@ import { capitalize } from 'lodash';
 import { useContext, useState } from 'react';
 import { v4 } from 'uuid';
 
-import config from '@/lib/config';
+import config, { areTeamsFree } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { errorToast, successToast } from '@/lib/toast';
@@ -69,6 +69,10 @@ export function Admin({
   const displayedInvites = app.invites?.filter(
     (invite) => invite.status !== 'accepted',
   );
+
+  const freeTeams = areTeamsFree();
+
+  const canAddMembers = app.pro || isPaidOrg || freeTeams;
 
   async function onClickReset() {
     const appIndex = dashResponse.data.apps.findIndex((a) => a.id === app.id);
@@ -253,166 +257,178 @@ export function Admin({
           </Button>
         </form>
       ) : null}
-      {app.pro || isPaidOrg ? (
-        <>
-          <div className="flex flex-col gap-1">
-            <SectionHeading>Team Members</SectionHeading>
-            {workspace.type === 'org' && (
-              <div className="my-2">
-                <SubsectionHeading>Organization members</SubsectionHeading>
-                <div className="flex flex-col gap-1">
-                  {workspace.members.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center justify-between gap-3"
-                    >
-                      <div className="flex flex-1 justify-between">
-                        <div>{member.email}</div>
-                        <div className="text-gray-400 dark:text-neutral-400">
-                          {capitalize(member.role)}
-                        </div>
-                      </div>
+
+      <div className="flex flex-col gap-1">
+        <SectionHeading>Team Members</SectionHeading>
+        {!app.pro && !isPaidOrg && freeTeams && (
+          <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
+            Add your team members today to take advantage of{' '}
+            <Link
+              href="/essays/free_teams_through_february"
+              target="_blank"
+              className="underline dark:text-white"
+            >
+              free Teams
+            </Link>{' '}
+            through the end of February!
+          </Content>
+        )}
+        {workspace.type === 'org' && (
+          <div className="my-2">
+            <SubsectionHeading>Organization members</SubsectionHeading>
+            <div className="flex flex-col gap-1">
+              {workspace.members.map((member) => (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <div className="flex flex-1 justify-between">
+                    <div>{member.email}</div>
+                    <div className="text-gray-400 dark:text-neutral-400">
+                      {capitalize(member.role)}
                     </div>
-                  ))}
-                  <Content className="text-sm dark:text-neutral-300">
-                    Modify organization members from the{' '}
-                    <Link
-                      className="dark:text-white"
-                      href={`/dash/org?org=${workspace.org.id}`}
-                    >
-                      Organization settings
-                    </Link>
-                  </Content>
+                  </div>
+                </div>
+              ))}
+              <Content className="text-sm dark:text-neutral-300">
+                Modify organization members from the{' '}
+                <Link
+                  className="dark:text-white"
+                  href={`/dash/org?org=${workspace.org.id}`}
+                >
+                  Organization settings
+                </Link>
+              </Content>
+            </div>
+          </div>
+        )}
+        {workspace.type === 'org' ? (
+          <SubsectionHeading>App-only members</SubsectionHeading>
+        ) : (
+          <SubsectionHeading>Members</SubsectionHeading>
+        )}
+        {app.members?.length ? (
+          <div className="flex flex-col gap-1">
+            {app.members.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center justify-between gap-3"
+              >
+                <div className="flex flex-1 justify-between">
+                  <div>{member.email}</div>
+                  <div className="text-gray-400 dark:text-neutral-400">
+                    {capitalize(member.role)}
+                  </div>
+                </div>
+                <div className="flex w-28">
+                  <Button
+                    className="w-full"
+                    variant="secondary"
+                    onClick={() => setEditMember(member)}
+                  >
+                    Edit
+                  </Button>
                 </div>
               </div>
-            )}
-            {workspace.type === 'org' && (
-              <SubsectionHeading>App-only members</SubsectionHeading>
-            )}
-            {app.members?.length ? (
-              <div className="flex flex-col gap-1">
-                {app.members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between gap-3"
-                  >
-                    <div className="flex flex-1 justify-between">
-                      <div>{member.email}</div>
-                      <div className="text-gray-400 dark:text-neutral-400">
-                        {capitalize(member.role)}
-                      </div>
-                    </div>
-                    <div className="flex w-28">
-                      <Button
-                        className="w-full"
-                        variant="secondary"
-                        onClick={() => setEditMember(member)}
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-gray-400 dark:text-neutral-400">
-                No team members
-              </div>
-            )}
+            ))}
           </div>
-          {displayedInvites?.length ? (
-            <div className="flex flex-col">
-              <SubsectionHeading>Invites</SubsectionHeading>
-              <div className="flex flex-col gap-0.5">
-                {displayedInvites.map((invite) => (
-                  <div
-                    key={invite.id}
-                    className="flex items-center justify-between gap-3"
-                  >
-                    <div className="flex flex-1 justify-between gap-2 overflow-hidden">
-                      <div className="truncate">{invite.email}</div>
-                      <div className="text-gray-400 dark:text-neutral-400">
-                        {capitalize(invite.role)}
-                      </div>
-                    </div>
-                    <div className="flex w-28">
-                      {!invite.expired && invite.status === 'pending' ? (
-                        <ActionButton
-                          className="w-full"
-                          label="Revoke"
-                          submitLabel="Revoking..."
-                          successMessage="Revoked team member invite."
-                          errorMessage="An error occurred while attempting to revoke team member invite."
-                          onClick={async () => {
-                            dashResponse.optimisticUpdate(
-                              jsonMutate(
-                                `${config.apiURI}/dash/apps/${app.id}/invite/revoke`,
-                                {
-                                  method: 'DELETE',
-                                  token,
-                                  body: {
-                                    'invite-id': invite.id,
-                                  },
-                                },
-                              ),
-                            );
-                            dashResponse.refetch();
-                          }}
-                        />
-                      ) : (
-                        <Button className="w-full" variant="secondary" disabled>
-                          {invite.expired
-                            ? 'Expired'
-                            : capitalize(invite.status)}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          <div className="flex flex-col gap-1">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                inviteDialog.onOpen();
-              }}
-            >
-              Invite a team member {isPaidOrg ? 'to this app only' : null}
-            </Button>
+        ) : (
+          <div className="text-gray-400 dark:text-neutral-400">
+            No team members
           </div>
-        </>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 rounded-sm border bg-gray-100 p-2 dark:border-neutral-700 dark:bg-neutral-800">
-            <InformationCircleIcon width={18}></InformationCircleIcon>
-            Upgrade to a paid app to manage members.{' '}
-            <Link className="underline" href="/pricing">
-              View pricing.
-            </Link>
-          </div>
-          <div className="flex justify-between">
-            {workspace.type === 'org' ? (
-              <Button
-                type="link"
-                variant="secondary"
-                href={`/dash/org?org=${workspace.org.id}&tab=billing`}
+        )}
+      </div>
+      {displayedInvites?.length ? (
+        <div className="flex flex-col">
+          <SubsectionHeading>Invites</SubsectionHeading>
+          <div className="flex flex-col gap-0.5">
+            {displayedInvites.map((invite) => (
+              <div
+                key={invite.id}
+                className="flex items-center justify-between gap-3"
               >
-                Upgrade the org to the startup plan
-              </Button>
-            ) : null}
-            <Button
-              variant="secondary"
-              onClick={() => {
-                nav({ s: 'main', app: app.id, t: 'billing' });
-              }}
-            >
-              Upgrade the app to Pro
-            </Button>
+                <div className="flex flex-1 justify-between gap-2 overflow-hidden">
+                  <div className="truncate">{invite.email}</div>
+                  <div className="text-gray-400 dark:text-neutral-400">
+                    {capitalize(invite.role)}
+                  </div>
+                </div>
+                <div className="flex w-28">
+                  {!invite.expired && invite.status === 'pending' ? (
+                    <ActionButton
+                      className="w-full"
+                      label="Revoke"
+                      submitLabel="Revoking..."
+                      successMessage="Revoked team member invite."
+                      errorMessage="An error occurred while attempting to revoke team member invite."
+                      onClick={async () => {
+                        dashResponse.optimisticUpdate(
+                          jsonMutate(
+                            `${config.apiURI}/dash/apps/${app.id}/invite/revoke`,
+                            {
+                              method: 'DELETE',
+                              token,
+                              body: {
+                                'invite-id': invite.id,
+                              },
+                            },
+                          ),
+                        );
+                        dashResponse.refetch();
+                      }}
+                    />
+                  ) : (
+                    <Button className="w-full" variant="secondary" disabled>
+                      {invite.expired ? 'Expired' : capitalize(invite.status)}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      ) : null}
+      <div className="flex flex-col gap-1">
+        {canAddMembers ? (
+          <Button
+            variant="secondary"
+            onClick={() => {
+              inviteDialog.onOpen();
+            }}
+          >
+            Invite a team member {isPaidOrg ? 'to this app only' : null}
+          </Button>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 rounded-sm border bg-gray-100 p-2 dark:border-neutral-700 dark:bg-neutral-800">
+              <InformationCircleIcon width={18}></InformationCircleIcon>
+              Upgrade to a paid app to manage members.{' '}
+              <Link className="underline" href="/pricing">
+                View pricing.
+              </Link>
+            </div>
+            <div className="flex justify-between">
+              {workspace.type === 'org' ? (
+                <Button
+                  type="link"
+                  variant="secondary"
+                  href={`/dash/org?org=${workspace.org.id}&tab=billing`}
+                >
+                  Upgrade the org to the startup plan
+                </Button>
+              ) : null}
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  nav({ s: 'main', app: app.id, t: 'billing' });
+                }}
+              >
+                Upgrade the app to Pro
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {isMinRole(app.org ? 'admin' : 'owner', role) && (
         <TransferApp app={app} />

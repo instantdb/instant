@@ -43,7 +43,7 @@ const TYPE_VALIDATORS = {
 
 const isValidValueForAttr = (
   value: unknown,
-  attrDef: DataAttrDef<any, any, any>,
+  attrDef: DataAttrDef<any, any, any, boolean>,
 ): boolean => {
   if (value === null || value === undefined) return true;
   return TYPE_VALIDATORS[attrDef.valueType]?.(value) ?? false;
