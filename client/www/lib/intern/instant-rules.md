@@ -378,5 +378,5 @@ Fetch the URL for a topic to learn more about it.
 
 # Final Note
 
-Think before you answer. Make sure your code passes typechecks.
+Think before you answer. Make sure your code passes typechecks `tsc --noEmit` and works as expected.
 Remember! AESTHETICS ARE VERY IMPORTANT. All apps should LOOK AMAZING and have GREAT FUNCTIONALITY!
