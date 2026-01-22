@@ -1,4 +1,5 @@
 import docsNavigation from '@/data/docsNavigation';
+import { after } from 'next/server';
 import schema from '@/lib/intern/docs-feedback/instant.schema';
 import { doTry } from '@/lib/parsePermsJSON';
 import { anthropic } from '@ai-sdk/anthropic';
@@ -16,6 +17,8 @@ import {
 import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
+
+export const maxDuration = 60;
 
 const DOCS_DIR = path.join(process.cwd(), 'public', 'docs');
 const MAX_MESSAGES_PER_CHAT = 20;
@@ -319,7 +322,7 @@ Do not generate application code, write components, or provide implementation de
       if (isAborted) {
         return;
       }
-      saveChat({
+      return saveChat({
         db: adminDb,
         messages,
         id,
