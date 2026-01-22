@@ -508,6 +508,8 @@
                        :jobs jobs})
      :steps steps}))
 
+(def tx-keys [:id :app_id :created_at :results])
+
 (defn apply-plan! [app-id {:keys [steps] :as _plan}]
   (let [ctx {:admin? true
              :db {:conn-pool (aurora/conn-pool :write)}
@@ -521,7 +523,7 @@
         tx-res (when (seq tx-steps)
                  (permissioned-tx/transact! ctx tx-steps))
         {:keys [indexing-jobs steps]} (create-indexing-jobs app-id steps)]
-    {:transaction tx-res
+    {:transaction (select-keys tx-res tx-keys)
      :steps steps
      :indexing-jobs indexing-jobs}))
 
@@ -538,6 +540,6 @@
         tx-res (when (seq tx-steps)
                  (permissioned-tx/transact! ctx tx-steps))
         {:keys [indexing-jobs steps]} (create-indexing-jobs app-id steps)]
-    {:transaction tx-res
+    {:transaction (select-keys tx-res tx-keys)
      :steps steps
      :indexing-jobs indexing-jobs}))
