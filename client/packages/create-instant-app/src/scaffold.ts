@@ -63,13 +63,6 @@ export const scaffoldBaseAndEdit = async (
     fs.removeSync(path.join(projectDir, 'pnpm-lock.yaml'));
   }
 
-  if (fs.pathExistsSync(path.join(projectDir, '.env.example'))) {
-    fs.copyFileSync(
-      path.join(projectDir, '.env.example'),
-      path.join(projectDir, '.env'),
-    );
-  }
-
   if (getUserPkgManager() === 'pnpm' && cliResults.base === 'expo') {
     fs.appendFile(
       path.join(projectDir, '.npmrc'),
