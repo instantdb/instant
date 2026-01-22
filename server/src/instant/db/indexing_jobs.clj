@@ -879,8 +879,7 @@
                      :pg-hints [(pg-hints/index-scan :t-a :triples_pkey)
                                 (pg-hints/index-scan :t-id :triples_pkey)
                                 (pg-hints/merge-join :t-id :t-a)]}
-              res (binding [sql/*query-timeout-seconds* 1]
-                    (sql/select ::validate-required conn (hsql/format query)))]
+              res (sql/select ::validate-required conn (hsql/format query))]
           (when (seq res)
             (update-attr! conn {:app-id  app-id
                                 :attr-id attr-id
