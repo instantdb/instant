@@ -38,7 +38,7 @@ This outputs an app id and admin token. Store them in an env file.
 If you have an app id/admin token but no schema/perm files, pull them:
 
 ```bash
-npx instant-cli pull --app <APP_ID> --token <ADMIN_TOKEN> --yes
+npx instant-cli pull --yes
 ```
 
 ## Schema changes
@@ -46,7 +46,7 @@ npx instant-cli pull --app <APP_ID> --token <ADMIN_TOKEN> --yes
 Edit `instant.schema.ts`, then push:
 
 ```bash
-npx instant-cli push schema --app <APP_ID> --token <ADMIN_TOKEN> --yes
+npx instant-cli push schema --yes
 ```
 
 New fields = additions; missing fields = deletions.
@@ -54,7 +54,7 @@ New fields = additions; missing fields = deletions.
 To rename fields:
 
 ```bash
-npx instant-cli push schema --app <APP_ID> --token <ADMIN_TOKEN>   --rename 'posts.author:posts.creator stores.owner:stores.manager'   --yes
+npx instant-cli push schema --rename 'posts.author:posts.creator stores.owner:stores.manager' --yes
 ```
 
 ## Permission changes
@@ -62,7 +62,7 @@ npx instant-cli push schema --app <APP_ID> --token <ADMIN_TOKEN>   --rename 'pos
 Edit `instant.perms.ts`, then push:
 
 ```bash
-npx instant-cli push perms --app <APP_ID> --token <ADMIN_TOKEN> --yes
+npx instant-cli push perms --yes
 ```
 
 # CRITICAL Query Guidelines
@@ -172,6 +172,13 @@ data.ref(someVar + '.members.id')
 - Default `create`, `update`, and `delete` permissions is false
 - Can override `view` and `update`
 - Cannot override `create` or `delete`
+
+## $files Permissions
+
+- Default permissions are all false. Override as needed to allow access.
+- `data.ref` does not work for `$files` permissions.
+- Use `data.path.startsWith(...)` or `data.path.endsWith(...)` to write
+  path-based rules.
 
 ## Field-level Permissions
 
@@ -371,5 +378,5 @@ Fetch the URL for a topic to learn more about it.
 
 # Final Note
 
-Think before you answer. Make sure your code passes typechecks.
+Think before you answer. Make sure your code passes typechecks `tsc --noEmit` and works as expected.
 Remember! AESTHETICS ARE VERY IMPORTANT. All apps should LOOK AMAZING and have GREAT FUNCTIONALITY!
