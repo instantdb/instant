@@ -1,15 +1,15 @@
 import path from 'path';
 import fs from 'fs-extra';
-import { PKG_ROOT } from './consts.js';
+import degit from 'degit';
 import { Project } from './cli.js';
 import chalk from 'chalk';
 import { getUserPkgManager } from './utils/getUserPkgManager.js';
 import { renderUnwrap, UI } from 'instant-cli/ui';
 import slugify from 'slugify';
+import ignore from 'ignore';
 
 export const scaffoldBase = async (cliResults: Project, appDir: string) => {
   const projectDir = path.resolve(process.cwd(), appDir);
-  const srcDir = path.join(PKG_ROOT, `template/base/${cliResults.base}`);
 
   if (fs.existsSync(projectDir)) {
     if (fs.readdirSync(projectDir).length === 0) {
@@ -51,12 +51,35 @@ export const scaffoldBase = async (cliResults: Project, appDir: string) => {
     }
   }
 
-  fs.copySync(srcDir, projectDir);
-  fs.renameSync(
-    path.join(projectDir, '_gitignore'),
-    path.join(projectDir, '.gitignore'),
-  );
-  fs.renameSync(path.join(projectDir, '_env'), path.join(projectDir, '.env'));
+  if (process.env.INSTANT_CLI_DEV && process.env.INSTANT_REPO_FOLDER) {
+    const folder = path.join(
+      process.env.INSTANT_REPO_FOLDER,
+      'examples',
+      cliResults.base,
+    );
+    await copyRespectingGitignore(folder, projectDir);
+  } else {
+    if (process.env.INSTANT_CLI_DEV) {
+      UI.log(
+        chalk.bold.yellowBright(
+          'WARNING: INSTANT_CLI_DEV is TRUE but no INSTANT_REPO_FOLDER is set. \nUsing git to clone from main...',
+        ),
+        UI.ciaModifier(null),
+      );
+    }
+    await scaffoldWithDegit({ projectDir, baseTemplateName: cliResults.base });
+  }
+
+  if (fs.pathExistsSync(path.join(projectDir, 'pnpm-lock.yaml'))) {
+    fs.removeSync(path.join(projectDir, 'pnpm-lock.yaml'));
+  }
+
+  if (fs.pathExistsSync(path.join(projectDir, '.env.example'))) {
+    fs.copyFileSync(
+      path.join(projectDir, '.env.example'),
+      path.join(projectDir, '.env'),
+    );
+  }
 
   if (getUserPkgManager() === 'pnpm' && cliResults.base === 'expo') {
     fs.appendFile(
@@ -108,3 +131,40 @@ const replaceTextInFile = (
   const updatedContent = fileContent.replaceAll(oldText, newText);
   fs.writeFileSync(filePath, updatedContent);
 };
+
+const scaffoldWithDegit = async ({
+  projectDir,
+  baseTemplateName,
+}: {
+  projectDir: string;
+  baseTemplateName: string;
+}) => {
+  const repoPath = `instantdb/instant/examples/${baseTemplateName}`;
+  const degitInstance = degit(repoPath);
+  await degitInstance.clone(projectDir);
+};
+
+async function copyRespectingGitignore(src: string, dest: string) {
+  const gitignorePath = path.join(src, '.gitignore');
+
+  const ig = ignore();
+
+  // Always ignore .git folder
+  ig.add('.git');
+
+  try {
+    const gitignoreContent = await fs.readFile(gitignorePath, 'utf8');
+    ig.add(gitignoreContent);
+  } catch {
+    // No .gitignore file, continue without it
+  }
+
+  await fs.copy(src, dest, {
+    filter: (srcPath) => {
+      const relativePath = path.relative(src, srcPath);
+      // Always copy the root directory
+      if (relativePath === '') return true;
+      return !ig.ignores(relativePath);
+    },
+  });
+}
