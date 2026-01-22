@@ -11,15 +11,16 @@ Instant supports auth with Clerk.
 
 Go to your Clerk dashboard, navigate to [`Sessions`](https://dashboard.clerk.com/last-active?path=sessions), then click the `Edit` button in the `Customize session token` section.
 
-Add the email claim to your session token:
+Add the email and email_verified claims to your session token:
 
 ```json {% showCopy=true %}
 {
-  "email": "{{user.primary_email_address}}"
+  "email": "{{user.primary_email_address}}",
+  "email_verified": "{{user.email_verified}}"
 }
 ```
 
-You can have additional claims as long as the `email` claim is set to `{{user.primary_email_address}}`.
+You can have additional claims as long as the `email` claim is set to `{{user.primary_email_address}}` and the `email_verified` claim is set to `{{user.email_verified}}`.
 
 ![Clerk token form](/img/docs/clerk-token-form.png)
 
