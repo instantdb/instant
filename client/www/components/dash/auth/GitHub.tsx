@@ -27,7 +27,15 @@ import {
   OAuthClient,
   OAuthServiceProvider,
 } from '@/lib/types';
-import { addProvider, addClient, deleteClient, findName } from './shared';
+import {
+  addProvider,
+  addClient,
+  deleteClient,
+  findName,
+  RedirectUrlInput,
+  EditableRedirectUrl,
+  TestRedirectButton,
+} from './shared';
 import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
 
@@ -111,6 +119,7 @@ export function AddClientForm({
   );
   const [clientId, setClientId] = useState<string>('');
   const [clientSecret, setClientSecret] = useState<string>('');
+  const [redirectTo, setRedirectTo] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const validationError = () => {
@@ -145,6 +154,7 @@ export function AddClientForm({
         clientName,
         clientId,
         clientSecret,
+        redirectTo,
         meta: { providerName: 'github' },
       });
       onAddClient(resp.client);
@@ -214,13 +224,29 @@ export function AddClientForm({
         }
       />
 
+      <RedirectUrlInput value={redirectTo} onChange={setRedirectTo} />
+
       <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
         <p className="overflow-hidden">
           Add{' '}
-          <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
+          <Copytext
+            value={
+              redirectTo || 'https://api.instantdb.com/runtime/oauth/callback'
+            }
+          />{' '}
           as the Authorization callback URL in your GitHub OAuth App settings.
         </p>
-        <p className="text-sm text-gray-500">
+        {redirectTo && (
+          <>
+            <p className="text-sm text-gray-500 dark:text-neutral-400">
+              Your redirect URL should forward to{' '}
+              <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
+              with all query parameters.
+            </p>
+            <TestRedirectButton redirectTo={redirectTo} />
+          </>
+        )}
+        <p className="text-sm text-gray-500 dark:text-neutral-400">
           GitHub requires an exact match for the callback URL. Make sure to add
           this URL in your OAuth App's settings on GitHub.
         </p>
@@ -240,11 +266,13 @@ export function Client({
   app,
   client,
   onDeleteClient,
+  onUpdateClient,
   defaultOpen = false,
 }: {
   app: InstantApp;
   client: OAuthClient;
   onDeleteClient: (client: OAuthClient) => void;
+  onUpdateClient: (client: OAuthClient) => void;
   defaultOpen?: boolean;
 }) {
   const token = useContext(TokenContext);
@@ -308,6 +336,12 @@ export function Client({
           <div className="flex flex-col gap-4 border-t p-4 dark:border-t-neutral-700">
             <Copyable label="Client name" value={client.client_name} />
             <Copyable label="GitHub Client ID" value={client.client_id || ''} />
+            <EditableRedirectUrl
+              app={app}
+              client={client}
+              token={token}
+              onUpdateClient={onUpdateClient}
+            />
 
             <SubsectionHeading>
               <a
@@ -319,16 +353,29 @@ export function Client({
               </a>
             </SubsectionHeading>
             <Content>
-              <strong>1.</strong> Add the callback URL below to your GitHub
-              OAuth App settings.
+              <strong className="dark:text-white">1.</strong> Add the callback
+              URL below to your GitHub OAuth App settings.
             </Content>
             <Copyable
               label="Authorization callback URL"
-              value="https://api.instantdb.com/runtime/oauth/callback"
+              value={
+                client.redirect_to ||
+                'https://api.instantdb.com/runtime/oauth/callback'
+              }
             />
+            {client.redirect_to && (
+              <>
+                <Content className="text-sm text-gray-500 dark:text-neutral-400">
+                  Your redirect URL should forward to{' '}
+                  <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
+                  with all query parameters.
+                </Content>
+                <TestRedirectButton redirectTo={client.redirect_to} />
+              </>
+            )}
             <Content>
-              <strong>2.</strong> Use the code below to generate a login link in
-              your app.
+              <strong className="dark:text-white">2.</strong> Use the code below
+              to generate a login link in your app.
             </Content>
             <div className="overflow-auto rounded-sm border text-sm dark:border-none">
               <Fence
@@ -378,6 +425,7 @@ export function GitHubClients({
   clients,
   onAddClient,
   onDeleteClient,
+  onUpdateClient,
   usedClientNames,
   lastCreatedClientId,
   defaultOpen,
@@ -387,6 +435,7 @@ export function GitHubClients({
   clients: OAuthClient[];
   onAddClient: (client: OAuthClient) => void;
   onDeleteClient: (client: OAuthClient) => void;
+  onUpdateClient: (client: OAuthClient) => void;
   usedClientNames: Set<string>;
   lastCreatedClientId: string | null;
   defaultOpen: boolean;
@@ -407,6 +456,7 @@ export function GitHubClients({
           app={app}
           client={c}
           onDeleteClient={onDeleteClient}
+          onUpdateClient={onUpdateClient}
           defaultOpen={c.id === lastCreatedClientId}
         />
       ))}

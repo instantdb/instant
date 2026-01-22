@@ -47,38 +47,39 @@
 
 ;; Must be 10 chars or shorter
 (def label-shortcodes
-  {"id" "id"
-   "email" "email"
-   "type" "type"
-   "imageURL" "imageurl"
-   "codeHash" "codehash"
-   "authCode" "authcode"
-   "$user" "user"
-   "hashedToken" "hashedtok"
-   "name" "name"
-   "sub" "sub"
-   "$oauthProvider" "oprovider"
-   "sub+$oauthProvider" "subprovid"
-   "clientId" "clientid"
-   "encryptedClientSecret" "encclisec"
-   "discoveryEndpoint" "discovend"
-   "meta" "meta"
-   "codeChallengeMethod" "cchalmeth"
-   "codeChallenge" "codechall"
-   "stateHash" "statehash"
-   "cookieHash" "cookihash"
-   "redirectUrl" "redireurl"
-   "$oauthClient" "oauclient"
-   "path" "path"
-   "url" "url"
-   "size" "size"
-   "content-type" "c-type"
-   "content-disposition" "cdisp"
-   "location-id" "lid"
-   "key-version" "kv"
-   "userInfo" "userInfo"
-   "linkedGuestUsers" "lgu"
-   "linkedPrimaryUser" "lpu"})
+  {"$oauthClient" "oauclient",
+   "$oauthProvider" "oprovider",
+   "$user" "user",
+   "authCode" "authcode",
+   "clientId" "clientid",
+   "codeChallenge" "codechall",
+   "codeChallengeMethod" "cchalmeth",
+   "codeHash" "codehash",
+   "content-disposition" "cdisp",
+   "content-type" "c-type",
+   "cookieHash" "cookihash",
+   "discoveryEndpoint" "discovend",
+   "email" "email",
+   "encryptedClientSecret" "encclisec",
+   "hashedToken" "hashedtok",
+   "id" "id",
+   "imageURL" "imageurl",
+   "key-version" "kv",
+   "linkedGuestUsers" "lgu",
+   "linkedPrimaryUser" "lpu",
+   "location-id" "lid",
+   "meta" "meta",
+   "name" "name",
+   "path" "path",
+   "redirectUrl" "redireurl",
+   "redirectTo" "redirecto"
+   "size" "size",
+   "stateHash" "statehash",
+   "sub" "sub",
+   "sub+$oauthProvider" "subprovid",
+   "type" "type",
+   "url" "url",
+   "userInfo" "userInfo"})
 
 (def shortcodes-label (map-invert label-shortcodes))
 
@@ -249,7 +250,9 @@
               :checked-data-type :string)
    (make-attr "$oauthClients" "discoveryEndpoint"
               :checked-data-type :string)
-   (make-attr "$oauthClients" "meta")])
+   (make-attr "$oauthClients" "meta")
+   (make-attr "$oauthClients" "redirectTo"
+              :checked-data-type :string)])
 
 (def $oauth-code-attrs
   [(make-attr "$oauthCodes" "id"
@@ -282,6 +285,10 @@
               :index? false
               :checked-data-type :string)
    (make-attr "$oauthRedirects" "redirectUrl"
+              :unique? false
+              :index? false
+              :checked-data-type :string)
+   (make-attr "$oauthRedirects" "redirectTo"
               :unique? false
               :index? false
               :checked-data-type :string)
