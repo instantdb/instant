@@ -532,6 +532,28 @@ program
     await claimEphemeralApp(appId, adminToken);
   });
 
+program
+  .command('explorer')
+  .description('Opens the Explorer in your browser')
+  .option(
+    '-a --app <app-id>',
+    'App ID to push too. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action(async function (opts) {
+    console.log('Opening Explorer...');
+    const pkgAndAuthInfo = await getOrPromptPackageAndAuthInfoWithErrorLogging(
+      {},
+    );
+    const { ok, appId } = await getOrCreateAppAndWriteToEnv(
+      pkgAndAuthInfo,
+      opts,
+    );
+    if (!ok) {
+      return process.exit(1);
+    }
+    openInBrowser(`${instantDashOrigin}/dash?s=main&app=${appId}&t=explorer`);
+  });
+
 program.parse(process.argv);
 
 async function handleInit(opts) {
