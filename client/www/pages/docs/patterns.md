@@ -378,22 +378,22 @@ to speed up queries, or break up large transactions into smaller ones.
 When converting an optional attribute to a required one, you'll need to
 update existing entities with null values.
 
-For example, if you try to make `category` required on `aiComments` but some
+For example, if you try to make `done` required on `todos` but some
 records have null values:
 
 ```
-INVALID DATA adding required constraint to aiComments.category.
+INVALID DATA adding required constraint to todos.done.
   First few examples:
-  namespace       | id                                    | category
-  ----------------|---------------------------------------|----------
-  aiComments      | 13a09c93-cee0-4e21-9e41-c7e08edd1649  | null
-  aiComments      | 043eec60-d971-4689-8e4a-099e82c251a2  | null
+  namespace       | id                                    | done
+  ----------------|---------------------------------------|------
+  todos           | 13a09c93-cee0-4e21-9e41-c7e08edd1649  | null
+  todos           | 043eec60-d971-4689-8e4a-099e82c251a2  | null
 ```
 
 The solution is to run an admin script to backfill the null values before pushing the schema change.
 
 ```typescript
-// scripts/backfill-category.ts
+// scripts/backfill-todos.ts
 import { init, tx } from '@instantdb/admin';
 
 const db = init({
@@ -402,20 +402,20 @@ const db = init({
 });
 
 async function backfillDefaults() {
-  // Query for entities with null/missing category
+  // Query for entities with null/missing done
   const { data } = await db.query({
-    aiComments: {
+    todos: {
       $: {
         where: {
-          category: { $isNull: true },
+          done: { $isNull: true },
         },
       },
     },
   });
 
   // Update them with a default value
-  const updates = data.aiComments.map((comment) =>
-    tx.aiComments[comment.id].update({ category: 'uncategorized' }),
+  const updates = data.todos.map((todo) =>
+    tx.todos[todo.id].update({ done: false }),
   );
 
   if (updates.length > 0) {
@@ -432,7 +432,7 @@ backfillDefaults();
 Then run the script before pushing your schema:
 
 ```bash
-npx tsx scripts/backfill-category.ts && npx instant-cli push
+npx tsx scripts/backfill-todos.ts && npx instant-cli push
 ```
 
 This pattern gives you full control over setting default values. You can set
