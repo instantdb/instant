@@ -1,0 +1,40 @@
+name: Build instantdb skill from instant-rules
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'client/www/lib/intern/instant-rules.md'
+      - 'client/www/lib/intern/skills-frontmatter.md'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Generate SKILL.md
+        run: |
+          cat client/www/lib/intern/skills-frontmatter.md > /tmp/SKILL.md
+          echo "" >> /tmp/SKILL.md
+          cat client/www/lib/intern/instant-rules.md >> /tmp/SKILL.md
+
+      - name: Checkout skills repo
+        uses: actions/checkout@v4
+        with:
+          repository: instantdb/skills
+          token: ${{ secrets.SKILLS_REPO_TOKEN }}
+          path: skills-repo
+
+      - name: Update and push
+        run: |
+          cp /tmp/SKILL.md skills-repo/skills/instantdb/SKILL.md
+          cd skills-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add skills/instantdb/SKILL.md
+          git diff --staged --quiet || git commit -m "Update instantdb SKILL.md"
+          git push
