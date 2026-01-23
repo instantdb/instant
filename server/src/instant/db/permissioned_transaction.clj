@@ -42,14 +42,9 @@
    [{:message message}]))
 
 (defn- validate-system-delete-entity! [{:keys [admin?]} {:keys [etype] :as tx-step}]
-  (let [valid-delete-entity? (and
-                              ;; you cannot delete $files no matter what
-                              (not= etype "$files")
-                              ;; admins can delete anything else
-                              admin?)]
-    (when-not valid-delete-entity?
-      (throw-tx-step-validation-err! tx-step
-                                     (format "%s is a system entity. You aren't allowed to delete this directly." etype)))))
+  (when-not admin?
+    (throw-tx-step-validation-err! tx-step
+                                   (format "%s is a system entity. You aren't allowed to delete this directly." etype))))
 
 (defn- validate-system-triple-op! [{:keys [admin? attrs]} {:keys [aid] :as tx-step}]
   (let [attr (attr-model/seek-by-id aid attrs)
