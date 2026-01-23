@@ -2,11 +2,11 @@
   <a href="https://instantdb.com">
     <img alt="Shows the Instant logo" src="https://instantdb.com/img/icon/android-chrome-512x512.png" width="10%">
   </a>
-  <h1 align="center">instant-cli (beta)</h1>
+  <h1 align="center">instant-cli</h1>
 </p>
 
 <p align="center">
-  <a 
+  <a
     href="https://discord.com/invite/VU53p7uQcE" >
     <img height=20 src="https://img.shields.io/discord/1031957483243188235" />
   </a>
