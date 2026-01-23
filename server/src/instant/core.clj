@@ -2,6 +2,7 @@
   (:gen-class)
   (:require
    [tool]
+   clojure.string
    [clojure.java.io :as io]
    [clojure.tools.logging :as log]
    [compojure.core :refer [defroutes GET POST routes wrap-routes]]
@@ -16,6 +17,7 @@
    [instant.db.hint-testing :as hint-testing]
    [instant.db.model.wal-log :as wal-log-model]
    [instant.db.model.transaction :as tx-model]
+   [instant.demo-routes :as demo-routes]
    [instant.storage.sweeper :as storage-sweeper]
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
@@ -127,12 +129,20 @@
                                            "Cache-Control" (str "public, max-age=" max-age)}))))))
 
 (defn add-security-headers [resp]
-  (let [default-headers {;; Don't let anyone put us in an iframe
+  (let [script-shas (some->> resp
+                             :inline-scripts
+                             (map (comp crypt-util/bytes->b64-string
+                                        crypt-util/str->sha256))
+                             (map (fn [s] (str "'sha256-" s "'"))))
+        default-headers { ;; Don't let anyone put us in an iframe
                          "X-Frame-Options" "DENY"
                          ;; Don't leak path info in referrer
                          "Referrer-Policy" "strict-origin"
                          ;; Only load scripts and assets from ourselves
-                         "Content-Security-Policy" "script-src 'self'"
+                         "Content-Security-Policy" (str "script-src 'self'"
+                                                        (when script-shas
+                                                          (str " "
+                                                               (clojure.string/join " " script-shas))))
                          ;; Disallow features we don't use
                          "Permissions-Policy" "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
                          ;; Only use the content-type we provide, don't let the
@@ -164,7 +174,8 @@
                       generic-webhook-routes
                       stripe-webhook-routes
                       health/routes
-                      oauth-app-routes/routes)
+                      oauth-app-routes/routes
+                      demo-routes/routes)
               (wrap-routes http-util/tracer-record-route)
               http-util/tracer-record-attrs
               wrap-keyword-params

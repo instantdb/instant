@@ -404,19 +404,21 @@
    this opens the external app when we load the page and shows an \"Open app\"
    button. In case the redirect was dismissed."
   [email redirect-url]
-  {:status 200
-   :headers {"content-type" "text/html"}
-   :body (str (h/html (h/raw "<!DOCTYPE html>")
-                [:html {:lang "en"}
-                 [:head
-                  [:meta {:charset "UTF-8"}]
-                  [:meta {:name "viewport"
-                          :content "width=device-width, initial-scale=1.0"}]
-                  [:meta {:http-equiv "refresh"
-                          :content (format "0; url=%s" redirect-url)}]
+  (let [script "window.open(document.getElementById('redirect-script').getAttribute('data-redirect-uri'), '_self')"]
+    {:status 200
+     :headers {"content-type" "text/html"}
+     :inline-scripts [script]
+     :body (str (h/html (h/raw "<!DOCTYPE html>")
+                  [:html {:lang "en"}
+                   [:head
+                    [:meta {:charset "UTF-8"}]
+                    [:meta {:name "viewport"
+                            :content "width=device-width, initial-scale=1.0"}]
+                    [:meta {:http-equiv "refresh"
+                            :content (format "0; url=%s" redirect-url)}]
 
-                  [:title "Finish Sign In"]
-                  [:style "
+                    [:title "Finish Sign In"]
+                    [:style "
                            body {
                              margin: 0;
                              height: 100vh;
@@ -457,16 +459,16 @@
                                background-color: black;
                              }
                            }"]]
-                 [:body
-                  [:p "Logged in as " email]
-                  [:p
-                   [:a {:class "button"
-                        :href redirect-url}
-                    "Open app"]]
-                  [:script {:type "text/javascript"
-                            :id "redirect-script"
-                            :data-redirect-uri redirect-url}
-                   (h/raw "window.open(document.getElementById('redirect-script').getAttribute('data-redirect-uri'), '_self')")]]]))})
+                   [:body
+                    [:p "Logged in as " email]
+                    [:p
+                     [:a {:class "button"
+                          :href redirect-url}
+                      "Open app"]]
+                    [:script {:type "text/javascript"
+                              :id "redirect-script"
+                              :data-redirect-uri redirect-url}
+                     (h/raw script)]]]))}))
 
 (defn oauth-callback* [{:keys [params] :as req}]
   (try

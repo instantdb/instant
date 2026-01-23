@@ -2,7 +2,7 @@
   (:require [instant.util.uuid :as uuid-util])
   (:import
    (java.security MessageDigest)
-   (java.util UUID)
+   (java.util Base64 UUID)
    (javax.crypto Mac)
    (javax.crypto.spec SecretKeySpec)
    (com.google.crypto.tink Aead JsonKeysetReader TinkJsonProtoKeysetFormat
@@ -69,6 +69,11 @@
 
 (defn hex-string->bytes ^bytes [^String s]
   (Hex/decodeHex s))
+
+(defn bytes->b64-string [^bytes b]
+  (-> (Base64/getEncoder)
+      (.encode b)
+      (String. "UTF-8")))
 
 (defn random-bytes [^Long size]
   (Random/randBytes size))
