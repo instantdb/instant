@@ -36,6 +36,12 @@ npx instant-cli init-without-files --title <APP_NAME>
 
 This outputs an app id and admin token. Store them in an env file.
 
+If you get an error related to not being logged in tell the user to:
+
+- Sign up for free or log in at https://instantdb.com
+- Then run `npx instant-cli login` to authenticate the CLI
+- Then re-run the init command
+
 If you have an app id/admin token but no schema/perm files, pull them:
 
 ```bash
