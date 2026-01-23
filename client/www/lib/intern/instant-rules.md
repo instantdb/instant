@@ -16,7 +16,8 @@ Instant provides client-side JS SDKs and an admin SDK:
 - `@instantdb/admin` --- backend scripts / servers
 
 When installing, always check what package manager the project uses (npm, pnpm,
-bun) first and then install the latest version of the Instant SDK.
+bun) first and then install the latest version of the Instant SDK. If working in
+React use Next and Tailwind unless specified otherwise.
 
 # Managing Instant Apps
 
