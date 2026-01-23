@@ -867,23 +867,11 @@ export const InnerExplorer: React.FC<{
               }
               onClick={async () => {
                 try {
-                  if (selectedNamespace.name === '$files') {
-                    const filenames = allItems
-                      .filter((i) => i.id in checkedIds)
-                      .map((i) => i.path as string);
-                    await bulkDeleteFiles(
-                      explorerProps.adminToken,
-                      explorerProps.appId,
-                      filenames,
-                      explorerProps.apiURI,
-                    );
-                  } else {
-                    await db.transact(
-                      Object.keys(checkedIds).map((id) =>
-                        tx[selectedNamespace.name][id].delete(),
-                      ),
-                    );
-                  }
+                  await db.transact(
+                    Object.keys(checkedIds).map((id) =>
+                      tx[selectedNamespace.name][id].delete(),
+                    ),
+                  );
                 } catch (error: any) {
                   const errorMessage = error.message;
                   errorToast(
@@ -1480,27 +1468,6 @@ async function upload(
     headers,
     body: file,
   });
-
-  return data;
-}
-
-async function bulkDeleteFiles(
-  token: string,
-  appId: string,
-  filenames: string[],
-  apiUri: string,
-): Promise<any> {
-  const { data } = await jsonFetch(
-    `${apiUri}/dash/apps/${appId}/storage/files/delete`,
-    {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ filenames }),
-    },
-  );
 
   return data;
 }
