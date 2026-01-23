@@ -610,7 +610,8 @@
 
 (defn start-global []
   (def wal-opts (start))
-  (def shutdown-singleton (:shutdown (start-singleton))))
+  (when-not (flags/toggled? :dont-init-singleton-invalidator)
+    (def shutdown-singleton (:shutdown (start-singleton)))))
 
 (defn stop-global []
   (when (bound? #'wal-opts)
