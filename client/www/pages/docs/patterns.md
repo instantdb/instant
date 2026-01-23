@@ -372,3 +372,69 @@ transactions in the sandbox can run for up to 30 seconds,
 Once you have a sense of how long your queries and transactions take, you can
 iteratively optimize them. For example, you can use pagination or add indexes
 to speed up queries, or break up large transactions into smaller ones.
+
+## Setting default values when making an attribute required
+
+When converting an optional attribute to a required one, you'll need to
+update existing entities with null values.
+
+For example, if you try to make `done` required on `todos` but some
+records have null values:
+
+```
+INVALID DATA adding required constraint to todos.done.
+  First few examples:
+  namespace       | id                                    | done
+  ----------------|---------------------------------------|------
+  todos           | 13a09c93-cee0-4e21-9e41-c7e08edd1649  | null
+  todos           | 043eec60-d971-4689-8e4a-099e82c251a2  | null
+```
+
+The solution is to run an admin script to backfill the null values before pushing the schema change.
+
+```typescript
+// scripts/backfill-todos.ts
+import { init, tx } from '@instantdb/admin';
+
+const db = init({
+  appId: process.env.INSTANT_APP_ID!,
+  adminToken: process.env.INSTANT_ADMIN_TOKEN!,
+});
+
+async function backfillDefaults() {
+  // Query for entities with null/missing done
+  const { data } = await db.query({
+    todos: {
+      $: {
+        where: {
+          done: { $isNull: true },
+        },
+      },
+    },
+  });
+
+  // Update them with a default value
+  const updates = data.todos.map((todo) =>
+    tx.todos[todo.id].update({ done: false }),
+  );
+
+  if (updates.length > 0) {
+    await db.transact(updates);
+    console.log(`Backfilled ${updates.length} records`);
+  } else {
+    console.log('No records to backfill');
+  }
+}
+
+backfillDefaults();
+```
+
+Then run the script before pushing your schema:
+
+```bash
+npx tsx scripts/backfill-todos.ts && npx instant-cli push
+```
+
+This pattern gives you full control over setting default values. You can set
+static values as shown above, or use more complex logic to determine the default
+based on other attributes.
