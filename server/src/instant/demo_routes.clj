@@ -74,7 +74,7 @@
                           [:script {:type "text/javascript"} (h/raw script-a)]
                           [:script {:type "text/javascript"} (h/raw script-b)]]]))}))
 
-(defn get-csp-demo [req]
+(defn get-csp-demo [_req]
   page)
 
 (defroutes routes
