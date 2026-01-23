@@ -11,6 +11,7 @@ Instant is the easy to use backend for your frontend. With Instant you can build
 The fastest way to get started with Instant is to use `npx create-instant-app` to scaffold a new project with Instant already set up.
 
 To get started with Next.JS run:
+
 ```bash {% showCopy=true %}
 npx create-instant-app --next
 ```
@@ -18,6 +19,7 @@ npx create-instant-app --next
 This will create a new Next.JS project with the following steps on this page already complete.
 
 # Manual Setup
+
 To use Instant in a new Next project, fire up your terminal and run the following:
 
 ```shell {% showCopy=true %}
@@ -27,21 +29,24 @@ npm run dev
 ```
 
 Add the InstantDB React Library:
+
 ```shell
 npm i @instantdb/react
 ```
 
 Setup and connect your Instant app.
 This will create a schema and permissions file, and update your `.env` file.
+
 ```shell
 npx instant-cli init
 ```
 
 Create a database client in `src/lib/db.ts`:
+
 ```ts
 // src/lib/db.ts
-import { init } from "@instantdb/react";
-import schema from "../instant.schema";
+import { init } from '@instantdb/react';
+import schema from '../instant.schema';
 
 export const db = init({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
@@ -52,13 +57,12 @@ export const db = init({
 
 You're now ready to make queries and transactions to your database!
 
-
 ## Creating a To-Do List App
 
 Let's add a "todo" entity to our schema file at `src/instant.schema.ts`:
 
 ```ts {% showCopy=true lineHighlight="14-18" %}
-import { i } from "@instantdb/react";
+import { i } from '@instantdb/react';
 
 const _schema = i.schema({
   entities: {
@@ -80,15 +84,15 @@ const _schema = i.schema({
   links: {
     $usersLinkedPrimaryUser: {
       forward: {
-        on: "$users",
-        has: "one",
-        label: "linkedPrimaryUser",
-        onDelete: "cascade",
+        on: '$users',
+        has: 'one',
+        label: 'linkedPrimaryUser',
+        onDelete: 'cascade',
       },
       reverse: {
-        on: "$users",
-        has: "many",
-        label: "linkedGuestUsers",
+        on: '$users',
+        has: 'many',
+        label: 'linkedGuestUsers',
       },
     },
   },
@@ -99,12 +103,15 @@ const _schema = i.schema({
 ```
 
 Push the schema:
+
 ```shell {% showCopy=true %}
 npx instant-cli push
 ```
 
 ### Reading Data
+
 Replace the content of `src/app/page.tsx` with the following:
+
 ```typescript
 "use client"
 import { db } from "@/lib/db";
@@ -131,6 +138,7 @@ export default function Home() {
 Open the [Explorer](https://www.instantdb.com/dash) with `npx instant-cli explorer` and create a new row in the "todos" namespace. As you make changes to the data, your website will update in real time.
 
 ### Writing Data
+
 We can use `db.transact()` to create, delete, or update rows in our database.
 
 When we make changes, the relevant queries automatically update.
