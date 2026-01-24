@@ -248,44 +248,24 @@
         formatter (java.time.format.DateTimeFormatter/ofPattern "MMM d")]
     (.format local-date formatter)))
 
-(defn rolling-avg-signups
-  "Get rolling 7-day average signup counts for the last n weeks"
-  ([conn weeks]
-   (let [;; Exclude today since it has incomplete data
-         end-date (.minusDays (LocalDate/now) 1)
-         start-date (.minusWeeks end-date weeks)
-         ;; Add extra days for the rolling window
-         window-start (.minusDays start-date 6)]
-     (sql/select conn
-                 ["WITH daily_signups AS (
-                    SELECT
-                      DATE_TRUNC('day', u.created_at)::date AS signup_date,
-                      COUNT(u.id) AS signup_count
-                    FROM instant_users u
-                    WHERE u.created_at >= ?::date
-                      AND u.created_at <= ?::date
-                      AND u.email NOT IN (SELECT unnest(?::text[]))
-                    GROUP BY 1
-                  ),
-                  date_series AS (
-                    SELECT generate_series(?::date, ?::date, '1 day'::interval)::date AS analysis_date
-                  )
-                  SELECT 
-                    ds.analysis_date,
-                    ROUND(AVG(COALESCE(daily.signup_count, 0)) OVER (
-                      ORDER BY ds.analysis_date 
-                      ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
-                    ), 2) AS rolling_avg
-                  FROM date_series ds
-                  LEFT JOIN daily_signups daily ON ds.analysis_date = daily.signup_date
-                  WHERE ds.analysis_date >= ?::date
-                  ORDER BY ds.analysis_date"
-                  window-start
-                  end-date
-                  (with-meta (excluded-emails) {:pgtype "text[]"})
-                  window-start
-                  end-date
-                  start-date]))))
+(defn daily-signups
+  "Get daily signup counts for the last n days"
+  [conn days]
+  (let [end-date (.minusDays (LocalDate/now) 1)  ;; Exclude today (incomplete)
+        start-date (.minusDays end-date (dec days))]
+    (sql/select conn
+                ["SELECT
+                   DATE_TRUNC('day', u.created_at)::date AS signup_date,
+                   COUNT(u.id) AS signup_count
+                 FROM instant_users u
+                 WHERE u.created_at >= ?::date
+                   AND u.created_at < (?::date + interval '1 day')
+                   AND u.email NOT IN (SELECT unnest(?::text[]))
+                 GROUP BY 1
+                 ORDER BY 1"
+                 start-date
+                 end-date
+                 (with-meta (excluded-emails) {:pgtype "text[]"})])))
 
 (defn weekly-signups
   "Get weekly signup counts (Monday-Sunday) for the last n weeks"
@@ -295,7 +275,7 @@
          ;; Find the most recent Sunday (end of a complete week)
          days-since-sunday (mod (.getValue (.getDayOfWeek end-date)) 7)
          last-sunday (if (zero? days-since-sunday)
-                       end-date 
+                       end-date
                        (.minusDays end-date days-since-sunday))
          last-monday (.minusDays last-sunday 6)
          start-date (.minusWeeks last-monday weeks)]
@@ -465,32 +445,29 @@
 ;; ---------------- 
 ;; Signup Charts
 
-(defn generate-rolling-signups-chart [conn]
-  (let [signup-data (rolling-avg-signups conn 12)
-        formatted-data (map #(assoc % :formatted_date (format-date-label (:analysis_date %))) 
-                           signup-data)]
-    (generate-line-chart formatted-data
-                        :formatted_date
-                        :rolling_avg
-                        "7-Day Rolling Average Signups")))
-
 (defn generate-weekly-signups-chart [conn]
   (let [signup-data (weekly-signups conn 12)
-        formatted-data (map #(assoc % :formatted_week (format-date-label (:week_start %))) 
-                           signup-data)]
+        formatted-data (map #(assoc % :formatted_week (format-date-label (:week_start %)))
+                            signup-data)]
     (generate-bar-chart formatted-data
-                       :formatted_week
-                       :signup_count
-                       "Weekly Signups")))
+                        :formatted_week
+                        :signup_count
+                        "Weekly Signups")))
+
+(defn generate-daily-signups-chart [conn]
+  (let [signup-data (daily-signups conn 14)
+        formatted-data (map #(assoc % :formatted_date (format-date-label (:signup_date %)))
+                            signup-data)]
+    (generate-bar-chart formatted-data
+                        :formatted_date
+                        :signup_count
+                        "Daily Signups (Last 14 Days)")))
 
 (comment
   (tool/with-prod-conn [conn]
-    (let [rolling-avg-chart (generate-rolling-signups-chart conn)
-          weekly-chart (generate-weekly-signups-chart conn)]
-      (save-chart-into-file! rolling-avg-chart "resources/metrics/rolling-signups.png")
+    (let [weekly-chart (generate-weekly-signups-chart conn)]
       (save-chart-into-file! weekly-chart "resources/metrics/weekly-signups.png")
       (shell/sh "open" "resources/metrics"))))
-
 
 ;; ---------------- 
 ;; Overview Metrics 
@@ -530,14 +507,14 @@
                                                        target-date)
 
                                        cleanup-line-chart!)
-        
-        rolling-avg-signups-chart (generate-rolling-signups-chart conn)
+
+        daily-signups-chart (generate-daily-signups-chart conn)
         weekly-signups-chart (generate-weekly-signups-chart conn)]
     {:date (date/numeric-date-str target-date)
      :data-points {:rolling-monthly-stats rolling-monthly-stats}
      :charts {:rolling-monthly-active-apps rolling-monthly-active-apps
               :month-to-date-active-apps month-to-date-active-apps
-              :rolling-avg-signups rolling-avg-signups-chart
+              :daily-signups daily-signups-chart
               :weekly-signups weekly-signups-chart}}))
 
 (comment
