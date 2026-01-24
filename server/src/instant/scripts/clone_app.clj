@@ -626,7 +626,7 @@
     (die! "--workers must be > 0.")))
 
 (defn clone-app!
-  [{:keys [env app-id new-email new-title batch-size workers report-every skip-count] :as opts}]
+  [{:keys [app-id new-email new-title batch-size workers report-every skip-count] :as opts}]
   (validate-opts! opts)
   (let [db-url (resolve-db-url! opts)
         config (merge (config/db-url->config db-url)
