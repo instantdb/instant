@@ -337,51 +337,6 @@
                           [:value-md5 :desc]]
                :limit 1} :last-value-md5]]}))
 
-(def ^:private helper-ddl
-  [(str/join "\n"
-             ["CREATE TABLE IF NOT EXISTS clone_app_jobs ("
-              "  job_id uuid PRIMARY KEY,"
-              "  old_app_id uuid NOT NULL,"
-              "  new_app_id uuid NOT NULL,"
-              "  new_title text,"
-              "  creator_email text,"
-              "  batch_size integer NOT NULL,"
-              "  workers integer NOT NULL,"
-              "  total_triples bigint,"
-              "  status text NOT NULL,"
-              "  error text,"
-              "  created_at timestamptz NOT NULL DEFAULT now(),"
-              "  updated_at timestamptz NOT NULL DEFAULT now(),"
-              "  finished_at timestamptz"
-              ");"])
-   (str/join "\n"
-             ["CREATE TABLE IF NOT EXISTS clone_app_progress ("
-              "  job_id uuid NOT NULL,"
-              "  worker_id integer NOT NULL,"
-              "  rows_copied bigint NOT NULL DEFAULT 0,"
-              "  last_entity_id uuid,"
-              "  last_attr_id uuid,"
-              "  last_value_md5 text,"
-              "  updated_at timestamptz NOT NULL DEFAULT now(),"
-              "  done boolean NOT NULL DEFAULT false,"
-              "  PRIMARY KEY (job_id, worker_id)"
-              ");"])
-   "CREATE INDEX IF NOT EXISTS clone_app_progress_job_id_idx ON clone_app_progress (job_id);"
-   (str/join "\n"
-             ["CREATE UNLOGGED TABLE IF NOT EXISTS clone_app_attr_map ("
-              "  job_id uuid NOT NULL,"
-              "  old_id uuid NOT NULL,"
-              "  new_id uuid NOT NULL,"
-              "  PRIMARY KEY (job_id, old_id)"
-              ");"])
-   (str/join "\n"
-             ["CREATE UNLOGGED TABLE IF NOT EXISTS clone_app_ident_map ("
-              "  job_id uuid NOT NULL,"
-              "  old_id uuid NOT NULL,"
-              "  new_id uuid NOT NULL,"
-              "  PRIMARY KEY (job_id, old_id)"
-              ");"])])
-
 (defn- usage []
   (str
    "USAGE:\n"
@@ -458,10 +413,6 @@
     :else
     (or (System/getenv "DATABASE_URL")
         (die! "Missing --db-url or --env (prod|dev), and DATABASE_URL not set."))))
-
-(defn- ensure-helper-tables! [ds]
-  (doseq [stmt helper-ddl]
-    (sql/do-execute! ds [stmt])))
 
 (defn- column-count [conn table-name]
   (-> (sql/select-one conn (uhsql/formatp column-count-q {:table-name table-name}))
@@ -684,7 +635,6 @@
                        :poolName "clone_app"})]
     (binding [sql/*query-timeout-seconds* 0]
       (with-open [ds (sql/start-pool config)]
-        (ensure-helper-tables! ds)
         (let [old-app-id (parse-uuid! "--app-id" app-id)
               total-triples (when-not skip-count
                               (count-triples ds old-app-id))
