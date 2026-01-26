@@ -20,7 +20,6 @@ To get started with Next.JS run:
 npx create-instant-app --next
 ```
 
-
 ## Manual Setup
 
 To create a new Next project, fire up your terminal and run the following:
@@ -47,6 +46,7 @@ npx instant-cli init
 Create a database client in `src/lib/db.ts`:
 
 {% file label="src/lib/db.ts" /%}
+
 ```ts
 import { init } from '@instantdb/react';
 import schema from '../instant.schema';
@@ -65,6 +65,7 @@ You're now ready to make queries and transactions to your database!
 Let's add a "todo" entity to our schema file at `src/instant.schema.ts`:
 
 {% file label="src/instant.schema.ts" /%}
+
 ```ts {% showCopy=true lineHighlight="14-18" %}
 import { i } from '@instantdb/react';
 
@@ -117,6 +118,7 @@ npx instant-cli push
 Replace the content of `src/app/page.tsx` with the following:
 
 {% file label="src/app.page.tsx" /%}
+
 ```typescript {% showCopy=true %}
 "use client";
 
