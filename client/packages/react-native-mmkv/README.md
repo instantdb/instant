@@ -22,6 +22,23 @@
 
 Welcome to [Instant's](http://instantdb.com) React Native MMKV interface.
 
+## Usage
+
+### Create an app with expo
+npx create-expo-app instant-rn-demo
+cd instant-rn-demo
+
+### Install instant
+npm i @instantdb/react-native @instantdb/react-native-mmkv
+
+### Install peer dependencies
+npx expo install react-native-mmkv react-native-nitro-modules @react-native-community/netinfo react-native-get-random-values  @react-native-async-storage/async-storage
+
+### Prebuild
+npx expo prebuild
+
+### Import Storage from @instantdb/react-native-mmkv
+
 ```javascript
 // ༼ つ ◕_◕ ༽つ Real-time Chat
 // ----------------------------------
