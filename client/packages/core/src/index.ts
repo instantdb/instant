@@ -23,6 +23,7 @@ import {
 
 import {
   StorageInterface,
+  type StorageInterfaceClass,
   type StorageInterfaceStoreName,
 } from './utils/PersistedObject.ts';
 import { createInstantRouteHandler } from './createRouteHandler.ts';
@@ -164,6 +165,7 @@ export type InstantConfig<
   queryCacheLimit?: number;
   useDateObjects: UseDates;
   disableValidation?: boolean;
+  Storage?: StorageInterfaceClass;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
@@ -1042,6 +1044,7 @@ export {
 
   // storage (e.g. indexeddb) interface
   StorageInterface,
+  type StorageInterfaceClass,
   type StorageInterfaceStoreName,
   createInstantRouteHandler,
 };

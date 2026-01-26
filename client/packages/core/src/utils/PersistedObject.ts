@@ -45,6 +45,11 @@ export abstract class StorageInterface {
   abstract getAllKeys(): Promise<string[]>;
 }
 
+export type StorageInterfaceClass = new (
+  appId: string,
+  storeName: StorageInterfaceStoreName,
+) => StorageInterface;
+
 export type GCOpts = {
   maxSize: number;
   maxAgeMs: number;

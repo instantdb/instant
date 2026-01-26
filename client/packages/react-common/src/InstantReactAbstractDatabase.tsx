@@ -72,7 +72,7 @@ export default abstract class InstantReactAbstractDatabase<
     this.core = core_init<Schema, UseDates>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
-      this.constructor.Storage,
+      config.Storage || this.constructor.Storage,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.NetworkListener,
       versions,
