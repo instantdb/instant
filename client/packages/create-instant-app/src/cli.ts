@@ -6,7 +6,12 @@ import { coerceAppName, validateAppName } from './utils/validateAppName.js';
 import { renderUnwrap, UI } from 'instant-cli/ui';
 
 export type Project = {
-  base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
+  base:
+    | 'next-js-app-dir'
+    | 'vite-vanilla'
+    | 'expo'
+    | 'tanstack-start'
+    | 'tanstack-start-full';
   ruleFiles:
     | 'cursor'
     | 'claude'
@@ -202,6 +207,11 @@ export const runCli = async (): Promise<{
               { value: 'next-js-app-dir', label: 'Next.js' },
               { value: 'vite-vanilla', label: 'Vite: Vanilla TS' },
               { value: 'expo', label: 'Expo: React Native' },
+              { value: 'tanstack-start', label: 'Tanstack Start' },
+              {
+                value: 'tanstack-start-full',
+                label: 'Tanstack Start W/ Auth',
+              },
             ],
             defaultValue: 'next-js-app-dir' as Project['base'],
             modifyOutput: UI.modifiers.piped([UI.ciaModifier()]),
