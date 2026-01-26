@@ -22,9 +22,9 @@ import {
 } from './transactionValidation.ts';
 
 import {
-  StorageInterface,
-  type StorageInterfaceClass,
-  type StorageInterfaceStoreName,
+  StoreInterface,
+  type StoreInterfaceClass,
+  type StoreInterfaceStoreName,
 } from './utils/PersistedObject.ts';
 import { createInstantRouteHandler } from './createRouteHandler.ts';
 import { parseSchemaFromJSON } from './parseSchemaFromJSON.ts';
@@ -165,7 +165,7 @@ export type InstantConfig<
   queryCacheLimit?: number;
   useDateObjects: UseDates;
   disableValidation?: boolean;
-  Storage?: StorageInterfaceClass;
+  Store?: StoreInterfaceClass;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
@@ -813,7 +813,7 @@ function init<
   config: Omit<InstantConfig<Schema, UseDates>, 'useDateObjects'> & {
     useDateObjects?: UseDates;
   },
-  Storage?: any,
+  Store?: any,
   NetworkListener?: any,
   versions?: { [key: string]: string },
   EventSourceImpl?: any,
@@ -840,7 +840,7 @@ function init<
       ...configStrict,
       cardinalityInference: configStrict.schema ? true : false,
     },
-    Storage || IndexedDBStorage,
+    Store || IndexedDBStorage,
     NetworkListener || WindowNetworkListener,
     { ...(versions || {}), '@instantdb/core': version },
     EventSourceImpl,
@@ -1042,9 +1042,15 @@ export {
   // error types
   type InstantIssue,
 
-  // storage (e.g. indexeddb) interface
-  StorageInterface,
-  type StorageInterfaceClass,
-  type StorageInterfaceStoreName,
+  // store (e.g. indexeddb) interface
+  StoreInterface,
+  type StoreInterfaceClass,
+  type StoreInterfaceStoreName,
   createInstantRouteHandler,
 };
+
+/** @deprecated Use StoreInterface instead */
+export const StorageInterface = StoreInterface;
+
+/** @deprecated Use StoreInterfaceStoreName instead */
+export type StorageInterfaceStoreName = StoreInterfaceStoreName;

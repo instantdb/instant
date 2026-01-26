@@ -92,6 +92,8 @@ import {
   type SyncTableSyncTransaction,
   type SyncTableLoadFromStorage,
   type SyncTableSetupError,
+  StoreInterface,
+  type StoreInterfaceStoreName,
 } from '@instantdb/core';
 
 /**
@@ -249,6 +251,10 @@ export {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // custom store
+  StoreInterface,
+  type StoreInterfaceStoreName,
 
   // sync table types
   type SyncTableCallback,

@@ -35,20 +35,20 @@ export type Meta<K extends string> = {
   objects: Record<K, ObjectMeta>;
 };
 
-export type StorageInterfaceStoreName = 'kv' | 'querySubs' | 'syncSubs';
+export type StoreInterfaceStoreName = 'kv' | 'querySubs' | 'syncSubs';
 
-export abstract class StorageInterface {
-  constructor(appId: string, storeName: StorageInterfaceStoreName) {}
+export abstract class StoreInterface {
+  constructor(appId: string, storeName: StoreInterfaceStoreName) {}
   abstract getItem(key: string): Promise<any>;
   abstract removeItem(key: string): Promise<void>;
   abstract multiSet(keyValuePairs: Array<[string, any]>): Promise<void>;
   abstract getAllKeys(): Promise<string[]>;
 }
 
-export type StorageInterfaceClass = new (
+export type StoreInterfaceClass = new (
   appId: string,
-  storeName: StorageInterfaceStoreName,
-) => StorageInterface;
+  storeName: StoreInterfaceStoreName,
+) => StoreInterface;
 
 export type GCOpts = {
   maxSize: number;
@@ -57,7 +57,7 @@ export type GCOpts = {
 };
 
 export type Opts<K, T, SerializedT> = {
-  persister: StorageInterface;
+  persister: StoreInterface;
   /**
    * Merges data from storage with in-memory value on load.
    * The value returned from merge will become the current value.
@@ -80,7 +80,7 @@ export type Opts<K, T, SerializedT> = {
 export class PersistedObject<K extends string, T, SerializedT> {
   currentValue: Record<K, T>;
   private _subs: ((value: Record<K, T>) => void)[] = [];
-  private _persister: StorageInterface;
+  private _persister: StoreInterface;
   private _merge: (key: K, fromStorage: T, inMemoryValue: T) => T;
   private serialize: (key: K, input: T) => SerializedT;
   private parse: (key: K, value: SerializedT) => T;

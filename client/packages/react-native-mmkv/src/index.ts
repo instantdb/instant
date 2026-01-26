@@ -1,9 +1,9 @@
-import { StorageInterface, StorageInterfaceStoreName } from '@instantdb/core';
+import { StoreInterface, StoreInterfaceStoreName } from '@instantdb/core';
 import { createMMKV, MMKV } from 'react-native-mmkv';
 
-export default class Storage extends StorageInterface {
+export default class Store extends StoreInterface {
   _store: MMKV;
-  constructor(appId: string, storeName: StorageInterfaceStoreName) {
+  constructor(appId: string, storeName: StoreInterfaceStoreName) {
     super(appId, storeName);
     this._store = createMMKV({
       id: `instant-${appId}-${storeName}`,

@@ -2,8 +2,8 @@ import {
   Meta,
   META_KEY,
   ObjectMeta,
-  StorageInterface,
-  StorageInterfaceStoreName,
+  StoreInterface,
+  StoreInterfaceStoreName,
 } from './utils/PersistedObject.ts';
 
 // Any time these are updates to the data format or new stores are added,
@@ -20,7 +20,7 @@ const storeNames = ['kv', 'querySubs', 'syncSubs'] as const;
 
 // Check that we're not missing a store name in storeNames
 type MissingStoreNames = Exclude<
-  StorageInterfaceStoreName,
+  StoreInterfaceStoreName,
   (typeof storeNames)[number]
 >;
 const _exhaustiveCheck: never = null as MissingStoreNames;
@@ -183,14 +183,14 @@ async function upgrade5To6(appId: string, v6Db: IDBDatabase): Promise<void> {
 // we start writing.
 const upgradePromises = new Map();
 
-export default class IndexedDBStorage extends StorageInterface {
+export default class IndexedDBStorage extends StoreInterface {
   dbName: string;
-  _storeName: StorageInterfaceStoreName;
+  _storeName: StoreInterfaceStoreName;
   _appId: string;
   _prefix: string;
   _dbPromise: Promise<IDBDatabase>;
 
-  constructor(appId: string, storeName: StorageInterfaceStoreName) {
+  constructor(appId: string, storeName: StoreInterfaceStoreName) {
     super(appId, storeName);
     this.dbName = `instant_${appId}_${version}`;
     this._storeName = storeName;

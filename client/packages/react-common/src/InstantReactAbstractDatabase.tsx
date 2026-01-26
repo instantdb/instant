@@ -59,7 +59,7 @@ export default abstract class InstantReactAbstractDatabase<
   /** @deprecated use `core` instead */
   public _core: InstantCoreDatabase<Schema, UseDates>;
 
-  static Storage?: any;
+  static Store?: any;
   static NetworkListener?: any;
   static EventSourceImpl?: any;
 
@@ -72,7 +72,7 @@ export default abstract class InstantReactAbstractDatabase<
     this.core = core_init<Schema, UseDates>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
-      config.Storage || this.constructor.Storage,
+      config.Store || this.constructor.Store,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.NetworkListener,
       versions,
