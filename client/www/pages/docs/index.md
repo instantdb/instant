@@ -113,8 +113,6 @@ Push the schema:
 npx instant-cli push
 ```
 
-### Reading Data
-
 Replace the content of `src/app/page.tsx` with the following:
 
 {% file label="src/app.page.tsx" /%}
