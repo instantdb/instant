@@ -241,6 +241,18 @@
         (dissoc :$ne))
     where-cond-v))
 
+(defn split-path [k v]
+  (let [parts (string/split (name k) #"\.")]
+    (if (and (< 1 (count parts))
+             (= "id" (last parts))
+             (or (uuid-util/coerce v)
+                 (when (map? v)
+                   (or (contains? v :$isNull)
+                       (and (contains? v :$not)
+                            (uuid-util/coerce (:$not v)))))))
+      (vec (butlast parts))
+      parts)))
+
 (defn- coerce-where-cond
   "Splits keys into segments."
   [state attrs [k v :as c]]
@@ -294,7 +306,7 @@
          (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
          ;; If the where cond has `$isNull=true`, then we need it to
          ;; match if any of the intermediate paths are null
-         (let [path (string/split (name k) #"\.")
+         (let [path (split-path k v)
                conds (mapv (fn [p]
                              [p {:$isNull true}])
                            (grow-paths path))]
@@ -302,7 +314,7 @@
              [{:and conds}]
              [{:or conds}]))
 
-         :else [[(string/split (name k) #"\.") v]])))
+         :else [[(split-path k v) v]])))
 
 (defn coerce-order [state order-map]
   (case (count order-map)

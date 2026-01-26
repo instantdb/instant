@@ -1420,8 +1420,7 @@
              (query-pretty
               {:users
                {:$ {:where {:bookshelves.books.id bookshelves-id}}}})
-             '({:topics ([#{:av} _ #{:books/id} #{"eid-musashi"}]
-                         [#{:vae} _ #{:bookshelves/books} #{"eid-musashi"}]
+             '({:topics ([#{:vae} _ #{:bookshelves/books} #{"eid-musashi"}]
                          [#{:vae} _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
                          --
                          [#{:ea} #{"eid-stepan-parunashvili"}
@@ -1432,7 +1431,6 @@
                  ("eid-stepan-parunashvili"
                   :users/bookshelves
                   "eid-the-way-of-the-gentleman")
-                 ("eid-musashi" :books/id "eid-musashi")
                  --
                  ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
                  ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
