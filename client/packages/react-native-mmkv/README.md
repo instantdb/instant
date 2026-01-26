@@ -63,7 +63,7 @@ import MMKVStore from '@instantdb/react-native-mmkv';
 
 const db = init({
   appId: process.env.EXPO_PUBLIC_INSTANT_APP_ID,
-  Store: MMKVStore
+  Store: MMKVStore,
 });
 
 function Chat() {
