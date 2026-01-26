@@ -1,7 +1,43 @@
 import { AppSchema } from "@/instant.schema";
 import { db } from "@/lib/db";
 import { id, InstaQLEntity } from "@instantdb/react";
+import { getRequest } from "@tanstack/react-start/server";
+
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createMiddleware, createServerFn } from "@tanstack/react-start";
+
+const instantUserMiddleware = createMiddleware().server(({ next }) => {
+  const request = getRequest();
+  const cookieHeader = request.headers.get("cookie") || "";
+  const appId = import.meta.env.VITE_INSTANT_APP_ID;
+  const cookieName = "instant_user_" + appId;
+
+  let user = null;
+  const cookies = cookieHeader.split(";").map((c) => c.trim());
+  for (const cookie of cookies) {
+    if (cookie.startsWith(cookieName + "=")) {
+      const value = cookie.slice(cookieName.length + 1);
+      try {
+        user = JSON.parse(decodeURIComponent(value));
+      } catch {
+        user = null;
+      }
+      break;
+    }
+  }
+
+  return next({
+    context: { user },
+  });
+});
+
+const getUser = createServerFn()
+  .middleware([instantUserMiddleware])
+  .handler(async ({ context }) => {
+    return {
+      hi: "Lol",
+    };
+  });
 
 export const Route = createFileRoute("/")({
   component: App,
