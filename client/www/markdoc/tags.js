@@ -39,6 +39,16 @@ const tags = {
     },
     render: Ansi,
   },
+  file: {
+    attributes: {
+      label: { type: String },
+    },
+    render: ({ label }) => (
+      <div className="-mb-3 ml-1 text-sm font-bold text-gray-600/50">
+        {label}
+      </div>
+    ),
+  },
   screenshot: {
     selfClosing: true,
     attributes: {
