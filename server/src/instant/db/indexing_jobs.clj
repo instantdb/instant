@@ -4,20 +4,20 @@
    [clojure.core.async :as a]
    [clojure.string :as string]
    [honey.sql :as hsql]
+   [instant.config :as config]
    [instant.db.attr-sketch :as cms]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
    [instant.db.model.triple :as triple-model]
    [instant.discord :as discord]
-   [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.system-catalog :as system-catalog]
    [instant.util.async :as ua]
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.pg-hint-plan :as pg-hints]
    [instant.util.tracer :as tracer]
-   [instant.jdbc.sql :as sql]
    [next.jdbc :as next-jdbc])
   (:import
    (clojure.lang ExceptionInfo)
@@ -265,30 +265,6 @@
          [:= :worker-id @config/process-id]
          [:= :job-status "processing"]
          additional-clauses))
-
-(defn missing-null-triple-wheres
-  "Where clauses that return the id triples that are missing a value for the
-   indexed attr."
-  [conn {:keys [app_id attr_id]}]
-  (let [attrs (attr-model/get-by-app-id conn app_id)
-        etype (attr-model/fwd-etype (attr-model/seek-by-id attr_id attrs))
-        _ (assert etype "Attribute has no etype")
-        id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)
-        _ (assert id-attr (str etype " has no id attribute"))
-        indexed-attr (attr-model/seek-by-id attr_id attrs)
-        _ (assert indexed-attr (str "no attr found with id " attr_id))]
-    (if (not= (:value-type indexed-attr) :blob)
-      ;; Just return false if it's not a blob
-      [:= [:inline 1] [:inline 0]]
-      [:and
-       [:= :triples.app-id app_id]
-       [:= :triples.attr-id (:id id-attr)]
-       [:not [:exists {:select :1
-                       :from [[:triples :attr-triples]]
-                       :where [:and
-                               [:= :attr-triples.app-id app_id]
-                               [:= :attr-triples.attr-id attr_id]
-                               [:= :attr-triples.entity-id :triples.entity-id]]}]]])))
 
 (defn update-work-estimate!
   "Uses the attr_sketch to update the estimate of the number of triples
@@ -639,41 +615,61 @@
   (tracer/with-span! (job-span-attrs "insert-nulls" job)
     (try
       (let [{:keys [attr_id app_id]} job
-            q {:with [[:attr {:select :*
-                              :from :attrs
-                              :where [:and
-                                      [:= :attrs.id attr_id]
-                                      [:= :attrs.app_id app_id]]}]]
-               :insert-into [[:triples triple-model/triple-cols]
-                             {:select [[:app_id :app_id]
-                                       [:entity_id :entity_id]
-                                       [attr_id :attr_id]
-                                       [[:cast "null" :jsonb] :value]
-                                       [[:inline json-null-md5] :value_md5]
-                                       [[:= {:select :cardinality :from :attr} [:inline "one"]] :ea]
-                                       [[:= {:select :value_type :from :attr} [:inline "ref"]] :eav]
-                                       [{:select :is_unique :from :attr} :av]
-                                       [{:select :is_indexed :from :attr} :ave]
-                                       [[:= {:select :value_type :from :attr} [:inline "ref"]] :vae]
-                                       [{:select :checked_data_type :from :attr} :checked_data_type]]
-                              :from {:select [:triples.app_id
-                                              :triples.entity_id]
-                                     :from :triples
-                                     ;; The `for update` should prevent a concurrent
-                                     ;; query from deleting the entity while we're
-                                     ;; doing our insert
-                                     :for :update
-                                     :where (missing-null-triple-wheres conn job)
-                                     :limit batch-size}}]
-               :pg-hints [(pg-hints/index-scan :triples :triples_pkey)
-                          (pg-hints/index-scan :attr_triples :triples_pkey)
-                          (pg-hints/merge-join :triples :attr_triples)]}
-            res (sql/do-execute! ::insert-nulls-next-batch! conn (hsql/format q))
-            update-count (:next.jdbc/update-count (first res))]
-        (tracer/add-data! {:attributes {:update-count update-count}})
-        (add-work-completed! conn update-count job)
-        (when (pos? update-count)
-          [::repeat]))
+            attrs (attr-model/get-by-app-id conn app_id)
+            indexed-attr (attr-model/seek-by-id attr_id attrs)
+            _ (assert indexed-attr (str "no attr found with id " attr_id))]
+        (when (= :blob (:value-type indexed-attr))
+          (let [etype (attr-model/fwd-etype indexed-attr)
+                _ (assert etype "Attribute has no etype")
+                id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)
+                _ (assert id-attr (str etype " has no id attribute"))
+                q {:with [[:attr {:select :*
+                                  :from :attrs
+                                  :where [:and
+                                          [:= :attrs.id attr_id]
+                                          [:= :attrs.app_id app_id]]}]]
+                   :insert-into [[:triples triple-model/triple-cols]
+                                 {:select [[:app_id :app_id]
+                                           [:entity_id :entity_id]
+                                           [attr_id :attr_id]
+                                           [[:cast "null" :jsonb] :value]
+                                           [[:inline json-null-md5] :value_md5]
+                                           [[:= {:select :cardinality :from :attr} [:inline "one"]] :ea]
+                                           [[:= {:select :value_type :from :attr} [:inline "ref"]] :eav]
+                                           [{:select :is_unique :from :attr} :av]
+                                           [{:select :is_indexed :from :attr} :ave]
+                                           [[:= {:select :value_type :from :attr} [:inline "ref"]] :vae]
+                                           [{:select :checked_data_type :from :attr} :checked_data_type]]
+                                  :from {:select [:triples.app_id
+                                                  :triples.entity_id]
+                                         :from :triples
+                                         ;; The `for update` should prevent a concurrent
+                                         ;; query from deleting the entity while we're
+                                         ;; doing our insert
+                                         :for :update
+                                         :where [:and
+                                                 [:= :triples.app-id app_id]
+                                                 [:= :triples.attr-id (:id id-attr)]
+                                                 (cond (:unique? id-attr) :av
+                                                       (:indexed? id-attr) :ave
+                                                       :else nil)
+                                                 [:not [:exists {:select :1
+                                                                 :from [[:triples :attr-triples]]
+                                                                 :where [:and
+                                                                         [:= :attr-triples.app-id app_id]
+                                                                         [:= :attr-triples.attr-id attr_id]
+                                                                         [:= :attr-triples.entity-id :triples.entity-id]]}]]]
+                                         :limit batch-size}}]
+                   :pg-hints [(pg-hints/index-scan :triples (cond (:unique? id-attr) :av_index
+                                                                  (:indexed? id-attr) :ave_with_e_index
+                                                                  :else :triples_pkey))
+                              (pg-hints/index-scan :attr_triples :triples_pkey)]}
+                res (sql/do-execute! ::insert-nulls-next-batch! conn (hsql/format q))
+                update-count (:next.jdbc/update-count (first res))]
+            (tracer/add-data! {:attributes {:update-count update-count}})
+            (add-work-completed! conn update-count job)
+            (when (pos? update-count)
+              [::repeat]))))
       (catch ExceptionInfo e
         (abort-index! conn job)
         [::exception e]))))
@@ -867,6 +863,9 @@
                      :where [:and
                              [:= :t-id/app-id app-id]
                              [:= :t-id/attr-id (:id id-attr)]
+                             (cond (:unique? id-attr) :av
+                                   (:indexed? id-attr) :ave
+                                   :else nil)
                              [:not
                               [:exists
                                {:select :1
@@ -877,8 +876,9 @@
                                         [:= :t-a/attr-id attr-id]
                                         [:not= :t-a/value [:cast "null" :jsonb]]]}]]]
                      :pg-hints [(pg-hints/index-scan :t-a :triples_pkey)
-                                (pg-hints/index-scan :t-id :triples_pkey)
-                                (pg-hints/merge-join :t-id :t-a)]}
+                                (pg-hints/index-scan :t-id (cond (:unique? id-attr) :av_index
+                                                                 (:indexed? id-attr) :ave_with_e_index
+                                                                 :else :triples_pkey))]}
               res (sql/select ::validate-required conn (hsql/format query))]
           (when (seq res)
             (update-attr! conn {:app-id  app-id
