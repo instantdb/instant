@@ -6,6 +6,7 @@ const envNames: Record<Project['base'], string> = {
   'next-js-app-dir': 'NEXT_PUBLIC_INSTANT_APP_ID',
   'vite-vanilla': 'VITE_INSTANT_APP_ID',
   expo: 'EXPO_PUBLIC_INSTANT_APP_ID',
+  'tanstack-start': 'VITE_INSTANT_APP_ID',
 };
 
 export const applyEnvFile = (
