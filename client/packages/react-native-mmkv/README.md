@@ -51,11 +51,11 @@ npx expo prebuild
 // * Works offline
 
 import { init, id } from '@instantdb/react-native';
-improt Storage from '@instantdb/react-native-mmkv';
+improt MMKVStore from '@instantdb/react-native-mmkv';
 
 const db = init({
   appId: process.env.NEXT_PUBLIC_APP_ID,
-  Storage: Storage
+  Store: MMKVStore
 });
 
 function Chat() {
