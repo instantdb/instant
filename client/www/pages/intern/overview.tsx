@@ -250,7 +250,7 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
             <img src={charts['month-to-date-active-apps']} />
           </div>
           <div>
-            <img src={charts['rolling-avg-signups']} />
+            <img src={charts['daily-signups']} />
           </div>
           <div>
             <img src={charts['weekly-signups']} />
