@@ -16,7 +16,7 @@
                     :create-instant-app "./packages/create-instant-app"
                     :mcp "./packages/mcp"
                     :components "./packages/components"
-                    })
+                    :react-native-mmkv "./packages/react-native-mmkv"})
 
 (defn package-json-path [main]
   (str main "/package.json"))

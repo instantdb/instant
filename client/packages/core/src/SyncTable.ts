@@ -6,7 +6,7 @@ import { Logger } from './Reactor.js';
 import instaql, { compareOrder } from './instaql.ts';
 import { InstaQLResponse, ValidQuery } from './queryTypes.ts';
 import { EntitiesDef, IContainEntitiesAndLinks } from './schemaTypes.ts';
-import { StorageInterface } from './index.ts';
+import { StoreInterface } from './index.ts';
 
 type SubState = {
   txId?: number;
@@ -446,7 +446,7 @@ export class SyncTable {
 
   constructor(
     trySend: TrySend,
-    storage: StorageInterface,
+    storage: StoreInterface,
     config: Config,
     log: Logger,
     createStore: CreateStore,

@@ -1,12 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StorageInterface, StorageInterfaceStoreName } from '@instantdb/core';
+import { StoreInterface, StoreInterfaceStoreName } from '@instantdb/core';
 
 const version = 5;
 
-export default class Storage extends StorageInterface {
+export default class Store extends StoreInterface {
   private appId: string;
-  private dbName: StorageInterfaceStoreName;
-  constructor(appId: string, dbName: StorageInterfaceStoreName) {
+  private dbName: StoreInterfaceStoreName;
+  constructor(appId: string, dbName: StoreInterfaceStoreName) {
     super(appId, dbName);
     this.appId = appId;
     this.dbName = dbName;
