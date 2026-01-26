@@ -165,6 +165,12 @@ const db = init({
 });
 ```
 
+Then run your app on a device or simulator:
+
+```shell {% showCopy=true %}
+npx expo run:ios # or npx expo run:android
+```
+
 That's it! Instant will now use MMKV for local persistence instead of AsyncStorage.
 
 ### Implementing your own store
