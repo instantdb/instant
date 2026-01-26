@@ -26,20 +26,28 @@ Welcome to [Instant's](http://instantdb.com) React Native MMKV interface.
 
 ### Create an app with expo
 
+```shell
 npx create-expo-app instant-rn-demo
 cd instant-rn-demo
+```
 
 ### Install instant
 
+```shell
 npm i @instantdb/react-native @instantdb/react-native-mmkv
+```
 
 ### Install peer dependencies
 
+```shell
 npx expo install react-native-mmkv react-native-nitro-modules @react-native-community/netinfo react-native-get-random-values @react-native-async-storage/async-storage
+```
 
 ### Prebuild
 
+```shell
 npx expo prebuild
+```
 
 ### Import Storage from @instantdb/react-native-mmkv
 
@@ -51,10 +59,10 @@ npx expo prebuild
 // * Works offline
 
 import { init, id } from '@instantdb/react-native';
-improt MMKVStore from '@instantdb/react-native-mmkv';
+import MMKVStore from '@instantdb/react-native-mmkv';
 
 const db = init({
-  appId: process.env.NEXT_PUBLIC_APP_ID,
+  appId: process.env.EXPO_PUBLIC_INSTANT_APP_ID,
   Store: MMKVStore
 });
 
