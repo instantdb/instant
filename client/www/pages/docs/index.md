@@ -6,51 +6,129 @@ description: How to use Instant with React
 
 Instant is the easy to use backend for your frontend. With Instant you can build delightful apps in less than 10 minutes. Follow the quick start below to **build a live app!**
 
-To use Instant in a brand new project, fire up your terminal and run the following:
+{% callout type="note" %}
+For a more step-by-step tutorial on how to use Instant, check out our [Todo List Tutorial](/examples/todos)
+{% /callout %}
+
+## Automatic Setup With Create Instant App
+
+The fastest way to get started with Instant is to use `npx create-instant-app` to scaffold a new project with Instant already set up.
+
+To get started with Next.JS run:
+
+```bash {% showCopy=true %}
+npx create-instant-app --next
+```
+
+## Manual Setup
+
+To create a new Next project, fire up your terminal and run the following:
 
 ```shell {% showCopy=true %}
 npx create-next-app instant-demo --tailwind --yes
 cd instant-demo
-npm i @instantdb/react
 npm run dev
 ```
 
-Now open up `app/page.tsx` in your favorite editor and replace the entirety of the file with the following code. You can get a sense of how Instant works by looking through the code below!
+Add the InstantDB React Library:
+
+```shell
+npm i @instantdb/react
+```
+
+Setup and connect your Instant app.
+This will log you in if you are not logged in already, then create a schema and permissions file, and update your `.env` file.
+
+```shell
+npx instant-cli init
+```
+
+Create a database client in `src/lib/db.ts`:
+
+{% file label="src/lib/db.ts" /%}
+
+```ts
+import { init } from '@instantdb/react';
+import schema from '../instant.schema';
+
+export const db = init({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+  schema,
+  useDateObjects: true,
+});
+```
+
+You're now ready to make queries and transactions to your database!
+
+### Creating a To-Do List App
+
+Let's add a "todo" entity to our schema file at `src/instant.schema.ts`:
+
+{% file label="src/instant.schema.ts" /%}
+
+```ts {% showCopy=true lineHighlight="14-18" %}
+import { i } from '@instantdb/react';
+
+const _schema = i.schema({
+  entities: {
+    $files: i.entity({
+      path: i.string().unique().indexed(),
+      url: i.string(),
+    }),
+    $users: i.entity({
+      email: i.string().unique().indexed().optional(),
+      imageURL: i.string().optional(),
+      type: i.string().optional(),
+    }),
+    todos: i.entity({
+      text: i.string(),
+      done: i.boolean(),
+      createdAt: i.date(),
+    }),
+  },
+  links: {
+    $usersLinkedPrimaryUser: {
+      forward: {
+        on: '$users',
+        has: 'one',
+        label: 'linkedPrimaryUser',
+        onDelete: 'cascade',
+      },
+      reverse: {
+        on: '$users',
+        has: 'many',
+        label: 'linkedGuestUsers',
+      },
+    },
+  },
+  rooms: {},
+});
+
+//...
+```
+
+Push the schema:
+
+```shell {% showCopy=true %}
+npx instant-cli push
+```
+
+Replace the content of `src/app/page.tsx` with the following:
+
+{% file label="src/app.page.tsx" /%}
 
 ```typescript {% showCopy=true %}
 "use client";
 
+import schema from "@/instant.schema";
+import { db } from "@/lib/db";
 import { id, i, init, InstaQLEntity } from "@instantdb/react";
 
-// Instant app
-const APP_ID = "__APP_ID__";
-
-// Optional: Declare your schema!
-const schema = i.schema({
-  entities: {
-    todos: i.entity({
-      text: i.string(),
-      done: i.boolean(),
-      createdAt: i.number(),
-    }),
-  },
-  rooms: {
-    todos: {
-      presence: i.entity({}),
-    },
-  },
-});
-
-type Todo = InstaQLEntity<typeof schema, "todos">;
-
-const db = init({ appId: APP_ID, schema });
-const room = db.room("todos");
+type Todo = InstaQLEntity<typeof schema, "todos", {}, undefined, true>;
 
 function App() {
   // Read Data
   const { isLoading, error, data } = db.useQuery({ todos: {} });
-  const { peers } = db.rooms.usePresence(room);
-  const numUsers = 1 + Object.keys(peers).length;
   if (isLoading) {
     return;
   }
@@ -60,9 +138,6 @@ function App() {
   const { todos } = data;
   return (
     <div className="font-mono min-h-screen flex justify-center items-center flex-col space-y-4">
-      <div className="text-xs text-gray-500">
-        Number of users online: {numUsers}
-      </div>
       <h2 className="tracking-wide text-5xl text-gray-300">todos</h2>
       <div className="border border-gray-300 max-w-xs w-full">
         <TodoForm todos={todos} />
@@ -84,7 +159,7 @@ function addTodo(text: string) {
       text,
       done: false,
       createdAt: Date.now(),
-    })
+    }),
   );
 }
 
@@ -105,10 +180,9 @@ function deleteCompleted(todos: Todo[]) {
 function toggleAll(todos: Todo[]) {
   const newVal = !todos.every((todo) => todo.done);
   db.transact(
-    todos.map((todo) => db.tx.todos[todo.id].update({ done: newVal }))
+    todos.map((todo) => db.tx.todos[todo.id].update({ done: newVal })),
   );
 }
-
 
 // Components
 // ----------
@@ -208,4 +282,6 @@ function ActionBar({ todos }: { todos: Todo[] }) {
 export default App;
 ```
 
-Go to `localhost:3000`, and huzzah 🎉 You've got your first Instant web app running! Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)
+Go to `localhost:3000`, and huzzah 🎉 You've got a fully functional todo list running!
+
+Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)
