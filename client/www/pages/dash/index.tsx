@@ -17,9 +17,13 @@ import {
   LockClosedIcon,
   MagnifyingGlassIcon,
   ShieldCheckIcon,
+  StarIcon as StarOutlineIcon,
 } from '@heroicons/react/24/outline';
 import { Explorer as NewExplorer } from '@instantdb/components';
-import { ChevronDownIcon } from '@heroicons/react/24/solid';
+import {
+  ChevronDownIcon,
+  StarIcon as StarSolidIcon,
+} from '@heroicons/react/24/solid';
 import { init } from '@instantdb/react';
 import produce from 'immer';
 import Head from 'next/head';
@@ -37,6 +41,7 @@ import {
   SchemaNamespace,
 } from '@/lib/types';
 import { titleComparator } from '@/lib/app';
+import { getPinnedAppIds, togglePinnedApp } from '@/lib/pinnedApps';
 
 import { AppStart } from '@/components/dash/HomeStartGuide';
 import { Perms } from '@/components/dash/Perms';
@@ -1012,15 +1017,26 @@ function AppCombobox({
   tab: MainTabId;
 }) {
   const currentApp = apps.find((a) => a.id === appId) || null;
-
   const [appQuery, setAppQuery] = useState('');
+  const [pinnedIds, setPinnedIds] = useState(() =>
+    getPinnedAppIds(localStorage.getItem('workspace')),
+  );
   const comboboxInputRef = useRef<HTMLInputElement | null>(null);
 
   const filteredApps = appQuery
     ? apps.filter((a) => a.title.toLowerCase().includes(appQuery))
     : apps;
 
-  const sortedApps = filteredApps.toSorted(titleComparator);
+  const sortedApps = filteredApps.toSorted((a, b) => {
+    const aPinned = pinnedIds.has(a.id);
+    const bPinned = pinnedIds.has(b.id);
+    if (aPinned !== bPinned) return aPinned ? -1 : 1;
+    return titleComparator(a, b);
+  });
+
+  const firstUnpinnedIndex = sortedApps.findIndex((a) => !pinnedIds.has(a.id));
+  const hasPinnedAndUnpinned =
+    firstUnpinnedIndex > 0 && firstUnpinnedIndex < sortedApps.length;
 
   return (
     <Combobox
@@ -1068,15 +1084,46 @@ function AppCombobox({
           'transition duration-100 ease-in data-leave:data-closed:opacity-0',
         )}
       >
-        {sortedApps.map((app) => (
-          <ComboboxOption
-            key={app.id}
-            value={app}
-            className="group cursor-pointer px-3 py-1 data-focus:bg-gray-100 dark:data-focus:bg-neutral-700/80"
-          >
-            <div className="">{app.title}</div>
-          </ComboboxOption>
-        ))}
+        {sortedApps.map((app, i) => {
+          const isPinned = pinnedIds.has(app.id);
+          return (
+            <div key={app.id}>
+              {hasPinnedAndUnpinned && i === firstUnpinnedIndex && (
+                <div className="border-t border-gray-200 dark:border-neutral-600" />
+              )}
+              <ComboboxOption
+                value={app}
+                className="group/item cursor-pointer px-3 py-1 data-focus:bg-gray-100 dark:data-focus:bg-neutral-700/80"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate">{app.title}</span>
+                  <button
+                    className={clsx(
+                      'flex-none',
+                      isPinned
+                        ? 'text-yellow-500 dark:text-yellow-400'
+                        : 'text-gray-300 opacity-0 group-data-focus/item:opacity-100 dark:text-neutral-600',
+                    )}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const wsId = localStorage.getItem('workspace');
+                      togglePinnedApp(app.id, wsId);
+                      setPinnedIds(getPinnedAppIds(wsId));
+                    }}
+                    title={isPinned ? 'Unpin app' : 'Pin app to top'}
+                  >
+                    {isPinned ? (
+                      <StarSolidIcon className="h-3.5 w-3.5" />
+                    ) : (
+                      <StarOutlineIcon className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </div>
+              </ComboboxOption>
+            </div>
+          );
+        })}
       </ComboboxOptions>
     </Combobox>
   );
