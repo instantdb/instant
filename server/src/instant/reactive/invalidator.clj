@@ -610,7 +610,7 @@
 
 (defn start-global []
   (def wal-opts (start))
-  (when-not (flags/toggled? :dont-init-singleton-invalidator)
+  (when false ;; disable while we figure out why hazelcast is unhappy
     (def shutdown-singleton (:shutdown (start-singleton)))))
 
 (defn stop-global []
