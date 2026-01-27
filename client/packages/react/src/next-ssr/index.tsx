@@ -8,7 +8,10 @@ import version from '../version.ts';
 
 import { InstantNextDatabase } from './InstantNextDatabase.tsx';
 
-export { getUserFromInstantCookie } from './getUserFromInstantCookie.ts';
+export {
+  getUnverifiedUserFromInstantCookie,
+  getUserFromInstantCookie,
+} from './getUserFromInstantCookie.ts';
 
 export { InstantNextDatabase } from './InstantNextDatabase.tsx';
 export { InstantSuspenseProvider } from './InstantSuspenseProvider.tsx';

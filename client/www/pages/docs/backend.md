@@ -474,7 +474,7 @@ export const db = init({
 });
 ```
 
-If using NextJS you can call getUserFromInstantCookie with the app id to retrieve the user in any server component, or route handler.
+If using NextJS you can call getUnverifiedUserFromInstantCookie with the app id to retrieve the user in any server component, or route handler.
 
 ```typescript
 import { getUserFromInstantCookie } from "@instantdb/react/nextjs";
@@ -486,7 +486,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // Get the instant user from the cookie
-  const user = await getUserFromInstantCookie(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
+  const user = await getUnverifiedUserFromInstantCookie(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
 
   return (
     <html lang="en">
