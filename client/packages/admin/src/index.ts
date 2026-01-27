@@ -626,13 +626,13 @@ class Auth {
 
   /**
    * Get instant user from Request
+   *
    * Reads cookies and gets a validated user
    */
   getUserFromRequest = async (req: Request): Promise<User | null> => {
     const cookieHeader = req.headers.get('cookie') || '';
 
     const parsedCookie = parseCookie(cookieHeader);
-    console.log('pparsed cookie', parsedCookie);
 
     const cookieName = 'instant_user_' + this.config.appId;
     if (!parsedCookie[cookieName]) {
