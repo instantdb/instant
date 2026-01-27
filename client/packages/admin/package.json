@@ -60,6 +60,7 @@
   "dependencies": {
     "@instantdb/core": "workspace:*",
     "@instantdb/version": "workspace:*",
+    "cookie": "^1.1.1",
     "eventsource": "^4.0.0"
   }
 }
