@@ -3,11 +3,23 @@ title: Using Instant with LLMs
 description: How to use Instant with LLMs
 ---
 
-You can supercharge your Instant experience by using it with LLMs. For best
-results we recommend doing two things:
+You can supercharge your Instant experience by using it with LLMs. Just add our Instant rules and your off to the races!
 
-- Add rules or context to your LLM to help it understand how Instant works
-- Use the Instant MCP server to enable LLMs to create and update your apps
+## Instant Skill
+
+The fastest way to add rules to your LLM tool is to add the Instant skill.
+
+```text {% showCopy="true" %}
+npx skills add instantdb/skills
+```
+
+This will give your agent the context it needs to work with InstantDB.
+
+You can verify you set up the rules correctly by asking your LLM "How do you
+make queries and transactions in InstantDB?" If everything is set up correctly,
+you should see a response with information about `db.useQuery` and `db.transact`
+
+If you'd prefer to manually install the rules instead see the section below.
 
 ## Instant Rules
 
@@ -15,10 +27,6 @@ We've created a set of rules to help LLMs understand how Instant works. If you
 start a new project with `create-instant-app` you'll get these rules
 automatically. If you have an existing project you can add the rules manually by
 reading below.
-
-You can verify you set up the rules correctly by asking your LLM "How do you
-make queries and transactions in InstantDB?" If everything is set up correctly,
-you should see a response with information about `db.useQuery` and `db.transact`
 
 ### Cursor
 
