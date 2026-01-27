@@ -264,7 +264,7 @@
                    COUNT(u.id) AS signup_count
                  FROM instant_users u
                  WHERE u.created_at >= ?
-                   AND u.created_at < (? + interval '1 day')
+                   AND u.created_at < ?
                    AND u.email NOT IN (SELECT unnest(?::text[]))
                  GROUP BY 1
                  ORDER BY 1"
