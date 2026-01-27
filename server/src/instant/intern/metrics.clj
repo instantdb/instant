@@ -32,7 +32,7 @@
    [org.jfree.chart.renderer.category BarRenderer]
    [org.jfree.chart.ui RectangleInsets]
    [java.io File ByteArrayOutputStream]
-   [java.awt Color]
+   [java.awt Color BasicStroke]
    [javax.imageio ImageIO]
    [java.util Base64]
    [java.time LocalDate]))
@@ -248,30 +248,34 @@
         formatter (java.time.format.DateTimeFormatter/ofPattern "MMM d")]
     (.format local-date formatter)))
 
+(defn format-date-with-day-of-week [^java.sql.Date date-val]
+  (let [local-date (.toLocalDate date-val)
+        formatter (java.time.format.DateTimeFormatter/ofPattern "EEE M/d")]
+    (.format local-date formatter)))
+
 (defn daily-signups
-  "Get daily signup counts for the last n days"
+  "Get daily signup counts for the last n days plus today"
   [conn days]
-  (let [end-date (.minusDays (LocalDate/now) 1)  ;; Exclude today (incomplete)
-        start-date (.minusDays end-date (dec days))]
+  (let [end-date (date/pt-now)
+        start-date (.atStartOfDay (.toLocalDate (.minusDays end-date days)) date/pt-zone)]
     (sql/select conn
                 ["SELECT
-                   DATE_TRUNC('day', u.created_at)::date AS signup_date,
+                   DATE_TRUNC('day', (u.created_at at time zone 'UTC') at time zone 'America/Los_Angeles')::date AS signup_date,
                    COUNT(u.id) AS signup_count
                  FROM instant_users u
-                 WHERE u.created_at >= ?::date
-                   AND u.created_at < (?::date + interval '1 day')
+                 WHERE u.created_at >= ?
+                   AND u.created_at < ?
                    AND u.email NOT IN (SELECT unnest(?::text[]))
                  GROUP BY 1
                  ORDER BY 1"
-                 start-date
-                 end-date
+                 (.toInstant start-date)
+                 (.toInstant end-date)
                  (with-meta (excluded-emails) {:pgtype "text[]"})])))
 
 (defn weekly-signups
   "Get weekly signup counts (Monday-Sunday) for the last n weeks"
   ([conn weeks]
-   (let [;; Exclude today since it has incomplete data
-         end-date (.minusDays (LocalDate/now) 1)
+   (let [end-date (date/pt-now)
          ;; Find the most recent Sunday (end of a complete week)
          days-since-sunday (mod (.getValue (.getDayOfWeek end-date)) 7)
          last-sunday (if (zero? days-since-sunday)
@@ -281,16 +285,16 @@
          start-date (.minusWeeks last-monday weeks)]
      (sql/select conn
                  ["SELECT
-                    DATE_TRUNC('week', u.created_at)::date AS week_start,
+                    DATE_TRUNC('week', (u.created_at at time zone 'UTC') at time zone 'America/Los_Angeles')::date AS week_start,
                     COUNT(u.id) AS signup_count
                   FROM instant_users u
-                  WHERE u.created_at >= ?::date
-                    AND u.created_at <= ?::date
+                  WHERE u.created_at >= ?
+                    AND u.created_at <= ?
                     AND u.email NOT IN (SELECT unnest(?::text[]))
                   GROUP BY 1
                   ORDER BY 1"
-                  start-date
-                  last-sunday
+                  (.toInstant start-date)
+                  (.toInstant end-date)
                   (with-meta (excluded-emails) {:pgtype "text[]"})]))))
 
 ;; ----------------- 
@@ -330,6 +334,70 @@
         renderer (proxy [BarRenderer] []
                    (getItemPaint [row col]
                      (Color. 255 255 255)))
+        ^CategoryAxis x-axis (.getDomainAxis plot)
+        ^NumberAxis y-axis (.getRangeAxis plot)
+        chart-title (.getTitle chart)
+        y-max (apply max y-values)
+        y-tick-unit (Math/ceil (/ y-max 8))]
+
+    ;; Add padding
+    (.setPadding chart-title (RectangleInsets. 10 0 0 0))
+    (.setInsets plot (RectangleInsets. 0 0 0 20))
+    (.setTickLabelInsets y-axis (RectangleInsets. 0 10 0 20))
+    (.setTickLabelInsets x-axis (RectangleInsets. 10 0 20 0))
+
+    ;; Configure the renderer to display item labels
+    (.setDefaultItemLabelGenerator renderer (StandardCategoryItemLabelGenerator.))
+    (.setDefaultItemLabelsVisible renderer true)
+    (.setDefaultPositiveItemLabelPosition renderer
+                                          (org.jfree.chart.labels.ItemLabelPosition.
+                                           org.jfree.chart.labels.ItemLabelAnchor/OUTSIDE12
+                                           org.jfree.chart.ui.TextAnchor/BOTTOM_CENTER))
+
+    ;; Set bar background to white and border to black
+    (.setRenderer plot renderer)
+    (.setBarPainter renderer (org.jfree.chart.renderer.category.StandardBarPainter.))
+    (.setSeriesPaint renderer 0 (Color. 255 255 255))
+    (.setDrawBarOutline renderer true)
+    (.setSeriesOutlinePaint renderer 0 (Color. 0 0 0))
+
+    ;; Adjust axes
+    (.setTickUnit y-axis (org.jfree.chart.axis.NumberTickUnit. y-tick-unit))
+    (.setCategoryLabelPositions x-axis CategoryLabelPositions/DOWN_45)
+
+    ;; Remove distracting background colors
+    (.setBackgroundPaint plot (Color. 255 255 255))
+    (.setShadowVisible renderer false)
+    (.setBackgroundPaint chart (Color. 255 255 255))
+
+    chart))
+
+(defn generate-in-progress-bar-chart
+  "Like generate-bar-chart, but renders the last bar with a dotted outline
+   to indicate it represents in-progress/incomplete data."
+  [metrics x-key y1-key title]
+  (let [x-values (map x-key metrics)
+        y-values (map y1-key metrics)
+        last-col-idx (dec (count x-values))
+        dashed-stroke (BasicStroke. 2.0
+                                    BasicStroke/CAP_BUTT
+                                    BasicStroke/JOIN_MITER
+                                    10.0
+                                    (float-array [5.0 5.0])
+                                    0.0)
+        solid-stroke (BasicStroke. 1.0)
+        ^JFreeChart chart (charts/bar-chart x-values y-values
+                                            :title title
+                                            :x-label ""
+                                            :y-label "")
+        ^CategoryPlot plot (.getPlot chart)
+        renderer (proxy [BarRenderer] []
+                   (getItemPaint [row col]
+                     (Color. 255 255 255))
+                   (getItemOutlineStroke [row col]
+                     (if (= col last-col-idx)
+                       dashed-stroke
+                       solid-stroke)))
         ^CategoryAxis x-axis (.getDomainAxis plot)
         ^NumberAxis y-axis (.getRangeAxis plot)
         chart-title (.getTitle chart)
@@ -449,19 +517,19 @@
   (let [signup-data (weekly-signups conn 12)
         formatted-data (map #(assoc % :formatted_week (format-date-label (:week_start %)))
                             signup-data)]
-    (generate-bar-chart formatted-data
-                        :formatted_week
-                        :signup_count
-                        "Weekly Signups")))
+    (generate-in-progress-bar-chart formatted-data
+                                    :formatted_week
+                                    :signup_count
+                                    "Weekly Signups")))
 
 (defn generate-daily-signups-chart [conn]
   (let [signup-data (daily-signups conn 14)
-        formatted-data (map #(assoc % :formatted_date (format-date-label (:signup_date %)))
+        formatted-data (map #(assoc % :formatted_date (format-date-with-day-of-week (:signup_date %)))
                             signup-data)]
-    (generate-bar-chart formatted-data
-                        :formatted_date
-                        :signup_count
-                        "Daily Signups (Last 14 Days)")))
+    (generate-in-progress-bar-chart formatted-data
+                                    :formatted_date
+                                    :signup_count
+                                    "Daily Signups (Last 14 Days)")))
 
 (comment
   (tool/with-prod-conn [conn]

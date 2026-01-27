@@ -5374,19 +5374,19 @@
                                    (filter (fn [{:keys [app_id]}]
                                              (= app_id app-id)))))]
 
-              (is (empty? (get-hard-deleted (-> (date-util/pst-now)
+              (is (empty? (get-hard-deleted (-> (date-util/pt-now)
                                                 (.minusDays 1)
                                                 (.toInstant)))))
 
               (is (= #{new-attr-posts-title attr-posts-title}
-                     (set  (map :id (get-hard-deleted (-> (date-util/pst-now)
+                     (set  (map :id (get-hard-deleted (-> (date-util/pt-now)
                                                           (.toInstant)))))))
               (attr-model/hard-delete-multi!
                (aurora/conn-pool :write)
                app-id
                #{new-attr-posts-title attr-posts-title})
 
-              (is (empty? (get-hard-deleted (-> (date-util/pst-now)
+              (is (empty? (get-hard-deleted (-> (date-util/pt-now)
                                                 (.toInstant))))))))))))
 
 (deftest soft-delete-can-delete-full-ns

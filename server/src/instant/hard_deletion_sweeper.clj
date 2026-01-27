@@ -19,7 +19,7 @@
 (def grace-period-days 2)
 
 (defn period []
-  (let [now (date-util/pst-now)
+  (let [now (date-util/pt-now)
         ten-am (-> now
                    (.withHour 10)
                    (.withMinute 0))
@@ -64,7 +64,7 @@
   (when-not (flags/failing-over?)
     (tracer/with-span! {:name "hard-deletion-sweeper/sweep"}
       (when-not (flags/hard-deletion-sweeper-disabled?)
-        (let [maximum-marked-date (-> (date-util/pst-now)
+        (let [maximum-marked-date (-> (date-util/pt-now)
                                       (.minus (Duration/ofDays grace-period-days)))
 
               attrs-to-delete (attr-model/get-for-hard-delete {:maximum-deletion-marked-at

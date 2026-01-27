@@ -5,18 +5,18 @@
    (java.time.format DateTimeFormatter)
    (java.time.temporal TemporalAdjusters)))
 
-(def ^ZoneRegion pst-zone (ZoneId/of "America/Los_Angeles"))
-(def ^ZoneRegion est-zone (ZoneId/of "America/New_York"))
+(def ^ZoneRegion pt-zone (ZoneId/of "America/Los_Angeles"))
+(def ^ZoneRegion et-zone (ZoneId/of "America/New_York"))
 (def ^ZoneRegion utc-zone (ZoneId/of "UTC"))
 
 (defn utc-now ^ZonedDateTime []
   (ZonedDateTime/now utc-zone))
 
-(defn pst-now ^ZonedDateTime []
-  (ZonedDateTime/now pst-zone))
+(defn pt-now ^ZonedDateTime []
+  (ZonedDateTime/now pt-zone))
 
-(defn est-now ^ZonedDateTime []
-  (ZonedDateTime/now est-zone))
+(defn et-now ^ZonedDateTime []
+  (ZonedDateTime/now et-zone))
 
 (def numeric-date-pattern
   "i.e 2020-07-01"
@@ -31,9 +31,9 @@
   (fmt-with-pattern numeric-date-pattern date))
 
 (defn first-of-next-month-est ^ZonedDateTime []
-  (let [today (est-now)
+  (let [today (et-now)
         first-of-next-month (.with (LocalDate/from today) (TemporalAdjusters/firstDayOfNextMonth))
-        start-of-day (.atStartOfDay first-of-next-month est-zone)]
+        start-of-day (.atStartOfDay first-of-next-month et-zone)]
     start-of-day))
 
 (defmethod print-method Instant [o ^Writer w]
