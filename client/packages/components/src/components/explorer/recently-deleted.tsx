@@ -123,12 +123,12 @@ export function RecentlyDeletedNamespaces({
   };
 
   return (
-    <ActionForm className="flex max-w-2xl flex-col gap-4">
+    <ActionForm className="flex w-full min-w-0 flex-col gap-4 overflow-hidden">
       <h5 className="flex items-center gap-2 text-lg font-bold">
         Recently Deleted Namespaces
       </h5>
       {deletedNamespaces.length ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 overflow-hidden">
           {deletedNamespaces
             .toSorted((a, b) => {
               return (
@@ -147,10 +147,10 @@ export function RecentlyDeletedNamespaces({
               return (
                 <div
                   key={ns.idAttr.id}
-                  className="flex items-start justify-between gap-4 border-b py-3 last:border-b-0 dark:border-neutral-700"
+                  className="flex items-start justify-between gap-4 overflow-hidden border-b py-3 last:border-b-0 dark:border-neutral-700"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="font-semibold dark:text-white">
+                    <div className="truncate font-semibold dark:text-white">
                       {ns.idAttr['forward-identity'][1]}
                     </div>
                     <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
@@ -161,7 +161,12 @@ export function RecentlyDeletedNamespaces({
                       })}
                     </div>
                     {ns.remainingCols.length > 0 ? (
-                      <div className="mt-1 truncate text-xs text-neutral-500 dark:text-neutral-400">
+                      <div
+                        className="mt-1 truncate text-xs text-neutral-500 dark:text-neutral-400"
+                        title={ns.remainingCols
+                          .map((attr) => attr['forward-identity'][2])
+                          .join(', ')}
+                      >
                         Columns:{' '}
                         {ns.remainingCols
                           .map((attr) => attr['forward-identity'][2])
