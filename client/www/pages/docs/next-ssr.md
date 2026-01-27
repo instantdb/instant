@@ -154,11 +154,11 @@ Now we’ll want to use our InstantProvider in a server component, usually `app/
 
 ```typescript {% showCopy=true %}
 // src/app/layout.tsx
-import { getUnvalidatedUserFromInstantCookie } from "@instantdb/react/nextjs";
+import { getUnverifiedUserFromInstantCookie } from "@instantdb/react/nextjs";
 import { InstantProvider } from "@/InstantProvider";
 
 export default async function RootLayout({ children }) {
-  const user = await getUnvalidatedUserFromInstantCookie(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
+  const user = await getUnverifiedUserFromInstantCookie(process.env.NEXT_PUBLIC_INSTANT_APP_ID!);
 
   return (
     <html>

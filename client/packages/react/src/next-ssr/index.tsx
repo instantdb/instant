@@ -9,7 +9,7 @@ import version from '../version.ts';
 import { InstantNextDatabase } from './InstantNextDatabase.tsx';
 
 export {
-  getUnvalidatedUserFromInstantCookie,
+  getUnverifiedUserFromInstantCookie,
   getUserFromInstantCookie,
 } from './getUserFromInstantCookie.ts';
 
