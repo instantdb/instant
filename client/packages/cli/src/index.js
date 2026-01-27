@@ -348,6 +348,30 @@ program
   });
 
 program
+  .command('info')
+  .description('Display CLI version and login status')
+  .action(async () => {
+    console.log(`CLI Version: ${version}`);
+    const token = await readConfigAuthToken();
+    if (!token) {
+      console.log('Not logged in.');
+      return;
+    }
+    const meRes = await fetchJson({
+      method: 'GET',
+      path: '/dash/me',
+      debugName: 'Get user info',
+      errorMessage: 'Failed to get user info.',
+      command: 'info',
+    });
+    if (meRes.ok) {
+      console.log(`Logged in as: ${meRes.data.user.email}`);
+    } else {
+      console.log('Not logged in.');
+    }
+  });
+
+program
   .command('init')
   .description('Set up a new project.')
   .option(
