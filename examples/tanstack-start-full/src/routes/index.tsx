@@ -4,38 +4,37 @@ import { id, InstaQLEntity } from "@instantdb/react";
 import { getRequest } from "@tanstack/react-start/server";
 
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { createMiddleware, createServerFn } from "@tanstack/react-start";
+import {
+  createMiddleware,
+  createServerFn,
+  useServerFn,
+} from "@tanstack/react-start";
+import { adminDb } from "@/lib/adminDb";
+import { useEffect, useState } from "react";
 
-const instantUserMiddleware = createMiddleware().server(({ next }) => {
+const instantUserMiddleware = createMiddleware().server(async ({ next }) => {
   const request = getRequest();
-  const cookieHeader = request.headers.get("cookie") || "";
-  const appId = import.meta.env.VITE_INSTANT_APP_ID;
-  const cookieName = "instant_user_" + appId;
 
-  let user = null;
-  const cookies = cookieHeader.split(";").map((c) => c.trim());
-  for (const cookie of cookies) {
-    if (cookie.startsWith(cookieName + "=")) {
-      const value = cookie.slice(cookieName.length + 1);
-      try {
-        user = JSON.parse(decodeURIComponent(value));
-      } catch {
-        user = null;
-      }
-      break;
-    }
-  }
-
+  // Gets user from cookie sync and validates refresh token
+  const user = await adminDb.auth.getUserFromRequest(request);
   return next({
     context: { user },
   });
 });
 
-const getUser = createServerFn()
+// Mimicks cases where we want to use the Instant user to access secure data
+// outside of the Instant database.
+const getSecretData = createServerFn()
   .middleware([instantUserMiddleware])
   .handler(async ({ context }) => {
+    if (!context.user) {
+      throw new Error("Unauthorized");
+    }
+
+    // Free to use the Instant Admin DB or 3rd party server-side services.
+
     return {
-      hi: "Lol",
+      secret: "hello world",
     };
   });
 
@@ -60,6 +59,15 @@ function App() {
   // Read Data
   const { isLoading, error, data } = db.useQuery({ todos: {} });
   const { peers } = db.rooms.usePresence(room);
+  const secretDataFetch = useServerFn(getSecretData);
+  const [secretData, setSecretData] = useState<Awaited<
+    ReturnType<typeof secretDataFetch>
+  > | null>(null);
+
+  useEffect(() => {
+    secretDataFetch().then(setSecretData);
+  }, [secretDataFetch]);
+
   const numUsers = 1 + Object.keys(peers).length;
   if (isLoading) {
     return;
@@ -82,6 +90,8 @@ function App() {
       <div className="text-xs text-center">
         Open another tab to see todos update in realtime!
       </div>
+      Secret data from server function:
+      <pre>{JSON.stringify(secretData, null, 2)}</pre>
     </div>
   );
 }
