@@ -155,7 +155,7 @@
      :html (apply postmark/standard-body (html-body (build-data)))}))
 
 (defn period []
-  (let [now (date/est-now)
+  (let [now (date/et-now)
         four-am (-> now
                     (.withHour 4)
                     (.withMinute 0))

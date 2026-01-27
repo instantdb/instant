@@ -74,7 +74,7 @@ Were you thinking of using Instant for your company? How's your experience been 
 (def limit 10)
 (defn send-welcome-email! []
   (let [{:keys [enabled? limit]} (flags/welcome-email-config)
-        date-str (-> (date/pst-now)
+        date-str (-> (date/pt-now)
                      date/numeric-date-str)]
     (when enabled?
       (grab/run-once!
@@ -108,8 +108,8 @@ Were you thinking of using Instant for your company? How's your experience been 
                      nil)))))))))))
 
 (defn period []
-  (let [now (date/pst-now)
-        send-at-pst (-> (date/pst-now)
+  (let [now (date/pt-now)
+        send-at-pst (-> (date/pt-now)
                         (.withHour 8) ;; send at 8am pst
                         (.withMinute 0))
         periodic-seq (chime-core/periodic-seq

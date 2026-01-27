@@ -95,7 +95,7 @@
 ;; Sweeper 
 
 (defn period []
-  (let [now (date/est-now)
+  (let [now (date/et-now)
         five-am (-> now
                     (.withHour 5)
                     (.withMinute 0))
@@ -124,7 +124,7 @@
   (when-not (flags/failing-over?)
     (tracer/with-span! {:name "ephemeral-app-sweeper/sweep"}
       (sweep-for-apps-created-before
-       (-> (date/est-now)
+       (-> (date/et-now)
            ;; give 1 extra day as a grace period
            (.minusDays (inc expiration-days))
            (.toInstant))))))
@@ -151,5 +151,5 @@
   (def res (http-post-handler {:body {:title "my-app"}}))
   (def ex-app (:app (:body res)))
   (= (:creator_id ex-app) (:id @ephemeral-creator))
-  (sweep-for-apps-created-before (.toInstant (date/est-now)))
-  (sweep-for-apps-created-before (.toInstant (.minusHours (date/est-now) 4))))
+  (sweep-for-apps-created-before (.toInstant (date/et-now)))
+  (sweep-for-apps-created-before (.toInstant (.minusHours (date/et-now) 4))))

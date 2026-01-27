@@ -121,7 +121,7 @@
   [^Instant date]
   (when-not (flags/failing-over?)
     (let [date-minus-one (-> date (.minus (Period/ofDays 1)))
-          date-fn (fn [^Instant x] (date/numeric-date-str (.atZone x date/pst-zone)))
+          date-fn (fn [^Instant x] (date/numeric-date-str (.atZone x date/pt-zone)))
           ;; We run this job for a particular day
           date-str (date-fn date)
           ;; But report the metrics for the previous day since we don't
@@ -145,12 +145,12 @@
 (comment
   (def t1 (-> (LocalDate/parse "2024-10-09")
               (.atTime 9 0)
-              (.atZone date/pst-zone)
+              (.atZone date/pt-zone)
               .toInstant))
   (daily-job! t1))
 
 (defn period []
-  (let [now (date/pst-now)
+  (let [now (date/pt-now)
         nine-am-pst (-> now
                         (.withHour 9)
                         (.withMinute 0))
