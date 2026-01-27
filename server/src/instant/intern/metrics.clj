@@ -257,7 +257,7 @@
   "Get daily signup counts for the last n days plus today"
   [conn days]
   (let [end-date (date/pt-now)
-        start-date (.minusDays end-date days)]
+        start-date (.atStartOfDay (.toLocalDate (.minusDays end-date days)) date/pt-zone)]
     (sql/select conn
                 ["SELECT
                    DATE_TRUNC('day', (u.created_at at time zone 'UTC') at time zone 'America/Los_Angeles')::date AS signup_date,
@@ -523,7 +523,7 @@
                                     "Weekly Signups")))
 
 (defn generate-daily-signups-chart [conn]
-  (let [signup-data (daily-signups conn 15)
+  (let [signup-data (daily-signups conn 14)
         formatted-data (map #(assoc % :formatted_date (format-date-with-day-of-week (:signup_date %)))
                             signup-data)]
     (generate-in-progress-bar-chart formatted-data
