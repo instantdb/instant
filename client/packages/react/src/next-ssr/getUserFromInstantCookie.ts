@@ -3,7 +3,6 @@ import { cookies } from 'next/headers.js';
 
 /**
  * @deprecated Please use `getUnvalidatedUserFromInstantCookie` instead
- * @returns
  */
 export const getUserFromInstantCookie = async (
   appId: string,
