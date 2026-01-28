@@ -1,9 +1,24 @@
+const path = require('path');
 const withMarkdoc = require('@markdoc/next.js');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx', 'md'],
+  transpilePackages: ['@instantdb/components'],
+  webpack: (config, { dev }) => {
+    // Resolve @instantdb/components to source for Fast Refresh in development
+    if (dev) {
+      const componentsSrc = path.resolve(
+        __dirname,
+        '../packages/components/src',
+      );
+      config.resolve.alias['@instantdb/components'] = componentsSrc;
+      // Also add the @lib alias used within the components package
+      config.resolve.alias['@lib'] = componentsSrc;
+    }
+    return config;
+  },
   async redirects() {
     return [
       {
