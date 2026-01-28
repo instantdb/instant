@@ -88,8 +88,10 @@ export function getFilePubSub(): {
                 } else if (data.message && typeof data.message === 'object') {
                   // Convert byte array object back to string
                   // e.g., {"0":48,"1":58,...} -> "0:..."
-                  const keys = Object.keys(data.message).map(Number).sort((a, b) => a - b);
-                  const bytes = keys.map(k => data.message[k]);
+                  const keys = Object.keys(data.message)
+                    .map(Number)
+                    .sort((a, b) => a - b);
+                  const bytes = keys.map((k) => data.message[k]);
                   message = String.fromCharCode(...bytes);
                 } else {
                   message = String(data.message);

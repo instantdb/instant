@@ -1,5 +1,6 @@
-import { useChat, Message } from '@ai-sdk/react';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useChat, type UIMessage } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
+import { useState, useEffect } from 'react';
 
 function TypingIndicator() {
   return (
@@ -30,10 +31,9 @@ function TypingIndicator() {
 const STORAGE_KEYS = {
   chatId: 'ai-echo-chat-id',
   messages: 'ai-echo-messages',
-  pendingStreamId: 'ai-echo-pending-stream',
 };
 
-function saveMessages(messages: Message[]) {
+function saveMessages(messages: UIMessage[]) {
   localStorage.setItem(STORAGE_KEYS.messages, JSON.stringify(messages));
 }
 
@@ -55,14 +55,13 @@ function useChatId() {
     const newId = `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     localStorage.setItem(STORAGE_KEYS.chatId, newId);
     localStorage.removeItem(STORAGE_KEYS.messages);
-    localStorage.removeItem(STORAGE_KEYS.pendingStreamId);
     setChatId(newId);
   };
 
   return { chatId, resetChatId };
 }
 
-function getStoredMessages(): Message[] {
+function getStoredMessages(): UIMessage[] {
   if (typeof window === 'undefined') return [];
   try {
     const stored = localStorage.getItem(STORAGE_KEYS.messages);
@@ -72,6 +71,19 @@ function getStoredMessages(): Message[] {
   }
 }
 
+// Get text content from a message's parts
+function getMessageText(message: {
+  parts?: Array<{ type: string; text?: string }>;
+}): string {
+  if (!message.parts) return '';
+  return message.parts
+    .filter(
+      (part): part is { type: 'text'; text: string } => part.type === 'text',
+    )
+    .map((part) => part.text)
+    .join('');
+}
+
 function Chat({
   chatId,
   onReset,
@@ -79,144 +91,40 @@ function Chat({
 }: {
   chatId: string;
   onReset: () => void;
-  initialMessages: Message[];
+  initialMessages: UIMessage[];
 }) {
-  const [isResuming, setIsResuming] = useState(false);
-  const [resumeStatus, setResumeStatus] = useState<string | null>(null);
-  const messagesRef = useRef<Message[]>(initialMessages);
+  const [input, setInput] = useState('');
 
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    setMessages,
-  } = useChat({
-    api: '/api/chat',
+  const { messages, sendMessage, status, setMessages } = useChat({
     id: chatId,
-    initialMessages,
-    experimental_throttle: 50,
-    onFinish: () => {
-      localStorage.removeItem(STORAGE_KEYS.pendingStreamId);
-    },
+    messages: initialMessages,
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
+    resume: true,
   });
 
-  // Keep ref in sync with messages
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+  const isLoading = status === 'submitted' || status === 'streaming';
 
-  // Persist messages to localStorage whenever they change
+  // Persist messages, but exclude incomplete assistant messages during streaming
   useEffect(() => {
     if (messages.length > 0) {
-      saveMessages(messages);
-    }
-  }, [messages]);
-
-  // Track stream ID for resumption
-  const handleSubmitWithTracking = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
-      const streamId = `${chatId}-${messages.length + 1}`;
-      localStorage.setItem(STORAGE_KEYS.pendingStreamId, streamId);
-      handleSubmit(e);
-    },
-    [chatId, messages.length, handleSubmit]
-  );
-
-  // Try to resume stream on mount
-  useEffect(() => {
-    const pendingStreamId = localStorage.getItem(STORAGE_KEYS.pendingStreamId);
-    console.log('[resume] Effect running, pendingStreamId:', pendingStreamId);
-    console.log('[resume] initialMessages:', initialMessages.length, initialMessages.map(m => ({ role: m.role, content: m.content?.slice(0, 50) })));
-
-    if (!pendingStreamId) {
-      console.log('[resume] No pending stream, skipping');
-      return;
-    }
-
-    const lastMessage = initialMessages[initialMessages.length - 1];
-    if (!lastMessage || lastMessage.role !== 'assistant') {
-      console.log('[resume] No assistant message to resume, clearing pendingStreamId');
-      localStorage.removeItem(STORAGE_KEYS.pendingStreamId);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function resumeStream() {
-      setIsResuming(true);
-      setResumeStatus('Attempting to resume stream...');
-
-      let currentContent = lastMessage.content;
-
-      try {
-        // Poll until stream is complete
-        while (!cancelled && pendingStreamId) {
-          const response = await fetch(
-            `/api/chat?streamId=${encodeURIComponent(pendingStreamId)}&position=${currentContent.length}`
-          );
-
-          if (!response.ok) {
-            setResumeStatus('Stream completed or expired');
-            break;
-          }
-
-          const data = await response.json();
-          const { text, complete } = data;
-
-          if (text && text.length > 0) {
-            currentContent += text;
-            setResumeStatus('Resuming stream...');
-
-            // Update the message
-            const updatedMessages = [...messagesRef.current];
-            const lastIdx = updatedMessages.length - 1;
-            if (lastIdx >= 0 && updatedMessages[lastIdx].role === 'assistant') {
-              updatedMessages[lastIdx] = {
-                ...updatedMessages[lastIdx],
-                content: currentContent,
-              };
-              messagesRef.current = updatedMessages;
-              setMessages(updatedMessages);
-              saveMessages(updatedMessages);
-            }
-          }
-
-          if (complete) {
-            setResumeStatus('Stream resumed successfully!');
-            break;
-          }
-
-          // Poll every 100ms while stream is still active
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-      } catch (err) {
-        console.error('Failed to resume stream:', err);
-        if (!cancelled) {
-          setResumeStatus('Stream ended or unavailable');
-        }
-      } finally {
-        if (!cancelled) {
-          setTimeout(() => {
-            setIsResuming(false);
-            setResumeStatus(null);
-          }, 2000);
+      if (status === 'ready') {
+        // Stream complete, save all messages
+        saveMessages(messages);
+      } else {
+        // Streaming in progress, save all except the last assistant message (which is incomplete)
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage?.role === 'assistant') {
+          saveMessages(messages.slice(0, -1));
+        } else {
+          saveMessages(messages);
         }
       }
     }
-
-    resumeStream();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [initialMessages, setMessages]);
+  }, [messages, status]);
 
   const handleClear = () => {
     setMessages([]);
     localStorage.removeItem(STORAGE_KEYS.messages);
-    localStorage.removeItem(STORAGE_KEYS.pendingStreamId);
     onReset();
   };
 
@@ -226,7 +134,7 @@ function Chat({
         <div>
           <h1 className="text-2xl font-bold">AI Echo Demo</h1>
           <p className="text-gray-600">
-            Using Vercel AI SDK with resumable streams.
+            Using Vercel AI SDK v6 with resumable streams.
           </p>
         </div>
         <button
@@ -244,12 +152,6 @@ function Chat({
         Messages persist to localStorage. Refresh mid-stream to test resumption!
       </div>
 
-      {resumeStatus && (
-        <div className="mb-2 rounded bg-blue-50 p-2 text-xs text-blue-700">
-          {resumeStatus}
-        </div>
-      )}
-
       <div className="mb-4 flex-1 space-y-4 overflow-auto rounded border p-4">
         {messages.length === 0 && (
           <p className="text-gray-400">No messages yet. Say something!</p>
@@ -257,9 +159,8 @@ function Chat({
         {messages.map((message, index) => {
           const isLastMessage = index === messages.length - 1;
           const isAssistantTyping =
-            (isLoading || isResuming) &&
-            isLastMessage &&
-            message.role === 'assistant';
+            isLoading && isLastMessage && message.role === 'assistant';
+          const text = getMessageText(message);
 
           return (
             <div
@@ -273,7 +174,7 @@ function Chat({
               <div className="mb-1 text-xs font-semibold text-gray-500">
                 {message.role === 'user' ? 'You' : 'Echo Bot'}
               </div>
-              <div className="whitespace-pre-wrap">{message.content}</div>
+              <div className="whitespace-pre-wrap">{text}</div>
               {isAssistantTyping && (
                 <div className="mt-2 border-t border-gray-200 pt-2">
                   <TypingIndicator />
@@ -292,17 +193,26 @@ function Chat({
         )}
       </div>
 
-      <form onSubmit={handleSubmitWithTracking} className="flex gap-2">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (input.trim() && !isLoading) {
+            sendMessage({ text: input });
+            setInput('');
+          }
+        }}
+        className="flex gap-2"
+      >
         <input
           value={input}
-          onChange={handleInputChange}
+          onChange={(e) => setInput(e.target.value)}
           placeholder="Type something to echo..."
-          className="flex-1 rounded border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          disabled={isLoading || isResuming}
+          className="flex-1 rounded border px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          disabled={isLoading}
         />
         <button
           type="submit"
-          disabled={isLoading || isResuming || !input.trim()}
+          disabled={isLoading || !input.trim()}
           className="rounded bg-blue-500 px-6 py-2 text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Send
@@ -314,8 +224,8 @@ function Chat({
 
 function App() {
   const { chatId, resetChatId } = useChatId();
-  const [initialMessages, setInitialMessages] = useState<Message[] | null>(
-    null
+  const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(
+    null,
   );
   const [messagesChatId, setMessagesChatId] = useState<string | null>(null);
 
