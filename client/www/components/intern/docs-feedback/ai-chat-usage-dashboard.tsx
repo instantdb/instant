@@ -1,6 +1,10 @@
 'use client';
 
+import { useSearchParams, useRouter } from 'next/navigation';
 import db from '@/lib/intern/docs-feedback/db';
+import { ChatConversationsView } from './chat-conversations-view';
+
+type Tab = 'usage' | 'conversations';
 
 const NOW = Date.now();
 const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -28,6 +32,21 @@ function formatCost(tokens: number): string {
 }
 
 export function AIChatUsageDashboard() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab: Tab =
+    searchParams?.get('tab') === 'conversations' || searchParams?.has('chat')
+      ? 'conversations'
+      : 'usage';
+
+  const changeTab = (tab: Tab) => {
+    if (tab === 'conversations') {
+      router.replace('?tab=conversations', { scroll: false });
+    } else {
+      router.replace('?', { scroll: false });
+    }
+  };
+
   const { data, isLoading, error } = db.useQuery({
     llmUsage: {},
   });
@@ -63,7 +82,21 @@ export function AIChatUsageDashboard() {
 
   const allUsage = data?.llmUsage || [];
 
-  // Calculate metrics
+  if (activeTab === 'conversations') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto max-w-5xl px-4 py-8">
+          <DashboardHeader
+            activeTab={activeTab}
+            setActiveTab={changeTab}
+            handleSignOut={handleSignOut}
+          />
+          <ChatConversationsView />
+        </div>
+      </div>
+    );
+  }
+
   const todayUsage = allUsage.filter(
     (u) => new Date(u.usedAt).getTime() > NOW - ONE_DAY,
   );
@@ -122,21 +155,11 @@ export function AIChatUsageDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-4xl px-4 py-8">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">AI Chat Usage</h1>
-            <p className="mt-1 text-gray-600">
-              Token usage and cost estimates for the docs AI chat
-            </p>
-          </div>
-          <button
-            onClick={handleSignOut}
-            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Sign Out (Feedback App)
-          </button>
-        </div>
+        <DashboardHeader
+          activeTab={activeTab}
+          setActiveTab={changeTab}
+          handleSignOut={handleSignOut}
+        />
 
         {/* Summary Cards */}
         <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -277,6 +300,57 @@ function MetricCard({
         <span className="text-sm text-green-600">{subvalue}</span>
       </div>
       <div className="mt-1 text-xs text-gray-500">{detail}</div>
+    </div>
+  );
+}
+
+function DashboardHeader({
+  activeTab,
+  setActiveTab,
+  handleSignOut,
+}: {
+  activeTab: Tab;
+  setActiveTab: (tab: Tab) => void;
+  handleSignOut: () => void;
+}) {
+  return (
+    <div className="mb-8">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">AI Chat Usage</h1>
+          <p className="mt-1 text-gray-600">
+            Token usage and cost estimates for the docs AI chat
+          </p>
+        </div>
+        <button
+          onClick={handleSignOut}
+          className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Sign Out (Feedback App)
+        </button>
+      </div>
+      <div className="flex gap-1 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('usage')}
+          className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+            activeTab === 'usage'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Usage Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('conversations')}
+          className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+            activeTab === 'conversations'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Conversations
+        </button>
+      </div>
     </div>
   );
 }
