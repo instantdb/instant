@@ -128,8 +128,10 @@ function ConversationDetail({
 }) {
   const [copied, setCopied] = useState(false);
 
-  const copyUrl = () => {
-    navigator.clipboard.writeText(window.location.href);
+  const copyPermalink = () => {
+    if (!chat) return;
+    const url = `${window.location.origin}${window.location.pathname}?chat=${chat.id}`;
+    navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -167,7 +169,7 @@ function ConversationDetail({
             </div>
           </div>
           <button
-            onClick={copyUrl}
+            onClick={copyPermalink}
             className="flex items-center gap-1 rounded px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-800"
           >
             {copied ? (
@@ -178,7 +180,7 @@ function ConversationDetail({
             ) : (
               <>
                 <ShareIcon className="h-4 w-4" />
-                Share
+                Permalink
               </>
             )}
           </button>
@@ -360,6 +362,103 @@ export function ChatConversationsView() {
             }
           />
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function SingleConversationView({
+  chatId,
+}: {
+  chatId: string | null;
+}) {
+  const router = useRouter();
+  const [inputId, setInputId] = useState('');
+
+  const { data, isLoading, error } = db.useQuery(
+    chatId
+      ? {
+          chats: {
+            $: { where: { id: chatId } },
+            messages: { $: { order: { index: 'asc' } } },
+          },
+          llmUsage: {},
+        }
+      : null,
+  );
+
+  if (!chatId) {
+    return (
+      <div className="overflow-hidden rounded-lg bg-white p-6 shadow">
+        <h2 className="mb-4 text-lg font-medium text-gray-900">
+          View Conversation
+        </h2>
+        <p className="mb-4 text-sm text-gray-600">
+          Paste a conversation ID to view it.
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={inputId}
+            onChange={(e) => setInputId(e.target.value)}
+            placeholder="Conversation ID"
+            className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+          <button
+            onClick={() => {
+              if (inputId.trim()) {
+                router.replace(`?tab=conversation&chat=${inputId.trim()}`, {
+                  scroll: false,
+                });
+              }
+            }}
+            disabled={!inputId.trim()}
+            className="rounded bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600 disabled:bg-gray-300"
+          >
+            View
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="animate-pulse text-gray-500">
+          Loading conversation...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 text-red-600">
+        Error loading chat: {error.message}
+      </div>
+    );
+  }
+
+  const chat = (data?.chats?.[0] as Chat) || null;
+
+  if (!chat) {
+    return (
+      <div className="p-4 text-center text-gray-500">Conversation not found</div>
+    );
+  }
+
+  const userEmailMap = new Map<string, string>();
+  (data?.llmUsage || []).forEach((u) => {
+    if (u.userEmail) userEmailMap.set(u.userId, u.userEmail);
+  });
+  const userDisplay =
+    userEmailMap.get(chat.createdByUserId) || chat.createdByUserId || 'Anonymous';
+
+  return (
+    <div className="overflow-hidden rounded-lg bg-white shadow">
+      <div className="h-[600px]">
+        <ConversationDetail chat={chat} userDisplay={userDisplay} />
       </div>
     </div>
   );

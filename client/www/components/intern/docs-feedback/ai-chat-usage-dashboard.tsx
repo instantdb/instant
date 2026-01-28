@@ -2,9 +2,12 @@
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import db from '@/lib/intern/docs-feedback/db';
-import { ChatConversationsView } from './chat-conversations-view';
+import {
+  ChatConversationsView,
+  SingleConversationView,
+} from './chat-conversations-view';
 
-type Tab = 'usage' | 'conversations';
+type Tab = 'usage' | 'conversations' | 'conversation';
 
 const NOW = Date.now();
 const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -34,14 +37,21 @@ function formatCost(tokens: number): string {
 export function AIChatUsageDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const chatId = searchParams?.get('chat');
+  const tabParam = searchParams?.get('tab');
+
   const activeTab: Tab =
-    searchParams?.get('tab') === 'conversations' || searchParams?.has('chat')
+    tabParam === 'conversations'
       ? 'conversations'
-      : 'usage';
+      : tabParam === 'conversation' || chatId
+        ? 'conversation'
+        : 'usage';
 
   const changeTab = (tab: Tab) => {
     if (tab === 'conversations') {
       router.replace('?tab=conversations', { scroll: false });
+    } else if (tab === 'conversation') {
+      router.replace('?tab=conversation', { scroll: false });
     } else {
       router.replace('?', { scroll: false });
     }
@@ -58,7 +68,7 @@ export function AIChatUsageDashboard() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-4xl px-4 py-8">
+        <div className="mx-auto max-w-5xl px-4 py-8">
           <div className="animate-pulse space-y-6">
             <div className="h-8 w-64 rounded bg-gray-200" />
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -81,6 +91,21 @@ export function AIChatUsageDashboard() {
   }
 
   const allUsage = data?.llmUsage || [];
+
+  if (activeTab === 'conversation') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto max-w-5xl px-4 py-8">
+          <DashboardHeader
+            activeTab={activeTab}
+            setActiveTab={changeTab}
+            handleSignOut={handleSignOut}
+          />
+          <SingleConversationView chatId={chatId ?? null} />
+        </div>
+      </div>
+    );
+  }
 
   if (activeTab === 'conversations') {
     return (
@@ -154,7 +179,7 @@ export function AIChatUsageDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="mx-auto max-w-5xl px-4 py-8">
         <DashboardHeader
           activeTab={activeTab}
           setActiveTab={changeTab}
@@ -349,6 +374,16 @@ function DashboardHeader({
           }`}
         >
           Conversations
+        </button>
+        <button
+          onClick={() => setActiveTab('conversation')}
+          className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+            activeTab === 'conversation'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Conversation
         </button>
       </div>
     </div>
