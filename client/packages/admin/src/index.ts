@@ -629,7 +629,10 @@ class Auth {
    *
    * Reads cookies and gets a validated user
    */
-  getUserFromRequest = async (req: Request): Promise<User | null> => {
+  getUserFromRequest = async (
+    req: Request,
+    opts?: { disableValidation?: boolean },
+  ): Promise<User | null> => {
     const cookieHeader = req.headers.get('cookie') || '';
 
     const parsedCookie = parseCookie(cookieHeader);
@@ -642,6 +645,9 @@ class Auth {
     const user = JSON.parse(value);
     if (!user?.refresh_token) {
       return null;
+    }
+    if (opts?.disableValidation) {
+      return user;
     }
     const verified = await this.verifyToken(user.refresh_token);
     return verified;
