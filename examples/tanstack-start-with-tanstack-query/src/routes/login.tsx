@@ -4,10 +4,10 @@ import { useState } from "react";
 
 export const Route = createFileRoute("/login")({
   component: RouteComponent,
-  ssr: false,
-  loader: async () => {
-    const auth = await db.getAuth();
-    if (auth) {
+  ssr: true,
+  loader: async ({ context }) => {
+    const user = await context.getUser();
+    if (user) {
       throw redirect({
         to: "/",
       });

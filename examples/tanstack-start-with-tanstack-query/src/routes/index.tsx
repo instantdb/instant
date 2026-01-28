@@ -4,17 +4,13 @@ import { id, InstaQLEntity } from "@instantdb/react";
 import { getRequest } from "@tanstack/react-start/server";
 
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import {
-  createMiddleware,
-  createServerFn,
-  useServerFn,
-} from "@tanstack/react-start";
+import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { adminDb } from "@/lib/adminDb";
-import { useEffect, useState } from "react";
+import { useSuperQuery } from "@/lib/superQuery";
+import { useSuspenseQuery } from "@tanstack/react-query";
 
 const instantUserMiddleware = createMiddleware().server(async ({ next }) => {
   const request = getRequest();
-
   // Gets user from cookie sync and validates refresh token
   const user = await adminDb.auth.getUserFromRequest(request);
   return next({
@@ -22,7 +18,7 @@ const instantUserMiddleware = createMiddleware().server(async ({ next }) => {
   });
 });
 
-// Mimicks cases where we want to use the Instant user to access secure data
+// Mimick cases where we want to use the Instant user to access secure data
 // outside of the Instant database.
 const getSecretData = createServerFn()
   .middleware([instantUserMiddleware])
@@ -40,15 +36,25 @@ const getSecretData = createServerFn()
 
 export const Route = createFileRoute("/")({
   component: App,
-  loader: async () => {
-    const auth = await db.getAuth();
-    if (!auth) {
+  loader: async ({ context }) => {
+    console.log("running on server");
+    const user = await context.getUser();
+    if (!user) {
       throw redirect({
         to: "/login",
       });
     }
+
+    await context.preloadQuery({
+      todos: {},
+    });
+
+    await context.queryClient.ensureQueryData({
+      queryKey: ["secret"],
+      queryFn: getSecretData,
+    });
   },
-  ssr: false,
+  ssr: true,
 });
 
 type Todo = InstaQLEntity<AppSchema, "todos">;
@@ -57,16 +63,14 @@ const room = db.room("todos");
 
 function App() {
   // Read Data
-  const { isLoading, error, data } = db.useQuery({ todos: {} });
+  const { isLoading, error, data } = useSuperQuery({ todos: {} });
+  console.log("HAVE DATA", data);
   const { peers } = db.rooms.usePresence(room);
-  const secretDataFetch = useServerFn(getSecretData);
-  const [secretData, setSecretData] = useState<Awaited<
-    ReturnType<typeof secretDataFetch>
-  > | null>(null);
 
-  useEffect(() => {
-    secretDataFetch().then(setSecretData);
-  }, [secretDataFetch]);
+  const { data: secret } = useSuspenseQuery({
+    queryKey: ["secret"],
+    queryFn: getSecretData,
+  });
 
   const numUsers = 1 + Object.keys(peers).length;
   if (isLoading) {
@@ -75,7 +79,9 @@ function App() {
   if (error) {
     return <div className="text-red-500 p-4">Error: {error.message}</div>;
   }
-  const { todos } = data;
+
+  const todos = data?.todos || [];
+
   return (
     <div className="font-mono pt-24 flex justify-center items-center flex-col space-y-4">
       <div className="text-xs text-gray-500">
@@ -91,7 +97,7 @@ function App() {
         Open another tab to see todos update in realtime!
       </div>
       Secret data from server function:
-      <pre>{JSON.stringify(secretData, null, 2)}</pre>
+      <pre>{JSON.stringify(secret, null, 2)}</pre>
     </div>
   );
 }
