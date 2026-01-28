@@ -383,7 +383,7 @@ function Main({
                       }
                       setUseSubscribeQuery(e.target.value === 'subscribeQuery');
                     }}
-                    className="cursor-pointer border-0 bg-transparent pr-6 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-0"
+                    className="cursor-pointer border-0 bg-transparent pr-6 text-sm font-semibold text-gray-900 focus:ring-0 focus:outline-none"
                   >
                     <option value="subscribeTable">subscribeTable</option>
                     <option value="subscribeQuery">subscribeQuery</option>
@@ -405,7 +405,7 @@ function Main({
                           | 'createdAt',
                       )
                     }
-                    className="cursor-pointer border-0 bg-transparent pr-6 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-0"
+                    className="cursor-pointer border-0 bg-transparent pr-6 text-sm font-semibold text-gray-900 focus:ring-0 focus:outline-none"
                   >
                     <option value="serverCreatedAt">Server Created</option>
                     <option value="name">Name</option>
@@ -452,21 +452,21 @@ function Main({
                 <button
                   onClick={handleCreateItem}
                   disabled={isCreating}
-                  className="whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-blue-600 px-4 py-2 font-semibold whitespace-nowrap text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Create Item
                 </button>
                 <button
                   onClick={handleCreate1000Items}
                   disabled={isCreating}
-                  className="whitespace-nowrap rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-purple-600 px-4 py-2 font-semibold whitespace-nowrap text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Create 1000
                 </button>
                 <button
                   onClick={handleCreate10kItems}
                   disabled={isCreating}
-                  className="whitespace-nowrap rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold whitespace-nowrap text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Create 10k
                 </button>
@@ -480,7 +480,7 @@ function Main({
                     }
                   }}
                   disabled={useSubscribeQuery}
-                  className="whitespace-nowrap rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-gray-700 px-4 py-2 font-semibold whitespace-nowrap text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Hard Unsubscribe
                 </button>
@@ -491,7 +491,7 @@ function Main({
                     }
                   }}
                   disabled={useSubscribeQuery}
-                  className="whitespace-nowrap rounded-lg bg-gray-500 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-gray-500 px-4 py-2 font-semibold whitespace-nowrap text-white transition-colors hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Soft Unsubscribe
                 </button>
@@ -504,7 +504,7 @@ function Main({
                     }
                   }}
                   disabled={isCreating}
-                  className="whitespace-nowrap rounded-lg bg-gray-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-gray-600 px-4 py-2 font-semibold whitespace-nowrap text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Reset Subscription
                 </button>
@@ -513,13 +513,13 @@ function Main({
                 <button
                   onClick={onResetApp}
                   disabled={isCreating}
-                  className="whitespace-nowrap rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-red-600 px-4 py-2 font-semibold whitespace-nowrap text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Reset App
                 </button>
                 <button
                   onClick={triggerError}
-                  className="whitespace-nowrap rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-orange-700"
+                  className="rounded-lg bg-orange-600 px-4 py-2 font-semibold whitespace-nowrap text-white transition-colors hover:bg-orange-700"
                 >
                   Try an invalid query
                 </button>

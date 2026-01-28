@@ -75,7 +75,7 @@ function AvatarUpload({ defaultSize = 96 }: AvatarUploadProps) {
         </div>
 
         {isUploading && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black bg-opacity-40">
+          <div className="bg-opacity-40 absolute inset-0 flex items-center justify-center rounded-full bg-black">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-white border-t-transparent" />
           </div>
         )}

@@ -32,7 +32,7 @@ export const AddTodo = () => {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Add a new todo..."
-          className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
         />
         <button
           type="submit"

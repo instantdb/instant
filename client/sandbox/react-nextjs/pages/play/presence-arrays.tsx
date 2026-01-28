@@ -189,7 +189,7 @@ const Canvas: FC = () => {
       <h2 className="mb-4 text-2xl font-bold">Canvas with Instant Presence</h2>
       <div
         ref={canvasRef}
-        className="relative h-[50vh] w-full select-none overflow-hidden bg-[#333]"
+        className="relative h-[50vh] w-full overflow-hidden bg-[#333] select-none"
       >
         {stickers.map((sticker) => {
           const isSelected = selectedStickerIds.has(sticker.id);

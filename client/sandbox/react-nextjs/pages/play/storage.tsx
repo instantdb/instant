@@ -94,27 +94,27 @@ function Main({ db }: { db: any }) {
   return (
     <div className="flex min-h-screen w-full flex-1 flex-col bg-white text-zinc-900">
       <main className="flex flex-1 flex-col">
-        <section className="mx-auto flex w-full max-w-xl flex-1 flex-col px-4 pb-24 pt-32 sm:px-8 sm:pb-32 sm:pt-40 md:pb-40 md:pt-40">
+        <section className="mx-auto flex w-full max-w-xl flex-1 flex-col px-4 pt-32 pb-24 sm:px-8 sm:pt-40 sm:pb-32 md:pt-40 md:pb-40">
           <div className="">
             <h1 className="mb-4 text-4xl font-bold">Upload demo</h1>
 
             <div className="flex max-w-md flex-col items-center gap-1">
               <input
                 type="file"
-                className="flex h-9 w-full rounded-md border border-zinc-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:text-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-9 w-full rounded-md border border-zinc-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:text-sm placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-zinc-950 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                 onChange={(e: React.ChangeEvent<any>) =>
                   setFiles(e.target.files)
                 }
               />
               <div className="flex w-full items-center gap-1">
                 <button
-                  className="inline-flex h-9 flex-1 items-center justify-center whitespace-nowrap rounded-md bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm transition-colors hover:bg-zinc-100/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-zinc-100 px-4 py-2 text-sm font-medium whitespace-nowrap text-zinc-900 shadow-sm transition-colors hover:bg-zinc-100/80 focus-visible:ring-1 focus-visible:ring-zinc-950 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                   onClick={handleTryDownloadUrl}
                 >
                   Check
                 </button>
                 <button
-                  className="inline-flex h-9 flex-1 items-center justify-center whitespace-nowrap rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-50 shadow transition-colors hover:bg-zinc-900/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium whitespace-nowrap text-zinc-50 shadow transition-colors hover:bg-zinc-900/90 focus-visible:ring-1 focus-visible:ring-zinc-950 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                   onClick={handleUpload}
                 >
                   Upload
@@ -133,7 +133,7 @@ function Main({ db }: { db: any }) {
                   )}
                   {imageStatus === 'success' && (
                     <button
-                      className="h-9 w-full items-center justify-center whitespace-nowrap rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-red-50 shadow transition-colors hover:bg-red-600/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-700 disabled:pointer-events-none disabled:opacity-50"
+                      className="h-9 w-full items-center justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-medium whitespace-nowrap text-red-50 shadow transition-colors hover:bg-red-600/90 focus-visible:ring-1 focus-visible:ring-red-700 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                       onClick={handleDelete}
                     >
                       Delete

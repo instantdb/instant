@@ -133,7 +133,7 @@ function Messages({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Write a message..."
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           />
           <button
             type="submit"

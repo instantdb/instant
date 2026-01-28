@@ -163,7 +163,7 @@ function PresenceTracker({ db }: { db: InstantReactAbstractDatabase<Schema> }) {
               <div className="mb-2 text-sm font-semibold text-blue-600">
                 Update #{updates.length - index}
               </div>
-              <pre className="overflow-x-auto whitespace-pre-wrap rounded bg-gray-50 p-2 text-xs">
+              <pre className="overflow-x-auto rounded bg-gray-50 p-2 text-xs whitespace-pre-wrap">
                 {JSON.stringify(payload, null, 2)}
               </pre>
             </li>
