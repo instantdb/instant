@@ -98,8 +98,9 @@ function MessageBubble({ message }: { message: Message }) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
       <div
-        className={`max-w-[80%] rounded-lg px-4 py-2 ${isUser ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'
-          }`}
+        className={`max-w-[80%] rounded-lg px-4 py-2 ${
+          isUser ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'
+        }`}
       >
         <div className="mb-1 text-xs opacity-70">
           {isUser ? 'User' : 'Assistant'}
@@ -261,11 +262,11 @@ export function ChatConversationsView() {
   const { data: linkedChatData } = db.useQuery(
     chatIdFromUrl
       ? {
-        chats: {
-          $: { where: { id: chatIdFromUrl } },
-          messages: { $: { order: { index: 'asc' } } },
-        },
-      }
+          chats: {
+            $: { where: { id: chatIdFromUrl } },
+            messages: { $: { order: { index: 'asc' } } },
+          },
+        }
       : null,
   );
 
@@ -299,8 +300,9 @@ export function ChatConversationsView() {
     <div className="overflow-hidden rounded-lg bg-white shadow">
       <div className="flex h-[600px]">
         <div
-          className={`flex w-full flex-col border-r border-gray-200 md:w-80 ${showMobileDetail ? 'hidden md:flex' : 'flex'
-            }`}
+          className={`flex w-full flex-col border-r border-gray-200 md:w-80 ${
+            showMobileDetail ? 'hidden md:flex' : 'flex'
+          }`}
         >
           <div className="flex-1 overflow-y-auto">
             {chats.length === 0 ? (
@@ -322,10 +324,11 @@ export function ChatConversationsView() {
             <button
               onClick={() => changePage(page - 1)}
               disabled={!hasPrev}
-              className={`rounded px-3 py-1 text-sm ${hasPrev
-                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                : 'cursor-not-allowed bg-gray-100 text-gray-400'
-                }`}
+              className={`rounded px-3 py-1 text-sm ${
+                hasPrev
+                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'cursor-not-allowed bg-gray-100 text-gray-400'
+              }`}
             >
               Previous
             </button>
@@ -333,10 +336,11 @@ export function ChatConversationsView() {
             <button
               onClick={() => changePage(page + 1)}
               disabled={!hasMore}
-              className={`rounded px-3 py-1 text-sm ${hasMore
-                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                : 'cursor-not-allowed bg-gray-100 text-gray-400'
-                }`}
+              className={`rounded px-3 py-1 text-sm ${
+                hasMore
+                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'cursor-not-allowed bg-gray-100 text-gray-400'
+              }`}
             >
               Next
             </button>
