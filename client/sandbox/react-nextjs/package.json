@@ -7,6 +7,9 @@
     "start": "next start"
   },
   "dependencies": {
+    "ai": "^4.0.0",
+    "@ai-sdk/react": "^1.0.0",
+    "resumable-stream": "^2.0.0",
     "@clerk/nextjs": "^5.3.7",
     "@instantdb/admin": "workspace:*",
     "@instantdb/core": "workspace:*",
