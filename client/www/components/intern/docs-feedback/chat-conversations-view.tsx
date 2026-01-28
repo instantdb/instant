@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { ShareIcon, CheckIcon } from '@heroicons/react/24/outline';
+import {
+  ShareIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+} from '@heroicons/react/24/outline';
 import db from '@/lib/intern/docs-feedback/db';
 
 const PAGE_SIZE = 20;
@@ -63,10 +67,12 @@ function ChatListItem({
   chat,
   isSelected,
   onClick,
+  userDisplay,
 }: {
   chat: Chat;
   isSelected: boolean;
   onClick: () => void;
+  userDisplay: string;
 }) {
   return (
     <button
@@ -75,7 +81,7 @@ function ChatListItem({
     >
       <div className="mb-1 flex items-center justify-between">
         <span className="max-w-[150px] truncate text-xs text-gray-500">
-          {chat.createdByUserId || 'Anonymous'}
+          {userDisplay}
         </span>
         <span className="text-xs text-gray-400">
           {formatShortDate(chat.createdAt)}
@@ -114,9 +120,11 @@ function MessageBubble({ message }: { message: Message }) {
 function ConversationDetail({
   chat,
   onBack,
+  userDisplay,
 }: {
   chat: Chat | null;
   onBack?: () => void;
+  userDisplay: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -148,25 +156,11 @@ function ConversationDetail({
                 onClick={onBack}
                 className="text-gray-500 hover:text-gray-700 md:hidden"
               >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
+                <ChevronLeftIcon className="h-5 w-5" />
               </button>
             )}
             <div>
-              <div className="font-medium text-gray-900">
-                {chat.createdByUserId || 'Anonymous'}
-              </div>
+              <div className="font-medium text-gray-900">{userDisplay}</div>
               <div className="text-sm text-gray-500">
                 {formatDate(chat.createdAt)}
               </div>
@@ -257,6 +251,7 @@ export function ChatConversationsView() {
         },
       },
     },
+    llmUsage: {},
   });
 
   const { data: linkedChatData } = db.useQuery(
@@ -289,6 +284,13 @@ export function ChatConversationsView() {
   }
 
   const chats = (data?.chats || []) as Chat[];
+  const userEmailMap = new Map<string, string>();
+  (data?.llmUsage || []).forEach((u) => {
+    if (u.userEmail) userEmailMap.set(u.userId, u.userEmail);
+  });
+  const getUserDisplay = (userId: string) =>
+    userEmailMap.get(userId) || userId || 'Anonymous';
+
   const linkedChat = (linkedChatData?.chats?.[0] as Chat) || null;
   const selectedChat = chats.find((c) => c.id === selectedChatId) || linkedChat;
   const hasMore = chats.length === PAGE_SIZE;
@@ -316,6 +318,7 @@ export function ChatConversationsView() {
                   chat={chat}
                   isSelected={chat.id === selectedChatId}
                   onClick={() => selectChat(chat.id)}
+                  userDisplay={getUserDisplay(chat.createdByUserId)}
                 />
               ))
             )}
@@ -352,6 +355,9 @@ export function ChatConversationsView() {
           <ConversationDetail
             chat={selectedChat}
             onBack={() => selectChat(null)}
+            userDisplay={
+              selectedChat ? getUserDisplay(selectedChat.createdByUserId) : ''
+            }
           />
         </div>
       </div>
