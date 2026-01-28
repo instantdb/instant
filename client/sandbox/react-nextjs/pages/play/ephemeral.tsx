@@ -129,7 +129,7 @@ function Demo() {
         room={room}
         spaceId="space-3"
         userCursorColor="dodgerblue"
-        className="h-64 w-64 overflow-hidden border pl-16 pt-16"
+        className="h-64 w-64 overflow-hidden border pt-16 pl-16"
       >
         <Cursors
           room={room}

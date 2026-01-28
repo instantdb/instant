@@ -95,7 +95,7 @@ function Login() {
   });
 
   return (
-    <div className="w-lvw flex h-screen flex-col items-center justify-center gap-4">
+    <div className="flex h-screen w-lvw flex-col items-center justify-center gap-4">
       <button
         style={{
           fontFamily: 'SF Pro, -apple-system, BlinkMacSystemFont, sans-serif',

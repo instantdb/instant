@@ -75,11 +75,11 @@ function SignInWithMagicCode({
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 rounded border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
             <button
               onClick={handleSendCode}
-              className="whitespace-nowrap rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+              className="rounded bg-blue-500 px-4 py-2 whitespace-nowrap text-white hover:bg-blue-600"
             >
               Send code
             </button>
@@ -91,7 +91,7 @@ function SignInWithMagicCode({
               placeholder="Enter code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="flex-1 rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 rounded border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
             <button
               onClick={handleVerifyCode}
@@ -212,10 +212,10 @@ function SignedIn({
             .filter(([key]) => key !== 'refresh_token')
             .map(([key, value]) => (
               <tr key={key}>
-                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
+                <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">
                   {key}
                 </td>
-                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
                   {typeof value === 'object'
                     ? JSON.stringify(value)
                     : String(value)}

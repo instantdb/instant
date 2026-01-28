@@ -15,7 +15,7 @@ function getStreamContext() {
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const { subscriber } = getFilePubSub();
@@ -32,7 +32,10 @@ export async function GET(
   const skipChars = parseInt(url.searchParams.get('skipChars') || '0', 10);
 
   const streamContext = getStreamContext();
-  const stream = await streamContext.resumeExistingStream(String(activeStreamId), skipChars);
+  const stream = await streamContext.resumeExistingStream(
+    String(activeStreamId),
+    skipChars,
+  );
 
   if (!stream) {
     // Stream completed, clear the active stream ID

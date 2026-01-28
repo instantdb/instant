@@ -26,7 +26,7 @@ function App() {
   }, [user, calledSignIn]);
   return (
     <div>
-      <div className="space-x-2 space-y-2">
+      <div className="space-y-2 space-x-2">
         <button
           onClick={() => {
             db.auth.signOut();

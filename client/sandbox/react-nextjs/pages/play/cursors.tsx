@@ -21,7 +21,7 @@ function Main() {
     <div className="flex h-screen flex-col">
       <div className="flex flex-1 flex-col justify-center">
         <div className="mx-auto flex max-w-2xl flex-col items-center justify-center p-5 sm:p-10">
-          <h1 className="text-center text-4xl font-bold leading-none tracking-tighter text-black sm:text-5xl md:text-6xl">
+          <h1 className="text-center text-4xl leading-none font-bold tracking-tighter text-black sm:text-5xl md:text-6xl">
             Cursor Together
           </h1>
           <p className="mt-6 max-w-md text-center text-lg leading-relaxed text-black">
