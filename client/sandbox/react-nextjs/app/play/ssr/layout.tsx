@@ -1,9 +1,9 @@
 import { InstantProvider } from './InstantProvider';
-import { getUserFromInstantCookie } from '@instantdb/react/nextjs';
+import { getUnverifiedUserFromInstantCookie } from '@instantdb/react/nextjs';
 
 // (server page)
 export default async function ({ children }: { children: React.ReactNode }) {
-  const user = await getUserFromInstantCookie(
+  const user = await getUnverifiedUserFromInstantCookie(
     process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
   );
 
