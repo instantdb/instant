@@ -367,11 +367,7 @@ export function ChatConversationsView() {
   );
 }
 
-export function SingleConversationView({
-  chatId,
-}: {
-  chatId: string | null;
-}) {
+export function SingleConversationView({ chatId }: { chatId: string | null }) {
   const router = useRouter();
   const [inputId, setInputId] = useState('');
 
@@ -444,7 +440,9 @@ export function SingleConversationView({
 
   if (!chat) {
     return (
-      <div className="p-4 text-center text-gray-500">Conversation not found</div>
+      <div className="p-4 text-center text-gray-500">
+        Conversation not found
+      </div>
     );
   }
 
@@ -453,7 +451,9 @@ export function SingleConversationView({
     if (u.userEmail) userEmailMap.set(u.userId, u.userEmail);
   });
   const userDisplay =
-    userEmailMap.get(chat.createdByUserId) || chat.createdByUserId || 'Anonymous';
+    userEmailMap.get(chat.createdByUserId) ||
+    chat.createdByUserId ||
+    'Anonymous';
 
   return (
     <div className="overflow-hidden rounded-lg bg-white shadow">
