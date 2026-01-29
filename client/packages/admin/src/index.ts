@@ -81,6 +81,7 @@ import {
   SubscribeQueryPayload,
   SubscriptionReadyState,
 } from './subscribe.ts';
+import { parseCookie } from 'cookie';
 
 type DebugCheckResult = {
   /** The ID of the record. */
@@ -622,6 +623,37 @@ class Auth {
       body: JSON.stringify(params),
     });
   }
+
+  /**
+   * Get instant user from Request
+   *
+   * Reads cookies and gets a validated user
+   * @param req The request containing a cookie synced with createInstantRouteHandler
+   * @param opts Allow disabling validation of refresh token
+   */
+  getUserFromRequest = async (
+    req: Request,
+    opts?: { disableValidation?: boolean },
+  ): Promise<User | null> => {
+    const cookieHeader = req.headers.get('cookie') || '';
+
+    const parsedCookie = parseCookie(cookieHeader);
+
+    const cookieName = 'instant_user_' + this.config.appId;
+    if (!parsedCookie[cookieName]) {
+      return null;
+    }
+    const value = parsedCookie[cookieName];
+    const user = JSON.parse(value);
+    if (!user?.refresh_token) {
+      return null;
+    }
+    if (opts?.disableValidation) {
+      return user;
+    }
+    const verified = await this.verifyToken(user.refresh_token);
+    return verified;
+  };
 }
 
 type StorageFile = {
