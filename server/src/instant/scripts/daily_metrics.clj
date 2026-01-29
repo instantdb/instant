@@ -21,7 +21,7 @@
     (vec (concat test team friend))))
 
 (defn get-daily-signups
-  "Returns the number of signups for a day (in PST timezone)"
+  "Returns the number of signups for a day (in Pacific timezone)"
   ([date-str]
    (get-daily-signups (aurora/conn-pool :read) date-str))
   ([conn date-str]
