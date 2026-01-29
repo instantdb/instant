@@ -628,6 +628,8 @@ class Auth {
    * Get instant user from Request
    *
    * Reads cookies and gets a validated user
+   * @param req The request containing a cookie synced with createInstantRouteHandler
+   * @param opts Allow disabling validation of refresh token
    */
   getUserFromRequest = async (
     req: Request,
