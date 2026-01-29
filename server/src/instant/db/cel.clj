@@ -367,7 +367,12 @@
   (-> (runtime-compiler-builder)
       (.build)))
 
-(def ^:private ^CelCompiler cel-create-update-compiler
+(def ^:private ^CelCompiler cel-create-compiler
+  (-> (runtime-compiler-builder)
+      (.addVar "newData" type-obj)
+      (.build)))
+
+(def ^:private ^CelCompiler cel-update-compiler
   (-> (runtime-compiler-builder)
       (.addVar "newData" type-obj)
       (.addVar "request" type-obj)
@@ -400,9 +405,10 @@
 (defn action->compiler [action]
   (case (name action)
     ("view" "delete") cel-view-delete-compiler
+    "create"          cel-create-compiler
+    "update"          cel-update-compiler
     "link"            cel-link-compiler
-    "unlink"          cel-unlink-compiler
-    #_else            cel-create-update-compiler))
+    "unlink"          cel-unlink-compiler))
 
 (defn get-expr ^CelExpr [^CelNavigableExpr node]
   ;; Not sure why this is necessary, but can't call
