@@ -58,7 +58,7 @@
     (cel/rule->program :delete "newData.isFavorite"))))
 
 (deftest unknown-results-throw
-  (let [program (cel/rule->program :update "newData.isFavorite")
+  (let [program (cel/rule->program :write "newData.isFavorite")
         bindings {} ;; note! new-data is not provided. This will cause CEL to return
                     ;; a CelUnknownSet
         ]

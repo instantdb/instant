@@ -262,9 +262,30 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
 
 ### request.modifiedFields
 
-In `update` rules, you have access to `request.modifiedFields` — a list of field names being modified in the transaction. This is useful when you want to allow anyone to update specific fields while protecting others.
+In `create` and `update` rules, you have access to `request.modifiedFields` — a list of field names being set in the transaction. This is useful when you want to control which fields can be set by whom.
 
-For example, you might want only the owner to edit a post's title and content, but allow anyone to increment a `likes` counter:
+#### Restricting fields on create
+
+You can use `request.modifiedFields` to prevent certain fields from being set on creation. For example, only admins should be able to set the `featured` field:
+
+```json
+{
+  "posts": {
+    "allow": {
+      "create": "isAdmin || !('featured' in request.modifiedFields)"
+    },
+    "bind": {
+      "isAdmin": "'admin' in auth.ref('$user.role.type')"
+    }
+  }
+}
+```
+
+This allows anyone to create posts, but only admins can set the `featured` field.
+
+#### Restricting fields on update
+
+You might want only the owner to edit a post's title and content, but allow anyone to increment a `likes` counter:
 
 ```json
 {

@@ -5808,5 +5808,61 @@
                           [[:add-triple post-id posts-likes-attr 4]
                            [:add-triple post-id posts-title-attr "Hacked Title"]]))))))))
 
+(deftest modified-fields-create-permissions
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [admin-id (random-uuid)
+            user-id (random-uuid)
+
+            {posts-id-attr       :posts/id
+             posts-title-attr    :posts/title
+             posts-featured-attr :posts/featured}
+            (test-util/make-attrs
+             app-id
+             [[:posts/id :unique? :index?]
+              [:posts/title :index?]
+              [:posts/featured :index?]])
+
+            make-ctx
+            (fn [current-user-id]
+              {:db {:conn-pool (aurora/conn-pool :write)}
+               :app-id app-id
+               :attrs (attr-model/get-by-app-id app-id)
+               :datalog-query-fn d/query
+               :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+               :current-user (when current-user-id {:id (str current-user-id)})})]
+
+        (testing "anyone can create with allowed fields only"
+          (rule-model/put!
+           (aurora/conn-pool :write)
+           {:app-id app-id
+            :code {:posts {:allow {:create "!('featured' in request.modifiedFields)"}}}})
+          (let [post-id (random-uuid)]
+            (is (not (perm-err? (permissioned-tx/transact!
+                                 (make-ctx user-id)
+                                 [[:add-triple post-id posts-id-attr post-id]
+                                  [:add-triple post-id posts-title-attr "My Post"]]))))))
+
+        (testing "non-admin cannot set featured field on create"
+          (let [post-id (random-uuid)]
+            (is (perm-err? (permissioned-tx/transact!
+                            (make-ctx user-id)
+                            [[:add-triple post-id posts-id-attr post-id]
+                             [:add-triple post-id posts-title-attr "My Post"]
+                             [:add-triple post-id posts-featured-attr true]])))))
+
+        (testing "admin can set featured field on create"
+          (rule-model/put!
+           (aurora/conn-pool :write)
+           {:app-id app-id
+            :code {:posts {:allow {:create "isAdmin || !('featured' in request.modifiedFields)"}
+                           :bind {"isAdmin" (str "auth.id == '" admin-id "'")}}}})
+          (let [post-id (random-uuid)]
+            (is (not (perm-err? (permissioned-tx/transact!
+                                 (make-ctx admin-id)
+                                 [[:add-triple post-id posts-id-attr post-id]
+                                  [:add-triple post-id posts-title-attr "Featured Post"]
+                                  [:add-triple post-id posts-featured-attr true]]))))))))))
+
 (comment
   (test/run-tests *ns*))

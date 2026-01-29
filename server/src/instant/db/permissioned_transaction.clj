@@ -556,9 +556,10 @@
                     :eid      (get create-lookups-map eid eid)
                     :program  (or (rule-model/get-program! rules etype "create")
                                   {:result true})
-                    :bindings {:data         updated-entity
-                               :new-data     updated-entity
-                               :rule-params  (merge rev-rule-params rule-params)}}])
+                    :bindings {:data            updated-entity
+                               :new-data        updated-entity
+                               :rule-params     (merge rev-rule-params rule-params)
+                               :modified-fields (get-modified-fields-for-eid eid tx-steps attrs)}}])
                 (when (and updated-rev-entity
                            (nil? (get entities-map rev-key)))
                   [{:scope    :object
@@ -581,9 +582,10 @@
                                {:result true})
                  :bindings (let [updated-entity (-> (get updated-entities-map key)
                                                     (update "id" #(get create-lookups-map % %)))]
-                             {:data        updated-entity
-                              :new-data    updated-entity
-                              :rule-params rule-params})}]
+                             {:data            updated-entity
+                              :new-data        updated-entity
+                              :rule-params     rule-params
+                              :modified-fields (get-modified-fields-for-eid eid tx-steps attrs)})}]
 
                :else
                [])]

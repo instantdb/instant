@@ -177,6 +177,9 @@
   (get [_ i]
     (stringify (nth xs i)))
 
+  (contains [_ o]
+    (boolean (some #(= (stringify %) o) xs)))
+
   ;; for printing
   (iterator [_]
     (java.util.List/.iterator xs)))
@@ -367,12 +370,7 @@
   (-> (runtime-compiler-builder)
       (.build)))
 
-(def ^:private ^CelCompiler cel-create-compiler
-  (-> (runtime-compiler-builder)
-      (.addVar "newData" type-obj)
-      (.build)))
-
-(def ^:private ^CelCompiler cel-update-compiler
+(def ^:private ^CelCompiler cel-create-update-compiler
   (-> (runtime-compiler-builder)
       (.addVar "newData" type-obj)
       (.addVar "request" type-obj)
@@ -405,10 +403,9 @@
 (defn action->compiler [action]
   (case (name action)
     ("view" "delete") cel-view-delete-compiler
-    "create"          cel-create-compiler
-    "update"          cel-update-compiler
     "link"            cel-link-compiler
-    "unlink"          cel-unlink-compiler))
+    "unlink"          cel-unlink-compiler
+    #_else            cel-create-update-compiler))
 
 (defn get-expr ^CelExpr [^CelNavigableExpr node]
   ;; Not sure why this is necessary, but can't call
