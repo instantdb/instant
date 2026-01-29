@@ -294,6 +294,8 @@ export const tryConnectApp = async (
         authToken: null,
         method: 'POST',
         path: '/dash/cli/auth/register',
+      }).catch((e) => {
+        throw new Error('Failed to register', { cause: e });
       });
       const { secret, ticket } = registerRes;
       openInBrowser(`${instantDashOrigin}/dash?ticket=${ticket}`);
@@ -336,7 +338,9 @@ export const tryConnectApp = async (
 
   if (!authToken) return null;
 
-  let dashData = await fetchDashboard(authToken);
+  let dashData = await fetchDashboard(authToken).catch((e) => {
+    throw new Error('Failed to fetch dashboard', { cause: e });
+  });
   const allowedOrgs = dashData.orgs.filter((org) => org.role !== 'app-member');
   dashData.orgs = allowedOrgs;
   const selectedApp = await renderUnwrap(
