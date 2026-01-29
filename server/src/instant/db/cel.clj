@@ -370,6 +370,7 @@
 (def ^:private ^CelCompiler cel-create-update-compiler
   (-> (runtime-compiler-builder)
       (.addVar "newData" type-obj)
+      (.addVar "request" type-obj)
       (.build)))
 
 (def ^:private ^CelCompiler cel-link-compiler
@@ -457,7 +458,7 @@
 (defn eval-program!
   [ctx
    {:keys [cel-program etype action]}
-   {:keys [data rule-params new-data linked-data linked-etype actions]}]
+   {:keys [data rule-params new-data linked-data linked-etype actions modified-fields]}]
   (try
     (let [bindings (HashMap.)
           _ (.put bindings "auth" (AuthCelMap. ctx (CelMap. (:current-user ctx))))
@@ -468,7 +469,9 @@
           _ (when linked-data
               (.put bindings "linkedData" (DataCelMap. ctx linked-etype (CelMap. linked-data))))
           _ (when actions
-              (.put bindings "actions" (CelMap. actions)))]
+              (.put bindings "actions" (CelMap. actions)))
+          _ (when modified-fields
+              (.put bindings "request" (CelMap. {"modifiedFields" modified-fields})))]
       (eval-program-with-bindings cel-program bindings))
 
     (catch CelEvaluationException e
@@ -488,7 +491,7 @@
    {:keys [^CelRuntime$Program cel-program
            etype
            action] :as program}
-   {:keys [resolver data rule-params new-data linked-data linked-etype actions]}]
+   {:keys [resolver data rule-params new-data linked-data linked-etype actions modified-fields]}]
   (if (contains? program :result)
     (:result program)
     (try
@@ -514,6 +517,10 @@
                                "actions"    (if actions
                                               (Optional/of
                                                (CelMap. actions))
+                                              (Optional/empty))
+                               "request"    (if modified-fields
+                                              (Optional/of
+                                               (CelMap. {"modifiedFields" modified-fields}))
                                               (Optional/empty))
                                (Optional/empty)))))
             unknown-ctx (UnknownContext/create resolver (ImmutableList/of))

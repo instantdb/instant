@@ -250,6 +250,20 @@
     (transient entities-map)
     tx-steps)))
 
+(defn get-modified-fields-for-eid
+  "Returns a list of field names being modified for a given entity.
+   Used for request.modifiedFields in CEL update rules."
+  [target-eid tx-steps attrs]
+  (->> tx-steps
+       (filter (fn [{:keys [op eid]}]
+                 (and (= target-eid eid)
+                      (#{:add-triple :deep-merge-triple} op))))
+       (map (fn [{:keys [aid]}]
+              (let [[_ _ label] (:forward-identity (attr-model/seek-by-id aid attrs))]
+                label)))
+       distinct
+       vec))
+
 (defn pre-checks
   "Checks that run before tx: update, delete for attrs & objects"
   [{:keys [attrs admin? rules]}
@@ -356,9 +370,10 @@
                     :eid      eid
                     :program  (or (rule-model/get-program! rules etype "update")
                                   {:result true})
-                    :bindings {:data        entity
-                               :new-data    (get updated-entities-map key)
-                               :rule-params (merge rev-rule-params rule-params)}}])
+                    :bindings {:data            entity
+                               :new-data        (get updated-entities-map key)
+                               :rule-params     (merge rev-rule-params rule-params)
+                               :modified-fields (get-modified-fields-for-eid eid tx-steps attrs)}}])
                 (when rev-entity
                   [{:scope    :object
                     :action   :view
@@ -409,9 +424,10 @@
                     :eid      eid
                     :program  (or (rule-model/get-program! rules etype "update")
                                   {:result true})
-                    :bindings {:data        entity
-                               :new-data    (get updated-entities-map key)
-                               :rule-params (merge rev-rule-params rule-params)}}])
+                    :bindings {:data            entity
+                               :new-data        (get updated-entities-map key)
+                               :rule-params     (merge rev-rule-params rule-params)
+                               :modified-fields (get-modified-fields-for-eid eid tx-steps attrs)}}])
                 (when rev-entity
                   [{:scope    :object
                     :action   :view
@@ -431,9 +447,10 @@
                  :eid      eid
                  :program  (or (rule-model/get-program! rules etype "update")
                                {:result true})
-                 :bindings {:data        entity
-                            :new-data    (get updated-entities-map key)
-                            :rule-params rule-params}}]
+                 :bindings {:data            entity
+                            :new-data        (get updated-entities-map key)
+                            :rule-params     rule-params
+                            :modified-fields (get-modified-fields-for-eid eid tx-steps attrs)}}]
 
                (= :delete-entity op)
                [{:scope    :object
