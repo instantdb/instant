@@ -21,16 +21,16 @@
     (vec (concat test team friend))))
 
 (defn get-daily-signups
-  "Returns the number of signups for a day"
+  "Returns the number of signups for a day (in PST timezone)"
   ([date-str]
    (get-daily-signups (aurora/conn-pool :read) date-str))
   ([conn date-str]
    (sql/select-one conn
                    ["SELECT
-                      DATE_TRUNC('day', u.created_at) AS signup_date,
+                      DATE_TRUNC('day', (u.created_at at time zone 'UTC') at time zone 'America/Los_Angeles')::date AS signup_date,
                       COUNT(u.id) AS signup_count
                     FROM instant_users u
-                WHERE DATE_TRUNC('day', u.created_at) = DATE(?)
+                WHERE DATE_TRUNC('day', (u.created_at at time zone 'UTC') at time zone 'America/Los_Angeles')::date = DATE(?)
                   AND u.email NOT IN (SELECT unnest(?::text[]))
                 GROUP BY 1
                 ORDER BY 1"
