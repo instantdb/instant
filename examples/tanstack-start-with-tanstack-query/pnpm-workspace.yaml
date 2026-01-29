@@ -1,0 +1,6 @@
+overrides:
+  "@instantdb/react": "file:../../client/packages/react"
+  "@instantdb/react-common": "file:../../client/packages/react-common"
+  "@instantdb/core": "file:../../client/packages/core"
+  "@instantdb/admin": "file:../../client/packages/admin"
+  "@instantdb/version": "file:../../client/packages/version"
