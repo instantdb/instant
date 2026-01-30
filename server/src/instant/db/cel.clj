@@ -25,7 +25,8 @@
                    CelOverloadDecl
                    CelSource
                    CelValidationException)
-   (dev.cel.common.ast CelExpr
+   (dev.cel.common.ast CelConstant$Kind
+                       CelExpr
                        CelExpr$CelCall
                        CelExpr$CelComprehension
                        CelExpr$ExprKind$Kind
@@ -435,13 +436,34 @@
                  (.allNodes)
                  (stream-seq!)))))
 
+(def ^:private request-valid-fields #{"modifiedFields"})
+
+(defn- is-request-field-access? [^CelExpr expr]
+  (when (= (.getKind (.exprKind expr)) CelExpr$ExprKind$Kind/SELECT)
+    (let [select (.select expr)
+          operand (.operand select)]
+      (when (and (= (.getKind (.exprKind operand)) CelExpr$ExprKind$Kind/IDENT)
+                 (= (.name (.ident operand)) "request"))
+        (.field select)))))
+
+(defn- is-string-literal? [^CelExpr expr]
+  (and (= (.getKind (.exprKind expr)) CelExpr$ExprKind$Kind/CONSTANT)
+       (= (.getKind (.constant expr)) CelConstant$Kind/STRING_VALUE)))
+
+(declare validation-errors)
+
 (defn ->ast [^CelCompiler compiler expr-str] (.getAst (.compile compiler expr-str)))
 
 (defn ->program [ast] (.createProgram cel-runtime ast))
 
-(defn rule->program [action expr-str]
+(defn rule->program [action ^String expr-str]
   (let [compiler (action->compiler action)
-        ast (->ast compiler expr-str)]
+        ast (->ast compiler expr-str)
+        errors (validation-errors compiler ast)]
+    (when (seq errors)
+      (throw (CelValidationException.
+              (.build (CelSource/newBuilder expr-str))
+              (vec errors))))
     (->program ast)))
 
 (defn eval-program-with-bindings
@@ -598,7 +620,7 @@
           (fn [acc {:keys [program bindings] :as item}]
             (if (some? program)
               (let [result (io/warn-io :cel/advance-program!
-                                       (advance-program! ctx program bindings))]
+                             (advance-program! ctx program bindings))]
                 (if (is-missing-ref-data? result)
                   (-> acc
                       (update :missing-refs into (missing-ref-datas result))
@@ -623,7 +645,6 @@
          (recur results
                 ctx
                 rerun-programs))))))
-
 
 ;; cel -> instaql where clauses
 ;; ----------------------------
@@ -1594,10 +1615,60 @@
                                (.id expr))
                              "auth.ref arg must start with `$user.`"))))))))))
 
+(defn- validate-modified-fields-usage [field func args ^CelExpr expr]
+  (cond
+    (or (= func "_==_") (= func "_!=_"))
+    {:id (.id expr)
+     :message (str "Cannot compare request." field " with '"
+                   (if (= func "_==_") "==" "!=")
+                   "' (it's a list). Use 'in' or '.all()' to check list contents.")}
+
+    (= func "@in")
+    (let [^CelExpr check-value (first args)]
+      (when (and (not (is-string-literal? check-value))
+                 (not= (.getKind (.exprKind check-value)) CelExpr$ExprKind$Kind/IDENT))
+        {:id (.id check-value)
+         :message (str "The 'in' check for request." field " requires a string, "
+                       "but got a non-string literal.")}))))
+
+(def request-validator
+  ^CelAstValidator
+  (reify CelAstValidator
+    (validate [_this nav-ast _cel issues-factory]
+      (doseq [^CelNavigableExpr node (iterator-seq (.iterator (.allNodes (.getRoot nav-ast))))]
+        (let [expr (get-expr node)
+              kind (.getKind node)]
+          (cond
+                ;; Check for invalid field access on request
+            (= kind CelExpr$ExprKind$Kind/SELECT)
+            (let [select (.select expr)
+                  operand (.operand select)
+                  field (.field select)]
+              (when (and (= (.getKind (.exprKind operand)) CelExpr$ExprKind$Kind/IDENT)
+                         (= (.name (.ident operand)) "request")
+                         (not (contains? request-valid-fields field)))
+                (.addError issues-factory
+                           (.id expr)
+                           (str "Invalid field '" field "' on request. "
+                                "Valid fields: " (clojure.string/join ", " request-valid-fields)))))
+
+                ;; Check for type mismatches with request.modifiedFields
+            (= kind CelExpr$ExprKind$Kind/CALL)
+            (let [call (.call expr)
+                  func (.function call)
+                  args (.args call)]
+              (when (= (count args) 2)
+                (when-let [field (or (is-request-field-access? (first args))
+                                     (is-request-field-access? (second args)))]
+                  (when (= field "modifiedFields")
+                    (when-let [{:keys [id message]} (validate-modified-fields-usage field func args expr)]
+                      (.addError issues-factory id message))))))))))))
+
 (defn validation-errors [^CelCompiler compiler ^CelAbstractSyntaxTree ast]
   (-> (CelValidatorFactory/standardCelValidatorBuilder compiler
                                                        cel-runtime)
-      (.addAstValidators (ucoll/array-of CelAstValidator [auth-ref-validator]))
+      (.addAstValidators (ucoll/array-of CelAstValidator [auth-ref-validator
+                                                          request-validator]))
       (.build)
       (.validate ast)
       (.getErrors)))
