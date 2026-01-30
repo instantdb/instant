@@ -887,7 +887,7 @@ class InstantAdminDatabase<
 
   constructor(_config: Config) {
     if (!_config.appId) {
-      throw new Error('Instant must be initialized with an appId');
+      console.warn('Warning: Instant must be initialized with an appId');
     }
     this.config = instantConfigWithDefaults(_config);
     this.auth = new Auth(this.config);
