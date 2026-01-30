@@ -14,10 +14,11 @@
    [instant.util.json :as json]
    [instant.util.tracer :as tracer]
    [instant.comment :as c]
+   [instant.db.proto :as proto]
    [instant.data.resolvers :as resolvers])
   (:import
    (com.google.common.collect ImmutableList ImmutableSet)
-   (com.google.protobuf NullValue)
+   (com.google.protobuf Descriptors$Descriptor NullValue)
    (dev.cel.common CelAbstractSyntaxTree
                    CelFunctionDecl
                    CelIssue
@@ -36,6 +37,7 @@
                          ListType
                          MapType
                          SimpleType
+                         StructTypeReference
                          OpaqueType
                          TypeParamType)
    (dev.cel.compiler CelCompiler
@@ -353,11 +355,15 @@
 ;; n.b. if you edit something here, make sure you make the
 ;;      equivalent change to iql-cel-compiler below
 
+(def request-cel-type (StructTypeReference/create "request"))
+
 (defn- runtime-compiler-builder ^CelCompilerBuilder []
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
+      (.addMessageTypes (ucoll/array-of Descriptors$Descriptor [proto/request-descriptor]))
       (.addVar "data" type-obj)
       (.addVar "auth" type-obj)
       (.addVar "ruleParams" type-obj)
+      (.addVar "request" ^StructTypeReference request-cel-type)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setOptions cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
@@ -463,6 +469,7 @@
           _ (.put bindings "auth" (AuthCelMap. ctx (CelMap. (:current-user ctx))))
           _ (.put bindings "data" (DataCelMap. ctx etype (CelMap. data)))
           _ (.put bindings "ruleParams" (CelMap. rule-params))
+          _ (.put bindings "request" (proto/create-request-proto ["a" "b" "c"]))
           _ (when new-data
               (.put bindings "newData" (CelMap. new-data)))
           _ (when linked-data
@@ -515,6 +522,9 @@
                                               (Optional/of
                                                (CelMap. actions))
                                               (Optional/empty))
+                               "request" (Optional/of
+                                          (proto/create-request-proto ["a" "b" "c"]))
+
                                (Optional/empty)))))
             unknown-ctx (UnknownContext/create resolver (ImmutableList/of))
             i (AtomicInteger.)
