@@ -14,10 +14,11 @@
    [instant.util.json :as json]
    [instant.util.tracer :as tracer]
    [instant.comment :as c]
+   [instant.db.proto :as proto]
    [instant.data.resolvers :as resolvers])
   (:import
    (com.google.common.collect ImmutableList ImmutableSet)
-   (com.google.protobuf NullValue)
+   (com.google.protobuf Descriptors$Descriptor NullValue)
    (dev.cel.common CelAbstractSyntaxTree
                    CelFunctionDecl
                    CelIssue
@@ -36,6 +37,7 @@
                          ListType
                          MapType
                          SimpleType
+                         StructTypeReference
                          OpaqueType
                          TypeParamType)
    (dev.cel.compiler CelCompiler
@@ -176,6 +178,9 @@
   java.util.List
   (get [_ i]
     (stringify (nth xs i)))
+
+  (contains [_ o]
+    (boolean (some #(= (stringify %) o) xs)))
 
   ;; for printing
   (iterator [_]
@@ -353,8 +358,11 @@
 ;; n.b. if you edit something here, make sure you make the
 ;;      equivalent change to iql-cel-compiler below
 
+(def request-cel-type (StructTypeReference/create "request"))
+
 (defn- runtime-compiler-builder ^CelCompilerBuilder []
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
+      (.addMessageTypes (ucoll/array-of Descriptors$Descriptor [proto/request-descriptor]))
       (.addVar "data" type-obj)
       (.addVar "auth" type-obj)
       (.addVar "ruleParams" type-obj)
@@ -370,6 +378,7 @@
 (def ^:private ^CelCompiler cel-create-update-compiler
   (-> (runtime-compiler-builder)
       (.addVar "newData" type-obj)
+      (.addVar "request" request-cel-type)
       (.build)))
 
 (def ^:private ^CelCompiler cel-link-compiler
@@ -457,7 +466,7 @@
 (defn eval-program!
   [ctx
    {:keys [cel-program etype action]}
-   {:keys [data rule-params new-data linked-data linked-etype actions]}]
+   {:keys [data rule-params new-data linked-data linked-etype actions modified-fields]}]
   (try
     (let [bindings (HashMap.)
           _ (.put bindings "auth" (AuthCelMap. ctx (CelMap. (:current-user ctx))))
@@ -468,7 +477,9 @@
           _ (when linked-data
               (.put bindings "linkedData" (DataCelMap. ctx linked-etype (CelMap. linked-data))))
           _ (when actions
-              (.put bindings "actions" (CelMap. actions)))]
+              (.put bindings "actions" (CelMap. actions)))
+          _ (when modified-fields
+              (.put bindings "request" (proto/create-request-proto modified-fields)))]
       (eval-program-with-bindings cel-program bindings))
 
     (catch CelEvaluationException e
@@ -488,7 +499,7 @@
    {:keys [^CelRuntime$Program cel-program
            etype
            action] :as program}
-   {:keys [resolver data rule-params new-data linked-data linked-etype actions]}]
+   {:keys [resolver data rule-params new-data linked-data linked-etype actions modified-fields]}]
   (if (contains? program :result)
     (:result program)
     (try
@@ -514,6 +525,10 @@
                                "actions"    (if actions
                                               (Optional/of
                                                (CelMap. actions))
+                                              (Optional/empty))
+                               "request"    (if modified-fields
+                                              (Optional/of
+                                               (proto/create-request-proto modified-fields))
                                               (Optional/empty))
                                (Optional/empty)))))
             unknown-ctx (UnknownContext/create resolver (ImmutableList/of))
@@ -588,7 +603,7 @@
           (fn [acc {:keys [program bindings] :as item}]
             (if (some? program)
               (let [result (io/warn-io :cel/advance-program!
-                                       (advance-program! ctx program bindings))]
+                             (advance-program! ctx program bindings))]
                 (if (is-missing-ref-data? result)
                   (-> acc
                       (update :missing-refs into (missing-ref-datas result))
@@ -613,7 +628,6 @@
          (recur results
                 ctx
                 rerun-programs))))))
-
 
 ;; cel -> instaql where clauses
 ;; ----------------------------

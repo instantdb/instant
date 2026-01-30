@@ -260,6 +260,104 @@ The above example shows a taste of the kind of rules you can write :)
 
 In `update`, you'll also have access to `newData`. This refers to the changes that are being made to the object.
 
+### request.modifiedFields
+
+In `create` and `update` rules, you have access to `request.modifiedFields` — a list of field names being set in the transaction. This is useful when you want to control which fields can be set by whom.
+
+#### Restricting fields on create
+
+You can use `request.modifiedFields` to prevent certain fields from being set on creation. For example, only admins should be able to set the `featured` field:
+
+```json
+{
+  "posts": {
+    "allow": {
+      "create": "isAdmin || !('featured' in request.modifiedFields)"
+    },
+    "bind": {
+      "isAdmin": "'admin' in auth.ref('$user.role.type')"
+    }
+  }
+}
+```
+
+This allows anyone to create posts, but only admins can set the `featured` field.
+
+#### Restricting fields on update
+
+You might want only the owner to edit a post's title and content, but allow anyone to increment a `likes` counter:
+
+```json
+{
+  "posts": {
+    "allow": {
+      "update": "isOwner || onlyModifiesLikes"
+    },
+    "bind": {
+      "isOwner": "auth.id == data.ownerId",
+      "onlyModifiesLikes": "request.modifiedFields.all(field, field in ['likes'])"
+    }
+  }
+}
+```
+
+This rule allows the owner to update any field, but non-owners can only update the `likes` field.
+
+Since a transaction can update multiple fields at once, `request.modifiedFields` is a list. We use `.all(field, field in ['likes'])` to check that _every_ field being modified is in our allowed list. This prevents someone from sneaking in an unauthorized field change alongside an allowed one.
+
+You can allow multiple public fields:
+
+```json
+{
+  "posts": {
+    "allow": {
+      "update": "isOwner || onlyModifiesPublicFields"
+    },
+    "bind": {
+      "isOwner": "auth.id == data.ownerId",
+      "onlyModifiesPublicFields": "request.modifiedFields.all(field, field in ['likes', 'viewCount'])"
+    }
+  }
+}
+```
+
+You can combine `modifiedFields` checks with other conditions. For example, require users to be logged in before updating public fields:
+
+```json
+{
+  "posts": {
+    "allow": {
+      "update": "isOwner || (isLoggedIn && onlyModifiesLikes)"
+    },
+    "bind": {
+      "isOwner": "auth.id == data.ownerId",
+      "isLoggedIn": "auth.id != null",
+      "onlyModifiesLikes": "request.modifiedFields.all(field, field in ['likes'])"
+    }
+  }
+}
+```
+
+You can also add value validation that only runs when a specific field is being modified. Use `'fieldName' in request.modifiedFields` to check if a field is being changed:
+
+```json
+{
+  "posts": {
+    "allow": {
+      "update": "isOwner || (onlyModifiesPublicFields && likesValid && titleValid)"
+    },
+    "bind": {
+      "isOwner": "auth.id == data.ownerId",
+      "onlyModifiesPublicFields": "request.modifiedFields.all(field, field in ['likes', 'title'])",
+      "likesValid": "!('likes' in request.modifiedFields) || newData.likes >= 0",
+      "titleValid": "!('title' in request.modifiedFields) || size(newData.title) <= 100"
+    }
+  }
+}
+```
+
+This rule allows non-owners to update `likes` and `title`, but only if `likes` is non-negative and `title` is at most 100 characters. The `!('field' in request.modifiedFields) || condition` pattern means "either this field isn't being modified, or if it is, it must satisfy the condition."
+
 ### bind
 
 `bind` allows you to alias logic. The following are equivalent

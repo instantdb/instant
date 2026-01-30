@@ -5718,5 +5718,151 @@
         (is err)
         (is (string/includes? (::ex/message (ex-data err)) "null bytes"))))))
 
+(deftest modified-fields-update-permissions
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [owner-id (random-uuid)
+            post-id (random-uuid)
+            other-user-id (random-uuid)
+
+            {posts-id-attr         :posts/id
+             posts-owner-attr      :posts/ownerId
+             posts-likes-attr      :posts/likes
+             posts-view-count-attr :posts/viewCount
+             posts-title-attr      :posts/title}
+            (test-util/make-attrs
+             app-id
+             [[:posts/id :unique? :index?]
+              [:posts/ownerId :index?]
+              [:posts/likes :index?]
+              [:posts/viewCount :index?]
+              [:posts/title :index?]])
+
+            make-ctx
+            (fn [user-id]
+              {:db {:conn-pool (aurora/conn-pool :write)}
+               :app-id app-id
+               :attrs (attr-model/get-by-app-id app-id)
+               :datalog-query-fn d/query
+               :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+               :current-user (when user-id {:id (str user-id)})})
+
+            setup-post!
+            (fn []
+              (tx/transact!
+               (aurora/conn-pool :write)
+               (attr-model/get-by-app-id app-id)
+               app-id
+               [[:add-triple post-id posts-id-attr post-id]
+                [:add-triple post-id posts-owner-attr (str owner-id)]
+                [:add-triple post-id posts-likes-attr 0]
+                [:add-triple post-id posts-view-count-attr 0]
+                [:add-triple post-id posts-title-attr "Original Title"]]))]
+
+        (testing "non-owner can update allowed field (likes)"
+          (rule-model/put!
+           (aurora/conn-pool :write)
+           {:app-id app-id
+            :code {:posts {:allow {:update "auth.id == data.ownerId || request.modifiedFields.all(field, field in ['likes'])"}}}})
+          (setup-post!)
+          (is (not (perm-err? (permissioned-tx/transact!
+                               (make-ctx other-user-id)
+                               [[:add-triple post-id posts-likes-attr 1]])))))
+
+        (testing "non-owner cannot update non-allowed field (title)"
+          (is (perm-err? (permissioned-tx/transact!
+                          (make-ctx other-user-id)
+                          [[:add-triple post-id posts-title-attr "Hacked Title"]]))))
+
+        (testing "owner can update any field"
+          (is (not (perm-err? (permissioned-tx/transact!
+                               (make-ctx owner-id)
+                               [[:add-triple post-id posts-title-attr "New Title"]])))))
+
+        (testing "non-owner can update multiple allowed fields"
+          (rule-model/put!
+           (aurora/conn-pool :write)
+           {:app-id app-id
+            :code {:posts {:allow {:update "auth.id == data.ownerId || request.modifiedFields.all(field, field in ['likes', 'viewCount'])"}}}})
+          (is (not (perm-err? (permissioned-tx/transact!
+                               (make-ctx other-user-id)
+                               [[:add-triple post-id posts-likes-attr 2]
+                                [:add-triple post-id posts-view-count-attr 100]])))))
+
+        (testing "non-owner can update partial update allowed fields"
+          (rule-model/put!
+           (aurora/conn-pool :write)
+           {:app-id app-id
+            :code {:posts {:allow {:update "auth.id == data.ownerId || request.modifiedFields.all(field, field in ['likes', 'viewCount'])"}}}})
+          (is (not (perm-err? (permissioned-tx/transact!
+                               (make-ctx other-user-id)
+                               [[:add-triple post-id posts-likes-attr 3]])))))
+
+        (testing "non-owner cannot update mix of allowed and non-allowed fields"
+          (rule-model/put!
+           (aurora/conn-pool :write)
+           {:app-id app-id
+            :code {:posts {:allow {:update "auth.id == data.ownerId || request.modifiedFields.all(field, field in ['likes'])"}}}})
+          (is (perm-err? (permissioned-tx/transact!
+                          (make-ctx other-user-id)
+                          [[:add-triple post-id posts-likes-attr 4]
+                           [:add-triple post-id posts-title-attr "Hacked Title"]]))))))))
+
+(deftest modified-fields-create-permissions
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [admin-id (random-uuid)
+            user-id (random-uuid)
+
+            {posts-id-attr       :posts/id
+             posts-title-attr    :posts/title
+             posts-featured-attr :posts/featured}
+            (test-util/make-attrs
+             app-id
+             [[:posts/id :unique? :index?]
+              [:posts/title :index?]
+              [:posts/featured :index?]])
+
+            make-ctx
+            (fn [current-user-id]
+              {:db {:conn-pool (aurora/conn-pool :write)}
+               :app-id app-id
+               :attrs (attr-model/get-by-app-id app-id)
+               :datalog-query-fn d/query
+               :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+               :current-user (when current-user-id {:id (str current-user-id)})})]
+
+        (testing "anyone can create with allowed fields only"
+          (rule-model/put!
+           (aurora/conn-pool :write)
+           {:app-id app-id
+            :code {:posts {:allow {:create "!('featured' in request.modifiedFields)"}}}})
+          (let [post-id (random-uuid)]
+            (is (not (perm-err? (permissioned-tx/transact!
+                                 (make-ctx user-id)
+                                 [[:add-triple post-id posts-id-attr post-id]
+                                  [:add-triple post-id posts-title-attr "My Post"]]))))))
+
+        (testing "non-admin cannot set featured field on create"
+          (let [post-id (random-uuid)]
+            (is (perm-err? (permissioned-tx/transact!
+                            (make-ctx user-id)
+                            [[:add-triple post-id posts-id-attr post-id]
+                             [:add-triple post-id posts-title-attr "My Post"]
+                             [:add-triple post-id posts-featured-attr true]])))))
+
+        (testing "admin can set featured field on create"
+          (rule-model/put!
+           (aurora/conn-pool :write)
+           {:app-id app-id
+            :code {:posts {:allow {:create "isAdmin || !('featured' in request.modifiedFields)"}
+                           :bind {"isAdmin" (str "auth.id == '" admin-id "'")}}}})
+          (let [post-id (random-uuid)]
+            (is (not (perm-err? (permissioned-tx/transact!
+                                 (make-ctx admin-id)
+                                 [[:add-triple post-id posts-id-attr post-id]
+                                  [:add-triple post-id posts-title-attr "Featured Post"]
+                                  [:add-triple post-id posts-featured-attr true]]))))))))))
+
 (comment
   (test/run-tests *ns*))
