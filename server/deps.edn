@@ -42,7 +42,7 @@
         net.mikera/vectorz {:mvn/version "0.67.0"}
         net.mikera/core.matrix {:mvn/version "0.63.0"}
 
-        com.taoensso/nippy {:mvn/version "3.4.2"}
+        com.taoensso/nippy {:mvn/version "3.5.0"}
 
         nrepl/nrepl {:mvn/version "0.9.0"}
         jarohen/chime {:mvn/version "0.3.3"}

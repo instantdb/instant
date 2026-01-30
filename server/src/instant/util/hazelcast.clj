@@ -257,10 +257,7 @@
    can use a byte array with extra stuff at the beginnning without copying"
   [^bytes ba offset length]
   (let [dis (DataInputStream. (ByteArrayInputStream. ba offset length))]
-    (try
-      (.set nippy/-cache-proxy (volatile! nil))
-      (nippy/thaw-from-in! dis)
-      (finally (.remove nippy/-cache-proxy)))))
+    (nippy/with-cache (nippy/thaw-from-in! dis))))
 
 (def ^ByteArraySerializer sse-message-serializer
   (let [fixed-len (+ 16   ;; app-id
