@@ -71,7 +71,7 @@
   (testing "accessing invalid field on request throws at compile time"
     (is (thrown-with-msg?
          CelValidationException
-         #"Invalid field 'hello' on request"
+         #"undefined field 'hello'"
          (cel/rule->program :update "request.hello"))))
   (testing "accessing modifiedFields is valid"
     (is (cel/rule->program :update "request.modifiedFields.all(f, f in ['likes'])"))))
@@ -80,17 +80,17 @@
   (testing "comparing modifiedFields with == throws"
     (is (thrown-with-msg?
          CelValidationException
-         #"Cannot compare request.modifiedFields"
+         #"no matching overload for '_==_'"
          (cel/rule->program :update "request.modifiedFields == 1"))))
   (testing "comparing modifiedFields with != throws"
     (is (thrown-with-msg?
          CelValidationException
-         #"Cannot compare request.modifiedFields"
+         #"no matching overload for '_!=_'"
          (cel/rule->program :update "request.modifiedFields != 1"))))
   (testing "checking non-string in modifiedFields throws"
     (is (thrown-with-msg?
          CelValidationException
-         #"requires a string, but got a non-string literal"
+         #"no matching overload for '@in'"
          (cel/rule->program :update "1 in request.modifiedFields"))))
   (testing "checking string in modifiedFields is valid"
     (is (cel/rule->program :update "\"likes\" in request.modifiedFields")))
