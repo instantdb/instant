@@ -352,7 +352,9 @@ program
   .description('Display CLI version and login status')
   .action(async () => {
     console.log(`CLI Version: ${version}`);
-    const token = await readConfigAuthToken();
+    // Use allowAdminToken=false to skip admin tokens from env vars
+    // This ensures we use the user's login token, not an app's admin token
+    const token = await readConfigAuthToken(false);
     if (!token) {
       console.log('Not logged in.');
       return;
@@ -363,6 +365,7 @@ program
       debugName: 'Get user info',
       errorMessage: 'Failed to get user info.',
       command: 'info',
+      authToken: token,
     });
     if (meRes.ok) {
       console.log(`Logged in as: ${meRes.data.user.email}`);
@@ -527,8 +530,8 @@ program
   .command('claim')
   .description('Transfer a tempoary app into your Instant account')
   .action(async function () {
-    const token = await readConfigAuthToken(false);
-    if (!token) {
+    const authToken = await readConfigAuthToken(false);
+    if (!authToken) {
       console.error(
         `Please log in first with ${chalk.bgGray.white('instant-cli login')} to claim an app`,
       );
@@ -553,7 +556,7 @@ program
 
     console.log(`Found ${chalk.green(envResult.appId.envName)}: ${appId}`);
 
-    await claimEphemeralApp(appId, adminToken);
+    await claimEphemeralApp(appId, adminToken, authToken);
   });
 
 program
@@ -655,7 +658,7 @@ async function handleInitWithoutFiles(opts) {
     if (opts?.temp) {
       result = await createEphemeralApp(opts.title);
     } else {
-      result = await createApp(opts.title, opts.orgId);
+      result = await createApp(opts.title, opts.orgId, authToken);
     }
 
     console.error(`${chalk.green('Successfully created new app!')}\n`);
@@ -1077,7 +1080,7 @@ async function promptImportAppOrCreateApp() {
   };
 }
 
-async function createApp(title, orgId) {
+async function createApp(title, orgId, authToken) {
   const id = randomUUID();
   const token = randomUUID();
   const app = { id, title, admin_token: token, org_id: orgId };
@@ -1088,6 +1091,7 @@ async function createApp(title, orgId) {
     errorMessage: 'Failed to create app.',
     body: app,
     command: 'init',
+    authToken,
   });
   if (!appRes.ok) throw new Error('Failed to create app');
   return { appId: id, adminToken: token };
@@ -1755,7 +1759,7 @@ async function pushSchema(appId, opts) {
   return { ok: true };
 }
 
-async function claimEphemeralApp(appId, adminToken) {
+async function claimEphemeralApp(appId, adminToken, authToken) {
   const res = await fetchJson({
     method: 'POST',
     body: {
@@ -1766,6 +1770,7 @@ async function claimEphemeralApp(appId, adminToken) {
     debugName: 'Claim ephemeral app',
     errorMessage: 'Failed to claim ephemeral app.',
     command: 'claim',
+    authToken,
   });
 
   if (!res.ok) return res;
@@ -1877,6 +1882,7 @@ async function waitForAuthToken({ secret }) {
  * @param {boolean} [options.noAuth]
  * @param {boolean} [options.noLogError]
  * @param {string} [options.command] - The CLI command being executed (e.g., 'push', 'pull', 'login')
+ * @param {string} [options.authToken] - Optional auth token to use instead of reading from config
  * @returns {Promise<{ ok: boolean; data: any }>}
  */
 async function fetchJson({
@@ -1888,12 +1894,14 @@ async function fetchJson({
   noAuth,
   noLogError,
   command,
+  authToken: providedAuthToken,
 }) {
   const withAuth = !noAuth;
   const withErrorLogging = !noLogError;
   let authToken = null;
   if (withAuth) {
-    authToken = await readConfigAuthTokenWithErrorLogging();
+    authToken =
+      providedAuthToken ?? (await readConfigAuthTokenWithErrorLogging());
     if (!authToken) {
       return { ok: false, data: undefined };
     }
