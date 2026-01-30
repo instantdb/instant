@@ -886,6 +886,9 @@ class InstantAdminDatabase<
   public tx = txInit<NonNullable<Schema>>();
 
   constructor(_config: Config) {
+    if (!_config.appId) {
+      throw new Error('Instant must be initialized with an appId');
+    }
     this.config = instantConfigWithDefaults(_config);
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config, this.impersonationOpts);
