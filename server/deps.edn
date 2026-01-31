@@ -58,7 +58,9 @@
         io.opentelemetry/opentelemetry-api {:mvn/version "1.44.1"}
         io.opentelemetry/opentelemetry-sdk {:mvn/version "1.44.1"}
         io.opentelemetry/opentelemetry-exporter-otlp {:mvn/version "1.44.1"}
-        io.grpc/grpc-netty-shaded {:mvn/version "1.68.1"}
+        io.grpc/grpc-netty-shaded {:mvn/version "1.78.0"}
+        io.grpc/grpc-stub {:mvn/version "1.78.0"}
+        io.grpc/grpc-core {:mvn/version "1.78.0"}
         com.github.steffan-westcott/clj-otel-api {:mvn/version "0.2.4"}
 
         dev.cel/cel {:mvn/version "0.9.1"}

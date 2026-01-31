@@ -124,7 +124,13 @@
                      :db/index true}
    :sync/process {}
    :sync/topics {}
-   :sync/sent-tx-id {}})
+   :sync/sent-tx-id {}
+
+   :stream/session-id {:db/type :db.type/uuid
+                       :db/index true}
+   :stream/stream-id {:db/unique :db.unique/identity
+                      :db/type :db.type/uuid}
+   :stream/stream-object {}})
 
 (defn duration-ms [t0 t1]
   (-> t1 (- t0) (/ 1000000) double))
@@ -1408,6 +1414,34 @@
                   {:tx-id (:tx-id wal-record)
                    :changes changes}))))
           @sync-table-txes)))
+
+;; -------
+;; streams
+
+;; XXX: Remove stream when session is removed
+(defn register-stream [store app-id sess-id stream-object]
+  (transact! "store/register-stream"
+             (app-conn store app-id)
+             [{:db/id -1
+               :stream/stream-id (:stream-id @stream-object)
+               :stream/session-id sess-id
+               :stream/stream-object stream-object}]))
+
+(defn remove-stream [store app-id stream-id]
+  (let [conn (app-conn store app-id)]
+    (when-let [db-id (d/entid @conn [:stream/stream-id stream-id])]
+      (transact! "store/remove-stream"
+                 (app-conn store app-id)
+                 [[:db/retractEntity db-id]]))))
+
+(defn get-stream-object-for-append [store app-id sess-id stream-id]
+  (let [ent (d/entity @(app-conn store app-id) [:stream/stream-id stream-id])]
+    (when (= (:stream/session-id ent) sess-id)
+      (:stream/stream-object ent))))
+
+(defn get-stream-object-for-subscribe [store app-id stream-id]
+  (let [ent (d/entity @(app-conn store app-id) [:stream/stream-id stream-id])]
+    (:stream/stream-object ent)))
 
 ;; -----------------
 ;; Websocket Helpers

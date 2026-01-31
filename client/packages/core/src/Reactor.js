@@ -31,6 +31,7 @@ import { InstantAPIError } from './utils/fetch.ts';
 import { validate as validateUUID } from 'uuid';
 import { WSConnection, SSEConnection } from './Connection.ts';
 import { SyncTable } from './SyncTable.ts';
+import { InstantStream } from './Stream.ts';
 
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 /** @typedef {import('./Connection.ts').Connection} Connection */
@@ -218,6 +219,8 @@ export default class Reactor {
 
   /** @type {SyncTable} */
   _syncTable;
+  /** @type {InstantStream} */
+  _instantStream;
 
   /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
   queryCbs = {};
@@ -345,6 +348,13 @@ export default class Reactor {
       },
       () => this.ensureAttrs(),
     );
+
+    this._instantStream = new InstantStream({
+      WStream: WritableStream, // XXX: needs to be passed in from above
+      RStream: ReadableStream, // XXX: needs to be passed in from above
+      trySend: this._trySendAuthed.bind(this),
+      log: this._log,
+    });
 
     this._oauthCallbackResponse = this._oauthLoginInit();
 
@@ -676,6 +686,14 @@ export default class Reactor {
         this._syncTable.onSyncUpdateTriples(msg);
         break;
       }
+      case 'create-stream-ok': {
+        this._instantStream.onCreateStreamOk(msg);
+        break;
+      }
+      case 'stream-append': {
+        this._instantStream.onStreamAppend(msg);
+        break;
+      }
       case 'refresh-ok': {
         const { computations, attrs } = msg;
         const processedTxId = msg['processed-tx-id'];
@@ -857,6 +875,15 @@ export default class Reactor {
         this._log.info('Uknown op', msg.op, msg);
         break;
     }
+  }
+
+  // XXX: I think we need the clientId?
+  createWriteStream(opts) {
+    return this._instantStream.createWriteStream(opts);
+  }
+
+  createReadStream(opts) {
+    return this._instantStream.createReadStream(opts);
   }
 
   _pendingMutations() {

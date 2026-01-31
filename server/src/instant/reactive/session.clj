@@ -23,6 +23,8 @@
    [instant.lib.ring.sse :as sse]
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
+   [instant.model.app-file :as app-file-model]
+   [instant.model.app-stream :as app-stream-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
@@ -39,6 +41,7 @@
    [instant.util.semver :as semver]
    [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.instaql :as instaql-util]
+   [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [lambdaisland.uri :as uri])
@@ -722,6 +725,133 @@
               (doseq [message messages]
                 (rs/send-event! store app-id sess-id message)))))))
 
+;; XXX: Permissions for streams
+;;        - Default could be something like view: false and then we give them instructions for how
+;;          to open them up
+;;            - They'll need to also add rules for the files? Maybe not because we'll handle that on our end.
+;;            - XXX: If you delete a file that belongs to the stream, we should delete the stream no?
+;;               - Time for on-delete restrict?????
+;;
+;; XXX: How do we handle another instance stealing our stream??
+;;      It would be nice if we could prevent doing the update on the stream
+;;      if the machine_id was the wrong machine_id, which we could do, but only if we
+;;      do some terrible hack.
+(defn handle-create-stream! [store sess-id {:keys [client-id client-event-id] :as event}]
+  (tool/def-locals)
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+        app-id (:id app)
+        ;; Important that we choose the stream-id or else the client
+        ;; could start sending appends before we've set up the stream.
+        ;; If they need their own identifier, they can use client-id.
+        stream-id (random-uuid)
+        reconnect-token (random-uuid)
+        stream-object (app-stream-model/new-stream-object app-id stream-id)
+        _ (rs/register-stream store app-id sess-id stream-object)
+        ;; XXX: put a stream object in the store first
+        _tx-res (try
+                  (app-stream-model/create! {:id stream-id
+                                             :app-id app-id
+                                             :client-id client-id
+                                             :machine-id config/machine-id
+                                             :hashed-reconnect-token (crypt-util/uuid->sha256 reconnect-token)})
+                  (catch Throwable t
+                    (rs/remove-stream store app-id stream-id)
+                    (throw t)))]
+    (rs/send-event! store app-id sess-id {:op :create-stream-ok
+                                          :client-event-id client-event-id
+                                          :stream-id stream-id
+                                          :reconnect-token reconnect-token})))
+
+(defn handle-append-stream! [store sess-id event]
+  (tool/def-locals)
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+        app-id (:id app)
+        stream-id (ex/get-param! event [:stream-id] uuid-util/coerce)
+        done? (ex/get-optional-param! event [:done] (fn [done]
+                                                      (when (boolean? done)
+                                                        done)))
+        chunks (ex/get-param! event [:chunks] (fn [chunks]
+                                                (when (vector? chunks)
+                                                  (reduce (fn [acc chunk]
+                                                            (if (string? chunk)
+                                                              (conj acc (.getBytes ^String chunk "UTF-8"))
+                                                              (reduced nil)))
+                                                          []
+                                                          chunks))))
+        _ (tool/def-locals)
+        stream-object (rs/get-stream-object-for-append store app-id sess-id stream-id)
+
+        _ (when-not stream-object
+            (ex/throw-validation-err! :append-stream {:sess-id sess-id
+                                                      :stream-id stream-id}
+                                      [{:message "Stream is missing."}]))]
+    (app-stream-model/append stream-object
+                             chunks
+                             done?
+                             (fn [{:keys [offset done?]}]
+                               (try
+                                 (rs/send-event! store app-id sess-id {:op :stream-flushed
+                                                                       :stream-id stream-id
+                                                                       :offset offset
+                                                                       :done done?})
+                                 (catch Exception _e
+                                   nil))))))
+
+(defn handle-subscribe-stream! [store sess-id event]
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+        app-id (:id app)
+        stream-id (ex/get-optional-param! event [:stream-id] uuid-util/coerce)
+        client-id (ex/get-optional-param! event [:client-id] string-util/coerce-non-blank-str)
+        _ (when (and (not stream-id)
+                     (not client-id))
+            (ex/throw-validation-err! :subscribe-stream
+                                      {:sess-id sess-id}
+                                      [{:message "Must provide either a stream-id or a client-id"}]))
+        stream (app-stream-model/get-stream {:app-id app-id
+                                             :stream-id stream-id
+                                             :client-id client-id})
+        _ (when-not stream
+            (ex/throw-validation-err! :subscribe-stream
+                                      {:sess-id sess-id
+                                       :stream-id stream-id
+                                       :client-id client-id}
+                                      [{:message "Stream is missing."}]))]
+    (tool/def-locals)
+    (cond
+      (:done stream)
+      (let [files (app-stream-model/get-stream-files {:app-id app-id
+                                                      :stream-id (:id stream)})]
+        (tool/def-locals)
+        ;; XXX: stream-complete is probably not the exact thing we want, maybe one
+        ;;      event for stream updates with different fields, e.g. :doneJ
+        (rs/send-event! store app-id sess-id {:op :stream-append
+                                              :client-event-id (:client-event-id event)
+                                              :offset 0
+                                              :files (map (fn [file]
+                                                            (select-keys file [:id :size :url]))
+                                                          files)
+                                              :stream-id (:id stream)
+                                              :client-id (:clientId stream)
+                                              :done true}))
+
+      (:machineId stream)
+      ;; XXX: Needs some way to notify when the session goes away
+      (app-stream-model/connect-to-stream stream
+                                          app-id
+                                          (parse-uuid (:machineId stream))
+                                          (fn [payload]
+                                            (rs/send-event! store app-id sess-id (merge {:op :stream-append
+                                                                                         :client-event-id (:client-event-id event)
+                                                                                         :stream-id (:id stream)
+                                                                                         :client-id (:clientId stream)}
+                                                                                        payload))))
+
+      ;; XXX
+      :else nil)))
+
+(defn handle-unsubscribe-stream! [store sess-id event]
+  )
+
 (defn handle-event [store session event debug-info]
   (let [{:keys [op]} event
         {:keys [session/socket]} session
@@ -749,6 +879,19 @@
       :refresh-presence (handle-refresh-presence! store id event)
       :client-broadcast (handle-client-broadcast! store id event)
       :server-broadcast (handle-server-broadcast! store id event)
+      ;; -------------
+      ;; Stream events
+      :create-stream (handle-create-stream! store id event)
+      ;; XXX: File name needs to be $stream/{stream-id}/{file-num}/{file-id}
+      ;;  - Important to have file-id so that it can't be stolen by someone
+      ;;  - Or we could prevent people from creating files where the name starts with $stream
+      ;;    - Then we could do just `$stream/{stream-id}/{file-num}`
+      ;;    - Double check that nobody is already doing that...
+      :append-stream (handle-append-stream! store id event)
+      ;; We need a reconnect-stream that will start over if we migrate to a new instance or something
+      ;; :reconnect-stream (handle-reconnect-stream! store id event)
+      :subscribe-stream (handle-subscribe-stream! store id event)
+      :unsubscribe-stream (handle-unsubscribe-stream! store id event)
 
       (handle-error! store id {:status 400
                                :app-id (-> (rs/session store id)
@@ -1126,7 +1269,7 @@
 ;; ------
 ;; System
 
-(defn group-key [{:keys [op session-id room-id q subscription-id]}]
+(defn group-key [{:keys [op session-id room-id q subscription-id stream-id]}]
   (case op
     :transact
     [:transact session-id]
@@ -1148,6 +1291,9 @@
 
     :error
     [:error session-id]
+
+    :append-stream
+    [:append-stream stream-id]
 
     nil))
 
@@ -1184,6 +1330,12 @@
                            {:topic (:topic event2)
                             :data (:data event2)}])
         (dissoc :topic :data))))
+
+;; XXX: Test combine
+(defmethod combine [:append-stream :append-stream] [event1 event2]
+  (-> event2
+      (update :chunks into (:chunks event1))
+      (assoc :offset (:offset event1))))
 
 (defn process [group-key event]
   (straight-jacket-process-receive-q-event rs/store group-key event))

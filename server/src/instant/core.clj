@@ -22,12 +22,14 @@
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
    [instant.gauges :as gauges]
+   [instant.grpc-server :as grpc-server]
    [instant.health :as health]
    [instant.honeycomb-api :as honeycomb-api]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.lib.ring.undertow :as undertow-adapter]
    [instant.machine-summaries]
+   [instant.nippy]
    [instant.nrepl :as nrepl]
    [instant.oauth-apps.routes :as oauth-app-routes]
    [instant.reactive.aggregator :as agg]
@@ -44,6 +46,7 @@
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
    [instant.stripe-webhook :as stripe-webhook]
+   [instant.stripe-connect :as stripe-connect]
    [instant.superadmin.routes :as superadmin-routes]
    [instant.system-catalog-migration :refer [ensure-attrs-on-system-catalog-app]]
    [instant.util.async :as ua]
@@ -97,7 +100,8 @@
        (.format rfc822Formatter date))}))
 
 (defroutes stripe-webhook-routes
-  (POST "/hooks/stripe" [] stripe-webhook/webhook))
+  (POST "/hooks/stripe" [] stripe-webhook/webhook)
+  (POST "/hooks/stripe_connect" [] stripe-connect/webhook-handler))
 
 (defroutes generic-webhook-routes
   (POST "/hooks/honeycomb/exceptions" [] honeycomb-api/webhook))
@@ -259,7 +263,9 @@
           (agg/stop-global)))
       (future
         (tracer/with-span! {:name "stop-ephemeral"}
-          (eph/stop)))
+          (eph/stop))
+        (tracer/with-span! {:name "stop-grpc"}
+          (grpc-server/stop-global)))
       (future
         (tracer/with-span! {:name "stop-indexing-jobs"}
           (indexing-jobs/stop)))
@@ -326,14 +332,12 @@
         (rs/start))
       (with-log-init :ephemeral
         (eph/start))
+      (with-log-init :grpc-server
+        (grpc-server/start-global))
       (with-log-init :stripe
         (stripe/init))
       (with-log-init :session
         (session/start))
-      (with-log-init :invalidator
-        (inv/start-global))
-      (with-log-init :wal
-        (wal/start))
 
       (when-let [config-app-id (config/instant-config-app-id)]
         (with-log-init :flags
@@ -341,6 +345,10 @@
                            flags/queries
                            flags/query-results)))
 
+      (with-log-init :invalidator
+        (inv/start-global))
+      (with-log-init :wal
+        (wal/start))
       (with-log-init :aggregator
         (agg/start-global))
       (with-log-init :ephemeral-app

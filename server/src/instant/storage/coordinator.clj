@@ -36,9 +36,10 @@
                          :datalog-query-fn d/query)]
          (cel/eval-program! ctx* program {:data {"path" path}}))))))
 
+;; TODO(dww): open up create/update capability for the client sdks
 (defn upload-file!
   "Uploads a file to S3 and tracks it in Instant. Returns a file id"
-  [{:keys [app-id path skip-perms-check? current-user] :as ctx} file]
+  [{:keys [app-id path skip-perms-check? current-user mode] :as ctx} file]
   (storage-beta/assert-storage-enabled! app-id)
   (when (not skip-perms-check?)
     (assert-storage-permission! "create" {:app-id app-id
@@ -50,7 +51,8 @@
      {:app-id app-id
       :path path
       :location-id location-id
-      :metadata (instant-s3/get-object-metadata app-id location-id)})))
+      :metadata (instant-s3/get-object-metadata app-id location-id)
+      :mode mode})))
 
 (defn delete-files!
   "Deletes multiple files from both Instant and S3."

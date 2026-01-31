@@ -1,6 +1,6 @@
 (ns instant.util.hazelcast
   (:require
-   instant.isn
+   [instant.isn]
    [instant.util.uuid :as uuid-util]
    [medley.core :refer [update-existing]]
    [taoensso.nippy :as nippy])
@@ -44,27 +44,6 @@
 (def join-room-v3-type-id 9)
 (def sse-message-type-id 10)
 (def wal-record-type-id 11)
-
-;; --------------
-;; nippy encoders
-
-;; 1 is our custom identifier for LogSequenceNumber, no other type can use it and
-;; it must be the same across all machines.
-(nippy/extend-freeze LogSequenceNumber 1 [^LogSequenceNumber lsn data-output]
-  (.writeLong data-output (.asLong lsn)))
-
-(nippy/extend-thaw 1 [data-input]
-  (LogSequenceNumber/valueOf (.readLong data-input)))
-
-;; 2 is our custom identifier for ISN, no other type can use it and
-;; it must be the same across all machines.
-(nippy/extend-freeze ISN 2 [^ISN isn data-output]
-  (.writeInt data-output (.slot_num isn))
-  (.writeLong data-output (.asLong ^LogSequenceNumber (.lsn isn))))
-
-(nippy/extend-thaw 2 [data-input]
-  (instant.isn/->ISN (.readInt data-input)
-                     (LogSequenceNumber/valueOf (.readLong data-input))))
 
 ;; --------
 ;; Room key

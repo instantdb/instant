@@ -281,6 +281,12 @@
         5701))
     5701))
 
+(def grpc-port-offset 100)
+
+;; XXX: Update the security groups to allow connections between the machines on 5801 - 5808
+(defn get-grpc-server-port []
+  (+ (get-hz-port) grpc-port-offset))
+
 (defn get-nrepl-bind-address []
   (or (System/getenv "NREPL_BIND_ADDRESS")
       (case (get-env)
