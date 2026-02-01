@@ -3,6 +3,7 @@
    [clojure.core.async :as a]
    [clojure.string]
    [honey.sql :as hsql]
+   [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.flags :as flags]
    [instant.grpc :as grpc]
@@ -20,8 +21,9 @@
    [instant.util.tracer :as tracer])
   (:import
    (instant.grpc StreamContent StreamError StreamInit StreamMissing StreamRequest)
+   (io.grpc Status Status$Code)
    (io.grpc.netty.shaded.io.netty.buffer ByteBufInputStream CompositeByteBuf Unpooled)
-   (io.grpc.stub StreamObserver)
+   (io.grpc.stub ServerCallStreamObserver StreamObserver)
    (java.nio ByteBuffer)))
 
 (def etype "$streams")
@@ -258,11 +260,88 @@
 (defn file-url [app-id location-id]
   (instant-s3/create-signed-download-url! app-id location-id))
 
-(defn connect-to-stream [stream app-id machine-id on-payload]
-  ;; XXX: Deal with missing grpc client
+(defn handle-subscribe [store ^StreamRequest req ^ServerCallStreamObserver observer]
+  (if-let [stream-object (rs/get-stream-object-for-subscribe store (:app-id req) (:stream-id req))]
+    (let [sink-ch (a/chan)
+          error-signal-ch (a/chan)
+          cancel-signal-ch (a/chan)
+          sink (fn [v]
+                 (if (= v ::complete)
+                   (a/close! sink-ch)
+                   (try
+                     (a/put! sink-ch v)
+                     (catch Throwable -t
+                       (a/close! error-signal-ch)))))
+          remove-sink (fn []
+                        (tool/inspect (swap! stream-object
+                                             (fn [obj]
+                                               (update obj :sinks (fn [sinks]
+                                                                    (filter #(not= % sink) sinks)))))))
+
+          {:keys [$files buffer buffer-byte-offset]}
+          (swap! stream-object update :sinks conj sink)]
+      (.setOnCancelHandler observer (reify Runnable
+                                      (run [_]
+                                        (println "CANCELLLL!!!!!!!!!!!!!")
+                                        (a/close! cancel-signal-ch))))
+      (.onNext observer (grpc/->StreamInit (mapv (fn [file]
+                                                   (grpc/->StreamFile (:id file)
+                                                                      (:location-id file)
+                                                                      (:size file)))
+                                                 $files)))
+      (tool/def-locals)
+      (when (seq buffer)
+        (.onNext observer (grpc/->StreamContent buffer-byte-offset
+                                                buffer)))
+      (tool/def-locals)
+      (a/go-loop []
+        (let [[val ch] (a/alts! [sink-ch cancel-signal-ch error-signal-ch])]
+          (cond (and (= sink-ch ch)
+                     (not (nil? val)))
+                (do (.onNext observer val)
+                    (recur))
+
+                (= ch error-signal-ch)
+                (do (remove-sink)
+                    (.onNext observer (grpc/->StreamError))
+                    (.onCompleted observer))
+
+                (= ch cancel-signal-ch)
+                (remove-sink)
+
+                (nil? val)
+                (do (remove-sink)
+                    (.onCompleted observer))))))
+    ;; XXX: Handle the case where the listener unsubscribes or goes away
+    ;;      Probably need to put something into the store
+    ;;        - need a store gc that removes unknown sessions
+    (do
+      (.onNext observer (grpc/->StreamMissing))
+      (.onCompleted observer))))
+
+(defn server-ify-observer [^StreamObserver observer on-cancel-atom]
+  "Allows us to add an onCancel handler to the observer when we handle it on
+   the same machine instead of sending it through GRPC.
+   We need to upgrade it to a ServerCallStreamObserver with support for setOnCancelHandler"
+  (proxy [ServerCallStreamObserver] []
+    ;; Delegate core methods to the existing observer
+    (onNext [v] (.onNext observer v))
+    (onError [t] (.onError observer t))
+    (onCompleted [] (.onCompleted observer))
+
+    ;; server methods
+    (isReady [] true)
+    (setOnCancelHandler [r] (reset! on-cancel-atom r))
+    (setOnReadyHandler [_r] (throw (Exception. "setOnReadyHandler not implemented")))
+    (disableAutoInboundFlowControl [])
+    (request [_n])
+    (setMessageCompression [_e])))
+
+(def stream-unsubscribe-reason "u")
+
+(defn connect-to-stream [store stream app-id machine-id on-payload]
   (tool/def-locals)
-  (let [channel (grpc-client/grpc-client-for-machine-id machine-id)
-        observer (reify StreamObserver
+  (let [observer (reify StreamObserver
                    (onCompleted [_]
                      ;; XXX: It would be nice to have an offset to send here
                      ;;      Maybe we ignore onCompleted instead and send something
@@ -298,57 +377,32 @@
                         {:error true})))
                    (onError [_ t]
                      (tool/def-locals)
-                     ;; XXX: do something with error
-                     (on-payload {:error true})))]
-    (grpc-client/subscribe-to-instant-stream channel app-id (:id stream) observer)))
+                     (let [status (Status/fromThrowable t)]
+                       (if (and (= (.getCode status) Status$Code/CANCELLED)
+                                (= (.getDescription status) stream-unsubscribe-reason))
+                         nil
+                         ;; XXX: do something with error
+                         (on-payload {:error true})))))]
+    (def -ii observer)
+    (if (and (= machine-id config/machine-id)
+             ;; In dev, hit the grpc server half the time to exercise the route
 
-(defn handle-subscribe [store ^StreamRequest req ^StreamObserver observer]
-  (if-let [stream-object (rs/get-stream-object-for-subscribe store (:app-id req) (:stream-id req))]
-    (let [sink-ch (a/chan)
-          error-signal-ch (a/chan)
-          sink (fn [v]
-                 (if (= v ::complete)
-                   (a/close! sink-ch)
-                   (try
-                     (a/put! sink-ch v)
-                     (catch Throwable -t
-                       (a/close! error-signal-ch)))))
-          remove-sink (fn []
-                        (swap! stream-object
-                               (fn [obj]
-                                 (update obj :sinks (fn [sinks]
-                                                      (filter #(not= % sink) sinks))))))
-
-          {:keys [$files buffer buffer-byte-offset]}
-          (swap! stream-object update :sinks conj sink)]
-      (.onNext observer (grpc/->StreamInit (mapv (fn [file]
-                                                   (grpc/->StreamFile (:id file)
-                                                                      (:location-id file)
-                                                                      (:size file)))
-                                                 $files)))
-      (tool/def-locals)
-      (when (seq buffer)
-        (.onNext observer (grpc/->StreamContent buffer-byte-offset
-                                                buffer)))
-      (a/go-loop []
-        (let [[val ch] (a/alts! [sink-ch error-signal-ch])]
-          (cond (= ch error-signal-ch)
-                (do (remove-sink)
-                    (.onNext observer (grpc/->StreamError))
-                    (.onCompleted observer))
-
-                (nil? val)
-                (.onCompleted observer)
-
-                :else
-                (do (.onNext observer val)
-                    (recur))))))
-    ;; XXX: Handle the case where the listener unsubscribes or goes away
-    ;;      Probably need to put something into the store
-    ;;        - need a store gc that removes unknown sessions
-    (do
-      (.onNext observer (grpc/->StreamMissing))
-      (.onCompleted observer))))
+             #_(or (not (config/dev?))
+                   (= 0 (rand-int 2))))
+      (let [on-cancel-atom (atom nil)
+            wrapped-observer (server-ify-observer observer on-cancel-atom)]
+        (handle-subscribe store (grpc/->StreamRequest app-id (:id stream)) wrapped-observer)
+        {:cancel (fn [reason]
+                   ;; Mimic what happens when the grpc client cancels
+                   ;; First it fires the onError, then it runs cancel
+                   (.onError observer (-> Status/CANCELLED
+                                          (.withDescription stream-unsubscribe-reason)
+                                          (.asException)))
+                   (when-let [cancel @on-cancel-atom]
+                     (.run ^Runnable cancel)))})
+      ;; XXX: Deal with missing grpc client
+      (let [channel (grpc-client/grpc-client-for-machine-id machine-id)]
+        (grpc-client/subscribe-to-instant-stream channel app-id (:id stream) observer)))))
 
 ;; grpc-server -> calls in to app_stream
 ;; grpc-client -> app_stream calls into it

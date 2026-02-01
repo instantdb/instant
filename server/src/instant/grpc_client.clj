@@ -75,4 +75,4 @@
         call (.newCall channel grpc/subscribe-method CallOptions/DEFAULT)]
     (ClientCalls/asyncServerStreamingCall call req observer)
     {:cancel (fn [^String reason]
-               (.cancel call reason (Exception. reason)))}))
+               (.cancel call reason nil))}))

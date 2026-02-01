@@ -822,8 +822,6 @@
       (let [files (app-stream-model/get-stream-files {:app-id app-id
                                                       :stream-id (:id stream)})]
         (tool/def-locals)
-        ;; XXX: stream-complete is probably not the exact thing we want, maybe one
-        ;;      event for stream updates with different fields, e.g. :doneJ
         (rs/send-event! store app-id sess-id {:op :stream-append
                                               :client-event-id (:client-event-id event)
                                               :offset 0
@@ -836,21 +834,52 @@
 
       (:machineId stream)
       ;; XXX: Needs some way to notify when the session goes away
-      (app-stream-model/connect-to-stream stream
-                                          app-id
-                                          (parse-uuid (:machineId stream))
-                                          (fn [payload]
-                                            (rs/send-event! store app-id sess-id (merge {:op :stream-append
-                                                                                         :client-event-id (:client-event-id event)
-                                                                                         :stream-id (:id stream)
-                                                                                         :client-id (:clientId stream)}
-                                                                                        payload))))
+      ;; XXX: Here, I probably want to send the files myself with a :stream-append
+      ;;      if connect-to-stream fails. That way we'll still get the beginning
+      ;;      of the stream even if the writer disconnected.
+      (let [reader-object (app-stream-model/connect-to-stream
+                           store
+                           stream
+                           app-id
+                           (parse-uuid (:machineId stream))
+                           (fn [payload]
+                             (rs/send-event! store
+                                             app-id
+                                             sess-id
+                                             (merge {:op :stream-append
+                                                     :client-event-id (:client-event-id event)
+                                                     :stream-id (:id stream)
+                                                     :client-id (:clientId stream)}
+                                                    payload))))]
+        (rs/register-stream-reader store
+                                   app-id
+                                   sess-id
+                                   (:id stream)
+                                   (:client-event-id event)
+                                   reader-object))
 
-      ;; XXX
+      ;; XXX: Need to do something to indicate that we're interested in this stream
+      ;;      Then we can get notified when the stream comes back online
       :else nil)))
 
 (defn handle-unsubscribe-stream! [store sess-id event]
-  )
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+        app-id (:id app)
+        subscribe-event-id (ex/get-optional-param! event
+                                                   [:subscribe-event-id]
+                                                   string-util/coerce-non-blank-str)
+        reader-ent (rs/get-stream-reader store app-id sess-id subscribe-event-id)
+        _ (when-not reader-ent
+            (ex/throw-validation-err! :unsubscribe-stream
+                                      {:sess-id sess-id
+                                       :subscribe-event-id subscribe-event-id}
+                                      [{:message "Stream is missing."}]))
+        cancel (-> reader-ent :stream-reader/reader-object :cancel)]
+    ;; XXX Might need to catch if the cancel happens twice??
+    (tool/def-locals)
+    (cancel app-stream-model/stream-unsubscribe-reason)
+    ;; XXX: Remove from store
+    ))
 
 (defn handle-event [store session event debug-info]
   (let [{:keys [op]} event

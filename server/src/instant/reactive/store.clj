@@ -130,7 +130,16 @@
                        :db/index true}
    :stream/stream-id {:db/unique :db.unique/identity
                       :db/type :db.type/uuid}
-   :stream/stream-object {}})
+   :stream/stream-object {}
+
+   :stream-reader/session-id {:db/type :db.type/uuid
+                              :db/index true}
+   :stream-reader/stream-id {:db/unique :db.unique/identity
+                             :db/type :db.type/uuid}
+   :stream-reader/user-provided-event-id {:db/index true}
+   :stream-reader/session-id+user-provided-event-id {:db/tupleAttrs [:stream-reader/session-id :stream-reader/user-provided-event-id]
+                                                     :db/unique :db.unique/identity}
+   :stream-reader/reader-object {}})
 
 (defn duration-ms [t0 t1]
   (-> t1 (- t0) (/ 1000000) double))
@@ -1442,6 +1451,19 @@
 (defn get-stream-object-for-subscribe [store app-id stream-id]
   (let [ent (d/entity @(app-conn store app-id) [:stream/stream-id stream-id])]
     (:stream/stream-object ent)))
+
+(defn register-stream-reader [store app-id sess-id stream-id user-provided-event-id reader-object]
+  (transact! "store/register-stream-reader"
+             (app-conn store app-id)
+             [{:db/id -1
+               :stream-reader/stream-id stream-id
+               :stream-reader/session-id sess-id
+               :stream-reader/user-provided-event-id user-provided-event-id
+               :stream-reader/reader-object reader-object}]))
+
+(defn get-stream-reader [store app-id sess-id user-provided-event-id]
+  (d/entity @(app-conn store app-id) [:stream-reader/session-id+user-provided-event-id
+                                      [sess-id user-provided-event-id]]))
 
 ;; -----------------
 ;; Websocket Helpers
