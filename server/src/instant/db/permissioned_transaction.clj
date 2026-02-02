@@ -259,8 +259,12 @@
                  (and (= target-eid eid)
                       (#{:add-triple :deep-merge-triple} op))))
        (map (fn [{:keys [aid]}]
-              (let [[_ _ label] (:forward-identity (attr-model/seek-by-id aid attrs))]
+              (let [attr (attr-model/seek-by-id aid attrs)
+                    [_ _ label] (:forward-identity attr)]
                 label)))
+       ;; `id` is auto-included from client SDK updates, but we don't need
+       ;; users to include it in modifiedFields checks
+       (remove #(= % "id"))
        distinct
        vec))
 
