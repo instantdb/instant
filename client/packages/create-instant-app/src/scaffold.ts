@@ -163,7 +163,7 @@ const scaffoldBaseCode = async ({
   baseTemplateName: string;
 }) => {
   // Copy files in dev mode
-  if (process.env.INSTANT_CLI_DEV && process.env.INSTANT_REPO_FOLDER) {
+  if (process.env.INSTANT_REPO_FOLDER) {
     const folder = path.join(
       process.env.INSTANT_REPO_FOLDER,
       'examples',
