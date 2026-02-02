@@ -46,10 +46,10 @@ function RouteComponent() {
 
   return (
     <div className="font-mono pt-24 flex justify-center items-center flex-col space-y-4">
-      <h2 className="tracking-wide text-5xl text-gray-700">
+      <h2 className="tracking-wide text-5xl">
         {stage === "email" ? "sign in" : "enter code"}
       </h2>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs">
         {stage === "email"
           ? "Enter your email to receive a magic code"
           : `We sent a code to ${emailInput}`}
