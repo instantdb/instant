@@ -304,6 +304,10 @@ function init<
     useDateObjects?: UseDates;
   },
 ): InstantAdminDatabase<Schema, UseDates, InstantConfig<Schema, UseDates>> {
+  if (!config.appId) {
+    console.warn('init: appId is required');
+  }
+
   const configStrict = {
     ...config,
     appId: config.appId?.trim(),
