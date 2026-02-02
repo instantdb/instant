@@ -1,4 +1,5 @@
 import type { Readable } from 'node:stream';
+import { validate as uuidValidate } from 'uuid';
 
 import {
   tx,
@@ -304,8 +305,11 @@ function init<
     useDateObjects?: UseDates;
   },
 ): InstantAdminDatabase<Schema, UseDates, InstantConfig<Schema, UseDates>> {
-  if (!config.appId) {
-    console.warn('init: appId is required');
+  if (!config.appId || !uuidValidate(config.appId)) {
+    console.warn(
+      'warning: Instant Admin DB must be initialized with a valid appId. Received: ' +
+        JSON.stringify(config.appId),
+    );
   }
 
   const configStrict = {
