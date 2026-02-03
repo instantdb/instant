@@ -45,7 +45,7 @@ function RouteComponent() {
   };
 
   return (
-    <div className="p-8 grid-cols-2 gap-2 grid">
+    <div className="p-8 sm:grid-cols-2 items-start gap-2 grid-cols-1 grid">
       <Welcome />
       <div className="bg-white rounded-lg p-6 border border-neutral-200 shadow flex flex-col gap-4">
         <h2 className="tracking-wide text-[#F54A00] text-2xl">

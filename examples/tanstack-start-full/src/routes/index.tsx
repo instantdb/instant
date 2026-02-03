@@ -66,7 +66,7 @@ function App() {
 
   const { todos } = data;
   return (
-    <div className="p-8 grid-cols-2 items-start gap-2 grid">
+    <div className="p-8 sm:grid-cols-2 items-start gap-2 grid-cols-1 grid">
       <div className="flex flex-col gap-2">
         <Welcome />
         <SecretData />
@@ -196,7 +196,7 @@ export function Welcome() {
           href="https://tanstack.com/start/latest/docs/framework/react/overview"
           target="_blank"
           rel="noopener noreferrer"
-          className="border hover:bg-neutral-100 py-8 shadow flex flex-col gap-2 items-center justify-center font-semibold border-neutral-200 rounded"
+          className="border p-2 hover:bg-neutral-100 py-8 shadow flex flex-col gap-2 items-center justify-center font-semibold border-neutral-200 rounded"
         >
           <img
             src="https://tanstack.com/images/logos/logo-color-600.png"
@@ -208,7 +208,7 @@ export function Welcome() {
           target="_blank"
           href="https://www.instantdb.com/docs"
           rel="noopener noreferrer"
-          className="border shadow flex py-8 flex-col gap-2 hover:bg-neutral-100 items-center justify-center font-semibold border-neutral-200 rounded"
+          className="border p-2 shadow flex py-8 flex-col gap-2 hover:bg-neutral-100 items-center justify-center font-semibold border-neutral-200 rounded"
         >
           <img
             src="https://www.instantdb.com/img/icon/logo-512.svg"
