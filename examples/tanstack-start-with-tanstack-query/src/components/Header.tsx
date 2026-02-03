@@ -13,7 +13,7 @@ export default function Header() {
   return (
     <>
       <header className="p-4 px-8 flex justify-between border-b-neutral-200 items-center bg-white shadow-sm">
-        Full Todo Example With Auth
+        Full Todo Example With TanStack Query
         {auth.user && <button onClick={signOut}>Sign Out</button>}
       </header>
     </>
