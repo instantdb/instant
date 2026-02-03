@@ -27,7 +27,7 @@
     (is (= isn (roundtrip isn)))))
 
 (deftest stream-request
-  (let [obj (grpc/->StreamRequest (random-uuid) (random-uuid))]
+  (let [obj (grpc/->StreamRequest (random-uuid) (random-uuid) 0)]
     (is (= obj (roundtrip obj)))))
 
 (deftest stream-file
@@ -36,15 +36,33 @@
 
 (deftest stream-init
   (testing "empty files"
-    (let [obj (grpc/->StreamInit [])]
+    (let [obj (grpc/->StreamInit 0 [] [])]
       (is (= obj (roundtrip obj)))))
 
   (testing "multiple files"
-    (let [obj (grpc/->StreamInit (vec (repeatedly 10 (fn []
+    (let [obj (grpc/->StreamInit 0
+                                 (vec (repeatedly 10 (fn []
                                                        (grpc/->StreamFile (random-uuid)
                                                                           (str (random-uuid))
-                                                                          (rand-int Integer/MAX_VALUE))))))]
-      (is (= obj (roundtrip obj))))))
+                                                                          (rand-int Integer/MAX_VALUE)))))
+                                 [])]
+      (is (= obj (roundtrip obj)))))
+
+  (testing "files and buffer"
+    (let [obj (grpc/->StreamInit 0
+                                 (vec (repeatedly 10 (fn []
+                                                       (grpc/->StreamFile (random-uuid)
+                                                                          (str (random-uuid))
+                                                                          (rand-int Integer/MAX_VALUE)))))
+                                 [(.getBytes "Hello " "UTF-8")
+                                  (.getBytes " " "UTF-8")
+                                  (.getBytes "World" "UTF-8")])]
+      ;; chunks get squished together into one chunk
+      (is (= (dissoc obj :chunks)
+             (dissoc (roundtrip obj) :chunks)))
+      (is (= 1 (count (:chunks (roundtrip obj)))))
+      (is (= (apply concat (:chunks obj))
+             (vec (first (:chunks (roundtrip obj)))))))))
 
 (deftest stream-content
   (testing "single chunk"
@@ -70,9 +88,9 @@
              (dissoc (roundtrip obj) :chunks))))))
 
 (deftest stream-error
-  (let [obj (grpc/->StreamError)]
+  (let [obj (grpc/->StreamError :rate-limit)]
     (is (= obj (roundtrip obj)))))
 
-(deftest stream-missing
-  (let [obj (grpc/->StreamMissing)]
+(deftest stream-complete
+  (let [obj (grpc/->StreamComplete)]
     (is (= obj (roundtrip obj)))))

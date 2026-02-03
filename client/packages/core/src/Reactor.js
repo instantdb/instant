@@ -40,7 +40,7 @@ import { InstantStream } from './Stream.ts';
 /** @typedef {import('./reactorTypes.ts').QuerySub} QuerySub */
 /** @typedef {import('./reactorTypes.ts').QuerySubInStorage} QuerySubInStorage */
 
-const STATUS = {
+export const STATUS = {
   CONNECTING: 'connecting',
   OPENED: 'opened',
   AUTHENTICATED: 'authenticated',
@@ -526,6 +526,7 @@ export default class Reactor {
     this.status = status;
     this._errorMessage = err;
     this.notifyConnectionStatusSubs(status);
+    this._instantStream.onConnectionStatusChange(status);
   }
 
   _onMergeKv = (key, storageV, inMemoryV) => {
@@ -688,6 +689,14 @@ export default class Reactor {
       }
       case 'create-stream-ok': {
         this._instantStream.onCreateStreamOk(msg);
+        break;
+      }
+      case 'restart-stream-ok': {
+        this._instantStream.onRestartStreamOk(msg);
+        break;
+      }
+      case 'stream-flushed': {
+        this._instantStream.onStreamFlushed(msg);
         break;
       }
       case 'stream-append': {
@@ -971,14 +980,23 @@ export default class Reactor {
       return;
     }
 
-    if (msg['original-event']?.op === 'resync-table') {
-      this._syncTable.onResyncError(msg);
-      return;
-    }
-
-    if (msg['original-event']?.op === 'start-sync') {
-      this._syncTable.onStartSyncError(msg);
-      return;
+    switch (msg['orignal-event']?.op) {
+      case 'resync-table': {
+        this._syncTable.onResyncError(msg);
+        return;
+      }
+      case 'start-sync': {
+        this._syncTable.onStartSyncError(msg);
+        return;
+      }
+      case 'create-stream':
+      case 'restart-stream':
+      case 'append-stream':
+      case 'subscribe-stream':
+      case 'unsubscribe-stream': {
+        this._instantStream.onRecieveError(msg);
+        return;
+      }
     }
     // We've caught some error which has no corresponding listener.
     // Let's console.error to let the user know.

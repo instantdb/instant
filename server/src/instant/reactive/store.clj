@@ -357,13 +357,31 @@
         (catch clojure.lang.ExceptionInfo e
           (translate-datascript-exceptions e))))))
 
-(defn deleted-subscriptions-datalog-query-ids [report]
+(def stream-unsubscribe-reason "u")
+
+(defn tx-cleanup
+  "Runs cleanup on deleted entities for streams.
+   Returns the set of stale datalog-query-eids that may need to be removed."
+  [report]
   (keep (fn [datom]
-          (when (and (= (:a datom)
-                        :subscription/datalog-query)
-                     (not (:added datom))
-                     (d/entity (:db-after report) (:v datom)))
-            (:v datom)))
+          (when-not (:added datom)
+            (case (:a datom)
+              :subscription/datalog-query
+              (when (d/entity (:db-after report) (:v datom))
+                (:v datom))
+
+              :stream/stream-object
+              (when-let [cleanup (:cleanup (meta (:v datom)))]
+                (tool/def-locals)
+                (cleanup)
+                nil)
+
+              :stream-reader/reader-object
+              (when-let [cancel (:cancel (:v datom))]
+                (cancel stream-unsubscribe-reason)
+                nil)
+
+              nil)))
         (:tx-data report)))
 
 (defn clean-stale-datalog-queries-tx-data [db datalog-query-eids]
@@ -380,7 +398,7 @@
                                   (:app-id (meta conn))))
                  (transact-new! span-name conn tx-data)
                  (transact-old! span-name conn tx-data))]
-    (if-let [eids (seq (deleted-subscriptions-datalog-query-ids report))]
+    (if-let [eids (seq (tx-cleanup report))]
       (do
         (transact! "store/clean-datalog-queries"
                    conn
@@ -586,6 +604,45 @@
                                  (nil? hash-after)))]
     (assoc report :result-changed? result-changed?)))
 
+;; -------
+;; streams
+
+(defn register-stream [store app-id sess-id stream-object]
+  (transact! "store/register-stream"
+             (app-conn store app-id)
+             [{:db/id -1
+               :stream/stream-id (:stream-id @stream-object)
+               :stream/session-id sess-id
+               :stream/stream-object stream-object}]))
+
+(defn remove-stream [store app-id stream-id]
+  (let [conn (app-conn store app-id)]
+    (when-let [db-id (d/entid @conn [:stream/stream-id stream-id])]
+      (transact! "store/remove-stream"
+                 (app-conn store app-id)
+                 [[:db/retractEntity db-id]]))))
+
+(defn get-stream-object-for-append [store app-id sess-id stream-id]
+  (let [ent (d/entity @(app-conn store app-id) [:stream/stream-id stream-id])]
+    (when (= (:stream/session-id ent) sess-id)
+      (:stream/stream-object ent))))
+
+(defn get-stream-object-for-subscribe [store app-id stream-id]
+  (let [ent (d/entity @(app-conn store app-id) [:stream/stream-id stream-id])]
+    (:stream/stream-object ent)))
+
+(defn register-stream-reader [store app-id sess-id stream-id user-provided-event-id reader-object]
+  (transact! "store/register-stream-reader"
+             (app-conn store app-id)
+             [{:db/id -1
+               :stream-reader/stream-id stream-id
+               :stream-reader/session-id sess-id
+               :stream-reader/user-provided-event-id user-provided-event-id
+               :stream-reader/reader-object reader-object}]))
+
+(defn get-stream-reader [store app-id sess-id user-provided-event-id]
+  (d/entity @(app-conn store app-id) [:stream-reader/session-id+user-provided-event-id
+                                      [sess-id user-provided-event-id]]))
 ;; ------
 ;; session
 
@@ -610,6 +667,20 @@
   (for [datom (d/datoms db :avet :subscription/session-id sess-id)]
     [:db/retractEntity (:e datom)]))
 
+(defn- remove-session-streams-tx-data
+  "Should be used in a db.fn/call. Returns transactions.
+   Retracts streams for the session. The tx-listener will run any shutdown logic."
+  [db sess-id]
+  (as-> [] %
+    (reduce (fn [acc {:keys [e]}]
+              (conj acc [:db/retractEntity e]))
+            %
+            (d/datoms db :avet :stream/session-id sess-id))
+    (reduce (fn [acc {:keys [e]}]
+              (conj acc [:db/retractEntity e]))
+            %
+            (d/datoms db :avet :stream-reader/session-id sess-id))))
+
 (defn remove-session! [store app-id sess-id]
   ;; sync so new sessions are not added while we clean up this one
   (when (and app-id
@@ -617,7 +688,8 @@
     (transact! "store/remove-session-data!"
                (app-conn store app-id)
                [[:db.fn/call remove-session-queries-tx-data sess-id]
-                [:db.fn/call remove-session-subscriptions-tx-data sess-id]]))
+                [:db.fn/call remove-session-subscriptions-tx-data sess-id]
+                [:db.fn/call remove-session-streams-tx-data sess-id]]))
   (let [sessions-conn (:sessions store)]
     (transact! "store/remove-session!"
                sessions-conn
@@ -1423,47 +1495,6 @@
                   {:tx-id (:tx-id wal-record)
                    :changes changes}))))
           @sync-table-txes)))
-
-;; -------
-;; streams
-
-;; XXX: Remove stream when session is removed
-(defn register-stream [store app-id sess-id stream-object]
-  (transact! "store/register-stream"
-             (app-conn store app-id)
-             [{:db/id -1
-               :stream/stream-id (:stream-id @stream-object)
-               :stream/session-id sess-id
-               :stream/stream-object stream-object}]))
-
-(defn remove-stream [store app-id stream-id]
-  (let [conn (app-conn store app-id)]
-    (when-let [db-id (d/entid @conn [:stream/stream-id stream-id])]
-      (transact! "store/remove-stream"
-                 (app-conn store app-id)
-                 [[:db/retractEntity db-id]]))))
-
-(defn get-stream-object-for-append [store app-id sess-id stream-id]
-  (let [ent (d/entity @(app-conn store app-id) [:stream/stream-id stream-id])]
-    (when (= (:stream/session-id ent) sess-id)
-      (:stream/stream-object ent))))
-
-(defn get-stream-object-for-subscribe [store app-id stream-id]
-  (let [ent (d/entity @(app-conn store app-id) [:stream/stream-id stream-id])]
-    (:stream/stream-object ent)))
-
-(defn register-stream-reader [store app-id sess-id stream-id user-provided-event-id reader-object]
-  (transact! "store/register-stream-reader"
-             (app-conn store app-id)
-             [{:db/id -1
-               :stream-reader/stream-id stream-id
-               :stream-reader/session-id sess-id
-               :stream-reader/user-provided-event-id user-provided-event-id
-               :stream-reader/reader-object reader-object}]))
-
-(defn get-stream-reader [store app-id sess-id user-provided-event-id]
-  (d/entity @(app-conn store app-id) [:stream-reader/session-id+user-provided-event-id
-                                      [sess-id user-provided-event-id]]))
 
 ;; -----------------
 ;; Websocket Helpers

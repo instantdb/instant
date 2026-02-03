@@ -3,8 +3,12 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as tx-model]
    [instant.model.app :as app-model]
+   [instant.model.app-stream :as app-stream-model]
    [instant.model.instant-user :as instant-user-model]
-   [instant.model.rule :as rule-model]))
+   [instant.model.rule :as rule-model]
+   [instant.util.json :as json]
+   [instant.system-catalog :as system-catalog]
+   [instant.util.uuid :as uuid-util]))
 
 (defn get-column [columns col-name]
   (reduce (fn [_acc col]
@@ -43,6 +47,32 @@
               (get-column "id")
               parse-uuid)))
 
+(def stream-machine-id-aid (->> system-catalog/$streams-attrs
+                                (filter (fn [a]
+                                          (= "machineId" (last (:forward-identity a)))))
+                                first
+                                :id
+                                str))
+
+(defn notify-stream-machine-id-changed [{:keys [identity]}]
+  (let [app-id (-> identity
+                   (nth 0)
+                   :value
+                   parse-uuid)
+        stream-id (-> identity
+                      (nth 1)
+                      :value
+                      parse-uuid)
+        machine-id-json (-> identity
+                            (nth 3)
+                            :value)]
+    (when (and machine-id-json
+               ;; defensive measure in case we let users modify streams
+               (= (count machine-id-json) 38))
+      (app-stream-model/notify-machine-id-changed app-id stream-id (-> machine-id-json
+                                                                       json/<-json
+                                                                       uuid-util/parse-uuid)))))
+
 (defn evict-cache! [wal-record]
   (case (:action wal-record)
     (:insert :update :delete)
@@ -58,6 +88,12 @@
       "instant_users" (instant-user-model/evict-user-id-from-cache (get-id wal-record))
       "transactions" (when (= :insert (:action wal-record))
                        (tx-model/set-max-seen-tx-id (get-column (:columns wal-record) "id")))
+      "triples" (when (and (= :update (:action wal-record))
+                           (= stream-machine-id-aid (-> wal-record
+                                                        :identity
+                                                        (nth 2)
+                                                        :value)))
+                  (notify-stream-machine-id-changed wal-record))
       nil)
 
     nil))

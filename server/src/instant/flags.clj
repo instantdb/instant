@@ -316,3 +316,8 @@
 
 (defn failing-over? []
   (toggled? :failing-over))
+
+(defn stream-flush-byte-limit
+  "Limit over which we flush the write stream buffer to a file"
+  []
+  (flag :stream-flush-byte-limit 400)) ; 1048576

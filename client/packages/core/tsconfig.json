@@ -7,6 +7,7 @@
     "rewriteRelativeImportExtensions": true,
     "rootDir": "src",
     "checkJs": false,
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "strictBindCallApply": true
   }
 }

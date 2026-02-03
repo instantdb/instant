@@ -1,5 +1,6 @@
 import uuid from './utils/id.ts';
 import { Logger } from './utils/log.ts';
+import { STATUS } from './Reactor.js';
 
 type WritableStreamCtor = {
   new <W = any>(
@@ -18,6 +19,12 @@ type ReadableStreamCtor = {
 // XXX:
 //  Who should control restarting on reconnect or error? The writeStream fn or the class?
 
+type WriteStreamCbs = {
+  onDisconnect: () => void;
+  onConnectionReconnect: () => void;
+  onFlush: (args: { offset: number }) => void;
+};
+
 // When we send the chunks, we need to send the offset so that
 // the server knows to reject them if it's missing chunks, then
 // we can send again
@@ -26,13 +33,19 @@ function createWriteStream({
   WStream,
   opts,
   startStream,
+  restartStream,
   appendStream,
+  registerStream,
 }: {
   WStream: WritableStreamCtor;
   opts?: { clientId?: string };
-  startStream: (opts?: {
+  startStream: (opts: {
     clientId?: string;
   }) => Promise<{ streamId: string; reconnectToken: string }>;
+  restartStream: (opts: {
+    streamId: string;
+    reconnectToken: string;
+  }) => Promise<{ offset: number }>;
   appendStream: (opts: {
     streamId: string;
     chunks: string[];
@@ -41,15 +54,79 @@ function createWriteStream({
     offset: number;
     abortReason?: string;
   }) => void;
+  registerStream: (streamId: string, cbs: WriteStreamCbs) => void;
 }): WritableStream<string> {
+  // XXX: Do I need the underscores??
   let streamId_: string | null = null;
   let reconnectToken_: string | null = null;
   let isDone: boolean = false;
+  let disconnected: boolean = false;
   // Chunks that we haven't been notified are flushed to disk
   let bufferOffset = 0;
-  let bufferSize = 0;
-  const buffer: string[] = [];
+  let bufferByteSize = 0;
+  const buffer: { chunk: string; byteLen: number }[] = [];
   const encoder = new TextEncoder();
+
+  globalThis._stuff = () => {
+    return {
+      buffer,
+      bufferOffset,
+      bufferByteSize,
+    };
+  };
+
+  function onDisconnect() {
+    disconnected = true;
+  }
+
+  // Remove data from our buffer after it has been flushed to a file
+  function discardFlushed(offset: number) {
+    let chunkOffset = bufferOffset;
+    let segmentsToDrop = 0;
+    let droppedSegmentsByteLen = 0;
+
+    for (const { byteLen } of buffer) {
+      const nextChunkOffset = chunkOffset + byteLen;
+      if (nextChunkOffset > offset) {
+        break;
+      }
+      chunkOffset = nextChunkOffset;
+      segmentsToDrop++;
+      droppedSegmentsByteLen += byteLen;
+    }
+
+    if (segmentsToDrop > 0) {
+      bufferOffset += droppedSegmentsByteLen;
+      bufferByteSize -= droppedSegmentsByteLen;
+      buffer.splice(0, segmentsToDrop);
+    }
+  }
+
+  async function onConnectionReconnect() {
+    if (streamId_ && reconnectToken_) {
+      const { offset } = await restartStream({
+        streamId: streamId_,
+        reconnectToken: reconnectToken_,
+      });
+      discardFlushed(offset);
+      if (buffer.length) {
+        appendStream({
+          streamId: streamId_,
+          chunks: buffer.map((b) => b.chunk),
+          offset: bufferOffset,
+        });
+      }
+      disconnected = false;
+    } else {
+      // We don't need to restart, so mark it as connected
+      disconnected = false;
+    }
+  }
+
+  function onFlush({ offset }: { offset: number }) {
+    discardFlushed(offset);
+  }
+
   function ensureSetup(controller): string | null {
     if (isDone) {
       controller.error('Stream has been closed.');
@@ -59,15 +136,31 @@ function createWriteStream({
     }
     return streamId_;
   }
+
   return new WStream({
     // We could make this a little more resilient to network interrupts
     // Maybe we should put the segments into storage?
     async start(controller) {
       try {
-        const { streamId, reconnectToken } = await startStream(opts);
+        // XXX: Should we have some way to write when offline??
+        //        need to modify this stuff a little bit so that we
+        //        don't need to wait for the streamId and reconnectToken
+        //        probably just need to pass a callback that takes an onConnect
+        const startOpts: { clientId?: string } = {};
+        if (opts?.clientId) {
+          startOpts.clientId = opts.clientId;
+        }
+        const { streamId, reconnectToken } = await startStream(startOpts);
+        registerStream(streamId, {
+          onDisconnect,
+          onFlush,
+          onConnectionReconnect,
+        });
         streamId_ = streamId;
         reconnectToken_ = reconnectToken;
+        disconnected = false;
       } catch (e) {
+        console.log('error', e);
         controller.error(e.message);
       }
     },
@@ -75,10 +168,13 @@ function createWriteStream({
       const streamId = ensureSetup(controller);
       if (streamId) {
         const byteLen = encoder.encode(chunk).length;
-        buffer.push(chunk);
-        const offset = bufferOffset + bufferSize;
-        bufferSize += byteLen;
-        appendStream({ streamId, chunks: [chunk], offset });
+        buffer.push({ chunk, byteLen });
+        const offset = bufferOffset + bufferByteSize;
+        bufferByteSize += byteLen;
+        console.log({ bufferByteSize });
+        if (!disconnected) {
+          appendStream({ streamId, chunks: [chunk], offset });
+        }
       }
     },
     close() {
@@ -86,19 +182,23 @@ function createWriteStream({
         appendStream({
           streamId: streamId_,
           chunks: [],
-          offset: bufferOffset + bufferSize,
+          offset: bufferOffset + bufferByteSize,
           isDone: true,
         });
       }
     },
     abort(reason) {
       // XXX: handle abortReason on the server
+      //      Should store something on the $stream (add new field to stream)
       console.log('abort', reason);
       if (streamId_) {
+        // Probably needs to be slightly changed...
+        // 1. Delay sending if we're not connected
+        // 2. Send the unsent chunks
         appendStream({
           streamId: streamId_,
           chunks: [],
-          offset: bufferOffset + bufferSize,
+          offset: bufferOffset + bufferByteSize,
           isDone: true,
           abortReason: reason,
         });
@@ -164,29 +264,44 @@ class StreamIterator<T> {
   }
 }
 
+/// XXX: on cancel, send unsubscribe-stream
 function createReadStream({
   RStream,
   opts,
   startStream,
+  cancelStream,
 }: {
   RStream: ReadableStreamCtor;
   opts: { clientId?: string; streamId?: string };
-  startStream: (opts?: {
+  startStream: (opts: {
+    eventId: string;
     clientId?: string;
     streamId?: string;
+    offset?: number;
   }) => StreamIterator<ReadStreamUpdate>;
+  cancelStream: (opts: { eventId: string }) => void;
 }): ReadableStream<string> {
   let canceled = false;
   const decoder = new TextDecoder('utf-8');
+  const eventId = uuid();
   async function start(controller: ReadableStreamDefaultController<string>) {
-    for await (const item of startStream(opts)) {
+    const streamOpts = { ...(opts || {}), eventId };
+    for await (const item of startStream(streamOpts)) {
+      if (canceled) {
+        return;
+      }
       if (item.files) {
         for (const file of item.files) {
-          const res = await fetch(file.url);
+          const fetchAbort = new AbortController();
+          const res = await fetch(file.url, { signal: fetchAbort.signal });
           // XXX: error handling
           if (res.body) {
             for await (const chunk of res.body) {
               const s = decoder.decode(chunk);
+              if (canceled) {
+                fetchAbort.abort();
+                return;
+              }
               controller.enqueue(s);
             }
           }
@@ -202,12 +317,22 @@ function createReadStream({
     start(controller) {
       start(controller);
     },
+    cancel(reason) {
+      canceled = true;
+      cancelStream({ eventId });
+    },
   });
 }
 
 type CreateStreamMsg = {
   op: 'create-stream';
   'client-id'?: string;
+};
+
+type RestartStreamMsg = {
+  op: 'restart-stream';
+  'stream-id': string;
+  'reconnect-token': string;
 };
 
 type AppendStreamMsg = {
@@ -225,7 +350,17 @@ type SubscribeStreamMsg = {
   'client-id'?: string;
 };
 
-type SendMsg = CreateStreamMsg | AppendStreamMsg | SubscribeStreamMsg;
+type UnsubscribeStreamMsg = {
+  op: 'unsubscribe-stream';
+  'subscribe-event-id': string;
+};
+
+type SendMsg =
+  | CreateStreamMsg
+  | RestartStreamMsg
+  | AppendStreamMsg
+  | SubscribeStreamMsg
+  | UnsubscribeStreamMsg;
 
 type TrySend = (eventId: string, msg: SendMsg) => void;
 
@@ -236,6 +371,22 @@ type CreateStreamOkMsg = {
   'reconnect-token': string;
 };
 
+type RestartStreamOkMsg = {
+  op: 'restart-stream-ok';
+  'client-event-id': string;
+  'stream-id': string;
+  'reconnect-token': string;
+  offset: number;
+};
+
+type StreamFlushedMsg = {
+  op: 'stream-flushed';
+  'stream-id': string;
+  offset: number;
+  done: boolean;
+};
+
+// Msg sent to reader when we receive new data
 type StreamAppendMsg = {
   op: 'stream-append';
   'stream-id': string;
@@ -253,10 +404,14 @@ export class InstantStream {
   private trySend: TrySend;
   private WStream: WritableStreamCtor;
   private RStream: ReadableStreamCtor;
+  private writeStreams: Record<string, WriteStreamCbs> = {};
   private startStreamCbs: Record<
     string,
     (data: { streamId: string; reconnectToken: string }) => void
   > = {};
+  private restartStreamCbs: Record<string, (data: { offset: number }) => void> =
+    {};
+
   private readStreamIterators: Record<
     string,
     StreamIterator<ReadStreamUpdate>
@@ -280,11 +435,15 @@ export class InstantStream {
     this.log = log;
   }
 
-  public createWriteStream(opts?: { clientId?: string }) {
+  public createWriteStream(opts?: {
+    clientId?: string;
+  }): WritableStream<string> {
     return createWriteStream({
       WStream: this.WStream,
       startStream: this.startWriteStream.bind(this),
+      restartStream: this.restartWriteStream.bind(this),
       appendStream: this.appendStream.bind(this),
+      registerStream: this.registerWriteStream.bind(this),
       opts,
     });
   }
@@ -295,10 +454,11 @@ export class InstantStream {
       RStream: this.RStream,
       opts,
       startStream: this.startReadStream.bind(this),
+      cancelStream: this.cancelReadStream.bind(this),
     });
   }
 
-  private startWriteStream(opts?: {
+  private startWriteStream(opts: {
     clientId?: string;
   }): Promise<{ streamId: string; reconnectToken: string }> {
     const eventId = uuid();
@@ -316,6 +476,34 @@ export class InstantStream {
     }
     this.trySend(eventId, msg);
     return promise;
+  }
+
+  // XXX: Need to have some way to forward generic errors from the reactor to here
+  //      Callback should get a resolve and a reject
+  private restartWriteStream({
+    streamId,
+    reconnectToken,
+  }: {
+    streamId: string;
+    reconnectToken: string;
+  }) {
+    const eventId = uuid();
+    let resolve: ((data: { offset: number }) => void) | null = null;
+    const promise: Promise<{ offset: number }> = new Promise((r) => {
+      resolve = r;
+    });
+    this.restartStreamCbs[eventId] = resolve!;
+    const msg: RestartStreamMsg = {
+      op: 'restart-stream',
+      'stream-id': streamId,
+      'reconnect-token': reconnectToken,
+    };
+    this.trySend(eventId, msg);
+    return promise;
+  }
+
+  private registerWriteStream(streamId: string, cbs: WriteStreamCbs) {
+    this.writeStreams[streamId] = cbs;
   }
 
   private appendStream({
@@ -356,13 +544,36 @@ export class InstantStream {
     cb({ streamId: msg['stream-id'], reconnectToken: msg['reconnect-token'] });
   }
 
+  onRestartStreamOk(msg: RestartStreamOkMsg) {
+    const cb = this.restartStreamCbs[msg['client-event-id']];
+    if (!cb) {
+      this.log.info('No stream for start-stream-ok', msg);
+      return;
+    }
+    cb({ offset: msg.offset });
+  }
+
+  onStreamFlushed(msg: StreamFlushedMsg) {
+    const streamId = msg['stream-id'];
+    const cbs = this.writeStreams[streamId];
+    if (!cbs) {
+      this.log.info('No stream cbs for stream-flushed', msg);
+      return;
+    }
+    cbs.onFlush({ offset: msg.offset });
+  }
+
   // XXX: Need some kind of flow control...
   private startReadStream({
+    eventId,
     clientId,
     streamId,
+    offset,
   }: {
+    eventId: string;
     clientId?: string;
     streamId?: string;
+    offset?: number;
   }): StreamIterator<ReadStreamUpdate> {
     const msg: SubscribeStreamMsg = { op: 'subscribe-stream' };
 
@@ -382,13 +593,19 @@ export class InstantStream {
 
     const iterator = new StreamIterator<ReadStreamUpdate>();
 
-    const eventId = uuid();
-
     this.readStreamIterators[eventId] = iterator;
 
     this.trySend(eventId, msg);
 
     return iterator;
+  }
+
+  private cancelReadStream({ eventId }: { eventId: string }) {
+    const msg: UnsubscribeStreamMsg = {
+      op: 'unsubscribe-stream',
+      'subscribe-event-id': eventId,
+    };
+    this.trySend(uuid(), msg);
   }
 
   onStreamAppend(msg: StreamAppendMsg) {
@@ -398,6 +615,10 @@ export class InstantStream {
     if (!iterator) {
       this.log.info('No iterator for read stream', msg);
       return;
+    }
+
+    if (msg.done) {
+      delete this.readStreamIterators[eventId];
     }
 
     if (msg.error) {
@@ -416,6 +637,20 @@ export class InstantStream {
     // XXX: Make sure we deliver all messages when we close the thing.
     if (msg.done) {
       iterator.close();
+    }
+  }
+
+  onConnectionStatusChange(status) {
+    if (status !== STATUS.AUTHENTICATED) {
+      for (const { onDisconnect } of Object.values(this.writeStreams)) {
+        onDisconnect();
+      }
+    } else {
+      for (const { onConnectionReconnect } of Object.values(
+        this.writeStreams,
+      )) {
+        onConnectionReconnect();
+      }
     }
   }
 }

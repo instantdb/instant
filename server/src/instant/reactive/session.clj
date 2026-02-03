@@ -735,9 +735,11 @@
 ;; XXX: How do we handle another instance stealing our stream??
 ;;      It would be nice if we could prevent doing the update on the stream
 ;;      if the machine_id was the wrong machine_id, which we could do, but only if we
-;;      do some terrible hack.
+;;      do some terrible hack. Plus we need more than the machine_id, we also need the session_id
+;;        -- the store can prevent two streams on the same machine_id
 (defn handle-create-stream! [store sess-id {:keys [client-id client-event-id] :as event}]
   (tool/def-locals)
+  ;; XXX: add a listener to the wal that will do something if the machine-id changes
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
         app-id (:id app)
         ;; Important that we choose the stream-id or else the client
@@ -747,13 +749,14 @@
         reconnect-token (random-uuid)
         stream-object (app-stream-model/new-stream-object app-id stream-id)
         _ (rs/register-stream store app-id sess-id stream-object)
-        ;; XXX: put a stream object in the store first
         _tx-res (try
                   (app-stream-model/create! {:id stream-id
                                              :app-id app-id
                                              :client-id client-id
                                              :machine-id config/machine-id
-                                             :hashed-reconnect-token (crypt-util/uuid->sha256 reconnect-token)})
+                                             :hashed-reconnect-token (-> reconnect-token
+                                                                         crypt-util/uuid->sha256
+                                                                         crypt-util/bytes->hex-string)})
                   (catch Throwable t
                     (rs/remove-stream store app-id stream-id)
                     (throw t)))]
@@ -761,6 +764,57 @@
                                           :client-event-id client-event-id
                                           :stream-id stream-id
                                           :reconnect-token reconnect-token})))
+
+(defn handle-restart-stream!
+  "Reconnects to the write stream. Used after the writer gets disconnected,
+   which happens during a deploy if their device temporarily goes offline."
+  [store sess-id {:keys [client-event-id] :as event}]
+  (tool/def-locals)
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+        app-id (:id app)
+        stream-id (ex/get-param! event [:stream-id] uuid-util/coerce)
+        stream (app-stream-model/get-stream {:app-id app-id
+                                             :stream-id stream-id})
+        reconnect-token (ex/get-param! event [:reconnect-token] uuid-util/coerce)
+        _ (when-not stream
+            (ex/throw-validation-err! :reconnect-stream
+                                      {:sess-id sess-id
+                                       :stream-id stream-id}
+                                      [{:message "Stream is missing."}]))
+        _ (when (:done stream)
+            (ex/throw-validation-err! :reconnect-stream
+                                      {:sess-id sess-id
+                                       :stream-id stream-id}
+                                      [{:message "Stream is closed."}]))
+        _ (when (not= (-> reconnect-token
+                          crypt-util/uuid->sha256
+                          crypt-util/bytes->hex-string)
+                      (:hashedReconnectToken stream))
+            (ex/throw-validation-err! :reconnect-stream
+                                      {:sess-id sess-id
+                                       :stream-id stream-id
+                                       :reconnect-token reconnect-token}
+                                      [{:message "Invalid reconnect-token."}]))
+
+        _ (tool/def-locals)
+
+        stream-object (app-stream-model/new-stream-object-from-stream app-id stream)
+        offset (:buffer-byte-offset @stream-object)
+
+        ;; XXX: Make sure you can't register two on the same machine
+        _ (rs/register-stream store app-id sess-id stream-object)
+        _tx-res (try
+                  (app-stream-model/update-machine-id!
+                   {:app-id app-id
+                    :stream-id (:id stream)
+                    :machine-id config/machine-id})
+                  (catch Throwable t
+                    (rs/remove-stream store app-id stream-id)
+                    (throw t)))]
+    (rs/send-event! store app-id sess-id {:op :restart-stream-ok
+                                          :client-event-id client-event-id
+                                          :stream-id stream-id
+                                          :offset offset})))
 
 (defn handle-append-stream! [store sess-id event]
   (tool/def-locals)
@@ -802,6 +856,11 @@
         app-id (:id app)
         stream-id (ex/get-optional-param! event [:stream-id] uuid-util/coerce)
         client-id (ex/get-optional-param! event [:client-id] string-util/coerce-non-blank-str)
+        offset (or (ex/get-optional-param! event [:offset] (fn [x]
+                                                             (when (and (integer? x)
+                                                                        (pos? x))
+                                                               x)))
+                   0)
         _ (when (and (not stream-id)
                      (not client-id))
             (ex/throw-validation-err! :subscribe-stream
@@ -824,6 +883,8 @@
         (tool/def-locals)
         (rs/send-event! store app-id sess-id {:op :stream-append
                                               :client-event-id (:client-event-id event)
+                                              ;; XXX: filter files before the offset, returned offset may be lower
+                                              ;;      than offset, but never higher
                                               :offset 0
                                               :files (map (fn [file]
                                                             (select-keys file [:id :size :url]))
@@ -834,6 +895,8 @@
 
       (:machineId stream)
       ;; XXX: Needs some way to notify when the session goes away
+      ;; XXX: Notification when stream comes back
+      ;;        - We could listen to the wal log...
       ;; XXX: Here, I probably want to send the files myself with a :stream-append
       ;;      if connect-to-stream fails. That way we'll still get the beginning
       ;;      of the stream even if the writer disconnected.
@@ -842,6 +905,7 @@
                            stream
                            app-id
                            (parse-uuid (:machineId stream))
+                           offset
                            (fn [payload]
                              (rs/send-event! store
                                              app-id
@@ -877,7 +941,7 @@
         cancel (-> reader-ent :stream-reader/reader-object :cancel)]
     ;; XXX Might need to catch if the cancel happens twice??
     (tool/def-locals)
-    (cancel app-stream-model/stream-unsubscribe-reason)
+    (cancel rs/stream-unsubscribe-reason)
     ;; XXX: Remove from store
     ))
 
@@ -911,6 +975,8 @@
       ;; -------------
       ;; Stream events
       :create-stream (handle-create-stream! store id event)
+      ;; reconnect to write stream
+      :restart-stream (handle-restart-stream! store id event)
       ;; XXX: File name needs to be $stream/{stream-id}/{file-num}/{file-id}
       ;;  - Important to have file-id so that it can't be stolen by someone
       ;;  - Or we could prevent people from creating files where the name starts with $stream

@@ -210,7 +210,9 @@
   (next-jdbc/with-transaction [tx-conn conn-pool]
     (let [attrs (attr-model/get-by-app-id tx-conn app-id)]
       (op
-       {:resolve-id
+       {:tx-conn tx-conn
+        :attrs attrs
+        :resolve-id
         (fn [label] (attr-model/resolve-attr-id attrs etype label))
 
         :transact!

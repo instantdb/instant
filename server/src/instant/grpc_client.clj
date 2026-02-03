@@ -7,6 +7,7 @@
   (:import
    (com.google.common.collect MapMaker)
    (com.hazelcast.cluster Member)
+   (instant.grpc StreamRequest)
    (io.grpc CallOptions ConnectivityState Grpc InsecureChannelCredentials ManagedChannel)
    (io.grpc.stub ClientCalls StreamObserver)
    (java.util Map)))
@@ -69,10 +70,8 @@
 
       client)))
 
-;; XXX: should probably use a ClientCallStreamObserver or ServerCallStreamObserver
-(defn subscribe-to-instant-stream [^ManagedChannel channel app-id stream-id ^StreamObserver observer]
-  (let [req (grpc/->StreamRequest app-id stream-id)
-        call (.newCall channel grpc/subscribe-method CallOptions/DEFAULT)]
+(defn subscribe-to-instant-stream [^ManagedChannel channel ^StreamRequest req ^StreamObserver observer]
+  (let [call (.newCall channel grpc/subscribe-method CallOptions/DEFAULT)]
     (ClientCalls/asyncServerStreamingCall call req observer)
     {:cancel (fn [^String reason]
                (.cancel call reason nil))}))
