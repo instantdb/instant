@@ -259,8 +259,13 @@
                  (and (= target-eid eid)
                       (#{:add-triple :deep-merge-triple} op))))
        (map (fn [{:keys [aid]}]
-              (let [[_ _ label] (:forward-identity (attr-model/seek-by-id aid attrs))]
+              (let [attr (attr-model/seek-by-id aid attrs)
+                    [_ _ label] (:forward-identity attr)]
                 label)))
+       ;; (TODO) We exclude `id` because we don't consider it a modifable field
+       ;; We should add a validation check though earlier in transact to prevent
+       ;; the value of id being different than the eid of the entity
+       (remove #(= % "id"))
        distinct
        vec))
 
