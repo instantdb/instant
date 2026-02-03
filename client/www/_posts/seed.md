@@ -4,8 +4,7 @@ date: '2024-10-01'
 authors: nezaj
 ---
 
-![Instant raises $3.4M seed to build a modern
-Firebase](https://paper-attachments.dropboxusercontent.com/s_B8A06116D3803694CDA0C13F9F97E92EA0220D4E377317F0F00D7831E3E41E9E_1727988124731_image.png)
+![Instant raises $3.4M seed to build a modern Firebase](/img/essays/seed_header.png)
 
 One month ago we open sourced Instant and had one of the [largest Show HN’s](https://news.ycombinator.com/item?id=41322281) for a YC company. Today we’re [announcing our $3.4M seed](https://techcrunch.com/2024/10/02/instant-harkens-back-to-a-pre-google-firebase/). We’re backed by YCombinator, SV Angel, and a number of technical angels, including James Tamplin, the original CEO of Firebase, Paul Graham, Co-founder of YCombinator, Greg Brockman, Co-founder of OpenAI, and Jeff Dean, chief scientist of Google DeepMind.
 
@@ -35,7 +34,7 @@ So we built Instant. Instant gives you a database you can use in the client, so 
 
 ## How is Instant different from Firebase or Supabase?
 
-![](https://user-images.githubusercontent.com/984574/186711681-28b224cc-46df-437a-b37b-69520da40ae3.png)
+![](/img/essays/comparison_matrix.png)
 
 You may be wondering, what makes Instant so modern compared to Firebase, and how is it different from Supabase?
 
@@ -49,7 +48,7 @@ To learn more about how Instant works under the hood, check out our essay [A Gra
 
 We’re [Joe](https://linkedin.com/in/joeaverbukh) and [Stopa](https://x.com/stopachka), engineers, best friends, and co-founders. We first met in San Francisco in 2014 and worked together as senior and staff engineers at Facebook and Airbnb.
 
-![](https://paper-attachments.dropboxusercontent.com/s_B8A06116D3803694CDA0C13F9F97E92EA0220D4E377317F0F00D7831E3E41E9E_1727878507415_joe_stopa.png)
+![](/img/essays/joe_stopa.jpg)
 
 When we worked at Facebook, most designers used Sketch. At that time no one thought there could be something better. Figma came out and changed the game. Similarly, in the 2010s, Evernote was one of the best note taking apps. In 2024 most people use Notion instead.
 
