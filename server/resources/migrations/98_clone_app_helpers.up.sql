@@ -1,11 +1,12 @@
 create table clone_app_jobs (
   job_id uuid primary key,
-  old_app_id uuid not null,
-  new_app_id uuid not null,
-  new_title text,
-  creator_email text,
+  source_app_id uuid not null,
+  dest_app_id uuid not null,
+  dest_title text,
+  temporary_creator_id uuid not null,
+  dest_creator_id uuid not null,
   batch_size integer not null,
-  workers integer not null,
+  num_workers integer not null,
   total_triples bigint,
   status text not null,
   error text,
@@ -23,7 +24,8 @@ create table clone_app_progress (
   last_value_md5 text,
   updated_at timestamptz not null default now(),
   done boolean not null default false,
-  primary key (job_id, worker_id)
+  primary key (job_id, worker_id),
+  foreign key (job_id) references clone_app_jobs (job_id) on delete cascade
 );
 
 create index clone_app_progress_job_id_idx on clone_app_progress (job_id);
@@ -32,12 +34,14 @@ create unlogged table clone_app_attr_map (
   job_id uuid not null,
   old_id uuid not null,
   new_id uuid not null,
-  primary key (job_id, old_id)
+  primary key (job_id, old_id),
+  foreign key (job_id) references clone_app_jobs (job_id) on delete cascade
 );
 
 create unlogged table clone_app_ident_map (
   job_id uuid not null,
   old_id uuid not null,
   new_id uuid not null,
-  primary key (job_id, old_id)
+  primary key (job_id, old_id),
+  foreign key (job_id) references clone_app_jobs (job_id) on delete cascade
 );
