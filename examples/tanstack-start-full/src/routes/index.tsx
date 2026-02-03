@@ -192,6 +192,7 @@ export function Welcome() {
         <a
           href="https://tanstack.com/start/latest/docs/framework/react/overview"
           target="_blank"
+          rel="noopener noreferrer"
           className="border hover:bg-neutral-100 shadow flex flex-col gap-2 items-center justify-center font-semibold border-neutral-200 rounded"
         >
           <img
@@ -203,6 +204,7 @@ export function Welcome() {
         <a
           target="_blank"
           href="https://www.instantdb.com/docs"
+          rel="noopener noreferrer"
           className="border shadow flex flex-col gap-2 hover:bg-neutral-100 items-center justify-center font-semibold border-neutral-200 rounded"
         >
           <img

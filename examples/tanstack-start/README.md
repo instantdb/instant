@@ -1,6 +1,6 @@
-# Welcome to your InstantDB Tanstack Start app 👋
+# Welcome to your InstantDB TanStack Start app 👋
 
-This is a Tanstack Start project scaffolded with create-instant-app.
+This is a TanStack Start project scaffolded with create-instant-app.
 
 To run the development server:
 `npm run dev`

@@ -1,5 +1,5 @@
 {
-  "projectName": "tanstack-start",
+  "projectName": "tanstack-start-full",
   "mode": "file-router",
   "typescript": true,
   "packageManager": "pnpm",

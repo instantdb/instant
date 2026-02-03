@@ -5,8 +5,9 @@ export default function Header() {
   const auth = db.useAuth();
   const navigate = useNavigate();
   const signOut = () => {
-    db.auth.signOut();
-    navigate({ to: "/login" });
+    db.auth.signOut().then(() => {
+      navigate({ to: "/login" });
+    });
   };
 
   return (
