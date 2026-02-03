@@ -22,7 +22,7 @@ function App() {
     <div className="p-8 grid-cols-2 items-start gap-2 grid">
       <Welcome />
       <div className="bg-white rounded-lg p-6 border border-neutral-200 shadow flex flex-col">
-        <h2 className="tracking-wide text-[#F54A00] text-2xl">Todos</h2>
+        <h2 className="tracking-wide text-[#F54A00] pb-2 text-2xl">Todos</h2>
         <div className="text-xs pb-4">
           Open another tab to see todos update in realtime!
         </div>
@@ -138,7 +138,7 @@ function ActionBar({ todos }: { todos: Todo[] }) {
 export function Welcome() {
   return (
     <div className="bg-white p-6 rounded-lg border border-neutral-200 shadow flex  justify-center flex-col gap-2">
-      <h2 className="tracking-wide text-[#F54A00] text-2xl text-center">
+      <h2 className="tracking-wide text-[#F54A00] text-2xl pb-4 text-center">
         Tanstack Start + Instant DB
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 grow gap-2">
