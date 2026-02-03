@@ -12,7 +12,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="p-4 flex justify-between items-center bg-gray-800 text-white shadow-lg">
+      <header className="p-4 px-8 flex justify-between border-b-neutral-200 items-center bg-white shadow-sm">
         Full Todo Example With Auth
         {auth.user && <button onClick={signOut}>Sign Out</button>}
       </header>

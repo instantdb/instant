@@ -60,41 +60,26 @@ export const Route = createFileRoute("/")({
 
 type Todo = InstaQLEntity<AppSchema, "todos">;
 
-const room = db.room("todos");
-
 function App() {
   // Read Data
   const { data } = useInstantSuspenseQuery({ todos: {} });
-  const { peers } = db.rooms.usePresence(room);
-
-  const { data: secret } = useSuspenseQuery({
-    queryKey: ["secret"],
-    queryFn: getSecretData,
-  });
-
-  const numUsers = 1 + Object.keys(peers).length;
 
   const todos = data.todos;
-
   return (
-    <div className="font-mono pt-24 flex justify-center items-center flex-col space-y-4">
-      <div className="text-xs text-gray-700">
-        Number of users online: {numUsers}
+    <div className="p-8 grid-cols-2 gap-2 grid">
+      <Welcome />
+      <div className="bg-white rounded-lg p-6 border border-neutral-200 shadow flex flex-col">
+        <h2 className="tracking-wide text-[#F54A00] text-2xl">Todos</h2>
+        <div className="text-xs pb-4">
+          Open another tab to see todos update in realtime!
+        </div>
+        <div className="border rounded border-neutral-300">
+          <TodoForm />
+          <TodoList todos={todos} />
+          <ActionBar todos={todos} />
+        </div>
       </div>
-      <h2 className="tracking-wide text-5xl text-gray-800">todos</h2>
-      <div className="border border-gray-300 max-w-xs w-full">
-        <TodoForm todos={todos} />
-        <TodoList todos={todos} />
-        <ActionBar todos={todos} />
-      </div>
-      <div className="text-xs text-center">
-        Open another tab to see todos update in realtime!
-      </div>
-      <hr className="border-b opacity-20 w-[20vw]" />
-      <div className="py-2 text-center">
-        Message from server function:
-        <pre>{secret?.secretMessage}</pre>
-      </div>
+      <SecretData />
     </div>
   );
 }
@@ -125,39 +110,9 @@ function deleteCompleted(todos: Todo[]) {
   db.transact(txs);
 }
 
-function toggleAll(todos: Todo[]) {
-  const newVal = !todos.every((todo) => todo.done);
-  db.transact(
-    todos.map((todo) => db.tx.todos[todo.id].update({ done: newVal })),
-  );
-}
-
-// Components
-// ----------
-function ChevronDownIcon() {
+function TodoForm() {
   return (
-    <svg viewBox="0 0 20 20">
-      <path
-        d="M5 8 L10 13 L15 8"
-        stroke="currentColor"
-        fill="none"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
-
-function TodoForm({ todos }: { todos: Todo[] }) {
-  return (
-    <div className="flex items-center h-10 border-b border-gray-300">
-      <button
-        className="h-full px-2 border-r border-gray-300 flex items-center justify-center"
-        onClick={() => toggleAll(todos)}
-      >
-        <div className="w-5 h-5">
-          <ChevronDownIcon />
-        </div>
-      </button>
+    <div className="flex items-center h-10 border-neutral-300">
       <form
         className="flex-1 h-full"
         onSubmit={(e) => {
@@ -181,7 +136,7 @@ function TodoForm({ todos }: { todos: Todo[] }) {
 
 function TodoList({ todos }: { todos: Todo[] }) {
   return (
-    <div className="divide-y divide-gray-300">
+    <div className="divide-y divide-neutral-300">
       {todos.map((todo) => (
         <div key={todo.id} className="flex items-center h-10">
           <div className="h-full px-2 flex items-center justify-center">
@@ -202,7 +157,7 @@ function TodoList({ todos }: { todos: Todo[] }) {
             )}
           </div>
           <button
-            className="h-full px-2 flex items-center justify-center text-gray-300 hover:text-gray-500"
+            className="h-full px-2 flex items-center justify-center text-neutral-300 hover:text-neutral-500"
             onClick={() => deleteTodo(todo)}
           >
             X
@@ -215,10 +170,10 @@ function TodoList({ todos }: { todos: Todo[] }) {
 
 function ActionBar({ todos }: { todos: Todo[] }) {
   return (
-    <div className="flex justify-between items-center h-10 px-2 text-xs border-t border-gray-300">
+    <div className="flex justify-between items-center h-10 px-2 text-xs border-t border-neutral-300">
       <div>Remaining todos: {todos.filter((todo) => !todo.done).length}</div>
       <button
-        className=" text-gray-300 hover:text-gray-500"
+        className=" text-neutral-300 hover:text-neutral-500"
         onClick={() => deleteCompleted(todos)}
       >
         Delete Completed
@@ -226,3 +181,53 @@ function ActionBar({ todos }: { todos: Todo[] }) {
     </div>
   );
 }
+
+export function Welcome() {
+  return (
+    <div className="bg-white p-6 rounded-lg border border-neutral-200 shadow flex  justify-center flex-col gap-2">
+      <h2 className="tracking-wide text-[#F54A00] text-2xl text-center">
+        Tanstack Start + Instant DB
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 grow gap-2">
+        <a
+          href="https://tanstack.com/start/latest/docs/framework/react/overview"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="border hover:bg-neutral-100 shadow flex flex-col gap-2 items-center justify-center font-semibold border-neutral-200 rounded"
+        >
+          <img
+            src="https://tanstack.com/images/logos/logo-color-600.png"
+            width={34}
+          ></img>
+          Tanstack Start Docs
+        </a>
+        <a
+          target="_blank"
+          href="https://www.instantdb.com/docs"
+          rel="noopener noreferrer"
+          className="border shadow flex flex-col gap-2 hover:bg-neutral-100 items-center justify-center font-semibold border-neutral-200 rounded"
+        >
+          <img
+            src="https://www.instantdb.com/img/icon/logo-512.svg"
+            width={34}
+          ></img>
+          Instant Docs
+        </a>
+      </div>
+    </div>
+  );
+}
+
+const SecretData = () => {
+  const { data: secret } = useSuspenseQuery({
+    queryKey: ["secret"],
+    queryFn: getSecretData,
+  });
+
+  return (
+    <div className="bg-white p-6 rounded-lg border border-neutral-200 shadow flex  justify-center flex-col gap-2">
+      <div>Secret Message:</div>
+      <div>{secret?.secretMessage}</div>
+    </div>
+  );
+};
