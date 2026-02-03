@@ -389,8 +389,6 @@
   (let [batch-q (triples-batch-q (some? end-entity-id))]
     (create-progress! conn {:job-id job-id
                             :worker-id worker-id})
-    (log/infof "clone-app job=%s worker=%s starting (source=%s dest=%s start=%s end=%s batch=%s)"
-               job-id worker-id source-app-id dest-app-id start-entity-id end-entity-id batch-size)
     (loop [last-key [lowest-uuid lowest-uuid ""]
            total (long 0)]
       (let [{:keys [rows last_entity_id last_attr_id last_value_md5]}
@@ -405,30 +403,30 @@
                                          :last-value-md5 (nth last-key 2)
                                          :batch-size batch-size
                                          :dest-app-id dest-app-id
-                                         :job-id job-id}}))]
-        (let [rows (long rows)]
-          (if (zero? rows)
-            (do
-              (update-progress! conn {:job-id job-id
-                                      :worker-id worker-id
-                                      :rows-copied total
-                                      :last-entity-id (nth last-key 0)
-                                      :last-attr-id (nth last-key 1)
-                                      :last-value-md5 (nth last-key 2)
-                                      :done true})
-              (log/infof "clone-app job=%s worker=%s done (rows=%s)" job-id worker-id total)
-              total)
-            (let [next-key [last_entity_id last_attr_id last_value_md5]
-                  next-total (+ total rows)]
-              (update-progress! conn {:job-id job-id
-                                      :worker-id worker-id
-                                      :rows-copied next-total
-                                      :last-entity-id last_entity_id
-                                      :last-attr-id last_attr_id
-                                      :last-value-md5 last_value_md5
-                                      :done false})
-              (log/infof "clone-app job=%s worker=%s progress (rows=%s)" job-id worker-id next-total)
-              (recur next-key next-total))))))))
+                                         :job-id job-id}}))
+            rows (long rows)]
+        (if (zero? rows)
+          (do
+            (update-progress! conn {:job-id job-id
+                                    :worker-id worker-id
+                                    :rows-copied total
+                                    :last-entity-id (nth last-key 0)
+                                    :last-attr-id (nth last-key 1)
+                                    :last-value-md5 (nth last-key 2)
+                                    :done true})
+
+            total)
+          (let [next-key [last_entity_id last_attr_id last_value_md5]
+                next-total (+ total rows)]
+            (update-progress! conn {:job-id job-id
+                                    :worker-id worker-id
+                                    :rows-copied next-total
+                                    :last-entity-id last_entity_id
+                                    :last-attr-id last_attr_id
+                                    :last-value-md5 last_value_md5
+                                    :done false})
+
+            (recur next-key next-total)))))))
 
 ;; --------------- 
 ;; clone-app 
@@ -446,19 +444,16 @@
         _temporary-creator (instant-user-model/get-by-id! {:id temporary-creator-id})
         _dest-creator (instant-user-model/get-by-id! {:id dest-creator-id})
         total-triples (get-total-triples conn source-app-id)
-        _job (do
-               (log/infof "clone-app job=%s creating (source=%s dest=%s workers=%s batch=%s total=%s)"
-                          job-id source-app-id dest-app-id num-workers batch-size total-triples)
-               (create-job! conn {:job-id job-id
-                                  :source-app-id source-app-id
-                                  :dest-app-id dest-app-id
-                                  :dest-title dest-title
-                                  :temporary-creator-id temporary-creator-id
-                                  :dest-creator-id dest-creator-id
-                                  :batch-size batch-size
-                                  :num-workers num-workers
-                                  :total-triples total-triples
-                                  :status "running"}))
+        _job (create-job! conn {:job-id job-id
+                                :source-app-id source-app-id
+                                :dest-app-id dest-app-id
+                                :dest-title dest-title
+                                :temporary-creator-id temporary-creator-id
+                                :dest-creator-id dest-creator-id
+                                :batch-size batch-size
+                                :num-workers num-workers
+                                :total-triples total-triples
+                                :status "running"})
 
         empty-clone-app (setup-empty-clone-app! conn {:job-id job-id
                                                       :temporary-creator-id temporary-creator-id
@@ -489,9 +484,7 @@
       (app-model/change-creator! conn {:id dest-app-id
                                        :new-creator-id dest-creator-id})
       (delete-job! conn {:job-id job-id})
-      (log/infof "clone-app job=%s done (cleaned up job + related rows)" job-id)
       (catch Exception e
-        (log/error e (format "clone-app job=%s failed" job-id))
         (throw e)))))
 
 (comment
@@ -510,6 +503,6 @@
    {:source-app-id (:id zeneca-app)
     :temporary-creator-id (:id u)
     :dest-creator-id (:id u)
-    :dest-title "cloned-app-3"
+    :dest-title "cloned-app-4"
     :num-workers 2
     :batch-size 100}))
