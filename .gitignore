@@ -233,3 +233,4 @@ client/packages/version/src/package.json
 
 # gemini
 .gemini
+.codex

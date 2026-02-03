@@ -1,20 +1,14 @@
 (ns instant.scripts.clone-app
   (:require
-   [clojure.java.shell :as shell]
-   [clojure.string :as str]
-   [instant.config :as config]
    [instant.jdbc.sql :as sql]
    [instant.util.hsql :as uhsql]
-   [next.jdbc :as next-jdbc]
    [instant.comment :as comment]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.app :as app-model]
    [instant.jdbc.aurora :as aurora]
-   [incanter.core :as i]
    [honey.sql :as hsql]
    [clojure.tools.logging :as log])
   (:import
-   (java.time Duration)
    (java.util UUID)))
 
 ;; ----------- 
@@ -154,11 +148,10 @@
                    :from [[:rules :r]]
                    :where [:= :r.app-id :?source-app-id]}]}))
 
-(defn setup-empty-clone-app! [conn {:keys [job-id temporary-creator-id source-app-id dest-title]}]
+(defn setup-empty-clone-app! [conn {:keys [job-id temporary-creator-id source-app-id dest-title dest-app-id]}]
   ;; todo: should do this inside a transaction
-  (let [new-app-id (random-uuid)
-        new-admin-token (random-uuid)
-        app (app-model/create! conn {:id new-app-id
+  (let [new-admin-token (random-uuid)
+        app (app-model/create! conn {:id dest-app-id
                                      :admin-token new-admin-token
                                      :title dest-title
                                      :creator-id temporary-creator-id})]
@@ -168,7 +161,7 @@
                      (uhsql/formatp insert-ident-map-q {:job-id job-id
                                                         :source-app-id source-app-id}))
     (sql/do-execute! conn
-                     (uhsql/formatp insert-idents-q {:new-app-id new-app-id
+                     (uhsql/formatp insert-idents-q {:new-app-id dest-app-id
                                                      :job-id job-id
                                                      :source-app-id source-app-id}))
     ;; map attrs + create them
@@ -176,14 +169,85 @@
                      (uhsql/formatp insert-attr-map-q {:job-id job-id
                                                        :source-app-id source-app-id}))
     (sql/do-execute! conn
-                     (uhsql/formatp insert-attrs-q {:new-app-id new-app-id
+                     (uhsql/formatp insert-attrs-q {:new-app-id dest-app-id
                                                     :job-id job-id
                                                     :source-app-id source-app-id}))
     ;; copy over rules
     (sql/do-execute! conn
-                     (uhsql/formatp insert-rules-q {:new-app-id new-app-id
+                     (uhsql/formatp insert-rules-q {:new-app-id dest-app-id
                                                     :source-app-id source-app-id}))
     app))
+
+;; ------- 
+;; jobs + progress 
+
+(def ^:private create-job-q
+  (uhsql/preformat
+   {:insert-into :clone-app-jobs
+    :values [{:job-id :?job-id
+              :source-app-id :?source-app-id
+              :dest-app-id :?dest-app-id
+              :dest-title :?dest-title
+              :temporary-creator-id :?temporary-creator-id
+              :dest-creator-id :?dest-creator-id
+              :batch-size :?batch-size
+              :num-workers :?num-workers
+              :total-triples :?total-triples
+              :status :?status}]
+    :returning :*}))
+
+(defn- create-job!
+  [conn opts]
+  (sql/execute-one! conn
+                    (uhsql/formatp create-job-q opts)))
+
+(def ^:private create-progress-q
+  (uhsql/preformat
+   {:insert-into :clone-app-progress
+    :values [{:job-id :?job-id
+              :worker-id :?worker-id}]
+    :returning :*}))
+
+(defn- create-progress!
+  [conn opts]
+  (sql/execute-one! conn
+                    (uhsql/formatp create-progress-q opts)))
+
+(def ^:private update-progress-q
+  (uhsql/preformat
+   {:update :clone-app-progress
+    :set {:rows-copied :?rows-copied
+          :last-entity-id :?last-entity-id
+          :last-attr-id :?last-attr-id
+          :last-value-md5 :?last-value-md5
+          :updated-at :%now
+          :done :?done}
+    :where [:and
+            [:= :job-id :?job-id]
+            [:= :worker-id :?worker-id]]}))
+
+(defn- update-progress!
+  [conn opts]
+  (sql/do-execute! conn (uhsql/formatp update-progress-q opts)))
+
+(def ^:private delete-job-q
+  (uhsql/preformat
+   {:delete-from :clone-app-jobs
+    :where [:= :job-id :?job-id]}))
+
+(defn- delete-job!
+  [conn opts]
+  (sql/do-execute! conn
+                   (uhsql/formatp delete-job-q opts)))
+
+(def ^:private total-triples-q
+  (uhsql/preformat
+   {:select [[[:count :*] :count]]
+    :from :triples
+    :where [:= :app-id :?source-app-id]}))
+
+(defn- get-total-triples [conn source-app-id]
+  (:count (sql/select-one conn (uhsql/formatp total-triples-q {:source-app-id source-app-id}))))
 
 ;; -------------- 
 ;; Worker ranges 
@@ -234,7 +298,7 @@
                               :num-workers num-workers})))
 
 ;; --------------- 
-;; worker 
+;; triple-batch-insert 
 
 (def ^:private lowest-uuid
   (UUID/fromString "00000000-0000-0000-0000-000000000000"))
@@ -277,7 +341,7 @@
                                    :created-at
                                    :checked-data-type
                                    :pg-size]]
-                                 {:select [:?new-app-id
+                                 {:select [:?dest-app-id
                                            :b.entity-id
                                            [[:coalesce :am.new-id :b.attr-id] :attr-id]
                                            :b.value
@@ -316,12 +380,17 @@
                            [:value-md5 :desc]]
                 :limit 1} :last-value-md5]]}))
 
+;; --------------- 
+;; run-worker
+
 (defn- run-worker!
   [conn {:keys [job-id source-app-id dest-app-id batch-size
                 start-entity-id end-entity-id]} worker-id]
   (let [batch-q (triples-batch-q (some? end-entity-id))]
-    (log/infof "clone-app worker %s starting (source=%s dest=%s start=%s end=%s batch=%s)"
-               worker-id source-app-id dest-app-id start-entity-id end-entity-id batch-size)
+    (create-progress! conn {:job-id job-id
+                            :worker-id worker-id})
+    (log/infof "clone-app job=%s worker=%s starting (source=%s dest=%s start=%s end=%s batch=%s)"
+               job-id worker-id source-app-id dest-app-id start-entity-id end-entity-id batch-size)
     (loop [last-key [lowest-uuid lowest-uuid ""]
            total (long 0)]
       (let [{:keys [rows last_entity_id last_attr_id last_value_md5]}
@@ -335,16 +404,30 @@
                                          :last-attr-id (nth last-key 1)
                                          :last-value-md5 (nth last-key 2)
                                          :batch-size batch-size
-                                         :new-app-id dest-app-id
+                                         :dest-app-id dest-app-id
                                          :job-id job-id}}))]
         (let [rows (long rows)]
           (if (zero? rows)
             (do
-              (log/infof "clone-app worker %s done (rows=%s)" worker-id total)
+              (update-progress! conn {:job-id job-id
+                                      :worker-id worker-id
+                                      :rows-copied total
+                                      :last-entity-id (nth last-key 0)
+                                      :last-attr-id (nth last-key 1)
+                                      :last-value-md5 (nth last-key 2)
+                                      :done true})
+              (log/infof "clone-app job=%s worker=%s done (rows=%s)" job-id worker-id total)
               total)
             (let [next-key [last_entity_id last_attr_id last_value_md5]
                   next-total (+ total rows)]
-              (log/infof "clone-app worker %s progress (rows=%s)" worker-id next-total)
+              (update-progress! conn {:job-id job-id
+                                      :worker-id worker-id
+                                      :rows-copied next-total
+                                      :last-entity-id last_entity_id
+                                      :last-attr-id last_attr_id
+                                      :last-value-md5 last_value_md5
+                                      :done false})
+              (log/infof "clone-app job=%s worker=%s progress (rows=%s)" job-id worker-id next-total)
               (recur next-key next-total))))))))
 
 ;; --------------- 
@@ -358,17 +441,33 @@
                                batch-size]}]
   (assert-table-column-counts conn)
   (let [job-id (random-uuid)
-        ;; todo: actually create the job
+        dest-app-id (random-uuid)
         _source-app (app-model/get-by-id! {:id source-app-id})
         _temporary-creator (instant-user-model/get-by-id! {:id temporary-creator-id})
         _dest-creator (instant-user-model/get-by-id! {:id dest-creator-id})
+        total-triples (get-total-triples conn source-app-id)
+        _job (do
+               (log/infof "clone-app job=%s creating (source=%s dest=%s workers=%s batch=%s total=%s)"
+                          job-id source-app-id dest-app-id num-workers batch-size total-triples)
+               (create-job! conn {:job-id job-id
+                                  :source-app-id source-app-id
+                                  :dest-app-id dest-app-id
+                                  :dest-title dest-title
+                                  :temporary-creator-id temporary-creator-id
+                                  :dest-creator-id dest-creator-id
+                                  :batch-size batch-size
+                                  :num-workers num-workers
+                                  :total-triples total-triples
+                                  :status "running"}))
 
         empty-clone-app (setup-empty-clone-app! conn {:job-id job-id
                                                       :temporary-creator-id temporary-creator-id
                                                       :source-app-id source-app-id
-                                                      :dest-title dest-title})
+                                                      :dest-title dest-title
+                                                      :dest-app-id dest-app-id})
 
         {dest-app-id :id} empty-clone-app
+
         worker-ranges (get-worker-ranges conn source-app-id num-workers)
 
         worker-futures (mapv (fn [{:keys [bucket]
@@ -382,10 +481,18 @@
                                                :batch-size batch-size
                                                :start-entity-id start-entity-id
                                                :end-entity-id end-entity-id}
-                                              bucket)))
+                                              (int bucket))))
                              worker-ranges)]
-    (doseq [f worker-futures]
-      @f)))
+    (try
+      (doseq [f worker-futures]
+        @f)
+      (app-model/change-creator! conn {:id dest-app-id
+                                       :new-creator-id dest-creator-id})
+      (delete-job! conn {:job-id job-id})
+      (log/infof "clone-app job=%s done (cleaned up job + related rows)" job-id)
+      (catch Exception e
+        (log/error e (format "clone-app job=%s failed" job-id))
+        (throw e)))))
 
 (comment
   (def zeneca-app (comment/zeneca-app!))
@@ -403,6 +510,6 @@
    {:source-app-id (:id zeneca-app)
     :temporary-creator-id (:id u)
     :dest-creator-id (:id u)
-    :dest-title "cloned-app-2"
+    :dest-title "cloned-app-3"
     :num-workers 2
     :batch-size 100}))
