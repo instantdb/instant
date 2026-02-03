@@ -27,7 +27,7 @@ To make things worse, whenever we add a new feature, we go through the same song
 
 Could it be better? We think so!
 
-![Instant compresses the schleps!](https://camo.githubusercontent.com/b537dcbe3a35bd6a079205031660ac85bb966a6a48265e6d3c4a603e3c5584f9/68747470733a2f2f696e7374616e7464622e636f6d2f726561646d65732f636f6d7072657373696f6e2e737667)
+![Instant compresses the schleps!](https://www.instantdb.com/readmes/compression.svg)
 
 If you had a database on the client, you wouldn’t need to manage stores, selectors, endpoints, caches, etc. You could just write queries to fetch the data you want. If these queries were reactive, you wouldn’t have to write extra logic to re-fetch whenever new data appears. Similarly you could just make transactions to apply mutations. These transactions could apply changes optimistically and be persisted locally. Putting this all together, you can build delightful applications without the normal schleps.
 
