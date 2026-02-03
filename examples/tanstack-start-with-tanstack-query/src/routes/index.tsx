@@ -106,6 +106,7 @@ function toggleDone(todo: Todo) {
 
 function deleteCompleted(todos: Todo[]) {
   const completed = todos.filter((todo) => todo.done);
+  if (completed.length === 0) return;
   const txs = completed.map((todo) => db.tx.todos[todo.id].delete());
   db.transact(txs);
 }

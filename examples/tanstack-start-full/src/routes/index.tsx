@@ -58,7 +58,7 @@ function App() {
   const { isLoading, error, data } = db.useQuery({ todos: {} });
 
   if (isLoading) {
-    return;
+    return null;
   }
   if (error) {
     return <div className="text-red-500 p-4">Error: {error.message}</div>;
@@ -106,6 +106,7 @@ function toggleDone(todo: Todo) {
 
 function deleteCompleted(todos: Todo[]) {
   const completed = todos.filter((todo) => todo.done);
+  if (completed.length === 0) return;
   const txs = completed.map((todo) => db.tx.todos[todo.id].delete());
   db.transact(txs);
 }

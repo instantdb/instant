@@ -64,7 +64,13 @@ export const runCli = async (): Promise<{
       new Option(
         '-b --base <template>',
         'The base template to scaffold from',
-      ).choices(['next-js-app-dir', 'vite-vanilla', 'expo']),
+      ).choices([
+        'next-js-app-dir',
+        'vite-vanilla',
+        'expo',
+        'tanstack-start',
+        'tanstack-start-full',
+      ]),
     )
     .addOption(
       new Option('-g --git', 'Create a git repo in the new project').default(
