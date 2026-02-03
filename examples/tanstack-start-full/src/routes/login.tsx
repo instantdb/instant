@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { Welcome } from ".";
 
 export const Route = createFileRoute("/login")({
   component: RouteComponent,
@@ -55,11 +56,11 @@ function RouteComponent() {
             ? "Enter your email to receive a magic code"
             : `We sent a code to ${emailInput}`}
         </p>
-        <div className="border rounded border-neutral-300">
+        <div className="rounded">
           {stage === "email" ? (
             <>
               <form
-                className="flex items-center h-10 border-b border-neutral-300"
+                className="flex items-center h-10"
                 onSubmit={(e) => {
                   e.preventDefault();
                   sendEmail();
@@ -72,12 +73,12 @@ function RouteComponent() {
                   placeholder="you@example.com"
                   required
                   autoFocus
-                  className="flex-1 h-full px-2 outline-none bg-transparent"
+                  className="flex-1 border border-neutral-300 h-full px-2 outline-none bg-transparent"
                 />
                 <button
                   type="submit"
                   disabled={!emailInput}
-                  className="h-full px-2 border-l border-neutral-300 text-neutral-600 hover:text-neutral-500 disabled:hover:text-neutral-300"
+                  className="h-full px-2 border border-l-0 border-neutral-300 text-neutral-600 hover:text-neutral-500 disabled:hover:text-neutral-300"
                 >
                   Send
                 </button>
@@ -122,40 +123,6 @@ function RouteComponent() {
             </>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function Welcome() {
-  return (
-    <div className="bg-white p-6 rounded-lg border border-neutral-200 shadow flex justify-center flex-col gap-2">
-      <h2 className="tracking-wide text-[#F54A00] text-2xl text-center">
-        Tanstack Start + Instant DB
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 grow gap-2">
-        <a
-          href="https://tanstack.com/start/latest/docs/framework/react/overview"
-          target="_blank"
-          className="border hover:bg-neutral-100 shadow flex flex-col gap-2 items-center justify-center font-semibold border-neutral-200 rounded"
-        >
-          <img
-            src="https://tanstack.com/images/logos/logo-color-600.png"
-            width={34}
-          />
-          Tanstack Start Docs
-        </a>
-        <a
-          target="_blank"
-          href="https://www.instantdb.com/docs"
-          className="border shadow flex flex-col gap-2 hover:bg-neutral-100 items-center justify-center font-semibold border-neutral-200 rounded"
-        >
-          <img
-            src="https://www.instantdb.com/img/icon/logo-512.svg"
-            width={34}
-          />
-          Instant Docs
-        </a>
       </div>
     </div>
   );

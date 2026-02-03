@@ -182,7 +182,7 @@ function ActionBar({ todos }: { todos: Todo[] }) {
   );
 }
 
-function Welcome() {
+export function Welcome() {
   return (
     <div className="bg-white p-6 rounded-lg border border-neutral-200 shadow flex  justify-center flex-col gap-2">
       <h2 className="tracking-wide text-[#F54A00] text-2xl text-center">
