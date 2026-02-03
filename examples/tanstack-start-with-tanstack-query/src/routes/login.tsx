@@ -78,7 +78,7 @@ function RouteComponent() {
                 <button
                   type="submit"
                   disabled={!emailInput}
-                  className="h-full px-2 border border-l-0 border-neutral-300 text-neutral-600 hover:text-neutral-500 disabled:hover:text-neutral-300"
+                  className="h-full cursor-pointer px-2 border border-l-0 border-neutral-300 text-neutral-600 hover:text-neutral-500 disabled:hover:text-neutral-300"
                 >
                   Send
                 </button>
@@ -106,7 +106,7 @@ function RouteComponent() {
                 <button
                   type="submit"
                   disabled={!codeInput}
-                  className="h-full px-2 border-l border-neutral-300 text-neutral-600 hover:text-neutral-500 disabled:hover:text-neutral-300"
+                  className="h-full px-2 cursor-pointer border-l border-neutral-300 text-neutral-600 hover:text-neutral-500 disabled:hover:text-neutral-300"
                 >
                   Submit
                 </button>
