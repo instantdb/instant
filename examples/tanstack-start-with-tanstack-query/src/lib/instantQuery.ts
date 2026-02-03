@@ -49,7 +49,9 @@ export const useInstantSuspenseQuery = <Q extends ValidQuery<Q, typeof schema>>(
   const tanstackResult = useSuspenseQuery({
     queryKey: [JSON.stringify(query)],
     queryFn: async (): Promise<InstaQLResponse<AppSchema, Q>> => {
-      const cachedData = queryClient.getQueryData<InstaQLResponse<AppSchema, Q>>([JSON.stringify(query)]);
+      const cachedData = queryClient.getQueryData<
+        InstaQLResponse<AppSchema, Q>
+      >([JSON.stringify(query)]);
       if (cachedData) {
         return cachedData;
       }
@@ -66,7 +68,7 @@ export const useInstantSuspenseQuery = <Q extends ValidQuery<Q, typeof schema>>(
       queryClient.setQueryData([JSON.stringify(query)], resp.data);
     });
     return unsub;
-  }, [query]);
+  }, [JSON.stringify(query)]);
 
   return tanstackResult;
 };
