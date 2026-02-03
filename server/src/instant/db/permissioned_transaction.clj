@@ -262,8 +262,9 @@
               (let [attr (attr-model/seek-by-id aid attrs)
                     [_ _ label] (:forward-identity attr)]
                 label)))
-       ;; `id` is auto-included from client SDK updates, but we don't need
-       ;; users to include it in modifiedFields checks
+       ;; (TODO) We exclude `id` because we don't consider it a modifable field
+       ;; We should add a validation check though earlier in transact to prevent
+       ;; the value of id being different than the eid of the entity
        (remove #(= % "id"))
        distinct
        vec))
