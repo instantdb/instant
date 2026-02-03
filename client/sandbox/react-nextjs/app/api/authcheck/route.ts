@@ -4,7 +4,7 @@ import schema from '../../play/ssr/instant.schema';
 export const appId = process.env.NEXT_PUBLIC_INSTANT_APP_ID;
 
 if (!appId) {
-  throw new Error('NEXT_PUBLIC_INSTANT_APP_ID is not set');
+  console.warn('warning: NEXT_PUBLIC_INSTANT_APP_ID is not set');
 }
 
 export const db = init({
