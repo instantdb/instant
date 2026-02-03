@@ -60,7 +60,7 @@ function RouteComponent() {
           {stage === "email" ? (
             <>
               <form
-                className="flex items-center h-10"
+                className="flex items-center border border-neutral-300 h-10"
                 onSubmit={(e) => {
                   e.preventDefault();
                   sendEmail();
@@ -73,12 +73,12 @@ function RouteComponent() {
                   placeholder="you@example.com"
                   required
                   autoFocus
-                  className="flex-1 border border-neutral-300 h-full px-2 outline-none bg-transparent"
+                  className="flex-1 h-full px-2 outline-none bg-transparent"
                 />
                 <button
                   type="submit"
                   disabled={!emailInput}
-                  className="h-full px-2 border border-l-0 border-neutral-300 text-neutral-600 hover:text-neutral-500 disabled:hover:text-neutral-300"
+                  className="h-full px-2 border-l border-0 border-neutral-300 text-neutral-600 hover:text-neutral-500 disabled:hover:text-neutral-300"
                 >
                   Send
                 </button>
@@ -88,7 +88,7 @@ function RouteComponent() {
           ) : (
             <>
               <form
-                className="flex items-center h-10 border-b border-neutral-300"
+                className="flex items-center h-10 border border-neutral-300"
                 onSubmit={(e) => {
                   e.preventDefault();
                   loginWithCode();
