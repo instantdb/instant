@@ -34,7 +34,7 @@ const getSecretData = createServerFn()
     // Free to use the Instant Admin DB or 3rd party server-side services.
 
     return {
-      secretMessage: `This is a secret message returned from createServerFn. Only signed-in users can see this. This is useful when you need to run server-side only code such as interacting with a 3rd party API. You are signed in as ${context.user.email}.`,
+      secretMessage: `This is a secret message returned from createServerFn. Only signed-in users can see this. This is useful when you need to run server-side only code such as interacting with a 3rd party API. You are signed in as ${context.user.isGuest ? "guest" : context.user.email}.`,
     };
   });
 

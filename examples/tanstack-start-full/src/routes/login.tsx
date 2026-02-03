@@ -35,7 +35,16 @@ function RouteComponent() {
     if (verifyResponse.user) {
       setTimeout(() => {
         navigate({ to: "/" });
-      }, 201);
+      }, 100); // Wait for cookie sync
+    }
+  };
+
+  const loginAsGuest = async () => {
+    const verifyResponse = await db.auth.signInAsGuest();
+    if (verifyResponse.user) {
+      setTimeout(() => {
+        navigate({ to: "/" });
+      }, 100); // Wait for cookie sync
     }
   };
 
@@ -83,7 +92,7 @@ function RouteComponent() {
                   Send
                 </button>
               </form>
-              <div className="h-10" />
+              <div className="h-7" />
             </>
           ) : (
             <>
@@ -122,6 +131,12 @@ function RouteComponent() {
               </div>
             </>
           )}
+          <button
+            onClick={loginAsGuest}
+            className="bg-neutral-50 border border-neutral-100 hover:bg-neutral-100 cursor-pointer shadow p-2"
+          >
+            Sign In as Guest
+          </button>
         </div>
       </div>
     </div>

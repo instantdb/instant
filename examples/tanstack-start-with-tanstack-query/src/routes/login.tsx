@@ -35,7 +35,16 @@ function RouteComponent() {
     if (verifyResponse.user) {
       setTimeout(() => {
         navigate({ to: "/" });
-      }, 201);
+      }, 100); // Wait for cookie sync
+    }
+  };
+
+  const loginAsGuest = async () => {
+    const verifyResponse = await db.auth.signInAsGuest();
+    if (verifyResponse.user) {
+      setTimeout(() => {
+        navigate({ to: "/" });
+      }, 100); // Wait for cookie sync
     }
   };
 
@@ -45,7 +54,7 @@ function RouteComponent() {
   };
 
   return (
-    <div className="p-8 grid-cols-2 gap-2 grid">
+    <div className="p-8 sm:grid-cols-2 items-start gap-2 grid-cols-1 grid">
       <Welcome />
       <div className="bg-white rounded-lg p-6 border border-neutral-200 shadow flex flex-col gap-4">
         <h2 className="tracking-wide text-[#F54A00] text-2xl">
@@ -60,7 +69,7 @@ function RouteComponent() {
           {stage === "email" ? (
             <>
               <form
-                className="flex items-center h-10"
+                className="flex items-center border border-neutral-300 h-10"
                 onSubmit={(e) => {
                   e.preventDefault();
                   sendEmail();
@@ -73,17 +82,17 @@ function RouteComponent() {
                   placeholder="you@example.com"
                   required
                   autoFocus
-                  className="flex-1 border border-neutral-300 h-full px-2 outline-none bg-transparent"
+                  className="flex-1 h-full px-2 outline-none bg-transparent"
                 />
                 <button
                   type="submit"
                   disabled={!emailInput}
-                  className="h-full cursor-pointer px-2 border border-l-0 border-neutral-300 text-neutral-600 hover:text-neutral-500 disabled:hover:text-neutral-300"
+                  className="h-full cursor-pointer px-2 border-l border-0 border-neutral-300 text-neutral-600 hover:text-neutral-500 disabled:hover:text-neutral-300"
                 >
                   Send
                 </button>
               </form>
-              <div className="h-10" />
+              <div className="h-7" />
             </>
           ) : (
             <>
@@ -122,6 +131,12 @@ function RouteComponent() {
               </div>
             </>
           )}
+          <button
+            onClick={loginAsGuest}
+            className="bg-neutral-50 border border-neutral-100 hover:bg-neutral-100 cursor-pointer shadow p-2"
+          >
+            Sign In as Guest
+          </button>
         </div>
       </div>
     </div>
