@@ -14,6 +14,9 @@ const config = defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  server: {
+    host: "::",
+  },
   plugins: [
     devtools(),
     nitro(),
