@@ -683,6 +683,12 @@ order by p.worker_id;"
           (throw (ex-info "Missing --temporary-email" {})))
         (when (string/blank? dest-email)
           (throw (ex-info "Missing --dest-email" {})))
+        (when (string/blank? (:dest-title opts))
+          (throw (ex-info "Missing --new-title" {})))
+        (when (nil? (:num-workers opts))
+          (throw (ex-info "Missing --num-workers" {})))
+        (when (nil? (:batch-size opts))
+          (throw (ex-info "Missing --batch-size" {})))
         (let [db-config (config/db-url->config db-url)]
           (with-open [conn (next-jdbc/get-connection db-config)]
             (let [temporary-user (instant-user-model/get-by-email conn {:email temporary-email})
