@@ -1,12 +1,14 @@
-import { type Component } from "solid-js";
-import { createInstantQuery } from "./lib/createInstsantQuery";
+import { type Component, Show } from "solid-js";
+import { db } from "./lib/db";
 
 const App: Component = () => {
-  const todoResource = createInstantQuery({ todos: {} });
+  const state = db.useQuery({ todos: {} });
 
   return (
     <div class="text-4xl text-green-700 text-center py-20">
-      {JSON.stringify(todoResource())}
+      <Show when={!state().isLoading} fallback={<div>Loading...</div>}>
+        {JSON.stringify(state().data)}
+      </Show>
     </div>
   );
 };
