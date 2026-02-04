@@ -6,12 +6,7 @@ import { coerceAppName, validateAppName } from './utils/validateAppName.js';
 import { renderUnwrap, UI } from 'instant-cli/ui';
 
 export type Project = {
-  base:
-    | 'next-js-app-dir'
-    | 'vite-vanilla'
-    | 'expo'
-    | 'tanstack-start'
-    | 'tanstack-start-basic';
+  base: 'next-js-app-dir' | 'vite-vanilla' | 'expo' | 'tanstack-start';
   ruleFiles:
     | 'cursor'
     | 'claude'
@@ -69,7 +64,6 @@ export const runCli = async (): Promise<{
         'vite-vanilla',
         'expo',
         'tanstack-start',
-        'tanstack-start-basic',
         'tanstack-start-with-tanstack-query',
       ]),
     )
