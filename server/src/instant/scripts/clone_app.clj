@@ -1,6 +1,7 @@
 (ns instant.scripts.clone-app
   (:require
    [clojure.string :as string]
+   [clojure.tools.cli :refer [parse-opts]]
    [instant.aurora-config :as aurora-config]
    [instant.config :as config]
    [instant.jdbc.sql :as sql]
@@ -622,7 +623,7 @@ order by p.worker_id;"
                 (catch Exception e
                   (throw e))))))))))
 
-(defn- print-usage! []
+(defn- print-usage! [summary]
   (println
    (string/join
     "\n"
@@ -634,96 +635,72 @@ order by p.worker_id;"
      "    --dest-email EMAIL \\"
      "    --new-title TITLE \\"
      "    --num-workers N \\"
-     "    --batch-size N"])))
+     "    --batch-size N"
+     ""
+     summary])))
 
-(defn- parse-long! [label value]
-  (try
-    (Long/parseLong value)
-    (catch Exception _
-      (throw (ex-info (format "Invalid %s: %s" label value)
-                      {:label label :value value})))))
-
-(defn- parse-uuid [value]
-  (or (uuid-util/coerce value)
-      (throw (ex-info (format "Invalid UUID: %s" value)
-                      {:value value}))))
-
-(defn- parse-args! [args]
-  (loop [args args
-         opts {}]
-    (if (empty? args)
-      opts
-      (let [[flag value & rest] args]
-        (case flag
-          ("-h" "--help")
-          (recur rest (assoc opts :help true))
-
-          ("--database-url" "--url")
-          (if (nil? value)
-            (throw (ex-info "Missing value for --database-url" {}))
-            (recur rest (assoc opts :database-url value)))
-
-          "--app-id"
-          (if (nil? value)
-            (throw (ex-info "Missing value for --app-id" {}))
-            (recur rest (assoc opts :source-app-id  (parse-uuid value))))
-
-          "--temporary-email"
-          (if (nil? value)
-            (throw (ex-info "Missing value for --temporary-email" {}))
-            (recur rest (assoc opts :temporary-email value)))
-
-          "--dest-email"
-          (if (nil? value)
-            (throw (ex-info "Missing value for --dest-email" {}))
-            (recur rest (assoc opts :dest-email value)))
-
-          "--new-title"
-          (if (nil? value)
-            (throw (ex-info "Missing value for --new-title" {}))
-            (recur rest (assoc opts :dest-title value)))
-
-          "--num-workers"
-          (if (nil? value)
-            (throw (ex-info "Missing value for --num-workers" {}))
-            (recur rest (assoc opts :num-workers (parse-long! "num-workers" value))))
-
-          "--batch-size"
-          (if (nil? value)
-            (throw (ex-info "Missing value for --batch-size" {}))
-            (recur rest (assoc opts :batch-size (parse-long! "batch-size" value))))
-
-          (throw (ex-info (format "Unknown flag: %s" flag) {:flag flag})))))))
+(def ^:private cli-options
+  [["-h" "--help" "Show help"]
+   ["--database-url URL" "Database URL"]
+   ["--app-id APP_UUID" "Source app id"
+    :parse-fn (fn [value]
+                (or (parse-uuid value)
+                    (throw (ex-info (format "Invalid app id: %s" value)
+                                    {:value value}))))
+    :assoc-fn (fn [m k v] (assoc m k v))]
+   ["--temporary-email EMAIL" "Temporary creator email"]
+   ["--dest-email EMAIL" "Destination creator email"]
+   ["--new-title TITLE" "Destination app title"]
+   ["--num-workers N" "Number of workers"
+    :parse-fn (fn [value]
+                (or (parse-long value)
+                    (throw (ex-info (format "Invalid num-workers: %s" value)
+                                    {:value value}))))
+    :assoc-fn (fn [m k v] (assoc m k v))]
+   ["--batch-size N" "Batch size"
+    :parse-fn (fn [value]
+                (or (parse-long value)
+                    (throw (ex-info (format "Invalid batch-size: %s" value)
+                                    {:value value}))))
+    :assoc-fn (fn [m k v] (assoc m k v))]])
 
 (defn -main [& args]
-  (let [opts (parse-args! args)]
+  (let [{:keys [options errors summary]} (parse-opts args cli-options)
+        opts options]
+    (when (seq errors)
+      (throw (ex-info (string/join "\n" errors) {:errors errors})))
     (if (:help opts)
-      (print-usage!)
-      (let [db-config (config/db-url->config (:database-url opts))
+      (print-usage! summary)
+      (let [db-url (:database-url opts)
             source-app-id (:source-app-id opts)
             temporary-email (:temporary-email opts)
             dest-email (:dest-email opts)]
+        (when (string/blank? db-url)
+          (throw (ex-info "Missing --database-url" {})))
+        (when (nil? source-app-id)
+          (throw (ex-info "Missing --app-id" {})))
         (when (string/blank? temporary-email)
           (throw (ex-info "Missing --temporary-email" {})))
         (when (string/blank? dest-email)
           (throw (ex-info "Missing --dest-email" {})))
-        (with-open [conn (next-jdbc/get-connection db-config)]
-          (let [temporary-user (instant-user-model/get-by-email conn {:email temporary-email})
-                dest-user (instant-user-model/get-by-email conn {:email dest-email})]
-            (when-not temporary-user
-              (throw (ex-info (format "No user found for temporary email: %s" temporary-email)
-                              {:email temporary-email})))
-            (when-not dest-user
-              (throw (ex-info (format "No user found for dest email: %s" dest-email)
-                              {:email dest-email})))
-            (let [app (clone-app! db-config {:source-app-id source-app-id
-                                             :temporary-creator-id (:id temporary-user)
-                                             :dest-creator-id (:id dest-user)
-                                             :dest-title (:dest-title opts)
-                                             :num-workers (:num-workers opts)
-                                             :batch-size (:batch-size opts)})]
-              (println "done!")
-              (println (:id app)))))))))
+        (let [db-config (config/db-url->config db-url)]
+          (with-open [conn (next-jdbc/get-connection db-config)]
+            (let [temporary-user (instant-user-model/get-by-email conn {:email temporary-email})
+                  dest-user (instant-user-model/get-by-email conn {:email dest-email})]
+              (when-not temporary-user
+                (throw (ex-info (format "No user found for temporary email: %s" temporary-email)
+                                {:email temporary-email})))
+              (when-not dest-user
+                (throw (ex-info (format "No user found for dest email: %s" dest-email)
+                                {:email dest-email})))
+              (let [app (clone-app! db-config {:source-app-id source-app-id
+                                               :temporary-creator-id (:id temporary-user)
+                                               :dest-creator-id (:id dest-user)
+                                               :dest-title (:dest-title opts)
+                                               :num-workers (:num-workers opts)
+                                               :batch-size (:batch-size opts)})]
+                (println "done!")
+                (println (:id app))))))))))
 
 (comment
   (def zeneca-app (comment/zeneca-app!))
