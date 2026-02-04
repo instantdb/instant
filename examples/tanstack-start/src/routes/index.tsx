@@ -1,8 +1,55 @@
 import { AppSchema } from "@/instant.schema";
 import { db } from "@/lib/db";
 import { id, InstaQLEntity } from "@instantdb/react";
-import { createFileRoute } from "@tanstack/react-router";
-export const Route = createFileRoute("/")({ component: App });
+import { getRequest } from "@tanstack/react-start/server";
+
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import {
+  createMiddleware,
+  createServerFn,
+  useServerFn,
+} from "@tanstack/react-start";
+import { adminDb } from "@/lib/adminDb";
+import { useEffect, useState } from "react";
+
+const instantUserMiddleware = createMiddleware().server(async ({ next }) => {
+  const request = getRequest();
+
+  // Gets user from cookie sync and validates refresh token
+  const user = await adminDb.auth.getUserFromRequest(request);
+  return next({
+    context: { user },
+  });
+});
+
+// Mimicks cases where we want to use the Instant user to access secure data
+// outside of the Instant database.
+const getSecretData = createServerFn()
+  .middleware([instantUserMiddleware])
+  .handler(async ({ context }) => {
+    if (!context.user) {
+      throw new Error("Unauthorized");
+    }
+
+    // Free to use the Instant Admin DB or 3rd party server-side services.
+
+    return {
+      secretMessage: `This is a secret message returned from createServerFn. Only signed-in users can see this. This is useful when you need to run server-side only code such as interacting with a 3rd party API. You are signed in as ${context.user.isGuest ? "guest" : context.user.email}.`,
+    };
+  });
+
+export const Route = createFileRoute("/")({
+  component: App,
+  loader: async () => {
+    const auth = await db.getAuth();
+    if (!auth) {
+      throw redirect({
+        to: "/login",
+      });
+    }
+  },
+  ssr: false,
+});
 
 type Todo = InstaQLEntity<AppSchema, "todos">;
 
@@ -20,7 +67,10 @@ function App() {
   const { todos } = data;
   return (
     <div className="p-8 sm:grid-cols-2 items-start gap-2 grid-cols-1 grid">
-      <Welcome />
+      <div className="flex flex-col gap-2">
+        <Welcome />
+        <SecretData />
+      </div>
       <div className="bg-white rounded-lg p-6 border border-neutral-200 shadow flex flex-col">
         <h2 className="tracking-wide text-[#F54A00] pb-2 text-2xl">Todos</h2>
         <div className="text-xs pb-4">
@@ -138,7 +188,7 @@ function ActionBar({ todos }: { todos: Todo[] }) {
 export function Welcome() {
   return (
     <div className="bg-white p-6 rounded-lg border border-neutral-200 shadow flex  justify-center flex-col gap-2">
-      <h2 className="tracking-wide text-[#F54A00] text-2xl pb-4 text-center">
+      <h2 className="tracking-wide text-[#F54A00] pb-4 text-2xl text-center">
         Tanstack Start + Instant DB
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 grow gap-2">
@@ -158,7 +208,7 @@ export function Welcome() {
           target="_blank"
           href="https://www.instantdb.com/docs"
           rel="noopener noreferrer"
-          className="border shadow p-2 flex flex-col py-8 gap-2 hover:bg-neutral-100 items-center justify-center font-semibold border-neutral-200 rounded"
+          className="border p-2 shadow flex py-8 flex-col gap-2 hover:bg-neutral-100 items-center justify-center font-semibold border-neutral-200 rounded"
         >
           <img
             src="https://www.instantdb.com/img/icon/logo-512.svg"
@@ -170,3 +220,21 @@ export function Welcome() {
     </div>
   );
 }
+
+const SecretData = () => {
+  const secretDataFetch = useServerFn(getSecretData);
+  const [secretData, setSecretData] = useState<Awaited<
+    ReturnType<typeof secretDataFetch>
+  > | null>(null);
+
+  useEffect(() => {
+    secretDataFetch().then(setSecretData);
+  }, [secretDataFetch]);
+
+  return (
+    <div className="bg-white p-6 rounded-lg border border-neutral-200 shadow flex  justify-center flex-col gap-2">
+      <div>Secret Message:</div>
+      <div>{secretData?.secretMessage}</div>
+    </div>
+  );
+};

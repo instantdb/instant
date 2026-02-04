@@ -11,7 +11,7 @@ export type Project = {
     | 'vite-vanilla'
     | 'expo'
     | 'tanstack-start'
-    | 'tanstack-start-full';
+    | 'tanstack-start-basic';
   ruleFiles:
     | 'cursor'
     | 'claude'
@@ -69,7 +69,8 @@ export const runCli = async (): Promise<{
         'vite-vanilla',
         'expo',
         'tanstack-start',
-        'tanstack-start-full',
+        'tanstack-start-basic',
+        'tanstack-start-with-tanstack-query',
       ]),
     )
     .addOption(
@@ -213,10 +214,9 @@ export const runCli = async (): Promise<{
               { value: 'next-js-app-dir', label: 'Next.js' },
               { value: 'vite-vanilla', label: 'Vite: Vanilla TS' },
               { value: 'expo', label: 'Expo: React Native' },
-              { value: 'tanstack-start', label: 'Tanstack Start' },
               {
-                value: 'tanstack-start-full',
-                label: 'Tanstack Start W/ Auth',
+                value: 'tanstack-start',
+                label: 'Tanstack Start',
               },
             ],
             defaultValue: 'next-js-app-dir' as Project['base'],

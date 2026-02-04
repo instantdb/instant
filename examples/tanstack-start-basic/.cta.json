@@ -1,5 +1,5 @@
 {
-  "projectName": "tanstack-start-full",
+  "projectName": "tanstack-start-basic",
   "mode": "file-router",
   "typescript": true,
   "packageManager": "pnpm",
@@ -8,8 +8,5 @@
   "git": true,
   "version": 1,
   "framework": "react-cra",
-  "chosenAddOns": [
-    "nitro",
-    "start"
-  ]
+  "chosenAddOns": ["nitro", "start"]
 }
