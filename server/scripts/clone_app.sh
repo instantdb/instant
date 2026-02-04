@@ -28,7 +28,7 @@ USAGE
   exit 1
 }
 
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+script_dir="$(dirname "${BASH_SOURCE[0]}")"
 dev_default_url="jdbc:postgresql://localhost:5432/instant"
 
 env="" ; app_id="" ; temporary_email="" ; dest_email="" ; new_title="" ; num_workers="" ; batch_size=""
@@ -54,7 +54,7 @@ case "$env" in
   *)    echo "--env must be 'prod' or 'dev'." >&2; exit 1 ;;
 esac
 
-server_dir=$(cd "$script_dir/.." && pwd)
+server_dir="$(dirname "$script_dir")"
 
 clj_args=(
   -M -m instant.scripts.clone-app
