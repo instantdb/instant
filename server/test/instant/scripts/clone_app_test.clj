@@ -47,8 +47,7 @@
                                (attr-model/fwd-ident-name source-attr)
                                dest-attrs)
                     dest-attr-count (count (triple-model/fetch conn dest-app-id
-                                                               [[:= :attr-id (:id dest-attr)]]))
-                    ]
+                                                               [[:= :attr-id (:id dest-attr)]]))]
                 (try
                   (testing "copies triples"
                     (is (= (count source-triples)
