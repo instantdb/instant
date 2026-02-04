@@ -94,7 +94,7 @@
                               (finally
                                 (when (zero? (swap! remaining dec))
                                   (deliver done {:ok true})))))
-                        items)
+                          items))
           result @done]
       (when-let [err (:error result)]
         (doseq [f futures] (future-cancel f))
@@ -128,62 +128,31 @@
 
 (defn- worker-status-query [job-id]
   (format
-   (string/join
-    "\n"
-    ["with job as ("
-     "  select *"
-     "  from clone_app_jobs"
-     "  where job_id = '%s'::uuid"
-     "),"
-     "ordered as ("
-     "  select"
-     "    t.entity_id,"
-     "    ntile(job.num_workers) over (order by t.entity_id) as bucket"
-     "  from triples t"
-     "  join job on t.app_id = job.source_app_id"
-     "),"
-     "buckets as ("
-     "  select distinct on (bucket)"
-     "    bucket,"
-     "    entity_id as start_entity_id"
-     "  from ordered"
-     "  order by bucket, entity_id"
-     "),"
-     "ranges as ("
-     "  select"
-     "    bucket,"
-     "    start_entity_id,"
-     "    lead(start_entity_id) over (order by bucket) as end_entity_id"
-     "  from buckets"
-     "),"
-     "range_counts as ("
-     "  select"
-     "    r.bucket,"
-     "    count(*) as total_rows"
-     "  from ranges r"
-     "  join job on true"
-     "  join triples t"
-     "    on t.app_id = job.source_app_id"
-     "   and t.entity_id >= r.start_entity_id"
-     "   and (r.end_entity_id is null or t.entity_id < r.end_entity_id)"
-     "  group by r.bucket"
-     "),"
-     "progress as ("
-     "  select *"
-     "  from clone_app_progress"
-     "  where job_id = (select job_id from job)"
-     ")"
-     "select"
-     "  p.worker_id,"
-     "  p.rows_copied,"
-     "  rc.total_rows,"
-     "  (rc.total_rows - p.rows_copied) as rows_left,"
-     "  round((p.rows_copied::numeric / nullif(rc.total_rows, 0)) * 100, 2) as percent_done,"
-     "  p.done,"
-     "  p.updated_at"
-     "from progress p"
-     "left join range_counts rc on rc.bucket = p.worker_id"
-     "order by p.worker_id;"])
+   "select *
+from clone_app_jobs
+where job_id = '%s'::uuid;
+
+with job as (
+  select *
+  from clone_app_jobs
+  where job_id = '%s'::uuid
+),
+progress as (
+  select *
+  from clone_app_progress
+  where job_id = (select job_id from job)
+)
+select
+  p.worker_id,
+  p.rows_copied,
+  (select total_triples from job) as total_triples,
+  ((select total_triples from job) - sum(p.rows_copied) over ()) as rows_left_overall,
+  round((p.rows_copied::numeric / nullif((select total_triples from job), 0)) * 100, 2) as percent_of_total,
+  p.done,
+  p.updated_at
+from progress p
+order by p.worker_id;"
+   job-id
    job-id))
 
 (defn- print-worker-status-query! [job-id]
@@ -604,8 +573,8 @@
       (assert-table-column-counts write-conn)
       (let [source-app (app-model/get-by-id! write-conn {:id source-app-id})
             temporary-creator-id (resolve-user-id write-conn "temporary"
-                                                 {:id temporary-creator-id
-                                                  :email temporary-email})
+                                                  {:id temporary-creator-id
+                                                   :email temporary-email})
             dest-creator-id (resolve-user-id write-conn "dest"
                                              {:id dest-creator-id
                                               :email dest-email})
@@ -616,45 +585,45 @@
           (fn [{:keys [snapshot snapshot-conn]}]
             (let [total-triples (get-total-triples snapshot-conn source-app-id)
                   worker-ranges (get-worker-ranges snapshot-conn source-app-id num-workers)]
-            (next-jdbc/with-transaction [tx write-conn]
-              (create-job! tx {:job-id job-id
-                               :source-app-id source-app-id
-                               :dest-app-id dest-app-id
-                               :dest-title dest-title
-                               :temporary-creator-id temporary-creator-id
-                               :dest-creator-id dest-creator-id
-                               :batch-size batch-size
-                               :num-workers num-workers
-                               :total-triples total-triples
-                               :status "running"})
-              (setup-empty-clone-app! tx {:job-id job-id
-                                          :temporary-creator-id temporary-creator-id
-                                          :source-app-id source-app-id
-                                          :dest-title dest-title
-                                          :dest-app-id dest-app-id}))
-            (print-worker-status-query! job-id)
-            (try
-              (run-workers!
-               (fn [{:keys [bucket]
-                     start-entity-id :start_entity_id
-                     end-entity-id :end_entity_id}]
-                 (with-snapshot-transaction db-config snapshot
-                   (fn [tx]
-                     (run-worker! tx
-                                  {:job-id job-id
-                                   :source-app-id source-app-id
-                                   :dest-app-id dest-app-id
-                                   :batch-size batch-size
-                                   :start-entity-id start-entity-id
-                                   :end-entity-id end-entity-id}
-                                  (int bucket)))))
-               worker-ranges)
-              (app-model/change-creator! write-conn {:id dest-app-id
-                                                     :new-creator-id dest-creator-id})
-              (delete-job! write-conn {:job-id job-id})
-              (app-model/get-by-id! write-conn {:id dest-app-id})
-              (catch Exception e
-                (throw e)))))))))))
+              (next-jdbc/with-transaction [tx write-conn]
+                (create-job! tx {:job-id job-id
+                                 :source-app-id source-app-id
+                                 :dest-app-id dest-app-id
+                                 :dest-title dest-title
+                                 :temporary-creator-id temporary-creator-id
+                                 :dest-creator-id dest-creator-id
+                                 :batch-size batch-size
+                                 :num-workers num-workers
+                                 :total-triples total-triples
+                                 :status "running"})
+                (setup-empty-clone-app! tx {:job-id job-id
+                                            :temporary-creator-id temporary-creator-id
+                                            :source-app-id source-app-id
+                                            :dest-title dest-title
+                                            :dest-app-id dest-app-id}))
+              (print-worker-status-query! job-id)
+              (try
+                (run-workers!
+                 (fn [{:keys [bucket]
+                       start-entity-id :start_entity_id
+                       end-entity-id :end_entity_id}]
+                   (with-snapshot-transaction db-config snapshot
+                     (fn [tx]
+                       (run-worker! tx
+                                    {:job-id job-id
+                                     :source-app-id source-app-id
+                                     :dest-app-id dest-app-id
+                                     :batch-size batch-size
+                                     :start-entity-id start-entity-id
+                                     :end-entity-id end-entity-id}
+                                    (int bucket)))))
+                 worker-ranges)
+                (app-model/change-creator! write-conn {:id dest-app-id
+                                                       :new-creator-id dest-creator-id})
+                (delete-job! write-conn {:job-id job-id})
+                (app-model/get-by-id! write-conn {:id dest-app-id})
+                (catch Exception e
+                  (throw e))))))))))
 
 (defn- usage []
   (string/join
