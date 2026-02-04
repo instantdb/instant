@@ -11,7 +11,7 @@ import { createIsomorphicFn } from "@tanstack/react-start";
 import { adminDb } from "./lib/adminDb";
 import { User, ValidQuery } from "@instantdb/react";
 import { AppSchema } from "./instant.schema";
-import { db } from "./lib/db";
+import { clientDb } from "./lib/db";
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -26,7 +26,7 @@ const getUser = createIsomorphicFn()
     return user;
   })
   .client(async () => {
-    const user = await db.getAuth();
+    const user = await clientDb.getAuth();
     return user;
   });
 
@@ -54,7 +54,7 @@ const preloadQueryFn = createIsomorphicFn()
       await queryClient.ensureQueryData({
         queryKey: [JSON.stringify(q)],
         queryFn: async () => {
-          const { data } = await db.queryOnce(q);
+          const { data } = await clientDb.queryOnce(q);
           return data;
         },
       });

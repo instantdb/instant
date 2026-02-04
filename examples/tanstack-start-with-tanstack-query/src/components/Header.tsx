@@ -1,11 +1,11 @@
-import { db } from "@/lib/db";
+import { clientDb } from "@/lib/db";
 import { useNavigate } from "@tanstack/react-router";
 
 export default function Header() {
-  const auth = db.useAuth();
+  const auth = clientDb.useAuth();
   const navigate = useNavigate();
   const signOut = () => {
-    db.auth.signOut().then(() => {
+    clientDb.auth.signOut().then(() => {
       navigate({ to: "/login" });
     });
   };

@@ -6,7 +6,7 @@ import {
   useQuery as useTanstackQuery,
 } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { db } from "./db";
+import { clientDb } from "./db";
 import { InstaQLResponse } from "@instantdb/admin";
 
 export const useInstantQuery = <Q extends ValidQuery<Q, typeof schema>>(
@@ -25,7 +25,7 @@ export const useInstantQuery = <Q extends ValidQuery<Q, typeof schema>>(
         >;
       }
 
-      const result = await db.queryOnce(query);
+      const result = await clientDb.queryOnce(query);
       return result.data as InstaQLResponse<AppSchema, Q>;
     },
     refetchOnMount: false,
@@ -33,7 +33,7 @@ export const useInstantQuery = <Q extends ValidQuery<Q, typeof schema>>(
   });
 
   useEffect(() => {
-    const unsub = db.core.subscribeQuery(query, (resp) => {
+    const unsub = clientDb.core.subscribeQuery(query, (resp) => {
       queryClient.setQueryData([JSON.stringify(query)], resp.data);
     });
     return unsub;
@@ -56,7 +56,7 @@ export const useInstantSuspenseQuery = <Q extends ValidQuery<Q, typeof schema>>(
         return cachedData;
       }
 
-      const result = await db.queryOnce(query);
+      const result = await clientDb.queryOnce(query);
       return result.data as InstaQLResponse<AppSchema, Q>;
     },
     refetchOnMount: false,
@@ -64,7 +64,7 @@ export const useInstantSuspenseQuery = <Q extends ValidQuery<Q, typeof schema>>(
   });
 
   useEffect(() => {
-    const unsub = db.core.subscribeQuery(query, (resp) => {
+    const unsub = clientDb.core.subscribeQuery(query, (resp) => {
       queryClient.setQueryData([JSON.stringify(query)], resp.data);
     });
     return unsub;

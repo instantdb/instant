@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { clientDb } from "@/lib/db";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Welcome } from ".";
@@ -7,7 +7,7 @@ export const Route = createFileRoute("/login")({
   component: RouteComponent,
   ssr: false,
   loader: async () => {
-    const auth = await db.getAuth();
+    const auth = await clientDb.getAuth();
     if (auth) {
       throw redirect({
         to: "/",
@@ -23,12 +23,12 @@ function RouteComponent() {
   const navigate = useNavigate();
 
   const sendEmail = async () => {
-    await db.auth.sendMagicCode({ email: emailInput });
+    await clientDb.auth.sendMagicCode({ email: emailInput });
     setStage("code");
   };
 
   const loginWithCode = async () => {
-    const verifyResponse = await db.auth.signInWithMagicCode({
+    const verifyResponse = await clientDb.auth.signInWithMagicCode({
       email: emailInput,
       code: codeInput,
     });
@@ -40,7 +40,7 @@ function RouteComponent() {
   };
 
   const loginAsGuest = async () => {
-    const verifyResponse = await db.auth.signInAsGuest();
+    const verifyResponse = await clientDb.auth.signInAsGuest();
     if (verifyResponse.user) {
       setTimeout(() => {
         navigate({ to: "/" });

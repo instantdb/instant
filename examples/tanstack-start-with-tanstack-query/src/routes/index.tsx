@@ -1,5 +1,5 @@
 import { AppSchema } from "@/instant.schema";
-import { db } from "@/lib/db";
+import { clientDb } from "@/lib/db";
 import { id, InstaQLEntity } from "@instantdb/react";
 import { getRequest } from "@tanstack/react-start/server";
 
@@ -88,8 +88,8 @@ function App() {
 // Write Data
 // ---------
 function addTodo(text: string) {
-  db.transact(
-    db.tx.todos[id()].update({
+  clientDb.transact(
+    clientDb.tx.todos[id()].update({
       text,
       done: false,
       createdAt: Date.now(),
@@ -98,18 +98,18 @@ function addTodo(text: string) {
 }
 
 function deleteTodo(todo: Todo) {
-  db.transact(db.tx.todos[todo.id].delete());
+  clientDb.transact(clientDb.tx.todos[todo.id].delete());
 }
 
 function toggleDone(todo: Todo) {
-  db.transact(db.tx.todos[todo.id].update({ done: !todo.done }));
+  clientDb.transact(clientDb.tx.todos[todo.id].update({ done: !todo.done }));
 }
 
 function deleteCompleted(todos: Todo[]) {
   const completed = todos.filter((todo) => todo.done);
   if (completed.length === 0) return;
-  const txs = completed.map((todo) => db.tx.todos[todo.id].delete());
-  db.transact(txs);
+  const txs = completed.map((todo) => clientDb.tx.todos[todo.id].delete());
+  clientDb.transact(txs);
 }
 
 function TodoForm() {

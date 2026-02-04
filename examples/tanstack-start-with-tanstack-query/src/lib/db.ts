@@ -3,7 +3,7 @@ import schema from "../instant.schema";
 
 const appId = import.meta.env.VITE_INSTANT_APP_ID;
 
-export const db = init({
+export const clientDb = init({
   appId,
   schema,
   useDateObjects: true,
