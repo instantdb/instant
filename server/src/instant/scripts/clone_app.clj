@@ -13,7 +13,8 @@
    [instant.model.instant-user :as instant-user-model]
    [instant.model.app :as app-model]
    [honey.sql :as hsql]
-   [next.jdbc :as next-jdbc])
+   [next.jdbc :as next-jdbc]
+   [instant.jdbc.aurora :as aurora])
   (:import
    (java.util UUID)))
 
@@ -369,58 +370,80 @@ order by p.worker_id;"
 ;; -------------- 
 ;; Worker ranges 
 
-(def ^:private worker-ranges-q
+(def ^:private lowest-uuid
+  (UUID/fromString "00000000-0000-0000-0000-000000000000"))
+
+(def ^:private worker-boundary-q
   (uhsql/preformat
-   {:with [[:ordered {:select [:entity-id
-                               [[:over [[:ntile [:cast :?num-workers :int]]
-                                        {:order-by [:entity-id]}]]
-                                :bucket]]
-                      :from :triples
-                      :where [:= :app-id :?source-app-id]}]
-           [:buckets {:select-distinct-on [[:bucket]
-                                           :bucket
-                                           [:entity-id :start-entity-id]]
-                      :from :ordered
-                      :order-by [:bucket :entity-id]}]
-           [:ranges {:select [:bucket
-                              :start-entity-id
-                              [[:over [[:lead :start-entity-id]
-                                       {:order-by [:bucket]}]]
-                               :end-entity-id]]
-                     :from :buckets}]]
-    :select [:bucket :start-entity-id :end-entity-id]
-    :from :ranges
-    :order-by :bucket}))
+   {:select [:entity-id]
+    :from :triples
+    :where [:= :app-id :?source-app-id]
+    :order-by :entity-id
+    :offset :?offset
+    :limit [:inline 1]}))
+
+(defn- get-boundary-entity-id
+  [conn source-app-id offset]
+  (:entity_id
+   (sql/select-one conn
+                   (uhsql/formatp worker-boundary-q
+                                  {:source-app-id source-app-id
+                                   :offset offset}))))
+
+(defn- get-worker-offsets [total-triples num-workers]
+  (let [batch-size (quot total-triples num-workers)
+        offsets (->> (range 1 num-workers)
+                     (map (fn [worker-num]
+                            (* batch-size worker-num)))
+
+                     dedupe
+                     (filter pos?))]
+    offsets))
 
 (comment
-  (let [db-config (config/get-aurora-config)]
-    (with-open [conn (next-jdbc/get-connection db-config)]
-      (sql/select conn
-                  (uhsql/formatp worker-ranges-q
-                                 {:source-app-id (:id zeneca-app)
-                                  :num-workers 3})))))
+  (get-worker-offsets 1000 3)
+  (get-worker-offsets 3 1000))
 
+;; todo: change num-workers to max-workers
 (defn get-worker-ranges
-  "This does one pass over app triples, and divides up the entity ids into `num-workers` regions.
-  
-  This way each worker can consume its own region, and expect that the triples will be contiguous
-  on disk. 
+  "Given: total-triples, 
+          num-workers 
+           
+  We create a list of worker ranges that tries to fairly partition the triples. 
 
-  The reason we did this was to optimize for page cache locality.
+  Each worker gets a (start-entity-id, end-entity-id) exclusive range. 
   
-  Note: this assumes the `conn` comes with a snapshot, so that all workers see a consistent
-        view"
-  [conn source-app-id num-workers]
-  (sql/select conn
-              (uhsql/formatp worker-ranges-q
-                             {:source-app-id source-app-id
-                              :num-workers num-workers})))
+  We may return less than num-workers, if there all the triples fit into fewer 
+  workers."
+  [conn {:keys [source-app-id total-triples num-workers]}]
+  (let [offsets (get-worker-offsets total-triples num-workers)
+        boundaries (mapv (fn [offset]
+                           (get-boundary-entity-id conn source-app-id offset))
+                         offsets)
+        starts (into [lowest-uuid] boundaries)
+        ends (conj boundaries nil)
+        ranges (dedupe
+                (mapv (fn [start-entity-id end-entity-id]
+                        {:start-entity-id start-entity-id
+                         :end-entity-id end-entity-id})
+                      starts
+                      ends))
+        buckets (map-indexed
+                 (fn [i r] (assoc r :bucket i))
+                 ranges)]
+
+    buckets))
+
+(comment
+  (get-worker-ranges
+   (aurora/conn-pool :read)
+   {:source-app-id (:id zeneca-app)
+    :num-workers 3
+    :total-triples (get-total-triples (aurora/conn-pool :read)
+                                      (:id zeneca-app))}))
 
 ;; --------------- 
 ;; triple-batch-insert 
-
-(def ^:private lowest-uuid
-  (UUID/fromString "00000000-0000-0000-0000-000000000000"))
 
 ;; todo: can we try to get this as a preformat?
 (defn- triples-batch-q [has-end?]
@@ -592,7 +615,9 @@ order by p.worker_id;"
         (with-repeatable-read-snapshot db-config
           (fn [{:keys [snapshot snapshot-conn]}]
             (let [total-triples (get-total-triples snapshot-conn source-app-id)
-                  worker-ranges (get-worker-ranges snapshot-conn source-app-id num-workers)]
+                  worker-ranges (get-worker-ranges
+                                 snapshot-conn
+                                 {:keys [source-app-id num-workers total-triples]})]
               (update-job-total-triples! control-conn {:job-id job-id
                                                        :total-triples total-triples})
               (print-worker-status-query! job-id)
