@@ -318,7 +318,9 @@ export default class Reactor {
         try {
           if (e.data?.type === 'auth') {
             const res = await this.getCurrentUser();
-            this.updateUser(res.user);
+            await this.updateUser(res.user).catch((error) => {
+              this._log.error('[error] update user', error);
+            });
           }
         } catch (e) {
           this._log.error('[error] handle broadcast channel', e);
