@@ -118,11 +118,7 @@
 
 (defn- worker-status-query [job-id]
   (format
-   "select *
-from clone_app_jobs
-where job_id = '%s'::uuid;
-
-with job as (
+   "with job as (
   select *
   from clone_app_jobs
   where job_id = '%s'::uuid
@@ -142,7 +138,6 @@ select
   p.updated_at
 from progress p
 order by p.worker_id;"
-   job-id
    job-id))
 
 (defn- print-worker-status-query! [job-id]
