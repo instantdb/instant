@@ -2075,7 +2075,11 @@ export default class Reactor {
   }
 
   async updateUser(newUser) {
-    await this.syncUserToEndpoint(newUser);
+    try {
+      await this.syncUserToEndpoint(newUser);
+    } catch (error) {
+      this._log.error('Error syncing user with external endpoint', error);
+    }
 
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
