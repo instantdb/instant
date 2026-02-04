@@ -625,25 +625,19 @@ order by p.worker_id;"
                 (catch Exception e
                   (throw e))))))))))
 
-(defn- usage []
-  (string/join
-   "\n"
-   ["USAGE:"
-    "  clojure -M -m instant.scripts.clone-app \\"
-    "    --database-url URL \\"
-    "    --app-id APP_UUID \\"
-    "    --temporary-email EMAIL \\"
-    "    --dest-email EMAIL \\"
-    "    --new-title TITLE \\"
-    "    --num-workers N \\"
-    "    --batch-size N"]))
-
-(defn- die! [msg]
-  (binding [*out* *err*]
-    (when msg
-      (println msg))
-    (println (usage)))
-  (System/exit 1))
+(defn- print-usage! []
+  (println
+   (string/join
+    "\n"
+    ["USAGE:"
+     "  clojure -M -m instant.scripts.clone-app \\"
+     "    --database-url URL \\"
+     "    --app-id APP_UUID \\"
+     "    --temporary-email EMAIL \\"
+     "    --dest-email EMAIL \\"
+     "    --new-title TITLE \\"
+     "    --num-workers N \\"
+     "    --batch-size N"])))
 
 (defn- parse-long! [label value]
   (try
@@ -652,7 +646,7 @@ order by p.worker_id;"
       (throw (ex-info (format "Invalid %s: %s" label value)
                       {:label label :value value})))))
 
-(defn- parse-args [args]
+(defn- parse-args! [args]
   (loop [args args
          opts {}]
     (if (empty? args)
@@ -670,7 +664,7 @@ order by p.worker_id;"
           "--app-id"
           (if (nil? value)
             (throw (ex-info "Missing value for --app-id" {}))
-            (recur rest (assoc opts :source-app-id value)))
+            (recur rest (assoc opts :source-app-id  (parse-uuid value))))
 
           "--temporary-email"
           (if (nil? value)
@@ -700,26 +694,19 @@ order by p.worker_id;"
           (throw (ex-info (format "Unknown flag: %s" flag) {:flag flag})))))))
 
 (defn -main [& args]
-  (let [opts (try
-               (parse-args args)
-               (catch Exception e
-                 (die! (.getMessage e))))]
-    (when (:help opts)
-      (die! nil))
-    (doseq [k [:database-url :source-app-id :temporary-email :dest-email :dest-title :num-workers :batch-size]]
-      (let [v (get opts k)]
-        (when (or (nil? v)
-                  (and (string? v) (string/blank? v)))
-          (die! (format "Missing required %s" (name k))))))
-    (let [db-config (config/db-url->config (:database-url opts))
-          source-app-id (coerce-uuid! "app id" (:source-app-id opts))
-          app (clone-app! db-config {:source-app-id source-app-id
-                                     :temporary-email (:temporary-email opts)
-                                     :dest-email (:dest-email opts)
-                                     :dest-title (:dest-title opts)
-                                     :num-workers (:num-workers opts)
-                                     :batch-size (:batch-size opts)})]
-      (println (:id app)))))
+  (let [opts (parse-args! args)]
+    (if (:help opts)
+      (print-usage!)
+      (let [db-config (config/db-url->config (:database-url opts))
+            source-app-id (:source-app-id opts)
+            app (clone-app! db-config {:source-app-id source-app-id
+                                       :temporary-email (:temporary-email opts)
+                                       :dest-email (:dest-email opts)
+                                       :dest-title (:dest-title opts)
+                                       :num-workers (:num-workers opts)
+                                       :batch-size (:batch-size opts)})]
+        (println "done!")
+        (println (:id app))))))
 
 (comment
   (def zeneca-app (comment/zeneca-app!))
