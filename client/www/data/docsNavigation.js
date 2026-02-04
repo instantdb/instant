@@ -22,6 +22,13 @@ module.exports = [
         optionalLLM: true,
       },
       {
+        title: 'Getting started w/ TanStack Start',
+        href: '/docs/start-tanstack',
+        prevHref: null,
+        nextHref: '/docs/create-instant-app',
+        optionalLLM: true,
+      },
+      {
         title: 'Create Instant App',
         prevHref: null,
         href: '/docs/create-instant-app',
