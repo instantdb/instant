@@ -314,7 +314,7 @@
         seconds (.toSecondsPart duration)]
     (format "%d:%02d:%02d" hours minutes seconds)))
 
-(defn- print-progress!
+(defn- render-progress-lines
   [progress-atom]
   (let [{:keys [total-triples max-workers started-at workers]} @progress-atom
         worker-stats (vals workers)
@@ -323,24 +323,43 @@
         percent (if (pos? total-triples)
                   (* 100.0 (/ total-copied total-triples))
                   100.0)
-        elapsed (format-duration-ms (- (System/currentTimeMillis) started-at))]
-    (println (format "Progress: %,d / %,d (%.2f%%) | workers done: %d/%d | elapsed: %s"
-                     (long total-copied)
-                     (long total-triples)
-                     percent
-                     done-count
-                     (long max-workers)
-                     elapsed))
-    (doseq [[worker-id {:keys [rows-copied done?]}] (sort-by key workers)]
-      (println (format "  worker %d: %,d%s"
-                       worker-id
-                       (long (or rows-copied 0))
-                       (if done? " done" ""))))
-    (println)))
+        elapsed (format-duration-ms (- (System/currentTimeMillis) started-at))
+        header (format "Progress: %,d / %,d (%.2f%%) | workers done: %d/%d | elapsed: %s"
+                       (long total-copied)
+                       (long total-triples)
+                       percent
+                       done-count
+                       (long max-workers)
+                       elapsed)
+        worker-lines (mapv (fn [[worker-id {:keys [rows-copied done?]}]]
+                             (format "  worker %d: %,d%s"
+                                     worker-id
+                                     (long (or rows-copied 0))
+                                     (if done? " done" "")))
+                           (sort-by key workers))]
+    (into [header] worker-lines)))
+
+(defn- print-progress!
+  [progress-atom {:keys [ansi? last-lines]}]
+  (let [lines (render-progress-lines progress-atom)]
+    (if ansi?
+      (do
+        (when-let [n @last-lines]
+          (when (pos? n)
+            (print (str "\u001b[" n "A"))))
+        (doseq [line lines]
+          (print (str "\u001b[2K" line "\n")))
+        (flush)
+        (reset! last-lines (count lines)))
+      (do
+        (doseq [line lines] (println line))
+        (println)))))
 
 (defn- start-progress-logger!
   [progress-atom interval-ms]
   (let [stop? (atom false)
+        printer {:ansi? (boolean (System/console))
+                 :last-lines (atom 0)}
         f (future
             (loop []
               (try
@@ -348,11 +367,12 @@
                 (catch InterruptedException _
                   nil))
               (when-not @stop?
-                (print-progress! progress-atom)
+                (print-progress! progress-atom printer)
                 (recur))))]
-    (fn stop! []
-      (reset! stop? true)
-      (future-cancel f))))
+    {:stop! (fn stop! []
+              (reset! stop? true)
+              (future-cancel f))
+     :printer printer}))
 
 (def ^:private total-triples-q
   (uhsql/preformat
@@ -427,7 +447,7 @@
                  (fn [i r] (assoc r :bucket i))
                  ranges)]
 
-   buckets))
+    buckets))
 
 (comment
   (get-worker-ranges
@@ -608,13 +628,13 @@
                                   :max-workers max-workers
                                   :total-triples total-triples})
                   progress-atom (init-progress total-triples (count worker-ranges))
-                  stop-logger! (start-progress-logger! progress-atom progress-log-interval-ms)]
-              (print-progress! progress-atom)
+                  {:keys [stop! printer]} (start-progress-logger! progress-atom progress-log-interval-ms)]
+              (print-progress! progress-atom printer)
               (try
                 (run-workers!
                  (fn [{:keys [bucket]
-                       start-entity-id :start_entity_id
-                       end-entity-id :end_entity_id}]
+                       start-entity-id :start-entity-id
+                       end-entity-id :end-entity-id}]
                    (with-snapshot-transaction db-config snapshot
                      (fn [tx]
                        (run-worker! tx
@@ -634,8 +654,8 @@
                 (catch Exception e
                   (throw e))
                 (finally
-                  (stop-logger!)
-                  (print-progress! progress-atom))))))))))
+                  (stop!)
+                  (print-progress! progress-atom printer))))))))))
 
 (defn- print-usage! [summary]
   (println
@@ -724,8 +744,9 @@
                                                :dest-title (:dest-title opts)
                                                :max-workers (:max-workers opts)
                                                :batch-size (:batch-size opts)})]
-                (println "done!")
-                (println (:id app))))))))))
+                (println (format "Clone complete. New app \"%s\" (%s)" (:title app) (:id app)))
+                (println (format "Owner: %s" dest-email))
+                (shutdown-agents)))))))))
 
 (comment
   (def zeneca-app (comment/zeneca-app!))
