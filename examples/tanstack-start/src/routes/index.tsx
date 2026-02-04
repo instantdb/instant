@@ -15,15 +15,16 @@ import { useEffect, useState } from "react";
 const instantUserMiddleware = createMiddleware().server(async ({ next }) => {
   const request = getRequest();
 
-  // Gets user from cookie sync and validates refresh token
+  // /api/instant keeps your user's cookie in sync
+  // this reads the cookie from the request to see who made it
   const user = await adminDb.auth.getUserFromRequest(request);
   return next({
     context: { user },
   });
 });
 
-// Mimicks cases where we want to use the Instant user to access secure data
-// outside of the Instant database.
+// Here, we're going to make a little fake "getSecretData" function,
+// but you could make special queries, or changes, or anything you want
 const getSecretData = createServerFn()
   .middleware([instantUserMiddleware])
   .handler(async ({ context }) => {
@@ -31,10 +32,11 @@ const getSecretData = createServerFn()
       throw new Error("Unauthorized");
     }
 
-    // Free to use the Instant Admin DB or 3rd party server-side services.
-
     return {
-      secretMessage: `This is a secret message returned from createServerFn. Only signed-in users can see this. This is useful when you need to run server-side only code such as interacting with a 3rd party API. You are signed in as ${context.user.isGuest ? "guest" : context.user.email}.`,
+      secretMessage: `This is a secret message returned from createServerFn.
+      Only signed-in users can see this.
+      This is useful when you need to run server-side only code such as interacting with a 3rd party API.
+      You are signed in as ${context.user.isGuest ? "guest" : context.user.email}.`,
     };
   });
 

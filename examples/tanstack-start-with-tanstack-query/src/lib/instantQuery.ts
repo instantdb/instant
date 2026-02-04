@@ -9,6 +9,15 @@ import { useEffect } from "react";
 import { clientDb } from "./db";
 import { InstaQLResponse } from "@instantdb/admin";
 
+/**
+ * Run an InstantDB query and keep it updated in TanStack query.
+ * Uses JSON.stringify(query) as the query key
+ * @example
+ * ```ts
+ * const { data, loading, error } = useInstantQuery({ todos: {} });
+ * ```
+ * @returns A TanstackQuery result object
+ */
 export const useInstantQuery = <Q extends ValidQuery<Q, typeof schema>>(
   query: Q,
 ) => {
@@ -42,6 +51,16 @@ export const useInstantQuery = <Q extends ValidQuery<Q, typeof schema>>(
   return tanstackResult;
 };
 
+/**
+ * Run an InstantDB query using suspense and keep it updated in TanStack query.
+ * Uses JSON.stringify(query) as the query key
+ * Data will always be defined.
+ * @example
+ * ```ts
+ * const { data } = useInstantSuspenseQuery({ todos: {} });
+ * ```
+ * @returns A TanstackQuery result object
+ */
 export const useInstantSuspenseQuery = <Q extends ValidQuery<Q, typeof schema>>(
   query: Q,
 ) => {

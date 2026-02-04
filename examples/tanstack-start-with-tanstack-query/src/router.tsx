@@ -19,6 +19,9 @@ export interface RouterContext {
   getUser: () => Promise<User | null>;
 }
 
+// If the loader runs on the server, it uses the cookies. If the loader is run
+// on the client, it will use the clientDb object
+// Both functions return the same type
 const getUser = createIsomorphicFn()
   .server(async () => {
     const { request } = getStartContext();
@@ -30,6 +33,9 @@ const getUser = createIsomorphicFn()
     return user;
   });
 
+// Can be called on both the server and the client to make sure that a query
+// in TanStack Query is ready.
+// Calling this function in a loader is what enables SSR to work.
 const preloadQueryFn = createIsomorphicFn()
   .server((queryClient: QueryClient) => {
     return async <Q extends ValidQuery<Q, AppSchema>>(q: Q) => {

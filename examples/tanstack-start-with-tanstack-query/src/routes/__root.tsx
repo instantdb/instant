@@ -15,7 +15,9 @@ import type { RouterContext } from "../router";
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: () => {
     if (!import.meta.env.VITE_INSTANT_APP_ID) {
-      throw new Error("VITE_INSTANT_APP_ID is not defined");
+      throw new Error(
+        "VITE_INSTANT_APP_ID is not defined. Make sure to include it in your environment variables. In dev, `instant-cli init` can do this for you.",
+      );
     }
   },
   ssr: true,
