@@ -1,0 +1,242 @@
+import { AppSchema } from "@/instant.schema";
+import { clientDb } from "@/lib/db";
+import { id, InstaQLEntity } from "@instantdb/react";
+import { getRequest } from "@tanstack/react-start/server";
+
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import {
+  createMiddleware,
+  createServerFn,
+  useServerFn,
+} from "@tanstack/react-start";
+import { adminDb } from "@/lib/adminDb";
+import { useEffect, useState } from "react";
+
+const instantUserMiddleware = createMiddleware().server(async ({ next }) => {
+  const request = getRequest();
+
+  // /api/instant keeps your user's cookie in sync
+  // this reads the cookie from the request to see who made it
+  const user = await adminDb.auth.getUserFromRequest(request);
+  return next({
+    context: { user },
+  });
+});
+
+// Here, we're going to make a little fake "getSecretData" function,
+// but you could make special queries, or changes, or anything you want
+const getSecretData = createServerFn()
+  .middleware([instantUserMiddleware])
+  .handler(async ({ context }) => {
+    if (!context.user) {
+      throw new Error("Unauthorized");
+    }
+
+    return {
+      secretMessage: `This is a secret message returned from createServerFn.
+      Only signed-in users can see this.
+      This is useful when you need to run server-side only code such as interacting with a 3rd party API.
+      You are signed in as ${context.user.isGuest ? "guest" : context.user.email}.`,
+    };
+  });
+
+export const Route = createFileRoute("/")({
+  component: App,
+  loader: async () => {
+    const auth = await clientDb.getAuth();
+    if (!auth) {
+      throw redirect({
+        to: "/login",
+      });
+    }
+  },
+  ssr: false,
+});
+
+type Todo = InstaQLEntity<AppSchema, "todos">;
+
+function App() {
+  // Read Data
+  const { isLoading, error, data } = clientDb.useQuery({ todos: {} });
+
+  if (isLoading) {
+    return null;
+  }
+  if (error) {
+    return <div className="text-red-500 p-4">Error: {error.message}</div>;
+  }
+
+  const { todos } = data;
+  return (
+    <div className="p-8 sm:grid-cols-2 items-start gap-2 grid-cols-1 grid">
+      <div className="flex flex-col gap-2">
+        <Welcome />
+        <SecretData />
+      </div>
+      <div className="bg-white rounded-lg p-6 border border-neutral-200 shadow flex flex-col">
+        <h2 className="tracking-wide text-[#F54A00] pb-2 text-2xl">Todos</h2>
+        <div className="text-xs pb-4">
+          Open another tab to see todos update in realtime!
+        </div>
+        <div className="border rounded border-neutral-300">
+          <TodoForm />
+          <TodoList todos={todos} />
+          <ActionBar todos={todos} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Write Data
+// ---------
+function addTodo(text: string) {
+  clientDb.transact(
+    clientDb.tx.todos[id()].update({
+      text,
+      done: false,
+      createdAt: Date.now(),
+    }),
+  );
+}
+
+function deleteTodo(todo: Todo) {
+  clientDb.transact(clientDb.tx.todos[todo.id].delete());
+}
+
+function toggleDone(todo: Todo) {
+  clientDb.transact(clientDb.tx.todos[todo.id].update({ done: !todo.done }));
+}
+
+function deleteCompleted(todos: Todo[]) {
+  const completed = todos.filter((todo) => todo.done);
+  if (completed.length === 0) return;
+  const txs = completed.map((todo) => clientDb.tx.todos[todo.id].delete());
+  clientDb.transact(txs);
+}
+
+function TodoForm() {
+  return (
+    <div className="flex items-center h-10 border-neutral-300">
+      <form
+        className="flex-1 h-full"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const input = e.currentTarget.input as HTMLInputElement;
+          addTodo(input.value);
+          input.value = "";
+        }}
+      >
+        <input
+          className="w-full h-full px-2 outline-none bg-transparent"
+          autoFocus
+          placeholder="What needs to be done?"
+          type="text"
+          name="input"
+        />
+      </form>
+    </div>
+  );
+}
+
+function TodoList({ todos }: { todos: Todo[] }) {
+  return (
+    <div className="divide-y divide-neutral-300">
+      {todos.map((todo) => (
+        <div key={todo.id} className="flex items-center h-10">
+          <div className="h-full px-2 flex items-center justify-center">
+            <div className="w-5 h-5 flex items-center justify-center">
+              <input
+                type="checkbox"
+                className="cursor-pointer"
+                checked={todo.done}
+                onChange={() => toggleDone(todo)}
+              />
+            </div>
+          </div>
+          <div className="flex-1 px-2 overflow-hidden flex items-center">
+            {todo.done ? (
+              <span className="line-through">{todo.text}</span>
+            ) : (
+              <span>{todo.text}</span>
+            )}
+          </div>
+          <button
+            className="h-full px-2 flex items-center justify-center text-neutral-300 hover:text-neutral-500"
+            onClick={() => deleteTodo(todo)}
+          >
+            X
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ActionBar({ todos }: { todos: Todo[] }) {
+  return (
+    <div className="flex justify-between items-center h-10 px-2 text-xs border-t border-neutral-300">
+      <div>Remaining todos: {todos.filter((todo) => !todo.done).length}</div>
+      <button
+        className=" text-neutral-300 hover:text-neutral-500"
+        onClick={() => deleteCompleted(todos)}
+      >
+        Delete Completed
+      </button>
+    </div>
+  );
+}
+
+export function Welcome() {
+  return (
+    <div className="bg-white p-6 rounded-lg border border-neutral-200 shadow flex  justify-center flex-col gap-2">
+      <h2 className="tracking-wide text-[#F54A00] pb-4 text-2xl text-center">
+        Tanstack Start + Instant DB
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 grow gap-2">
+        <a
+          href="https://tanstack.com/start/latest/docs/framework/react/overview"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="border p-2 hover:bg-neutral-100 py-8 shadow flex flex-col gap-2 items-center justify-center font-semibold border-neutral-200 rounded"
+        >
+          <img
+            src="https://tanstack.com/images/logos/logo-color-600.png"
+            width={34}
+          ></img>
+          Tanstack Start Docs
+        </a>
+        <a
+          target="_blank"
+          href="https://www.instantdb.com/docs"
+          rel="noopener noreferrer"
+          className="border p-2 shadow flex py-8 flex-col gap-2 hover:bg-neutral-100 items-center justify-center font-semibold border-neutral-200 rounded"
+        >
+          <img
+            src="https://www.instantdb.com/img/icon/logo-512.svg"
+            width={34}
+          ></img>
+          Instant Docs
+        </a>
+      </div>
+    </div>
+  );
+}
+
+const SecretData = () => {
+  const secretDataFetch = useServerFn(getSecretData);
+  const [secretData, setSecretData] = useState<Awaited<
+    ReturnType<typeof secretDataFetch>
+  > | null>(null);
+
+  useEffect(() => {
+    secretDataFetch().then(setSecretData);
+  }, [secretDataFetch]);
+
+  return (
+    <div className="bg-white p-6 rounded-lg border border-neutral-200 shadow flex  justify-center flex-col gap-2">
+      <div>Secret Message:</div>
+      <div>{secretData?.secretMessage}</div>
+    </div>
+  );
+};
