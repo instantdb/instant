@@ -1,13 +1,16 @@
 (ns instant.scripts.clone-app
   (:require
+   [clojure.string :as string]
+   [instant.aurora-config :as aurora-config]
+   [instant.config :as config]
    [instant.jdbc.sql :as sql]
    [instant.util.hsql :as uhsql]
+   [instant.util.uuid :as uuid-util]
    [instant.comment :as comment]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.app :as app-model]
-   [instant.jdbc.aurora :as aurora]
    [honey.sql :as hsql]
-   [clojure.tools.logging :as log])
+   [next.jdbc :as next-jdbc])
   (:import
    (java.util UUID)))
 
@@ -39,6 +42,154 @@
   (assert-table-column-count conn "idents" 5)
   (assert-table-column-count conn "attrs" 22)
   (assert-table-column-count conn "rules" 2))
+
+;; ------------ 
+;; snapshot helpers
+
+(defn- resolve-db-config
+  "Ensure db-config has :user/:password (resolve :secret-arn once)."
+  [db-config]
+  (if-let [secret-arn (:secret-arn db-config)]
+    (-> db-config
+        (dissoc :secret-arn)
+        (merge (aurora-config/secret-arn->db-creds secret-arn)))
+    db-config))
+
+(def ^:private export-snapshot-q
+  ["select pg_export_snapshot() as snapshot"])
+
+(defn- with-repeatable-read-snapshot
+  "Open a repeatable-read, read-only transaction, export snapshot, and keep it
+   open while f runs."
+  [db-config f]
+  (next-jdbc/with-transaction [tx db-config {:isolation :repeatable-read
+                                             :read-only true}]
+    (let [snapshot (:snapshot (sql/select-one tx export-snapshot-q))]
+      (f {:snapshot snapshot
+          :snapshot-conn tx}))))
+
+(defn- with-snapshot-transaction
+  "Start a repeatable-read transaction and import snapshot before any query."
+  [db-config snapshot f]
+  (next-jdbc/with-transaction [tx db-config {:isolation :repeatable-read}]
+    ;; Must be the first SQL command in the transaction.
+    ;; Can't parametrize snapshot id; see wal.clj for the same pattern.
+    (sql/do-execute! tx [(format "set transaction snapshot '%s'" snapshot)])
+    (f tx)))
+
+(defn- run-workers!
+  "Run worker-fn over items. Fail fast on first error, cancel others."
+  [worker-fn items]
+  (if (empty? items)
+    []
+    (let [remaining (atom (count items))
+          done (promise)
+          futures (mapv (fn [item]
+                          (future
+                            (try
+                              (worker-fn item)
+                              (catch Throwable t
+                                (deliver done {:error t})
+                                (throw t))
+                              (finally
+                                (when (zero? (swap! remaining dec))
+                                  (deliver done {:ok true})))))
+                        items)
+          result @done]
+      (when-let [err (:error result)]
+        (doseq [f futures] (future-cancel f))
+        (throw err))
+      futures)))
+
+(defn- coerce-uuid! [label value]
+  (let [uuid (uuid-util/coerce value)]
+    (when-not uuid
+      (throw (ex-info (format "Invalid %s UUID: %s" label value)
+                      {:label label :value value})))
+    uuid))
+
+(defn- resolve-user-id [conn label {:keys [id email]}]
+  (cond
+    id id
+    (string/blank? email)
+    (throw (ex-info (format "Missing %s email" label)
+                    {:label label}))
+    :else
+    (let [user (instant-user-model/get-by-email conn {:email email})]
+      (when-not user
+        (throw (ex-info (format "No user found for %s email: %s" label email)
+                        {:label label :email email})))
+      (:id user))))
+
+(defn- normalize-dest-title [source-title dest-title]
+  (if (string/blank? dest-title)
+    (throw (ex-info "Missing new title" {:source-title source-title}))
+    dest-title))
+
+(defn- worker-status-query [job-id]
+  (format
+   (string/join
+    "\n"
+    ["with job as ("
+     "  select *"
+     "  from clone_app_jobs"
+     "  where job_id = '%s'::uuid"
+     "),"
+     "ordered as ("
+     "  select"
+     "    t.entity_id,"
+     "    ntile(job.num_workers) over (order by t.entity_id) as bucket"
+     "  from triples t"
+     "  join job on t.app_id = job.source_app_id"
+     "),"
+     "buckets as ("
+     "  select distinct on (bucket)"
+     "    bucket,"
+     "    entity_id as start_entity_id"
+     "  from ordered"
+     "  order by bucket, entity_id"
+     "),"
+     "ranges as ("
+     "  select"
+     "    bucket,"
+     "    start_entity_id,"
+     "    lead(start_entity_id) over (order by bucket) as end_entity_id"
+     "  from buckets"
+     "),"
+     "range_counts as ("
+     "  select"
+     "    r.bucket,"
+     "    count(*) as total_rows"
+     "  from ranges r"
+     "  join job on true"
+     "  join triples t"
+     "    on t.app_id = job.source_app_id"
+     "   and t.entity_id >= r.start_entity_id"
+     "   and (r.end_entity_id is null or t.entity_id < r.end_entity_id)"
+     "  group by r.bucket"
+     "),"
+     "progress as ("
+     "  select *"
+     "  from clone_app_progress"
+     "  where job_id = (select job_id from job)"
+     ")"
+     "select"
+     "  p.worker_id,"
+     "  p.rows_copied,"
+     "  rc.total_rows,"
+     "  (rc.total_rows - p.rows_copied) as rows_left,"
+     "  round((p.rows_copied::numeric / nullif(rc.total_rows, 0)) * 100, 2) as percent_done,"
+     "  p.done,"
+     "  p.updated_at"
+     "from progress p"
+     "left join range_counts rc on rc.bucket = p.worker_id"
+     "order by p.worker_id;"])
+   job-id))
+
+(defn- print-worker-status-query! [job-id]
+  (println "To check the status of the workers, run:\n")
+  (println (worker-status-query job-id))
+  (println))
 
 ;; ------------ 
 ;; set-up-empty-clone-app!
@@ -276,10 +427,12 @@
     :order-by :bucket}))
 
 (comment
-  (sql/select (aurora/conn-pool :read)
-              (uhsql/formatp worker-ranges-q
-                             {:source-app-id (:id zeneca-app)
-                              :num-workers 3})))
+  (let [db-config (config/get-aurora-config)]
+    (with-open [conn (next-jdbc/get-connection db-config)]
+      (sql/select conn
+                  (uhsql/formatp worker-ranges-q
+                                 {:source-app-id (:id zeneca-app)
+                                  :num-workers 3})))))
 
 (defn get-worker-ranges
   "This does one pass over app triples, and divides up the entity ids into `num-workers` regions.
@@ -431,76 +584,190 @@
 ;; --------------- 
 ;; clone-app 
 
-(defn clone-app! [conn {:keys [source-app-id
-                               temporary-creator-id
-                               dest-creator-id
-                               dest-title
-                               num-workers
-                               batch-size]}]
-  (assert-table-column-counts conn)
-  (let [job-id (random-uuid)
-        dest-app-id (random-uuid)
-        _source-app (app-model/get-by-id! {:id source-app-id})
-        _temporary-creator (instant-user-model/get-by-id! {:id temporary-creator-id})
-        _dest-creator (instant-user-model/get-by-id! {:id dest-creator-id})
-        total-triples (get-total-triples conn source-app-id)
-        _job (create-job! conn {:job-id job-id
-                                :source-app-id source-app-id
-                                :dest-app-id dest-app-id
-                                :dest-title dest-title
-                                :temporary-creator-id temporary-creator-id
-                                :dest-creator-id dest-creator-id
-                                :batch-size batch-size
-                                :num-workers num-workers
-                                :total-triples total-triples
-                                :status "running"})
+(defn clone-app! [db-config {:keys [source-app-id
+                                    temporary-creator-id
+                                    temporary-email
+                                    dest-creator-id
+                                    dest-email
+                                    dest-title
+                                    num-workers
+                                    batch-size]}]
+  (let [db-config (resolve-db-config db-config)
+        source-app-id (coerce-uuid! "source app id" source-app-id)
+        num-workers (long (or num-workers
+                              (throw (ex-info "Missing num-workers" {}))))
+        batch-size (long (or batch-size
+                             (throw (ex-info "Missing batch-size" {}))))
+        job-id (random-uuid)
+        dest-app-id (random-uuid)]
+    (with-open [write-conn (next-jdbc/get-connection db-config)]
+      (assert-table-column-counts write-conn)
+      (let [source-app (app-model/get-by-id! write-conn {:id source-app-id})
+            temporary-creator-id (resolve-user-id write-conn "temporary"
+                                                 {:id temporary-creator-id
+                                                  :email temporary-email})
+            dest-creator-id (resolve-user-id write-conn "dest"
+                                             {:id dest-creator-id
+                                              :email dest-email})
+            dest-title (normalize-dest-title (:title source-app) dest-title)]
+        (instant-user-model/get-by-id! write-conn {:id temporary-creator-id})
+        (instant-user-model/get-by-id! write-conn {:id dest-creator-id})
+        (with-repeatable-read-snapshot db-config
+          (fn [{:keys [snapshot snapshot-conn]}]
+            (let [total-triples (get-total-triples snapshot-conn source-app-id)
+                  worker-ranges (get-worker-ranges snapshot-conn source-app-id num-workers)]
+            (next-jdbc/with-transaction [tx write-conn]
+              (create-job! tx {:job-id job-id
+                               :source-app-id source-app-id
+                               :dest-app-id dest-app-id
+                               :dest-title dest-title
+                               :temporary-creator-id temporary-creator-id
+                               :dest-creator-id dest-creator-id
+                               :batch-size batch-size
+                               :num-workers num-workers
+                               :total-triples total-triples
+                               :status "running"})
+              (setup-empty-clone-app! tx {:job-id job-id
+                                          :temporary-creator-id temporary-creator-id
+                                          :source-app-id source-app-id
+                                          :dest-title dest-title
+                                          :dest-app-id dest-app-id}))
+            (print-worker-status-query! job-id)
+            (try
+              (run-workers!
+               (fn [{:keys [bucket]
+                     start-entity-id :start_entity_id
+                     end-entity-id :end_entity_id}]
+                 (with-snapshot-transaction db-config snapshot
+                   (fn [tx]
+                     (run-worker! tx
+                                  {:job-id job-id
+                                   :source-app-id source-app-id
+                                   :dest-app-id dest-app-id
+                                   :batch-size batch-size
+                                   :start-entity-id start-entity-id
+                                   :end-entity-id end-entity-id}
+                                  (int bucket)))))
+               worker-ranges)
+              (app-model/change-creator! write-conn {:id dest-app-id
+                                                     :new-creator-id dest-creator-id})
+              (delete-job! write-conn {:job-id job-id})
+              (app-model/get-by-id! write-conn {:id dest-app-id})
+              (catch Exception e
+                (throw e)))))))))))
 
-        empty-clone-app (setup-empty-clone-app! conn {:job-id job-id
-                                                      :temporary-creator-id temporary-creator-id
-                                                      :source-app-id source-app-id
-                                                      :dest-title dest-title
-                                                      :dest-app-id dest-app-id})
+(defn- usage []
+  (string/join
+   "\n"
+   ["USAGE:"
+    "  clojure -M -m instant.scripts.clone-app \\"
+    "    --database-url URL \\"
+    "    --app-id APP_UUID \\"
+    "    --temporary-email EMAIL \\"
+    "    --dest-email EMAIL \\"
+    "    --new-title TITLE \\"
+    "    --num-workers N \\"
+    "    --batch-size N"]))
 
-        {dest-app-id :id} empty-clone-app
+(defn- die! [msg]
+  (binding [*out* *err*]
+    (when msg
+      (println msg))
+    (println (usage)))
+  (System/exit 1))
 
-        worker-ranges (get-worker-ranges conn source-app-id num-workers)
+(defn- parse-long! [label value]
+  (try
+    (Long/parseLong value)
+    (catch Exception _
+      (throw (ex-info (format "Invalid %s: %s" label value)
+                      {:label label :value value})))))
 
-        worker-futures (mapv (fn [{:keys [bucket]
-                                   start-entity-id :start_entity_id
-                                   end-entity-id :end_entity_id}]
-                               (future
-                                 (run-worker! (aurora/conn-pool :write)
-                                              {:job-id job-id
-                                               :source-app-id source-app-id
-                                               :dest-app-id dest-app-id
-                                               :batch-size batch-size
-                                               :start-entity-id start-entity-id
-                                               :end-entity-id end-entity-id}
-                                              (int bucket))))
-                             worker-ranges)]
-    (try
-      (doseq [f worker-futures]
-        @f)
-      (app-model/change-creator! conn {:id dest-app-id
-                                       :new-creator-id dest-creator-id})
-      (delete-job! conn {:job-id job-id})
-      (app-model/get-by-id! {:id dest-app-id})
-      (catch Exception e
-        (throw e)))))
+(defn- parse-args [args]
+  (loop [args args
+         opts {}]
+    (if (empty? args)
+      opts
+      (let [[flag value & rest] args]
+        (case flag
+          ("-h" "--help")
+          (recur rest (assoc opts :help true))
+
+          ("--database-url" "--url")
+          (if (nil? value)
+            (throw (ex-info "Missing value for --database-url" {}))
+            (recur rest (assoc opts :database-url value)))
+
+          "--app-id"
+          (if (nil? value)
+            (throw (ex-info "Missing value for --app-id" {}))
+            (recur rest (assoc opts :source-app-id value)))
+
+          "--temporary-email"
+          (if (nil? value)
+            (throw (ex-info "Missing value for --temporary-email" {}))
+            (recur rest (assoc opts :temporary-email value)))
+
+          "--dest-email"
+          (if (nil? value)
+            (throw (ex-info "Missing value for --dest-email" {}))
+            (recur rest (assoc opts :dest-email value)))
+
+          "--new-title"
+          (if (nil? value)
+            (throw (ex-info "Missing value for --new-title" {}))
+            (recur rest (assoc opts :dest-title value)))
+
+          "--num-workers"
+          (if (nil? value)
+            (throw (ex-info "Missing value for --num-workers" {}))
+            (recur rest (assoc opts :num-workers (parse-long! "num-workers" value))))
+
+          "--batch-size"
+          (if (nil? value)
+            (throw (ex-info "Missing value for --batch-size" {}))
+            (recur rest (assoc opts :batch-size (parse-long! "batch-size" value))))
+
+          (throw (ex-info (format "Unknown flag: %s" flag) {:flag flag})))))))
+
+(defn -main [& args]
+  (let [opts (try
+               (parse-args args)
+               (catch Exception e
+                 (die! (.getMessage e))))]
+    (when (:help opts)
+      (die! nil))
+    (doseq [k [:database-url :source-app-id :temporary-email :dest-email :dest-title :num-workers :batch-size]]
+      (let [v (get opts k)]
+        (when (or (nil? v)
+                  (and (string? v) (string/blank? v)))
+          (die! (format "Missing required %s" (name k))))))
+    (let [db-config (config/db-url->config (:database-url opts))
+          source-app-id (coerce-uuid! "app id" (:source-app-id opts))
+          app (clone-app! db-config {:source-app-id source-app-id
+                                     :temporary-email (:temporary-email opts)
+                                     :dest-email (:dest-email opts)
+                                     :dest-title (:dest-title opts)
+                                     :num-workers (:num-workers opts)
+                                     :batch-size (:batch-size opts)})]
+      (println (:id app)))))
 
 (comment
   (def zeneca-app (comment/zeneca-app!))
   (def u (instant-user-model/get-by-email {:email "stepan.p@gmail.com"}))
+  (def db-config (config/get-aurora-config))
 
   (app-model/change-creator! {:id (:id zeneca-app)
                               :new-creator-id (:id u)})
 
-  (get-column-count (aurora/conn-pool :read) "instant_users")
+  (with-open [conn (next-jdbc/get-connection db-config)]
+    (get-column-count conn "instant_users"))
 
-  (assert-table-column-counts (aurora/conn-pool :read))
+  (with-open [conn (next-jdbc/get-connection db-config)]
+    (assert-table-column-counts conn))
 
   (clone-app!
-   (aurora/conn-pool :write)
+   db-config
    {:source-app-id (:id zeneca-app)
     :temporary-creator-id (:id u)
     :dest-creator-id (:id u)

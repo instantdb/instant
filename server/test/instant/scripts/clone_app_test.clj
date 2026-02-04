@@ -1,6 +1,7 @@
 (ns instant.scripts.clone-app-test
   (:require
    [clojure.test :refer [deftest is testing]]
+   [instant.config :as config]
    [instant.fixtures :refer [with-user with-zeneca-app]]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app :as app-model]
@@ -24,6 +25,7 @@
           (with-zeneca-app
             (fn [{source-app-id :id} _resolver]
               (let [conn (aurora/conn-pool :write)
+                    db-config (config/get-aurora-config)
                     dest-title (str "clone-app-test-" (random-uuid))
                     rules {"users" {"allow" {"view" "true"}}}
                     _ (rule-model/put! {:app-id source-app-id :code rules})
@@ -33,12 +35,12 @@
                     source-attr (attr-model/seek-by-fwd-ident-name ["users" "handle"] source-attrs)
                     source-attr-count (count (triple-model/fetch conn source-app-id
                                                                  [[:= :attr-id (:id source-attr)]]))
-                    dest-app (clone-app/clone-app! conn {:source-app-id source-app-id
-                                                         :temporary-creator-id (:id temporary-user)
-                                                         :dest-creator-id (:id dest-user)
-                                                         :dest-title dest-title
-                                                         :num-workers 2
-                                                         :batch-size 100})
+                    dest-app (clone-app/clone-app! db-config {:source-app-id source-app-id
+                                                              :temporary-creator-id (:id temporary-user)
+                                                              :dest-creator-id (:id dest-user)
+                                                              :dest-title dest-title
+                                                              :num-workers 2
+                                                              :batch-size 100})
                     dest-app-id (:id dest-app)
                     dest-rule (:code (rule-model/get-by-app-id {:app-id dest-app-id}))
                     dest-triples (triple-model/fetch conn dest-app-id)
