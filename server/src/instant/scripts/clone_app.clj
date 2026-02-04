@@ -108,19 +108,6 @@
                       {:label label :value value})))
     uuid))
 
-(defn- resolve-user-id [conn label {:keys [id email]}]
-  (cond
-    id id
-    (string/blank? email)
-    (throw (ex-info (format "Missing %s email" label)
-                    {:label label}))
-    :else
-    (let [user (instant-user-model/get-by-email conn {:email email})]
-      (when-not user
-        (throw (ex-info (format "No user found for %s email: %s" label email)
-                        {:label label :email email})))
-      (:id user))))
-
 (defn- normalize-dest-title [source-title dest-title]
   (if (string/blank? dest-title)
     (throw (ex-info "Missing new title" {:source-title source-title}))
@@ -321,6 +308,18 @@ order by p.worker_id;"
   (sql/execute-one! conn
                     (uhsql/formatp create-job-q opts)))
 
+(def ^:private update-job-total-triples-q
+  (uhsql/preformat
+   {:update :clone-app-jobs
+    :set {:total-triples :?total-triples
+          :updated-at :%now}
+    :where [:= :job-id :?job-id]}))
+
+(defn- update-job-total-triples!
+  [conn opts]
+  (sql/do-execute! conn
+                   (uhsql/formatp update-job-total-triples-q opts)))
+
 (def ^:private create-progress-q
   (uhsql/preformat
    {:insert-into :clone-app-progress
@@ -506,101 +505,98 @@ order by p.worker_id;"
 ;; run-worker
 
 (defn- run-worker!
-  [conn {:keys [job-id source-app-id dest-app-id batch-size
-                start-entity-id end-entity-id]} worker-id]
-  (let [batch-q (triples-batch-q (some? end-entity-id))]
-    (create-progress! conn {:job-id job-id
-                            :worker-id worker-id})
-    (loop [last-key [lowest-uuid lowest-uuid ""]
-           total (long 0)]
-      (let [{:keys [rows last_entity_id last_attr_id last_value_md5]}
-            (sql/execute-one! conn
-                              (hsql/format
-                               batch-q
-                               {:params {:source-app-id source-app-id
-                                         :start-entity-id start-entity-id
-                                         :end-entity-id end-entity-id
-                                         :last-entity-id (nth last-key 0)
-                                         :last-attr-id (nth last-key 1)
-                                         :last-value-md5 (nth last-key 2)
-                                         :batch-size batch-size
-                                         :dest-app-id dest-app-id
-                                         :job-id job-id}}))
-            rows (long rows)]
-        (if (zero? rows)
-          (do
-            (update-progress! conn {:job-id job-id
-                                    :worker-id worker-id
-                                    :rows-copied total
-                                    :last-entity-id (nth last-key 0)
-                                    :last-attr-id (nth last-key 1)
-                                    :last-value-md5 (nth last-key 2)
-                                    :done true})
+  [snapshot-conn db-config {:keys [job-id source-app-id dest-app-id batch-size
+                                   start-entity-id end-entity-id]} worker-id]
+  (with-open [progress-conn (next-jdbc/get-connection db-config)]
+    (let [batch-q (triples-batch-q (some? end-entity-id))]
+      (create-progress! progress-conn {:job-id job-id
+                                       :worker-id worker-id})
+      (loop [last-key [lowest-uuid lowest-uuid ""]
+             total (long 0)]
+        (let [{:keys [rows last_entity_id last_attr_id last_value_md5]}
+              (sql/execute-one! snapshot-conn
+                                (hsql/format
+                                 batch-q
+                                 {:params {:source-app-id source-app-id
+                                           :start-entity-id start-entity-id
+                                           :end-entity-id end-entity-id
+                                           :last-entity-id (nth last-key 0)
+                                           :last-attr-id (nth last-key 1)
+                                           :last-value-md5 (nth last-key 2)
+                                           :batch-size batch-size
+                                           :dest-app-id dest-app-id
+                                           :job-id job-id}}))
+              rows (long rows)]
+          (if (zero? rows)
+            (do
+              (update-progress! progress-conn {:job-id job-id
+                                               :worker-id worker-id
+                                               :rows-copied total
+                                               :last-entity-id (nth last-key 0)
+                                               :last-attr-id (nth last-key 1)
+                                               :last-value-md5 (nth last-key 2)
+                                               :done true})
 
-            total)
-          (let [next-key [last_entity_id last_attr_id last_value_md5]
-                next-total (+ total rows)]
-            (update-progress! conn {:job-id job-id
-                                    :worker-id worker-id
-                                    :rows-copied next-total
-                                    :last-entity-id last_entity_id
-                                    :last-attr-id last_attr_id
-                                    :last-value-md5 last_value_md5
-                                    :done false})
+              total)
+            (let [next-key [last_entity_id last_attr_id last_value_md5]
+                  next-total (+ total rows)]
+              (update-progress! progress-conn {:job-id job-id
+                                               :worker-id worker-id
+                                               :rows-copied next-total
+                                               :last-entity-id last_entity_id
+                                               :last-attr-id last_attr_id
+                                               :last-value-md5 last_value_md5
+                                               :done false})
 
-            (recur next-key next-total)))))))
+              (recur next-key next-total))))))))
 
 ;; --------------- 
 ;; clone-app 
 
 (defn clone-app! [db-config {:keys [source-app-id
                                     temporary-creator-id
-                                    temporary-email
                                     dest-creator-id
-                                    dest-email
                                     dest-title
                                     num-workers
                                     batch-size]}]
   (let [db-config (resolve-db-config db-config)
         source-app-id (coerce-uuid! "source app id" source-app-id)
+        temporary-creator-id (coerce-uuid! "temporary creator id" temporary-creator-id)
+        dest-creator-id (coerce-uuid! "dest creator id" dest-creator-id)
         num-workers (long (or num-workers
                               (throw (ex-info "Missing num-workers" {}))))
         batch-size (long (or batch-size
                              (throw (ex-info "Missing batch-size" {}))))
         job-id (random-uuid)
         dest-app-id (random-uuid)]
-    (with-open [write-conn (next-jdbc/get-connection db-config)]
-      (assert-table-column-counts write-conn)
-      (let [source-app (app-model/get-by-id! write-conn {:id source-app-id})
-            temporary-creator-id (resolve-user-id write-conn "temporary"
-                                                  {:id temporary-creator-id
-                                                   :email temporary-email})
-            dest-creator-id (resolve-user-id write-conn "dest"
-                                             {:id dest-creator-id
-                                              :email dest-email})
+    (with-open [control-conn (next-jdbc/get-connection db-config)]
+      (assert-table-column-counts control-conn)
+      (let [source-app (app-model/get-by-id! control-conn {:id source-app-id})
             dest-title (normalize-dest-title (:title source-app) dest-title)]
-        (instant-user-model/get-by-id! write-conn {:id temporary-creator-id})
-        (instant-user-model/get-by-id! write-conn {:id dest-creator-id})
+        (instant-user-model/get-by-id! control-conn {:id temporary-creator-id})
+        (instant-user-model/get-by-id! control-conn {:id dest-creator-id})
+        (next-jdbc/with-transaction [tx control-conn]
+          (create-job! tx {:job-id job-id
+                           :source-app-id source-app-id
+                           :dest-app-id dest-app-id
+                           :dest-title dest-title
+                           :temporary-creator-id temporary-creator-id
+                           :dest-creator-id dest-creator-id
+                           :batch-size batch-size
+                           :num-workers num-workers
+                           :total-triples nil
+                           :status "running"})
+          (setup-empty-clone-app! tx {:job-id job-id
+                                      :temporary-creator-id temporary-creator-id
+                                      :source-app-id source-app-id
+                                      :dest-title dest-title
+                                      :dest-app-id dest-app-id}))
         (with-repeatable-read-snapshot db-config
           (fn [{:keys [snapshot snapshot-conn]}]
             (let [total-triples (get-total-triples snapshot-conn source-app-id)
                   worker-ranges (get-worker-ranges snapshot-conn source-app-id num-workers)]
-              (next-jdbc/with-transaction [tx write-conn]
-                (create-job! tx {:job-id job-id
-                                 :source-app-id source-app-id
-                                 :dest-app-id dest-app-id
-                                 :dest-title dest-title
-                                 :temporary-creator-id temporary-creator-id
-                                 :dest-creator-id dest-creator-id
-                                 :batch-size batch-size
-                                 :num-workers num-workers
-                                 :total-triples total-triples
-                                 :status "running"})
-                (setup-empty-clone-app! tx {:job-id job-id
-                                            :temporary-creator-id temporary-creator-id
-                                            :source-app-id source-app-id
-                                            :dest-title dest-title
-                                            :dest-app-id dest-app-id}))
+              (update-job-total-triples! control-conn {:job-id job-id
+                                                     :total-triples total-triples})
               (print-worker-status-query! job-id)
               (try
                 (run-workers!
@@ -610,6 +606,7 @@ order by p.worker_id;"
                    (with-snapshot-transaction db-config snapshot
                      (fn [tx]
                        (run-worker! tx
+                                    db-config
                                     {:job-id job-id
                                      :source-app-id source-app-id
                                      :dest-app-id dest-app-id
@@ -618,10 +615,10 @@ order by p.worker_id;"
                                      :end-entity-id end-entity-id}
                                     (int bucket)))))
                  worker-ranges)
-                (app-model/change-creator! write-conn {:id dest-app-id
-                                                       :new-creator-id dest-creator-id})
-                (delete-job! write-conn {:job-id job-id})
-                (app-model/get-by-id! write-conn {:id dest-app-id})
+                (app-model/change-creator! control-conn {:id dest-app-id
+                                                         :new-creator-id dest-creator-id})
+                (delete-job! control-conn {:job-id job-id})
+                (app-model/get-by-id! control-conn {:id dest-app-id})
                 (catch Exception e
                   (throw e))))))))))
 
@@ -645,6 +642,11 @@ order by p.worker_id;"
     (catch Exception _
       (throw (ex-info (format "Invalid %s: %s" label value)
                       {:label label :value value})))))
+
+(defn- parse-uuid [value]
+  (or (uuid-util/coerce value)
+      (throw (ex-info (format "Invalid UUID: %s" value)
+                      {:value value}))))
 
 (defn- parse-args! [args]
   (loop [args args
@@ -699,14 +701,29 @@ order by p.worker_id;"
       (print-usage!)
       (let [db-config (config/db-url->config (:database-url opts))
             source-app-id (:source-app-id opts)
-            app (clone-app! db-config {:source-app-id source-app-id
-                                       :temporary-email (:temporary-email opts)
-                                       :dest-email (:dest-email opts)
-                                       :dest-title (:dest-title opts)
-                                       :num-workers (:num-workers opts)
-                                       :batch-size (:batch-size opts)})]
-        (println "done!")
-        (println (:id app))))))
+            temporary-email (:temporary-email opts)
+            dest-email (:dest-email opts)]
+        (when (string/blank? temporary-email)
+          (throw (ex-info "Missing --temporary-email" {})))
+        (when (string/blank? dest-email)
+          (throw (ex-info "Missing --dest-email" {})))
+        (with-open [conn (next-jdbc/get-connection db-config)]
+          (let [temporary-user (instant-user-model/get-by-email conn {:email temporary-email})
+                dest-user (instant-user-model/get-by-email conn {:email dest-email})]
+            (when-not temporary-user
+              (throw (ex-info (format "No user found for temporary email: %s" temporary-email)
+                              {:email temporary-email})))
+            (when-not dest-user
+              (throw (ex-info (format "No user found for dest email: %s" dest-email)
+                              {:email dest-email})))
+            (let [app (clone-app! db-config {:source-app-id source-app-id
+                                             :temporary-creator-id (:id temporary-user)
+                                             :dest-creator-id (:id dest-user)
+                                             :dest-title (:dest-title opts)
+                                             :num-workers (:num-workers opts)
+                                             :batch-size (:batch-size opts)})]
+              (println "done!")
+              (println (:id app)))))))))
 
 (comment
   (def zeneca-app (comment/zeneca-app!))
