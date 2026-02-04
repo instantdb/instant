@@ -913,6 +913,7 @@ export {
   parseSchemaFromJSON,
   TransactionValidationError,
   FrameworkClient,
+  Reactor,
 
   // error
   InstantAPIError,
