@@ -93,8 +93,8 @@
                                 (throw t))
                               (finally
                                 (when (zero? (swap! remaining dec))
-                                  (deliver done {:ok true})))))
-                          items))
+                                  (deliver done {:ok true}))))))
+                        items)
           result @done]
       (when-let [err (:error result)]
         (doseq [f futures] (future-cancel f))
