@@ -67,4 +67,4 @@ clj_args=(
   --batch-size "$batch_size"
 )
 
-(cd "$server_dir" && clojure "${clj_args[@]}")
+(cd "$server_dir" && INSTANT_LOG_SPANS=false clojure "${clj_args[@]}")

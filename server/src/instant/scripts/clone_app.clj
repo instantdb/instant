@@ -117,35 +117,6 @@
     (throw (ex-info "Missing new title" {:source-title source-title}))
     dest-title))
 
-(defn- worker-status-query [job-id]
-  (format
-   "with job as (
-  select *
-  from clone_app_jobs
-  where job_id = '%s'::uuid
-),
-progress as (
-  select *
-  from clone_app_progress
-  where job_id = (select job_id from job)
-)
-select
-  p.worker_id,
-  p.rows_copied,
-  (select total_triples from job) as total_triples,
-  ((select total_triples from job) - sum(p.rows_copied) over ()) as rows_left_overall,
-  round((p.rows_copied::numeric / nullif((select total_triples from job), 0)) * 100, 2) as percent_of_total,
-  p.done,
-  p.updated_at
-from progress p
-order by p.worker_id;"
-   job-id))
-
-(defn- print-worker-status-query! [job-id]
-  (println "To check the status of the workers, run:\n")
-  (println (worker-status-query job-id))
-  (println))
-
 ;; ------------ 
 ;; set-up-empty-clone-app!
 
@@ -285,7 +256,7 @@ order by p.worker_id;"
     app))
 
 ;; ------- 
-;; jobs + progress 
+;; jobs
 
 (def ^:private create-job-q
   (uhsql/preformat
@@ -307,47 +278,6 @@ order by p.worker_id;"
   (sql/execute-one! conn
                     (uhsql/formatp create-job-q opts)))
 
-(def ^:private update-job-total-triples-q
-  (uhsql/preformat
-   {:update :clone-app-jobs
-    :set {:total-triples :?total-triples
-          :updated-at :%now}
-    :where [:= :job-id :?job-id]}))
-
-(defn- update-job-total-triples!
-  [conn opts]
-  (sql/do-execute! conn
-                   (uhsql/formatp update-job-total-triples-q opts)))
-
-(def ^:private create-progress-q
-  (uhsql/preformat
-   {:insert-into :clone-app-progress
-    :values [{:job-id :?job-id
-              :worker-id :?worker-id}]
-    :returning :*}))
-
-(defn- create-progress!
-  [conn opts]
-  (sql/execute-one! conn
-                    (uhsql/formatp create-progress-q opts)))
-
-(def ^:private update-progress-q
-  (uhsql/preformat
-   {:update :clone-app-progress
-    :set {:rows-copied :?rows-copied
-          :last-entity-id :?last-entity-id
-          :last-attr-id :?last-attr-id
-          :last-value-md5 :?last-value-md5
-          :updated-at :%now
-          :done :?done}
-    :where [:and
-            [:= :job-id :?job-id]
-            [:= :worker-id :?worker-id]]}))
-
-(defn- update-progress!
-  [conn opts]
-  (sql/do-execute! conn (uhsql/formatp update-progress-q opts)))
-
 (def ^:private delete-job-q
   (uhsql/preformat
    {:delete-from :clone-app-jobs
@@ -357,6 +287,72 @@ order by p.worker_id;"
   [conn opts]
   (sql/do-execute! conn
                    (uhsql/formatp delete-job-q opts)))
+
+;; ------- 
+;; progress
+
+(def ^:private progress-log-interval-ms 60000)
+
+(defn- init-progress
+  [total-triples num-workers]
+  (atom {:total-triples total-triples
+         :num-workers num-workers
+         :started-at (System/currentTimeMillis)
+         :workers {}}))
+
+(defn- update-worker-progress!
+  [progress-atom worker-id data]
+  (swap! progress-atom
+         assoc-in
+         [:workers worker-id]
+         data))
+
+(defn- format-duration-ms [ms]
+  (let [duration (java.time.Duration/ofMillis ms)
+        hours (.toHours duration)
+        minutes (.toMinutesPart duration)
+        seconds (.toSecondsPart duration)]
+    (format "%d:%02d:%02d" hours minutes seconds)))
+
+(defn- print-progress!
+  [progress-atom]
+  (let [{:keys [total-triples num-workers started-at workers]} @progress-atom
+        worker-stats (vals workers)
+        total-copied (reduce + 0 (map :rows-copied worker-stats))
+        done-count (count (filter :done? worker-stats))
+        percent (if (pos? total-triples)
+                  (* 100.0 (/ total-copied total-triples))
+                  100.0)
+        elapsed (format-duration-ms (- (System/currentTimeMillis) started-at))]
+    (println (format "Progress: %,d / %,d (%.2f%%) | workers done: %d/%d | elapsed: %s"
+                     (long total-copied)
+                     (long total-triples)
+                     percent
+                     done-count
+                     (long num-workers)
+                     elapsed))
+    (doseq [[worker-id {:keys [rows-copied done?]}] (sort-by key workers)]
+      (println (format "  worker %d: %,d%s"
+                       worker-id
+                       (long (or rows-copied 0))
+                       (if done? " done" ""))))
+    (println)))
+
+(defn- start-progress-logger!
+  [progress-atom interval-ms]
+  (let [stop? (atom false)
+        f (future
+            (loop []
+              (try
+                (Thread/sleep interval-ms)
+                (catch InterruptedException _
+                  nil))
+              (when-not @stop?
+                (print-progress! progress-atom)
+                (recur))))]
+    (fn stop! []
+      (reset! stop? true)
+      (future-cancel f))))
 
 (def ^:private total-triples-q
   (uhsql/preformat
@@ -526,50 +522,42 @@ order by p.worker_id;"
 ;; run-worker
 
 (defn- run-worker!
-  [snapshot-conn db-config {:keys [job-id source-app-id dest-app-id batch-size
-                                   start-entity-id end-entity-id]} worker-id]
-  (with-open [progress-conn (next-jdbc/get-connection db-config)]
-    (let [batch-q (triples-batch-q (some? end-entity-id))]
-      (create-progress! progress-conn {:job-id job-id
-                                       :worker-id worker-id})
-      (loop [last-key [lowest-uuid lowest-uuid ""]
-             total (long 0)]
-        (let [{:keys [rows last_entity_id last_attr_id last_value_md5]}
-              (sql/execute-one! snapshot-conn
-                                (hsql/format
-                                 batch-q
-                                 {:params {:source-app-id source-app-id
-                                           :start-entity-id start-entity-id
-                                           :end-entity-id end-entity-id
-                                           :last-entity-id (nth last-key 0)
-                                           :last-attr-id (nth last-key 1)
-                                           :last-value-md5 (nth last-key 2)
-                                           :batch-size batch-size
-                                           :dest-app-id dest-app-id
-                                           :job-id job-id}}))
-              rows (long rows)]
-          (if (zero? rows)
-            (do
-              (update-progress! progress-conn {:job-id job-id
-                                               :worker-id worker-id
-                                               :rows-copied total
-                                               :last-entity-id (nth last-key 0)
-                                               :last-attr-id (nth last-key 1)
-                                               :last-value-md5 (nth last-key 2)
-                                               :done true})
-
-              total)
-            (let [next-key [last_entity_id last_attr_id last_value_md5]
-                  next-total (+ total rows)]
-              (update-progress! progress-conn {:job-id job-id
-                                               :worker-id worker-id
-                                               :rows-copied next-total
-                                               :last-entity-id last_entity_id
-                                               :last-attr-id last_attr_id
-                                               :last-value-md5 last_value_md5
-                                               :done false})
-
-              (recur next-key next-total))))))))
+  [snapshot-conn {:keys [job-id source-app-id dest-app-id batch-size
+                         start-entity-id end-entity-id]} worker-id progress-atom]
+  (let [batch-q (triples-batch-q (some? end-entity-id))]
+    (loop [last-key [lowest-uuid lowest-uuid ""]
+           total (long 0)]
+      (let [{:keys [rows last_entity_id last_attr_id last_value_md5]}
+            (sql/execute-one! snapshot-conn
+                              (hsql/format
+                               batch-q
+                               {:params {:source-app-id source-app-id
+                                         :start-entity-id start-entity-id
+                                         :end-entity-id end-entity-id
+                                         :last-entity-id (nth last-key 0)
+                                         :last-attr-id (nth last-key 1)
+                                         :last-value-md5 (nth last-key 2)
+                                         :batch-size batch-size
+                                         :dest-app-id dest-app-id
+                                         :job-id job-id}}))
+            rows (long rows)
+            done? (zero? rows)
+            next-key (if done?
+                       last-key
+                       [last_entity_id last_attr_id last_value_md5])
+            next-total (if done?
+                         total
+                         (+ total rows))
+            now (System/currentTimeMillis)]
+        (update-worker-progress! progress-atom
+                                 worker-id
+                                 {:rows-copied next-total
+                                  :last-key next-key
+                                  :done? done?
+                                  :updated-at now})
+        (if done?
+          total
+          (recur next-key next-total))))))
 
 ;; --------------- 
 ;; clone-app 
@@ -617,10 +605,12 @@ order by p.worker_id;"
             (let [total-triples (get-total-triples snapshot-conn source-app-id)
                   worker-ranges (get-worker-ranges
                                  snapshot-conn
-                                 {:keys [source-app-id num-workers total-triples]})]
-              (update-job-total-triples! control-conn {:job-id job-id
-                                                       :total-triples total-triples})
-              (print-worker-status-query! job-id)
+                                 {:source-app-id source-app-id
+                                  :num-workers num-workers
+                                  :total-triples total-triples})
+                  progress-atom (init-progress total-triples (count worker-ranges))
+                  stop-logger! (start-progress-logger! progress-atom progress-log-interval-ms)]
+              (print-progress! progress-atom)
               (try
                 (run-workers!
                  (fn [{:keys [bucket]
@@ -629,21 +619,24 @@ order by p.worker_id;"
                    (with-snapshot-transaction db-config snapshot
                      (fn [tx]
                        (run-worker! tx
-                                    db-config
                                     {:job-id job-id
                                      :source-app-id source-app-id
                                      :dest-app-id dest-app-id
                                      :batch-size batch-size
                                      :start-entity-id start-entity-id
                                      :end-entity-id end-entity-id}
-                                    (int bucket)))))
+                                    (int bucket)
+                                    progress-atom))))
                  worker-ranges)
                 (app-model/change-creator! control-conn {:id dest-app-id
                                                          :new-creator-id dest-creator-id})
                 (delete-job! control-conn {:job-id job-id})
                 (app-model/get-by-id! control-conn {:id dest-app-id})
                 (catch Exception e
-                  (throw e))))))))))
+                  (throw e))
+                (finally
+                  (stop-logger!)
+                  (print-progress! progress-atom))))))))))
 
 (defn- print-usage! [summary]
   (println
