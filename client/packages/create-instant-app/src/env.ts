@@ -7,7 +7,7 @@ const envNames: Record<Project['base'], string> = {
   'vite-vanilla': 'VITE_INSTANT_APP_ID',
   expo: 'EXPO_PUBLIC_INSTANT_APP_ID',
   'tanstack-start': 'VITE_INSTANT_APP_ID',
-  'tanstack-start-full': 'VITE_INSTANT_APP_ID',
+  'tanstack-start-basic': 'VITE_INSTANT_APP_ID',
 };
 
 export const applyEnvFile = (
