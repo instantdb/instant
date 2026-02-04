@@ -109,7 +109,7 @@ async function detectEnvType({ pkgDir }) {
   if (packageJSON.dependencies?.nuxt) {
     return 'nuxt';
   }
-  if (packageJSON.dependencies['@types/bun']) {
+  if (packageJSON.dependencies?.['@types/bun']) {
     return 'bun';
   }
   return 'catchall';

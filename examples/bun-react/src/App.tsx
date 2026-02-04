@@ -2,6 +2,7 @@ import { id, type InstaQLEntity } from "@instantdb/react";
 import "./index.css";
 import type { AppSchema } from "./instant.schema";
 import { db } from "./lib/db";
+import { useState } from "react";
 
 type Todo = InstaQLEntity<AppSchema, "todos">;
 
@@ -63,18 +64,20 @@ function deleteCompleted(todos: Todo[]) {
 }
 
 function TodoForm() {
+  const [text, setText] = useState("");
   return (
     <div className="flex items-center h-10 border-neutral-300">
       <form
         className="flex-1 h-full"
         onSubmit={(e) => {
           e.preventDefault();
-          const input = e.currentTarget.input as HTMLInputElement;
-          addTodo(input.value);
-          input.value = "";
+          addTodo(text);
+          setText("");
         }}
       >
         <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
           className="w-full h-full placeholder-neutral-300 px-2 outline-none bg-transparent"
           autoFocus
           placeholder="What needs to be done?"
