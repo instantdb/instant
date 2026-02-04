@@ -597,7 +597,7 @@ order by p.worker_id;"
             (let [total-triples (get-total-triples snapshot-conn source-app-id)
                   worker-ranges (get-worker-ranges snapshot-conn source-app-id num-workers)]
               (update-job-total-triples! control-conn {:job-id job-id
-                                                     :total-triples total-triples})
+                                                       :total-triples total-triples})
               (print-worker-status-query! job-id)
               (try
                 (run-workers!
