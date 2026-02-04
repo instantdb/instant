@@ -641,23 +641,25 @@ order by p.worker_id;"
 
 (def ^:private cli-options
   [["-h" "--help" "Show help"]
-   ["--database-url URL" "Database URL"]
-   ["--app-id APP_UUID" "Source app id"
+   [nil "--database-url URL" "Database URL"]
+   [nil "--app-id APP_UUID" "Source app id"
     :parse-fn (fn [value]
                 (or (parse-uuid value)
                     (throw (ex-info (format "Invalid app id: %s" value)
                                     {:value value}))))
+    :id :source-app-id
     :assoc-fn (fn [m k v] (assoc m k v))]
-   ["--temporary-email EMAIL" "Temporary creator email"]
-   ["--dest-email EMAIL" "Destination creator email"]
-   ["--new-title TITLE" "Destination app title"]
-   ["--num-workers N" "Number of workers"
+   [nil "--temporary-email EMAIL" "Temporary creator email"]
+   [nil "--dest-email EMAIL" "Destination creator email"]
+   [nil "--new-title TITLE" "Destination app title"
+    :id :dest-title]
+   [nil "--num-workers N" "Number of workers"
     :parse-fn (fn [value]
                 (or (parse-long value)
                     (throw (ex-info (format "Invalid num-workers: %s" value)
                                     {:value value}))))
     :assoc-fn (fn [m k v] (assoc m k v))]
-   ["--batch-size N" "Batch size"
+   [nil "--batch-size N" "Batch size"
     :parse-fn (fn [value]
                 (or (parse-long value)
                     (throw (ex-info (format "Invalid batch-size: %s" value)
