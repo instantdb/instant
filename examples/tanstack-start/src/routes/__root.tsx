@@ -1,4 +1,9 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
+import {
+  ErrorComponent,
+  HeadContent,
+  Scripts,
+  createRootRoute,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 
@@ -7,6 +12,11 @@ import Header from "../components/Header";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
+  beforeLoad: () => {
+    if (!import.meta.env.VITE_INSTANT_APP_ID) {
+      throw new Error("VITE_INSTANT_APP_ID is not defined");
+    }
+  },
   head: () => ({
     meta: [
       {
@@ -27,7 +37,7 @@ export const Route = createRootRoute({
       },
     ],
   }),
-
+  errorComponent: (err) => <ErrorComponent error={err.error} />,
   shellComponent: RootDocument,
 });
 

@@ -1,5 +1,9 @@
 import { QueryClient } from "@tanstack/react-query";
-import { createRouter, DefaultGlobalNotFound } from "@tanstack/react-router";
+import {
+  createRouter,
+  DefaultGlobalNotFound,
+  ErrorComponent,
+} from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { routeTree } from "./routeTree.gen";
 import { getStartContext } from "@tanstack/start-storage-context";
@@ -80,6 +84,7 @@ export function getRouter() {
     context: { queryClient, preloadQuery, getUser },
     defaultPreload: "intent",
     defaultNotFoundComponent: DefaultGlobalNotFound,
+    defaultErrorComponent: ({ error }) => <ErrorComponent error={error} />,
   });
 
   setupRouterSsrQueryIntegration({

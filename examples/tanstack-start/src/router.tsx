@@ -1,4 +1,8 @@
-import { createRouter, DefaultGlobalNotFound } from "@tanstack/react-router";
+import {
+  createRouter,
+  DefaultGlobalNotFound,
+  ErrorComponent,
+} from "@tanstack/react-router";
 
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen";
@@ -9,6 +13,7 @@ export const getRouter = () => {
     routeTree,
     context: {},
     defaultNotFoundComponent: DefaultGlobalNotFound,
+    defaultErrorComponent: ({ error }) => <ErrorComponent error={error} />,
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
   });

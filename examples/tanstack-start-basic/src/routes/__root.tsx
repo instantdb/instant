@@ -8,6 +8,11 @@ import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
   head: () => ({
+    beforeLoad: () => {
+      if (!import.meta.env.VITE_INSTANT_APP_ID) {
+        throw new Error("VITE_INSTANT_APP_ID is not defined");
+      }
+    },
     meta: [
       {
         charSet: "utf-8",

@@ -13,6 +13,11 @@ import appCss from "../styles.css?url";
 import type { RouterContext } from "../router";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  beforeLoad: () => {
+    if (!import.meta.env.VITE_INSTANT_APP_ID) {
+      throw new Error("VITE_INSTANT_APP_ID is not defined");
+    }
+  },
   ssr: true,
   head: () => ({
     meta: [
