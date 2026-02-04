@@ -6,6 +6,8 @@
    [instant.config :as config]
    [instant.jdbc.sql :as sql]
    [instant.util.hsql :as uhsql]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [instant.comment :as comment]
    [instant.model.instant-user :as instant-user-model]
@@ -633,7 +635,7 @@ order by p.worker_id;"
      "    --app-id APP_UUID \\"
      "    --temporary-email EMAIL \\"
      "    --dest-email EMAIL \\"
-     "    --new-title TITLE \\"
+     "    --dest-title TITLE \\"
      "    --num-workers N \\"
      "    --batch-size N"
      ""
@@ -651,8 +653,7 @@ order by p.worker_id;"
     :assoc-fn (fn [m k v] (assoc m k v))]
    [nil "--temporary-email EMAIL" "Temporary creator email"]
    [nil "--dest-email EMAIL" "Destination creator email"]
-   [nil "--new-title TITLE" "Destination app title"
-    :id :dest-title]
+   [nil "--dest-title TITLE" "Destination app title"]
    [nil "--num-workers N" "Number of workers"
     :parse-fn (fn [value]
                 (or (parse-long value)
@@ -686,12 +687,15 @@ order by p.worker_id;"
         (when (string/blank? dest-email)
           (throw (ex-info "Missing --dest-email" {})))
         (when (string/blank? (:dest-title opts))
-          (throw (ex-info "Missing --new-title" {})))
+          (throw (ex-info "Missing --dest-title" {})))
         (when (nil? (:num-workers opts))
           (throw (ex-info "Missing --num-workers" {})))
         (when (nil? (:batch-size opts))
           (throw (ex-info "Missing --batch-size" {})))
-        (let [db-config (config/db-url->config db-url)]
+        (let [{:keys [aead-keyset]} (config/init)
+              _ (crypt-util/init aead-keyset)
+              _ (tracer/init)
+              db-config (config/db-url->config db-url)]
           (with-open [conn (next-jdbc/get-connection db-config)]
             (let [temporary-user (instant-user-model/get-by-email conn {:email temporary-email})
                   dest-user (instant-user-model/get-by-email conn {:email dest-email})]
