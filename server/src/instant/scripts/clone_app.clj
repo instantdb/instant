@@ -268,7 +268,7 @@
               :temporary-creator-id :?temporary-creator-id
               :dest-creator-id :?dest-creator-id
               :batch-size :?batch-size
-              :num-workers :?num-workers
+              :max-workers :?max-workers
               :total-triples :?total-triples
               :status :?status}]
     :returning :*}))
@@ -294,9 +294,9 @@
 (def ^:private progress-log-interval-ms 60000)
 
 (defn- init-progress
-  [total-triples num-workers]
+  [total-triples max-workers]
   (atom {:total-triples total-triples
-         :num-workers num-workers
+         :max-workers max-workers
          :started-at (System/currentTimeMillis)
          :workers {}}))
 
@@ -316,7 +316,7 @@
 
 (defn- print-progress!
   [progress-atom]
-  (let [{:keys [total-triples num-workers started-at workers]} @progress-atom
+  (let [{:keys [total-triples max-workers started-at workers]} @progress-atom
         worker-stats (vals workers)
         total-copied (reduce + 0 (map :rows-copied worker-stats))
         done-count (count (filter :done? worker-stats))
@@ -329,7 +329,7 @@
                      (long total-triples)
                      percent
                      done-count
-                     (long num-workers)
+                     (long max-workers)
                      elapsed))
     (doseq [[worker-id {:keys [rows-copied done?]}] (sort-by key workers)]
       (println (format "  worker %d: %,d%s"
@@ -386,9 +386,9 @@
                                   {:source-app-id source-app-id
                                    :offset offset}))))
 
-(defn- get-worker-offsets [total-triples num-workers]
-  (let [batch-size (quot total-triples num-workers)
-        offsets (->> (range 1 num-workers)
+(defn- get-worker-offsets [total-triples max-workers]
+  (let [batch-size (quot total-triples max-workers)
+        offsets (->> (range 1 max-workers)
                      (map (fn [worker-num]
                             (* batch-size worker-num)))
 
@@ -400,19 +400,18 @@
   (get-worker-offsets 1000 3)
   (get-worker-offsets 3 1000))
 
-;; todo: change num-workers to max-workers
 (defn get-worker-ranges
   "Given: total-triples, 
-          num-workers 
+          max-workers 
            
   We create a list of worker ranges that tries to fairly partition the triples. 
 
   Each worker gets a (start-entity-id, end-entity-id) exclusive range. 
   
-  We may return less than num-workers, if there all the triples fit into fewer 
+  We may return less than max-workers, if there all the triples fit into fewer 
   workers."
-  [conn {:keys [source-app-id total-triples num-workers]}]
-  (let [offsets (get-worker-offsets total-triples num-workers)
+  [conn {:keys [source-app-id total-triples max-workers]}]
+  (let [offsets (get-worker-offsets total-triples max-workers)
         boundaries (mapv (fn [offset]
                            (get-boundary-entity-id conn source-app-id offset))
                          offsets)
@@ -428,13 +427,13 @@
                  (fn [i r] (assoc r :bucket i))
                  ranges)]
 
-    buckets))
+   buckets))
 
 (comment
   (get-worker-ranges
    (aurora/conn-pool :read)
    {:source-app-id (:id zeneca-app)
-    :num-workers 3
+    :max-workers 3
     :total-triples (get-total-triples (aurora/conn-pool :read)
                                       (:id zeneca-app))}))
 
@@ -566,14 +565,14 @@
                                     temporary-creator-id
                                     dest-creator-id
                                     dest-title
-                                    num-workers
+                                    max-workers
                                     batch-size]}]
   (let [db-config (resolve-db-config db-config)
         source-app-id (coerce-uuid! "source app id" source-app-id)
         temporary-creator-id (coerce-uuid! "temporary creator id" temporary-creator-id)
         dest-creator-id (coerce-uuid! "dest creator id" dest-creator-id)
-        num-workers (long (or num-workers
-                              (throw (ex-info "Missing num-workers" {}))))
+        max-workers (long (or max-workers
+                              (throw (ex-info "Missing max-workers" {}))))
         batch-size (long (or batch-size
                              (throw (ex-info "Missing batch-size" {}))))
         job-id (random-uuid)
@@ -592,7 +591,7 @@
                            :temporary-creator-id temporary-creator-id
                            :dest-creator-id dest-creator-id
                            :batch-size batch-size
-                           :num-workers num-workers
+                           :max-workers max-workers
                            :total-triples nil
                            :status "running"})
           (setup-empty-clone-app! tx {:job-id job-id
@@ -606,7 +605,7 @@
                   worker-ranges (get-worker-ranges
                                  snapshot-conn
                                  {:source-app-id source-app-id
-                                  :num-workers num-workers
+                                  :max-workers max-workers
                                   :total-triples total-triples})
                   progress-atom (init-progress total-triples (count worker-ranges))
                   stop-logger! (start-progress-logger! progress-atom progress-log-interval-ms)]
@@ -649,7 +648,7 @@
      "    --temporary-email EMAIL \\"
      "    --dest-email EMAIL \\"
      "    --dest-title TITLE \\"
-     "    --num-workers N \\"
+     "    --max-workers N \\"
      "    --batch-size N"
      ""
      summary])))
@@ -667,12 +666,13 @@
    [nil "--temporary-email EMAIL" "Temporary creator email"]
    [nil "--dest-email EMAIL" "Destination creator email"]
    [nil "--dest-title TITLE" "Destination app title"]
-   [nil "--num-workers N" "Number of workers"
+   [nil "--max-workers N" "Max workers"
     :parse-fn (fn [value]
                 (or (parse-long value)
-                    (throw (ex-info (format "Invalid num-workers: %s" value)
+                    (throw (ex-info (format "Invalid max-workers: %s" value)
                                     {:value value}))))
-    :assoc-fn (fn [m k v] (assoc m k v))]
+    :assoc-fn (fn [m k v] (assoc m k v))
+    :id :max-workers]
    [nil "--batch-size N" "Batch size"
     :parse-fn (fn [value]
                 (or (parse-long value)
@@ -701,8 +701,8 @@
           (throw (ex-info "Missing --dest-email" {})))
         (when (string/blank? (:dest-title opts))
           (throw (ex-info "Missing --dest-title" {})))
-        (when (nil? (:num-workers opts))
-          (throw (ex-info "Missing --num-workers" {})))
+        (when (nil? (:max-workers opts))
+          (throw (ex-info "Missing --max-workers" {})))
         (when (nil? (:batch-size opts))
           (throw (ex-info "Missing --batch-size" {})))
         (let [{:keys [aead-keyset]} (config/init)
@@ -722,7 +722,7 @@
                                                :temporary-creator-id (:id temporary-user)
                                                :dest-creator-id (:id dest-user)
                                                :dest-title (:dest-title opts)
-                                               :num-workers (:num-workers opts)
+                                               :max-workers (:max-workers opts)
                                                :batch-size (:batch-size opts)})]
                 (println "done!")
                 (println (:id app))))))))))
@@ -747,5 +747,5 @@
     :temporary-creator-id (:id u)
     :dest-creator-id (:id u)
     :dest-title "cloned-app-4"
-    :num-workers 2
+    :max-workers 2
     :batch-size 100}))

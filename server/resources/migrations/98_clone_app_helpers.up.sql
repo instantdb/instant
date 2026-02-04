@@ -6,7 +6,7 @@ create table clone_app_jobs (
   temporary_creator_id uuid not null,
   dest_creator_id uuid not null,
   batch_size integer not null,
-  num_workers integer not null,
+  max_workers integer not null,
   total_triples bigint,
   status text not null,
   error text,

@@ -39,7 +39,7 @@
                                                               :temporary-creator-id (:id temporary-user)
                                                               :dest-creator-id (:id dest-user)
                                                               :dest-title dest-title
-                                                              :num-workers 2
+                                                              :max-workers 2
                                                               :batch-size 100})
                     dest-app-id (:id dest-app)
                     dest-rule (:code (rule-model/get-by-app-id {:app-id dest-app-id}))

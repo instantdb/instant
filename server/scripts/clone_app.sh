@@ -10,7 +10,7 @@ set -euo pipefail
 #   --temporary-email  <when the cloning is in progress, the app will show up under this owner>
 #   --dest-email       <creator e-mail for the final clone>
 #   --dest-title       "Title for the cloned app"
-#   --num-workers      <number of workers>
+#   --max-workers      <max number of workers>
 #   --batch-size       <batch size per worker>
 #
 # NOTES
@@ -23,7 +23,7 @@ usage() {
   cat <<USAGE >&2
 USAGE:
   $0 --env {prod|dev} --app-id APP_UUID --temporary-email EMAIL --dest-email EMAIL \\
-     --dest-title TITLE --num-workers N --batch-size N
+     --dest-title TITLE --max-workers N --batch-size N
 USAGE
   exit 1
 }
@@ -31,7 +31,7 @@ USAGE
 script_dir="$(dirname "${BASH_SOURCE[0]}")"
 dev_default_url="jdbc:postgresql://localhost:5432/instant"
 
-env="" ; app_id="" ; temporary_email="" ; dest_email="" ; dest_title="" ; num_workers="" ; batch_size=""
+env="" ; app_id="" ; temporary_email="" ; dest_email="" ; dest_title="" ; max_workers="" ; batch_size=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -40,13 +40,13 @@ while [[ $# -gt 0 ]]; do
     --temporary-email)  temporary_email="$2"; shift 2 ;;
     --dest-email)       dest_email="$2";      shift 2 ;;
     --dest-title)       dest_title="$2";      shift 2 ;;
-    --num-workers)      num_workers="$2";     shift 2 ;;
+    --max-workers)      max_workers="$2";     shift 2 ;;
     --batch-size)       batch_size="$2";      shift 2 ;;
     *) usage ;;
   esac
 done
 
-[[ -z "$env" || -z "$app_id" || -z "$temporary_email" || -z "$dest_email" || -z "$dest_title" || -z "$num_workers" || -z "$batch_size" ]] && usage
+[[ -z "$env" || -z "$app_id" || -z "$temporary_email" || -z "$dest_email" || -z "$dest_title" || -z "$max_workers" || -z "$batch_size" ]] && usage
 
 case "$env" in
   prod) dest_db_url=$($script_dir/prod_connection_string.sh) ;;
@@ -63,7 +63,7 @@ clj_args=(
   --temporary-email "$temporary_email"
   --dest-email "$dest_email"
   --dest-title "$dest_title"
-  --num-workers "$num_workers"
+  --max-workers "$max_workers"
   --batch-size "$batch_size"
 )
 
