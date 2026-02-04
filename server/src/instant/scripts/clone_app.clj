@@ -484,6 +484,7 @@
       (app-model/change-creator! conn {:id dest-app-id
                                        :new-creator-id dest-creator-id})
       (delete-job! conn {:job-id job-id})
+      (app-model/get-by-id! {:id dest-app-id})
       (catch Exception e
         (throw e)))))
 
