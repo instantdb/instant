@@ -24,7 +24,7 @@ The first idea is about how we store data.
 
 SQL databases store data in different tables:
 
-![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650557040594_image.png)
+![](/img/essays/datalog_query_example.png)
 
 Here we have a `movie` table, which stores one movie per row. The record with the id `200` is `"The Terminator"`.
 
@@ -34,7 +34,7 @@ Notice the `director_id`. This points to a row in yet another `person` table, wh
 
 In Datalog databases, there are no tables. Or really everything is just stored in one table, the `triple` table:
 
-![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650653844960_image.png)
+![](/img/essays/datalog_graph_example.png)
 
 A `triple` is a row with an `id`, `attribute`, and `value`. Triples have a curious property; with just these three columns, they can describe any kind of information!
 
@@ -81,7 +81,7 @@ Datalog databases rely on pattern matching. We create “patterns” that match 
 
 Here, `?id` is a variable: we’re telling the query engine that it can be _any_ value. But, the `attribute` _must_ be `movie/year`, and the `value` _must_ be `1987`.
 
-![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650395773008_image.png)
+![](/img/essays/datalog_triples.png)
 
 Our query engine runs through triple after triple. Since `?id` can be anything, this matches every triple. But, the attribute `movie/year` and the value `1987` filter us down to _just_ the triples we care about:
 
@@ -157,7 +157,7 @@ Here we tell the query engine to match _three_ patterns. The first pattern produ
 
 What do I mean? Let’s make this concrete; here’s how our query engine could find The Terminator’s director:
 
-![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650461792727_image.png)
+![](/img/essays/datalog_pattern_matching.png)
 
 The first pattern finds:
 
@@ -244,7 +244,7 @@ Now for our query engine!
 
 Our first goal is to match _one_ pattern with _one_ triple. Here’s an example:
 
-![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650419195277_image.png)
+![](/img/essays/datalog_joins.png)
 
 We have some variable bindings: `{"?movieId": 200}`. Let’s call this a `context`.
 
@@ -290,7 +290,7 @@ function matchPattern(pattern, triple, context) {
 
 We take our pattern, and compare each part to the corresponding one in our triple:
 
-![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650457636669_image.png)
+![](/img/essays/datalog_where_clause.png)
 
 So, we’d compare `"?movieId"` with `200`, and so on.
 
@@ -367,7 +367,7 @@ And with that, `matchPattern` works as we like!
 
 Now for our second goal. We can already match one pattern with one triple. Let’s now match _one_ pattern with _multiple_ triples. Here’s the idea:
 
-![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650458051668_image.png)
+![](/img/essays/datalog_find_clause.png)
 
 We’ll have _one_ pattern and a database of triples. We’ll want to return the contexts for all the successful matches. Here’s the test we can play with:
 
@@ -397,7 +397,7 @@ We go over each triple and run `matchPattern`. This would return either a `conte
 
 Closer and closer. Now to support joins. We need to handle _multiple_ patterns:
 
-![](https://paper-attachments.dropbox.com/s_FD7FF9539594E6B532630EAEC892A2984C0B1FD8174F6609827754AA4559A821_1650462526590_image.png)
+![](/img/essays/datalog_queries_final.png)
 
 So we go pattern by pattern, and find successful triples. For each successful triple, we apply the next pattern. At the end, we’ll have produced progressively larger contexts.
 

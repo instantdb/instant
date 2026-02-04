@@ -1,0 +1,12 @@
+{
+  "projectName": "tanstack-start-with-tanstack-query",
+  "mode": "file-router",
+  "typescript": true,
+  "packageManager": "pnpm",
+  "tailwind": true,
+  "addOnOptions": {},
+  "git": true,
+  "version": 1,
+  "framework": "react-cra",
+  "chosenAddOns": ["nitro", "start"]
+}

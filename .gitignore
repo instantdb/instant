@@ -233,4 +233,8 @@ client/packages/version/src/package.json
 
 # gemini
 .gemini
+# codex
 .codex
+
+# example project package-locks
+examples/*/pnpm-lock.yaml
