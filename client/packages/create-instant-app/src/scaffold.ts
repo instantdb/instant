@@ -71,7 +71,7 @@ export const scaffoldBaseAndEdit = async (
     getUserPkgManager(cliResults.base) === 'pnpm' &&
     cliResults.base === 'expo'
   ) {
-    fs.appendFile(
+    await fs.appendFile(
       path.join(projectDir, '.npmrc'),
       `node-linker=hoisted
 enable-pre-post-scripts=true`,
