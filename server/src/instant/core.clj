@@ -336,6 +336,10 @@
         (stripe/init))
       (with-log-init :session
         (session/start))
+      (with-log-init :invalidator
+        (inv/start-global))
+      (with-log-init :wal
+        (wal/start))
 
       (when-let [config-app-id (config/instant-config-app-id)]
         (with-log-init :flags
@@ -343,10 +347,6 @@
                            flags/queries
                            flags/query-results)))
 
-      (with-log-init :invalidator
-        (inv/start-global))
-      (with-log-init :wal
-        (wal/start))
       (with-log-init :aggregator
         (agg/start-global))
       (with-log-init :ephemeral-app
