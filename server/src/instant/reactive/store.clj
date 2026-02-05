@@ -40,7 +40,7 @@
    (java.lang InterruptedException)
    (java.time Instant)
    (java.util Map)
-   (java.util.concurrent CancellationException CompletableFuture ConcurrentHashMap ConcurrentLinkedQueue ExecutorService )
+   (java.util.concurrent CancellationException CompletableFuture ConcurrentHashMap ConcurrentLinkedQueue Executors ExecutorService)
    (java.util.concurrent.locks ReentrantLock)
    (java.util.regex Pattern)
    (io.undertow.server.handlers.sse ServerSentEventConnection)
