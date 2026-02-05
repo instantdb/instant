@@ -9,7 +9,7 @@
    (com.hazelcast.cluster Member)
    (instant.grpc StreamRequest)
    (io.grpc CallOptions ConnectivityState Grpc InsecureChannelCredentials ManagedChannel)
-   (io.grpc.stub ClientCalls StreamObserver)
+   (io.grpc.stub ClientCalls StreamObserver ClientResponseObserver)
    (java.util Map)))
 
 ;; WeakMap to store hazelcast-member -> grpc client
@@ -71,7 +71,16 @@
       client)))
 
 (defn subscribe-to-instant-stream [^ManagedChannel channel ^StreamRequest req ^StreamObserver observer]
-  (let [call (.newCall channel grpc/subscribe-method CallOptions/DEFAULT)]
+  (let [call (.newCall channel grpc/subscribe-method CallOptions/DEFAULT)
+        server-observer (ClientCalls/asyncBidiStreamingCall call observer)]
+    (tool/def-locals)
+    (.onNext server-observer req)
+    {:observer server-observer
+     :cancel (fn [^String reason]
+               (.cancel call reason nil))}))
+
+(defn subscribe-to-test [^ManagedChannel channel req ^StreamObserver observer]
+  (let [call (.newCall channel grpc/test-method CallOptions/DEFAULT)]
     (ClientCalls/asyncServerStreamingCall call req observer)
     {:cancel (fn [^String reason]
                (.cancel call reason nil))}))

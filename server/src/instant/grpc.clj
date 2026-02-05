@@ -60,6 +60,14 @@
       (.setResponseMarshaller nippy-marshaller)
       (.build)))
 
+(def test-method
+  (-> (MethodDescriptor/newBuilder)
+      (.setType MethodDescriptor$MethodType/SERVER_STREAMING)
+      (.setFullMethodName "InstantStreams/Test")
+      (.setRequestMarshaller nippy-marshaller)
+      (.setResponseMarshaller nippy-marshaller)
+      (.build)))
+
 ;; What's left to be implemented?
 ;; 1. The subscribe call
 ;;   a. Let's start in the admin SDK or should we start in the client SDK?

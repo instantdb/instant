@@ -55,23 +55,11 @@
                                 str))
 
 (defn notify-stream-machine-id-changed [{:keys [identity]}]
-  (let [app-id (-> identity
-                   (nth 0)
-                   :value
-                   parse-uuid)
-        stream-id (-> identity
+  (let [stream-id (-> identity
                       (nth 1)
                       :value
-                      parse-uuid)
-        machine-id-json (-> identity
-                            (nth 3)
-                            :value)]
-    (when (and machine-id-json
-               ;; defensive measure in case we let users modify streams
-               (= (count machine-id-json) 38))
-      (app-stream-model/notify-machine-id-changed app-id stream-id (-> machine-id-json
-                                                                       json/<-json
-                                                                       uuid-util/parse-uuid)))))
+                      parse-uuid)]
+    (app-stream-model/notify-machine-id-changed stream-id)))
 
 (defn evict-cache! [wal-record]
   (case (:action wal-record)

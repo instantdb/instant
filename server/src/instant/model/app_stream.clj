@@ -1,6 +1,5 @@
 (ns instant.model.app-stream
   (:require
-   [clojure.core.async :as a]
    [clojure.string]
    [honey.sql :as hsql]
    [instant.config :as config]
@@ -13,6 +12,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app-file :as app-file-model]
+   [instant.reactive.ephemeral :as eph]
    [instant.reactive.store :as rs]
    [instant.storage.coordinator :as storage-coordinator]
    [instant.storage.s3 :as instant-s3]
@@ -22,11 +22,14 @@
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
   (:import
-   (instant.grpc StreamContent StreamError StreamInit StreamRequest StreamComplete)
+   (instant.grpc StreamComplete StreamContent StreamError StreamInit StreamRequest)
    (io.grpc Status Status$Code)
    (io.grpc.netty.shaded.io.netty.buffer ByteBufInputStream CompositeByteBuf Unpooled)
-   (io.grpc.stub ServerCallStreamObserver StreamObserver)
-   (java.nio ByteBuffer)))
+   (io.grpc.stub ServerCallStreamObserver StreamObserver ClientResponseObserver ClientCallStreamObserver)
+   (java.nio ByteBuffer)
+   (java.util Map)
+   (java.util.concurrent ConcurrentHashMap Executors ThreadPoolExecutor LinkedBlockingQueue TimeUnit)
+   (java.util.function BiFunction)))
 
 (def etype "$streams")
 
@@ -133,10 +136,6 @@
                                  :stream-id stream-id}
                                 [{:message "Stream is corrupted. File path has invalid part number."}]))))
 
-(defn notify-machine-id-changed [app-id stream-id machine-id]
-  ;; XXX: DO something here
-  (tool/def-locals))
-
 (defn get-stream-files
   "Gets the files for a completed stream, with s3 download urls"
   ([params] (get-stream-files (aurora/conn-pool :read) params))
@@ -181,12 +180,13 @@
                    :$files []
                    :done? false
                    :flush-promise nil
-                   :sinks []}
+                   :sinks {}}
                   ;; This is a bit of a hack to allow the store to
                   ;; call cleanup without having to worry about a cyclic dependency
                   ;; between store and app-stream
                   :meta {:cleanup (fn []
-                                    (doseq [sink (:sinks (-> this deref deref))]
+                                    ;; XXX: Should we persist the buffer to $file here?
+                                    (doseq [[_sink-id sink] (:sinks (-> this deref deref))]
                                       (sink ::disconnect)))})]
     (deliver this obj)
     obj))
@@ -203,6 +203,12 @@
            :buffer-byte-offset buffer-byte-offset
            :$files files)
     obj))
+
+(defn add-sink [stream-object sink-id sink]
+  (swap! stream-object update :sinks assoc sink-id sink))
+
+(defn remove-sink [stream-object sink-id]
+  (swap! stream-object update :sinks dissoc sink-id))
 
 (defn flush-to-file [stream-object flush-promise on-flush-to-file]
   (let [{:keys [app-id stream-id $files done?
@@ -242,8 +248,8 @@
                                                     ;; one in there
                                                     (when-not (= p flush-promise)
                                                       (tracer/record-exception-span!
-                                                        (Exception. "concurrent flush-to-file executions.")
-                                                        {:name "app-stream/flush-to-file"})
+                                                       (Exception. "concurrent flush-to-file executions.")
+                                                       {:name "app-stream/flush-to-file"})
                                                       p))))))]
     (tool/def-locals)
     ;; XXX: Needs to recur a flush when it's finished if the buffer has exceeded our limit while we were flushing
@@ -262,7 +268,6 @@
                                  0
                                  chunks)
         flush-limit (flags/stream-flush-byte-limit)
-        ;; XXX: double-check that's right
         flush-promise (promise)
         updated (swap! stream-object
                        (fn [obj]
@@ -288,10 +293,10 @@
                          (:buffer-byte-offset updated))
                       chunks-byte-size)
             msg (grpc/->StreamContent offset chunks)]
-        (doseq [sink (:sinks updated)]
+        (doseq [[_sink-id sink] (:sinks updated)]
           (sink msg))))
     (when done?
-      (doseq [sink (:sinks updated)]
+      (doseq [[_sink-id sink] (:sinks updated)]
         (sink ::completed))
       (when-let [p (:flush-promise updated)]
         (-> p
@@ -304,105 +309,147 @@
 (defn file-url [app-id location-id]
   (instant-s3/create-signed-download-url! app-id location-id))
 
+(defn file->stream-file [file]
+  (grpc/->StreamFile (:id file)
+                     (:location-id file)
+                     (:size file)))
+
+(defn stream-init-msg
+  "Initial stream init message when the reader reconnects.
+   The reader will provide an offset and we can avoid resending
+   data that it already has."
+  [requested-offset {:keys [$files buffer buffser-size-offset]}]
+  (let [{:keys [files start-offset]}
+        (reduce (fn [{:keys [files start-offset]} file]
+                  (let [next-start-offset (+ start-offset (:size file))]
+                    (if (> next-start-offset requested-offset)
+                      {:files (conj files (grpc/->StreamFile (:id file)
+                                                             (:location-id file)
+                                                             (:size file)))
+                       :start-offset start-offset}
+                      {:files files
+                       :start-offset next-start-offset})))
+                {:files []
+                 :start-offset 0}
+                $files)
+
+
+        {:keys [chunks start-offset]}
+        (reduce (fn [{:keys [chunks start-offset]} ^bytes chunk]
+                  (let [next-start-offset (+ start-offset (alength chunk))]
+                    (if (> next-start-offset requested-offset)
+                      {:chunks (conj chunks chunk)
+                       :start-offset start-offset}
+                      {:chunks chunks
+                       :start-offset next-start-offset})))
+                {:chunks []
+                 :start-offset start-offset}
+                buffer)]
+    (grpc/->StreamInit start-offset files chunks)))
+
 (defn handle-subscribe
-  "Subscribes to a stream-object in the store on this instance."
-  [store ^StreamRequest req ^ServerCallStreamObserver observer]
-  (tool/def-locals)
-  (if-let [stream-object (rs/get-stream-object-for-subscribe store (:app-id req) (:stream-id req))]
-    (let [sink-ch (a/chan)
-          error-ch (a/chan)
-          put-error! (fn [error-kw]
-                       (a/put! error-ch error-kw)
-                       (a/close! error-ch))
-          cancel-signal-ch (a/chan)
-          sink (fn [v]
+  "Subscribes to a stream-object in the store on this instance.
+   Called from the publisher (the machine that the writer is connected to)."
+  [store ^StreamRequest credits-atom req ^ServerCallStreamObserver observer]
+  ;; XXX: Putting an executor here makes no sense because the server
+  ;;      will always return nil after an onNext
+  (let [stream-object (rs/get-stream-object-for-subscribe store (:app-id req) (:stream-id req))
+        sink-id (random-uuid)
+        cleanup (fn []
+                  (when stream-object
+                    (remove-sink stream-object sink-id)))
+        sink (fn [v]
+               (if (neg? (swap! credits-atom dec))
+                 ;; Too many pending sends, tell the caller to back off
+                 (do
+                   (cleanup)
+                   (.onNext observer (grpc/stream-error :rate-limit))
+                   (.onCompleted observer))
                  (case v
                    ::completed
-                   (a/close! sink-ch)
+                   (do (.onNext observer (grpc/->StreamComplete))
+                       (.onCompleted observer)
+                       (cleanup))
 
                    ::disconnect
-                   (put-error! (grpc/stream-error :writer-disconnected))
+                   (do
+                     (.onNext observer (grpc/stream-error :writer-disconnected))
+                     (.onCompleted observer))
 
-                   (try
-                     (a/put! sink-ch v)
-                     (catch AssertionError -e
-                       ;; Too many puts, let's just tell the caller to backoff
-                       (put-error! (grpc/stream-error :rate-limit))))))
-          remove-sink (fn []
-                        (swap! stream-object
-                               (fn [obj]
-                                 (update obj :sinks (fn [sinks]
-                                                      (filter #(not= % sink) sinks))))))
 
-          {:keys [$files buffer buffer-byte-offset]}
-          (swap! stream-object update :sinks conj sink)]
-      (.setOnCancelHandler observer (reify Runnable
-                                      (run [_]
-                                        (a/close! cancel-signal-ch))))
+                   (.onNext observer v))))]
 
-      ;; XXX: Handle offset
-      (let [{:keys [files start-offset]}
-            (reduce (fn [{:keys [files start-offset]} file]
-                      (let [next-start-offset (+ start-offset (:size file))]
-                        (if (>= next-start-offset (:offset req))
-                          {:files (conj files (grpc/->StreamFile (:id file)
-                                                                 (:location-id file)
-                                                                 (:size file)))
-                           :start-offset start-offset}
-                          {:files files
-                           :start-offset next-start-offset})))
-                    {:files []
-                     :start-offset 0}
-                    $files)]
-        (tool/def-locals)
-        ;; XXX: offset for buffer
-        (.onNext observer (grpc/->StreamInit start-offset files buffer)))
+    (tool/def-locals)
+    (if-not stream-object
+      (sink (grpc/stream-error :stream-missing-on-instance))
+      (let [{:keys [$files buffer] :as stream-object-after}
+            (add-sink stream-object sink-id sink)
+            msg (if (zero? (:offset req))
+                  (grpc/->StreamInit 0 (map file->stream-file $files) buffer)
+                  (stream-init-msg (:offset req) stream-object-after))]
+        (sink msg)))
+    cleanup))
 
-      (tool/def-locals)
-      (a/go-loop []
-        (let [[val ch] (a/alts! [sink-ch cancel-signal-ch error-ch])]
-          (cond (and (= sink-ch ch)
-                     (not (nil? val)))
-                (do (.onNext observer val)
-                    (recur))
+(defn handle-bidi-subscribe [store ^ServerCallStreamObserver observer]
+  (let [credits (atom 1024)
+        cleanup (promise)]
+    (.setOnCancelHandler observer (reify Runnable
+                                    (run [_]
+                                      (when (realized? cleanup)
+                                        (@cleanup)))))
+    (reify StreamObserver
+      (onNext [_ v]
+        (if (instance? StreamRequest v)
+          (deliver cleanup (handle-subscribe store credits v observer))
+          (swap! credits inc)))
+      (onError [_ t]
+        (when (realized? cleanup)
+          (@cleanup))
+        (let [status (Status/fromThrowable t)]
+          (when (not= (.getCode status) Status$Code/CANCELLED)
+            (tracer/record-exception-span! t {:name "app_stream/bidi-error"}))))
+      (onCompleted [_]
+        (when (realized? cleanup)
+          (@cleanup))))))
 
-                (= ch error-ch)
-                (do (remove-sink)
-                    ;; Log an error if it's unknown
-                    (.onNext observer (or val (grpc/stream-error :unknown)))
-                    (.onCompleted observer))
-
-                ;; The subscriber canceled. They're no longer interested in
-                ;; updates, so we can just remove our sink
-                (= ch cancel-signal-ch)
-                (remove-sink)
-
-                (nil? val)
-                (do (remove-sink)
-                    (.onNext observer (grpc/->StreamComplete))
-                    (.onCompleted observer))))))
-    ;; XXX: Handle the case where the listener unsubscribes or goes away
-    ;;      Probably need to put something into the store
-    ;;        - need a store gc that removes unknown sessions
-    (.onNext observer (grpc/stream-error :stream-missing-on-instance))))
-
-(defn server-ify-observer [^StreamObserver observer on-cancel-atom]
+(defn server-ify-observer ^ServerCallStreamObserver [^StreamObserver observer on-cancel-atom]
   "Allows us to add an onCancel handler to the observer when we handle it on
    the same machine instead of sending it through GRPC.
    We need to upgrade it to a ServerCallStreamObserver with support for setOnCancelHandler"
-  (proxy [ServerCallStreamObserver] []
-    ;; Delegate core methods to the existing observer
-    (onNext [v] (.onNext observer v))
-    (onError [t] (.onError observer t))
-    (onCompleted [] (.onCompleted observer))
+  (let [closed? (atom false)
+        check-state (fn []
+                      (when @closed?
+                        (throw (IllegalStateException. "call already closed"))))
+        executor (Executors/newSingleThreadExecutor (.factory (Thread/ofVirtual)))]
+    (proxy [ServerCallStreamObserver] []
+      ;; Delegate core methods to the existing observer
+      (onNext [v]
+        (check-state)
+        (.execute executor (reify Runnable
+                             (run [_]
+                               (.onNext observer v)))))
+      (onError [t]
+        (check-state)
+        (reset! closed? true)
+        (.execute executor (reify Runnable
+                             (run [_]
+                               (.onError observer t))))
+        (.shutdown executor))
+      (onCompleted []
+        (check-state)
+        (reset! closed? true)
+        (.execute executor (reify Runnable
+                             (run [_]
+                               (.onCompleted observer))))
+        (.shutdown executor))
 
-    ;; server methods
-    (isReady [] true)
-    (setOnCancelHandler [r] (reset! on-cancel-atom r))
-    (setOnReadyHandler [_r] (throw (Exception. "setOnReadyHandler not implemented")))
-    (disableAutoInboundFlowControl [])
-    (request [_n])
-    (setMessageCompression [_e])))
+      ;; server methods
+      (isReady [] (not @closed?))
+      (setOnCancelHandler [r] (reset! on-cancel-atom r))
+      (setOnReadyHandler [_r] (throw (Exception. "setOnReadyHandler not implemented")))
+      (disableAutoInboundFlowControl [])
+      (request [_n])
+      (setMessageCompression [_e]))))
 
 (defn chunks->string [chunks]
   (let [total-size (reduce (fn [acc chunk]
@@ -414,84 +461,140 @@
       (.put buff chunk))
     (String. (.array buff) "UTF-8")))
 
+(defonce stream-machine-id-listeners (ConcurrentHashMap.))
+
+(defn remove-machine-id-change-listener [stream-id cb-id]
+  (Map/.compute stream-machine-id-listeners stream-id (reify BiFunction
+                                                        (apply [_ _k v]
+                                                          (let [new (dissoc v cb-id)]
+                                                            (when-not (empty? new)
+                                                              new))))))
+
+(defn add-machine-id-change-listener [stream-id cb]
+  (let [cb-id (random-uuid)]
+    (Map/.compute stream-machine-id-listeners stream-id (reify BiFunction
+                                                          (apply [_ _k v]
+                                                            (assoc v cb-id cb))))
+    (fn []
+      (remove-machine-id-change-listener stream-id cb-id))))
+
+(defn notify-machine-id-changed [stream-id]
+  (doseq [[_k cb] (Map/.get stream-machine-id-listeners stream-id)]
+    (cb)))
+
+(defn- make-stream-observer
+  "The observer runs on the same machine as the reader's session.
+   If the observer is too slow, the publisher will send a :rate-limit
+   error and we'll notify the client to resubscribe."
+  ^StreamObserver [app-id stream-id {:keys [on-payload
+                                            cleanup
+                                            machine-id-changed
+                                            incr-credits]}]
+  (reify StreamObserver
+    (onCompleted [_]
+      (cleanup))
+    (onNext [_ v]
+      (tool/def-locals)
+      (incr-credits) ;; Notifies the server that we've handled a message
+      (let [msg (condp instance? v
+                  StreamError
+                  (tracer/with-span! {:name "app_stream/stream-error"
+                                      :attributes {:stream-id stream-id
+                                                   :error (:error v)}}
+                    ;; XXX: NEXT UP: set up subscription to machine-id
+                    (case (:error v)
+                      :rate-limit {:error true
+                                   ;; XXX: Send a better error type (e.g. validation error)
+                                   :error-type :rate-limit
+                                   :retry true}
+                      :unknown {:error true
+                                :error-type :unknown
+                                :retry true}
+
+                      ;; Writer went away. Wait for the stream to be updated
+                      ;; with a new writer, then tell the reader to resubscribe
+                      (:writer-disconnected
+                       :stream-missing-on-instance)
+                      ;; XXX: Is there room for a race here?
+                      ;;      Maybe we should run a query against the stream to
+                      ;;      see if it updated since we started the whole thing
+                      (when @machine-id-changed
+                        {:error true
+                         :error-type :retry})
+
+
+                      :instance-missing (when @machine-id-changed
+                                          {:error true
+                                           :error-type :retry})))
+
+                  StreamInit
+                  {:offset (:offset v)
+                   :files (map (fn [{:keys [id size location-id]}]
+                                 {:id id
+                                  :size size
+                                  :url (file-url app-id location-id)})
+                               (:files v))
+                   :content (chunks->string (:chunks v))}
+
+                  StreamContent
+                  {:offset (:offset v)
+                   :content (chunks->string (:chunks v))}
+
+                  StreamComplete
+                  {:done true}
+
+                  (tracer/with-span! {:name "app_stream/unknown-payload-type"
+                                      :attributes {:type (type v)
+                                                   :stream-id stream-id}}
+                    {:error true}))]
+        (when msg
+          (on-payload msg))))
+    (onError [_ t]
+      (tool/def-locals)
+      (def -ttt t)
+      (cleanup)
+      (let [status (Status/fromThrowable t)]
+        (if (and (= (.getCode status) Status$Code/CANCELLED)
+                 (= (.getDescription status) rs/stream-unsubscribe-reason))
+          nil
+          ;; XXX: do something with error
+          (do (tracer/record-exception-span! t {:name "app_stream/subscribe-error"})
+              (on-payload {:error true
+                           :retry true})))))))
+
+;; XXX: How do I prevent a race between when I get notified of the machine-id or
+;;      instance-id change and when it actually happens
 (defn connect-to-stream [store stream app-id machine-id offset on-payload]
   (tool/def-locals)
   (let [req (grpc/->StreamRequest app-id (:id stream) offset)
-        observer (reify StreamObserver
-                   (onCompleted [_]
-                     ;; XXX: It would be nice to have an offset to send here
-                     ;;      Maybe we ignore onCompleted instead and send something
-                     ;;      through onNext?
-                     ;; XXX: Don't send anything on onCompleted
-                     ;; XXX: Do we want to do something in onCompleted, like make sure the
-                     ;;      last message was terminal?? Maybe in dev?
-                     ;;(on-payload {:done true})
-                     )
-                   (onNext [_ v]
-                     (tool/def-locals)
-                     (let [msg (condp instance? v
-                                 StreamError
-                                 (tracer/with-span! {:name "app_stream/stream-error"
-                                                     :attributes {:stream-id (:id stream)
-                                                                  :error (:error v)}}
-                                   ;; XXX: NEXT UP: set up subscription to machine-id
-                                   (case (:error v)
-                                     :rate-limit {:error true
-                                                  ;; XXX: Send a better error type (e.g. validation error
-                                                  :error-type :rate-limit}
-                                     :unknown {:error true
-                                               :error-type :unknown}
-                                     ;; XXX: Here is where we add some kind of subscription that waits for the
-                                     ;;      session to come back online
-                                     :stream-missing-on-instance {:error true
-                                                                  :error-type :retry}
-                                     ;; XXX: This should also wait for session to come back online
-                                     :writer-disconnected {:error true
-                                                           :error-type :retry}
-                                     ;; XXX: We need to subscribe to both the machine-id showing up in hz
-                                     ;;      and the stream coming back online
-                                     ;; I could pass this observer as the thing that gets activated
-                                     :instance-missing {:error true
-                                                        :error-type :retry}))
-
-                                 StreamInit
-                                 {:offset (:offset v)
-                                  :files (map (fn [{:keys [id size location-id]}]
-                                                {:id id
-                                                 :size size
-                                                 :url (file-url app-id location-id)})
-                                              (:files v))
-                                  :content (chunks->string (:chunks v))}
-
-                                 StreamContent
-                                 {:offset (:offset v)
-                                  :content (chunks->string (:chunks v))}
-
-                                 StreamComplete
-                                 {:done true}
-
-
-                                 (tracer/with-span! {:name "app_stream/unknown-payload-type"
-                                                     :attributes {:type (type v)
-                                                                  :stream-id (:id stream)}}
-                                   {:error true}))]
-                       (when msg
-                         (on-payload msg))))
-                   (onError [_ t]
-                     (tool/def-locals)
-                     (def -ttt t)
-                     (let [status (Status/fromThrowable t)]
-                       (if (and (= (.getCode status) Status$Code/CANCELLED)
-                                (= (.getDescription status) rs/stream-unsubscribe-reason))
-                         nil
-                         ;; XXX: do something with error
-                         (do (tracer/record-exception-span! t {:name "app_stream/subscribe-error"})
-                             (on-payload {:error true}))))))]
-    (def -ii observer)
-    (if (and (= machine-id config/machine-id)
-             ;; In dev, hit the grpc server half the time to exercise the route
-             (or (not (config/dev?))
-                 (= 0 (rand-int 2))))
+        use-local? (and (= machine-id config/machine-id)
+                        false
+                        ;; In dev, hit the grpc server half the time to exercise the route
+                        (or (not (config/dev?))
+                            (= 0 (rand-int 2))))
+        machine-id-changed (promise)
+        cleanup-cbs [(add-machine-id-change-listener (:id stream)
+                                                     (fn []
+                                                       (deliver machine-id-changed true)))
+                     (if use-local?
+                       identity
+                       (eph/add-hz-member-callback machine-id (fn [_]
+                                                                (deliver machine-id-changed true))))]
+        cleanup (fn []
+                  (deliver machine-id-changed false)
+                  (doseq [cb cleanup-cbs]
+                    (cb)))
+        x-observer (promise)
+        incr-credits (fn []
+                       (when (realized? x-observer)
+                         (tool/def-locals)
+                         (.onNext ^StreamObserver @x-observer nil)))
+        observer (make-stream-observer app-id (:id stream) {:machine-id-changed machine-id-changed
+                                                            :on-payload on-payload
+                                                            :cleanup cleanup
+                                                            :incr-credits incr-credits})]
+    ;; XXX: make use-local? work
+    (if use-local?
       (let [on-cancel-atom (atom nil)
             wrapped-observer (server-ify-observer observer on-cancel-atom)]
         (handle-subscribe store req wrapped-observer)
@@ -503,7 +606,22 @@
                                           (.asException)))
                    (when-let [cancel @on-cancel-atom]
                      (.run ^Runnable cancel)))})
-      ;; XXX: Deal with missing grpc client
       (if-let [channel (grpc-client/grpc-client-for-machine-id machine-id)]
-        (grpc-client/subscribe-to-instant-stream channel req observer)
-        (.onNext observer (grpc/->StreamError :instance-missing))))))
+        (let [{credit-observer :observer
+               cancel :cancel}
+              (grpc-client/subscribe-to-instant-stream channel req observer)]
+          (deliver x-observer credit-observer)
+          {:cancel cancel})
+        ;; Can't find the client, so we'll run this on our own instance and wait for
+        ;; either the client to come back or the stream to move to a new client
+        (let [on-cancel-atom (atom nil)
+              wrapped-observer (server-ify-observer observer on-cancel-atom)]
+          (.onNext wrapped-observer (grpc/->StreamError :instance-missing))
+          {:cancel (fn [reason]
+                     ;; Mimic what happens when the grpc client cancels
+                     ;; First it fires the onError, then it runs cancel
+                     (.onError observer (-> Status/CANCELLED
+                                            (.withDescription rs/stream-unsubscribe-reason)
+                                            (.asException)))
+                     (when-let [cancel @on-cancel-atom]
+                       (.run ^Runnable cancel)))})))))

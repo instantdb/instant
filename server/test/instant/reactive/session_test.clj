@@ -1067,6 +1067,9 @@
         (is (= :error op))
         (is (= 400 status))))))
 
+;; -------
+;; Streams
+
 (defn with-file-mock [f]
   (let [files (atom {})
         upload (fn [_bucket {:keys [object-key]} file]

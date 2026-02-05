@@ -207,11 +207,15 @@ function createWriteStream({
   });
 }
 
-type ReadStreamUpdate = {
-  offset: number;
-  files?: { url: string; size: number }[];
-  content?: string;
-};
+type ReadStreamUpdate =
+  | {
+      type: 'append';
+      offset: number;
+      files?: { url: string; size: number }[];
+      content?: string;
+    }
+  | { type: 'error'; error: string }
+  | { type: 'reconnect' };
 
 class StreamIterator<T> {
   private items: T[] = [];
@@ -272,7 +276,11 @@ function createReadStream({
   cancelStream,
 }: {
   RStream: ReadableStreamCtor;
-  opts: { clientId?: string; streamId?: string };
+  opts: {
+    clientId?: string;
+    streamId?: string;
+    offset?: number;
+  };
   startStream: (opts: {
     eventId: string;
     clientId?: string;
@@ -281,22 +289,55 @@ function createReadStream({
   }) => StreamIterator<ReadStreamUpdate>;
   cancelStream: (opts: { eventId: string }) => void;
 }): ReadableStream<string> {
+  let seenOffset = opts.offset || 0;
   let canceled = false;
   const decoder = new TextDecoder('utf-8');
+  const encoder = new TextEncoder();
   const eventId = uuid();
-  async function start(controller: ReadableStreamDefaultController<string>) {
+
+  async function runStartStream(
+    opts: {
+      clientId?: string;
+      streamId?: string;
+      offset?: number;
+    },
+    controller: ReadableStreamDefaultController<string>,
+  ): Promise<{ retryAfter: number } | undefined> {
+    const eventId = uuid();
+    // XXX: Ignore anything past our offset
     const streamOpts = { ...(opts || {}), eventId };
     for await (const item of startStream(streamOpts)) {
       if (canceled) {
         return;
       }
-      if (item.files) {
-        for (const file of item.files) {
-          const fetchAbort = new AbortController();
-          const res = await fetch(file.url, { signal: fetchAbort.signal });
+      if (item.type === 'error') {
+        console.log('got the error');
+        return { retryAfter: 0 };
+      }
+
+      if (item.type === 'reconnect') {
+        return { retryAfter: 0 };
+      }
+
+      if (item.files && item.files.length) {
+        const fetchAbort = new AbortController();
+        let nextFetch = fetch(item.files[0].url, {
+          signal: fetchAbort.signal,
+        });
+        for (let i = 0; i < item.files.length; i++) {
+          const nextFile = item.files[i + 1];
+          const thisFetch = nextFetch;
+          const res = await thisFetch;
+          if (nextFile) {
+            nextFetch = fetch(nextFile.url, { signal: fetchAbort.signal });
+          }
+
           // XXX: error handling
           if (res.body) {
             for await (const chunk of res.body) {
+              // XXX: We may need to discard some of these
+              seenOffset += chunk.length;
+              console.log({ seenOffset });
               const s = decoder.decode(chunk);
               if (canceled) {
                 fetchAbort.abort();
@@ -308,9 +349,31 @@ function createReadStream({
         }
       }
       if (item.content) {
+        seenOffset += encoder.encode(item.content).length;
+        console.log({ seenOffset });
         controller.enqueue(item.content);
       }
     }
+  }
+
+  async function start(controller: ReadableStreamDefaultController<string>) {
+    let lastStart = Date.now();
+    let retry = true;
+    while (retry) {
+      retry = false;
+      const res = await runStartStream(
+        { ...opts, offset: seenOffset },
+        controller,
+      );
+      console.log('res', res);
+      if (typeof res?.retryAfter !== 'undefined') {
+        retry = true;
+        await new Promise((resolve) => {
+          setTimeout(resolve, res.retryAfter);
+        });
+      }
+    }
+
     controller.close();
   }
   return new RStream<string>({
@@ -395,7 +458,8 @@ type StreamAppendMsg = {
   files?: { url: string; size: number }[];
   done?: boolean;
   offset: number;
-  error?: boolean;
+  error?: string;
+  retry: boolean;
   content?: string;
 };
 
@@ -591,6 +655,10 @@ export class InstantStream {
       msg['client-id'] = clientId;
     }
 
+    if (offset) {
+      msg['offset'] = offset;
+    }
+
     const iterator = new StreamIterator<ReadStreamUpdate>();
 
     this.readStreamIterators[eventId] = iterator;
@@ -608,6 +676,7 @@ export class InstantStream {
     this.trySend(uuid(), msg);
   }
 
+  // XXX: Prevent two connections from the same session (on the server)
   onStreamAppend(msg: StreamAppendMsg) {
     const eventId = msg['client-event-id'];
     const iterator = this.readStreamIterators[eventId];
@@ -622,21 +691,29 @@ export class InstantStream {
     }
 
     if (msg.error) {
-      // XXX: do something
+      // XXX: Check retry
+      iterator.push({ type: 'error', error: msg.error });
+      iterator.close();
+      delete this.readStreamIterators[eventId];
       return;
     }
 
     if (msg.files) {
-      iterator.push({ offset: msg.offset, files: msg.files });
+      iterator.push({ type: 'append', offset: msg.offset, files: msg.files });
     }
 
     if (msg.content) {
-      iterator.push({ offset: msg.offset, content: msg.content });
+      iterator.push({
+        type: 'append',
+        offset: msg.offset,
+        content: msg.content,
+      });
     }
 
     // XXX: Make sure we deliver all messages when we close the thing.
     if (msg.done) {
       iterator.close();
+      delete this.readStreamIterators[eventId];
     }
   }
 
@@ -651,6 +728,17 @@ export class InstantStream {
       )) {
         onConnectionReconnect();
       }
+
+      for (const iterator of Object.values(this.readStreamIterators)) {
+        console.log('iterator', iterator);
+        iterator.push({ type: 'reconnect' });
+        iterator.close();
+      }
+      this.readStreamIterators = {};
     }
+  }
+
+  onRecieveError(msg: any) {
+    console.error('receive error', msg);
   }
 }
