@@ -33,18 +33,14 @@ function RouteComponent() {
       code: codeInput,
     });
     if (verifyResponse.user) {
-      setTimeout(() => {
-        navigate({ to: "/" });
-      }, 100); // Wait for cookie sync
+      navigate({ to: "/" });
     }
   };
 
   const loginAsGuest = async () => {
     const verifyResponse = await clientDb.auth.signInAsGuest();
     if (verifyResponse.user) {
-      setTimeout(() => {
-        navigate({ to: "/" });
-      }, 100); // Wait for cookie sync
+      navigate({ to: "/" });
     }
   };
 
