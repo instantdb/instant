@@ -63,7 +63,7 @@
 (def test-method
   (-> (MethodDescriptor/newBuilder)
       (.setType MethodDescriptor$MethodType/SERVER_STREAMING)
-      (.setFullMethodName "InstantStreams/Test")
+      (.setFullMethodName "InstantTesting/Test")
       (.setRequestMarshaller nippy-marshaller)
       (.setResponseMarshaller nippy-marshaller)
       (.build)))

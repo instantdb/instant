@@ -71,10 +71,9 @@
 
 (defn subscribe-to-instant-stream [^ManagedChannel channel ^StreamRequest req ^StreamObserver observer]
   (let [call (.newCall channel grpc/subscribe-method CallOptions/DEFAULT)
-        server-observer (ClientCalls/asyncBidiStreamingCall call observer)]
-    (tool/def-locals)
-    (.onNext server-observer req)
-    {:observer server-observer
+        outbound-observer (ClientCalls/asyncBidiStreamingCall call observer)]
+    (.onNext outbound-observer req)
+    {:outbound-observer outbound-observer
      :cancel (fn [^String reason]
                (.cancel call reason nil))}))
 

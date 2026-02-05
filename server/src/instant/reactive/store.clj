@@ -126,16 +126,21 @@
    :sync/topics {}
    :sync/sent-tx-id {}
 
+   ;; Tracks streams created by the writer.
+   ;; Only one writer allowed for a given stream-id.
    :stream/session-id {:db/type :db.type/uuid
                        :db/index true}
    :stream/stream-id {:db/unique :db.unique/identity
                       :db/type :db.type/uuid}
    :stream/stream-object {}
 
+   ;; Tracks a read subscription to a stream.
+   ;; There can be multiple readers per stream, but only one reader
+   ;; per event-id.
    :stream-reader/session-id {:db/type :db.type/uuid
                               :db/index true}
-   :stream-reader/stream-id {:db/unique :db.unique/identity
-                             :db/type :db.type/uuid}
+   :stream-reader/stream-id {:db/type :db.type/uuid
+                             :db/index true}
    :stream-reader/user-provided-event-id {:db/index true}
    :stream-reader/session-id+user-provided-event-id {:db/tupleAttrs [:stream-reader/session-id :stream-reader/user-provided-event-id]
                                                      :db/unique :db.unique/identity}

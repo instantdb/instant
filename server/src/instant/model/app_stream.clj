@@ -1,22 +1,17 @@
 (ns instant.model.app-stream
   (:require
    [clojure.string]
-   [honey.sql :as hsql]
    [instant.config :as config]
-   [instant.db.model.attr :as attr-model]
-   [instant.db.model.transaction :as tx-model]
    [instant.db.model.triple :as triple-model]
    [instant.flags :as flags]
    [instant.grpc :as grpc]
    [instant.grpc-client :as grpc-client]
    [instant.jdbc.aurora :as aurora]
-   [instant.jdbc.sql :as sql]
    [instant.model.app-file :as app-file-model]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.store :as rs]
    [instant.storage.coordinator :as storage-coordinator]
    [instant.storage.s3 :as instant-s3]
-   [instant.system-catalog :refer [all-attrs] :rename {all-attrs $system-attrs}]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.async :as ua]
    [instant.util.exception :as ex]
@@ -25,7 +20,7 @@
    (instant.grpc StreamComplete StreamContent StreamError StreamInit StreamRequest)
    (io.grpc Status Status$Code)
    (io.grpc.netty.shaded.io.netty.buffer ByteBufInputStream CompositeByteBuf Unpooled)
-   (io.grpc.stub ServerCallStreamObserver StreamObserver ClientResponseObserver ClientCallStreamObserver)
+   (io.grpc.stub ServerCallStreamObserver StreamObserver ClientResponseObserver)
    (java.nio ByteBuffer)
    (java.util Map)
    (java.util.concurrent ConcurrentHashMap Executors ThreadPoolExecutor LinkedBlockingQueue TimeUnit)
@@ -291,10 +286,17 @@
 
 ;; XXX: Is cascade-delete removing items when you unlink?
 
+;; XXX: Make sure we're discarding partial messages in the offset
+
 ;; Probably need some better handling for errors so that we can determine
 ;; where we are in the stream. I think if we just tell the client to do a restart, then we should be in a good place?
 (defn append
-  "`chunks` should be an array of byte[]"
+  "Runs on the server that holds the subscription.
+   `append` adds the new chunks to the buffer, notifies any sinks of the
+   changes (the sinks will send data to the readers through grpc), and flushes
+   the buffer to a file if we're over the flush limit (1mb by default).
+
+  `chunks` should be an array of byte[]"
   [stream-object chunks done? on-flush-to-file]
   (let [chunks-byte-size (reduce (fn [acc ^bytes chunk]
                                    (+ acc (alength chunk)))
@@ -382,10 +384,14 @@
 
 (defn handle-subscribe
   "Subscribes to a stream-object in the store on this instance.
-   Called from the publisher (the machine that the writer is connected to)."
-  [store ^StreamRequest credits-atom req ^ServerCallStreamObserver observer]
-  ;; XXX: Putting an executor here makes no sense because the server
-  ;;      will always return nil after an onNext
+   Called from the publisher (the machine that the writer is connected to).
+   Has a credit store that keeps track of unacknowledged messages. Each time
+   we send a message to the subscriber, we decrement the credits. Then the subscriber
+   will send back a ping when it handles the message so that we know to increment
+   the credits. The credit system prevents us from overloading a reader. If we run
+   out of credits, we'll send a rate-limit error to the subscriber and it will have
+   its session back off and retry."
+  [store ^StreamRequest credits-atom req ^StreamObserver observer]
   (let [stream-object (rs/get-stream-object-for-subscribe store (:app-id req) (:stream-id req))
         sink-id (random-uuid)
         cleanup (fn []
@@ -423,8 +429,12 @@
         (sink msg)))
     cleanup))
 
-(defn handle-bidi-subscribe [store ^ServerCallStreamObserver observer]
-  (let [credits (atom 1024)
+(defn handle-bidi-subscribe
+  "Sets up the bidirectional stream. Runs on the server that holds the
+   subscription. We use the bidirectional stream to put backpressure
+   on the publisher if it sends messages faster than we can handle them."
+  [store ^ServerCallStreamObserver observer]
+  (let [credits (atom (flags/flag :instant-stream-credits 1024))
         cleanup (promise)]
     (.setOnCancelHandler observer (reify Runnable
                                     (run [_]
@@ -434,7 +444,8 @@
       (onNext [_ v]
         (if (instance? StreamRequest v)
           (deliver cleanup (handle-subscribe store credits v observer))
-          (swap! credits inc)))
+          ;; XXX: Where are our credits going?
+          (tool/inspect (swap! credits inc))))
       (onError [_ t]
         (when (realized? cleanup)
           (@cleanup))
@@ -448,7 +459,9 @@
 (defn server-ify-observer ^ServerCallStreamObserver [^StreamObserver observer on-cancel-atom]
   "Allows us to add an onCancel handler to the observer when we handle it on
    the same machine instead of sending it through GRPC.
-   We need to upgrade it to a ServerCallStreamObserver with support for setOnCancelHandler"
+   We need to upgrade it to a ServerCallStreamObserver with support for setOnCancelHandler.
+   Sets up an executor so that calling `onNext` for a local observer operates the same as
+   if we had sent that observer through the gprc server."
   (let [closed? (atom false)
         check-state (fn []
                       (when @closed?
@@ -562,8 +575,6 @@
         (when msg
           (on-payload msg))))
     (onError [_ t]
-      (tool/def-locals)
-      (def -ttt t)
       (cleanup)
       (let [status (Status/fromThrowable t)]
         (if (and (= (.getCode status) Status$Code/CANCELLED)
@@ -578,12 +589,14 @@
 ;;      instance-id change and when it actually happens
 (defn connect-to-stream [store stream app-id machine-id offset on-payload]
   (tool/def-locals)
-  (let [req (grpc/->StreamRequest app-id (:id stream) offset)
-        use-local? (and (= machine-id config/machine-id)
-                        false
-                        ;; In dev, hit the grpc server half the time to exercise the route
-                        (or (not (config/dev?))
-                            (= 0 (rand-int 2))))
+  (let [channel (grpc-client/grpc-client-for-machine-id machine-id)
+        req (grpc/->StreamRequest app-id (:id stream) offset)
+        use-local? (or (not channel)
+                       (and (= machine-id config/machine-id)
+                            true ;false ;true ;false
+                            ;; In dev, hit the grpc server half the time to exercise the route
+                            (or (not (config/dev?))
+                                (= 0 (rand-int 2)))))
         machine-id-changed (promise)
         cleanup-cbs [(add-machine-id-change-listener (:id stream)
                                                      (fn [_machine-id]
@@ -596,44 +609,33 @@
                   (deliver machine-id-changed false)
                   (doseq [cb cleanup-cbs]
                     (cb)))
-        x-observer (promise)
+        outbound-observer-promise (promise)
         incr-credits (fn []
-                       (when (realized? x-observer)
+                       (when (realized? outbound-observer-promise)
                          (tool/def-locals)
-                         (.onNext ^StreamObserver @x-observer nil)))
-        observer (make-stream-observer app-id (:id stream) {:machine-id-changed machine-id-changed
-                                                            :on-payload on-payload
-                                                            :cleanup cleanup
-                                                            :incr-credits incr-credits})]
+                         (.onNext ^StreamObserver @outbound-observer-promise nil)))
+        stream-observer (make-stream-observer app-id (:id stream) {:machine-id-changed machine-id-changed
+                                                                   :on-payload on-payload
+                                                                   :cleanup cleanup
+                                                                   :incr-credits incr-credits})]
     ;; XXX: make use-local? work
-    (if use-local?
+    (if-not use-local?
+      (let [{:keys [outbound-observer cancel]}
+            (grpc-client/subscribe-to-instant-stream channel req stream-observer)]
+        (deliver outbound-observer-promise outbound-observer)
+        {:cancel cancel})
+
       (let [on-cancel-atom (atom nil)
-            wrapped-observer (server-ify-observer observer on-cancel-atom)]
-        (handle-subscribe store req wrapped-observer)
+            wrapped-observer (server-ify-observer stream-observer on-cancel-atom)
+            outbound-observer (handle-bidi-subscribe store wrapped-observer)]
+        (if channel
+          (.onNext wrapped-observer req)
+          (.onNext wrapped-observer (grpc/->StreamError :instance-missing)))
         {:cancel (fn [reason]
                    ;; Mimic what happens when the grpc client cancels
                    ;; First it fires the onError, then it runs cancel
-                   (.onError observer (-> Status/CANCELLED
-                                          (.withDescription rs/stream-unsubscribe-reason)
-                                          (.asException)))
+                   (.onError stream-observer (-> Status/CANCELLED
+                                                 (.withDescription rs/stream-unsubscribe-reason)
+                                                 (.asException)))
                    (when-let [cancel @on-cancel-atom]
-                     (.run ^Runnable cancel)))})
-      (if-let [channel (grpc-client/grpc-client-for-machine-id machine-id)]
-        (let [{credit-observer :observer
-               cancel :cancel}
-              (grpc-client/subscribe-to-instant-stream channel req observer)]
-          (deliver x-observer credit-observer)
-          {:cancel cancel})
-        ;; Can't find the client, so we'll run this on our own instance and wait for
-        ;; either the client to come back or the stream to move to a new client
-        (let [on-cancel-atom (atom nil)
-              wrapped-observer (server-ify-observer observer on-cancel-atom)]
-          (.onNext wrapped-observer (grpc/->StreamError :instance-missing))
-          {:cancel (fn [reason]
-                     ;; Mimic what happens when the grpc client cancels
-                     ;; First it fires the onError, then it runs cancel
-                     (.onError observer (-> Status/CANCELLED
-                                            (.withDescription rs/stream-unsubscribe-reason)
-                                            (.asException)))
-                     (when-let [cancel @on-cancel-atom]
-                       (.run ^Runnable cancel)))})))))
+                     (.run ^Runnable cancel)))}))))

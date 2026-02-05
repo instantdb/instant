@@ -55,6 +55,7 @@ function createWriteStream({
     abortReason?: string;
   }) => void;
   registerStream: (streamId: string, cbs: WriteStreamCbs) => void;
+  // XXX: Need another callback to unregister the stream when it is closed or aborted
 }): WritableStream<string> {
   // XXX: Do I need the underscores??
   let streamId_: string | null = null;
@@ -304,7 +305,6 @@ function createReadStream({
     controller: ReadableStreamDefaultController<string>,
   ): Promise<{ retryAfter: number } | undefined> {
     const eventId = uuid();
-    // XXX: Ignore anything past our offset
     const streamOpts = { ...(opts || {}), eventId };
     for await (const item of startStream(streamOpts)) {
       if (canceled) {
@@ -318,6 +318,17 @@ function createReadStream({
       if (item.type === 'reconnect') {
         return { retryAfter: 0 };
       }
+
+      if (item.offset > seenOffset) {
+        // XXX: We should try to resubscribe from the offset we know if this
+        //      happens instead of throwing an error
+        console.error('corrupted stream', { item, seenOffset });
+        controller.error(new Error('Stream is corrupted.'));
+        canceled = true;
+        return;
+      }
+
+      let discardLen = seenOffset - item.offset;
 
       if (item.files && item.files.length) {
         const fetchAbort = new AbortController();
@@ -334,24 +345,41 @@ function createReadStream({
 
           // XXX: error handling
           if (res.body) {
-            for await (const chunk of res.body) {
-              // XXX: We may need to discard some of these
-              seenOffset += chunk.length;
-              console.log({ seenOffset });
-              const s = decoder.decode(chunk);
+            for await (const bodyChunk of res.body) {
               if (canceled) {
                 fetchAbort.abort();
                 return;
               }
+              let chunk = bodyChunk;
+              if (discardLen > 0) {
+                chunk = bodyChunk.subarray(discardLen);
+                discardLen -= bodyChunk.length - chunk.length;
+              }
+              if (!chunk.length) {
+                continue;
+              }
+              seenOffset += chunk.length;
+              const s = decoder.decode(chunk);
+
               controller.enqueue(s);
             }
           }
         }
       }
       if (item.content) {
-        seenOffset += encoder.encode(item.content).length;
-        console.log({ seenOffset });
-        controller.enqueue(item.content);
+        let content = item.content;
+        let encoded = encoder.encode(item.content);
+        if (discardLen > 0) {
+          const remaining = encoded.subarray(discardLen);
+          discardLen -= encoded.length - remaining.length;
+          if (!remaining.length) {
+            continue;
+          }
+          encoded = remaining;
+          content = decoder.decode(remaining);
+        }
+        seenOffset += encoded.length;
+        controller.enqueue(content);
       }
     }
   }
@@ -373,8 +401,9 @@ function createReadStream({
         });
       }
     }
-
-    controller.close();
+    if (!canceled) {
+      controller.close();
+    }
   }
   return new RStream<string>({
     start(controller) {

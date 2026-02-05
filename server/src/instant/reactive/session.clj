@@ -790,7 +790,7 @@
                           crypt-util/uuid->sha256
                           crypt-util/bytes->hex-string)
                       (:hashedReconnectToken stream))
-            (ex/throw-validation-err! :reconnect-stream
+            (ex/throw-validation-err! :restart-stream
                                       {:sess-id sess-id
                                        :stream-id stream-id
                                        :reconnect-token reconnect-token}
@@ -865,11 +865,13 @@
         app-id (:id app)
         stream-id (ex/get-optional-param! event [:stream-id] uuid-util/coerce)
         client-id (ex/get-optional-param! event [:client-id] string-util/coerce-non-blank-str)
-        offset (or (ex/get-optional-param! event [:offset] (fn [x]
-                                                             (when (and (integer? x)
-                                                                        (pos? x))
-                                                               x)))
-                   0)
+        requested-offset (or (ex/get-optional-param! event
+                                                     [:offset]
+                                                     (fn [x]
+                                                       (when (and (integer? x)
+                                                                  (pos? x))
+                                                         x)))
+                             0)
         _ (when (and (not stream-id)
                      (not client-id))
             (ex/throw-validation-err! :subscribe-stream
@@ -887,14 +889,25 @@
     (tool/def-locals)
     (cond
       (:done stream)
-      (let [files (app-stream-model/get-stream-files {:app-id app-id
-                                                      :stream-id (:id stream)})]
+      (let [all-files (app-stream-model/get-stream-files {:app-id app-id
+                                                          :stream-id (:id stream)})
+            {:keys [files start-offset]} (if (zero? requested-offset)
+                                           {:files all-files :start-offset 0}
+                                           (reduce (fn [{:keys [files start-offset]} file]
+                                                     (let [next-start-offset (+ start-offset (:size file))]
+                                                       (if (> next-start-offset requested-offset)
+                                                         {:files (conj files file)
+                                                          :start-offset start-offset}
+                                                         {:files files
+                                                          :start-offset next-start-offset})))
+                                                   {:files [] :start-offset 0}
+                                                   all-files))]
         (tool/def-locals)
         (rs/send-event! store app-id sess-id {:op :stream-append
                                               :client-event-id (:client-event-id event)
                                               ;; XXX: filter files before the offset, returned offset may be lower
                                               ;;      than offset, but never higher
-                                              :offset 0
+                                              :offset start-offset
                                               :files (map (fn [file]
                                                             (select-keys file [:id :size :url]))
                                                           files)
@@ -914,7 +927,7 @@
                            stream
                            app-id
                            (parse-uuid (:machineId stream))
-                           offset
+                           requested-offset
                            (fn [payload]
                              (rs/send-event! store
                                              app-id
