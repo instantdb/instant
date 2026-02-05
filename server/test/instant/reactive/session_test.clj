@@ -25,7 +25,8 @@
    [instant.storage.s3 :as s3]
    [instant.util.async :as ua]
    [instant.util.cache :as cache]
-   [instant.util.coll :as ucoll])
+   [instant.util.coll :as ucoll]
+   [instant.util.test :as test-util])
   (:import
    (com.hazelcast.core HazelcastInstance)
    (java.io ByteArrayOutputStream InputStream)
@@ -1088,8 +1089,10 @@
         get-metadata (fn [_bucket key]
                        (tool/def-locals)
                        {:size (alength ^bytes (get @files key))})]
-    (binding [s3/*s3-mock* {:upload upload
-                            :get-object-metadata get-metadata}]
+    (test-util/with-s3-mock {:upload upload
+                             :get-object-metadata get-metadata
+                             :location-id-url (fn [app-id location-id]
+                                                (str "https://example.com/" app-id "/" location-id))}
       (f {:slurp-file (fn [app-id location-id]
                         (-> @files
                             (get (s3/->object-key app-id location-id))

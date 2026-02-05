@@ -189,16 +189,18 @@
     (.toInstant (.truncatedTo now ChronoUnit/DAYS))))
 
 (defn location-id-url [app-id location-id]
-  (let [signing-instant (bucketed-signing-instant)
-        duration (Duration/ofDays 7)
-        object-key (->object-key app-id location-id)]
-    (str (s3-util/generate-presigned-url
-          (presign-creds)
-          {:method :get
-           :bucket-name bucket-name
-           :key object-key
-           :duration duration
-           :signing-instant signing-instant}))))
+  (if-let [mock *s3-mock*]
+    ((:location-id-url *s3-mock*) app-id location-id)
+    (let [signing-instant (bucketed-signing-instant)
+          duration (Duration/ofDays 7)
+          object-key (->object-key app-id location-id)]
+      (str (s3-util/generate-presigned-url
+            (presign-creds)
+            {:method :get
+             :bucket-name bucket-name
+             :key object-key
+             :duration duration
+             :signing-instant signing-instant})))))
 
 (defn create-signed-download-url! [app-id location-id]
   (when location-id
