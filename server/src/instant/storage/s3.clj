@@ -190,7 +190,7 @@
 
 (defn location-id-url [app-id location-id]
   (if-let [mock *s3-mock*]
-    ((:location-id-url *s3-mock*) app-id location-id)
+    ((:location-id-url mock) app-id location-id)
     (let [signing-instant (bucketed-signing-instant)
           duration (Duration/ofDays 7)
           object-key (->object-key app-id location-id)]
