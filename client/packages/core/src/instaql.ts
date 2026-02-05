@@ -4,6 +4,7 @@ import { stringCompare } from './utils/strings.ts';
 import * as s from './store.ts';
 import { InstantDBAttr } from './attrTypes.ts';
 import { Cursor } from './queryTypes.ts';
+import { warningEnabled } from './warningToggle.ts';
 
 type Pat = [string | any, string, string | any, string | number];
 type Pats = Array<Pat>;
@@ -815,7 +816,7 @@ function resolveObjects(
 
   const limit = form.$?.limit || form.$?.first || form.$?.last;
   if (limit != null) {
-    if (level > 0) {
+    if (level > 0 && warningEnabled) {
       console.warn(
         'WARNING: Limits in child queries are only run client-side. Data returned from the server will not have a limit.',
       );
