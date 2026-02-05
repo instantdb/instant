@@ -165,11 +165,39 @@
              files)
      files)))
 
-;; Upload the file, link it to the stream, then do a swap that removes
-;; the buffer chunks, updates the buffer size, and adds the file to the files array
+;; --------------------------------
+;; Listeners for machine-id changes
+
+;; We use the listener to notify the subscribers that the writer may have
+;; returned if the writer has gone away. Also helps us guard against
+;; multiple writers.
+
+(defonce stream-machine-id-listeners (ConcurrentHashMap.))
+
+(defn remove-machine-id-change-listener [stream-id cb-id]
+  (Map/.compute stream-machine-id-listeners stream-id (reify BiFunction
+                                                        (apply [_ _k v]
+                                                          (let [new (dissoc v cb-id)]
+                                                            (when-not (empty? new)
+                                                              new))))))
+
+(defn add-machine-id-change-listener
+  ([stream-id cb]
+   (add-machine-id-change-listener stream-id (random-uuid) cb))
+  ([stream-id cb-id cb]
+   (Map/.compute stream-machine-id-listeners stream-id (reify BiFunction
+                                                         (apply [_ _k v]
+                                                           (assoc v cb-id cb))))
+   (fn []
+     (remove-machine-id-change-listener stream-id cb-id))))
+
+(defn notify-machine-id-changed [stream-id machine-id]
+  (doseq [[_k cb] (Map/.get stream-machine-id-listeners stream-id)]
+    (cb machine-id)))
 
 (defn new-stream-object [app-id stream-id]
   (let [this (promise)
+        cb-id (random-uuid)
         obj (atom {:app-id app-id
                    :stream-id stream-id
                    :buffer []
@@ -180,14 +208,19 @@
                    :$files []
                    :done? false
                    :flush-promise nil
-                   :sinks {}}
+                   :sinks {}
+                   :machine-id-updated false}
                   ;; This is a bit of a hack to allow the store to
                   ;; call cleanup without having to worry about a cyclic dependency
                   ;; between store and app-stream
                   :meta {:cleanup (fn []
+                                    (remove-machine-id-change-listener stream-id cb-id)
                                     ;; XXX: Should we persist the buffer to $file here?
                                     (doseq [[_sink-id sink] (:sinks (-> this deref deref))]
                                       (sink ::disconnect)))})]
+    (add-machine-id-change-listener stream-id cb-id (fn [machine-id]
+                                                      (when (not= machine-id config/machine-id)
+                                                        (swap! obj assoc :machine-id-updated true))))
     (deliver this obj)
     obj))
 
@@ -461,27 +494,6 @@
       (.put buff chunk))
     (String. (.array buff) "UTF-8")))
 
-(defonce stream-machine-id-listeners (ConcurrentHashMap.))
-
-(defn remove-machine-id-change-listener [stream-id cb-id]
-  (Map/.compute stream-machine-id-listeners stream-id (reify BiFunction
-                                                        (apply [_ _k v]
-                                                          (let [new (dissoc v cb-id)]
-                                                            (when-not (empty? new)
-                                                              new))))))
-
-(defn add-machine-id-change-listener [stream-id cb]
-  (let [cb-id (random-uuid)]
-    (Map/.compute stream-machine-id-listeners stream-id (reify BiFunction
-                                                          (apply [_ _k v]
-                                                            (assoc v cb-id cb))))
-    (fn []
-      (remove-machine-id-change-listener stream-id cb-id))))
-
-(defn notify-machine-id-changed [stream-id]
-  (doseq [[_k cb] (Map/.get stream-machine-id-listeners stream-id)]
-    (cb)))
-
 (defn- make-stream-observer
   "The observer runs on the same machine as the reader's session.
    If the observer is too slow, the publisher will send a :rate-limit
@@ -574,7 +586,7 @@
                             (= 0 (rand-int 2))))
         machine-id-changed (promise)
         cleanup-cbs [(add-machine-id-change-listener (:id stream)
-                                                     (fn []
+                                                     (fn [_machine-id]
                                                        (deliver machine-id-changed true)))
                      (if use-local?
                        identity

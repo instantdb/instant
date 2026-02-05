@@ -839,6 +839,16 @@
             (ex/throw-validation-err! :append-stream {:sess-id sess-id
                                                       :stream-id stream-id}
                                       [{:message "Stream is missing."}]))]
+    (tool/def-locals)
+    (when (:machine-id-updated @stream-object)
+      (let [stream (app-stream-model/get-stream {:app-id app-id
+                                                 :stream-id stream-id})]
+        (if (= (str (:machineId stream))
+               (str config/machine-id))
+          (swap! stream-object assoc :machine-id-updated false)
+          (ex/throw-validation-err! :append-stream {:sess-id sess-id
+                                                    :stream-id stream-id}
+                                    [{:message "Stream updated from a different machine."}]))))
     (app-stream-model/append stream-object
                              chunks
                              done?

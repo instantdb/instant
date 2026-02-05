@@ -6,9 +6,7 @@
    [instant.model.app-stream :as app-stream-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
-   [instant.util.json :as json]
-   [instant.system-catalog :as system-catalog]
-   [instant.util.uuid :as uuid-util]))
+   [instant.system-catalog :as system-catalog]))
 
 (defn get-column [columns col-name]
   (reduce (fn [_acc col]
@@ -54,12 +52,22 @@
                                 :id
                                 str))
 
-(defn notify-stream-machine-id-changed [{:keys [identity]}]
-  (let [stream-id (-> identity
+(defn parse-json-uuid [v]
+  (when (and (= 38 (count v))
+             (= \" (first v))
+             (= \" (last v)))
+    (parse-uuid (subs v 1 37))))
+
+(defn notify-stream-machine-id-changed [{:keys [columns]}]
+  (let [stream-id (-> columns
                       (nth 1)
                       :value
                       parse-uuid)]
-    (app-stream-model/notify-machine-id-changed stream-id)))
+    (when-let [machine-id (-> columns
+                              (nth 3)
+                              :value
+                              parse-json-uuid)]
+      (app-stream-model/notify-machine-id-changed stream-id machine-id))))
 
 (defn evict-cache! [wal-record]
   (case (:action wal-record)

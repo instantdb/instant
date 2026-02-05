@@ -67,11 +67,3 @@
       (.setRequestMarshaller nippy-marshaller)
       (.setResponseMarshaller nippy-marshaller)
       (.build)))
-
-;; What's left to be implemented?
-;; 1. The subscribe call
-;;   a. Let's start in the admin SDK or should we start in the client SDK?
-;;     i. I need some way to inform the client that they can discard their cached state
-;;       1. Easy enough with the browser client, harder with the admin client.
-;;         a. I think we should set up an SSE connection on the admin sdk and post messages like we do with the client
-;;         b. Maybe start with the browser client, then?

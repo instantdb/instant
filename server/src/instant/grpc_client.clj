@@ -9,7 +9,7 @@
    (com.hazelcast.cluster Member)
    (instant.grpc StreamRequest)
    (io.grpc CallOptions ConnectivityState Grpc InsecureChannelCredentials ManagedChannel)
-   (io.grpc.stub ClientCalls StreamObserver ClientResponseObserver)
+   (io.grpc.stub ClientCalls StreamObserver)
    (java.util Map)))
 
 ;; WeakMap to store hazelcast-member -> grpc client
@@ -53,7 +53,6 @@
                                                     :machine-id machine-id
                                                     :member (str member)
                                                     :ms-since-update (- now last-update)}}))
-               ;; XXX: stack overflow??
                (remove-client-on-shutdown client member machine-id now)))))))))
 
 (defn grpc-client-for-machine-id [machine-id]
