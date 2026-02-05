@@ -148,7 +148,7 @@
 
 ;; 8 is our custom identifier for StreamComplete, no other type can use it and
 ;; it must be the same across all machines.
-(nippy/extend-freeze StreamComplete 8 [^StreamComplete _ data-output])
+(nippy/extend-freeze StreamComplete 8 [^StreamComplete _ _data-output])
 
-(nippy/extend-thaw 8 [data-input]
+(nippy/extend-thaw 8 [_data-input]
   (instant.grpc/->StreamComplete))

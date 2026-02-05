@@ -262,7 +262,8 @@ export const InnerExplorer: React.FC<{
   const isSystemCatalogNs = selectedNamespace?.name?.startsWith('$') ?? false;
   const sanitizedNsName = selectedNamespace?.name ?? '';
   const readOnlyNs =
-    isSystemCatalogNs && !['$users', '$files', '$streams'].includes(sanitizedNsName);
+    isSystemCatalogNs &&
+    !['$users', '$files', '$streams'].includes(sanitizedNsName);
   const offset = offsets[sanitizedNsName] || 0;
 
   const sortAttr = currentNav?.sortAttr || 'serverCreatedAt';

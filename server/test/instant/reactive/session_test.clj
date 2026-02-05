@@ -1080,7 +1080,7 @@
 (defn with-file-mock [f]
   (let [files (atom {})
         upload (fn [_bucket {:keys [object-key]} file]
-                 (let [ba (with-open [in ^InputStream file
+                 (let [ba (with-open [_in ^InputStream file
                                       out (ByteArrayOutputStream.)]
                             (io/copy file out)
                             (.toByteArray out))]
@@ -1170,8 +1170,7 @@
           (fn [store {:keys [socket movies-app-id]}]
             (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
             (let [event-id (random-uuid)
-                  {:keys [stream-id
-                          reconnect-token]}
+                  {:keys [stream-id]}
                   (blocking-send-msg :create-stream-ok socket {:op :create-stream
                                                                :client-event-id event-id
                                                                :client-id "stream-1"})
@@ -1216,7 +1215,7 @@
               (is (= offset 14))
               (is (= done true))
               (is (= 3 (count stream-files)))
-              _ (is (= "HelloWorldBye!" (read-full-stream store movies-app-id stream-id slurp-file)))
+              (is (= "HelloWorldBye!" (read-full-stream store movies-app-id stream-id slurp-file)))
               (is (= "Bye!" (slurp-file movies-app-id (:location-id (last stream-files))))))))))))
 
 (deftest streams-writer-can-restart

@@ -23,7 +23,6 @@
    [instant.lib.ring.sse :as sse]
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
-   [instant.model.app-file :as app-file-model]
    [instant.model.app-stream :as app-stream-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.instant-user :as instant-user-model]
@@ -737,10 +736,10 @@
 ;;      if the machine_id was the wrong machine_id, which we could do, but only if we
 ;;      do some terrible hack. Plus we need more than the machine_id, we also need the session_id
 ;;        -- the store can prevent two streams on the same machine_id
-(defn handle-create-stream! [store sess-id {:keys [client-id client-event-id] :as event}]
+(defn handle-create-stream! [store sess-id {:keys [client-id client-event-id] :as _event}]
   (tool/def-locals)
   ;; XXX: add a listener to the wal that will do something if the machine-id changes
-  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+  (let [{:keys [app]} (get-auth! store sess-id)
         app-id (:id app)
         ;; Important that we choose the stream-id or else the client
         ;; could start sending appends before we've set up the stream.
@@ -770,7 +769,7 @@
    which happens during a deploy if their device temporarily goes offline."
   [store sess-id {:keys [client-event-id] :as event}]
   (tool/def-locals)
-  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+  (let [{:keys [app]} (get-auth! store sess-id)
         app-id (:id app)
         stream-id (ex/get-param! event [:stream-id] uuid-util/coerce)
         stream (app-stream-model/get-stream {:app-id app-id
@@ -817,7 +816,7 @@
 
 (defn handle-append-stream! [store sess-id event]
   (tool/def-locals)
-  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+  (let [{:keys [app]} (get-auth! store sess-id)
         app-id (:id app)
         stream-id (ex/get-param! event [:stream-id] uuid-util/coerce)
         done? (ex/get-optional-param! event [:done] (fn [done]
@@ -861,7 +860,7 @@
                                    nil))))))
 
 (defn handle-subscribe-stream! [store sess-id event]
-  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+  (let [{:keys [app]} (get-auth! store sess-id)
         app-id (:id app)
         stream-id (ex/get-optional-param! event [:stream-id] uuid-util/coerce)
         client-id (ex/get-optional-param! event [:client-id] string-util/coerce-non-blank-str)
@@ -949,7 +948,7 @@
       :else nil)))
 
 (defn handle-unsubscribe-stream! [store sess-id event]
-  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+  (let [{:keys [app]} (get-auth! store sess-id)
         app-id (:id app)
         subscribe-event-id (ex/get-optional-param! event
                                                    [:subscribe-event-id]

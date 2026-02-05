@@ -30,7 +30,7 @@
    (java.time Duration Instant)
    (java.util Map Map$Entry)
    (java.util.function BiFunction)
-   (java.util.concurrent Future ConcurrentMap ConcurrentHashMap)
+   (java.util.concurrent Future ConcurrentHashMap)
    (javax.management ObjectName)))
 
 ;; ------

@@ -80,10 +80,16 @@ function Writer({
         const chunk = 'x'.repeat(chunkSize) + '\n';
         try {
           await writerRef.current.write(chunk);
-          setSentLines((prev) => [...prev, `chunk ${i + 1}/${totalChunks} (200KB)`]);
+          setSentLines((prev) => [
+            ...prev,
+            `chunk ${i + 1}/${totalChunks} (200KB)`,
+          ]);
         } catch (e: any) {
           setError(e.message);
-          setStatusLog((prev) => [...prev, `Write error on chunk ${i + 1}: ${e.message}`]);
+          setStatusLog((prev) => [
+            ...prev,
+            `Write error on chunk ${i + 1}: ${e.message}`,
+          ]);
           setAuto1MB(false);
           return;
         }
@@ -116,19 +122,16 @@ function Writer({
     }
   }, [db, clientId]);
 
-  const writeChunk = useCallback(
-    async (chunk: string) => {
-      if (!writerRef.current) return;
-      try {
-        await writerRef.current.write(chunk + '\n');
-        setSentLines((prev) => [...prev, chunk]);
-      } catch (e: any) {
-        setError(e.message);
-        setStatusLog((prev) => [...prev, `Write error: ${e.message}`]);
-      }
-    },
-    [],
-  );
+  const writeChunk = useCallback(async (chunk: string) => {
+    if (!writerRef.current) return;
+    try {
+      await writerRef.current.write(chunk + '\n');
+      setSentLines((prev) => [...prev, chunk]);
+    } catch (e: any) {
+      setError(e.message);
+      setStatusLog((prev) => [...prev, `Write error: ${e.message}`]);
+    }
+  }, []);
 
   const closeStream = useCallback(async () => {
     if (!writerRef.current) return;
@@ -253,7 +256,9 @@ function Writer({
             </button>
             <button
               className="rounded bg-gray-700 px-3 py-1 text-sm text-white"
-              onClick={() => writeChunk('The quick brown fox jumps over the lazy dog.')}
+              onClick={() =>
+                writeChunk('The quick brown fox jumps over the lazy dog.')
+              }
             >
               "The quick brown fox..."
             </button>
@@ -275,10 +280,16 @@ function Writer({
                   const chunk = 'x'.repeat(chunkSize) + '\n';
                   try {
                     await writerRef.current.write(chunk);
-                    setSentLines((prev) => [...prev, `chunk ${i + 1}/${totalChunks} (200KB)`]);
+                    setSentLines((prev) => [
+                      ...prev,
+                      `chunk ${i + 1}/${totalChunks} (200KB)`,
+                    ]);
                   } catch (e: any) {
                     setError(e.message);
-                    setStatusLog((prev) => [...prev, `Write error on chunk ${i + 1}: ${e.message}`]);
+                    setStatusLog((prev) => [
+                      ...prev,
+                      `Write error on chunk ${i + 1}: ${e.message}`,
+                    ]);
                     break;
                   }
                 }
@@ -406,9 +417,9 @@ function Reader({
   defaultClientId: string;
 }) {
   const [clientId, setClientId] = useState(defaultClientId);
-  const [status, setStatus] = useState<
-    'idle' | 'reading' | 'done' | 'error'
-  >('idle');
+  const [status, setStatus] = useState<'idle' | 'reading' | 'done' | 'error'>(
+    'idle',
+  );
   const [error, setError] = useState<string | null>(null);
   const [lines, setLines] = useState<string[]>([]);
   const [elapsed, setElapsed] = useState<number | null>(null);
@@ -577,11 +588,7 @@ function Reader({
   );
 }
 
-function App({
-  db,
-}: {
-  db: InstantReactAbstractDatabase<typeof schema>;
-}) {
+function App({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
   const [clientId, setClientId] = useState(() => randomUUID());
 
   return (

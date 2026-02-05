@@ -20,10 +20,10 @@
    (instant.grpc StreamComplete StreamContent StreamError StreamInit StreamRequest)
    (io.grpc Status Status$Code)
    (io.grpc.netty.shaded.io.netty.buffer ByteBufInputStream CompositeByteBuf Unpooled)
-   (io.grpc.stub ServerCallStreamObserver StreamObserver ClientResponseObserver)
+   (io.grpc.stub ServerCallStreamObserver StreamObserver)
    (java.nio ByteBuffer)
    (java.util Map)
-   (java.util.concurrent ConcurrentHashMap Executors ThreadPoolExecutor LinkedBlockingQueue TimeUnit)
+   (java.util.concurrent ConcurrentHashMap Executors)
    (java.util.function BiFunction)))
 
 (def etype "$streams")
@@ -136,7 +136,8 @@
   ([params] (get-stream-files (aurora/conn-pool :read) params))
   ([conn {:keys [app-id stream-id]}]
    ;; XXX: Prevent changing the path when it starts or ends with $stream
-   (let [files (->> (app-file-model/get-where {:app-id app-id
+   (let [files (->> (app-file-model/get-where conn
+                                              {:app-id app-id
                                                :where {"$stream" stream-id}})
                     (map (fn [f]
                            (assoc f :part-num (extract-part-num stream-id (:path f)))))
@@ -353,7 +354,7 @@
   "Initial stream init message when the reader reconnects.
    The reader will provide an offset and we can avoid resending
    data that it already has."
-  [requested-offset {:keys [$files buffer buffser-size-offset]}]
+  [requested-offset {:keys [$files buffer]}]
   (let [{:keys [files start-offset]}
         (reduce (fn [{:keys [files start-offset]} file]
                   (let [next-start-offset (+ start-offset (:size file))]
@@ -456,12 +457,13 @@
         (when (realized? cleanup)
           (@cleanup))))))
 
-(defn server-ify-observer ^ServerCallStreamObserver [^StreamObserver observer on-cancel-atom]
+(defn server-ify-observer
   "Allows us to add an onCancel handler to the observer when we handle it on
    the same machine instead of sending it through GRPC.
    We need to upgrade it to a ServerCallStreamObserver with support for setOnCancelHandler.
    Sets up an executor so that calling `onNext` for a local observer operates the same as
    if we had sent that observer through the gprc server."
+  ^ServerCallStreamObserver [^StreamObserver observer on-cancel-atom]
   (let [closed? (atom false)
         check-state (fn []
                       (when @closed?
@@ -593,7 +595,7 @@
         req (grpc/->StreamRequest app-id (:id stream) offset)
         use-local? (or (not channel)
                        (and (= machine-id config/machine-id)
-                            true ;false ;true ;false
+                            true        ;false ;true ;false
                             ;; In dev, hit the grpc server half the time to exercise the route
                             (or (not (config/dev?))
                                 (= 0 (rand-int 2)))))
@@ -626,8 +628,8 @@
         {:cancel cancel})
 
       (let [on-cancel-atom (atom nil)
-            wrapped-observer (server-ify-observer stream-observer on-cancel-atom)
-            outbound-observer (handle-bidi-subscribe store wrapped-observer)]
+            wrapped-observer (server-ify-observer stream-observer on-cancel-atom)]
+        (handle-bidi-subscribe store wrapped-observer)
         (if channel
           (.onNext wrapped-observer req)
           (.onNext wrapped-observer (grpc/->StreamError :instance-missing)))
@@ -635,7 +637,7 @@
                    ;; Mimic what happens when the grpc client cancels
                    ;; First it fires the onError, then it runs cancel
                    (.onError stream-observer (-> Status/CANCELLED
-                                                 (.withDescription rs/stream-unsubscribe-reason)
+                                                 (.withDescription reason)
                                                  (.asException)))
                    (when-let [cancel @on-cancel-atom]
                      (.run ^Runnable cancel)))}))))

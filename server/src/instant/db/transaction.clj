@@ -223,7 +223,7 @@
     (ex/throw-validation-err!
      :app
      app-id
-     [{:message (format "You can't make updates to this app.")}])))
+     [{:message "You can't make updates to this app."}])))
 
 (defn resolve-lookups
   "Given [[attr-id value] [attr-id value] ...],

@@ -8,12 +8,10 @@
    (com.hazelcast.config GlobalSerializerConfig SerializerConfig)
    (com.hazelcast.map IMap)
    (com.hazelcast.nio.serialization ByteArraySerializer)
-   (instant.isn ISN)
    (java.io DataInputStream ByteArrayInputStream)
    (java.nio ByteBuffer)
    (java.util UUID)
-   (java.util.function BiFunction)
-   (org.postgresql.replication LogSequenceNumber)))
+   (java.util.function BiFunction)))
 
 ;; Be careful when you update the records and serializers in this
 ;; namespace. Hazelcast shares them across the fleet, so they must be
