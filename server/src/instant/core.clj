@@ -46,7 +46,6 @@
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
    [instant.stripe-webhook :as stripe-webhook]
-   [instant.stripe-connect :as stripe-connect]
    [instant.superadmin.routes :as superadmin-routes]
    [instant.system-catalog-migration :refer [ensure-attrs-on-system-catalog-app]]
    [instant.util.async :as ua]
@@ -100,8 +99,7 @@
        (.format rfc822Formatter date))}))
 
 (defroutes stripe-webhook-routes
-  (POST "/hooks/stripe" [] stripe-webhook/webhook)
-  (POST "/hooks/stripe_connect" [] stripe-connect/webhook-handler))
+  (POST "/hooks/stripe" [] stripe-webhook/webhook))
 
 (defroutes generic-webhook-routes
   (POST "/hooks/honeycomb/exceptions" [] honeycomb-api/webhook))
