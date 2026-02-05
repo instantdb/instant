@@ -54,10 +54,23 @@ export const scaffoldBaseAndEdit = async (
     }
   }
 
-  await scaffoldBaseCode({
+  const result = scaffoldBaseCode({
     projectDir,
     baseTemplateName: cliResults.base,
   });
+
+  const scaffoldedName =
+    cliResults.appName === '.'
+      ? 'App'
+      : chalk.hex('#EA570B').bold(cliResults.appName);
+  await renderUnwrap(
+    new UI.Spinner({
+      promise: result,
+      workingText: `Scaffolding project files...`,
+      doneText: `Successfully scaffolded ${scaffoldedName}!`,
+      modifyOutput: UI.ciaModifier(null),
+    }),
+  );
 
   if (fs.pathExistsSync(path.join(projectDir, 'pnpm-lock.yaml'))) {
     fs.removeSync(path.join(projectDir, 'pnpm-lock.yaml'));
@@ -97,16 +110,6 @@ enable-pre-post-scripts=true`,
       `"${appDir}"`,
     );
   }
-
-  const scaffoldedName =
-    cliResults.appName === '.'
-      ? 'App'
-      : chalk.hex('#EA570B').bold(cliResults.appName);
-
-  UI.log(
-    chalk.dim(`${scaffoldedName} scaffolded successfully!`),
-    UI.ciaModifier(null),
-  );
 
   return projectDir;
 };
