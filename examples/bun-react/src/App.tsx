@@ -71,6 +71,7 @@ function TodoForm() {
         className="flex-1 h-full"
         onSubmit={(e) => {
           e.preventDefault();
+          if (!text) return;
           addTodo(text);
           setText("");
         }}
