@@ -1,5 +1,7 @@
 # Welcome to your InstantDB Vanilla JS app 👋
 
+[InstantDB Docs](https://www.instantdb.com/docs)
+
 This is a Vite project scaffolded with create-instant-app.
 
 To run the development server:
@@ -13,3 +15,5 @@ To pull schema changes:
 
 
 Got any feedback or questions? Join our [Discord](https://discord.gg/hgVf9R6SBm)
+
+Using AI? Add the Instant LLM Rules to your repo with: `npx skills add instantdb/skills`
