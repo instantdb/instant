@@ -78,9 +78,15 @@
                                  :receive-q        receive-q
                                  :ping-job         (future)
                                  :pending-handlers (session/create-pending-handlers)}
+                socket-3        {:id               (random-uuid)
+                                 :ws-conn          (a/chan 100)
+                                 :receive-q        receive-q
+                                 :ping-job         (future)
+                                 :pending-handlers (session/create-pending-handlers)}
                 query-reactive  rq/instaql-query-reactive!]
             (session/on-open store socket)
             (session/on-open store socket-2)
+            (session/on-open store socket-3)
 
             (binding [*store*                 store
                       *instaql-query-results* (atom {})]
@@ -97,6 +103,7 @@
                 (try
                   (f store {:socket   socket
                             :socket-2 socket-2
+                            :socket-3 socket-3
                             :movies-app-id movies-app-id
                             :movies-resolver movies-resolver
                             :zeneca-app-id zeneca-app-id
@@ -1217,9 +1224,10 @@
     (with-file-mock
       (fn [{:keys [slurp-file]}]
         (with-session
-          (fn [store {:keys [socket socket-2 movies-app-id]}]
+          (fn [store {:keys [socket socket-2 socket-3 movies-app-id]}]
             (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
             (blocking-send-msg :init-ok socket-2 {:op :init :app-id movies-app-id})
+            (blocking-send-msg :init-ok socket-3 {:op :init :app-id movies-app-id})
             (let [event-id (random-uuid)
                   {:keys [stream-id
                           reconnect-token]}
@@ -1251,5 +1259,27 @@
                   {:keys [offset]}
                   (blocking-send-msg :restart-stream-ok socket-2 {:op :restart-stream
                                                                   :stream-id (str stream-id)
-                                                                  :reconnect-token (str reconnect-token)})]
-              (is (= offset 5)))))))))
+                                                                  :reconnect-token (str reconnect-token)})
+                  _ (is (= offset 5))
+
+                  _ (send-msg socket-2 {:op :append-stream
+                                        :stream-id (str stream-id)
+                                        :chunks ["DEF"]
+                                        :offset 5})
+                  _ (is (= "HelloDEF" (read-full-stream store movies-app-id stream-id slurp-file)))]
+
+              (testing "if someone steals our session, we can't write to it"
+                (blocking-send-msg :restart-stream-ok socket-3 {:op :restart-stream
+                                                                :stream-id (str stream-id)
+                                                                :reconnect-token (str reconnect-token)})
+                (blocking-send-msg :error socket-2 {:op :append-stream
+                                                    :stream-id (str stream-id)
+                                                    :chunks ["DEF"]
+                                                    :offset 5})
+
+                ;; socket-3 can write to it now
+                (send-msg socket-3 {:op :append-stream
+                                    :stream-id (str stream-id)
+                                    :chunks ["DEF"]
+                                    :offset 5})
+                (is (= "HelloDEF" (read-full-stream store movies-app-id stream-id slurp-file)))))))))))

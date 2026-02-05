@@ -801,7 +801,6 @@
         stream-object (app-stream-model/new-stream-object-from-stream app-id stream)
         offset (:buffer-byte-offset @stream-object)
 
-        ;; XXX: Make sure you can't register two on the same machine
         _ (rs/register-stream store app-id sess-id stream-object)
         _tx-res (try
                   (app-stream-model/update-machine-id!
