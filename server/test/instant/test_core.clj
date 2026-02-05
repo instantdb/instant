@@ -56,21 +56,21 @@
                      (get file-map (:file m))
                      (:line m)
                      (format-ga-message
-                       (format "%s in %s (%s:%d)\n%sexpected: %s\n  actual: %s"
-                               (case (:type m)
-                                 :fail "FAIL"
-                                 :error "ERROR")
-                               (-> @state
-                                   :testing-var
-                                   meta
-                                   :name)
-                               (:file m)
-                               (:line m)
-                               (if-let [msg (:message m)]
-                                 (str msg "\n")
-                                 "")
-                               (:expected m)
-                               (:actual m)))))))
+                      (format "%s in %s (%s:%d)\n%sexpected: %s\n  actual: %s"
+                              (case (:type m)
+                                :fail "FAIL"
+                                :error "ERROR")
+                              (-> @state
+                                  :testing-var
+                                  meta
+                                  :name)
+                              (:file m)
+                              (:line m)
+                              (if-let [msg (:message m)]
+                                (str msg "\n")
+                                "")
+                              (:expected m)
+                              (:actual m)))))))
 
 (deftype ActionsTestReporter [state file-map]
   report/TestReporter
@@ -140,7 +140,7 @@
               (assoc acc (:var row) (:elapsed row)))
             {}
             (:timings
-              (<-json (slurp "timings/timings.json") true)))
+             (<-json (slurp "timings/timings.json") true)))
     (catch FileNotFoundException _e
       (println "no timings.json file")
       nil)))
@@ -311,10 +311,10 @@
 
 (defn -main+ [_]
   (setup-teardown
-    (fn []
-      (clojure+.error/install!)
-      (clojure+.print/install!)
-      (clojure+.test/install!)
-      (reload/init {:dirs ["src" "test"], :output :quieter})
-      (reload/reload {:only #"instant\..*-test"})
-      (clojure+.test/run))))
+   (fn []
+     (clojure+.error/install!)
+     (clojure+.print/install!)
+     (clojure+.test/install!)
+     (reload/init {:dirs ["src" "test"], :output :quieter})
+     (reload/reload {:only #"instant\..*-test"})
+     (clojure+.test/run))))

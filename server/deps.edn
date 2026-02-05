@@ -12,6 +12,7 @@
         org.clojure/clojure {:mvn/version "1.12.0"}
         org.clojure/core.async {:mvn/version "1.6.673"}
         org.clojure/tools.logging {:mvn/version "1.3.0"}
+        org.clojure/tools.cli {:mvn/version "1.1.230"}
         com.github.ben-manes.caffeine/caffeine {:mvn/version "3.2.2"}
         org.postgresql/postgresql {:mvn/version "42.7.3"}
         ring-cors/ring-cors {:mvn/version "0.1.13"}
@@ -143,8 +144,7 @@
                    :ns-default build}
            :test {:extra-paths ["test" "dev-resources"]
                   :extra-deps {io.github.tonsky/clj-reload {:mvn/version "0.9.4"}
-                               zprint/zprint               {:mvn/version "1.2.9"}
-                               org.clojure/tools.cli       {:mvn/version "1.1.230"}}
+                               zprint/zprint               {:mvn/version "1.2.9"}}
                   :main-opts ["-m" "instant.test-core"]
                   :jvm-opts ["-Dinstant.env=test"
                              "-XX:+UseZGC"
