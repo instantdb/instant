@@ -9,7 +9,7 @@ GPT 5.3 Codex and Claude Opus 4.6 shipped within minutes of eachother. How well 
 We tried and found out. Here's how the gameplay feels:
 
 <iframe
-  src="https://player.mux.com/w8hs9hQH902Vd01GU7zluTWVidil02BuV5opvzIz1XWc600?metadata-video-title=cs_bench_feb&video-title=cs_bench_feb"
+  src="https://player.mux.com/w8hs9hQH902Vd01GU7zluTWVidil02BuV5opvzIz1XWc600?metadata-video-title=cs_bench_feb&video-title=cs_bench_feb&thumbnail-time=9"
   style="width: 100%; border: none; aspect-ratio: 167/108;"
   allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
   allowfullscreen
