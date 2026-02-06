@@ -1,0 +1,66 @@
+{
+  "name": "@instantdb/solidjs",
+  "type": "module",
+  "version": "0.0.0",
+  "description": "SolidJS client for InstantDB",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/solidjs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "check": "tsc --noEmit",
+    "check-exports": "attw --pack .",
+    "build:tshy": "tshy",
+    "build:standalone": "vite build",
+    "build": "rm -rf dist; npm run build:tshy && npm run build:standalone && npm run check-exports",
+    "dev:module": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
+    "dev:main": "tsc --watch --preserveWatchOutput -p tsconfig.cjs.dev.json",
+    "dev": "run-p dev:module dev:main",
+    "publish-package": "pnpm pack && npm publish *.tgz --access public"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    }
+  },
+  "tshy": {
+    "selfLink": false,
+    "main": true,
+    "module": true,
+    "project": "./tsconfig.json",
+    "exports": {
+      "./package.json": "./package.json",
+      ".": "./src/index.ts"
+    }
+  },
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "module": "./dist/esm/index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "tshy": "^3.0.2",
+    "@arethetypeswrong/cli": "^0.17.4",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.0.0",
+    "vite": "^5.2.0"
+  },
+  "peerDependencies": {
+    "solid-js": ">=1.0.0"
+  },
+  "dependencies": {
+    "@instantdb/core": "workspace:*",
+    "@instantdb/version": "workspace:*"
+  }
+}
