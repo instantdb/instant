@@ -39,16 +39,15 @@ In just about every prompt GPT 5.3 Codex finished in about half the time. This c
 But perhaps the upfront research came to good use, because Claude Opus 4.6 beat out GPT 5.3 Codex on all prompts but one (and the last one was a tie).
 
 |                     | GPT 5.3 Codex | Claude Opus 4.6 |
-| ------------------- | ------------- | ---------------- |
-| **Frontend**        |               |                  |
-| Boxes + Physics     | 🥈            | 🥇               |
-| Gun + Creativity    | 🥈            | 🥇               |
-| Sounds + Animations | 🥈            | 🥇               |
-| **Backend**         |               |                  |
-| Multiplayer         | 🥈            | 🥇               |
-| Maps                | 🥈            | 🥇               |
-| **Bonus**           | 🤝            | 🤝               |
-
+| ------------------- | ------------- | --------------- |
+| **Frontend**        |               |                 |
+| Boxes + Physics     | 🥈            | 🥇              |
+| Gun + Creativity    | 🥈            | 🥇              |
+| Sounds + Animations | 🥈            | 🥇              |
+| **Backend**         |               |                 |
+| Multiplayer         | 🥈            | 🥇              |
+| Maps                | 🥈            | 🥇              |
+| **Bonus**           | 🤝            | 🤝              |
 
 Claude drew more interesting maps. Claude made a nicer weapon. The gameplay UI was much nicer on Claude's first try.
 
@@ -58,7 +57,7 @@ At this point, neither model had issues drawing out the UI, setting up the backe
 
 For example, Claude generated maps where players could end up stuck. Here's Claude's "inferno valley" and "nuke zone" produced 4-wall obstacles in the center:
 
- ![](/posts/cs_feb/maps.png?lightbox)
+![](/posts/cs_feb/maps.png?lightbox)
 
 There would be no way for users to leave. Codex also had trouble with direction. The enemy's "point of view" was coming out from the back of their had, rather than the front.
 
