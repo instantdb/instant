@@ -1,5 +1,5 @@
 ---
-title: 'GPT 5.3 Codex and Claude Opus 4.6 build Counter-Strike'
+title: 'Counter-Strike Bench: GPT 5.3 Codex vs Claude Opus 4.6'
 date: '2026-2-5'
 authors: stopachka
 ---
