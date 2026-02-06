@@ -151,6 +151,7 @@ function createWriteStream({
         if (opts?.clientId) {
           startOpts.clientId = opts.clientId;
         }
+        console.log('STARTING STREAM', opts);
         const { streamId, reconnectToken } = await startStream(startOpts);
         registerStream(streamId, {
           onDisconnect,
@@ -563,11 +564,16 @@ export class InstantStream {
         resolve = r;
       });
     this.startStreamCbs[eventId] = resolve!;
+    // XXX: Maybe we should generate the reconnect-token so that we can
+    //      restart the stream even if we lose the `ok` message from the server
     const msg: CreateStreamMsg = { op: 'create-stream' };
     if (opts?.clientId) {
       msg['client-id'] = opts.clientId;
     }
-    this.trySend(eventId, msg);
+    // XXX: HACK
+    setTimeout(() => {
+      this.trySend(eventId, msg);
+    }, 500);
     return promise;
   }
 
@@ -747,6 +753,7 @@ export class InstantStream {
   }
 
   onConnectionStatusChange(status) {
+    console.log('status change', status);
     if (status !== STATUS.AUTHENTICATED) {
       for (const { onDisconnect } of Object.values(this.writeStreams)) {
         onDisconnect();
@@ -769,5 +776,10 @@ export class InstantStream {
 
   onRecieveError(msg: any) {
     console.error('receive error', msg);
+  }
+
+  close() {
+    // XXX: cleanup all of the resources, tell all of the
+    //      readers and writers to close
   }
 }

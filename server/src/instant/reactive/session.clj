@@ -1370,13 +1370,14 @@
                                         :machine-id config/machine-id
                                         :sse-token sse-token})
 
-                   (receive-queue/put! receive-q
-                                       {:op :add-query
-                                        :session-id id
-                                        :client-event-id (random-uuid)
-                                        :q (:query ctx)
-                                        :inference? (:inference? ctx)
-                                        :return-type :tree})))
+                   (when (:query ctx)
+                     (receive-queue/put! receive-q
+                                         {:op :add-query
+                                          :session-id id
+                                          :client-event-id (random-uuid)
+                                          :q (:query ctx)
+                                          :inference? (:inference? ctx)
+                                          :return-type :tree}))))
       :on-close (fn [_]
                   (on-close store
                             {:id id
@@ -1450,7 +1451,8 @@
 ;; XXX: Test combine
 (defmethod combine [:append-stream :append-stream] [event1 event2]
   (-> event2
-      (update :chunks into (:chunks event1))
+      (update :chunks (fn [new-chunks]
+                        (into (:chunks event1) new-chunks)))
       (assoc :offset (:offset event1))))
 
 (defn process [group-key event]

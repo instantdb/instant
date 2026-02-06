@@ -8,7 +8,9 @@ function isVisibleAttr(attr: DBAttr) {
   return (
     attr.catalog !== 'system' ||
     namespace === '$users' ||
-    namespace === '$files'
+    namespace === '$files' ||
+    // XXX: only if they have streams??
+    namespace === '$streams'
   );
 }
 

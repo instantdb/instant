@@ -120,7 +120,11 @@ import type {
 
 import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
 import { InstantError } from './InstantError.ts';
-import { EventSourceType } from './Connection.ts';
+import {
+  SSEConnection,
+  EventSourceType,
+  type EventSourceConstructor,
+} from './Connection.ts';
 import { CallbackEventType as SyncTableCallbackEventType } from './SyncTable.ts';
 import type {
   SyncTableCallback,
@@ -131,6 +135,7 @@ import type {
   LoadFromStorage as SyncTableLoadFromStorage,
   SetupError as SyncTableSetupError,
 } from './SyncTable.ts';
+import { InstantStream } from './Stream.ts';
 
 const defaultOpenDevtool = true;
 
@@ -1027,8 +1032,13 @@ export {
   type DeleteFileResponse,
 
   // SSE
+  SSEConnection,
   type EventSourceType,
   type FrameworkConfig,
+  type EventSourceConstructor,
+
+  // streams
+  InstantStream,
 
   // sync table types
   type SyncTableCallback,

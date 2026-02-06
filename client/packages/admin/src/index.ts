@@ -70,6 +70,10 @@ import {
   validateQuery,
   validateTransactions,
   createInstantRouteHandler,
+  SSEConnection,
+  InstantStream,
+  EventSourceConstructor,
+  EventSourceType,
 } from '@instantdb/core';
 
 import version from './version.ts';
@@ -80,8 +84,10 @@ import {
   SubscribeQueryResponse,
   SubscribeQueryPayload,
   SubscriptionReadyState,
+  multiReadFetchResponse,
 } from './subscribe.ts';
 import { parseCookie } from 'cookie';
+import { EventSource } from 'eventsource';
 
 type DebugCheckResult = {
   /** The ID of the record. */
@@ -112,6 +118,7 @@ export type InstantConfig<
   schema?: Schema;
   useDateObjects: UseDates;
   disableValidation?: boolean;
+  verbose?: boolean;
 };
 
 type InstantConfigFilled<
@@ -266,6 +273,83 @@ async function jsonFetch(
   }
 
   return jsonReject((x) => Promise.reject(x), res);
+}
+
+function makeEventSourceWrapper(opts: {
+  headers: HeadersInit;
+  inference: boolean;
+}): EventSourceConstructor {
+  return class EventSourceWrapper {
+    source: EventSource;
+    static OPEN = EventSource.OPEN;
+    static CONNECTING = EventSource.CONNECTING;
+    static CLOSED = EventSource.CLOSED;
+    readonly url: string;
+
+    constructor(url: string) {
+      this.url = url;
+      this.source = this.#createEventSource(url);
+    }
+
+    get onopen(): EventSourceType['onopen'] {
+      return this.source.onopen;
+    }
+    set onopen(fn: EventSourceType['onopen']) {
+      this.source.onopen = fn;
+    }
+
+    get onmessage(): EventSourceType['onmessage'] {
+      return this.source.onmessage;
+    }
+    set onmessage(fn: EventSourceType['onmessage']) {
+      this.source.onmessage = fn;
+    }
+
+    get onerror(): EventSourceType['onerror'] {
+      return this.source.onerror;
+    }
+    set onerror(fn: EventSourceType['onerror']) {
+      this.source.onerror = fn;
+    }
+
+    public get readyState() {
+      return this.source.readyState;
+    }
+
+    public close() {
+      this.source.close();
+    }
+
+    #createEventSource(url: string): EventSource {
+      // XXX: What do we do with fetchErrorResponse??
+      let fetchErrorResponse;
+
+      const es = new EventSource(url, {
+        fetch(input, init) {
+          fetchErrorResponse = null;
+          console.log('fetch', input);
+          return fetch(input, {
+            ...init,
+            method: 'POST',
+            headers: opts.headers,
+            body: JSON.stringify({
+              'inference?': opts.inference,
+              versions: {
+                '@instantdb/admin': version,
+                '@instantdb/core': coreVersion,
+              },
+            }),
+          }).then((r) => {
+            if (!r.ok) {
+              fetchErrorResponse = multiReadFetchResponse(r);
+            }
+            return r;
+          });
+        },
+      });
+      return es;
+    }
+  };
 }
 
 /**
@@ -860,6 +944,20 @@ type AdminQueryOpts = {
   fetchOpts?: RequestInit;
 };
 
+interface Logger {
+  info: (...args: any[]) => void;
+  debug: (...args: any[]) => void;
+  error: (...args: any[]) => void;
+}
+
+function createLogger(isEnabled: boolean): Logger {
+  return {
+    info: isEnabled ? (...args: any[]) => console.info(...args) : () => {},
+    debug: isEnabled ? (...args: any[]) => console.debug(...args) : () => {},
+    error: isEnabled ? (...args: any[]) => console.error(...args) : () => {},
+  };
+}
+
 /**
  *
  * The first step: init your application!
@@ -883,6 +981,10 @@ class InstantAdminDatabase<
   rooms: Rooms<Schema>;
   impersonationOpts?: ImpersonationOpts;
 
+  #sseConnection: SSEConnection | null = null;
+  #instantStream: InstantStream | null = null;
+  #log: Logger;
+
   public tx = txInit<NonNullable<Schema>>();
 
   constructor(_config: Config) {
@@ -890,7 +992,113 @@ class InstantAdminDatabase<
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config, this.impersonationOpts);
     this.rooms = new Rooms<Schema>(this.config);
+    console.log(!!this.config.verbose);
+    this.#log = createLogger(!!this.config.verbose);
   }
+
+  #setupSSEConnection() {
+    if (this.#sseConnection) {
+      this.#sseConnection.close();
+    }
+    const headers: HeadersInit = {
+      // XXX: Do we need to accept additional headers??
+      ...authorizedHeaders(this.config, this.impersonationOpts),
+    };
+
+    const inference = !!this.config.schema;
+
+    const ES = makeEventSourceWrapper({ headers, inference });
+    const conn = new SSEConnection(
+      ES,
+      `${this.config.apiURI}/admin/sse?app_id=${this.config.appId}`,
+      `${this.config.apiURI}/admin/sse/push?app_id=${this.config.appId}`,
+    );
+    conn.onopen = this.#onopen;
+    conn.onmessage = this.#onmessage;
+    conn.onclose = this.#onclose;
+    conn.onerror = this.#onerror;
+    this.#sseConnection = conn;
+    return conn;
+  }
+
+  #ensureSSEConnection() {
+    return this.#sseConnection || this.#setupSSEConnection();
+  }
+
+  #setupInstantStream() {
+    if (this.#instantStream) {
+      this.#instantStream.close();
+    }
+    const sseConnection = this.#ensureSSEConnection();
+    const instantStream = new InstantStream({
+      // XXX: Need to get these passed in from somewhere
+      WStream: WritableStream,
+      RStream: ReadableStream,
+      trySend: (eventId, msg) => {
+        if (sseConnection.isOpen()) {
+          this.#log.info('[send]', eventId, msg);
+          sseConnection.send({ 'client-event-id': eventId, ...msg });
+        }
+      },
+      log: this.#log,
+    });
+
+    this.#instantStream = instantStream;
+    return instantStream;
+  }
+
+  #ensureInstantStream() {
+    return this.#instantStream || this.#setupInstantStream();
+  }
+
+  #onopen = () => {
+    this.#instantStream?.onConnectionStatusChange('authenticated');
+  };
+
+  #onclose = () => {
+    this.#instantStream?.onConnectionStatusChange('closed');
+  };
+
+  #onerror = (e) => {
+    // Test this does what we expect
+    this.#instantStream?.onConnectionStatusChange('closed');
+  };
+
+  #onmessage = (e) => {
+    const msg = e.message;
+    this.#log.info('[receive]', msg);
+    switch (msg.op) {
+      case 'create-stream-ok': {
+        this.#instantStream?.onCreateStreamOk(msg);
+        break;
+      }
+      case 'restart-stream-ok': {
+        this.#instantStream?.onRestartStreamOk(msg);
+        break;
+      }
+      case 'stream-flushed': {
+        this.#instantStream?.onStreamFlushed(msg);
+        break;
+      }
+      case 'stream-append': {
+        this.#instantStream?.onStreamAppend(msg);
+        break;
+      }
+      case 'error': {
+        switch (msg['orignal-event']?.op) {
+          case 'create-stream':
+          case 'restart-stream':
+          case 'append-stream':
+          case 'subscribe-stream':
+          case 'unsubscribe-stream': {
+            this.#instantStream?.onRecieveError(msg);
+            break;
+          }
+        }
+        break;
+      }
+    }
+  };
 
   /**
    * Sometimes you want to scope queries to a specific user.
@@ -1139,6 +1347,33 @@ class InstantAdminDatabase<
       }),
     });
   };
+
+  createReadStream(opts?: {
+    clientId?: string | null | undefined;
+    streamId?: string | null | undefined;
+  }): ReadableStream<string> {
+    const streamOpts: { clientId?: string; streamId?: string } = {};
+    if (opts?.clientId) {
+      streamOpts.clientId = opts.clientId;
+    }
+    if (opts?.streamId) {
+    }
+    // XXX: Something needs to shut down the connection if we're not
+    //      doing anything on it.
+    return this.#ensureInstantStream().createReadStream(streamOpts);
+  }
+
+  createWriteStream(opts?: {
+    clientId?: string | null | undefined;
+  }): WritableStream<string> {
+    const streamOpts: { clientId?: string } = {};
+    if (opts?.clientId) {
+      streamOpts.clientId = opts.clientId;
+    }
+    // XXX: Something needs to shut down the connection if we're not
+    //      doing anything on it.
+    return this.#ensureInstantStream().createWriteStream(streamOpts);
+  }
 }
 
 export {
