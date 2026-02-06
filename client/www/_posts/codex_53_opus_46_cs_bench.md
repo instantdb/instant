@@ -4,7 +4,7 @@ date: '2026-2-5'
 authors: stopachka
 ---
 
-_We're Instant. We give you and your agents unlimited databases and backends. Build whatever you like, from your next startup to an alternative counter strike. Try out a demo with `npx create-instant-app`_
+_We're Instant. We give you and your agents unlimited databases and backends. Build whatever you like, from your next startup to an alternative Counter-Strike. [Sign up](https://instantdb.com/dash) and build your first app in minutes_
 
 GPT 5.3 Codex and Claude Opus 4.6 shipped within minutes of eachother. How well do they compare building a multiplayer Counter-Strike?
 
