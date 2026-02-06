@@ -3,7 +3,7 @@
             [cheshire.generate :refer [encode-nil]]
             [cheshire.factory :as factory]
             [cheshire.parse :as parse])
-  (:import (com.google.protobuf NullValue)
+  (:import (com.google.protobuf DynamicMessage NullValue Timestamp)
            (dev.cel.expr Value)
            (com.fasterxml.jackson.core JsonGenerator JsonFactory)
            (com.google.protobuf.util JsonFormat)
@@ -30,6 +30,8 @@
     (.writeRawValue jg json-str)))
 
 (add-encoder Value encode-cel-expr-value)
+(add-encoder Timestamp encode-cel-expr-value)
+(add-encoder DynamicMessage encode-cel-expr-value)
 
 (def ->json
   "Converts a Clojure data structure to a JSON string."

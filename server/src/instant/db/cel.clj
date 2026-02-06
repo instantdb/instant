@@ -13,6 +13,7 @@
    [instant.util.exception :as ex]
    [instant.util.io :as io]
    [instant.util.json :as json]
+   [instant.util.request :refer [*request-info*]]
    [instant.util.tracer :as tracer]
    [instant.comment :as c]
    [instant.db.proto :as proto]
@@ -503,9 +504,10 @@
           _ (.put bindings "auth" (AuthCelMap. ctx (CelMap. (:current-user ctx))))
           _ (.put bindings "data" (DataCelMap. ctx etype (CelMap. data)))
           _ (.put bindings "ruleParams" (CelMap. rule-params))
-          _ (.put bindings "request" (proto/create-request-proto {:modified-fields modified-fields
-                                                                  :time (or (:timestamp ctx)
-                                                                            (Instant/now))}))
+          _ (.put bindings "request" (proto/create-request-proto (merge {:modified-fields modified-fields
+                                                                         :time (or (:timestamp ctx)
+                                                                                   (Instant/now))}
+                                                                        *request-info*)))
           _ (when new-data
               (.put bindings "newData" (CelMap. new-data)))
           _ (when linked-data
@@ -548,9 +550,10 @@
                                "ruleParams" (Optional/of
                                              (CelMap. rule-params))
                                "request"    (Optional/of
-                                             (proto/create-request-proto {:modified-fields modified-fields
-                                                                          :time (or (:timestamp ctx)
-                                                                                    (Instant/now))}))
+                                             (proto/create-request-proto (merge {:modified-fields modified-fields
+                                                                                 :time (or (:timestamp ctx)
+                                                                                           (Instant/now))}
+                                                                                *request-info*)))
                                "newData"    (if new-data
                                               (Optional/of
                                                (CelMap. new-data))
@@ -1489,8 +1492,9 @@
                                         "ruleParams"
                                         (Optional/of (CelMap. rule-params))
                                         "request"
-                                        (Optional/of (proto/create-request-proto {:time (or (:timestamp ctx)
-                                                                                            (Instant/now))}))
+                                        (Optional/of (proto/create-request-proto (merge {:time (or (:timestamp ctx)
+                                                                                                   (Instant/now))}
+                                                                                        *request-info*)))
 
                                         (Optional/empty))))}))]
                 (if (is-missing-ref-data? result)
