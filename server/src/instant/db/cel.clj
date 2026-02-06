@@ -504,7 +504,8 @@
           _ (.put bindings "data" (DataCelMap. ctx etype (CelMap. data)))
           _ (.put bindings "ruleParams" (CelMap. rule-params))
           _ (.put bindings "request" (proto/create-request-proto {:modified-fields modified-fields
-                                                                  :time (Instant/now)}))
+                                                                  :time (or (:timestamp ctx)
+                                                                            (Instant/now))}))
           _ (when new-data
               (.put bindings "newData" (CelMap. new-data)))
           _ (when linked-data
@@ -548,7 +549,8 @@
                                              (CelMap. rule-params))
                                "request"    (Optional/of
                                              (proto/create-request-proto {:modified-fields modified-fields
-                                                                          :time (Instant/now)}))
+                                                                          :time (or (:timestamp ctx)
+                                                                                    (Instant/now))}))
                                "newData"    (if new-data
                                               (Optional/of
                                                (CelMap. new-data))
