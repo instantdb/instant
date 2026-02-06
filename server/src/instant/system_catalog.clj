@@ -39,7 +39,8 @@
    "$oauthClients" "oc"
    "$oauthCodes" "co"
    "$oauthRedirects" "or"
-   "$files" "fi"})
+   "$files" "fi"
+   "$streams" "st"})
 
 (def all-etypes (set (keys etype-shortcodes)))
 
@@ -47,44 +48,49 @@
 
 ;; Must be 10 chars or shorter
 (def label-shortcodes
-  {"$oauthClient" "oauclient",
-   "$oauthProvider" "oprovider",
-   "$user" "user",
-   "authCode" "authcode",
-   "clientId" "clientid",
-   "codeChallenge" "codechall",
-   "codeChallengeMethod" "cchalmeth",
-   "codeHash" "codehash",
-   "content-disposition" "cdisp",
-   "content-type" "c-type",
-   "cookieHash" "cookihash",
-   "discoveryEndpoint" "discovend",
-   "email" "email",
-   "encryptedClientSecret" "encclisec",
-   "hashedToken" "hashedtok",
-   "id" "id",
-   "imageURL" "imageurl",
-   "key-version" "kv",
-   "linkedGuestUsers" "lgu",
-   "linkedPrimaryUser" "lpu",
-   "location-id" "lid",
-   "meta" "meta",
-   "name" "name",
-   "path" "path",
-   "redirectUrl" "redireurl",
+  {"$files" "$files"
+   "$oauthClient" "oauclient"
+   "$oauthProvider" "oprovider"
+   "$stream" "stream"
+   "$user" "user"
+   "authCode" "authcode"
+   "clientId" "clientid"
+   "codeChallenge" "codechall"
+   "codeChallengeMethod" "cchalmeth"
+   "codeHash" "codehash"
+   "content-disposition" "cdisp"
+   "content-type" "c-type"
+   "cookieHash" "cookihash"
+   "discoveryEndpoint" "discovend"
+   "done" "done"
+   "email" "email"
+   "encryptedClientSecret" "encclisec"
+   "hashedToken" "hashedtok"
+   "id" "id"
+   "imageURL" "imageurl"
+   "key-version" "kv"
+   "hashedReconnectToken" "hashretok"
+   "linkedGuestUsers" "lgu"
+   "linkedPrimaryUser" "lpu"
+   "location-id" "lid"
+   "machineId" "machineid"
+   "meta" "meta"
+   "name" "name"
+   "path" "path"
+   "redirectUrl" "redireurl"
    "redirectTo" "redirecto"
-   "size" "size",
-   "stateHash" "statehash",
-   "sub" "sub",
-   "sub+$oauthProvider" "subprovid",
-   "type" "type",
-   "url" "url",
+   "size" "size"
+   "stateHash" "statehash"
+   "sub" "sub"
+   "sub+$oauthProvider" "subprovid"
+   "type" "type"
+   "url" "url"
    "userInfo" "userInfo"})
 
 (def shortcodes-label (map-invert label-shortcodes))
 
 (defn encode-string->long [input]
-  (assert (< (count input) 13) input)
+  (assert (< (count input) 13) {:input input :count (count input)})
   (let [base (apply str (map (fn [c] (char->bitstring c)) input))
         padded (apply str base (repeat (- 64 (count base)) "1"))]
     (.getLong (java.nio.ByteBuffer/wrap
@@ -337,6 +343,31 @@
               :index? false
               :checked-data-type :string)])
 
+(def $streams-attrs
+  [(make-attr "$streams" "id"
+              :unique? true
+              :index? true)
+   ;; XXX: Make clientId required?
+   (make-attr "$streams" "clientId"
+              :unique? true
+              :index? true
+              :checked-data-type :string)
+   (make-attr "$streams" "machineId"
+              :checked-data-type :string)
+   (make-attr "$streams" "$files"
+              :value-type :ref
+              :reverse-identity (get-ident-spec "$files" "$stream")
+              :cardinality :many
+              ;; XXX: Add support for restrict
+              ;; :on-delete :restrict
+              :on-delete-reverse :cascade)
+   (make-attr "$streams" "done"
+              :checked-data-type :boolean)
+   (make-attr "$streams" "size"
+              :checked-data-type :number)
+   (make-attr "$streams" "hashedReconnectToken"
+              :checked-data-type :string)])
+
 (def all-attrs (concat $users-attrs
                        $magic-code-attrs
                        $user-refresh-token-attrs
@@ -345,17 +376,18 @@
                        $oauth-client-attrs
                        $oauth-code-attrs
                        $oauth-redirect-attrs
-                       $files-attrs))
+                       $files-attrs
+                       $streams-attrs))
 
 (defn- ^:private reserved-ident-names
-  "Want to add a new system catalog attribute? 
-   
-   1. Find a good, unique ident name for it (etype + label). i.e: ['$users' 'fullName'] 
-   2. Head on over to instant-config, and update the flag to include your new ident name. 
+  "Want to add a new system catalog attribute?
 
-   This will reserve the ident name, so users can't create that attribute. 
+   1. Find a good, unique ident name for it (etype + label). i.e: ['$users' 'fullName']
+   2. Head on over to instant-config, and update the flag to include your new ident name.
 
-   Once your PR is ready, deploy the change, create your system catalog attr, then 
+   This will reserve the ident name, so users can't create that attribute.
+
+   Once your PR is ready, deploy the change, create your system catalog attr, then
    remove the ident name from the flag."
   []
   (flags/flag :reserved-system-catalog-ident-names #{}))

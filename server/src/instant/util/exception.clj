@@ -356,7 +356,7 @@
 (defn get-optional-param! [obj ks coercer]
   (when-let [param (some-> obj
                            (get-in ks))]
-    (if-let [coerced (coercer param)]
+    (if-some [coerced (coercer param)]
       coerced
       (throw+ {::type ::param-malformed
                ::message (format "Malformed parameter: %s" (mapv safe-name ks))
