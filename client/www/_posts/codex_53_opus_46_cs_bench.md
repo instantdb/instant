@@ -20,7 +20,7 @@ We tried and found out. Here's how the gameplay feels:
 And if you're curious, you can play it yourself:
 
 1. **GPT 5.3 Codex's attempt:** https://53strike.vercel.app/
-1. **Claude Opus 4.6's attempt** https://53strike.vercel.app/
+1. **Claude Opus 4.6's attempt** https://46strike.vercel.app/
 
 We have a full recording of us building it [here](https://youtu.be/Kyef-cUUB0Q).
 
