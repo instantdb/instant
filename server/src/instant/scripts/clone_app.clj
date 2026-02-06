@@ -386,6 +386,8 @@
 ;; -------------- 
 ;; Worker ranges 
 
+(def ^:private worker-range-timeout-seconds 600)
+
 (def ^:private lowest-uuid
   (UUID/fromString "00000000-0000-0000-0000-000000000000"))
 
@@ -431,23 +433,24 @@
   We may return less than max-workers, if there all the triples fit into fewer 
   workers."
   [conn {:keys [source-app-id total-triples max-workers]}]
-  (let [offsets (get-worker-offsets total-triples max-workers)
-        boundaries (mapv (fn [offset]
-                           (get-boundary-entity-id conn source-app-id offset))
-                         offsets)
-        starts (into [lowest-uuid] boundaries)
-        ends (conj boundaries nil)
-        ranges (dedupe
-                (mapv (fn [start-entity-id end-entity-id]
-                        {:start-entity-id start-entity-id
-                         :end-entity-id end-entity-id})
-                      starts
-                      ends))
-        buckets (map-indexed
-                 (fn [i r] (assoc r :bucket i))
-                 ranges)]
+  (binding [sql/*query-timeout-seconds* worker-range-timeout-seconds]
+    (let [offsets (get-worker-offsets total-triples max-workers)
+          boundaries (mapv (fn [offset]
+                             (get-boundary-entity-id conn source-app-id offset))
+                           offsets)
+          starts (into [lowest-uuid] boundaries)
+          ends (conj boundaries nil)
+          ranges (dedupe
+                  (mapv (fn [start-entity-id end-entity-id]
+                          {:start-entity-id start-entity-id
+                           :end-entity-id end-entity-id})
+                        starts
+                        ends))
+          buckets (map-indexed
+                   (fn [i r] (assoc r :bucket i))
+                   ranges)]
 
-    buckets))
+      buckets)))
 
 (comment
   (get-worker-ranges
