@@ -31,8 +31,7 @@ access to high-resolution downloads. It's a one-off payment and no user accounts
 2. The token is passed to Stripe via session metadata
 3. On payment, a webhook creates a `purchase` record in Instant linked to that
    token
-4. Instant's [field-level permissions](/docs/permissions#field-level-permissions)
-   gate the protected content — only queries that include a valid purchase token
+4. Permissions gate the protected content — only queries that include a valid purchase token
    (via `ruleParams`) can see the full-resolution URLs
 5. Bonus: Uses [magic code auth](/docs/auth/magic-codes) to let users sign in
    and retrieve past purchases
@@ -47,12 +46,11 @@ articles. It uses recurring billing with Stripe and auth-based access control.
 
 **How it works:**
 
-1. User signs in via [magic code auth](/docs/auth/magic-codes)
+1. User signs in via magic code auth
 2. Checkout creates or reuses a Stripe customer linked to the Instant user
 3. Stripe webhooks sync `subscriptionStatus` to the `$users` record whenever
    the subscription changes (created, updated, canceled, deleted)
-4. Instant's [field-level permissions](/docs/permissions#field-level-permissions)
-   use `auth.subscriptionStatus` to gate premium content — the `content` field is
+4. Permissions gate premium content — the `content` field is
    simply omitted from query results for non-subscribers
 5. Stripe's Billing Portal handles cancellation and payment method updates
 
@@ -66,13 +64,13 @@ Users buy packs of 10 credits for $2. It's a pay-per-use model with real-time ba
 
 **How it works:**
 
-1. User signs in via [magic code auth](/docs/auth/magic-codes)
+1. User signs in via magic code auth
 2. Checkout creates a Stripe customer and processes a one-time payment for a
    credit pack
 3. The webhook adds credits to the user's `credits` field, with idempotency
    protection via Stripe session metadata to prevent double-crediting on retries
 4. A server-side API route verifies the user has enough credits, then
    atomically deducts a credit and creates the result in a single
-   [transaction](/docs/instaml)
+   transaction
 5. Instant's real-time subscriptions keep the credit balance and history
    updated in the UI instantly
