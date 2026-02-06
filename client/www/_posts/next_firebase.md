@@ -60,7 +60,7 @@ So let’s try to discover this abstraction. What works today? Linear and Notion
 
 Thankfully there’s lots [^8] of [^9] interesting [^10] work [^11] that explains their architecture. Here’s a simplified view:
 
-![The architecture](https://user-images.githubusercontent.com/984574/186711408-27da113c-2ca9-4ff0-9cae-985035e9af3f.png)
+![The architecture](/img/essays/architecture.png)
 
 Let’s go bottom-up:
 
@@ -131,7 +131,7 @@ But we need our app to work offline too. So we back our store with durable stora
 
 Okay, time to paint screens. Right now we have a store with normalized data. But normalized data isn’t directly useful for rendering. What a screen wants is a graph. Say we show a “team tasks” page in Linear; we’d want team info, all the tasks for the team, and the owner for the task:
 
-![Screens want graphs](https://user-images.githubusercontent.com/984574/186711505-b368ab6a-e9ef-4a97-9362-8126c1a96c0d.png)
+![Screens want graphs](/img/essays/screens_want_graphs.png)
 
 We can build this with a javascript function:
 
@@ -152,7 +152,7 @@ If this causes too many re-renders, we can memoize it or use some kind of dirty-
 
 Then users make changes. We want those changes to feel instant, so we support optimistic updates. This is how it usually looks:
 
-![Mutation system](https://user-images.githubusercontent.com/984574/186711589-f8792499-3b36-48a7-a379-1f9a9003610e.png)
+![Mutation system](/img/essays/mutation_system.png)
 
 Whatever mutation we make, our local store and server need to understand them. This way we can apply changes immediately.
 
@@ -210,7 +210,7 @@ Supabase and Hasura also don’t have a powerful permission system. They use Pos
 
 So Firebase has a great local abstraction, but no support for relations. Supabase and Hasura support relations, but have a poor local abstraction. Put this in a table and you have an interesting column to think about:
 
-![Matrix](https://user-images.githubusercontent.com/984574/186711681-28b224cc-46df-437a-b37b-69520da40ae3.png)
+![Matrix](/img/essays/comparison_matrix.png)
 
 What if a tool could support relations and a local abstraction? You could write any query that a Figma, Linear, or Notion would need. And you could handle all of the hard work they do locally: optimistic updates, multiplayer, and offline-mode.
 
@@ -220,7 +220,7 @@ Add support for complex permissions, and you have a tool to build applications f
 
 A daunting column to satisfy. But again, if we look at how Figma, Linear, and Notion work, we find clues. Squint, and their architecture looks like a database!
 
-![Generalization](https://user-images.githubusercontent.com/984574/186711781-ede533e3-45e6-4c72-bdea-7a74a9fc7b1e.png)
+![Generalization](/img/essays/generalization.png)
 
 Again, screens need consistent data. Previously, we wrote functions and got data from the store. Remember `dataForTasksPage`?
 
@@ -365,7 +365,7 @@ The most common query is our “fetch nested relations”. For Linear it’s “
 
 See a pattern here? They’re all graphs:
 
-![Graphs everywhere](https://user-images.githubusercontent.com/984574/186711877-3336e19d-89f4-4a35-864c-268ad2177ec2.png)
+![Graphs everywhere](/img/essays/graphs_everywhere.png)
 
 And this pointed us to a question: would a graph database make frontend queries easy?
 
@@ -412,7 +412,7 @@ The first item is always an `id`, the second the `attribute`, and the third, the
 
 Here’s a more fleshed out example:
 
-![Triple Store → Graph](https://user-images.githubusercontent.com/984574/187760612-64dc812b-0597-421a-a60a-35a6fe182779.png)
+![Triple Store → Graph](/img/essays/triple_store_graph.png)
 
 And once you’ve expressed a graph, you can traverse it. Triple stores have interesting query languages. Here’s Datalog:
 

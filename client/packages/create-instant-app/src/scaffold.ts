@@ -54,17 +54,37 @@ export const scaffoldBaseAndEdit = async (
     }
   }
 
-  await scaffoldBaseCode({
+  const result = scaffoldBaseCode({
     projectDir,
     baseTemplateName: cliResults.base,
   });
+
+  const scaffoldedName =
+    cliResults.appName === '.'
+      ? 'App'
+      : chalk.hex('#EA570B').bold(cliResults.appName);
+  await renderUnwrap(
+    new UI.Spinner({
+      promise: result,
+      workingText: `Scaffolding project files...`,
+      doneText: `Successfully scaffolded ${scaffoldedName}!`,
+      modifyOutput: UI.ciaModifier(null),
+    }),
+  );
 
   if (fs.pathExistsSync(path.join(projectDir, 'pnpm-lock.yaml'))) {
     fs.removeSync(path.join(projectDir, 'pnpm-lock.yaml'));
   }
 
-  if (getUserPkgManager() === 'pnpm' && cliResults.base === 'expo') {
-    fs.appendFile(
+  if (fs.pathExistsSync(path.join(projectDir, 'bun.lock'))) {
+    fs.removeSync(path.join(projectDir, 'bun.lock'));
+  }
+
+  if (
+    getUserPkgManager(cliResults.base) === 'pnpm' &&
+    cliResults.base === 'expo'
+  ) {
+    await fs.appendFile(
       path.join(projectDir, '.npmrc'),
       `node-linker=hoisted
 enable-pre-post-scripts=true`,
@@ -90,16 +110,6 @@ enable-pre-post-scripts=true`,
       `"${appDir}"`,
     );
   }
-
-  const scaffoldedName =
-    cliResults.appName === '.'
-      ? 'App'
-      : chalk.hex('#EA570B').bold(cliResults.appName);
-
-  UI.log(
-    chalk.dim(`${scaffoldedName} scaffolded successfully!`),
-    UI.ciaModifier(null),
-  );
 
   return projectDir;
 };
@@ -163,7 +173,7 @@ const scaffoldBaseCode = async ({
   baseTemplateName: string;
 }) => {
   // Copy files in dev mode
-  if (process.env.INSTANT_CLI_DEV && process.env.INSTANT_REPO_FOLDER) {
+  if (process.env.INSTANT_REPO_FOLDER) {
     const folder = path.join(
       process.env.INSTANT_REPO_FOLDER,
       'examples',
