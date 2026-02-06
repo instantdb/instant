@@ -6,7 +6,7 @@ authors: stopachka
 
 _We're Instant. We give you and your agents unlimited databases and backends. Build whatever you like, from your next startup to an alternative Counter-Strike. [Sign up](https://instantdb.com/dash) and build your first app in minutes_
 
-GPT 5.3 Codex and Claude Opus 4.6 shipped within minutes of eachother. How well do they compare building a multiplayer Counter-Strike?
+GPT 5.3 Codex and Claude Opus 4.6 shipped within minutes of each other. How well do they compare building a multiplayer Counter-Strike?
 
 We tried and found out. Here's how the gameplay feels:
 
