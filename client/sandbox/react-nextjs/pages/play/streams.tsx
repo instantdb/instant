@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { i, init, InstantReactAbstractDatabase } from '@instantdb/react';
+import { init as initAdmin } from '@instantdb/admin';
 import EphemeralAppPage from '../../components/EphemeralAppPage';
+import config from '../../config';
 
 const schema = i.schema({
   entities: {},
@@ -588,8 +590,28 @@ function Reader({
   );
 }
 
-function App({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
+function App({
+  db,
+  appId,
+}: {
+  db: InstantReactAbstractDatabase<typeof schema>;
+  appId: string;
+}) {
   const [clientId, setClientId] = useState(() => randomUUID());
+
+  useEffect(() => {
+    const adminToken = localStorage.getItem(`ephemeral-admin-token-${appId}`);
+    if (adminToken) {
+      const adminDb = initAdmin({
+        ...config,
+        appId,
+        adminToken,
+        schema,
+        verbose: true,
+      });
+      (globalThis as any)._adminDb = adminDb;
+    }
+  }, [appId]);
 
   return (
     <div className="flex h-full flex-col gap-6">
