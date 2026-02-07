@@ -28,6 +28,7 @@
    [instant.util.http :as http-util]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.json :refer [->json <-json]]
+   [instant.util.request :refer [*request-info*]]
    [instant.util.string :as string-util]
    [instant.util.token :as token-util]
    [instant.util.tracer :as tracer]
@@ -188,6 +189,8 @@
         _ (when rules-override
             (ex/assert-valid! :rule rules-override
                               (rule-model/validation-errors rules-override)))
+        ip-override (ex/get-optional-param! req [:body :ip-override] string-util/coerce-non-blank-str)
+        origin-override (ex/get-optional-param! req [:body :origin-override] string-util/coerce-non-blank-str)
         query (ex/get-param! req [:body :query] #(when (map? %) %))
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
@@ -198,7 +201,10 @@
                     :inference? inference?}
                    perms)
         {:keys [check-results nodes rule-wheres]}
-        (iq/permissioned-query-check ctx query rules-override)
+        (binding [*request-info* (cond-> *request-info*
+                                   ip-override (assoc :ip ip-override)
+                                   origin-override (assoc :origin origin-override))]
+          (iq/permissioned-query-check ctx query rules-override))
 
         result (instaql-nodes->object-tree ctx nodes)]
     (response/ok {:check-results check-results :result result :rule-wheres rule-wheres})))
@@ -283,6 +289,8 @@
                               [{:message "Cannot test perms as admin"}]))
         rules-override (-> req :body :rules-override ->json <-json)
         commit-tx (-> req :body :dangerously-commit-tx)
+        ip-override (ex/get-optional-param! req [:body :ip-override] string-util/coerce-non-blank-str)
+        origin-override (ex/get-optional-param! req [:body :origin-override] string-util/coerce-non-blank-str)
         dry-run (not commit-tx)
         steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
         throw-on-missing-attrs? (ex/get-optional-param!
@@ -308,7 +316,10 @@
         tx-steps (admin-model/->tx-steps! {:attrs attrs
                                            :throw-on-missing-attrs? throw-on-missing-attrs?}
                                           steps)
-        result (permissioned-tx/transact! ctx tx-steps)
+        result (binding [*request-info* (cond-> *request-info*
+                                   ip-override (assoc :ip ip-override)
+                                   origin-override (assoc :origin origin-override))]
+                 (permissioned-tx/transact! ctx tx-steps))
         cleaned-result {:tx-id (:id result)
                         :all-checks-ok? (:all-checks-ok? result)
                         :committed? (:committed? result)

@@ -77,6 +77,8 @@ type SavedSandbox = {
   code: string;
   perms: string;
   runAsUser: string | null;
+  ipOverride: string | null;
+  originOverride: string | null;
   useAppPerms: boolean;
   lastSavedAt: string;
 };
@@ -166,6 +168,14 @@ export function Sandbox({
 
   const [runAsUserEmail, setRunAsUserEmail] = useLocalStorage(
     `runas:${app.id}`,
+    '',
+  );
+  const [ipOverride, setIpOverride] = useLocalStorage(
+    `ipOverride:${app.id}`,
+    '',
+  );
+  const [originOverride, setOriginOverride] = useLocalStorage(
+    `originOverride:${app.id}`,
     '',
   );
   const [hasUnsavedWork, setHasUnsavedWork] = useState(false);
@@ -262,6 +272,8 @@ export function Sandbox({
             perms: permsValue,
             lastSavedAt: new Date().toString(),
             runAsUser: runAsUserEmail,
+            ipOverride: ipOverride,
+            originOverride: originOverride,
             useAppPerms,
           },
         ]);
@@ -275,6 +287,8 @@ export function Sandbox({
           perms: permsValue,
           lastSavedAt: new Date().toString(),
           runAsUser: runAsUserEmail,
+          ipOverride: ipOverride,
+          originOverride: originOverride,
           useAppPerms,
         },
       ]);
@@ -486,6 +500,8 @@ export function Sandbox({
             rules,
             // @ts-expect-error because this is a private API - shh! 🤫
             __dangerouslyCommit: dangerouslyCommitTx,
+            ip: ipOverride,
+            origin: originOverride,
           });
           const execTimeMs = performance.now() - startTime;
           out('transaction', { response, rules }, execTimeMs);
@@ -503,7 +519,12 @@ export function Sandbox({
       query: async (q: any, opts?: any) => {
         try {
           const startTime = performance.now();
-          const response = await adminDb.debugQuery(q, { rules, ...opts });
+          const response = await adminDb.debugQuery(q, {
+            rules,
+            ip: ipOverride,
+            origin: originOverride,
+            ...opts,
+          });
           const execTimeMs = performance.now() - startTime;
           out('query', { response, rules }, execTimeMs);
 
@@ -775,6 +796,43 @@ export function Sandbox({
                   email={runAsUserEmail || ''}
                   setEmail={setRunAsUserEmail}
                   onEnter={execRef.current}
+                />
+              </div>
+              <div className="flex items-center gap-2 px-2 py-1">
+                <Label className="text-xs font-normal">
+                  Set{' '}
+                  <code className="border bg-white px-2 dark:border-neutral-600 dark:bg-neutral-800">
+                    request.ip
+                  </code>
+                </Label>
+                <TextInput
+                  className='dark:text-white" px-2 py-0.5 text-xs dark:border-neutral-600 dark:bg-neutral-800'
+                  value={ipOverride || ''}
+                  onChange={setIpOverride}
+                  onKeyDown={(e) => {
+                    if (e.metaKey && e.key === 'Enter') {
+                      execRef.current();
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center gap-2 px-2 py-1">
+                <Label className="text-xs font-normal">
+                  Set{' '}
+                  <code className="border bg-white px-2 dark:border-neutral-600 dark:bg-neutral-800">
+                    request.origin
+                  </code>
+                </Label>
+                <TextInput
+                  className='dark:text-white" px-2 py-0.5 text-xs dark:border-neutral-600 dark:bg-neutral-800'
+                  value={originOverride || ''}
+                  onChange={setOriginOverride}
+                  onKeyDown={(e) => {
+                    if (e.metaKey && e.key === 'Enter') {
+                      execRef.current();
+                    }
+                  }}
                 />
               </div>
 

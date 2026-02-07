@@ -9,6 +9,7 @@
             [instant.db.transaction :as tx])
   (:import (dev.cel.parser CelStandardMacro)
            (dev.cel.common CelValidationException)
+           (java.time Instant)
            (java.util Map)))
 
 (deftest test-standard-macros
@@ -97,6 +98,13 @@
   (testing "using .all() with modifiedFields is valid"
     (is (cel/rule->program :update "request.modifiedFields.all(f, f in ['likes'])"))))
 
+(deftest request.time
+  (let [program (cel/rule->program :view "request.time > timestamp(data.created)")]
+    (is (true? (cel/eval-program! {} {:cel-program program} {:data {:created 0}})))
+    (is (true? (cel/eval-program! {} {:cel-program program} {:data {:created "2026-02-06T22:36:52.157181Z"}})))
+    (is (false? (cel/eval-program! {:timestamp (Instant/ofEpochSecond 1000)}
+                                   {:cel-program program} {:data {:created "2026-02-06T22:36:52.157181Z"}})))))
+
 (defn dummy-attrs [specs]
   (attr-model/wrap-attrs (mapv (fn [{:keys [etype
                                             field
@@ -114,10 +122,13 @@
                                specs)))
 
 (deftest where-clauses
-  (let [make-ctx (fn [attr-specs]
+  (let [timestamp (Instant/now)
+        make-ctx (fn [attr-specs]
                    {:attrs (dummy-attrs attr-specs)
                     :current-user {:id "__auth.id__" :email "__auth.email__"}
-                    :preloaded-refs (cel/create-preloaded-refs-cache)})
+                    :preloaded-refs (cel/create-preloaded-refs-cache)
+                    :timestamp timestamp})
+
         get-where-clauses (fn [fields code]
                             (let [res (cel/get-all-where-clauses
                                        (make-ctx (map (fn [field]
@@ -238,7 +249,55 @@
                                 :rev-field "etype"}
                                {:etype "owners"
                                 :field "id"}]
-                              "size(data.ref('owner.id')) != 0 || 0 != size(data.ref('owner.id'))")))))
+                              "size(data.ref('owner.id')) != 0 || 0 != size(data.ref('owner.id'))")))
+
+    (is (= {"field" {:$gt timestamp}}
+           (get-where-clauses [{:etype "etype"
+                                :field "field"
+                                :index? true
+                                :checked-data-type :date}]
+                              "timestamp(data.field) > request.time")
+           (get-where-clauses [{:etype "etype"
+                                :field "field"
+                                :index? true
+                                :checked-data-type :date}]
+                              "request.time < timestamp(data.field)")))
+
+    (is (= {"field" {:$lt false}}
+           (get-where-clauses [{:etype "etype"
+                                :field "field"
+                                :index? true
+                                :checked-data-type :boolean}]
+                              "data.field < false")
+           (get-where-clauses [{:etype "etype"
+                                :field "field"
+                                :index? true
+                                :checked-data-type :boolean}]
+                              "false > data.field")))
+
+    (is (= {"field" {:$lte 1}}
+           (get-where-clauses [{:etype "etype"
+                                :field "field"
+                                :index? true
+                                :checked-data-type :number}]
+                              "data.field <= 1")
+           (get-where-clauses [{:etype "etype"
+                                :field "field"
+                                :index? true
+                                :checked-data-type :number}]
+                              "1 >= data.field")))
+
+    (is (= {"field" {:$gte "a"}}
+           (get-where-clauses [{:etype "etype"
+                                :field "field"
+                                :index? true
+                                :checked-data-type :string}]
+                              "data.field >= 'a'")
+           (get-where-clauses [{:etype "etype"
+                                :field "field"
+                                :index? true
+                                :checked-data-type :string}]
+                              "'a' <= data.field")))))
 
 (deftest rule-wheres-short-circuit?
   (let [make-ctx (fn [attr-specs]
@@ -351,7 +410,11 @@
 
                             ;; `like` only works on indexed strings
                             ["!(data.ownerId.endsWith('.jpg'))"
-                             #"Function '_datakey_ends_with' failed"]]]
+                             #"Function '_datakey_ends_with' failed"]
+
+                            ;; comparison operators only work on indexed fields
+                            ["data.ownerId > 10"
+                             #"Function '_>_datakey_int' failed"]]]
       (testing (str "`" bad-code "` throws")
         (is (thrown-with-msg? Throwable
                               msg

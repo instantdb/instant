@@ -1090,7 +1090,12 @@ class InstantAdminDatabase<
    */
   debugQuery = async <Q extends ValidQuery<Q, Schema>>(
     query: Q,
-    opts?: { rules?: any; ruleParams?: { [key: string]: any } },
+    opts?: {
+      rules?: any;
+      ruleParams?: { [key: string]: any };
+      ip?: string | null | undefined;
+      origin?: string | null | undefined;
+    },
   ): Promise<{
     result: InstaQLResponse<Schema, Q, UseDates>;
     checkResults: DebugCheckResult[];
@@ -1099,12 +1104,20 @@ class InstantAdminDatabase<
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
 
+    const body: any = { query, 'rules-override': opts?.rules };
+    if (opts?.ip) {
+      body['ip-override'] = opts.ip;
+    }
+    if (opts?.origin) {
+      body['origin-override'] = opts.origin;
+    }
+
     const response = await jsonFetch(
       `${this.config.apiURI}/admin/query_perms_check`,
       {
         method: 'POST',
         headers: authorizedHeaders(this.config, this.impersonationOpts),
-        body: JSON.stringify({ query, 'rules-override': opts?.rules }),
+        body: JSON.stringify(body),
       },
     );
 
@@ -1134,17 +1147,30 @@ class InstantAdminDatabase<
    */
   debugTransact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
-    opts?: { rules?: any },
+    opts?: {
+      rules?: any;
+      ip?: string | null | undefined;
+      origin?: string | null | undefined;
+    },
   ): Promise<DebugTransactResult> => {
+    const body: any = {
+      steps: steps(inputChunks),
+      'rules-override': opts?.rules,
+      // @ts-expect-error because we're using a private API (for now)
+      'dangerously-commit-tx': opts?.__dangerouslyCommit,
+    };
+
+    if (opts?.ip) {
+      body['ip-override'] = opts.ip;
+    }
+    if (opts?.origin) {
+      body['origin-override'] = opts.origin;
+    }
+
     return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({
-        steps: steps(inputChunks),
-        'rules-override': opts?.rules,
-        // @ts-expect-error because we're using a private API (for now)
-        'dangerously-commit-tx': opts?.__dangerouslyCommit,
-      }),
+      body: JSON.stringify(body),
     });
   };
 }

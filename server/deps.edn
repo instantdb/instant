@@ -62,7 +62,8 @@
         io.grpc/grpc-netty-shaded {:mvn/version "1.68.1"}
         com.github.steffan-westcott/clj-otel-api {:mvn/version "0.2.4"}
 
-        dev.cel/cel {:mvn/version "0.9.1"}
+        dev.cel/cel {:mvn/version "0.11.1"}
+        com.google.protobuf/protobuf-java-util {:mvn/version "4.33.5"}
         com.fasterxml.jackson.core/jackson-core {:mvn/version "2.18.3"}
         com.google.crypto.tink/tink {:mvn/version "1.12.0"}
         com.google.crypto.tink/tink-awskms {:mvn/version "1.9.1"}
