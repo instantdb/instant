@@ -224,10 +224,14 @@
 (def program-cache
   (cache/make {:max-size 2048}))
 
+(def room-program-cache
+  (cache/make {:max-size 512}))
+
 ;; If you load the cel ns, the deftypes will get wiped out and the
 ;; rules in the cache will stop working. This clears the cache when its loaded
 (cel/set-afterload
- #(cache/invalidate-all program-cache))
+ #(do (cache/invalidate-all program-cache)
+      (cache/invalidate-all room-program-cache)))
 
 (defn get-program!* [[{:keys [code]} {:keys [etype action paths]}]]
   (loop [paths paths]
@@ -309,7 +313,7 @@
 (defn system-attribute-validation-errors
   "Don't allow users to change rules for restricted system namespaces."
   [etype action]
-  (when (and (not (#{"$users" "$files" "$default"} etype))
+  (when (and (not (#{"$users" "$files" "$default" "$rooms"} etype))
              (string/starts-with? etype "$"))
     [{:message (format "The %s namespace is a reserved internal namespace that does not yet support rules."
                        etype)
@@ -336,7 +340,7 @@
 
                        :else errors)))
              []
-             rules))
+             (dissoc rules "$rooms")))
 
 (defn extract-code [rule etype action path]
   (when-let [expr (patch-code (get-in rule path))]
@@ -366,6 +370,7 @@
 
 (defn rule-validation-errors [rules]
   (->> (keys rules)
+       (remove #(= "$rooms" %))
        (mapcat (fn [etype] (map (fn [action] [etype action]) ["view" "create" "update" "delete"])))
        (mapcat (fn [[etype action]]
                  (or (and (= etype "$users")
@@ -397,10 +402,103 @@
 
        (keep identity)))
 
+(defn with-room-binds
+  "Reuses with-binds by constructing a virtual rule map where $default and
+   room-type binds are mapped from the $rooms structure."
+  [rules room-type action expr]
+  (let [virtual-rules (-> {}
+                          (assoc "$default" (get-in rules ["$rooms" "$default"]))
+                          (assoc room-type (get-in rules ["$rooms" room-type])))]
+    (with-binds virtual-rules room-type action expr)))
+
+(defn room-bind-validation-errors [rooms-rules]
+  (reduce-kv (fn [errors room-type {:strs [bind]}]
+               (let [bind (normalize-bind bind)]
+                 (if (and bind (not (even? (count bind))))
+                   (conj errors
+                         {:message "bind should have an even number of elements"
+                          :in ["$rooms" room-type "bind"]})
+                   errors)))
+             []
+             rooms-rules))
+
+(defn- room-expr-validation-errors [rules room-type action]
+  (let [path ["$rooms" room-type "allow" action]]
+    (try
+      (when-let [expr (patch-code (get-in rules path))]
+        (let [code (with-room-binds rules room-type action expr)
+              compiler (cel/action->compiler action)
+              ast (cel/->ast compiler code)
+              _program (cel/->program ast)
+              errors (cel/validation-errors compiler ast)]
+          (when (seq errors)
+            (format-cel-errors path errors))))
+      (catch CelValidationException e
+        (format-cel-errors path (.getErrors e)))
+      (catch Exception _e
+        [{:message "There was an unexpected error evaluating the rules"
+          :in path}]))))
+
+(defn room-validation-errors [rules]
+  (when-let [rooms-rules (get rules "$rooms")]
+    (concat
+     (room-bind-validation-errors rooms-rules)
+     (->> (keys rooms-rules)
+          (mapcat (fn [room-type]
+                    (map (fn [action] [room-type action]) ["join"])))
+          (mapcat (fn [[room-type action]]
+                    (room-expr-validation-errors rules room-type action)))
+          (keep identity)))))
+
+(defn get-room-program!* [[{:keys [code]} {:keys [room-type action paths]}]]
+  (loop [paths paths]
+    (when-some [path (first paths)]
+      (or
+       (when-some [expr (get-in code path)]
+         (try
+           (let [code-str (with-room-binds code room-type action (patch-code expr))
+                 compiler (cel/action->compiler action)
+                 ast      (cel/->ast compiler code-str)]
+             {:etype room-type
+              :action action
+              :code code-str
+              :display-code expr
+              :cel-ast ast
+              :cel-program (cel/->program ast)
+              :ref-uses (cel/collect-ref-uses ast)})
+           (catch CelValidationException e
+             (ex/throw-validation-err!
+              :permission
+              (first paths)
+              (->> (.getErrors e)
+                   (map (fn [^CelIssue cel-issue]
+                          {:message (.getMessage cel-issue)})))))))
+       (recur (next paths))))))
+
+(defn get-room-program!
+  "Returns a compiled CEL program for the given room type and action.
+   Returns nil if no $rooms key exists in rules (backwards compat).
+   Lookup order:
+   1. $rooms.<room-type>.allow.<action>
+   2. $rooms.<room-type>.allow.$default
+   3. $rooms.$default.allow.<action>
+   4. $rooms.$default.allow.$default"
+  [rules room-type action]
+  (when (get-in rules [:code "$rooms"])
+    (cache/get room-program-cache
+              [rules {:room-type room-type
+                      :action action
+                      :paths [["$rooms" room-type "allow" action]
+                              ["$rooms" room-type "allow" "$default"]
+                              ["$rooms" "$default" "allow" action]
+                              ["$rooms" "$default" "allow" "$default"]]}]
+              get-room-program!*)))
+
 (defn validation-errors [rules]
   (concat (bind-validation-errors rules)
           (rule-validation-errors rules)
-          (field-validation-errors rules)))
+          (field-validation-errors rules)
+          (room-validation-errors rules)))
 
 (comment
   (def code {"docs" {"allow" {"view" "lol"

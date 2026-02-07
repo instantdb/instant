@@ -76,6 +76,7 @@ export function useTopicEffect<
 
   useEffect(() => {
     const unsub = room.core._reactor.subscribeTopic(
+      room.type,
       room.id,
       topic,
       (event, peer) => {
@@ -110,7 +111,7 @@ export function usePublishTopic<
   room: InstantReactRoom<any, RoomSchema, RoomType>,
   topic: TopicType,
 ): (data: RoomSchema[RoomType]['topics'][TopicType]) => void {
-  useEffect(() => room.core._reactor.joinRoom(room.id), [room.id]);
+  useEffect(() => room.core._reactor.joinRoom(room.type, room.id), [room.id]);
 
   const publishTopic = useCallback(
     (data) => {
@@ -209,7 +210,10 @@ export function useSyncPresence<
   data: Partial<RoomSchema[RoomType]['presence']>,
   deps?: any[],
 ): void {
-  useEffect(() => room.core._reactor.joinRoom(room.id, data), [room.id]);
+  useEffect(
+    () => room.core._reactor.joinRoom(room.type, room.id, data),
+    [room.id],
+  );
   useEffect(() => {
     return room.core._reactor.publishPresence(room.type, room.id, data);
   }, [room.type, room.id, deps ?? JSON.stringify(data)]);
