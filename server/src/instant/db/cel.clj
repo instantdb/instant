@@ -55,7 +55,7 @@
                     CelEvaluationException
                     CelFunctionOverload
                     CelRuntime
-                    CelRuntime$CelFunctionBinding
+                    CelFunctionBinding
                     CelRuntime$Program
                     CelRuntimeLegacyImpl$Builder
                     CelRuntimeFactory
@@ -324,7 +324,7 @@
                                                args))))
                                 decls)))
    :runtimes (mapv (fn [decl]
-                     (CelRuntime$CelFunctionBinding/from
+                     (CelFunctionBinding/from
                       ^String (:overload-id decl)
                       ^java.lang.Iterable (:java-args decl)
                       ^CelFunctionOverload (:impl decl)))
@@ -402,7 +402,9 @@
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setOptions cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
-      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))))
+      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings)
+                                                         (CelExtensions/strings)
+                                                         (CelExtensions/math cel-options)]))))
 
 (def ^:private cel-view-delete-compiler
   (-> (runtime-compiler-builder)
@@ -430,10 +432,11 @@
 ;;      equivalent change to iql-cel-compiler below
 (def ^:private ^CelRuntime cel-runtime
   (let [^CelRuntimeLegacyImpl$Builder builder (CelRuntimeFactory/standardCelRuntimeBuilder)
-        ^java.lang.Iterable extensions [(CelExtensions/strings)]]
+        ^java.lang.Iterable extensions [(CelExtensions/strings)
+                                        (CelExtensions/math cel-options)]]
     (-> builder
         (.addLibraries extensions)
-        (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding custom-fn-bindings))
+        (.addFunctionBindings (ucoll/array-of CelFunctionBinding custom-fn-bindings))
         (.setOptions cel-options)
         (.build))))
 
@@ -513,8 +516,7 @@
           _ (when linked-data
               (.put bindings "linkedData" (DataCelMap. ctx linked-etype (CelMap. linked-data))))
           _ (when actions
-              (.put bindings "actions" (CelMap. actions)))
-          ]
+              (.put bindings "actions" (CelMap. actions)))]
       (eval-program-with-bindings cel-program bindings))
 
     (catch CelEvaluationException e
@@ -1414,12 +1416,15 @@
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl where-custom-fn-decls))
       (.setOptions where-cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
-      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
+      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings)
+                                                         (CelExtensions/strings)
+                                                         (CelExtensions/math where-cel-options)]))
       (.build)))
 
 (def ^:private ^CelRuntime where-cel-runtime
   (let [^CelRuntimeLegacyImpl$Builder builder (CelRuntimeFactory/standardCelRuntimeBuilder)
-        ^java.lang.Iterable extensions [(CelExtensions/strings)]
+        ^java.lang.Iterable extensions [(CelExtensions/strings)
+                                        (CelExtensions/math where-cel-options)]
         ^CelStandardFunctions override-functions
         (-> (CelStandardFunctions/newBuilder)
             (.excludeFunctions (ImmutableList/of CelStandardFunctions$StandardFunction/EQUALS
@@ -1430,7 +1435,7 @@
         (.setStandardEnvironmentEnabled false)
         (.setStandardFunctions override-functions)
         (.addLibraries extensions)
-        (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding where-custom-fn-bindings))
+        (.addFunctionBindings (ucoll/array-of CelFunctionBinding where-custom-fn-bindings))
         (.setOptions where-cel-options)
         (.build))))
 
@@ -1748,7 +1753,7 @@
                                             (clojure.string/join " -> " bind-vars)))]
     (throw (CelValidationException. source [issue]))))
 
-(defn throw-cel-validation-error [^String code error]
+(defn throw-cel-validation-error [^String code ^String error]
   (let [source (.build (CelSource/newBuilder code))
         issue (CelIssue/formatError 1 ;; line
                                     1 ;; col
