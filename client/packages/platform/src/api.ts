@@ -1660,20 +1660,9 @@ export class PlatformApi {
     const useOverwrite = shouldOverwrite(body);
 
     return this.withRetry(
-<<<<<<< Updated upstream
-      useOverwrite 
-        ? planSchemaPush
-        : planSchemaPushOverwrite, [
-      this.#apiURI,
-      this.token(),
-      appId,
-      body,
-    ]);
-=======
       useOverwrite ? planSchemaPush : planSchemaPushOverwrite,
       [this.#apiURI, this.token(), appId, body],
     );
->>>>>>> Stashed changes
   }
 
   /**
