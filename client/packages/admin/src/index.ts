@@ -327,7 +327,6 @@ function makeEventSourceWrapper(opts: {
       const es = new EventSource(url, {
         fetch(input, init) {
           fetchErrorResponse = null;
-          console.log('fetch', input);
           return fetch(input, {
             ...init,
             method: 'POST',
@@ -982,6 +981,7 @@ class InstantAdminDatabase<
   impersonationOpts?: ImpersonationOpts;
 
   #sseConnection: SSEConnection | null = null;
+  #sseBackoff = 0;
   #instantStream: InstantStream | null = null;
   #log: Logger;
 
@@ -1025,22 +1025,27 @@ class InstantAdminDatabase<
     return this.#sseConnection || this.#setupSSEConnection();
   }
 
+  #trySend(eventId, msg) {
+    const sseConnection = this.#ensureSSEConnection();
+    this.#log.info('[send]', eventId, msg, {
+      isOpen: sseConnection.isOpen(),
+    });
+    if (sseConnection.isOpen()) {
+      sseConnection.send({ 'client-event-id': eventId, ...msg });
+    }
+  }
+
   #setupInstantStream() {
     if (this.#instantStream) {
       this.#instantStream.close();
     }
-    const sseConnection = this.#ensureSSEConnection();
+    this.#ensureSSEConnection();
     const instantStream = new InstantStream({
       // XXX: Need to get these passed in from somewhere
       WStream: WritableStream,
       RStream: ReadableStream,
       trySend: (eventId, msg) => {
-        this.#log.info('[send]', eventId, msg, {
-          isOpen: sseConnection.isOpen(),
-        });
-        if (sseConnection.isOpen()) {
-          sseConnection.send({ 'client-event-id': eventId, ...msg });
-        }
+        this.#trySend(eventId, msg);
       },
       log: this.#log,
     });
@@ -1053,20 +1058,65 @@ class InstantAdminDatabase<
     return this.#instantStream || this.#setupInstantStream();
   }
 
-  #onopen = () => {
+  #onopen = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][open]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+    this.#log.info('[socket][open]', e.target.id);
+    this.#sseBackoff = 0;
     this.#instantStream?.onConnectionStatusChange('authenticated');
   };
 
-  #onclose = () => {
+  #onclose = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][close]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+    this.#log.info('[socket][close]', e.target.id);
     this.#instantStream?.onConnectionStatusChange('closed');
+    // XXX: Maybe we should base this on whether there are any open streams?
+    if (this.#sseConnection) {
+      // We didn't remove the sse connection, so we must not have wanted it to close, let's try again
+      this.#sseConnection = null;
+      setTimeout(() => this.#ensureSSEConnection(), this.#sseBackoff);
+      this.#sseBackoff = Math.min(15000, Math.max(this.#sseBackoff, 500) * 2);
+    }
   };
 
   #onerror = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][error]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+    this.#log.info('[socket][error]', e.target.id);
+
     // Test this does what we expect
     this.#instantStream?.onConnectionStatusChange('closed');
   };
 
   #onmessage = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][message]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+
     const msg = e.message;
     this.#log.info('[receive]', msg);
     switch (msg.op) {
