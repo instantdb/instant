@@ -156,9 +156,16 @@ export type InstantAPIDeleteAppResponse = Simplify<{
   app: InstantAPIAppDetails<{}>;
 }>;
 
-export type InstantAPISchemaPushBody = {
-  schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
-};
+export type InstantAPISchemaPushBody =
+  | {
+      schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
+      overwrite?: false;
+    }
+  | {
+      schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
+      overwrite: true;
+      renames?: Record<string, string>;
+    };
 
 export type InstantAPIPushPermsBody = {
   perms: InstantRules;
@@ -867,6 +874,15 @@ function translatePushSteps(
   return apiSteps.map((step) => translatePushStep(step, jobs));
 }
 
+function shouldOverwrite(body: InstantAPISchemaPushBody) {
+  if ('renames' in body && !body.overwrite) {
+    throw new Error(
+      'If you pass in `renames`, you _must_ pass in `overwrite: true`',
+    );
+  }
+  return !!body.overwrite;
+}
+
 async function planSchemaPush(
   apiURI: string,
   token: string,
@@ -895,6 +911,37 @@ async function planSchemaPush(
     steps: translatePlanSteps(resp['steps']),
   };
 }
+
+async function planSchemaPushOverwrite(
+  apiURI: string,
+  token: string,
+  appId: string,
+  body: InstantAPISchemaPushBody,
+): Promise<InstantAPIPlanSchemaPushResponse> {
+  console.log("used overwrite!")
+  const resp = await jsonFetch<PlanReponseJSON>(
+    `${apiURI}/superadmin/apps/${appId}/schema/push/plan`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        ...body,
+        check_types: true,
+        supports_background_updates: true,
+      }),
+    },
+  );
+
+  return {
+    newSchema: apiSchemaToInstantSchemaDef(resp['new-schema']),
+    currentSchema: apiSchemaToInstantSchemaDef(resp['current-schema']),
+    steps: translatePlanSteps(resp['steps']),
+  };
+}
+
 
 function allJobsComplete(jobs: IndexingJobJSON[]): boolean {
   return !!jobs.find(
@@ -1568,7 +1615,12 @@ export class PlatformApi {
     appId: string,
     body: InstantAPISchemaPushBody,
   ): Promise<InstantAPIPlanSchemaPushResponse> {
-    return this.withRetry(planSchemaPush, [
+    const useOverwrite = shouldOverwrite(body);
+
+    return this.withRetry(
+      useOverwrite 
+        ? planSchemaPush
+        : planSchemaPushOverwrite, [
       this.#apiURI,
       this.token(),
       appId,
