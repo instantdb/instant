@@ -18,10 +18,12 @@ import {
   attrFwdLabel,
   attrFwdName,
   attrRevName,
+  collectSystemCatalogIdentNames,
   identName,
   InstantAPIPlatformSchema,
   InstantAPISchemaPlanStep,
   InstantAPISchemaPushStep,
+  validateSchema,
 } from './schema.ts';
 import { ProgressPromise } from './ProgressPromise.ts';
 import {
@@ -31,6 +33,11 @@ import {
   sortedEntries,
 } from './util.ts';
 import { exchangeRefreshToken } from './serverOAuth.ts';
+import {
+  buildAutoRenameSelector,
+  convertTxSteps,
+  diffSchemas,
+} from './migrations.ts';
 
 type Simplify<T> = {
   [K in keyof T]: T[K];
@@ -156,6 +163,10 @@ export type InstantAPIDeleteAppResponse = Simplify<{
   app: InstantAPIAppDetails<{}>;
 }>;
 
+
+type RenameCommand = `${string}.${string}:${string}.${string}`;
+
+
 export type InstantAPISchemaPushBody =
   | {
       schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
@@ -164,7 +175,7 @@ export type InstantAPISchemaPushBody =
   | {
       schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
       overwrite: true;
-      renames?: Record<string, string>;
+      renames?: RenameCommand[];
     };
 
 export type InstantAPIPushPermsBody = {
@@ -426,6 +437,21 @@ function apiSchemaAttrToLinkDef(attr: InstantDBAttr) {
   };
 }
 
+export function apiSchemaToAttrs(
+  apiSchema: InstantAPIPlatformSchema,
+): InstantDBAttr[] {
+  let res: InstantDBAttr[] = [];
+  for (const [_, attrs] of sortedEntries(apiSchema.blobs)) {
+    Object.values(attrs).forEach((a) => {
+      res.push(a);
+    });
+  }
+  for (const [_, a] of sortedEntries(apiSchema.refs)) {
+    res.push(a);
+  }
+  return res;
+}
+
 export function apiSchemaToInstantSchemaDef(
   apiSchema: InstantAPIPlatformSchema,
   opts?: { disableTypeInference: boolean },
@@ -559,21 +585,29 @@ async function getAppsForOrg<Opts extends AppDataOpts>(
   return { apps: resp.apps.map(coerceApp) };
 }
 
+async function getAppAPISchema(
+  apiURI: string,
+  token: string,
+  appId: string,
+): Promise<InstantAPIPlatformSchema> {
+  const { schema: apiSchema } = await jsonFetch<{
+    schema: InstantAPIPlatformSchema;
+  }>(`${apiURI}/superadmin/apps/${appId}/schema`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return apiSchema;
+}
+
 async function getAppSchema(
   apiURI: string,
   token: string,
   appId: string,
 ): Promise<InstantAPIGetAppSchemaResponse> {
-  const { schema } = await jsonFetch<{ schema: InstantAPIPlatformSchema }>(
-    `${apiURI}/superadmin/apps/${appId}/schema`,
-    {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  );
-  return { schema: apiSchemaToInstantSchemaDef(schema) };
+  const apiSchema = await getAppAPISchema(apiURI, token, appId);
+  return { schema: apiSchemaToInstantSchemaDef(apiSchema) };
 }
 
 async function getAppPerms(
@@ -816,7 +850,6 @@ function translatePlanStep(apiStep: PlanStep): InstantAPISchemaPlanStep {
         forwardIdentity: stepParams['forward-identity'],
       };
     }
-    // This case will never actually run because /schema/push/plan doesn't detect deleted attrs
     case 'delete-attr': {
       return {
         type: 'delete-attr',
@@ -918,30 +951,39 @@ async function planSchemaPushOverwrite(
   appId: string,
   body: InstantAPISchemaPushBody,
 ): Promise<InstantAPIPlanSchemaPushResponse> {
-  console.log("used overwrite!")
-  const resp = await jsonFetch<PlanReponseJSON>(
-    `${apiURI}/superadmin/apps/${appId}/schema/push/plan`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        ...body,
-        check_types: true,
-        supports_background_updates: true,
-      }),
-    },
+  const apiSchema = await getAppAPISchema(apiURI, token, appId);
+
+  const currentSchema = apiSchemaToInstantSchemaDef(apiSchema, {
+    disableTypeInference: true,
+  });
+  const currentAttrs = apiSchemaToAttrs(apiSchema);
+
+  const systemCatalogIdentNames = collectSystemCatalogIdentNames(currentAttrs);
+
+  const newSchema = body.schema;
+
+  validateSchema(newSchema, systemCatalogIdentNames);
+
+  const rename = ('renames' in body ? body.renames : null) || [];
+
+  // TODO: type this
+  const renameSelector = buildAutoRenameSelector({ rename: rename });
+
+  const diffResult = await diffSchemas(
+    currentSchema,
+    newSchema,
+    renameSelector,
+    systemCatalogIdentNames,
   );
 
+  const txSteps = convertTxSteps(diffResult, currentAttrs);
+
   return {
-    newSchema: apiSchemaToInstantSchemaDef(resp['new-schema']),
-    currentSchema: apiSchemaToInstantSchemaDef(resp['current-schema']),
-    steps: translatePlanSteps(resp['steps']),
+    newSchema: newSchema,
+    currentSchema: currentSchema,
+    steps: translatePlanSteps(txSteps),
   };
 }
-
 
 function allJobsComplete(jobs: IndexingJobJSON[]): boolean {
   return !!jobs.find(
@@ -1618,6 +1660,7 @@ export class PlatformApi {
     const useOverwrite = shouldOverwrite(body);
 
     return this.withRetry(
+<<<<<<< Updated upstream
       useOverwrite 
         ? planSchemaPush
         : planSchemaPushOverwrite, [
@@ -1626,6 +1669,11 @@ export class PlatformApi {
       appId,
       body,
     ]);
+=======
+      useOverwrite ? planSchemaPush : planSchemaPushOverwrite,
+      [this.#apiURI, this.token(), appId, body],
+    );
+>>>>>>> Stashed changes
   }
 
   /**

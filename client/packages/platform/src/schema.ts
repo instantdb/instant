@@ -434,6 +434,24 @@ export class SchemaValidationError extends Error {
   }
 }
 
+export function collectSystemCatalogIdentNames(currentAttrs: InstantDBAttr[]) {
+  const allSystemIdents = currentAttrs
+    .filter((attr) => attr.catalog === 'system')
+    .flatMap((attr) =>
+      [attr['forward-identity'], attr['reverse-identity']].filter(Boolean),
+    ).filter((x): x is NonNullable<typeof x> => Boolean(x))
+
+  let res: Record<string, Set<string>> = {};
+
+  for (const [_, etype, label] of allSystemIdents) {
+    res[etype] = res[etype] || new Set();
+    res[etype].add(label);
+  }
+  
+  return res;
+}
+
+
 export const validateSchema = (
   schema: GenericSchemaDef,
   systemCatalogIdentNames: Record<string, Set<string>>,
