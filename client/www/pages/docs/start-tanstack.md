@@ -21,7 +21,7 @@ npx create-instant-app -b tanstack-start
 
 {% callout type="warning" %}
 
-While the following setup guide demonstrates the basics for managing data, the automatic setup above includes a basic sign-up flow and utilities to access user information while running code on the server.
+While the following setup guide demonstrates the basics for managing data, the automatic setup above includes a basic sign-up flow and other useful full-stack utilities.
 
 {% /callout %}
 
