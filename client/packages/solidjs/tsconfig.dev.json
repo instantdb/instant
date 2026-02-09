@@ -9,6 +9,6 @@
 
     "declaration": true,
     "declarationDir": "./dist/esm",
-    "incremental": true,
-  },
+    "incremental": true
+  }
 }
