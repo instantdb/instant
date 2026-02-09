@@ -321,12 +321,8 @@ function makeEventSourceWrapper(opts: {
     }
 
     #createEventSource(url: string): EventSource {
-      // XXX: What do we do with fetchErrorResponse??
-      let fetchErrorResponse;
-
       const es = new EventSource(url, {
         fetch(input, init) {
-          fetchErrorResponse = null;
           return fetch(input, {
             ...init,
             method: 'POST',
@@ -338,11 +334,6 @@ function makeEventSourceWrapper(opts: {
                 '@instantdb/core': coreVersion,
               },
             }),
-          }).then((r) => {
-            if (!r.ok) {
-              fetchErrorResponse = multiReadFetchResponse(r);
-            }
-            return r;
           });
         },
       });
@@ -438,7 +429,7 @@ class Rooms<Schema extends InstantSchemaDef<any, any, any>> {
     roomId: string,
   ): Promise<PresenceResult<PresenceOf<Schema, RoomType>>> {
     const res = await jsonFetch(
-      `${this.config.apiURI}/admin/rooms/presence?room-type=${String(roomType)}&room-id=${roomId}`,
+      `${this.config.apiURI}/admin/rooms/presence?app_id=${this.config.appId}&room-type=${String(roomType)}&room-id=${roomId}`,
       {
         method: 'GET',
         headers: authorizedHeaders(this.config),
@@ -471,7 +462,7 @@ class Auth {
    * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
   generateMagicCode = async (email: string): Promise<{ code: string }> => {
-    return jsonFetch(`${this.config.apiURI}/admin/magic_code`, {
+    return jsonFetch(`${this.config.apiURI}/admin/magic_code?app_id=${this.config.appId}`, {
       method: 'POST',
       headers: authorizedHeaders(this.config),
       body: JSON.stringify({ email }),
@@ -489,7 +480,7 @@ class Auth {
    * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
   sendMagicCode = async (email: string): Promise<{ code: string }> => {
-    return jsonFetch(`${this.config.apiURI}/admin/send_magic_code`, {
+    return jsonFetch(`${this.config.apiURI}/admin/send_magic_code?app_id=${this.config.appId}`, {
       method: 'POST',
       headers: authorizedHeaders(this.config),
       body: JSON.stringify({ email }),
@@ -507,7 +498,7 @@ class Auth {
    */
   verifyMagicCode = async (email: string, code: string): Promise<User> => {
     const { user } = await jsonFetch(
-      `${this.config.apiURI}/admin/verify_magic_code`,
+      `${this.config.apiURI}/admin/verify_magic_code?app_id=${this.config.appId}`,
       {
         method: 'POST',
         headers: authorizedHeaders(this.config),
@@ -553,7 +544,7 @@ class Auth {
   ): Promise<AuthToken> {
     const body = typeof input === 'string' ? { email: input } : input;
     const ret: { user: { refresh_token: string } } = await jsonFetch(
-      `${this.config.apiURI}/admin/refresh_tokens`,
+      `${this.config.apiURI}/admin/refresh_tokens?app_id=${this.config.appId}`,
       {
         method: 'POST',
         headers: authorizedHeaders(this.config),
@@ -581,7 +572,7 @@ class Auth {
    */
   verifyToken = async (token: AuthToken): Promise<User> => {
     const res = await jsonFetch(
-      `${this.config.apiURI}/runtime/auth/verify_refresh_token`,
+      `${this.config.apiURI}/runtime/auth/verify_refresh_token?app_id=${this.config.appId}`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -615,7 +606,7 @@ class Auth {
       .join('&');
 
     const response: { user: User } = await jsonFetch(
-      `${this.config.apiURI}/admin/users?${qs}`,
+      `${this.config.apiURI}/admin/users?app_id=${this.config.appId}&${qs}`,
       {
         method: 'GET',
         headers: authorizedHeaders(this.config),
@@ -646,7 +637,7 @@ class Auth {
   ): Promise<User> => {
     const qs = Object.entries(params).map(([k, v]) => `${k}=${v}`);
     const response: { deleted: User } = await jsonFetch(
-      `${this.config.apiURI}/admin/users?${qs}`,
+      `${this.config.apiURI}/admin/users?app_id=${this.config.appId}&${qs}`,
       {
         method: 'DELETE',
         headers: authorizedHeaders(this.config),
@@ -700,7 +691,7 @@ class Auth {
     // accept email strings. Eventually we can remove this
     const params = typeof input === 'string' ? { email: input } : input;
     const config = this.config;
-    await jsonFetch(`${config.apiURI}/admin/sign_out`, {
+    await jsonFetch(`${config.apiURI}/admin/sign_out?app_id=${this.config.appId}`, {
       method: 'POST',
       headers: authorizedHeaders(config),
       body: JSON.stringify(params),
@@ -823,7 +814,7 @@ class Storage {
       ...(duplex && { duplex }),
     };
 
-    return jsonFetch(`${this.config.apiURI}/admin/storage/upload`, options);
+    return jsonFetch(`${this.config.apiURI}/admin/storage/upload?app_id=${this.config.appId}`, options);
   };
 
   /**
@@ -835,7 +826,7 @@ class Storage {
    */
   delete = async (pathname: string): Promise<DeleteFileResponse> => {
     return jsonFetch(
-      `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(
+      `${this.config.apiURI}/admin/storage/files?app_id=${this.config.appId}&filename=${encodeURIComponent(
         pathname,
       )}`,
       {
@@ -853,7 +844,7 @@ class Storage {
    *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
    */
   deleteMany = async (pathnames: string[]): Promise<DeleteManyFileResponse> => {
-    return jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
+    return jsonFetch(`${this.config.apiURI}/admin/storage/files/delete?app_id=${this.config.appId}`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({ filenames: pathnames }),
@@ -870,7 +861,7 @@ class Storage {
     metadata: FileOpts = {},
   ): Promise<boolean> => {
     const { data: presignedUrl } = await jsonFetch(
-      `${this.config.apiURI}/admin/storage/signed-upload-url`,
+      `${this.config.apiURI}/admin/storage/signed-upload-url?app_id=${this.config.appId}`,
       {
         method: 'POST',
         headers: authorizedHeaders(this.config),
@@ -901,7 +892,7 @@ class Storage {
    */
   list = async (): Promise<StorageFile[]> => {
     const { data } = await jsonFetch(
-      `${this.config.apiURI}/admin/storage/files`,
+      `${this.config.apiURI}/admin/storage/files?app_id=${this.config.appId}`,
       {
         method: 'GET',
         headers: authorizedHeaders(this.config),
@@ -992,7 +983,6 @@ class InstantAdminDatabase<
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config, this.impersonationOpts);
     this.rooms = new Rooms<Schema>(this.config);
-    console.log(!!this.config.verbose);
     this.#log = createLogger(!!this.config.verbose);
   }
 
@@ -1001,7 +991,6 @@ class InstantAdminDatabase<
       this.#sseConnection.close();
     }
     const headers: HeadersInit = {
-      // XXX: Do we need to accept additional headers??
       ...authorizedHeaders(this.config, this.impersonationOpts),
     };
 
@@ -1197,18 +1186,21 @@ class InstantAdminDatabase<
 
     const fetchOpts = opts.fetchOpts || {};
     const fetchOptsHeaders = fetchOpts['headers'] || {};
-    return jsonFetch(`${this.config.apiURI}/admin/query`, {
-      ...fetchOpts,
-      method: 'POST',
-      headers: {
-        ...fetchOptsHeaders,
-        ...authorizedHeaders(this.config, this.impersonationOpts),
+    return jsonFetch(
+      `${this.config.apiURI}/admin/query?app_id=${this.config.appId}`,
+      {
+        ...fetchOpts,
+        method: 'POST',
+        headers: {
+          ...fetchOptsHeaders,
+          ...authorizedHeaders(this.config, this.impersonationOpts),
+        },
+        body: JSON.stringify({
+          query: query,
+          'inference?': !!this.config.schema,
+        }),
       },
-      body: JSON.stringify({
-        query: query,
-        'inference?': !!this.config.schema,
-      }),
-    });
+    );
   };
 
   /**
@@ -1305,7 +1297,7 @@ class InstantAdminDatabase<
     if (!this.config.disableValidation) {
       validateTransactions(inputChunks, this.config.schema);
     }
-    return jsonFetch(`${this.config.apiURI}/admin/transact`, {
+    return jsonFetch(`${this.config.apiURI}/admin/transact?app_id=${this.config.appId}`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
@@ -1348,7 +1340,7 @@ class InstantAdminDatabase<
     }
 
     const response = await jsonFetch(
-      `${this.config.apiURI}/admin/query_perms_check`,
+      `${this.config.apiURI}/admin/query_perms_check?app_id=${this.config.appId}`,
       {
         method: 'POST',
         headers: authorizedHeaders(this.config, this.impersonationOpts),
@@ -1384,7 +1376,7 @@ class InstantAdminDatabase<
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
     opts?: { rules?: any },
   ): Promise<DebugTransactResult> => {
-    return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
+    return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check?app_id=${this.config.appId}`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
