@@ -214,9 +214,9 @@ export const runCli = async (): Promise<{
             options: [
               {
                 value: 'next-js-app-dir',
-                label: 'Web: Next.js (Recommended)',
+                label: 'Web: Next.js',
               },
-              { value: 'expo', label: 'Mobile: React Native (Expo)' },
+              { value: 'expo', label: 'Mobile: Expo' },
               {
                 value: 'vite-vanilla',
                 label: 'Vite: Vanilla TS',

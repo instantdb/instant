@@ -180,9 +180,8 @@ ${chalk.hex('#EA570B').bold('●')} ${this.params.options[this.data.selectedIdx]
         })
         .join('\n');
 
-      return `${this.params.promptText}\n
-${mainOptionsList}
-${secondaryOptionsList.length ? chalk.dim('─────────────────────────────────────────\n') + secondaryOptionsList : ''}`;
+      return `${this.params.promptText}
+${mainOptionsList}${secondaryOptionsList.length ? chalk.gray('\n───────────────── Additional Options ─────────────────\n') + secondaryOptionsList : ''}`;
     }
   }
 
