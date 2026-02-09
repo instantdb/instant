@@ -324,11 +324,11 @@ ${inputDisplay}`;
     promise: Promise<T>;
     workingText?: string;
     doneText?: string;
-    errorText?: string;
+    errorText?: string | ((e: unknown) => string);
     disappearWhenDone?: boolean;
   };
 
-  export class Spinner<T> extends Prompt<T> {
+  export class Spinner<T> extends Prompt<T | Error> {
     private props: SpinnerProps<T>;
     private promiseResult: T | null = null;
     private promiseError: Error | null = null;
@@ -337,7 +337,7 @@ ${inputDisplay}`;
     private intervalId: NodeJS.Timeout | null = null;
     private messages: string[] = [];
 
-    result(): T {
+    result(): T | Error {
       if (this.promiseError) {
         throw this.promiseError;
       }
@@ -359,18 +359,23 @@ ${inputDisplay}`;
       const doneText = this.props.doneText || 'Done';
       const errorText = this.props.errorText || 'Error';
 
+      if (status === 'aborted') {
+        return `${chalk.yellow('⚠')} Aborted\n`;
+      }
+
+      if (this.promiseError) {
+        const finalError =
+          errorText instanceof Function
+            ? errorText(this.promiseError)
+            : errorText;
+        return `${chalk.red('✗')} ${finalError}\n`;
+      }
+
       if (status === 'submitted') {
-        if (this.promiseError) {
-          return `${chalk.red('✗')} ${errorText}\n`;
-        }
         if (this.props.disappearWhenDone) {
           return '';
         }
         return `${chalk.green('✓')} ${doneText}\n`;
-      }
-
-      if (status === 'aborted') {
-        return `${chalk.yellow('⚠')} Aborted\n`;
       }
 
       const frame = this.spinnerFrames[this.frameIndex];
