@@ -25,6 +25,11 @@ While the following setup guide demonstrates the basics for managing data, the a
 
 {% /callout %}
 
+Create a blank TanStack Start app:
+```shell
+npx @tanstack/cli create my-app
+```
+
 Add the InstantDB React Library:
 
 ```shell
