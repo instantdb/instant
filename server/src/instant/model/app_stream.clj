@@ -302,7 +302,7 @@
    the buffer to a file if we're over the flush limit (1mb by default).
 
   `chunks` should be an array of byte[]"
-  [stream-object chunks done? on-flush-to-file]
+  [stream-object expected-offset chunks done? on-flush-to-file]
   (let [chunks-byte-size (reduce (fn [acc ^bytes chunk]
                                    (+ acc (alength chunk)))
                                  0
@@ -315,6 +315,15 @@
                            (ex/throw-validation-err! :append-stream
                                                      {:stream-id (:id obj)}
                                                      [{:message "Stream is completed."}]))
+                         (when-not (= (+ (:buffer-byte-size obj)
+                                         (:buffer-byte-offset obj))
+                                      expected-offset)
+                           (ex/throw-validation-err! :append-stream
+                                                     {:stream-id (:id obj)
+                                                      :expected-offset expected-offset
+                                                      :offset (+ (:buffer-byte-size obj)
+                                                                 (:buffer-byte-offset obj))}
+                                                     [{:message "Invalid offset for stream."}]))
                          (let [next-obj (-> obj
                                             (update :buffer into chunks)
                                             (update :buffer-byte-size + chunks-byte-size)

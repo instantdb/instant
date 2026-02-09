@@ -781,6 +781,10 @@
         done? (ex/get-optional-param! event [:done] (fn [done]
                                                       (when (boolean? done)
                                                         done)))
+        expected-offset (ex/get-param! event [:offset] (fn [offset]
+                                                         (when (and (int? offset)
+                                                                    (not (neg? offset)))
+                                                           offset)))
         chunks (ex/get-param! event [:chunks] (fn [chunks]
                                                 (when (vector? chunks)
                                                   (reduce (fn [acc chunk]
@@ -807,6 +811,7 @@
                                                     :stream-id stream-id}
                                     [{:message "Stream updated from a different machine."}]))))
     (app-stream-model/append stream-object
+                             expected-offset
                              chunks
                              done?
                              (fn [{:keys [offset done?]}]

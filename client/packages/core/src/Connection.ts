@@ -210,8 +210,8 @@ export class SSEConnection implements Connection<EventSourceType> {
   }
 
   private async postMessages(messages: any[]): Promise<void> {
-    // XXX: Create a connection with chunked encoding so we can
-    //      send multiple messages over one request
+    // TODO(dww): Create a connection with chunked encoding so we can
+    //            send multiple messages over one request
     try {
       const resp = await fetch(this.messageUrl, {
         method: 'POST',

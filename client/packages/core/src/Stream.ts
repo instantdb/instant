@@ -16,9 +16,6 @@ type ReadableStreamCtor = {
   ): ReadableStream<R>;
 };
 
-// XXX:
-//  Who should control restarting on reconnect or error? The writeStream fn or the class?
-
 type WriteStreamStartResult =
   | { type: 'ok'; streamId: string; offset: number }
   | { type: 'disconnect' }
@@ -30,10 +27,6 @@ type WriteStreamCbs = {
   onFlush: (args: { offset: number }) => void;
 };
 
-// When we send the chunks, we need to send the offset so that
-// the server knows to reject them if it's missing chunks, then
-// we can send again
-// Need to listen to the flushed events
 function createWriteStream({
   WStream,
   opts,
@@ -51,7 +44,6 @@ function createWriteStream({
     streamId: string;
     chunks: string[];
     isDone?: boolean;
-    // XXX: Handle offset on the server
     offset: number;
     abortReason?: string;
   }) => void;

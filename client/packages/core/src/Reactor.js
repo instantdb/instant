@@ -882,7 +882,6 @@ export default class Reactor {
     }
   }
 
-  // XXX: I think we need the clientId?
   createWriteStream(opts) {
     return this._instantStream.createWriteStream(opts);
   }
