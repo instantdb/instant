@@ -54,18 +54,21 @@
 (defn create!
   "Creates a new $stream object"
   ([params] (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [id app-id client-id machine-id hashed-reconnect-token]}]
+  ([conn {:keys [app-id client-id machine-id hashed-reconnect-token]}]
    (update-op
      conn
      {:app-id app-id
       :etype etype}
      (fn [{:keys [transact! resolve-id]}]
-       (transact!
-         (concat [[:add-triple id (resolve-id :id) id {:mode :create}]
-                  [:add-triple id (resolve-id :machineId) machine-id {:mode :create}]
-                  [:add-triple id (resolve-id :hashedReconnectToken) hashed-reconnect-token {:mode :create}]]
-                 (when client-id
-                   [[:add-triple id (resolve-id :clientId) client-id {:mode :create}]])))))))
+       (let [lookup [(resolve-id :clientId) client-id]
+             res (transact!
+                   [[:add-triple lookup (resolve-id :id) lookup {:mode :create}]
+                    [:add-triple lookup (resolve-id :machineId) machine-id {:mode :create}]
+                    [:add-triple lookup (resolve-id :hashedReconnectToken) hashed-reconnect-token {:mode :create}]])]
+         (tool/def-locals)
+         {:id (->> (get-in res [:results :add-triple])
+                   first
+                   :entity_id)})))))
 
 (defn update-machine-id!
   ([params] (update-machine-id! (aurora/conn-pool :write) params))
@@ -89,6 +92,7 @@
   "Links the $file to the $stream, if the stream is complete, sets the done and size fields."
   ([params] (link-file! (aurora/conn-pool :write) params))
   ([conn {:keys [stream-id app-id file-id done? size]}]
+   (tool/def-locals)
    (update-op
      conn
      {:app-id app-id
@@ -277,8 +281,8 @@
                                                     ;; one in there
                                                     (when-not (= p flush-promise)
                                                       (tracer/record-exception-span!
-                                                       (Exception. "concurrent flush-to-file executions.")
-                                                       {:name "app-stream/flush-to-file"})
+                                                        (Exception. "concurrent flush-to-file executions.")
+                                                        {:name "app-stream/flush-to-file"})
                                                       p))))))]
     (tool/def-locals)
     ;; XXX: Needs to recur a flush when it's finished if the buffer has exceeded our limit while we were flushing
@@ -369,7 +373,6 @@
                  :start-offset 0}
                 $files)
 
-
         {:keys [chunks start-offset]}
         (reduce (fn [{:keys [chunks start-offset]} ^bytes chunk]
                   (let [next-start-offset (+ start-offset (alength chunk))]
@@ -415,7 +418,6 @@
                    (do
                      (.onNext observer (grpc/stream-error :writer-disconnected))
                      (.onCompleted observer))
-
 
                    (.onNext observer v))))]
 
@@ -549,7 +551,6 @@
                         {:error true
                          :error-type :retry})
 
-
                       :instance-missing (when @machine-id-changed
                                           {:error true
                                            :error-type :retry})))
@@ -595,7 +596,7 @@
         req (grpc/->StreamRequest app-id (:id stream) offset)
         use-local? (or (not channel)
                        (and (= machine-id config/machine-id)
-                            true        ;false ;true ;false
+                            true        ; false ;true ;false
                             ;; In dev, hit the grpc server half the time to exercise the route
                             (or (not (config/dev?))
                                 (= 0 (rand-int 2)))))

@@ -1035,8 +1035,10 @@ class InstantAdminDatabase<
       WStream: WritableStream,
       RStream: ReadableStream,
       trySend: (eventId, msg) => {
+        this.#log.info('[send]', eventId, msg, {
+          isOpen: sseConnection.isOpen(),
+        });
         if (sseConnection.isOpen()) {
-          this.#log.info('[send]', eventId, msg);
           sseConnection.send({ 'client-event-id': eventId, ...msg });
         }
       },
@@ -1068,12 +1070,8 @@ class InstantAdminDatabase<
     const msg = e.message;
     this.#log.info('[receive]', msg);
     switch (msg.op) {
-      case 'create-stream-ok': {
-        this.#instantStream?.onCreateStreamOk(msg);
-        break;
-      }
-      case 'restart-stream-ok': {
-        this.#instantStream?.onRestartStreamOk(msg);
+      case 'start-stream-ok': {
+        this.#instantStream?.onStartStreamOk(msg);
         break;
       }
       case 'stream-flushed': {
@@ -1085,7 +1083,7 @@ class InstantAdminDatabase<
         break;
       }
       case 'error': {
-        switch (msg['orignal-event']?.op) {
+        switch (msg['original-event']?.op) {
           case 'create-stream':
           case 'restart-stream':
           case 'append-stream':
@@ -1363,16 +1361,10 @@ class InstantAdminDatabase<
     return this.#ensureInstantStream().createReadStream(streamOpts);
   }
 
-  createWriteStream(opts?: {
-    clientId?: string | null | undefined;
-  }): WritableStream<string> {
-    const streamOpts: { clientId?: string } = {};
-    if (opts?.clientId) {
-      streamOpts.clientId = opts.clientId;
-    }
+  createWriteStream(opts: { clientId: string }): WritableStream<string> {
     // XXX: Something needs to shut down the connection if we're not
     //      doing anything on it.
-    return this.#ensureInstantStream().createWriteStream(streamOpts);
+    return this.#ensureInstantStream().createWriteStream(opts);
   }
 }
 

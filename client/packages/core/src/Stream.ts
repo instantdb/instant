@@ -19,6 +19,11 @@ type ReadableStreamCtor = {
 // XXX:
 //  Who should control restarting on reconnect or error? The writeStream fn or the class?
 
+type WriteStreamStartResult =
+  | { type: 'ok'; streamId: string; offset: number }
+  | { type: 'disconnect' }
+  | { type: 'error' };
+
 type WriteStreamCbs = {
   onDisconnect: () => void;
   onConnectionReconnect: () => void;
@@ -33,19 +38,15 @@ function createWriteStream({
   WStream,
   opts,
   startStream,
-  restartStream,
   appendStream,
   registerStream,
 }: {
   WStream: WritableStreamCtor;
-  opts?: { clientId?: string };
+  opts: { clientId: string };
   startStream: (opts: {
-    clientId?: string;
-  }) => Promise<{ streamId: string; reconnectToken: string }>;
-  restartStream: (opts: {
-    streamId: string;
+    clientId: string;
     reconnectToken: string;
-  }) => Promise<{ offset: number }>;
+  }) => Promise<WriteStreamStartResult>;
   appendStream: (opts: {
     streamId: string;
     chunks: string[];
@@ -57,9 +58,9 @@ function createWriteStream({
   registerStream: (streamId: string, cbs: WriteStreamCbs) => void;
   // XXX: Need another callback to unregister the stream when it is closed or aborted
 }): WritableStream<string> {
-  // XXX: Do I need the underscores??
+  const clientId = opts.clientId;
   let streamId_: string | null = null;
-  let reconnectToken_: string | null = null;
+  const reconnectToken = uuid();
   let isDone: boolean = false;
   let disconnected: boolean = false;
   // Chunks that we haven't been notified are flushed to disk
@@ -104,23 +105,33 @@ function createWriteStream({
   }
 
   async function onConnectionReconnect() {
-    if (streamId_ && reconnectToken_) {
-      const { offset } = await restartStream({
-        streamId: streamId_,
-        reconnectToken: reconnectToken_,
-      });
-      discardFlushed(offset);
-      if (buffer.length) {
-        appendStream({
-          streamId: streamId_,
-          chunks: buffer.map((b) => b.chunk),
-          offset: bufferOffset,
-        });
+    const result = await startStream({
+      clientId,
+      reconnectToken,
+    });
+    switch (result.type) {
+      case 'ok': {
+        const { streamId, offset } = result;
+        streamId_ = streamId;
+        discardFlushed(offset);
+        if (buffer.length) {
+          appendStream({
+            streamId: streamId,
+            chunks: buffer.map((b) => b.chunk),
+            offset: bufferOffset,
+          });
+        }
+        disconnected = false;
+        break;
       }
-      disconnected = false;
-    } else {
-      // We don't need to restart, so mark it as connected
-      disconnected = false;
+      case 'disconnect': {
+        onDisconnect();
+        break;
+      }
+      case 'error': {
+        // XXX: Do something with the error
+        break;
+      }
     }
   }
 
@@ -138,29 +149,53 @@ function createWriteStream({
     return streamId_;
   }
 
+  async function start(controller: WritableStreamDefaultController) {
+    let tryAgain = true;
+    // XXX: Some kind of rate limit on trying again
+    while (tryAgain) {
+      tryAgain = false;
+      const result = await startStream({
+        clientId: opts.clientId,
+        reconnectToken,
+      });
+      console.log('start stream result', result);
+      switch (result.type) {
+        case 'ok': {
+          const { streamId, offset } = result;
+          if (offset !== 0) {
+            controller.error('Write stream is corrupted');
+            return;
+          }
+          streamId_ = streamId;
+          registerStream(streamId, {
+            onDisconnect,
+            onFlush,
+            onConnectionReconnect,
+          });
+          disconnected = false;
+          return;
+        }
+        case 'disconnect': {
+          tryAgain = true;
+          onDisconnect();
+          break;
+        }
+        case 'error': {
+          // XXX: Better error handling
+          controller.error('Stream failed to start.');
+          return;
+        }
+      }
+    }
+  }
+
   return new WStream({
     // We could make this a little more resilient to network interrupts
     // Maybe we should put the segments into storage?
     async start(controller) {
       try {
-        // XXX: Should we have some way to write when offline??
-        //        need to modify this stuff a little bit so that we
-        //        don't need to wait for the streamId and reconnectToken
-        //        probably just need to pass a callback that takes an onConnect
-        const startOpts: { clientId?: string } = {};
-        if (opts?.clientId) {
-          startOpts.clientId = opts.clientId;
-        }
-        console.log('STARTING STREAM', opts);
-        const { streamId, reconnectToken } = await startStream(startOpts);
-        registerStream(streamId, {
-          onDisconnect,
-          onFlush,
-          onConnectionReconnect,
-        });
-        streamId_ = streamId;
-        reconnectToken_ = reconnectToken;
-        disconnected = false;
+        console.log('CALLING START');
+        await start(controller);
       } catch (e) {
         console.log('error', e);
         controller.error(e.message);
@@ -417,14 +452,9 @@ function createReadStream({
   });
 }
 
-type CreateStreamMsg = {
-  op: 'create-stream';
-  'client-id'?: string;
-};
-
-type RestartStreamMsg = {
-  op: 'restart-stream';
-  'stream-id': string;
+type StartStreamMsg = {
+  op: 'start-stream';
+  'client-id': string;
   'reconnect-token': string;
 };
 
@@ -449,26 +479,17 @@ type UnsubscribeStreamMsg = {
 };
 
 type SendMsg =
-  | CreateStreamMsg
-  | RestartStreamMsg
+  | StartStreamMsg
   | AppendStreamMsg
   | SubscribeStreamMsg
   | UnsubscribeStreamMsg;
 
 type TrySend = (eventId: string, msg: SendMsg) => void;
 
-type CreateStreamOkMsg = {
-  op: 'create-stream-ok';
+type StartStreamOkMsg = {
+  op: 'start-stream-ok';
   'client-event-id': string;
   'stream-id': string;
-  'reconnect-token': string;
-};
-
-type RestartStreamOkMsg = {
-  op: 'restart-stream-ok';
-  'client-event-id': string;
-  'stream-id': string;
-  'reconnect-token': string;
   offset: number;
 };
 
@@ -499,12 +520,10 @@ export class InstantStream {
   private WStream: WritableStreamCtor;
   private RStream: ReadableStreamCtor;
   private writeStreams: Record<string, WriteStreamCbs> = {};
-  private startStreamCbs: Record<
+  private startWriteStreamCbs: Record<
     string,
-    (data: { streamId: string; reconnectToken: string }) => void
+    (data: WriteStreamStartResult) => void
   > = {};
-  private restartStreamCbs: Record<string, (data: { offset: number }) => void> =
-    {};
 
   private readStreamIterators: Record<
     string,
@@ -529,13 +548,10 @@ export class InstantStream {
     this.log = log;
   }
 
-  public createWriteStream(opts?: {
-    clientId?: string;
-  }): WritableStream<string> {
+  public createWriteStream(opts: { clientId: string }): WritableStream<string> {
     return createWriteStream({
       WStream: this.WStream,
       startStream: this.startWriteStream.bind(this),
-      restartStream: this.restartWriteStream.bind(this),
       appendStream: this.appendStream.bind(this),
       registerStream: this.registerWriteStream.bind(this),
       opts,
@@ -552,52 +568,26 @@ export class InstantStream {
     });
   }
 
-  private startWriteStream(opts: {
-    clientId?: string;
-  }): Promise<{ streamId: string; reconnectToken: string }> {
-    const eventId = uuid();
-    let resolve:
-      | ((data: { streamId: string; reconnectToken: string }) => void)
-      | null = null;
-    const promise: Promise<{ streamId: string; reconnectToken: string }> =
-      new Promise((r) => {
-        resolve = r;
-      });
-    this.startStreamCbs[eventId] = resolve!;
-    // XXX: Maybe we should generate the reconnect-token so that we can
-    //      restart the stream even if we lose the `ok` message from the server
-    const msg: CreateStreamMsg = { op: 'create-stream' };
-    if (opts?.clientId) {
-      msg['client-id'] = opts.clientId;
-    }
-    // XXX: HACK
-    setTimeout(() => {
-      this.trySend(eventId, msg);
-    }, 500);
-    return promise;
-  }
-
   // XXX: Need to have some way to forward generic errors from the reactor to here
   //      Callback should get a resolve and a reject
-  private restartWriteStream({
-    streamId,
-    reconnectToken,
-  }: {
-    streamId: string;
+  private startWriteStream(opts: {
+    clientId: string;
     reconnectToken: string;
-  }) {
+  }): Promise<WriteStreamStartResult> {
     const eventId = uuid();
-    let resolve: ((data: { offset: number }) => void) | null = null;
-    const promise: Promise<{ offset: number }> = new Promise((r) => {
+    let resolve: ((data: WriteStreamStartResult) => void) | null = null;
+    const promise: Promise<WriteStreamStartResult> = new Promise((r) => {
       resolve = r;
     });
-    this.restartStreamCbs[eventId] = resolve!;
-    const msg: RestartStreamMsg = {
-      op: 'restart-stream',
-      'stream-id': streamId,
-      'reconnect-token': reconnectToken,
+    this.startWriteStreamCbs[eventId] = resolve!;
+    const msg: StartStreamMsg = {
+      op: 'start-stream',
+      'client-id': opts.clientId,
+      'reconnect-token': opts.reconnectToken,
     };
+
     this.trySend(eventId, msg);
+
     return promise;
   }
 
@@ -634,22 +624,14 @@ export class InstantStream {
     this.trySend(uuid(), msg);
   }
 
-  onCreateStreamOk(msg: CreateStreamOkMsg) {
-    const cb = this.startStreamCbs[msg['client-event-id']];
+  onStartStreamOk(msg: StartStreamOkMsg) {
+    const cb = this.startWriteStreamCbs[msg['client-event-id']];
     if (!cb) {
       this.log.info('No stream for start-stream-ok', msg);
       return;
     }
-    cb({ streamId: msg['stream-id'], reconnectToken: msg['reconnect-token'] });
-  }
-
-  onRestartStreamOk(msg: RestartStreamOkMsg) {
-    const cb = this.restartStreamCbs[msg['client-event-id']];
-    if (!cb) {
-      this.log.info('No stream for start-stream-ok', msg);
-      return;
-    }
-    cb({ offset: msg.offset });
+    cb({ type: 'ok', streamId: msg['stream-id'], offset: msg.offset });
+    delete this.startWriteStreamCbs[msg['client-event-id']];
   }
 
   onStreamFlushed(msg: StreamFlushedMsg) {
@@ -754,6 +736,13 @@ export class InstantStream {
 
   onConnectionStatusChange(status) {
     console.log('status change', status);
+    // Restart the write streams, they'll try to reconnect
+    console.log(this.startWriteStreamCbs);
+    for (const cb of Object.values(this.startWriteStreamCbs)) {
+      console.log('disconnect!');
+      cb({ type: 'disconnect' });
+    }
+    this.startWriteStreamCbs = {};
     if (status !== STATUS.AUTHENTICATED) {
       for (const { onDisconnect } of Object.values(this.writeStreams)) {
         onDisconnect();

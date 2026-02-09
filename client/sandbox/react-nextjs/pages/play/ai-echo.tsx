@@ -277,6 +277,8 @@ function ChatPanel({
 function App({ appId }: { appId: string }) {
   const adminToken = localStorage.getItem(`ephemeral-admin-token-${appId}`);
   const [input, setInput] = useState('');
+  const [resumableEnabled, setResumableEnabled] = useState(true);
+  const [instantEnabled, setInstantEnabled] = useState(true);
   const sendFnsRef = useRef<
     Array<(opts: { text: string }) => void>
   >([]);
@@ -342,28 +344,54 @@ function App({ appId }: { appId: string }) {
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-4">
-        <ChatPanel
-          prefix="ai-echo-resumable"
-          transport={resumableTransport}
-          title="Resumable Streams"
-          subtitle="resumable-stream + Redis/file pubsub"
-          badgeColor="bg-green-50 text-green-700"
-          onReady={registerResumable}
-        />
-        {instantTransport ? (
-          <ChatPanel
-            prefix="ai-echo-instant"
-            transport={instantTransport}
-            title="Instant Streams"
-            subtitle="InstantDB admin SDK write/read streams"
-            badgeColor="bg-purple-50 text-purple-700"
-            onReady={registerInstant}
-          />
-        ) : (
-          <div className="flex items-center justify-center">
-            <p className="text-gray-500">No admin token available</p>
-          </div>
-        )}
+        <div className="flex h-full flex-col">
+          <button
+            onClick={() => setResumableEnabled((v) => !v)}
+            className={`mb-2 rounded px-2 py-1 text-xs ${resumableEnabled ? 'bg-green-200 hover:bg-green-300' : 'bg-gray-200 hover:bg-gray-300'}`}
+          >
+            {resumableEnabled ? 'Disable' : 'Enable'} Resumable
+          </button>
+          {resumableEnabled ? (
+            <div className="min-h-0 flex-1">
+              <ChatPanel
+                prefix="ai-echo-resumable"
+                transport={resumableTransport}
+                title="Resumable Streams"
+                subtitle="resumable-stream + Redis/file pubsub"
+                badgeColor="bg-green-50 text-green-700"
+                onReady={registerResumable}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-1 items-center justify-center rounded border text-gray-400">
+              Disabled
+            </div>
+          )}
+        </div>
+        <div className="flex h-full flex-col">
+          <button
+            onClick={() => setInstantEnabled((v) => !v)}
+            className={`mb-2 rounded px-2 py-1 text-xs ${instantEnabled ? 'bg-purple-200 hover:bg-purple-300' : 'bg-gray-200 hover:bg-gray-300'}`}
+          >
+            {instantEnabled ? 'Disable' : 'Enable'} Instant
+          </button>
+          {instantEnabled && instantTransport ? (
+            <div className="min-h-0 flex-1">
+              <ChatPanel
+                prefix="ai-echo-instant"
+                transport={instantTransport}
+                title="Instant Streams"
+                subtitle="InstantDB admin SDK write/read streams"
+                badgeColor="bg-purple-50 text-purple-700"
+                onReady={registerInstant}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-1 items-center justify-center rounded border text-gray-400">
+              {!instantTransport ? 'No admin token available' : 'Disabled'}
+            </div>
+          )}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-4 flex gap-2">

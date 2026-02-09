@@ -1121,13 +1121,15 @@
         (fn [store {:keys [socket movies-app-id]}]
           (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
           (let [event-id (random-uuid)
-                {:keys [stream-id
-                        reconnect-token]}
-                (blocking-send-msg :create-stream-ok socket {:op :create-stream
-                                                             :client-event-id event-id
-                                                             :client-id "stream-1"})]
+                {:keys [stream-id]}
+                (blocking-send-msg :start-stream-ok socket {:op :start-stream
+                                                            :client-event-id event-id
+                                                            :client-id "stream-1"
+                                                            :reconnect-token (str (random-uuid))})]
+
             (is (uuid? stream-id))
-            (is (uuid? reconnect-token))
+
+            (tool/def-locals)
 
             (send-msg socket {:op :append-stream
                               :stream-id (str stream-id)
@@ -1174,15 +1176,17 @@
             (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
             (let [event-id (random-uuid)
                   {:keys [stream-id]}
-                  (blocking-send-msg :create-stream-ok socket {:op :create-stream
-                                                               :client-event-id event-id
-                                                               :client-id "stream-1"})
+                  (blocking-send-msg :start-stream-ok socket {:op :start-stream
+                                                              :client-event-id event-id
+                                                              :client-id "stream-1"
+                                                              :reconnect-token (random-uuid)})
 
                   {:keys [offset done]}
                   (blocking-send-msg :stream-flushed socket {:op :append-stream
                                                              :stream-id (str stream-id)
                                                              :chunks ["Hello"]
                                                              :offset 0})
+
                   stream-files (app-stream-model/get-stream-files {:app-id movies-app-id
                                                                    :stream-id stream-id})
                   _ (is (= "Hello" (read-full-stream store movies-app-id stream-id slurp-file)))
@@ -1231,11 +1235,12 @@
             (blocking-send-msg :init-ok socket-2 {:op :init :app-id movies-app-id})
             (blocking-send-msg :init-ok socket-3 {:op :init :app-id movies-app-id})
             (let [event-id (random-uuid)
-                  {:keys [stream-id
-                          reconnect-token]}
-                  (blocking-send-msg :create-stream-ok socket {:op :create-stream
-                                                               :client-event-id event-id
-                                                               :client-id "stream-1"})
+                  reconnect-token (str (random-uuid))
+                  {:keys [stream-id]}
+                  (blocking-send-msg :start-stream-ok socket {:op :start-stream
+                                                              :client-event-id event-id
+                                                              :client-id "stream-1"
+                                                              :reconnect-token reconnect-token})
 
 
                   ;; Make sure part of the buffer gets flushed to a file
@@ -1259,9 +1264,9 @@
                   _ (is (= "Hello" (read-full-stream store movies-app-id stream-id slurp-file)))
 
                   {:keys [offset]}
-                  (blocking-send-msg :restart-stream-ok socket-2 {:op :restart-stream
-                                                                  :stream-id (str stream-id)
-                                                                  :reconnect-token (str reconnect-token)})
+                  (blocking-send-msg :start-stream-ok socket-2 {:op :start-stream
+                                                                :client-id "stream-1"
+                                                                :reconnect-token (str reconnect-token)})
                   _ (is (= offset 5))
 
                   _ (send-msg socket-2 {:op :append-stream
@@ -1271,11 +1276,11 @@
                   _ (is (= "HelloDEF" (read-full-stream store movies-app-id stream-id slurp-file)))]
 
               (testing "if someone steals our session, we can't write to it"
-                (blocking-send-msg :restart-stream-ok socket-3 {:op :restart-stream
-                                                                :stream-id (str stream-id)
-                                                                :reconnect-token (str reconnect-token)})
+                (blocking-send-msg :start-stream-ok socket-3 {:op :start-stream
+                                                              :client-id "stream-1"
+                                                              :reconnect-token (str reconnect-token)})
                 (blocking-send-msg :error socket-2 {:op :append-stream
-                                                    :stream-id (str stream-id)
+                                                    :client-id "stream-1"
                                                     :chunks ["DEF"]
                                                     :offset 5})
 

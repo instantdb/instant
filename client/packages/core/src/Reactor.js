@@ -687,12 +687,8 @@ export default class Reactor {
         this._syncTable.onSyncUpdateTriples(msg);
         break;
       }
-      case 'create-stream-ok': {
-        this._instantStream.onCreateStreamOk(msg);
-        break;
-      }
-      case 'restart-stream-ok': {
-        this._instantStream.onRestartStreamOk(msg);
+      case 'start-stream-ok': {
+        this._instantStream.onStartStreamOk(msg);
         break;
       }
       case 'stream-flushed': {
@@ -980,7 +976,7 @@ export default class Reactor {
       return;
     }
 
-    switch (msg['orignal-event']?.op) {
+    switch (msg['original-event']?.op) {
       case 'resync-table': {
         this._syncTable.onResyncError(msg);
         return;

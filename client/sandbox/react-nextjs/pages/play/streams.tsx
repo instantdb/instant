@@ -16,10 +16,12 @@ function Writer({
   db,
   clientId,
   setClientId,
+  onStatusChange,
 }: {
   db: InstantReactAbstractDatabase<typeof schema>;
   clientId: string;
   setClientId: (id: string) => void;
+  onStatusChange?: (status: string) => void;
 }) {
   // @ts-ignore
   globalThis._db = db;
@@ -414,9 +416,11 @@ function Writer({
 function Reader({
   db,
   defaultClientId,
+  writerDone,
 }: {
   db: InstantReactAbstractDatabase<typeof schema>;
   defaultClientId: string;
+  writerDone?: boolean;
 }) {
   const [clientId, setClientId] = useState(defaultClientId);
   const [status, setStatus] = useState<'idle' | 'reading' | 'done' | 'error'>(
@@ -535,7 +539,7 @@ function Reader({
         </span>
       </div>
 
-      {elapsed !== null && (
+      {elapsed !== null && (status === 'done' || writerDone) && (
         <div className="flex gap-4 font-mono text-sm text-gray-600">
           <span>Total: {(elapsed / 1000).toFixed(2)}s</span>
           {timeToFirst !== null && (
