@@ -165,11 +165,8 @@ function Chat({
         </button>
       </div>
 
-      <div
-        className={`mb-2 rounded p-2 text-xs ${badgeColor}`}
-      >
-        Chat ID:{' '}
-        <code className="rounded bg-white/50 px-1">{chatId}</code>
+      <div className={`mb-2 rounded p-2 text-xs ${badgeColor}`}>
+        Chat ID: <code className="rounded bg-white/50 px-1">{chatId}</code>
       </div>
 
       <div className="flex-1 space-y-3 overflow-auto rounded border p-3">
@@ -194,7 +191,7 @@ function Chat({
               <div className="mb-1 text-xs font-semibold text-gray-500">
                 {message.role === 'user' ? 'You' : 'Echo Bot'}
               </div>
-              <div className="whitespace-pre-wrap text-sm">{text}</div>
+              <div className="text-sm whitespace-pre-wrap">{text}</div>
               {isAssistantTyping && (
                 <div className="mt-2 border-t border-gray-200 pt-2">
                   <TypingIndicator />
@@ -279,9 +276,7 @@ function App({ appId }: { appId: string }) {
   const [input, setInput] = useState('');
   const [resumableEnabled, setResumableEnabled] = useState(true);
   const [instantEnabled, setInstantEnabled] = useState(true);
-  const sendFnsRef = useRef<
-    Array<(opts: { text: string }) => void>
-  >([]);
+  const sendFnsRef = useRef<Array<(opts: { text: string }) => void>>([]);
 
   useEffect(() => {
     if (adminToken) {
