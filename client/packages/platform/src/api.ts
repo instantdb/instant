@@ -166,7 +166,6 @@ export type InstantAPIDeleteAppResponse = Simplify<{
 
 type RenameCommand = `${string}.${string}:${string}.${string}`;
 
-
 export type InstantAPISchemaPushBody =
   | {
       schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
@@ -854,7 +853,7 @@ function translatePlanStep(apiStep: PlanStep): InstantAPISchemaPlanStep {
       return {
         type: 'delete-attr',
         attrId: stepParams,
-        friendlyDescription: `Delete attribute ${stepParams}.`,
+        friendlyDescription: `Delete attribute TODO.`,
       };
     }
     default: {
