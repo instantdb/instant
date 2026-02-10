@@ -799,6 +799,16 @@ const resolveRenames = async <T>(
 
 export type RenameCommand = `${string}.${string}:${string}.${string}`;
 
+function validateRenameLookup(lookup: string) {
+  const [etype, label] = lookup.split('.').map(x => x.trim());
+  if (!etype || !label) { 
+    throw new Error(
+      `Invalid look. Got '${lookup}'. We expect a pattern like 'entityname.columname;.` + 
+      'For example: posts.title'
+    );
+  }
+} 
+
 // RenameMap goes from `to` -> `from`
 function parseRenameCommands(renames: RenameCommand[]): Map<string, string> {
   // Parse rename options: format is "from:to"
@@ -807,6 +817,8 @@ function parseRenameCommands(renames: RenameCommand[]): Map<string, string> {
   const renameMap: Map<string, string> = new Map();
   for (const renameStr of renames) {
     let [from, to] = renameStr.split(':').map(x => x.trim());
+    validateRenameLookup(from);
+    validateRenameLookup(to);
     if (!from || !to) { 
       throw new Error(
         `Invalid rename command: ${renameStr}. We could not parse a distinct 'from' and 'to'.` + 
