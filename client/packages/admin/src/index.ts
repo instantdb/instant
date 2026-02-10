@@ -1438,11 +1438,14 @@ class InstantAdminDatabase<
       body['origin-override'] = opts.origin;
     }
 
-    return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check?app_id=${this.config.appId}`, {
-      method: 'POST',
-      headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify(body),
-    });
+    return jsonFetch(
+      `${this.config.apiURI}/admin/transact_perms_check?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config, this.impersonationOpts),
+        body: JSON.stringify(body),
+      },
+    );
   };
 
   createReadStream(opts?: {
