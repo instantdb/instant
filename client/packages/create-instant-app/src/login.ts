@@ -313,6 +313,9 @@ export const tryConnectApp = async (
         }),
       );
 
+      if (authInfo instanceof Error) {
+        throw authInfo;
+      }
       await saveConfigAuthToken(authInfo.token);
       authToken = authInfo.token;
     }
