@@ -959,7 +959,6 @@ async function planSchemaPush(
   };
 }
 
-
 async function planSchemaPushOverwriteInternal(
   apiURI: string,
   token: string,
@@ -1006,7 +1005,12 @@ async function planSchemaPushOverwrite(
   appId: string,
   body: InstantAPISchemaPushBody,
 ): Promise<InstantAPIPlanSchemaPushResponse> {
-  const { currentSchema, steps } = await planSchemaPushOverwriteInternal(apiURI, token, appId, body);
+  const { currentSchema, steps } = await planSchemaPushOverwriteInternal(
+    apiURI,
+    token,
+    appId,
+    body,
+  );
 
   return {
     newSchema: body.schema,
@@ -1307,8 +1311,12 @@ function schemaPushOverwrite(
 ): ProgressPromise<InProgressStepsSummary, InstantAPISchemaPushResponse> {
   return new ProgressPromise(async (progress, resolve, reject) => {
     try {
-      
-      const { currentAttrs, txSteps } = await planSchemaPushOverwriteInternal(apiURI, token, appId, body);
+      const { currentAttrs, txSteps } = await planSchemaPushOverwriteInternal(
+        apiURI,
+        token,
+        appId,
+        body,
+      );
 
       const resp = await jsonFetch<SchemaPushResponseJSON>(
         `${apiURI}/dash/apps/${appId}/schema/steps/apply`,
