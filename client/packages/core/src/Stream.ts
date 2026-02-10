@@ -49,18 +49,40 @@ function createWriteStream({
     abortReason?: string;
   }) => void;
   registerStream: (streamId: string, cbs: WriteStreamCbs) => void;
-}): WritableStream<string> {
+}): {
+  stream: WritableStream<string>;
+  closed: () => boolean;
+  addCloseCb: (cb: () => void) => void;
+} {
   const clientId = opts.clientId;
   let streamId_: string | null = null;
-  let controller_: WritableStreamDefaultController | null = null;
   const reconnectToken = uuid();
   let isDone: boolean = false;
+  let closed: boolean = false;
+  const closeCbs: (() => void)[] = [];
   let disconnected: boolean = false;
   // Chunks that we haven't been notified are flushed to disk
   let bufferOffset = 0;
   let bufferByteSize = 0;
   const buffer: { chunk: string; byteLen: number }[] = [];
   const encoder = new TextEncoder();
+
+  function markClosed() {
+    closed = true;
+    for (const cb of closeCbs) {
+      cb();
+    }
+  }
+
+  function addCloseCb(cb: () => void) {
+    closeCbs.push(cb);
+    return () => {
+      const i = closeCbs.indexOf(cb);
+      if (i !== -1) {
+        closeCbs.splice(i, 1);
+      }
+    };
+  }
 
   function onDisconnect() {
     disconnected = true;
@@ -134,12 +156,17 @@ function createWriteStream({
     }
   }
 
+  function error(controller: WritableStreamDefaultController, error: string) {
+    markClosed();
+    controller.error(error);
+  }
+
   function ensureSetup(controller): string | null {
     if (isDone) {
-      controller.error('Stream has been closed.');
+      error(controller, 'Stream has been closed.');
     }
     if (!streamId_) {
-      controller.error('Stream has not been initialized.');
+      error(controller, 'Stream has not been initialized.');
     }
     return streamId_;
   }
@@ -147,7 +174,6 @@ function createWriteStream({
   async function start(controller: WritableStreamDefaultController) {
     let tryAgain = true;
     let attempts = 0;
-    controller_ = controller;
 
     while (tryAgain) {
       // rate-limit after the first few failed connects
@@ -162,7 +188,7 @@ function createWriteStream({
         case 'ok': {
           const { streamId, offset } = result;
           if (offset !== 0) {
-            controller.error('Write stream is corrupted');
+            error(controller, 'Write stream is corrupted');
             return;
           }
           streamId_ = streamId;
@@ -187,14 +213,14 @@ function createWriteStream({
         }
         case 'error': {
           // XXX: Better error handling
-          controller.error('Stream failed to start.');
+          error(controller, 'Stream failed to start.');
           return;
         }
       }
     }
   }
 
-  return new WStream({
+  const stream = new WStream({
     // TODO(dww): accept a storage so that write streams can survive across
     //            browser restarts
     async start(controller) {
@@ -226,6 +252,7 @@ function createWriteStream({
           isDone: true,
         });
       }
+      markClosed();
     },
     abort(reason) {
       if (streamId_) {
@@ -240,8 +267,16 @@ function createWriteStream({
           abortReason: reason,
         });
       }
+      markClosed();
     },
   });
+  return {
+    stream,
+    addCloseCb,
+    closed() {
+      return closed;
+    },
+  };
 }
 
 type ReadStreamUpdate =
@@ -325,12 +360,44 @@ function createReadStream({
     offset?: number;
   }) => StreamIterator<ReadStreamUpdate>;
   cancelStream: (opts: { eventId: string }) => void;
-}): ReadableStream<string> {
+}): {
+  stream: ReadableStream<string>;
+  closed: () => boolean;
+  addCloseCb: (cb: () => void) => void;
+} {
   let seenOffset = opts.offset || 0;
   let canceled = false;
   const decoder = new TextDecoder('utf-8');
   const encoder = new TextEncoder();
   let eventId: string | null;
+  let closed = false;
+  const closeCbs: (() => void)[] = [];
+
+  function markClosed() {
+    closed = true;
+    for (const cb of closeCbs) {
+      cb();
+    }
+  }
+
+  function addCloseCb(cb: () => void) {
+    closeCbs.push(cb);
+    return () => {
+      const i = closeCbs.indexOf(cb);
+      if (i !== -1) {
+        closeCbs.splice(i, 1);
+      }
+    };
+  }
+
+  function error(
+    controller: ReadableStreamDefaultController<string>,
+    e: string,
+  ) {
+    // XXX: Maybe we want an instant error here?
+    markClosed();
+    controller.error(e);
+  }
 
   async function runStartStream(
     opts: {
@@ -359,7 +426,7 @@ function createReadStream({
         // XXX: We should try to resubscribe from the offset we know if this
         //      happens instead of throwing an error
         console.error('corrupted stream', { item, seenOffset });
-        controller.error(new Error('Stream is corrupted.'));
+        error(controller, 'Stream is corrupted.');
         canceled = true;
         return;
       }
@@ -439,9 +506,10 @@ function createReadStream({
     }
     if (!canceled) {
       controller.close();
+      markClosed();
     }
   }
-  return new RStream<string>({
+  const stream = new RStream<string>({
     start(controller) {
       start(controller);
     },
@@ -450,8 +518,17 @@ function createReadStream({
       if (eventId) {
         cancelStream({ eventId });
       }
+      markClosed();
     },
   });
+
+  return {
+    stream,
+    addCloseCb,
+    closed() {
+      return closed;
+    },
+  };
 }
 
 type StartStreamMsg = {
@@ -538,6 +615,7 @@ export class InstantStream {
     StreamIterator<ReadStreamUpdate>
   > = {};
   private log: Logger;
+  private activeStreams: Set<ReadableStream | WritableStream> = new Set();
 
   constructor({
     WStream,
@@ -557,23 +635,32 @@ export class InstantStream {
   }
 
   public createWriteStream(opts: { clientId: string }): WritableStream<string> {
-    return createWriteStream({
+    const { stream, addCloseCb } = createWriteStream({
       WStream: this.WStream,
       startStream: this.startWriteStream.bind(this),
       appendStream: this.appendStream.bind(this),
       registerStream: this.registerWriteStream.bind(this),
       opts,
     });
+    this.activeStreams.add(stream);
+    addCloseCb(() => {
+      this.activeStreams.delete(stream);
+    });
+    return stream;
   }
 
   public createReadStream(opts: { clientId?: string; streamId?: string }) {
-    // XXX: If we kept the files and the chunks since the last file (discarding chunks as we get new files), then you could reset the stream from the beginning
-    return createReadStream({
+    const { stream, addCloseCb } = createReadStream({
       RStream: this.RStream,
       opts,
       startStream: this.startReadStream.bind(this),
       cancelStream: this.cancelReadStream.bind(this),
     });
+    this.activeStreams.add(stream);
+    addCloseCb(() => {
+      this.activeStreams.delete(stream);
+    });
+    return stream;
   }
 
   // XXX: Need to have some way to forward generic errors from the reactor to here
@@ -754,7 +841,6 @@ export class InstantStream {
     // Restart the write streams, they'll try to reconnect
     console.log(this.startWriteStreamCbs);
     for (const cb of Object.values(this.startWriteStreamCbs)) {
-      console.log('disconnect!');
       cb({ type: 'disconnect' });
     }
     this.startWriteStreamCbs = {};
@@ -780,6 +866,10 @@ export class InstantStream {
 
   onRecieveError(msg: any) {
     console.error('receive error', msg);
+  }
+
+  hasActiveStreams() {
+    return this.activeStreams.size > 0;
   }
 
   close() {

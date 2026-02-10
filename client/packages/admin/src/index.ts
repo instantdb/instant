@@ -1094,12 +1094,13 @@ class InstantAdminDatabase<
     }
     this.#log.info('[socket][close]', e.target.id);
     this.#instantStream?.onConnectionStatusChange('closed');
-    // XXX: Maybe we should base this on whether there are any open streams?
     if (this.#sseConnection) {
-      // We didn't remove the sse connection, so we must not have wanted it to close, let's try again
       this.#sseConnection = null;
-      setTimeout(() => this.#ensureSSEConnection(), this.#sseBackoff);
-      this.#sseBackoff = Math.min(15000, Math.max(this.#sseBackoff, 500) * 2);
+      if (!this.#connectionIsIdle()) {
+        // We didn't remove the sse connection, and we have streams we care about, so let's try again
+        setTimeout(() => this.#ensureSSEConnection(), this.#sseBackoff);
+        this.#sseBackoff = Math.min(15000, Math.max(this.#sseBackoff, 500) * 2);
+      }
     }
   };
 
@@ -1117,6 +1118,19 @@ class InstantAdminDatabase<
     // Test this does what we expect
     this.#instantStream?.onConnectionStatusChange('closed');
   };
+
+  #connectionIsIdle() {
+    return !this.#instantStream || !this.#instantStream.hasActiveStreams();
+  }
+
+  #maybeShutdownConnection() {
+    if (this.#sseConnection && this.#connectionIsIdle()) {
+      const conn = this.#sseConnection;
+      this.#log.info('cleaning up unused socket', conn.id);
+      this.#sseConnection = null;
+      conn.close();
+    }
+  }
 
   #onmessage = (e) => {
     if (e.target !== this.#sseConnection) {
@@ -1162,6 +1176,9 @@ class InstantAdminDatabase<
         break;
       }
     }
+
+    // Close the connection if we don't have any items pending
+    this.#maybeShutdownConnection();
   };
 
   /**
