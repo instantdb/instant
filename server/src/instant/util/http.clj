@@ -5,6 +5,7 @@
    [instant.util.exception :as ex]
    [instant.util.token :as token-util]
    [instant.util.tracer :as tracer]
+   [instant.util.request :refer [*request-info*]]
    [ring.util.http-response :as response]
    [ring.middleware.cors :as cors]))
 
@@ -48,6 +49,12 @@
           core-version (get headers "instant-core-version")
           admin-version (get headers "instant-admin-version")
           origin (get headers "origin")
+          ip (some-> (get headers "x-forwarded-for")
+                     (String/.split ",")
+                     ;; Drop the ip added by the elb
+                     drop-last
+                     last
+                     string/trim)
           attrs {:request-uri uri
                  :request-method request-method
                  :method request-method
@@ -63,7 +70,9 @@
                  ;; amazon load balancer trace id
                  :amzn-trace-id (get headers "x-amzn-trace-id")}]
       (tracer/add-data! {:attributes attrs})
-      (handler request))))
+      (binding [*request-info* {:origin origin
+                                :ip ip}]
+        (handler request)))))
 
 (defn tracer-record-route
   "Use with compojure.core/wrap-routes so that the route is added to the

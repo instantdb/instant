@@ -2,8 +2,14 @@ MAKEFLAGS = --no-print-directory --always-make --silent
 MAKE = make $(MAKEFLAGS)
 DC = $(shell command -v docker-compose >/dev/null 2>&1 && echo "docker-compose" || echo "docker compose")
 
+# Set DEV_SLOT=1, DEV_SLOT=2, etc. to run multiple instances on different ports
+DEV_SLOT ?= 0
+
 dev:
-	@echo "Booting up backend w/ local db..."
+	@echo "Booting up backend w/ local db...$(if $(filter-out 0,$(DEV_SLOT)), (slot $(DEV_SLOT)),)"
+	PORT=$$((8888 + $(DEV_SLOT) * 1000)) \
+	SSL_PORT=$$((8889 + $(DEV_SLOT) * 1000)) \
+	NREPL_PORT=$$((6005 + $(DEV_SLOT) * 1000)) \
 	clojure -T:build dev
 
 memory-meter-dev:

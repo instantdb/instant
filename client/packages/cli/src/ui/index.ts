@@ -91,6 +91,7 @@ export namespace UI {
     options: {
       value: T;
       label: string;
+      secondary?: boolean;
     }[];
     promptText: string;
     modifyOutput?: ModifyOutputFn;
@@ -151,7 +152,9 @@ export namespace UI {
         return `${this.params.promptText}
 ${chalk.hex('#EA570B').bold('●')} ${this.params.options[this.data.selectedIdx]?.label}`;
       }
-      const optionsList = this.options
+
+      const mainOptionsList = this.options
+        .filter((option) => !option.secondary)
         .map((option, idx) => {
           const isSelected = idx === this.data.selectedIdx;
           const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
@@ -163,8 +166,22 @@ ${chalk.hex('#EA570B').bold('●')} ${this.params.options[this.data.selectedIdx]
         })
         .join('\n');
 
+      const secondaryOptionsList = this.options
+        .filter((option) => option.secondary)
+        .map((option, idx) => {
+          const realIdx = idx + this.options.filter((o) => !o.secondary).length;
+          const isSelected = realIdx === this.data.selectedIdx;
+          const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
+          const label = isSelected
+            ? chalk.bold(option.label)
+            : chalk.dim(option.label);
+
+          return `${cursor} ${label}`;
+        })
+        .join('\n');
+
       return `${this.params.promptText}
-${optionsList}`;
+${mainOptionsList}${secondaryOptionsList.length ? chalk.gray('\n───────────────── Additional Options ─────────────────\n') + secondaryOptionsList : ''}`;
     }
   }
 
@@ -324,11 +341,11 @@ ${inputDisplay}`;
     promise: Promise<T>;
     workingText?: string;
     doneText?: string;
-    errorText?: string;
+    errorText?: string | ((e: unknown) => string);
     disappearWhenDone?: boolean;
   };
 
-  export class Spinner<T> extends Prompt<T> {
+  export class Spinner<T> extends Prompt<T | Error> {
     private props: SpinnerProps<T>;
     private promiseResult: T | null = null;
     private promiseError: Error | null = null;
@@ -337,7 +354,7 @@ ${inputDisplay}`;
     private intervalId: NodeJS.Timeout | null = null;
     private messages: string[] = [];
 
-    result(): T {
+    result(): T | Error {
       if (this.promiseError) {
         throw this.promiseError;
       }
@@ -359,18 +376,23 @@ ${inputDisplay}`;
       const doneText = this.props.doneText || 'Done';
       const errorText = this.props.errorText || 'Error';
 
+      if (status === 'aborted') {
+        return `${chalk.yellow('⚠')} Aborted\n`;
+      }
+
+      if (this.promiseError) {
+        const finalError =
+          errorText instanceof Function
+            ? errorText(this.promiseError)
+            : errorText;
+        return `${chalk.red('✗')} ${finalError}\n`;
+      }
+
       if (status === 'submitted') {
-        if (this.promiseError) {
-          return `${chalk.red('✗')} ${errorText}\n`;
-        }
         if (this.props.disappearWhenDone) {
           return '';
         }
         return `${chalk.green('✓')} ${doneText}\n`;
-      }
-
-      if (status === 'aborted') {
-        return `${chalk.yellow('⚠')} Aborted\n`;
       }
 
       const frame = this.spinnerFrames[this.frameIndex];

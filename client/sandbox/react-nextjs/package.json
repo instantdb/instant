@@ -2,7 +2,7 @@
   "name": "sb-react-nextjs",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 4000",
+    "dev": "next dev -p ${SB_PORT:-4000}",
     "build": "next build",
     "start": "next start"
   },

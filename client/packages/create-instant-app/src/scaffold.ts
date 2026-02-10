@@ -63,14 +63,24 @@ export const scaffoldBaseAndEdit = async (
     cliResults.appName === '.'
       ? 'App'
       : chalk.hex('#EA570B').bold(cliResults.appName);
-  await renderUnwrap(
+  const errOrDone = await renderUnwrap(
     new UI.Spinner({
       promise: result,
       workingText: `Scaffolding project files...`,
       doneText: `Successfully scaffolded ${scaffoldedName}!`,
+      errorText: (e) => {
+        if (e instanceof Error) {
+          return `There was an error cloning: ${e.message}`;
+        }
+        return `There was an error cloning: ${e}`;
+      },
       modifyOutput: UI.ciaModifier(null),
     }),
   );
+
+  if (errOrDone instanceof Error) {
+    process.exit(1);
+  }
 
   if (fs.pathExistsSync(path.join(projectDir, 'pnpm-lock.yaml'))) {
     fs.removeSync(path.join(projectDir, 'pnpm-lock.yaml'));

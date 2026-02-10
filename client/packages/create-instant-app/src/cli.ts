@@ -4,6 +4,7 @@ import { findClaudePath } from './claude.js';
 import { version } from '@instantdb/version';
 import { coerceAppName, validateAppName } from './utils/validateAppName.js';
 import { renderUnwrap, UI } from 'instant-cli/ui';
+import chalk from 'chalk';
 
 export type Project = {
   base:
@@ -211,16 +212,25 @@ export const runCli = async (): Promise<{
           new UI.Select({
             promptText: 'What framework would you like to use?',
             options: [
-              { value: 'next-js-app-dir', label: 'Next.js' },
-              { value: 'vite-vanilla', label: 'Vite: Vanilla TS' },
-              { value: 'expo', label: 'Expo: React Native' },
+              {
+                value: 'next-js-app-dir',
+                label: 'Web: Next.js',
+              },
+              { value: 'expo', label: 'Mobile: Expo' },
+              {
+                value: 'vite-vanilla',
+                label: 'Vite: Vanilla TS',
+                secondary: true,
+              },
               {
                 value: 'tanstack-start',
                 label: 'Tanstack Start',
+                secondary: true,
               },
               {
                 value: 'bun-react',
                 label: 'Bun + React',
+                secondary: true,
               },
             ],
             defaultValue: 'next-js-app-dir' as Project['base'],
