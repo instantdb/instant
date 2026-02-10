@@ -838,7 +838,11 @@ export function buildAutoRenameSelector(renames: RenameCommand[]) {
   
   const renameMap = parseRenameCommands(renames);
 
-  return async function (created: any, promptData: any, extraInfo: any) {
+  const renameFn: RenameResolveFn<string> = async function (
+    created: string, 
+    promptData: (RenamePromptItem<string> | string)[], 
+    extraInfo: any
+  ): Promise<string | RenamePromptItem<string>> {
     let lookupNames: string[] = [];
     if (extraInfo?.type === 'attribute' && extraInfo?.entityName) {
       lookupNames = [`${extraInfo.entityName}.${created}`];
@@ -864,7 +868,7 @@ export function buildAutoRenameSelector(renames: RenameCommand[]) {
       if (extraInfo?.type === 'attribute') {
         fromValue = fromAttr.split('.').pop();
       } else {
-        const matchingItem = promptData.find((item: any) => {
+        const matchingItem = promptData.find((item) => {
           const itemStr = typeof item === 'string' ? item : item.from;
           const itemParts = itemStr.split('<->');
           return itemParts[0] === fromAttr || itemParts[1] === fromAttr;
@@ -878,7 +882,7 @@ export function buildAutoRenameSelector(renames: RenameCommand[]) {
         }
       }
 
-      const hasMatch = promptData.some((item: any) => {
+      const hasMatch = promptData.some((item) => {
         if (typeof item === 'string') {
           return item === fromValue;
         } else if (item.from) {
@@ -887,11 +891,13 @@ export function buildAutoRenameSelector(renames: RenameCommand[]) {
         return false;
       });
 
-      if (hasMatch) {
+      if (fromValue && hasMatch) {
         return { from: fromValue, to: created };
       }
     }
 
     return created;
   };
+
+  return renameFn;
 }
