@@ -756,7 +756,10 @@ async function deleteApp(
   return { app: coerceApp(app) };
 }
 
-function translatePlanStep(apiStep: PlanStep, currentAttrs: InstantDBAttr[]): InstantAPISchemaPlanStep {
+function translatePlanStep(
+  apiStep: PlanStep,
+  currentAttrs: InstantDBAttr[],
+): InstantAPISchemaPlanStep {
   const [stepType, stepParams] = apiStep;
 
   switch (stepType) {
@@ -849,7 +852,7 @@ function translatePlanStep(apiStep: PlanStep, currentAttrs: InstantDBAttr[]): In
     }
     case 'delete-attr': {
       const attrId = stepParams;
-      const attr = currentAttrs.find(a => a.id === attrId);
+      const attr = currentAttrs.find((a) => a.id === attrId);
       const friendlyName = attr ? identName(attr['forward-identity']) : attrId;
       return {
         type: 'delete-attr',
@@ -1259,7 +1262,9 @@ function schemaPush(
             indexingJobs['group-id'],
             indexingJobs['jobs'],
             (jobs) => {
-              progress(stepSummary(translatePushSteps(resp.steps, jobs, currentAttrs)));
+              progress(
+                stepSummary(translatePushSteps(resp.steps, jobs, currentAttrs)),
+              );
             },
           );
 
@@ -1267,7 +1272,9 @@ function schemaPush(
       resolve({
         newSchema: schemaRes.schema,
         steps: translatePushSteps(resp.steps, jobs, currentAttrs),
-        summary: stepSummary(translatePushSteps(resp.steps, jobs, currentAttrs)),
+        summary: stepSummary(
+          translatePushSteps(resp.steps, jobs, currentAttrs),
+        ),
       });
     } catch (e) {
       reject(e as Error);
@@ -1337,7 +1344,9 @@ function schemaPushOverwrite(
             indexingJobs['group-id'],
             indexingJobs['jobs'],
             (jobs) => {
-              progress(stepSummary(translatePushSteps(resp.steps, jobs, currentAttrs)));
+              progress(
+                stepSummary(translatePushSteps(resp.steps, jobs, currentAttrs)),
+              );
             },
           );
 
@@ -1345,7 +1354,9 @@ function schemaPushOverwrite(
       resolve({
         newSchema: schemaRes.schema,
         steps: translatePushSteps(resp.steps, jobs, currentAttrs),
-        summary: stepSummary(translatePushSteps(resp.steps, jobs, currentAttrs)),
+        summary: stepSummary(
+          translatePushSteps(resp.steps, jobs, currentAttrs),
+        ),
       });
     } catch (e) {
       reject(e as Error);
@@ -1788,27 +1799,32 @@ export class PlatformApi {
     if (!this.#auth) {
       throw new PlatformApiMissingAuthError();
     }
-    const useOverwrite = shouldOverwrite(body);
-    const pushFn = useOverwrite ? schemaPushOverwrite : schemaPush;
     return new ProgressPromise(async (progress, resolve, reject) => {
-      // It's tricky to add withRetry to the background process that fetches the jobs,
-      // so we'll just refresh the token at the start.
-      if (this.canRefreshToken()) {
-        try {
-          await this.refreshToken();
-        } catch (_e) {}
+      try {
+        const useOverwrite = shouldOverwrite(body);
+        const pushFn = useOverwrite ? schemaPushOverwrite : schemaPush;
+
+        // It's tricky to add withRetry to the background process that fetches the jobs,
+        // so we'll just refresh the token at the start.
+        if (this.canRefreshToken()) {
+          try {
+            await this.refreshToken();
+          } catch (_e) {}
+        }
+        pushFn(this.#apiURI, this.token(), appId, body).subscribe({
+          complete(v) {
+            resolve(v);
+          },
+          error(e) {
+            reject(e);
+          },
+          next(v) {
+            progress(v);
+          },
+        });
+      } catch (e) {
+        reject(e as Error);
       }
-      pushFn(this.#apiURI, this.token(), appId, body).subscribe({
-        complete(v) {
-          resolve(v);
-        },
-        error(e) {
-          reject(e);
-        },
-        next(v) {
-          progress(v);
-        },
-      });
     });
   }
 
