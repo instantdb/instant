@@ -37,6 +37,7 @@ import {
   buildAutoRenameSelector,
   convertTxSteps,
   diffSchemas,
+  RenameCommand,
 } from './migrations.ts';
 
 type Simplify<T> = {
@@ -164,7 +165,7 @@ export type InstantAPIDeleteAppResponse = Simplify<{
 }>;
 
 
-type RenameCommand = `${string}.${string}:${string}.${string}`;
+
 
 export type InstantAPISchemaPushBody =
   | {
@@ -963,10 +964,10 @@ async function planSchemaPushOverwrite(
 
   validateSchema(newSchema, systemCatalogIdentNames);
 
-  const rename = ('renames' in body ? body.renames : null) || [];
+  const renames = ('renames' in body ? body.renames : null) || [];
 
   // TODO: type this
-  const renameSelector = buildAutoRenameSelector({ rename: rename });
+  const renameSelector = buildAutoRenameSelector(renames);
 
   const diffResult = await diffSchemas(
     currentSchema,

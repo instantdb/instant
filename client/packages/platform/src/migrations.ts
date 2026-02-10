@@ -797,26 +797,18 @@ const resolveRenames = async <T>(
   return result;
 };
 
-
+export type RenameCommand = `${string}.${string}:${string}.${string}`;
 /**
- * Build a function to resolve renames from cli rename flags
- * The diffSchemas function takes a fixed amount of arguments so we
- * return a function from a function here
- * exported for tests only
- * @param {*} opts  program arguments from commander
- * @returns
+ * Given a list of RenameCommands, builds a cusotm `resolveFn` for 
+ * `diffSchemas`, which automatically resolves rename conflicts with these commands.
  */
-export function buildAutoRenameSelector(opts: any) {
+export function buildAutoRenameSelector(renames: RenameCommand[]) {
   return async function (created: any, promptData: any, extraInfo: any) {
-    if (!opts.rename || !Array.isArray(opts.rename)) {
-      return created;
-    }
-
     // Parse rename options: format is "from:to"
     // note that it saves backwards since we will be testing against the base
     // case of a created attr
     const renameMap = new Map();
-    for (const renameStr of opts.rename) {
+    for (const renameStr of renames) {
       const [from, to] = renameStr.split(':');
       if (from && to) {
         renameMap.set(to.trim(), from.trim());
@@ -848,7 +840,7 @@ export function buildAutoRenameSelector(opts: any) {
       if (extraInfo?.type === 'attribute') {
         fromValue = fromAttr.split('.').pop();
       } else {
-        const matchingItem = promptData.find((item) => {
+        const matchingItem = promptData.find((item: any) => {
           const itemStr = typeof item === 'string' ? item : item.from;
           const itemParts = itemStr.split('<->');
           return itemParts[0] === fromAttr || itemParts[1] === fromAttr;
@@ -862,7 +854,7 @@ export function buildAutoRenameSelector(opts: any) {
         }
       }
 
-      const hasMatch = promptData.some((item) => {
+      const hasMatch = promptData.some((item: any) => {
         if (typeof item === 'string') {
           return item === fromValue;
         } else if (item.from) {

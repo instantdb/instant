@@ -1665,8 +1665,9 @@ async function pushSchema(appId, opts) {
     return { ok: false };
   }
 
+  const renames = opts.rename && Array.isArray(opts.rename) ? opts.rename : [];
   const renameSelector = program.optsWithGlobals().yes
-    ? buildAutoRenameSelector(opts)
+    ? buildAutoRenameSelector(renames)
     : resolveRenames;
 
   const diffResult = await diffSchemas(
