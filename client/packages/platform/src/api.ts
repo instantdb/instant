@@ -164,9 +164,6 @@ export type InstantAPIDeleteAppResponse = Simplify<{
   app: InstantAPIAppDetails<{}>;
 }>;
 
-
-
-
 export type InstantAPISchemaPushBody =
   | {
       schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;

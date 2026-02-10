@@ -799,24 +799,24 @@ const resolveRenames = async <T>(
 
 /**
  * a `rename command` lets us know your intent to rename a particular entity
- * 
- * The format is `from:to`, where `from` and `to` are lookups. 
- * 
- * For example, to rename `posts.name` to `posts.title`, a command could 
- * look like: 
- * 
+ *
+ * The format is `from:to`, where `from` and `to` are lookups.
+ *
+ * For example, to rename `posts.name` to `posts.title`, a command could
+ * look like:
+ *
  * `posts.name:posts.title`
  */
 export type RenameCommand = `${string}.${string}:${string}.${string}`;
 function validateRenameLookup(lookup: string) {
-  const [etype, label] = lookup.split('.').map(x => x.trim());
-  if (!etype || !label) { 
+  const [etype, label] = lookup.split('.').map((x) => x.trim());
+  if (!etype || !label) {
     throw new Error(
-      `Invalid look. Got '${lookup}'. We expect a pattern like 'entityname.columname;.` + 
-      'For example: posts.title'
+      `Invalid look. Got '${lookup}'. We expect a pattern like 'entityname.columname;.` +
+        'For example: posts.title',
     );
   }
-} 
+}
 
 // RenameMap goes from `to` -> `from`
 function parseRenameCommands(renames: RenameCommand[]): Map<string, string> {
@@ -825,14 +825,14 @@ function parseRenameCommands(renames: RenameCommand[]): Map<string, string> {
   // case of a created attr
   const renameMap: Map<string, string> = new Map();
   for (const renameStr of renames) {
-    let [from, to] = renameStr.split(':').map(x => x.trim());
+    let [from, to] = renameStr.split(':').map((x) => x.trim());
     validateRenameLookup(from);
     validateRenameLookup(to);
-    if (!from || !to) { 
+    if (!from || !to) {
       throw new Error(
-        `Invalid rename command: ${renameStr}. We could not parse a distinct 'from' and 'to'.` + 
-        ' The structure should be from:to. For example: posts.name:posts.title'
-      )
+        `Invalid rename command: ${renameStr}. We could not parse a distinct 'from' and 'to'.` +
+          ' The structure should be from:to. For example: posts.name:posts.title',
+      );
     }
     renameMap.set(to.trim(), from.trim());
   }
@@ -840,17 +840,16 @@ function parseRenameCommands(renames: RenameCommand[]): Map<string, string> {
 }
 
 /**
- * Given a list of RenameCommands, builds a cusotm `resolveFn` for 
+ * Given a list of RenameCommands, builds a cusotm `resolveFn` for
  * `diffSchemas`, which automatically resolves rename conflicts with these commands.
  */
 export function buildAutoRenameSelector(renames: RenameCommand[]) {
-  
   const renameMap = parseRenameCommands(renames);
 
   const renameFn: RenameResolveFn<string> = async function (
-    created: string, 
-    promptData: (RenamePromptItem<string> | string)[], 
-    extraInfo: any
+    created: string,
+    promptData: (RenamePromptItem<string> | string)[],
+    extraInfo: any,
   ): Promise<string | RenamePromptItem<string>> {
     let lookupNames: string[] = [];
     if (extraInfo?.type === 'attribute' && extraInfo?.entityName) {

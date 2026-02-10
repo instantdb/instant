@@ -1651,7 +1651,7 @@ async function pushSchema(appId, opts) {
   const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema, {
     disableTypeInference: true,
   });
-  
+
   const systemCatalogIdentNames = collectSystemCatalogIdentNames(currentAttrs);
 
   try {

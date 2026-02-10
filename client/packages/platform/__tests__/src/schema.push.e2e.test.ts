@@ -74,7 +74,7 @@ describe.concurrent('schemaPush e2e', () => {
         'Make posts.slug a required attribute.',
         'Update attribute posts.title.',
         // TODO: somehow need to pass `ident-name` here
-        'Delete attribute TODO.'
+        'Delete attribute TODO.',
       ]),
     );
   });
