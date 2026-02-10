@@ -796,3 +796,116 @@ const resolveRenames = async <T>(
   result.deleted.push(...leftMissing);
   return result;
 };
+
+/**
+ * a `rename command` lets us know your intent to rename a particular entity
+ *
+ * The format is `from:to`, where `from` and `to` are lookups.
+ *
+ * For example, to rename `posts.name` to `posts.title`, a command could
+ * look like:
+ *
+ * `posts.name:posts.title`
+ */
+export type RenameCommand = `${string}.${string}:${string}.${string}`;
+function validateRenameLookup(lookup: string) {
+  const [etype, label] = lookup.split('.').map((x) => x.trim());
+  if (!etype || !label) {
+    throw new Error(
+      `Invalid lookup. Got '${lookup}'. We expect a pattern like 'entityname.columname;.` +
+        'For example: posts.title',
+    );
+  }
+}
+
+// RenameMap goes from `to` -> `from`
+function parseRenameCommands(renames: RenameCommand[]): Map<string, string> {
+  // Parse rename options: format is "from:to"
+  // note that it saves backwards since we will be testing against the base
+  // case of a created attr
+  const renameMap: Map<string, string> = new Map();
+  for (const renameStr of renames) {
+    let [from, to] = renameStr.split(':').map((x) => x.trim());
+    if (!from || !to) {
+      throw new Error(
+        `Invalid rename command: ${renameStr}. We could not parse a distinct 'from' and 'to'.` +
+          " The structure should look like 'from:to'. For example: 'posts.name:posts.title'",
+      );
+    }
+    validateRenameLookup(from);
+    validateRenameLookup(to);
+    renameMap.set(to.trim(), from.trim());
+  }
+  return renameMap;
+}
+
+/**
+ * Given a list of RenameCommands, builds a cusotm `resolveFn` for
+ * `diffSchemas`, which automatically resolves rename conflicts with these commands.
+ */
+export function buildAutoRenameSelector(renames: RenameCommand[]) {
+  const renameMap = parseRenameCommands(renames);
+
+  const renameFn: RenameResolveFn<string> = async function (
+    created: string,
+    promptData: (RenamePromptItem<string> | string)[],
+    extraInfo: any,
+  ): Promise<string | RenamePromptItem<string>> {
+    let lookupNames: string[] = [];
+    if (extraInfo?.type === 'attribute' && extraInfo?.entityName) {
+      lookupNames = [`${extraInfo.entityName}.${created}`];
+    } else if (extraInfo?.type === 'link') {
+      // Extract both forward and reverse parts
+      const parts = created.split('<->');
+      lookupNames = [parts[0], parts[1]];
+    } else {
+      return created;
+    }
+
+    // Try to find a match in the rename map using the lookup names
+    let fromAttr: string | null = null;
+    for (const lookupName of lookupNames) {
+      if (renameMap.has(lookupName)) {
+        fromAttr = renameMap.get(lookupName) || null;
+        break;
+      }
+    }
+
+    if (fromAttr) {
+      let fromValue;
+      if (extraInfo?.type === 'attribute') {
+        fromValue = fromAttr.split('.').pop();
+      } else {
+        const matchingItem = promptData.find((item) => {
+          const itemStr = typeof item === 'string' ? item : item.from;
+          const itemParts = itemStr.split('<->');
+          return itemParts[0] === fromAttr || itemParts[1] === fromAttr;
+        });
+
+        if (matchingItem) {
+          fromValue =
+            typeof matchingItem === 'string' ? matchingItem : matchingItem.from;
+        } else {
+          return created;
+        }
+      }
+
+      const hasMatch = promptData.some((item) => {
+        if (typeof item === 'string') {
+          return item === fromValue;
+        } else if (item.from) {
+          return item.from === fromValue;
+        }
+        return false;
+      });
+
+      if (fromValue && hasMatch) {
+        return { from: fromValue, to: created };
+      }
+    }
+
+    return created;
+  };
+
+  return renameFn;
+}

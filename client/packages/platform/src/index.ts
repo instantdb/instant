@@ -8,6 +8,7 @@ import { generatePermsTypescriptFile } from './perms.ts';
 import {
   type InstantAPIPlatformSchema,
   generateSchemaTypescriptFile,
+  collectSystemCatalogIdentNames,
   validateSchema,
   SchemaValidationError,
 } from './schema.ts';
@@ -32,6 +33,7 @@ export {
   OAuthHandler,
   InstantOAuthError,
   generateSchemaTypescriptFile,
+  collectSystemCatalogIdentNames,
   validateSchema,
   SchemaValidationError,
   generatePermsTypescriptFile,
@@ -50,6 +52,7 @@ export {
   diffSchemas,
   convertTxSteps,
   isRenamePromptItem,
+  buildAutoRenameSelector,
   type RenameResolveFn,
   type MigrationTx,
   type MigrationTxSpecific,

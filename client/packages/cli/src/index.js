@@ -8,6 +8,8 @@ import {
   validateSchema,
   SchemaValidationError,
   PlatformApi,
+  collectSystemCatalogIdentNames,
+  buildAutoRenameSelector,
 } from '@instantdb/platform';
 import version from './version.js';
 import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
@@ -40,7 +42,6 @@ import { UI } from './ui/index.js';
 import { deferred } from './ui/lib.js';
 import { promptOk } from './util/promptOk.js';
 import { ResolveRenamePrompt } from './util/renamePrompt.js';
-import { buildAutoRenameSelector } from './rename.js';
 import { loadEnv } from './util/loadEnv.js';
 import { isHeadlessEnvironment } from './util/isHeadlessEnvironment.js';
 import {
@@ -1630,22 +1631,6 @@ const resolveRenames = async (created, promptData, extraInfo) => {
   return answer;
 };
 
-function collectSystemCatalogIdentNames(currentAttrs) {
-  const allSystemIdents = currentAttrs
-    .filter((attr) => attr.catalog === 'system')
-    .flatMap((attr) =>
-      [attr['forward-identity'], attr['reverse-identity']].filter(Boolean),
-    );
-
-  /** @type {Record<string, Set<string>>} */
-  let res = {};
-  for (const [_, etype, label] of allSystemIdents) {
-    res[etype] = res[etype] || new Set();
-    res[etype].add(label);
-  }
-  return res;
-}
-
 async function pushSchema(appId, opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
@@ -1666,6 +1651,7 @@ async function pushSchema(appId, opts) {
   const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema, {
     disableTypeInference: true,
   });
+
   const systemCatalogIdentNames = collectSystemCatalogIdentNames(currentAttrs);
 
   try {
@@ -1679,8 +1665,9 @@ async function pushSchema(appId, opts) {
     return { ok: false };
   }
 
+  const renames = opts.rename && Array.isArray(opts.rename) ? opts.rename : [];
   const renameSelector = program.optsWithGlobals().yes
-    ? buildAutoRenameSelector(opts)
+    ? buildAutoRenameSelector(renames)
     : resolveRenames;
 
   const diffResult = await diffSchemas(
