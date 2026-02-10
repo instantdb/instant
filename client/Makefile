@@ -1,8 +1,15 @@
 MAKEFLAGS = --no-print-directory --always-make --silent
 MAKE = make $(MAKEFLAGS)
 
+# Set DEV_SLOT=1, DEV_SLOT=2, etc. to run multiple instances on different ports
+DEV_SLOT ?= 0
+
 dev:
-	@echo "Booting up frontend..."
+	@echo "Booting up frontend...$(if $(filter-out 0,$(DEV_SLOT)), (slot $(DEV_SLOT)),)"
+	PORT=$$((3000 + $(DEV_SLOT) * 100)) \
+	SB_PORT=$$((4000 + $(DEV_SLOT) * 100)) \
+	SB_EXPRESS_PORT=$$((3005 + $(DEV_SLOT) * 100)) \
+	NEXT_PUBLIC_FEEDBACK_API_URI=http://localhost:$$((8888 + $(DEV_SLOT) * 1000)) \
 	pnpm run dev --ui tui $(filter-out $@,$(MAKECMDGOALS))
 
 lint:
