@@ -56,6 +56,38 @@ Similarly, when you change `instant.perms.ts`, you can run:
 npx instant-cli@latest push perms
 ```
 
+## Renaming fields
+
+When you rename an attribute or link in your `instant.schema.ts` and push, the CLI needs to know whether you intend to **rename** the existing field or **delete** the old one and **create** a new one. By default, `push` will prompt you interactively:
+
+```
+Is posts.creator created or renamed from another attr?
+  ~ posts.author › posts.creator    rename attr
+  + posts.creator                   create attr
+```
+
+Use the arrow keys to select whether the field is a rename or a new creation.
+
+### Renaming in CI
+
+If you're running `push` in a non-interactive environment (e.g. CI), you can pass the `--rename` flag to specify renames explicitly:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest push schema --rename posts.author:posts.creator
+```
+
+The format is `oldName:newName`. You can rename multiple fields at once:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest push schema --rename posts.author:posts.creator stores.owner:stores.manager
+```
+
+This is especially useful when combined with `--yes` to skip confirmation prompts:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest push schema --yes --rename posts.author:posts.creator
+```
+
 ## Pull
 
 Sometimes, you change your schema or rules from your Explorer. If you want to `pull` the latest version of schema and perms for production, write:
