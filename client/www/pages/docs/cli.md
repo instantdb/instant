@@ -72,19 +72,19 @@ Use the arrow keys to select whether the field is a rename or a new creation.
 
 If you're running `push` in a non-interactive environment (e.g. CI), you can pass the `--rename` flag to specify renames explicitly:
 
-```shell {% showCopy=true %}
+```shell
 npx instant-cli@latest push schema --rename posts.author:posts.creator
 ```
 
 The format is `oldName:newName`. You can rename multiple fields at once:
 
-```shell {% showCopy=true %}
+```shell
 npx instant-cli@latest push schema --rename posts.author:posts.creator stores.owner:stores.manager
 ```
 
 This is especially useful when combined with `--yes` to skip confirmation prompts:
 
-```shell {% showCopy=true %}
+```shell
 npx instant-cli@latest push schema --yes --rename posts.author:posts.creator
 ```
 
