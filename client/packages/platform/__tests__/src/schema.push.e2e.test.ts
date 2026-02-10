@@ -58,9 +58,7 @@ describe.concurrent('schemaPush e2e', () => {
     const plan = await appApi.planSchemaPush(app.id, {
       schema: overwriteSchema,
       overwrite: true,
-      renames: { 
-        'posts.name': 'posts.slug'
-      }
+      renames: ['posts.name:posts.title']
     });
     const friendlyDescs = new Set(plan.steps.map((s) => s.friendlyDescription));
     expect(friendlyDescs).toEqual(

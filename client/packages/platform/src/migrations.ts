@@ -808,6 +808,7 @@ const resolveRenames = async <T>(
  */
 export function buildAutoRenameSelector(opts: any) {
   return async function (created: any, promptData: any, extraInfo: any) {
+    console.log(opts.rename);
     if (!opts.rename || !Array.isArray(opts.rename)) {
       return created;
     }

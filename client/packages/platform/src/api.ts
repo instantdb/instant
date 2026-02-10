@@ -1658,9 +1658,8 @@ export class PlatformApi {
     body: InstantAPISchemaPushBody,
   ): Promise<InstantAPIPlanSchemaPushResponse> {
     const useOverwrite = shouldOverwrite(body);
-
     return this.withRetry(
-      useOverwrite ? planSchemaPush : planSchemaPushOverwrite,
+      useOverwrite ? planSchemaPushOverwrite : planSchemaPush,
       [this.#apiURI, this.token(), appId, body],
     );
   }
