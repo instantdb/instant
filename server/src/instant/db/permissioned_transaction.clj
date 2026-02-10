@@ -68,7 +68,15 @@
       (throw-tx-step-validation-err!
        tx-step
        (format "%s.%s is a system column. You aren't allowed to change this directly."
-               etype label)))))
+               etype label)))
+    (when (and (= ["$files" "path"] ident-name)
+               (string? (:value tx-step))
+               (string/starts-with? (:value tx-step) "$stream/"))
+      ;; Really, this only needs to be files linked to streams, but we
+      ;; don't want to do another db lookup here to check if it's linked
+      (throw-tx-step-validation-err!
+       tx-step
+       (format "The path for stream files can't be edited.")))))
 
 (defn prevent-system-column-updates
   "What do we do if a user tries to run a `transact` and update a row 

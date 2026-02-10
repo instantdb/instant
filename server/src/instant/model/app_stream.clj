@@ -241,7 +241,6 @@
                   (Unpooled/compositeBuffer)
                   buffer)
 
-          ;; XXX: Make this return everything needed to construct the URL
           file (storage-coordinator/upload-file! {:app-id app-id
                                                   :path (str (stream-file-name-prefix stream-id)
                                                              (count $files))
