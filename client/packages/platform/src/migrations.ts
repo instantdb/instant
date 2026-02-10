@@ -826,14 +826,14 @@ function parseRenameCommands(renames: RenameCommand[]): Map<string, string> {
   const renameMap: Map<string, string> = new Map();
   for (const renameStr of renames) {
     let [from, to] = renameStr.split(':').map((x) => x.trim());
-    validateRenameLookup(from);
-    validateRenameLookup(to);
     if (!from || !to) {
       throw new Error(
         `Invalid rename command: ${renameStr}. We could not parse a distinct 'from' and 'to'.` +
-          ' The structure should be from:to. For example: posts.name:posts.title',
+          " The structure should look like 'from:to'. For example: 'posts.name:posts.title'",
       );
     }
+    validateRenameLookup(from);
+    validateRenameLookup(to);
     renameMap.set(to.trim(), from.trim());
   }
   return renameMap;
