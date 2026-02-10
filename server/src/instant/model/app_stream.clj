@@ -2,12 +2,16 @@
   (:require
    [clojure.string]
    [instant.config :as config]
+   [instant.db.cel :as cel]
+   [instant.db.datalog :as d]
+   [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triple-model]
    [instant.flags :as flags]
    [instant.grpc :as grpc]
    [instant.grpc-client :as grpc-client]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app-file :as app-file-model]
+   [instant.model.rule :as rule-model]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.store :as rs]
    [instant.storage.coordinator :as storage-coordinator]
@@ -28,29 +32,56 @@
 
 (def etype "$streams")
 
-;; XXX: Add permissions (I'll do that later)
-#_(defn assert-streams-permission! [action {:keys [app-id
-                                                   client-id
-                                                   rules-override]
-                                            :as ctx}]
-    (let [rules (if rules-override
-                  rules-override
-                  (rule-model/get-by-app-id {:app-id app-id}))
-          program (rule-model/get-program! rules "$streams" action)]
-      (ex/assert-permitted!
-        :has-streams-permission?
-        ["$streams" action]
-        ;; deny access by default if no permissions are currently set
-        (if-not program
-          false
-          (let [ctx* (assoc ctx
-                            :db {:conn-pool (aurora/conn-pool :read)}
-                            :attrs
-                            (attr-model/get-by-app-id app-id)
-                            :datalog-query-fn d/query)]
-            (cel/eval-program! ctx* program {:data {"clientId" client-id}}))))))
+(defn assert-create-stream-permission!
+  "Checks permission for creating a stream.
+   The functions in this namespace don't do any permission checks.
+   We rely on the create and subscribe functions in session.clj to check."
+  [stream-client-id {:keys [app-id
+                            rules-override]
+                     :as ctx}]
+  (let [action "create"
+        rules (if rules-override
+                rules-override
+                (rule-model/get-by-app-id {:app-id app-id}))
+        program (rule-model/get-program! rules "$streams" action)]
+    (ex/assert-permitted!
+      :has-streams-permission?
+      ["$streams" action]
+      ;; deny access by default if no permissions are currently set
+      (if-not program
+        false
+        (let [ctx* (assoc ctx
+                          :db {:conn-pool (aurora/conn-pool :read)}
+                          :attrs
+                          (attr-model/get-by-app-id app-id)
+                          :datalog-query-fn d/query)]
+          (cel/eval-program! ctx* program {:data {"clientId" stream-client-id}}))))))
 
-;; XXX: Check permission
+(defn assert-read-stream-permission!
+  "Checks permission for subscribing to stream.
+   The functions in this namespace don't do any permission checks.
+   We rely on the create and subscribe functions in session.clj to check."
+  [stream {:keys [app-id
+                  rules-override]
+           :as ctx}]
+  (let [action "view"
+        rules (if rules-override
+                rules-override
+                (rule-model/get-by-app-id {:app-id app-id}))
+        program (rule-model/get-program! rules "$streams" action)]
+    (ex/assert-permitted!
+      :has-streams-permission?
+      ["$streams" action]
+      ;; deny access by default if no permissions are currently set
+      (if-not program
+        false
+        (let [ctx* (assoc ctx
+                          :db {:conn-pool (aurora/conn-pool :read)}
+                          :attrs
+                          (attr-model/get-by-app-id app-id)
+                          :datalog-query-fn d/query)]
+          (cel/eval-program! ctx* program {:data stream}))))))
+
 (defn create!
   "Creates a new $stream object"
   ([params] (create! (aurora/conn-pool :write) params))
@@ -92,7 +123,6 @@
   "Links the $file to the $stream, if the stream is complete, sets the done and size fields."
   ([params] (link-file! (aurora/conn-pool :write) params))
   ([conn {:keys [stream-id app-id file-id done? abort-reason size]}]
-   (tool/def-locals)
    (update-op
      conn
      {:app-id app-id
@@ -241,8 +271,8 @@
                                                       ;; one in there
                                                       (when-not (= p flush-promise)
                                                         (tracer/record-exception-span!
-                                                         (Exception. "concurrent flush-to-file executions.")
-                                                         {:name "app-stream/flush-to-file"})
+                                                          (Exception. "concurrent flush-to-file executions.")
+                                                          {:name "app-stream/flush-to-file"})
                                                         p))))))]
       (tool/def-locals)
       ;; XXX: Needs to recur a flush when it's finished if the buffer has exceeded our limit while we were flushing

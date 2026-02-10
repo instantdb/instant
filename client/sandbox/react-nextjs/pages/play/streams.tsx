@@ -8,6 +8,15 @@ const schema = i.schema({
   entities: {},
 });
 
+const rules = {
+  $streams: {
+    allow: {
+      create: 'true',
+      view: 'true',
+    },
+  },
+};
+
 function randomUUID() {
   return crypto.randomUUID();
 }
@@ -631,7 +640,7 @@ function App({
 export default function Page() {
   return (
     <div className="mx-auto h-screen max-w-4xl p-4">
-      <EphemeralAppPage schema={schema} Component={App} />
+      <EphemeralAppPage schema={schema} Component={App} perms={rules} />
     </div>
   );
 }

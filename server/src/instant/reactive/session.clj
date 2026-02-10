@@ -736,9 +736,12 @@
 (defn handle-start-stream!
   "Handles both starting or reconnecting to a write stream"
   [store sess-id {:keys [client-event-id] :as event}]
-  (let [{:keys [app]} (get-auth! store sess-id)
+  (let [{:keys [app admin? user]} (get-auth! store sess-id)
         app-id (:id app)
         client-id (ex/get-param! event [:client-id] string-util/coerce-non-blank-str)
+        _ (when-not admin?
+            (app-stream-model/assert-create-stream-permission! client-id {:app-id app-id
+                                                                          :current-user user}))
         hashed-reconnect-token (-> (ex/get-param! event [:reconnect-token] uuid-util/coerce)
                                    crypt-util/uuid->sha256
                                    crypt-util/bytes->hex-string)
@@ -840,7 +843,7 @@
                                     nil)))})))
 
 (defn handle-subscribe-stream! [store sess-id event]
-  (let [{:keys [app]} (get-auth! store sess-id)
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
         app-id (:id app)
         stream-id (ex/get-optional-param! event [:stream-id] uuid-util/coerce)
         client-id (ex/get-optional-param! event [:client-id] string-util/coerce-non-blank-str)
@@ -865,6 +868,10 @@
                                        :stream-id stream-id
                                        :client-id client-id}
                                       [{:message "Stream is missing."}]))]
+    (when-not admin?
+      (app-stream-model/assert-read-stream-permission! stream {:app-id app-id
+                                                               :current-user user}))
+
     (cond
       (:done stream)
       (let [all-files (app-stream-model/get-stream-files {:app-id app-id
@@ -968,10 +975,8 @@
 
       ;; starts (or restarts) a write stream
       :start-stream (handle-start-stream! store id event)
-      ;; XXX: File name needs to be $stream/{stream-id}/{file-num}/{file-id}
-      ;;  - Important to have file-id so that it can't be stolen by someone
+      ;; XXX: File name needs to be $stream/{stream-id}/{file-num}
       ;;  - Or we could prevent people from creating files where the name starts with $stream
-      ;;    - Then we could do just `$stream/{stream-id}/{file-num}`
       ;;    - Double check that nobody is already doing that...
       :append-stream (handle-append-stream! store id event)
       :subscribe-stream (handle-subscribe-stream! store id event)
