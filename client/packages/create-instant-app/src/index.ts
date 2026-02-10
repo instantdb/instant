@@ -122,6 +122,9 @@ const main = async () => {
     4. ${getCodeColors(theme, getUserPkgManager(project.base) + ` run ` + startScript)}
   `);
   }
+
+  process.stdout.write(SHOW_CURSOR);
+  process.exit(0);
 };
 
 main().catch((err) => {

@@ -345,7 +345,7 @@ ${inputDisplay}`;
     disappearWhenDone?: boolean;
   };
 
-  export class Spinner<T> extends Prompt<T | Error> {
+  export class Spinner<T> extends Prompt<T> {
     private props: SpinnerProps<T>;
     private promiseResult: T | null = null;
     private promiseError: Error | null = null;
@@ -354,7 +354,7 @@ ${inputDisplay}`;
     private intervalId: NodeJS.Timeout | null = null;
     private messages: string[] = [];
 
-    result(): T | Error {
+    result(): T {
       if (this.promiseError) {
         throw this.promiseError;
       }

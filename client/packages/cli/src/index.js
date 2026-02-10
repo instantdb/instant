@@ -952,6 +952,7 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
   await renderUnwrap(
     new UI.Spinner({
       promise: execAsync(installCommand, pkgDir),
+      errorText: `Failed to install ${packagesToInstall.join(', ')} using ${packageManager}.`,
       workingText: `Installing ${packagesToInstall.join(', ')} using ${packageManager}...`,
       doneText: `Installed ${packagesToInstall.join(', ')} using ${packageManager}.`,
     }),

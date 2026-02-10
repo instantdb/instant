@@ -17,9 +17,6 @@ export const runInstallCommand = async (
     }),
   );
 
-  if (spinResult instanceof Error) {
-    throw spinResult;
-  }
   if (spinResult.exitCode !== 0) {
     UI.log(spinResult.stderr, UI.ciaModifier(null));
     process.exit(1);
