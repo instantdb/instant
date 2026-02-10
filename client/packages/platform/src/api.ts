@@ -959,12 +959,13 @@ async function planSchemaPush(
   };
 }
 
-async function planSchemaPushOverwrite(
+
+async function planSchemaPushOverwriteInternal(
   apiURI: string,
   token: string,
   appId: string,
   body: InstantAPISchemaPushBody,
-): Promise<InstantAPIPlanSchemaPushResponse> {
+) {
   const apiSchema = await getAppAPISchema(apiURI, token, appId);
 
   const currentSchema = apiSchemaToInstantSchemaDef(apiSchema, {
@@ -992,9 +993,25 @@ async function planSchemaPushOverwrite(
   const txSteps = convertTxSteps(diffResult, currentAttrs);
 
   return {
-    newSchema: newSchema,
-    currentSchema: currentSchema,
+    currentSchema,
+    currentAttrs,
+    txSteps: txSteps,
     steps: translatePlanSteps(txSteps, currentAttrs),
+  };
+}
+
+async function planSchemaPushOverwrite(
+  apiURI: string,
+  token: string,
+  appId: string,
+  body: InstantAPISchemaPushBody,
+): Promise<InstantAPIPlanSchemaPushResponse> {
+  const { currentSchema, steps } = await planSchemaPushOverwriteInternal(apiURI, token, appId, body);
+
+  return {
+    newSchema: body.schema,
+    currentSchema: currentSchema,
+    steps: steps,
   };
 }
 
@@ -1290,34 +1307,8 @@ function schemaPushOverwrite(
 ): ProgressPromise<InProgressStepsSummary, InstantAPISchemaPushResponse> {
   return new ProgressPromise(async (progress, resolve, reject) => {
     try {
-      // TODO: extract this part?
-      const apiSchema = await getAppAPISchema(apiURI, token, appId);
-
-      const currentSchema = apiSchemaToInstantSchemaDef(apiSchema, {
-        disableTypeInference: true,
-      });
-      const currentAttrs = apiSchemaToAttrs(apiSchema);
-
-      const systemCatalogIdentNames =
-        collectSystemCatalogIdentNames(currentAttrs);
-
-      const newSchema = body.schema;
-
-      validateSchema(newSchema, systemCatalogIdentNames);
-
-      const renames = ('renames' in body ? body.renames : null) || [];
-
-      const renameSelector = buildAutoRenameSelector(renames);
-
-      const diffResult = await diffSchemas(
-        currentSchema,
-        newSchema,
-        renameSelector,
-        systemCatalogIdentNames,
-      );
-
-      const txSteps = convertTxSteps(diffResult, currentAttrs);
-      // TODO: extract this part?
+      
+      const { currentAttrs, txSteps } = await planSchemaPushOverwriteInternal(apiURI, token, appId, body);
 
       const resp = await jsonFetch<SchemaPushResponseJSON>(
         `${apiURI}/dash/apps/${appId}/schema/steps/apply`,
