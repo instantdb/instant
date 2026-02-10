@@ -756,7 +756,7 @@ async function deleteApp(
   return { app: coerceApp(app) };
 }
 
-function translatePlanStep(apiStep: PlanStep): InstantAPISchemaPlanStep {
+function translatePlanStep(apiStep: PlanStep, currentAttrs: InstantDBAttr[]): InstantAPISchemaPlanStep {
   const [stepType, stepParams] = apiStep;
 
   switch (stepType) {
@@ -848,10 +848,13 @@ function translatePlanStep(apiStep: PlanStep): InstantAPISchemaPlanStep {
       };
     }
     case 'delete-attr': {
+      const attrId = stepParams;
+      const attr = currentAttrs.find(a => a.id === attrId);
+      const friendlyName = attr ? identName(attr['forward-identity']) : attrId;
       return {
         type: 'delete-attr',
         attrId: stepParams,
-        friendlyDescription: `Delete attribute TODO.`,
+        friendlyDescription: `Delete attribute ${friendlyName}.`,
       };
     }
     default: {
@@ -864,8 +867,9 @@ function translatePlanStep(apiStep: PlanStep): InstantAPISchemaPlanStep {
 
 export function translatePlanSteps(
   apiSteps: PlanStep[],
+  currentAttrs: InstantDBAttr[],
 ): InstantAPISchemaPlanStep[] {
-  return apiSteps.map((step) => translatePlanStep(step));
+  return apiSteps.map((step) => translatePlanStep(step, currentAttrs));
 }
 
 type PushObjOf<S extends PushStep> =
@@ -875,6 +879,7 @@ type PushObjOf<S extends PushStep> =
 function translatePushStep<S extends PushStep>(
   apiStep: S,
   jobs: IndexingJobJSON[],
+  currentAttrs: InstantDBAttr[],
 ): PushObjOf<S> {
   const [stepType, stepParams] = apiStep;
   if (
@@ -882,7 +887,7 @@ function translatePushStep<S extends PushStep>(
     stepType === 'update-attr' ||
     stepType === 'delete-attr'
   ) {
-    const planStep = translatePlanStep(apiStep);
+    const planStep = translatePlanStep(apiStep, currentAttrs);
     if (
       planStep.type !== 'add-attr' &&
       planStep.type !== 'update-attr' &&
@@ -895,7 +900,7 @@ function translatePushStep<S extends PushStep>(
   }
   const jobId = stepParams['job-id'];
   const job = jobs.find((j) => j.id === jobId)!;
-  const planStep = translatePlanStep(apiStep);
+  const planStep = translatePlanStep(apiStep, currentAttrs);
   const backgroundJob = formatJob(job);
 
   if (planStep.type !== backgroundJob.type) {
@@ -908,8 +913,9 @@ function translatePushStep<S extends PushStep>(
 function translatePushSteps(
   apiSteps: PushStep[],
   jobs: IndexingJobJSON[],
+  currentAttrs: InstantDBAttr[],
 ): InstantAPISchemaPushStep[] {
-  return apiSteps.map((step) => translatePushStep(step, jobs));
+  return apiSteps.map((step) => translatePushStep(step, jobs, currentAttrs));
 }
 
 function shouldOverwrite(body: InstantAPISchemaPushBody) {
@@ -942,11 +948,11 @@ async function planSchemaPush(
       }),
     },
   );
-
+  const currentAttrs = resp['current-attrs'];
   return {
     newSchema: apiSchemaToInstantSchemaDef(resp['new-schema']),
     currentSchema: apiSchemaToInstantSchemaDef(resp['current-schema']),
-    steps: translatePlanSteps(resp['steps']),
+    steps: translatePlanSteps(resp['steps'], currentAttrs),
   };
 }
 
@@ -985,7 +991,7 @@ async function planSchemaPushOverwrite(
   return {
     newSchema: newSchema,
     currentSchema: currentSchema,
-    steps: translatePlanSteps(txSteps),
+    steps: translatePlanSteps(txSteps, currentAttrs),
   };
 }
 
@@ -1223,6 +1229,9 @@ function schemaPush(
 ): ProgressPromise<InProgressStepsSummary, InstantAPISchemaPushResponse> {
   return new ProgressPromise(async (progress, resolve, reject) => {
     try {
+      const currentAPISchema = await getAppAPISchema(apiURI, token, appId);
+      const currentAttrs = apiSchemaToAttrs(currentAPISchema);
+
       const resp = await jsonFetch<SchemaPushResponseJSON>(
         `${apiURI}/superadmin/apps/${appId}/schema/push/apply`,
         {
@@ -1250,15 +1259,15 @@ function schemaPush(
             indexingJobs['group-id'],
             indexingJobs['jobs'],
             (jobs) => {
-              progress(stepSummary(translatePushSteps(resp.steps, jobs)));
+              progress(stepSummary(translatePushSteps(resp.steps, jobs, currentAttrs)));
             },
           );
 
       const schemaRes = await getAppSchema(apiURI, token, appId);
       resolve({
         newSchema: schemaRes.schema,
-        steps: translatePushSteps(resp.steps, jobs),
-        summary: stepSummary(translatePushSteps(resp.steps, jobs)),
+        steps: translatePushSteps(resp.steps, jobs, currentAttrs),
+        summary: stepSummary(translatePushSteps(resp.steps, jobs, currentAttrs)),
       });
     } catch (e) {
       reject(e as Error);
@@ -1328,15 +1337,15 @@ function schemaPushOverwrite(
             indexingJobs['group-id'],
             indexingJobs['jobs'],
             (jobs) => {
-              progress(stepSummary(translatePushSteps(resp.steps, jobs)));
+              progress(stepSummary(translatePushSteps(resp.steps, jobs, currentAttrs)));
             },
           );
 
       const schemaRes = await getAppSchema(apiURI, token, appId);
       resolve({
         newSchema: schemaRes.schema,
-        steps: translatePushSteps(resp.steps, jobs),
-        summary: stepSummary(translatePushSteps(resp.steps, jobs)),
+        steps: translatePushSteps(resp.steps, jobs, currentAttrs),
+        summary: stepSummary(translatePushSteps(resp.steps, jobs, currentAttrs)),
       });
     } catch (e) {
       reject(e as Error);

@@ -62,19 +62,18 @@ describe.concurrent('schemaPush e2e', () => {
       },
     });
     const appApi = new PlatformApi({ auth: { token: app.adminToken } });
-    const plan = await appApi.planSchemaPush(app.id, {
+    const res = await appApi.planSchemaPush(app.id, {
       schema: overwriteSchema,
       overwrite: true,
       renames: ['posts.name:posts.title'],
     });
-    const friendlyDescs = new Set(plan.steps.map((s) => s.friendlyDescription));
+    const friendlyDescs = new Set(res.steps.map((s) => s.friendlyDescription));
     expect(friendlyDescs).toEqual(
       new Set([
         'Add attribute posts.slug.',
         'Make posts.slug a required attribute.',
         'Update attribute posts.title.',
-        // TODO: somehow need to pass `ident-name` here
-        'Delete attribute TODO.',
+        'Delete attribute posts.details.',
       ]),
     );
   });
@@ -115,8 +114,7 @@ describe.concurrent('schemaPush e2e', () => {
         'Add attribute posts.slug.',
         'Make posts.slug a required attribute.',
         'Update attribute posts.title.',
-        // TODO: somehow need to pass `ident-name` here
-        'Delete attribute TODO.',
+        'Delete attribute posts.details.',
       ]),
     );
   });
