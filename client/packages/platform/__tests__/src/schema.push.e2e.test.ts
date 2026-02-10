@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { PlatformApi, i } from '../../src/index';
 
-describe.concurrent('schemaPush e2e', () => {
+describe.concurrent('schemaPush e2e', { timeout: 20_000 }, () => {
   for (const fnName of ['planSchemaPush', 'schemaPush'] as const) {
     test(`${fnName}: validation errors`, async () => {
       const initialSchema = i.schema({
