@@ -352,8 +352,8 @@ export default class Reactor {
     );
 
     this._instantStream = new InstantStream({
-      WStream: WritableStream, // XXX: needs to be passed in from above
-      RStream: ReadableStream, // XXX: needs to be passed in from above
+      WStream: this.config.WritableStream || WritableStream,
+      RStream: this.config.ReadableStream || ReadableStream,
       trySend: this._trySendAuthed.bind(this),
       log: this._log,
     });

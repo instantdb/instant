@@ -75,6 +75,8 @@ import {
   InstantStream,
   EventSourceConstructor,
   EventSourceType,
+  type WritableStreamCtor,
+  type ReadableStreamCtor,
 } from '@instantdb/core';
 
 import version from './version.ts';
@@ -119,6 +121,8 @@ export type InstantConfig<
   useDateObjects: UseDates;
   disableValidation?: boolean;
   verbose?: boolean;
+  WritableStream?: WritableStreamCtor;
+  ReadableStream?: ReadableStreamCtor;
 };
 
 type InstantConfigFilled<
@@ -1052,9 +1056,8 @@ class InstantAdminDatabase<
     }
     this.#ensureSSEConnection();
     const instantStream = new InstantStream({
-      // XXX: Need to get these passed in from somewhere
-      WStream: WritableStream,
-      RStream: ReadableStream,
+      WStream: this.config.WritableStream || WritableStream,
+      RStream: this.config.ReadableStream || ReadableStream,
       trySend: (eventId, msg) => {
         this.#trySend(eventId, msg);
       },
@@ -1474,14 +1477,10 @@ class InstantAdminDatabase<
     }
     if (opts?.streamId) {
     }
-    // XXX: Something needs to shut down the connection if we're not
-    //      doing anything on it.
     return this.#ensureInstantStream().createReadStream(streamOpts);
   }
 
   createWriteStream(opts: { clientId: string }): WritableStream<string> {
-    // XXX: Something needs to shut down the connection if we're not
-    //      doing anything on it.
     return this.#ensureInstantStream().createWriteStream(opts);
   }
 }

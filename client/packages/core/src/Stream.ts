@@ -2,14 +2,14 @@ import uuid from './utils/id.ts';
 import { Logger } from './utils/log.ts';
 import { STATUS } from './Reactor.js';
 
-type WritableStreamCtor = {
+export type WritableStreamCtor = {
   new <W = any>(
     underlyingSink?: UnderlyingSink<W>,
     strategy?: QueuingStrategy<W>,
   ): WritableStream<W>;
 };
 
-type ReadableStreamCtor = {
+export type ReadableStreamCtor = {
   new <R = any>(
     underlyingSource?: UnderlyingDefaultSource<R>,
     strategy?: QueuingStrategy<R>,

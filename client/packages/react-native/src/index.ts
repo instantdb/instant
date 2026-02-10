@@ -4,6 +4,7 @@ import Storage from './Storage';
 import EventSourceImpl from './EventSourceImpl';
 import NetworkListener from './NetworkListener';
 import version from './version';
+import { streamConstructors } from './Streams';
 
 import { InstantReactAbstractDatabase } from '@instantdb/react-common';
 
@@ -131,6 +132,8 @@ function init<
   InstantConfig<Schema, UseDates>
 > {
   const configStrict = {
+    ReadableStream: streamConstructors.ReadableStream,
+    WritableStream: streamConstructors.WritableStream,
     ...config,
     useDateObjects: (config.useDateObjects ?? false) as UseDates,
   };

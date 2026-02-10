@@ -135,7 +135,11 @@ import type {
   LoadFromStorage as SyncTableLoadFromStorage,
   SetupError as SyncTableSetupError,
 } from './SyncTable.ts';
-import { InstantStream } from './Stream.ts';
+import {
+  InstantStream,
+  ReadableStreamCtor,
+  WritableStreamCtor,
+} from './Stream.ts';
 
 const defaultOpenDevtool = true;
 
@@ -171,6 +175,8 @@ export type InstantConfig<
   useDateObjects: UseDates;
   disableValidation?: boolean;
   Store?: StoreInterfaceClass;
+  WritableStream?: WritableStreamCtor;
+  ReadableStream?: ReadableStreamCtor;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
@@ -1039,6 +1045,8 @@ export {
 
   // streams
   InstantStream,
+  type WritableStreamCtor,
+  type ReadableStreamCtor,
 
   // sync table types
   type SyncTableCallback,
