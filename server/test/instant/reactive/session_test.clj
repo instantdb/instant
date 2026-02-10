@@ -112,6 +112,7 @@
                   (finally
                     (session/on-close store socket)
                     (session/on-close store socket-2)
+                    (session/on-close store socket-3)
                     (grouped-queue/stop receive-q)
                     (when @realized-eph?
                       (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))))))

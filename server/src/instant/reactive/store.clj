@@ -645,6 +645,11 @@
                :stream-reader/user-provided-event-id user-provided-event-id
                :stream-reader/reader-object reader-object}]))
 
+(defn remove-stream-reader [store app-id reader-ent]
+  (transact! "store/remove-stream-reader"
+             (app-conn store app-id)
+             [[:db.fn/retractEntity (:db/id reader-ent)]]))
+
 (defn get-stream-reader [store app-id sess-id user-provided-event-id]
   (d/entity @(app-conn store app-id) [:stream-reader/session-id+user-provided-event-id
                                       [sess-id user-provided-event-id]]))

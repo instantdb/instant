@@ -733,14 +733,11 @@ export class InstantStream {
       return;
     }
 
-    if (msg.files) {
-      iterator.push({ type: 'append', offset: msg.offset, files: msg.files });
-    }
-
-    if (msg.content) {
+    if (msg.files?.length || msg.content) {
       iterator.push({
         type: 'append',
         offset: msg.offset,
+        files: msg.files,
         content: msg.content,
       });
     }
