@@ -14,7 +14,7 @@
            (dev.cel.common.types CelType MapType SimpleType)
            (dev.cel.compiler CelCompiler CelCompilerFactory)
            (dev.cel.parser CelStandardMacro)
-           (dev.cel.runtime CelFunctionOverload CelRuntime CelRuntime$CelFunctionBinding CelRuntimeFactory)
+           (dev.cel.runtime CelFunctionOverload CelRuntime CelFunctionBinding CelRuntimeFactory)
            (java.time Instant)
            (java.util Date HashMap)))
 
@@ -206,8 +206,8 @@
       SimpleType/BOOL
       (ucoll/array-of CelType [SimpleType/DYN SimpleType/INT]))])))
 
-(def ^:private ^CelRuntime$CelFunctionBinding instant-date-eq-fn-binding
-  (CelRuntime$CelFunctionBinding/from
+(def ^:private ^CelFunctionBinding instant-date-eq-fn-binding
+  (CelFunctionBinding/from
    "_instant_date_eq_dyn_int"
    [Object Long]
    (reify CelFunctionOverload
@@ -245,7 +245,7 @@
 
 (def ^:private ^CelRuntime instaql-topic-cel-runtime
   (-> (CelRuntimeFactory/standardCelRuntimeBuilder)
-      (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding [instant-date-eq-fn-binding]))
+      (.addFunctionBindings (ucoll/array-of CelFunctionBinding [instant-date-eq-fn-binding]))
       (.build)))
 
 (defn eval-topic-program [program entity]
