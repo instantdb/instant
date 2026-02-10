@@ -131,26 +131,12 @@ export const MainDashLayout: React.FC<{
   const { darkMode } = useDarkMode();
 
   useEffect(() => {
-    if (darkMode && token) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    return () => {
-      document.documentElement.classList.remove('dark');
-    };
+    document.documentElement.classList.toggle('dark', darkMode);
+    document.documentElement.style.colorScheme = darkMode ? 'dark' : 'light';
   }, [darkMode]);
 
   if (!token) {
-    return (
-      <Auth
-        key="anonymous"
-        ticket={tickets.cliNormalTicket}
-        onVerified={({ ticket }) => {
-          tickets.setLoginTicket(ticket);
-        }}
-      />
-    );
+    return <Auth key="anonymous" ticket={tickets.cliNormalTicket} />;
   }
 
   return (
