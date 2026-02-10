@@ -10,7 +10,7 @@ import type { RoomSchemaShape } from '@instantdb/core';
 
 export function Cursors<
   RoomSchema extends RoomSchemaShape,
-  RoomType extends keyof RoomSchema,
+  RoomType extends string & keyof RoomSchema,
 >({
   as = 'div',
   spaceId: _spaceId,
