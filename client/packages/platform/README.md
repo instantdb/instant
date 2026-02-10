@@ -305,7 +305,7 @@ const { steps } = await api.planSchemaPush(YOUR_APP_ID, { schema: schema });
 const { steps } = await api.planSchemaPush(YOUR_APP_ID, {
   schema: schema,
   overwrite: true,
-  renames: ['todos.name:todos.title']
+  renames: ['todos.name:todos.title'],
 });
 
 // steps
@@ -348,7 +348,7 @@ const pushPromise = api.schemaPush(YOUR_APP_ID, { schema: schema });
 const { steps } = await api.planSchemaPush(YOUR_APP_ID, {
   schema: schema,
   overwrite: true,
-  renames: ['todos.name:todos.title']
+  renames: ['todos.name:todos.title'],
 });
 
 pushPromise.subscribe({
