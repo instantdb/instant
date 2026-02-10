@@ -1,6 +1,5 @@
 import { execa } from 'execa';
 import { PackageManager } from './utils/getUserPkgManager.js';
-import chalk from 'chalk';
 import { renderUnwrap, UI } from 'instant-cli/ui';
 
 export const runInstallCommand = async (
