@@ -877,9 +877,17 @@ function translatePushStep<S extends PushStep>(
   jobs: IndexingJobJSON[],
 ): PushObjOf<S> {
   const [stepType, stepParams] = apiStep;
-  if (stepType === 'add-attr' || stepType === 'update-attr') {
+  if (
+    stepType === 'add-attr' ||
+    stepType === 'update-attr' ||
+    stepType === 'delete-attr'
+  ) {
     const planStep = translatePlanStep(apiStep);
-    if (planStep.type !== 'add-attr' && planStep.type !== 'update-attr') {
+    if (
+      planStep.type !== 'add-attr' &&
+      planStep.type !== 'update-attr' &&
+      planStep.type !== 'delete-attr'
+    ) {
       // This is just here for typescript
       throw new Error('Invalid step.');
     }
@@ -963,7 +971,6 @@ async function planSchemaPushOverwrite(
 
   const renames = ('renames' in body ? body.renames : null) || [];
 
-  // TODO: type this
   const renameSelector = buildAutoRenameSelector(renames);
 
   const diffResult = await diffSchemas(
@@ -1228,6 +1235,84 @@ function schemaPush(
             ...body,
             check_types: true,
             supports_background_updates: true,
+          }),
+        },
+      );
+
+      const indexingJobs = resp['indexing-jobs'];
+
+      const jobs = !indexingJobs
+        ? []
+        : await jobFetchLoop(
+            apiURI,
+            token,
+            appId,
+            indexingJobs['group-id'],
+            indexingJobs['jobs'],
+            (jobs) => {
+              progress(stepSummary(translatePushSteps(resp.steps, jobs)));
+            },
+          );
+
+      const schemaRes = await getAppSchema(apiURI, token, appId);
+      resolve({
+        newSchema: schemaRes.schema,
+        steps: translatePushSteps(resp.steps, jobs),
+        summary: stepSummary(translatePushSteps(resp.steps, jobs)),
+      });
+    } catch (e) {
+      reject(e as Error);
+    }
+  });
+}
+
+function schemaPushOverwrite(
+  apiURI: string,
+  token: string,
+  appId: string,
+  body: InstantAPISchemaPushBody,
+): ProgressPromise<InProgressStepsSummary, InstantAPISchemaPushResponse> {
+  return new ProgressPromise(async (progress, resolve, reject) => {
+    try {
+      // TODO: extract this part?
+      const apiSchema = await getAppAPISchema(apiURI, token, appId);
+
+      const currentSchema = apiSchemaToInstantSchemaDef(apiSchema, {
+        disableTypeInference: true,
+      });
+      const currentAttrs = apiSchemaToAttrs(apiSchema);
+
+      const systemCatalogIdentNames =
+        collectSystemCatalogIdentNames(currentAttrs);
+
+      const newSchema = body.schema;
+
+      validateSchema(newSchema, systemCatalogIdentNames);
+
+      const renames = ('renames' in body ? body.renames : null) || [];
+
+      const renameSelector = buildAutoRenameSelector(renames);
+
+      const diffResult = await diffSchemas(
+        currentSchema,
+        newSchema,
+        renameSelector,
+        systemCatalogIdentNames,
+      );
+
+      const txSteps = convertTxSteps(diffResult, currentAttrs);
+      // TODO: extract this part?
+
+      const resp = await jsonFetch<SchemaPushResponseJSON>(
+        `${apiURI}/dash/apps/${appId}/schema/steps/apply`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            steps: txSteps,
           }),
         },
       );
@@ -1675,7 +1760,7 @@ export class PlatformApi {
    *     }),
    *   },
    * });
-   * const job = api.schemaPush(appId, { schema: schema });
+   * const job = api.schemaPush(appId, { overwrite: true, schema: schema });
    * job
    *   .then(({ summary }) => console.log('done!', summary))
    *   .catch((e) => console.error(e));
@@ -1694,6 +1779,8 @@ export class PlatformApi {
     if (!this.#auth) {
       throw new PlatformApiMissingAuthError();
     }
+    const useOverwrite = shouldOverwrite(body);
+    const pushFn = useOverwrite ? schemaPushOverwrite : schemaPush;
     return new ProgressPromise(async (progress, resolve, reject) => {
       // It's tricky to add withRetry to the background process that fetches the jobs,
       // so we'll just refresh the token at the start.
@@ -1702,7 +1789,7 @@ export class PlatformApi {
           await this.refreshToken();
         } catch (_e) {}
       }
-      schemaPush(this.#apiURI, this.token(), appId, body).subscribe({
+      pushFn(this.#apiURI, this.token(), appId, body).subscribe({
         complete(v) {
           resolve(v);
         },
