@@ -689,7 +689,7 @@ class InstantCoreDatabase<
    * unsubscribeTopic();
    * room.leaveRoom();
    */
-  joinRoom<RoomType extends keyof RoomsOf<Schema>>(
+  joinRoom<RoomType extends string & keyof RoomsOf<Schema>>(
     roomType: RoomType = '_defaultRoomType' as RoomType,
     roomId: string = '_defaultRoomId',
     opts?: {

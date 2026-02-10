@@ -251,7 +251,7 @@ export default class Reactor {
   /** @type BroadcastChannel | undefined */
   _broadcastChannel;
 
-  /** @type {Record<string, {isConnected: boolean; error: any}>} */
+  /** @type {Record<string, {roomType: string; isConnected: boolean; error: any}>} */
   _rooms = {};
   /** @type {Record<string, boolean>} */
   _roomsPendingLeave = {};
