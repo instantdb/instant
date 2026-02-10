@@ -797,8 +797,17 @@ const resolveRenames = async <T>(
   return result;
 };
 
+/**
+ * a `rename command` lets us know your intent to rename a particular entity
+ * 
+ * The format is `from:to`, where `from` and `to` are lookups. 
+ * 
+ * For example, to rename `posts.name` to `posts.title`, a command could 
+ * look like: 
+ * 
+ * `posts.name:posts.title`
+ */
 export type RenameCommand = `${string}.${string}:${string}.${string}`;
-
 function validateRenameLookup(lookup: string) {
   const [etype, label] = lookup.split('.').map(x => x.trim());
   if (!etype || !label) { 
