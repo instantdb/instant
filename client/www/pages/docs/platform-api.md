@@ -181,7 +181,7 @@ Now that you have an app, you can change schemas and permissions too.
 
 **To change schemas and perms with the CLI:**
 
-If you are using the CLI, you'll have your `instant.schema.ts` and `instant.perms.ts` files in your directory. Run the [standard](/docs/cli) CLI push and pull commands with your token:
+If you are using the CLI, you'll have your `instant.schema.ts` and `instant.perms.ts` files in your directory. Run the [standard](/docs/cli) CLI push command with your token:
 
 ```ts
 // src/instant.schema.ts
@@ -202,9 +202,11 @@ const schema = i.schema({
 npx instant-cli push schema --token YOUR_TOKEN
 ```
 
-**To change schemas and perms with the CLI:**
+**To change schemas and perms with the platform SDK:**
 
-For the platform SDK, you can use the corresponding `schemaPush` and `schemaPull` commands. Here's a snippet for schema push:
+For the platform SDK, you can use the corresponding `schemaPush` command.
+
+Here's a snippet for schema push:
 
 ```typescript
 import { PlatformApi, i } from '@instantdb/platform';
@@ -219,7 +221,11 @@ const schema = i.schema({
   },
 });
 
-await api.schemaPush(YOUR_APP_ID, { schema: schema });
+await api.schemaPush(YOUR_APP_ID, {
+  overwrite: true,
+  schema: schema,
+  renames: ['todos.name:todos.title'],
+});
 ```
 
 To see more examples, check out the [Platform SDK reference](https://github.com/instantdb/instant/tree/main/client/packages/platform#making-api-requests).
