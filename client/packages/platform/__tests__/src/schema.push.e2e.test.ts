@@ -35,7 +35,8 @@ describe.concurrent('schemaPush e2e', () => {
   });
 
   // todo-test: we throw an error if we pass in renames without overwrite: true
-
+  // todo-test: we throw an error with the wrong renamecommand style
+  // todo-test: we test that link renames work too
   test('planSchemaPush: overwrite flow handles deletes and renames', async () => {
     const initialSchema = i.schema({
       entities: {
