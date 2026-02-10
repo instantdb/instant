@@ -17,6 +17,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.lib.ring.websocket :as ws]
    [instant.model.app-stream :as app-stream-model]
+   [instant.model.rule :as rule-model]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.query :as rq]
    [instant.reactive.receive-queue :as receive-queue]
@@ -1120,6 +1121,8 @@
     (fn [{:keys [slurp-file]}]
       (with-session
         (fn [store {:keys [socket movies-app-id]}]
+          (rule-model/put! {:app-id movies-app-id
+                            :code {:$streams {:allow {:create "true" :view "true"}}}})
           (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
           (let [event-id (random-uuid)
                 {:keys [stream-id]}
@@ -1174,6 +1177,8 @@
       (fn [{:keys [slurp-file]}]
         (with-session
           (fn [store {:keys [socket movies-app-id]}]
+            (rule-model/put! {:app-id movies-app-id
+                              :code {:$streams {:allow {:create "true" :view "true"}}}})
             (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
             (let [event-id (random-uuid)
                   {:keys [stream-id]}
@@ -1232,6 +1237,8 @@
       (fn [{:keys [slurp-file]}]
         (with-session
           (fn [store {:keys [socket socket-2 socket-3 movies-app-id]}]
+            (rule-model/put! {:app-id movies-app-id
+                              :code {:$streams {:allow {:create "true" :view "true"}}}})
             (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
             (blocking-send-msg :init-ok socket-2 {:op :init :app-id movies-app-id})
             (blocking-send-msg :init-ok socket-3 {:op :init :app-id movies-app-id})
