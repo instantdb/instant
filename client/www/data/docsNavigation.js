@@ -106,6 +106,7 @@ module.exports = [
       { title: 'Custom emails', href: '/docs/emails', optionalLLM: true },
       { title: 'App teams', href: '/docs/teams', optionalLLM: true },
       { title: 'Storage', href: '/docs/storage' },
+      { title: 'Stripe Payments', href: '/docs/stripe-payments' },
       { title: 'Admin HTTP API', href: '/docs/http-api' },
       { title: '(Experimental) Next.js SSR', href: '/docs/next-ssr' },
     ],

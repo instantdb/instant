@@ -72,8 +72,11 @@
                    conn
                    ["SELECT * FROM instant_users WHERE id = ?::uuid" id])))
 
-(defn get-by-id! [params]
-  (ex/assert-record! (get-by-id params) :instant-user {:args [params]}))
+(defn get-by-id!
+  ([params]
+   (ex/assert-record! (get-by-id params) :instant-user {:args [params]}))
+  ([conn params]
+   (ex/assert-record! (get-by-id conn params) :instant-user {:args [params]})))
 
 (defn get-by-app-id* [conn app-id]
   (sql/select-one ::get-by-app-id*

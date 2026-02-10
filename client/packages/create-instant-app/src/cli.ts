@@ -6,7 +6,12 @@ import { coerceAppName, validateAppName } from './utils/validateAppName.js';
 import { renderUnwrap, UI } from 'instant-cli/ui';
 
 export type Project = {
-  base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
+  base:
+    | 'next-js-app-dir'
+    | 'vite-vanilla'
+    | 'expo'
+    | 'tanstack-start'
+    | 'bun-react';
   ruleFiles:
     | 'cursor'
     | 'claude'
@@ -59,7 +64,14 @@ export const runCli = async (): Promise<{
       new Option(
         '-b --base <template>',
         'The base template to scaffold from',
-      ).choices(['next-js-app-dir', 'vite-vanilla', 'expo']),
+      ).choices([
+        'next-js-app-dir',
+        'vite-vanilla',
+        'expo',
+        'bun-react',
+        'tanstack-start',
+        'tanstack-start-with-tanstack-query',
+      ]),
     )
     .addOption(
       new Option('-g --git', 'Create a git repo in the new project').default(
@@ -202,6 +214,14 @@ export const runCli = async (): Promise<{
               { value: 'next-js-app-dir', label: 'Next.js' },
               { value: 'vite-vanilla', label: 'Vite: Vanilla TS' },
               { value: 'expo', label: 'Expo: React Native' },
+              {
+                value: 'tanstack-start',
+                label: 'Tanstack Start',
+              },
+              {
+                value: 'bun-react',
+                label: 'Bun + React',
+              },
             ],
             defaultValue: 'next-js-app-dir' as Project['base'],
             modifyOutput: UI.modifiers.piped([UI.ciaModifier()]),

@@ -1,0 +1,48 @@
+
+Hey crew! It's time for another edition of Instant News 🙂 Here's a slice of what happened so far in the new year!
+
+**AI Chat in the Docs**
+
+Ever been reading the docs and had a question you couldn't quite find the answer to? Now you can just ask! We added an AI chat bot right in our docs so you can get answers without having to wait in Discord.
+
+We hope this makes it even easier for you to discover new ways to use Instant and get unblocked. Give it a try next time you're in the docs and let us know what you think!
+
+**HTTP API Docs**
+
+We published [official docs](https://www.instantdb.com/docs/http-api) for our HTTP API! If you're building with a non-JS backend (Python, Go, Ruby, etc.) you can now use Instant's query and transaction endpoints directly over HTTP.
+
+You can even give these to your LLM to make you a custom client.
+
+**Platform API Guide**
+
+Ever wanted to create apps programmatically?
+
+If you're building an app builder, you can provision backends for your users in milliseconds. Or if you're working with a team, you can improve your dev workflows: create apps for tests or spin up an app for every preview PR.
+
+Previously instructions for this were a bit hard to come by, so we wrote a guide. It walks you through how to create apps and how to make changes to them. [Check out the docs](https://www.instantdb.com/docs/platform-api) to learn more!
+
+**Cookie Sync**
+
+You've always had auth on the client out of the box. But what if you wanted to get the logged in user on your server? You used to have to pass up a token manually. Now, just add one line in `init`:
+
+And Instant handles keeping the logged in user in sync between client and server. [Learn more about Cookie Sync](https://www.instantdb.com/docs/backend#syncing-auth).
+
+**SSR for NextJS**
+
+Building on Cookie Sync, we also shipped SSR support! With the new `useSuspenseQuery` hook, you can render your apps on the server and seamlessly transition to realtime data when the page loads.
+
+Why did we do this?
+
+SSR is great, but nothing beats the speed of local data. Thankfully, you get the best of both worlds: if the client already has the data, we use it. No loading states, no null/undefined data, and still just as fast as before. [Try it out](https://www.instantdb.com/docs/next-ssr) and let us know what you think!
+
+**InstantDB Skills**
+
+If you use coding agents and don't have LLM rules for Instant handy, you can now add them in one command:
+
+`npx skills add instantdb/skills`
+
+This gives your agent everything it needs to build with Instant right out of the box.
+
+**Looking ahead**
+
+We’ve got an exciting launch coming up next month. We’ll let you know more as we get closer to it, stay tuned :)

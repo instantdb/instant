@@ -6,19 +6,21 @@
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.attr-pat :as attr-pat]
+   [instant.db.model.triple :as triple-model]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
    [instant.util.json :as json]
+   [instant.util.request :refer [*request-info*]]
    [instant.util.tracer :as tracer]
    [instant.comment :as c]
    [instant.db.proto :as proto]
    [instant.data.resolvers :as resolvers])
   (:import
    (com.google.common.collect ImmutableList ImmutableSet)
-   (com.google.protobuf Descriptors$Descriptor NullValue)
+   (com.google.protobuf Descriptors$Descriptor NullValue Timestamp)
    (dev.cel.common CelAbstractSyntaxTree
                    CelFunctionDecl
                    CelIssue
@@ -53,7 +55,7 @@
                     CelEvaluationException
                     CelFunctionOverload
                     CelRuntime
-                    CelRuntime$CelFunctionBinding
+                    CelFunctionBinding
                     CelRuntime$Program
                     CelRuntimeLegacyImpl$Builder
                     CelRuntimeFactory
@@ -66,6 +68,7 @@
                       CelValidatorFactory)
    (instant.db.model.attr Attrs)
    (java.text SimpleDateFormat)
+   (java.time Instant)
    (java.util ArrayList Date HashMap Map Optional SimpleTimeZone)
    (java.util.concurrent.atomic AtomicInteger)
    (java.util.concurrent ConcurrentHashMap)))
@@ -321,7 +324,7 @@
                                                args))))
                                 decls)))
    :runtimes (mapv (fn [decl]
-                     (CelRuntime$CelFunctionBinding/from
+                     (CelFunctionBinding/from
                       ^String (:overload-id decl)
                       ^java.lang.Iterable (:java-args decl)
                       ^CelFunctionOverload (:impl decl)))
@@ -336,6 +339,35 @@
 ;; Normal evaluation pipeline
 ;; --------------------------
 
+(def get-time-decl {:overload-id "_getTime"
+                    :cel-args [SimpleType/TIMESTAMP]
+                    :cel-return-type SimpleType/INT
+                    :java-args [Timestamp]
+                    :impl (fn [[^Timestamp t]]
+                            (proto/timestamp->epoch-seconds t))})
+
+(def get-time-fn (member-overload "getTime"
+                                  [get-time-decl]))
+
+;; Extend timestamp to accept anything we accept as a date
+(def timestamp-decls [{:overload-id "_timestamp_from_string"
+                       :cel-args [SimpleType/STRING]
+                       :cel-return-type SimpleType/TIMESTAMP
+                       :java-args [String]
+                       :impl (fn [[^String s]]
+                               (-> (triple-model/parse-date-value s)
+                                   proto/instant->timestamp))}
+                      {:overload-id "_timestamp_from_number"
+                       :cel-args [SimpleType/INT]
+                       :cel-return-type SimpleType/TIMESTAMP
+                       :java-args [Long]
+                       :impl (fn [[^Long v]]
+                               (-> (triple-model/parse-date-value v)
+                                   proto/instant->timestamp))}])
+
+(def timestamp-fn (global-overload "timestamp"
+                                   timestamp-decls))
+
 (def ref-decl {:overload-id "_ref"
                :cel-args [type-obj SimpleType/STRING]
                :cel-return-type type-ref-return
@@ -346,7 +378,7 @@
 (def ref-fn (member-overload "ref"
                              [ref-decl]))
 
-(def custom-fns [ref-fn])
+(def custom-fns [ref-fn get-time-fn timestamp-fn])
 (def custom-fn-decls (mapv :decl custom-fns))
 (def custom-fn-bindings (mapcat :runtimes custom-fns))
 
@@ -366,10 +398,13 @@
       (.addVar "data" type-obj)
       (.addVar "auth" type-obj)
       (.addVar "ruleParams" type-obj)
+      (.addVar "request" ^StructTypeReference request-cel-type)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setOptions cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
-      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))))
+      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings)
+                                                         (CelExtensions/strings)
+                                                         (CelExtensions/math cel-options)]))))
 
 (def ^:private cel-view-delete-compiler
   (-> (runtime-compiler-builder)
@@ -378,7 +413,6 @@
 (def ^:private ^CelCompiler cel-create-update-compiler
   (-> (runtime-compiler-builder)
       (.addVar "newData" type-obj)
-      (.addVar "request" request-cel-type)
       (.build)))
 
 (def ^:private ^CelCompiler cel-link-compiler
@@ -398,10 +432,11 @@
 ;;      equivalent change to iql-cel-compiler below
 (def ^:private ^CelRuntime cel-runtime
   (let [^CelRuntimeLegacyImpl$Builder builder (CelRuntimeFactory/standardCelRuntimeBuilder)
-        ^java.lang.Iterable extensions [(CelExtensions/strings)]]
+        ^java.lang.Iterable extensions [(CelExtensions/strings)
+                                        (CelExtensions/math cel-options)]]
     (-> builder
         (.addLibraries extensions)
-        (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding custom-fn-bindings))
+        (.addFunctionBindings (ucoll/array-of CelFunctionBinding custom-fn-bindings))
         (.setOptions cel-options)
         (.build))))
 
@@ -472,14 +507,16 @@
           _ (.put bindings "auth" (AuthCelMap. ctx (CelMap. (:current-user ctx))))
           _ (.put bindings "data" (DataCelMap. ctx etype (CelMap. data)))
           _ (.put bindings "ruleParams" (CelMap. rule-params))
+          _ (.put bindings "request" (proto/create-request-proto (merge {:modified-fields modified-fields
+                                                                         :time (or (:timestamp ctx)
+                                                                                   (Instant/now))}
+                                                                        *request-info*)))
           _ (when new-data
               (.put bindings "newData" (CelMap. new-data)))
           _ (when linked-data
               (.put bindings "linkedData" (DataCelMap. ctx linked-etype (CelMap. linked-data))))
           _ (when actions
-              (.put bindings "actions" (CelMap. actions)))
-          _ (when modified-fields
-              (.put bindings "request" (proto/create-request-proto modified-fields)))]
+              (.put bindings "actions" (CelMap. actions)))]
       (eval-program-with-bindings cel-program bindings))
 
     (catch CelEvaluationException e
@@ -514,6 +551,11 @@
                                              (DataCelMap. ctx etype (CelMap. data)))
                                "ruleParams" (Optional/of
                                              (CelMap. rule-params))
+                               "request"    (Optional/of
+                                             (proto/create-request-proto (merge {:modified-fields modified-fields
+                                                                                 :time (or (:timestamp ctx)
+                                                                                           (Instant/now))}
+                                                                                *request-info*)))
                                "newData"    (if new-data
                                               (Optional/of
                                                (CelMap. new-data))
@@ -526,10 +568,7 @@
                                               (Optional/of
                                                (CelMap. actions))
                                               (Optional/empty))
-                               "request"    (if modified-fields
-                                              (Optional/of
-                                               (proto/create-request-proto modified-fields))
-                                              (Optional/empty))
+
                                (Optional/empty)))))
             unknown-ctx (UnknownContext/create resolver (ImmutableList/of))
             i (AtomicInteger.)
@@ -727,6 +766,9 @@
                 :string {:cel-type SimpleType/STRING
                          :java-type String
                          :name "string"}
+                :timestamp {:cel-type SimpleType/TIMESTAMP
+                            :java-type Timestamp
+                            :name "timestamp"}
                 :datakey {:cel-type datakey-cel-type
                           :java-type DataKey
                           :name "datakey"}
@@ -915,6 +957,81 @@
                          SimpleType/DYN)
       :java-args (map type->java args)
       :impl (get-and-overload-fn args)})))
+
+;; Overloads for `<`, `<=`,`>`, and `>=`
+
+(def comparison-specs
+  {Operator/LESS {:iql :$lt
+                  :reverse-iql :$gt}
+   Operator/LESS_EQUALS {:iql :$lte
+                         :reverse-iql :$gte}
+   Operator/GREATER {:iql :$gt
+                     :reverse-iql :$lt}
+   Operator/GREATER_EQUALS {:iql :$gte
+                            :reverse-iql :$lte}})
+
+(defn make-comparison-overloads [^Operator comparison]
+  (mapcat (fn [a]
+            (for [{:keys [args reverse?]} [{:args [:datakey a]
+                                            :reverse? false}
+                                           {:args [a :datakey]
+                                            :reverse? true}]
+                  :let [op (get-in comparison-specs [comparison (if reverse?
+                                                                  :reverse-iql
+                                                                  :iql)])]]
+              {:overload-id (str (.getFunction comparison) (clojure.string/join "_"
+                                                                                (map type->name args)))
+               :cel-args (map type->cel args)
+               :cel-return-type whereclause-cel-type
+               :java-args (map type->java args)
+               :impl (case a
+                       :bool
+                       (fn [v]
+                         (let [[^DataKey x ^Boolean y] (if reverse? (reverse v) v)
+                               attr (.instant_attr x)]
+                           (if (and (= :boolean (:checked-data-type attr))
+                                    (:index? attr))
+                             (WhereClause. {(.data_key x) {op y}})
+                             (throw (ex-info "Invalid attr" {:x x})))))
+                       :double
+                       (fn [v]
+                         (let [[^DataKey x ^Double y] (if reverse? (reverse v) v)
+                               attr (.instant_attr x)]
+                           (if (and (= :number (:checked-data-type attr))
+                                    (:index? attr))
+                             (WhereClause. {(.data_key x) {op y}})
+                             (throw (ex-info "Invalid attr" {:x x})))))
+                       :int
+                       (fn [v]
+                         (let [[^DataKey x ^Long y] (if reverse? (reverse v) v)
+                               attr (.instant_attr x)]
+                           (if (and (= :number (:checked-data-type attr))
+                                    (:index? attr))
+                             (WhereClause. {(.data_key x) {op y}})
+                             (throw (ex-info "Invalid attr" {:x x})))))
+
+                       :string
+                       (fn [v]
+                         (let [[^DataKey x ^String y] (if reverse? (reverse v) v)
+                               attr (.instant_attr x)]
+                           (if (and (= :string (:checked-data-type attr))
+                                    (:index? attr))
+                             (WhereClause. {(.data_key x) {op y}})
+                             (throw (ex-info "Invalid attr" {:x x})))))
+                       :timestamp
+                       (fn [v]
+                         (let [[^DataKey x ^Timestamp y] (if reverse? (reverse v) v)
+                               attr (.instant_attr x)]
+                           (if (and (= :date (:checked-data-type attr))
+                                    (:index? attr))
+                             (WhereClause. {(.data_key x) {op (proto/timestamp->instant y)}})
+                             (throw (ex-info "Invalid attr" {:x x}))))))}))
+          [:bool :double :int :string :timestamp]))
+
+(def comparison-overloads (mapv (fn [^Operator operator]
+                                  (global-overload (.getFunction operator)
+                                                   (make-comparison-overloads operator)))
+                                (keys comparison-specs)))
 
 ;; Overloads for `==`, `!=`, and `in`
 ;; We replace the existing functions because adding overloads
@@ -1248,18 +1365,31 @@
                                      :impl (fn [[^CheckedDataMap m ^String ref-path]]
                                              (validate-refpath (.attrs m) (.etype m) ref-path)
                                              (RefPath. ref-path))}]))
-(def where-custom-fns [where-ref-fn
-                       or-overloads
-                       and-overloads
-                       eq-overloads
-                       neq-overloads
-                       in-overloads
-                       not-overloads
-                       starts-with-overload
-                       ends-with-overload
-                       contains-overload
-                       type-overload
-                       size-overload])
+
+(def where-timestamp-fn (global-overload "timestamp"
+                                         (conj timestamp-decls
+                                               {:overload-id "_timestamp_from_datakey"
+                                                :cel-args [(type->cel :datakey)]
+                                                :cel-return-type (type->cel :datakey)
+                                                :java-args [(type->java :datakey)]
+                                                :impl (fn [[^DataKey x]]
+                                                        x)})))
+(def where-custom-fns (into [where-ref-fn
+                             or-overloads
+                             and-overloads
+                             eq-overloads
+                             neq-overloads
+                             in-overloads
+                             not-overloads
+                             starts-with-overload
+                             ends-with-overload
+                             contains-overload
+                             type-overload
+                             size-overload
+                             get-time-fn
+                             where-timestamp-fn]
+                            comparison-overloads))
+
 (def where-custom-fn-decls (mapv :decl where-custom-fns))
 (def where-custom-fn-bindings (mapcat :runtimes where-custom-fns))
 
@@ -1278,18 +1408,23 @@
 
 (def ^:private ^CelCompiler where-cel-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
+      (.addMessageTypes (ucoll/array-of Descriptors$Descriptor [proto/request-descriptor]))
       (.addVar "data" checked-data-map-cel-type)
       (.addVar "ruleParams" type-obj)
       (.addVar "auth" type-obj)
+      (.addVar "request" ^StructTypeReference request-cel-type)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl where-custom-fn-decls))
       (.setOptions where-cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
-      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
+      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings)
+                                                         (CelExtensions/strings)
+                                                         (CelExtensions/math where-cel-options)]))
       (.build)))
 
 (def ^:private ^CelRuntime where-cel-runtime
   (let [^CelRuntimeLegacyImpl$Builder builder (CelRuntimeFactory/standardCelRuntimeBuilder)
-        ^java.lang.Iterable extensions [(CelExtensions/strings)]
+        ^java.lang.Iterable extensions [(CelExtensions/strings)
+                                        (CelExtensions/math where-cel-options)]
         ^CelStandardFunctions override-functions
         (-> (CelStandardFunctions/newBuilder)
             (.excludeFunctions (ImmutableList/of CelStandardFunctions$StandardFunction/EQUALS
@@ -1300,7 +1435,7 @@
         (.setStandardEnvironmentEnabled false)
         (.setStandardFunctions override-functions)
         (.addLibraries extensions)
-        (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding where-custom-fn-bindings))
+        (.addFunctionBindings (ucoll/array-of CelFunctionBinding where-custom-fn-bindings))
         (.setOptions where-cel-options)
         (.build))))
 
@@ -1361,6 +1496,10 @@
                                          (CheckedDataMap. (:attrs ctx) etype))
                                         "ruleParams"
                                         (Optional/of (CelMap. rule-params))
+                                        "request"
+                                        (Optional/of (proto/create-request-proto (merge {:time (or (:timestamp ctx)
+                                                                                                   (Instant/now))}
+                                                                                        *request-info*)))
 
                                         (Optional/empty))))}))]
                 (if (is-missing-ref-data? result)
@@ -1614,7 +1753,7 @@
                                             (clojure.string/join " -> " bind-vars)))]
     (throw (CelValidationException. source [issue]))))
 
-(defn throw-cel-validation-error [^String code error]
+(defn throw-cel-validation-error [^String code ^String error]
   (let [source (.build (CelSource/newBuilder code))
         issue (CelIssue/formatError 1 ;; line
                                     1 ;; col

@@ -37,7 +37,7 @@ const main = async () => {
 
   const [scopedAppName, appDir] = parseNameAndPath(project.appName);
 
-  const pkgManager = getUserPkgManager();
+  const pkgManager = getUserPkgManager(project.base);
 
   const projectDir = await scaffoldBaseAndEdit(project, appDir);
 
@@ -81,7 +81,7 @@ const main = async () => {
     spaces: 2,
   });
 
-  await runInstallCommand(getUserPkgManager(), projectDir);
+  await runInstallCommand(getUserPkgManager(project.base), projectDir);
 
   if (project.createRepo) {
     await initializeGit(projectDir);
@@ -103,7 +103,7 @@ const main = async () => {
 
   To get started:
     1. ${getCodeColors(theme, 'cd ' + appDir)}
-    2. ${getCodeColors(theme, getUserPkgManager() + ` run ` + startScript)}
+    2. ${getCodeColors(theme, getUserPkgManager(project.base) + ` run ` + startScript)}
   `);
     if (possibleAppTokenPair.approach === 'ephemeral') {
       console.log(`
@@ -119,7 +119,7 @@ const main = async () => {
     1. ${getCodeColors(theme, 'cd ' + appDir)}
     2. Create a new app on ${chalk.underline('www.instantdb.com')}
     3. Add your APP_ID to the .env file
-    4. ${getCodeColors(theme, getUserPkgManager() + ` run ` + startScript)}
+    4. ${getCodeColors(theme, getUserPkgManager(project.base) + ` run ` + startScript)}
   `);
   }
 };

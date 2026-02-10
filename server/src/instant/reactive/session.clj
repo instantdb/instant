@@ -40,6 +40,7 @@
    [instant.util.semver :as semver]
    [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.instaql :as instaql-util]
+   [instant.util.request :refer [*request-info*]]
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
@@ -1087,8 +1088,8 @@
         sess-id (:session/id session)
         event-attrs (event-attributes store sess-id event)]
     (assoc (merge metadata event-attrs)
-           :socket-origin (rs/socket-origin socket)
-           :socket-ip (rs/socket-ip socket)
+           :socket-origin (:origin *request-info*)
+           :socket-ip (:ip *request-info*)
            :session-id sess-id
            :x-amzn-trace-id (rs/socket-x-amzn-trace-id socket)
            :x-amzn-cf-id (rs/socket-x-amz-cf-id socket)
@@ -1097,72 +1098,74 @@
                         "ws"))))
 
 (defn handle-receive [store session event metadata]
-  (tracer/with-exceptions-silencer [silence-exceptions]
-    (tracer/with-span! {:name "receive-worker/handle-receive"
-                        :attributes (handle-receive-attrs store session event metadata)}
-      (let [in-progress-stmts (sql/make-statement-tracker)
-            debug-info (atom nil)
-            app-id (-> session :session/auth :app :id)
-            timeout-ms (or (when app-id
-                             (flags/handle-receive-timeout app-id))
-                           handle-receive-timeout-ms)
-            event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
-                        (if-not (flags/use-more-vfutures?)
-                          (ua/tracked-future (handle-event store
-                                                           session
-                                                           event
-                                                           debug-info))
-                          (ua/vfuture (handle-event store
-                                                    session
-                                                    event
-                                                    debug-info))))
-            handler-id (add-pending-handler session {:future event-fut
-                                                     :op (:op event)
-                                                     :in-progress-stmts in-progress-stmts
-                                                     :silence-exceptions silence-exceptions})]
-        (tracer/add-data! {:attributes {:timeout-ms timeout-ms
-                                        :concurrent-handler-count (pending-handler-count session)}})
-        (try
-          (let [ret (deref event-fut timeout-ms :timeout)]
-            (when (= :timeout ret)
-              (let [in-progress-count (count @(:stmts in-progress-stmts))
-                    _ (sql/cancel-in-progress in-progress-stmts (flags/statement-cancel-wait-ms))
-                    cancel-res (future-cancel event-fut)]
-                (tracer/add-data! {:attributes
-                                   {:timedout true
-                                    :in-progress-query-count in-progress-count
-                                    ;; If false, then canceling the queries let
-                                    ;; the future complete before we could cancel it
-                                    :future-cancel-result cancel-res}}))
-              (ex/throw-operation-timeout! :handle-receive timeout-ms)))
+  (binding [*request-info* {:ip (rs/socket-ip (:session/socket session))
+                            :origin (rs/socket-origin (:session/socket session))}]
+    (tracer/with-exceptions-silencer [silence-exceptions]
+      (tracer/with-span! {:name "receive-worker/handle-receive"
+                          :attributes (handle-receive-attrs store session event metadata)}
+        (let [in-progress-stmts (sql/make-statement-tracker)
+              debug-info (atom nil)
+              app-id (-> session :session/auth :app :id)
+              timeout-ms (or (when app-id
+                               (flags/handle-receive-timeout app-id))
+                             handle-receive-timeout-ms)
+              event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
+                          (if-not (flags/use-more-vfutures?)
+                            (ua/tracked-future (handle-event store
+                                                             session
+                                                             event
+                                                             debug-info))
+                            (ua/vfuture (handle-event store
+                                                      session
+                                                      event
+                                                      debug-info))))
+              handler-id (add-pending-handler session {:future event-fut
+                                                       :op (:op event)
+                                                       :in-progress-stmts in-progress-stmts
+                                                       :silence-exceptions silence-exceptions})]
+          (tracer/add-data! {:attributes {:timeout-ms timeout-ms
+                                          :concurrent-handler-count (pending-handler-count session)}})
+          (try
+            (let [ret (deref event-fut timeout-ms :timeout)]
+              (when (= :timeout ret)
+                (let [in-progress-count (count @(:stmts in-progress-stmts))
+                      _ (sql/cancel-in-progress in-progress-stmts (flags/statement-cancel-wait-ms))
+                      cancel-res (future-cancel event-fut)]
+                  (tracer/add-data! {:attributes
+                                     {:timedout true
+                                      :in-progress-query-count in-progress-count
+                                      ;; If false, then canceling the queries let
+                                      ;; the future complete before we could cancel it
+                                      :future-cancel-result cancel-res}}))
+                (ex/throw-operation-timeout! :handle-receive timeout-ms)))
 
-          (catch CancellationException _e
-            ;; We must have cancelled this in the on-close, so don't try to do any
-            ;; error handling
-            (tracer/record-info! {:name "handle-receive-cancelled"}))
-          (catch Throwable e
-            (tracer/record-info! {:name "caught-throwable"})
-            (let [original-event event
-                  instant-ex (ex/find-instant-exception e)
-                  root-err (root-cause e)
-                  app-id (some-> (rs/session store (:session/id session))
-                                 :session/auth
-                                 :app
-                                 :id)]
-              (cond
-                instant-ex (handle-instant-exception store
-                                                     session
-                                                     app-id
-                                                     original-event
-                                                     instant-ex
-                                                     @debug-info)
-                :else (handle-uncaught-err session
-                                           app-id
-                                           original-event
-                                           root-err
-                                           @debug-info))))
-          (finally
-            (remove-pending-handler session handler-id)))))))
+            (catch CancellationException _e
+              ;; We must have cancelled this in the on-close, so don't try to do any
+              ;; error handling
+              (tracer/record-info! {:name "handle-receive-cancelled"}))
+            (catch Throwable e
+              (tracer/record-info! {:name "caught-throwable"})
+              (let [original-event event
+                    instant-ex (ex/find-instant-exception e)
+                    root-err (root-cause e)
+                    app-id (some-> (rs/session store (:session/id session))
+                                   :session/auth
+                                   :app
+                                   :id)]
+                (cond
+                  instant-ex (handle-instant-exception store
+                                                       session
+                                                       app-id
+                                                       original-event
+                                                       instant-ex
+                                                       @debug-info)
+                  :else (handle-uncaught-err session
+                                             app-id
+                                             original-event
+                                             root-err
+                                             @debug-info))))
+            (finally
+              (remove-pending-handler session handler-id))))))))
 
 (defn process-receive-q-event [store event metadata]
   (let [{:keys [session-id]

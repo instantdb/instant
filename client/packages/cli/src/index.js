@@ -10,7 +10,6 @@ import {
   PlatformApi,
 } from '@instantdb/platform';
 import version from './version.js';
-import { existsSync } from 'fs';
 import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
 import path, { join } from 'path';
 import { randomUUID } from 'crypto';
@@ -82,6 +81,7 @@ const potentialEnvs = {
   vite: 'VITE_INSTANT_APP_ID',
   expo: 'EXPO_PUBLIC_INSTANT_APP_ID',
   nuxt: 'NUXT_PUBLIC_INSTANT_APP_ID',
+  bun: 'BUN_PUBLIC_INSTANT_APP_ID',
 };
 
 const potentialAdminTokenEnvs = {
@@ -108,6 +108,9 @@ async function detectEnvType({ pkgDir }) {
   }
   if (packageJSON.dependencies?.nuxt) {
     return 'nuxt';
+  }
+  if (packageJSON.dependencies?.['@types/bun']) {
+    return 'bun';
   }
   return 'catchall';
 }

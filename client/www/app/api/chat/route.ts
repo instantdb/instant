@@ -40,6 +40,15 @@ function getDocFiles(): string[] {
 
 const DOC_FILES = getDocFiles();
 
+const DOC_HINTS = `
+## Hints for finding the right docs
+
+InstantDB separates concerns across different systems:
+- Schema (modeling-data.md): Types, relationships, indexes, uniqueness
+- Permissions (permissions.md): Validation rules, access control, business logic
+- Always check BOTH for questions about data constraints or validation.
+`.trim();
+
 const getAdminFeedbackDb = () => {
   if (!process.env.FEEDBACK_ADMIN_TOKEN) {
     throw new Error('FEEDBACK_ADMIN_TOKEN is not set');
@@ -286,7 +295,9 @@ IMPORTANT: You are a Q&A assistant, not a coding assistant. If someone asks you 
 
 I'm here to answer questions about how Instant works - feel free to ask about specific concepts, APIs, or features!"
 
-Do not generate application code, write components, or provide implementation details beyond explaining how Instant's APIs work.`,
+Do not generate application code, write components, or provide implementation details beyond explaining how Instant's APIs work.
+
+${DOC_HINTS}`,
           role: 'system',
           providerOptions: {
             anthropic: { cacheControl: { type: 'ephemeral' } },

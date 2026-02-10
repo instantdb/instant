@@ -321,7 +321,9 @@ export default class Reactor {
         try {
           if (e.data?.type === 'auth') {
             const res = await this.getCurrentUser();
-            this.updateUser(res.user);
+            await this.updateUser(res.user).catch((error) => {
+              this._log.error('[error] update user', error);
+            });
           }
         } catch (e) {
           this._log.error('[error] handle broadcast channel', e);
@@ -2091,7 +2093,7 @@ export default class Reactor {
     await this.setCurrentUser(newUser);
     // We need to remove all `result` from querySubs,
     // as they are no longer valid for the new user
-    this.updateUser(newUser);
+    await this.updateUser(newUser);
 
     try {
       this._broadcastChannel?.postMessage({ type: 'auth' });
@@ -2103,7 +2105,7 @@ export default class Reactor {
   async syncUserToEndpoint(user) {
     if (!this.config.firstPartyPath) return;
     try {
-      fetch(this.config.firstPartyPath + '/', {
+      await fetch(this.config.firstPartyPath + '/', {
         method: 'POST',
         body: JSON.stringify({
           type: 'sync-user',
@@ -2119,8 +2121,12 @@ export default class Reactor {
     }
   }
 
-  updateUser(newUser) {
-    this.syncUserToEndpoint(newUser);
+  async updateUser(newUser) {
+    try {
+      await this.syncUserToEndpoint(newUser);
+    } catch (error) {
+      this._log.error('Error syncing user with external endpoint', error);
+    }
 
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };

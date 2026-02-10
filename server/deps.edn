@@ -12,6 +12,7 @@
         org.clojure/clojure {:mvn/version "1.12.0"}
         org.clojure/core.async {:mvn/version "1.6.673"}
         org.clojure/tools.logging {:mvn/version "1.3.0"}
+        org.clojure/tools.cli {:mvn/version "1.1.230"}
         com.github.ben-manes.caffeine/caffeine {:mvn/version "3.2.2"}
         org.postgresql/postgresql {:mvn/version "42.7.3"}
         ring-cors/ring-cors {:mvn/version "0.1.13"}
@@ -64,7 +65,8 @@
         io.grpc/grpc-services {:mvn/version "1.79.0"}
         com.github.steffan-westcott/clj-otel-api {:mvn/version "0.2.4"}
 
-        dev.cel/cel {:mvn/version "0.9.1"}
+        dev.cel/cel {:mvn/version "0.11.1"}
+        com.google.protobuf/protobuf-java-util {:mvn/version "4.33.5"}
         com.fasterxml.jackson.core/jackson-core {:mvn/version "2.18.3"}
         com.google.crypto.tink/tink {:mvn/version "1.12.0"}
         com.google.crypto.tink/tink-awskms {:mvn/version "1.9.1"}
@@ -146,8 +148,7 @@
                    :ns-default build}
            :test {:extra-paths ["test" "dev-resources"]
                   :extra-deps {io.github.tonsky/clj-reload {:mvn/version "0.9.4"}
-                               zprint/zprint               {:mvn/version "1.2.9"}
-                               org.clojure/tools.cli       {:mvn/version "1.1.230"}}
+                               zprint/zprint               {:mvn/version "1.2.9"}}
                   :main-opts ["-m" "instant.test-core"]
                   :jvm-opts ["-Dinstant.env=test"
                              "-XX:+UseZGC"
