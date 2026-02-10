@@ -6,7 +6,7 @@ const isStaging = process.env.NEXT_PUBLIC_STAGING === 'true';
 
 const devBackend = getLocal('devBackend');
 
-let localPort = '8888';
+let localPort = process.env.NEXT_PUBLIC_LOCAL_SERVER_PORT || '8888';
 
 if (devBackend && isBrowser) {
   const portOverride = new URL(location.href).searchParams.get('port');
