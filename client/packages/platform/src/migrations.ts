@@ -812,7 +812,7 @@ function validateRenameLookup(lookup: string) {
   const [etype, label] = lookup.split('.').map((x) => x.trim());
   if (!etype || !label) {
     throw new Error(
-      `Invalid look. Got '${lookup}'. We expect a pattern like 'entityname.columname;.` +
+      `Invalid lookup. Got '${lookup}'. We expect a pattern like 'entityname.columname;.` +
         'For example: posts.title',
     );
   }
