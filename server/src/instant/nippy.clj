@@ -4,7 +4,7 @@
    [instant.isn]
    [taoensso.nippy :as nippy])
   (:import
-   (instant.grpc StreamComplete StreamContent StreamError StreamFile StreamInit StreamRequest)
+   (instant.grpc StreamAborted StreamComplete StreamContent StreamError StreamFile StreamInit StreamRequest)
    (instant.isn ISN)
    (java.io DataInput DataOutput)
    (java.util UUID)
@@ -152,3 +152,11 @@
 
 (nippy/extend-thaw 8 [_data-input]
   (instant.grpc/->StreamComplete))
+
+;; 9 is our custom identifier for StreamAborted, no other type can use it and
+;; it must be the same across all machines.
+(nippy/extend-freeze StreamAborted 9 [^StreamAborted {:keys [abort-reason]} data-output]
+  (#'nippy/write-str data-output abort-reason))
+
+(nippy/extend-thaw 9 [data-input]
+  (instant.grpc/->StreamAborted (nippy/thaw-from-in! data-input)))

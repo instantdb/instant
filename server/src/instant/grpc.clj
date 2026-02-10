@@ -20,6 +20,7 @@
 (defrecord StreamContent [^long offset chunks])
 
 (defrecord StreamComplete [])
+(defrecord StreamAborted [^String abort-reason])
 
 ;; Stream errors take a single keyword to indicate the error type
 ;; make sure to add the key to the stream-error-map so that nippy

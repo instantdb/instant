@@ -12,7 +12,7 @@
 
 (deftest all-of-the-custom-readers-are-tested
   ;; Only update this number if you also added a freeze/thaw test for the type
-  (is (= 8 (count nippy/*custom-readers*))))
+  (is (= 9 (count nippy/*custom-readers*))))
 
 (defn roundtrip [x]
   (nippy/fast-thaw (nippy/fast-freeze x)))
@@ -93,4 +93,8 @@
 
 (deftest stream-complete
   (let [obj (grpc/->StreamComplete)]
+    (is (= obj (roundtrip obj)))))
+
+(deftest stream-aborted
+  (let [obj (grpc/->StreamAborted "whoops")]
     (is (= obj (roundtrip obj)))))

@@ -53,6 +53,7 @@
    "$oauthProvider" "oprovider"
    "$stream" "stream"
    "$user" "user"
+   "abortReason" "abrtreasn"
    "authCode" "authcode"
    "clientId" "clientid"
    "codeChallenge" "codechall"
@@ -366,6 +367,8 @@
    (make-attr "$streams" "size"
               :checked-data-type :number)
    (make-attr "$streams" "hashedReconnectToken"
+              :checked-data-type :string)
+   (make-attr "$streams" "abortReason"
               :checked-data-type :string)])
 
 (def all-attrs (concat $users-attrs

@@ -781,6 +781,12 @@
         done? (ex/get-optional-param! event [:done] (fn [done]
                                                       (when (boolean? done)
                                                         done)))
+        abort-reason (ex/get-optional-param! event
+                                             [:abort-reason]
+                                             (fn [abort-reason]
+                                               (if-not (string? abort-reason)
+                                                 (<-json abort-reason)
+                                                 (string-util/coerce-non-blank-str abort-reason))))
         expected-offset (ex/get-param! event [:offset] (fn [offset]
                                                          (when (and (int? offset)
                                                                     (not (neg? offset)))
@@ -814,6 +820,7 @@
                              expected-offset
                              chunks
                              done?
+                             abort-reason
                              (fn [{:keys [offset done?]}]
                                (try
                                  (rs/send-event! store app-id sess-id {:op :stream-flushed
@@ -876,7 +883,8 @@
                                                           files)
                                               :stream-id (:id stream)
                                               :client-id (:clientId stream)
-                                              :done true}))
+                                              :done true
+                                              :abort-reason (:abortReason stream)}))
 
       (:machineId stream)
       ;; XXX: Needs some way to notify when the session goes away

@@ -24,7 +24,7 @@ type WriteStreamStartResult =
 type WriteStreamCbs = {
   onDisconnect: () => void;
   onConnectionReconnect: () => void;
-  onFlush: (args: { offset: number }) => void;
+  onFlush: (args: { offset: number; done: boolean }) => void;
 };
 
 function createWriteStream({
@@ -48,10 +48,10 @@ function createWriteStream({
     abortReason?: string;
   }) => void;
   registerStream: (streamId: string, cbs: WriteStreamCbs) => void;
-  // XXX: Need another callback to unregister the stream when it is closed or aborted
 }): WritableStream<string> {
   const clientId = opts.clientId;
   let streamId_: string | null = null;
+  let controller_: WritableStreamDefaultController | null = null;
   const reconnectToken = uuid();
   let isDone: boolean = false;
   let disconnected: boolean = false;
@@ -60,14 +60,6 @@ function createWriteStream({
   let bufferByteSize = 0;
   const buffer: { chunk: string; byteLen: number }[] = [];
   const encoder = new TextEncoder();
-
-  globalThis._stuff = () => {
-    return {
-      buffer,
-      bufferOffset,
-      bufferByteSize,
-    };
-  };
 
   function onDisconnect() {
     disconnected = true;
@@ -127,8 +119,11 @@ function createWriteStream({
     }
   }
 
-  function onFlush({ offset }: { offset: number }) {
+  function onFlush({ offset, done }: { offset: number; done: boolean }) {
     discardFlushed(offset);
+    if (done) {
+      isDone = true;
+    }
   }
 
   function ensureSetup(controller): string | null {
@@ -143,8 +138,12 @@ function createWriteStream({
 
   async function start(controller: WritableStreamDefaultController) {
     let tryAgain = true;
-    // XXX: Some kind of rate limit on trying again
+    let attempts = 0;
+    controller_ = controller;
+
     while (tryAgain) {
+      // rate-limit after the first few failed connects
+      let nextAttempt = Date.now() + Math.min(15000, 500 * (attempts - 1));
       tryAgain = false;
       const result = await startStream({
         clientId: opts.clientId,
@@ -170,6 +169,11 @@ function createWriteStream({
         case 'disconnect': {
           tryAgain = true;
           onDisconnect();
+          attempts++;
+          await new Promise((resolve) => {
+            // Try again immediately for the first two attempts, then back off
+            setTimeout(resolve, nextAttempt - Date.now());
+          });
           break;
         }
         case 'error': {
@@ -182,14 +186,12 @@ function createWriteStream({
   }
 
   return new WStream({
-    // We could make this a little more resilient to network interrupts
-    // Maybe we should put the segments into storage?
+    // TODO(dww): accept a storage so that write streams can survive across
+    //            browser restarts
     async start(controller) {
       try {
-        console.log('CALLING START');
         await start(controller);
       } catch (e) {
-        console.log('error', e);
         controller.error(e.message);
       }
     },
@@ -217,9 +219,6 @@ function createWriteStream({
       }
     },
     abort(reason) {
-      // XXX: handle abortReason on the server
-      //      Should store something on the $stream (add new field to stream)
-      console.log('abort', reason);
       if (streamId_) {
         // Probably needs to be slightly changed...
         // 1. Delay sending if we're not connected
@@ -500,6 +499,7 @@ type StreamAppendMsg = {
   'client-event-id': string;
   files?: { url: string; size: number }[];
   done?: boolean;
+  'abort-reason'?: string;
   offset: number;
   error?: string;
   retry: boolean;
@@ -633,7 +633,10 @@ export class InstantStream {
       this.log.info('No stream cbs for stream-flushed', msg);
       return;
     }
-    cbs.onFlush({ offset: msg.offset });
+    cbs.onFlush({ offset: msg.offset, done: msg.done });
+    if (msg.done) {
+      delete this.writeStreams[streamId];
+    }
   }
 
   // XXX: Need some kind of flow control...

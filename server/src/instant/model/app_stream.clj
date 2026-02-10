@@ -17,7 +17,7 @@
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
   (:import
-   (instant.grpc StreamComplete StreamContent StreamError StreamInit StreamRequest)
+   (instant.grpc StreamAborted StreamComplete StreamContent StreamError StreamInit StreamRequest)
    (io.grpc Status Status$Code)
    (io.grpc.netty.shaded.io.netty.buffer ByteBufInputStream CompositeByteBuf Unpooled)
    (io.grpc.stub ServerCallStreamObserver StreamObserver)
@@ -91,7 +91,7 @@
 (defn link-file!
   "Links the $file to the $stream, if the stream is complete, sets the done and size fields."
   ([params] (link-file! (aurora/conn-pool :write) params))
-  ([conn {:keys [stream-id app-id file-id done? size]}]
+  ([conn {:keys [stream-id app-id file-id done? abort-reason size]}]
    (tool/def-locals)
    (update-op
      conn
@@ -102,7 +102,9 @@
                     [[:add-triple stream-id (resolve-id "$files") file-id]]
                     (when done?
                       [[:add-triple stream-id (resolve-id "done") true]
-                       [:add-triple stream-id (resolve-id "size") size]])))))))
+                       [:add-triple stream-id (resolve-id "size") size]])
+                    (when abort-reason
+                      [[:add-triple stream-id (resolve-id "abortReason") abort-reason]])))))))
 
 (defn get-stream
   "Gets a stream by its id or client-id"
@@ -207,6 +209,7 @@
                    :buffer-byte-offset 0
                    :$files []
                    :done? false
+                   :abort-reason nil
                    :flush-promise nil
                    :sinks {}
                    :machine-id-updated false}
@@ -217,7 +220,7 @@
                                     (remove-machine-id-change-listener stream-id cb-id)
                                     ;; XXX: Should we persist the buffer to $file here?
                                     (doseq [[_sink-id sink] (:sinks (-> this deref deref))]
-                                      (sink ::disconnect)))})]
+                                      (sink {:type ::disconnect})))})]
     (add-machine-id-change-listener stream-id cb-id (fn [machine-id]
                                                       (when (not= machine-id config/machine-id)
                                                         (swap! obj assoc :machine-id-updated true))))
@@ -244,7 +247,7 @@
   (swap! stream-object update :sinks dissoc sink-id))
 
 (defn flush-to-file [stream-object flush-promise on-flush-to-file]
-  (let [{:keys [app-id stream-id $files done?
+  (let [{:keys [app-id stream-id $files done? abort-reason
                 buffer buffer-byte-size buffer-byte-offset]} @stream-object
         ^CompositeByteBuf buff
         (reduce (fn [^CompositeByteBuf buff chunk]
@@ -266,6 +269,7 @@
                        :stream-id stream-id
                        :file-id (:id file)
                        :done? done?
+                       :abort-reason abort-reason
                        :size (when done?
                                (+ buffer-byte-size buffer-byte-offset))})
 
@@ -302,7 +306,7 @@
    the buffer to a file if we're over the flush limit (1mb by default).
 
   `chunks` should be an array of byte[]"
-  [stream-object expected-offset chunks done? on-flush-to-file]
+  [stream-object expected-offset chunks done? abort-reason on-flush-to-file]
   (let [chunks-byte-size (reduce (fn [acc ^bytes chunk]
                                    (+ acc (alength chunk)))
                                  0
@@ -327,7 +331,8 @@
                          (let [next-obj (-> obj
                                             (update :buffer into chunks)
                                             (update :buffer-byte-size + chunks-byte-size)
-                                            (assoc :done? (boolean done?)))]
+                                            (assoc :done? (boolean done?))
+                                            (assoc :abort-reason abort-reason))]
                            (tool/def-locals)
                            (if (and (not done?)
                                     (not (:flush-promise next-obj))
@@ -346,7 +351,8 @@
           (sink msg))))
     (when done?
       (doseq [[_sink-id sink] (:sinks updated)]
-        (sink ::completed))
+        (sink {:type ::completed
+               :abort-reason abort-reason}))
       (when-let [p (:flush-promise updated)]
         (-> p
             ;; wait for promise
@@ -417,9 +423,11 @@
                    (cleanup)
                    (.onNext observer (grpc/stream-error :rate-limit))
                    (.onCompleted observer))
-                 (case v
+                 (case (:type v)
                    ::completed
-                   (do (.onNext observer (grpc/->StreamComplete))
+                   (do (if-let [abort-reason (:abort-reason v)]
+                         (.onNext observer (grpc/->StreamAborted abort-reason))
+                         (.onNext observer (grpc/->StreamComplete)))
                        (.onCompleted observer)
                        (cleanup))
 
@@ -579,6 +587,10 @@
 
                   StreamComplete
                   {:done true}
+
+                  StreamAborted
+                  {:done true
+                   :abort-reason (:abort-reason v)}
 
                   (tracer/with-span! {:name "app_stream/unknown-payload-type"
                                       :attributes {:type (type v)
