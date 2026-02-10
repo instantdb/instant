@@ -147,7 +147,8 @@
                                                :where {"$stream" stream-id}})
                     (map (fn [f]
                            (assoc f :part-num (extract-part-num stream-id (:path f)))))
-                    (sort-by :part-num))]
+                    (sort-by :part-num)
+                    vec)]
      ;; Validate that we're not missing any parts
      (reduce (fn [expected file]
                (when-not (:url file)
@@ -197,6 +198,61 @@
   (doseq [[_k cb] (Map/.get stream-machine-id-listeners stream-id)]
     (cb machine-id)))
 
+;; We could have a race in flush-to-file if the connection dropped and then
+;; we reconnected while cleanup was happening. It might be okay if we
+;; remove the old file when that happens
+(defn flush-to-file [stream-object flush-promise on-flush-to-file on-flush-to-file-error]
+  (try
+    (let [{:keys [app-id stream-id $files done? abort-reason
+                  buffer buffer-byte-size buffer-byte-offset]} @stream-object
+          ^CompositeByteBuf buff
+          (reduce (fn [^CompositeByteBuf buff chunk]
+                    (.addComponent buff true (Unpooled/wrappedBuffer ^bytes chunk)))
+                  (Unpooled/compositeBuffer)
+                  buffer)
+
+          ;; XXX: Make this return everything needed to construct the URL
+          file (storage-coordinator/upload-file! {:app-id app-id
+                                                  :path (str (stream-file-name-prefix stream-id)
+                                                             (count $files))
+                                                  :content-type "application/octet-stream" ;; xxx?
+                                                  :content-length buffer-byte-size
+                                                  :skip-perms-check? true
+                                                  :mode :create}
+                                                 (ByteBufInputStream. buff))
+
+          _ (link-file! {:app-id app-id
+                         :stream-id stream-id
+                         :file-id (:id file)
+                         :done? done?
+                         :abort-reason abort-reason
+                         :size (when done?
+                                 (+ buffer-byte-size buffer-byte-offset))})
+
+          after (swap! stream-object
+                       (fn [obj]
+                         (-> obj
+                             (assoc :buffer (into [] (subvec (:buffer obj) (count buffer))))
+                             (update :buffer-byte-size - buffer-byte-size)
+                             (update :buffer-byte-offset + buffer-byte-size)
+                             (update :$files conj file)
+                             (update :flush-promise (fn [p]
+                                                      ;; Clear the flush promise, unless someone snuck another
+                                                      ;; one in there
+                                                      (when-not (= p flush-promise)
+                                                        (tracer/record-exception-span!
+                                                         (Exception. "concurrent flush-to-file executions.")
+                                                         {:name "app-stream/flush-to-file"})
+                                                        p))))))]
+      (tool/def-locals)
+      ;; XXX: Needs to recur a flush when it's finished if the buffer has exceeded our limit while we were flushing
+      (on-flush-to-file {:offset (:buffer-byte-offset after)
+                         :done? (:done? after)}))
+    (catch Throwable t
+      (tracer/record-exception-span! t {:name "app-stream/flush-to-file-error"
+                                        :stream-id (:id @stream-object)})
+      (on-flush-to-file-error t))))
+
 (defn new-stream-object [app-id stream-id]
   (let [this (promise)
         cb-id (random-uuid)
@@ -214,13 +270,33 @@
                    :sinks {}
                    :machine-id-updated false}
                   ;; This is a bit of a hack to allow the store to
-                  ;; call cleanup without having to worry about a cyclic dependency
-                  ;; between store and app-stream
+                  ;; call cleanup without having to worry about a
+                  ;; cyclic dependency between store and app-stream
                   :meta {:cleanup (fn []
                                     (remove-machine-id-change-listener stream-id cb-id)
-                                    ;; XXX: Should we persist the buffer to $file here?
                                     (doseq [[_sink-id sink] (:sinks (-> this deref deref))]
-                                      (sink {:type ::disconnect})))})]
+                                      (sink {:type ::disconnect}))
+                                    (when-let [p (:flush-promise (-> this deref deref))]
+                                      (-> p
+                                          ;; wait for promise
+                                          deref
+                                          ;; wait for future inside of promise
+                                          deref))
+                                    (let [flush-promise (promise)
+                                          updated (swap! @this (fn [o]
+                                                                 (if (or (zero? (:buffer-byte-size o))
+                                                                         (:flush-promise o))
+                                                                   o
+                                                                   (assoc o :flush-promise flush-promise))))]
+
+                                      (when (= (:flush-promise updated) flush-promise)
+                                        (deliver flush-promise (ua/vfuture
+                                                                 (tracer/with-span! {:name "flush-to-file"}
+                                                                   (Thread/sleep 5000)
+                                                                   (flush-to-file @this
+                                                                                  flush-promise
+                                                                                  (fn [_] nil)
+                                                                                  (fn [_] nil))))))))})]
     (add-machine-id-change-listener stream-id cb-id (fn [machine-id]
                                                       (when (not= machine-id config/machine-id)
                                                         (swap! obj assoc :machine-id-updated true))))
@@ -246,53 +322,6 @@
 (defn remove-sink [stream-object sink-id]
   (swap! stream-object update :sinks dissoc sink-id))
 
-(defn flush-to-file [stream-object flush-promise on-flush-to-file]
-  (let [{:keys [app-id stream-id $files done? abort-reason
-                buffer buffer-byte-size buffer-byte-offset]} @stream-object
-        ^CompositeByteBuf buff
-        (reduce (fn [^CompositeByteBuf buff chunk]
-                  (.addComponent buff true (Unpooled/wrappedBuffer ^bytes chunk)))
-                (Unpooled/compositeBuffer)
-                buffer)
-
-        ;; XXX: Make this return everything needed to construct the URL
-        file (storage-coordinator/upload-file! {:app-id app-id
-                                                :path (str (stream-file-name-prefix stream-id)
-                                                           (count $files))
-                                                :content-type "application/octet-stream" ;; xxx?
-                                                :content-length buffer-byte-size
-                                                :skip-perms-check? true
-                                                :mode :create}
-                                               (ByteBufInputStream. buff))
-
-        _ (link-file! {:app-id app-id
-                       :stream-id stream-id
-                       :file-id (:id file)
-                       :done? done?
-                       :abort-reason abort-reason
-                       :size (when done?
-                               (+ buffer-byte-size buffer-byte-offset))})
-
-        after (swap! stream-object
-                     (fn [obj]
-                       (-> obj
-                           (assoc :buffer (into [] (subvec (:buffer obj) (count buffer))))
-                           (update :buffer-byte-size - buffer-byte-size)
-                           (update :buffer-byte-offset + buffer-byte-size)
-                           (update :$files conj file)
-                           (update :flush-promise (fn [p]
-                                                    ;; Clear the flush promise, unless someone snuck another
-                                                    ;; one in there
-                                                    (when-not (= p flush-promise)
-                                                      (tracer/record-exception-span!
-                                                        (Exception. "concurrent flush-to-file executions.")
-                                                        {:name "app-stream/flush-to-file"})
-                                                      p))))))]
-    (tool/def-locals)
-    ;; XXX: Needs to recur a flush when it's finished if the buffer has exceeded our limit while we were flushing
-    (on-flush-to-file {:offset (:buffer-byte-offset after)
-                       :done? (:done? after)})))
-
 ;; XXX: Is cascade-delete removing items when you unlink?
 
 ;; XXX: Make sure we're discarding partial messages in the offset
@@ -306,7 +335,12 @@
    the buffer to a file if we're over the flush limit (1mb by default).
 
   `chunks` should be an array of byte[]"
-  [stream-object expected-offset chunks done? abort-reason on-flush-to-file]
+  [stream-object {:keys [expected-offset
+                         chunks
+                         done?
+                         abort-reason
+                         on-flush-to-file
+                         on-flush-to-file-error]}]
   (let [chunks-byte-size (reduce (fn [acc ^bytes chunk]
                                    (+ acc (alength chunk)))
                                  0
@@ -341,7 +375,10 @@
                              next-obj))))]
     (tool/def-locals)
     (when (= (:flush-promise updated) flush-promise)
-      (deliver flush-promise (ua/severed-vfuture (flush-to-file stream-object flush-promise on-flush-to-file))))
+      (deliver flush-promise (ua/severed-vfuture (flush-to-file stream-object
+                                                                flush-promise
+                                                                on-flush-to-file
+                                                                on-flush-to-file-error))))
     (when (seq (:sinks updated))
       (let [offset (- (+ (:buffer-byte-size updated)
                          (:buffer-byte-offset updated))
@@ -359,7 +396,10 @@
             deref
             ;; wait for future inside of promise
             deref))
-      (flush-to-file stream-object nil on-flush-to-file))))
+      (flush-to-file stream-object
+                     nil
+                     on-flush-to-file
+                     on-flush-to-file-error))))
 
 (defn file-url [app-id location-id]
   (instant-s3/create-signed-download-url! app-id location-id))
@@ -453,7 +493,7 @@
   "Sets up the bidirectional stream. Runs on the server that holds the
    subscription. We use the bidirectional stream to put backpressure
    on the publisher if it sends messages faster than we can handle them."
-  [store ^ServerCallStreamObserver observer]
+  ^StreamObserver [store ^ServerCallStreamObserver observer]
   (let [credits (atom (flags/flag :instant-stream-credits 1024))
         cleanup (promise)]
     (.setOnCancelHandler observer (reify Runnable
@@ -528,105 +568,126 @@
       (.put buff chunk))
     (String. (.array buff) "UTF-8")))
 
+(defn msg-for-unconnected-stream [app-id stream-id requested-offset]
+  (when-let [files (seq (get-stream-files {:app-id app-id
+                                           :stream-id stream-id}))]
+    (let [{:keys [files start-offset]}
+          (reduce (fn [{:keys [files start-offset]} file]
+                    (let [next-start-offset (+ start-offset (:size file))]
+                      (if (> next-start-offset requested-offset)
+                        {:files (conj files (select-keys file [:id :size :url]))
+                         :start-offset start-offset}
+                        {:files files
+                         :start-offset next-start-offset})))
+                  {:files []
+                   :start-offset 0}
+                  files)]
+      (when (seq files)
+        {:offset start-offset
+         :files files}))))
+
 (defn- make-stream-observer
   "The observer runs on the same machine as the reader's session.
    If the observer is too slow, the publisher will send a :rate-limit
    error and we'll notify the client to resubscribe."
-  ^StreamObserver [app-id stream-id {:keys [on-payload
-                                            cleanup
-                                            machine-id-changed
-                                            incr-credits]}]
-  (reify StreamObserver
-    (onCompleted [_]
-      (cleanup))
-    (onNext [_ v]
-      (tool/def-locals)
-      (incr-credits) ;; Notifies the server that we've handled a message
-      (let [msg (condp instance? v
-                  StreamError
-                  (tracer/with-span! {:name "app_stream/stream-error"
-                                      :attributes {:stream-id stream-id
-                                                   :error (:error v)}}
-                    ;; XXX: NEXT UP: set up subscription to machine-id
-                    (case (:error v)
-                      :rate-limit {:error true
-                                   ;; XXX: Send a better error type (e.g. validation error)
-                                   :error-type :rate-limit
-                                   :retry true}
-                      :unknown {:error true
-                                :error-type :unknown
-                                :retry true}
+  ^StreamObserver [app-id stream-id requested-offset {:keys [on-payload
+                                                             cleanup
+                                                             machine-id-changed
+                                                             incr-credits]}]
+  (let [sent-init? (atom false)]
+    (reify StreamObserver
+      (onCompleted [_]
+        (cleanup))
+      (onNext [_ v]
+        (tool/def-locals)
+        (incr-credits) ;; Notifies the server that we've handled a message
+        (let [msg (condp instance? v
+                    StreamError
+                    (tracer/with-span! {:name "app_stream/stream-error"
+                                        :attributes {:stream-id stream-id
+                                                     :error (:error v)}}
+                      (case (:error v)
+                        :rate-limit {:error true
+                                     :error-type :rate-limit
+                                     :retry true}
+                        :unknown {:error true
+                                  :error-type :unknown
+                                  :retry true}
 
-                      ;; Writer went away. Wait for the stream to be updated
-                      ;; with a new writer, then tell the reader to resubscribe
-                      (:writer-disconnected
-                       :stream-missing-on-instance)
-                      ;; XXX: Is there room for a race here?
-                      ;;      Maybe we should run a query against the stream to
-                      ;;      see if it updated since we started the whole thing
-                      (when @machine-id-changed
-                        {:error true
-                         :error-type :retry})
+                        ;; Writer went away. Wait for the stream to be updated
+                        ;; with a new writer, then tell the reader to resubscribe
+                        (:writer-disconnected
+                          :stream-missing-on-instance
+                          :instance-missing)
+                        ;; XXX: Is there room for a race here?
+                        ;;      Maybe we should run a query against the stream to
+                        ;;      see if it updated since we started the whole thing
+                        (do
+                          (def -here true)
+                          (when-not @sent-init?
+                            (when-let [msg (msg-for-unconnected-stream app-id stream-id requested-offset)]
+                              (on-payload msg)))
+                          (when @machine-id-changed
+                            {:error true
+                             :retry true
+                             :error-type (:error v)}))))
 
-                      :instance-missing (when @machine-id-changed
-                                          {:error true
-                                           :error-type :retry})))
+                    StreamInit
+                    (do
+                      (reset! sent-init? true)
+                      {:offset (:offset v)
+                       :files (map (fn [{:keys [id size location-id]}]
+                                     {:id id
+                                      :size size
+                                      :url (file-url app-id location-id)})
+                                   (:files v))
+                       :content (chunks->string (:chunks v))})
 
-                  StreamInit
-                  {:offset (:offset v)
-                   :files (map (fn [{:keys [id size location-id]}]
-                                 {:id id
-                                  :size size
-                                  :url (file-url app-id location-id)})
-                               (:files v))
-                   :content (chunks->string (:chunks v))}
+                    StreamContent
+                    {:offset (:offset v)
+                     :content (chunks->string (:chunks v))}
 
-                  StreamContent
-                  {:offset (:offset v)
-                   :content (chunks->string (:chunks v))}
+                    StreamComplete
+                    {:done true}
 
-                  StreamComplete
-                  {:done true}
+                    StreamAborted
+                    {:done true
+                     :abort-reason (:abort-reason v)}
 
-                  StreamAborted
-                  {:done true
-                   :abort-reason (:abort-reason v)}
-
-                  (tracer/with-span! {:name "app_stream/unknown-payload-type"
-                                      :attributes {:type (type v)
-                                                   :stream-id stream-id}}
-                    {:error true}))]
-        (when msg
-          (on-payload msg))))
-    (onError [_ t]
-      (cleanup)
-      (let [status (Status/fromThrowable t)]
-        (if (and (= (.getCode status) Status$Code/CANCELLED)
-                 (= (.getDescription status) rs/stream-unsubscribe-reason))
-          nil
-          ;; XXX: do something with error
-          (do (tracer/record-exception-span! t {:name "app_stream/subscribe-error"})
-              (on-payload {:error true
-                           :retry true})))))))
+                    (tracer/with-span! {:name "app_stream/unknown-payload-type"
+                                        :attributes {:type (type v)
+                                                     :stream-id stream-id}}
+                      (tool/def-locals)
+                      {:error true}))]
+          (when msg
+            (on-payload msg))))
+      (onError [_ t]
+        (cleanup)
+        (let [status (Status/fromThrowable t)]
+          (if (and (= (.getCode status) Status$Code/CANCELLED)
+                   (= (.getDescription status) rs/stream-unsubscribe-reason))
+            nil
+            ;; XXX: do something with error
+            (do (tracer/record-exception-span! t {:name "app_stream/subscribe-error"})
+                (on-payload {:error true
+                             :retry true}))))))))
 
 ;; XXX: How do I prevent a race between when I get notified of the machine-id or
 ;;      instance-id change and when it actually happens
 (defn connect-to-stream [store stream app-id machine-id offset on-payload]
-  (tool/def-locals)
   (let [channel (grpc-client/grpc-client-for-machine-id machine-id)
         req (grpc/->StreamRequest app-id (:id stream) offset)
         use-local? (or (not channel)
                        (and (= machine-id config/machine-id)
-                            true        ; false ;true ;false
                             ;; In dev, hit the grpc server half the time to exercise the route
-                            (or (not (config/dev?))
+                            (or true (not (config/dev?))
                                 (= 0 (rand-int 2)))))
         machine-id-changed (promise)
         cleanup-cbs [(add-machine-id-change-listener (:id stream)
                                                      (fn [_machine-id]
                                                        (deliver machine-id-changed true)))
                      (if use-local?
-                       identity
+                       (constantly nil)
                        (eph/add-hz-member-callback machine-id (fn [_]
                                                                 (deliver machine-id-changed true))))]
         cleanup (fn []
@@ -638,10 +699,10 @@
                        (when (realized? outbound-observer-promise)
                          (tool/def-locals)
                          (.onNext ^StreamObserver @outbound-observer-promise nil)))
-        stream-observer (make-stream-observer app-id (:id stream) {:machine-id-changed machine-id-changed
-                                                                   :on-payload on-payload
-                                                                   :cleanup cleanup
-                                                                   :incr-credits incr-credits})]
+        stream-observer (make-stream-observer app-id (:id stream) offset {:machine-id-changed machine-id-changed
+                                                                          :on-payload on-payload
+                                                                          :cleanup cleanup
+                                                                          :incr-credits incr-credits})]
     ;; XXX: make use-local? work
     (if-not use-local?
       (let [{:keys [outbound-observer cancel]}
@@ -650,10 +711,10 @@
         {:cancel cancel})
 
       (let [on-cancel-atom (atom nil)
-            wrapped-observer (server-ify-observer stream-observer on-cancel-atom)]
-        (handle-bidi-subscribe store wrapped-observer)
+            wrapped-observer (server-ify-observer stream-observer on-cancel-atom)
+            outbound-observer (handle-bidi-subscribe store wrapped-observer)]
         (if channel
-          (.onNext wrapped-observer req)
+          (.onNext outbound-observer req)
           (.onNext wrapped-observer (grpc/->StreamError :instance-missing)))
         {:cancel (fn [reason]
                    ;; Mimic what happens when the grpc client cancels

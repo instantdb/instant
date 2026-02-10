@@ -462,11 +462,14 @@ class Auth {
    * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
   generateMagicCode = async (email: string): Promise<{ code: string }> => {
-    return jsonFetch(`${this.config.apiURI}/admin/magic_code?app_id=${this.config.appId}`, {
-      method: 'POST',
-      headers: authorizedHeaders(this.config),
-      body: JSON.stringify({ email }),
-    });
+    return jsonFetch(
+      `${this.config.apiURI}/admin/magic_code?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({ email }),
+      },
+    );
   };
 
   /**
@@ -480,11 +483,14 @@ class Auth {
    * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
   sendMagicCode = async (email: string): Promise<{ code: string }> => {
-    return jsonFetch(`${this.config.apiURI}/admin/send_magic_code?app_id=${this.config.appId}`, {
-      method: 'POST',
-      headers: authorizedHeaders(this.config),
-      body: JSON.stringify({ email }),
-    });
+    return jsonFetch(
+      `${this.config.apiURI}/admin/send_magic_code?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({ email }),
+      },
+    );
   };
 
   /**
@@ -691,11 +697,14 @@ class Auth {
     // accept email strings. Eventually we can remove this
     const params = typeof input === 'string' ? { email: input } : input;
     const config = this.config;
-    await jsonFetch(`${config.apiURI}/admin/sign_out?app_id=${this.config.appId}`, {
-      method: 'POST',
-      headers: authorizedHeaders(config),
-      body: JSON.stringify(params),
-    });
+    await jsonFetch(
+      `${config.apiURI}/admin/sign_out?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(config),
+        body: JSON.stringify(params),
+      },
+    );
   }
 
   /**
@@ -814,7 +823,10 @@ class Storage {
       ...(duplex && { duplex }),
     };
 
-    return jsonFetch(`${this.config.apiURI}/admin/storage/upload?app_id=${this.config.appId}`, options);
+    return jsonFetch(
+      `${this.config.apiURI}/admin/storage/upload?app_id=${this.config.appId}`,
+      options,
+    );
   };
 
   /**
@@ -844,11 +856,14 @@ class Storage {
    *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
    */
   deleteMany = async (pathnames: string[]): Promise<DeleteManyFileResponse> => {
-    return jsonFetch(`${this.config.apiURI}/admin/storage/files/delete?app_id=${this.config.appId}`, {
-      method: 'POST',
-      headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({ filenames: pathnames }),
-    });
+    return jsonFetch(
+      `${this.config.apiURI}/admin/storage/files/delete?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config, this.impersonationOpts),
+        body: JSON.stringify({ filenames: pathnames }),
+      },
+    );
   };
 
   /**
@@ -1117,10 +1132,15 @@ class InstantAdminDatabase<
         this.#instantStream?.onStreamFlushed(msg);
         break;
       }
+      case 'append-failed': {
+        this.#instantStream?.onAppendFailed(msg);
+        break;
+      }
       case 'stream-append': {
         this.#instantStream?.onStreamAppend(msg);
         break;
       }
+
       case 'error': {
         switch (msg['original-event']?.op) {
           case 'create-stream':
@@ -1297,14 +1317,17 @@ class InstantAdminDatabase<
     if (!this.config.disableValidation) {
       validateTransactions(inputChunks, this.config.schema);
     }
-    return jsonFetch(`${this.config.apiURI}/admin/transact?app_id=${this.config.appId}`, {
-      method: 'POST',
-      headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({
-        steps: steps(inputChunks),
-        'throw-on-missing-attrs?': !!this.config.schema,
-      }),
-    });
+    return jsonFetch(
+      `${this.config.apiURI}/admin/transact?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config, this.impersonationOpts),
+        body: JSON.stringify({
+          steps: steps(inputChunks),
+          'throw-on-missing-attrs?': !!this.config.schema,
+        }),
+      },
+    );
   };
 
   /**
@@ -1376,16 +1399,19 @@ class InstantAdminDatabase<
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
     opts?: { rules?: any },
   ): Promise<DebugTransactResult> => {
-    return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check?app_id=${this.config.appId}`, {
-      method: 'POST',
-      headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({
-        steps: steps(inputChunks),
-        'rules-override': opts?.rules,
-        // @ts-expect-error because we're using a private API (for now)
-        'dangerously-commit-tx': opts?.__dangerouslyCommit,
-      }),
-    });
+    return jsonFetch(
+      `${this.config.apiURI}/admin/transact_perms_check?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config, this.impersonationOpts),
+        body: JSON.stringify({
+          steps: steps(inputChunks),
+          'rules-override': opts?.rules,
+          // @ts-expect-error because we're using a private API (for now)
+          'dangerously-commit-tx': opts?.__dangerouslyCommit,
+        }),
+      },
+    );
   };
 
   createReadStream(opts?: {

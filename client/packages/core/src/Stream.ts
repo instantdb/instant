@@ -25,6 +25,7 @@ type WriteStreamCbs = {
   onDisconnect: () => void;
   onConnectionReconnect: () => void;
   onFlush: (args: { offset: number; done: boolean }) => void;
+  onAppendFailed: () => void;
 };
 
 function createWriteStream({
@@ -119,6 +120,13 @@ function createWriteStream({
     }
   }
 
+  // When the append fails, we'll just try to reconnect and start again
+  // XXX: Needs backoff
+  function onAppendFailed() {
+    onDisconnect();
+    onConnectionReconnect();
+  }
+
   function onFlush({ offset, done }: { offset: number; done: boolean }) {
     discardFlushed(offset);
     if (done) {
@@ -162,6 +170,7 @@ function createWriteStream({
             onDisconnect,
             onFlush,
             onConnectionReconnect,
+            onAppendFailed,
           });
           disconnected = false;
           return;
@@ -321,7 +330,7 @@ function createReadStream({
   let canceled = false;
   const decoder = new TextDecoder('utf-8');
   const encoder = new TextEncoder();
-  const eventId = uuid();
+  let eventId: string | null;
 
   async function runStartStream(
     opts: {
@@ -331,7 +340,7 @@ function createReadStream({
     },
     controller: ReadableStreamDefaultController<string>,
   ): Promise<{ retryAfter: number } | undefined> {
-    const eventId = uuid();
+    eventId = uuid();
     const streamOpts = { ...(opts || {}), eventId };
     for await (const item of startStream(streamOpts)) {
       if (canceled) {
@@ -436,9 +445,11 @@ function createReadStream({
     start(controller) {
       start(controller);
     },
-    cancel(reason) {
+    cancel(_reason) {
       canceled = true;
-      cancelStream({ eventId });
+      if (eventId) {
+        cancelStream({ eventId });
+      }
     },
   });
 }
@@ -482,6 +493,11 @@ type StartStreamOkMsg = {
   'client-event-id': string;
   'stream-id': string;
   offset: number;
+};
+
+type AppendStreamFailedMsg = {
+  op: 'append-failed';
+  'stream-id': string;
 };
 
 type StreamFlushedMsg = {
@@ -614,6 +630,13 @@ export class InstantStream {
     }
 
     this.trySend(uuid(), msg);
+  }
+
+  onAppendFailed(msg: AppendStreamFailedMsg) {
+    const cbs = this.writeStreams[msg['stream-id']];
+    if (cbs) {
+      cbs.onAppendFailed();
+    }
   }
 
   onStartStreamOk(msg: StartStreamOkMsg) {

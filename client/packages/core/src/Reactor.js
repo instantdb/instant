@@ -237,7 +237,7 @@ export default class Reactor {
   /** @type {Connection} */
   _transport;
   /** @type {TransportType} */
-  _transportType = 'ws';
+  _transportType = 'sse';
 
   /** @type {EventSourceConstructor} */
   _EventSource;
@@ -693,6 +693,10 @@ export default class Reactor {
       }
       case 'stream-flushed': {
         this._instantStream.onStreamFlushed(msg);
+        break;
+      }
+      case 'append-failed': {
+        this._instantStream.onAppendFailed(msg);
         break;
       }
       case 'stream-append': {
@@ -1615,7 +1619,10 @@ export default class Reactor {
       return;
     }
     if (!ignoreLogging[msg.op]) {
-      this._log.info('[send]', this._transport.id, msg.op, msg);
+      this._log.info('[send]', this._transport.id, msg.op, {
+        'client-event-id': eventId,
+        ...msg,
+      });
     }
     switch (msg.op) {
       case 'transact': {

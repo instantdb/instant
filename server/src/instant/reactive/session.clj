@@ -817,18 +817,26 @@
                                                     :stream-id stream-id}
                                     [{:message "Stream updated from a different machine."}]))))
     (app-stream-model/append stream-object
-                             expected-offset
-                             chunks
-                             done?
-                             abort-reason
-                             (fn [{:keys [offset done?]}]
-                               (try
-                                 (rs/send-event! store app-id sess-id {:op :stream-flushed
-                                                                       :stream-id stream-id
-                                                                       :offset offset
-                                                                       :done done?})
-                                 (catch Exception _e
-                                   nil))))))
+                             {:expected-offset expected-offset
+                              :chunks chunks
+                              :done? done?
+                              :abort-reason abort-reason
+                              :on-flush-to-file
+                              (fn [{:keys [offset done?]}]
+                                (try
+                                  (rs/send-event! store app-id sess-id {:op :stream-flushed
+                                                                        :stream-id stream-id
+                                                                        :offset offset
+                                                                        :done done?})
+                                  (catch Exception _e
+                                    nil)))
+                              :on-flush-to-file-error
+                              (fn [_t]
+                                (try
+                                  (rs/send-event! store app-id sess-id {:op :append-failed
+                                                                        :stream-id stream-id})
+                                  (catch Exception _e
+                                    nil)))})))
 
 (defn handle-subscribe-stream! [store sess-id event]
   (let [{:keys [app]} (get-auth! store sess-id)
@@ -875,8 +883,6 @@
         (tool/def-locals)
         (rs/send-event! store app-id sess-id {:op :stream-append
                                               :client-event-id (:client-event-id event)
-                                              ;; XXX: filter files before the offset, returned offset may be lower
-                                              ;;      than offset, but never higher
                                               :offset start-offset
                                               :files (map (fn [file]
                                                             (select-keys file [:id :size :url]))
@@ -887,9 +893,6 @@
                                               :abort-reason (:abortReason stream)}))
 
       (:machineId stream)
-      ;; XXX: Needs some way to notify when the session goes away
-      ;; XXX: Notification when stream comes back
-      ;;        - We could listen to the wal log...
       ;; XXX: Here, I probably want to send the files myself with a :stream-append
       ;;      if connect-to-stream fails. That way we'll still get the beginning
       ;;      of the stream even if the writer disconnected.
@@ -927,10 +930,11 @@
                                                    string-util/coerce-non-blank-str)
         reader-ent (rs/get-stream-reader store app-id sess-id subscribe-event-id)
         _ (when-not reader-ent
+            (tool/def-locals)
             (ex/throw-validation-err! :unsubscribe-stream
                                       {:sess-id sess-id
                                        :subscribe-event-id subscribe-event-id}
-                                      [{:message "Stream is missing."}]))
+                                      [{:message "Stream subscription is missing."}]))
         cancel (-> reader-ent :stream-reader/reader-object :cancel)]
     ;; XXX Might need to catch if the cancel happens twice??
     (tool/def-locals)
