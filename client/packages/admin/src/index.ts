@@ -85,7 +85,6 @@ import {
   SubscribeQueryResponse,
   SubscribeQueryPayload,
   SubscriptionReadyState,
-  multiReadFetchResponse,
 } from './subscribe.ts';
 import { parseCookie } from 'cookie';
 import { EventSource } from 'eventsource';

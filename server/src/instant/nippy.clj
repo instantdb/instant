@@ -68,7 +68,7 @@
                   ^DataOutput data-output]
   (write-uuid data-output id)
   (.writeLong data-output size)
-  (#'nippy/write-str data-output location-id))
+  (nippy/freeze-to-out! data-output location-id))
 
 (nippy/extend-freeze StreamFile 4 [^StreamFile obj data-output]
   (write-file obj data-output))
@@ -94,14 +94,14 @@
                             (+ acc (alength chunk)))
                           0
                           chunks)]
-    (#'nippy/write-long data-output byte-size)
+    (nippy/freeze-to-out! data-output byte-size)
     (doseq [^bytes chunk chunks]
       (.write data-output chunk))))
 
 (nippy/extend-freeze StreamInit 5 [^StreamInit {:keys [^long offset files chunks]}
                                    data-output]
-  (#'nippy/write-long data-output offset)
-  (#'nippy/write-long data-output (count files))
+  (nippy/freeze-to-out! data-output offset)
+  (nippy/freeze-to-out! data-output (count files))
   (doseq [file files]
     (write-file file data-output))
   (write-chunks data-output chunks))
@@ -128,7 +128,7 @@
 ;; it must be the same across all machines.
 (nippy/extend-freeze StreamContent 6 [^StreamContent {:keys [offset chunks]}
                                       data-output]
-  (#'nippy/write-long data-output offset)
+  (nippy/freeze-to-out! data-output offset)
   (write-chunks data-output chunks))
 
 (nippy/extend-thaw 6 [data-input]
@@ -139,7 +139,7 @@
 ;; 7 is our custom identifier for StreamError, no other type can use it and
 ;; it must be the same across all machines.
 (nippy/extend-freeze StreamError 7 [^StreamError {:keys [error]} data-output]
-  (#'nippy/write-long data-output (get instant.grpc/stream-error-map error -1)))
+  (nippy/freeze-to-out! data-output (get instant.grpc/stream-error-map error -1)))
 
 (nippy/extend-thaw 7 [data-input]
   (let [error-id (nippy/thaw-from-in! data-input)
@@ -156,7 +156,7 @@
 ;; 9 is our custom identifier for StreamAborted, no other type can use it and
 ;; it must be the same across all machines.
 (nippy/extend-freeze StreamAborted 9 [^StreamAborted {:keys [abort-reason]} data-output]
-  (#'nippy/write-str data-output abort-reason))
+  (nippy/freeze-to-out! data-output abort-reason))
 
 (nippy/extend-thaw 9 [data-input]
   (instant.grpc/->StreamAborted (nippy/thaw-from-in! data-input)))

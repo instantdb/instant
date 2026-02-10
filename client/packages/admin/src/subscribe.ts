@@ -170,7 +170,7 @@ function esReadyState(es: EventSource): SubscriptionReadyState {
   }
 }
 
-export function multiReadFetchResponse(r: Response) {
+function multiReadFetchResponse(r: Response) {
   let p: null | Promise<string> = null;
   return {
     ...r,

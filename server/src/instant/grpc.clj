@@ -55,7 +55,7 @@
 
 (def subscribe-method
   (-> (MethodDescriptor/newBuilder)
-      (.setType MethodDescriptor$MethodType/SERVER_STREAMING)
+      (.setType MethodDescriptor$MethodType/BIDI_STREAMING)
       (.setFullMethodName "InstantStreams/Subscribe")
       (.setRequestMarshaller nippy-marshaller)
       (.setResponseMarshaller nippy-marshaller)
