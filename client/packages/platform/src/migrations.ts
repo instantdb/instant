@@ -798,23 +798,35 @@ const resolveRenames = async <T>(
 };
 
 export type RenameCommand = `${string}.${string}:${string}.${string}`;
+
+// RenameMap goes from `to` -> `from`
+function parseRenameCommands(renames: RenameCommand[]): Map<string, string> {
+  // Parse rename options: format is "from:to"
+  // note that it saves backwards since we will be testing against the base
+  // case of a created attr
+  const renameMap: Map<string, string> = new Map();
+  for (const renameStr of renames) {
+    let [from, to] = renameStr.split(':').map(x => x.trim());
+    if (!from || !to) { 
+      throw new Error(
+        `Invalid rename command: ${renameStr}. We could not parse a distinct 'from' and 'to'.` + 
+        ' The structure should be from:to. For example: posts.name:posts.title'
+      )
+    }
+    renameMap.set(to.trim(), from.trim());
+  }
+  return renameMap;
+}
+
 /**
  * Given a list of RenameCommands, builds a cusotm `resolveFn` for 
  * `diffSchemas`, which automatically resolves rename conflicts with these commands.
  */
 export function buildAutoRenameSelector(renames: RenameCommand[]) {
-  return async function (created: any, promptData: any, extraInfo: any) {
-    // Parse rename options: format is "from:to"
-    // note that it saves backwards since we will be testing against the base
-    // case of a created attr
-    const renameMap = new Map();
-    for (const renameStr of renames) {
-      const [from, to] = renameStr.split(':');
-      if (from && to) {
-        renameMap.set(to.trim(), from.trim());
-      }
-    }
+  
+  const renameMap = parseRenameCommands(renames);
 
+  return async function (created: any, promptData: any, extraInfo: any) {
     let lookupNames: string[] = [];
     if (extraInfo?.type === 'attribute' && extraInfo?.entityName) {
       lookupNames = [`${extraInfo.entityName}.${created}`];
@@ -830,7 +842,7 @@ export function buildAutoRenameSelector(renames: RenameCommand[]) {
     let fromAttr: string | null = null;
     for (const lookupName of lookupNames) {
       if (renameMap.has(lookupName)) {
-        fromAttr = renameMap.get(lookupName);
+        fromAttr = renameMap.get(lookupName) || null;
         break;
       }
     }
