@@ -61,7 +61,7 @@ export const defaultActivityStopTimeout = 1_000;
  */
 export function useTopicEffect<
   RoomSchema extends RoomSchemaShape,
-  RoomType extends keyof RoomSchema,
+  RoomType extends string & keyof RoomSchema,
   TopicType extends keyof RoomSchema[RoomType]['topics'],
 >(
   room: InstantReactRoom<any, RoomSchema, RoomType>,
@@ -105,7 +105,7 @@ export function useTopicEffect<
  */
 export function usePublishTopic<
   RoomSchema extends RoomSchemaShape,
-  RoomType extends keyof RoomSchema,
+  RoomType extends string & keyof RoomSchema,
   TopicType extends keyof RoomSchema[RoomType]['topics'],
 >(
   room: InstantReactRoom<any, RoomSchema, RoomType>,
@@ -147,7 +147,7 @@ export function usePublishTopic<
  */
 export function usePresence<
   RoomSchema extends RoomSchemaShape,
-  RoomType extends keyof RoomSchema,
+  RoomType extends string & keyof RoomSchema,
   Keys extends keyof RoomSchema[RoomType]['presence'],
 >(
   room: InstantReactRoom<any, RoomSchema, RoomType>,
@@ -204,7 +204,7 @@ export function usePresence<
  */
 export function useSyncPresence<
   RoomSchema extends RoomSchemaShape,
-  RoomType extends keyof RoomSchema,
+  RoomType extends string & keyof RoomSchema,
 >(
   room: InstantReactRoom<any, RoomSchema, RoomType>,
   data: Partial<RoomSchema[RoomType]['presence']>,
@@ -240,7 +240,7 @@ export function useSyncPresence<
  */
 export function useTypingIndicator<
   RoomSchema extends RoomSchemaShape,
-  RoomType extends keyof RoomSchema,
+  RoomType extends string & keyof RoomSchema,
 >(
   room: InstantReactRoom<any, RoomSchema, RoomType>,
   inputName: string,
@@ -324,7 +324,7 @@ export const rooms = {
 export class InstantReactRoom<
   Schema extends InstantSchemaDef<any, any, any>,
   RoomSchema extends RoomSchemaShape,
-  RoomType extends keyof RoomSchema,
+  RoomType extends string & keyof RoomSchema,
 > {
   core: InstantCoreDatabase<Schema, boolean>;
   /** @deprecated use `core` instead */

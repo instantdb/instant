@@ -137,7 +137,7 @@ export default abstract class InstantReactAbstractDatabase<
    *  const room = db.room('chat', roomId);
    *  const { peers } = db.rooms.usePresence(room);
    */
-  room<RoomType extends keyof Rooms>(
+  room<RoomType extends string & keyof Rooms>(
     type: RoomType = '_defaultRoomType' as RoomType,
     id: string = '_defaultRoomId',
   ) {
