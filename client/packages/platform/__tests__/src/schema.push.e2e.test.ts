@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { PlatformApi, i } from '../../src/index';
+import { PlatformApi, ProgressPromise, i } from '../../src/index';
 
 describe.concurrent('schemaPush e2e', { timeout: 20_000 }, () => {
   for (const fnName of ['planSchemaPush', 'schemaPush'] as const) {
@@ -136,11 +136,18 @@ describe.concurrent('schemaPush e2e', { timeout: 20_000 }, () => {
       });
       const appApi = new PlatformApi({ auth: { token: app.adminToken } });
 
-      const res = await appApi[fnName](app.id, {
+      console.log(fnName, app.id);
+
+      const promise = appApi[fnName](app.id, {
         schema: overwriteSchema,
         overwrite: true,
         renames: ['posts.name:posts.title', 'posts.comments:posts.ownComments'],
       });
+      const res = await promise;
+      promise.then(
+        (x) => console.log('Success: ', x),
+        (x) => console.error('Error:', x),
+      );
       const friendlyDescs = new Set(
         res.steps.map((s) => s.friendlyDescription),
       );
