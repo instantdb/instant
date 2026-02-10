@@ -146,9 +146,7 @@ type Screen =
   | 'new'
   | 'personal-access-tokens';
 
-function defaultTab(screen: Screen): MainTabId | UserSettingsTabId {
-  return 'home';
-}
+const defaultTab: MainTabId | UserSettingsTabId = 'home';
 
 interface Tab<TabId> {
   id: TabId;
@@ -185,7 +183,6 @@ const userTabs: Tab<UserSettingsTabId>[] = [
 ];
 
 const mainTabIndex = new Map(mainTabs.map((t) => [t.id, t]));
-const userTabIndex = new Map(userTabs.map((t) => [t.id, t]));
 
 export function isMinRole(minRole: Role, role: Role) {
   return roleOrder.indexOf(role) >= roleOrder.indexOf(minRole);
@@ -216,7 +213,7 @@ function isTabAvailable(tab: Tab<MainTabId>, role: Role) {
 }
 
 function screenTab(screen: Screen, tab: string | null | undefined) {
-  return tab && mainTabIndex.has(tab as MainTabId) ? tab : defaultTab(screen);
+  return tab && mainTabIndex.has(tab as MainTabId) ? tab : defaultTab;
 }
 
 const getInitialApp = (apps: InstantApp[], workspaceId: string) => {
