@@ -10,6 +10,7 @@ import {
   txInit,
   version as coreVersion,
   InstantAPIError,
+  setInstantWarningsEnabled,
   type InstantIssue,
   type TransactionChunk,
   type AuthToken,
@@ -1186,6 +1187,9 @@ export {
 
   // error
   InstantAPIError,
+
+  // warnings
+  setInstantWarningsEnabled,
 
   // types
   type Config,

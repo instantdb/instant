@@ -14,6 +14,7 @@ import {
   lookup,
   // error
   InstantAPIError,
+  setInstantWarningsEnabled,
 
   // sync table enums
   SyncTableCallbackEventType,
@@ -184,6 +185,7 @@ export {
 
   // error
   InstantAPIError,
+  setInstantWarningsEnabled,
 
   // sync table enums
   SyncTableCallbackEventType,

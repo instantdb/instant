@@ -20,6 +20,7 @@ import {
   validateTransactions,
   TransactionValidationError,
 } from './transactionValidation.ts';
+import { setInstantWarningsEnabled } from './warningToggle.ts';
 
 import {
   StoreInterface,
@@ -920,6 +921,9 @@ export {
 
   // error
   InstantAPIError,
+
+  // warnings
+  setInstantWarningsEnabled,
 
   // cli
   i,
