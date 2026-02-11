@@ -4,7 +4,6 @@ import { findClaudePath } from './claude.js';
 import { version } from '@instantdb/version';
 import { coerceAppName, validateAppName } from './utils/validateAppName.js';
 import { renderUnwrap, UI } from 'instant-cli/ui';
-import chalk from 'chalk';
 
 export type Project = {
   base:
