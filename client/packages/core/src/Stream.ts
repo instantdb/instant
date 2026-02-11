@@ -1,6 +1,7 @@
 import uuid from './utils/id.ts';
 import { Logger } from './utils/log.ts';
 import { STATUS } from './Reactor.js';
+import { InstantError } from './InstantError.ts';
 
 export type WritableStreamCtor = {
   new <W = any>(
@@ -19,7 +20,7 @@ export type ReadableStreamCtor = {
 type WriteStreamStartResult =
   | { type: 'ok'; streamId: string; offset: number }
   | { type: 'disconnect' }
-  | { type: 'error' };
+  | { type: 'error'; error: InstantError };
 
 type WriteStreamCbs = {
   onDisconnect: () => void;
@@ -88,7 +89,7 @@ function createWriteStream({
     disconnected = true;
   }
 
-  // Remove data from our buffer after it has been flushed to a file
+  // Clears data from our buffer after it has been flushed to a file
   function discardFlushed(offset: number) {
     let chunkOffset = bufferOffset;
     let segmentsToDrop = 0;
@@ -156,17 +157,20 @@ function createWriteStream({
     }
   }
 
-  function error(controller: WritableStreamDefaultController, error: string) {
+  function error(
+    controller: WritableStreamDefaultController,
+    error: InstantError,
+  ) {
     markClosed();
     controller.error(error);
   }
 
   function ensureSetup(controller): string | null {
     if (isDone) {
-      error(controller, 'Stream has been closed.');
+      error(controller, new InstantError('Stream has been closed.'));
     }
     if (!streamId_) {
-      error(controller, 'Stream has not been initialized.');
+      error(controller, new InstantError('Stream has not been initialized.'));
     }
     return streamId_;
   }
@@ -188,7 +192,7 @@ function createWriteStream({
         case 'ok': {
           const { streamId, offset } = result;
           if (offset !== 0) {
-            error(controller, 'Write stream is corrupted');
+            error(controller, new InstantError('Write stream is corrupted'));
             return;
           }
           streamId_ = streamId;
@@ -213,7 +217,7 @@ function createWriteStream({
         }
         case 'error': {
           // XXX: Better error handling
-          error(controller, 'Stream failed to start.');
+          error(controller, result.error);
           return;
         }
       }
@@ -286,7 +290,7 @@ type ReadStreamUpdate =
       files?: { url: string; size: number }[];
       content?: string;
     }
-  | { type: 'error'; error: string }
+  | { type: 'error'; error: InstantError }
   | { type: 'reconnect' };
 
 class StreamIterator<T> {
@@ -392,7 +396,7 @@ function createReadStream({
 
   function error(
     controller: ReadableStreamDefaultController<string>,
-    e: string,
+    e: InstantError,
   ) {
     // XXX: Maybe we want an instant error here?
     markClosed();
@@ -413,20 +417,22 @@ function createReadStream({
       if (canceled) {
         return;
       }
-      if (item.type === 'error') {
-        console.log('got the error');
+
+      if (item.type === 'reconnect') {
+        // XXX: retryafter
         return { retryAfter: 0 };
       }
 
-      if (item.type === 'reconnect') {
-        return { retryAfter: 0 };
+      if (item.type === 'error') {
+        error(controller, item.error);
+        return;
       }
 
       if (item.offset > seenOffset) {
         // XXX: We should try to resubscribe from the offset we know if this
         //      happens instead of throwing an error
         console.error('corrupted stream', { item, seenOffset });
-        error(controller, 'Stream is corrupted.');
+        error(controller, new InstantError('Stream is corrupted.'));
         canceled = true;
         return;
       }
@@ -527,7 +533,7 @@ function createReadStream({
         });
       }
     }
-    if (!canceled) {
+    if (!canceled && !closed) {
       controller.close();
       markClosed();
     }
@@ -620,6 +626,14 @@ type StreamAppendMsg = {
   error?: string;
   retry: boolean;
   content?: string;
+};
+
+type HandleRecieveErrorMsg = {
+  'client-event-id': string;
+  'original-event': SendMsg;
+  message?: string;
+  hint?: Record<string, any>;
+  type?: string;
 };
 
 // XXX: Need to handle initialization and offline, right now we just assume it's always online
@@ -836,8 +850,14 @@ export class InstantStream {
     }
 
     if (msg.error) {
-      // XXX: Check retry
-      iterator.push({ type: 'error', error: msg.error });
+      if (msg.retry) {
+        iterator.push({ type: 'reconnect' });
+      } else {
+        iterator.push({
+          type: 'error',
+          error: new InstantError(msg.error),
+        });
+      }
       iterator.close();
       delete this.readStreamIterators[eventId];
       return;
@@ -887,8 +907,41 @@ export class InstantStream {
     }
   }
 
-  onRecieveError(msg: any) {
-    console.error('receive error', msg);
+  onRecieveError(msg: HandleRecieveErrorMsg) {
+    const ev = msg['original-event'];
+    switch (ev.op) {
+      case 'append-stream': {
+        const streamId = ev['stream-id'];
+        const cbs = this.writeStreams[streamId];
+        cbs?.onAppendFailed();
+        break;
+      }
+      case 'start-stream': {
+        const eventId = msg['client-event-id'];
+        const cb = this.startWriteStreamCbs[eventId];
+        if (cb) {
+          cb({
+            type: 'error',
+            error: new InstantError(msg.message || 'Unknown error', msg.hint),
+          });
+        }
+        break;
+      }
+      case 'subscribe-stream': {
+        const eventId = msg['client-event-id'];
+        const iterator = this.readStreamIterators[eventId];
+        if (iterator) {
+          iterator.push({
+            type: 'error',
+            error: new InstantError(msg.message || 'Unknown error', msg.hint),
+          });
+        }
+        break;
+      }
+      case 'unsubscribe-stream': {
+        break;
+      }
+    }
   }
 
   hasActiveStreams() {

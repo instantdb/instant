@@ -646,13 +646,12 @@
                         ;; Writer went away. Wait for the stream to be updated
                         ;; with a new writer, then tell the reader to resubscribe
                         (:writer-disconnected
-                          :stream-missing-on-instance
-                          :instance-missing)
+                         :stream-missing-on-instance
+                         :instance-missing)
                         ;; XXX: Is there room for a race here?
                         ;;      Maybe we should run a query against the stream to
                         ;;      see if it updated since we started the whole thing
                         (do
-                          (def -here true)
                           (when-not @sent-init?
                             (when-let [msg (msg-for-unconnected-stream app-id stream-id requested-offset)]
                               (on-payload msg)))

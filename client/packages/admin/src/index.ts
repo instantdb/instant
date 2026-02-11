@@ -1118,7 +1118,6 @@ class InstantAdminDatabase<
     }
     this.#log.info('[socket][error]', e.target.id);
 
-    // Test this does what we expect
     this.#instantStream?.onConnectionStatusChange('closed');
   };
 
@@ -1180,7 +1179,7 @@ class InstantAdminDatabase<
       }
     }
 
-    // Close the connection if we don't have any items pending
+    // Closes the connection if we don't have any items pending
     this.#maybeShutdownConnection();
   };
 

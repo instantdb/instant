@@ -237,7 +237,7 @@ export default class Reactor {
   /** @type {Connection} */
   _transport;
   /** @type {TransportType} */
-  _transportType = 'sse';
+  _transportType = 'ws';
 
   /** @type {EventSourceConstructor} */
   _EventSource;
@@ -991,7 +991,6 @@ export default class Reactor {
         return;
       }
       case 'create-stream':
-      case 'restart-stream':
       case 'append-stream':
       case 'subscribe-stream':
       case 'unsubscribe-stream': {

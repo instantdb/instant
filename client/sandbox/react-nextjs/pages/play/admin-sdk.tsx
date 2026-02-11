@@ -30,7 +30,12 @@ async function asyncIterate(sub: any) {
 
 function App({ app }: { app: { id: string; 'admin-token': string } }) {
   const db = useRef(
-    init({ ...config, appId: app.id, adminToken: app['admin-token'] }),
+    init({
+      ...config,
+      appId: app.id,
+      adminToken: app['admin-token'],
+      verbose: true,
+    }),
   );
   const [payloads, setPayloads] = useState<
     SubscribeQueryPayload<any, any, any>[]
