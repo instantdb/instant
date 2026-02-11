@@ -1295,3 +1295,45 @@
                                     :chunks ["DEF"]
                                     :offset 5})
                 (is (= "HelloDEF" (read-full-stream store movies-app-id stream-id slurp-file)))))))))))
+
+(deftest streams-writer-flushes-on-disconnect
+  (with-redefs [flags/stream-flush-byte-limit (constantly 10)]
+    (with-file-mock
+      (fn [{:keys [slurp-file]}]
+        (with-session
+          (fn [store {:keys [socket socket-2 socket-3 movies-app-id]}]
+            (rule-model/put! {:app-id movies-app-id
+                              :code {:$streams {:allow {:create "true" :view "true"}}}})
+            (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+            (blocking-send-msg :init-ok socket-2 {:op :init :app-id movies-app-id})
+            (blocking-send-msg :init-ok socket-3 {:op :init :app-id movies-app-id})
+            (let [event-id (random-uuid)
+                  reconnect-token (str (random-uuid))
+                  {:keys [stream-id]}
+                  (blocking-send-msg :start-stream-ok socket {:op :start-stream
+                                                              :client-event-id event-id
+                                                              :client-id "stream-1"
+                                                              :reconnect-token reconnect-token})
+
+
+                  ;; Log some buffered data
+                  _ (send-msg socket {:op :append-stream
+                                      :stream-id (str stream-id)
+                                      :chunks ["Hello"]
+                                      :offset 0})
+
+                  _ (is (= "Hello" (read-full-stream store movies-app-id stream-id slurp-file)))
+                  _ (is (= 0 (count (app-stream-model/get-stream-files {:app-id movies-app-id
+                                                                        :stream-id stream-id}))))
+
+                  ;; simulate client going away
+                  _ (session/on-close store socket)
+
+                  ;; Check that the data was flushed to $files
+                  _ (test-util/wait-for
+                     (fn []
+                       (= 1 (count (app-stream-model/get-stream-files {:app-id movies-app-id
+                                                                       :stream-id stream-id}))))
+                     100)
+
+                  _ (is (= "Hello" (read-full-stream store movies-app-id stream-id slurp-file)))])))))))

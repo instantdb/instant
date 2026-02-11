@@ -34,8 +34,8 @@
               [:add-triple lookup (resolve-id :key-version) 1 tx-opts]]
              {:allow-$files-update? true})]
         {:id (->> (get-in res [:results :add-triple])
-                  (map :entity_id)
-                  first)
+                  first
+                  :entity_id)
          :location-id location-id
          :size size})))))
 

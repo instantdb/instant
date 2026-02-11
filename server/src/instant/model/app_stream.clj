@@ -16,8 +16,10 @@
    [instant.reactive.store :as rs]
    [instant.storage.coordinator :as storage-coordinator]
    [instant.storage.s3 :as instant-s3]
+   [instant.system-catalog :as system-catalog]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.async :as ua]
+   [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
   (:import
@@ -135,6 +137,29 @@
                     (when abort-reason
                       [[:add-triple stream-id (resolve-id "abortReason") abort-reason]])))))))
 
+(def file-path-aid (->> system-catalog/$files-attrs
+                        (filter (fn [a]
+                                  (= "path" (last (:forward-identity a)))))
+                        first
+                        :id))
+
+(assert file-path-aid)
+
+(defn unlink-file!
+  "Unlinks the $file to the $stream and renames it, used when two file flushes race (e.g.
+   when a connection resets and the new stream is missing the flushed data).
+   We can't delete the file in case someone fetches it while we're in the process of swapping
+   them over."
+  ([params] (unlink-file! (aurora/conn-pool :write) params))
+  ([conn {:keys [stream-id app-id file-id file-name]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      (transact! [[:retract-triple stream-id (resolve-id "$files") (str file-id)]
+                  [:add-triple file-id file-path-aid (str file-name "-backup-" (crypt-util/random-hex 2))]])))))
+
 (defn get-stream
   "Gets a stream by its id or client-id"
   ([params] (get-stream (aurora/conn-pool :read) params))
@@ -169,7 +194,6 @@
   "Gets the files for a completed stream, with s3 download urls"
   ([params] (get-stream-files (aurora/conn-pool :read) params))
   ([conn {:keys [app-id stream-id]}]
-   ;; XXX: Prevent changing the path when it starts or ends with $stream
    (let [files (->> (app-file-model/get-where conn
                                               {:app-id app-id
                                                :where {"$stream" stream-id}})
@@ -227,8 +251,11 @@
     (cb machine-id)))
 
 ;; We could have a race in flush-to-file if the connection dropped and then
-;; we reconnected while cleanup was happening. It might be okay if we
-;; remove the old file when that happens
+;; we reconnected while we were flushing the file during cleanup. In that case,
+;; we'll throw an error on the next flush when we try to write the duplicate file
+;; and tell the writer to reconnect and resend the data.
+;; Another approach would be to retry the flush with the content from the last file
+;; removed...
 (defn flush-to-file [stream-object flush-promise on-flush-to-file on-flush-to-file-error]
   (try
     (let [{:keys [app-id stream-id $files done? abort-reason
@@ -239,14 +266,37 @@
                   (Unpooled/compositeBuffer)
                   buffer)
 
-          file (storage-coordinator/upload-file! {:app-id app-id
-                                                  :path (str (stream-file-name-prefix stream-id)
-                                                             (count $files))
-                                                  :content-type "application/octet-stream" ;; xxx?
-                                                  :content-length buffer-byte-size
-                                                  :skip-perms-check? true
-                                                  :mode :create}
-                                                 (ByteBufInputStream. buff))
+          path (str (stream-file-name-prefix stream-id)
+                    (count $files))
+          file (try
+                 (storage-coordinator/upload-file! {:app-id app-id
+                                                    :path path
+                                                    :content-type "application/octet-stream"
+                                                    :content-length buffer-byte-size
+                                                    :skip-perms-check? true
+                                                    :mode :create}
+                                                   (ByteBufInputStream. buff))
+                 (catch clojure.lang.ExceptionInfo e
+                   (if-let [{:keys [location-id metadata]} (::storage-coordinator/upload-meta (ex-data e))]
+                     (let [existing-file (app-file-model/get-by-path {:app-id app-id
+                                                                      :path path})]
+                       (if (< (:size existing-file)
+                              (-> metadata :size))
+                         (tracer/with-span! {:name "app-stream/swapping-file"
+                                             :attributes {:app-id app-id
+                                                          :path path
+                                                          :existing-file existing-file}}
+                           (unlink-file! {:stream-id stream-id
+                                          :app-id app-id
+                                          :file-id (:id existing-file)
+                                          :file-name (:path existing-file)})
+                           (app-file-model/create! {:app-id app-id
+                                                    :path path
+                                                    :location-id location-id
+                                                    :metadata metadata
+                                                    :mode :create}))
+                         (throw e)))
+                     (throw e))))
 
           _ (link-file! {:app-id app-id
                          :stream-id stream-id
@@ -268,8 +318,8 @@
                                                       ;; one in there
                                                       (when-not (= p flush-promise)
                                                         (tracer/record-exception-span!
-                                                          (Exception. "concurrent flush-to-file executions.")
-                                                          {:name "app-stream/flush-to-file"})
+                                                         (Exception. "concurrent flush-to-file executions.")
+                                                         {:name "app-stream/flush-to-file"})
                                                         p))))))]
       (on-flush-to-file {:offset (:buffer-byte-offset after)
                          :done? (:done? after)}))
@@ -317,7 +367,6 @@
                                       (when (= (:flush-promise updated) flush-promise)
                                         (deliver flush-promise (ua/vfuture
                                                                  (tracer/with-span! {:name "flush-to-file"}
-                                                                   (Thread/sleep 5000)
                                                                    (flush-to-file @this
                                                                                   flush-promise
                                                                                   (fn [_] nil)
@@ -346,8 +395,6 @@
 
 (defn remove-sink [stream-object sink-id]
   (swap! stream-object update :sinks dissoc sink-id))
-
-;; XXX: Is cascade-delete removing items when you unlink?
 
 (defn append
   "Runs on the server that holds the subscription.
@@ -522,8 +569,7 @@
       (onNext [_ v]
         (if (instance? StreamRequest v)
           (deliver cleanup (handle-subscribe store credits v observer))
-          ;; XXX: Where are our credits going?
-          (tool/inspect (swap! credits inc))))
+          (swap! credits inc)))
       (onError [_ t]
         (when (realized? cleanup)
           (@cleanup))
@@ -682,13 +728,10 @@
           (if (and (= (.getCode status) Status$Code/CANCELLED)
                    (= (.getDescription status) rs/stream-unsubscribe-reason))
             nil
-            ;; XXX: do something with error
             (do (tracer/record-exception-span! t {:name "app_stream/subscribe-error"})
                 (on-payload {:error true
                              :retry true}))))))))
 
-;; XXX: How do I prevent a race between when I get notified of the machine-id or
-;;      instance-id change and when it actually happens
 (defn connect-to-stream [store stream app-id machine-id offset on-payload]
   (let [channel (grpc-client/grpc-client-for-machine-id machine-id)
         req (grpc/->StreamRequest app-id (:id stream) offset)
@@ -717,7 +760,6 @@
                                                                           :on-payload on-payload
                                                                           :cleanup cleanup
                                                                           :incr-credits incr-credits})]
-    ;; XXX: make use-local? work
     (if-not use-local?
       (let [{:keys [outbound-observer cancel]}
             (grpc-client/subscribe-to-instant-stream channel req stream-observer)]

@@ -36,7 +36,8 @@
                          :datalog-query-fn d/query)]
          (cel/eval-program! ctx* program {:data {"path" path}}))))))
 
-;; TODO(dww): open up create/update capability for the client sdks
+;; TODO(dww): open up create/update capability for the client sdks,
+;;            but need to clean up if the create fails
 (defn upload-file!
   "Uploads a file to S3 and tracks it in Instant. Returns a file id"
   [{:keys [app-id path current-user mode skip-perms-check?] :as ctx}
@@ -46,14 +47,22 @@
     (assert-storage-permission! "create" {:app-id app-id
                                           :path path
                                           :current-user current-user}))
-  (let [location-id (str (random-uuid))]
-    (instant-s3/upload-file-to-s3 (assoc ctx :location-id location-id) file)
-    (app-file-model/create!
-     {:app-id app-id
-      :path path
-      :location-id location-id
-      :metadata (instant-s3/get-object-metadata app-id location-id)
-      :mode mode})))
+  (let [location-id (str (random-uuid))
+        _ (instant-s3/upload-file-to-s3 (assoc ctx :location-id location-id) file)
+        metadata (instant-s3/get-object-metadata app-id location-id)]
+    (try
+      (app-file-model/create!
+       {:app-id app-id
+        :path path
+        :location-id location-id
+        :metadata metadata
+        :mode mode})
+      (catch clojure.lang.ExceptionInfo e
+        (throw (ex-info (.getMessage e)
+                        (assoc (ex-data e)
+                               ::upload-meta {:location-id location-id
+                                              :metadata metadata})
+                        (ex-cause e)))))))
 
 (defn delete-files!
   "Deletes multiple files from both Instant and S3."
