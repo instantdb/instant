@@ -1592,7 +1592,7 @@
       (time
        (doseq [sid session-ids
                q instaql-queries]
-         (bump-instaql-version! test-store app-id sid q :join-rows true)))
+         (bump-instaql-version! test-store app-id sid q :join-rows)))
 
       (println "record-datalog-query-start")
       (time
@@ -1641,7 +1641,7 @@
       (time
        (doseq [sid session-ids
                q instaql-queries]
-         (bump-instaql-version! test-store app-id sid q :join-rows true)))
+         (bump-instaql-version! test-store app-id sid q :join-rows)))
 
       (println "record-datalog-query-start")
       (time
