@@ -427,7 +427,6 @@
   ([conn attrs app-id triples]
    (insert-multi! conn attrs app-id triples {:overwrite-t false}))
   ([conn attrs app-id triples {:keys [overwrite-t]}]
-   (tool/def-locals)
    (let [lookup-refs
          (distinct
           (keep (fn [[e]]

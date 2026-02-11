@@ -51,7 +51,6 @@
    (java.util UUID)))
 
 (defn req->app-id-untrusted! [req]
-  (tool/def-locals)
   (ex/get-some-param! req
                       [[:headers "app-id"]
                        [:query-params "app_id"]]

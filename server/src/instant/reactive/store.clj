@@ -60,7 +60,9 @@
    :session/creator        {}   ;; user (from session.clj)
    :session/versions       {}   ;; library versions, e.g. {"@instantdb/react": "v0.1.2"}
    :session/datalog-loader {}   ;; datalog-loader (from datalog.clj)
-   :session/attrs-hash     {}}) ;; last sent attrs’ hash
+   :session/attrs-hash     {}   ;; last sent attrs’ hash
+   ;; Whether to use schema inference for returning items vs lists
+   :session/inference?     {}})
 
 (def
   ^{:doc
@@ -85,7 +87,6 @@
    {:db/tupleAttrs [:instaql-query/session-id :instaql-query/query]
     :db/unique :db.unique/identity}
    :instaql-query/return-type {} ;; :join-rows or :tree
-   :instaql-query/inference? {:db/type :db.type/boolean}
    :instaql-query/topic {}
 
    :subscription/app-id {:db/type :db.type/integer}
@@ -377,7 +378,6 @@
 
               :stream/stream-object
               (when-let [cleanup (:cleanup (meta (:v datom)))]
-                (tool/def-locals)
                 (cleanup)
                 nil)
 
@@ -524,7 +524,7 @@
   "Should be used in a db.fn/call. Returns transactions.
    Bumps the query version and marks query as not stale, creating the query
    if needed."
-  [db lookup-ref session-id instaql-query return-type inference?]
+  [db lookup-ref session-id instaql-query return-type]
   (if-let [existing (d/entity db lookup-ref)]
     (let [v  (:instaql-query/version existing)
           v' (inc (or v 0))]
@@ -536,13 +536,12 @@
       :instaql-query/forms-hash (forms-hash instaql-query)
       :instaql-query/stale? false
       :instaql-query/version 1
-      :instaql-query/return-type return-type
-      :instaql-query/inference? (or inference? false)}]))
+      :instaql-query/return-type return-type}]))
 
-(defn bump-instaql-version! [store app-id sess-id q return-type inference?]
+(defn bump-instaql-version! [store app-id sess-id q return-type]
   (let [lookup-ref [:instaql-query/session-id+query [sess-id q]]
         conn       (app-conn store app-id)
-        tx         [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type inference?]]
+        tx         [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type]]
         report     (transact! "store/bump-instaql-version!" conn tx)]
     (d/entity (:db-after report) lookup-ref)))
 

@@ -96,7 +96,6 @@
                    [[:add-triple lookup (resolve-id :id) lookup {:mode :create}]
                     [:add-triple lookup (resolve-id :machineId) machine-id {:mode :create}]
                     [:add-triple lookup (resolve-id :hashedReconnectToken) hashed-reconnect-token {:mode :create}]])]
-         (tool/def-locals)
          {:id (->> (get-in res [:results :add-triple])
                    first
                    :entity_id)})))))
@@ -153,7 +152,6 @@
 
 (defn extract-part-num [stream-id file-path]
   (let [prefix (stream-file-name-prefix stream-id)
-        _ (tool/def-locals)
         _ (when-not (clojure.string/starts-with? file-path prefix)
             (ex/throw-validation-err! :stream
                                       {:file-path file-path
@@ -273,8 +271,6 @@
                                                           (Exception. "concurrent flush-to-file executions.")
                                                           {:name "app-stream/flush-to-file"})
                                                         p))))))]
-      (tool/def-locals)
-      ;; XXX: Needs to recur a flush when it's finished if the buffer has exceeded our limit while we were flushing
       (on-flush-to-file {:offset (:buffer-byte-offset after)
                          :done? (:done? after)}))
     (catch Throwable t
@@ -353,10 +349,6 @@
 
 ;; XXX: Is cascade-delete removing items when you unlink?
 
-;; XXX: Make sure we're discarding partial messages in the offset
-
-;; Probably need some better handling for errors so that we can determine
-;; where we are in the stream. I think if we just tell the client to do a restart, then we should be in a good place?
 (defn append
   "Runs on the server that holds the subscription.
    `append` adds the new chunks to the buffer, notifies any sinks of the
@@ -396,13 +388,11 @@
                                             (update :buffer-byte-size + chunks-byte-size)
                                             (assoc :done? (boolean done?))
                                             (assoc :abort-reason abort-reason))]
-                           (tool/def-locals)
                            (if (and (not done?)
                                     (not (:flush-promise next-obj))
                                     (>= (:buffer-byte-size next-obj) flush-limit))
                              (assoc next-obj :flush-promise flush-promise)
                              next-obj))))]
-    (tool/def-locals)
     (when (= (:flush-promise updated) flush-promise)
       (deliver flush-promise (ua/severed-vfuture (flush-to-file stream-object
                                                                 flush-promise
@@ -507,7 +497,6 @@
 
                    (.onNext observer v))))]
 
-    (tool/def-locals)
     (if-not stream-object
       (sink (grpc/stream-error :stream-missing-on-instance))
       (let [{:keys [$files buffer] :as stream-object-after}
@@ -628,7 +617,6 @@
       (onCompleted [_]
         (cleanup))
       (onNext [_ v]
-        (tool/def-locals)
         (incr-credits) ;; Notifies the server that we've handled a message
         (let [msg (condp instance? v
                     StreamError
@@ -685,7 +673,6 @@
                     (tracer/with-span! {:name "app_stream/unknown-payload-type"
                                         :attributes {:type (type v)
                                                      :stream-id stream-id}}
-                      (tool/def-locals)
                       {:error true}))]
           (when msg
             (on-payload msg))))
@@ -725,7 +712,6 @@
         outbound-observer-promise (promise)
         incr-credits (fn []
                        (when (realized? outbound-observer-promise)
-                         (tool/def-locals)
                          (.onNext ^StreamObserver @outbound-observer-promise nil)))
         stream-observer (make-stream-observer app-id (:id stream) offset {:machine-id-changed machine-id-changed
                                                                           :on-payload on-payload

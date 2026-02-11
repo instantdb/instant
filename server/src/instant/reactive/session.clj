@@ -172,7 +172,6 @@
                      :admin? admin?}
         features (get-supported-features versions)]
     (tracer/add-data! {:attributes (auth-and-creator-attrs auth creator versions)})
-    (tool/def-locals)
     (apply rs/assoc-session! store sess-id
            :session/auth auth
            :session/creator creator
@@ -213,6 +212,7 @@
     (apply rs/assoc-session! store sess-id
            :session/auth auth
            :session/creator creator
+           :session/inference? (:inference? ctx)
            (concat (when-let [versions (:versions ctx)]
                      [:session/versions versions])
                    [:session/attrs-hash (hash attrs)]))))
@@ -223,7 +223,7 @@
     :read-replica
     :read))
 
-(defn- handle-add-query! [store sess-id {:keys [q client-event-id return-type inference?] :as _event}]
+(defn- handle-add-query! [store sess-id {:keys [q client-event-id return-type] :as _event}]
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
         {app-id :id} app
         instaql-queries (rs/session-instaql-queries store app-id sess-id)]
@@ -251,6 +251,7 @@
                  :table-info     table-info
                  :admin?         admin?
                  :current-user   user}
+            {:keys [session/inference?]} (rs/session store sess-id)
             {:keys [instaql-result result-meta]} (rq/instaql-query-reactive! store ctx q return-type inference?)]
         (rs/send-event! store app-id sess-id {:op :add-query-ok
                                               :q q
@@ -432,7 +433,7 @@
 
 (defn- recompute-instaql-query!
   [{:keys [store current-user app-id sess-id attrs table-info admin?]}
-   {:keys [instaql-query/query instaql-query/return-type instaql-query/inference?
+   {:keys [instaql-query/query instaql-query/return-type
            instaql-query/forms-hash]}]
   (let [ctx {:db {:conn-pool (aurora/conn-pool (db-read-level app-id))}
              :session-id sess-id
@@ -443,6 +444,7 @@
              :current-user current-user
              :admin? admin?}
         start-ms (System/currentTimeMillis)
+        {:keys [session/inference?]} (rs/session store sess-id)
         {:keys [instaql-result result-meta result-changed? instaql-topic?]}
         (rq/instaql-query-reactive! store ctx query return-type inference?)
         end-ms (System/currentTimeMillis)]
@@ -770,7 +772,6 @@
                                                          :hashed-reconnect-token hashed-reconnect-token})]
                           (app-stream-model/new-stream-object app-id id)))]
     (rs/register-stream store app-id sess-id stream-object)
-    (tool/def-locals)
     (rs/send-event! store app-id sess-id {:op :start-stream-ok
                                           :client-event-id client-event-id
                                           :client-id client-id
@@ -778,7 +779,6 @@
                                           :offset (:buffer-byte-offset @stream-object)})))
 
 (defn handle-append-stream! [store sess-id event]
-  (tool/def-locals)
   (let [{:keys [app]} (get-auth! store sess-id)
         app-id (:id app)
         stream-id (ex/get-param! event [:stream-id] uuid-util/coerce)
@@ -803,14 +803,12 @@
                                                               (reduced nil)))
                                                           []
                                                           chunks))))
-        _ (tool/def-locals)
         stream-object (rs/get-stream-object-for-append store app-id sess-id stream-id)
 
         _ (when-not stream-object
             (ex/throw-validation-err! :append-stream {:sess-id sess-id
                                                       :stream-id stream-id}
                                       [{:message "Stream is missing."}]))]
-    (tool/def-locals)
     (when (:machine-id-updated @stream-object)
       (let [stream (app-stream-model/get-stream {:app-id app-id
                                                  :stream-id stream-id})]
@@ -843,6 +841,7 @@
                                     nil)))})))
 
 (defn handle-subscribe-stream! [store sess-id event]
+
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
         app-id (:id app)
         stream-id (ex/get-optional-param! event [:stream-id] uuid-util/coerce)
@@ -1351,7 +1350,6 @@
                                           :session-id id
                                           :client-event-id (random-uuid)
                                           :q (:query ctx)
-                                          :inference? (:inference? ctx)
                                           :return-type :tree}))))
       :on-close (fn [_]
                   (on-close store

@@ -121,7 +121,6 @@
                       (read-file data-input))
                     (range file-count))
         chunks (read-chunks data-input)]
-    (tool/def-locals)
     (instant.grpc/->StreamInit offset files chunks)))
 
 ;; 6 is our custom identifier for StreamContent, no other type can use it and

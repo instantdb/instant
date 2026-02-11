@@ -6,6 +6,7 @@ import {
   id,
   SubscribeQueryPayload,
   SubscribeQueryResponse,
+  ValidQuery,
 } from '@instantdb/admin';
 import config from '../../config';
 
@@ -17,6 +18,23 @@ const schema = i.schema({
     test: i.entity({
       i: i.number().indexed(),
     }),
+    owner: i.entity({
+      name: i.string(),
+    }),
+  },
+  links: {
+    testOwner: {
+      forward: {
+        on: 'test',
+        has: 'one',
+        label: 'owner',
+      },
+      reverse: {
+        on: 'owner',
+        has: 'many',
+        label: 'tests',
+      },
+    },
   },
 });
 
@@ -34,11 +52,19 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
       ...config,
       appId: app.id,
       adminToken: app['admin-token'],
+      schema,
       verbose: true,
     }),
   );
+  const q = {
+    test: { $: { limit: 5, order: { i: 'desc' } }, owner: {} },
+  } as const;
   const [payloads, setPayloads] = useState<
-    SubscribeQueryPayload<any, any, any>[]
+    SubscribeQueryPayload<
+      typeof schema,
+      ValidQuery<typeof q, typeof schema>,
+      any
+    >[]
   >([]);
   const [sub, setSub] = useState<SubscribeQueryResponse<any, any, any> | null>(
     null,
@@ -47,16 +73,13 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
   const [triggerSub, setTriggerSub] = useState(0);
 
   useEffect(() => {
-    const sub = db.current.subscribeQuery(
-      { test: { $: { limit: 5, order: { i: 'desc' } } } },
-      (m) => {
-        if (m.type === 'error') {
-          setPayloads((ps) => [m, ...ps]);
-        } else if (m.data) {
-          setPayloads((ps) => [m, ...ps]);
-        }
-      },
-    );
+    const sub = db.current.subscribeQuery(q, (m) => {
+      if (m.type === 'error') {
+        setPayloads((ps) => [m, ...ps]);
+      } else if (m.type === 'ok') {
+        setPayloads((ps) => [m, ...ps]);
+      }
+    });
     // @ts-ignore
     globalThis.sub = sub;
     setSub(sub);
@@ -89,6 +112,21 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
           }}
         >
           Push item
+        </button>
+        <button
+          className="m-2 bg-black p-2 text-white"
+          onClick={() => {
+            const ownerId = id();
+            const testItemId = id();
+            db.current.transact([
+              db.current.tx.owner[ownerId].update({ name: `Owner ${j}` }),
+              db.current.tx.test[testItemId]
+                .update({ i: j++ })
+                .link({ owner: ownerId }),
+            ]);
+          }}
+        >
+          Push item with owner
         </button>
         {sub ? (
           <button

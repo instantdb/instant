@@ -57,6 +57,7 @@ function createWriteStream({
 } {
   const clientId = opts.clientId;
   let streamId_: string | null = null;
+  let controller_: WritableStreamDefaultController | null = null;
   const reconnectToken = uuid();
   let isDone: boolean = false;
   let closed: boolean = false;
@@ -137,14 +138,16 @@ function createWriteStream({
         break;
       }
       case 'error': {
-        // XXX: Do something with the error
+        if (controller_) {
+          controller_.error(result.error);
+          markClosed();
+        }
         break;
       }
     }
   }
 
   // When the append fails, we'll just try to reconnect and start again
-  // XXX: Needs backoff
   function onAppendFailed() {
     onDisconnect();
     onConnectionReconnect();
@@ -176,6 +179,7 @@ function createWriteStream({
   }
 
   async function start(controller: WritableStreamDefaultController) {
+    controller_ = controller;
     let tryAgain = true;
     let attempts = 0;
 
@@ -187,7 +191,7 @@ function createWriteStream({
         clientId: opts.clientId,
         reconnectToken,
       });
-      console.log('start stream result', result);
+
       switch (result.type) {
         case 'ok': {
           const { streamId, offset } = result;
@@ -216,7 +220,6 @@ function createWriteStream({
           break;
         }
         case 'error': {
-          // XXX: Better error handling
           error(controller, result.error);
           return;
         }
@@ -260,9 +263,6 @@ function createWriteStream({
     },
     abort(reason) {
       if (streamId_) {
-        // Probably needs to be slightly changed...
-        // 1. Delay sending if we're not connected
-        // 2. Send the unsent chunks
         appendStream({
           streamId: streamId_,
           chunks: [],
@@ -344,7 +344,6 @@ class StreamIterator<T> {
   }
 }
 
-/// XXX: on cancel, send unsubscribe-stream
 function createReadStream({
   RStream,
   opts,
@@ -398,11 +397,11 @@ function createReadStream({
     controller: ReadableStreamDefaultController<string>,
     e: InstantError,
   ) {
-    // XXX: Maybe we want an instant error here?
-    markClosed();
     controller.error(e);
+    markClosed();
   }
 
+  let fetchFailures = 0;
   async function runStartStream(
     opts: {
       clientId?: string;
@@ -410,7 +409,7 @@ function createReadStream({
       offset?: number;
     },
     controller: ReadableStreamDefaultController<string>,
-  ): Promise<{ retryAfter: number } | undefined> {
+  ): Promise<{ retry: boolean } | undefined> {
     eventId = uuid();
     const streamOpts = { ...(opts || {}), eventId };
     for await (const item of startStream(streamOpts)) {
@@ -419,8 +418,7 @@ function createReadStream({
       }
 
       if (item.type === 'reconnect') {
-        // XXX: retryafter
-        return { retryAfter: 0 };
+        return { retry: true };
       }
 
       if (item.type === 'error') {
@@ -429,9 +427,6 @@ function createReadStream({
       }
 
       if (item.offset > seenOffset) {
-        // XXX: We should try to resubscribe from the offset we know if this
-        //      happens instead of throwing an error
-        console.error('corrupted stream', { item, seenOffset });
         error(controller, new InstantError('Stream is corrupted.'));
         canceled = true;
         return;
@@ -453,12 +448,14 @@ function createReadStream({
           }
 
           if (!res.ok) {
-            // XXX: Probably needs a retry
-            error(controller, 'Unable to process stream.');
-            return;
+            fetchFailures++;
+            if (fetchFailures > 10) {
+              error(controller, new InstantError('Unable to process stream.'));
+              return;
+            }
+            return { retry: true };
           }
 
-          // XXX: error handling
           if (res.body) {
             for await (const bodyChunk of res.body) {
               if (canceled) {
@@ -498,6 +495,7 @@ function createReadStream({
           }
         }
       }
+      fetchFailures = 0;
       if (item.content) {
         let content = item.content;
         let encoded = encoder.encode(item.content);
@@ -517,19 +515,25 @@ function createReadStream({
   }
 
   async function start(controller: ReadableStreamDefaultController<string>) {
-    let lastStart = Date.now();
     let retry = true;
+    let attempts = 0;
     while (retry) {
       retry = false;
+      let nextAttempt = Date.now() + Math.min(15000, 500 * (attempts - 1));
       const res = await runStartStream(
         { ...opts, offset: seenOffset },
         controller,
       );
-      console.log('res', res);
-      if (typeof res?.retryAfter !== 'undefined') {
+
+      if (res?.retry) {
         retry = true;
+        attempts++;
+        if (nextAttempt < Date.now() - 300000) {
+          // reset attempts if we last tried 5 minutes ago
+          attempts = 0;
+        }
         await new Promise((resolve) => {
-          setTimeout(resolve, res.retryAfter);
+          setTimeout(resolve, nextAttempt - Date.now());
         });
       }
     }
@@ -636,7 +640,6 @@ type HandleRecieveErrorMsg = {
   type?: string;
 };
 
-// XXX: Need to handle initialization and offline, right now we just assume it's always online
 export class InstantStream {
   private trySend: TrySend;
   private WStream: WritableStreamCtor;
@@ -700,8 +703,6 @@ export class InstantStream {
     return stream;
   }
 
-  // XXX: Need to have some way to forward generic errors from the reactor to here
-  //      Callback should get a resolve and a reject
   private startWriteStream(opts: {
     clientId: string;
     reconnectToken: string;
@@ -786,7 +787,6 @@ export class InstantStream {
     }
   }
 
-  // XXX: Need some kind of flow control...
   private startReadStream({
     eventId,
     clientId,
@@ -835,7 +835,6 @@ export class InstantStream {
     this.trySend(uuid(), msg);
   }
 
-  // XXX: Prevent two connections from the same session (on the server)
   onStreamAppend(msg: StreamAppendMsg) {
     const eventId = msg['client-event-id'];
     const iterator = this.readStreamIterators[eventId];
@@ -872,7 +871,6 @@ export class InstantStream {
       });
     }
 
-    // XXX: Make sure we deliver all messages when we close the thing.
     if (msg.done) {
       iterator.close();
       delete this.readStreamIterators[eventId];
@@ -880,26 +878,27 @@ export class InstantStream {
   }
 
   onConnectionStatusChange(status) {
-    console.log('status change', status);
-    // Restart the write streams, they'll try to reconnect
-    console.log(this.startWriteStreamCbs);
+    // Tell the writers to retry:
     for (const cb of Object.values(this.startWriteStreamCbs)) {
       cb({ type: 'disconnect' });
     }
     this.startWriteStreamCbs = {};
+
     if (status !== STATUS.AUTHENTICATED) {
+      // Notify the writers that they've been disconnected
       for (const { onDisconnect } of Object.values(this.writeStreams)) {
         onDisconnect();
       }
     } else {
+      // Notify the writers that they need to reconnect
       for (const { onConnectionReconnect } of Object.values(
         this.writeStreams,
       )) {
         onConnectionReconnect();
       }
 
+      // Notify the readers that they need to reconnect
       for (const iterator of Object.values(this.readStreamIterators)) {
-        console.log('iterator', iterator);
         iterator.push({ type: 'reconnect' });
         iterator.close();
       }
@@ -946,10 +945,5 @@ export class InstantStream {
 
   hasActiveStreams() {
     return this.activeStreams.size > 0;
-  }
-
-  close() {
-    // XXX: cleanup all of the resources, tell all of the
-    //      readers and writers to close
   }
 }

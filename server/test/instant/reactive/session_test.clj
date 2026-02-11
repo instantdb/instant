@@ -1089,7 +1089,6 @@
                             (.toByteArray out))]
                    (swap! files assoc object-key ba)))
         get-metadata (fn [_bucket key]
-                       (tool/def-locals)
                        {:size (alength ^bytes (get @files key))})]
     (test-util/with-s3-mock {:upload upload
                              :get-object-metadata get-metadata
@@ -1132,8 +1131,6 @@
                                                             :reconnect-token (str (random-uuid))})]
 
             (is (uuid? stream-id))
-
-            (tool/def-locals)
 
             (send-msg socket {:op :append-stream
                               :stream-id (str stream-id)
