@@ -620,22 +620,19 @@
     (let [rules (rule-model/get-by-app-id {:app-id app-id})
           has-room-rules? (some? (get-in rules [:code "$rooms"]))]
       (when has-room-rules?
-        (when-not room-type
-          (ex/assert-permitted!
-           :has-room-join-permission?
-           ["$rooms" nil "join"]
-           false))
-        (let [program (rule-model/get-room-program! rules room-type "join")]
-          (when program
-            (let [ctx {:current-user current-user
-                       :app-id app-id
-                       :db {:conn-pool (aurora/conn-pool :read)}
-                       :attrs (attr-model/get-by-app-id app-id)
-                       :datalog-query-fn d/query}]
-              (ex/assert-permitted!
-               :has-room-join-permission?
-               ["$rooms" room-type "join"]
-               (cel/eval-program! ctx program {:data {"id" room-id}})))))))))
+        (ex/assert-permitted!
+         :has-room-join-permission?
+         ["$rooms" room-type "join"]
+         (and room-type
+              (let [program (rule-model/get-room-program! rules room-type "join")]
+                (if program
+                  (let [ctx {:current-user current-user
+                             :app-id app-id
+                             :db {:conn-pool (aurora/conn-pool :read)}
+                             :attrs (attr-model/get-by-app-id app-id)
+                             :datalog-query-fn d/query}]
+                    (cel/eval-program! ctx program {:data {"id" room-id}}))
+                  true))))))))
 
 (defn- handle-join-room! [store sess-id {:keys [client-event-id data] :as event}]
   (let [auth (get-auth! store sess-id)
@@ -643,6 +640,9 @@
         current-user (-> auth :user)
         room-id (validate-room-id event)
         room-type (get event :room-type)]
+    ;; Note: we catch permission errors here to send :join-room-error instead of
+    ;; the generic :error op. The client needs :join-room-error specifically to
+    ;; surface errors in presence state (room.error).
     (try
       (assert-room-permission! {:app-id app-id
                                 :room-type room-type
