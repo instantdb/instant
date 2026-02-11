@@ -31,7 +31,7 @@ import NextLink from 'next/link';
 import { ReactElement, useContext, useEffect, useRef, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 
-import config, { areTeamsFree } from '@/lib/config';
+import config, { areTeamsFree, cliOauthParamName } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { successToast } from '@/lib/toast';
@@ -146,9 +146,7 @@ type Screen =
   | 'new'
   | 'personal-access-tokens';
 
-function defaultTab(screen: Screen): MainTabId | UserSettingsTabId {
-  return 'home';
-}
+const defaultTab: MainTabId | UserSettingsTabId = 'home';
 
 interface Tab<TabId> {
   id: TabId;
@@ -185,7 +183,6 @@ const userTabs: Tab<UserSettingsTabId>[] = [
 ];
 
 const mainTabIndex = new Map(mainTabs.map((t) => [t.id, t]));
-const userTabIndex = new Map(userTabs.map((t) => [t.id, t]));
 
 export function isMinRole(minRole: Role, role: Role) {
   return roleOrder.indexOf(role) >= roleOrder.indexOf(minRole);
@@ -216,7 +213,7 @@ function isTabAvailable(tab: Tab<MainTabId>, role: Role) {
 }
 
 function screenTab(screen: Screen, tab: string | null | undefined) {
-  return tab && mainTabIndex.has(tab as MainTabId) ? tab : defaultTab(screen);
+  return tab && mainTabIndex.has(tab as MainTabId) ? tab : defaultTab;
 }
 
 const getInitialApp = (apps: InstantApp[], workspaceId: string) => {
@@ -273,6 +270,13 @@ function Dashboard() {
   const tab = screenTab(screen, router.query.t as string);
 
   const dashResponse = useFetchedDash();
+  const cliNormalTicket = router.query.ticket as string | undefined;
+  const cliOauthTicket = router.query[cliOauthParamName] as string | undefined;
+
+  const cliTicketQuery = {
+    ...(cliNormalTicket ? { ticket: cliNormalTicket } : {}),
+    ...(cliOauthTicket ? { [cliOauthParamName]: cliOauthTicket } : {}),
+  };
 
   // Local states
   const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
@@ -497,9 +501,19 @@ function Dashboard() {
     dashResponse.data.invites &&
     dashResponse.data.invites.length >= 1
   ) {
-    router.replace('/dash/user-settings?tab=invites', undefined, {
-      shallow: true,
-    });
+    router.replace(
+      {
+        pathname: '/dash/user-settings',
+        query: {
+          tab: 'invites',
+          ...cliTicketQuery,
+        },
+      },
+      undefined,
+      {
+        shallow: true,
+      },
+    );
   }
 
   if (
@@ -507,12 +521,26 @@ function Dashboard() {
     (dashResponse.data.orgs || []).length === 0 &&
     dashResponse.data.invites?.length == 0
   ) {
-    router.replace('/dash/onboarding', undefined, { shallow: true });
+    router.replace(
+      {
+        pathname: '/dash/onboarding',
+        query: cliTicketQuery,
+      },
+      undefined,
+      { shallow: true },
+    );
     return;
   }
 
   if (apps.length === 0) {
-    router.replace('/dash/new', undefined, { shallow: true });
+    router.replace(
+      {
+        pathname: '/dash/new',
+        query: cliTicketQuery,
+      },
+      undefined,
+      { shallow: true },
+    );
     return;
   }
 
