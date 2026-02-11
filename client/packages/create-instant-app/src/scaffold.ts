@@ -133,7 +133,7 @@ const scaffoldWithDegit = async ({
   baseTemplateName: string;
 }) => {
   const repoPath = `instantdb/instant/examples/${baseTemplateName}`;
-  const degitInstance = degit(repoPath);
+  const degitInstance = degit(repoPath, { mode: 'tar', cache: true });
   await degitInstance.clone(projectDir);
 };
 
