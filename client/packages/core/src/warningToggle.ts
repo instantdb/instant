@@ -1,4 +1,5 @@
 export let warningEnabled = true;
-export const setWarningEnabled = (enabled: boolean) => {
+
+export const setInstantWarningsEnabled = (enabled: boolean) => {
   warningEnabled = enabled;
 };

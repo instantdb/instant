@@ -20,6 +20,7 @@ import {
   validateTransactions,
   TransactionValidationError,
 } from './transactionValidation.ts';
+import { setInstantWarningsEnabled } from './warningToggle.ts';
 
 import {
   StoreInterface,
@@ -131,7 +132,6 @@ import type {
   LoadFromStorage as SyncTableLoadFromStorage,
   SetupError as SyncTableSetupError,
 } from './SyncTable.ts';
-import { setWarningEnabled, warningEnabled } from './warningToggle.ts';
 
 const defaultOpenDevtool = true;
 
@@ -167,7 +167,6 @@ export type InstantConfig<
   useDateObjects: UseDates;
   disableValidation?: boolean;
   Store?: StoreInterfaceClass;
-  disableWarnings?: boolean;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
@@ -840,9 +839,6 @@ function init<
     return existingClient;
   }
 
-  if (configStrict.disableWarnings) {
-    setWarningEnabled(false);
-  }
   const reactor = new Reactor<RoomsOf<Schema>>(
     {
       ...defaultConfig,
@@ -925,6 +921,9 @@ export {
 
   // error
   InstantAPIError,
+
+  // warnings
+  setInstantWarningsEnabled,
 
   // cli
   i,
