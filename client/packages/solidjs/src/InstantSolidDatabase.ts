@@ -359,5 +359,3 @@ export function init<
   });
   return new InstantSolidDatabase<Schema, UseDates>(coreDb);
 }
-
-export const init_experimental = init;

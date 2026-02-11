@@ -89,7 +89,7 @@ import {
 } from '@instantdb/core';
 
 import { InstantSolidDatabase } from './InstantSolidDatabase.js';
-import { init, init_experimental } from './InstantSolidDatabase.js';
+import { init } from './InstantSolidDatabase.js';
 import { InstantSolidRoom } from './InstantSolidRoom.js';
 
 export {
@@ -97,7 +97,6 @@ export {
   tx,
   lookup,
   init,
-  init_experimental,
   InstantSolidDatabase,
   InstantSolidRoom,
   i,
