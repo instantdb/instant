@@ -1,7 +1,7 @@
 {
   "name": "@instantdb/solidjs",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "description": "SolidJS client for InstantDB",
   "repository": {
     "type": "git",
