@@ -67,6 +67,7 @@ export function useTopicEffect<
 ): void {
   createEffect(() => {
     const unsub = room.core._reactor.subscribeTopic(
+      room.type,
       room.id,
       topic,
       (event: any, peer: any) => {
@@ -102,7 +103,7 @@ export function usePublishTopic<
   topic: TopicType,
 ): (data: RoomSchema[RoomType]['topics'][TopicType]) => void {
   createEffect(() => {
-    const unsub = room.core._reactor.joinRoom(room.id);
+    const unsub = room.core._reactor.joinRoom(room.type as string, room.id);
     onCleanup(unsub);
   });
 
@@ -188,7 +189,11 @@ export function useSyncPresence<
   deps?: any[],
 ): void {
   createEffect(() => {
-    const unsub = room.core._reactor.joinRoom(room.id, data);
+    const unsub = room.core._reactor.joinRoom(
+      room.type as string,
+      room.id,
+      data,
+    );
     onCleanup(unsub);
   });
 

@@ -1,7 +1,7 @@
 {
   "name": "@instantdb/solidjs",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "SolidJS client for InstantDB",
   "repository": {
     "type": "git",
@@ -46,9 +46,6 @@
   "main": "./dist/commonjs/index.js",
   "types": "./dist/commonjs/index.d.ts",
   "module": "./dist/esm/index.js",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "tshy": "^3.0.2",
     "@arethetypeswrong/cli": "^0.17.4",
