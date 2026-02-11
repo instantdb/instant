@@ -1,6 +1,6 @@
-import streams from 'web-streams-polyfill';
+import { ReadableStream, WritableStream } from 'web-streams-polyfill';
 
 export const streamConstructors = {
-  ReadableStream: streams.ReadableStream,
-  WritableStream: streams.WritableStream,
+  ReadableStream: ReadableStream,
+  WritableStream: WritableStream,
 };

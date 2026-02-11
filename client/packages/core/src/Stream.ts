@@ -446,6 +446,12 @@ function createReadStream({
             nextFetch = fetch(nextFile.url, { signal: fetchAbort.signal });
           }
 
+          if (!res.ok) {
+            // XXX: Probably needs a retry
+            error(controller, 'Unable to process stream.');
+            return;
+          }
+
           // XXX: error handling
           if (res.body) {
             for await (const bodyChunk of res.body) {
@@ -466,6 +472,23 @@ function createReadStream({
 
               controller.enqueue(s);
             }
+          } else {
+            // RN doesn't support request.body
+            let chunk: ArrayBuffer | Uint8Array<ArrayBuffer> =
+              await res.arrayBuffer();
+            if (canceled) {
+              fetchAbort.abort();
+              return;
+            }
+            if (discardLen > 0) {
+              chunk = new Uint8Array(chunk).subarray(discardLen);
+            }
+            if (!chunk.byteLength) {
+              continue;
+            }
+            seenOffset += chunk.byteLength;
+            const s = decoder.decode(chunk);
+            controller.enqueue(s);
           }
         }
       }
