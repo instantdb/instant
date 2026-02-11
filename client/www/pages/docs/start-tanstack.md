@@ -19,11 +19,7 @@ npx create-instant-app -b tanstack-start
 
 ## Manual Setup
 
-{% callout type="warning" %}
-
-While the following setup guide demonstrates the basics for managing data, the automatic setup above includes a basic sign-up flow and other useful full-stack utilities.
-
-{% /callout %}
+The following guide demonstrates the basics for manually scaffolding a new tanstack project with Instant and managing data.  In general we recommend the automatic setup above which includes all of this and a basic auth flow and other useful full-stack utilities.
 
 Create a blank TanStack Start app:
 
