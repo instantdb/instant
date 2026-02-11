@@ -143,7 +143,9 @@
                                           etype
                                           eid)]
     (when (seq triples)
-      (triples->db-format app-id attrs etype triples))))
+      (with-meta
+        (triples->db-format app-id attrs etype triples)
+        {:triples triples}))))
 
 (defn get-entities [conn app-id attrs etype eids]
   (let [triples (entity-model/get-triples {:app-id app-id

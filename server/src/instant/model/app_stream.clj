@@ -19,6 +19,7 @@
    [instant.system-catalog :as system-catalog]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.async :as ua]
+   [instant.util.coll :as ucoll]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
@@ -168,9 +169,18 @@
              {:app-id app-id
               :etype etype}
              (fn [{:keys [resolve-id get-entity]}]
-               (get-entity (if stream-id
-                             stream-id
-                             [(resolve-id "clientId") client-id]))))))
+               (when-let [ent (get-entity (if stream-id
+                                            stream-id
+                                            [(resolve-id "clientId") client-id]))]
+                 (let [machine-id-aid (resolve-id "machineId")
+                       machine-id-updated-at (some->> ent
+                                                      meta
+                                                      :triples
+                                                      (ucoll/seek (fn [t]
+                                                                    (= (nth t 1)
+                                                                       machine-id-aid)))
+                                                      last)]
+                   (assoc ent :machine-id-updated-at machine-id-updated-at)))))))
 
 (defn stream-file-name-prefix [stream-id]
   (format "$stream/%s/" stream-id))
@@ -328,6 +338,33 @@
                                         :stream-id (:id @stream-object)})
       (on-flush-to-file-error t))))
 
+(defn cleanup-stream-object [cb-id stream-object]
+  (remove-machine-id-change-listener (:stream-id @stream-object) cb-id)
+  (doseq [[_sink-id sink] (:sinks @stream-object)]
+    (sink {:type ::disconnect}))
+  (when-let [p (:flush-promise @stream-object)]
+    (when (= (-> p
+                 ;; wait for promise
+                 (deref 5000 ::timeout)
+                 ;; wait for future inside of promise
+                 (deref 5000 ::timeout))
+             ::timeout)
+      (throw (Exception. "Timeout waiting for stream object to flush."))))
+  (let [flush-promise (promise)
+        updated (swap! stream-object (fn [o]
+                                       (if (or (zero? (:buffer-byte-size o))
+                                               (:flush-promise o))
+                                         o
+                                         (assoc o :flush-promise flush-promise))))]
+
+    (when (= (:flush-promise updated) flush-promise)
+      (deliver flush-promise (ua/vfuture
+                               (tracer/with-span! {:name "flush-to-file"}
+                                 (flush-to-file stream-object
+                                                flush-promise
+                                                (fn [_] nil)
+                                                (fn [_] nil))))))))
+
 (defn new-stream-object [app-id stream-id]
   (let [this (promise)
         cb-id (random-uuid)
@@ -348,29 +385,8 @@
                   ;; call cleanup without having to worry about a
                   ;; cyclic dependency between store and app-stream
                   :meta {:cleanup (fn []
-                                    (remove-machine-id-change-listener stream-id cb-id)
-                                    (doseq [[_sink-id sink] (:sinks (-> this deref deref))]
-                                      (sink {:type ::disconnect}))
-                                    (when-let [p (:flush-promise (-> this deref deref))]
-                                      (-> p
-                                          ;; wait for promise
-                                          deref
-                                          ;; wait for future inside of promise
-                                          deref))
-                                    (let [flush-promise (promise)
-                                          updated (swap! @this (fn [o]
-                                                                 (if (or (zero? (:buffer-byte-size o))
-                                                                         (:flush-promise o))
-                                                                   o
-                                                                   (assoc o :flush-promise flush-promise))))]
+                                    (cleanup-stream-object cb-id @this))})]
 
-                                      (when (= (:flush-promise updated) flush-promise)
-                                        (deliver flush-promise (ua/vfuture
-                                                                 (tracer/with-span! {:name "flush-to-file"}
-                                                                   (flush-to-file @this
-                                                                                  flush-promise
-                                                                                  (fn [_] nil)
-                                                                                  (fn [_] nil))))))))})]
     (add-machine-id-change-listener stream-id cb-id (fn [machine-id]
                                                       (when (not= machine-id config/machine-id)
                                                         (swap! obj assoc :machine-id-updated true))))
@@ -654,11 +670,12 @@
   "The observer runs on the same machine as the reader's session.
    If the observer is too slow, the publisher will send a :rate-limit
    error and we'll notify the client to resubscribe."
-  ^StreamObserver [app-id stream-id requested-offset {:keys [on-payload
-                                                             cleanup
-                                                             machine-id-changed
-                                                             incr-credits]}]
-  (let [sent-init? (atom false)]
+  ^StreamObserver [app-id stream requested-offset {:keys [on-payload
+                                                          cleanup
+                                                          machine-id-changed
+                                                          incr-credits]}]
+  (let [sent-init? (atom false)
+        stream-id (:id stream)]
     (reify StreamObserver
       (onCompleted [_]
         (cleanup))
@@ -682,14 +699,15 @@
                         (:writer-disconnected
                          :stream-missing-on-instance
                          :instance-missing)
-                        ;; XXX: Is there room for a race here?
-                        ;;      Maybe we should run a query against the stream to
-                        ;;      see if it updated since we started the whole thing
                         (do
                           (when-not @sent-init?
                             (when-let [msg (msg-for-unconnected-stream app-id stream-id requested-offset)]
                               (on-payload msg)))
-                          (when @machine-id-changed
+
+                          (when (or (not= (:machine-id-updated-at stream)
+                                          (:machine-id-updated-at (get-stream {:app-id app-id
+                                                                               :stream-id stream-id})))
+                                    @machine-id-changed)
                             {:error true
                              :retry true
                              :error-type (:error v)}))))
@@ -738,7 +756,7 @@
         use-local? (or (not channel)
                        (and (= machine-id config/machine-id)
                             ;; In dev, hit the grpc server half the time to exercise the route
-                            (or true (not (config/dev?))
+                            (or (not (config/dev?))
                                 (= 0 (rand-int 2)))))
         machine-id-changed (promise)
         cleanup-cbs [(add-machine-id-change-listener (:id stream)
@@ -756,10 +774,10 @@
         incr-credits (fn []
                        (when (realized? outbound-observer-promise)
                          (.onNext ^StreamObserver @outbound-observer-promise nil)))
-        stream-observer (make-stream-observer app-id (:id stream) offset {:machine-id-changed machine-id-changed
-                                                                          :on-payload on-payload
-                                                                          :cleanup cleanup
-                                                                          :incr-credits incr-credits})]
+        stream-observer (make-stream-observer app-id stream offset {:machine-id-changed machine-id-changed
+                                                                    :on-payload on-payload
+                                                                    :cleanup cleanup
+                                                                    :incr-credits incr-credits})]
     (if-not use-local?
       (let [{:keys [outbound-observer cancel]}
             (grpc-client/subscribe-to-instant-stream channel req stream-observer)]
