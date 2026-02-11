@@ -46,14 +46,14 @@ function Writer({
   clientId,
   setClientId,
 }: {
-  db: InstantReactNativeDatabase<Schema>;
+  db: InstantReactNativeDatabase<Schema, false>;
   clientId: string;
   setClientId: (id: string) => void;
 }) {
   const writerRef = useRef<WritableStreamDefaultWriter<string> | null>(null);
-  const [status, setStatus] = useState<
-    'idle' | 'streaming' | 'done' | 'error'
-  >('idle');
+  const [status, setStatus] = useState<'idle' | 'streaming' | 'done' | 'error'>(
+    'idle',
+  );
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [chunkCount, setChunkCount] = useState(0);
@@ -237,7 +237,7 @@ function Reader({
   db,
   defaultClientId,
 }: {
-  db: InstantReactNativeDatabase<Schema>;
+  db: InstantReactNativeDatabase<Schema, false>;
   defaultClientId: string;
 }) {
   const [clientId, setClientId] = useState(defaultClientId);
@@ -357,10 +357,7 @@ function Reader({
                   : ''}
         </Text>
       </View>
-      <ScrollView
-        ref={scrollRef}
-        style={styles.messageList}
-      >
+      <ScrollView ref={scrollRef} style={styles.messageList}>
         {messages.length === 0 && status !== 'idle' ? (
           <Text style={styles.emptyText}>Waiting for messages...</Text>
         ) : (
@@ -384,7 +381,7 @@ function App({
   db,
   onReset,
 }: {
-  db: InstantReactNativeDatabase<Schema>;
+  db: InstantReactNativeDatabase<Schema, false>;
   onReset?: () => void;
 }) {
   const [clientId, setClientId] = useState('');
