@@ -354,7 +354,7 @@ function createReadStream({
   opts: {
     clientId?: string;
     streamId?: string;
-    offset?: number;
+    byteOffset?: number;
   };
   startStream: (opts: {
     eventId: string;
@@ -368,7 +368,7 @@ function createReadStream({
   closed: () => boolean;
   addCloseCb: (cb: () => void) => void;
 } {
-  let seenOffset = opts.offset || 0;
+  let seenOffset = opts.byteOffset || 0;
   let canceled = false;
   const decoder = new TextDecoder('utf-8');
   const encoder = new TextEncoder();
@@ -689,7 +689,11 @@ export class InstantStream {
     return stream;
   }
 
-  public createReadStream(opts: { clientId?: string; streamId?: string }) {
+  public createReadStream(opts: {
+    clientId: string;
+    streamId?: string;
+    byteOffset?: number;
+  }) {
     const { stream, addCloseCb } = createReadStream({
       RStream: this.RStream,
       opts,

@@ -95,6 +95,8 @@ import {
   type SyncTableSetupError,
   StoreInterface,
   type StoreInterfaceStoreName,
+  CreateReadStreamOpts,
+  CreateWriteStreamOpts,
 } from '@instantdb/core';
 
 /**
@@ -254,6 +256,10 @@ export {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // stream types
+  type CreateReadStreamOpts,
+  type CreateWriteStreamOpts,
 
   // custom store
   StoreInterface,

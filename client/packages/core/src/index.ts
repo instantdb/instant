@@ -531,6 +531,48 @@ class Storage {
   };
 }
 
+type CreateReadStreamOpts = {
+  clientId: string;
+  byteOffset?: number | null | undefined;
+};
+
+type CreateWriteStreamOpts = {
+  clientId: string;
+};
+
+/**
+ * Functions to manage streams.
+ */
+class Streams {
+  constructor(private db: Reactor) {}
+
+  /**
+   * Creates a new ReadableStream for the given clientId.
+   *
+   * @example
+   *   const stream = db.streams.createReadStream({clientId: clientId})
+   *   for await (const chunk of stream) {
+   *     console.log(chunk);
+   *   }
+   */
+  createReadStream = (opts: CreateReadStreamOpts): ReadableStream<string> => {
+    return this.db.createReadStream(opts);
+  };
+
+  /**
+   * Creates a new WritableStream for the given clientId.
+   *
+   * @example
+   *   const writeStream = db.streams.createWriteStream({clientId: clientId})
+   *   const writer = writeStream.getWriter();
+   *   writer.write('Hello world');
+   *   writer.close();
+   */
+  createWriteStream = (opts: CreateWriteStreamOpts): WritableStream<string> => {
+    return this.db.createWriteStream(opts);
+  };
+}
+
 // util
 
 function coerceQuery(o: any) {
@@ -546,6 +588,7 @@ class InstantCoreDatabase<
   public _reactor: Reactor<RoomsOf<Schema>>;
   public auth: Auth;
   public storage: Storage;
+  public streams: Streams;
 
   public tx = txInit<Schema>();
 
@@ -553,6 +596,7 @@ class InstantCoreDatabase<
     this._reactor = reactor;
     this.auth = new Auth(this._reactor);
     this.storage = new Storage(this._reactor);
+    this.streams = new Streams(this._reactor);
   }
 
   /**
@@ -941,6 +985,7 @@ export {
   InstantCoreDatabase,
   Auth,
   Storage,
+  Streams,
   version,
   InstantError,
 
@@ -1047,6 +1092,8 @@ export {
   InstantStream,
   type WritableStreamCtor,
   type ReadableStreamCtor,
+  type CreateReadStreamOpts,
+  type CreateWriteStreamOpts,
 
   // sync table types
   type SyncTableCallback,

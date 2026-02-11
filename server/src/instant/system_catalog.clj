@@ -348,11 +348,11 @@
   [(make-attr "$streams" "id"
               :unique? true
               :index? true)
-   ;; XXX: Make clientId required?
    (make-attr "$streams" "clientId"
               :unique? true
               :index? true
-              :checked-data-type :string)
+              :checked-data-type :string
+              :required? true)
    (make-attr "$streams" "machineId"
               :checked-data-type :string)
    (make-attr "$streams" "$files"

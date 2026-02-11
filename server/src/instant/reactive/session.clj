@@ -728,13 +728,6 @@
               (doseq [message messages]
                 (rs/send-event! store app-id sess-id message)))))))
 
-;; XXX: Permissions for streams
-;;        - Default could be something like view: false and then we give them instructions for how
-;;          to open them up
-;;            - They'll need to also add rules for the files? Maybe not because we'll handle that on our end.
-;;            - XXX: If you delete a file that belongs to the stream, we should delete the stream no?
-;;               - Time for on-delete restrict?????
-;;
 (defn handle-start-stream!
   "Handles both starting or reconnecting to a write stream"
   [store sess-id {:keys [client-event-id] :as event}]
@@ -974,9 +967,6 @@
 
       ;; starts (or restarts) a write stream
       :start-stream (handle-start-stream! store id event)
-      ;; XXX: File name needs to be $stream/{stream-id}/{file-num}
-      ;;  - Or we could prevent people from creating files where the name starts with $stream
-      ;;    - Double check that nobody is already doing that...
       :append-stream (handle-append-stream! store id event)
       :subscribe-stream (handle-subscribe-stream! store id event)
       :unsubscribe-stream (handle-unsubscribe-stream! store id event)
@@ -1421,7 +1411,6 @@
                             :data (:data event2)}])
         (dissoc :topic :data))))
 
-;; XXX: Test combine
 (defmethod combine [:append-stream :append-stream] [event1 event2]
   (-> event2
       (update :chunks (fn [new-chunks]

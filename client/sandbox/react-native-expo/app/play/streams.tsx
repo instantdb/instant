@@ -68,7 +68,7 @@ function Writer({
     setError(null);
     setChunkCount(0);
     try {
-      const stream = (db as any).core._reactor.createWriteStream({
+      const stream = db.streams.createWriteStream({
         clientId: newId,
       });
       writerRef.current = stream.getWriter();
@@ -257,10 +257,8 @@ function Reader({
     cancelRef.current = false;
 
     try {
-      const stream: ReadableStream<string> = (
-        db as any
-      ).core._reactor.createReadStream({
-        clientId: clientId || undefined,
+      const stream: ReadableStream<string> = db.streams.createReadStream({
+        clientId: clientId,
       });
       const reader = stream.getReader();
       readerRef.current = reader;

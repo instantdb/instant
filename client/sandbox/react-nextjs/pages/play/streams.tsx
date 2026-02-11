@@ -122,8 +122,8 @@ function Writer({
     setSentLines([]);
     setStatusLog([]);
     try {
-      const stream = (db as any).core._reactor.createWriteStream({
-        clientId: clientId || undefined,
+      const stream = db.streams.createWriteStream({
+        clientId: clientId,
       });
       streamRef.current = stream;
       const writer = stream.getWriter();
@@ -182,8 +182,8 @@ function Writer({
     setSentLines([]);
     setStatusLog([]);
     try {
-      const stream = (db as any).core._reactor.createWriteStream({
-        clientId: clientId || undefined,
+      const stream = db.streams.createWriteStream({
+        clientId,
       });
       streamRef.current = stream;
       const writer = stream.getWriter();
@@ -466,10 +466,8 @@ function Reader({
       setElapsed(Date.now() - startTimeRef.current);
     }, 50);
     try {
-      const stream: ReadableStream<string> = (
-        db as any
-      ).core._reactor.createReadStream({
-        clientId: clientId || undefined,
+      const stream: ReadableStream<string> = db.streams.createReadStream({
+        clientId: clientId,
       });
       const reader = stream.getReader();
       readerRef.current = reader;

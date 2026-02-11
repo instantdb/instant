@@ -75,6 +75,10 @@ import {
   type UploadFileResponse,
   type DeleteFileResponse,
 
+  // stream types
+  type CreateReadStreamOpts,
+  type CreateWriteStreamOpts,
+
   // sync table types
   type SyncTableCallback,
   type SyncTableCallbackEvent,
@@ -176,6 +180,10 @@ export {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // stream types
+  type CreateReadStreamOpts,
+  type CreateWriteStreamOpts,
 
   // custom store
   StoreInterface,
