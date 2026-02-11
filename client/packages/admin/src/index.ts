@@ -358,7 +358,7 @@ class Rooms<Schema extends InstantSchemaDef<any, any, any>> {
     this.config = config;
   }
 
-  async getPresence<RoomType extends keyof RoomsOf<Schema>>(
+  async getPresence<RoomType extends string & keyof RoomsOf<Schema>>(
     roomType: RoomType,
     roomId: string,
   ): Promise<PresenceResult<PresenceOf<Schema, RoomType>>> {

@@ -689,19 +689,23 @@ class InstantCoreDatabase<
    * unsubscribeTopic();
    * room.leaveRoom();
    */
-  joinRoom<RoomType extends keyof RoomsOf<Schema>>(
+  joinRoom<RoomType extends string & keyof RoomsOf<Schema>>(
     roomType: RoomType = '_defaultRoomType' as RoomType,
     roomId: string = '_defaultRoomId',
     opts?: {
       initialPresence?: Partial<PresenceOf<Schema, RoomType>>;
     },
   ): RoomHandle<PresenceOf<Schema, RoomType>, TopicsOf<Schema, RoomType>> {
-    const leaveRoom = this._reactor.joinRoom(roomId, opts?.initialPresence);
+    const leaveRoom = this._reactor.joinRoom(
+      roomType,
+      roomId,
+      opts?.initialPresence,
+    );
 
     return {
       leaveRoom,
       subscribeTopic: (topic, onEvent) =>
-        this._reactor.subscribeTopic(roomId, topic, onEvent),
+        this._reactor.subscribeTopic(roomType, roomId, topic, onEvent),
       subscribePresence: (opts, onChange) =>
         this._reactor.subscribePresence(roomType, roomId, opts, onChange),
       publishTopic: (topic, data) =>

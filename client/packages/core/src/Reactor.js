@@ -251,7 +251,7 @@ export default class Reactor {
   /** @type BroadcastChannel | undefined */
   _broadcastChannel;
 
-  /** @type {Record<string, {isConnected: boolean; error: any}>} */
+  /** @type {Record<string, {roomType: string; isConnected: boolean; error: any}>} */
   _rooms = {};
   /** @type {Record<string, boolean>} */
   _roomsPendingLeave = {};
@@ -618,7 +618,8 @@ export default class Reactor {
 
         for (const roomId of Object.keys(this._rooms)) {
           const enqueuedUserPresence = this._presence[roomId]?.result?.user;
-          this._tryJoinRoom(roomId, enqueuedUserPresence);
+          const roomType = this._rooms[roomId]?.roomType;
+          this._tryJoinRoom(roomType, roomId, enqueuedUserPresence);
         }
         break;
       }
@@ -2227,15 +2228,17 @@ export default class Reactor {
   // Rooms
 
   /**
+   * @param {string} roomType
    * @param {string} roomId
    * @param {any | null | undefined} [initialPresence] -- initial presence data to send when joining the room
    * @returns () => void
    */
-  joinRoom(roomId, initialPresence) {
+  joinRoom(roomType, roomId, initialPresence) {
     let needsToSendJoin = false;
     if (!this._rooms[roomId]) {
       needsToSendJoin = true;
       this._rooms[roomId] = {
+        roomType,
         isConnected: false,
         error: undefined,
       };
@@ -2250,7 +2253,7 @@ export default class Reactor {
     }
 
     if (needsToSendJoin) {
-      this._tryJoinRoom(roomId, initialPresence);
+      this._tryJoinRoom(roomType, roomId, initialPresence);
     }
 
     return () => {
@@ -2326,8 +2329,13 @@ export default class Reactor {
     });
   }
 
-  _tryJoinRoom(roomId, data) {
-    this._trySendAuthed(uuid(), { op: 'join-room', 'room-id': roomId, data });
+  _tryJoinRoom(roomType, roomId, data) {
+    this._trySendAuthed(uuid(), {
+      op: 'join-room',
+      'room-type': roomType,
+      'room-id': roomId,
+      data,
+    });
     delete this._roomsPendingLeave[roomId];
   }
 
@@ -2345,6 +2353,7 @@ export default class Reactor {
   // TODO: look into typing again
   subscribePresence(roomType, roomId, opts, cb) {
     const leaveRoom = this.joinRoom(
+      roomType,
       roomId,
       // Oct 28, 2025
       // Note: initialData is deprecated.
@@ -2459,8 +2468,8 @@ export default class Reactor {
     });
   }
 
-  subscribeTopic(roomId, topic, cb) {
-    const leaveRoom = this.joinRoom(roomId);
+  subscribeTopic(roomType, roomId, topic, cb) {
+    const leaveRoom = this.joinRoom(roomType, roomId);
 
     this._broadcastSubs[roomId] = this._broadcastSubs[roomId] || {};
     this._broadcastSubs[roomId][topic] =
