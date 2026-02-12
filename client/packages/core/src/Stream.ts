@@ -735,7 +735,9 @@ export class InstantStream {
     this.log = log;
   }
 
-  public createWriteStream(opts: { clientId: string }): InstantWritableStream<string> {
+  public createWriteStream(opts: {
+    clientId: string;
+  }): InstantWritableStream<string> {
     const { stream, addCloseCb } = createWriteStream({
       WStream: this.WStream,
       startStream: this.startWriteStream.bind(this),
