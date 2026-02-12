@@ -183,8 +183,6 @@ const scaffoldBaseCode = async ({
       ? 'bundled-template'
       : 'degit';
 
-  UI.log(`method: ${method}`, UI.ciaModifier(null));
-
   if (method === 'bundled-template') {
     fs.copySync(srcDir, projectDir);
     return;
