@@ -360,20 +360,6 @@ jobs:
         env:
           NPM_CONFIG_PROVENANCE: true
 
-      - name: Add branch dist-tag
-        working-directory: client
-        run: |
-          VERSION=$(grep -oP "const version = '\K[^']+" packages/version/src/version.ts)
-          NPM_VERSION="${VERSION#v}"
-          SAFE_TAG=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
-          BRANCH_TAG="branch-${SAFE_TAG}"
-
-          PACKAGES=$(jq -r '.name' packages/*/package.json)
-          for pkg in $PACKAGES; do
-            echo "Tagging ${pkg}@${NPM_VERSION} as ${BRANCH_TAG}"
-            npm dist-tag add "${pkg}@${NPM_VERSION}" "${BRANCH_TAG}"
-          done
-
       - name: Debug
         if: failure()
         uses: actions/upload-artifact@v4
