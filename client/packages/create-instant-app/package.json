@@ -21,8 +21,10 @@
   ],
   "scripts": {
     "typecheck": "tsc",
+    "prebuild": "pnpm run copy-examples",
     "build": "tsup",
     "dev": "tsup --watch",
+    "copy-examples": "tsx scripts/copyExamples.ts",
     "clean": "rm -rf dist .turbo node_modules",
     "publish-package": "pnpm pack && npm publish *.tgz --access public",
     "start": "node dist/index.js"

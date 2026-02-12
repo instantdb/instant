@@ -147,7 +147,7 @@ const scaffoldWithDegit = async ({
  * Copies files from src to dest, respecting .gitignore rules.
  * Only used for local development. In production, the folder will be cloned from github
  */
-async function copyRespectingGitignore(src: string, dest: string) {
+export async function copyRespectingGitignore(src: string, dest: string) {
   const gitignorePath = path.join(src, '.gitignore');
 
   const ig = ignore();
