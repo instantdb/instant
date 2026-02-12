@@ -955,6 +955,53 @@ class Storage {
   };
 }
 
+type CreateReadStreamOpts = {
+  clientId?: string | null | undefined;
+  streamId?: string | null | undefined;
+  byteOffset?: number | null | undefined;
+};
+
+type CreateWriteStreamOpts = {
+  clientId: string;
+};
+
+/**
+ * Functions to manage streams.
+ */
+class Streams {
+  #ensureInstantStream: () => InstantStream;
+
+  constructor(ensureInstantStream: () => InstantStream) {
+    this.#ensureInstantStream = ensureInstantStream;
+  }
+
+  /**
+   * Creates a new ReadableStream for the given clientId.
+   *
+   * @example
+   *   const stream = db.streams.createReadStream({clientId: clientId})
+   *   for await (const chunk of stream) {
+   *     console.log(chunk);
+   *   }
+   */
+  createReadStream = (opts: CreateReadStreamOpts): ReadableStream<string> => {
+    return this.#ensureInstantStream().createReadStream(opts);
+  };
+
+  /**
+   * Creates a new WritableStream for the given clientId.
+   *
+   * @example
+   *   const writeStream = db.streams.createWriteStream({clientId: clientId})
+   *   const writer = writeStream.getWriter();
+   *   writer.write('Hello world');
+   *   writer.close();
+   */
+  createWriteStream = (opts: CreateWriteStreamOpts): WritableStream<string> => {
+    return this.#ensureInstantStream().createWriteStream(opts);
+  };
+}
+
 type AdminQueryOpts = {
   ruleParams?: RuleParams;
   fetchOpts?: RequestInit;
@@ -994,6 +1041,7 @@ class InstantAdminDatabase<
   config: InstantConfigFilled<Schema, UseDates>;
   auth: Auth;
   storage: Storage;
+  streams: Streams;
   rooms: Rooms<Schema>;
   impersonationOpts?: ImpersonationOpts;
 
@@ -1008,6 +1056,7 @@ class InstantAdminDatabase<
     this.config = instantConfigWithDefaults(_config);
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config, this.impersonationOpts);
+    this.streams = new Streams(this.#ensureInstantStream);
     this.rooms = new Rooms<Schema>(this.config);
     this.#log = createLogger(!!this.config.verbose);
   }
@@ -1462,29 +1511,6 @@ class InstantAdminDatabase<
       },
     );
   };
-
-  createReadStream(opts?: {
-    clientId?: string | null | undefined;
-    streamId?: string | null | undefined;
-  }): ReadableStream<string> {
-    const streamOpts: { clientId?: string; streamId?: string } = {};
-    if (opts?.clientId) {
-      streamOpts.clientId = opts.clientId;
-    }
-    if (opts?.streamId) {
-      streamOpts.streamId = opts.streamId;
-    }
-    if (!streamOpts.clientId && !streamOpts.streamId) {
-      throw new Error(
-        'Must provide one of clientId or streamId to createReadStream',
-      );
-    }
-    return this.#ensureInstantStream().createReadStream(streamOpts);
-  }
-
-  createWriteStream(opts: { clientId: string }): WritableStream<string> {
-    return this.#ensureInstantStream().createWriteStream(opts);
-  }
 }
 
 export {

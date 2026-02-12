@@ -351,14 +351,14 @@ function createReadStream({
 }: {
   RStream: ReadableStreamCtor;
   opts: {
-    clientId?: string;
-    streamId?: string;
-    byteOffset?: number;
+    clientId?: string | null | undefined;
+    streamId?: string | null | undefined;
+    byteOffset?: number | null | undefined;
   };
   startStream: (opts: {
     eventId: string;
-    clientId?: string;
-    streamId?: string;
+    clientId?: string | null | undefined;
+    streamId?: string | null | undefined;
     offset?: number;
   }) => StreamIterator<ReadStreamUpdate>;
   cancelStream: (opts: { eventId: string }) => void;
@@ -403,8 +403,8 @@ function createReadStream({
   let fetchFailures = 0;
   async function runStartStream(
     opts: {
-      clientId?: string;
-      streamId?: string;
+      clientId?: string | null | undefined;
+      streamId?: string | null | undefined;
       offset?: number;
     },
     controller: ReadableStreamDefaultController<string>,
@@ -689,9 +689,9 @@ export class InstantStream {
   }
 
   public createReadStream(opts: {
-    clientId?: string;
-    streamId?: string;
-    byteOffset?: number;
+    clientId?: string | null | undefined;
+    streamId?: string | null | undefined;
+    byteOffset?: number | null | undefined;
   }) {
     const { stream, addCloseCb } = createReadStream({
       RStream: this.RStream,
