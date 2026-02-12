@@ -77,6 +77,7 @@ import {
   EventSourceType,
   type WritableStreamCtor,
   type ReadableStreamCtor,
+  InstantWritableStream,
 } from '@instantdb/core';
 
 import version from './version.ts';
@@ -997,7 +998,9 @@ class Streams {
    *   writer.write('Hello world');
    *   writer.close();
    */
-  createWriteStream = (opts: CreateWriteStreamOpts): WritableStream<string> => {
+  createWriteStream = (
+    opts: CreateWriteStreamOpts,
+  ): InstantWritableStream<string> => {
     return this.#ensureInstantStream().createWriteStream(opts);
   };
 }
@@ -1587,6 +1590,11 @@ export {
   type UploadFileResponse,
   type DeleteFileResponse,
   type DeleteManyFileResponse,
+
+  // stream types
+  type CreateReadStreamOpts,
+  type CreateWriteStreamOpts,
+  type InstantWritableStream,
 
   // error types
   type InstantIssue,

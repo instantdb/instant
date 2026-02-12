@@ -97,6 +97,7 @@ import {
   type StoreInterfaceStoreName,
   CreateReadStreamOpts,
   CreateWriteStreamOpts,
+  InstantWritableStream,
 } from '@instantdb/core';
 
 /**
@@ -260,6 +261,7 @@ export {
   // stream types
   type CreateReadStreamOpts,
   type CreateWriteStreamOpts,
+  type InstantWritableStream,
 
   // custom store
   StoreInterface,

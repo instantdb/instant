@@ -17,6 +17,10 @@ export type ReadableStreamCtor = {
   ): ReadableStream<R>;
 };
 
+export interface InstantWritableStream<T> extends WritableStream<T> {
+  streamId: () => Promise<string>;
+}
+
 type WriteStreamStartResult =
   | { type: 'ok'; streamId: string; offset: number }
   | { type: 'disconnect' }
@@ -51,7 +55,7 @@ function createWriteStream({
   }) => void;
   registerStream: (streamId: string, cbs: WriteStreamCbs) => void;
 }): {
-  stream: WritableStream<string>;
+  stream: InstantWritableStream<string>;
   closed: () => boolean;
   addCloseCb: (cb: () => void) => void;
 } {
@@ -62,6 +66,7 @@ function createWriteStream({
   let isDone: boolean = false;
   let closed: boolean = false;
   const closeCbs: (() => void)[] = [];
+  const streamIdCbs: ((streamId: string) => void)[] = [];
   let disconnected: boolean = false;
   // Chunks that we haven't been notified are flushed to disk
   let bufferOffset = 0;
@@ -84,6 +89,23 @@ function createWriteStream({
         closeCbs.splice(i, 1);
       }
     };
+  }
+
+  function addStreamIdCb(cb: (streamId: string) => void) {
+    streamIdCbs.push(cb);
+    return () => {
+      const i = streamIdCbs.indexOf(cb);
+      if (i !== -1) {
+        streamIdCbs.splice(i, 1);
+      }
+    };
+  }
+
+  function setStreamId(streamId: string) {
+    streamId_ = streamId;
+    for (const cb of streamIdCbs) {
+      cb(streamId_);
+    }
   }
 
   function onDisconnect() {
@@ -200,7 +222,7 @@ function createWriteStream({
             error(controller, e);
             return;
           }
-          streamId_ = streamId;
+          setStreamId(streamId);
           registerStream(streamId, {
             onDisconnect,
             onFlush,
@@ -228,7 +250,44 @@ function createWriteStream({
     }
   }
 
-  const stream = new WStream({
+  class WStreamEnhanced
+    extends WStream<string>
+    implements InstantWritableStream<string>
+  {
+    constructor(
+      sink?: UnderlyingSink<string>,
+      strategy?: QueuingStrategy<string>,
+    ) {
+      super(sink, strategy);
+    }
+
+    public async streamId(): Promise<string> {
+      if (streamId_) {
+        return streamId_;
+      }
+      return new Promise((resolve, reject) => {
+        const cleanupFns: (() => void)[] = [];
+        const cleanup = () => {
+          for (const f of cleanupFns) {
+            f();
+          }
+        };
+        const resolveCb = (streamId: string) => {
+          resolve(streamId);
+          cleanup();
+        };
+        const rejectCb = () => {
+          reject(new InstantError('Stream is closed.'));
+          cleanup();
+        };
+
+        cleanupFns.push(addStreamIdCb(resolveCb));
+        cleanupFns.push(addCloseCb(rejectCb));
+      });
+    }
+  }
+
+  const stream = new WStreamEnhanced({
     // TODO(dww): accept a storage so that write streams can survive across
     //            browser restarts
     async start(controller) {
@@ -676,7 +735,7 @@ export class InstantStream {
     this.log = log;
   }
 
-  public createWriteStream(opts: { clientId: string }): WritableStream<string> {
+  public createWriteStream(opts: { clientId: string }): InstantWritableStream<string> {
     const { stream, addCloseCb } = createWriteStream({
       WStream: this.WStream,
       startStream: this.startWriteStream.bind(this),

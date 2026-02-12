@@ -137,6 +137,7 @@ import type {
 } from './SyncTable.ts';
 import {
   InstantStream,
+  InstantWritableStream,
   ReadableStreamCtor,
   WritableStreamCtor,
 } from './Stream.ts';
@@ -532,7 +533,8 @@ class Storage {
 }
 
 type CreateReadStreamOpts = {
-  clientId: string;
+  clientId?: string | null | undefined;
+  streamId?: string | null | undefined;
   byteOffset?: number | null | undefined;
 };
 
@@ -568,7 +570,9 @@ class Streams {
    *   writer.write('Hello world');
    *   writer.close();
    */
-  createWriteStream = (opts: CreateWriteStreamOpts): WritableStream<string> => {
+  createWriteStream = (
+    opts: CreateWriteStreamOpts,
+  ): InstantWritableStream<string> => {
     return this.db.createWriteStream(opts);
   };
 }
@@ -1094,6 +1098,7 @@ export {
   type ReadableStreamCtor,
   type CreateReadStreamOpts,
   type CreateWriteStreamOpts,
+  type InstantWritableStream,
 
   // sync table types
   type SyncTableCallback,
