@@ -1,7 +1,7 @@
 {
-  "name": "vite-template-solid",
-  "version": "0.0.0",
-  "description": "",
+  "name": "solidjs-vite",
+  "version": "0.1.0",
+  "description": "InstantDB + Solid + Vite example",
   "type": "module",
   "scripts": {
     "start": "vite",
@@ -9,7 +9,6 @@
     "build": "vite build",
     "serve": "vite preview"
   },
-  "license": "MIT",
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",
     "solid-devtools": "^0.34.3",
@@ -19,7 +18,6 @@
     "vite-plugin-solid": "^2.11.8"
   },
   "dependencies": {
-    "@instantdb/core": "^0.22.121",
     "@instantdb/solidjs": "^0.22.121",
     "solid-js": "^1.9.9"
   },

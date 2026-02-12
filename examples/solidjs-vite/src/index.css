@@ -1,1 +1,25 @@
-@import 'tailwindcss';
+@import "tailwindcss";
+
+@layer base {
+    :root {
+        @apply font-sans;
+    }
+
+    body {
+        background: linear-gradient(
+            120deg,
+            #e7e7e7 40%,
+            #fee7de 70%,
+            #e4e4e4 100%
+        );
+        min-height: 100dvh;
+    }
+}
+
+@media (prefers-reduced-motion) {
+    *,
+    ::before,
+    ::after {
+        animation: none !important;
+    }
+}
