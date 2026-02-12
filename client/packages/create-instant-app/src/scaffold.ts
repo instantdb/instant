@@ -73,18 +73,8 @@ export const scaffoldBase = async (cliResults: Project, appDir: string) => {
     }),
   );
 
-  if (fs.pathExistsSync(path.join(projectDir, '_gitignore'))) {
-    fs.renameSync(
-      path.join(projectDir, '_gitignore'),
-      path.join(projectDir, '.gitignore'),
-    );
-  }
-
   if (fs.pathExistsSync(path.join(projectDir, 'pnpm-lock.yaml'))) {
     fs.removeSync(path.join(projectDir, 'pnpm-lock.yaml'));
-  }
-  if (fs.pathExistsSync(path.join(projectDir, '_env'))) {
-    fs.renameSync(path.join(projectDir, '_env'), path.join(projectDir, '.env'));
   }
 
   if (fs.pathExistsSync(path.join(projectDir, 'bun.lock'))) {
