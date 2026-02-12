@@ -150,7 +150,7 @@ function Welcome() {
           class="border hover:bg-neutral-100 py-8 shadow flex flex-col gap-2 items-center justify-center font-semibold border-neutral-200 rounded"
         >
           <img
-            src="https://www.solidjs.com/assets/logo-123b04bc.svg"
+            src="https://www.solidjs.com/img/logo/without-wordmark/logo.svg"
             width={34}
           />
           Solid Docs
