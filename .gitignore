@@ -238,3 +238,7 @@ client/packages/version/src/package.json
 
 # example project package-locks
 examples/*/pnpm-lock.yaml
+
+
+# packaged examples
+client/packages/create-instant-app/template/base

@@ -32,6 +32,7 @@
     "@clack/prompts": "^0.11.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
     "@instantdb/version": "workspace:*",
+    "@types/degit": "^2.8.6",
     "chalk": "5.2.0",
     "commander": "^10.0.1",
     "degit": "^2.8.4",
@@ -48,7 +49,6 @@
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.60.0",
-    "@types/degit": "^2.8.6",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^18.11.18",
     "tsup": "^6.7.0",

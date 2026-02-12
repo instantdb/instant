@@ -1,6 +1,7 @@
 import path from 'path';
-import fs from 'fs-extra';
 import degit from 'degit';
+import fs from 'fs-extra';
+import { PKG_ROOT } from './consts.js';
 import { Project } from './cli.js';
 import chalk from 'chalk';
 import { getUserPkgManager } from './utils/getUserPkgManager.js';
@@ -8,11 +9,9 @@ import { renderUnwrap, UI } from 'instant-cli/ui';
 import slugify from 'slugify';
 import ignore from 'ignore';
 
-export const scaffoldBaseAndEdit = async (
-  cliResults: Project,
-  appDir: string,
-) => {
+export const scaffoldBase = async (cliResults: Project, appDir: string) => {
   const projectDir = path.resolve(process.cwd(), appDir);
+  const srcDir = path.join(PKG_ROOT, `template/base/${cliResults.base}`);
 
   if (fs.existsSync(projectDir)) {
     if (fs.readdirSync(projectDir).length === 0) {
@@ -59,23 +58,30 @@ export const scaffoldBaseAndEdit = async (
     baseTemplateName: cliResults.base,
   });
 
-  const scaffoldedName =
-    cliResults.appName === '.'
-      ? 'App'
-      : chalk.hex('#EA570B').bold(cliResults.appName);
-  await renderUnwrap(
-    new UI.Spinner({
-      promise: result,
-      workingText: `Scaffolding project files...`,
-      doneText: `Successfully scaffolded ${scaffoldedName}!`,
-      errorText: 'Error scaffolding project files',
-      modifyOutput: UI.ciaModifier(null),
-    }),
+  // const scaffoldedName =
+  //   cliResults.appName === '.'
+  //     ? 'App'
+  //     : chalk.hex('#EA570B').bold(cliResults.appName);
+  // await renderUnwrap(
+  //   new UI.Spinner({
+  //     promise: result,
+  //     workingText: `Scaffolding project files...`,
+  //     doneText: `Successfully scaffolded ${scaffoldedName}!`,
+  //     errorText: 'Error scaffolding project files',
+  //     modifyOutput: UI.ciaModifier(null),
+  //   }),
+  // );
+
+  fs.copySync(srcDir, projectDir);
+  fs.renameSync(
+    path.join(projectDir, '_gitignore'),
+    path.join(projectDir, '.gitignore'),
   );
 
   if (fs.pathExistsSync(path.join(projectDir, 'pnpm-lock.yaml'))) {
     fs.removeSync(path.join(projectDir, 'pnpm-lock.yaml'));
   }
+  fs.renameSync(path.join(projectDir, '_env'), path.join(projectDir, '.env'));
 
   if (fs.pathExistsSync(path.join(projectDir, 'bun.lock'))) {
     fs.removeSync(path.join(projectDir, 'bun.lock'));
@@ -174,7 +180,7 @@ const scaffoldBaseCode = async ({
   baseTemplateName: string;
 }) => {
   // Copy files in dev mode
-  if (process.env.INSTANT_REPO_FOLDER) {
+  if (process.env.INSTANT_CLI_DEV && process.env.INSTANT_REPO_FOLDER) {
     const folder = path.join(
       process.env.INSTANT_REPO_FOLDER,
       'examples',
