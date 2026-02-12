@@ -68,7 +68,8 @@ export const scaffoldBaseAndEdit = async (
       promise: result,
       workingText: `Scaffolding project files...`,
       doneText: `Successfully scaffolded ${scaffoldedName}!`,
-      errorText: 'Error scaffolding project files',
+      errorText: (e: unknown) =>
+        `Error scaffolding project files: ${e instanceof Error ? e.message : String(e)}`,
       modifyOutput: UI.ciaModifier(null),
     }),
   );
