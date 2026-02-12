@@ -9,9 +9,10 @@ import { renderUnwrap, UI } from 'instant-cli/ui';
 import slugify from 'slugify';
 import ignore from 'ignore';
 
+type ScaffoldMethod = 'dev' | 'bundled-template' | 'degit';
+
 export const scaffoldBase = async (cliResults: Project, appDir: string) => {
   const projectDir = path.resolve(process.cwd(), appDir);
-  const srcDir = path.join(PKG_ROOT, `template/base/${cliResults.base}`);
 
   if (fs.existsSync(projectDir)) {
     if (fs.readdirSync(projectDir).length === 0) {
@@ -58,30 +59,33 @@ export const scaffoldBase = async (cliResults: Project, appDir: string) => {
     baseTemplateName: cliResults.base,
   });
 
-  // const scaffoldedName =
-  //   cliResults.appName === '.'
-  //     ? 'App'
-  //     : chalk.hex('#EA570B').bold(cliResults.appName);
-  // await renderUnwrap(
-  //   new UI.Spinner({
-  //     promise: result,
-  //     workingText: `Scaffolding project files...`,
-  //     doneText: `Successfully scaffolded ${scaffoldedName}!`,
-  //     errorText: 'Error scaffolding project files',
-  //     modifyOutput: UI.ciaModifier(null),
-  //   }),
-  // );
-
-  fs.copySync(srcDir, projectDir);
-  fs.renameSync(
-    path.join(projectDir, '_gitignore'),
-    path.join(projectDir, '.gitignore'),
+  const scaffoldedName =
+    cliResults.appName === '.'
+      ? 'App'
+      : chalk.hex('#EA570B').bold(cliResults.appName);
+  await renderUnwrap(
+    new UI.Spinner({
+      promise: result,
+      workingText: `Scaffolding project files...`,
+      doneText: `Successfully scaffolded ${scaffoldedName}!`,
+      errorText: 'Error scaffolding project files',
+      modifyOutput: UI.ciaModifier(null),
+    }),
   );
+
+  if (fs.pathExistsSync(path.join(projectDir, '_gitignore'))) {
+    fs.renameSync(
+      path.join(projectDir, '_gitignore'),
+      path.join(projectDir, '.gitignore'),
+    );
+  }
 
   if (fs.pathExistsSync(path.join(projectDir, 'pnpm-lock.yaml'))) {
     fs.removeSync(path.join(projectDir, 'pnpm-lock.yaml'));
   }
-  fs.renameSync(path.join(projectDir, '_env'), path.join(projectDir, '.env'));
+  if (fs.pathExistsSync(path.join(projectDir, '_env'))) {
+    fs.renameSync(path.join(projectDir, '_env'), path.join(projectDir, '.env'));
+  }
 
   if (fs.pathExistsSync(path.join(projectDir, 'bun.lock'))) {
     fs.removeSync(path.join(projectDir, 'bun.lock'));
@@ -148,14 +152,13 @@ const scaffoldWithDegit = async ({
  * Only used for local development. In production, the folder will be cloned from github
  */
 export async function copyRespectingGitignore(src: string, dest: string) {
-  const gitignorePath = path.join(src, '.gitignore');
-
   const ig = ignore();
 
   // Always ignore .git folder
   ig.add('.git');
 
   try {
+    const gitignorePath = path.join(src, '.gitignore');
     const gitignoreContent = await fs.readFile(gitignorePath, 'utf8');
     ig.add(gitignoreContent);
   } catch {
@@ -179,18 +182,38 @@ const scaffoldBaseCode = async ({
   projectDir: string;
   baseTemplateName: string;
 }) => {
-  // Copy files in dev mode
-  if (process.env.INSTANT_CLI_DEV && process.env.INSTANT_REPO_FOLDER) {
-    const folder = path.join(
-      process.env.INSTANT_REPO_FOLDER,
-      'examples',
-      baseTemplateName,
-    );
+  const srcDir = path.join(PKG_ROOT, `template/base/${baseTemplateName}`);
+  const useDevRepo =
+    Boolean(process.env.INSTANT_CLI_DEV) &&
+    Boolean(process.env.INSTANT_REPO_FOLDER);
+  const bundledTemplateExists = fs.pathExistsSync(srcDir);
+  const method: ScaffoldMethod = useDevRepo
+    ? 'dev'
+    : bundledTemplateExists
+      ? 'bundled-template'
+      : 'degit';
+
+  UI.log(`method: ${method}`, UI.ciaModifier(null));
+
+  if (method === 'bundled-template') {
+    fs.copySync(srcDir, projectDir);
+    return;
+  }
+
+  if (method === 'dev') {
+    const repoFolder = process.env.INSTANT_REPO_FOLDER;
+    if (!repoFolder) {
+      throw new Error(
+        'INSTANT_REPO_FOLDER is required when using repo-examples scaffolding.',
+      );
+    }
+
+    const folder = path.join(repoFolder, 'examples', baseTemplateName);
     await copyRespectingGitignore(folder, projectDir);
     return;
   }
 
-  if (process.env.INSTANT_CLI_DEV) {
+  if (process.env.INSTANT_CLI_DEV && !process.env.INSTANT_REPO_FOLDER) {
     UI.log(
       chalk.bold.yellowBright(
         'WARNING: INSTANT_CLI_DEV is TRUE but no INSTANT_REPO_FOLDER is set. \nUsing git to clone from main...',
@@ -199,6 +222,5 @@ const scaffoldBaseCode = async ({
     );
   }
 
-  // Clone from github in prod
-  await scaffoldWithDegit({ projectDir, baseTemplateName: baseTemplateName });
+  await scaffoldWithDegit({ projectDir, baseTemplateName });
 };
