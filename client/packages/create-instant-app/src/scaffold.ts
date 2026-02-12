@@ -9,6 +9,9 @@ import { renderUnwrap, UI } from 'instant-cli/ui';
 import slugify from 'slugify';
 import ignore from 'ignore';
 
+// dev: Set INSTANT_REPO_FOLDER and copy from the examples dir directly (local dev)
+// bundled-template: use files bundled with the package from npm
+// degit: use degit to get a subfolder of the repo from github
 type ScaffoldMethod = 'dev' | 'bundled-template' | 'degit';
 
 export const scaffoldBase = async (cliResults: Project, appDir: string) => {
