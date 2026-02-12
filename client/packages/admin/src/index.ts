@@ -1051,9 +1051,6 @@ class InstantAdminDatabase<
   }
 
   #setupInstantStream() {
-    if (this.#instantStream) {
-      this.#instantStream.close();
-    }
     this.#ensureSSEConnection();
     const instantStream = new InstantStream({
       WStream: this.config.WritableStream || WritableStream,
