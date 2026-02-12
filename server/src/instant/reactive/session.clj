@@ -742,29 +742,36 @@
                                    crypt-util/bytes->hex-string)
         ;; Find or create the $stream in the database, returning the stream object
         ;; to put in the store
-        stream-object (if-let [stream (app-stream-model/get-stream {:app-id app-id
-                                                                    :client-id client-id})]
-                        (do
-                          (when (not= hashed-reconnect-token
-                                      (:hashedReconnectToken stream))
-                            (ex/throw-validation-err! :start-stream
-                                                      {:sess-id sess-id
-                                                       :client-id client-id}
-                                                      [{:message "A stream with that clientId already exists. Reconnect token is invalid."}]))
-                          (when (:done stream)
-                            (ex/throw-validation-err! :start-stream
-                                                      {:sess-id sess-id
-                                                       :client-id client-id}
-                                                      [{:message "Stream is closed."}]))
-                          (app-stream-model/new-stream-object-from-stream app-id stream))
+        {:keys [stream-object update-machine-id]}
+        (if-let [stream (app-stream-model/get-stream {:app-id app-id
+                                                      :client-id client-id})]
+          (do
+            (when (not= hashed-reconnect-token
+                        (:hashedReconnectToken stream))
+              (ex/throw-validation-err! :start-stream
+                                        {:sess-id sess-id
+                                         :client-id client-id}
+                                        [{:message "A stream with that clientId already exists. Reconnect token is invalid."}]))
+            (when (:done stream)
+              (ex/throw-validation-err! :start-stream
+                                        {:sess-id sess-id
+                                         :client-id client-id}
+                                        [{:message "Stream is closed."}]))
+            {:stream-object (app-stream-model/new-stream-object-from-stream app-id stream)
+             :update-machine-id true})
 
-                        (let [{:keys [id]}
-                              (app-stream-model/create! {:app-id app-id
-                                                         :client-id client-id
-                                                         :machine-id config/machine-id
-                                                         :hashed-reconnect-token hashed-reconnect-token})]
-                          (app-stream-model/new-stream-object app-id id)))]
+          (let [{:keys [id]}
+                (app-stream-model/create! {:app-id app-id
+                                           :client-id client-id
+                                           :machine-id config/machine-id
+                                           :hashed-reconnect-token hashed-reconnect-token})]
+            {:stream-object (app-stream-model/new-stream-object app-id id)
+             :udpate-machine-id false}))]
     (rs/register-stream store app-id sess-id stream-object)
+    (when update-machine-id
+      (app-stream-model/update-machine-id! {:app-id app-id
+                                            :stream-id (:stream-id @stream-object)
+                                            :machine-id config/machine-id}))
     (rs/send-event! store app-id sess-id {:op :start-stream-ok
                                           :client-event-id client-event-id
                                           :client-id client-id

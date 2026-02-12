@@ -477,14 +477,15 @@ function createReadStream({
             }
           } else {
             // RN doesn't support request.body
-            let chunk: ArrayBuffer | Uint8Array<ArrayBuffer> =
-              await res.arrayBuffer();
+            const bodyChunk = await res.arrayBuffer();
+            let chunk: ArrayBuffer | Uint8Array<ArrayBuffer> = bodyChunk;
             if (canceled) {
               fetchAbort.abort();
               return;
             }
             if (discardLen > 0) {
-              chunk = new Uint8Array(chunk).subarray(discardLen);
+              chunk = new Uint8Array(bodyChunk).subarray(discardLen);
+              discardLen -= bodyChunk.byteLength - chunk.length;
             }
             if (!chunk.byteLength) {
               continue;
@@ -850,10 +851,6 @@ export class InstantStream {
       return;
     }
 
-    if (msg.done) {
-      delete this.readStreamIterators[eventId];
-    }
-
     if (msg.error) {
       if (msg.retry) {
         iterator.push({ type: 'reconnect' });
@@ -929,6 +926,7 @@ export class InstantStream {
             type: 'error',
             error: new InstantError(msg.message || 'Unknown error', msg.hint),
           });
+          delete this.startWriteStreamCbs[eventId];
         }
         break;
       }
@@ -940,6 +938,8 @@ export class InstantStream {
             type: 'error',
             error: new InstantError(msg.message || 'Unknown error', msg.hint),
           });
+          iterator.close();
+          delete this.readStreamIterators[eventId];
         }
         break;
       }
