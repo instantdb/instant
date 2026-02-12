@@ -8,7 +8,6 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  console.log('HELLO WORLD');
   const { id } = await params;
   const { subscriber } = getFilePubSub();
 
@@ -19,8 +18,6 @@ export async function GET(
   if (!activeStreamId) {
     return new Response(null, { status: 204 });
   }
-
-  console.log('INSTANT1 req.url ', req.url);
 
   const configStr = await subscriber.get(`instant-chat:${id}:config`);
 

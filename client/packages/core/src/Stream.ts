@@ -582,6 +582,7 @@ type SubscribeStreamMsg = {
   op: 'subscribe-stream';
   'stream-id'?: string;
   'client-id'?: string;
+  offset?: number;
 };
 
 type UnsubscribeStreamMsg = {

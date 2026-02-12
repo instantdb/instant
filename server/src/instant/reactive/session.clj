@@ -843,7 +843,7 @@
                                                      [:offset]
                                                      (fn [x]
                                                        (when (and (integer? x)
-                                                                  (pos? x))
+                                                                  (not (neg? x)))
                                                          x)))
                              0)
         _ (when (and (not stream-id)
