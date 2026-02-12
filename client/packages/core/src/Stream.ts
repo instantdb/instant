@@ -196,7 +196,8 @@ function createWriteStream({
         case 'ok': {
           const { streamId, offset } = result;
           if (offset !== 0) {
-            error(controller, new InstantError('Write stream is corrupted'));
+            const e = new InstantError('Write stream is corrupted');
+            error(controller, e);
             return;
           }
           streamId_ = streamId;
@@ -234,7 +235,7 @@ function createWriteStream({
       try {
         await start(controller);
       } catch (e) {
-        controller.error(e.message);
+        error(controller, e);
       }
     },
     write(chunk, controller) {

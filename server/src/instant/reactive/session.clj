@@ -747,10 +747,10 @@
                         (do
                           (when (not= hashed-reconnect-token
                                       (:hashedReconnectToken stream))
-                            (ex/throw-validation-err! :restart-stream
+                            (ex/throw-validation-err! :start-stream
                                                       {:sess-id sess-id
                                                        :client-id client-id}
-                                                      [{:message "Invalid reconnect-token."}]))
+                                                      [{:message "A stream with that clientId already exists. Reconnect token is invalid."}]))
                           (when (:done stream)
                             (ex/throw-validation-err! :start-stream
                                                       {:sess-id sess-id

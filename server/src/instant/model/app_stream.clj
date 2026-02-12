@@ -262,10 +262,10 @@
 
 ;; We could have a race in flush-to-file if the connection dropped and then
 ;; we reconnected while we were flushing the file during cleanup. In that case,
-;; we'll throw an error on the next flush when we try to write the duplicate file
-;; and tell the writer to reconnect and resend the data.
-;; Another approach would be to retry the flush with the content from the last file
-;; removed...
+;; we'll replace the file with our own if ours is larger (meaning we're the latest
+;; connection for the stream).
+;; If we can't replace the file, we'll throw an error and tell the writer to reconnect
+;; and resend the data.
 (defn flush-to-file [stream-object flush-promise on-flush-to-file on-flush-to-file-error]
   (try
     (let [{:keys [app-id stream-id $files done? abort-reason
@@ -345,9 +345,9 @@
   (when-let [p (:flush-promise @stream-object)]
     (when (= (-> p
                  ;; wait for promise
-                 (deref 5000 ::timeout)
+                 (deref 30000 ::timeout)
                  ;; wait for future inside of promise
-                 (deref 5000 ::timeout))
+                 (deref 30000 ::timeout))
              ::timeout)
       (throw (Exception. "Timeout waiting for stream object to flush."))))
   (let [flush-promise (promise)

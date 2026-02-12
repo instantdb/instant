@@ -1212,8 +1212,7 @@ class InstantAdminDatabase<
 
       case 'error': {
         switch (msg['original-event']?.op) {
-          case 'create-stream':
-          case 'restart-stream':
+          case 'start-stream':
           case 'append-stream':
           case 'subscribe-stream':
           case 'unsubscribe-stream': {

@@ -990,7 +990,7 @@ export default class Reactor {
         this._syncTable.onStartSyncError(msg);
         return;
       }
-      case 'create-stream':
+      case 'start-stream':
       case 'append-stream':
       case 'subscribe-stream':
       case 'unsubscribe-stream': {
