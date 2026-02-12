@@ -1,6 +1,7 @@
 import path from 'path';
-import fs from 'fs-extra';
 import degit from 'degit';
+import fs from 'fs-extra';
+import { PKG_ROOT } from './consts.js';
 import { Project } from './cli.js';
 import chalk from 'chalk';
 import { getUserPkgManager } from './utils/getUserPkgManager.js';
@@ -8,10 +9,12 @@ import { renderUnwrap, UI } from 'instant-cli/ui';
 import slugify from 'slugify';
 import ignore from 'ignore';
 
-export const scaffoldBaseAndEdit = async (
-  cliResults: Project,
-  appDir: string,
-) => {
+// dev: Set INSTANT_REPO_FOLDER and copy from the examples dir directly (local dev)
+// bundled-template: use files bundled with the package from npm
+// degit: use degit to get a subfolder of the repo from github
+type ScaffoldMethod = 'dev' | 'bundled-template' | 'degit';
+
+export const scaffoldBase = async (cliResults: Project, appDir: string) => {
   const projectDir = path.resolve(process.cwd(), appDir);
 
   if (fs.existsSync(projectDir)) {
@@ -133,7 +136,7 @@ const scaffoldWithDegit = async ({
   baseTemplateName: string;
 }) => {
   const repoPath = `instantdb/instant/examples/${baseTemplateName}`;
-  const degitInstance = degit(repoPath, { mode: 'tar', cache: true });
+  const degitInstance = degit(repoPath, { mode: 'tar', cache: false });
   await degitInstance.clone(projectDir);
 };
 
@@ -141,15 +144,14 @@ const scaffoldWithDegit = async ({
  * Copies files from src to dest, respecting .gitignore rules.
  * Only used for local development. In production, the folder will be cloned from github
  */
-async function copyRespectingGitignore(src: string, dest: string) {
-  const gitignorePath = path.join(src, '.gitignore');
-
+export async function copyRespectingGitignore(src: string, dest: string) {
   const ig = ignore();
 
   // Always ignore .git folder
   ig.add('.git');
 
   try {
+    const gitignorePath = path.join(src, '.gitignore');
     const gitignoreContent = await fs.readFile(gitignorePath, 'utf8');
     ig.add(gitignoreContent);
   } catch {
@@ -173,18 +175,36 @@ const scaffoldBaseCode = async ({
   projectDir: string;
   baseTemplateName: string;
 }) => {
-  // Copy files in dev mode
-  if (process.env.INSTANT_REPO_FOLDER) {
-    const folder = path.join(
-      process.env.INSTANT_REPO_FOLDER,
-      'examples',
-      baseTemplateName,
-    );
+  const srcDir = path.join(PKG_ROOT, `template/base/${baseTemplateName}`);
+  const useDevRepo =
+    Boolean(process.env.INSTANT_CLI_DEV) &&
+    Boolean(process.env.INSTANT_REPO_FOLDER);
+  const bundledTemplateExists = fs.pathExistsSync(srcDir);
+  const method: ScaffoldMethod = useDevRepo
+    ? 'dev'
+    : bundledTemplateExists
+      ? 'bundled-template'
+      : 'degit';
+
+  if (method === 'bundled-template') {
+    fs.copySync(srcDir, projectDir);
+    return;
+  }
+
+  if (method === 'dev') {
+    const repoFolder = process.env.INSTANT_REPO_FOLDER;
+    if (!repoFolder) {
+      throw new Error(
+        'INSTANT_REPO_FOLDER is required when using repo-examples scaffolding.',
+      );
+    }
+
+    const folder = path.join(repoFolder, 'examples', baseTemplateName);
     await copyRespectingGitignore(folder, projectDir);
     return;
   }
 
-  if (process.env.INSTANT_CLI_DEV) {
+  if (process.env.INSTANT_CLI_DEV && !process.env.INSTANT_REPO_FOLDER) {
     UI.log(
       chalk.bold.yellowBright(
         'WARNING: INSTANT_CLI_DEV is TRUE but no INSTANT_REPO_FOLDER is set. \nUsing git to clone from main...',
@@ -193,6 +213,5 @@ const scaffoldBaseCode = async ({
     );
   }
 
-  // Clone from github in prod
-  await scaffoldWithDegit({ projectDir, baseTemplateName: baseTemplateName });
+  await scaffoldWithDegit({ projectDir, baseTemplateName });
 };
