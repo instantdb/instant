@@ -1265,20 +1265,24 @@
 
                   ;; simulate client going away
                   _ (session/on-close store socket)
-                  ;; Now we only have the content from the files
-                  _ (is (= "Hello" (read-full-stream store movies-app-id stream-id slurp-file)))
+
+                  _ (test-util/wait-for (fn []
+                                          (= 2 (count (app-stream-model/get-stream-files {:app-id movies-app-id
+                                                                                          :stream-id stream-id}))))
+
+                                        1000)
 
                   {:keys [offset]}
                   (blocking-send-msg :start-stream-ok socket-2 {:op :start-stream
                                                                 :client-id "stream-1"
                                                                 :reconnect-token (str reconnect-token)})
-                  _ (is (= offset 5))
+                  _ (is (= offset 8))
 
                   _ (send-msg socket-2 {:op :append-stream
                                         :stream-id (str stream-id)
                                         :chunks ["DEF"]
-                                        :offset 5})
-                  _ (is (= "HelloDEF" (read-full-stream store movies-app-id stream-id slurp-file)))]
+                                        :offset 8})
+                  _ (is (= "HelloABCDEF" (read-full-stream store movies-app-id stream-id slurp-file)))]
 
               (testing "if someone steals our session, we can't write to it"
                 (blocking-send-msg :start-stream-ok socket-3 {:op :start-stream
@@ -1286,15 +1290,15 @@
                                                               :reconnect-token (str reconnect-token)})
                 (blocking-send-msg :error socket-2 {:op :append-stream
                                                     :client-id "stream-1"
-                                                    :chunks ["DEF"]
-                                                    :offset 5})
+                                                    :chunks ["GHI"]
+                                                    :offset 8})
 
                 ;; socket-3 can write to it now
                 (send-msg socket-3 {:op :append-stream
                                     :stream-id (str stream-id)
                                     :chunks ["DEF"]
-                                    :offset 5})
-                (is (= "HelloDEF" (read-full-stream store movies-app-id stream-id slurp-file)))))))))))
+                                    :offset 8})
+                (is (= "HelloABCDEF" (read-full-stream store movies-app-id stream-id slurp-file)))))))))))
 
 (deftest streams-writer-flushes-on-disconnect
   (with-redefs [flags/stream-flush-byte-limit (constantly 10)]
