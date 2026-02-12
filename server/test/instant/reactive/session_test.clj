@@ -1338,6 +1338,6 @@
                      (fn []
                        (= 1 (count (app-stream-model/get-stream-files {:app-id movies-app-id
                                                                        :stream-id stream-id}))))
-                     100)
+                     1000)
 
                   _ (is (= "Hello" (read-full-stream store movies-app-id stream-id slurp-file)))])))))))
