@@ -20,9 +20,6 @@ app.config.timestamp_*.js
 *.launch
 .settings/
 
-# Temp
-gitignore
-
 # System Files
 .DS_Store
 Thumbs.db
