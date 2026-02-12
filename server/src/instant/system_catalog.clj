@@ -359,7 +359,7 @@
               :value-type :ref
               :reverse-identity (get-ident-spec "$files" "$stream")
               :cardinality :many
-              ;; XXX: Add support for restrict
+              ;; TODO(dww): Add support for on-delete=restrict
               ;; :on-delete :restrict
               :on-delete-reverse :cascade)
    (make-attr "$streams" "done"
