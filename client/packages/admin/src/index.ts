@@ -1056,177 +1056,10 @@ class InstantAdminDatabase<
     this.config = instantConfigWithDefaults(_config);
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config, this.impersonationOpts);
-    this.streams = new Streams(this.#ensureInstantStream);
+    this.streams = new Streams(this.#ensureInstantStream.bind(this));
     this.rooms = new Rooms<Schema>(this.config);
     this.#log = createLogger(!!this.config.verbose);
   }
-
-  #setupSSEConnection() {
-    if (this.#sseConnection) {
-      this.#sseConnection.close();
-    }
-    const headers: HeadersInit = {
-      ...authorizedHeaders(this.config, this.impersonationOpts),
-    };
-
-    const inference = !!this.config.schema;
-
-    const ES = makeEventSourceWrapper({ headers, inference });
-    const conn = new SSEConnection(
-      ES,
-      `${this.config.apiURI}/admin/sse?app_id=${this.config.appId}`,
-      `${this.config.apiURI}/admin/sse/push?app_id=${this.config.appId}`,
-    );
-    conn.onopen = this.#onopen;
-    conn.onmessage = this.#onmessage;
-    conn.onclose = this.#onclose;
-    conn.onerror = this.#onerror;
-    this.#sseConnection = conn;
-    return conn;
-  }
-
-  #ensureSSEConnection() {
-    return this.#sseConnection || this.#setupSSEConnection();
-  }
-
-  #trySend(eventId, msg) {
-    const sseConnection = this.#ensureSSEConnection();
-    this.#log.info('[send]', eventId, msg, {
-      isOpen: sseConnection.isOpen(),
-    });
-    if (sseConnection.isOpen()) {
-      sseConnection.send({ 'client-event-id': eventId, ...msg });
-    }
-  }
-
-  #setupInstantStream() {
-    this.#ensureSSEConnection();
-    const instantStream = new InstantStream({
-      WStream: this.config.WritableStream || WritableStream,
-      RStream: this.config.ReadableStream || ReadableStream,
-      trySend: (eventId, msg) => {
-        this.#trySend(eventId, msg);
-      },
-      log: this.#log,
-    });
-
-    this.#instantStream = instantStream;
-    return instantStream;
-  }
-
-  #ensureInstantStream() {
-    return this.#instantStream || this.#setupInstantStream();
-  }
-
-  #onopen = (e) => {
-    if (e.target !== this.#sseConnection) {
-      this.#log.info(
-        '[socket][open]',
-        e.target.id,
-        'skip; this is no longer the current transport',
-      );
-      return;
-    }
-    this.#log.info('[socket][open]', e.target.id);
-    this.#sseBackoff = 0;
-    this.#instantStream?.onConnectionStatusChange('authenticated');
-  };
-
-  #onclose = (e) => {
-    if (e.target !== this.#sseConnection) {
-      this.#log.info(
-        '[socket][close]',
-        e.target.id,
-        'skip; this is no longer the current transport',
-      );
-      return;
-    }
-    this.#log.info('[socket][close]', e.target.id);
-    this.#instantStream?.onConnectionStatusChange('closed');
-    if (this.#sseConnection) {
-      this.#sseConnection = null;
-      if (!this.#connectionIsIdle()) {
-        // We didn't remove the sse connection, and we have streams we care about, so let's try again
-        setTimeout(() => this.#ensureSSEConnection(), this.#sseBackoff);
-        this.#sseBackoff = Math.min(15000, Math.max(this.#sseBackoff, 500) * 2);
-      }
-    }
-  };
-
-  #onerror = (e) => {
-    if (e.target !== this.#sseConnection) {
-      this.#log.info(
-        '[socket][error]',
-        e.target.id,
-        'skip; this is no longer the current transport',
-      );
-      return;
-    }
-    this.#log.info('[socket][error]', e.target.id);
-
-    this.#instantStream?.onConnectionStatusChange('closed');
-  };
-
-  #connectionIsIdle() {
-    return !this.#instantStream || !this.#instantStream.hasActiveStreams();
-  }
-
-  #maybeShutdownConnection() {
-    if (this.#sseConnection && this.#connectionIsIdle()) {
-      const conn = this.#sseConnection;
-      this.#log.info('cleaning up unused socket', conn.id);
-      this.#sseConnection = null;
-      conn.close();
-    }
-  }
-
-  #onmessage = (e) => {
-    if (e.target !== this.#sseConnection) {
-      this.#log.info(
-        '[socket][message]',
-        e.target.id,
-        'skip; this is no longer the current transport',
-      );
-      return;
-    }
-
-    const msg = e.message;
-    this.#log.info('[receive]', msg);
-    switch (msg.op) {
-      case 'start-stream-ok': {
-        this.#instantStream?.onStartStreamOk(msg);
-        break;
-      }
-      case 'stream-flushed': {
-        this.#instantStream?.onStreamFlushed(msg);
-        break;
-      }
-      case 'append-failed': {
-        this.#instantStream?.onAppendFailed(msg);
-        break;
-      }
-      case 'stream-append': {
-        this.#instantStream?.onStreamAppend(msg);
-        break;
-      }
-
-      case 'error': {
-        switch (msg['original-event']?.op) {
-          case 'start-stream':
-          case 'append-stream':
-          case 'subscribe-stream':
-          case 'unsubscribe-stream': {
-            this.#instantStream?.onRecieveError(msg);
-            break;
-          }
-        }
-        break;
-      }
-    }
-
-    // Closes the connection if we don't have any items pending
-    this.#maybeShutdownConnection();
-  };
 
   /**
    * Sometimes you want to scope queries to a specific user.
@@ -1509,6 +1342,173 @@ class InstantAdminDatabase<
         body: JSON.stringify(body),
       },
     );
+  };
+
+  #setupSSEConnection() {
+    if (this.#sseConnection) {
+      this.#sseConnection.close();
+    }
+    const headers: HeadersInit = {
+      ...authorizedHeaders(this.config, this.impersonationOpts),
+    };
+
+    const inference = !!this.config.schema;
+
+    const ES = makeEventSourceWrapper({ headers, inference });
+    const conn = new SSEConnection(
+      ES,
+      `${this.config.apiURI}/admin/sse?app_id=${this.config.appId}`,
+      `${this.config.apiURI}/admin/sse/push?app_id=${this.config.appId}`,
+    );
+    conn.onopen = this.#onopen;
+    conn.onmessage = this.#onmessage;
+    conn.onclose = this.#onclose;
+    conn.onerror = this.#onerror;
+    this.#sseConnection = conn;
+    return conn;
+  }
+
+  #ensureSSEConnection() {
+    return this.#sseConnection || this.#setupSSEConnection();
+  }
+
+  #trySend(eventId, msg) {
+    const sseConnection = this.#ensureSSEConnection();
+    this.#log.info('[send]', eventId, msg, {
+      isOpen: sseConnection.isOpen(),
+    });
+    if (sseConnection.isOpen()) {
+      sseConnection.send({ 'client-event-id': eventId, ...msg });
+    }
+  }
+
+  #setupInstantStream() {
+    this.#ensureSSEConnection();
+    const instantStream = new InstantStream({
+      WStream: this.config.WritableStream || WritableStream,
+      RStream: this.config.ReadableStream || ReadableStream,
+      trySend: (eventId, msg) => {
+        this.#trySend(eventId, msg);
+      },
+      log: this.#log,
+    });
+
+    this.#instantStream = instantStream;
+    return instantStream;
+  }
+
+  #ensureInstantStream() {
+    return this.#instantStream || this.#setupInstantStream();
+  }
+
+  #onopen = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][open]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+    this.#log.info('[socket][open]', e.target.id);
+    this.#sseBackoff = 0;
+    this.#instantStream?.onConnectionStatusChange('authenticated');
+  };
+
+  #onclose = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][close]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+    this.#log.info('[socket][close]', e.target.id);
+    this.#instantStream?.onConnectionStatusChange('closed');
+    if (this.#sseConnection) {
+      this.#sseConnection = null;
+      if (!this.#connectionIsIdle()) {
+        // We didn't remove the sse connection, and we have streams we care about, so let's try again
+        setTimeout(() => this.#ensureSSEConnection(), this.#sseBackoff);
+        this.#sseBackoff = Math.min(15000, Math.max(this.#sseBackoff, 500) * 2);
+      }
+    }
+  };
+
+  #onerror = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][error]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+    this.#log.info('[socket][error]', e.target.id);
+
+    this.#instantStream?.onConnectionStatusChange('closed');
+  };
+
+  #connectionIsIdle() {
+    return !this.#instantStream || !this.#instantStream.hasActiveStreams();
+  }
+
+  #maybeShutdownConnection() {
+    if (this.#sseConnection && this.#connectionIsIdle()) {
+      const conn = this.#sseConnection;
+      this.#log.info('cleaning up unused socket', conn.id);
+      this.#sseConnection = null;
+      conn.close();
+    }
+  }
+
+  #onmessage = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][message]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+
+    const msg = e.message;
+    this.#log.info('[receive]', msg);
+    switch (msg.op) {
+      case 'start-stream-ok': {
+        this.#instantStream?.onStartStreamOk(msg);
+        break;
+      }
+      case 'stream-flushed': {
+        this.#instantStream?.onStreamFlushed(msg);
+        break;
+      }
+      case 'append-failed': {
+        this.#instantStream?.onAppendFailed(msg);
+        break;
+      }
+      case 'stream-append': {
+        this.#instantStream?.onStreamAppend(msg);
+        break;
+      }
+
+      case 'error': {
+        switch (msg['original-event']?.op) {
+          case 'start-stream':
+          case 'append-stream':
+          case 'subscribe-stream':
+          case 'unsubscribe-stream': {
+            this.#instantStream?.onRecieveError(msg);
+            break;
+          }
+        }
+        break;
+      }
+    }
+
+    // Closes the connection if we don't have any items pending
+    this.#maybeShutdownConnection();
   };
 }
 
