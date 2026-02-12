@@ -1107,7 +1107,7 @@
         file-content (apply str (map (fn [{:keys [location-id]}]
                                        (slurp-file app-id location-id))
                                      stream-files))
-        buffer-content (some->> (tool/inspect (rs/get-stream-object-for-subscribe store app-id stream-id))
+        buffer-content (some->> (rs/get-stream-object-for-subscribe store app-id stream-id)
                                 deref
                                 :buffer
                                 (map (fn [^bytes ba]

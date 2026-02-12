@@ -1,6 +1,6 @@
 import 'react-native-get-random-values';
 
-import Storage from './Storage';
+import Store from './Storage';
 import EventSourceImpl from './EventSourceImpl';
 import NetworkListener from './NetworkListener';
 import version from './version';
@@ -172,7 +172,7 @@ class InstantReactNativeDatabase<
     UseDates
   >,
 > extends InstantReactAbstractDatabase<Schema, UseDates, Config> {
-  static Storage = Storage;
+  static Store = Store;
   static NetworkListener = NetworkListener;
   static EventSourceImpl = EventSourceImpl;
 }

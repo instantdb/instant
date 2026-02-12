@@ -285,7 +285,7 @@
                                                     :content-length buffer-byte-size
                                                     :skip-perms-check? true
                                                     :mode :create}
-                                                   (ByteBufInputStream. buff))
+                                                   (ByteBufInputStream. buff true))
                  (catch clojure.lang.ExceptionInfo e
                    (if-let [{:keys [location-id metadata]} (::storage-coordinator/upload-meta (ex-data e))]
                      (let [existing-file (app-file-model/get-by-path {:app-id app-id

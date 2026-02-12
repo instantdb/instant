@@ -1472,6 +1472,12 @@ class InstantAdminDatabase<
       streamOpts.clientId = opts.clientId;
     }
     if (opts?.streamId) {
+      streamOpts.streamId = opts.streamId;
+    }
+    if (!streamOpts.clientId && !streamOpts.streamId) {
+      throw new Error(
+        'Must provide one of clientId or streamId to createReadStream',
+      );
     }
     return this.#ensureInstantStream().createReadStream(streamOpts);
   }

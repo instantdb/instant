@@ -312,10 +312,12 @@ function Reader({
 
   // sync defaultClientId
   const prevDefault = useRef(defaultClientId);
-  if (prevDefault.current !== defaultClientId) {
-    prevDefault.current = defaultClientId;
-    setClientId(defaultClientId);
-  }
+  useEffect(() => {
+    if (prevDefault.current !== defaultClientId) {
+      prevDefault.current = defaultClientId;
+      setClientId(defaultClientId);
+    }
+  }, [defaultClientId]);
 
   return (
     <View style={styles.section}>

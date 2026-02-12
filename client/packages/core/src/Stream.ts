@@ -244,7 +244,6 @@ function createWriteStream({
         buffer.push({ chunk, byteLen });
         const offset = bufferOffset + bufferByteSize;
         bufferByteSize += byteLen;
-        console.log({ bufferByteSize });
         if (!disconnected) {
           appendStream({ streamId, chunks: [chunk], offset });
         }
@@ -690,7 +689,7 @@ export class InstantStream {
   }
 
   public createReadStream(opts: {
-    clientId: string;
+    clientId?: string;
     streamId?: string;
     byteOffset?: number;
   }) {
@@ -837,6 +836,7 @@ export class InstantStream {
       'subscribe-event-id': eventId,
     };
     this.trySend(uuid(), msg);
+    delete this.readStreamIterators[eventId];
   }
 
   onStreamAppend(msg: StreamAppendMsg) {
