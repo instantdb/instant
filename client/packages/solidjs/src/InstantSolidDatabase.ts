@@ -142,7 +142,7 @@ export class InstantSolidDatabase<
    *   // state().isLoading, state().error, state().data
    */
   useQuery = <Q extends ValidQuery<Q, Schema>>(
-    query: null | Q,
+    query: (() => null | Q) | null | Q,
     opts?: InstaQLOptions,
   ): Accessor<InstaQLLifecycleState<Schema, Q, UseDates>> => {
     const [state, setState] = createSignal<
@@ -150,14 +150,16 @@ export class InstantSolidDatabase<
     >(defaultState as InstaQLLifecycleState<Schema, Q, UseDates>);
 
     createEffect(() => {
-      if (!query) {
+      const resolvedQuery = typeof query === 'function' ? query() : query;
+
+      if (!resolvedQuery) {
         setState(
           () => defaultState as InstaQLLifecycleState<Schema, Q, UseDates>,
         );
         return;
       }
 
-      let q = query;
+      let q = resolvedQuery;
       if (opts && 'ruleParams' in opts) {
         q = { $$ruleParams: (opts as any)['ruleParams'], ...q };
       }
