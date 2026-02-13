@@ -4,12 +4,14 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
 import NextLink from 'next/link';
 import { PropsWithChildren, useEffect, useState } from 'react';
-import { Button, cn, LogoIcon } from '@/components/ui';
+import { Button, cn } from '@/components/ui';
 
-const headingClasses = `font-mono tracking-wide leading-relaxed`;
+const headingClasses = `font-mono`;
 
 export const HeadingBrand = ({ children }: PropsWithChildren) => (
-  <h1 className={clsx(headingClasses, 'font-bold')}>{children}</h1>
+  <h1 className={clsx(headingClasses, 'font-bold', 'text-[24px]')}>
+    {children}
+  </h1>
 );
 
 export const H2 = ({ children }: PropsWithChildren) => (
@@ -68,7 +70,7 @@ const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
 function LogoType() {
   return (
     <Link href="/" className="inline-flex items-center space-x-2">
-      <LogoIcon />
+      {/*<LogoIcon />*/}
       <HeadingBrand>instant</HeadingBrand>
     </Link>
   );
@@ -131,39 +133,41 @@ export function BareNav({ children }: PropsWithChildren) {
 
   return (
     <div className="flex flex-row items-center justify-between gap-4 text-lg md:text-base">
-      <LogoType />
-      <button className="min-[60rem]:hidden" onClick={() => setIsOpen(true)}>
-        <Bars3Icon height={'1em'} />
-      </button>
-      <div
-        onClick={() => setIsOpen(false)}
-        className={cn(
-          // viz
-          'hidden min-[60rem]:flex',
-          // pos
-          'fixed inset-0 z-40 min-[60rem]:relative',
-          // scroll
-          'overflow-y-scroll min-[60rem]:overflow-y-auto',
-          // size
-          'h-full w-full min-[60rem]:h-12 min-[60rem]:w-auto',
-          // layout
-          'flex-col items-start gap-6 px-8 py-4 min-[60rem]:flex-row min-[60rem]:items-center min-[60rem]:gap-4 min-[60rem]:p-0',
-          // look and feel
-          'bg-white/90 backdrop-blur-xl min-[60rem]:bg-transparent',
-          {
-            flex: isOpen,
-          },
-        )}
-      >
-        <div className="flex justify-between self-stretch min-[60rem]:hidden">
-          <LogoType />
-          <button className="z-50 mt-0.5" onClick={() => setIsOpen(false)}>
-            <XMarkIcon height="1em" />
-          </button>
-        </div>
+      <div className="flex">
+        <LogoType />
+        <button className="min-[60rem]:hidden" onClick={() => setIsOpen(true)}>
+          <Bars3Icon height={'1em'} />
+        </button>
+        <div
+          onClick={() => setIsOpen(false)}
+          className={cn(
+            // viz
+            'hidden min-[60rem]:flex',
+            // pos
+            'fixed inset-0 z-40 min-[60rem]:relative',
+            // scroll
+            'overflow-y-scroll min-[60rem]:overflow-y-auto',
+            // size
+            'h-full w-full min-[60rem]:h-12 min-[60rem]:w-auto',
+            // layout
+            'flex-col items-start gap-6 px-8 py-4 min-[60rem]:flex-row min-[60rem]:items-center min-[60rem]:gap-4 min-[60rem]:p-0',
+            // look and feel
+            'bg-white/90 backdrop-blur-xl min-[60rem]:bg-transparent',
+            {
+              flex: isOpen,
+            },
+          )}
+        >
+          <div className="flex justify-between self-stretch min-[60rem]:hidden">
+            <LogoType />
+            <button className="z-50 mt-0.5" onClick={() => setIsOpen(false)}>
+              <XMarkIcon height="1em" />
+            </button>
+          </div>
 
-        {children}
-        <NavItems />
+          {children}
+          <NavItems />
+        </div>
       </div>
     </div>
   );
@@ -172,7 +176,7 @@ export function BareNav({ children }: PropsWithChildren) {
 export function MainNav({ children }: PropsWithChildren) {
   return (
     <div className="py-4">
-      <div className="mx-auto max-w-7xl px-8">
+      <div className="mx-auto px-[230px]">
         <BareNav>{children}</BareNav>
       </div>
     </div>

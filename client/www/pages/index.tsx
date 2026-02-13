@@ -643,7 +643,15 @@ function LandingOfflineGraphic() {
   );
 }
 
-export default function Landing2024() {
+export default function Landing2026() {
+  return (
+    <div>
+      <MainNav />
+    </div>
+  );
+}
+
+function Landing2024() {
   return (
     <LandingContainer>
       <Head>
