@@ -272,7 +272,7 @@
   [conn job]
   (let [{:keys [app_id attr_id]} job
         sketch-key {:app-id app_id :attr-id attr_id}
-        total (-> (cms/lookup conn [sketch-key])
+        total (-> (cms/lookup [sketch-key])
                   (get-in [sketch-key :sketch :total])
                   (or 0)
                   (max 0))
@@ -287,7 +287,6 @@
 (defn update-insert-nulls-work-estimate!
   "Uses the attr_sketch to update the estimate of the work we'll do for inserting nulls"
   [conn job]
-
   (let [{:keys [app_id attr_id]} job
         attrs (attr-model/get-by-app-id conn app_id)
         indexed-attr (attr-model/seek-by-id attr_id attrs)]
@@ -778,7 +777,7 @@
 (def index--stages
   [{:stage "update-attr-start", :fn #'index--update-attr-start}
    {:stage "estimate-work",     :fn #'update-work-estimate!}
-   {:stage "estimate-insert-nulls-work", :fn #'update-insert-nulls-work-estimate!}
+   {:stage "estimate-work-with-undefineds", :fn #'update-insert-nulls-work-estimate!}
    {:stage "update-triples",    :fn #'index--update-triples}
    {:stage "insert-nulls",      :fn #'index--insert-nulls}
    {:stage "update-attr-done",  :fn #'index--update-attr-done}])
