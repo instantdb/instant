@@ -611,7 +611,8 @@
             q {:with [[:next-batch {:select :*
                                     :from [[:triples :t]]
                                     :for :update
-                                    :order-by [[:created-at :asc] [:entity-id :asc] [:value-md5 :asc]]
+                                    :order-by (cond-> [[:created-at :asc] [:entity-id :asc]]
+                                                (= :many (:cardinality attr)) (conj [:value-md5 :asc]))
                                     :limit batch-size
                                     :where [:and
                                             [:= :app-id app_id]
@@ -649,7 +650,8 @@
                                                              [:inline "e"] :entity-id
                                                              [:inline "md5"] :value-md5]]]
                                                   :from :next-batch
-                                                  :order-by [[:created-at :desc] [:entity_id :desc]]
+                                                  :order-by (cond-> [[:created-at :desc] [:entity_id :desc]]
+                                                              (= :many (:cardinality attr)) (conj [:value-md5 :desc]))
                                                   :limit 1}]
                          :data]]
                :pg-hints [(pg-hints/index-scan :t :triples_created_at_idx)
