@@ -4,7 +4,7 @@ export const getUnusedPort = async (
 ): Promise<number> => {
   for (let i = 0; i < maxAttempts; i++) {
     const port = startPort + i;
-    const isAvailable = await checkPort(port);
+    const isAvailable = await isPortAvailable(port);
 
     if (isAvailable) {
       return port;
@@ -16,7 +16,7 @@ export const getUnusedPort = async (
   );
 };
 
-const checkPort = async (port: number): Promise<boolean> => {
+const isPortAvailable = async (port: number): Promise<boolean> => {
   try {
     const server = Bun.serve({
       port,
