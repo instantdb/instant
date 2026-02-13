@@ -7,7 +7,7 @@ const server = serve({
     // Serve index.html for all unmatched routes.
     "/*": index,
   },
-  port: process.env.PORT || (await getUnusedPort(3000)),
+  port: process.env.PORT ?? (await getUnusedPort(3000)),
 
   development: process.env.NODE_ENV !== "production" && {
     // Enable browser hot reloading in development
