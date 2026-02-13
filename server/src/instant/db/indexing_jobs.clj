@@ -330,7 +330,11 @@
                                                 [:coalesce :work-completed 0]
                                                 completed-count]}}))))
 
-(defn set-context! [conn job key context]
+(defn set-context!
+  "Updates the context value at the given key.
+   (set-context! _ _ \"index-nulls\" {:cursor {...}})
+    -> {:context {\"index-nulls\" {\"cursor\" ...}}}"
+  [conn job key context]
   (sql/execute-one! ::set-context!
                     conn
                     (hsql/format {:update :indexing-jobs
