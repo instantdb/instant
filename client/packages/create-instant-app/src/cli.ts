@@ -11,7 +11,9 @@ export type Project = {
     | 'vite-vanilla'
     | 'expo'
     | 'tanstack-start'
-    | 'bun-react';
+    | 'tanstack-start-with-tanstack-query'
+    | 'bun-react'
+    | 'solidjs-vite';
   ruleFiles:
     | 'cursor'
     | 'claude'
@@ -71,6 +73,7 @@ export const runCli = async (): Promise<{
         'bun-react',
         'tanstack-start',
         'tanstack-start-with-tanstack-query',
+        'solidjs-vite',
       ]),
     )
     .addOption(
@@ -229,6 +232,11 @@ export const runCli = async (): Promise<{
               {
                 value: 'bun-react',
                 label: 'Bun + React',
+                secondary: true,
+              },
+              {
+                value: 'solidjs-vite',
+                label: 'Vite: SolidJS',
                 secondary: true,
               },
             ],

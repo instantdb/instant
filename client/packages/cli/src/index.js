@@ -386,7 +386,7 @@ program
     'If you have an existing app ID, we can pull schema and perms from there.',
   )
   .option(
-    '-p --package <react|react-native|core|admin>',
+    '-p --package <react|react-native|core|admin|solid>',
     'Which package to automatically install if there is not one installed already.',
   )
   .option('--title <title>', 'Title for the created app')
@@ -453,7 +453,7 @@ program
     'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator stores.owner:stores.manager`',
   )
   .option(
-    '-p --package <react|react-native|core|admin>',
+    '-p --package <react|react-native|core|admin|solid>',
     'Which package to automatically install if there is not one installed already.',
   )
   .description('Push schema and perm files to production.')
@@ -507,7 +507,7 @@ program
     'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
   )
   .option(
-    '-p --package <react|react-native|core|admin>',
+    '-p --package <react|react-native|core|admin|solid>',
     'Which package to automatically install if there is not one installed already.',
   )
   .option(
@@ -889,6 +889,7 @@ const packageAliasAndFullNames = {
   'react-native': '@instantdb/react-native',
   core: '@instantdb/core',
   admin: '@instantdb/admin',
+  solid: '@instantdb/solidjs',
 };
 
 async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
@@ -929,6 +930,7 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
           },
           { label: '@instantdb/core', value: '@instantdb/core' },
           { label: '@instantdb/admin', value: '@instantdb/admin' },
+          { label: '@instantdb/solidjs', value: '@instantdb/solidjs' },
         ],
       }),
     );
@@ -1181,6 +1183,7 @@ async function getInstantModuleName(pkgJson) {
     '@instantdb/react-native',
     '@instantdb/core',
     '@instantdb/admin',
+    '@instantdb/solidjs',
   ].find((name) => deps[name] || devDeps[name]);
   return instantModuleName;
 }
