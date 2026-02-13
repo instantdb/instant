@@ -24,7 +24,7 @@ const checkPort = async (port: number): Promise<boolean> => {
         return new Response("OK");
       },
     });
-    server.stop();
+    await server.stop(true);
     return true;
   } catch (err) {
     return false;
