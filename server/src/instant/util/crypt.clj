@@ -193,7 +193,7 @@
       (TinkJsonProtoKeysetFormat/serializeKeyset (InsecureSecretKeyAccess/get))))
 
 (defn generate-cloudfront-key
-  "Generates an RSA signing key for signing cloudflare urls.
+  "Generates an RSA signing key for signing CloudFront urls.
    We want the same signature for the same data, so we use an RSA key."
   ^KeyPair []
   (let [kpg (KeyPairGenerator/getInstance "RSA")]
