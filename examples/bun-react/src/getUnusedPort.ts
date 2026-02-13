@@ -1,5 +1,3 @@
-import net from "net";
-
 export const getUnusedPort = async (
   startPort: number = 3000,
   maxAttempts: number = 10,
@@ -20,17 +18,17 @@ export const getUnusedPort = async (
 
 const checkPort = (port: number): Promise<boolean> => {
   return new Promise((resolve) => {
-    const server = net.createServer();
-
-    server.once("error", (_err: NodeJS.ErrnoException) => {
-      resolve(false);
-    });
-
-    server.once("listening", () => {
-      server.close();
+    try {
+      const server = Bun.serve({
+        port,
+        fetch() {
+          return new Response("OK");
+        },
+      });
+      server.stop();
       resolve(true);
-    });
-
-    server.listen(port);
+    } catch (err) {
+      resolve(false);
+    }
   });
 };
