@@ -1,9 +1,9 @@
 import net from "net";
 
-export const getUnusedPort = async (): Promise<number> => {
-  const startPort = 3000;
-  const maxAttempts = 10;
-
+export const getUnusedPort = async (
+  startPort: number = 3000,
+  maxAttempts: number = 10,
+): Promise<number> => {
   for (let i = 0; i < maxAttempts; i++) {
     const port = startPort + i;
     const isAvailable = await checkPort(port);
