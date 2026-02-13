@@ -903,7 +903,6 @@
                     (if eav
                       (UUID/fromString value)
                       value)]
-           :t created_at
            :md5 value_md5
            :index (->> [[ea :ea] [eav :eav] [av :av] [ave :ave] [vae :vae]]
                        (filter first)
