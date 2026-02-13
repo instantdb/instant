@@ -232,12 +232,6 @@ export function useTypingIndicator<
 ): TypingIndicatorHandle<RoomSchema[RoomType]['presence']> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  onCleanup(() => {
-    if (!timeoutId) return;
-    clearTimeout(timeoutId);
-    timeoutId = null;
-  });
-
   const presence = rooms.usePresence(room, {
     keys: [inputName] as (keyof RoomSchema[RoomType]['presence'])[],
   });
@@ -254,8 +248,8 @@ export function useTypingIndicator<
 
   const setActive = (isActive: boolean) => {
     room.core._reactor.publishPresence(room.type, room.id, {
-      [inputName]: isActive,
-    } as unknown as Partial<RoomSchema[RoomType]['presence']>);
+      [inputName]: isActive ? true : null,
+    } as Partial<RoomSchema[RoomType]['presence']>);
 
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -272,6 +266,17 @@ export function useTypingIndicator<
       } as Partial<RoomSchema[RoomType]['presence']>);
     }, opts?.timeout ?? defaultActivityStopTimeout);
   };
+
+  onCleanup(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+
+    // Ensure we don't leave a sticky typing state behind on unmount,
+    // even when opts.timeout is null/0 (i.e. no auto-timeout).
+    setActive(false);
+  });
 
   const onKeyDown = (e: KeyboardEvent) => {
     const isEnter = opts?.stopOnEnter && e.key === 'Enter';
