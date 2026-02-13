@@ -409,7 +409,7 @@
 
 (def editable-etypes
   "We let users create new attributes on these etypes."
-  #{"$users" "$files"})
+  #{"$users" "$files" "$streams"})
 
 (def ^:private  editable-triple-ident-names
   #{["$users" "id"]

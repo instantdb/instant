@@ -578,12 +578,28 @@ function RefItem({
 }
 
 const isEditableBlobAttr = (namespace: SchemaNamespace, attr: SchemaAttr) => {
-  return (
-    (attr.type === 'blob' && namespace.name !== '$files') ||
-    (namespace.name === '$files' &&
-      attr.type === 'blob' &&
-      attr.name === 'path')
-  );
+  switch (namespace.name) {
+    case '$files': {
+      return attr.type === 'blob' && attr.name === 'path';
+    }
+    case '$streams': {
+      return false;
+    }
+    default: {
+      return attr.type === 'blob';
+    }
+  }
+};
+
+const isEditableRefAttr = (attr: SchemaAttr) => {
+  switch (attr.namespace) {
+    case '$streams': {
+      return false;
+    }
+    default: {
+      return attr.type === 'ref';
+    }
+  }
 };
 
 export function EditRowDialog({
@@ -608,7 +624,7 @@ export function EditRowDialog({
       if (isEditableBlobAttr(namespace, a)) {
         editableBlobAttrs.push(a);
       }
-      if (a.type === 'ref') {
+      if (a.type === 'ref' && isEditableRefAttr(a)) {
         editableRefAttrs.push(a);
       }
     }
