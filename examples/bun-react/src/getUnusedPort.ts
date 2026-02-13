@@ -16,19 +16,17 @@ export const getUnusedPort = async (
   );
 };
 
-const checkPort = (port: number): Promise<boolean> => {
-  return new Promise((resolve) => {
-    try {
-      const server = Bun.serve({
-        port,
-        fetch() {
-          return new Response("OK");
-        },
-      });
-      server.stop();
-      resolve(true);
-    } catch (err) {
-      resolve(false);
-    }
-  });
+const checkPort = async (port: number): Promise<boolean> => {
+  try {
+    const server = Bun.serve({
+      port,
+      fetch() {
+        return new Response("OK");
+      },
+    });
+    server.stop();
+    return true;
+  } catch (err) {
+    return false;
+  }
 };
