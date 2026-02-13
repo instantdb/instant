@@ -200,7 +200,7 @@ export function useSyncPresence<
   createEffect(() => {
     // Track deps if provided, otherwise track serialized data
     if (deps) {
-      deps.forEach((d) => d);
+      deps.forEach((d) => (typeof d === 'function' ? d() : d));
     } else {
       JSON.stringify(data);
     }
@@ -231,6 +231,12 @@ export function useTypingIndicator<
   opts: TypingIndicatorOpts = {},
 ): TypingIndicatorHandle<RoomSchema[RoomType]['presence']> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  onCleanup(() => {
+    if (!timeoutId) return;
+    clearTimeout(timeoutId);
+    timeoutId = null;
+  });
 
   const presence = rooms.usePresence(room, {
     keys: [inputName] as (keyof RoomSchema[RoomType]['presence'])[],
