@@ -257,62 +257,62 @@
   (with-indexing-job-queue job-queue
     (with-zeneca-app-no-indexing
       (fn [app r]
-       (with-sketches app
-          (with-redefs [jobs/batch-size 100]
-            (let [triples-to-delete-count 202
+        (let [triples-to-delete-count 202
 
-                  title-triples-before (triple-model/fetch (aurora/conn-pool :read)
-                                                           (:id app)
-                                                           [[:= :attr-id (resolvers/->uuid r :books/title)]])
-                  _ (sql/execute! (aurora/conn-pool :write)
-                                  (hsql/format
-                                   {:delete-from :triples
-                                    :where [:and
-                                            [:= :app-id (:id app)]
-                                            (list* :or
-                                                   (map (fn [{:keys [triple md5]}]
-                                                          (let [[entity-id attr-id value] triple]
-                                                            [:and
-                                                             [:= :entity_id entity-id]
-                                                             [:= :attr-id attr-id]
-                                                             [:= :value [:cast (->json value) :jsonb]]
-                                                             [:= :value-md5 md5]]))
-                                                        (take triples-to-delete-count title-triples-before)))]}))
-                  title-job (jobs/create-job!
-                             {:app-id (:id app)
-                              :attr-id (resolvers/->uuid r :books/title)
-                              :job-type "index"})
+              title-triples-before (triple-model/fetch (aurora/conn-pool :read)
+                                                       (:id app)
+                                                       [[:= :attr-id (resolvers/->uuid r :books/title)]])
+              _ (sql/execute! (aurora/conn-pool :write)
+                              (hsql/format
+                               {:delete-from :triples
+                                :where [:and
+                                        [:= :app-id (:id app)]
+                                        (list* :or
+                                               (map (fn [{:keys [triple md5]}]
+                                                      (let [[entity-id attr-id value] triple]
+                                                        [:and
+                                                         [:= :entity_id entity-id]
+                                                         [:= :attr-id attr-id]
+                                                         [:= :value [:cast (->json value) :jsonb]]
+                                                         [:= :value-md5 md5]]))
+                                                    (take triples-to-delete-count title-triples-before)))]}))]
+          (with-sketches app
+            (with-redefs [jobs/batch-size 100]
+              (let [title-job (jobs/create-job!
+                               {:app-id (:id app)
+                                :attr-id (resolvers/->uuid r :books/title)
+                                :job-type "index"})
 
-                  _ (jobs/enqueue-job job-queue title-job)
-                  _ (wait-for (fn []
-                                (every? (fn [{:keys [id]}]
-                                          (= "completed" (:job_status (jobs/get-by-id id))))
-                                        [title-job]))
-                              wait-timeout)
-                  title-triples-after (triple-model/fetch (aurora/conn-pool :read)
-                                                          (:id app)
-                                                          [[:= :attr-id (resolvers/->uuid r :books/title)]])]
+                    _ (jobs/enqueue-job job-queue title-job)
+                    _ (wait-for (fn []
+                                  (every? (fn [{:keys [id]}]
+                                            (= "completed" (:job_status (jobs/get-by-id id))))
+                                          [title-job]))
+                                wait-timeout)
+                    title-triples-after (triple-model/fetch (aurora/conn-pool :read)
+                                                            (:id app)
+                                                            [[:= :attr-id (resolvers/->uuid r :books/title)]])]
 
-              (check-estimate title-job)
+                (check-estimate title-job)
 
-              (is (= (count title-triples-after)
-                     (count title-triples-before)))
+                (is (= (count title-triples-after)
+                       (count title-triples-before)))
 
-              (is (= triples-to-delete-count
-                     (count (filter (fn [{:keys [triple]}]
-                                      (nil? (nth triple 2)))
-                                    title-triples-after))))
+                (is (= triples-to-delete-count
+                       (count (filter (fn [{:keys [triple]}]
+                                        (nil? (nth triple 2)))
+                                      title-triples-after))))
 
-              (is (every? (fn [{:keys [index]}]
-                            (contains? index :ave))
-                          title-triples-after))
-              (let [attrs (attr-model/get-by-app-id (:id app))]
-                (is (-> (resolvers/->uuid r :books/title)
-                        (attr-model/seek-by-id attrs)
-                        :index?))
-                (is (not (-> (resolvers/->uuid r :books/title)
-                             (attr-model/seek-by-id attrs)
-                             :indexing)))))))))))
+                (is (every? (fn [{:keys [index]}]
+                              (contains? index :ave))
+                            title-triples-after))
+                (let [attrs (attr-model/get-by-app-id (:id app))]
+                  (is (-> (resolvers/->uuid r :books/title)
+                          (attr-model/seek-by-id attrs)
+                          :index?))
+                  (is (not (-> (resolvers/->uuid r :books/title)
+                               (attr-model/seek-by-id attrs)
+                               :indexing))))))))))))
 
 (deftest index-doesn't-insert-null-values-for-refs
   (with-indexing-job-queue job-queue

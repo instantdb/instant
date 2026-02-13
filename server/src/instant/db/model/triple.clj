@@ -897,11 +897,13 @@
   [{:keys [entity_id attr_id
            value value_md5
            ea eav av ave vae
-           checked_data_type]}]
+           checked_data_type
+           created_at]}]
   (cond-> {:triple [entity_id attr_id
                     (if eav
                       (UUID/fromString value)
                       value)]
+           :t created_at
            :md5 value_md5
            :index (->> [[ea :ea] [eav :eav] [av :av] [ave :ave] [vae :vae]]
                        (filter first)
