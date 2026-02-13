@@ -3,5 +3,8 @@
   "public": false,
   "github": {
     "enabled": false
+  },
+  "git": {
+    "deploymentEnabled": false
   }
 }
