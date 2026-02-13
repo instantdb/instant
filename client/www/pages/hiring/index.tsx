@@ -1,7 +1,6 @@
 import Head from 'next/head';
 import {
   LandingContainer,
-  LandingFooter,
   MainNav,
   Link,
   Section,
@@ -10,6 +9,7 @@ import {
 } from '@/components/marketingUi';
 import { Button } from '@/components/ui';
 import * as og from '@/lib/og';
+import { Footer } from '@/components/new-landing/Footer';
 
 type JobListing = {
   title: string;
@@ -112,7 +112,7 @@ export default function HiringIndexPage() {
           </div>
         </div>
       </Section>
-      <LandingFooter />
+      <Footer />
     </LandingContainer>
   );
 }

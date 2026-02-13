@@ -1,3 +1,4 @@
+'use client';
 import { useAuthToken } from '@/lib/auth';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/solid';
@@ -15,6 +16,8 @@ import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Button, cn, LogoIcon } from '@/components/ui';
 import { ComponentType, SVGProps } from 'react';
+import { useRouter } from 'next/router';
+import { AnimatePresence, motion } from 'motion/react';
 
 type Product = {
   id: string;
@@ -91,10 +94,12 @@ export function ProductNav({ currentSlug }: { currentSlug: string }) {
   );
 }
 
-const headingClasses = `font-mono tracking-wide leading-relaxed`;
+const headingClasses = `font-mono`;
 
 export const HeadingBrand = ({ children }: PropsWithChildren) => (
-  <h1 className={clsx(headingClasses, 'font-bold')}>{children}</h1>
+  <h1 className={clsx(headingClasses, 'font-bold', 'text-[20px]')}>
+    {children}
+  </h1>
 );
 
 export const H2 = ({ children }: PropsWithChildren) => (
@@ -113,12 +118,8 @@ export const H4 = ({ children }: PropsWithChildren) => (
   <h4 className={clsx(`text-xl`)}>{children}</h4>
 );
 
-export const SectionWide = ({ children }: PropsWithChildren) => (
-  <section className={clsx('mx-auto max-w-7xl px-8')}>{children}</section>
-);
-
 export const Section = ({ children }: PropsWithChildren) => (
-  <section className={clsx('mx-auto max-w-4xl px-8')}>{children}</section>
+  <section className={clsx('landing-width mx-auto')}>{children}</section>
 );
 
 export const TwoColResponsive = ({ children }: PropsWithChildren) => (
@@ -144,13 +145,31 @@ export const TextLink: React.FC<
 const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
   href,
   children,
-}) => (
-  <NextLink href={href} className="whitespace-nowrap hover:text-blue-500">
-    {children}
-  </NextLink>
-);
+}) => {
+  // add an underline if the link is active
+  const router = useRouter();
+  const pathname = router.pathname;
+  return (
+    <NextLink
+      href={href}
+      className={cn(
+        'relative z-20 whitespace-nowrap decoration-black/20 hover:text-blue-500',
+      )}
+    >
+      <AnimatePresence>
+        {pathname === href && (
+          <motion.div
+            layoutId="nav-underline"
+            className="absolute inset-0 z-0 -translate-y-[2px] scale-x-110 border-b-2 border-b-gray-900/20"
+          />
+        )}
+      </AnimatePresence>
+      {children}
+    </NextLink>
+  );
+};
 
-function LogoType() {
+export function LogoType() {
   return (
     <Link href="/" className="inline-flex items-center space-x-2">
       <LogoIcon />
@@ -296,40 +315,45 @@ function NavItems() {
       <NavLink href="/tutorial">Tutorial</NavLink>
       <NavLink href="/examples">Examples</NavLink>
       <NavLink href="/recipes">Recipes</NavLink>
-      <NavLink href="/essays">Essays</NavLink>
       <NavLink href="/docs">Docs</NavLink>
-      <NavLink href="/hiring">Hiring</NavLink>
-      <NavLink href="https://discord.com/invite/VU53p7uQcE">
-        <span className="hidden min-[60rem]:inline">
-          <img src="/marketing/discord-icon.svg" className="h-5 w-5" />
-        </span>
-        <span className="min-[60rem]:hidden">Discord</span>
-      </NavLink>
+      <NavLink href="/essays">Essays</NavLink>
+      <NavLink href="/about">About</NavLink>
+    </>
+  );
+}
+
+function OtherNavItems() {
+  const isHydrated = useIsHydrated();
+  const isAuthed = !!useAuthToken();
+  if (!isHydrated) return null;
+  return (
+    <>
       <NavLink href="https://github.com/instantdb/instant">
-        <span className="hidden min-[60rem]:inline">
+        <span className="bg-secondary-fill border-secondary-border flex items-center gap-1 rounded-[5px] border p-1 px-3 text-sm transition-shadow hover:text-black hover:shadow">
           <img
-            src="https://img.shields.io/github/stars/instantdb/instant?style=flat-square&logo=github&label=GitHub&labelColor=000000&color=F54900"
-            alt="GitHub stars"
-            className="h-5"
+            src={'img/github-icon.svg'}
+            alt="GitHub"
+            className="h-[18px] w-[18px]"
           />
+          <span className="pl-1 font-semibold">9.6k</span>
+          stars
         </span>
-        <span className="min-[60rem]:hidden">GitHub</span>
       </NavLink>
       {isAuthed ? (
         <div>
-          <Button type="link" variant="cta" size="large" href="/dash">
+          <Button variant="cta" className="" type="link" href="/dash">
             Dashboard
           </Button>
         </div>
       ) : (
-        <>
-          <NavLink href="/dash">Login</NavLink>
-          <div>
-            <Button type="link" variant="cta" size="large" href="/dash">
-              Sign up
-            </Button>
-          </div>
-        </>
+        <Link
+          className={cn(
+            'whitespace-nowrap decoration-black/20 hover:text-blue-500',
+          )}
+          href="/dash"
+        >
+          Sign up
+        </Link>
       )}
     </>
   );
@@ -373,19 +397,16 @@ export function BareNav({ children }: PropsWithChildren) {
             <XMarkIcon height="1em" />
           </button>
         </div>
-
-        {children}
-        <NavItems />
       </div>
     </div>
   );
 }
 
-export function MainNav({ children }: PropsWithChildren) {
+export function MainNav() {
   return (
-    <div className="py-4">
-      <div className="mx-auto max-w-7xl px-8">
-        <BareNav>{children}</BareNav>
+    <div className="border-b border-b-gray-200 py-4 shadow">
+      <div className="landing-width mx-auto">
+        <BareNav />
       </div>
     </div>
   );
@@ -397,42 +418,30 @@ export const LandingContainer = ({ children }: PropsWithChildren) => (
 
 export function LandingFooter() {
   return (
-    <div className="text-xs text-gray-500">
-      <style jsx global>
-        {`
-          html,
-          body {
-            background-color: #f8f9fa;
-          }
-        `}
-      </style>
-      <SectionWide>
-        <hr className="h-px border-0 bg-gray-200" />
-        <div className="flex flex-col gap-2 py-6">
-          <div
-            className={clsx(
-              `flex flex-col gap-6 md:flex-row md:justify-between`,
-            )}
-          >
-            <div className="flex flex-col gap-2 font-mono md:gap-0">
-              <div>Instant</div>
-              <div>Engineered in San Francisco</div>
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              <NavLink href="/hiring">Hiring</NavLink>
-              <NavLink href="https://discord.com/invite/VU53p7uQcE">
-                Discord
-              </NavLink>
-              <NavLink href="https://github.com/instantdb/instant">
-                GitHub
-              </NavLink>
-              <NavLink href="/status">Status</NavLink>
-              <NavLink href="/privacy">Privacy Policy</NavLink>
-              <NavLink href="/terms">Terms</NavLink>
-            </div>
+    <div className="landing-width text-xs text-gray-500">
+      <hr className="h-px border-0 bg-gray-200" />
+      <div className="flex flex-col gap-2 py-6">
+        <div
+          className={clsx(`flex flex-col gap-6 md:flex-row md:justify-between`)}
+        >
+          <div className="flex flex-col gap-2 md:gap-0">
+            <div>Instant</div>
+            <div>Engineered in San Francisco</div>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <NavLink href="/hiring">Hiring</NavLink>
+            <NavLink href="https://discord.com/invite/VU53p7uQcE">
+              Discord
+            </NavLink>
+            <NavLink href="https://github.com/instantdb/instant">
+              GitHub
+            </NavLink>
+            <NavLink href="/status">Status</NavLink>
+            <NavLink href="/privacy">Privacy Policy</NavLink>
+            <NavLink href="/terms">Terms</NavLink>
           </div>
         </div>
-      </SectionWide>
+      </div>
     </div>
   );
 }

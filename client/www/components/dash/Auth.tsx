@@ -226,9 +226,7 @@ export default function Auth(props: {
       <div className="max-w-sm">
         <span className="inline-flex items-center space-x-2">
           <LogoIcon />
-          <span className="font-mono text-sm text-gray-400 lowercase">
-            Instant
-          </span>
+          <span className="font-mono text-sm lowercase">Instant</span>
         </span>
         <div className="flex flex-col gap-4">
           {sentEmail ? (

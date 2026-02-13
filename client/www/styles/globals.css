@@ -1,9 +1,17 @@
 @import 'tailwindcss';
 
-@plugin 'tailwindcss-animate';
-@custom-variant dark (&:is(.dark *));
+@theme {
+  --default-mono-font-family: 'Berk Mono';
+  --font-mono: 'Berk Mono', var(--default-mono-font-family);
+}
 
 @config '../tailwind.config.js';
+
+@plugin 'tailwindcss-animate';
+@plugin '@tailwindcss/typography';
+@plugin '@tailwindcss/forms';
+@plugin 'tailwindcss-animate';
+@custom-variant dark (&:is(.dark *));
 
 /*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
@@ -21,6 +29,15 @@
   ::file-selector-button {
     border-color: oklch(92.8% 0.006 264.531);
   }
+  *,
+  html {
+    --default-font-family: 'Switzer', 'IBM Plex Sans', sans-serif;
+    --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
+  }
+}
+
+@utility landing-width {
+  @apply max-w-[1206px] px-8;
 }
 
 @utility no-scrollbar {
@@ -76,10 +93,20 @@
       format('woff2');
     font-display: swap;
   }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: normal;
+    font-style: normal;
+    font-stretch: normal;
+    src: url('/fonts/Switzer-Variable.woff2') format('woff2');
+    font-display: swap;
+  }
 }
 
 html {
   height: 100%;
+  --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
 }
 
 body,
