@@ -144,7 +144,7 @@ function Welcome() {
       </h2>
       <div class="grid grid-cols-1 md:grid-cols-2 grow gap-2">
         <a
-          href="https://solidjs.com/docs/latest"
+          href="https://docs.solidjs.com/"
           target="_blank"
           rel="noopener noreferrer"
           class="border hover:bg-neutral-100 py-8 shadow flex flex-col gap-2 items-center justify-center font-semibold border-neutral-200 rounded"
