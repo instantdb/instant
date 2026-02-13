@@ -154,5 +154,14 @@ encrypt-secret-prod:
 encrypt-secret-staging:
 	clj -X:encrypt-secret :env :staging
 
+generate-cloudfront-key-dev:
+	clj -X:generate-cloudfront-key :env :dev
+
+generate-cloudfront-key-prod:
+	clj -X:generate-cloudfront-key :env :prod
+
+generate-cloudfront-key-staging:
+	clj -X:generate-cloudfront-key :env :staging
+
 lint:
 	if command -v clj-kondo >/dev/null 2>&1; then clj-kondo --lint src test; else clojure -M:lint; fi

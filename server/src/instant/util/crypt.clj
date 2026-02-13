@@ -1,7 +1,8 @@
 (ns instant.util.crypt
   (:require [instant.util.uuid :as uuid-util])
   (:import
-   (java.security MessageDigest)
+   (java.security KeyPair KeyFactory KeyPairGenerator MessageDigest PrivateKey)
+   (java.security.spec PKCS8EncodedKeySpec)
    (java.util Base64 UUID)
    (javax.crypto Mac)
    (javax.crypto.spec SecretKeySpec)
@@ -123,9 +124,10 @@
 
 ;; A type for encapsulating sensitive information. When printed,
 ;; it displays "<secret>" instead of the actual value.
-(deftype Secret [value]
-  Object
-  (toString [_this] "<secret>"))
+(defonce _define-secret
+  (deftype Secret [value]
+    Object
+    (toString [_this] "<secret>")))
 
 (defn secret-value [^Secret secret]
   (.value secret))
@@ -189,3 +191,23 @@
 (defn generate-unencrypted-aead-keyset []
   (-> (KeysetHandle/generateNew PredefinedAeadParameters/AES128_GCM)
       (TinkJsonProtoKeysetFormat/serializeKeyset (InsecureSecretKeyAccess/get))))
+
+(defn generate-cloudfront-key
+  "Generates an RSA signing key for signing cloudflare urls.
+   We want the same signature for the same data, so we use an RSA key."
+  ^KeyPair []
+  (let [kpg (KeyPairGenerator/getInstance "RSA")]
+    (.initialize kpg 2048)
+    (.generateKeyPair kpg)))
+
+(defn print-rsa-public-key [^KeyPair keypair]
+  (let [public-key-bytes (.getEncoded (.getPublic keypair))
+        encoder (Base64/getMimeEncoder 64 (.getBytes "\n"))]
+    (str "-----BEGIN PUBLIC KEY-----\n"
+         (.encodeToString encoder public-key-bytes)
+         "\n-----END PUBLIC KEY-----")))
+
+(defn cloudfront-key-from-bytes ^PrivateKey [^bytes ba]
+  (let [spec (PKCS8EncodedKeySpec. ba)
+        kf (KeyFactory/getInstance "RSA")]
+    (.generatePrivate kf spec)))

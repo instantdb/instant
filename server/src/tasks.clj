@@ -45,6 +45,24 @@
     (tool/copy cipherhex)
     (println cipherhex)))
 
+(defn generate-cloudfront-key [{:keys [env]}]
+  (setup-signal-handler)
+  (crypt-util/register-hybrid)
+  (let [key (crypt-util/generate-cloudfront-key)
+        config (config-edn/read-config env)
+        hybrid (crypt-util/get-hybrid-encrypt-primitive (:hybrid-keyset config))
+        ciphertext (crypt-util/hybrid-encrypt
+                    hybrid
+                    {:plaintext (.getEncoded (.getPrivate key))
+                     :associated-data config-edn/associated-data})
+        cipherhex (crypt-util/bytes->hex-string ciphertext)]
+    (println-err "Public Key:")
+    (println-err (crypt-util/print-rsa-public-key key))
+    (tool/copy (crypt-util/print-rsa-public-key key))
+    (println-err "Your encrypted private key (also copied to your clipboard):")
+    (tool/copy cipherhex)
+    (println cipherhex)))
+
 ;; OSS bootstrap
 
 (defn jdbc-url->postgres-url [url & params]

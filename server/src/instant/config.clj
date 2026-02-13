@@ -240,6 +240,21 @@
     :staging "instant-storage-staging"
     "instantdb-test-bucket"))
 
+(def cloudfront-s3-bucket-url
+  (case [(get-env) s3-bucket-name]
+    [:dev "instantdb-test-bucket"] "https://files-dev.instantdb.com"
+    [:staging "instant-storage-staging"] "https://files-staging.instantdb.com"
+    [:prod "instant-storage"] "https://files.instantdb.com"
+    nil))
+
+(def cloudfront-signing-key
+  (delay (when-let [{:keys [key-id private-key]} (-> @config-map
+                                                     :cloudfront-signing-key)]
+           {:key-id key-id
+            :private-key (-> private-key
+                             crypt-util/secret-value
+                             crypt-util/cloudfront-key-from-bytes)})))
+
 (defn get-connection-pool-size []
   (if (or (= :prod (get-env))
           (= :staging (get-env)))
