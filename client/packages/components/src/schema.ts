@@ -9,6 +9,8 @@ function isVisibleAttr(attr: DBAttr) {
     attr.catalog !== 'system' ||
     namespace === '$users' ||
     namespace === '$files'
+    // TODO(dww): expose streams in dashboard
+    // || namespace === '$streams'
   );
 }
 

@@ -1066,6 +1066,7 @@
   (remove (fn [a]
             (or
              (and (= :system (:catalog a))
+                  ;; TODO(dww): expose streams in schema file
                   (not (#{"$users" "$files"} (fwd-etype a))))
              (and (= "$files" (fwd-etype a))
                   (#{"content-type" "content-disposition" "size"

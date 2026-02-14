@@ -31,6 +31,7 @@ import { InstantAPIError } from './utils/fetch.ts';
 import { validate as validateUUID } from 'uuid';
 import { WSConnection, SSEConnection } from './Connection.ts';
 import { SyncTable } from './SyncTable.ts';
+import { InstantStream } from './Stream.ts';
 
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 /** @typedef {import('./Connection.ts').Connection} Connection */
@@ -39,7 +40,7 @@ import { SyncTable } from './SyncTable.ts';
 /** @typedef {import('./reactorTypes.ts').QuerySub} QuerySub */
 /** @typedef {import('./reactorTypes.ts').QuerySubInStorage} QuerySubInStorage */
 
-const STATUS = {
+export const STATUS = {
   CONNECTING: 'connecting',
   OPENED: 'opened',
   AUTHENTICATED: 'authenticated',
@@ -218,6 +219,8 @@ export default class Reactor {
 
   /** @type {SyncTable} */
   _syncTable;
+  /** @type {InstantStream} */
+  _instantStream;
 
   /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
   queryCbs = {};
@@ -347,6 +350,13 @@ export default class Reactor {
       },
       () => this.ensureAttrs(),
     );
+
+    this._instantStream = new InstantStream({
+      WStream: this.config.WritableStream || WritableStream,
+      RStream: this.config.ReadableStream || ReadableStream,
+      trySend: this._trySendAuthed.bind(this),
+      log: this._log,
+    });
 
     this._oauthCallbackResponse = this._oauthLoginInit();
 
@@ -518,6 +528,7 @@ export default class Reactor {
     this.status = status;
     this._errorMessage = err;
     this.notifyConnectionStatusSubs(status);
+    this._instantStream.onConnectionStatusChange(status);
   }
 
   _onMergeKv = (key, storageV, inMemoryV) => {
@@ -677,6 +688,22 @@ export default class Reactor {
       }
       case 'sync-update-triples': {
         this._syncTable.onSyncUpdateTriples(msg);
+        break;
+      }
+      case 'start-stream-ok': {
+        this._instantStream.onStartStreamOk(msg);
+        break;
+      }
+      case 'stream-flushed': {
+        this._instantStream.onStreamFlushed(msg);
+        break;
+      }
+      case 'append-failed': {
+        this._instantStream.onAppendFailed(msg);
+        break;
+      }
+      case 'stream-append': {
+        this._instantStream.onStreamAppend(msg);
         break;
       }
       case 'refresh-ok': {
@@ -862,6 +889,14 @@ export default class Reactor {
     }
   }
 
+  createWriteStream(opts) {
+    return this._instantStream.createWriteStream(opts);
+  }
+
+  createReadStream(opts) {
+    return this._instantStream.createReadStream(opts);
+  }
+
   _pendingMutations() {
     return this.kv.currentValue.pendingMutations ?? new Map();
   }
@@ -947,14 +982,22 @@ export default class Reactor {
       return;
     }
 
-    if (msg['original-event']?.op === 'resync-table') {
-      this._syncTable.onResyncError(msg);
-      return;
-    }
-
-    if (msg['original-event']?.op === 'start-sync') {
-      this._syncTable.onStartSyncError(msg);
-      return;
+    switch (msg['original-event']?.op) {
+      case 'resync-table': {
+        this._syncTable.onResyncError(msg);
+        return;
+      }
+      case 'start-sync': {
+        this._syncTable.onStartSyncError(msg);
+        return;
+      }
+      case 'start-stream':
+      case 'append-stream':
+      case 'subscribe-stream':
+      case 'unsubscribe-stream': {
+        this._instantStream.onRecieveError(msg);
+        return;
+      }
     }
     // We've caught some error which has no corresponding listener.
     // Let's console.error to let the user know.
@@ -1578,7 +1621,10 @@ export default class Reactor {
       return;
     }
     if (!ignoreLogging[msg.op]) {
-      this._log.info('[send]', this._transport.id, msg.op, msg);
+      this._log.info('[send]', this._transport.id, msg.op, {
+        'client-event-id': eventId,
+        ...msg,
+      });
     }
     switch (msg.op) {
       case 'transact': {

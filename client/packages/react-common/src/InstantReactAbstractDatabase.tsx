@@ -21,6 +21,7 @@ import {
   IInstantDatabase,
   InstantError,
   ValidQuery,
+  Streams,
 } from '@instantdb/core';
 import {
   ReactNode,
@@ -54,6 +55,7 @@ export default abstract class InstantReactAbstractDatabase<
 
   public auth: Auth;
   public storage: Storage;
+  public streams: Streams;
   public core: InstantCoreDatabase<Schema, UseDates>;
 
   /** @deprecated use `core` instead */
@@ -82,6 +84,7 @@ export default abstract class InstantReactAbstractDatabase<
     this._core = this.core;
     this.auth = this.core.auth;
     this.storage = this.core.storage;
+    this.streams = this.core.streams;
   }
 
   /**

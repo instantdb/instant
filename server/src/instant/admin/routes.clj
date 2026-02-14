@@ -20,9 +20,11 @@
    [instant.model.instant-user :as instant-user-model]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.session :as session]
+   [instant.reactive.sse :as sse]
    [instant.reactive.store :as rs]
    [instant.superadmin.routes :refer [req->superadmin-user!]]
    [instant.util.async :as ua]
+   [instant.util.crypt :as crypt-util]
    [instant.util.email :as email]
    [instant.util.exception :as ex]
    [instant.util.http :as http-util]
@@ -49,7 +51,10 @@
    (java.util UUID)))
 
 (defn req->app-id-untrusted! [req]
-  (ex/get-param! req [:headers "app-id"] uuid-util/coerce))
+  (ex/get-some-param! req
+                      [[:headers "app-id"]
+                       [:query-params "app_id"]]
+                      uuid-util/coerce))
 
 (defn req->app-id-authed!
   "Returns a map with {:app-id app-id} if the
@@ -171,6 +176,37 @@
                                        receive-queue/receive-q
                                        {:id (squuid)}
                                        ctx)))
+
+;; -----------
+;; Generic SSE
+
+(defn admin-sse [req]
+  (let [inference? (-> req :body :inference? boolean) ;; XXX: Figure out what to do with inference--probably best to stick it in the session
+        {:keys [app-id] :as perms} (get-perms! req :data/read)
+        attrs (attr-model/get-by-app-id app-id)
+        ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
+                    :app-id app-id
+                    :attrs attrs
+                    :datalog-query-fn d/query
+                    :datalog-loader (d/make-loader)
+                    :inference? inference?
+                    :versions (ex/get-optional-param! req [:body :versions] identity)
+                    :app (app-model/get-by-id {:id app-id})
+                    :creator (instant-user-model/get-by-app-id {:app-id app-id})}
+                   perms)]
+    (session/undertow-sse-admin-config rs/store
+                                       receive-queue/receive-q
+                                       {:id (squuid)}
+                                       ctx)))
+
+(defn admin-sse-push [req]
+  (let [machine-id (ex/get-param! req [:body :machine_id] uuid-util/coerce)
+        app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
+        session-id (ex/get-param! req [:body :session_id] uuid-util/coerce)
+        sse-token-hash (crypt-util/uuid->sha256 (ex/get-param! req [:body :sse_token] uuid-util/coerce))
+        messages (ex/get-param! req [:body :messages] identity)]
+    (sse/enqueue-messages machine-id app-id session-id sse-token-hash messages)
+    (response/ok {})))
 
 (comment
   (def app-id  #uuid "386af13d-635d-44b8-8030-6a3958537db6")
@@ -717,6 +753,10 @@
 (defroutes routes
   (POST "/admin/query" []
     (with-rate-limiting query-post))
+  (POST "/admin/sse" []
+    (with-rate-limiting admin-sse))
+  (POST "/admin/sse/push" []
+    (with-rate-limiting admin-sse-push))
   (POST "/admin/subscribe-query" []
     (with-rate-limiting query-sse))
   (POST "/admin/transact" []

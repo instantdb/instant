@@ -50,26 +50,29 @@
                               :else v)
 
                           ;; Translate keywords
-                          k (case k
-                              :$user :user_id
-                              :$oauthProvider :provider_id
-                              :$oauthClient :client_id
-                              :clientId :client_id
-                              :encryptedClientSecret :client_secret
-                              :discoveryEndpoint :discovery_endpoint
-                              :codeChallengeMethod :code_challenge_method
-                              :codeChallenge :code_challenge
-                              :stateHash :state_hash
-                              :cooke-hash :cookie_hash
-                              :redirectUrl :redirect_url
-                              :redirectTo :redirect_to
-                              :authCode :auth_code
-                              :userInfo :user_info
-                              :name (case etype
-                                      "$oauthProviders" :provider_name
-                                      "$oauthClients" :client_name
-                                      k)
-                              k)]
+                          k (case etype
+                              ;; Don't modify names for $streams
+                              "$streams" k
+                              (case k
+                                :$user :user_id
+                                :$oauthProvider :provider_id
+                                :$oauthClient :client_id
+                                :clientId :client_id
+                                :encryptedClientSecret :client_secret
+                                :discoveryEndpoint :discovery_endpoint
+                                :codeChallengeMethod :code_challenge_method
+                                :codeChallenge :code_challenge
+                                :stateHash :state_hash
+                                :cooke-hash :cookie_hash
+                                :redirectUrl :redirect_url
+                                :redirectTo :redirect_to
+                                :authCode :auth_code
+                                :userInfo :user_info
+                                :name (case etype
+                                        "$oauthProviders" :provider_name
+                                        "$oauthClients" :client_name
+                                        k)
+                                k))]
                       (cond-> acc
                         true (assoc k v)
                         (= k :id) (assoc :created_at (Date. (long t))))))))
@@ -140,7 +143,9 @@
                                           etype
                                           eid)]
     (when (seq triples)
-      (triples->db-format app-id attrs etype triples))))
+      (with-meta
+        (triples->db-format app-id attrs etype triples)
+        {:triples triples}))))
 
 (defn get-entities [conn app-id attrs etype eids]
   (let [triples (entity-model/get-triples {:app-id app-id
@@ -207,7 +212,9 @@
   (next-jdbc/with-transaction [tx-conn conn-pool]
     (let [attrs (attr-model/get-by-app-id tx-conn app-id)]
       (op
-       {:resolve-id
+       {:tx-conn tx-conn
+        :attrs attrs
+        :resolve-id
         (fn [label] (attr-model/resolve-attr-id attrs etype label))
 
         :transact!

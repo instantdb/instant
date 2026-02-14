@@ -309,7 +309,7 @@
 (defn system-attribute-validation-errors
   "Don't allow users to change rules for restricted system namespaces."
   [etype action]
-  (when (and (not (#{"$users" "$files" "$default"} etype))
+  (when (and (not (#{"$users" "$files" "$default" "$streams"} etype))
              (string/starts-with? etype "$"))
     [{:message (format "The %s namespace is a reserved internal namespace that does not yet support rules."
                        etype)

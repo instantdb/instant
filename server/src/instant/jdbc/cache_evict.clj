@@ -3,8 +3,10 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as tx-model]
    [instant.model.app :as app-model]
+   [instant.model.app-stream :as app-stream-model]
    [instant.model.instant-user :as instant-user-model]
-   [instant.model.rule :as rule-model]))
+   [instant.model.rule :as rule-model]
+   [instant.system-catalog :as system-catalog]))
 
 (defn get-column [columns col-name]
   (reduce (fn [_acc col]
@@ -43,6 +45,30 @@
               (get-column "id")
               parse-uuid)))
 
+(def stream-machine-id-aid (->> system-catalog/$streams-attrs
+                                (filter (fn [a]
+                                          (= "machineId" (last (:forward-identity a)))))
+                                first
+                                :id
+                                str))
+
+(defn parse-json-uuid [v]
+  (when (and (= 38 (count v))
+             (= \" (first v))
+             (= \" (last v)))
+    (parse-uuid (subs v 1 37))))
+
+(defn notify-stream-machine-id-changed [{:keys [columns]}]
+  (let [stream-id (-> columns
+                      (nth 1)
+                      :value
+                      parse-uuid)]
+    (when-let [machine-id (-> columns
+                              (nth 3)
+                              :value
+                              parse-json-uuid)]
+      (app-stream-model/notify-machine-id-changed stream-id machine-id))))
+
 (defn evict-cache! [wal-record]
   (case (:action wal-record)
     (:insert :update :delete)
@@ -58,6 +84,12 @@
       "instant_users" (instant-user-model/evict-user-id-from-cache (get-id wal-record))
       "transactions" (when (= :insert (:action wal-record))
                        (tx-model/set-max-seen-tx-id (get-column (:columns wal-record) "id")))
+      "triples" (when (and (= :update (:action wal-record))
+                           (= stream-machine-id-aid (-> wal-record
+                                                        :identity
+                                                        (nth 2)
+                                                        :value)))
+                  (notify-stream-machine-id-changed wal-record))
       nil)
 
     nil))

@@ -72,6 +72,13 @@ import {
   validateQuery,
   validateTransactions,
   createInstantRouteHandler,
+  SSEConnection,
+  InstantStream,
+  EventSourceConstructor,
+  EventSourceType,
+  type WritableStreamCtor,
+  type ReadableStreamCtor,
+  InstantWritableStream,
 } from '@instantdb/core';
 
 import version from './version.ts';
@@ -84,6 +91,7 @@ import {
   SubscriptionReadyState,
 } from './subscribe.ts';
 import { parseCookie } from 'cookie';
+import { EventSource } from 'eventsource';
 
 type DebugCheckResult = {
   /** The ID of the record. */
@@ -114,6 +122,9 @@ export type InstantConfig<
   schema?: Schema;
   useDateObjects: UseDates;
   disableValidation?: boolean;
+  verbose?: boolean;
+  WritableStream?: WritableStreamCtor;
+  ReadableStream?: ReadableStreamCtor;
 };
 
 type InstantConfigFilled<
@@ -270,6 +281,73 @@ async function jsonFetch(
   return jsonReject((x) => Promise.reject(x), res);
 }
 
+function makeEventSourceWrapper(opts: {
+  headers: HeadersInit;
+  inference: boolean;
+}): EventSourceConstructor {
+  return class EventSourceWrapper {
+    source: EventSource;
+    static OPEN = EventSource.OPEN;
+    static CONNECTING = EventSource.CONNECTING;
+    static CLOSED = EventSource.CLOSED;
+    readonly url: string;
+
+    constructor(url: string) {
+      this.url = url;
+      this.source = this.#createEventSource(url);
+    }
+
+    get onopen(): EventSourceType['onopen'] {
+      return this.source.onopen;
+    }
+    set onopen(fn: EventSourceType['onopen']) {
+      this.source.onopen = fn;
+    }
+
+    get onmessage(): EventSourceType['onmessage'] {
+      return this.source.onmessage;
+    }
+    set onmessage(fn: EventSourceType['onmessage']) {
+      this.source.onmessage = fn;
+    }
+
+    get onerror(): EventSourceType['onerror'] {
+      return this.source.onerror;
+    }
+    set onerror(fn: EventSourceType['onerror']) {
+      this.source.onerror = fn;
+    }
+
+    public get readyState() {
+      return this.source.readyState;
+    }
+
+    public close() {
+      this.source.close();
+    }
+
+    #createEventSource(url: string): EventSource {
+      const es = new EventSource(url, {
+        fetch(input, init) {
+          return fetch(input, {
+            ...init,
+            method: 'POST',
+            headers: opts.headers,
+            body: JSON.stringify({
+              'inference?': opts.inference,
+              versions: {
+                '@instantdb/admin': version,
+                '@instantdb/core': coreVersion,
+              },
+            }),
+          });
+        },
+      });
+      return es;
+    }
+  };
+}
+
 /**
  *
  * The first step: init your application!
@@ -364,7 +442,7 @@ class Rooms<Schema extends InstantSchemaDef<any, any, any>> {
     roomId: string,
   ): Promise<PresenceResult<PresenceOf<Schema, RoomType>>> {
     const res = await jsonFetch(
-      `${this.config.apiURI}/admin/rooms/presence?room-type=${String(roomType)}&room-id=${roomId}`,
+      `${this.config.apiURI}/admin/rooms/presence?app_id=${this.config.appId}&room-type=${String(roomType)}&room-id=${roomId}`,
       {
         method: 'GET',
         headers: authorizedHeaders(this.config),
@@ -397,11 +475,14 @@ class Auth {
    * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
   generateMagicCode = async (email: string): Promise<{ code: string }> => {
-    return jsonFetch(`${this.config.apiURI}/admin/magic_code`, {
-      method: 'POST',
-      headers: authorizedHeaders(this.config),
-      body: JSON.stringify({ email }),
-    });
+    return jsonFetch(
+      `${this.config.apiURI}/admin/magic_code?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({ email }),
+      },
+    );
   };
 
   /**
@@ -415,11 +496,14 @@ class Auth {
    * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
   sendMagicCode = async (email: string): Promise<{ code: string }> => {
-    return jsonFetch(`${this.config.apiURI}/admin/send_magic_code`, {
-      method: 'POST',
-      headers: authorizedHeaders(this.config),
-      body: JSON.stringify({ email }),
-    });
+    return jsonFetch(
+      `${this.config.apiURI}/admin/send_magic_code?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({ email }),
+      },
+    );
   };
 
   /**
@@ -433,7 +517,7 @@ class Auth {
    */
   verifyMagicCode = async (email: string, code: string): Promise<User> => {
     const { user } = await jsonFetch(
-      `${this.config.apiURI}/admin/verify_magic_code`,
+      `${this.config.apiURI}/admin/verify_magic_code?app_id=${this.config.appId}`,
       {
         method: 'POST',
         headers: authorizedHeaders(this.config),
@@ -479,7 +563,7 @@ class Auth {
   ): Promise<AuthToken> {
     const body = typeof input === 'string' ? { email: input } : input;
     const ret: { user: { refresh_token: string } } = await jsonFetch(
-      `${this.config.apiURI}/admin/refresh_tokens`,
+      `${this.config.apiURI}/admin/refresh_tokens?app_id=${this.config.appId}`,
       {
         method: 'POST',
         headers: authorizedHeaders(this.config),
@@ -507,7 +591,7 @@ class Auth {
    */
   verifyToken = async (token: AuthToken): Promise<User> => {
     const res = await jsonFetch(
-      `${this.config.apiURI}/runtime/auth/verify_refresh_token`,
+      `${this.config.apiURI}/runtime/auth/verify_refresh_token?app_id=${this.config.appId}`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -541,7 +625,7 @@ class Auth {
       .join('&');
 
     const response: { user: User } = await jsonFetch(
-      `${this.config.apiURI}/admin/users?${qs}`,
+      `${this.config.apiURI}/admin/users?app_id=${this.config.appId}&${qs}`,
       {
         method: 'GET',
         headers: authorizedHeaders(this.config),
@@ -572,7 +656,7 @@ class Auth {
   ): Promise<User> => {
     const qs = Object.entries(params).map(([k, v]) => `${k}=${v}`);
     const response: { deleted: User } = await jsonFetch(
-      `${this.config.apiURI}/admin/users?${qs}`,
+      `${this.config.apiURI}/admin/users?app_id=${this.config.appId}&${qs}`,
       {
         method: 'DELETE',
         headers: authorizedHeaders(this.config),
@@ -626,11 +710,14 @@ class Auth {
     // accept email strings. Eventually we can remove this
     const params = typeof input === 'string' ? { email: input } : input;
     const config = this.config;
-    await jsonFetch(`${config.apiURI}/admin/sign_out`, {
-      method: 'POST',
-      headers: authorizedHeaders(config),
-      body: JSON.stringify(params),
-    });
+    await jsonFetch(
+      `${config.apiURI}/admin/sign_out?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(config),
+        body: JSON.stringify(params),
+      },
+    );
   }
 
   /**
@@ -749,7 +836,10 @@ class Storage {
       ...(duplex && { duplex }),
     };
 
-    return jsonFetch(`${this.config.apiURI}/admin/storage/upload`, options);
+    return jsonFetch(
+      `${this.config.apiURI}/admin/storage/upload?app_id=${this.config.appId}`,
+      options,
+    );
   };
 
   /**
@@ -761,7 +851,7 @@ class Storage {
    */
   delete = async (pathname: string): Promise<DeleteFileResponse> => {
     return jsonFetch(
-      `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(
+      `${this.config.apiURI}/admin/storage/files?app_id=${this.config.appId}&filename=${encodeURIComponent(
         pathname,
       )}`,
       {
@@ -779,11 +869,14 @@ class Storage {
    *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
    */
   deleteMany = async (pathnames: string[]): Promise<DeleteManyFileResponse> => {
-    return jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
-      method: 'POST',
-      headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({ filenames: pathnames }),
-    });
+    return jsonFetch(
+      `${this.config.apiURI}/admin/storage/files/delete?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config, this.impersonationOpts),
+        body: JSON.stringify({ filenames: pathnames }),
+      },
+    );
   };
 
   /**
@@ -796,7 +889,7 @@ class Storage {
     metadata: FileOpts = {},
   ): Promise<boolean> => {
     const { data: presignedUrl } = await jsonFetch(
-      `${this.config.apiURI}/admin/storage/signed-upload-url`,
+      `${this.config.apiURI}/admin/storage/signed-upload-url?app_id=${this.config.appId}`,
       {
         method: 'POST',
         headers: authorizedHeaders(this.config),
@@ -827,7 +920,7 @@ class Storage {
    */
   list = async (): Promise<StorageFile[]> => {
     const { data } = await jsonFetch(
-      `${this.config.apiURI}/admin/storage/files`,
+      `${this.config.apiURI}/admin/storage/files?app_id=${this.config.appId}`,
       {
         method: 'GET',
         headers: authorizedHeaders(this.config),
@@ -864,10 +957,73 @@ class Storage {
   };
 }
 
+type CreateReadStreamOpts = {
+  clientId?: string | null | undefined;
+  streamId?: string | null | undefined;
+  byteOffset?: number | null | undefined;
+};
+
+type CreateWriteStreamOpts = {
+  clientId: string;
+};
+
+/**
+ * Functions to manage streams.
+ */
+class Streams {
+  #ensureInstantStream: () => InstantStream;
+
+  constructor(ensureInstantStream: () => InstantStream) {
+    this.#ensureInstantStream = ensureInstantStream;
+  }
+
+  /**
+   * Creates a new ReadableStream for the given clientId.
+   *
+   * @example
+   *   const stream = db.streams.createReadStream({clientId: clientId})
+   *   for await (const chunk of stream) {
+   *     console.log(chunk);
+   *   }
+   */
+  createReadStream = (opts: CreateReadStreamOpts): ReadableStream<string> => {
+    return this.#ensureInstantStream().createReadStream(opts);
+  };
+
+  /**
+   * Creates a new WritableStream for the given clientId.
+   *
+   * @example
+   *   const writeStream = db.streams.createWriteStream({clientId: clientId})
+   *   const writer = writeStream.getWriter();
+   *   writer.write('Hello world');
+   *   writer.close();
+   */
+  createWriteStream = (
+    opts: CreateWriteStreamOpts,
+  ): InstantWritableStream<string> => {
+    return this.#ensureInstantStream().createWriteStream(opts);
+  };
+}
+
 type AdminQueryOpts = {
   ruleParams?: RuleParams;
   fetchOpts?: RequestInit;
 };
+
+interface Logger {
+  info: (...args: any[]) => void;
+  debug: (...args: any[]) => void;
+  error: (...args: any[]) => void;
+}
+
+function createLogger(isEnabled: boolean): Logger {
+  return {
+    info: isEnabled ? (...args: any[]) => console.info(...args) : () => {},
+    debug: isEnabled ? (...args: any[]) => console.debug(...args) : () => {},
+    error: isEnabled ? (...args: any[]) => console.error(...args) : () => {},
+  };
+}
 
 /**
  *
@@ -889,8 +1045,14 @@ class InstantAdminDatabase<
   config: InstantConfigFilled<Schema, UseDates>;
   auth: Auth;
   storage: Storage;
+  streams: Streams;
   rooms: Rooms<Schema>;
   impersonationOpts?: ImpersonationOpts;
+
+  #sseConnection: SSEConnection | null = null;
+  #sseBackoff = 0;
+  #instantStream: InstantStream | null = null;
+  #log: Logger;
 
   public tx = txInit<NonNullable<Schema>>();
 
@@ -898,7 +1060,9 @@ class InstantAdminDatabase<
     this.config = instantConfigWithDefaults(_config);
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config, this.impersonationOpts);
+    this.streams = new Streams(this.#ensureInstantStream.bind(this));
     this.rooms = new Rooms<Schema>(this.config);
+    this.#log = createLogger(!!this.config.verbose);
   }
 
   /**
@@ -950,18 +1114,21 @@ class InstantAdminDatabase<
 
     const fetchOpts = opts.fetchOpts || {};
     const fetchOptsHeaders = fetchOpts['headers'] || {};
-    return jsonFetch(`${this.config.apiURI}/admin/query`, {
-      ...fetchOpts,
-      method: 'POST',
-      headers: {
-        ...fetchOptsHeaders,
-        ...authorizedHeaders(this.config, this.impersonationOpts),
+    return jsonFetch(
+      `${this.config.apiURI}/admin/query?app_id=${this.config.appId}`,
+      {
+        ...fetchOpts,
+        method: 'POST',
+        headers: {
+          ...fetchOptsHeaders,
+          ...authorizedHeaders(this.config, this.impersonationOpts),
+        },
+        body: JSON.stringify({
+          query: query,
+          'inference?': !!this.config.schema,
+        }),
       },
-      body: JSON.stringify({
-        query: query,
-        'inference?': !!this.config.schema,
-      }),
-    });
+    );
   };
 
   /**
@@ -1058,14 +1225,17 @@ class InstantAdminDatabase<
     if (!this.config.disableValidation) {
       validateTransactions(inputChunks, this.config.schema);
     }
-    return jsonFetch(`${this.config.apiURI}/admin/transact`, {
-      method: 'POST',
-      headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({
-        steps: steps(inputChunks),
-        'throw-on-missing-attrs?': !!this.config.schema,
-      }),
-    });
+    return jsonFetch(
+      `${this.config.apiURI}/admin/transact?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config, this.impersonationOpts),
+        body: JSON.stringify({
+          steps: steps(inputChunks),
+          'throw-on-missing-attrs?': !!this.config.schema,
+        }),
+      },
+    );
   };
 
   /**
@@ -1114,7 +1284,7 @@ class InstantAdminDatabase<
     }
 
     const response = await jsonFetch(
-      `${this.config.apiURI}/admin/query_perms_check`,
+      `${this.config.apiURI}/admin/query_perms_check?app_id=${this.config.appId}`,
       {
         method: 'POST',
         headers: authorizedHeaders(this.config, this.impersonationOpts),
@@ -1168,11 +1338,181 @@ class InstantAdminDatabase<
       body['origin-override'] = opts.origin;
     }
 
-    return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
-      method: 'POST',
-      headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify(body),
+    return jsonFetch(
+      `${this.config.apiURI}/admin/transact_perms_check?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config, this.impersonationOpts),
+        body: JSON.stringify(body),
+      },
+    );
+  };
+
+  #setupSSEConnection() {
+    if (this.#sseConnection) {
+      this.#sseConnection.close();
+    }
+    const headers: HeadersInit = {
+      ...authorizedHeaders(this.config, this.impersonationOpts),
+    };
+
+    const inference = !!this.config.schema;
+
+    const ES = makeEventSourceWrapper({ headers, inference });
+    const conn = new SSEConnection(
+      ES,
+      `${this.config.apiURI}/admin/sse?app_id=${this.config.appId}`,
+      `${this.config.apiURI}/admin/sse/push?app_id=${this.config.appId}`,
+    );
+    conn.onopen = this.#onopen;
+    conn.onmessage = this.#onmessage;
+    conn.onclose = this.#onclose;
+    conn.onerror = this.#onerror;
+    this.#sseConnection = conn;
+    return conn;
+  }
+
+  #ensureSSEConnection() {
+    return this.#sseConnection || this.#setupSSEConnection();
+  }
+
+  #trySend(eventId, msg) {
+    const sseConnection = this.#ensureSSEConnection();
+    this.#log.info('[send]', eventId, msg, {
+      isOpen: sseConnection.isOpen(),
     });
+    if (sseConnection.isOpen()) {
+      sseConnection.send({ 'client-event-id': eventId, ...msg });
+    }
+  }
+
+  #setupInstantStream() {
+    this.#ensureSSEConnection();
+    const instantStream = new InstantStream({
+      WStream: this.config.WritableStream || WritableStream,
+      RStream: this.config.ReadableStream || ReadableStream,
+      trySend: (eventId, msg) => {
+        this.#trySend(eventId, msg);
+      },
+      log: this.#log,
+    });
+
+    this.#instantStream = instantStream;
+    return instantStream;
+  }
+
+  #ensureInstantStream() {
+    return this.#instantStream || this.#setupInstantStream();
+  }
+
+  #onopen = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][open]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+    this.#log.info('[socket][open]', e.target.id);
+    this.#sseBackoff = 0;
+    this.#instantStream?.onConnectionStatusChange('authenticated');
+  };
+
+  #onclose = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][close]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+    this.#log.info('[socket][close]', e.target.id);
+    this.#instantStream?.onConnectionStatusChange('closed');
+    if (this.#sseConnection) {
+      this.#sseConnection = null;
+      if (!this.#connectionIsIdle()) {
+        // We didn't remove the sse connection, and we have streams we care about, so let's try again
+        setTimeout(() => this.#ensureSSEConnection(), this.#sseBackoff);
+        this.#sseBackoff = Math.min(15000, Math.max(this.#sseBackoff, 500) * 2);
+      }
+    }
+  };
+
+  #onerror = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][error]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+    this.#log.info('[socket][error]', e.target.id);
+
+    this.#instantStream?.onConnectionStatusChange('closed');
+  };
+
+  #connectionIsIdle() {
+    return !this.#instantStream || !this.#instantStream.hasActiveStreams();
+  }
+
+  #maybeShutdownConnection() {
+    if (this.#sseConnection && this.#connectionIsIdle()) {
+      const conn = this.#sseConnection;
+      this.#log.info('cleaning up unused socket', conn.id);
+      this.#sseConnection = null;
+      conn.close();
+    }
+  }
+
+  #onmessage = (e) => {
+    if (e.target !== this.#sseConnection) {
+      this.#log.info(
+        '[socket][message]',
+        e.target.id,
+        'skip; this is no longer the current transport',
+      );
+      return;
+    }
+
+    const msg = e.message;
+    this.#log.info('[receive]', msg);
+    switch (msg.op) {
+      case 'start-stream-ok': {
+        this.#instantStream?.onStartStreamOk(msg);
+        break;
+      }
+      case 'stream-flushed': {
+        this.#instantStream?.onStreamFlushed(msg);
+        break;
+      }
+      case 'append-failed': {
+        this.#instantStream?.onAppendFailed(msg);
+        break;
+      }
+      case 'stream-append': {
+        this.#instantStream?.onStreamAppend(msg);
+        break;
+      }
+
+      case 'error': {
+        switch (msg['original-event']?.op) {
+          case 'start-stream':
+          case 'append-stream':
+          case 'subscribe-stream':
+          case 'unsubscribe-stream': {
+            this.#instantStream?.onRecieveError(msg);
+            break;
+          }
+        }
+        break;
+      }
+    }
+
+    // Closes the connection if we don't have any items pending
+    this.#maybeShutdownConnection();
   };
 }
 
@@ -1254,6 +1594,11 @@ export {
   type UploadFileResponse,
   type DeleteFileResponse,
   type DeleteManyFileResponse,
+
+  // stream types
+  type CreateReadStreamOpts,
+  type CreateWriteStreamOpts,
+  type InstantWritableStream,
 
   // error types
   type InstantIssue,

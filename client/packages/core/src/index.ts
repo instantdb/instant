@@ -121,7 +121,11 @@ import type {
 
 import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
 import { InstantError } from './InstantError.ts';
-import { EventSourceType } from './Connection.ts';
+import {
+  SSEConnection,
+  EventSourceType,
+  type EventSourceConstructor,
+} from './Connection.ts';
 import { CallbackEventType as SyncTableCallbackEventType } from './SyncTable.ts';
 import type {
   SyncTableCallback,
@@ -132,6 +136,12 @@ import type {
   LoadFromStorage as SyncTableLoadFromStorage,
   SetupError as SyncTableSetupError,
 } from './SyncTable.ts';
+import {
+  InstantStream,
+  InstantWritableStream,
+  ReadableStreamCtor,
+  WritableStreamCtor,
+} from './Stream.ts';
 
 const defaultOpenDevtool = true;
 
@@ -167,6 +177,8 @@ export type InstantConfig<
   useDateObjects: UseDates;
   disableValidation?: boolean;
   Store?: StoreInterfaceClass;
+  WritableStream?: WritableStreamCtor;
+  ReadableStream?: ReadableStreamCtor;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
@@ -521,6 +533,51 @@ class Storage {
   };
 }
 
+type CreateReadStreamOpts = {
+  clientId?: string | null | undefined;
+  streamId?: string | null | undefined;
+  byteOffset?: number | null | undefined;
+};
+
+type CreateWriteStreamOpts = {
+  clientId: string;
+};
+
+/**
+ * Functions to manage streams.
+ */
+class Streams {
+  constructor(private db: Reactor) {}
+
+  /**
+   * Creates a new ReadableStream for the given clientId.
+   *
+   * @example
+   *   const stream = db.streams.createReadStream({clientId: clientId})
+   *   for await (const chunk of stream) {
+   *     console.log(chunk);
+   *   }
+   */
+  createReadStream = (opts: CreateReadStreamOpts): ReadableStream<string> => {
+    return this.db.createReadStream(opts);
+  };
+
+  /**
+   * Creates a new WritableStream for the given clientId.
+   *
+   * @example
+   *   const writeStream = db.streams.createWriteStream({clientId: clientId})
+   *   const writer = writeStream.getWriter();
+   *   writer.write('Hello world');
+   *   writer.close();
+   */
+  createWriteStream = (
+    opts: CreateWriteStreamOpts,
+  ): InstantWritableStream<string> => {
+    return this.db.createWriteStream(opts);
+  };
+}
+
 // util
 
 function coerceQuery(o: any) {
@@ -536,6 +593,7 @@ class InstantCoreDatabase<
   public _reactor: Reactor<RoomsOf<Schema>>;
   public auth: Auth;
   public storage: Storage;
+  public streams: Streams;
 
   public tx = txInit<Schema>();
 
@@ -543,6 +601,7 @@ class InstantCoreDatabase<
     this._reactor = reactor;
     this.auth = new Auth(this._reactor);
     this.storage = new Storage(this._reactor);
+    this.streams = new Streams(this._reactor);
   }
 
   /**
@@ -939,6 +998,7 @@ export {
   InstantCoreDatabase,
   Auth,
   Storage,
+  Streams,
   version,
   InstantError,
 
@@ -1036,8 +1096,18 @@ export {
   type DeleteFileResponse,
 
   // SSE
+  SSEConnection,
   type EventSourceType,
   type FrameworkConfig,
+  type EventSourceConstructor,
+
+  // streams
+  InstantStream,
+  type WritableStreamCtor,
+  type ReadableStreamCtor,
+  type CreateReadStreamOpts,
+  type CreateWriteStreamOpts,
+  type InstantWritableStream,
 
   // sync table types
   type SyncTableCallback,

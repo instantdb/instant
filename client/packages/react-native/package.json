@@ -44,6 +44,7 @@
   "dependencies": {
     "@instantdb/core": "workspace:*",
     "@instantdb/react-common": "workspace:*",
-    "@instantdb/version": "workspace:*"
+    "@instantdb/version": "workspace:*",
+    "web-streams-polyfill": "^4.2.0"
   }
 }

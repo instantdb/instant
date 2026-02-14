@@ -37,6 +37,9 @@ export default function Page() {
       <Link className="text-lg" href="/play/auth-hooks">
         useUser and {'<SignedIn>'}
       </Link>
+      <Link className="text-lg" href="/play/streams">
+        Streams
+      </Link>
     </View>
   );
 }

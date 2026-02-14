@@ -8,9 +8,24 @@ import {
   InstantConfig,
   LinksDef,
 } from '@instantdb/react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { RoomsDef, TransactionChunk } from '../../../packages/core/dist/esm';
 import { IContainEntitiesAndLinks } from '../../../packages/core/dist/esm/schemaTypes';
+import { Explorer } from '@instantdb/components';
+
+function getStoredAdminToken(appId: string): string | null {
+  try {
+    return localStorage.getItem(`ephemeral-admin-token-${appId}`);
+  } catch {
+    return null;
+  }
+}
+
+function storeAdminToken(appId: string, token: string) {
+  try {
+    localStorage.setItem(`ephemeral-admin-token-${appId}`, token);
+  } catch {}
+}
 
 type Cfg<
   Entities extends EntitiesDef,

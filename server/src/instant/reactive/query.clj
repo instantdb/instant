@@ -114,7 +114,7 @@
                                    :app-id app-id
                                    :instaql-query instaql-query}}
     (try
-      (let [iq-ent (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
+      (let [iq-ent (rs/bump-instaql-version! store app-id session-id instaql-query return-type)
             v (:instaql-query/version iq-ent)
             iq-topic (or (:instaql-query/topic iq-ent)
                          (when-let [topic (compile-instaql-topic attrs instaql-query)]

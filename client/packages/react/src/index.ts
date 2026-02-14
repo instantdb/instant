@@ -76,6 +76,10 @@ import {
   type UploadFileResponse,
   type DeleteFileResponse,
 
+  // stream types
+  type CreateReadStreamOpts,
+  type CreateWriteStreamOpts,
+
   // sync table types
   type SyncTableCallback,
   type SyncTableCallbackEvent,
@@ -87,6 +91,7 @@ import {
   StoreInterface,
   createInstantRouteHandler,
   type StoreInterfaceStoreName,
+  InstantWritableStream,
 } from '@instantdb/core';
 
 import { InstantReactAbstractDatabase } from '@instantdb/react-common';
@@ -180,6 +185,11 @@ export {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // stream types
+  type CreateReadStreamOpts,
+  type CreateWriteStreamOpts,
+  type InstantWritableStream,
 
   // custom store
   StoreInterface,

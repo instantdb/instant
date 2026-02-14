@@ -13,14 +13,16 @@
    [instant.jdbc.aurora :as aurora]
    [instant.model.rule :as rule-model]
    [instant.reactive.aggregator :as aggregator]
+   [instant.storage.s3 :as s3]
    [instant.system-catalog :refer [encode-string->long]]
    [instant.util.coll :as coll]
    [instant.util.exception :as ex]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [next.jdbc])
   (:import
-   (java.util UUID)
-   (java.time Duration Instant)))
+   (java.io InputStream)
+   (java.time Duration Instant)
+   (java.util UUID)))
 
 (defmacro instant-ex-data [& body]
   `(try
@@ -317,3 +319,20 @@
              :let [{:keys ~all-keys} var#]]
        (clojure.test/testing (str (select-keys var# ~variable-keys))
          ~@body))))
+
+(defmacro with-s3-mock [{:keys [upload
+                                get-object-metadata
+                                location-id-url]
+                         :or {upload (fn [_bucket _props ^InputStream file]
+                                       (with-open [in file]
+                                         (slurp in)
+                                         nil))
+                              get-object-metadata (fn [_bucket _key]
+                                                    {})
+                              location-id-url (fn [_app-id _location-id]
+                                                nil)}}
+                        & body]
+  `(binding [s3/*s3-mock* {:upload ~upload
+                           :get-object-metadata ~get-object-metadata
+                           :location-id-url ~location-id-url}]
+     ~@body))
