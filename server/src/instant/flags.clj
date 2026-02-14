@@ -125,7 +125,8 @@
                   (update :coarse-topics-apps parse-uuids-flag)
                   (update :more-vfutures-instances (fn [vs]
                                                      (set vs)))
-                  (update :enable-wal-entity-log-apps parse-uuids-flag))
+                  (update :enable-wal-entity-log-apps parse-uuids-flag)
+                  (update :cloudfront-signed-url-apps parse-uuids-flag))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -316,6 +317,12 @@
 
 (defn failing-over? []
   (toggled? :failing-over))
+
+(defn use-cloudfront-signed-url? [app-id]
+  (when-not (toggled? :disable-cloudfront-signed-urls-globally)
+    (or (toggled? :enable-cloudfront-signed-urls-globally)
+        (contains? (flag :cloudfront-signed-url-apps)
+                   app-id))))
 
 (defn stream-flush-byte-limit
   "Limit over which we flush the write stream buffer to a file"

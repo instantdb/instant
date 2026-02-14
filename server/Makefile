@@ -2,8 +2,14 @@ MAKEFLAGS = --no-print-directory --always-make --silent
 MAKE = make $(MAKEFLAGS)
 DC = $(shell command -v docker-compose >/dev/null 2>&1 && echo "docker-compose" || echo "docker compose")
 
+# Set DEV_SLOT=1, DEV_SLOT=2, etc. to run multiple instances on different ports
+DEV_SLOT ?= 0
+
 dev:
-	@echo "Booting up backend w/ local db..."
+	@echo "Booting up backend w/ local db...$(if $(filter-out 0,$(DEV_SLOT)), (slot $(DEV_SLOT)),)"
+	PORT=$$((8888 + $(DEV_SLOT) * 1000)) \
+	SSL_PORT=$$((8889 + $(DEV_SLOT) * 1000)) \
+	NREPL_PORT=$$((6005 + $(DEV_SLOT) * 1000)) \
 	clojure -T:build dev
 
 memory-meter-dev:
@@ -35,10 +41,10 @@ dev-down:
 	migrate -database "postgresql://localhost:5432/instant?sslmode=disable" -path resources/migrations down 1
 
 ## Generates the blank up/down files for the migration
-# Update -digits to 3 when we hit migration 100
+# Update -digits to 4 after we reach migration 999
 create-migration:
 	@read -p "Enter the migration name: " name; \
-	migrate create -dir resources/migrations -ext sql -digits 2 -seq "$$name"
+	migrate create -dir resources/migrations -ext sql -digits 3 -seq "$$name"
 
 compile-java:
 	clojure -T:build compile-java
@@ -153,6 +159,15 @@ encrypt-secret-prod:
 
 encrypt-secret-staging:
 	clj -X:encrypt-secret :env :staging
+
+generate-cloudfront-key-dev:
+	clj -X:generate-cloudfront-key :env :dev
+
+generate-cloudfront-key-prod:
+	clj -X:generate-cloudfront-key :env :prod
+
+generate-cloudfront-key-staging:
+	clj -X:generate-cloudfront-key :env :staging
 
 lint:
 	if command -v clj-kondo >/dev/null 2>&1; then clj-kondo --lint src test; else clojure -M:lint; fi

@@ -1,11 +1,11 @@
 import { test, expect } from 'vitest';
-import { buildAutoRenameSelector } from '../src/rename';
 import {
+  buildAutoRenameSelector,
   diffSchemas,
   i,
   MigrationTx,
   MigrationTxTypes,
-} from '@instantdb/platform';
+} from '../../src';
 
 const beforeSchema = i.schema({
   entities: {
@@ -72,9 +72,7 @@ const expectTxType = (
 };
 
 test('works without flags', async () => {
-  const fun = buildAutoRenameSelector({
-    rename: [],
-  });
+  const fun = buildAutoRenameSelector([]);
 
   const result = await diffSchemas(beforeSchema, afterSchema, fun, {});
 
@@ -84,9 +82,7 @@ test('works without flags', async () => {
 });
 
 test('simple attr flag', async () => {
-  const fun = buildAutoRenameSelector({
-    rename: ['animals.speccies:animals.species'],
-  });
+  const fun = buildAutoRenameSelector(['animals.speccies:animals.species']);
 
   const result = await diffSchemas(beforeSchema, afterSchema, fun, {});
 
@@ -95,9 +91,7 @@ test('simple attr flag', async () => {
 });
 
 test('simple link flag', async () => {
-  const fun = buildAutoRenameSelector({
-    rename: ['animals.mother:animals.parent'],
-  });
+  const fun = buildAutoRenameSelector(['animals.mother:animals.parent']);
 
   const result = await diffSchemas(beforeSchema, afterSchema, fun, {});
 
@@ -108,12 +102,10 @@ test('simple link flag', async () => {
 });
 
 test('both links and base attrs', async () => {
-  const fun = buildAutoRenameSelector({
-    rename: [
-      'animals.speccies:animals.species',
-      'animals.mother:animals.parent',
-    ],
-  });
+  const fun = buildAutoRenameSelector([
+    'animals.speccies:animals.species',
+    'animals.mother:animals.parent',
+  ]);
 
   const result = await diffSchemas(beforeSchema, afterSchema, fun, {});
 
@@ -122,9 +114,9 @@ test('both links and base attrs', async () => {
 });
 
 test('nonexisting flag', async () => {
-  const fun = buildAutoRenameSelector({
-    rename: ['animals.favoriteFood:animals.favoriteFood'],
-  });
+  const fun = buildAutoRenameSelector([
+    'animals.favoriteFood:animals.favoriteFood',
+  ]);
 
   const result = await diffSchemas(beforeSchema, afterSchema, fun, {});
 

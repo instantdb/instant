@@ -8,6 +8,8 @@ const envNames: Record<Project['base'], string> = {
   expo: 'EXPO_PUBLIC_INSTANT_APP_ID',
   'tanstack-start': 'VITE_INSTANT_APP_ID',
   'bun-react': 'BUN_PUBLIC_INSTANT_APP_ID',
+  'solidjs-vite': 'VITE_INSTANT_APP_ID',
+  'tanstack-start-with-tanstack-query': 'VITE_INSTANT_APP_ID',
 };
 
 export const applyEnvFile = (

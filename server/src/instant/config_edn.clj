@@ -16,6 +16,7 @@
 (s/def ::hex-encoded (s/and string? hex-encoded?))
 
 (s/def ::enc ::hex-encoded)
+(s/def ::enc-bytes ::hex-encoded)
 
 (s/def ::encoded (s/keys :req-un [::enc]))
 
@@ -27,6 +28,9 @@
 (s/def ::oauth-client (s/keys :req-un [::client-id
                                        ::client-secret]))
 
+(s/def ::private-key (s/or ::encoded-bytes (s/keys :req-un [::enc-bytes])))
+(s/def ::key-id string?)
+(s/def ::cloudfront-signing-key (s/keys :req-un [::key-id ::private-key]))
 (s/def ::s3-storage-access-key ::config-value)
 (s/def ::s3-storage-secret-key ::config-value)
 (s/def ::postmark-token ::config-value)
@@ -57,6 +61,7 @@
                                         ::public-key-json]))
 
 (s/def ::config (s/keys :opt-un [::instant-config-app-id
+                                 ::cloudfront-signing-key
                                  ::s3-storage-access-key
                                  ::s3-storage-secret-key
                                  ::database-url
@@ -76,6 +81,7 @@
 ;; Prod config is more restrictive because we don't want to accidentally
 ;; forget to set one of these variables in prod
 (s/def ::config-prod (s/keys :req-un [::aead-keyset
+                                      ::cloudfront-signing-key
                                       ::s3-storage-access-key
                                       ::s3-storage-secret-key
                                       ::database-cluster-id
@@ -147,5 +153,7 @@
            ::plain (obfuscate (second x))
            ::encoded (-> ^bytes (decrypt (-> x second :enc))
                          (String.)
-                         obfuscate))))
+                         obfuscate)
+           ::encoded-bytes (-> ^bytes (decrypt (-> x second :enc-bytes))
+                               obfuscate))))
      (s/conform ::config config-edn))))

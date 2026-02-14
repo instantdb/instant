@@ -9,6 +9,7 @@ import {
 
   // sync table enums
   SyncTableCallbackEventType,
+  setInstantWarningsEnabled,
 
   // types
   type QueryResponse,
@@ -116,6 +117,9 @@ export {
 
   // sync table enums
   SyncTableCallbackEventType,
+
+  // warnings
+  setInstantWarningsEnabled,
 
   // types
   type Config,

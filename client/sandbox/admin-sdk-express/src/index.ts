@@ -29,7 +29,7 @@ const { query, transact, auth } = db;
 // Basic Server
 
 const app = express();
-const port = 3005;
+const port = Number(process.env.SB_EXPRESS_PORT) || 3005;
 
 app.use(cors());
 app.use(bodyParser.json());

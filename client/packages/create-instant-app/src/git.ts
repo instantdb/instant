@@ -114,6 +114,9 @@ export const initializeGit = async (projectDir: string) => {
       },
     );
 
-    UI.log('Git repository initialized successfully.', UI.ciaModifier(null));
+    UI.log(
+      chalk.dim(`${chalk.green('✓')} Git repository initialized successfully.`),
+      UI.ciaModifier(null),
+    );
   } catch {}
 };

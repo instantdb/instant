@@ -11,7 +11,9 @@ export type Project = {
     | 'vite-vanilla'
     | 'expo'
     | 'tanstack-start'
-    | 'bun-react';
+    | 'tanstack-start-with-tanstack-query'
+    | 'bun-react'
+    | 'solidjs-vite';
   ruleFiles:
     | 'cursor'
     | 'claude'
@@ -71,6 +73,7 @@ export const runCli = async (): Promise<{
         'bun-react',
         'tanstack-start',
         'tanstack-start-with-tanstack-query',
+        'solidjs-vite',
       ]),
     )
     .addOption(
@@ -211,16 +214,30 @@ export const runCli = async (): Promise<{
           new UI.Select({
             promptText: 'What framework would you like to use?',
             options: [
-              { value: 'next-js-app-dir', label: 'Next.js' },
-              { value: 'vite-vanilla', label: 'Vite: Vanilla TS' },
-              { value: 'expo', label: 'Expo: React Native' },
+              {
+                value: 'next-js-app-dir',
+                label: 'Web: Next.js',
+              },
+              { value: 'expo', label: 'Mobile: Expo' },
+              {
+                value: 'vite-vanilla',
+                label: 'Vite: Vanilla TS',
+                secondary: true,
+              },
               {
                 value: 'tanstack-start',
                 label: 'Tanstack Start',
+                secondary: true,
               },
               {
                 value: 'bun-react',
                 label: 'Bun + React',
+                secondary: true,
+              },
+              {
+                value: 'solidjs-vite',
+                label: 'Vite: SolidJS',
+                secondary: true,
               },
             ],
             defaultValue: 'next-js-app-dir' as Project['base'],

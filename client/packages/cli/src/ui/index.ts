@@ -91,6 +91,7 @@ export namespace UI {
     options: {
       value: T;
       label: string;
+      secondary?: boolean;
     }[];
     promptText: string;
     modifyOutput?: ModifyOutputFn;
@@ -151,7 +152,9 @@ export namespace UI {
         return `${this.params.promptText}
 ${chalk.hex('#EA570B').bold('●')} ${this.params.options[this.data.selectedIdx]?.label}`;
       }
-      const optionsList = this.options
+
+      const mainOptionsList = this.options
+        .filter((option) => !option.secondary)
         .map((option, idx) => {
           const isSelected = idx === this.data.selectedIdx;
           const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
@@ -163,8 +166,22 @@ ${chalk.hex('#EA570B').bold('●')} ${this.params.options[this.data.selectedIdx]
         })
         .join('\n');
 
+      const secondaryOptionsList = this.options
+        .filter((option) => option.secondary)
+        .map((option, idx) => {
+          const realIdx = idx + this.options.filter((o) => !o.secondary).length;
+          const isSelected = realIdx === this.data.selectedIdx;
+          const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
+          const label = isSelected
+            ? chalk.bold(option.label)
+            : chalk.dim(option.label);
+
+          return `${cursor} ${label}`;
+        })
+        .join('\n');
+
       return `${this.params.promptText}
-${optionsList}`;
+${mainOptionsList}${secondaryOptionsList.length ? chalk.gray('\n───────────────── Additional Options ─────────────────\n') + secondaryOptionsList : ''}`;
     }
   }
 
@@ -328,7 +345,7 @@ ${inputDisplay}`;
     disappearWhenDone?: boolean;
   };
 
-  export class Spinner<T> extends Prompt<T | Error> {
+  export class Spinner<T> extends Prompt<T> {
     private props: SpinnerProps<T>;
     private promiseResult: T | null = null;
     private promiseError: Error | null = null;
@@ -337,7 +354,7 @@ ${inputDisplay}`;
     private intervalId: NodeJS.Timeout | null = null;
     private messages: string[] = [];
 
-    result(): T | Error {
+    result(): T {
       if (this.promiseError) {
         throw this.promiseError;
       }

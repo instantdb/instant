@@ -318,6 +318,11 @@ export async function renderUnwrap<T>(view: Prompt<T>): Promise<T> {
   if (result.status === 'aborted') {
     throw new CancelledPromptError('Prompt was aborted');
   } else {
+    // Prompt.result may throw an error but it is swallowed by the use of
+    // Terminal. Terminal.result() just returns the prompt's internal promise
+    if (result.data instanceof Error) {
+      throw result.data;
+    }
     return result.data;
   }
 }

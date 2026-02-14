@@ -16,6 +16,7 @@
                     :create-instant-app "./packages/create-instant-app"
                     :mcp "./packages/mcp"
                     :components "./packages/components"
+                    :solidjs "./packages/solidjs"
                     :react-native-mmkv "./packages/react-native-mmkv"})
 
 (defn package-json-path [main]
