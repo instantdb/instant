@@ -23,7 +23,7 @@ module.exports = {
   plugins: [],
   theme: {
     fontFamily: {
-      sans: ['"IBM Plex Sans"', ...sans],
+      sans: ['Switzer', '"IBM Plex Sans"', ...sans],
       mono: [
         'Berk Mono',
         'ui-monospace',

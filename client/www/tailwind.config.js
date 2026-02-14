@@ -1,4 +1,5 @@
 const sans = [
+  'Switzer',
   'ui-sans-serif',
   'system-ui',
   '-apple-system',
@@ -26,7 +27,7 @@ module.exports = {
   ],
   theme: {
     fontFamily: {
-      sans: ['"IBM Plex Sans"', ...sans],
+      sans: [...sans],
       mono: [
         'Berk Mono',
         'ui-monospace',

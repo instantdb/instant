@@ -2,6 +2,10 @@
 
 @plugin '@tailwindcss/forms';
 
+@theme {
+  --default-font-family: 'Switzer', var(--font-switzer), 'Georgia';
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
@@ -12,4 +16,8 @@
   ::file-selector-button {
     border-color: oklch(92.8% 0.006 264.531);
   }
+}
+
+html {
+  --default-font-family: 'Switzer', var(--font-switzer), 'Georgia';
 }

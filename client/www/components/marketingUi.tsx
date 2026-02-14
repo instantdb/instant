@@ -166,7 +166,9 @@ export function BareNav({ children }: PropsWithChildren) {
           </div>
 
           {children}
-          <NavItems />
+          <div className="flex items-center gap-2 p-[38px]">
+            <NavItems />
+          </div>
         </div>
       </div>
     </div>

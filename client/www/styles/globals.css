@@ -36,6 +36,10 @@
   /* Firefox */
 }
 
+@theme {
+  --default-font-family: Georgia;
+}
+
 @layer base {
   @font-face {
     font-family: 'Berk Mono';
@@ -76,10 +80,20 @@
       format('woff2');
     font-display: swap;
   }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: normal;
+    font-style: normal;
+    font-stretch: normal;
+    src: url('/fonts/Switzer-Variable.woff2') format('woff2');
+    font-display: swap;
+  }
 }
 
 html {
   height: 100%;
+  --default-font-family: 'Switzer', var(--font-switzer), 'Georgia';
 }
 
 body,
