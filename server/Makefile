@@ -44,7 +44,7 @@ dev-down:
 # Update -digits to 3 when we hit migration 100
 create-migration:
 	@read -p "Enter the migration name: " name; \
-	migrate create -dir resources/migrations -ext sql -digits 2 -seq "$$name"
+	migrate create -dir resources/migrations -ext sql -digits 3 -seq "$$name"
 
 compile-java:
 	clojure -T:build compile-java
