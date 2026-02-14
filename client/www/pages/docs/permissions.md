@@ -233,6 +233,74 @@ But we would not be able to create goals with new attr types:
 db.transact(db.tx.goals[id()].update({title: "Hello World", priority: "high"})
 ```
 
+## Rooms
+
+You can define permissions for room joins using the `$rooms` key. Rules are keyed by room type, and each room type supports a `join` action. The CEL context for room rules exposes `auth` and `data.id`.
+
+```json
+{
+  "$rooms": {
+    "chat": {
+      "allow": {
+        "join": "auth.id != null"
+      }
+    }
+  }
+}
+```
+
+If `$rooms` is not defined, all room joins succeed. If `$rooms` is defined, room types not listed fall back to `$rooms.$default` if present, otherwise the join is allowed.
+
+```json
+{
+  "$rooms": {
+    "chat": {
+      "allow": {
+        "join": "auth.id != null"
+      }
+    },
+    "$default": {
+      "allow": {
+        "join": "false"
+      }
+    }
+  }
+}
+```
+
+In this example, authenticated users can join `chat` rooms, but all other room types are denied.
+
+You can use `bind` in room rules just like namespace rules:
+
+```json
+{
+  "$rooms": {
+    "chat": {
+      "allow": {
+        "join": "isMember"
+      },
+      "bind": {
+        "isMember": "auth.id != null"
+      }
+    }
+  }
+}
+```
+
+You can also use `auth.ref` to check relations:
+
+```json
+{
+  "$rooms": {
+    "chat": {
+      "allow": {
+        "join": "data.id in auth.ref('$user.chatRooms.id')"
+      }
+    }
+  }
+}
+```
+
 ## CEL expressions
 
 Inside each rule, you can write CEL code that evaluates to either `true` or `false`.

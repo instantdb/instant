@@ -8,6 +8,11 @@ type InstantRulesAttrsAllowBlock = {
   delete?: string | null | undefined;
 };
 
+type InstantRoomRulesAllowBlock = {
+  $default?: string | null | undefined;
+  join?: string | null | undefined;
+};
+
 export type InstantRulesAllowBlock = InstantRulesAttrsAllowBlock & {
   link?: { [key: string]: string } | null | undefined;
   unlink?: { [key: string]: string } | null | undefined;
@@ -23,6 +28,12 @@ export type InstantRules<
   attrs?: {
     bind?: string[] | Record<string, string>;
     allow: InstantRulesAttrsAllowBlock;
+  };
+  $rooms?: {
+    [RoomType: string]: {
+      bind?: string[] | Record<string, string>;
+      allow: InstantRoomRulesAllowBlock;
+    };
   };
 } & {
   [EntityName in keyof Schema['entities']]?: {

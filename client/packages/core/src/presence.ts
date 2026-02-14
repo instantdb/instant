@@ -45,7 +45,7 @@ export type PresenceResponse<
   Keys extends keyof PresenceShape,
 > = PresenceSlice<PresenceShape, Keys> & {
   isLoading: boolean;
-  error?: string;
+  error?: { message: string; type: string };
 };
 
 export function buildPresenceSlice<

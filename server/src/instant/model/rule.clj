@@ -309,7 +309,7 @@
 (defn system-attribute-validation-errors
   "Don't allow users to change rules for restricted system namespaces."
   [etype action]
-  (when (and (not (#{"$users" "$files" "$default"} etype))
+  (when (and (not (#{"$users" "$files" "$default" "$rooms"} etype))
              (string/starts-with? etype "$"))
     [{:message (format "The %s namespace is a reserved internal namespace that does not yet support rules."
                        etype)
@@ -364,7 +364,7 @@
       [{:message "There was an unexpected error evaluating the rules"
         :in path}])))
 
-(defn rule-validation-errors [rules]
+(defn entity-rule-validation-errors [rules]
   (->> (keys rules)
        (mapcat (fn [etype] (map (fn [action] [etype action]) ["view" "create" "update" "delete"])))
        (mapcat (fn [[etype action]]
@@ -397,10 +397,50 @@
 
        (keep identity)))
 
+(defn room-validation-errors
+  "Validates $rooms rules by building a virtual rules map for each room type
+   and reusing the existing validation functions."
+  [rules]
+  (when-let [rooms-rules (get rules "$rooms")]
+    (let [room-types (keys rooms-rules)]
+      (->> room-types
+           (mapcat (fn [room-type]
+                     (let [virtual-rules (-> {}
+                                             (assoc "$default" (get rooms-rules "$default"))
+                                             (assoc room-type (get rooms-rules room-type)))]
+                       (concat
+                        (bind-validation-errors virtual-rules)
+                        (->> (map (fn [action] [room-type action]) ["join"])
+                             (mapcat (fn [[etype action]]
+                                       (expr-validation-errors
+                                        virtual-rules
+                                        {:etype etype
+                                         :action action
+                                         :path [room-type "allow" action]})))
+                             (keep identity))))))
+           ;; Remap error paths to include "$rooms" prefix
+           (map (fn [error]
+                  (if (:in error)
+                    (update error :in (fn [path] (into ["$rooms"] path)))
+                    error)))))))
+
+(defn get-room-program!
+  "Returns a compiled CEL program for the given room type and action.
+   Returns nil if no $rooms key exists in rules (backwards compat).
+   Builds a virtual rules map from $rooms so we can reuse get-program!."
+  [rules room-type action]
+  (when-let [rooms-code (get-in rules [:code "$rooms"])]
+    (let [virtual-rules {:code (-> {}
+                                   (assoc "$default" (get rooms-code "$default"))
+                                   (assoc room-type (get rooms-code room-type)))}]
+      (get-program! virtual-rules room-type action))))
+
 (defn validation-errors [rules]
-  (concat (bind-validation-errors rules)
-          (rule-validation-errors rules)
-          (field-validation-errors rules)))
+  (let [entity-rules (dissoc rules "$rooms")]
+    (concat (bind-validation-errors entity-rules)
+            (entity-rule-validation-errors entity-rules)
+            (field-validation-errors entity-rules)
+            (room-validation-errors rules))))
 
 (comment
   (def code {"docs" {"allow" {"view" "lol"

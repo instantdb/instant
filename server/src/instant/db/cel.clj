@@ -410,6 +410,20 @@
   (-> (runtime-compiler-builder)
       (.build)))
 
+(def ^:private ^CelCompiler cel-join-compiler
+  (-> (CelCompilerFactory/standardCelCompilerBuilder)
+      (.addMessageTypes (ucoll/array-of Descriptors$Descriptor [proto/request-descriptor]))
+      (.addVar "data" type-obj)
+      (.addVar "auth" type-obj)
+      (.addVar "request" ^StructTypeReference request-cel-type)
+      (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
+      (.setOptions cel-options)
+      (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
+      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings)
+                                                         (CelExtensions/strings)
+                                                         (CelExtensions/math cel-options)]))
+      (.build)))
+
 (def ^:private ^CelCompiler cel-create-update-compiler
   (-> (runtime-compiler-builder)
       (.addVar "newData" type-obj)
@@ -443,6 +457,7 @@
 (defn action->compiler [action]
   (case (name action)
     ("view" "delete") cel-view-delete-compiler
+    "join"            cel-join-compiler
     "link"            cel-link-compiler
     "unlink"          cel-unlink-compiler
     #_else            cel-create-update-compiler))

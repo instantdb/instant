@@ -203,5 +203,76 @@
            :in ["myetype" "fields" "email"]}]
          (rule/validation-errors {"myetype" {"fields" {"email" "!10"}}}))))
 
+;; --------
+;; $rooms
+
+(deftest rooms-valid-rules-pass-validation
+  (is (= () (rule/validation-errors
+             {"$rooms" {"chat" {"allow" {"join" "auth.id != null"}}}}))))
+
+(deftest rooms-invalid-cel-produces-errors
+  (is (seq (rule/validation-errors
+            {"$rooms" {"chat" {"allow" {"join" "invalid !!!"}}}}))))
+
+(deftest rooms-with-bind-works
+  (is (= () (rule/validation-errors
+             {"$rooms" {"chat" {"allow" {"join" "isMember"}
+                                "bind" ["isMember" "auth.id != null"]}}}))))
+
+(deftest rooms-with-odd-bind-elements-produces-error
+  (is (seq (rule/validation-errors
+            {"$rooms" {"chat" {"allow" {"join" "true"}
+                               "bind" ["isMember"]}}}))))
+
+(deftest rooms-default-fallback-passes-validation
+  (is (= () (rule/validation-errors
+             {"$rooms" {"$default" {"allow" {"join" "auth.id != null"}}}}))))
+
+(deftest rooms-does-not-interfere-with-entity-rules
+  (is (= () (rule/validation-errors
+             {"$rooms" {"chat" {"allow" {"join" "true"}}}
+              "docs" {"allow" {"view" "true"}}}))))
+
+(deftest get-room-program-returns-nil-when-no-rooms-key
+  (is (nil? (rule/get-room-program! {:code {}} "chat" "join"))))
+
+(deftest get-room-program-returns-nil-when-no-rooms-rules
+  (is (nil? (rule/get-room-program! {:code {"docs" {"allow" {"view" "true"}}}} "chat" "join"))))
+
+(deftest get-room-program-compiles-correct-program
+  (let [program (rule/get-room-program!
+                 {:code {"$rooms" {"chat" {"allow" {"join" "auth.id != null"}}}}}
+                 "chat" "join")]
+    (is (some? program))
+    (is (= "auth.id != null" (:code program)))))
+
+(deftest get-room-program-falls-back-to-default
+  (let [program (rule/get-room-program!
+                 {:code {"$rooms" {"$default" {"allow" {"join" "auth.id != null"}}}}}
+                 "chat" "join")]
+    (is (some? program))
+    (is (= "auth.id != null" (:code program)))))
+
+(deftest get-room-program-prefers-specific-over-default
+  (let [program (rule/get-room-program!
+                 {:code {"$rooms" {"chat" {"allow" {"join" "true"}}
+                                   "$default" {"allow" {"join" "false"}}}}}
+                 "chat" "join")]
+    (is (some? program))
+    (is (= "true" (:code program)))))
+
+(deftest get-room-program-returns-nil-when-no-matching-rule
+  (is (nil? (rule/get-room-program!
+             {:code {"$rooms" {"chat" {"allow" {"join" "true"}}}}}
+             "video" "join"))))
+
+(deftest get-room-program-with-bind
+  (let [program (rule/get-room-program!
+                 {:code {"$rooms" {"chat" {"allow" {"join" "isMember"}
+                                           "bind" ["isMember" "auth.id != null"]}}}}
+                 "chat" "join")]
+    (is (some? program))
+    (is (= "cel.bind(isMember, auth.id != null, isMember)" (:code program)))))
+
 (comment
   (test/run-tests *ns*))

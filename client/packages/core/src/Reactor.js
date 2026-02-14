@@ -2287,6 +2287,15 @@ export default class Reactor {
   getPresence(roomType, roomId, opts = {}) {
     const room = this._rooms[roomId];
     const presence = this._presence[roomId];
+
+    if (room?.error) {
+      return {
+        ...buildPresenceSlice(presence?.result || {}, opts, this._sessionId),
+        isLoading: false,
+        error: room.error,
+      };
+    }
+
     if (!room || !presence || !presence.result) return null;
 
     return {

@@ -10,6 +10,7 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app with-movies-app with-zeneca-app]]
+   [instant.model.rule :as rule-model]
    [instant.grouped-queue :as grouped-queue]
    instant.isn
    [instant.jdbc.aurora :as aurora]
@@ -1061,3 +1062,89 @@
                                                                   :data d1})]
         (is (= :error op))
         (is (= 400 status))))))
+
+;; --------
+;; Room Permissions
+
+(deftest room-join-succeeds-with-no-room-rules
+  (testing "backwards compat: no $rooms rules -> all joins succeed"
+    (with-session
+      (fn [_store {:keys [socket movies-app-id]}]
+        (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+        (let [rid (str (UUID/randomUUID))]
+          (send-msg socket {:op :join-room
+                            :room-type "chat"
+                            :room-id rid})
+          (let [msgs (read-msgs 2 socket)
+                join-ok (ucoll/seek #(= :join-room-ok (:op %)) msgs)]
+            (is join-ok)
+            (is (= rid (:room-id join-ok)))))))))
+
+(deftest room-join-succeeds-when-rule-allows
+  (testing "rule evaluates to true -> join-room-ok"
+    (with-session
+      (fn [_store {:keys [socket movies-app-id]}]
+        (rule-model/put! {:app-id movies-app-id
+                          :code {"$rooms" {"chat" {"allow" {"join" "true"}}}}})
+        (blocking-send-msg :init-ok socket {:op :init
+                                            :app-id movies-app-id})
+        (let [rid (str (UUID/randomUUID))]
+          (send-msg socket {:op :join-room
+                            :room-type "chat"
+                            :room-id rid})
+          (let [msgs (read-msgs 2 socket)
+                join-ok (ucoll/seek #(= :join-room-ok (:op %)) msgs)]
+            (is join-ok)
+            (is (= rid (:room-id join-ok)))))))))
+
+(deftest room-join-fails-when-rule-denies
+  (testing "rule evaluates to false -> join-room-error"
+    (with-session
+      (fn [_store {:keys [socket movies-app-id]}]
+        (rule-model/put! {:app-id movies-app-id
+                          :code {"$rooms" {"chat" {"allow" {"join" "false"}}}}})
+        (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+        (let [rid (str (UUID/randomUUID))]
+          (send-msg socket {:op :join-room
+                            :room-type "chat"
+                            :room-id rid})
+          (let [msg (read-msg socket)]
+            (is (= :join-room-error (:op msg)))
+            (is (= rid (:room-id msg)))))))))
+
+(deftest room-join-uses-default-fallback
+  (testing "$default fallback applies to unlisted room types"
+    (with-session
+      (fn [_store {:keys [socket movies-app-id]}]
+        (rule-model/put! {:app-id movies-app-id
+                          :code {"$rooms" {"$default" {"allow" {"join" "false"}}
+                                           "chat" {"allow" {"join" "true"}}}}})
+        (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+        ;; chat should succeed
+        (let [rid (str (UUID/randomUUID))]
+          (send-msg socket {:op :join-room
+                            :room-type "chat"
+                            :room-id rid})
+          (let [msgs (read-msgs 2 socket)
+                join-ok (ucoll/seek #(= :join-room-ok (:op %)) msgs)]
+            (is join-ok)))
+        ;; unlisted type should be denied by $default
+        (let [rid2 (str (UUID/randomUUID))]
+          (send-msg socket {:op :join-room
+                            :room-type "video"
+                            :room-id rid2})
+          (let [msg (read-msg socket)]
+            (is (= :join-room-error (:op msg)))))))))
+
+(deftest room-join-old-client-denied-when-room-rules-exist
+  (testing "client not sending room-type gets denied when $rooms rules exist"
+    (with-session
+      (fn [_store {:keys [socket movies-app-id]}]
+        (rule-model/put! {:app-id movies-app-id
+                          :code {"$rooms" {"chat" {"allow" {"join" "true"}}}}})
+        (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+        (let [rid (str (UUID/randomUUID))]
+          (send-msg socket {:op :join-room
+                            :room-id rid})
+          (let [msg (read-msg socket)]
+            (is (= :join-room-error (:op msg)))))))))
