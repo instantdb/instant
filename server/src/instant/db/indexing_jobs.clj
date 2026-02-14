@@ -272,7 +272,7 @@
   [conn job]
   (let [{:keys [app_id attr_id]} job
         sketch-key {:app-id app_id :attr-id attr_id}
-        total (-> (cms/lookup conn [sketch-key])
+        total (-> (cms/lookup [sketch-key])
                   (get-in [sketch-key :sketch :total])
                   (or 0)
                   (max 0))
@@ -284,43 +284,39 @@
                                                  [:= :id (:id job)])
                                          :set {:work-estimate estimate}}))))
 
-(defn update-work-estimate-with-undefineds!
-  "Uses the attr_sketch to update the estimate of the number of triples that are undefined."
+(defn update-insert-nulls-work-estimate!
+  "Uses the attr_sketch to update the estimate of the work we'll do for inserting nulls"
   [conn job]
   (let [{:keys [app_id attr_id]} job
         attrs (attr-model/get-by-app-id conn app_id)
-        etype (attr-model/fwd-etype (attr-model/seek-by-id attr_id attrs))
-        _ (when-not etype
-            (ex/throw-validation-err! :attr attr_id [{:message "Attribute has no etype"}]))
-        id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)
-        _ (when-not id-attr
-            (ex/throw-validation-err! :attr etype [{:message (str etype " has no id attribute")}]))
+        indexed-attr (attr-model/seek-by-id attr_id attrs)]
+    (when (= :blob (:value-type indexed-attr))
+      (let [etype (attr-model/fwd-etype indexed-attr)
+            _ (when-not etype
+                (ex/throw-validation-err! :attr attr_id [{:message "Attribute has no etype"}]))
+            id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)
+            _ (when-not id-attr
+                (ex/throw-validation-err! :attr etype [{:message (str etype " has no id attribute")}]))
 
-        attr-sketch-key {:app-id app_id :attr-id attr_id}
-        entity-sketch-key {:app-id app_id :attr-id (:id id-attr)}
+            entity-sketch-key {:app-id app_id :attr-id (:id id-attr)}
 
-        sketches (cms/lookup [attr-sketch-key
-                              entity-sketch-key])
+            sketches (cms/lookup [entity-sketch-key])
 
-        attr-count (-> sketches
-                       (get-in [attr-sketch-key :sketch :total])
-                       (or 0)
-                       (max 0))
-        entity-count (-> sketches
-                         (get-in [entity-sketch-key :sketch :total])
-                         (or 0)
-                         (max 0))
+            entity-count (-> sketches
+                             (get-in [entity-sketch-key :sketch :total])
+                             (or 0)
+                             (max 0))
 
-        ;; Add at least 1 to account for the time it takes to
-        ;; check for entities missing the attr
-        estimate (max 1 (- entity-count attr-count))]
+            ;; Add at least 1 to account for the time it takes to
+            ;; check for entities missing the attr
+            estimate (max 1 entity-count)]
 
-    (sql/execute-one! ::update-work-estimate-with-undefineds!
-                      conn (hsql/format {:update :indexing-jobs
-                                         :where (job-update-wheres
-                                                 [:= :id (:id job)])
-                                         :set {:work-estimate [:+ [:coalesce :work-estimate :0]
-                                                               estimate]}}))))
+        (sql/execute-one! ::update-work-estimate-with-undefineds!
+                          conn (hsql/format {:update :indexing-jobs
+                                             :where (job-update-wheres
+                                                     [:= :id (:id job)])
+                                             :set {:work-estimate [:+ [:coalesce :work-estimate :0]
+                                                                   estimate]}}))))))
 
 (defn add-work-completed! [conn completed-count job]
   (when (pos? completed-count)
@@ -332,6 +328,24 @@
                                                [:+
                                                 [:coalesce :work-completed 0]
                                                 completed-count]}}))))
+
+(defn set-context!
+  "Updates the context value at the given key.
+   (set-context! _ _ \"index-nulls\" {:cursor {...}})
+    -> {:context {\"index-nulls\" {\"cursor\" ...}}}"
+  [conn job key context]
+  (sql/execute-one! ::set-context!
+                    conn
+                    (hsql/format {:update :indexing-jobs
+                                  :where (job-update-wheres
+                                          [:= :id (:id job)])
+                                  :set {:context [:jsonb_set
+                                                  [:coalesce :context [:lift {}]]
+                                                  :?path
+                                                  :?context]}}
+                                 {:params {:path (with-meta [key]
+                                                   {:pgtype "text[]"})
+                                           :context context}})))
 
 (defn release-job!
   ([job] (release-job! (aurora/conn-pool :write) job))
@@ -590,22 +604,70 @@
   (tracer/with-span! (job-span-attrs "index" job)
     (try
       (let [{:keys [app_id attr_id]} job
-            q {:update :triples
-               :set {:ave true}
-               :where [:in :ctid
-                       {:select :ctid
-                        :for :update
-                        :from :triples
-                        :limit batch-size
-                        :where [:and
-                                [:= :app-id app_id]
-                                [:= :attr-id attr_id]
-                                [:not :ave]]}]}
+            attrs (attr-model/get-by-app-id app_id)
+            attr (attr-model/seek-by-id attr_id attrs)
+            cursor (get-in job [:context "update-triples" "after"])
+            q {:with [[:next-batch {:select :*
+                                    :from [[:triples :t]]
+                                    :for :update
+                                    :order-by (cond-> [[:created-at :asc] [:entity-id :asc]]
+                                                (= :many (:cardinality attr)) (conj [:value-md5 :asc]))
+                                    :limit batch-size
+                                    :where [:and
+                                            [:= :app-id app_id]
+                                            [:= :attr-id attr_id]
+                                            [:not :ave]
+                                            (when-let [{:strs [e t md5]} cursor]
+                                              [:and
+                                               ;; The >= does one fast filter on the index
+                                               [:>= :created-at t]
+                                               ;; Then we filter out any rows with the same created_at
+                                               [:or
+                                                [:> :created-at t]
+                                                [:and
+                                                 [:= :created-at t]
+                                                 [:> :entity-id (parse-uuid e)]]
+                                                (when (= :many (:cardinality attr))
+                                                  [:and
+                                                   [:= :created-at t]
+                                                   [:= :entity-id (parse-uuid e)]
+                                                   [:> :value-md5 md5]])]])]}]
+                      [:updates {:update [:triples :u]
+                                 :set {:ave true}
+                                 :from [[:next-batch :n]]
+                                 :where [:and
+                                         [:= :n.app_id :u.app_id]
+                                         [:= :n.entity_id :u.entity_id]
+                                         [:= :n.attr_id :u.attr_id]
+                                         [:= :n.value_md5 :u.value_md5]]
+                                 :returning :*}]]
+               :select [[[:json_build_object
+                          [:inline "updated"] {:select :%count.* :from :updates}
+                          [:inline "work-completed"] {:select :%count.* :from :next-batch}
+                          [:inline "end-cursor"] {:select [[[:json_build_object
+                                                             [:inline "t"] :created-at
+                                                             [:inline "e"] :entity-id
+                                                             [:inline "md5"] :value-md5]]]
+                                                  :from :next-batch
+                                                  :order-by (cond-> [[:created-at :desc] [:entity_id :desc]]
+                                                              (= :many (:cardinality attr)) (conj [:value-md5 :desc]))
+                                                  :limit 1}]
+                         :data]]
+               :pg-hints [(pg-hints/index-scan :t :triples_created_at_idx)
+                          (pg-hints/index-scan :u :triples_pkey)]}
             res (sql/do-execute! ::index-next-batch! conn (hsql/format q))
-            update-count (:next.jdbc/update-count (first res))]
-        (tracer/add-data! {:attributes {:update-count update-count}})
-        (add-work-completed! conn update-count job)
-        (when (pos? update-count)
+            {:strs [work-completed updated end-cursor]} (:data (first res))]
+        (tracer/add-data! {:attributes {:update-count updated
+                                        :work-completed work-completed
+                                        :end-cursor end-cursor}})
+        (when work-completed
+          (add-work-completed! conn work-completed job))
+        (when-not (set-context! conn job "update-triples" {:after end-cursor})
+          (ex/throw-validation-err! :indexing-jobs
+                                    {:id (:id job)
+                                     :stage "update-triples"}
+                                    [{:message "Unable to update context for indexing job."}]))
+        (when end-cursor
           [::repeat]))
       (catch ExceptionInfo e
         (abort-index! conn job)
@@ -623,52 +685,83 @@
                 _ (assert etype "Attribute has no etype")
                 id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)
                 _ (assert id-attr (str etype " has no id attribute"))
+                limit (* batch-size 2)
+                cursor (get-in job [:context "index-nulls" "after"])
                 q {:with [[:attr {:select :*
                                   :from :attrs
                                   :where [:and
                                           [:= :attrs.id attr_id]
-                                          [:= :attrs.app_id app_id]]}]]
-                   :insert-into [[:triples triple-model/triple-cols]
-                                 {:select [[:app_id :app_id]
-                                           [:entity_id :entity_id]
-                                           [attr_id :attr_id]
-                                           [[:cast "null" :jsonb] :value]
-                                           [[:inline json-null-md5] :value_md5]
-                                           [[:= {:select :cardinality :from :attr} [:inline "one"]] :ea]
-                                           [[:= {:select :value_type :from :attr} [:inline "ref"]] :eav]
-                                           [{:select :is_unique :from :attr} :av]
-                                           [{:select :is_indexed :from :attr} :ave]
-                                           [[:= {:select :value_type :from :attr} [:inline "ref"]] :vae]
-                                           [{:select :checked_data_type :from :attr} :checked_data_type]]
-                                  :from {:select [:triples.app_id
-                                                  :triples.entity_id]
-                                         :from :triples
-                                         ;; The `for update` should prevent a concurrent
-                                         ;; query from deleting the entity while we're
-                                         ;; doing our insert
-                                         :for :update
-                                         :where [:and
-                                                 [:= :triples.app-id app_id]
-                                                 [:= :triples.attr-id (:id id-attr)]
-                                                 (cond (:unique? id-attr) :av
-                                                       (:indexed? id-attr) :ave
-                                                       :else nil)
-                                                 [:not [:exists {:select :1
-                                                                 :from [[:triples :attr-triples]]
-                                                                 :where [:and
-                                                                         [:= :attr-triples.app-id app_id]
-                                                                         [:= :attr-triples.attr-id attr_id]
-                                                                         [:= :attr-triples.entity-id :triples.entity-id]]}]]]
-                                         :limit batch-size}}]
-                   :pg-hints [(pg-hints/index-scan :triples (cond (:unique? id-attr) :av_index
-                                                                  (:indexed? id-attr) :ave_with_e_index
-                                                                  :else :triples_pkey))
+                                          [:= :attrs.app_id app_id]]}]
+                          [:ids-to-check {:select :*
+                                          :from :triples
+                                          ;; The `for update` should prevent a concurrent
+                                          ;; query from deleting the entity while we're
+                                          ;; doing our insert
+                                          :for :update
+                                          :order-by [[:created-at :asc] [:entity_id :asc]]
+                                          :where [:and
+                                                  [:= :app-id app_id]
+                                                  [:= :attr-id (:id id-attr)]
+                                                  (when-let [{:strs [e t]} cursor]
+                                                    [:and
+                                                     ;; The >= does one fast filter on the index
+                                                     [:>= :created-at t]
+                                                     ;; Then we filter out any rows with the same created_at
+                                                     [:or
+                                                      [:> :created-at t]
+                                                      [:and
+                                                       [:= :created-at t]
+                                                       [:> :entity-id (parse-uuid e)]]]]) ]
+                                          ;; Double the batch size since we may update
+                                          ;; fewer than we fetch
+                                          :limit [:inline limit]}]
+                          [:inserts {:insert-into [[:triples triple-model/triple-cols]
+                                                   {:select [[:app_id :app_id]
+                                                             [:entity_id :entity_id]
+                                                             [attr_id :attr_id]
+                                                             [[:cast "null" :jsonb] :value]
+                                                             [[:inline json-null-md5] :value_md5]
+                                                             [[:= {:select :cardinality :from :attr} [:inline "one"]] :ea]
+                                                             [[:= {:select :value_type :from :attr} [:inline "ref"]] :eav]
+                                                             [{:select :is_unique :from :attr} :av]
+                                                             [{:select :is_indexed :from :attr} :ave]
+                                                             [[:= {:select :value_type :from :attr} [:inline "ref"]] :vae]
+                                                             [{:select :checked_data_type :from :attr} :checked_data_type]]
+                                                    :from {:select [:ids-to-check.app_id
+                                                                    :ids-to-check.entity_id]
+                                                           :from :ids-to-check
+                                                           :where [:not [:exists {:select :1
+                                                                                  :from [[:triples :attr-triples]]
+                                                                                  :where [:and
+                                                                                          [:= :attr-triples.app-id app_id]
+                                                                                          [:= :attr-triples.attr-id attr_id]
+                                                                                          [:= :attr-triples.entity-id :ids-to-check.entity-id]]}]]}}]
+                                     :returning :*}]]
+                   :select [[[:json_build_object
+                              [:inline "updated"] {:select :%count.* :from :inserts}
+                              [:inline "work-completed"] {:select :%count.* :from :ids-to-check}
+                              [:inline "end-cursor"] {:select [[[:json_build_object
+                                                                 [:inline "t"] :created-at
+                                                                 [:inline "e"] :entity-id]]]
+                                                      :from :ids-to-check
+                                                      :order-by [[:created-at :desc] [:entity_id :desc]]
+                                                      :limit 1}]
+                             :data]]
+
+                   :pg-hints [(pg-hints/index-scan :triples :triples_created_at_idx)
                               (pg-hints/index-scan :attr_triples :triples_pkey)]}
                 res (sql/do-execute! ::insert-nulls-next-batch! conn (hsql/format q))
-                update-count (:next.jdbc/update-count (first res))]
-            (tracer/add-data! {:attributes {:update-count update-count}})
-            (add-work-completed! conn update-count job)
-            (when (pos? update-count)
+                {:strs [updated end-cursor work-completed]} (:data (first res))]
+            (tracer/add-data! {:attributes {:update-count updated
+                                            :end-cursor end-cursor}})
+            (when work-completed
+              (add-work-completed! conn work-completed job))
+            (when-not (set-context! conn job "index-nulls" {:after end-cursor})
+              (ex/throw-validation-err! :indexing-jobs
+                                        {:id (:id job)
+                                         :stage "index-nulls"}
+                                        [{:message "Unable to update context for indexing job."}]))
+            (when end-cursor
               [::repeat]))))
       (catch ExceptionInfo e
         (abort-index! conn job)
@@ -684,7 +777,7 @@
 (def index--stages
   [{:stage "update-attr-start", :fn #'index--update-attr-start}
    {:stage "estimate-work",     :fn #'update-work-estimate!}
-   {:stage "estimate-work-with-undefineds", :fn #'update-work-estimate-with-undefineds!}
+   {:stage "estimate-work-with-undefineds", :fn #'update-insert-nulls-work-estimate!}
    {:stage "update-triples",    :fn #'index--update-triples}
    {:stage "insert-nulls",      :fn #'index--insert-nulls}
    {:stage "update-attr-done",  :fn #'index--update-attr-done}])
@@ -946,7 +1039,9 @@
         (mark-error! conn {:error res-value} job)
 
         (= ::exception res-type)
-        (mark-error-from-ex-info! conn res-value job)
+        (do
+          (tracer/record-exception-span! res-value {:name "indexing-jobs/exception"})
+          (mark-error-from-ex-info! conn res-value job))
 
         (= ::repeat res-type)
         job
