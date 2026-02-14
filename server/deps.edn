@@ -171,6 +171,8 @@
            :repl-connect {:main-opts ["-m" "nrepl.cmdline" "--connect" "--host" "localhost" "--port" "6005"]}
            :encrypt-secret {:extra-deps {org.clojure/tools.cli {:mvn/version "1.1.230"}}
                             :exec-fn tasks/encrypt-config-secret}
+           :generate-cloudfront-key {:extra-deps {org.clojure/tools.cli {:mvn/version "1.1.230"}}
+                                     :exec-fn tasks/generate-cloudfront-key}
            :oss-bootstrap {:extra-deps {org.clojure/tools.cli {:mvn/version "1.1.230"}}
                            :exec-fn tasks/bootstrap-for-oss
                            :jvm-opts ["-Dclojure.main.report=stderr"]}

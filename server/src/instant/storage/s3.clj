@@ -186,7 +186,8 @@
         object-key (->object-key app-id location-id)]
     (str (s3-util/generate-presigned-url
           (presign-creds)
-          {:method :get
+          {:app-id app-id
+           :method :get
            :bucket-name bucket-name
            :key object-key
            :duration duration

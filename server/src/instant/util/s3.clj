@@ -1,7 +1,10 @@
 (ns instant.util.s3
   (:require
+   [instant.config :as config]
+   [instant.flags :as flags]
    [instant.util.async :refer [default-virtual-thread-executor]]
    [instant.util.aws-signature :as aws-sig]
+   [instant.util.cloudfront :as cloudfront-util]
    [instant.util.tracer :as tracer])
   (:import
    (java.time Instant Duration)
@@ -160,21 +163,35 @@
 
 (defn generate-presigned-url-get
   [{:keys [access-key secret-key region] :as _signer-creds}
-   {:keys [method bucket-name
+   {:keys [app-id
+           method
+           bucket-name
            key
            ^Instant signing-instant
            ^Duration duration]}]
   (assert (= :get method)
           "get presigned urls are only implemented for :get requests")
-  (aws-sig/presign-s3-url
-   {:access-key access-key
-    :secret-key secret-key
-    :region region
-    :method method
-    :bucket bucket-name
-    :signing-instant signing-instant
-    :expires-duration duration
-    :path key}))
+
+  (if (and (= bucket-name config/s3-bucket-name)
+           @config/cloudfront-signing-key
+           (flags/use-cloudfront-signed-url? app-id)
+           config/cloudfront-s3-bucket-url)
+    (let [base-url config/cloudfront-s3-bucket-url]
+      (cloudfront-util/sign-cloudfront-url {:url (str base-url "/" key)
+                                            :key-id (:key-id @config/cloudfront-signing-key)
+                                            :private-key (:private-key @config/cloudfront-signing-key)
+                                            :signing-instant signing-instant
+                                            :duration duration}))
+
+    (aws-sig/presign-s3-url
+     {:access-key access-key
+      :secret-key secret-key
+      :region region
+      :method method
+      :bucket bucket-name
+      :signing-instant signing-instant
+      :expires-duration duration
+      :path key})))
 
 (defn generate-presigned-url-put
   [{:keys [access-key secret-key region] :as _signer-creds}
