@@ -9,6 +9,7 @@
   (:require
    [clojure.main :refer [root-cause]]
    [instant.config :as config]
+   [instant.db.cel :as cel]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
@@ -611,16 +612,60 @@
                                     (when (string? s)
                                       s))))
 
+(defn- assert-room-permission!
+  "Check room join permissions. If no $rooms rules exist, allow (backwards compat).
+   If $rooms rules exist but client didn't send room-type, deny."
+  [{:keys [app-id room-type room-id current-user admin?]}]
+  (when-not admin?
+    (let [rules (rule-model/get-by-app-id {:app-id app-id})
+          has-room-rules? (some? (get-in rules [:code "$rooms"]))]
+      (when has-room-rules?
+        (ex/assert-permitted!
+         :has-room-join-permission?
+         ["$rooms" room-type "join"]
+         (and room-type
+              (let [program (rule-model/get-room-program! rules room-type "join")]
+                (if program
+                  (let [ctx {:current-user current-user
+                             :app-id app-id
+                             :db {:conn-pool (aurora/conn-pool :read)}
+                             :attrs (attr-model/get-by-app-id app-id)
+                             :datalog-query-fn d/query}]
+                    (cel/eval-program! ctx program {:data {"id" room-id}}))
+                  true))))))))
+
 (defn- handle-join-room! [store sess-id {:keys [client-event-id data] :as event}]
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
         current-user (-> auth :user)
-        room-id (validate-room-id event)]
-    (eph/join-room! app-id sess-id current-user room-id data)
-    (join-room-logger/log-join-room! app-id)
-    (rs/send-event! store app-id sess-id {:op :join-room-ok
-                                          :room-id room-id
-                                          :client-event-id client-event-id})))
+        room-id (validate-room-id event)
+        room-type (get event :room-type)]
+    ;; Note: we catch permission errors here to send :join-room-error instead of
+    ;; the generic :error op. The client needs :join-room-error specifically to
+    ;; surface errors in presence state (room.error).
+    (try
+      (assert-room-permission! {:app-id app-id
+                                :room-type room-type
+                                :room-id room-id
+                                :current-user current-user
+                                :admin? (:admin? auth)})
+      (eph/join-room! app-id sess-id current-user room-id data)
+      (join-room-logger/log-join-room! app-id)
+      (rs/send-event! store app-id sess-id {:op :join-room-ok
+                                            :room-id room-id
+                                            :client-event-id client-event-id})
+      (catch Exception e
+        (let [instant-ex (ex/find-instant-exception e)
+              err-data (when instant-ex (ex-data instant-ex))]
+          (if (#{::ex/permission-denied ::ex/permission-evaluation-failed}
+               (::ex/type err-data))
+            (rs/send-event! store app-id sess-id {:op :join-room-error
+                                                  :room-id room-id
+                                                  :error {:message (or (::ex/message err-data)
+                                                                       "Permission denied")
+                                                          :type :permission-denied}
+                                                  :client-event-id client-event-id})
+            (throw e)))))))
 
 (defn- handle-leave-room! [store sess-id {:keys [client-event-id] :as event}]
   (let [auth (get-auth! store sess-id)
