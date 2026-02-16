@@ -296,6 +296,11 @@
         5701))
     5701))
 
+(def grpc-port-offset 100)
+
+(defn get-grpc-server-port []
+  (+ (get-hz-port) grpc-port-offset))
+
 (defn get-nrepl-bind-address []
   (or (System/getenv "NREPL_BIND_ADDRESS")
       (case (get-env)

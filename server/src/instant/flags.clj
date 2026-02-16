@@ -323,3 +323,8 @@
     (or (toggled? :enable-cloudfront-signed-urls-globally)
         (contains? (flag :cloudfront-signed-url-apps)
                    app-id))))
+
+(defn stream-flush-byte-limit
+  "Limit over which we flush the write stream buffer to a file"
+  []
+  (flag :stream-flush-byte-limit 1048576))

@@ -28,7 +28,8 @@
    (com.hazelcast.spi.properties ClusterProperty HazelcastProperty)
    (com.hazelcast.topic ITopic MessageListener Message)
    (java.time Duration Instant)
-   (java.util Map$Entry)
+   (java.util Map Map$Entry)
+   (java.util.function BiFunction)
    (java.util.concurrent Future ConcurrentHashMap)
    (javax.management ObjectName)))
 
@@ -49,27 +50,51 @@
 
 (defonce hz-member-by-machine-id-cache ^ConcurrentHashMap (ConcurrentHashMap.))
 
-(defn add-member-listener [^HazelcastInstance hz]
+(defonce hz-member-callbacks ^ConcurrentHashMap (ConcurrentHashMap.))
+
+(defn remove-hz-member-callback [machine-id cb-id]
+  (Map/.compute hz-member-callbacks machine-id ^BiFunction (reify BiFunction
+                                                             (apply [_ _k v]
+                                                               (let [new (dissoc v cb-id)]
+                                                                 (when-not (empty? new)
+                                                                   new))))))
+
+(defn add-hz-member-callback [machine-id cb]
+  (let [cb-id (random-uuid)]
+    (Map/.compute hz-member-callbacks machine-id ^BiFunction (reify BiFunction
+                                                               (apply [_ _k v]
+                                                                 (assoc v cb-id cb))))
+    (fn []
+      (remove-hz-member-callback machine-id cb-id))))
+
+(defn run-member-callbacks [machine-id action]
+  (doseq [[_k cb] (Map/.get hz-member-callbacks machine-id)]
+    (cb action)))
+
+(defn- add-member-listener [^HazelcastInstance hz]
   (.addMembershipListener (.getCluster hz)
                           (reify InitialMembershipListener
                             (init [_ e]
                               (doseq [^Member m (.getMembers e)]
-                                (when-let [member-id (-> m
+                                (when-let [machine-id (-> m
                                                          (.getAttribute "machine-id")
                                                          uuid-util/coerce)]
-                                  (.put ^ConcurrentHashMap hz-member-by-machine-id-cache member-id m))))
+                                  (Map/.put hz-member-by-machine-id-cache machine-id m)
+                                  (run-member-callbacks machine-id :added))))
                             (memberAdded [_ e]
                               (let [m (.getMember e)]
-                                (when-let [member-id (-> m
+                                (when-let [machine-id (-> m
                                                          (.getAttribute "machine-id")
                                                          uuid-util/coerce)]
-                                  (.put ^ConcurrentHashMap hz-member-by-machine-id-cache member-id m))))
+                                  (Map/.put hz-member-by-machine-id-cache machine-id m)
+                                  (run-member-callbacks machine-id :added))))
                             (memberRemoved [_ e]
                               (let [m (.getMember e)]
-                                (when-let [member-id (-> m
+                                (when-let [machine-id (-> m
                                                          (.getAttribute "machine-id")
                                                          uuid-util/coerce)]
-                                  (.remove ^ConcurrentHashMap hz-member-by-machine-id-cache member-id m)))))))
+                                  (Map/.remove hz-member-by-machine-id-cache machine-id m)
+                                  (run-member-callbacks machine-id :removed)))))))
 
 (defn init-hz [env store {:keys [instance-name cluster-name]
                           :or {instance-name "instant-hz-v3"

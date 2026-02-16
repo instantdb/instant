@@ -12,7 +12,7 @@
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id path location-id metadata]}]
+  ([conn {:keys [app-id path location-id metadata mode]}]
    (update-op
     conn
     {:app-id app-id
@@ -21,18 +21,23 @@
       (let [lookup [(resolve-id :path) path]
             {:keys [size content-type content-disposition]} metadata
 
+            tx-opts (when mode
+                      {:mode mode})
+
             res
             (transact!
-             [[:add-triple lookup (resolve-id :id) lookup]
-              [:add-triple lookup (resolve-id :size) size]
-              [:add-triple lookup (resolve-id :content-type) content-type]
-              [:add-triple lookup (resolve-id :content-disposition) content-disposition]
-              [:add-triple lookup (resolve-id :location-id) location-id]
-              [:add-triple lookup (resolve-id :key-version) 1]]
+             [[:add-triple lookup (resolve-id :id) lookup tx-opts]
+              [:add-triple lookup (resolve-id :size) size tx-opts]
+              [:add-triple lookup (resolve-id :content-type) content-type tx-opts]
+              [:add-triple lookup (resolve-id :content-disposition) content-disposition tx-opts]
+              [:add-triple lookup (resolve-id :location-id) location-id tx-opts]
+              [:add-triple lookup (resolve-id :key-version) 1 tx-opts]]
              {:allow-$files-update? true})]
         {:id (->> (get-in res [:results :add-triple])
-                  (map :entity_id)
-                  first)})))))
+                  first
+                  :entity_id)
+         :location-id location-id
+         :size size})))))
 
 (comment
   (create! {:app-id #uuid "2d960014-0690-4dc5-b13f-a3c202663241"

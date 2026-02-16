@@ -44,6 +44,16 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="play/streams"
+        options={{
+          tabBarLabel: 'Streams',
+          title: 'Streams',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="reorder" color={color} size={size} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

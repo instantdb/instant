@@ -130,6 +130,7 @@ export class SSEConnection implements Connection<EventSourceType> {
   private closeFired: boolean = false;
   private sseInitTimeout: ReturnType<typeof setTimeout> | undefined = undefined;
   private ES: EventSourceConstructor;
+  private messageUrl: string;
   conn: EventSourceType;
   url: string;
   id: string;
@@ -138,9 +139,10 @@ export class SSEConnection implements Connection<EventSourceType> {
   onclose: (event: CloseEvent<EventSourceType>) => void;
   onerror: (event: ErrorEvent<EventSourceType>) => void;
 
-  constructor(ES: EventSourceConstructor, url: string) {
+  constructor(ES: EventSourceConstructor, url: string, messageUrl?: string) {
     this.id = `${this.type}_${_connId++}`;
     this.url = url;
+    this.messageUrl = messageUrl || this.url;
     this.ES = ES;
     this.conn = new ES(url);
 
@@ -208,8 +210,10 @@ export class SSEConnection implements Connection<EventSourceType> {
   }
 
   private async postMessages(messages: any[]): Promise<void> {
+    // TODO(dww): Create a connection with chunked encoding so we can
+    //            send multiple messages over one request
     try {
-      const resp = await fetch(this.url, {
+      const resp = await fetch(this.messageUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

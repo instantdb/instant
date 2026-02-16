@@ -22,12 +22,14 @@
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
    [instant.gauges :as gauges]
+   [instant.grpc-server :as grpc-server]
    [instant.health :as health]
    [instant.honeycomb-api :as honeycomb-api]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.lib.ring.undertow :as undertow-adapter]
    [instant.machine-summaries]
+   [instant.nippy]
    [instant.nrepl :as nrepl]
    [instant.oauth-apps.routes :as oauth-app-routes]
    [instant.reactive.aggregator :as agg]
@@ -259,7 +261,9 @@
           (agg/stop-global)))
       (future
         (tracer/with-span! {:name "stop-ephemeral"}
-          (eph/stop)))
+          (eph/stop))
+        (tracer/with-span! {:name "stop-grpc"}
+          (grpc-server/stop-global)))
       (future
         (tracer/with-span! {:name "stop-indexing-jobs"}
           (indexing-jobs/stop)))
@@ -326,6 +330,8 @@
         (rs/start))
       (with-log-init :ephemeral
         (eph/start))
+      (with-log-init :grpc-server
+        (grpc-server/start-global))
       (with-log-init :stripe
         (stripe/init))
       (with-log-init :session

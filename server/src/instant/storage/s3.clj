@@ -112,6 +112,10 @@
     (TikaInputStream/get file)
     file))
 
+;; Holds mock functions for testing things that make use of files
+;; See session_test.clj for a usage example
+(def ^:dynamic *s3-mock* nil)
+
 (defn upload-file-to-s3 [{:keys [app-id location-id] :as ctx} file_]
   (tracer/with-span! {:name "upload-file-to-s3"
                       :attributes {:requires-tika? (requires-tika? ctx)
@@ -128,7 +132,9 @@
             ctx* (cond-> ctx
                    true (assoc :object-key (->object-key app-id location-id))
                    content-type (assoc :content-type content-type))]
-        (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file)))))
+        (if-let [mock *s3-mock*]
+          ((:upload mock) bucket-name ctx* file)
+          (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file))))))
 
 (defn format-object [{:keys [object-metadata]}]
   (-> object-metadata
@@ -141,7 +147,9 @@
   ([app-id location-id] (get-object-metadata bucket-name app-id location-id))
   ([bucket-name app-id location-id]
    (let [object-key (->object-key app-id location-id)]
-     (format-object (s3-util/head-object (s3-client) bucket-name object-key)))))
+     (if-let [mock *s3-mock*]
+       ((:get-object-metadata mock) bucket-name object-key)
+       (format-object (s3-util/head-object (s3-client) bucket-name object-key))))))
 
 (defn update-object-metadata!
   ([app-id location-id params]
@@ -181,17 +189,19 @@
     (.toInstant (.truncatedTo now ChronoUnit/DAYS))))
 
 (defn location-id-url [app-id location-id]
-  (let [signing-instant (bucketed-signing-instant)
-        duration (Duration/ofDays 7)
-        object-key (->object-key app-id location-id)]
-    (str (s3-util/generate-presigned-url
-          (presign-creds)
-          {:app-id app-id
-           :method :get
-           :bucket-name bucket-name
-           :key object-key
-           :duration duration
-           :signing-instant signing-instant}))))
+  (if-let [mock *s3-mock*]
+    ((:location-id-url mock) app-id location-id)
+    (let [signing-instant (bucketed-signing-instant)
+          duration (Duration/ofDays 7)
+          object-key (->object-key app-id location-id)]
+      (str (s3-util/generate-presigned-url
+            (presign-creds)
+            {:app-id app-id
+             :method :get
+             :bucket-name bucket-name
+             :key object-key
+             :duration duration
+             :signing-instant signing-instant})))))
 
 (defn create-signed-download-url! [app-id location-id]
   (when location-id

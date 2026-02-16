@@ -1,9 +1,10 @@
 import 'react-native-get-random-values';
 
-import Storage from './Storage';
+import Store from './Storage';
 import EventSourceImpl from './EventSourceImpl';
 import NetworkListener from './NetworkListener';
 import version from './version';
+import { streamConstructors } from './Streams';
 
 import { InstantReactAbstractDatabase } from '@instantdb/react-common';
 
@@ -95,6 +96,9 @@ import {
   type SyncTableSetupError,
   StoreInterface,
   type StoreInterfaceStoreName,
+  CreateReadStreamOpts,
+  CreateWriteStreamOpts,
+  InstantWritableStream,
 } from '@instantdb/core';
 
 /**
@@ -132,6 +136,8 @@ function init<
   InstantConfig<Schema, UseDates>
 > {
   const configStrict = {
+    ReadableStream: streamConstructors.ReadableStream,
+    WritableStream: streamConstructors.WritableStream,
     ...config,
     useDateObjects: (config.useDateObjects ?? false) as UseDates,
   };
@@ -168,7 +174,7 @@ class InstantReactNativeDatabase<
     UseDates
   >,
 > extends InstantReactAbstractDatabase<Schema, UseDates, Config> {
-  static Storage = Storage;
+  static Store = Store;
   static NetworkListener = NetworkListener;
   static EventSourceImpl = EventSourceImpl;
 }
@@ -253,6 +259,11 @@ export {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // stream types
+  type CreateReadStreamOpts,
+  type CreateWriteStreamOpts,
+  type InstantWritableStream,
 
   // custom store
   StoreInterface,

@@ -40,7 +40,7 @@
    (java.lang InterruptedException)
    (java.time Instant)
    (java.util Map)
-   (java.util.concurrent CancellationException CompletableFuture ConcurrentHashMap ConcurrentLinkedQueue ExecutorService Executors)
+   (java.util.concurrent CancellationException CompletableFuture ConcurrentHashMap ConcurrentLinkedQueue Executors ExecutorService)
    (java.util.concurrent.locks ReentrantLock)
    (java.util.regex Pattern)
    (io.undertow.server.handlers.sse ServerSentEventConnection)
@@ -60,7 +60,9 @@
    :session/creator        {}   ;; user (from session.clj)
    :session/versions       {}   ;; library versions, e.g. {"@instantdb/react": "v0.1.2"}
    :session/datalog-loader {}   ;; datalog-loader (from datalog.clj)
-   :session/attrs-hash     {}}) ;; last sent attrs’ hash
+   :session/attrs-hash     {}   ;; last sent attrs’ hash
+   ;; Whether to use schema inference for returning items vs lists
+   :session/inference?     {}})
 
 (def
   ^{:doc
@@ -85,7 +87,6 @@
    {:db/tupleAttrs [:instaql-query/session-id :instaql-query/query]
     :db/unique :db.unique/identity}
    :instaql-query/return-type {} ;; :join-rows or :tree
-   :instaql-query/inference? {:db/type :db.type/boolean}
    :instaql-query/topic {}
 
    :subscription/app-id {:db/type :db.type/integer}
@@ -124,7 +125,27 @@
                      :db/index true}
    :sync/process {}
    :sync/topics {}
-   :sync/sent-tx-id {}})
+   :sync/sent-tx-id {}
+
+   ;; Tracks streams created by the writer.
+   ;; Only one writer allowed for a given stream-id.
+   :stream/session-id {:db/type :db.type/uuid
+                       :db/index true}
+   :stream/stream-id {:db/unique :db.unique/identity
+                      :db/type :db.type/uuid}
+   :stream/stream-object {}
+
+   ;; Tracks a read subscription to a stream.
+   ;; There can be multiple readers per stream, but only one reader
+   ;; per event-id.
+   :stream-reader/session-id {:db/type :db.type/uuid
+                              :db/index true}
+   :stream-reader/stream-id {:db/type :db.type/uuid
+                             :db/index true}
+   :stream-reader/user-provided-event-id {:db/index true}
+   :stream-reader/session-id+user-provided-event-id {:db/tupleAttrs [:stream-reader/session-id :stream-reader/user-provided-event-id]
+                                                     :db/unique :db.unique/identity}
+   :stream-reader/reader-object {}})
 
 (defn duration-ms [t0 t1]
   (-> t1 (- t0) (/ 1000000) double))
@@ -342,13 +363,30 @@
         (catch clojure.lang.ExceptionInfo e
           (translate-datascript-exceptions e))))))
 
-(defn deleted-subscriptions-datalog-query-ids [report]
+(def stream-unsubscribe-reason "u")
+
+(defn tx-cleanup
+  "Runs cleanup on deleted entities for streams.
+   Returns the set of stale datalog-query-eids that may need to be removed."
+  [report]
   (keep (fn [datom]
-          (when (and (= (:a datom)
-                        :subscription/datalog-query)
-                     (not (:added datom))
-                     (d/entity (:db-after report) (:v datom)))
-            (:v datom)))
+          (when-not (:added datom)
+            (case (:a datom)
+              :subscription/datalog-query
+              (when (d/entity (:db-after report) (:v datom))
+                (:v datom))
+
+              :stream/stream-object
+              (when-let [cleanup (:cleanup (meta (:v datom)))]
+                (cleanup)
+                nil)
+
+              :stream-reader/reader-object
+              (when-let [cancel (:cancel (:v datom))]
+                (cancel stream-unsubscribe-reason)
+                nil)
+
+              nil)))
         (:tx-data report)))
 
 (defn clean-stale-datalog-queries-tx-data [db datalog-query-eids]
@@ -365,7 +403,7 @@
                                   (:app-id (meta conn))))
                  (transact-new! span-name conn tx-data)
                  (transact-old! span-name conn tx-data))]
-    (if-let [eids (seq (deleted-subscriptions-datalog-query-ids report))]
+    (if-let [eids (seq (tx-cleanup report))]
       (do
         (transact! "store/clean-datalog-queries"
                    conn
@@ -486,7 +524,7 @@
   "Should be used in a db.fn/call. Returns transactions.
    Bumps the query version and marks query as not stale, creating the query
    if needed."
-  [db lookup-ref session-id instaql-query return-type inference?]
+  [db lookup-ref session-id instaql-query return-type]
   (if-let [existing (d/entity db lookup-ref)]
     (let [v  (:instaql-query/version existing)
           v' (inc (or v 0))]
@@ -498,13 +536,12 @@
       :instaql-query/forms-hash (forms-hash instaql-query)
       :instaql-query/stale? false
       :instaql-query/version 1
-      :instaql-query/return-type return-type
-      :instaql-query/inference? (or inference? false)}]))
+      :instaql-query/return-type return-type}]))
 
-(defn bump-instaql-version! [store app-id sess-id q return-type inference?]
+(defn bump-instaql-version! [store app-id sess-id q return-type]
   (let [lookup-ref [:instaql-query/session-id+query [sess-id q]]
         conn       (app-conn store app-id)
-        tx         [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type inference?]]
+        tx         [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type]]
         report     (transact! "store/bump-instaql-version!" conn tx)]
     (d/entity (:db-after report) lookup-ref)))
 
@@ -571,6 +608,50 @@
                                  (nil? hash-after)))]
     (assoc report :result-changed? result-changed?)))
 
+;; -------
+;; streams
+
+(defn register-stream [store app-id sess-id stream-object]
+  (transact! "store/register-stream"
+             (app-conn store app-id)
+             [{:db/id -1
+               :stream/stream-id (:stream-id @stream-object)
+               :stream/session-id sess-id
+               :stream/stream-object stream-object}]))
+
+(defn remove-stream [store app-id stream-id]
+  (let [conn (app-conn store app-id)]
+    (when-let [db-id (d/entid @conn [:stream/stream-id stream-id])]
+      (transact! "store/remove-stream"
+                 (app-conn store app-id)
+                 [[:db/retractEntity db-id]]))))
+
+(defn get-stream-object-for-append [store app-id sess-id stream-id]
+  (let [ent (d/entity @(app-conn store app-id) [:stream/stream-id stream-id])]
+    (when (= (:stream/session-id ent) sess-id)
+      (:stream/stream-object ent))))
+
+(defn get-stream-object-for-subscribe [store app-id stream-id]
+  (let [ent (d/entity @(app-conn store app-id) [:stream/stream-id stream-id])]
+    (:stream/stream-object ent)))
+
+(defn register-stream-reader [store app-id sess-id stream-id user-provided-event-id reader-object]
+  (transact! "store/register-stream-reader"
+             (app-conn store app-id)
+             [{:db/id -1
+               :stream-reader/stream-id stream-id
+               :stream-reader/session-id sess-id
+               :stream-reader/user-provided-event-id user-provided-event-id
+               :stream-reader/reader-object reader-object}]))
+
+(defn remove-stream-reader [store app-id reader-ent]
+  (transact! "store/remove-stream-reader"
+             (app-conn store app-id)
+             [[:db.fn/retractEntity (:db/id reader-ent)]]))
+
+(defn get-stream-reader [store app-id sess-id user-provided-event-id]
+  (d/entity @(app-conn store app-id) [:stream-reader/session-id+user-provided-event-id
+                                      [sess-id user-provided-event-id]]))
 ;; ------
 ;; session
 
@@ -595,6 +676,20 @@
   (for [datom (d/datoms db :avet :subscription/session-id sess-id)]
     [:db/retractEntity (:e datom)]))
 
+(defn- remove-session-streams-tx-data
+  "Should be used in a db.fn/call. Returns transactions.
+   Retracts streams for the session. The tx-listener will run any shutdown logic."
+  [db sess-id]
+  (as-> [] %
+    (reduce (fn [acc {:keys [e]}]
+              (conj acc [:db/retractEntity e]))
+            %
+            (d/datoms db :avet :stream/session-id sess-id))
+    (reduce (fn [acc {:keys [e]}]
+              (conj acc [:db/retractEntity e]))
+            %
+            (d/datoms db :avet :stream-reader/session-id sess-id))))
+
 (defn remove-session! [store app-id sess-id]
   ;; sync so new sessions are not added while we clean up this one
   (when (and app-id
@@ -602,7 +697,8 @@
     (transact! "store/remove-session-data!"
                (app-conn store app-id)
                [[:db.fn/call remove-session-queries-tx-data sess-id]
-                [:db.fn/call remove-session-subscriptions-tx-data sess-id]]))
+                [:db.fn/call remove-session-subscriptions-tx-data sess-id]
+                [:db.fn/call remove-session-streams-tx-data sess-id]]))
   (let [sessions-conn (:sessions store)]
     (transact! "store/remove-session!"
                sessions-conn
@@ -1496,7 +1592,7 @@
       (time
        (doseq [sid session-ids
                q instaql-queries]
-         (bump-instaql-version! test-store app-id sid q :join-rows true)))
+         (bump-instaql-version! test-store app-id sid q :join-rows)))
 
       (println "record-datalog-query-start")
       (time
@@ -1545,7 +1641,7 @@
       (time
        (doseq [sid session-ids
                q instaql-queries]
-         (bump-instaql-version! test-store app-id sid q :join-rows true)))
+         (bump-instaql-version! test-store app-id sid q :join-rows)))
 
       (println "record-datalog-query-start")
       (time

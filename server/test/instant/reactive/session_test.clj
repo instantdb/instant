@@ -1,6 +1,7 @@
 (ns instant.reactive.session-test
   (:require
    [clojure.core.async :as a]
+   [clojure.java.io :as io]
    [clojure.test :as test :refer [deftest is testing]]
    [datascript.core :as ds]
    [instant.config :as config]
@@ -10,20 +11,26 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app with-movies-app with-zeneca-app]]
+   [instant.flags :as flags]
    [instant.grouped-queue :as grouped-queue]
    instant.isn
    [instant.jdbc.aurora :as aurora]
    [instant.lib.ring.websocket :as ws]
+   [instant.model.app-stream :as app-stream-model]
+   [instant.model.rule :as rule-model]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.query :as rq]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.session :as session]
    [instant.reactive.store :as rs]
+   [instant.storage.s3 :as s3]
    [instant.util.async :as ua]
    [instant.util.cache :as cache]
-   [instant.util.coll :as ucoll])
+   [instant.util.coll :as ucoll]
+   [instant.util.test :as test-util])
   (:import
    (com.hazelcast.core HazelcastInstance)
+   (java.io ByteArrayOutputStream InputStream)
    (java.util UUID)))
 
 (test/use-fixtures :each
@@ -73,9 +80,15 @@
                                  :receive-q        receive-q
                                  :ping-job         (future)
                                  :pending-handlers (session/create-pending-handlers)}
+                socket-3        {:id               (random-uuid)
+                                 :ws-conn          (a/chan 100)
+                                 :receive-q        receive-q
+                                 :ping-job         (future)
+                                 :pending-handlers (session/create-pending-handlers)}
                 query-reactive  rq/instaql-query-reactive!]
             (session/on-open store socket)
             (session/on-open store socket-2)
+            (session/on-open store socket-3)
 
             (binding [*store*                 store
                       *instaql-query-results* (atom {})]
@@ -92,6 +105,7 @@
                 (try
                   (f store {:socket   socket
                             :socket-2 socket-2
+                            :socket-3 socket-3
                             :movies-app-id movies-app-id
                             :movies-resolver movies-resolver
                             :zeneca-app-id zeneca-app-id
@@ -99,6 +113,7 @@
                   (finally
                     (session/on-close store socket)
                     (session/on-close store socket-2)
+                    (session/on-close store socket-3)
                     (grouped-queue/stop receive-q)
                     (when @realized-eph?
                       (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))))))
@@ -1061,3 +1076,268 @@
                                                                   :data d1})]
         (is (= :error op))
         (is (= 400 status))))))
+
+;; -------
+;; Streams
+
+(defn with-file-mock [f]
+  (let [files (atom {})
+        upload (fn [_bucket {:keys [object-key]} file]
+                 (let [ba (with-open [_in ^InputStream file
+                                      out (ByteArrayOutputStream.)]
+                            (io/copy file out)
+                            (.toByteArray out))]
+                   (swap! files assoc object-key ba)))
+        get-metadata (fn [_bucket key]
+                       {:size (alength ^bytes (get @files key))})]
+    (test-util/with-s3-mock {:upload upload
+                             :get-object-metadata get-metadata
+                             :location-id-url (fn [app-id location-id]
+                                                (str "https://example.com/" app-id "/" location-id))}
+      (f {:slurp-file (fn [app-id location-id]
+                        (-> @files
+                            (get (s3/->object-key app-id location-id))
+                            slurp))}))))
+
+(defn read-full-stream
+  "Reads the full stream, including any unflushed bytes from the buffer"
+  [store app-id stream-id slurp-file]
+  (let [stream-files (app-stream-model/get-stream-files {:app-id app-id
+                                                         :stream-id stream-id})
+        file-content (apply str (map (fn [{:keys [location-id]}]
+                                       (slurp-file app-id location-id))
+                                     stream-files))
+        buffer-content (some->> (rs/get-stream-object-for-subscribe store app-id stream-id)
+                                deref
+                                :buffer
+                                (map (fn [^bytes ba]
+                                       (String. ba "UTF-8")))
+                                (apply str))]
+    (str file-content buffer-content)))
+
+(deftest streams-writer
+  (with-file-mock
+    (fn [{:keys [slurp-file]}]
+      (with-session
+        (fn [store {:keys [socket movies-app-id]}]
+          (rule-model/put! {:app-id movies-app-id
+                            :code {:$streams {:allow {:create "true" :view "true"}}}})
+          (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+          (let [event-id (random-uuid)
+                {:keys [stream-id]}
+                (blocking-send-msg :start-stream-ok socket {:op :start-stream
+                                                            :client-event-id event-id
+                                                            :client-id "stream-1"
+                                                            :reconnect-token (str (random-uuid))})]
+
+            (is (uuid? stream-id))
+
+            (send-msg socket {:op :append-stream
+                              :stream-id (str stream-id)
+                              :chunks ["Hello"]
+                              :offset 0
+                              :done false})
+
+            (is (= "Hello" (read-full-stream store movies-app-id stream-id slurp-file)))
+
+            (send-msg socket {:op :append-stream
+                              :stream-id (str stream-id)
+                              :chunks [" "]
+                              :offset (count (.getBytes "Hello" "UTF-8"))
+                              :done false})
+
+            (is (= "Hello " (read-full-stream store movies-app-id stream-id slurp-file)))
+
+            (let [{:keys [offset done]}
+                  (blocking-send-msg :stream-flushed socket {:op :append-stream
+                                                             :stream-id (str stream-id)
+                                                             :chunks ["World"]
+                                                             :offset (count (.getBytes "Hello " "UTF-8"))
+                                                             :done true})
+                  stream (app-stream-model/get-stream {:app-id movies-app-id
+                                                       :client-id "stream-1"})
+                  stream-files (app-stream-model/get-stream-files {:app-id movies-app-id
+                                                                   :stream-id stream-id})]
+
+              (is (= offset (count (.getBytes "Hello World" "UTF-8"))))
+              (is done)
+              (is (= (:size stream) offset))
+              (is (:done stream))
+              (is (= 1 (count stream-files)))
+              (is (= offset (:size (first stream-files))))
+              (is (= "Hello World" (read-full-stream store movies-app-id stream-id slurp-file)))
+              (is (= "Hello World" (slurp-file movies-app-id (:location-id (first stream-files))))))))))))
+
+(deftest streams-writer-flushes-to-files
+  (with-redefs [flags/stream-flush-byte-limit (constantly 5)]
+    (with-file-mock
+      (fn [{:keys [slurp-file]}]
+        (with-session
+          (fn [store {:keys [socket movies-app-id]}]
+            (rule-model/put! {:app-id movies-app-id
+                              :code {:$streams {:allow {:create "true" :view "true"}}}})
+            (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+            (let [event-id (random-uuid)
+                  {:keys [stream-id]}
+                  (blocking-send-msg :start-stream-ok socket {:op :start-stream
+                                                              :client-event-id event-id
+                                                              :client-id "stream-1"
+                                                              :reconnect-token (random-uuid)})
+
+                  {:keys [offset done]}
+                  (blocking-send-msg :stream-flushed socket {:op :append-stream
+                                                             :stream-id (str stream-id)
+                                                             :chunks ["Hello"]
+                                                             :offset 0})
+
+                  stream-files (app-stream-model/get-stream-files {:app-id movies-app-id
+                                                                   :stream-id stream-id})
+                  _ (is (= "Hello" (read-full-stream store movies-app-id stream-id slurp-file)))
+                  _ (is (= offset 5))
+                  _ (is (= done false))
+                  _ (is (= 1 (count stream-files)))
+                  _ (is (= "Hello" (slurp-file movies-app-id (:location-id (first stream-files)))))
+
+                  {:keys [offset done]}
+                  (blocking-send-msg :stream-flushed socket {:op :append-stream
+                                                             :stream-id (str stream-id)
+                                                             :chunks ["World"]
+                                                             :offset 5})
+                  stream-files (app-stream-model/get-stream-files {:app-id movies-app-id
+                                                                   :stream-id stream-id})
+
+                  _ (is (= "HelloWorld" (read-full-stream store movies-app-id stream-id slurp-file)))
+
+                  _ (is (= offset 10))
+                  _ (is (= done false))
+                  _ (is (= 2 (count stream-files)))
+                  _ (is (= "World" (slurp-file movies-app-id (:location-id (second stream-files)))))
+
+                  {:keys [offset done]}
+                  (blocking-send-msg :stream-flushed socket {:op :append-stream
+                                                             :stream-id (str stream-id)
+                                                             :chunks ["Bye!"]
+                                                             :offset 10
+                                                             :done true})
+                  stream-files (app-stream-model/get-stream-files {:app-id movies-app-id
+                                                                   :stream-id stream-id})]
+
+              (is (= offset 14))
+              (is (= done true))
+              (is (= 3 (count stream-files)))
+              (is (= "HelloWorldBye!" (read-full-stream store movies-app-id stream-id slurp-file)))
+              (is (= "Bye!" (slurp-file movies-app-id (:location-id (last stream-files))))))))))))
+
+(deftest streams-writer-can-restart
+  (with-redefs [flags/stream-flush-byte-limit (constantly 5)]
+    (with-file-mock
+      (fn [{:keys [slurp-file]}]
+        (with-session
+          (fn [store {:keys [socket socket-2 socket-3 movies-app-id]}]
+            (rule-model/put! {:app-id movies-app-id
+                              :code {:$streams {:allow {:create "true" :view "true"}}}})
+            (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+            (blocking-send-msg :init-ok socket-2 {:op :init :app-id movies-app-id})
+            (blocking-send-msg :init-ok socket-3 {:op :init :app-id movies-app-id})
+            (let [event-id (random-uuid)
+                  reconnect-token (str (random-uuid))
+                  {:keys [stream-id]}
+                  (blocking-send-msg :start-stream-ok socket {:op :start-stream
+                                                              :client-event-id event-id
+                                                              :client-id "stream-1"
+                                                              :reconnect-token reconnect-token})
+
+
+                  ;; Make sure part of the buffer gets flushed to a file
+                  _ (blocking-send-msg :stream-flushed socket {:op :append-stream
+                                                               :stream-id (str stream-id)
+                                                               :chunks ["Hello"]
+                                                               :offset 0})
+                  ;; Make sure we still have some data buffered
+                  _ (send-msg socket {:op :append-stream
+                                      :stream-id (str stream-id)
+                                      :chunks ["ABC"]
+                                      :offset 5})
+
+                  _ (is (= "HelloABC" (read-full-stream store movies-app-id stream-id slurp-file)))
+                  _ (is (= 1 (count (app-stream-model/get-stream-files {:app-id movies-app-id
+                                                                        :stream-id stream-id}))))
+
+                  ;; simulate client going away
+                  _ (session/on-close store socket)
+
+                  _ (test-util/wait-for (fn []
+                                          (= 2 (count (app-stream-model/get-stream-files {:app-id movies-app-id
+                                                                                          :stream-id stream-id}))))
+
+                                        1000)
+
+                  {:keys [offset]}
+                  (blocking-send-msg :start-stream-ok socket-2 {:op :start-stream
+                                                                :client-id "stream-1"
+                                                                :reconnect-token (str reconnect-token)})
+                  _ (is (= offset 8))
+
+                  _ (send-msg socket-2 {:op :append-stream
+                                        :stream-id (str stream-id)
+                                        :chunks ["DEF"]
+                                        :offset 8})
+                  _ (is (= "HelloABCDEF" (read-full-stream store movies-app-id stream-id slurp-file)))]
+
+              (testing "if someone steals our session, we can't write to it"
+                (blocking-send-msg :start-stream-ok socket-3 {:op :start-stream
+                                                              :client-id "stream-1"
+                                                              :reconnect-token (str reconnect-token)})
+                (blocking-send-msg :error socket-2 {:op :append-stream
+                                                    :client-id "stream-1"
+                                                    :chunks ["GHI"]
+                                                    :offset 8})
+
+                ;; socket-3 can write to it now
+                (send-msg socket-3 {:op :append-stream
+                                    :stream-id (str stream-id)
+                                    :chunks ["DEF"]
+                                    :offset 8})
+                (is (= "HelloABCDEF" (read-full-stream store movies-app-id stream-id slurp-file)))))))))))
+
+(deftest streams-writer-flushes-on-disconnect
+  (with-redefs [flags/stream-flush-byte-limit (constantly 10)]
+    (with-file-mock
+      (fn [{:keys [slurp-file]}]
+        (with-session
+          (fn [store {:keys [socket socket-2 socket-3 movies-app-id]}]
+            (rule-model/put! {:app-id movies-app-id
+                              :code {:$streams {:allow {:create "true" :view "true"}}}})
+            (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+            (blocking-send-msg :init-ok socket-2 {:op :init :app-id movies-app-id})
+            (blocking-send-msg :init-ok socket-3 {:op :init :app-id movies-app-id})
+            (let [event-id (random-uuid)
+                  reconnect-token (str (random-uuid))
+                  {:keys [stream-id]}
+                  (blocking-send-msg :start-stream-ok socket {:op :start-stream
+                                                              :client-event-id event-id
+                                                              :client-id "stream-1"
+                                                              :reconnect-token reconnect-token})
+
+
+                  ;; Log some buffered data
+                  _ (send-msg socket {:op :append-stream
+                                      :stream-id (str stream-id)
+                                      :chunks ["Hello"]
+                                      :offset 0})
+
+                  _ (is (= "Hello" (read-full-stream store movies-app-id stream-id slurp-file)))
+                  _ (is (= 0 (count (app-stream-model/get-stream-files {:app-id movies-app-id
+                                                                        :stream-id stream-id}))))
+
+                  ;; simulate client going away
+                  _ (session/on-close store socket)
+
+                  ;; Check that the data was flushed to $files
+                  _ (test-util/wait-for
+                     (fn []
+                       (= 1 (count (app-stream-model/get-stream-files {:app-id movies-app-id
+                                                                       :stream-id stream-id}))))
+                     1000)
+
+                  _ (is (= "Hello" (read-full-stream store movies-app-id stream-id slurp-file)))])))))))
