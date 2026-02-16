@@ -34,6 +34,27 @@
       (sql/select (aurora/conn-pool :read) ["select 1"])
       (is (= 0 (count @(:stmts in-progress)))))))
 
+(deftest merge-into
+  (testing "smoke test"
+    (is (= ["MERGE INTO test USING a b ON (b.id = test.id) AND (b.v = test.v)  WHEN MATCHED AND test.a = b.a THEN DELETE WHEN MATCHED AND test.b = b.b THEN UPDATE SET a = ? WHEN MATCHED AND test.c = b.c THEN INSERT (a) VALUES (?), (?) WHEN MATCHED THEN DO NOTHING  WHEN NOT MATCHED THEN DO NOTHING RETURNING \"\".*"
+            1
+            2
+            3]
+           (honey.sql/format {:merge-into :test
+                              :using [[:a :b]]
+                              :on [:and
+                                   [:= :b.id :test.id]
+                                   [:= :b.v :test.v]]
+                              :when-matched [[[:= :test.a :b.a]
+                                              :delete]
+                                             [[:= :test.b :b.b]
+                                              {:update {:set {:a 1}}}]
+                                             [[:= :test.c :b.c]
+                                              {:insert {:values [{:a 2} {:a 3}]}}]
+                                             :do-nothing]
+                              :when-not-matched :do-nothing
+                              :returning :.*})))))
+
 (deftest cant-write-on-a-readonly-connection
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
                         #"read-only-sql-transaction"

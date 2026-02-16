@@ -102,7 +102,7 @@ jobs:
 
     services:
       postgres:
-        image: ghcr.io/instantdb/postgresql:postgresql-16-pg-hint-plan
+        image: ghcr.io/instantdb/postgresql:postgresql-17-pg-hint-plan
         ports:
           - 5432:5432
         env:
