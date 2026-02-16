@@ -1,0 +1,331 @@
+import { AnimateIn } from '../AnimateIn';
+
+function DatabaseIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"
+      />
+    </svg>
+  );
+}
+
+function LockIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+      />
+    </svg>
+  );
+}
+
+function FolderIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"
+      />
+    </svg>
+  );
+}
+
+function ShieldIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+      />
+    </svg>
+  );
+}
+
+function ArrowRightIcon() {
+  return (
+    <svg
+      className="h-6 w-6 text-gray-300"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
+      />
+    </svg>
+  );
+}
+
+function ArrowDownIcon() {
+  return (
+    <svg
+      className="h-6 w-6 text-gray-300"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3"
+      />
+    </svg>
+  );
+}
+
+const backendFeatures = [
+  { icon: DatabaseIcon, label: 'Database' },
+  { icon: LockIcon, label: 'Auth' },
+  { icon: FolderIcon, label: 'Storage' },
+  { icon: ShieldIcon, label: 'Permissions' },
+];
+
+export function AppBuilders() {
+  return (
+    <div className="space-y-12">
+      <AnimateIn>
+        <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+          Power every app your users create
+        </h2>
+        <p className="mt-4 text-lg text-gray-500">
+          Instant gives each app its own backend. No per-app infrastructure. No
+          cold starts. Go from prompt to production app in seconds.
+        </p>
+      </AnimateIn>
+
+      {/* Visual: App builder → Deployed app */}
+      <AnimateIn delay={100}>
+        <div className="flex flex-col items-center gap-8 lg:flex-row lg:gap-12">
+          {/* Left: App builder UI mockup */}
+          <div className="w-full flex-1">
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+              {/* Title bar */}
+              <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3">
+                <div className="flex gap-1.5">
+                  <div className="h-3 w-3 rounded-full bg-red-400" />
+                  <div className="h-3 w-3 rounded-full bg-yellow-400" />
+                  <div className="h-3 w-3 rounded-full bg-green-400" />
+                </div>
+                <div className="flex-1 text-center font-mono text-xs text-gray-400">
+                  app-builder
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 divide-x divide-gray-100">
+                {/* Code editor pane */}
+                <div className="bg-gray-950 p-4 font-mono text-xs">
+                  <div className="text-gray-500">// Generated by AI</div>
+                  <div className="mt-1">
+                    <span className="text-purple-400">function</span>{' '}
+                    <span className="text-yellow-300">Tracker</span>
+                    <span className="text-gray-400">() {'{'}</span>
+                  </div>
+                  <div className="pl-3">
+                    <span className="text-purple-400">const</span>{' '}
+                    <span className="text-gray-400">{'{ '}</span>
+                    <span className="text-blue-300">data</span>
+                    <span className="text-gray-400">{' } = '}</span>
+                    <span className="text-orange-300">db</span>
+                    <span className="text-gray-400">.</span>
+                    <span className="text-yellow-300">useQuery</span>
+                    <span className="text-gray-400">(...)</span>
+                  </div>
+                  <div className="pl-3">
+                    <span className="text-purple-400">return</span>{' '}
+                    <span className="text-gray-400">&lt;</span>
+                    <span className="text-blue-300">App</span>{' '}
+                    <span className="text-gray-400">/&gt;</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">{'}'}</span>
+                  </div>
+                </div>
+
+                {/* Preview pane */}
+                <div className="p-4">
+                  <div className="mb-3 text-xs font-medium text-gray-900">
+                    Project Tracker
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded-sm bg-orange-500" />
+                      <div className="text-xs text-gray-600">Design phase</div>
+                      <div className="ml-auto text-[10px] font-medium text-orange-600">
+                        In progress
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded-sm bg-gray-200" />
+                      <div className="text-xs text-gray-600">Build API</div>
+                      <div className="ml-auto text-[10px] text-gray-400">
+                        Pending
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded-sm bg-gray-200" />
+                      <div className="text-xs text-gray-600">Launch</div>
+                      <div className="ml-auto text-[10px] text-gray-400">
+                        Pending
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Prompt bar at bottom */}
+              <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+                <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                  <span className="text-xs text-gray-400">
+                    &quot;Build me a project tracker&quot;
+                  </span>
+                  <div className="ml-auto flex h-5 w-5 items-center justify-center rounded bg-orange-600">
+                    <svg
+                      className="h-3 w-3 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Arrow */}
+          <div className="hidden flex-shrink-0 lg:block">
+            <ArrowRightIcon />
+          </div>
+          <div className="flex-shrink-0 lg:hidden">
+            <ArrowDownIcon />
+          </div>
+
+          {/* Right: Deployed app with data layer */}
+          <div className="w-full flex-1">
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+              {/* App header */}
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <span className="text-sm font-medium text-gray-900">
+                  Project Tracker
+                </span>
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
+                  Live
+                </span>
+              </div>
+
+              {/* App content */}
+              <div className="p-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-sm bg-orange-500" />
+                    <div className="text-xs text-gray-600">Design phase</div>
+                    <div className="ml-auto text-[10px] font-medium text-orange-600">
+                      In progress
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-sm bg-gray-200" />
+                    <div className="text-xs text-gray-600">Build API</div>
+                    <div className="ml-auto text-[10px] text-gray-400">
+                      Pending
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-sm bg-green-500" />
+                    <div className="text-xs text-gray-600">Launch</div>
+                    <div className="ml-auto text-[10px] font-medium text-green-600">
+                      Done
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Data layer */}
+              <div className="border-t border-dashed border-gray-200 bg-gray-50 p-4">
+                <div className="mb-2 text-[10px] font-medium tracking-wider text-gray-400 uppercase">
+                  Data layer
+                </div>
+                <div className="space-y-1 font-mono text-[10px] text-gray-500">
+                  <div className="flex gap-4">
+                    <span className="text-gray-400">projects</span>
+                    <span>3 rows</span>
+                  </div>
+                  <div className="flex gap-4">
+                    <span className="text-gray-400">users</span>
+                    <span>1 row</span>
+                  </div>
+                </div>
+
+                {/* Backend feature icons */}
+                <div className="mt-3 flex items-center gap-3">
+                  {backendFeatures.map((feature) => {
+                    const Icon = feature.icon;
+                    return (
+                      <div
+                        key={feature.label}
+                        className="flex items-center gap-1 text-[10px] text-gray-400"
+                      >
+                        <Icon className="h-3 w-3" />
+                        <span>{feature.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </AnimateIn>
+
+      {/* Supporting detail */}
+      <AnimateIn delay={200}>
+        <p className="max-w-3xl text-lg text-gray-500">
+          Data, auth, storage, and permissions are all scoped per-app. Manage
+          everything through the Platform API — create apps, set schemas,
+          configure permissions, all programmatically.
+        </p>
+      </AnimateIn>
+    </div>
+  );
+}

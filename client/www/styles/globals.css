@@ -1,9 +1,16 @@
 @import 'tailwindcss';
 
-@plugin 'tailwindcss-animate';
-@custom-variant dark (&:is(.dark *));
+@theme {
+  --default-font-family: 'Switzer';
+}
 
 @config '../tailwind.config.js';
+
+@plugin 'tailwindcss-animate';
+@plugin '@tailwindcss/typography';
+@plugin '@tailwindcss/forms';
+@plugin 'tailwindcss-animate';
+@custom-variant dark (&:is(.dark *));
 
 /*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
@@ -34,10 +41,6 @@
   /* IE and Edge */
   scrollbar-width: none;
   /* Firefox */
-}
-
-@theme {
-  --default-font-family: Georgia;
 }
 
 @layer base {
@@ -93,7 +96,7 @@
 
 html {
   height: 100%;
-  --default-font-family: 'Switzer', var(--font-switzer), 'Georgia';
+  --default-font-family: 'Switzer', var(--font-switzer), 'sans';
 }
 
 body,

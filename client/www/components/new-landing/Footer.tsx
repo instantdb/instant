@@ -1,0 +1,90 @@
+import Link from 'next/link';
+import Image from 'next/image';
+import { GitHubIcon, XIcon } from './icons';
+
+const footerLinks = {
+  Product: [
+    { href: '/pricing', label: 'Pricing' },
+    { href: 'https://instantdb.com/docs', label: 'Docs' },
+    { href: '/tutorial', label: 'Tutorial' },
+  ],
+  Resources: [
+    { href: 'https://discord.gg/instantdb', label: 'Discord' },
+    { href: '/essays', label: 'Essays' },
+    { href: 'https://status.instantdb.com', label: 'Status' },
+  ],
+  Company: [
+    { href: '/about', label: 'About' },
+    { href: '/careers', label: 'Careers' },
+    { href: 'mailto:hello@instantdb.com', label: 'Contact' },
+  ],
+  Legal: [
+    { href: '/privacy', label: 'Privacy' },
+    { href: '/terms', label: 'Terms' },
+  ],
+};
+
+export function Footer() {
+  return (
+    <footer className="border-t border-gray-200 bg-white">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
+          <div className="col-span-2 md:col-span-1">
+            <Link href="/">
+              <Image
+                src="/img/logo_with_text.svg"
+                alt="Instant"
+                width={100}
+                height={28}
+              />
+            </Link>
+            <div className="mt-4 flex items-center gap-4">
+              <a
+                href="https://twitter.com/instantdb"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 transition-colors hover:text-gray-900"
+              >
+                <XIcon className="h-5 w-5" />
+              </a>
+              <a
+                href="https://github.com/instantdb/instant"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 transition-colors hover:text-gray-900"
+              >
+                <GitHubIcon className="h-5 w-5" />
+              </a>
+            </div>
+          </div>
+
+          {Object.entries(footerLinks).map(([category, links]) => (
+            <div key={category}>
+              <h3 className="text-sm font-semibold text-gray-900">
+                {category}
+              </h3>
+              <ul className="mt-4 space-y-3">
+                {links.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className="text-sm text-gray-500 transition-colors hover:text-gray-900"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-12 border-t border-gray-200 pt-8">
+          <p className="text-sm text-gray-500">
+            &copy; {new Date().getFullYear()} Instant. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}

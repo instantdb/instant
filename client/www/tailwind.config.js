@@ -40,7 +40,14 @@ module.exports = {
         'monospace',
       ],
     },
-    extend: {},
+    extend: {
+      colors: {
+        'secondary-border': '#ECECEC',
+        'secondary-fill': '#F2F2F2',
+        'off-black': '#333333',
+        surface: '#cacaca',
+      },
+    },
   },
   future: { hoverOnlyWhenSupported: true },
   plugins: [

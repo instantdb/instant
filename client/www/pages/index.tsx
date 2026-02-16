@@ -12,10 +12,7 @@ import {
   H4,
   SectionWide,
   TwoColResponsive,
-  Section,
   MainNav,
-  LandingContainer,
-  LandingFooter,
   Link,
 } from '@/components/marketingUi';
 
@@ -30,6 +27,18 @@ import * as muxVideos from '@/lib/muxVideos';
 import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
 import AnimatedCounter from '@/components/AnimatedCounter';
 import CopyToClipboard from 'react-copy-to-clipboard';
+import {
+  BatteriesForAI,
+  BuiltForAI,
+  FinalCTA,
+  Footer,
+  Hero,
+  Section,
+  SocialProof,
+  SyncEngine,
+  SyncRelations,
+  WallOfLove,
+} from '@/components/new-landing';
 
 const appId = 'fc5a4977-910a-43d9-ac28-39c7837c1eb5';
 
@@ -644,15 +653,8 @@ function LandingOfflineGraphic() {
 
 export default function Landing2026() {
   return (
-    <div>
+    <div className="text-off-black">
       <MainNav />
-    </div>
-  );
-}
-
-function Landing2024() {
-  return (
-    <LandingContainer>
       <Head>
         <title>Instant</title>
         <meta
@@ -666,22 +668,45 @@ function Landing2024() {
           content="We make you productive by giving your frontend a real-time database."
         />
       </Head>
-      <GlowBackground>
-        <MainNav />
-        <LandingHero />
-      </GlowBackground>
-      <LandingProblemStatement />
-      <LandingTestimonials />
-      <GlowBackground>
-        <LandingCore />
-      </GlowBackground>
-      <LandingCoreFeatures />
-      <GlowBackground>
-        <LandingMulti />
-      </GlowBackground>
-      <LandingTeam />
-      <LandingFooter />
-    </LandingContainer>
+
+      <main className="flex-1">
+        {/* Hero Section */}
+        <Hero />
+
+        {/* Placeholder sections */}
+        <Section className="" id="built-for-ai">
+          <BuiltForAI />
+        </Section>
+
+        <Section id="batteries-for-ai">
+          <BatteriesForAI />
+        </Section>
+
+        <div className="bg-linear-to-b from-[#F7F7F7] to-white">
+          <Section className="" id="sync-engine">
+            <SyncEngine />
+          </Section>
+        </div>
+
+        <Section id="sync-relations">
+          <SyncRelations />
+        </Section>
+
+        <Section className="bg-[#F9FAFB]" id="social-proof">
+          <SocialProof />
+        </Section>
+
+        <Section id="wall-of-love">
+          <WallOfLove />
+        </Section>
+
+        {/* Final CTA */}
+        <Section>
+          <FinalCTA />
+        </Section>
+      </main>
+      <Footer />
+    </div>
   );
 }
 

@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import NextLink from 'next/link';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { Button, cn } from '@/components/ui';
+import githubIconSvg from '../../public/img/github.svg';
 
 const headingClasses = `font-mono`;
 
@@ -82,34 +83,54 @@ function NavItems() {
   if (!isHydrated) return null;
   return (
     <>
+      <NavLink href="/product">Product</NavLink>
+      <NavLink href="/enterprise">Enterprise</NavLink>
       <NavLink href="/pricing">Pricing</NavLink>
-      <NavLink href="/tutorial">Tutorial</NavLink>
-      <NavLink href="/examples">Examples</NavLink>
-      <NavLink href="/recipes">Recipes</NavLink>
-      <NavLink href="/essays">Essays</NavLink>
       <NavLink href="/docs">Docs</NavLink>
-      <NavLink href="/hiring">Hiring</NavLink>
-      <NavLink href="https://discord.com/invite/VU53p7uQcE">
+      <NavLink href="/essays">Essays</NavLink>
+      <NavLink href="/about">About</NavLink>
+      {/*<NavLink href="/hiring">Hiring</NavLink>*/}
+      {/*<NavLink href="https://discord.com/invite/VU53p7uQcE">
         <span className="hidden min-[60rem]:inline">
           <img src="/marketing/discord-icon.svg" className="h-5 w-5" />
         </span>
         <span className="min-[60rem]:hidden">Discord</span>
-      </NavLink>
+      </NavLink>*/}
+    </>
+  );
+}
+
+function OtherNavItems() {
+  const isHydrated = useIsHydrated();
+  const isAuthed = !!useAuthToken();
+  if (!isHydrated) return null;
+  return (
+    <>
       <NavLink href="https://github.com/instantdb/instant">
-        <span className="hidden min-[60rem]:inline">
+        <span className="bg-secondary-fill border-secondary-border border-insi flex items-center gap-2 rounded-[5px] border p-2 px-3">
+          {/*redesign: update source*/}
+          <img
+            src={'img/github.svg'}
+            alt="GitHub"
+            className="h-[20px] w-[20px]"
+          />
+          <span className="font-semibold">9.6k</span>
+          stars
+        </span>
+        {/*<span className="hidden min-[60rem]:inline">
           <img
             src="https://img.shields.io/github/stars/instantdb/instant?style=flat-square&logo=github&label=GitHub&labelColor=000000&color=F54900"
             alt="GitHub stars"
             className="h-5"
           />
         </span>
-        <span className="min-[60rem]:hidden">GitHub</span>
+        <span className="min-[60rem]:hidden">GitHub</span>*/}
       </NavLink>
       {isAuthed ? (
         <div>
-          <Button type="link" variant="cta" size="large" href="/dash">
-            Dashboard
-          </Button>
+          <Link className="" type="link" href="/dash">
+            Sign In
+          </Link>
         </div>
       ) : (
         <>
@@ -132,54 +153,55 @@ export function BareNav({ children }: PropsWithChildren) {
   }, [isOpen]);
 
   return (
-    <div className="flex flex-row items-center justify-between gap-4 text-lg md:text-base">
-      <div className="flex">
-        <LogoType />
-        <button className="min-[60rem]:hidden" onClick={() => setIsOpen(true)}>
-          <Bars3Icon height={'1em'} />
-        </button>
-        <div
-          onClick={() => setIsOpen(false)}
-          className={cn(
-            // viz
-            'hidden min-[60rem]:flex',
-            // pos
-            'fixed inset-0 z-40 min-[60rem]:relative',
-            // scroll
-            'overflow-y-scroll min-[60rem]:overflow-y-auto',
-            // size
-            'h-full w-full min-[60rem]:h-12 min-[60rem]:w-auto',
-            // layout
-            'flex-col items-start gap-6 px-8 py-4 min-[60rem]:flex-row min-[60rem]:items-center min-[60rem]:gap-4 min-[60rem]:p-0',
-            // look and feel
-            'bg-white/90 backdrop-blur-xl min-[60rem]:bg-transparent',
-            {
-              flex: isOpen,
-            },
-          )}
-        >
-          <div className="flex justify-between self-stretch min-[60rem]:hidden">
-            <LogoType />
-            <button className="z-50 mt-0.5" onClick={() => setIsOpen(false)}>
-              <XMarkIcon height="1em" />
-            </button>
-          </div>
+    <div className="flex flex-row items-center gap-[24px] text-lg md:text-base">
+      <LogoType />
+      <button className="min-[60rem]:hidden" onClick={() => setIsOpen(true)}>
+        <Bars3Icon height={'1em'} />
+      </button>
+      <div
+        onClick={() => setIsOpen(false)}
+        className={cn(
+          // viz
+          'hidden min-[60rem]:flex',
+          // pos
+          'fixed inset-0 z-40 min-[60rem]:relative',
+          // scroll
+          'overflow-y-scroll min-[60rem]:overflow-y-auto',
+          // size
+          'h-full w-full min-[60rem]:h-12 min-[60rem]:w-auto',
+          // layout
+          'grow flex-col items-start gap-4 px-8 py-4 min-[60rem]:flex-row min-[60rem]:items-center min-[60rem]:justify-between min-[60rem]:gap-4 min-[60rem]:p-0',
+          // look and feel
+          'bg-white/90 backdrop-blur-xl min-[60rem]:bg-transparent',
+          {
+            flex: isOpen,
+          },
+        )}
+      >
+        <div className="flex justify-between self-stretch min-[60rem]:hidden">
+          <LogoType />
+          <button className="z-50 mt-0.5" onClick={() => setIsOpen(false)}>
+            <XMarkIcon height="1em" />
+          </button>
+        </div>
 
-          {children}
-          <div className="flex items-center gap-2 p-[38px]">
-            <NavItems />
-          </div>
+        {children}
+        <div className="flex items-center gap-4">
+          <NavItems />
+        </div>
+        <div className="flex items-center gap-4">
+          <OtherNavItems />
         </div>
       </div>
     </div>
   );
 }
 
-export function MainNav({ children }: PropsWithChildren) {
+export function MainNav() {
   return (
     <div className="py-4">
       <div className="mx-auto px-[230px]">
-        <BareNav>{children}</BareNav>
+        <BareNav />
       </div>
     </div>
   );
