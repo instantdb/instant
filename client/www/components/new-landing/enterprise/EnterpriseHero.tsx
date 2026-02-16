@@ -29,10 +29,10 @@ export function EnterpriseHero() {
     <section className="pt-20 pb-16 sm:pt-32 sm:pb-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
+          <h1 className="text-4xl font-semibold sm:text-5xl lg:text-[70px]">
             Give every chat a backend
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-balance text-gray-500 sm:text-xl">
+          <p className="mx-auto mt-6 min-w-[930px] text-lg text-balance sm:text-[24px]">
             Instant gives agents a real database — with auth, storage,
             permissions, and real-time sync. One API call to spin up a backend.
           </p>
@@ -40,13 +40,13 @@ export function EnterpriseHero() {
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <a
               href="#contact"
-              className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-6 py-3 text-base font-medium text-white shadow-[0_0_20px_rgba(234,88,12,0.3)] transition-all hover:bg-orange-700 hover:shadow-[0_0_30px_rgba(234,88,12,0.45)]"
+              className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-6 py-3 text-lg font-medium text-white shadow-[0_0_20px_rgba(234,88,12,0.3)] transition-all hover:bg-orange-700 hover:shadow-[0_0_30px_rgba(234,88,12,0.45)]"
             >
               Talk to us
             </a>
             <a
               href="https://instantdb.com/docs"
-              className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-6 py-3 text-base font-medium text-gray-900 transition-all hover:bg-gray-50"
+              className="bg-secondary-fill border-secondary-border inline-flex items-center justify-center rounded-lg border px-6 py-3 text-lg font-medium transition-all hover:bg-gray-50"
             >
               Read the docs
             </a>
@@ -55,9 +55,9 @@ export function EnterpriseHero() {
 
         {/* Chat → Platform API → Apps diagram */}
         <AnimateIn delay={400}>
-          <div className="mt-16 flex flex-col items-center justify-center gap-4 sm:mt-20 sm:flex-row sm:gap-6 lg:gap-10">
+          <div className="mt-16 flex flex-col items-center justify-center gap-4 **:text-lg sm:mt-20 sm:flex-row sm:gap-6 lg:gap-10">
             {/* Chat interface */}
-            <div className="w-full max-w-[240px] flex-shrink-0 sm:w-48 sm:max-w-none">
+            <div className="w-full max-w-[300px] flex-shrink-0">
               <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
                 <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-3 py-2">
                   <svg
@@ -77,7 +77,7 @@ export function EnterpriseHero() {
                     Chat
                   </span>
                 </div>
-                <div className="space-y-2 p-3">
+                <div className="space-y-2 p-4">
                   <div className="rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-600">
                     Build me a project tracker
                   </div>

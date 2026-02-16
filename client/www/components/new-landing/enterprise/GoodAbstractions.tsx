@@ -32,84 +32,63 @@ const layers = [
 
 export function GoodAbstractions() {
   return (
-    <div className="space-y-12">
+    <div className="space-y-[32px]">
       <AnimateIn>
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+        <h2 className="text-center text-3xl font-semibold sm:text-[60px]">
           Good abstractions compound
         </h2>
       </AnimateIn>
 
       <AnimateIn delay={100}>
-        <div className="grid items-start gap-12 lg:grid-cols-2 lg:gap-16">
-          <div className="space-y-6 text-lg text-gray-500">
-            <p>
-              When agents use a tight abstraction, the benefits multiply at
-              every level.
-            </p>
-            <p>
-              For the agent, there&apos;s{' '}
-              <span className="font-medium text-gray-900">locality</span> — it
-              reasons about one interface instead of three systems. Less context
-              means fewer hallucinations, fewer retries, fewer wasted tokens.
-            </p>
-            <p>
-              For the platform, there&apos;s{' '}
-              <span className="font-medium text-gray-900">efficiency</span> —
-              Instant is multi-tenant, so 20,000 apps with 1 user can cost the
-              same as 1 app with 20,000 users. No VMs to provision. No cold
-              starts. No frozen apps.
-            </p>
-            <p>
-              For end-users, there&apos;s{' '}
-              <span className="font-medium text-gray-900">extensibility</span> —
-              because Instant exposes a database-like abstraction, end-users
-              with their own agents can query and extend the apps built for
-              them. Applications become platforms.
-            </p>
-            <p className="font-medium text-gray-900">
-              These advantages stack. Agents build faster. Platforms host
-              cheaper. Users get more. That&apos;s what good infrastructure
-              makes possible.
-            </p>
+        <div className="mx-auto max-w-[810px] text-center text-[21px] text-balance">
+          When agents use a tight abstraction, the benefits multiply at every
+          level: for agents, platforms, and end users.
+        </div>
+      </AnimateIn>
+      <AnimateIn delay={100}>
+        <div className="grid grid-cols-3 gap-7">
+          <div>
+            <div className="text-[36px] font-semibold">Agents</div>
+            <div className="pt-6 text-[21px]">
+              <span>For the agent, there's</span>
+              <span className="font-bold"> locality </span>
+              <span>
+                — it reasons about one interface instead of three systems. Less
+                context means fewer hallucinations, fewer retries, fewer wasted
+                tokens.
+              </span>
+            </div>
           </div>
-
-          <div className="flex flex-col items-center justify-center">
-            <div className="w-full max-w-sm">
-              {layers.map((layer, i) => (
-                <div
-                  key={layer.label}
-                  className={`relative rounded-xl border ${layer.border} ${layer.bg} p-5 ${i > 0 ? '-mt-2' : ''}`}
-                  style={{ zIndex: i + 1 }}
-                >
-                  <div className="flex items-center gap-3">
-                    <svg
-                      className={`h-6 w-6 ${layer.color}`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d={layer.iconPath}
-                      />
-                    </svg>
-                    <div>
-                      <div className={`font-semibold ${layer.color}`}>
-                        {layer.label}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {layer.sublabel}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+          <div>
+            <div className="text-[36px] font-semibold">Platforms</div>
+            <div className="pt-6 text-[21px]">
+              <span>For the platform, there's </span>
+              <span className="font-bold"> efficiency</span>
+              <span>
+                . Instant is multi-tenant, so 20,000 apps with 1 user can cost
+                the same as 1 app with 20,000 users. No VMs to provision. No
+                cold starts. No frozen apps.
+              </span>
+            </div>
+          </div>
+          <div>
+            <div className="text-[36px] font-semibold">End-users</div>
+            <div className="pt-6 text-[21px]">
+              <span>For end-users, there's </span>
+              <span className="font-bold"> extensibility </span>
+              <span>
+                — because Instant exposes a database-like abstraction, end-users
+                with their own agents can query and extend the apps built for
+                them. Applications become platforms.
+              </span>
             </div>
           </div>
         </div>
       </AnimateIn>
+      <div className="pt-5 text-center text-[21px] text-balance">
+        These advantages stack. Agents build faster. Platforms host cheaper.
+        Users get more. That's what good infrastructure makes possible.
+      </div>
     </div>
   );
 }

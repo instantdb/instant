@@ -19,7 +19,7 @@ export function EnterpriseCTA() {
           </a>
           <a
             href="https://instantdb.com/docs"
-            className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-6 py-3 text-base font-medium text-gray-900 transition-all hover:bg-gray-50"
+            className="bg-surface inline-flex items-center justify-center rounded-lg border border-gray-200 px-6 py-3 text-base font-medium text-gray-900 transition-all"
           >
             Read the docs
           </a>
