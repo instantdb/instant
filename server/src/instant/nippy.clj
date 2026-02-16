@@ -53,7 +53,7 @@
                                       data-output]
   (write-uuid data-output app-id)
   (write-uuid data-output stream-id)
-  (#'nippy/write-long data-output offset))
+  (nippy/freeze-to-out! data-output offset))
 
 (nippy/extend-thaw 3 [data-input]
   (instant.grpc/->StreamRequest (read-uuid data-input)
@@ -67,7 +67,7 @@
                                       ^String location-id]}
                   ^DataOutput data-output]
   (write-uuid data-output id)
-  (.writeLong data-output size)
+  (nippy/freeze-to-out! data-output size)
   (nippy/freeze-to-out! data-output location-id))
 
 (nippy/extend-freeze StreamFile 4 [^StreamFile obj data-output]
@@ -75,7 +75,7 @@
 
 (defn read-file [^DataInput data-input]
   (let [id (read-uuid data-input)
-        size (.readLong data-input)
+        size (nippy/thaw-from-in! data-input)
         location-id (nippy/thaw-from-in! data-input)]
     (instant.grpc/->StreamFile id location-id size)))
 

@@ -268,71 +268,76 @@
 ;; and resend the data.
 (defn flush-to-file [stream-object flush-promise on-flush-to-file on-flush-to-file-error]
   (try
-    (let [{:keys [app-id stream-id $files done? abort-reason
-                  buffer buffer-byte-size buffer-byte-offset]} @stream-object
-          ^CompositeByteBuf buff
-          (reduce (fn [^CompositeByteBuf buff chunk]
-                    (.addComponent buff true (Unpooled/wrappedBuffer ^bytes chunk)))
-                  (Unpooled/compositeBuffer)
-                  buffer)
+    (tracer/with-span! {:name "app-stream/flush-to-file"}
+      (let [{:keys [app-id stream-id $files done? abort-reason
+                    buffer buffer-byte-size buffer-byte-offset]} @stream-object
+            _ (tracer/add-data! {:attributes {:app-id app-id
+                                              :stream-id stream-id
+                                              :buffer-byte-size buffer-byte-size
+                                              :done? done?}})
+            ^CompositeByteBuf buff
+            (reduce (fn [^CompositeByteBuf buff chunk]
+                      (.addComponent buff true (Unpooled/wrappedBuffer ^bytes chunk)))
+                    (Unpooled/compositeBuffer)
+                    buffer)
 
-          path (str (stream-file-name-prefix stream-id)
-                    (count $files))
-          file (try
-                 (storage-coordinator/upload-file! {:app-id app-id
-                                                    :path path
-                                                    :content-type "application/octet-stream"
-                                                    :content-length buffer-byte-size
-                                                    :skip-perms-check? true
-                                                    :mode :create}
-                                                   (ByteBufInputStream. buff true))
-                 (catch clojure.lang.ExceptionInfo e
-                   (if-let [{:keys [location-id metadata]} (::storage-coordinator/upload-meta (ex-data e))]
-                     (let [existing-file (app-file-model/get-by-path {:app-id app-id
-                                                                      :path path})]
-                       (if (< (:size existing-file)
-                              (-> metadata :size))
-                         (tracer/with-span! {:name "app-stream/swapping-file"
-                                             :attributes {:app-id app-id
-                                                          :path path
-                                                          :existing-file existing-file}}
-                           (unlink-file! {:stream-id stream-id
-                                          :app-id app-id
-                                          :file-id (:id existing-file)
-                                          :file-name (:path existing-file)})
-                           (app-file-model/create! {:app-id app-id
-                                                    :path path
-                                                    :location-id location-id
-                                                    :metadata metadata
-                                                    :mode :create}))
-                         (throw e)))
-                     (throw e))))
+            path (str (stream-file-name-prefix stream-id)
+                      (count $files))
+            file (try
+                   (storage-coordinator/upload-file! {:app-id app-id
+                                                      :path path
+                                                      :content-type "application/octet-stream"
+                                                      :content-length buffer-byte-size
+                                                      :skip-perms-check? true
+                                                      :mode :create}
+                                                     (ByteBufInputStream. buff true))
+                   (catch clojure.lang.ExceptionInfo e
+                     (if-let [{:keys [location-id metadata]} (::storage-coordinator/upload-meta (ex-data e))]
+                       (let [existing-file (app-file-model/get-by-path {:app-id app-id
+                                                                        :path path})]
+                         (if (< (:size existing-file)
+                                (-> metadata :size))
+                           (tracer/with-span! {:name "app-stream/swapping-file"
+                                               :attributes {:app-id app-id
+                                                            :path path
+                                                            :existing-file existing-file}}
+                             (unlink-file! {:stream-id stream-id
+                                            :app-id app-id
+                                            :file-id (:id existing-file)
+                                            :file-name (:path existing-file)})
+                             (app-file-model/create! {:app-id app-id
+                                                      :path path
+                                                      :location-id location-id
+                                                      :metadata metadata
+                                                      :mode :create}))
+                           (throw e)))
+                       (throw e))))
 
-          _ (link-file! {:app-id app-id
-                         :stream-id stream-id
-                         :file-id (:id file)
-                         :done? done?
-                         :abort-reason abort-reason
-                         :size (when done?
-                                 (+ buffer-byte-size buffer-byte-offset))})
+            _ (link-file! {:app-id app-id
+                           :stream-id stream-id
+                           :file-id (:id file)
+                           :done? done?
+                           :abort-reason abort-reason
+                           :size (when done?
+                                   (+ buffer-byte-size buffer-byte-offset))})
 
-          after (swap! stream-object
-                       (fn [obj]
-                         (-> obj
-                             (assoc :buffer (into [] (subvec (:buffer obj) (count buffer))))
-                             (update :buffer-byte-size - buffer-byte-size)
-                             (update :buffer-byte-offset + buffer-byte-size)
-                             (update :$files conj file)
-                             (update :flush-promise (fn [p]
-                                                      ;; Clear the flush promise, unless someone snuck another
-                                                      ;; one in there
-                                                      (when-not (= p flush-promise)
-                                                        (tracer/record-exception-span!
-                                                         (Exception. "concurrent flush-to-file executions.")
-                                                         {:name "app-stream/flush-to-file"})
-                                                        p))))))]
-      (on-flush-to-file {:offset (:buffer-byte-offset after)
-                         :done? (:done? after)}))
+            after (swap! stream-object
+                         (fn [obj]
+                           (-> obj
+                               (assoc :buffer (into [] (subvec (:buffer obj) (count buffer))))
+                               (update :buffer-byte-size - buffer-byte-size)
+                               (update :buffer-byte-offset + buffer-byte-size)
+                               (update :$files conj file)
+                               (update :flush-promise (fn [p]
+                                                        ;; Clear the flush promise, unless someone snuck another
+                                                        ;; one in there
+                                                        (when-not (= p flush-promise)
+                                                          (tracer/record-exception-span!
+                                                           (Exception. "concurrent flush-to-file executions.")
+                                                           {:name "app-stream/flush-to-file"})
+                                                          p))))))]
+        (on-flush-to-file {:offset (:buffer-byte-offset after)
+                           :done? (:done? after)})))
     (catch Throwable t
       (tracer/record-exception-span! t {:name "app-stream/flush-to-file-error"
                                         :stream-id (:id @stream-object)})
@@ -461,6 +466,10 @@
                                                                 flush-promise
                                                                 on-flush-to-file
                                                                 on-flush-to-file-error))))
+
+    (tracer/add-data! {:attributes {:sink-count (count (:sinks updated))
+                                    :buffer-byte-size (:buffer-byte-size updated)
+                                    :chunks-byte-size chunks-byte-size}})
     (when (seq (:sinks updated))
       (let [offset (- (+ (:buffer-byte-size updated)
                          (:buffer-byte-offset updated))
@@ -556,7 +565,8 @@
                    ::disconnect
                    (do
                      (.onNext observer (grpc/stream-error :writer-disconnected))
-                     (.onCompleted observer))
+                     (.onCompleted observer)
+                     (cleanup))
 
                    (.onNext observer v))))]
 
