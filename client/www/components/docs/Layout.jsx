@@ -209,7 +209,11 @@ function AppPicker({
   const orgOptions =
     workspaceOptions.length > 0
       ? [
-          { label: '── Switch workspace ──', value: null, disabled: true },
+          {
+            label: '── Switch workspace ──',
+            value: '__switch_workspace__',
+            disabled: true,
+          },
           ...workspaceOptions,
         ]
       : [];
