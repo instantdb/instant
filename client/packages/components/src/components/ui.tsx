@@ -400,7 +400,7 @@ export function Select<Value extends string | boolean>({
         const o = options.find((o) => o.value === value);
         onChange(o);
       }}
-      value={value?.toString()}
+      value={value?.toString() ?? ''}
     >
       <SelectTrigger className={className} title={title} tabIndex={tabIndex}>
         <SelectValue placeholder={emptyLabel}>{visibleValue}</SelectValue>

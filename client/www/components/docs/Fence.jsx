@@ -75,13 +75,17 @@ export function Fence({ children, language, showCopy, lineHighlight }) {
                 lineTokens = [<span key="empty"> </span>];
               }
 
-              const lineProps = getLineProps({
+              const { key, ...lineProps } = getLineProps({
                 line,
                 key: lineIndex,
                 className: isHighlighted ? 'highlighted' : undefined,
               });
 
-              return <div {...lineProps}>{lineTokens}</div>;
+              return (
+                <div key={key} {...lineProps}>
+                  {lineTokens}
+                </div>
+              );
             })}
           </pre>
           {showCopy && (
