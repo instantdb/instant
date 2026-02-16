@@ -9,6 +9,7 @@ import {
 import { Tag, transformer } from '@markdoc/markdoc';
 import { HasAppID } from '../components/docs/Fence';
 import { TabbedSingle } from '../components/docs/TabbedSingle';
+import { YouTube } from '../components/docs/YouTube';
 
 function CustomDiv({ className, children }) {
   return <div className={className}>{children}</div>;
@@ -132,6 +133,15 @@ const tags = {
 
       return new Tag(this.render, { ...attrs, elseChildren }, thenChildren);
     },
+  },
+
+  youtube: {
+    selfClosing: true,
+    attributes: {
+      src: { type: String, required: true },
+      title: { type: String },
+    },
+    render: YouTube,
   },
 
   'blank-link': {
