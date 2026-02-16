@@ -6,10 +6,6 @@ description: How to use Instant with React
 
 Instant is the easy to use backend for your frontend. With Instant you can build delightful apps in less than 10 minutes. Follow the quick start below to **build a live app!**
 
-{% callout type="note" %}
-For a more step-by-step tutorial on how to use Instant, check out our [Todo List Tutorial](/examples/todos)
-{% /callout %}
-
 ## Automatic Setup With Create Instant App
 
 The fastest way to get started with Instant is to use `npx create-instant-app` to scaffold a new project with Instant already set up.
@@ -284,4 +280,10 @@ export default App;
 
 Go to `localhost:3000`, and huzzah 🎉 You've got a fully functional todo list running!
 
-Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)
+## Next Steps
+
+Want to dive deeper on how this todo app works? Check out our step-by-step [Todo List Tutorial](/examples/todos). In this tutorial we walk through how to build the above todo list app from scratch, and explain how the queries and transactions work in more detail.
+
+You can also check out the [Working with data](/docs/init) section to learn more Instant concepts.
+
+As you get more familiar with Instant, check out our [Recommended Workflow](/docs/recommended-workflow) docs for using Instant in your projects.
