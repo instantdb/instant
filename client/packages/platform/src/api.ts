@@ -1020,7 +1020,10 @@ async function planSchemaPushOverwrite(
 }
 
 function allJobsComplete(jobs: IndexingJobJSON[]): boolean {
-  return !!jobs.find(
+  if (jobs.length === 0) {
+    return true;
+  }
+  return jobs.every(
     (j) => j.job_status === 'completed' || j.job_status === 'errored',
   );
 }
@@ -1071,6 +1074,7 @@ async function jobFetchLoop(
       errorCount = 0;
       const lastUpdate = latestJobUpdate(lastJobs);
       const thisUpdate = latestJobUpdate(nextJobs);
+      lastJobs = nextJobs;
       interval =
         thisUpdate === null || (lastUpdate && lastUpdate >= thisUpdate)
           ? Math.min(interval * 2, 10000)
