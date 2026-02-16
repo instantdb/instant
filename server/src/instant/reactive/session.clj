@@ -766,7 +766,7 @@
                                            :machine-id config/machine-id
                                            :hashed-reconnect-token hashed-reconnect-token})]
             {:stream-object (app-stream-model/new-stream-object app-id id)
-             :udpate-machine-id false}))]
+             :update-machine-id false}))]
     (rs/register-stream store app-id sess-id stream-object)
     (when update-machine-id
       (app-stream-model/update-machine-id! {:app-id app-id
