@@ -35,7 +35,7 @@ export const SectionWide = ({ children }: PropsWithChildren) => (
 );
 
 export const Section = ({ children }: PropsWithChildren) => (
-  <section className={clsx('mx-auto max-w-4xl px-8')}>{children}</section>
+  <section className={clsx('landing-width mx-auto')}>{children}</section>
 );
 
 export const TwoColResponsive = ({ children }: PropsWithChildren) => (
@@ -199,7 +199,7 @@ export function BareNav({ children }: PropsWithChildren) {
 export function MainNav() {
   return (
     <div className="py-4">
-      <div className="mx-auto max-w-[1206px] px-8">
+      <div className="landing-width mx-auto">
         <BareNav />
       </div>
     </div>

@@ -67,13 +67,13 @@ export default function AboutPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <MainNav />
-      <main className="mx-auto max-w-[1206px] flex-1 px-8">
+      <main className="landing-width mx-auto flex-1">
         {/* Hero */}
         <section className="mx-auto flex items-end gap-[148px] pt-20 pb-16 sm:pt-32 sm:pb-24">
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
             Building the database for the AI era
           </h1>
-          <p className="mt-6 text-lg text-balance text-gray-500 sm:text-xl">
+          <p className="mt-6 text-lg text-balance sm:text-xl">
             We started Instant because we believed we needed a new kind of
             database for the future of app development. Now, with agents
             building more software than ever, that need is bigger than ever.
@@ -160,9 +160,7 @@ export default function AboutPage() {
                       <h3 className="mt-1 text-base font-semibold">
                         {event.title}
                       </h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {event.description}
-                      </p>
+                      <p className="mt-1 text-sm">{event.description}</p>
                     </div>
                   ))}
                 </div>
@@ -174,10 +172,10 @@ export default function AboutPage() {
         {/* Values */}
         <section className="py-16 sm:py-24">
           <div className="">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="text-center text-3xl font-semibold text-balance sm:text-4xl">
               What we believe
             </h2>
-            <div className="mt-12 grid max-w-4xl grid-cols-1 gap-8 sm:grid-cols-2">
+            <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 md:px-12">
               {values.map((v) => (
                 <div key={v.title}>
                   <h3 className="text-lg font-semibold">{v.title}</h3>
@@ -192,10 +190,10 @@ export default function AboutPage() {
         <section className="py-16 sm:py-24">
           <div className="">
             <div className="max-w-3xl">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              <h2 className="text-3xl font-semibold sm:text-4xl">
                 Under the hood
               </h2>
-              <p className="mt-4 text-lg text-gray-500">
+              <p className="mt-4 text-lg">
                 Instant looks simple on the surface. A few lines of code and
                 your app has a real-time backend. But there&apos;s a lot of
                 interesting architecture that makes this possible. It starts
@@ -225,12 +223,10 @@ export default function AboutPage() {
                   </p>
                 </div>
                 <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-950 p-4 font-mono text-xs sm:text-sm">
-                  <div className="mb-3 text-gray-500">
-                    {'// '}Every fact is a triple
-                  </div>
+                  <div className="mb-3">{'// '}Every fact is a triple</div>
                   <table className="w-full">
                     <thead>
-                      <tr className="text-left text-gray-500">
+                      <tr className="text-left">
                         <th className="pr-4 pb-2 font-normal">entity</th>
                         <th className="pr-4 pb-2 font-normal">attribute</th>
                         <th className="pb-2 font-normal">value</th>
@@ -273,7 +269,7 @@ export default function AboutPage() {
                       </tr>
                     </tbody>
                   </table>
-                  <div className="mt-3 text-[10px] text-gray-500 sm:text-xs">
+                  <div className="mt-3 text-[10px] sm:text-xs">
                     Attributes store facts. References store relations.
                   </div>
                 </div>
@@ -295,7 +291,7 @@ export default function AboutPage() {
                   </p>
                 </div>
                 <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-950 p-4 font-mono text-xs sm:text-sm">
-                  <div className="mb-2 text-gray-500">{'// '}Query</div>
+                  <div className="mb-2">{'// '}Query</div>
                   <div>
                     <span className="text-gray-400">{'{ '}</span>
                     <span className="text-blue-300">goals</span>
@@ -307,7 +303,7 @@ export default function AboutPage() {
                     <span className="text-gray-400">{' }'}</span>
                   </div>
                   <div className="mt-4 border-t border-gray-800 pt-4">
-                    <div className="mb-2 text-gray-500">{'// '}Result</div>
+                    <div className="mb-2">{'// '}Result</div>
                     <div className="text-gray-400">
                       {'{ '}
                       <span className="text-blue-300">goals</span>: [
@@ -384,9 +380,7 @@ export default function AboutPage() {
                       <div className="text-sm font-medium text-orange-600">
                         Datalog Engine
                       </div>
-                      <div className="text-[10px] text-gray-500">
-                        runs in the browser
-                      </div>
+                      <div className="text-[10px]">runs in the browser</div>
                     </div>
                     <div className="flex justify-center">
                       <svg
@@ -497,9 +491,7 @@ export default function AboutPage() {
                       <div className="text-sm font-medium text-blue-600">
                         Postgres Aurora
                       </div>
-                      <div className="text-[10px] text-gray-500">
-                        source of truth
-                      </div>
+                      <div className="text-[10px]">source of truth</div>
                     </div>
                   </div>
                 </div>
@@ -521,7 +513,7 @@ export default function AboutPage() {
                   </p>
                 </div>
                 <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-950 p-4 font-mono text-xs sm:text-sm">
-                  <div className="mb-2 text-gray-500">
+                  <div className="mb-2">
                     {'// '}Create, update, link in one transaction
                   </div>
                   <div>
@@ -559,7 +551,7 @@ export default function AboutPage() {
                   <div>
                     <span className="text-gray-400">])</span>
                   </div>
-                  <div className="mt-4 border-t border-gray-800 pt-3 text-[10px] text-gray-500 sm:text-xs">
+                  <div className="mt-4 border-t border-gray-800 pt-3 text-[10px] sm:text-xs">
                     Applies instantly on the client. Confirmed by the server.
                   </div>
                 </div>
@@ -581,9 +573,7 @@ export default function AboutPage() {
                   </p>
                 </div>
                 <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-950 p-4 font-mono text-xs sm:text-sm">
-                  <div className="mb-2 text-gray-500">
-                    {'// '}instant.perms.ts
-                  </div>
+                  <div className="mb-2">{'// '}instant.perms.ts</div>
                   <div>
                     <span className="text-gray-400">{'{ '}</span>
                     <span className="text-blue-300">goals</span>
@@ -630,7 +620,7 @@ export default function AboutPage() {
                   <div>
                     <span className="text-gray-400">{'}  }'}</span>
                   </div>
-                  <div className="mt-4 border-t border-gray-800 pt-3 text-[10px] text-gray-500 sm:text-xs">
+                  <div className="mt-4 border-t border-gray-800 pt-3 text-[10px] sm:text-xs">
                     Every query and transaction is validated against these
                     rules.
                   </div>
@@ -646,7 +636,7 @@ export default function AboutPage() {
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Come build with us
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-gray-500">
+            <p className="mx-auto mt-4 max-w-xl text-lg">
               We&apos;re always looking for exceptional hackers who want to work
               on hard problems at the intersection of databases, sync, and AI.
             </p>

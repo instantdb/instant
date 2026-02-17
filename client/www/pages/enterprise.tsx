@@ -15,38 +15,38 @@ export default function () {
       <main className="flex-1">
         <EnterpriseHero />
 
-        <section className="py-16 sm:py-24 sm:pt-12 sm:pb-24">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section className="landing-width mx-auto py-16 sm:py-24 sm:pt-12 sm:pb-24">
+          <div className="">
             <GoodAbstractions />
           </div>
         </section>
 
-        <section className="">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-[1206px] px-8">
+          <div className="mx-auto max-w-7xl">
             <AppBuilders />
           </div>
         </section>
 
-        <section className="py-16 sm:py-24">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-[1206px] px-8 py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl">
             <ChatPlatforms />
           </div>
         </section>
 
-        <section className="pb-16 sm:pb-24">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-[1206px] px-8 pb-16 sm:pb-24">
+          <div className="mx-auto max-w-7xl">
             <InternalTools />
           </div>
         </section>
 
-        <section className="pb-16 sm:pb-24">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-[1206px] px-8 py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl">
             <Architecture />
           </div>
         </section>
 
-        <section className="pb-16 sm:pb-24">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-[1206px] px-8 pb-16 sm:pb-24">
+          <div className="mx-auto max-w-7xl">
             <EnterpriseCTA />
           </div>
         </section>
