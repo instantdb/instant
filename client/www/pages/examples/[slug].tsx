@@ -113,12 +113,14 @@ function Content({ content }: { content: string }) {
 }
 
 function ExampleDetail({ app }: { app: ExampleApp }) {
-  const { slug, title, content, shortDescription } = app;
+  const { slug, title, content, shortDescription, platform } = app;
+  const backHref =
+    platform === 'mobile' ? '/examples?tab=mobile' : '/examples';
   return (
     <div className="space-y-12 md:space-y-6">
       <div className="mx-auto flex max-w-prose flex-col">
         <div className="pt-6 pb-2">
-          <Link href="/examples" className="text-sm text-gray-500">
+          <Link href={backHref} className="text-sm text-gray-500">
             <ArrowLeftIcon className="mr-1 mb-0.5 inline h-4 w-4" />
             Back To Examples
           </Link>

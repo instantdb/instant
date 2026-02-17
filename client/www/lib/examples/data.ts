@@ -8,6 +8,7 @@ export interface AppMetadata {
   screenshot: string;
   githubUrl: string;
   youtubeVideoId?: string;
+  platform: 'web' | 'mobile';
 }
 
 const todoDescription = `
@@ -39,6 +40,18 @@ send messages to the chat.
 Different channels are supported and presences and messages are scoped to each channel.
 `.trim();
 
+const mobileChatDescription = `
+A real-time chat app built with React Native and InstantDB.
+
+In this tutorial, Beto walks through how to set up InstantDB in a React Native project, define a schema, write queries and transactions, and build a fully functional chat experience with instant syncing across devices.
+`.trim();
+
+const appBuilderDescription = `
+A self-building app powered by React Native and InstantDB.
+
+In this tutorial, Simon builds on core InstantDB concepts and shows how to use Storage for uploading assets and the Platform API for programmatically spinning up databases.
+`.trim();
+
 export const appMetas: AppMetadata[] = [
   {
     slug: 'todos',
@@ -55,6 +68,7 @@ export const appMetas: AppMetadata[] = [
     screenshot: '/img/showcase/todos_preview.png',
     githubUrl: 'https://github.com/instantdb/instant-examples/tree/main/todos',
     youtubeVideoId: '827EPRQ0ww0',
+    platform: 'web',
   },
   {
     slug: 'microblog',
@@ -67,6 +81,7 @@ export const appMetas: AppMetadata[] = [
     screenshot: '/img/showcase/blog_preview.png',
     githubUrl:
       'https://github.com/instantdb/instant-examples/tree/main/microblog',
+    platform: 'web',
   },
   {
     slug: 'chat',
@@ -77,5 +92,35 @@ export const appMetas: AppMetadata[] = [
     description: chatDescription,
     screenshot: 'img/showcase/chat_preview.png',
     githubUrl: 'https://github.com/instantdb/instant-examples/tree/main/chat',
+    platform: 'web',
+  },
+  {
+    slug: 'mobile-chat',
+    title: 'Real-time Chat',
+    linesOfCode: '~400',
+    tags: ['React Native', 'Schema', 'Queries', 'Transactions'],
+    description: mobileChatDescription,
+    shortDescription:
+      'Build a real-time chat app with React Native and InstantDB',
+    screenshot: '/img/showcase/mobile_chat_preview.jpg',
+    githubUrl: 'https://github.com/betomoedano/instant-realtime-chat',
+    youtubeVideoId: 'jyVR5NDjNJ4',
+    platform: 'mobile',
+  },
+  {
+    slug: 'app-builder',
+    title: 'App Builder',
+    linesOfCode: '~500',
+    tags: ['React Native', 'Storage', 'Platform API'],
+    description: appBuilderDescription,
+    shortDescription:
+      'Build a self-building app with React Native and InstantDB',
+    screenshot: '/img/showcase/app_builder_preview.jpg',
+    githubUrl: 'https://github.com/Galaxies-dev/app-builder',
+    youtubeVideoId: 'HRACNTmikZI',
+    platform: 'mobile',
   },
 ];
+
+export const webMetas = appMetas.filter((a) => a.platform === 'web');
+export const mobileMetas = appMetas.filter((a) => a.platform === 'mobile');
