@@ -809,7 +809,7 @@ function translatePlanStep(
     case 'remove-unique': {
       return {
         type: 'remove-unique',
-        friendlyDescription: `Remove uniqueness constarint from ${identName(stepParams['forward-identity'])}.`,
+        friendlyDescription: `Remove uniqueness constraint from ${identName(stepParams['forward-identity'])}.`,
         attrId: stepParams['attr-id'],
         forwardIdentity: stepParams['forward-identity'],
       };
