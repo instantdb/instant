@@ -84,10 +84,10 @@ export function InternalTools() {
   return (
     <div className="space-y-12">
       <AnimateIn>
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+        <h2 className="mx-auto max-w-[885px] text-center text-3xl font-bold tracking-tight sm:text-[50px]">
           Let every employee build what they need
         </h2>
-        <p className="mt-4 text-lg text-gray-500">
+        <p className="mx-auto mt-4 max-w-[819px] text-center text-lg text-[21px]">
           Does your team already use LLMs? Pair them with Instant and every
           employee can build the internal tools they actually need. Empower the
           person who understands the problem to build the solution.
@@ -111,9 +111,7 @@ export function InternalTools() {
                     </span>
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {emp.role}
-                    </div>
+                    <div className="text-sm font-medium">{emp.role}</div>
                     <div className="text-[10px] text-gray-400">
                       {emp.assistant}
                     </div>
@@ -149,9 +147,7 @@ export function InternalTools() {
               <div className="rounded-xl border border-gray-200 bg-white p-4">
                 <div className="mb-3 flex items-center gap-3">
                   {emp.toolIcon}
-                  <span className="text-sm font-medium text-gray-900">
-                    {emp.tool}
-                  </span>
+                  <span className="text-sm font-medium">{emp.tool}</span>
                 </div>
 
                 {/* Placeholder data rows */}
@@ -186,7 +182,7 @@ export function InternalTools() {
 
       {/* Supporting detail */}
       <AnimateIn delay={200}>
-        <p className="max-w-3xl text-lg text-gray-500">
+        <p className="mx-auto max-w-[819px] text-center text-[21px]">
           Every tool gets auth built in — employees can log in with their
           existing SSO. Permissions ensure people only see what they should. And
           because everything syncs in real-time, teams always see the latest

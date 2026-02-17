@@ -72,10 +72,10 @@ export function Architecture() {
   return (
     <div className="space-y-12">
       <AnimateIn>
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+        <h2 className="mx-auto text-center text-3xl font-semibold tracking-tight sm:text-[50px]">
           One platform, millions of backends
         </h2>
-        <p className="mt-4 text-lg text-gray-500">
+        <p className="mx-auto mt-4 max-w-[819px] text-center text-lg text-[21px] text-gray-500">
           Traditional backends need a VM for every app. With Instant all apps
           can live in one shared DB. Much easier and cost effective to maintain.
         </p>

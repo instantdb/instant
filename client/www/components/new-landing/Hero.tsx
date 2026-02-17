@@ -193,7 +193,7 @@ export function Hero() {
     <section className="pt-20 pb-16 sm:pb-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h1 className="hero-stagger-1 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+          <h1 className="hero-stagger-1 text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
             Give your AI a database
           </h1>
           <p className="hero-stagger-2 mx-auto mt-6 max-w-2xl text-lg text-balance text-gray-500 sm:text-xl">

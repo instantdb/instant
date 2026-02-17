@@ -33,19 +33,19 @@ export default function () {
           </div>
         </section>
 
-        <section className="py-16 sm:py-24">
+        <section className="pb-16 sm:pb-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <InternalTools />
           </div>
         </section>
 
-        <section className="bg-gray-50 py-16 sm:py-24">
+        <section className="pb-16 sm:pb-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <Architecture />
           </div>
         </section>
 
-        <section className="py-16 sm:py-24">
+        <section className="pb-16 sm:pb-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <EnterpriseCTA />
           </div>

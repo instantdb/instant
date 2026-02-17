@@ -143,7 +143,7 @@ export function ChatPlatforms() {
 
       {/* 4-step storyboard */}
       <AnimateIn delay={100}>
-        <div className="grid grid-cols-2 gap-4 bg-[#F9FAFB] p-4 sm:gap-6 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 p-4 sm:gap-6 lg:grid-cols-4">
           {steps.map((step) => (
             <div key={step.number} className="space-y-3">
               {/* Number badge */}
