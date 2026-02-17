@@ -239,7 +239,7 @@ export async function POST(req: Request) {
     oldMessages,
   });
 
-  let writeStreamId = null;
+  let writeStreamId: string | null = null;
   const stream = createUIMessageStream<DocsUIMessage>({
     execute: async ({ writer }) => {
       const MAX_DOC_READS = 4;
