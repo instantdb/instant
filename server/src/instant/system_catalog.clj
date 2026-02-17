@@ -359,6 +359,7 @@
               :value-type :ref
               :reverse-identity (get-ident-spec "$files" "$stream")
               :cardinality :many
+              :unique? true
               ;; TODO(dww): Add support for on-delete=restrict
               ;; :on-delete :restrict
               :on-delete-reverse :cascade)
@@ -414,7 +415,8 @@
 (def ^:private  editable-triple-ident-names
   #{["$users" "id"]
     ["$files" "id"]
-    ["$files" "path"]})
+    ["$files" "path"]
+    ["$streams" "id"]})
 
 (defn editable-triple-ident-name?
   "There are some system catalog attributes that we let users edit. 

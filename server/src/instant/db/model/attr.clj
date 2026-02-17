@@ -1066,11 +1066,12 @@
   (remove (fn [a]
             (or
              (and (= :system (:catalog a))
-                  ;; TODO(dww): expose streams in schema file
-                  (not (#{"$users" "$files"} (fwd-etype a))))
+                  (not (#{"$users" "$files" "$streams"} (fwd-etype a))))
              (and (= "$files" (fwd-etype a))
                   (#{"content-type" "content-disposition" "size"
-                     "location-id" "key-version"} (fwd-label a)))))
+                     "location-id" "key-version"} (fwd-label a)))
+             (and (= "$streams" (fwd-etype a))
+                  (#{"machineId" "hashedReconnectToken"} (fwd-label a)))))
           attrs))
 
 (defn resolve-attr-id [attrs etype label]

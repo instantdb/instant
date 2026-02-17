@@ -2,6 +2,7 @@ import uuid from './utils/id.ts';
 import { Logger } from './utils/log.ts';
 import { STATUS } from './Reactor.js';
 import { InstantError } from './InstantError.ts';
+import { RuleParams } from './schemaTypes.ts';
 
 export type WritableStreamCtor = {
   new <W = any>(
@@ -41,10 +42,15 @@ function createWriteStream({
   registerStream,
 }: {
   WStream: WritableStreamCtor;
-  opts: { clientId: string };
+  opts: {
+    clientId: string;
+    waitUntil?: (promise: Promise<any>) => void | null | undefined;
+    ruleParams?: RuleParams | null | undefined;
+  };
   startStream: (opts: {
     clientId: string;
     reconnectToken: string;
+    ruleParams?: RuleParams | null | undefined;
   }) => Promise<WriteStreamStartResult>;
   appendStream: (opts: {
     streamId: string;
@@ -89,6 +95,14 @@ function createWriteStream({
         closeCbs.splice(i, 1);
       }
     };
+  }
+
+  if (opts.waitUntil) {
+    opts.waitUntil(
+      new Promise<void>((resolve) => {
+        addCloseCb(resolve);
+      }),
+    );
   }
 
   function addStreamIdCb(cb: (streamId: string) => void) {
@@ -139,6 +153,7 @@ function createWriteStream({
     const result = await startStream({
       clientId,
       reconnectToken,
+      ruleParams: opts.ruleParams,
     });
     switch (result.type) {
       case 'ok': {
@@ -414,12 +429,14 @@ function createReadStream({
     clientId?: string | null | undefined;
     streamId?: string | null | undefined;
     byteOffset?: number | null | undefined;
+    ruleParams?: RuleParams | null | undefined;
   };
   startStream: (opts: {
     eventId: string;
     clientId?: string | null | undefined;
     streamId?: string | null | undefined;
     offset?: number;
+    ruleParams?: RuleParams | null | undefined;
   }) => StreamIterator<ReadStreamUpdate>;
   cancelStream: (opts: { eventId: string }) => void;
 }): {
@@ -628,6 +645,7 @@ type StartStreamMsg = {
   op: 'start-stream';
   'client-id': string;
   'reconnect-token': string;
+  'rule-params'?: RuleParams;
 };
 
 type AppendStreamMsg = {
@@ -644,6 +662,7 @@ type SubscribeStreamMsg = {
   'stream-id'?: string;
   'client-id'?: string;
   offset?: number;
+  'rule-params'?: RuleParams;
 };
 
 type UnsubscribeStreamMsg = {
@@ -737,6 +756,8 @@ export class InstantStream {
 
   public createWriteStream(opts: {
     clientId: string;
+    waitUntil?: (promise: Promise<any>) => void | null | undefined;
+    ruleParams?: RuleParams | null | undefined;
   }): InstantWritableStream<string> {
     const { stream, addCloseCb } = createWriteStream({
       WStream: this.WStream,
@@ -756,6 +777,7 @@ export class InstantStream {
     clientId?: string | null | undefined;
     streamId?: string | null | undefined;
     byteOffset?: number | null | undefined;
+    ruleParams?: RuleParams | null | undefined;
   }) {
     const { stream, addCloseCb } = createReadStream({
       RStream: this.RStream,
@@ -773,6 +795,7 @@ export class InstantStream {
   private startWriteStream(opts: {
     clientId: string;
     reconnectToken: string;
+    ruleParams?: RuleParams | null | undefined;
   }): Promise<WriteStreamStartResult> {
     const eventId = uuid();
     let resolve: ((data: WriteStreamStartResult) => void) | null = null;
@@ -785,6 +808,10 @@ export class InstantStream {
       'client-id': opts.clientId,
       'reconnect-token': opts.reconnectToken,
     };
+
+    if (opts.ruleParams) {
+      msg['rule-params'] = opts.ruleParams;
+    }
 
     this.trySend(eventId, msg);
 
@@ -859,11 +886,13 @@ export class InstantStream {
     clientId,
     streamId,
     offset,
+    ruleParams,
   }: {
     eventId: string;
     clientId?: string;
     streamId?: string;
     offset?: number;
+    ruleParams?: RuleParams | null | undefined;
   }): StreamIterator<ReadStreamUpdate> {
     const msg: SubscribeStreamMsg = { op: 'subscribe-stream' };
 
@@ -883,6 +912,10 @@ export class InstantStream {
 
     if (offset) {
       msg['offset'] = offset;
+    }
+
+    if (ruleParams) {
+      msg['rule-params'] = ruleParams;
     }
 
     const iterator = new StreamIterator<ReadStreamUpdate>();
