@@ -5,7 +5,6 @@ import clsx from 'clsx';
 import NextLink from 'next/link';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { Button, cn } from '@/components/ui';
-import githubIconSvg from '../../public/img/github.svg';
 
 const headingClasses = `font-mono`;
 
@@ -200,7 +199,7 @@ export function BareNav({ children }: PropsWithChildren) {
 export function MainNav() {
   return (
     <div className="py-4">
-      <div className="mx-auto px-[230px]">
+      <div className="mx-auto max-w-[1206px] px-8">
         <BareNav />
       </div>
     </div>
