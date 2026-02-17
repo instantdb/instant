@@ -63,7 +63,7 @@ function createWriteStream({
 }): {
   stream: InstantWritableStream<string>;
   closed: () => boolean;
-  addCloseCb: (cb: () => void) => void;
+  addCompleteCb: (cb: () => void) => void;
 } {
   const clientId = opts.clientId;
   let streamId_: string | null = null;
@@ -73,6 +73,7 @@ function createWriteStream({
   let closed: boolean = false;
   const closeCbs: (() => void)[] = [];
   const streamIdCbs: ((streamId: string) => void)[] = [];
+  const completeCbs: (() => void)[] = [];
   let disconnected: boolean = false;
   // Chunks that we haven't been notified are flushed to disk
   let bufferOffset = 0;
@@ -97,12 +98,32 @@ function createWriteStream({
     };
   }
 
+  function addCompleteCb(cb: () => void) {
+    completeCbs.push(cb);
+    return () => {
+      const i = completeCbs.indexOf(cb);
+      if (i !== -1) {
+        completeCbs.splice(i, 1);
+      }
+    };
+  }
+
   if (opts.waitUntil) {
     opts.waitUntil(
       new Promise<void>((resolve) => {
-        addCloseCb(resolve);
+        completeCbs.push(resolve);
       }),
     );
+  }
+
+  function runCompleteCbs() {
+    for (const cb of completeCbs) {
+      try {
+        // cb could be provided by the user in the waitUntil,
+        // so protect against errors.
+        cb();
+      } catch (_e) {}
+    }
   }
 
   function addStreamIdCb(cb: (streamId: string) => void) {
@@ -149,6 +170,15 @@ function createWriteStream({
     }
   }
 
+  function error(
+    controller: WritableStreamDefaultController,
+    error: InstantError,
+  ) {
+    markClosed();
+    controller.error(error);
+    runCompleteCbs();
+  }
+
   async function onConnectionReconnect() {
     const result = await startStream({
       clientId,
@@ -176,8 +206,7 @@ function createWriteStream({
       }
       case 'error': {
         if (controller_) {
-          controller_.error(result.error);
-          markClosed();
+          error(controller_, result.error);
         }
         break;
       }
@@ -194,18 +223,13 @@ function createWriteStream({
     discardFlushed(offset);
     if (done) {
       isDone = true;
+      runCompleteCbs();
     }
   }
 
-  function error(
+  function ensureSetup(
     controller: WritableStreamDefaultController,
-    error: InstantError,
-  ) {
-    markClosed();
-    controller.error(error);
-  }
-
-  function ensureSetup(controller): string | null {
+  ): string | null {
     if (isDone) {
       error(controller, new InstantError('Stream has been closed.'));
     }
@@ -350,7 +374,7 @@ function createWriteStream({
   });
   return {
     stream,
-    addCloseCb,
+    addCompleteCb,
     closed() {
       return closed;
     },
@@ -759,7 +783,7 @@ export class InstantStream {
     waitUntil?: (promise: Promise<any>) => void | null | undefined;
     ruleParams?: RuleParams | null | undefined;
   }): InstantWritableStream<string> {
-    const { stream, addCloseCb } = createWriteStream({
+    const { stream, addCompleteCb } = createWriteStream({
       WStream: this.WStream,
       startStream: this.startWriteStream.bind(this),
       appendStream: this.appendStream.bind(this),
@@ -767,7 +791,7 @@ export class InstantStream {
       opts,
     });
     this.activeStreams.add(stream);
-    addCloseCb(() => {
+    addCompleteCb(() => {
       this.activeStreams.delete(stream);
     });
     return stream;
