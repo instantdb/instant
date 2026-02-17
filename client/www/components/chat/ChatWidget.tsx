@@ -2,8 +2,8 @@
 
 import { Dialog } from '@instantdb/components';
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
-import React, { Fragment, useEffect, useState } from 'react';
+import { DefaultChatTransport, type UIMessageChunk } from 'ai';
+import React, { Fragment, useEffect, useMemo, useState } from 'react';
 import { id } from '@instantdb/core';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import db from '@/lib/intern/docs-feedback/db';
@@ -133,6 +133,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
                 },
               },
             },
+            $stream: {},
           },
         }
       : null,
@@ -224,6 +225,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
           ? chat.messages
           : ([] as any)
       }
+      streamId={chat?.$stream?.id}
       isOpen={isOpen}
     />
   ) : (
@@ -269,6 +271,46 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   );
 };
 
+class InstantChatTransport extends DefaultChatTransport<DocsUIMessage> {
+  private localId: string;
+
+  constructor(
+    localId: string,
+    options: ConstructorParameters<
+      typeof DefaultChatTransport<DocsUIMessage>
+    >[0],
+  ) {
+    super(options);
+    this.localId = localId;
+  }
+
+  async reconnectToStream({
+    chatId,
+  }: {
+    chatId: string;
+  }): Promise<ReadableStream<UIMessageChunk> | null> {
+    const { data } = await db.queryOnce(
+      {
+        chats: { $: { where: { id: chatId } }, $stream: {} },
+      },
+      {
+        ruleParams: {
+          localId: this.localId,
+        },
+      },
+    );
+    const streamData = data.chats[0]?.$stream;
+    if (!streamData) return null;
+
+    const stream = db.streams.createReadStream({
+      streamId: streamData.id,
+      ruleParams: { localId: this.localId },
+    });
+    const byteStream = stream.pipeThrough(new TextEncoderStream());
+    return this.processResponseStream(byteStream);
+  }
+}
+
 const customAiFetch = async (
   url: RequestInfo | URL,
   opts: RequestInit | undefined,
@@ -312,7 +354,8 @@ const InnerChat: React.FC<{
   isOpen: boolean;
   localId: string;
   authToken: string;
-}> = ({ chatId, initialMessages, isOpen, localId, authToken }) => {
+  streamId: string | null | undefined;
+}> = ({ chatId, initialMessages, isOpen, localId, authToken, streamId }) => {
   const [input, setInput] = React.useState('');
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -326,12 +369,9 @@ const InnerChat: React.FC<{
     }
   }, [isOpen]);
 
-  const { messages, sendMessage, status, regenerate, error } =
-    useChat<DocsUIMessage>({
-      messages: initialMessages,
-      id: chatId,
-      generateId: id,
-      transport: new DefaultChatTransport({
+  const transport = useMemo(
+    () =>
+      new InstantChatTransport(localId, {
         api: '/api/chat',
         fetch: customAiFetch,
         prepareSendMessagesRequest({ messages, id }) {
@@ -347,7 +387,35 @@ const InnerChat: React.FC<{
           };
         },
       }),
-    });
+    [localId, authToken],
+  );
+
+  const {
+    messages,
+    sendMessage,
+    status,
+    regenerate,
+    error,
+    resumeStream,
+    setMessages,
+  } = useChat<DocsUIMessage>({
+    messages: initialMessages,
+    id: chatId,
+    generateId: id,
+    transport,
+    resume: true,
+  });
+
+  React.useEffect(() => {
+    if (
+      streamId &&
+      status !== 'streaming' &&
+      initialMessages.length > messages.length
+    ) {
+      setMessages(initialMessages);
+      resumeStream();
+    }
+  }, [streamId, status, messages, initialMessages]);
 
   const completeMessages = [
     ...initialMessages.filter(

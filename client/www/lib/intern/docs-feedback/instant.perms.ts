@@ -3,6 +3,15 @@
 import type { InstantRules } from '@instantdb/react';
 
 const rules = {
+  $streams: {
+    bind: {
+      isAdmin: "auth.id != null && auth.email.endsWith('@instantdb.com')",
+      isCreator: 'ruleParams.localId == data.localId',
+    },
+    allow: {
+      view: 'isAdmin || isCreator',
+    },
+  },
   ratings: {
     bind: [
       'isAdmin',
