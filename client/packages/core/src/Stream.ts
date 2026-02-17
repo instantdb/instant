@@ -251,6 +251,7 @@ function createWriteStream({
       const result = await startStream({
         clientId: opts.clientId,
         reconnectToken,
+        ruleParams: opts.ruleParams,
       });
 
       switch (result.type) {
