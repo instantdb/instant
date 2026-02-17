@@ -320,7 +320,7 @@ export function AppBuilders() {
 
       {/* Supporting detail */}
       <AnimateIn delay={200}>
-        <p className="max-w-3xl text-lg">
+        <p className="mx-auto max-w-3xl text-center text-[21px]">
           Data, auth, storage, and permissions are all scoped per-app. Manage
           everything through the Platform API — create apps, set schemas,
           configure permissions, all programmatically.

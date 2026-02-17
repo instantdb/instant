@@ -132,10 +132,10 @@ export function ChatPlatforms() {
   return (
     <div className="space-y-12">
       <AnimateIn>
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+        <h2 className="text-center text-3xl font-semibold sm:text-[50px]">
           Turn conversations into applications
         </h2>
-        <p className="mt-4 text-lg text-gray-500">
+        <p className="mx-auto mt-4 max-w-[819px] text-center text-[21px]">
           What if every chat could have its own backend? You could turn
           conversations into personal software.
         </p>
@@ -143,7 +143,7 @@ export function ChatPlatforms() {
 
       {/* 4-step storyboard */}
       <AnimateIn delay={100}>
-        <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 bg-[#F9FAFB] p-4 sm:gap-6 lg:grid-cols-4">
           {steps.map((step) => (
             <div key={step.number} className="space-y-3">
               {/* Number badge */}
@@ -153,9 +153,7 @@ export function ChatPlatforms() {
                     {step.number}
                   </span>
                 </div>
-                <span className="text-sm font-medium text-gray-900">
-                  {step.caption}
-                </span>
+                <span className="text-sm font-medium">{step.caption}</span>
               </div>
 
               {/* Mini illustration */}
@@ -170,7 +168,7 @@ export function ChatPlatforms() {
 
       {/* Supporting detail */}
       <AnimateIn delay={200}>
-        <p className="max-w-3xl text-lg text-gray-500">
+        <p className="mx-auto max-w-3xl text-center text-lg text-[21px]">
           Instant&apos;s multi-tenant architecture means spinning up a new
           backend is a metadata operation — not a new database instance. You can
           create millions of backends with the same infrastructure cost as one.
