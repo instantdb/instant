@@ -221,3 +221,21 @@ const db = init({
   Store: InMemoryStore,
 });
 ```
+
+## Next Steps
+
+Want a more in-depth tutorial on building an Expo app with Instant? Check out [Beto's](https://x.com/betomoedano) video on building a chat app below!
+
+This video goes through core concepts of using Instant like setting up schema, writing queries, and using transactions!
+
+{% youtube src="https://www.youtube.com/watch?v=jyVR5NDjNJ4" title="Building a Real-Time Chat App with Instant DB" /%}
+
+For more advanced features, check out [Simon Grimm](https://x.com/schlimmson) building a mobile app builder with Instant!
+
+In this video Simon builds on top of the concepts from Beto's video and shows off how to use Storage for uploading assets and the Platform API for programmatically spinning up databases.
+
+{% youtube src="https://www.youtube.com/watch?v=HRACNTmikZI" title="Use React Native + InstantDB to Build a Self-Building App" /%}
+
+If you prefer reading docs, you can also check out the [Working with data](/docs/init) section to learn more Instant concepts.
+
+As you get more familiar with Instant, check out our [Recommended Workflow](/docs/recommended-workflow) docs for using Instant in your projects.
