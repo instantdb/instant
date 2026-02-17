@@ -1,6 +1,7 @@
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import { Button } from '@/components/ui';
-import { AppMetadata, appMetas } from '@/lib/examples/data';
+import { AppMetadata, webMetas, mobileMetas } from '@/lib/examples/data';
 import {
   LandingFooter,
   LandingContainer,
@@ -78,7 +79,46 @@ function RightColumn({ app }: { app: AppMetadata }) {
   );
 }
 
-function Showcase({ apps }: { apps: AppMetadata[] }) {
+const tabs = [
+  { id: 'web', label: 'Web' },
+  { id: 'mobile', label: 'Mobile' },
+] as const;
+
+function TabToggle({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}) {
+  return (
+    <div className="flex justify-center gap-4">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          onClick={() => onTabChange(tab.id)}
+          className={`px-4 py-2 text-lg font-medium transition-colors ${
+            activeTab === tab.id
+              ? 'border-b-2 border-[#606AF4] text-gray-900'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Showcase({
+  apps,
+  activeTab,
+  onTabChange,
+}: {
+  apps: AppMetadata[];
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}) {
   return (
     <div className="space-y-12">
       <div className="mx-auto mt-12 space-y-8">
@@ -89,6 +129,7 @@ function Showcase({ apps }: { apps: AppMetadata[] }) {
           Curious to see Instant in action? Here are some common apps to give
           you a sense on how to build with Instant.
         </p>
+        <TabToggle activeTab={activeTab} onTabChange={onTabChange} />
       </div>
       <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2">
         {apps.map((app) => (
@@ -114,7 +155,26 @@ function Showcase({ apps }: { apps: AppMetadata[] }) {
 
 const pageTitle = 'InstantDB Examples';
 
-export default function Page({ apps }: { apps: AppMetadata[] }) {
+export default function Page({
+  webApps,
+  mobileApps,
+}: {
+  webApps: AppMetadata[];
+  mobileApps: AppMetadata[];
+}) {
+  const router = useRouter();
+  const activeTab = router.query.tab === 'mobile' ? 'mobile' : 'web';
+
+  const setTab = (tab: string) => {
+    router.push(
+      { pathname: '/examples', query: tab === 'web' ? {} : { tab } },
+      undefined,
+      { shallow: true },
+    );
+  };
+
+  const apps = activeTab === 'mobile' ? mobileApps : webApps;
+
   return (
     <LandingContainer>
       <Head>
@@ -123,7 +183,7 @@ export default function Page({ apps }: { apps: AppMetadata[] }) {
       </Head>
       <MainNav />
       <Section>
-        <Showcase apps={apps} />
+        <Showcase apps={apps} activeTab={activeTab} onTabChange={setTab} />
       </Section>
       <div className="h-12" />
       <LandingFooter />
@@ -133,6 +193,9 @@ export default function Page({ apps }: { apps: AppMetadata[] }) {
 
 export function getStaticProps() {
   return {
-    props: { apps: appMetas },
+    props: {
+      webApps: webMetas,
+      mobileApps: mobileMetas,
+    },
   };
 }
