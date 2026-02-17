@@ -2,8 +2,61 @@
 
 @plugin '@tailwindcss/forms';
 
+@layer base {
+  @font-face {
+    font-family: 'Berk Mono';
+    font-weight: normal;
+    font-style: normal;
+    font-stretch: normal;
+    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.woff2')
+      format('woff2');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Berk Mono';
+    font-weight: normal;
+    font-style: italic;
+    font-stretch: normal;
+    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Italic.woff2')
+      format('woff2');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Berk Mono';
+    font-weight: bold;
+    font-style: normal;
+    font-stretch: normal;
+    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Bold.woff2')
+      format('woff2');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Berk Mono';
+    font-weight: normal;
+    font-style: italic;
+    font-stretch: normal;
+    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-BoldItalic.woff2')
+      format('woff2');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: normal;
+    font-style: normal;
+    font-stretch: normal;
+    src: url('/fonts/Switzer-Variable.woff2') format('woff2');
+    font-display: swap;
+  }
+}
+
 @theme {
   --default-font-family: 'Switzer', var(--font-switzer), 'Georgia';
+  --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
+  --font-mono: 'Berk Mono';
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -19,5 +72,5 @@
 }
 
 html {
-  --default-font-family: 'Switzer', var(--font-switzer), 'Georgia';
+  --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
 }

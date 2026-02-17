@@ -1,7 +1,8 @@
 @import 'tailwindcss';
 
 @theme {
-  --default-font-family: 'Switzer';
+  --default-mono-font-family: 'Berk Mono';
+  --font-mono: 'Berk Mono', var(--default-mono-font-family);
 }
 
 @config '../tailwind.config.js';
@@ -27,6 +28,11 @@
   ::backdrop,
   ::file-selector-button {
     border-color: oklch(92.8% 0.006 264.531);
+  }
+  *,
+  html {
+    --default-font-family: 'Switzer', 'IBM Plex Sans', sans-serif;
+    --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
   }
 }
 
@@ -100,7 +106,7 @@
 
 html {
   height: 100%;
-  --default-font-family: 'Switzer', var(--font-switzer), 'sans';
+  --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
 }
 
 body,

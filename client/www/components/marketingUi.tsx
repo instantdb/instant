@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import NextLink from 'next/link';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { Button, cn } from '@/components/ui';
+import { LogoIcon } from '@instantdb/components';
 
 const headingClasses = `font-mono`;
 
@@ -70,7 +71,7 @@ const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
 function LogoType() {
   return (
     <Link href="/" className="inline-flex items-center space-x-2">
-      {/*<LogoIcon />*/}
+      <LogoIcon />
       <HeadingBrand>instant</HeadingBrand>
     </Link>
   );
