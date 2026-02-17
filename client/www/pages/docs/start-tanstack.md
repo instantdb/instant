@@ -3,10 +3,6 @@ title: Getting started with TanStack Start
 description: How to use Instant with TanStack Start
 ---
 
-{% callout type="note" %}
-For a more step-by-step tutorial on how to use Instant, check out our [Todo List Tutorial](/examples/todos)
-{% /callout %}
-
 ## Automatic Setup With Create Instant App
 
 The fastest way to get started with Instant on TanStack Start is to use npx create-instant-app to scaffold a new project with Instant already set up.
@@ -256,11 +252,12 @@ function ActionBar({ todos }: { todos: Todo[] }) {
 
 Go to `localhost:3000`, and huzzah 🎉 You've got a fully functional todo list running!
 
-Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)
+## Next Steps
 
-{% callout type="note" %}
+Want to dive deeper on how this todo app works? Check out our step-by-step [Todo List Tutorial](/examples/todos). In this tutorial we walk through how to build a todo list app from scratch, and explain how the queries and transactions work in more detail.
 
-For the advanced use case of integrating with TanStack Query and enabling SSR, refer to our [tanstack-start-with-tanstack-query](https://github.com/instantdb/instant/tree/main/examples/tanstack-start-with-tanstack-query) example.
+For the advanced use case of integrating with TanStack Query and enabling SSR, refer to our [tanstack-start-with-tanstack-query](https://github.com/instantdb/instant/tree/main/examples/tanstack-start-with-tanstack-query) example. It can be scaffolded using `npx create-instant-app -b tanstack-start-with-tanstack-query`.
 
-It can be scaffolded using `npx create-instant-app -b tanstack-start-with-tanstack-query`.
-{% /callout %}
+You can also check out the [Working with data](/docs/init) section to learn more Instant concepts.
+
+As you get more familiar with Instant, check out our [Recommended Workflow](/docs/recommended-workflow) docs for using Instant in your projects.

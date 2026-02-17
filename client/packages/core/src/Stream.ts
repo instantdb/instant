@@ -170,12 +170,9 @@ function createWriteStream({
     }
   }
 
-  function error(
-    controller: WritableStreamDefaultController,
-    error: InstantError,
-  ) {
+  function error(controller: WritableStreamDefaultController, e: InstantError) {
     markClosed();
-    controller.error(error);
+    controller.error(e);
     runCompleteCbs();
   }
 
@@ -232,9 +229,11 @@ function createWriteStream({
   ): string | null {
     if (isDone) {
       error(controller, new InstantError('Stream has been closed.'));
+      return null;
     }
     if (!streamId_) {
       error(controller, new InstantError('Stream has not been initialized.'));
+      return null;
     }
     return streamId_;
   }
@@ -357,6 +356,8 @@ function createWriteStream({
           offset: bufferOffset + bufferByteSize,
           isDone: true,
         });
+      } else {
+        runCompleteCbs();
       }
       markClosed();
     },
@@ -369,6 +370,8 @@ function createWriteStream({
           isDone: true,
           abortReason: reason,
         });
+      } else {
+        runCompleteCbs();
       }
       markClosed();
     },
@@ -508,6 +511,7 @@ function createReadStream({
       clientId?: string | null | undefined;
       streamId?: string | null | undefined;
       offset?: number;
+      ruleParams?: RuleParams | null | undefined;
     },
     controller: ReadableStreamDefaultController<string>,
   ): Promise<{ retry: boolean } | undefined> {
