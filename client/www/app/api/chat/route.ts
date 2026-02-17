@@ -5,7 +5,6 @@ import { doTry } from '@/lib/parsePermsJSON';
 import { anthropic } from '@ai-sdk/anthropic';
 import { init, id as instantGenId } from '@instantdb/admin';
 import {
-  consumeStream,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -71,6 +70,7 @@ const saveChat = async ({
   id,
   localId,
   userId,
+  streamId,
 }: {
   db: ReturnType<typeof getAdminFeedbackDb>;
   messages: UIMessage[];
@@ -78,19 +78,21 @@ const saveChat = async ({
   id: string;
   localId: string;
   userId: string;
+  streamId?: string | null | undefined;
 }) => {
   // ensure chat exists
-  await db
-    .transact(
-      db.tx.chats[id].update({
-        createdByUserId: userId,
-        localId: localId,
-        createdAt: new Date(),
-      }),
-    )
-    .catch((err) => {
-      throw new Error(`Failed to update chat`, { cause: err });
-    });
+  let chatTx = db.tx.chats[id].update({
+    createdByUserId: userId,
+    localId: localId,
+    createdAt: new Date(),
+  });
+  if (streamId) {
+    // Move the stream from the chat to the message
+    chatTx = chatTx.unlink({ $stream: streamId });
+  }
+  await db.transact(chatTx).catch((err) => {
+    throw new Error(`Failed to update chat`, { cause: err });
+  });
 
   const txs = messages.map((m, idx) => {
     if (oldMessages.find((old) => old.id === m.id)) {
@@ -106,7 +108,7 @@ const saveChat = async ({
         });
     }
 
-    return db.tx.messages[m.id]
+    const msgTx = db.tx.messages[m.id]
       .update({
         index: idx,
         metadata: m.metadata,
@@ -117,6 +119,13 @@ const saveChat = async ({
       .link({
         chat: id,
       });
+
+    // If it's the last assistant message, it must be the message that the
+    // stream belongs to, so we'll link it.
+    if (streamId && m.role === 'assistant' && idx === messages.length - 1) {
+      return msgTx.link({ $stream: streamId });
+    }
+    return msgTx;
   });
 
   await db.transact(txs).catch((err) => {
@@ -220,6 +229,17 @@ export async function POST(req: Request) {
   }
 
   const messages = [...oldMessages, message] as any as DocsUIMessage[];
+
+  await saveChat({
+    db: adminDb,
+    messages,
+    id,
+    localId,
+    userId,
+    oldMessages,
+  });
+
+  let writeStreamId = null;
   const stream = createUIMessageStream<DocsUIMessage>({
     execute: async ({ writer }) => {
       const MAX_DOC_READS = 4;
@@ -333,6 +353,7 @@ ${DOC_HINTS}`,
       if (isAborted) {
         return;
       }
+
       return saveChat({
         db: adminDb,
         messages,
@@ -340,6 +361,7 @@ ${DOC_HINTS}`,
         localId,
         userId,
         oldMessages,
+        streamId: writeStreamId,
       }).catch((err) => {
         console.error(`Failed to save chat`, err);
       });
@@ -350,6 +372,17 @@ ${DOC_HINTS}`,
 
   return createUIMessageStreamResponse({
     stream,
-    consumeSseStream: consumeStream,
+    async consumeSseStream({ stream: sseStream }) {
+      const writeStream = adminDb.streams.createWriteStream({
+        clientId: instantGenId(),
+        waitUntil: after,
+      });
+      sseStream.pipeTo(writeStream);
+      const streamId = await writeStream.streamId();
+      writeStreamId = streamId;
+      adminDb.transact(
+        adminDb.tx.$streams[streamId].update({ localId }).link({ chat: id }),
+      );
+    },
   });
 }

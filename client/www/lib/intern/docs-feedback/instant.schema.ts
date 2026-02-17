@@ -9,6 +9,13 @@ const _schema = i.schema({
       path: i.string().unique().indexed(),
       url: i.string(),
     }),
+    $streams: i.entity({
+      abortReason: i.string().optional(),
+      clientId: i.string().unique().indexed(),
+      done: i.boolean().optional(),
+      size: i.number().optional(),
+      localId: i.string().optional(),
+    }),
     $users: i.entity({
       email: i.string().unique().indexed().optional(),
     }),
@@ -53,6 +60,45 @@ const _schema = i.schema({
         has: 'one',
         label: 'chat',
         required: true,
+      },
+    },
+    $streams$files: {
+      forward: {
+        on: '$streams',
+        has: 'many',
+        label: '$files',
+      },
+      reverse: {
+        on: '$files',
+        has: 'one',
+        label: '$stream',
+        onDelete: 'cascade',
+      },
+    },
+    message$stream: {
+      forward: {
+        on: 'messages',
+        has: 'one',
+        label: '$stream',
+        onDelete: 'cascade',
+      },
+      reverse: {
+        on: '$streams',
+        has: 'one',
+        label: 'message',
+      },
+    },
+    chat$stream: {
+      forward: {
+        on: 'chats',
+        has: 'one',
+        label: '$stream',
+        onDelete: 'cascade',
+      },
+      reverse: {
+        on: '$streams',
+        has: 'one',
+        label: 'chat',
       },
     },
   },
