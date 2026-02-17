@@ -377,10 +377,12 @@ ${DOC_HINTS}`,
         clientId: instantGenId(),
         waitUntil: after,
       });
-      sseStream.pipeTo(writeStream);
+      sseStream.pipeTo(writeStream).catch((err) => {
+        console.error('Failed to pipe SSE stream:', err);
+      });
       const streamId = await writeStream.streamId();
       writeStreamId = streamId;
-      adminDb.transact(
+      await adminDb.transact(
         adminDb.tx.$streams[streamId].update({ localId }).link({ chat: id }),
       );
     },
