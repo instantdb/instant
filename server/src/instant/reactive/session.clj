@@ -734,9 +734,11 @@
   (let [{:keys [app admin? user]} (get-auth! store sess-id)
         app-id (:id app)
         client-id (ex/get-param! event [:client-id] string-util/coerce-non-blank-str)
+        rule-params (ex/get-optional-param! event [:rule-params] identity)
         _ (when-not admin?
             (app-stream-model/assert-create-stream-permission! client-id {:app-id app-id
-                                                                          :current-user user}))
+                                                                          :current-user user
+                                                                          :rule-params rule-params}))
         hashed-reconnect-token (-> (ex/get-param! event [:reconnect-token] uuid-util/coerce)
                                    crypt-util/uuid->sha256
                                    crypt-util/bytes->hex-string)
@@ -866,10 +868,12 @@
                                       {:sess-id sess-id
                                        :stream-id stream-id
                                        :client-id client-id}
-                                      [{:message "Stream is missing."}]))]
+                                      [{:message "Stream is missing."}]))
+        rule-params (ex/get-optional-param! event [:rule-params] identity)]
     (when-not admin?
       (app-stream-model/assert-read-stream-permission! stream {:app-id app-id
-                                                               :current-user user}))
+                                                               :current-user user
+                                                               :rule-params rule-params}))
 
     (cond
       (:done stream)

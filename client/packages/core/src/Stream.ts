@@ -2,6 +2,7 @@ import uuid from './utils/id.ts';
 import { Logger } from './utils/log.ts';
 import { STATUS } from './Reactor.js';
 import { InstantError } from './InstantError.ts';
+import { RuleParams } from './schemaTypes.ts';
 
 export type WritableStreamCtor = {
   new <W = any>(
@@ -41,10 +42,15 @@ function createWriteStream({
   registerStream,
 }: {
   WStream: WritableStreamCtor;
-  opts: { clientId: string };
+  opts: {
+    clientId: string;
+    waitUntil?: (promise: Promise<any>) => void | null | undefined;
+    ruleParams?: RuleParams | null | undefined;
+  };
   startStream: (opts: {
     clientId: string;
     reconnectToken: string;
+    ruleParams?: RuleParams | null | undefined;
   }) => Promise<WriteStreamStartResult>;
   appendStream: (opts: {
     streamId: string;
@@ -57,7 +63,7 @@ function createWriteStream({
 }): {
   stream: InstantWritableStream<string>;
   closed: () => boolean;
-  addCloseCb: (cb: () => void) => void;
+  addCompleteCb: (cb: () => void) => void;
 } {
   const clientId = opts.clientId;
   let streamId_: string | null = null;
@@ -67,6 +73,7 @@ function createWriteStream({
   let closed: boolean = false;
   const closeCbs: (() => void)[] = [];
   const streamIdCbs: ((streamId: string) => void)[] = [];
+  const completeCbs: (() => void)[] = [];
   let disconnected: boolean = false;
   // Chunks that we haven't been notified are flushed to disk
   let bufferOffset = 0;
@@ -89,6 +96,34 @@ function createWriteStream({
         closeCbs.splice(i, 1);
       }
     };
+  }
+
+  function addCompleteCb(cb: () => void) {
+    completeCbs.push(cb);
+    return () => {
+      const i = completeCbs.indexOf(cb);
+      if (i !== -1) {
+        completeCbs.splice(i, 1);
+      }
+    };
+  }
+
+  if (opts.waitUntil) {
+    opts.waitUntil(
+      new Promise<void>((resolve) => {
+        completeCbs.push(resolve);
+      }),
+    );
+  }
+
+  function runCompleteCbs() {
+    for (const cb of completeCbs) {
+      try {
+        // cb could be provided by the user in the waitUntil,
+        // so protect against errors.
+        cb();
+      } catch (_e) {}
+    }
   }
 
   function addStreamIdCb(cb: (streamId: string) => void) {
@@ -135,10 +170,17 @@ function createWriteStream({
     }
   }
 
+  function error(controller: WritableStreamDefaultController, e: InstantError) {
+    markClosed();
+    controller.error(e);
+    runCompleteCbs();
+  }
+
   async function onConnectionReconnect() {
     const result = await startStream({
       clientId,
       reconnectToken,
+      ruleParams: opts.ruleParams,
     });
     switch (result.type) {
       case 'ok': {
@@ -161,8 +203,7 @@ function createWriteStream({
       }
       case 'error': {
         if (controller_) {
-          controller_.error(result.error);
-          markClosed();
+          error(controller_, result.error);
         }
         break;
       }
@@ -179,23 +220,20 @@ function createWriteStream({
     discardFlushed(offset);
     if (done) {
       isDone = true;
+      runCompleteCbs();
     }
   }
 
-  function error(
+  function ensureSetup(
     controller: WritableStreamDefaultController,
-    error: InstantError,
-  ) {
-    markClosed();
-    controller.error(error);
-  }
-
-  function ensureSetup(controller): string | null {
+  ): string | null {
     if (isDone) {
       error(controller, new InstantError('Stream has been closed.'));
+      return null;
     }
     if (!streamId_) {
       error(controller, new InstantError('Stream has not been initialized.'));
+      return null;
     }
     return streamId_;
   }
@@ -212,6 +250,7 @@ function createWriteStream({
       const result = await startStream({
         clientId: opts.clientId,
         reconnectToken,
+        ruleParams: opts.ruleParams,
       });
 
       switch (result.type) {
@@ -317,6 +356,8 @@ function createWriteStream({
           offset: bufferOffset + bufferByteSize,
           isDone: true,
         });
+      } else {
+        runCompleteCbs();
       }
       markClosed();
     },
@@ -329,13 +370,15 @@ function createWriteStream({
           isDone: true,
           abortReason: reason,
         });
+      } else {
+        runCompleteCbs();
       }
       markClosed();
     },
   });
   return {
     stream,
-    addCloseCb,
+    addCompleteCb,
     closed() {
       return closed;
     },
@@ -414,12 +457,14 @@ function createReadStream({
     clientId?: string | null | undefined;
     streamId?: string | null | undefined;
     byteOffset?: number | null | undefined;
+    ruleParams?: RuleParams | null | undefined;
   };
   startStream: (opts: {
     eventId: string;
     clientId?: string | null | undefined;
     streamId?: string | null | undefined;
     offset?: number;
+    ruleParams?: RuleParams | null | undefined;
   }) => StreamIterator<ReadStreamUpdate>;
   cancelStream: (opts: { eventId: string }) => void;
 }): {
@@ -466,6 +511,7 @@ function createReadStream({
       clientId?: string | null | undefined;
       streamId?: string | null | undefined;
       offset?: number;
+      ruleParams?: RuleParams | null | undefined;
     },
     controller: ReadableStreamDefaultController<string>,
   ): Promise<{ retry: boolean } | undefined> {
@@ -628,6 +674,7 @@ type StartStreamMsg = {
   op: 'start-stream';
   'client-id': string;
   'reconnect-token': string;
+  'rule-params'?: RuleParams;
 };
 
 type AppendStreamMsg = {
@@ -644,6 +691,7 @@ type SubscribeStreamMsg = {
   'stream-id'?: string;
   'client-id'?: string;
   offset?: number;
+  'rule-params'?: RuleParams;
 };
 
 type UnsubscribeStreamMsg = {
@@ -737,8 +785,10 @@ export class InstantStream {
 
   public createWriteStream(opts: {
     clientId: string;
+    waitUntil?: (promise: Promise<any>) => void | null | undefined;
+    ruleParams?: RuleParams | null | undefined;
   }): InstantWritableStream<string> {
-    const { stream, addCloseCb } = createWriteStream({
+    const { stream, addCompleteCb } = createWriteStream({
       WStream: this.WStream,
       startStream: this.startWriteStream.bind(this),
       appendStream: this.appendStream.bind(this),
@@ -746,7 +796,7 @@ export class InstantStream {
       opts,
     });
     this.activeStreams.add(stream);
-    addCloseCb(() => {
+    addCompleteCb(() => {
       this.activeStreams.delete(stream);
     });
     return stream;
@@ -756,6 +806,7 @@ export class InstantStream {
     clientId?: string | null | undefined;
     streamId?: string | null | undefined;
     byteOffset?: number | null | undefined;
+    ruleParams?: RuleParams | null | undefined;
   }) {
     const { stream, addCloseCb } = createReadStream({
       RStream: this.RStream,
@@ -773,6 +824,7 @@ export class InstantStream {
   private startWriteStream(opts: {
     clientId: string;
     reconnectToken: string;
+    ruleParams?: RuleParams | null | undefined;
   }): Promise<WriteStreamStartResult> {
     const eventId = uuid();
     let resolve: ((data: WriteStreamStartResult) => void) | null = null;
@@ -785,6 +837,10 @@ export class InstantStream {
       'client-id': opts.clientId,
       'reconnect-token': opts.reconnectToken,
     };
+
+    if (opts.ruleParams) {
+      msg['rule-params'] = opts.ruleParams;
+    }
 
     this.trySend(eventId, msg);
 
@@ -859,11 +915,13 @@ export class InstantStream {
     clientId,
     streamId,
     offset,
+    ruleParams,
   }: {
     eventId: string;
     clientId?: string;
     streamId?: string;
     offset?: number;
+    ruleParams?: RuleParams | null | undefined;
   }): StreamIterator<ReadStreamUpdate> {
     const msg: SubscribeStreamMsg = { op: 'subscribe-stream' };
 
@@ -883,6 +941,10 @@ export class InstantStream {
 
     if (offset) {
       msg['offset'] = offset;
+    }
+
+    if (ruleParams) {
+      msg['rule-params'] = ruleParams;
     }
 
     const iterator = new StreamIterator<ReadStreamUpdate>();

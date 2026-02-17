@@ -537,10 +537,24 @@ type CreateReadStreamOpts = {
   clientId?: string | null | undefined;
   streamId?: string | null | undefined;
   byteOffset?: number | null | undefined;
+  ruleParams?: RuleParams | null | undefined;
 };
 
 type CreateWriteStreamOpts = {
   clientId: string;
+  /**
+   * A function that takes a promise and ensures that the current program stays alive
+   * until the promise is resolved.
+   *
+   * Useful in serverless environments to ensure the writer fully flushes before the
+   * environment is shut down.
+   *
+   * @example
+   * import { after } from 'next/server'
+   * db.streams.createWriteStream({clientId, waitUntil: after})
+   */
+  waitUntil?: (promise: Promise<any>) => void | null | undefined;
+  ruleParams?: RuleParams | null | undefined;
 };
 
 /**

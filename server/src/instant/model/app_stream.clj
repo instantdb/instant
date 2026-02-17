@@ -40,7 +40,8 @@
    The functions in this namespace don't do any permission checks.
    We rely on the create and subscribe functions in session.clj to check."
   [stream-client-id {:keys [app-id
-                            rules-override]
+                            rules-override
+                            rule-params]
                      :as ctx}]
   (let [action "create"
         rules (if rules-override
@@ -58,14 +59,16 @@
                           :attrs
                           (attr-model/get-by-app-id app-id)
                           :datalog-query-fn d/query)]
-          (cel/eval-program! ctx* program {:data {"clientId" stream-client-id}}))))))
+          (cel/eval-program! ctx* program {:data {"clientId" stream-client-id}
+                                           :rule-params rule-params}))))))
 
 (defn assert-read-stream-permission!
   "Checks permission for subscribing to stream.
    The functions in this namespace don't do any permission checks.
    We rely on the create and subscribe functions in session.clj to check."
   [stream {:keys [app-id
-                  rules-override]
+                  rules-override
+                  rule-params]
            :as ctx}]
   (let [action "view"
         rules (if rules-override
@@ -83,7 +86,8 @@
                           :attrs
                           (attr-model/get-by-app-id app-id)
                           :datalog-query-fn d/query)]
-          (cel/eval-program! ctx* program {:data stream}))))))
+          (cel/eval-program! ctx* program {:data stream
+                                           :rule-params rule-params}))))))
 
 (defn create!
   "Creates a new $stream object"
