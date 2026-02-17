@@ -1,14 +1,12 @@
 import { MainNav } from '@/components/marketingUi';
-import { Footer } from '@/components/new-landing';
-import {
-  AppBuilders,
-  EnterpriseHero,
-  GoodAbstractions,
-  ChatPlatforms,
-  InternalTools,
-  Architecture,
-  EnterpriseCTA,
-} from '@/components/new-landing/enterprise';
+import { AppBuilders } from '@/components/new-landing/enterprise/AppBuilders';
+import { Architecture } from '@/components/new-landing/enterprise/Architecture';
+import { ChatPlatforms } from '@/components/new-landing/enterprise/ChatPlatforms';
+import { EnterpriseCTA } from '@/components/new-landing/enterprise/EnterpriseCTA';
+import { EnterpriseHero } from '@/components/new-landing/enterprise/EnterpriseHero';
+import { GoodAbstractions } from '@/components/new-landing/enterprise/GoodAbstractions';
+import { InternalTools } from '@/components/new-landing/enterprise/InternalTools';
+import { Footer } from '@/components/new-landing/Footer';
 
 export default function () {
   return (

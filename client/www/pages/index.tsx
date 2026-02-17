@@ -1,19 +1,17 @@
 import Head from 'next/head';
 import { Link, MainNav } from '@/components/marketingUi';
 
-import {
-  BatteriesForAI,
-  BuiltForAI,
-  FinalCTA,
-  Footer,
-  Hero,
-  Section,
-  SocialProof,
-  SyncEngine,
-  SyncRelations,
-  WallOfLove,
-} from '@/components/new-landing';
 import { ChevronRightIcon } from '@heroicons/react/24/solid';
+import { Hero } from '@/components/new-landing/Hero';
+import { Section } from '@/components/new-landing/Section';
+import { BuiltForAI } from '@/components/new-landing/BuiltForAI';
+import { BatteriesForAI } from '@/components/new-landing/BatteriesForAI';
+import { SyncEngine } from '@/components/new-landing/SyncEngine';
+import { SyncRelations } from '@/components/new-landing/SyncRelations';
+import { SocialProof } from '@/components/new-landing/SocialProof';
+import { WallOfLove } from '@/components/new-landing/WallOfLove';
+import { FinalCTA } from '@/components/new-landing/FinalCTA';
+import { Footer } from '@/components/new-landing/Footer';
 
 const SeeTheCodeButton = ({ href }: { href: string }) => (
   <Link
