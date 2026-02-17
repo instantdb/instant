@@ -170,12 +170,9 @@ function createWriteStream({
     }
   }
 
-  function error(
-    controller: WritableStreamDefaultController,
-    error: InstantError,
-  ) {
+  function error(controller: WritableStreamDefaultController, e: InstantError) {
     markClosed();
-    controller.error(error);
+    controller.error(e);
     runCompleteCbs();
   }
 
@@ -508,6 +505,7 @@ function createReadStream({
       clientId?: string | null | undefined;
       streamId?: string | null | undefined;
       offset?: number;
+      ruleParams?: RuleParams | null | undefined;
     },
     controller: ReadableStreamDefaultController<string>,
   ): Promise<{ retry: boolean } | undefined> {
