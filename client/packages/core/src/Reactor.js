@@ -884,7 +884,7 @@ export default class Reactor {
         this._handleReceiveError(msg);
         break;
       default:
-        this._log.info('Uknown op', msg.op, msg);
+        this._log.info('Unknown op', msg.op, msg);
         break;
     }
   }

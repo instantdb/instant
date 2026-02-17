@@ -863,7 +863,7 @@ function translatePlanStep(
     default: {
       // Get a type error if we ignore a case
       const unknownType: never = stepType;
-      throw new Error(`Uknown schema operation ${unknownType}.`);
+      throw new Error(`Unknown schema operation ${unknownType}.`);
     }
   }
 }
