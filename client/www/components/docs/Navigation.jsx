@@ -4,6 +4,7 @@ import clsx from 'clsx';
 
 export function Navigation({ navigation, className }) {
   let router = useRouter();
+  const orgQuery = router.query.org ? { org: router.query.org } : {};
 
   return (
     <nav className={clsx('text-sm', className)}>
@@ -20,7 +21,7 @@ export function Navigation({ navigation, className }) {
               {section.links.map((link) => (
                 <li key={link.href} className="relative">
                   <Link
-                    href={link.href}
+                    href={{ pathname: link.href, query: orgQuery }}
                     className={clsx(
                       'block w-full py-1 pl-3.5 before:pointer-events-none before:absolute before:top-1/2 before:-left-1 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rounded-full',
                       link.href === router.pathname

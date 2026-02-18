@@ -227,9 +227,9 @@ function AppPicker({
     if (value.startsWith('org:')) {
       const orgId = value.substring(4);
       if (orgId === 'personal') {
-        router.push('/docs');
+        router.push(router.pathname);
       } else {
-        router.push(`/docs?org=${orgId}`);
+        router.push({ pathname: router.pathname, query: { org: orgId } });
       }
     } else {
       updateSelectedAppId(value);
@@ -334,7 +334,7 @@ function PageContent({ path, title, sectionTitle, allLinks, children }) {
   );
 }
 
-function PageNav({ previousPage, nextPage }) {
+function PageNav({ previousPage, nextPage, orgQuery }) {
   return (
     <dl className="mt-12 flex border-t border-slate-200 pt-6 dark:border-slate-800">
       {previousPage && (
@@ -344,7 +344,7 @@ function PageNav({ previousPage, nextPage }) {
           </dt>
           <dd className="mt-1">
             <Link
-              href={previousPage.href}
+              href={{ pathname: previousPage.href, query: orgQuery }}
               className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
             >
               <span aria-hidden="true">&larr;</span> {previousPage.title}
@@ -359,7 +359,7 @@ function PageNav({ previousPage, nextPage }) {
           </dt>
           <dd className="mt-1">
             <Link
-              href={nextPage.href}
+              href={{ pathname: nextPage.href, query: orgQuery }}
               className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
             >
               {nextPage.title} <span aria-hidden="true">&rarr;</span>
@@ -451,6 +451,7 @@ export function Layout({ children, title, tableOfContents }) {
   const isMobile = useIsMobile();
 
   const workspaceId = router.query.org || 'personal';
+  const orgQuery = router.query.org ? { org: router.query.org } : {};
   const token = useAuthToken();
   const {
     apps,
@@ -549,7 +550,11 @@ export function Layout({ children, title, tableOfContents }) {
               <div className="mt-4">
                 <RatingBox pageId={router.pathname} />
               </div>
-              <PageNav previousPage={previousPage} nextPage={nextPage} />
+              <PageNav
+                previousPage={previousPage}
+                nextPage={nextPage}
+                orgQuery={orgQuery}
+              />
             </main>
 
             {/* Right sidebar */}
