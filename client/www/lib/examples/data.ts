@@ -41,15 +41,21 @@ Different channels are supported and presences and messages are scoped to each c
 `.trim();
 
 const mobileChatDescription = `
-A real-time chat app built with React Native and InstantDB.
+A real-time chat app showing the basics of using React Native with InstantDB.
 
 In this tutorial, Beto walks through how to set up InstantDB in a React Native project, define a schema, write queries and transactions, and build a fully functional chat experience with instant syncing across devices.
 `.trim();
 
 const appBuilderDescription = `
-A self-building app powered by React Native and InstantDB.
+A mobile app that builds other mobile apps!
 
 In this tutorial, Simon builds on core InstantDB concepts and shows how to use Storage for uploading assets and the Platform API for programmatically spinning up databases.
+`.trim();
+
+const stroopwafelDescription = `
+A multiplayer brain game live in the App Store.
+
+Based on the stroop effect, players have to quickly identify the color of the word being shown, which can be different from the word itself. The game uses presence and permission features to create a competitive multiplayer experience!
 `.trim();
 
 export const appMetas: AppMetadata[] = [
@@ -57,12 +63,7 @@ export const appMetas: AppMetadata[] = [
     slug: 'todos',
     title: 'Todo App',
     linesOfCode: `~100`,
-    tags: [
-      'Basic schema',
-      'Basic Queries',
-      'Basic Transactions',
-      'Basic Presence',
-    ],
+    tags: ['Basics', 'Schema', 'Queries', 'Transactions'],
     description: todoDescription,
     shortDescription: 'See the basics of InstantDB in action',
     screenshot: '/img/showcase/todos_preview.png',
@@ -98,7 +99,7 @@ export const appMetas: AppMetadata[] = [
     slug: 'mobile-chat',
     title: 'Real-time Chat',
     linesOfCode: '~400',
-    tags: ['React Native', 'Schema', 'Queries', 'Transactions'],
+    tags: ['Basics', 'Schema', 'Queries', 'Transactions'],
     description: mobileChatDescription,
     shortDescription:
       'Build a real-time chat app with React Native and InstantDB',
@@ -111,13 +112,25 @@ export const appMetas: AppMetadata[] = [
     slug: 'app-builder',
     title: 'App Builder',
     linesOfCode: '~500',
-    tags: ['React Native', 'Storage', 'Platform API'],
+    tags: ['Storage', 'Platform API'],
     description: appBuilderDescription,
     shortDescription:
       'Build a self-building app with React Native and InstantDB',
     screenshot: '/img/showcase/app_builder_preview.jpg',
     githubUrl: 'https://github.com/Galaxies-dev/app-builder',
     youtubeVideoId: 'HRACNTmikZI',
+    platform: 'mobile',
+  },
+  {
+    slug: 'stroopwafel',
+    title: 'Multiplayer Brain Game',
+    linesOfCode: '~2000',
+    tags: ['Full App', 'Presence', 'Permissions'],
+    description: stroopwafelDescription,
+    shortDescription:
+      'A casual multiplayer brain game leveraging presence and permission features',
+    screenshot: '/img/showcase/stroopwafel_preview.png',
+    githubUrl: 'https://github.com/jsventures/stroopwafel',
     platform: 'mobile',
   },
 ];
