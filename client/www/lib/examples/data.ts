@@ -128,7 +128,7 @@ export const appMetas: AppMetadata[] = [
     tags: ['Full App', 'Presence', 'Permissions'],
     description: stroopwafelDescription,
     shortDescription:
-      'A casual multiplayer brain game with leveraging presence and permission features',
+      'A casual multiplayer brain game leveraging presence and permission features',
     screenshot: '/img/showcase/stroopwafel_preview.png',
     githubUrl: 'https://github.com/jsventures/stroopwafel',
     platform: 'mobile',
