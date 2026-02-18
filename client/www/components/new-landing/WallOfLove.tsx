@@ -73,7 +73,7 @@ function TestimonialCard({
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="text-sm leading-relaxed text-gray-600">
+      <p className="text-sm leading-relaxed text-gray-700">
         {testimonial.text}
       </p>
       <div className="mt-4 flex items-center gap-3">
@@ -97,7 +97,7 @@ export function WallOfLove() {
       {/* Section header */}
       <AnimateIn>
         <div className="sm:text-center">
-          <p className="max-w-2xl text-2xl text-gray-500 sm:mx-auto sm:text-3xl">
+          <p className="max-w-2xl text-2xl font-semibold sm:mx-auto sm:text-3xl">
             Developers are building with Instant every day.
           </p>
         </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from './Button';
 import { AnimateIn } from './AnimateIn';
+import Link from 'next/link';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -72,9 +73,11 @@ export function FinalCTA() {
 
       <AnimateIn delay={200}>
         <div className="mt-8">
-          <Button size="lg" className="glow-pulse px-8 py-3.5 text-base">
-            Get a DB
-          </Button>
+          <Link href="/dash">
+            <Button size="lg" className="glow-pulse px-8 py-3.5 text-base">
+              Get a DB
+            </Button>
+          </Link>
         </div>
       </AnimateIn>
     </div>

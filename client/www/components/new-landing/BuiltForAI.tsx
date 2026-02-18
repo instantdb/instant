@@ -44,15 +44,7 @@ function AnimatedTerminal() {
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl">
-      {/* Terminal header */}
-      <div className="flex items-center gap-2 border-b border-gray-800 bg-gray-900 px-4 py-3">
-        <div className="flex-1 text-center font-mono text-xs text-gray-500">
-          terminal
-        </div>
-      </div>
-
-      {/* Terminal content */}
-      <div className="min-h-[320px] p-4 font-mono text-sm sm:p-6 sm:text-base">
+      <div className="min-h-[300px] p-4 font-mono text-sm sm:p-6">
         {steps.slice(0, step).map((s, i) => (
           <div key={i} className={`${i > 0 ? 'mt-1' : ''}`}>
             {s.type === 'command' && (
@@ -415,7 +407,7 @@ export function BuiltForAI() {
       {/* Section header */}
       <AnimateIn>
         <div className="sm:text-center">
-          <h2 className="text-off-black text-3xl font-semibold sm:text-6xl">
+          <h2 className="text-off-black text-2xl font-semibold sm:text-5xl">
             Built for AI
           </h2>
           <p className="mt-4 max-w-2xl text-[21px] sm:mx-auto">
@@ -431,10 +423,10 @@ export function BuiltForAI() {
       <AnimateIn>
         <div className="flex items-center gap-8 lg:grid-cols-2 lg:gap-12">
           <div className="max-w-[400px]">
-            <h3 className="text-2xl font-semibold sm:text-3xl">
+            <h3 className="text-2xl font-semibold sm:text-2xl">
               Never leave your terminal
             </h3>
-            <p className="mt-4 text-lg text-gray-500">
+            <p className="mt-4 text-lg">
               Create an account, spin up a database, push schema, and build from
               the terminal. No dashboards. No clicking through UIs. Just you (or
               your AI) and the code.
@@ -453,15 +445,15 @@ export function BuiltForAI() {
             <InstantCodeSnippet />
           </div>
           <div className="max-w-[440px]">
-            <h3 className="text-2xl font-semibold sm:text-3xl">
+            <h3 className="text-2xl font-semibold sm:text-2xl">
               Easy for humans, perfect for LLMs
             </h3>
-            <p className="mt-4 text-lg text-gray-500">
+            <p className="mt-4 text-lg">
               Instant has a tiny API surface. Modern LLMs already know it from
               their training data. And it takes only 1% of context for advanced
               features.
             </p>
-            <p className="mt-4 text-lg text-gray-500">
+            <p className="mt-4 text-lg">
               Here's how a real-time chat app looks in Instant. Simple to read,
               and even easier for your AI to understand and generate.
             </p>
@@ -473,10 +465,10 @@ export function BuiltForAI() {
       <AnimateIn>
         <div className="flex items-center gap-7">
           <div className="max-w-[440px] text-center">
-            <h3 className="text-2xl font-semibold sm:text-3xl">
+            <h3 className="text-2xl font-semibold sm:text-2xl">
               End-to-end type safety
             </h3>
-            <p className="mt-4 text-lg text-gray-500">
+            <p className="mt-4 text-lg">
               Instant comes with types for your schema, permissions, queries,
               and transactions. This makes it easy to catch errors early and for
               your AI to understand your data model and generate correct code on

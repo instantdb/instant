@@ -61,10 +61,11 @@ export function Header() {
               Sign In
             </Link>
 
-            <Button size="sm" className="hidden sm:inline-flex">
-              Get a DB
-            </Button>
-
+            <Link href="/dash">
+              <Button size="sm" className="hidden sm:inline-flex">
+                Get a DB
+              </Button>
+            </Link>
             <button
               type="button"
               className="p-2 text-gray-500 transition-colors md:hidden"
@@ -127,9 +128,11 @@ export function Header() {
               >
                 Sign In
               </Link>
-              <Button size="md" className="w-full">
-                Get a DB
-              </Button>
+              <Link href="/dash">
+                <Button size="md" className="w-full">
+                  Get a DB
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

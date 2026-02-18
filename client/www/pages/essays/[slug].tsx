@@ -94,7 +94,7 @@ const Post = ({ post }: { post: Post }) => {
                 'gpt52-leaderboard': GPT52Leaderboard,
 
                 p: ({ children }) => (
-                  <div className="prose mt-[1.25em] mb-[1.25em] text-base leading-[1.75] leading-relaxed">
+                  <div className="prose mt-[1.25em] mb-[1.25em] text-base leading-relaxed">
                     {children}
                   </div>
                 ),

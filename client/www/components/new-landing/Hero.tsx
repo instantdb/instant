@@ -196,7 +196,7 @@ export function Hero() {
           <h1 className="hero-stagger-1 text-4xl font-semibold sm:text-5xl lg:text-6xl">
             Give your AI a database
           </h1>
-          <p className="hero-stagger-2 mx-auto mt-6 max-w-2xl text-lg text-balance text-gray-500 sm:text-xl">
+          <p className="hero-stagger-2 mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
             Without a database, your app is just a demo. Add Instant and your
             app becomes real — users can signup, create content, and{' '}
             <span className="inline-block font-semibold text-orange-600 italic sm:text-2xl">
@@ -251,7 +251,7 @@ function BeforeAfterVisual() {
         <h2 className="text-3xl font-semibold sm:text-6xl">
           Make your app real
         </h2>
-        <p className="mx-auto mt-6 max-w-xl text-gray-500">
+        <p className="mx-auto mt-6 max-w-xl">
           AI can build you an app in seconds. But without a database, any data
           you create is never really saved.
         </p>
@@ -260,7 +260,7 @@ function BeforeAfterVisual() {
       <div className="grid gap-6 md:grid-cols-2 lg:gap-10">
         {/* Without a database */}
         <div className="flex flex-col">
-          <div className="mb-4 text-center text-sm font-medium tracking-wide text-gray-400 uppercase">
+          <div className="mb-4 text-center text-sm font-medium tracking-wide text-gray-700 uppercase">
             Without a database
           </div>
 

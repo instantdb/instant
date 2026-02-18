@@ -7,6 +7,8 @@ import NextLink from 'next/link';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { Button, cn } from '@/components/ui';
 import { LogoIcon } from '@instantdb/components';
+import { useReadyRouter } from './clientOnlyPage';
+import { useRouter } from 'next/router';
 
 const headingClasses = `font-mono`;
 
@@ -63,11 +65,22 @@ export const TextLink: React.FC<
 const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
   href,
   children,
-}) => (
-  <NextLink href={href} className="whitespace-nowrap hover:text-blue-500">
-    {children}
-  </NextLink>
-);
+}) => {
+  // add an underline if the link is active
+  const router = useRouter();
+  const pathname = router.pathname;
+  return (
+    <NextLink
+      href={href}
+      className={cn(
+        'whitespace-nowrap decoration-black/20 hover:text-blue-500',
+        pathname === href ? 'underline' : '',
+      )}
+    >
+      {children}
+    </NextLink>
+  );
+};
 
 export function LogoType() {
   return (
@@ -87,6 +100,9 @@ function NavItems() {
       {/*<NavLink href="/product">Product</NavLink>*/}
       <NavLink href="/enterprise">Enterprise</NavLink>
       <NavLink href="/pricing">Pricing</NavLink>
+      <NavLink href="/tutorial">Tutorial</NavLink>
+      <NavLink href="/examples">Examples</NavLink>
+      <NavLink href="/recipes">Recipes</NavLink>
       <NavLink href="/docs">Docs</NavLink>
       <NavLink href="/essays">Essays</NavLink>
       <NavLink href="/about">About</NavLink>
@@ -101,11 +117,11 @@ function OtherNavItems() {
   return (
     <>
       <NavLink href="https://github.com/instantdb/instant">
-        <span className="bg-secondary-fill border-secondary-border flex items-center gap-1 rounded-[5px] border p-2 px-3">
+        <span className="bg-secondary-fill border-secondary-border flex items-center gap-1 rounded-[5px] border p-1 px-3 text-sm transition-shadow hover:text-black hover:shadow">
           <img
-            src={'img/github.svg'}
+            src={'img/github-icon.svg'}
             alt="GitHub"
-            className="h-[20px] w-[20px]"
+            className="h-[18px] w-[18px]"
           />
           <span className="pl-1 font-semibold">9.6k</span>
           stars
@@ -113,19 +129,19 @@ function OtherNavItems() {
       </NavLink>
       {isAuthed ? (
         <div>
-          <Link className="" type="link" href="/dash">
-            Sign In
-          </Link>
+          <Button variant="cta" className="" type="link" href="/dash">
+            Dashboard
+          </Button>
         </div>
       ) : (
-        <>
-          <NavLink href="/dash">Login</NavLink>
-          <div>
-            <Button type="link" variant="cta" size="large" href="/dash">
-              Sign up
-            </Button>
-          </div>
-        </>
+        <Link
+          className={cn(
+            'whitespace-nowrap decoration-black/20 hover:text-blue-500',
+          )}
+          href="/dash"
+        >
+          Sign up
+        </Link>
       )}
     </>
   );
@@ -171,7 +187,7 @@ export function BareNav({ children }: PropsWithChildren) {
         </div>
 
         {children}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-5 pt-[2px] pl-2">
           <NavItems />
         </div>
         <div className="flex items-center gap-4">
@@ -199,14 +215,6 @@ export const LandingContainer = ({ children }: PropsWithChildren) => (
 export function LandingFooter() {
   return (
     <div className="text-xs text-gray-500">
-      <style jsx global>
-        {`
-          html,
-          body {
-            background-color: #f8f9fa;
-          }
-        `}
-      </style>
       <SectionWide>
         <hr className="h-px border-0 bg-gray-200" />
         <div className="flex flex-col gap-2 py-6">
@@ -215,7 +223,7 @@ export function LandingFooter() {
               `flex flex-col gap-6 md:flex-row md:justify-between`,
             )}
           >
-            <div className="flex flex-col gap-2 font-mono md:gap-0">
+            <div className="flex flex-col gap-2 md:gap-0">
               <div>Instant</div>
               <div>Engineered in San Francisco</div>
             </div>

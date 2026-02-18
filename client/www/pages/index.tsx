@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { Link, MainNav } from '@/components/marketingUi';
+import { LandingFooter, Link, MainNav } from '@/components/marketingUi';
 
 import { ChevronRightIcon } from '@heroicons/react/24/solid';
 import { Hero } from '@/components/new-landing/Hero';
@@ -76,7 +76,7 @@ export default function Landing2026() {
           <FinalCTA />
         </Section>
       </main>
-      <Footer />
+      <LandingFooter />
     </div>
   );
 }
