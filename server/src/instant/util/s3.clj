@@ -8,8 +8,7 @@
    [instant.util.tracer :as tracer])
   (:import
    (java.time Instant Duration)
-   (software.amazon.awssdk.core.async AsyncRequestBody
-                                      BlockingInputStreamAsyncRequestBody)
+   (software.amazon.awssdk.core.async AsyncRequestBody)
    (software.amazon.awssdk.services.s3 S3AsyncClient
                                        S3Client)
    (software.amazon.awssdk.services.s3.model CopyObjectRequest
