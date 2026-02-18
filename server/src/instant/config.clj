@@ -289,7 +289,9 @@
 
 (defn get-hz-port []
   (if-let [env-port (env-integer "HZ_PORT")]
-    (if (<= 5701 env-port 5708)
+    ;; In prod, HZ_PORT must be 5701-5708 (AWS default range)
+    (if (or (= :dev (get-env))
+            (<= 5701 env-port 5708))
       env-port
       (do
         (log/error "Invalid HZ_PORT" env-port)
