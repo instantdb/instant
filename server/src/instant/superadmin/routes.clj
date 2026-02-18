@@ -78,7 +78,16 @@
       (:app (req->superadmin-user-and-app! scope role req))
 
       (if-let [app (app-model/get-by-admin-token {:token token})]
-        app
+        (let [requested-app-id (ex/get-optional-param! req [:params :app_id] uuid-util/coerce)]
+          (when (and requested-app-id
+                     (not= requested-app-id (:id app)))
+            (ex/throw+ {::ex/type ::ex/validation-failed
+                        ::ex/hint {:reason :admin-token-mismatch}
+                        ::ex/message (str "This admin token does not belong to app "
+                                          requested-app-id
+                                          ". Admin tokens are bound to a single app."
+                                          " Use a personal access token to manage other apps.")}))
+          app)
         (ex/throw+ {::ex/type ::ex/record-not-found
                     ::ex/message "Record not found: token"})))))
 
