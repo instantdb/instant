@@ -226,10 +226,14 @@ function AppPicker({
 
     if (value.startsWith('org:')) {
       const orgId = value.substring(4);
+      const { org, ...rest } = router.query;
       if (orgId === 'personal') {
-        router.push(router.pathname);
+        router.push({ pathname: router.pathname, query: rest });
       } else {
-        router.push({ pathname: router.pathname, query: { org: orgId } });
+        router.push({
+          pathname: router.pathname,
+          query: { ...rest, org: orgId },
+        });
       }
     } else {
       updateSelectedAppId(value);
