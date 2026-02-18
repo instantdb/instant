@@ -45,7 +45,7 @@
         {:access-key access-key
          :secret-key secret-key
          :region region}
-        (let [creds (.resolveCredentials (DefaultCredentialsProvider/create))]
+        (let [creds (.resolveCredentials (.build (DefaultCredentialsProvider/builder)))]
           {:access-key (.accessKeyId creds)
            :secret-key (.secretAccessKey creds)
            :region region})))))
