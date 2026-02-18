@@ -63,7 +63,7 @@ export const appMetas: AppMetadata[] = [
     slug: 'todos',
     title: 'Todo App',
     linesOfCode: `~100`,
-    tags: ['Presence', 'Permissions', 'App Store'],
+    tags: ['Basics', 'Schema', 'Queries', 'Transactions'],
     description: todoDescription,
     shortDescription: 'See the basics of InstantDB in action',
     screenshot: '/img/showcase/todos_preview.png',
@@ -99,7 +99,7 @@ export const appMetas: AppMetadata[] = [
     slug: 'mobile-chat',
     title: 'Real-time Chat',
     linesOfCode: '~400',
-    tags: ['Schema', 'Queries', 'Transactions'],
+    tags: ['Basics', 'Schema', 'Queries', 'Transactions'],
     description: mobileChatDescription,
     shortDescription:
       'Build a real-time chat app with React Native and InstantDB',
