@@ -164,7 +164,7 @@ function Plan({ plan }: { plan: any }) {
       <div>
         <div className="my-2 flex items-center justify-between">
           <h5
-            className={`mr-2 font-mono text-2xl font-medium tracking-tight ${styles.textColor}`}
+            className={`mr-2 text-2xl font-semibold tracking-tight ${styles.textColor}`}
           >
             {name}
           </h5>
@@ -212,7 +212,7 @@ function FourPlanGrid() {
     <div>
       <div className="flex flex-1 flex-col gap-12 px-4 py-8">
         <div className="mx-auto flex max-w-3xl flex-1 flex-col">
-          <h1 className="text-center font-mono text-3xl leading-10 font-medium tracking-tighter text-black">
+          <h1 className="text-center text-3xl leading-10 font-semibold text-black">
             Never paused.
             <br />
             Unlimited free projects.
@@ -235,7 +235,7 @@ function FourPlanGrid() {
           </div>
         </div>
 
-        <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-4">
+        <div className="landing-width mx-auto grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-4">
           {plans.map((plan) => (
             <Plan key={plan.name} plan={plan} />
           ))}

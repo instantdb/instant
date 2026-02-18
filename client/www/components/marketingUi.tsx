@@ -1,3 +1,4 @@
+'use client';
 import { useAuthToken } from '@/lib/auth';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/solid';
@@ -10,7 +11,7 @@ import { LogoIcon } from '@instantdb/components';
 const headingClasses = `font-mono`;
 
 export const HeadingBrand = ({ children }: PropsWithChildren) => (
-  <h1 className={clsx(headingClasses, 'font-bold', 'text-[24px]')}>
+  <h1 className={clsx(headingClasses, 'font-bold', 'text-[20px]')}>
     {children}
   </h1>
 );
@@ -83,7 +84,7 @@ function NavItems() {
   if (!isHydrated) return null;
   return (
     <>
-      <NavLink href="/product">Product</NavLink>
+      {/*<NavLink href="/product">Product</NavLink>*/}
       <NavLink href="/enterprise">Enterprise</NavLink>
       <NavLink href="/pricing">Pricing</NavLink>
       <NavLink href="/docs">Docs</NavLink>
@@ -100,14 +101,13 @@ function OtherNavItems() {
   return (
     <>
       <NavLink href="https://github.com/instantdb/instant">
-        <span className="bg-secondary-fill border-secondary-border border-insi flex items-center gap-2 rounded-[5px] border p-2 px-3">
-          {/*redesign: update source*/}
+        <span className="bg-secondary-fill border-secondary-border flex items-center gap-1 rounded-[5px] border p-2 px-3">
           <img
             src={'img/github.svg'}
             alt="GitHub"
             className="h-[20px] w-[20px]"
           />
-          <span className="font-semibold">9.6k</span>
+          <span className="pl-1 font-semibold">9.6k</span>
           stars
         </span>
       </NavLink>

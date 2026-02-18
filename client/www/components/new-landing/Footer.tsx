@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { GitHubIcon, XIcon } from './icons';
 import { LogoType } from '../marketingUi';
 

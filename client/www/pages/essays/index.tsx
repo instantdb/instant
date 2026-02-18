@@ -35,9 +35,9 @@ export default function Page({ posts }: { posts: Post[] }) {
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav />
-        <div className="mx-auto mt-6 max-w-4xl flex-1 space-y-4 p-4">
+        <div className="landing-width mx-auto mt-6 flex-1 space-y-4 py-4">
           <div className="mb-8 flex items-center justify-between">
-            <h1 className="font-mono text-4xl font-bold">Essays</h1>
+            <h1 className="text-4xl font-bold">Essays</h1>
             <NextLink
               href="/rss.xml"
               className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-500"
@@ -59,7 +59,7 @@ export default function Page({ posts }: { posts: Post[] }) {
                       href={`/essays/${slug}`}
                       className="hover:text-blue-500"
                     >
-                      <h2 className="mb-2 font-mono text-2xl leading-snug font-bold">
+                      <h2 className="mb-2 text-2xl leading-snug font-bold">
                         {title}
                       </h2>
                     </NextLink>
