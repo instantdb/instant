@@ -68,7 +68,7 @@ const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
   </NextLink>
 );
 
-function LogoType() {
+export function LogoType() {
   return (
     <Link href="/" className="inline-flex items-center space-x-2">
       <LogoIcon />
@@ -89,13 +89,6 @@ function NavItems() {
       <NavLink href="/docs">Docs</NavLink>
       <NavLink href="/essays">Essays</NavLink>
       <NavLink href="/about">About</NavLink>
-      {/*<NavLink href="/hiring">Hiring</NavLink>*/}
-      {/*<NavLink href="https://discord.com/invite/VU53p7uQcE">
-        <span className="hidden min-[60rem]:inline">
-          <img src="/marketing/discord-icon.svg" className="h-5 w-5" />
-        </span>
-        <span className="min-[60rem]:hidden">Discord</span>
-      </NavLink>*/}
     </>
   );
 }
@@ -117,14 +110,6 @@ function OtherNavItems() {
           <span className="font-semibold">9.6k</span>
           stars
         </span>
-        {/*<span className="hidden min-[60rem]:inline">
-          <img
-            src="https://img.shields.io/github/stars/instantdb/instant?style=flat-square&logo=github&label=GitHub&labelColor=000000&color=F54900"
-            alt="GitHub stars"
-            className="h-5"
-          />
-        </span>
-        <span className="min-[60rem]:hidden">GitHub</span>*/}
       </NavLink>
       {isAuthed ? (
         <div>

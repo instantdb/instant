@@ -78,14 +78,12 @@ function TestimonialCard({
       </p>
       <div className="mt-4 flex items-center gap-3">
         <div
-          className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${testimonial.color}`}
+          className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ${testimonial.color}`}
         >
           {testimonial.initials}
         </div>
         <div>
-          <div className="text-sm font-semibold text-gray-900">
-            {testimonial.name}
-          </div>
+          <div className="text-sm font-semibold">{testimonial.name}</div>
           <div className="text-xs text-gray-500">{testimonial.role}</div>
         </div>
       </div>

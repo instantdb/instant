@@ -51,7 +51,7 @@ export function GoodAbstractions() {
             <div className="text-[36px] font-semibold">Agents</div>
             <div className="pt-6 text-[21px]">
               <span>For the agent, there's</span>
-              <span className="font-bold"> locality </span>
+              <span className="font-semibold"> locality </span>
               <span>
                 — it reasons about one interface instead of three systems. Less
                 context means fewer hallucinations, fewer retries, fewer wasted
@@ -63,7 +63,7 @@ export function GoodAbstractions() {
             <div className="text-[36px] font-semibold">Platforms</div>
             <div className="pt-6 text-[21px]">
               <span>For the platform, there's </span>
-              <span className="font-bold"> efficiency</span>
+              <span className="font-semibold"> efficiency</span>
               <span>
                 . Instant is multi-tenant, so 20,000 apps with 1 user can cost
                 the same as 1 app with 20,000 users. No VMs to provision. No
@@ -75,7 +75,7 @@ export function GoodAbstractions() {
             <div className="text-[36px] font-semibold">End-users</div>
             <div className="pt-6 text-[21px]">
               <span>For end-users, there's </span>
-              <span className="font-bold"> extensibility </span>
+              <span className="font-semibold"> extensibility </span>
               <span>
                 — because Instant exposes a database-like abstraction, end-users
                 with their own agents can query and extend the apps built for

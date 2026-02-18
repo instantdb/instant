@@ -295,7 +295,7 @@ export function BatteriesForAI() {
       {/* Section header */}
       <AnimateIn>
         <div className="sm:text-center">
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-7xl">
+          <h2 className="text-3xl font-semibold sm:text-7xl">
             Batteries included
           </h2>
           <p className="mt-12 max-w-2xl text-lg sm:mx-auto">
@@ -312,9 +312,7 @@ export function BatteriesForAI() {
         <AnimateIn className="flex">
           <div className="col-span-1 space-y-4">
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-                Auth
-              </h3>
+              <h3 className="text-2xl font-semibold sm:text-3xl">Auth</h3>
               <p className="mt-2 text-lg">
                 Use auth to enable your users to sign up for your app. WIth
                 Instant you can easily enable sign up via email, Google, Apple,
@@ -331,7 +329,7 @@ export function BatteriesForAI() {
         <AnimateIn className="flex">
           <div className="flex flex-col space-y-4">
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              <h3 className="text-2xl font-semibold sm:text-3xl">
                 Permissions
               </h3>
               <p className="mt-2 text-lg">
@@ -350,9 +348,7 @@ export function BatteriesForAI() {
         <AnimateIn className="flex">
           <div className="flex flex-col space-y-4">
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-                Storage
-              </h3>
+              <h3 className="text-2xl font-semibold sm:text-3xl">Storage</h3>
               <p className="mt-2 text-lg">
                 Use storage to allow users to upload images, video, audio, and
                 more.

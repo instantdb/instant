@@ -84,7 +84,7 @@ export function InternalTools() {
   return (
     <div className="space-y-12">
       <AnimateIn>
-        <h2 className="mx-auto max-w-[885px] text-center text-3xl font-bold tracking-tight sm:text-[50px]">
+        <h2 className="mx-auto max-w-[885px] text-center text-3xl font-semibold sm:text-[50px]">
           Let every employee build what they need
         </h2>
         <p className="mx-auto mt-4 max-w-[819px] text-center text-lg text-[21px]">
@@ -106,7 +106,7 @@ export function InternalTools() {
                   <div
                     className={`h-8 w-8 rounded-full ${emp.avatarBg} flex items-center justify-center`}
                   >
-                    <span className={`text-sm font-bold ${emp.avatarText}`}>
+                    <span className={`text-sm font-semibold ${emp.avatarText}`}>
                       {emp.avatar}
                     </span>
                   </div>

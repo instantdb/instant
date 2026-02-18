@@ -193,13 +193,13 @@ export function Hero() {
     <section className="pt-20 pb-16 sm:pb-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h1 className="hero-stagger-1 text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
+          <h1 className="hero-stagger-1 text-4xl font-semibold sm:text-5xl lg:text-6xl">
             Give your AI a database
           </h1>
           <p className="hero-stagger-2 mx-auto mt-6 max-w-2xl text-lg text-balance text-gray-500 sm:text-xl">
             Without a database, your app is just a demo. Add Instant and your
             app becomes real — users can signup, create content, and{' '}
-            <span className="brush-underline inline-block text-3xl font-semibold text-orange-600 italic sm:text-3xl">
+            <span className="inline-block font-semibold text-orange-600 italic sm:text-2xl">
               feel delight
             </span>
             .
@@ -248,7 +248,7 @@ function BeforeAfterVisual() {
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-12 text-center">
-        <h2 className="text-3xl font-semibold tracking-tight sm:text-6xl">
+        <h2 className="text-3xl font-semibold sm:text-6xl">
           Make your app real
         </h2>
         <p className="mx-auto mt-6 max-w-xl text-gray-500">

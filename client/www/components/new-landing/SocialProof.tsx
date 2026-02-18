@@ -41,7 +41,7 @@ export function SocialProof() {
         <div className="mx-auto grid max-w-3xl grid-cols-3 gap-4 sm:gap-8">
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
-              <div className="text-3xl font-bold tracking-tight sm:text-7xl">
+              <div className="text-3xl font-semibold sm:text-7xl">
                 {stat.value}
               </div>
               <div className="mt-1 text-xs text-gray-500 sm:mt-2 sm:text-sm">
@@ -77,7 +77,7 @@ export function SocialProof() {
       <AnimateIn delay={200}>
         <div>
           <div className="mb-8 text-center">
-            <h3 className="text-xl font-bold sm:text-2xl">
+            <h3 className="text-xl font-semibold sm:text-2xl">
               Backed by the best
             </h3>
           </div>
@@ -85,7 +85,7 @@ export function SocialProof() {
             {backers.map((backer) => (
               <div key={backer.name} className="text-center">
                 <div
-                  className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-lg font-bold sm:h-20 sm:w-20 sm:text-xl ${backer.color}`}
+                  className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-lg font-semibold sm:h-20 sm:w-20 sm:text-xl ${backer.color}`}
                 >
                   {backer.initials}
                 </div>

@@ -312,7 +312,7 @@ export function SyncEngine() {
         <AnimateIn>
           <div className="grid grid-cols-3 items-center gap-6 space-y-4">
             <div className="col-span-1">
-              <h3 className="text-2xl font-bold sm:text-3xl">
+              <h3 className="text-2xl font-semibold sm:text-3xl">
                 Instant updates
               </h3>
               <p className="mt-2 text-lg">
@@ -332,7 +332,9 @@ export function SyncEngine() {
         <AnimateIn>
           <div className="grid grid-cols-3 items-center gap-6 space-y-4">
             <div>
-              <h3 className="text-2xl font-bold sm:text-3xl">Real-time sync</h3>
+              <h3 className="text-2xl font-semibold sm:text-3xl">
+                Real-time sync
+              </h3>
               <p className="mt-2 text-lg">
                 Multiplayer experiences work out of the box. If one person makes
                 a change, everyone else can see it right away. No need to
@@ -349,7 +351,9 @@ export function SyncEngine() {
         <AnimateIn>
           <div className="grid grid-cols-3 items-center gap-6 space-y-4">
             <div>
-              <h3 className="text-2xl font-bold sm:text-3xl">Works offline</h3>
+              <h3 className="text-2xl font-semibold sm:text-3xl">
+                Works offline
+              </h3>
               <p className="mt-2 text-lg">
                 Apps built with Instant keep working when you lose connection.
                 When your users get back online, everything syncs up without

@@ -72,7 +72,7 @@ export function Architecture() {
   return (
     <div className="space-y-12">
       <AnimateIn>
-        <h2 className="mx-auto text-center text-3xl font-semibold tracking-tight sm:text-[50px]">
+        <h2 className="mx-auto text-center text-3xl font-semibold sm:text-[50px]">
           One platform, millions of backends
         </h2>
         <p className="mx-auto mt-4 max-w-[819px] text-center text-lg text-[21px] text-gray-500">
@@ -89,7 +89,7 @@ export function Architecture() {
               key={stat.value}
               className="rounded-xl border border-gray-200 bg-white p-4 text-center shadow-sm sm:p-6"
             >
-              <div className="text-2xl font-bold text-orange-600 sm:text-3xl lg:text-4xl">
+              <div className="text-2xl font-semibold text-orange-600 sm:text-3xl lg:text-4xl">
                 {stat.value}
               </div>
               <div className="mt-1 text-xs text-gray-500 sm:text-sm">

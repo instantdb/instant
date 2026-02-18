@@ -14,8 +14,8 @@ const baseStyles =
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
     'bg-orange-600 text-white hover:bg-orange-700 shadow-[0_0_20px_rgba(234,88,12,0.3)] hover:shadow-[0_0_30px_rgba(234,88,12,0.45)]',
-  secondary: 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50',
-  ghost: 'bg-transparent text-gray-900 hover:bg-gray-100',
+  secondary: 'bg-white border border-gray-200 hover:bg-gray-50',
+  ghost: 'bg-transparent hover:bg-gray-100',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {

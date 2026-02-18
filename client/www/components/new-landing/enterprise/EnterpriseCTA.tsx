@@ -4,7 +4,7 @@ export function EnterpriseCTA() {
   return (
     <div className="text-center">
       <AnimateIn>
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl">
+        <h2 className="text-3xl font-semibold sm:text-4xl lg:text-5xl">
           Ready to give your platform a backend?
         </h2>
       </AnimateIn>

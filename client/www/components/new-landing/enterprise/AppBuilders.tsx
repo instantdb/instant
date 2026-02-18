@@ -119,7 +119,7 @@ export function AppBuilders() {
   return (
     <div className="space-y-12">
       <AnimateIn>
-        <h2 className="text-center text-3xl font-semibold text-gray-900 sm:text-5xl">
+        <h2 className="text-center text-3xl font-semibold sm:text-5xl">
           Power every app your users create
         </h2>
         <p className="mx-auto mt-[58px] max-w-[800px] text-center text-[21px] text-balance">
@@ -178,7 +178,7 @@ export function AppBuilders() {
 
                 {/* Preview pane */}
                 <div className="p-4">
-                  <div className="mb-3 text-xs font-medium text-gray-900">
+                  <div className="mb-3 text-xs font-medium">
                     Project Tracker
                   </div>
                   <div className="space-y-2">
@@ -246,9 +246,7 @@ export function AppBuilders() {
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
               {/* App header */}
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                <span className="text-sm font-medium text-gray-900">
-                  Project Tracker
-                </span>
+                <span className="text-sm font-medium">Project Tracker</span>
                 <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
                   Live
                 </span>

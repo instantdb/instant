@@ -56,7 +56,7 @@ export function FinalCTA() {
   return (
     <div className="text-center">
       <AnimateIn>
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl">
+        <h2 className="text-3xl font-semibold sm:text-4xl lg:text-5xl">
           Ship something delightful.
         </h2>
       </AnimateIn>

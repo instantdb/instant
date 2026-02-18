@@ -149,7 +149,7 @@ export function ChatPlatforms() {
               {/* Number badge */}
               <div className="flex items-center gap-2">
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-100">
-                  <span className="text-xs font-bold text-orange-600">
+                  <span className="text-xs font-semibold text-orange-600">
                     {step.number}
                   </span>
                 </div>

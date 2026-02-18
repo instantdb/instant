@@ -37,7 +37,7 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm text-gray-500 transition-colors hover:text-gray-900"
+                className="text-sm text-gray-500 transition-colors"
               >
                 {link.label}
               </Link>
@@ -49,14 +49,14 @@ export function Header() {
               href="https://github.com/instantdb/instant"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden text-gray-500 transition-colors hover:text-gray-900 sm:block"
+              className="hidden text-gray-500 transition-colors sm:block"
             >
               <GitHubIcon className="h-5 w-5" />
             </a>
 
             <Link
               href="https://instantdb.com/dash"
-              className="hidden text-sm text-gray-500 transition-colors hover:text-gray-900 sm:block"
+              className="hidden text-sm text-gray-500 transition-colors sm:block"
             >
               Sign In
             </Link>
@@ -67,7 +67,7 @@ export function Header() {
 
             <button
               type="button"
-              className="p-2 text-gray-500 transition-colors hover:text-gray-900 md:hidden"
+              className="p-2 text-gray-500 transition-colors md:hidden"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               <span className="sr-only">Toggle menu</span>
@@ -104,7 +104,7 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="block text-base text-gray-500 transition-colors hover:text-gray-900"
+                className="block text-base text-gray-500 transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 {link.label}
@@ -115,14 +115,14 @@ export function Header() {
                 href="https://github.com/instantdb/instant"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-base text-gray-500 transition-colors hover:text-gray-900"
+                className="flex items-center gap-2 text-base text-gray-500 transition-colors"
               >
                 <GitHubIcon className="h-5 w-5" />
                 GitHub
               </a>
               <Link
                 href="https://instantdb.com/dash"
-                className="block text-base text-gray-500 transition-colors hover:text-gray-900"
+                className="block text-base text-gray-500 transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Sign In

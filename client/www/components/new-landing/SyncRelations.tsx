@@ -388,7 +388,7 @@ export function SyncRelations() {
       {/* Section header */}
       <AnimateIn>
         <div className="sm:text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-6xl">
+          <h2 className="text-3xl font-semibold sm:text-6xl">
             Sync + Relations
           </h2>
           <p className="mt-8 max-w-2xl text-[21px] sm:mx-auto">

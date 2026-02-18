@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { GitHubIcon, XIcon } from './icons';
+import { LogoType } from '../marketingUi';
 
 const footerLinks = {
   Product: [
@@ -30,20 +31,13 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
           <div className="col-span-2 md:col-span-1">
-            <Link href="/">
-              <Image
-                src="/img/logo_with_text.svg"
-                alt="Instant"
-                width={100}
-                height={28}
-              />
-            </Link>
+            <LogoType />
             <div className="mt-4 flex items-center gap-4">
               <a
-                href="https://twitter.com/instantdb"
+                href="https://twitter.com/instant_db"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-500 transition-colors hover:text-gray-900"
+                className="text-gray-500 transition-colors"
               >
                 <XIcon className="h-5 w-5" />
               </a>
@@ -51,7 +45,7 @@ export function Footer() {
                 href="https://github.com/instantdb/instant"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-500 transition-colors hover:text-gray-900"
+                className="text-gray-500 transition-colors"
               >
                 <GitHubIcon className="h-5 w-5" />
               </a>
@@ -60,15 +54,13 @@ export function Footer() {
 
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
-              <h3 className="text-sm font-semibold text-gray-900">
-                {category}
-              </h3>
+              <h3 className="text-sm font-semibold">{category}</h3>
               <ul className="mt-4 space-y-3">
                 {links.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-gray-500 transition-colors hover:text-gray-900"
+                      className="text-sm text-gray-500 transition-colors"
                     >
                       {link.label}
                     </Link>

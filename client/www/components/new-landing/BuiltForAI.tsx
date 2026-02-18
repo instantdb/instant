@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect } from 'react';
 import { AnimateIn } from './AnimateIn';
 import Image from 'next/image';
@@ -53,7 +52,7 @@ function AnimatedTerminal() {
       </div>
 
       {/* Terminal content */}
-      <div className="min-h-[300px] p-4 font-mono text-sm sm:p-6 sm:text-base">
+      <div className="min-h-[320px] p-4 font-mono text-sm sm:p-6 sm:text-base">
         {steps.slice(0, step).map((s, i) => (
           <div key={i} className={`${i > 0 ? 'mt-1' : ''}`}>
             {s.type === 'command' && (
@@ -416,7 +415,7 @@ export function BuiltForAI() {
       {/* Section header */}
       <AnimateIn>
         <div className="sm:text-center">
-          <h2 className="text-off-black text-3xl font-bold tracking-tight sm:text-6xl">
+          <h2 className="text-off-black text-3xl font-semibold sm:text-6xl">
             Built for AI
           </h2>
           <p className="mt-4 max-w-2xl text-[21px] sm:mx-auto">
@@ -454,7 +453,7 @@ export function BuiltForAI() {
             <InstantCodeSnippet />
           </div>
           <div className="max-w-[440px]">
-            <h3 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+            <h3 className="text-2xl font-semibold sm:text-3xl">
               Easy for humans, perfect for LLMs
             </h3>
             <p className="mt-4 text-lg text-gray-500">
@@ -474,7 +473,7 @@ export function BuiltForAI() {
       <AnimateIn>
         <div className="flex items-center gap-7">
           <div className="max-w-[440px] text-center">
-            <h3 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+            <h3 className="text-2xl font-semibold sm:text-3xl">
               End-to-end type safety
             </h3>
             <p className="mt-4 text-lg text-gray-500">
@@ -485,7 +484,7 @@ export function BuiltForAI() {
             </p>
           </div>
           <div className="bg-surface/20 grow px-[161px] py-[85px]">
-            <div className="rounded-[20px] bg-[#25283A] px-[44px] py-8">
+            <div className="rounded-[20px] bg-[#25283A] px-[44px] py-8 shadow">
               <Image
                 style={{
                   width: '407',
