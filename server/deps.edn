@@ -24,11 +24,11 @@
         org.slf4j/slf4j-api {:mvn/version "2.0.13"}
         cider/cider-nrepl {:mvn/version "0.45.0"}
 
-        software.amazon.awssdk/ec2 {:mvn/version "2.41.29"}
-        software.amazon.awssdk/rds {:mvn/version "2.41.29"}
-        software.amazon.awssdk/secretsmanager {:mvn/version "2.41.29"}
-        software.amazon.awssdk/s3 {:mvn/version "2.41.29"}
-        software.amazon.awssdk.crt/aws-crt {:mvn/version "0.33.11"}
+        software.amazon.awssdk/ec2 {:mvn/version "2.41.31"}
+        software.amazon.awssdk/rds {:mvn/version "2.41.31"}
+        software.amazon.awssdk/secretsmanager {:mvn/version "2.41.31"}
+        software.amazon.awssdk/s3 {:mvn/version "2.41.31"}
+        software.amazon.awssdk.crt/aws-crt {:mvn/version "0.40.3"}
 
         juji/editscript {:mvn/version "0.6.4"}
         io.github.tonsky/clojure-plus {:mvn/version "1.6.3"}
