@@ -10,6 +10,7 @@ dev:
 	PORT=$$((8888 + $(DEV_SLOT) * 1000)) \
 	SSL_PORT=$$((8889 + $(DEV_SLOT) * 1000)) \
 	NREPL_PORT=$$((6005 + $(DEV_SLOT) * 1000)) \
+	HZ_PORT=$$((5701 + $(DEV_SLOT) * 1000)) \
 	clojure -T:build dev
 
 memory-meter-dev:
