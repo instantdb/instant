@@ -41,13 +41,13 @@ Different channels are supported and presences and messages are scoped to each c
 `.trim();
 
 const mobileChatDescription = `
-A real-time chat app built with React Native and InstantDB.
+A real-time chat app showing the basics of using React Native with InstantDB.
 
 In this tutorial, Beto walks through how to set up InstantDB in a React Native project, define a schema, write queries and transactions, and build a fully functional chat experience with instant syncing across devices.
 `.trim();
 
 const appBuilderDescription = `
-A self-building app powered by React Native and InstantDB.
+A mobile app that builds other mobile apps!
 
 In this tutorial, Simon builds on core InstantDB concepts and shows how to use Storage for uploading assets and the Platform API for programmatically spinning up databases.
 `.trim();
@@ -99,7 +99,7 @@ export const appMetas: AppMetadata[] = [
     slug: 'mobile-chat',
     title: 'Real-time Chat',
     linesOfCode: '~400',
-    tags: ['React Native', 'Schema', 'Queries', 'Transactions'],
+    tags: ['Schema', 'Queries', 'Transactions'],
     description: mobileChatDescription,
     shortDescription:
       'Build a real-time chat app with React Native and InstantDB',
@@ -112,7 +112,7 @@ export const appMetas: AppMetadata[] = [
     slug: 'app-builder',
     title: 'App Builder',
     linesOfCode: '~500',
-    tags: ['React Native', 'Storage', 'Platform API'],
+    tags: ['Storage', 'Platform API'],
     description: appBuilderDescription,
     shortDescription:
       'Build a self-building app with React Native and InstantDB',
