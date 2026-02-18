@@ -241,12 +241,10 @@
                                     true (.contentType content-type)
                                     true (.contentDisposition content-disposition)
                                     content-length (.contentLength content-length)
-                                    true (.build))]
-        (if content-length
-          (let [body (AsyncRequestBody/fromInputStream stream (long content-length) default-virtual-thread-executor)]
-            (-> (.putObject async-client req body)
-                deref))
-          (let [^BlockingInputStreamAsyncRequestBody body (AsyncRequestBody/forBlockingInputStream nil)
-                resp (.putObject async-client req body)]
-            (.writeInputStream body stream)
-            (deref resp)))))))
+                                    true (.build))
+            body (AsyncRequestBody/fromInputStream stream
+                                                   (when content-length
+                                                     (long content-length))
+                                                   default-virtual-thread-executor)]
+        (-> (.putObject async-client req body)
+            deref)))))
