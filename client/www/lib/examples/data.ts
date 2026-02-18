@@ -55,7 +55,7 @@ In this tutorial, Simon builds on core InstantDB concepts and shows how to use S
 const stroopwafelDescription = `
 A multiplayer brain game live in the App Store.
 
-Based on the stroop effect, players have to quickly identify the color of the word being shown, which can be different from the word itself. The game uses presence and permission features to create competitive multiplayer experience!
+Based on the stroop effect, players have to quickly identify the color of the word being shown, which can be different from the word itself. The game uses presence and permission features to create a competitive multiplayer experience!
 `.trim();
 
 export const appMetas: AppMetadata[] = [
