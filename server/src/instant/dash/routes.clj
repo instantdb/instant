@@ -106,9 +106,11 @@
 (defn req->app-accepting-superadmin-or-ref-token! [least-privilege scope req]
   (try
     {:app (req->superadmin-app! scope least-privilege req)}
-    (catch Exception _e
-      (select-keys (req->app-and-user! least-privilege req)
-                   [:app]))))
+    (catch Exception e
+      (if (= :admin-token-mismatch (:reason (::ex/hint (ex-data e))))
+        (throw e)
+        (select-keys (req->app-and-user! least-privilege req)
+                     [:app])))))
 
 (defn with-team-app-fixtures [role f]
   (fixtures/with-team-app

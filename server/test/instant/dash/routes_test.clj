@@ -977,3 +977,28 @@
             (is (= (:id org) (:org_id (app-model/get-by-id! {:id (:id app)}))))
 
             (is (= "active" (.getStatus (stripe/subscription stripe-subscription-id))))))))))
+
+(deftest admin-token-rejects-mismatched-app-id
+  (with-user
+    (fn [u]
+      (with-empty-app
+        (:id u)
+        (fn [app]
+          (testing "admin token works for its own app"
+            (let [resp (http/get (str config/server-origin "/dash/apps/" (:id app) "/schema/pull")
+                                 {:headers {:Authorization (str "Bearer " (:admin-token app))
+                                            :Content-Type "application/json"}
+                                  :as :json
+                                  :throw-exceptions false})]
+              (is (= 200 (:status resp)))))
+
+          (testing "admin token rejects a different app id"
+            (let [other-app-id (random-uuid)
+                  resp (http/get (str config/server-origin "/dash/apps/" other-app-id "/schema/pull")
+                                 {:headers {:Authorization (str "Bearer " (:admin-token app))
+                                            :Content-Type "application/json"}
+                                  :as :json
+                                  :throw-exceptions false})]
+              (is (= 400 (:status resp)))
+              (is (= "admin-token-mismatch"
+                     (-> resp :body <-json (get "hint") (get "reason")))))))))))
