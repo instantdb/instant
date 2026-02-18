@@ -52,17 +52,18 @@ A self-building app powered by React Native and InstantDB.
 In this tutorial, Simon builds on core InstantDB concepts and shows how to use Storage for uploading assets and the Platform API for programmatically spinning up databases.
 `.trim();
 
+const stroopwafelDescription = `
+A multiplayer brain game live in the App Store.
+
+Based on the stroop effect, players have to quickly identify the color of the word being shown, which can be different from the word itself. The game uses presence and permission features to create competitive multiplayer experience!
+`.trim();
+
 export const appMetas: AppMetadata[] = [
   {
     slug: 'todos',
     title: 'Todo App',
     linesOfCode: `~100`,
-    tags: [
-      'Basic schema',
-      'Basic Queries',
-      'Basic Transactions',
-      'Basic Presence',
-    ],
+    tags: ['Presence', 'Permissions', 'App Store'],
     description: todoDescription,
     shortDescription: 'See the basics of InstantDB in action',
     screenshot: '/img/showcase/todos_preview.png',
@@ -118,6 +119,18 @@ export const appMetas: AppMetadata[] = [
     screenshot: '/img/showcase/app_builder_preview.jpg',
     githubUrl: 'https://github.com/Galaxies-dev/app-builder',
     youtubeVideoId: 'HRACNTmikZI',
+    platform: 'mobile',
+  },
+  {
+    slug: 'stroopwafel',
+    title: 'Multiplayer Brain Game',
+    linesOfCode: '~2000',
+    tags: ['Full App', 'Presence', 'Permissions'],
+    description: stroopwafelDescription,
+    shortDescription:
+      'A casual multiplayer brain game with leveraging presence and permission features',
+    screenshot: '/img/showcase/stroopwafel_preview.png',
+    githubUrl: 'https://github.com/jsventures/stroopwafel',
     platform: 'mobile',
   },
 ];
