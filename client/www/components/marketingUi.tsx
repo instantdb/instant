@@ -200,7 +200,7 @@ export function BareNav({ children }: PropsWithChildren) {
 
 export function MainNav() {
   return (
-    <div className="py-4">
+    <div className="border-b border-b-gray-200 py-4 shadow">
       <div className="landing-width mx-auto">
         <BareNav />
       </div>

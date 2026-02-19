@@ -12,6 +12,7 @@ import { SocialProof } from '@/components/new-landing/SocialProof';
 import { WallOfLove } from '@/components/new-landing/WallOfLove';
 import { FinalCTA } from '@/components/new-landing/FinalCTA';
 import { Footer } from '@/components/new-landing/Footer';
+import { CoolBackground } from '@/components/CoolBackground';
 
 const SeeTheCodeButton = ({ href }: { href: string }) => (
   <Link
@@ -39,43 +40,44 @@ export default function Landing2026() {
           content="We make you productive by giving your frontend a real-time database."
         />
       </Head>
+      <CoolBackground>
+        <main className="flex-1">
+          {/* Hero Section */}
+          <Hero />
 
-      <main className="flex-1">
-        {/* Hero Section */}
-        <Hero />
-
-        {/* Placeholder sections */}
-        <Section className="" id="built-for-ai">
-          <BuiltForAI />
-        </Section>
-
-        <Section id="batteries-for-ai">
-          <BatteriesForAI />
-        </Section>
-
-        <div className="bg-linear-to-b from-[#F7F7F7] to-white">
-          <Section className="" id="sync-engine">
-            <SyncEngine />
+          {/* Placeholder sections */}
+          <Section className="" id="built-for-ai">
+            <BuiltForAI />
           </Section>
-        </div>
 
-        <Section id="sync-relations">
-          <SyncRelations />
-        </Section>
+          <Section id="batteries-for-ai">
+            <BatteriesForAI />
+          </Section>
 
-        <Section className="bg-[#F9FAFB]" id="social-proof">
-          <SocialProof />
-        </Section>
+          <div className="bg-linear-to-b from-[#F7F7F7] to-white">
+            <Section className="" id="sync-engine">
+              <SyncEngine />
+            </Section>
+          </div>
 
-        <Section id="wall-of-love">
-          <WallOfLove />
-        </Section>
+          <Section id="sync-relations">
+            <SyncRelations />
+          </Section>
 
-        {/* Final CTA */}
-        <Section>
-          <FinalCTA />
-        </Section>
-      </main>
+          <Section className="bg-[#F9FAFB]" id="social-proof">
+            <SocialProof />
+          </Section>
+
+          <Section id="wall-of-love">
+            <WallOfLove />
+          </Section>
+
+          {/* Final CTA */}
+          <Section>
+            <FinalCTA />
+          </Section>
+        </main>
+      </CoolBackground>{' '}
       <LandingFooter />
     </div>
   );
