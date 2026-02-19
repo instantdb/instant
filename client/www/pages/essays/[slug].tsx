@@ -1,30 +1,30 @@
-import format from 'date-fns/format';
-import parse from 'date-fns/parse';
-import Head from 'next/head';
-import { getAllSlugs, getPostBySlug, type Post } from '../../lib/posts';
 import {
   LandingContainer,
-  LandingFooter,
   MainNav,
   PageProgressBar,
 } from '@/components/marketingUi';
 import * as og from '@/lib/og';
+import format from 'date-fns/format';
+import parse from 'date-fns/parse';
+import 'katex/dist/katex.min.css';
+import Head from 'next/head';
 import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
-import 'katex/dist/katex.min.css';
+import { getAllSlugs, getPostBySlug, type Post } from '../../lib/posts';
 
 import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
 import { GPT52Leaderboard } from '@/components/essays/GPT52Leaderboard';
 import { Lightbox } from '@/components/Lightbox';
 
-import ReactMarkdown, { Components } from 'react-markdown';
-import { Fence } from '@/components/ui';
-import rehypeRaw from 'rehype-raw';
-import remarkGfm from 'remark-gfm';
-import { muxPattern, youtubeParams, youtubePattern } from '@/lib/videos';
-import { isValidElement } from 'react';
 import { DemoIframe } from '@/components/DemoIframe';
 import { SketchDemo } from '@/components/essays/sketch/SketchDemo';
+import { Footer } from '@/components/new-landing/Footer';
+import { Fence } from '@/components/ui';
+import { muxPattern, youtubeParams, youtubePattern } from '@/lib/videos';
+import { isValidElement } from 'react';
+import ReactMarkdown, { Components } from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import remarkGfm from 'remark-gfm';
 
 const Post = ({ post }: { post: Post }) => {
   const { title, date, authors, hero, content, og_image } = post;
@@ -175,7 +175,7 @@ const Post = ({ post }: { post: Post }) => {
           </ReactMarkdown>
         </div>
       </div>
-      <LandingFooter />
+      <Footer />
     </LandingContainer>
   );
 };

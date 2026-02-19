@@ -21,13 +21,13 @@ const backers = [
   },
   {
     name: 'Jeff Dean',
-    role: 'Google',
+    role: 'Chief Scientist of Google DeepMind',
     initials: 'JD',
     color: 'bg-green-100 text-green-700',
   },
   {
     name: 'Amjad Masad',
-    role: 'Replit',
+    role: 'CEO of Replit',
     initials: 'AM',
     color: 'bg-purple-100 text-purple-700',
   },

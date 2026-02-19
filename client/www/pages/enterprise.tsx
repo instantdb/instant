@@ -1,4 +1,4 @@
-import { LandingFooter, MainNav } from '@/components/marketingUi';
+import { MainNav } from '@/components/marketingUi';
 import { AppBuilders } from '@/components/new-landing/enterprise/AppBuilders';
 import { Architecture } from '@/components/new-landing/enterprise/Architecture';
 import { ChatPlatforms } from '@/components/new-landing/enterprise/ChatPlatforms';
@@ -51,7 +51,7 @@ export default function () {
           </div>
         </section>
       </main>
-      <LandingFooter />
+      <Footer />
     </div>
   );
 }

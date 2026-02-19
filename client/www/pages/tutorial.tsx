@@ -4,7 +4,6 @@ import { TabGroup, TabList, TabPanels, TabPanel, Tab } from '@headlessui/react';
 import {
   Section,
   MainNav,
-  LandingFooter,
   LandingContainer,
   PageProgressBar,
   H2,
@@ -16,6 +15,7 @@ import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import clsx from 'clsx';
 import { CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/solid';
 import CopyToClipboard from 'react-copy-to-clipboard';
+import { Footer } from '@/components/new-landing/Footer';
 
 const overviewSteps = [
   'Login to Instant in the terminal',
@@ -502,7 +502,7 @@ export default function TutorialNew() {
         </div>
       </Section>
       <div className="h-6" />
-      <LandingFooter />
+      <Footer />
     </LandingContainer>
   );
 }

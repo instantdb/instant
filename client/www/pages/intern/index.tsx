@@ -11,6 +11,7 @@ import {
 import { Button, FullscreenLoading } from '@/components/ui';
 import { useAdmin } from '@/lib/auth';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
+import { Footer } from '@/components/new-landing/Footer';
 
 type ToolCard = {
   title: string;
@@ -125,7 +126,7 @@ export default function InternIndexPage() {
             <FullscreenLoading />
           </div>
         </Section>
-        <LandingFooter />
+        <Footer />
       </LandingContainer>
     );
   }
@@ -145,7 +146,7 @@ export default function InternIndexPage() {
             </p>
           </div>
         </Section>
-        <LandingFooter />
+        <Footer />
       </LandingContainer>
     );
   }
@@ -235,7 +236,7 @@ export default function InternIndexPage() {
           )}
         </div>
       </Section>
-      <LandingFooter />
+      <Footer />
     </LandingContainer>
   );
 }

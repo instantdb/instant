@@ -14,15 +14,11 @@ import {
   init,
 } from '@instantdb/react';
 import { errorToast } from '@/lib/toast';
-import {
-  H3,
-  LandingContainer,
-  LandingFooter,
-  MainNav,
-} from '@/components/marketingUi';
+import { H3, LandingContainer, MainNav } from '@/components/marketingUi';
 import { useAuthToken } from '@/lib/auth';
 import * as og from '@/lib/og';
 import { Toaster } from '@instantdb/components';
+import { Footer } from '@/components/new-landing/Footer';
 
 export async function getStaticProps() {
   const files = getFiles();
@@ -247,7 +243,7 @@ function Main({ files }: { files: File[] }) {
           })}
         </div>
       </div>
-      <LandingFooter />
+      <Footer />
     </LandingContainer>
   );
 }

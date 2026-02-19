@@ -5,21 +5,20 @@ import { LogoType } from '../marketingUi';
 const footerLinks = {
   Product: [
     { href: '/pricing', label: 'Pricing' },
-    { href: 'https://instantdb.com/docs', label: 'Docs' },
+    { href: '/docs', label: 'Docs' },
     { href: '/tutorial', label: 'Tutorial' },
   ],
   Resources: [
-    { href: 'https://discord.gg/instantdb', label: 'Discord' },
-    { href: '/essays', label: 'Essays' },
+    { href: 'https://discord.com/invite/VU53p7uQcE', label: 'Discord' },
     { href: 'https://status.instantdb.com', label: 'Status' },
   ],
   Company: [
     { href: '/about', label: 'About' },
-    { href: '/careers', label: 'Careers' },
-    { href: 'mailto:hello@instantdb.com', label: 'Contact' },
+    { href: '/hiring', label: 'Careers' },
+    { href: 'founders:hello@instantdb.com', label: 'Contact' },
   ],
   Legal: [
-    { href: '/privacy', label: 'Privacy' },
+    { href: '/privacy', label: 'Privacy Policy' },
     { href: '/terms', label: 'Terms' },
   ],
 };

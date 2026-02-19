@@ -1,12 +1,7 @@
 import Link from 'next/link';
 import Head from 'next/head';
 import { Button } from '@/components/ui';
-import {
-  LandingFooter,
-  LandingContainer,
-  MainNav,
-  Section,
-} from '@/components/marketingUi';
+import { LandingContainer, MainNav, Section } from '@/components/marketingUi';
 import ReactMarkdown, { Components } from 'react-markdown';
 import { Fence } from '@/components/ui';
 import rehypeRaw from 'rehype-raw';
@@ -21,6 +16,7 @@ import {
   getExampleAppBySlug,
 } from '@/lib/examples/server';
 import RatingBox from '@/components/docs/RatingBox';
+import { Footer } from '@/components/new-landing/Footer';
 
 function ActionButtons({ app }: { app: ExampleApp }) {
   const { youtubeVideoId, githubUrl } = app;
@@ -168,7 +164,7 @@ const ExampleAppPage = ({ app }: { app: ExampleApp }) => {
         <ExampleDetail app={app} />
       </Section>
       <div className="h-12" />
-      <LandingFooter />
+      <Footer />
     </LandingContainer>
   );
 };

@@ -34,10 +34,6 @@ export const H4 = ({ children }: PropsWithChildren) => (
   <h4 className={clsx(`text-xl`)}>{children}</h4>
 );
 
-export const SectionWide = ({ children }: PropsWithChildren) => (
-  <section className={clsx('mx-auto max-w-7xl px-8')}>{children}</section>
-);
-
 export const Section = ({ children }: PropsWithChildren) => (
   <section className={clsx('landing-width mx-auto')}>{children}</section>
 );
@@ -214,34 +210,30 @@ export const LandingContainer = ({ children }: PropsWithChildren) => (
 
 export function LandingFooter() {
   return (
-    <div className="text-xs text-gray-500">
-      <SectionWide>
-        <hr className="h-px border-0 bg-gray-200" />
-        <div className="flex flex-col gap-2 py-6">
-          <div
-            className={clsx(
-              `flex flex-col gap-6 md:flex-row md:justify-between`,
-            )}
-          >
-            <div className="flex flex-col gap-2 md:gap-0">
-              <div>Instant</div>
-              <div>Engineered in San Francisco</div>
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              <NavLink href="/hiring">Hiring</NavLink>
-              <NavLink href="https://discord.com/invite/VU53p7uQcE">
-                Discord
-              </NavLink>
-              <NavLink href="https://github.com/instantdb/instant">
-                GitHub
-              </NavLink>
-              <NavLink href="/status">Status</NavLink>
-              <NavLink href="/privacy">Privacy Policy</NavLink>
-              <NavLink href="/terms">Terms</NavLink>
-            </div>
+    <div className="landing-width text-xs text-gray-500">
+      <hr className="h-px border-0 bg-gray-200" />
+      <div className="flex flex-col gap-2 py-6">
+        <div
+          className={clsx(`flex flex-col gap-6 md:flex-row md:justify-between`)}
+        >
+          <div className="flex flex-col gap-2 md:gap-0">
+            <div>Instant</div>
+            <div>Engineered in San Francisco</div>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <NavLink href="/hiring">Hiring</NavLink>
+            <NavLink href="https://discord.com/invite/VU53p7uQcE">
+              Discord
+            </NavLink>
+            <NavLink href="https://github.com/instantdb/instant">
+              GitHub
+            </NavLink>
+            <NavLink href="/status">Status</NavLink>
+            <NavLink href="/privacy">Privacy Policy</NavLink>
+            <NavLink href="/terms">Terms</NavLink>
           </div>
         </div>
-      </SectionWide>
+      </div>
     </div>
   );
 }

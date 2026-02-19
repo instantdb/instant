@@ -3,17 +3,13 @@
 // frequently times out in our 15 second function deadline.
 
 import Head from 'next/head';
-import {
-  LandingContainer,
-  LandingFooter,
-  MainNav,
-  TextLink,
-} from '@/components/marketingUi';
+import { LandingContainer, MainNav, TextLink } from '@/components/marketingUi';
 import * as og from '@/lib/og';
 import styles from '@/styles/status.module.css';
 import type { InferGetServerSidePropsType, GetServerSideProps } from 'next';
 import type { UptimeResponse, Monitor } from '@/lib/uptimeAPI';
 import * as uptimeAPI from '@/lib/uptimeAPI';
+import { Footer } from '@/components/new-landing/Footer';
 
 export const getServerSideProps = (async (ctx) => {
   // This is considered `fresh` for 10 the next 10 seconds.
@@ -329,7 +325,7 @@ export default function Page({
           <MainNav />
         </div>
         <StatusPage uptime={uptime} />
-        <LandingFooter />
+        <Footer />
       </div>
     </LandingContainer>
   );

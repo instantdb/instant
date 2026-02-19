@@ -3,13 +3,13 @@ import { useRouter } from 'next/router';
 import { Button } from '@/components/ui';
 import { AppMetadata, webMetas, mobileMetas } from '@/lib/examples/data';
 import {
-  LandingFooter,
   LandingContainer,
   MainNav,
   Section,
   H2,
   H3,
 } from '@/components/marketingUi';
+import { Footer } from '@/components/new-landing/Footer';
 
 function LeftColumn({ app }: { app: AppMetadata }) {
   return (
@@ -186,7 +186,7 @@ export default function Page({
         <Showcase apps={apps} activeTab={activeTab} onTabChange={setTab} />
       </Section>
       <div className="h-12" />
-      <LandingFooter />
+      <Footer />
     </LandingContainer>
   );
 }

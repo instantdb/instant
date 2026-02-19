@@ -1,11 +1,8 @@
 import Head from 'next/head';
-import {
-  LandingContainer,
-  LandingFooter,
-  MainNav,
-} from '@/components/marketingUi';
+import { LandingContainer, MainNav } from '@/components/marketingUi';
 import { Button } from '@/components/ui';
 import * as og from '@/lib/og';
+import { Footer } from '@/components/new-landing/Footer';
 
 function HiringContent() {
   return (
@@ -150,7 +147,7 @@ export default function Page() {
           </Button>
         </div>
       </div>
-      <LandingFooter />
+      <Footer />
     </LandingContainer>
   );
 }

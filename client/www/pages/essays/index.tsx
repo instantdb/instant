@@ -3,12 +3,9 @@ import parse from 'date-fns/parse';
 import Head from 'next/head';
 import { getAllPosts, type Post } from '../../lib/posts';
 import NextLink from 'next/link';
-import {
-  LandingContainer,
-  LandingFooter,
-  MainNav,
-} from '@/components/marketingUi';
+import { LandingContainer, MainNav } from '@/components/marketingUi';
 import * as og from '@/lib/og';
+import { Footer } from '@/components/new-landing/Footer';
 
 export async function getStaticProps() {
   return {
@@ -83,7 +80,7 @@ export default function Page({ posts }: { posts: Post[] }) {
               );
             })}
         </div>
-        <LandingFooter />
+        <Footer />
       </div>
     </LandingContainer>
   );
