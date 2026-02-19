@@ -73,7 +73,7 @@ export default function Landing2026() {
           </Section>
 
           {/* Final CTA */}
-          <Section>
+          <Section className="pt-0!">
             <FinalCTA />
           </Section>
         </main>
