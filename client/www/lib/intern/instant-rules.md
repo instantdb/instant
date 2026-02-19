@@ -123,7 +123,7 @@ CRITICAL: If you are unsure how something works in InstantDB you fetch the relev
 
 Below are some CRITICAL guidelines for writing permissions in InstantDB.
 
-## `data.ref`
+## data.ref
 
 - Use `data.ref("<path.to.attr>")` for linked attributes.
 - Always returns a **list**.
@@ -145,25 +145,6 @@ data.ref('admins.id') == auth.id
 auth.id == data.ref('owner.id')
 data.ref('owner.id') == null
 data.ref('owner.id').length > 0
-```
-
-## `auth.ref`
-
-- Same as `data.ref` but path must start with `$user`.
-- Returns a list.
-
-**Correct**
-
-```cel
-'admin' in auth.ref('$user.role.type')
-auth.ref('$user.role.type')[0] == 'admin'
-```
-
-**Errors**
-
-```cel
-auth.ref('role.type')
-auth.ref('$user.role.type') == 'admin'
 ```
 
 ## Unsupported
