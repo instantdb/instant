@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { useInView } from 'react-intersection-observer';
+import { motion } from 'motion/react';
 
 interface AnimateInProps {
   children: ReactNode;
@@ -14,17 +14,15 @@ export function AnimateIn({
   delay = 0,
   className = '',
 }: AnimateInProps) {
-  const { ref, inView } = useInView();
-
   return (
-    <div
-      ref={ref}
-      className={`motion-safe:transition-all motion-safe:duration-700 motion-safe:ease-out ${
-        inView ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'
-      } ${className}`}
-      style={{ transitionDelay: `${delay}ms` }}
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.7, ease: 'easeOut', delay: delay / 1000 }}
+      className={className}
     >
       {children}
-    </div>
+    </motion.div>
   );
 }
