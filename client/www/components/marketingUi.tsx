@@ -9,6 +9,7 @@ import { Button, cn } from '@/components/ui';
 import { LogoIcon } from '@instantdb/components';
 import { useReadyRouter } from './clientOnlyPage';
 import { useRouter } from 'next/router';
+import { AnimatePresence, motion } from 'motion/react';
 
 const headingClasses = `font-mono`;
 
@@ -69,10 +70,17 @@ const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
     <NextLink
       href={href}
       className={cn(
-        'whitespace-nowrap decoration-black/20 hover:text-blue-500',
-        pathname === href ? 'underline' : '',
+        'relative z-20 whitespace-nowrap decoration-black/20 hover:text-blue-500',
       )}
     >
+      <AnimatePresence>
+        {pathname === href && (
+          <motion.div
+            layoutId="nav-underline"
+            className="absolute inset-0 z-0 -translate-y-[2px] scale-x-110 border-b-2 border-b-gray-900/20"
+          />
+        )}
+      </AnimatePresence>
       {children}
     </NextLink>
   );
