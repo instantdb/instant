@@ -3,52 +3,6 @@ title: Getting started with SolidJS
 description: How to use Instant with SolidJS
 ---
 
-InstantDB has an [official package for Solid](https://www.npmjs.com/package/@instantdb/solidjs). It supports all of the same features of the React version with some key differences.
-
-## Reactivity
-
-In Solid, query results are returned as [Signals](https://docs.solidjs.com/concepts/signals). This means that they cannot be destructured without preserving reactivity.
-
-Incorrect Usage:
-
-```typescript
-// ❌ Data cannot be destructed from an Accessor
-const { data } = db.useQuery({ todos: {} });
-
-// ❌ state().data() must be called from a Tracking Scope
-const state = db.useQuery({ todos: {} });
-const todos = state().data().todos;
-```
-
-Correct Usage:
-
-```typescript
-// ✅ state().data() can be called in JSX
-const TodoCount = () => {
-  const state = db.useQuery({ todos: {} });
-
-  return (
-    <div>{state().data()?.todos.length} todos</div>
-  )
-}
-```
-
-Alternatively:
-
-```typescript
-// ✅ Create a new signal for todos
-const TodoCount = () => {
-  const state = db.useQuery({ todos: {} });
-  const todos = () => state().data?.todos ?? [];
-
-  return (
-    <div>{todos().length} todos</div>
-  )
-}
-```
-
-Transactions in Solid work the same way they do in React.
-
 ## Automatic Setup With Create Instant App
 
 The fastest way to get started with Instant with SolidJS is to use create-instant-app to scaffold a new project with Instant already set up.
@@ -332,3 +286,47 @@ export default App;
 ```
 
 Go to `localhost:5173`, and huzzah 🎉 You've got a fully functional todo list running!
+
+## Reactivity
+
+In Solid, query results are returned as [Signals](https://docs.solidjs.com/concepts/signals). This means that they cannot be destructured without preserving reactivity.
+
+Incorrect Usage:
+
+```typescript
+// ❌ Data cannot be destructed from an Accessor
+const { data } = db.useQuery({ todos: {} });
+
+// ❌ state().data() must be called from a Tracking Scope
+const state = db.useQuery({ todos: {} });
+const todos = state().data().todos;
+```
+
+Correct Usage:
+
+```typescript
+// ✅ state().data() can be called in JSX
+const TodoCount = () => {
+  const state = db.useQuery({ todos: {} });
+
+  return (
+    <div>{state().data()?.todos.length} todos</div>
+  )
+}
+```
+
+Alternatively:
+
+```typescript
+// ✅ Create a new signal for todos
+const TodoCount = () => {
+  const state = db.useQuery({ todos: {} });
+  const todos = () => state().data?.todos ?? [];
+
+  return (
+    <div>{todos().length} todos</div>
+  )
+}
+```
+
+Transactions in Solid work the same way they do in React via `db.transact`. To learn more see our [writing data](/docs/instaml) docs.
