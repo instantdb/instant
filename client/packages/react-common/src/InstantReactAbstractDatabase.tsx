@@ -40,6 +40,17 @@ const defaultAuthState = {
   error: undefined,
 };
 
+type InfiniteQueryResult<
+  Schema extends InstantSchemaDef<any, any, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> = {
+  data: null;
+  isLoading: boolean;
+  isLoadingMore: boolean;
+  loadMore: () => Promise<void>;
+};
+
 export default abstract class InstantReactAbstractDatabase<
   // need to pull this schema out to another generic for query params, not sure why
   Schema extends InstantSchemaDef<any, any, any>,
@@ -388,6 +399,25 @@ export default abstract class InstantReactAbstractDatabase<
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this.core.queryOnce(query, opts);
+  };
+
+  /**
+   *
+   */
+  useInfiniteQuery = <Q extends ValidQuery<Q, Schema>>(
+    query: Q,
+    opts?: InstaQLOptions,
+  ): InfiniteQueryResult<Schema, Q, UseDates> => {
+    const [data, setData] = useState<InstaQLResponse<Schema, Q, UseDates>[]>(
+      [],
+    );
+
+    return {
+      data: null,
+      isLoading: true,
+      isLoadingMore: false,
+      loadMore: async () => {},
+    };
   };
 
   /**
