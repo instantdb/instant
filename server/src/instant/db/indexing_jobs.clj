@@ -289,7 +289,7 @@
 
 (defn validate-required-work-estimate!
   "Uses the attr_sketch to update the estimate of the number of triples
-   we need to touch to validated required"
+   we need to touch to validate required"
   [conn job]
   (let [{:keys [app_id attr_id]} job
         attrs (attr-model/get-by-app-id conn app_id)
@@ -309,7 +309,7 @@
                   (* 2))
         ;; Add 5% to account for aggregator delay
         estimate (int (* 1.05 total))]
-    (sql/execute-one! ::update-work-estimate!
+    (sql/execute-one! ::validate-required-work-estimate!
                       conn (hsql/format {:update :indexing-jobs
                                          :where (job-update-wheres
                                                  [:= :id (:id job)])
@@ -1109,8 +1109,7 @@
           attrs (attr-model/get-by-app-id conn app-id)
           attr (attr-model/seek-by-id attr-id attrs)
           attr-etype (attr-model/fwd-etype attr)
-          id-attr (->> (attr-model/get-by-app-id conn app-id)
-                       (attr-model/seek-by-fwd-ident-name [attr-etype "id"]))
+          id-attr (attr-model/seek-by-fwd-ident-name [attr-etype "id"] attrs)
           cursor (get (current-context job) "after")]
       (if-not id-attr
         (do (update-attr! conn {:app-id  app-id
