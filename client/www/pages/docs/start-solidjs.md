@@ -73,7 +73,7 @@ Add the InstantDB SolidJS Library:
 npm i @instantdb/solidjs
 ```
 
-Use `instant-cli` to set up a new Instant project. This prompt you to log in if you haven't already., It will then create a schema file, permissions file, and update your `.env` file.
+Use `instant-cli` to set up a new Instant project. This will prompt you to log in if you haven't already., It will then create a schema file, permissions file, and update your `.env` file.
 
 ```shell
 npx instant-cli init
