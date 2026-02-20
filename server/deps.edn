@@ -28,6 +28,7 @@
         software.amazon.awssdk/rds {:mvn/version "2.41.31"}
         software.amazon.awssdk/secretsmanager {:mvn/version "2.41.31"}
         software.amazon.awssdk/s3 {:mvn/version "2.41.31"}
+        software.amazon.awssdk/bedrockruntime {:mvn/version "2.41.31"}
         software.amazon.awssdk.crt/aws-crt {:mvn/version "0.40.3"}
 
         juji/editscript {:mvn/version "0.6.4"}
