@@ -28,6 +28,7 @@ import {
   type InstaQLParams,
   type ConnectionStatus,
   type ValidQuery,
+  type ValidQueryObject,
 
   // presence types
   type PresencePeer,
@@ -139,6 +140,7 @@ export {
   type IInstantDatabase,
   type InstaQLParams,
   type ValidQuery,
+  type ValidQueryObject,
   type InstaQLFields,
 
   // presence types

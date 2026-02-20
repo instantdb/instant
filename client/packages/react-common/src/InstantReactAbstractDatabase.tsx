@@ -22,6 +22,8 @@ import {
   InstantError,
   ValidQuery,
   Streams,
+  ValidInfiniteQueryObject,
+  Cursor,
 } from '@instantdb/core';
 import {
   ReactNode,
@@ -33,6 +35,7 @@ import {
 } from 'react';
 import { useQueryInternal } from './useQuery.ts';
 import { InstantReactRoom, rooms } from './InstantReactRoom.ts';
+import { decrementCursor, incrementCursor } from './uuidMath.ts';
 
 const defaultAuthState = {
   isLoading: true,
@@ -40,12 +43,23 @@ const defaultAuthState = {
   error: undefined,
 };
 
+type InfiniteScrollChunk = {
+  query: any;
+  data: any; // TODO: update
+  isLoading: boolean;
+  isStable: boolean;
+  startCursor: Cursor | null;
+  endCursor: Cursor | null;
+};
+
 type InfiniteQueryResult<
   Schema extends InstantSchemaDef<any, any, any>,
-  Q extends ValidQuery<Q, Schema>,
+  Entity extends keyof Schema['entities'],
+  Q extends ValidInfiniteQueryObject<Q, Schema, Entity>,
   UseDates extends boolean,
 > = {
-  data: null;
+  data: any[];
+  chunks: InfiniteScrollChunk[];
   isLoading: boolean;
   isLoadingMore: boolean;
   loadMore: () => Promise<void>;
@@ -404,19 +418,196 @@ export default abstract class InstantReactAbstractDatabase<
   /**
    *
    */
-  useInfiniteQuery = <Q extends ValidQuery<Q, Schema>>(
-    query: Q,
+  useInfiniteQuery = <
+    Entity extends keyof Schema['entities'],
+    Q extends ValidInfiniteQueryObject<Q, Schema, Entity>,
+  >(
+    entity: Entity,
+    _query: Q,
     opts?: InstaQLOptions,
-  ): InfiniteQueryResult<Schema, Q, UseDates> => {
-    const [data, setData] = useState<InstaQLResponse<Schema, Q, UseDates>[]>(
-      [],
-    );
+  ): InfiniteQueryResult<Schema, Entity, Q, UseDates> => {
+    const [chunks, setChunks] = useState<InfiniteScrollChunk[]>([]);
+    const subscriptionsRef = useRef<Array<(() => void) | undefined>>([]);
+    const chunkVersionRef = useRef<number[]>([]);
+
+    const clearSubscriptionAtIdx = (index: number) => {
+      const unsub = subscriptionsRef.current[index];
+      if (unsub) {
+        unsub();
+        subscriptionsRef.current[index] = undefined;
+      }
+    };
+
+    const nextChunkVersion = (index: number) => {
+      const next = (chunkVersionRef.current[index] ?? 0) + 1;
+      chunkVersionRef.current[index] = next;
+      return next;
+    };
+
+    const clearAllSubscriptions = () => {
+      for (const unsub of subscriptionsRef.current) {
+        unsub?.();
+      }
+      subscriptionsRef.current = [];
+      chunkVersionRef.current = [];
+    };
+
+    const setChunkAtIdx = (index: number, chunk: InfiniteScrollChunk) => {
+      setChunks((prev) => {
+        const next = [...prev];
+        next[index] = chunk;
+        return next;
+      });
+    };
+
+    const setupChunk = (index: number, startCursor?: Cursor) => {
+      clearSubscriptionAtIdx(index);
+      const version = nextChunkVersion(index);
+      const isCurrent = () => chunkVersionRef.current[index] === version;
+
+      const query = {
+        [entity]: {
+          ..._query,
+          $: {
+            first: _query.$.pageSize,
+            after: startCursor,
+            // common fields
+            where: _query.$.where,
+            fields: _query.$.fields,
+            order: _query.$.order,
+          },
+        },
+      };
+
+      setChunkAtIdx(index, {
+        query,
+        data: [],
+        isLoading: true,
+        isStable: false,
+        startCursor: null,
+        endCursor: null,
+      });
+
+      // @ts-expect-error entity key'd query
+      let bootstrapUnsub = this.core.subscribeQuery(query, (resp) => {
+        if (!isCurrent()) return;
+
+        if (resp.error || !resp.data) {
+          setChunkAtIdx(index, {
+            query,
+            data: [],
+            isLoading: false,
+            isStable: false,
+            startCursor: null,
+            endCursor: null,
+          });
+          return;
+        }
+
+        const data = resp.data[entity];
+        const start = resp.pageInfo?.[entity]?.startCursor ?? null;
+        const end = resp.pageInfo?.[entity]?.endCursor ?? null;
+
+        setChunkAtIdx(index, {
+          query,
+          data,
+          isLoading: false,
+          isStable: false,
+          startCursor: start,
+          endCursor: end,
+        });
+
+        // Keep listening on the bootstrap query while the chunk is not full.
+        if (data.length < _query.$.pageSize) {
+          return;
+        }
+
+        // If we are missing cursors, we can't lock to a fixed window yet.
+        if (!start || !end) {
+          return;
+        }
+
+        // During optimistic updates, data can grow before pageInfo catches up.
+        // Wait until cursors align with the current page boundary before
+        // switching to a fixed sticky window.
+        const firstRow = data[0];
+        const boundaryRow = data[Math.min(_query.$.pageSize, data.length) - 1];
+        if (!firstRow || !boundaryRow) {
+          return;
+        }
+        if (firstRow.id !== start[0] || boundaryRow.id !== end[0]) {
+          return;
+        }
+
+        if (!isCurrent()) return;
+        bootstrapUnsub();
+
+        const stickyQuery = {
+          [entity]: {
+            ..._query,
+            $: {
+              after: startCursor ?? decrementCursor(start),
+              before: incrementCursor(end),
+              // common fields
+              where: _query.$.where,
+              fields: _query.$.fields,
+              order: _query.$.order,
+            },
+          },
+        };
+
+        const stickyUnsub = this.core.subscribeQuery(
+          // @ts-expect-error entity key'd query
+          stickyQuery,
+          (dataResp) => {
+            if (!isCurrent()) return;
+            if (!dataResp.data?.[entity]) return;
+            setChunkAtIdx(index, {
+              query: stickyQuery,
+              data: dataResp.data[entity],
+              isLoading: false,
+              isStable: true,
+              startCursor: dataResp.pageInfo?.[entity]?.startCursor ?? null,
+              endCursor: dataResp.pageInfo?.[entity]?.endCursor ?? null,
+            });
+          },
+        );
+
+        subscriptionsRef.current[index] = stickyUnsub;
+      });
+
+      subscriptionsRef.current[index] = bootstrapUnsub;
+    };
+
+    useEffect(() => {
+      setupChunk(0);
+
+      return () => {
+        clearAllSubscriptions();
+      };
+    }, []);
+
+    const mergedData = chunks.flatMap((chunk) => chunk.data);
+
+    const isLoading =
+      chunks.length === 0 || chunks.some((chunk) => chunk.isLoading);
+    const isLoadingMore =
+      chunks.length > 1 && chunks[chunks.length - 1].isLoading;
+
+    const loadMore = async () => {
+      const lastChunk = chunks[chunks.length - 1];
+      if (!lastChunk) return;
+      if (!lastChunk.isStable || !lastChunk.endCursor) return;
+      if (lastChunk.data.length < _query.$.pageSize) return;
+      setupChunk(chunks.length, lastChunk.endCursor);
+    };
 
     return {
-      data: null,
-      isLoading: true,
-      isLoadingMore: false,
-      loadMore: async () => {},
+      data: mergedData,
+      isLoading,
+      isLoadingMore,
+      chunks,
+      loadMore,
     };
   };
 

@@ -57,6 +57,9 @@ import type {
   InstaQLResult,
   InstaQLFields,
   ValidQuery,
+  ValidQueryObject,
+  ValidInfiniteQueryObject,
+  Cursor,
 } from './queryTypes.ts';
 import type { PresencePeer } from './presenceTypes.ts';
 import type {
@@ -120,6 +123,8 @@ import type {
 } from './authAPI.ts';
 
 import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
+import { Deferred } from './utils/Deferred.js';
+
 import { InstantError } from './InstantError.ts';
 import {
   SSEConnection,
@@ -1057,6 +1062,9 @@ export {
   // new query types
   type InstaQLParams,
   type ValidQuery,
+  type ValidQueryObject,
+  type ValidInfiniteQueryObject,
+  type Cursor,
   type InstaQLOptions,
   type InstaQLQueryParams,
   type InstantQuery,
@@ -1149,6 +1157,9 @@ export {
   type StoreInterfaceClass,
   type StoreInterfaceStoreName,
   createInstantRouteHandler,
+
+  // deferred
+  Deferred,
 };
 
 /** @deprecated Use StoreInterface instead */

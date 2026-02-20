@@ -57,6 +57,9 @@ export default function weakHash(input: any): string {
 
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
+      if (input[key] === undefined) {
+        continue;
+      }
       // Hash the key using string hash
       const keyHash = weakHash(key);
       hash ^= parseInt(keyHash, 16);

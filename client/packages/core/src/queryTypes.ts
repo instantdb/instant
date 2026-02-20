@@ -495,6 +495,28 @@ type ValidQueryObject<
     }
   : never;
 
+type ValidInfiniteQueryObject<
+  T extends Record<string, any>,
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema['entities'],
+> = keyof T extends keyof Schema['entities'][EntityName]['links'] | '$'
+  ? {
+      [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
+        T[K],
+        Schema,
+        Schema['entities'][EntityName]['links'][K]['entityName'],
+        false
+      >;
+    } & {
+      $: {
+        where?: ValidWhereObject<T['$']['where'], Schema, EntityName>;
+        pageSize: number;
+        fields?: ValidFieldNames<Schema, EntityName>[];
+        order?: Order<Schema, EntityName>;
+      };
+    }
+  : never;
+
 type PaginationKeys =
   | 'limit'
   | 'last'
@@ -703,6 +725,8 @@ export {
   Exactly,
   Remove$,
   ValidQuery,
+  ValidQueryObject,
+  ValidInfiniteQueryObject,
   InstaQLQueryResult,
   InstaQLParams,
   InstaQLOptions,
