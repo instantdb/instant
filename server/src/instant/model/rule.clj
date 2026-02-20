@@ -108,7 +108,6 @@
     (mapcat identity bind)
     bind))
 
-
 (defn sort-binds
   "Topological sort of binds, in order of depenency (if a -> b, then (a, b)).
    Will throw a CelValidationException if there are any cyclic deps."
@@ -196,7 +195,7 @@
                                     (cel/where-clauses-program code))})
 
         (and (= "$files" etype)
-             (#{"view" "update"} action))
+             (#{"view" "create" "update" "delete"} action))
         (let [code "false"
               ast (cel/->ast compiler code)]
           {:etype etype
