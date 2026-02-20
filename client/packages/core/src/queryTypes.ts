@@ -376,7 +376,7 @@ type InstaQLEntity<
     InstaQLEntitySubqueryResult<Schema, EntityName, Subquery, UseDates>
 >;
 
-type InstaQLQueryEntityResult<
+export type InstaQLQueryEntityResult<
   Entities extends EntitiesDef,
   EntityName extends keyof Entities,
   Query extends {
@@ -494,6 +494,26 @@ type ValidQueryObject<
       $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
     }
   : never;
+
+type ValidInfiniteQueryObject<
+  T extends Record<string, any>,
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema['entities'],
+> = {
+  [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
+    T[K],
+    Schema,
+    Schema['entities'][EntityName]['links'][K]['entityName'],
+    false
+  >;
+} & {
+  $: {
+    where?: ValidWhereObject<T['$']['where'], Schema, EntityName>;
+    pageSize: number;
+    fields?: ValidFieldNames<Schema, EntityName>[];
+    order?: Order<Schema, EntityName>;
+  };
+};
 
 type PaginationKeys =
   | 'limit'
@@ -703,10 +723,11 @@ export {
   Exactly,
   Remove$,
   ValidQuery,
+  ValidQueryObject,
+  ValidInfiniteQueryObject,
   InstaQLQueryResult,
   InstaQLParams,
   InstaQLOptions,
-  InstaQLQueryEntityResult,
   InstaQLEntitySubquery,
   InstaQLEntity,
   InstaQLResult,

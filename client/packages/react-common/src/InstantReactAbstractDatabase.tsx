@@ -22,16 +22,21 @@ import {
   InstantError,
   ValidQuery,
   Streams,
+  ValidInfiniteQueryObject,
 } from '@instantdb/core';
 import {
   ReactNode,
   useCallback,
   useEffect,
-  useRef,
   useState,
+  useRef,
   useSyncExternalStore,
 } from 'react';
 import { useQueryInternal } from './useQuery.ts';
+import {
+  type InfiniteQueryResult,
+  useInfiniteQuerySubscription,
+} from './useInfiniteQuerySubscription.ts';
 import { InstantReactRoom, rooms } from './InstantReactRoom.ts';
 
 const defaultAuthState = {
@@ -388,6 +393,25 @@ export default abstract class InstantReactAbstractDatabase<
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this.core.queryOnce(query, opts);
+  };
+
+  /**
+   *
+   */
+  useInfiniteQuery = <
+    Entity extends keyof Schema['entities'],
+    Q extends ValidInfiniteQueryObject<Q, Schema, Entity>,
+  >(
+    entity: Entity,
+    _query: Q,
+    opts?: InstaQLOptions,
+  ): InfiniteQueryResult<Schema, Entity, Q, UseDates> => {
+    return useInfiniteQuerySubscription<Schema, Entity, Q, UseDates>({
+      core: this.core,
+      entity,
+      query: _query,
+      opts,
+    });
   };
 
   /**

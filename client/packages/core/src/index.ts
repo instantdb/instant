@@ -57,6 +57,11 @@ import type {
   InstaQLResult,
   InstaQLFields,
   ValidQuery,
+  ValidQueryObject,
+  ValidInfiniteQueryObject,
+  Cursor,
+  Order,
+  InstaQLQueryEntityResult,
 } from './queryTypes.ts';
 import type { PresencePeer } from './presenceTypes.ts';
 import type {
@@ -1057,6 +1062,9 @@ export {
   // new query types
   type InstaQLParams,
   type ValidQuery,
+  type ValidQueryObject,
+  type ValidInfiniteQueryObject,
+  type Cursor,
   type InstaQLOptions,
   type InstaQLQueryParams,
   type InstantQuery,
@@ -1065,6 +1073,8 @@ export {
   type InstantEntity,
   type InstantSchemaDatabase,
   type InstaQLFields,
+  type Order,
+  type InstaQLQueryEntityResult,
 
   // schema types
   type AttrsDefs,
