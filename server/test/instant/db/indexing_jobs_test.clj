@@ -21,7 +21,7 @@
                     1000))
 
 (defmacro check-estimate [job]
-  `(let [finished-job# (tool/inspect (jobs/get-by-id (:id ~job)))]
+  `(let [finished-job# (jobs/get-by-id (:id ~job))]
      (is (pos? (:work_estimate finished-job#)))
      (let [estimate# (:work_estimate finished-job#)
            completed# (:work_completed finished-job#)]
