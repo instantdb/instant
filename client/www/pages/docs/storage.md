@@ -110,12 +110,6 @@ async function uploadImage(file: File) {
   }
 }
 
-// Use `db.transact` to delete files
-// `$files` will automatically update once the delete is complete
-function deleteImage(image: InstantFile) {
-  db.transact(db.tx.$files[image.id].delete());
-}
-
 function App() {
   // $files is the special namespace for querying storage data
   const { isLoading, error, data } = db.useQuery({
@@ -211,33 +205,19 @@ function ImageUpload() {
 }
 
 function ImageGrid({ images }: { images: InstantFile[] }) {
-  const [deletingIds, setDeletingIds] = React.useState<Set<string>>(new Set());
-
+  // Use `db.transact` to delete files
   const handleDelete = async (image: InstantFile) => {
-    setDeletingIds((prev) => new Set([...prev, image.id]));
-
-    await deleteImage(image);
-
-    setDeletingIds((prev) => {
-      prev.delete(image.id);
-      return prev;
-    });
+    db.transact(db.tx.$files[image.id].delete());
   }
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 w-full max-w-6xl">
       {images.map((image) => {
-        const isDeleting = deletingIds.has(image.id);
         return (
           <div key={image.id} className="border border-gray-300 rounded-lg overflow-hidden">
             <div className="relative">
               {/* $files entities come with a `url` property */}
               <img src={image.url} alt={image.path} className="w-full h-64 object-cover" />
-              {isDeleting && (
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                  <div className="w-8 h-8 border-2 border-t-2 border-gray-200 border-t-white rounded-full animate-spin"></div>
-                </div>
-              )}
             </div>
 
             <div className="p-3 flex justify-between items-center bg-white">
