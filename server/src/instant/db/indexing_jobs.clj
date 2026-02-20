@@ -275,10 +275,41 @@
         total (-> (cms/lookup [sketch-key])
                   (get-in [sketch-key :sketch :total])
                   (or 0)
-                  (max 0))
+                  (max 0)
+                  (* (if (= "check-data-type" (:job_type job))
+                       3
+                       1)))
         ;; Add 5% to account for aggregator delay
         estimate (int (* 1.05 total))]
     (sql/execute-one! ::update-work-estimate!
+                      conn (hsql/format {:update :indexing-jobs
+                                         :where (job-update-wheres
+                                                 [:= :id (:id job)])
+                                         :set {:work-estimate estimate}}))))
+
+(defn validate-required-work-estimate!
+  "Uses the attr_sketch to update the estimate of the number of triples
+   we need to touch to validate required"
+  [conn job]
+  (let [{:keys [app_id attr_id]} job
+        attrs (attr-model/get-by-app-id conn app_id)
+        attr (attr-model/seek-by-id attr_id attrs)
+        etype (attr-model/fwd-etype attr)
+        _ (when-not etype
+            (ex/throw-validation-err! :attr attr_id [{:message "Attribute has no etype"}]))
+        id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)
+        _ (when-not id-attr
+            (ex/throw-validation-err! :attr etype [{:message (str etype " has no id attribute")}]))
+        sketch-key {:app-id app_id :attr-id (:id id-attr)}
+        total (-> (cms/lookup [sketch-key])
+                  (get-in [sketch-key :sketch :total])
+                  (or 0)
+                  (max 1)
+                  ;; double it because we have to validate, then revalidate
+                  (* 2))
+        ;; Add 5% to account for aggregator delay
+        estimate (int (* 1.05 total))]
+    (sql/execute-one! ::validate-required-work-estimate!
                       conn (hsql/format {:update :indexing-jobs
                                          :where (job-update-wheres
                                                  [:= :id (:id job)])
@@ -331,9 +362,9 @@
 
 (defn set-context!
   "Updates the context value at the given key.
-   (set-context! _ _ \"index-nulls\" {:cursor {...}})
+   (set-context! _ {:job_stage \"index-nulls\", ...} {:cursor {...}})
     -> {:context {\"index-nulls\" {\"cursor\" ...}}}"
-  [conn job key context]
+  [conn job context]
   (sql/execute-one! ::set-context!
                     conn
                     (hsql/format {:update :indexing-jobs
@@ -343,9 +374,14 @@
                                                   [:coalesce :context [:lift {}]]
                                                   :?path
                                                   :?context]}}
-                                 {:params {:path (with-meta [key]
+                                 {:params {:path (with-meta [(:job_stage job)]
                                                    {:pgtype "text[]"})
                                            :context context}})))
+
+(defn current-context
+  "Returns the context for the job's current stage."
+  [job]
+  (get-in job [:context (:job_stage job)]))
 
 (defn release-job!
   ([job] (release-job! (aurora/conn-pool :write) job))
@@ -454,31 +490,64 @@
 
 (defn check-data-type--validate [conn job]
   (let [{:keys [app_id attr_id checked_data_type]} job
-        has-invalid-row? (->> (hsql/format
-                               {:select [[[:exists {:select :*
-                                                    :from :triples
-                                                    :limit 1
-                                                    :where [:and
-                                                            [:= :app-id app_id]
-                                                            [:= :attr-id attr_id]
-                                                            [:or
-                                                             [:not=
-                                                              :checked-data-type
-                                                              [:cast checked_data_type :checked_data_type]]
-                                                             [:= :checked-data-type nil]]
-                                                            [:not [:triples_valid_value
-                                                                   [:cast checked_data_type :checked_data_type]
-                                                                   :value]]]}]]]})
-                              (sql/select-one ::has-invalid-row? conn)
-                              :exists)]
-    (when has-invalid-row?
-      (update-attr! conn {:app-id (:app_id job)
-                          :attr-id (:attr_id job)
-                          :where [[:= :checked-data-type [:cast (:checked_data_type job) :checked_data_type]]
-                                  [:= :checking-data-type true]]
-                          :set {:checking-data-type false
-                                :checked-data-type nil}})
-      [::error invalid-triple-error])))
+        cursor (get (current-context job) "after")
+        ;; just doing a query, so we can do more at once
+        limit (* batch-size 10)
+        q {:with [[:next-batch {:select :*
+                                :from :triples
+                                :order-by [[:created-at :asc] [:entity_id :asc]]
+                                :where [:and
+                                        [:= :app-id app_id]
+                                        [:= :attr-id attr_id]
+                                        (when-let [{:strs [e t]} cursor]
+                                          [:and
+                                           ;; The >= does one fast filter on the index
+                                           [:>= :created-at t]
+                                           ;; Then we filter out any rows with the same created_at
+                                           [:or
+                                            [:> :created-at t]
+                                            [:and
+                                             [:= :created-at t]
+                                             [:> :entity-id (parse-uuid e)]]]])]
+                                :limit [:inline limit]}]
+                  [:bad-values {:select :*
+                                :from :next-batch
+                                :where [:and
+                                        [:or
+                                         [:not=
+                                          :checked-data-type
+                                          [:cast checked_data_type :checked_data_type]]
+                                         [:= :checked-data-type nil]]
+                                        [:not [:triples_valid_value
+                                               [:cast checked_data_type :checked_data_type]
+                                               :value]]]}]]
+           :select [[[:json_build_object
+                      [:inline "work-completed"] {:select :%count.* :from :next-batch}
+                      [:inline "has-invalid-row?"] {:select [[[:exists {:select :* :from :bad-values}]]]}
+                      [:inline "end-cursor"] {:select [[[:json_build_object
+                                                         [:inline "t"] :created-at
+                                                         [:inline "e"] :entity-id
+                                                         [:inline "md5"] :value-md5]]]
+                                              :from :next-batch
+                                              :order-by [[:created-at :desc] [:entity_id :desc]]
+                                              :limit 1}]
+                     :data]]
+           :pg-hints [(pg-hints/index-scan :triples :triples_created_at_idx)]}
+        res (sql/select-one ::has-invalid-row? conn (hsql/format q))
+        {:strs [work-completed has-invalid-row? end-cursor]} (:data res)]
+    (when work-completed
+      (add-work-completed! conn work-completed job))
+    (if-not has-invalid-row?
+      (when end-cursor
+        [::repeat {:context {:after end-cursor}}])
+      (do
+        (update-attr! conn {:app-id (:app_id job)
+                            :attr-id (:attr_id job)
+                            :where [[:= :checked-data-type [:cast (:checked_data_type job) :checked_data_type]]
+                                    [:= :checking-data-type true]]
+                            :set {:checking-data-type false
+                                  :checked-data-type nil}})
+        [::error invalid-triple-error]))))
 
 (defn check-data-type--update-attr-start [conn job]
   (update-attr! conn {:app-id (:app_id job)
@@ -490,27 +559,61 @@
   (tracer/with-span! (job-span-attrs "check-batch" job)
     (let [{:keys [app_id attr_id checked_data_type]} job
           _ (assert checked_data_type)
-          q {:update :triples
-             :set {:checked-data-type [:cast checked_data_type :checked_data_type]}
-             :where [:in :ctid
-                     {:select :ctid
-                      :for :update
-                      :from :triples
-                      :limit batch-size
-                      :where [:and
-                              [:= :app-id app_id]
-                              [:= :attr-id attr_id]
-                              [:or
-                               [:not=
-                                :checked-data-type
-                                [:cast checked_data_type :checked_data_type]]
-                               [:= :checked-data-type nil]]]}]}
+          cursor (get (current-context job) "after")
+          q {:with [[:next-batch {:select :*
+                                  :from [[:triples :t]]
+                                  :for :update
+                                  :order-by [[:created-at :asc] [:entity_id :asc]]
+                                  :where [:and
+                                          [:= :app-id app_id]
+                                          [:= :attr-id attr_id]
+                                          (when-let [{:strs [e t]} cursor]
+                                            [:and
+                                             ;; The >= does one fast filter on the index
+                                             [:>= :created-at t]
+                                             ;; Then we filter out any rows with the same created_at
+                                             [:or
+                                              [:> :created-at t]
+                                              [:and
+                                               [:= :created-at t]
+                                               [:> :entity-id (parse-uuid e)]]]])]
+                                  :limit [:inline batch-size]}]
+                    [:updates {:update [:triples :u]
+                               :set {:checked-data-type [:cast checked_data_type :checked_data_type]}
+                               :from [[:next-batch :n]]
+                               :where [:and
+                                       [:= :n.app_id :u.app_id]
+                                       [:= :n.entity_id :u.entity_id]
+                                       [:= :n.attr_id :u.attr_id]
+                                       [:= :n.value_md5 :u.value_md5]
+                                       [:or
+                                        [:not=
+                                         :u.checked-data-type
+                                         [:cast checked_data_type :checked_data_type]]
+                                        [:= :u.checked-data-type nil]]]
+                               :returning :*}]]
+             :select [[[:json_build_object
+                        [:inline "updated"] {:select :%count.* :from :updates}
+                        [:inline "work-completed"] {:select :%count.* :from :next-batch}
+                        [:inline "end-cursor"] {:select [[[:json_build_object
+                                                           [:inline "t"] :created-at
+                                                           [:inline "e"] :entity-id
+                                                           [:inline "md5"] :value-md5]]]
+                                                :from :next-batch
+                                                :order-by [[:created-at :desc] [:entity_id :desc]]
+                                                :limit 1}]
+                       :data]]
+             :pg-hints [(pg-hints/index-scan :t :triples_created_at_idx)
+                        (pg-hints/index-scan :u :triples_pkey)]}
           res (sql/do-execute! ::check-next-batch! conn (hsql/format q))
-          update-count (:next.jdbc/update-count (first res))]
-      (tracer/add-data! {:attributes {:update-count update-count}})
-      (add-work-completed! conn update-count job)
-      (when (<= batch-size update-count)
-        [::repeat]))))
+          {:strs [work-completed updated end-cursor]} (:data (first res))]
+      (tracer/add-data! {:attributes {:update-count updated
+                                      :work-completed work-completed
+                                      :end-cursor end-cursor}})
+      (when work-completed
+        (add-work-completed! conn work-completed job))
+      (when end-cursor
+        [::repeat {:context {:after end-cursor}}]))))
 
 (defn check-data-type--update-attr-done [conn job]
   (update-attr! conn {:app-id (:app_id job)
@@ -520,10 +623,10 @@
                       :set {:checking-data-type false}}))
 
 (def check-data-type--stages
-  [{:stage "validate",          :fn #'check-data-type--validate}
+  [{:stage "estimate-work",     :fn #'update-work-estimate!}
+   {:stage "validate",          :fn #'check-data-type--validate}
    {:stage "update-attr-start", :fn #'check-data-type--update-attr-start}
    {:stage "revalidate",        :fn #'check-data-type--validate}
-   {:stage "estimate-work",     :fn #'update-work-estimate!}
    {:stage "update-triples",    :fn #'check-data-type--update-triples}
    {:stage "update-attr-done",  :fn #'check-data-type--update-attr-done}])
 
@@ -540,25 +643,57 @@
   (tracer/with-span! (job-span-attrs "remove-data-type-batch" job)
     (let [{:keys [app_id attr_id checked_data_type]} job
           _ (assert (nil? checked_data_type))
-          q {:update :triples
-             :set {:checked-data-type nil}
-             :where [:in :ctid
-                     {:select :ctid
-                      :for :update
-                      :from :triples
-                      :limit batch-size
-                      :where [:and
-                              [:= :app-id app_id]
-                              [:= :attr-id attr_id]
-                              [:not= nil :checked-data-type]]}]}
-          res (sql/do-execute! ::remove-data-type-next-batch!
-                               conn (hsql/format q))
-
-          update-count (:next.jdbc/update-count (first res))]
-      (tracer/add-data! {:attributes {:update-count update-count}})
-      (add-work-completed! conn update-count job)
-      (when (<= batch-size update-count)
-        [::repeat]))))
+          cursor (get (current-context job) "after")
+          q {:with [[:next-batch {:select :*
+                                  :from [[:triples :t]]
+                                  :for :update
+                                  :order-by [[:created-at :asc] [:entity_id :asc]]
+                                  :where [:and
+                                          [:= :app-id app_id]
+                                          [:= :attr-id attr_id]
+                                          (when-let [{:strs [e t]} cursor]
+                                            [:and
+                                             ;; The >= does one fast filter on the index
+                                             [:>= :created-at t]
+                                             ;; Then we filter out any rows with the same created_at
+                                             [:or
+                                              [:> :created-at t]
+                                              [:and
+                                               [:= :created-at t]
+                                               [:> :entity-id (parse-uuid e)]]]])]
+                                  :limit [:inline batch-size]}]
+                    [:updates {:update [:triples :u]
+                               :set {:checked-data-type nil}
+                               :from [[:next-batch :n]]
+                               :where [:and
+                                       [:= :n.app_id :u.app_id]
+                                       [:= :n.entity_id :u.entity_id]
+                                       [:= :n.attr_id :u.attr_id]
+                                       [:= :n.value_md5 :u.value_md5]
+                                       [:not= :u.checked-data-type nil]]
+                               :returning :*}]]
+             :select [[[:json_build_object
+                        [:inline "updated"] {:select :%count.* :from :updates}
+                        [:inline "work-completed"] {:select :%count.* :from :next-batch}
+                        [:inline "end-cursor"] {:select [[[:json_build_object
+                                                           [:inline "t"] :created-at
+                                                           [:inline "e"] :entity-id
+                                                           [:inline "md5"] :value-md5]]]
+                                                :from :next-batch
+                                                :order-by [[:created-at :desc] [:entity_id :desc]]
+                                                :limit 1}]
+                       :data]]
+             :pg-hints [(pg-hints/index-scan :t :triples_created_at_idx)
+                        (pg-hints/index-scan :u :triples_pkey)]}
+          res (sql/do-execute! ::remove-data-type-next-batch! conn (hsql/format q))
+          {:strs [work-completed updated end-cursor]} (:data (first res))]
+      (tracer/add-data! {:attributes {:update-count updated
+                                      :work-completed work-completed
+                                      :end-cursor end-cursor}})
+      (when work-completed
+        (add-work-completed! conn work-completed job))
+      (when end-cursor
+        [::repeat {:context {:after end-cursor}}]))))
 
 (defn remove-data-type--update-attr-done [conn job]
   (update-attr! conn {:app-id (:app_id job)
@@ -606,7 +741,7 @@
       (let [{:keys [app_id attr_id]} job
             attrs (attr-model/get-by-app-id app_id)
             attr (attr-model/seek-by-id attr_id attrs)
-            cursor (get-in job [:context "update-triples" "after"])
+            cursor (get (current-context job) "after")
             q {:with [[:next-batch {:select :*
                                     :from [[:triples :t]]
                                     :for :update
@@ -662,13 +797,8 @@
                                         :end-cursor end-cursor}})
         (when work-completed
           (add-work-completed! conn work-completed job))
-        (when-not (set-context! conn job "update-triples" {:after end-cursor})
-          (ex/throw-validation-err! :indexing-jobs
-                                    {:id (:id job)
-                                     :stage "update-triples"}
-                                    [{:message "Unable to update context for indexing job."}]))
         (when end-cursor
-          [::repeat]))
+          [::repeat {:context {:after end-cursor}}]))
       (catch ExceptionInfo e
         (abort-index! conn job)
         [::exception e]))))
@@ -686,7 +816,7 @@
                 id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)
                 _ (assert id-attr (str etype " has no id attribute"))
                 limit (* batch-size 2)
-                cursor (get-in job [:context "index-nulls" "after"])
+                cursor (get (current-context job) "after")
                 q {:with [[:attr {:select :*
                                   :from :attrs
                                   :where [:and
@@ -756,13 +886,8 @@
                                             :end-cursor end-cursor}})
             (when work-completed
               (add-work-completed! conn work-completed job))
-            (when-not (set-context! conn job "index-nulls" {:after end-cursor})
-              (ex/throw-validation-err! :indexing-jobs
-                                        {:id (:id job)
-                                         :stage "index-nulls"}
-                                        [{:message "Unable to update context for indexing job."}]))
             (when end-cursor
-              [::repeat]))))
+              [::repeat {:context {:after end-cursor}}]))))
       (catch ExceptionInfo e
         (abort-index! conn job)
         [::exception e]))))
@@ -839,23 +964,66 @@
   (tracer/with-span! (job-span-attrs "unique" job)
     (try
       (let [{:keys [app_id attr_id]} job
-            q {:update :triples
-               :set {:av true}
-               :where [:in :ctid
-                       {:select :ctid
-                        :for :update
-                        :from :triples
-                        :limit batch-size
-                        :where [:and
-                                [:= :app-id app_id]
-                                [:= :attr-id attr_id]
-                                [:not :av]]}]}
+            attrs (attr-model/get-by-app-id app_id)
+            attr (attr-model/seek-by-id attr_id attrs)
+            cursor (get (current-context job) "after")
+            q {:with [[:next-batch {:select :*
+                                    :from [[:triples :t]]
+                                    :for :update
+                                    :order-by (cond-> [[:created-at :asc] [:entity-id :asc]]
+                                                (= :many (:cardinality attr)) (conj [:value-md5 :asc]))
+                                    :limit batch-size
+                                    :where [:and
+                                            [:= :app-id app_id]
+                                            [:= :attr-id attr_id]
+                                            [:not :av]
+                                            (when-let [{:strs [e t md5]} cursor]
+                                              [:and
+                                               ;; The >= does one fast filter on the index
+                                               [:>= :created-at t]
+                                               ;; Then we filter out any rows with the same created_at
+                                               [:or
+                                                [:> :created-at t]
+                                                [:and
+                                                 [:= :created-at t]
+                                                 [:> :entity-id (parse-uuid e)]]
+                                                (when (= :many (:cardinality attr))
+                                                  [:and
+                                                   [:= :created-at t]
+                                                   [:= :entity-id (parse-uuid e)]
+                                                   [:> :value-md5 md5]])]])]}]
+                      [:updates {:update [:triples :u]
+                                 :set {:av true}
+                                 :from [[:next-batch :n]]
+                                 :where [:and
+                                         [:= :n.app_id :u.app_id]
+                                         [:= :n.entity_id :u.entity_id]
+                                         [:= :n.attr_id :u.attr_id]
+                                         [:= :n.value_md5 :u.value_md5]]
+                                 :returning :*}]]
+               :select [[[:json_build_object
+                          [:inline "updated"] {:select :%count.* :from :updates}
+                          [:inline "work-completed"] {:select :%count.* :from :next-batch}
+                          [:inline "end-cursor"] {:select [[[:json_build_object
+                                                             [:inline "t"] :created-at
+                                                             [:inline "e"] :entity-id
+                                                             [:inline "md5"] :value-md5]]]
+                                                  :from :next-batch
+                                                  :order-by (cond-> [[:created-at :desc] [:entity_id :desc]]
+                                                              (= :many (:cardinality attr)) (conj [:value-md5 :desc]))
+                                                  :limit 1}]
+                         :data]]
+               :pg-hints [(pg-hints/index-scan :t :triples_created_at_idx)
+                          (pg-hints/index-scan :u :triples_pkey)]}
             res (sql/do-execute! ::unique-next-batch! conn (hsql/format q))
-            update-count (:next.jdbc/update-count (first res))]
-        (tracer/add-data! {:attributes {:update-count update-count}})
-        (add-work-completed! conn update-count job)
-        (when (<= batch-size update-count)
-          [::repeat]))
+            {:strs [updated end-cursor work-completed]} (:data (first res))]
+        (tracer/add-data! {:attributes {:update-count updated
+                                        :work-completed work-completed
+                                        :end-cursor end-cursor}})
+        (when work-completed
+          (add-work-completed! conn work-completed job))
+        (when end-cursor
+          [::repeat {:context {:after end-cursor}}]))
       (catch ExceptionInfo e
         (update-attr! conn {:app-id (:app_id job)
                             :attr-id (:attr_id job)
@@ -941,8 +1109,8 @@
           attrs (attr-model/get-by-app-id conn app-id)
           attr (attr-model/seek-by-id attr-id attrs)
           attr-etype (attr-model/fwd-etype attr)
-          id-attr (->> (attr-model/get-by-app-id conn app-id)
-                       (attr-model/seek-by-fwd-ident-name [attr-etype "id"]))]
+          id-attr (attr-model/seek-by-fwd-ident-name [attr-etype "id"] attrs)
+          cursor (get (current-context job) "after")]
       (if-not id-attr
         (do (update-attr! conn {:app-id  app-id
                                 :attr-id attr-id
@@ -951,44 +1119,73 @@
                                   {::ex/type ::missing-required
                                    ::ex/hint {:attr-id attr-id
                                               :etype attr-etype}})])
-        (let [query {:select :t-id/entity-id
-                     :from [[:triples :t-id]]
-                     :where [:and
-                             [:= :t-id/app-id app-id]
-                             [:= :t-id/attr-id (:id id-attr)]
-                             (cond (:unique? id-attr) :av
-                                   (:indexed? id-attr) :ave
-                                   :else nil)
-                             [:not
-                              [:exists
-                               {:select :1
-                                :from [[:triples :t-a]]
-                                :where [:and
-                                        [:= :t-a/entity-id :t-id/entity-id]
-                                        [:= :t-a/app-id app-id]
-                                        [:= :t-a/attr-id attr-id]
-                                        [:not= :t-a/value [:cast "null" :jsonb]]]}]]]
+        (let [limit (* batch-size 10) ;; just doing a query, so we can do more at once
+              query {:with [[:ids-to-check {:select :*
+                                            :from [[:triples :t-id]]
+                                            :limit [:inline limit]
+                                            :order-by [[:created-at :asc] [:entity_id :asc]]
+                                            :where [:and
+                                                    [:= :app-id app-id]
+                                                    [:= :attr-id (:id id-attr)]
+                                                    (when-let [{:strs [e t]} cursor]
+                                                      [:and
+                                                       ;; The >= does one fast filter on the index
+                                                       [:>= :created-at t]
+                                                       ;; Then we filter out any rows with the same created_at
+                                                       [:or
+                                                        [:> :created-at t]
+                                                        [:and
+                                                         [:= :created-at t]
+                                                         [:> :entity-id (parse-uuid e)]]]])]}]
+                            [:bad-triples {:select :t-id/entity-id
+                                           :from [[:ids-to-check :t-id]]
+                                           :where [:not
+                                                   [:exists
+                                                    {:select :1
+                                                     :from [[:triples :t-a]]
+                                                     :where [:and
+                                                             [:= :t-a/entity-id :t-id/entity-id]
+                                                             [:= :t-a/app-id app-id]
+                                                             [:= :t-a/attr-id attr-id]
+                                                             [:not= :t-a/value [:cast "null" :jsonb]]]}]]}]]
+                     :select [[[:json_build_object
+                                [:inline "invalid-ids"] {:select [[[:json_agg :entity_id]]]
+                                                         :from :bad-triples
+                                                         :limit 10}
+                                [:inline "invalid-count"] {:select :%count.* :from :bad-triples}
+                                [:inline "work-completed"] {:select :%count.* :from :ids-to-check}
+                                [:inline "end-cursor"] {:select [[[:json_build_object
+                                                                   [:inline "t"] :created-at
+                                                                   [:inline "e"] :entity-id]]]
+                                                        :from :ids-to-check
+                                                        :order-by [[:created-at :desc] [:entity_id :desc]]
+                                                        :limit 1}]
+                               :data]]
                      :pg-hints [(pg-hints/index-scan :t-a :triples_pkey)
-                                (pg-hints/index-scan :t-id (cond (:unique? id-attr) :av_index
-                                                                 (:indexed? id-attr) :ave_with_e_index
-                                                                 :else :triples_pkey))]}
-              res (sql/select ::validate-required conn (hsql/format query))]
-          (when (seq res)
-            (update-attr! conn {:app-id  app-id
-                                :attr-id attr-id
-                                :set     {:is-required false}})
-            (let [entity-ids (map :entity_id res)
-                  message (format "Attribute %s (%s) can't be marked required because %s %s entities are missing it."
-                                  (attr-model/fwd-label attr)
-                                  attr-id
-                                  (count entity-ids)
-                                  attr-etype)
-                  data {:count (count entity-ids)
-                        :etype attr-etype
-                        :label (attr-model/fwd-label attr)
-                        :entity-ids (take 10 entity-ids)}]
-              [::exception (ex-info message {::ex/type ::missing-required
-                                             ::ex/hint data})])))))))
+                                (pg-hints/index-scan :t-id :triples_created_at_idx)]}
+              res (sql/select-one ::validate-required conn (hsql/format query))
+              {:strs [invalid-ids invalid-count work-completed end-cursor]} (:data res)]
+          (when work-completed
+            (add-work-completed! conn work-completed job))
+          (if-not (seq invalid-ids)
+            (when end-cursor
+              [::repeat {:context {:after end-cursor}}])
+            (do
+              (update-attr! conn {:app-id  app-id
+                                  :attr-id attr-id
+                                  :set     {:is-required false}})
+              (let [entity-ids (map parse-uuid invalid-ids)
+                    message (format "Attribute %s (%s) can't be marked required because at least %s %s entities are missing it."
+                                    (attr-model/fwd-label attr)
+                                    attr-id
+                                    invalid-count
+                                    attr-etype)
+                    data {:count invalid-count
+                          :etype attr-etype
+                          :label (attr-model/fwd-label attr)
+                          :entity-ids (take 10 entity-ids)}]
+                [::exception (ex-info message {::ex/type ::missing-required
+                                               ::ex/hint data})]))))))))
 
 (defn required--update-attr [conn job]
   (update-attr! conn {:app-id  (:app_id job)
@@ -996,7 +1193,8 @@
                       :set     {:is-required true}}))
 
 (def required--stages
-  [{:stage "validate",    :fn #'required--validate}
+  [{:stage "estimate-work", :fn #'validate-required-work-estimate!}
+   {:stage "validate",    :fn #'required--validate}
    {:stage "update-attr", :fn #'required--update-attr}
    {:stage "revalidate",  :fn #'required--validate}])
 
@@ -1044,7 +1242,15 @@
           (mark-error-from-ex-info! conn res-value job))
 
         (= ::repeat res-type)
-        job
+        (if-let [context (:context res-value)]
+          (let [res (set-context! conn job context)]
+            (when-not res
+              (ex/throw-validation-err! :indexing-jobs
+                                        {:id (:id job)
+                                         :stage (:job_stage job)}
+                                        [{:message "Unable to update context for indexing job."}]))
+            res)
+          job)
 
         (empty? next-stages)
         (mark-job-completed! conn job)
