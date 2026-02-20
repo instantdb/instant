@@ -4633,8 +4633,7 @@
                                        [[:delete-entity file-id "$files"]])
             (is (nil? (app-file-model/get-by-id {:app-id app-id :id file-id})))))
 
-        ;; TODO: Delete this test once we allow file deletion for non-admins
-        (testing "Non-admins cannot delete $files even if rules allow"
+        (testing "Non-admins can delete $files when rules allow"
           (let [{file-id :id} (app-file-model/create! conn
                                                       {:app-id app-id
                                                        :path "non-admin-delete-test.jpg"
@@ -4646,10 +4645,9 @@
              conn
              {:app-id app-id :code {:$files {:allow {:delete "true"}}}})
             (is (some? (app-file-model/get-by-id {:app-id app-id :id file-id})))
-            (is (validation-err?
-                 (permissioned-tx/transact! (make-ctx {:admin? false})
-                                            [[:delete-entity file-id "$files"]])))
-            (is (some? (app-file-model/get-by-id {:app-id app-id :id file-id})))))))))
+            (permissioned-tx/transact! (make-ctx {:admin? false})
+                                       [[:delete-entity file-id "$files"]])
+            (is (nil? (app-file-model/get-by-id {:app-id app-id :id file-id})))))))))
 
 (deftest cascade-works-with-guests
   (with-empty-app
