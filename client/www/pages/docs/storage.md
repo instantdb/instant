@@ -110,10 +110,10 @@ async function uploadImage(file: File) {
   }
 }
 
-// `delete` is what we use to delete a file from storage
+// Use `db.transact` to delete files
 // `$files` will automatically update once the delete is complete
-async function deleteImage(image: InstantFile) {
-  await db.storage.delete(image.path);
+function deleteImage(image: InstantFile) {
+  db.transact(db.tx.$files[image.id].delete());
 }
 
 function App() {
@@ -394,11 +394,17 @@ const { isLoading, error, data } = db.useQuery(user ? query : null);
 
 ### Delete files
 
-Use `db.storage.delete(path)` to delete a file.
+Use `db.transact` to delete files.
 
 ```javascript
-// This will delete the file at 'demo.png'
-await db.storage.delete('demo.png');
+// Delete by id
+db.transact(db.tx.$files[fileId].delete());
+
+// Delete by path
+db.transact(db.tx.$files[lookup('path', 'photos/demo.png')].delete());
+
+// Delete multiple files
+db.transact(fileIds.map((id) => db.tx.$files[id].delete()));
 ```
 
 ### Update files
@@ -549,19 +555,17 @@ const data = db.query(query);
 
 ### Delete files
 
-There are two ways to delete files with the admin SDK:
-
-- `db.storage.delete(pathname: string)`
-- `db.storage.deleteMany(pathnames: string[])`
-
-These allow you to either delete a single file, or bulk delete multiple files at a time.
+Use `db.transact` to delete files.
 
 ```ts
-const filename = 'demo.txt';
-await db.storage.delete(filename);
+// Delete by id
+await db.transact(db.tx.$files[fileId].delete());
 
-const images = ['images/1.png', 'images/2.png', 'images/3.png'];
-await db.storage.deleteMany(images);
+// Delete by path
+await db.transact(db.tx.$files[lookup('path', 'photos/demo.png')].delete());
+
+// Delete multiple files
+await db.transact(fileIds.map((id) => db.tx.$files[id].delete()));
 ```
 
 ### Link files

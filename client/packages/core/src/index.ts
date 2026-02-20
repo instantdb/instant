@@ -490,9 +490,18 @@ class Storage {
   /**
    * Deletes a file by path name.
    *
-   * @see https://instantdb.com/docs/storage
+   * @deprecated Use `db.transact` to delete files instead:
    * @example
-   *   await db.storage.delete('photos/demo.png');
+   *   // Delete by id
+   *   db.transact(db.tx.$files[fileId].delete());
+   *
+   *   // Delete by path
+   *   db.transact(db.tx.$files[lookup('path', 'photos/demo.png')].delete());
+   *
+   *   // Delete multiple files
+   *   db.transact(fileIds.map(id => db.tx.$files[id].delete()));
+   *
+   * @see https://instantdb.com/docs/storage
    */
   delete = (pathname: string) => {
     return this.db.deleteFile(pathname);
