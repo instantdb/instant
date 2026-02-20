@@ -67,7 +67,7 @@
 
 (defn code-for-prompt [prompt]
   (let [matches (best-matching-prompts prompt)
-        match (if-let [over-threshold (seq (filter #(> 0.7 (:score %))
+        match (if-let [over-threshold (seq (filter #(< 0.7 (:score %))
                                                    matches))]
                 (rand-nth over-threshold)
                 (first matches))
