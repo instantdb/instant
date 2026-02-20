@@ -177,7 +177,7 @@ export function BareNav({ children }: PropsWithChildren) {
           // layout
           'grow flex-col items-start gap-4 px-8 py-4 min-[60rem]:flex-row min-[60rem]:items-center min-[60rem]:justify-between min-[60rem]:gap-4 min-[60rem]:p-0',
           // look and feel
-          'bg-white/90 backdrop-blur-xl min-[60rem]:bg-transparent',
+          'bg-white/90 min-[60rem]:bg-transparent',
           {
             flex: isOpen,
           },

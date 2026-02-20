@@ -565,7 +565,7 @@ function Dashboard() {
       <div className="bg-gray-50 dark:bg-neutral-800/90">
         <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 md:flex-row md:gap-4 dark:border-b-neutral-700">
           <div className="flex items-center gap-2">
-            <h2 className="font-mono font-bold md:text-xl">{app.title}</h2>
+            <h2 className="font-semibold md:text-xl">{app.title}</h2>
             {dashResponse.data.workspace.type === 'org' && (
               <Badge>{capitalize(dashResponse.data.workspace.org.role)}</Badge>
             )}
@@ -752,7 +752,7 @@ export function HomeButton({
       onClick={onClick}
     >
       <div>
-        <div className="font-mono font-bold">{title}</div>
+        <div className="font-bold">{title}</div>
         <div className="text-sm text-gray-500 dark:text-neutral-400">
           {children}
         </div>
