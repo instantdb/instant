@@ -37,7 +37,7 @@ export function makeE2ETest<Schema extends InstantSchemaDef<any, any, any>>({
         body: JSON.stringify({ title: `e2e-${task.id}`, schema, rules }),
         headers: { 'Content-Type': 'application/json' },
         method: 'POST',
-        signal,
+        signal: AbortSignal.any([signal, AbortSignal.timeout(4000)]),
       });
       if (!response.ok) {
         throw new Error(await response.text());

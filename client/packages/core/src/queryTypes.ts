@@ -378,7 +378,7 @@ type InstaQLEntity<
     InstaQLEntitySubqueryResult<Schema, EntityName, Subquery, UseDates>
 >;
 
-type InstaQLQueryEntityResult<
+export type InstaQLQueryEntityResult<
   Entities extends EntitiesDef,
   EntityName extends keyof Entities,
   Query extends {
@@ -712,7 +712,6 @@ export {
   InstaQLQueryResult,
   InstaQLParams,
   InstaQLOptions,
-  InstaQLQueryEntityResult,
   InstaQLEntitySubquery,
   InstaQLEntity,
   InstaQLResult,
