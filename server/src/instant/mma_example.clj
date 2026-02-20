@@ -81,7 +81,6 @@
                         :etype "builds"}
                        (fn [{:keys [get-entity]}]
                          (:code (get-entity (:build-id match)))))]
-    (tool/def-locals)
     {:code code
      :prompt original-prompt}))
 
