@@ -1034,7 +1034,7 @@ export function Copyable({
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600',
+              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600 dark:hover:bg-neutral-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -1054,7 +1054,7 @@ export function Copyable({
               }, 2500);
             }}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600',
+              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600 dark:hover:bg-neutral-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
