@@ -42,7 +42,7 @@
    [{:message message}]))
 
 (defn- validate-system-delete-entity! [{:keys [admin?]} {:keys [etype] :as tx-step}]
-  (when-not admin?
+  (when-not (or admin? (= "$files" etype))
     (throw-tx-step-validation-err! tx-step
                                    (format "%s is a system entity. You aren't allowed to delete this directly." etype))))
 

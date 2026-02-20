@@ -110,12 +110,6 @@ async function uploadImage(file: File) {
   }
 }
 
-// `delete` is what we use to delete a file from storage
-// `$files` will automatically update once the delete is complete
-async function deleteImage(image: InstantFile) {
-  await db.storage.delete(image.path);
-}
-
 function App() {
   // $files is the special namespace for querying storage data
   const { isLoading, error, data } = db.useQuery({
@@ -211,33 +205,19 @@ function ImageUpload() {
 }
 
 function ImageGrid({ images }: { images: InstantFile[] }) {
-  const [deletingIds, setDeletingIds] = React.useState<Set<string>>(new Set());
-
+  // Use `db.transact` to delete files
   const handleDelete = async (image: InstantFile) => {
-    setDeletingIds((prev) => new Set([...prev, image.id]));
-
-    await deleteImage(image);
-
-    setDeletingIds((prev) => {
-      prev.delete(image.id);
-      return prev;
-    });
+    db.transact(db.tx.$files[image.id].delete());
   }
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 w-full max-w-6xl">
       {images.map((image) => {
-        const isDeleting = deletingIds.has(image.id);
         return (
           <div key={image.id} className="border border-gray-300 rounded-lg overflow-hidden">
             <div className="relative">
               {/* $files entities come with a `url` property */}
               <img src={image.url} alt={image.path} className="w-full h-64 object-cover" />
-              {isDeleting && (
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                  <div className="w-8 h-8 border-2 border-t-2 border-gray-200 border-t-white rounded-full animate-spin"></div>
-                </div>
-              )}
             </div>
 
             <div className="p-3 flex justify-between items-center bg-white">
@@ -394,11 +374,17 @@ const { isLoading, error, data } = db.useQuery(user ? query : null);
 
 ### Delete files
 
-Use `db.storage.delete(path)` to delete a file.
+Use `db.transact` to delete files.
 
 ```javascript
-// This will delete the file at 'demo.png'
-await db.storage.delete('demo.png');
+// Delete by id
+db.transact(db.tx.$files[fileId].delete());
+
+// Delete by path
+db.transact(db.tx.$files[lookup('path', 'photos/demo.png')].delete());
+
+// Delete multiple files
+db.transact(fileIds.map((id) => db.tx.$files[id].delete()));
 ```
 
 ### Update files
@@ -549,19 +535,17 @@ const data = db.query(query);
 
 ### Delete files
 
-There are two ways to delete files with the admin SDK:
-
-- `db.storage.delete(pathname: string)`
-- `db.storage.deleteMany(pathnames: string[])`
-
-These allow you to either delete a single file, or bulk delete multiple files at a time.
+Use `db.transact` to delete files.
 
 ```ts
-const filename = 'demo.txt';
-await db.storage.delete(filename);
+// Delete by id
+await db.transact(db.tx.$files[fileId].delete());
 
-const images = ['images/1.png', 'images/2.png', 'images/3.png'];
-await db.storage.deleteMany(images);
+// Delete by path
+await db.transact(db.tx.$files[lookup('path', 'photos/demo.png')].delete());
+
+// Delete multiple files
+await db.transact(fileIds.map((id) => db.tx.$files[id].delete()));
 ```
 
 ### Link files

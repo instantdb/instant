@@ -845,9 +845,15 @@ class Storage {
   /**
    * Deletes a file by its path name (e.g. "photos/demo.png").
    *
-   * @see https://instantdb.com/docs/storage
+   * @deprecated Use `db.transact` to delete files instead:
    * @example
-   *   await db.storage.delete("photos/demo.png");
+   *   // Delete by id
+   *   await db.transact(db.tx.$files[fileId].delete());
+   *
+   *   // Delete by path
+   *   await db.transact(db.tx.$files[lookup('path', 'photos/demo.png')].delete());
+   *
+   * @see https://instantdb.com/docs/storage
    */
   delete = async (pathname: string): Promise<DeleteFileResponse> => {
     return jsonFetch(
@@ -862,11 +868,15 @@ class Storage {
   };
 
   /**
-   * Deletes multiple files by their path names (e.g. "photos/demo.png", "essays/demo.txt").
+   * Deletes multiple files by their path names.
+   *
+   * @deprecated Use `db.transact` to delete files instead:
+   * @example
+   *   // Delete multiple files by path
+   *   const paths = ['images/1.png', 'images/2.png', 'images/3.png'];
+   *   await db.transact(paths.map(p => db.tx.$files[lookup('path', p)].delete()));
    *
    * @see https://instantdb.com/docs/storage
-   * @example
-   *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
    */
   deleteMany = async (pathnames: string[]): Promise<DeleteManyFileResponse> => {
     return jsonFetch(

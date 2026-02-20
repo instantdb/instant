@@ -4604,7 +4604,7 @@
                                             [[:add-triple file-id id-attr-id file-id]
                                              [:add-triple file-id loc-attr-id "new-location"]])))))))))
 
-(deftest $files-deletes
+(deftest $files-permissions
   (with-empty-app
     (fn [{app-id :id}]
       (let [conn (aurora/conn-pool :write)
@@ -4618,38 +4618,54 @@
                          :datalog-query-fn d/query
                          :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
                          :current-user     nil
-                         :admin?           admin?}))]
+                         :admin?           admin?}))
+            create-file! (fn [path]
+                           (app-file-model/create! conn
+                                                   {:app-id app-id
+                                                    :path path
+                                                    :location-id (str (random-uuid))
+                                                    :metadata {:size 100
+                                                               :content-type "image/jpeg"
+                                                               :content-disposition "inline"}}))
+            app-attrs (fn [] (attr-model/get-by-app-id app-id))
+            path-attr-id (fn [] (attr-model/resolve-attr-id (app-attrs) "$files" "path"))]
 
-        (testing "Admins can delete $files via transact"
-          (let [{file-id :id} (app-file-model/create! conn
-                                                      {:app-id app-id
-                                                       :path "admin-delete-test.jpg"
-                                                       :location-id (str (random-uuid))
-                                                       :metadata {:size 100
-                                                                  :content-type "image/jpeg"
-                                                                  :content-disposition "inline"}})]
+        (testing "Default permissions deny all actions for non-admins"
+          (let [{file-id :id} (create-file! "default-deny-test.jpg")]
+            (testing "delete is denied"
+              (is (perm-err?
+                   (permissioned-tx/transact! (make-ctx {:admin? false})
+                                              [[:delete-entity file-id "$files"]]))))
+            (testing "update is denied"
+              (is (perm-err?
+                   (permissioned-tx/transact! (make-ctx {:admin? false})
+                                              [[:add-triple file-id (path-attr-id) "new-path.jpg"]]))))))
+
+        (testing "Admins can delete $files"
+          (let [{file-id :id} (create-file! "admin-delete-test.jpg")]
             (is (some? (app-file-model/get-by-id {:app-id app-id :id file-id})))
             (permissioned-tx/transact! (make-ctx {:admin? true})
                                        [[:delete-entity file-id "$files"]])
             (is (nil? (app-file-model/get-by-id {:app-id app-id :id file-id})))))
 
-        ;; TODO: Delete this test once we allow file deletion for non-admins
-        (testing "Non-admins cannot delete $files even if rules allow"
-          (let [{file-id :id} (app-file-model/create! conn
-                                                      {:app-id app-id
-                                                       :path "non-admin-delete-test.jpg"
-                                                       :location-id (str (random-uuid))
-                                                       :metadata {:size 100
-                                                                  :content-type "image/jpeg"
-                                                                  :content-disposition "inline"}})]
+        (testing "Non-admins can delete $files when rules allow"
+          (let [{file-id :id} (create-file! "non-admin-delete-test.jpg")]
             (rule-model/put!
              conn
              {:app-id app-id :code {:$files {:allow {:delete "true"}}}})
             (is (some? (app-file-model/get-by-id {:app-id app-id :id file-id})))
-            (is (validation-err?
+            (permissioned-tx/transact! (make-ctx {:admin? false})
+                                       [[:delete-entity file-id "$files"]])
+            (is (nil? (app-file-model/get-by-id {:app-id app-id :id file-id})))))
+
+        (testing "Non-admins can update $files when rules allow"
+          (let [{file-id :id} (create-file! "non-admin-update-test.jpg")]
+            (rule-model/put!
+             conn
+             {:app-id app-id :code {:$files {:allow {:update "true"}}}})
+            (is (perm-pass?
                  (permissioned-tx/transact! (make-ctx {:admin? false})
-                                            [[:delete-entity file-id "$files"]])))
-            (is (some? (app-file-model/get-by-id {:app-id app-id :id file-id})))))))))
+                                            [[:add-triple file-id (path-attr-id) "updated-path.jpg"]])))))))))
 
 (deftest cascade-works-with-guests
   (with-empty-app
