@@ -28,6 +28,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.lib.ring.undertow :as undertow-adapter]
+   [instant.mma-example :as mma-example]
    [instant.machine-summaries]
    [instant.nippy]
    [instant.nrepl :as nrepl]
@@ -177,7 +178,8 @@
                       stripe-webhook-routes
                       health/routes
                       oauth-app-routes/routes
-                      demo-routes/routes)
+                      demo-routes/routes
+                      mma-example/routes)
               (wrap-routes http-util/tracer-record-route)
               http-util/tracer-record-attrs
               wrap-keyword-params
