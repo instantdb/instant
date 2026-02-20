@@ -22,6 +22,13 @@ module.exports = [
         optionalLLM: true,
       },
       {
+        title: 'Getting started w/ SolidJS',
+        href: '/docs/start-solidjs',
+        prevHref: null,
+        nextHref: '/docs/create-instant-app',
+        optionalLLM: true,
+      },
+      {
         title: 'Getting started w/ TanStack Start',
         href: '/docs/start-tanstack',
         prevHref: null,
