@@ -1,6 +1,6 @@
 ---
-title: Getting started with Solid JS
-description: How to use Instant with Solid JS
+title: Getting started with SolidJS
+description: How to use Instant with SolidJS
 ---
 
 InstantDB has an [official package for Solid](https://www.npmjs.com/package/@instantdb/solidjs). It supports all of the same features of the React version with some key differences.
@@ -73,7 +73,7 @@ Add the InstantDB SolidJS Library:
 npm i @instantdb/solidjs
 ```
 
-Use `instant-cli` to set up a new Instant project. This will prompt you to log in if you haven't already., It will then create a schema file, permissions file, and update your `.env` file.
+Use `instant-cli` to set up a new Instant project. This will prompt you to log in if you haven't already. It will then create a schema file, permissions file, and update your `.env` file.
 
 ```shell
 npx instant-cli init
@@ -296,7 +296,7 @@ function Welcome() {
   return (
     <div class="bg-white p-6 rounded-lg border border-neutral-200 shadow flex justify-center flex-col gap-2">
       <h2 class="tracking-wide text-[#F54A00] text-2xl text-center">
-        Solid + Vite + Instant DB
+        Solid + Vite + InstantDB
       </h2>
       <div class="grid grid-cols-1 md:grid-cols-2 grow gap-2">
         <a
