@@ -21,7 +21,7 @@
                     1000))
 
 (defmacro check-estimate [job]
-  `(let [finished-job# (jobs/get-by-id (:id ~job))]
+  `(let [finished-job# (tool/inspect (jobs/get-by-id (:id ~job)))]
      (is (pos? (:work_estimate finished-job#)))
      (let [estimate# (:work_estimate finished-job#)
            completed# (:work_completed finished-job#)]
@@ -595,39 +595,42 @@
   (with-indexing-job-queue job-queue
     (with-zeneca-app
       (fn [app r]
-        (let [title-job (jobs/create-job!
-                         {:app-id (:id app)
-                          :attr-id (resolvers/->uuid r :books/title)
-                          :job-type "required"})
+        (with-redefs [jobs/batch-size 10]
+          (with-sketches app
+            (let [title-job (jobs/create-job!
+                             {:app-id (:id app)
+                              :attr-id (resolvers/->uuid r :books/title)
+                              :job-type "required"})
 
-              _ (jobs/enqueue-job job-queue title-job)
-              _ (wait-for (fn []
-                            (every? (fn [{:keys [id]}]
-                                      (= "completed" (:job_status (jobs/get-by-id id))))
-                                    [title-job]))
-                          wait-timeout)
-              attrs (attr-model/get-by-app-id (:id app))]
+                  _ (jobs/enqueue-job job-queue title-job)
+                  _ (wait-for (fn []
+                                (every? (fn [{:keys [id]}]
+                                          (= "completed" (:job_status (jobs/get-by-id id))))
+                                        [title-job]))
+                              wait-timeout)
+                  attrs (attr-model/get-by-app-id (:id app))]
 
-          (is (-> (resolvers/->uuid r :books/title)
-                  (attr-model/seek-by-id attrs)
-                  :required?)))
-        (testing "remove-required-works"
-          (let [title-job (jobs/create-job!
-                           {:app-id (:id app)
-                            :attr-id (resolvers/->uuid r :books/title)
-                            :job-type "remove-required"})
+              (is (-> (resolvers/->uuid r :books/title)
+                      (attr-model/seek-by-id attrs)
+                      :required?))
+              (check-estimate title-job))
+            (testing "remove-required-works"
+              (let [title-job (jobs/create-job!
+                               {:app-id (:id app)
+                                :attr-id (resolvers/->uuid r :books/title)
+                                :job-type "remove-required"})
 
-                _ (jobs/enqueue-job job-queue title-job)
-                _ (wait-for (fn []
-                              (every? (fn [{:keys [id]}]
-                                        (= "completed" (:job_status (jobs/get-by-id id))))
-                                      [title-job]))
-                            wait-timeout)
-                attrs (attr-model/get-by-app-id (:id app))]
+                    _ (jobs/enqueue-job job-queue title-job)
+                    _ (wait-for (fn []
+                                  (every? (fn [{:keys [id]}]
+                                            (= "completed" (:job_status (jobs/get-by-id id))))
+                                          [title-job]))
+                                wait-timeout)
+                    attrs (attr-model/get-by-app-id (:id app))]
 
-            (is (not (-> (resolvers/->uuid r :books/title)
-                         (attr-model/seek-by-id attrs)
-                         :required?)))))))))
+                (is (not (-> (resolvers/->uuid r :books/title)
+                             (attr-model/seek-by-id attrs)
+                             :required?)))))))))))
 
 
 (deftest required-works-with-errors
