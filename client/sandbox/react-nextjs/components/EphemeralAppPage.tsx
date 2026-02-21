@@ -11,7 +11,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { RoomsDef, TransactionChunk } from '../../../packages/core/dist/esm';
 import { IContainEntitiesAndLinks } from '../../../packages/core/dist/esm/schemaTypes';
-import { Explorer } from '@instantdb/components';
+import { Explorer, Toaster } from '@instantdb/components';
 
 function getStoredAdminToken(appId: string): string | null {
   try {
@@ -94,6 +94,7 @@ export async function provisionEphemeralApp<
       appId: res.app.id,
       schema: schema,
       useDateObjects,
+      devtool: false,
     });
     onCreateApp(db);
   }
@@ -150,6 +151,8 @@ function AppPage<
 }) {
   const router = useRouter();
   const [appId, setAppId] = useState<string | undefined>();
+  const [adminToken, setAdminToken] = useState<string | null>(null);
+  const [explorerOpen, setExplorerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const provisionApp = async () => {
@@ -174,6 +177,11 @@ function AppPage<
         });
 
         setAppId(res.app.id);
+        const token = res.app['admin-token'];
+        if (token) {
+          storeAdminToken(res.app.id, token);
+          setAdminToken(token);
+        }
       } else {
         console.log(res);
         setError('Could not create app.');
@@ -185,9 +193,18 @@ function AppPage<
 
   useEffect(() => {
     if (urlAppId) {
+      const stored = getStoredAdminToken(urlAppId);
+      if (stored) {
+        setAdminToken(stored);
+      }
       verifyEphemeralApp({ appId: urlAppId })
         .then((res): any => {
           setAppId(res.app.id);
+          const token = res.app['admin-token'];
+          if (token) {
+            storeAdminToken(res.app.id, token);
+            setAdminToken(token);
+          }
         })
         .catch((err) => {
           if (
@@ -231,10 +248,76 @@ function AppPage<
     schema,
     appId,
     useDateObjects,
+    devtool: false,
   };
   const db = init(finalConfig);
 
-  return <Component key={appId} db={db} appId={appId} />;
+  return (
+    <div>
+      <Component key={appId} db={db} appId={appId} />
+      {adminToken && (
+        <>
+          <button
+            onClick={() => setExplorerOpen((o) => !o)}
+            style={{
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
+              zIndex: 9010,
+              padding: 0,
+              margin: 0,
+              border: 'none',
+              cursor: 'pointer',
+              background: 'none',
+            }}
+          >
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 512 512"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect width="512" height="512" fill="black" />
+              <rect
+                x="97.0973"
+                y="91.3297"
+                width="140"
+                height="330"
+                fill="white"
+              />
+            </svg>
+          </button>
+          {explorerOpen && (
+            <div
+              style={{
+                position: 'fixed',
+                top: '72px',
+                left: '24px',
+                right: '60px',
+                bottom: '24px',
+                zIndex: 999990,
+                borderRadius: '4px',
+                border: '1px #ccc solid',
+                boxShadow: '0px 0px 8px #00000044',
+                backgroundColor: '#fff',
+                overflow: 'hidden',
+              }}
+            >
+              <Explorer
+                appId={appId}
+                adminToken={adminToken}
+                apiURI={config.apiURI}
+                websocketURI={config.websocketURI}
+                //useShadowDOM={true}
+              />
+              <Toaster position="top-right" />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 function Page<
