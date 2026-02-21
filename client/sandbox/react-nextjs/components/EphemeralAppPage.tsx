@@ -309,7 +309,6 @@ function AppPage<
                 adminToken={adminToken}
                 apiURI={config.apiURI}
                 websocketURI={config.websocketURI}
-                //useShadowDOM={true}
               />
               <Toaster position="top-right" />
             </div>
