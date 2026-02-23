@@ -22,6 +22,7 @@ export const useStableDB = ({
         // @ts-ignore
         __adminToken: adminToken,
         disableValidation: true,
+        devtool: false,
       }),
     [appId, apiURI, websocketURI, adminToken],
   );
