@@ -365,7 +365,7 @@ Without `onDelete`, deleting a profile would simply delete the links but not del
 
 If you prefer to model links in other direction, you can do it, too:
 
-```
+```typescript
 postAuthor: {
   forward: { on: "profiles", has: "many", label: "authoredPosts" },
   reverse: { on: "posts", has: "one", label: "author", onDelete: "cascade" },
@@ -392,7 +392,7 @@ await db.transact([db.tx.profiles[user_id].delete(), db.tx.posts[linked_post_id]
 
 If you prefer to model links in other direction, you can do it, too:
 
-```
+```typescript
 postAuthor: {
   forward: { on: "profiles", has: "many", label: "authoredPosts" },
   reverse: { on: "posts", has: "one", label: "author", onDelete: "restrict" },

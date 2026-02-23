@@ -527,14 +527,22 @@
                                         "reverse" :on-delete-reverse)
                             cascade-rule (-> (attr-model/seek-by-id attr_id attrs)
                                              (get on-delete))]
-                        (when (and (= cascade-rule :restrict)
-                                   (not (contains? original-deleted-entities [entity_id etype])))
-                          (ex/throw-validation-err! :on-delete-restrict
-                                                    (map vectorize-tx-step tx-step-maps)
-                                                    [{:message (format "This transaction violates an on-delete constraint. The `%s` entity cannot be deleted unless its linked `%s` entity is deleted first."
-                                                                       parent_etype
-                                                                       etype)}])))
-                      ent))
+                        (case cascade-rule
+                          :restrict
+                          (when (and (= cascade-rule :restrict)
+                                     (not (contains? original-deleted-entities [entity_id etype])))
+                            (ex/throw-validation-err!
+                             :on-delete-restrict
+                             (map vectorize-tx-step tx-step-maps)
+                             [{:message (format (clojure.string/join
+                                                 " "
+                                                 ["This transaction violates an on-delete constraint."
+                                                  "The `%s` entity cannot be deleted unless its"
+                                                  "linked `%s` entity is deleted first."]                                                 )
+                                                parent_etype
+                                                etype)}]))
+                          #_else
+                          ent))))
                   res)
 
             steps (concat
