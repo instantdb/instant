@@ -1013,7 +1013,7 @@ function RelationshipConfigurator({
                 </strong>
               </div>
               When a <strong>{namespaceName}</strong> entity is deleted, all
-              linked <strong>{reverseNamespaceName}</strong> must be deleted
+              linked <strong>{reverseNamespaceName}</strong> will be deleted
               automatically
             </span>
           }
