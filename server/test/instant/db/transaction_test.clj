@@ -4835,10 +4835,50 @@
           (is (= #{}
                  (test-util/find-entids-by-ids app-id attr->id ids))))))))
 
+(deftest on-delete-restrict
+  (with-empty-app
+    (fn [{app-id :id}]
+      ;; user <- book
+      (let [attr->id   (test-util/make-attrs
+                        app-id
+                        [[:user/name :unique? :index?]
+                         [:book/title :unique? :index?]
+                         [[:book/author :user/books] :on-delete-restrict]])
+            ids        #{(suid "a") (suid "b1") (suid "b2") (suid "b3")}
+            attr-model (attr-model/get-by-app-id app-id)]
+
+        (test-util/insert-entities
+         app-id attr->id
+         [{:db/id (suid "a")  :user/name "Leo Tolstoy"}
+          {:db/id (suid "b1") :book/title "War and Peace" :book/author (suid "a")}
+          {:db/id (suid "b2") :book/title "Anna Karenina" :book/author (suid "a")}
+          {:db/id (suid "b3") :book/title "Death of Ivan Ilyich" :book/author (suid "a")}])
+        (is (= #{(suid "a") (suid "b1") (suid "b2") (suid "b3")}
+               (test-util/find-entids-by-ids app-id attr->id ids)))
+
+        (testing "deleting book doesn’t delete user"
+          (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "b1") "book"]])
+          (is (= #{(suid "a") (suid "b2") (suid "b3")}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))
+
+        (testing "deleting user is blocked if you don't delete the book"
+          (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                                #"violates an on-delete constraint"
+                                (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "user"]])))
+          (is (= #{(suid "a") (suid "b2") (suid "b3")}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))
+
+        (testing "deleting user works if you also delete the book"
+          (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "user"]
+                                                                     [:delete-entity (suid "b2") "book"]
+                                                                     [:delete-entity (suid "b3") "book"]])
+          (is (= #{}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))))))
+
 (deftest on-delete-cascade-reverse
   (with-empty-app
     (fn [{app-id :id}]
-      ;;; user -> book
+      ;; user -> book
       (let [attr->id   (test-util/make-attrs
                         app-id
                         [[:user/name :unique? :index?]
@@ -4866,10 +4906,50 @@
           (is (= #{}
                  (test-util/find-entids-by-ids app-id attr->id ids))))))))
 
+(deftest on-delete-restrict-reverse
+  (with-empty-app
+    (fn [{app-id :id}]
+      ;; user -> book
+      (let [attr->id   (test-util/make-attrs
+                        app-id
+                        [[:user/name :unique? :index?]
+                         [:book/title :unique? :index?]
+                         [[:user/books :book/author] :many :unique? :on-delete-reverse-restrict]])
+            ids        #{(suid "a") (suid "b1") (suid "b2") (suid "b3")}
+            attr-model (attr-model/get-by-app-id app-id)]
+
+        (test-util/insert-entities
+         app-id attr->id
+         [{:db/id (suid "a")  :user/name "Leo Tolstoy" :user/books [(suid "b1") (suid "b2") (suid "b3")]}
+          {:db/id (suid "b1") :book/title "War and Peace"}
+          {:db/id (suid "b2") :book/title "Anna Karenina"}
+          {:db/id (suid "b3") :book/title "Death of Ivan Ilyich"}])
+        (is (= #{(suid "a") (suid "b1") (suid "b2") (suid "b3")}
+               (test-util/find-entids-by-ids app-id attr->id ids)))
+
+        (testing "deleting book doesn’t delete user"
+          (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "b1") "book"]])
+          (is (= #{(suid "a") (suid "b2") (suid "b3")}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))
+
+        (testing "deleting user is blocked if you don't delete the book"
+          (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                                #"violates an on-delete constraint"
+                                (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "user"]])))
+          (is (= #{(suid "a") (suid "b2") (suid "b3")}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))
+
+        (testing "deleting user works if you also delete the book"
+          (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "user"]
+                                                                     [:delete-entity (suid "b2") "book"]
+                                                                     [:delete-entity (suid "b3") "book"]])
+          (is (= #{}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))))))
+
 (deftest on-delete-cascade-mixed
   (with-empty-app
     (fn [{app-id :id}]
-      ;;; A <- B -> C <- D -> E <- F
+      ;; A <- B -> C <- D -> E <- F
       (let [attr->id (test-util/make-attrs
                       app-id
                       [[:A/id :unique? :index?]
@@ -4899,6 +4979,53 @@
         (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "A"]])
         (is (= #{} (test-util/find-entids-by-ids app-id attr->id ids)))))))
 
+(deftest on-delete-restrict-mixed
+  (with-empty-app
+    (fn [{app-id :id}]
+      ;; A <- B -> C <- D -> E <- F
+      (let [attr->id (test-util/make-attrs
+                      app-id
+                      [[:A/id :unique? :index?]
+                       [:B/id :unique? :index?]
+                       [[:B/a :A/bs] :on-delete]
+                       [[:B/c :C/bs] :many :unique? :on-delete-reverse-restrict]
+                       [:C/id :unique? :index?]
+                       [:D/id :unique? :index?]
+                       [[:D/c :C/ds] :on-delete]
+                       [[:D/e :E/ds] :many :unique? :on-delete-reverse-restrict]
+                       [:E/id :unique? :index?]
+                       [:F/id :unique? :index?]
+                       [[:F/e :E/fs] :on-delete]])
+            ids #{(suid "a") (suid "b") (suid "c") (suid "d") (suid "e") (suid "f")}
+            attr-model (attr-model/get-by-app-id app-id)]
+
+        (test-util/insert-entities
+         app-id attr->id
+         [{:db/id (suid "a") :A/id (suid "a")}
+          {:db/id (suid "b") :B/id (suid "b") :B/a (suid "a") :B/c (suid "c")}
+          {:db/id (suid "c") :C/id (suid "c")}
+          {:db/id (suid "d") :D/id (suid "d") :D/c (suid "c") :D/e (suid "e")}
+          {:db/id (suid "e") :E/id (suid "e")}
+          {:db/id (suid "f") :F/id (suid "f") :F/e (suid "e")}])
+        (is (= ids (test-util/find-entids-by-ids app-id attr->id ids)))
+
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"violates an on-delete constraint"
+                              (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "A"]])))
+        (is (= ids (test-util/find-entids-by-ids app-id attr->id ids)))
+
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"violates an on-delete constraint"
+                              (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "A"]
+                                                                                         [:delete-entity (suid "c") "C"]])))
+        (is (= ids (test-util/find-entids-by-ids app-id attr->id ids)))
+
+        (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "A"]
+                                                                   [:delete-entity (suid "c") "C"]
+                                                                   [:delete-entity (suid "e") "E"]])
+
+        (is (= #{} (test-util/find-entids-by-ids app-id attr->id ids)))))))
+
 (deftest on-delete-cascade-cycle
   (with-empty-app
     (fn [{app-id :id}]
@@ -4917,6 +5044,36 @@
                (test-util/find-entids-by-ids app-id attr->id ids)))
 
         (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "users"]])
+        (is (= #{}
+               (test-util/find-entids-by-ids app-id attr->id ids)))))))
+
+(deftest on-delete-restrict-cycle
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [attr->id   (test-util/make-attrs
+                        app-id
+                        [[:users/name :unique? :index?]
+                         [[:users/friend :users/friend-of] :unique? :on-delete-restrict]])
+            ids        #{(suid "a") (suid "b")}
+            attr-model (attr-model/get-by-app-id app-id)]
+
+        (test-util/insert-entities
+         app-id attr->id
+         [{:db/id (suid "a") :users/name "Ivan" :users/friend (suid "b")}
+          {:db/id (suid "b") :users/name "Oleg" :users/friend (suid "a")}])
+        (is (= #{(suid "a") (suid "b")}
+               (test-util/find-entids-by-ids app-id attr->id ids)))
+
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"violates an on-delete constraint"
+                              (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "users"]])))
+
+        (is (= #{(suid "a") (suid "b")}
+               (test-util/find-entids-by-ids app-id attr->id ids)))
+
+        (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:delete-entity (suid "a") "users"]
+                                                                   [:delete-entity (suid "b") "users"]])
+
         (is (= #{}
                (test-util/find-entids-by-ids app-id attr->id ids)))))))
 

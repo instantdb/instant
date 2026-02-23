@@ -51,25 +51,40 @@ const renderLinkUpdate = (
 
     reverseLabel = ` <-> ${oldAttr['reverse-identity']![1]}.${oldAttr['reverse-identity']![2]}`;
 
-    if (!oldAttr['on-delete'] && tx.partialAttr['on-delete']) {
-      details.push(
-        `(SET ON DELETE ${oldAttr['reverse-identity']![1]} CASCADE DELETE ${oldAttr['forward-identity'][1]})`,
-      );
+    const prevOnDelete = oldAttr['on-delete'];
+    const newOnDelete = tx.partialAttr['on-delete'];
+
+    if (prevOnDelete != newOnDelete) {
+      if (prevOnDelete) {
+        const action = prevOnDelete.toUpperCase();
+        details.push(
+          `(REMOVE ${action} DELETE ON ${oldAttr['reverse-identity']![1]})`,
+        );
+      }
+      if (newOnDelete) {
+        const action = newOnDelete.toUpperCase();
+        details.push(
+          `(SET ON DELETE ${oldAttr['reverse-identity']![1]} ${action} DELETE ${oldAttr['forward-identity'][1]})`,
+        );
+      }
     }
-    if (!oldAttr['on-delete-reverse'] && tx.partialAttr['on-delete-reverse']) {
-      details.push(
-        `(SET ON DELETE ${oldAttr['forward-identity']![1]} CASCADE DELETE ${oldAttr['reverse-identity']![1]})`,
-      );
-    }
-    if (oldAttr['on-delete'] && !oldAttr['on-delete-reverse']) {
-      details.push(
-        `(REMOVE CASCADE DELETE ON ${oldAttr['reverse-identity']![1]})`,
-      );
-    }
-    if (oldAttr['on-delete-reverse'] && !oldAttr['on-delete-reverse']) {
-      details.push(
-        `(REMOVE REVERSE CASCADE DELETE ON ${oldAttr['forward-identity'][1]})`,
-      );
+
+    const prevOnDeleteReverse = oldAttr['on-delete-reverse'];
+    const newOnDeleteReverse = tx.partialAttr['on-delete-reverse'];
+
+    if (prevOnDeleteReverse != newOnDeleteReverse) {
+      if (prevOnDeleteReverse) {
+        const action = prevOnDeleteReverse.toUpperCase();
+        details.push(
+          `(REMOVE REVERSE ${action} DELETE ON ${oldAttr['reverse-identity']![1]})`,
+        );
+      }
+      if (newOnDeleteReverse) {
+        const action = newOnDeleteReverse.toUpperCase();
+        details.push(
+          `(SET ON DELETE ${oldAttr['forward-identity']![1]} ${action} DELETE ${oldAttr['reverse-identity']![1]})`,
+        );
+      }
     }
   }
 

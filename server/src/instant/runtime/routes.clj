@@ -1,5 +1,6 @@
 (ns instant.runtime.routes
   (:require
+   [clojure.java.io :as io]
    [clojure.string :as string]
    [compojure.core :as compojure :refer [defroutes GET POST]]
    [datascript.core :refer [squuid]]
@@ -40,6 +41,7 @@
    [ring.middleware.cookies :refer [wrap-cookies]]
    [ring.util.http-response :as response])
   (:import
+   (java.io InputStream)
    (java.util UUID)))
 
 ;; ----
@@ -60,14 +62,28 @@
                                  {:id (squuid)
                                   :app-id app-id})))
 
+(defn handle-chunked-sse-post [req]
+  (tool/def-locals)
+  (try
+    (with-open [rdr (io/reader (:body req))]
+      (doseq [line (line-seq rdr)]
+        (println "Received chunk:" line)))
+    (catch java.nio.channels.ClosedChannelException _
+      (println "Channel closed."))
+    (catch Exception e
+      (println "Error reading stream:" e)))
+  (response/ok {:status "received"}))
+
 (defn sse-post [req]
-  (let [machine-id (ex/get-param! req [:body :machine_id] uuid-util/coerce)
-        app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        session-id (ex/get-param! req [:body :session_id] uuid-util/coerce)
-        sse-token-hash (crypt-util/uuid->sha256 (ex/get-param! req [:body :sse_token] uuid-util/coerce))
-        messages (ex/get-param! req [:body :messages] identity)]
-    (sse/enqueue-messages machine-id app-id session-id sse-token-hash messages)
-    (response/ok {})))
+  (if (instance? InputStream (:body req))
+    (handle-chunked-sse-post req)
+    (let [machine-id (ex/get-param! req [:body :machine_id] uuid-util/coerce)
+          app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
+          session-id (ex/get-param! req [:body :session_id] uuid-util/coerce)
+          sse-token-hash (crypt-util/uuid->sha256 (ex/get-param! req [:body :sse_token] uuid-util/coerce))
+          messages (ex/get-param! req [:body :messages] identity)]
+      (sse/enqueue-messages machine-id app-id session-id sse-token-hash messages)
+      (response/ok {}))))
 
 ;; -----------
 ;; Magic codes

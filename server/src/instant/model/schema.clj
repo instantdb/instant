@@ -1,5 +1,6 @@
 (ns instant.model.schema
-  (:require [instant.db.model.attr :as attr-model]
+  (:require [clojure.string]
+            [instant.db.model.attr :as attr-model]
             [instant.jdbc.aurora :as aurora]
             [instant.db.datalog :as d]
             [instant.db.indexing-jobs :as indexing-jobs]
@@ -239,9 +240,10 @@
        "Check your full schema in the dashboard for a link with the same label names: "
        "https://www.instantdb.com/dash?s=main&t=explorer"))
 
-(defn cascade-message [[etype label]]
+(defn on-delete-message [action [etype label]]
   (str etype "->" label ": "
-       "Cascade delete is only possible on links with `has: 'one'`. "
+       (clojure.string/capitalize (name action))
+       " delete is only possible on links with `has: 'one'`. "
        "Check your full schema in the dashboard: "
        "https://www.instantdb.com/dash?s=main&t=explorer"))
 
@@ -308,14 +310,14 @@
                        (and
                         (= :ref (:value-type attr))
                         (= :many (:cardinality attr))
-                        (= :cascade (:on-delete attr)))
-                       (cascade-message fwd-name)
+                        (:on-delete attr))
+                       (on-delete-message (:on-delete attr) fwd-name)
 
                        (and
                         (= :ref (:value-type attr))
                         (not (:unique? attr))
-                        (= :cascade (:on-delete-reverse attr)))
-                       (cascade-message rev-name))]
+                        (:on-delete-reverse attr))
+                       (on-delete-message (:on-delete-reverse attr) rev-name))]
                :when message]
            {:in [:schema]
             :message message}))]

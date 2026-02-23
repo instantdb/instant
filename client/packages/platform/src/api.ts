@@ -420,7 +420,11 @@ function apiSchemaAttrToLinkDef(attr: InstantDBAttr) {
       label: flabel,
       required: attr['required?'] || undefined,
       onDelete:
-        attr['on-delete'] === 'cascade' ? ('cascade' as 'cascade') : undefined,
+        attr['on-delete'] === 'cascade'
+          ? ('cascade' as 'cascade')
+          : attr['on-delete'] === 'restrict'
+            ? ('restrict' as 'restrict')
+            : undefined,
     },
     reverse: {
       on: re,
@@ -429,7 +433,9 @@ function apiSchemaAttrToLinkDef(attr: InstantDBAttr) {
       onDelete:
         attr['on-delete-reverse'] === 'cascade'
           ? ('cascade' as 'cascade')
-          : undefined,
+          : attr['on-delete-reverse'] === 'restrict'
+            ? ('restrict' as 'restrict')
+            : undefined,
     },
   };
 }
