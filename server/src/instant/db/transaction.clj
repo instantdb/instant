@@ -431,7 +431,7 @@
                   jsonb_array_elements(cast(?reverse-attrs+etypes AS jsonb)) AS elem
               ),
 
-              entids (entity_id, etype, parent_id, parent_etype, attr_id) AS (
+              entids (entity_id, etype, parent_id, parent_etype, attr_id, direction) AS (
                 -- Starting entities (the parents being deleted)
                 SELECT
                   cast(elem ->> 0 AS uuid) as entity_id,

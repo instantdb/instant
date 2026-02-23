@@ -990,7 +990,7 @@ function RelationshipConfigurator({
                 </strong>
               </div>
               When a <strong>{reverseNamespaceName}</strong> entity is deleted,
-              all linked <strong>{namespaceName}</strong> must be deleted first
+              all linked <strong>{namespaceName}</strong> must also be deleted
               or the transaction will be blocked
             </span>
           }
@@ -1038,8 +1038,8 @@ function RelationshipConfigurator({
                 </strong>
               </div>
               When a <strong>{namespaceName}</strong> entity is deleted, all
-              linked <strong>{reverseNamespaceName}</strong> must be deleted
-              first or the transaction will be blocked
+              linked <strong>{reverseNamespaceName}</strong> must also be
+              deleted first or the transaction will be blocked
             </span>
           }
         />
