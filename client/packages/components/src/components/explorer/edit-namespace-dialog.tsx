@@ -1533,13 +1533,13 @@ const EditBlobConstraints = ({
           attr={attr}
         />
         <ProgressButton
-          loading={!!progress}
+          loading={isRunning}
           percentage={!isRunning ? 0 : progress || 0}
           variant={isPending || isRunning ? 'primary' : 'secondary'}
           // Switching from primary <-> secondary changes height without this
           className="border"
           onClick={() => apply()}
-          disabled={!isPending && !progress}
+          disabled={!isPending || isRunning}
         >
           {isRunning ? 'Updating Constraints...' : 'Update Constraints'}
         </ProgressButton>
