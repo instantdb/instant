@@ -488,93 +488,99 @@ export default abstract class InstantReactAbstractDatabase<
         endCursor: null,
       });
 
-      // @ts-expect-error entity key'd query
-      let bootstrapUnsub = this.core.subscribeQuery(query, (resp) => {
-        if (!isCurrent()) return;
+      let bootstrapUnsub = this.core.subscribeQuery(
+        // @ts-expect-error entity key'd query
+        query,
+        (resp) => {
+          if (!isCurrent()) return;
 
-        if (resp.error || !resp.data) {
+          if (resp.error || !resp.data) {
+            setChunkAtIdx(index, {
+              query,
+              data: [],
+              isLoading: false,
+              isStable: false,
+              startCursor: null,
+              endCursor: null,
+            });
+            return;
+          }
+
+          const data = resp.data[entity];
+          const start = resp.pageInfo?.[entity]?.startCursor ?? null;
+          const end = resp.pageInfo?.[entity]?.endCursor ?? null;
+
           setChunkAtIdx(index, {
             query,
-            data: [],
+            data,
             isLoading: false,
             isStable: false,
-            startCursor: null,
-            endCursor: null,
+            startCursor: start,
+            endCursor: end,
           });
-          return;
-        }
 
-        const data = resp.data[entity];
-        const start = resp.pageInfo?.[entity]?.startCursor ?? null;
-        const end = resp.pageInfo?.[entity]?.endCursor ?? null;
+          // Keep listening on the bootstrap query while the chunk is not full.
+          if (data.length < _query.$.pageSize) {
+            return;
+          }
 
-        setChunkAtIdx(index, {
-          query,
-          data,
-          isLoading: false,
-          isStable: false,
-          startCursor: start,
-          endCursor: end,
-        });
+          // If we are missing cursors, we can't lock to a fixed window yet.
+          if (!start || !end) {
+            return;
+          }
 
-        // Keep listening on the bootstrap query while the chunk is not full.
-        if (data.length < _query.$.pageSize) {
-          return;
-        }
+          // During optimistic updates, data can grow before pageInfo catches up.
+          // Wait until cursors align with the current page boundary before
+          // switching to a fixed sticky window.
+          const firstRow = data[0];
+          const boundaryRow =
+            data[Math.min(_query.$.pageSize, data.length) - 1];
+          if (!firstRow || !boundaryRow) {
+            return;
+          }
+          if (firstRow.id !== start[0] || boundaryRow.id !== end[0]) {
+            return;
+          }
 
-        // If we are missing cursors, we can't lock to a fixed window yet.
-        if (!start || !end) {
-          return;
-        }
+          if (!isCurrent()) return;
+          bootstrapUnsub();
 
-        // During optimistic updates, data can grow before pageInfo catches up.
-        // Wait until cursors align with the current page boundary before
-        // switching to a fixed sticky window.
-        const firstRow = data[0];
-        const boundaryRow = data[Math.min(_query.$.pageSize, data.length) - 1];
-        if (!firstRow || !boundaryRow) {
-          return;
-        }
-        if (firstRow.id !== start[0] || boundaryRow.id !== end[0]) {
-          return;
-        }
-
-        if (!isCurrent()) return;
-        bootstrapUnsub();
-
-        const stickyQuery = {
-          [entity]: {
-            ..._query,
-            $: {
-              after: startCursor ?? decrementCursor(start),
-              before: incrementCursor(end),
-              // common fields
-              where: _query.$.where,
-              fields: _query.$.fields,
-              order: _query.$.order,
+          const stickyQuery = {
+            [entity]: {
+              ..._query,
+              $: {
+                after: startCursor ?? decrementCursor(start),
+                before: incrementCursor(end),
+                // common fields
+                where: _query.$.where,
+                fields: _query.$.fields,
+                order: _query.$.order,
+              },
             },
-          },
-        };
+          };
 
-        const stickyUnsub = this.core.subscribeQuery(
-          // @ts-expect-error entity key'd query
-          stickyQuery,
-          (dataResp) => {
-            if (!isCurrent()) return;
-            if (!dataResp.data?.[entity]) return;
-            setChunkAtIdx(index, {
-              query: stickyQuery,
-              data: dataResp.data[entity],
-              isLoading: false,
-              isStable: true,
-              startCursor: dataResp.pageInfo?.[entity]?.startCursor ?? null,
-              endCursor: dataResp.pageInfo?.[entity]?.endCursor ?? null,
-            });
-          },
-        );
+          const stickyUnsub = this.core.subscribeQuery(
+            // @ts-expect-error entity key'd query
+            stickyQuery,
+            (dataResp) => {
+              if (!isCurrent()) return;
+              if (!dataResp.data?.[entity]) return;
+              setChunkAtIdx(index, {
+                query: stickyQuery,
+                data: dataResp.data[entity],
+                isLoading: false,
+                isStable: true,
+                startCursor: dataResp.pageInfo?.[entity]?.startCursor ?? null,
+                endCursor: dataResp.pageInfo?.[entity]?.endCursor ?? null,
+              });
+            },
+            opts,
+          );
 
-        subscriptionsRef.current[index] = stickyUnsub;
-      });
+          subscriptionsRef.current[index] = stickyUnsub;
+        },
+        opts,
+      );
 
       subscriptionsRef.current[index] = bootstrapUnsub;
     };
