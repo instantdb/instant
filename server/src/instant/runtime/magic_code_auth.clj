@@ -7,8 +7,34 @@
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-email-template :as app-email-template-model]
    [instant.util.tracer :as tracer]
+   [instant.util.exception :as ex]
+   [instant.util.cache :as cache]
+   [instant.flags :as flags]
    [instant.model.instant-user :as instant-user-model]
-   [instant.model.app-user-refresh-token :as app-user-refresh-token-model]))
+   [instant.model.app-user-refresh-token :as app-user-refresh-token-model])
+  (:import
+   (java.util.concurrent.atomic AtomicLong)))
+
+(def send-rate-limit-cache
+  ;; each entry should be just app-id + email -> counter which should be small,
+  ;; even with 100k entries, the cache should be on the order of 10s of MBs
+  (cache/make {:max-size 100000
+               :ttl (* 60 60 1000)}))
+
+(defn check-rate-limit! [{:keys [app-id email]}]
+  (let [limit (flags/magic-code-rate-limit-per-hour)]
+    (when (and limit (pos? limit))
+      (let [k [app-id email]
+            counter (cache/get send-rate-limit-cache k
+                               (fn [_] (AtomicLong. 0)))
+            count (.incrementAndGet ^AtomicLong counter)]
+        (when (> count limit)
+          (tracer/record-info! {:name "magic-code/rate-limited"
+                                :attributes {:app-id app-id
+                                             :email email
+                                             :count count
+                                             :limit limit}})
+          (ex/throw-record-email-rate-limited!))))))
 
 (def postmark-unconfirmed-sender-body-error-code 400)
 
@@ -55,6 +81,7 @@
   (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"}))
 
 (defn send! [{:keys [app-id email] :as req}]
+  (check-rate-limit! req)
   (let [app             (app-model/get-by-id! {:id app-id})
         {:keys [code]}  (app-user-magic-code-model/create! (select-keys req [:app-id :email]))
         template        (app-email-template-model/get-by-app-id-and-email-type

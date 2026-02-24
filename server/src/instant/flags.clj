@@ -328,3 +328,9 @@
   "Limit over which we flush the write stream buffer to a file"
   []
   (flag :stream-flush-byte-limit 1048576))
+
+(defn magic-code-rate-limit-per-hour
+  "Max number of magic code emails per email address per app per hour.
+   Set to 0 to disable."
+  []
+  (flag :magic-code-rate-limit-per-hour 20))
