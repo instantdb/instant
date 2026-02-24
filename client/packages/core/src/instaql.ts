@@ -628,20 +628,29 @@ function comparableDate(x) {
   return new Date(x).getTime();
 }
 
-function isBefore(startCursor, orderAttr, direction, idVec) {
-  const [c_e, _c_a, c_v, c_t] = startCursor;
-  const compareVal = direction === 'desc' ? 1 : -1;
+function compareToCursor(cursor, orderAttr, idVec) {
+  const [c_e, _c_a, c_v, c_t] = cursor;
+
   if (orderAttr['forward-identity']?.[2] === 'id') {
-    return compareOrderTriples(idVec, [c_e, c_t], null) === compareVal;
+    return compareOrderTriples(idVec, [c_e, c_t], null);
   }
+
   const [e, v] = idVec;
   const dataType = orderAttr['checked-data-type'];
   const v_new = dataType === 'date' ? comparableDate(v) : v;
   const c_v_new = dataType === 'date' ? comparableDate(c_v) : c_v;
 
-  return (
-    compareOrderTriples([e, v_new], [c_e, c_v_new], dataType) === compareVal
-  );
+  return compareOrderTriples([e, v_new], [c_e, c_v_new], dataType);
+}
+
+function isBefore(startCursor, orderAttr, direction, idVec) {
+  const compareVal = direction === 'desc' ? 1 : -1;
+  return compareToCursor(startCursor, orderAttr, idVec) === compareVal;
+}
+
+function isAfter(endCursor, orderAttr, direction, idVec) {
+  const compareVal = direction === 'desc' ? -1 : 1;
+  return compareToCursor(endCursor, orderAttr, idVec) === compareVal;
 }
 
 function orderAttrFromCursor(attrsStore: s.AttrsStore, cursor) {
@@ -705,6 +714,7 @@ function runDataloadAndReturnObjects(
   let idVecs = datalogQuery(store, dq);
 
   const startCursor = pageInfo?.['start-cursor'];
+  const endCursor = pageInfo?.['end-cursor'];
   const orderAttr = getOrderAttr(attrsStore, etype, startCursor, order);
 
   if (orderAttr && orderAttr?.['forward-identity']?.[2] !== 'id') {
@@ -739,11 +749,21 @@ function runDataloadAndReturnObjects(
     if (objects[id]) {
       continue;
     }
+
     if (
       !isLeadingQuery &&
       startCursor &&
       orderAttr &&
       isBefore(startCursor, orderAttr, direction, idVec)
+    ) {
+      continue;
+    }
+
+    if (
+      !isLeadingQuery &&
+      endCursor &&
+      orderAttr &&
+      isAfter(endCursor, orderAttr, direction, idVec)
     ) {
       continue;
     }
