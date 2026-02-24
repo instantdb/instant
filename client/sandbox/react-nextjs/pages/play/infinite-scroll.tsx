@@ -93,7 +93,8 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
       </div>
 
       <button
-        className="m-2 bg-black p-2 text-white"
+        className="m-2 bg-black p-2 text-white disabled:opacity-50"
+        disabled={!scrollResult.canLoadMore}
         onClick={() => scrollResult.loadMore()}
       >
         Load more

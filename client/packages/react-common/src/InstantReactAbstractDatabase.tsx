@@ -50,6 +50,7 @@ type InfiniteScrollChunk = {
   isStable: boolean;
   startCursor: Cursor | null;
   endCursor: Cursor | null;
+  hasPageAfter?: boolean;
 };
 
 type InfiniteQueryResult<
@@ -63,6 +64,7 @@ type InfiniteQueryResult<
   isLoading: boolean;
   isLoadingMore: boolean;
   loadMore: () => Promise<void>;
+  canLoadMore: boolean;
 };
 
 export default abstract class InstantReactAbstractDatabase<
@@ -486,6 +488,7 @@ export default abstract class InstantReactAbstractDatabase<
         isStable: false,
         startCursor: null,
         endCursor: null,
+        hasPageAfter: false,
       });
 
       let bootstrapUnsub = this.core.subscribeQuery(
@@ -502,6 +505,7 @@ export default abstract class InstantReactAbstractDatabase<
               isStable: false,
               startCursor: null,
               endCursor: null,
+              hasPageAfter: resp.pageInfo?.[entity].hasNextPage,
             });
             return;
           }
@@ -517,6 +521,7 @@ export default abstract class InstantReactAbstractDatabase<
             isStable: false,
             startCursor: start,
             endCursor: end,
+            hasPageAfter: resp.pageInfo?.[entity].hasNextPage,
           });
 
           // Keep listening on the bootstrap query while the chunk is not full.
@@ -572,6 +577,7 @@ export default abstract class InstantReactAbstractDatabase<
                 isStable: true,
                 startCursor: dataResp.pageInfo?.[entity]?.startCursor ?? null,
                 endCursor: dataResp.pageInfo?.[entity]?.endCursor ?? null,
+                hasPageAfter: dataResp.pageInfo?.[entity].hasNextPage,
               });
             },
             opts,
@@ -600,6 +606,19 @@ export default abstract class InstantReactAbstractDatabase<
     const isLoadingMore =
       chunks.length > 1 && chunks[chunks.length - 1].isLoading;
 
+    const getCanLoadMore = () => {
+      const lastChunk = chunks[chunks.length - 1];
+      if (!lastChunk) return false;
+      if (!lastChunk.isStable || !lastChunk.endCursor) return false;
+      if (lastChunk.data.length < _query.$.pageSize) return false;
+
+      return (
+        (chunks.length > 0 && chunks[chunks.length - 1].hasPageAfter) || false
+      );
+    };
+
+    const canLoadMore = getCanLoadMore();
+
     const loadMore = async () => {
       const lastChunk = chunks[chunks.length - 1];
       if (!lastChunk) return;
@@ -614,6 +633,7 @@ export default abstract class InstantReactAbstractDatabase<
       isLoadingMore,
       chunks,
       loadMore,
+      canLoadMore,
     };
   };
 
