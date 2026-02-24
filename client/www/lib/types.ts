@@ -1,4 +1,5 @@
 import { InstantIssue } from '@instantdb/core';
+import { OnDelete } from 'node_modules/@instantdb/components/dist/types';
 
 export type InstantApp = {
   id: string;
@@ -226,8 +227,8 @@ export interface SchemaAttr {
   catalog?: 'user' | 'system';
   checkedDataType?: CheckedDataType;
   sortable: boolean;
-  onDelete?: 'cascade';
-  onDeleteReverse?: 'cascade';
+  onDelete?: OnDelete;
+  onDeleteReverse?: OnDelete;
 }
 
 export type OAuthAppClientSecret = {

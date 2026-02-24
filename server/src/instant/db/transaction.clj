@@ -516,8 +516,22 @@
                                                :when (and (= :rule-params op) (uuid? eid))]
                                            [eid value]))
             original-deleted-entities (set ids+etypes)
-            ;; Only get the cascaded entities (where parent_id != entity_id)
+            ;; TODO Also needs to account for added triples (if you add and delete in the same tx)
+            original-deleted-triples (coll/reduce-tr (fn [acc step]
+                                                       (case (:op step)
+                                                         :retract-triple
+                                                         (let [attr (attr-model/seek-by-id (:aid step) attrs)]
+                                                           (if (= :ref (:value-type attr))
+                                                             (conj! acc [(:eid step)
+                                                                         (:aid step)
+                                                                         (uuid/coerce (:value step))])
+                                                             acc))
 
+                                                         acc))
+                                                     #{}
+                                                     tx-step-maps)
+
+            ;; Only get the cascaded entities (where parent_id != entity_id)
             cascaded-entities
             (keep (fn [{:keys [parent_id entity_id parent_etype etype attr_id direction] :as ent}]
                     (when-not (and (= parent_id entity_id)
@@ -525,12 +539,18 @@
                       (let [on-delete (case direction
                                         "forward" :on-delete
                                         "reverse" :on-delete-reverse)
-                            cascade-rule (-> (attr-model/seek-by-id attr_id attrs)
+                            attr (attr-model/seek-by-id attr_id attrs)
+                            cascade-rule (-> attr
                                              (get on-delete))]
                         (case cascade-rule
                           :restrict
                           (when (and (= cascade-rule :restrict)
-                                     (not (contains? original-deleted-entities [entity_id etype])))
+                                     (not (or (contains? original-deleted-entities [entity_id etype])
+                                              (contains? original-deleted-triples (case on-delete
+                                                                                    :on-delete
+                                                                                    [entity_id attr_id parent_id]
+                                                                                    :on-delete-reverse
+                                                                                    [parent_id attr_id entity_id])))))
                             (ex/throw-validation-err!
                              :on-delete-restrict
                              (map vectorize-tx-step tx-step-maps)
