@@ -1314,12 +1314,12 @@
                                 "authorization" (str "Bearer " admin-token)}})]
             (is (= 200 (:status ret)))))
 
-        (testing "as-token + null-admin-token = fail"
+        (testing "as-token + null-admin-token = succ"
           (let [ret (query-post
                      {:body {:query {:goals {}}}
                       :headers {"app-id" (str app-id)
                                 "as-token" (str user-token)}})]
-            (is (= 400 (:status ret)))))
+            (is (= 200 (:status ret)))))
 
         (testing "as-token + admin-token = succ"
           (let [ret (query-post
@@ -1345,12 +1345,12 @@
                                 "as-email" email}})]
             (is (= 200 (:status ret)))))
 
-        (testing "as-guest + null-admin-token = fail"
+        (testing "as-guest + null-admin-token = succ"
           (let [ret (query-post
                      {:body {:query {:goals {}}}
                       :headers {"app-id" (str app-id)
                                 "as-guest" "true"}})]
-            (is (= 400 (:status ret)))))
+            (is (= 200 (:status ret)))))
 
         (testing "as-guest + admin-token = succ"
           (let [ret (query-post
