@@ -745,8 +745,8 @@
                             room-data)]
     (response/ok {:sessions enhanced-room-data})))
 
-;; --------------- 
-;; Soft deletions 
+;; ---------------
+;; Soft deletions
 
 (defn soft-deleted-attrs-get [req]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/read)

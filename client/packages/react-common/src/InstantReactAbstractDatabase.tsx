@@ -428,44 +428,54 @@ export default abstract class InstantReactAbstractDatabase<
     _query: Q,
     opts?: InstaQLOptions,
   ): InfiniteQueryResult<Schema, Entity, Q, UseDates> => {
-    const [chunks, setChunks] = useState<InfiniteScrollChunk[]>([]);
-    const subscriptionsRef = useRef<Array<(() => void) | undefined>>([]);
-    const chunkVersionRef = useRef<number[]>([]);
+    const [chunkMap, setChunkMap] = useState<Map<string, InfiniteScrollChunk>>(
+      new Map(),
+    );
+    const subscriptionsRef = useRef<Map<string, () => void>>(new Map());
+    const chunkVersionRef = useRef<Map<string, number>>(new Map());
 
-    const clearSubscriptionAtIdx = (index: number) => {
-      const unsub = subscriptionsRef.current[index];
+    const getChunkKey = (startCursor?: Cursor | null) =>
+      JSON.stringify(startCursor ?? null);
+
+    const clearSubscriptionAtKey = (chunkKey: string) => {
+      const unsub = subscriptionsRef.current.get(chunkKey);
       if (unsub) {
         unsub();
-        subscriptionsRef.current[index] = undefined;
+        subscriptionsRef.current.delete(chunkKey);
       }
     };
 
-    const nextChunkVersion = (index: number) => {
-      const next = (chunkVersionRef.current[index] ?? 0) + 1;
-      chunkVersionRef.current[index] = next;
+    const nextChunkVersion = (chunkKey: string) => {
+      const next = (chunkVersionRef.current.get(chunkKey) ?? 0) + 1;
+      chunkVersionRef.current.set(chunkKey, next);
       return next;
     };
 
     const clearAllSubscriptions = () => {
-      for (const unsub of subscriptionsRef.current) {
+      for (const unsub of subscriptionsRef.current.values()) {
         unsub?.();
       }
-      subscriptionsRef.current = [];
-      chunkVersionRef.current = [];
+      subscriptionsRef.current = new Map();
+      chunkVersionRef.current = new Map();
     };
 
-    const setChunkAtIdx = (index: number, chunk: InfiniteScrollChunk) => {
-      setChunks((prev) => {
-        const next = [...prev];
-        next[index] = chunk;
+    const setChunkAtCursor = (
+      startCursor: Cursor | null | undefined,
+      chunk: InfiniteScrollChunk,
+    ) => {
+      const chunkKey = getChunkKey(startCursor);
+      setChunkMap((prev) => {
+        const next = new Map(prev);
+        next.set(chunkKey, chunk);
         return next;
       });
     };
 
-    const setupChunk = (index: number, startCursor?: Cursor) => {
-      clearSubscriptionAtIdx(index);
-      const version = nextChunkVersion(index);
-      const isCurrent = () => chunkVersionRef.current[index] === version;
+    const setupChunk = (startCursor?: Cursor) => {
+      const chunkKey = getChunkKey(startCursor);
+      clearSubscriptionAtKey(chunkKey);
+      const version = nextChunkVersion(chunkKey);
+      const isCurrent = () => chunkVersionRef.current.get(chunkKey) === version;
 
       const query = {
         [entity]: {
@@ -481,7 +491,7 @@ export default abstract class InstantReactAbstractDatabase<
         },
       };
 
-      setChunkAtIdx(index, {
+      setChunkAtCursor(startCursor, {
         query,
         data: [],
         isLoading: true,
@@ -498,7 +508,7 @@ export default abstract class InstantReactAbstractDatabase<
           if (!isCurrent()) return;
 
           if (resp.error || !resp.data) {
-            setChunkAtIdx(index, {
+            setChunkAtCursor(startCursor, {
               query,
               data: [],
               isLoading: false,
@@ -514,7 +524,7 @@ export default abstract class InstantReactAbstractDatabase<
           const start = resp.pageInfo?.[entity]?.startCursor ?? null;
           const end = resp.pageInfo?.[entity]?.endCursor ?? null;
 
-          setChunkAtIdx(index, {
+          setChunkAtCursor(startCursor, {
             query,
             data,
             isLoading: false,
@@ -570,7 +580,7 @@ export default abstract class InstantReactAbstractDatabase<
             (dataResp) => {
               if (!isCurrent()) return;
               if (!dataResp.data?.[entity]) return;
-              setChunkAtIdx(index, {
+              setChunkAtCursor(startCursor, {
                 query: stickyQuery,
                 data: dataResp.data[entity],
                 isLoading: false,
@@ -583,22 +593,25 @@ export default abstract class InstantReactAbstractDatabase<
             opts,
           );
 
-          subscriptionsRef.current[index] = stickyUnsub;
+          subscriptionsRef.current.set(chunkKey, stickyUnsub);
         },
         opts,
       );
 
-      subscriptionsRef.current[index] = bootstrapUnsub;
+      subscriptionsRef.current.set(chunkKey, bootstrapUnsub);
     };
 
     useEffect(() => {
-      setupChunk(0);
+      setupChunk();
 
       return () => {
         clearAllSubscriptions();
       };
     }, []);
 
+    const chunks = Array.from(chunkMap.values());
+
+    // TODO: double check order chunks
     const mergedData = chunks.flatMap((chunk) => chunk.data);
 
     const isLoading =
@@ -624,7 +637,7 @@ export default abstract class InstantReactAbstractDatabase<
       if (!lastChunk) return;
       if (!lastChunk.isStable || !lastChunk.endCursor) return;
       if (lastChunk.data.length < _query.$.pageSize) return;
-      setupChunk(chunks.length, lastChunk.endCursor);
+      setupChunk(lastChunk.endCursor);
     };
 
     return {
