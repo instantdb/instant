@@ -3,7 +3,7 @@ import { GetServerSideProps } from 'next';
 export const getServerSideProps: GetServerSideProps = async () => {
   return {
     redirect: {
-      destination: '/product-v1/database',
+      destination: '/product/database',
       permanent: false,
     },
   };

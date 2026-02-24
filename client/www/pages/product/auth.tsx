@@ -1,9 +1,4 @@
 import { ProductPage } from '@/components/productPageUi';
-import {
-  EnvelopeIcon,
-  ShieldCheckIcon,
-  UsersIcon,
-} from '@heroicons/react/24/outline';
 
 export default function Auth() {
   return (
@@ -91,26 +86,6 @@ const { data: publicData } = await db.query(
 
 // Verify permission denied
 // throws if user lacks access`,
-        },
-      ]}
-      featureCards={[
-        {
-          icon: EnvelopeIcon,
-          title: 'Magic codes and OAuth',
-          description:
-            'Email magic codes and Google OAuth out of the box. No third-party auth service needed.',
-        },
-        {
-          icon: ShieldCheckIcon,
-          title: 'CEL-based permissions',
-          description:
-            'Permissions use CEL, a powerful expression language from Google. Clear, concise, and easy for LLMs to generate.',
-        },
-        {
-          icon: UsersIcon,
-          title: 'Integrated with your data',
-          description:
-            'Auth is part of your database. Create relations between users, their data, and teams without glue code.',
         },
       ]}
     />

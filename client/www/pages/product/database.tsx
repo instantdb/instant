@@ -1,9 +1,4 @@
 import { ProductPage } from '@/components/productPageUi';
-import {
-  CircleStackIcon,
-  BoltIcon,
-  SignalIcon,
-} from '@heroicons/react/24/outline';
 
 export default function Database() {
   return (
@@ -80,26 +75,6 @@ const schema = i.schema({
     { from: "posts", to: "comments", has: "many" },
   ],
 });`,
-        },
-      ]}
-      featureCards={[
-        {
-          icon: CircleStackIcon,
-          title: 'Built on Aurora Postgres',
-          description:
-            'Your data is stored in Aurora Postgres. You get the reliability and performance of a battle-tested database without writing any SQL.',
-        },
-        {
-          icon: BoltIcon,
-          title: 'Optimistic by default',
-          description:
-            'Every mutation updates the UI instantly. Changes sync in the background with automatic conflict resolution.',
-        },
-        {
-          icon: SignalIcon,
-          title: 'Real-time and offline',
-          description:
-            'Queries are reactive. Updates stream to all connected clients via WebSockets. Local persistence enables offline support.',
         },
       ]}
     />

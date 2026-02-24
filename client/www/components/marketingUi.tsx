@@ -116,7 +116,7 @@ function ProductDropdownDesktop() {
               {products.map((product) => (
                 <NextLink
                   key={product.id}
-                  href={`/product-v1/${product.id}`}
+                  href={`/product/${product.id}`}
                   onClick={() => setIsOpen(false)}
                   className="flex items-start gap-3 rounded-sm p-3 transition-colors hover:bg-gray-50"
                 >
@@ -177,7 +177,7 @@ function ProductAccordionMobile() {
               {products.map((product) => (
                 <NextLink
                   key={product.id}
-                  href={`/product-v1/${product.id}`}
+                  href={`/product/${product.id}`}
                   className="flex items-center gap-3 rounded-sm py-2"
                 >
                   <div className="text-gray-500">

@@ -1,9 +1,4 @@
 import { ProductPage } from '@/components/productPageUi';
-import {
-  CloudArrowUpIcon,
-  LinkIcon,
-  ShieldCheckIcon,
-} from '@heroicons/react/24/outline';
 
 export default function Storage() {
   return (
@@ -96,26 +91,6 @@ const rules = {
     },
   },
 };`,
-        },
-      ]}
-      featureCards={[
-        {
-          icon: CloudArrowUpIcon,
-          title: 'No separate service',
-          description:
-            'File storage is built into Instant. No need to set up S3, configure CORS, or manage signed URLs.',
-        },
-        {
-          icon: LinkIcon,
-          title: 'Linked to your database',
-          description:
-            'Create relations between uploads and your data. Query files alongside entities with InstaQL.',
-        },
-        {
-          icon: ShieldCheckIcon,
-          title: 'Permission-controlled',
-          description:
-            'Use the same CEL-based rules to control who can upload, read, and delete files.',
         },
       ]}
     />

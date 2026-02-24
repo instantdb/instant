@@ -1,9 +1,4 @@
 import { ProductPage } from '@/components/productPageUi';
-import {
-  CodeBracketIcon,
-  GlobeAltIcon,
-  CalendarIcon,
-} from '@heroicons/react/24/outline';
 
 export default function AdminSdk() {
   return (
@@ -109,26 +104,6 @@ for (const user of data.users) {
 // Works over HTTP - use from any language
 // POST https://api.instantdb.com/admin/query
 // Authorization: Bearer <admin-token>`,
-        },
-      ]}
-      featureCards={[
-        {
-          icon: CodeBracketIcon,
-          title: 'Same APIs you know',
-          description:
-            'InstaQL and InstaML work the same on the server. No new query language to learn for your backend.',
-        },
-        {
-          icon: GlobeAltIcon,
-          title: 'HTTP API for any language',
-          description:
-            'The Admin SDK operates over HTTP. Use the JavaScript SDK or call the REST API from Python, Go, or any language.',
-        },
-        {
-          icon: CalendarIcon,
-          title: 'Crons, scripts, and more',
-          description:
-            'Run scheduled jobs, data migrations, server-side rendering, and third-party integrations.',
         },
       ]}
     />

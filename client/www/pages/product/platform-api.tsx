@@ -1,9 +1,4 @@
 import { ProductPage } from '@/components/productPageUi';
-import {
-  BoltIcon,
-  SparklesIcon,
-  CubeTransparentIcon,
-} from '@heroicons/react/24/outline';
 
 export default function PlatformApi() {
   return (
@@ -102,26 +97,6 @@ async function onNewChat(chatId) {
 
   return app.id;
 }`,
-        },
-      ]}
-      featureCards={[
-        {
-          icon: BoltIcon,
-          title: 'Sub-100ms provisioning',
-          description:
-            'New databases spin up in under 100ms. Create backends as fast as your application needs them.',
-        },
-        {
-          icon: SparklesIcon,
-          title: 'Built for AI agents',
-          description:
-            'Agents and humans can create backends on the fly. Combine with the Admin SDK for full programmatic control.',
-        },
-        {
-          icon: CubeTransparentIcon,
-          title: 'Multi-tenant by design',
-          description:
-            'Each app is fully isolated with its own schema, data, and permissions. Build platforms that scale.',
         },
       ]}
     />

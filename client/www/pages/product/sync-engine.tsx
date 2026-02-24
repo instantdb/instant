@@ -1,9 +1,4 @@
 import { ProductPage } from '@/components/productPageUi';
-import {
-  BoltIcon,
-  ArrowsRightLeftIcon,
-  SignalIcon,
-} from '@heroicons/react/24/outline';
 
 export default function SyncEngine() {
   return (
@@ -100,26 +95,6 @@ db.transact(
 // 1. Pending transactions sync
 // 2. Server confirms or resolves conflicts
 // 3. UI updates seamlessly`,
-        },
-      ]}
-      featureCards={[
-        {
-          icon: BoltIcon,
-          title: 'Zero extra code',
-          description:
-            'Optimistic updates, multiplayer, and offline all come from using useQuery and transact. No additional setup.',
-        },
-        {
-          icon: ArrowsRightLeftIcon,
-          title: 'Last-write-wins resolution',
-          description:
-            'Conflicts are resolved automatically with a last-write-wins strategy. The server is always the source of truth.',
-        },
-        {
-          icon: SignalIcon,
-          title: 'WebSocket-powered',
-          description:
-            'Updates broadcast to all connected clients via WebSockets. Changes arrive in milliseconds, not seconds.',
         },
       ]}
     />
