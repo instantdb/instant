@@ -432,7 +432,6 @@ export default abstract class InstantReactAbstractDatabase<
       new Map(),
     );
     const subscriptionsRef = useRef<Map<string, () => void>>(new Map());
-    const chunkVersionRef = useRef<Map<string, number>>(new Map());
 
     const getChunkKey = (startCursor?: Cursor | null) =>
       JSON.stringify(startCursor ?? null);
@@ -445,24 +444,18 @@ export default abstract class InstantReactAbstractDatabase<
       }
     };
 
-    const nextChunkVersion = (chunkKey: string) => {
-      const next = (chunkVersionRef.current.get(chunkKey) ?? 0) + 1;
-      chunkVersionRef.current.set(chunkKey, next);
-      return next;
-    };
-
     const clearAllSubscriptions = () => {
       for (const unsub of subscriptionsRef.current.values()) {
         unsub?.();
       }
       subscriptionsRef.current = new Map();
-      chunkVersionRef.current = new Map();
     };
 
     const setChunkAtCursor = (
       startCursor: Cursor | null | undefined,
       chunk: InfiniteScrollChunk,
     ) => {
+      // Very first non-stable chunk will have id of "null"
       const chunkKey = getChunkKey(startCursor);
       setChunkMap((prev) => {
         const next = new Map(prev);
@@ -474,8 +467,6 @@ export default abstract class InstantReactAbstractDatabase<
     const setupChunk = (startCursor?: Cursor) => {
       const chunkKey = getChunkKey(startCursor);
       clearSubscriptionAtKey(chunkKey);
-      const version = nextChunkVersion(chunkKey);
-      const isCurrent = () => chunkVersionRef.current.get(chunkKey) === version;
 
       const query = {
         [entity]: {
@@ -505,8 +496,6 @@ export default abstract class InstantReactAbstractDatabase<
         // @ts-expect-error entity key'd query
         query,
         (resp) => {
-          if (!isCurrent()) return;
-
           if (resp.error || !resp.data) {
             setChunkAtCursor(startCursor, {
               query,
@@ -557,7 +546,6 @@ export default abstract class InstantReactAbstractDatabase<
             return;
           }
 
-          if (!isCurrent()) return;
           bootstrapUnsub();
 
           const stickyQuery = {
@@ -578,7 +566,6 @@ export default abstract class InstantReactAbstractDatabase<
             // @ts-expect-error entity key'd query
             stickyQuery,
             (dataResp) => {
-              if (!isCurrent()) return;
               if (!dataResp.data?.[entity]) return;
               setChunkAtCursor(startCursor, {
                 query: stickyQuery,
