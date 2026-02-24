@@ -53,6 +53,31 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
     });
   };
 
+  const addNumberItem = () => {
+    writeQueueRef.current = writeQueueRef.current.then(async () => {
+      const snapshot = await db.queryOnce({ items: {} });
+      const existing = snapshot.data.items || [];
+
+      const maxOrdinal = existing.reduce(
+        (max, item) => Math.max(max, item.ordinal ?? -1),
+        -1,
+      );
+
+      const maxNumericValue = existing.reduce((max, item) => {
+        if (!/^\d+$/.test(item.value)) return max;
+        const parsed = Number(item.value);
+        return Number.isNaN(parsed) ? max : Math.max(max, parsed);
+      }, 0);
+
+      await db.transact([
+        tx.items[id()].update({
+          ordinal: maxOrdinal + 1,
+          value: String(maxNumericValue + 1),
+        }),
+      ]);
+    });
+  };
+
   const deleteAll = async () => {
     const snapshot = await db.queryOnce({ items: {} });
     const existing = snapshot.data.items || [];
@@ -73,6 +98,9 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
           onClick={() => addItems(1)}
         >
           Add item
+        </button>
+        <button className="m-2 bg-black p-2 text-white" onClick={addNumberItem}>
+          Add number item
         </button>
         <button
           className="m-2 bg-black p-2 text-white"
