@@ -67,7 +67,7 @@ export default function ChatPage({
     return new ChatTransport({});
   }, []);
 
-  const { messages, resumeStream, status, error, clearError } = useChat({
+  const { messages, resumeStream, stop, status, error, clearError } = useChat({
     id: chatId,
     messages: chat?.messages as UIMessage[],
     transport,

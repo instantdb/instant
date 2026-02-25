@@ -56,9 +56,10 @@ async function saveChat(chatId: string, user: User, messages: UIMessage[]) {
   }
 
   const txes = [];
+  const existingMessageIds = new Set(chat.messages.map((m) => m.id));
   for (let i = 0; i < messages.length; i++) {
-    if (chat.messages[i]) continue;
     const msg = messages[i];
+    if (existingMessageIds.has(msg.id)) continue;
 
     txes.push(
       adminDb.tx.messages[msg.id]
