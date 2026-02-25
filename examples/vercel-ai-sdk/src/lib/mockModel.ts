@@ -1,4 +1,4 @@
-import { LanguageModelV3 } from '@ai-sdk/provider';
+import { LanguageModelV3, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { simulateReadableStream } from 'ai';
 
 /**
@@ -80,7 +80,7 @@ export function createMockModel(): {
     doStream: async (options: Parameters<LanguageModelV3['doStream']>[0]) => {
       const fullText = await fetchCode(options.prompt);
 
-      const chunks: any[] = [{ type: 'text-start', id: 'mock-text-id' }];
+      const chunks: LanguageModelV3StreamPart[] = [{ type: 'text-start', id: 'mock-text-id' }];
       const chunkSize = 20;
       for (let i = 0; i < fullText.length; i += chunkSize) {
         chunks.push({

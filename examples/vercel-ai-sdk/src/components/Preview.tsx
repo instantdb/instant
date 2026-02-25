@@ -39,6 +39,7 @@ export function Preview({
   // Default to code view when streaming starts, switch to preview when it ends
   useEffect(() => {
     if (isStreaming && !prevStreaming.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setView('code');
       setShowToast(false);
     } else if (!isStreaming && prevStreaming.current && rawCode) {
