@@ -11,6 +11,7 @@ import {
   sanitizeForExecution,
   stripMarkdownFences,
 } from '@/lib/codeUtils';
+import { toast } from 'sonner';
 
 export default function PreviewSubdomainPage({
   params,
@@ -59,6 +60,10 @@ export default function PreviewSubdomainPage({
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4';
     script.onload = () => setTailwindLoaded(true);
+    script.onerror = () => {
+      toast.error('Failed to load Tailwind CSS from CDN');
+      setTailwindLoaded(true);
+    };
     document.head.appendChild(script);
     return () => {
       if (script.parentNode) script.parentNode.removeChild(script);
