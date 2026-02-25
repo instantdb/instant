@@ -1,3 +1,6 @@
+import { parse, type ParseResult, type File } from '@babel/parser';
+import { astToJson } from './typescript-schema.ts';
+
 export function generatePermsTypescriptFile(
   permsCode: null | Record<string, any>,
   instantModuleName: string,
@@ -33,4 +36,48 @@ const rules = ${rulesTxt} satisfies InstantRules;
 
 export default rules;
 `;
+}
+
+function astToPermsCode(ast: ParseResult<File>): Record<string, any> {
+  for (const n of ast.program.body) {
+    if (
+      n.type !== 'VariableDeclaration' ||
+      n.declarations.length !== 1 ||
+      n.declarations[0].id.type !== 'Identifier' ||
+      n.declarations[0].id.name !== 'rules'
+    ) {
+      continue;
+    }
+
+    const node = n.declarations[0];
+
+    if (!node.init || node.init.type !== 'TSSatisfiesExpression') {
+      throw new Error(`Could not extract rules`);
+    }
+
+    return astToJson(node.init.expression) as Record<string, any>;
+  }
+
+  throw new Error(
+    'Could not extract rules, did not the rules variable declaration.',
+  );
+}
+
+export function permsTypescriptFileToCode(
+  content: string,
+  sourceFilename: string,
+) {
+  const ast = parse(content, {
+    sourceFilename,
+    sourceType: 'module',
+    errorRecovery: false,
+    plugins: ['typescript'],
+  });
+  if (ast.errors?.length) {
+    throw new Error(
+      `Could not parse schema file. ${ast.errors[0].reasonCode}.`,
+    );
+  }
+
+  return astToPermsCode(ast);
 }

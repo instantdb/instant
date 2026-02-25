@@ -1,6 +1,9 @@
 import { test, expect } from 'vitest';
 
-import { generatePermsTypescriptFile } from '../../src/perms';
+import {
+  generatePermsTypescriptFile,
+  permsTypescriptFileToCode,
+} from '../../src/perms';
 
 test('generates perms file', () => {
   expect(
@@ -64,4 +67,36 @@ const rules = {
 
 export default rules;
 `);
+});
+
+test('readsPermsFromFile', () => {
+  const content = `// Docs: https://www.instantdb.com/docs/permissions
+
+import type { InstantRules } from "@instantdb/core";
+
+const rules = {
+  "$files": {
+    "allow": {
+      "view": "isOwner",
+      "create": "isOwner"
+    },
+    "bind": [
+      "isOwner",
+      "data.path.startsWith(auth.id + '/')"
+    ]
+  }
+} satisfies InstantRules;
+
+export default rules;
+`;
+
+  expect(permsTypescriptFileToCode(content, 'instant.perms.ts')).toEqual({
+    $files: {
+      allow: {
+        view: 'isOwner',
+        create: 'isOwner',
+      },
+      bind: ['isOwner', "data.path.startsWith(auth.id + '/')"],
+    },
+  });
 });
