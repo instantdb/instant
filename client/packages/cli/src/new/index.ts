@@ -48,20 +48,7 @@ export const initDef = program
   )
   .option('--title <title>', 'Title for the created app')
   .action((options) => {
-    return Effect.runPromise(
-      initCommand(options).pipe(
-        Effect.provide(
-          WithAppLayer({
-            coerce: true,
-            title: options.title,
-            appId: options.app,
-            packageName: options.package as any,
-            applyEnv: true,
-          }),
-        ),
-        printRedErrors,
-      ),
-    );
+    return Effect.runPromise(initCommand(options).pipe(printRedErrors));
   });
 
 export const initWithoutFilesDef = program
