@@ -13,6 +13,7 @@ import {
   printRedErrors,
   WithAppLayer,
 } from './layer.js';
+import { infoCommand } from './commands/info.js';
 
 loadEnv();
 
@@ -105,6 +106,13 @@ const _logoutDef = program
     Effect.runPromise(
       logoutCommand().pipe(Effect.provide(BaseLayerLive), printRedErrors),
     );
+  });
+
+export const infoDef = program
+  .command('info')
+  .description('Display CLI version and login status')
+  .action(async () => {
+    Effect.runPromise(infoCommand().pipe(printRedErrors));
   });
 
 //// Program setup /////

@@ -4,6 +4,7 @@ import { Config, Context, Effect, Layer, Option, Schema } from 'effect';
 import envPaths from 'env-paths';
 import { join } from 'path';
 import { loginCommand } from '../commands/login.js';
+import { SystemError } from '@effect/platform/Error';
 
 export class AuthToken extends Context.Tag('instant-cli/new/context/authToken')<
   AuthToken,
@@ -19,7 +20,7 @@ export class NotAuthedError extends Schema.TaggedError<NotAuthedError>(
   message: Schema.String,
 }) {}
 
-const authTokenGetEffect = Effect.gen(function* () {
+export const authTokenGetEffect = Effect.gen(function* () {
   const options = program.opts();
   if (typeof options.token === 'string') {
     return {
@@ -40,8 +41,12 @@ const authTokenGetEffect = Effect.gen(function* () {
 
   const authPaths = yield* getAuthPaths;
   const fs = yield* FileSystem.FileSystem;
-  const file = yield* fs.readFileString(authPaths.authConfigFilePath, 'utf8');
-
+  const file = yield* fs
+    .readFileString(authPaths.authConfigFilePath, 'utf8')
+    .pipe(
+      // will usually fail if file not found, return null instead
+      Effect.orElseSucceed(() => null),
+    );
   if (file) {
     return {
       authToken: file,
