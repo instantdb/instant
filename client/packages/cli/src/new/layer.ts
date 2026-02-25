@@ -61,7 +61,7 @@ export const WithAppLayer = (args: {
   appId?: string;
   title?: string;
   coerce: boolean;
-  packageName: keyof typeof PACKAGE_ALIAS_AND_FULL_NAMES;
+  packageName?: keyof typeof PACKAGE_ALIAS_AND_FULL_NAMES;
   applyEnv?: boolean;
 }) =>
   Layer.mergeAll(

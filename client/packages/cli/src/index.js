@@ -1987,7 +1987,7 @@ async function readLocalPermsFileWithErrorLogging() {
   return res;
 }
 
-async function readLocalSchemaFile() {
+export async function readLocalSchemaFile() {
   const readCandidates = getSchemaReadCandidates();
   const res = await loadConfig({
     sources: readCandidates,
@@ -2105,7 +2105,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function countEntities(o) {
+export function countEntities(o) {
   return Object.keys(o).length;
 }
 

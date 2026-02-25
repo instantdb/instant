@@ -1,6 +1,7 @@
 import { HttpClient, HttpClientRequest } from '@effect/platform';
 import { Config, Context, Effect, Layer, Option } from 'effect';
 import { AuthToken } from '../context/authToken.js';
+import { version } from '@instantdb/version';
 
 export class InstantHttp extends Context.Tag(
   'instant-cli/new/lib/http/InstantHttp',
@@ -17,7 +18,11 @@ export const InstantHttpLive = Layer.effect(
     const baseUrl = yield* getBaseUrl;
     return client.pipe(
       HttpClient.mapRequest((r) =>
-        r.pipe(HttpClientRequest.prependUrl(baseUrl)),
+        r.pipe(
+          HttpClientRequest.prependUrl(baseUrl),
+          HttpClientRequest.setHeader('X-Instant-Source', 'instant-cli'),
+          HttpClientRequest.setHeader('X-Instant-Version', version),
+        ),
       ),
       HttpClient.filterStatusOk, // makes non 2xx http codes error
     );

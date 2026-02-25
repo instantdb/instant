@@ -7,13 +7,9 @@ import { initWithoutFilesCommand } from './commands/initWithoutFiles.js';
 import { loginCommand } from './commands/login.js';
 import { logoutCommand } from './commands/logout.js';
 import { loadEnv } from '../util/loadEnv.js';
-import {
-  AuthLayerLive,
-  BaseLayerLive,
-  printRedErrors,
-  WithAppLayer,
-} from './layer.js';
+import { AuthLayerLive, BaseLayerLive, printRedErrors } from './layer.js';
 import { infoCommand } from './commands/info.js';
+import { pullCommand, SchemaPermsOrBoth } from './commands/pull.js';
 
 loadEnv();
 
@@ -100,6 +96,42 @@ export const infoDef = program
   .description('Display CLI version and login status')
   .action(async () => {
     Effect.runPromise(infoCommand().pipe(printRedErrors));
+  });
+
+export const pullDef = program
+  .command('pull')
+  .argument(
+    '[schema|perms|all]',
+    'Which configuration to push. Defaults to `all`',
+  )
+  .option(
+    '-a --app <app-id>',
+    'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option(
+    '-p --package <react|react-native|core|admin|solid>',
+    'Which package to automatically install if there is not one installed already.',
+  )
+  .option(
+    '--experimental-type-preservation',
+    "[Experimental] Preserve manual type changes like `status: i.json<'online' | 'offline'>()` when doing `instant-cli pull schema`",
+  )
+  .description('Pull schema and perm files from production.')
+  .addHelpText(
+    'after',
+    `
+Environment Variables:
+  INSTANT_SCHEMA_FILE_PATH    Override schema file location (default: instant.schema.ts)
+  INSTANT_PERMS_FILE_PATH     Override perms file location (default: instant.perms.ts)
+`,
+  )
+  .action(async function (arg, inputOpts) {
+    return Effect.runPromise(pullCommand(arg as SchemaPermsOrBoth, inputOpts));
+
+    // const ret = convertPushPullToCurrentFormat(arg, inputOpts);
+    // if (!ret.ok) return process.exit(1);
+    // const { bag, opts } = ret;
+    // await handlePull(bag, opts);
   });
 
 //// Program setup /////

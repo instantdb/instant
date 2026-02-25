@@ -3,13 +3,10 @@ import { PlatformApi } from '../context/platformApi.js';
 import { BadArgsError } from '../errors.js';
 import { ArgsFromCommand, initWithoutFilesDef } from '../index.js';
 import { createApp } from '../lib/createApp.js';
-import { GlobalOpts } from '../context/globalOpts.js';
 
 export const initWithoutFilesCommand = Effect.fn(function* (
   opts: ArgsFromCommand<typeof initWithoutFilesDef>,
 ) {
-  const { yes } = yield* GlobalOpts;
-
   if (!opts?.title) {
     return yield* BadArgsError.make({
       message: 'Title is required for creating a new app without local files.',
