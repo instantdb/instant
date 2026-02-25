@@ -7,9 +7,10 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { useChat } from '@ai-sdk/react';
 import { UserMenu } from '@/components/UserMenu';
+import { toast } from 'sonner';
 
 const starterPrompts = [
-  'Build a mobile-first Pomodoro timer with sessions, streaks, and tags.',
+  'Build a time zone app for remote teams',
   'Create a habit tracker with weekly goals, reminders, and progress charts.',
   'Build a collaborative grocery list with categories and real-time edits.',
 ];
@@ -20,7 +21,13 @@ export default function Page() {
 
   const [chatId] = useState(generateId);
 
-  const { sendMessage } = useChat({ id: chatId, generateId });
+  const { sendMessage } = useChat({
+    id: chatId,
+    generateId,
+    onError: (e) => {
+      toast.error(`Failed to generate app: ${e.message || 'Unknown error'}`);
+    },
+  });
 
   const { user } = db.useAuth();
 

@@ -3,9 +3,7 @@ import { PlatformApi } from '@instantdb/platform';
 import schema from '@/instant.schema';
 import { id as createId } from '@instantdb/core';
 
-const platformApi = new PlatformApi({
-  apiURI: process.env.INSTANT_API_URI || 'https://api.instantdb.com',
-});
+const platformApi = new PlatformApi({});
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 

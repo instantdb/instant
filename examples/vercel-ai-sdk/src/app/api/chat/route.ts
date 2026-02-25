@@ -22,11 +22,12 @@ function getModel() {
     process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY
   );
 
-  if (!hasApiKey) {
+  const modelId = process.env.AI_MODEL?.trim() || 'gpt-5-codex';
+
+  if (!hasApiKey || modelId === 'pre-generated') {
     return createMockModel();
   }
 
-  const modelId = process.env.AI_MODEL?.trim() || 'gpt-4o';
   if (modelId.startsWith('claude')) {
     return { model: anthropic(modelId), matchedPrompt: null };
   }

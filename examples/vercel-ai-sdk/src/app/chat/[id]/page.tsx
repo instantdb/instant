@@ -86,7 +86,7 @@ export default function ChatPage({
     return new ChatTransport({});
   }, []);
 
-  const { messages, resumeStream, status } = useChat({
+  const { messages, resumeStream, status, error, clearError } = useChat({
     id: chatId,
     messages: chat.messages as UIMessage[],
     transport,
@@ -132,6 +132,18 @@ export default function ChatPage({
           </Link>
         </div>
       </header>
+
+      {error && (
+        <div className="mx-auto mt-4 flex w-full max-w-[1280px] items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-800">
+          <span className="flex-1">Something went wrong: {error.message}</span>
+          <button
+            onClick={clearError}
+            className="rounded-lg px-3 py-1 font-medium text-red-600 transition hover:bg-red-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <section className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-4 pt-4">
         <div className="panel flex min-h-[600px] flex-1 flex-col overflow-hidden shadow-2xl">
