@@ -59,7 +59,7 @@ function astToPermsCode(ast: ParseResult<File>): Record<string, any> {
   }
 
   throw new Error(
-    'Could not extract rules, did not the rules variable declaration.',
+    'Could not extract rules, did not find the rules variable declaration.',
   );
 }
 
