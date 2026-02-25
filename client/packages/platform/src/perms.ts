@@ -75,7 +75,7 @@ export function permsTypescriptFileToCode(
   });
   if (ast.errors?.length) {
     throw new Error(
-      `Could not parse schema file. ${ast.errors[0].reasonCode}.`,
+      `Could not parse perms file. ${ast.errors[0].reasonCode}.`,
     );
   }
 
