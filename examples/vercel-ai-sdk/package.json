@@ -1,0 +1,44 @@
+{
+  "name": "vercel-ai-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.45",
+    "@ai-sdk/openai": "latest",
+    "@ai-sdk/react": "latest",
+    "@babel/standalone": "^7.29.1",
+    "@instantdb/admin": "latest",
+    "@instantdb/core": "latest",
+    "@instantdb/platform": "latest",
+    "@instantdb/react": "latest",
+    "@monaco-editor/react": "^4.7.0",
+    "ai": "latest",
+    "next": "latest",
+    "prism-react-renderer": "^2.4.1",
+    "react": "latest",
+    "react-dom": "latest",
+    "sonner": "^2.0.7"
+  },
+  "devDependencies": {
+    "@ai-sdk/provider": "^3.0.8",
+    "@tailwindcss/postcss": "latest",
+    "@types/babel__standalone": "^7.1.9",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "raw-loader": "^4.0.2",
+    "tailwindcss": "latest",
+    "typescript": "latest"
+  },
+  "packageManager": "pnpm@10.2.0"
+}
