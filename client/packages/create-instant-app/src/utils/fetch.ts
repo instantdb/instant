@@ -1,3 +1,4 @@
+import { schemaTypescriptFileToInstantSchema } from '@instantdb/platform';
 import { version } from '@instantdb/version';
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
@@ -14,6 +15,8 @@ export type ScaffoldMetadata = {
   template?: string;
   aiTool?: string;
   usedAiPrompt?: boolean;
+  rules?: { code: Record<string, any> } | null;
+  schema?: ReturnType<typeof schemaTypescriptFileToInstantSchema> | null;
 };
 
 export async function fetchJson<T>({

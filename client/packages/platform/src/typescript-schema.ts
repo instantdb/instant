@@ -32,7 +32,7 @@ type JsonValue =
  * @returns {JsonValue | null} The JavaScript representation.
  * @throws {Error} If the AST node or its structure is not convertible to JSON.
  */
-function astToJson(node: Node | null): JsonValue | null {
+export function astToJson(node: Node | null): JsonValue | null {
   if (!node) {
     return null;
   }
