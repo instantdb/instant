@@ -15,7 +15,7 @@
   --color-background: var(--bg);
   --color-foreground: var(--ink);
   --font-sans: var(--font-heading);
-  --font-mono: var(--font-mono);
+  --font-mono: var(--font-code);
 }
 
 body {
