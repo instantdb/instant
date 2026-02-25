@@ -30,6 +30,7 @@ function chatQuery(chatId: string) {
       $: { where: { id: chatId } },
       messages: {},
       stream: {},
+      previewApp: {},
     },
   };
 }
@@ -155,6 +156,7 @@ export default function ChatPage({
             chatId={chatId}
             modelId={chat.modelId}
             matchedPrompt={chat.matchedPrompt}
+            expiresAt={chat.previewApp?.expiresAt}
           />
         </div>
       </section>

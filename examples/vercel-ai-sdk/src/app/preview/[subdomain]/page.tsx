@@ -21,13 +21,7 @@ export default function PreviewSubdomainPage({
   const [error, setError] = useState<string | null>(null);
   const [Component, setComponent] = useState<React.ComponentType | null>(null);
   const [tailwindLoaded, setTailwindLoaded] = useState(false);
-  const [isSameOrigin, setIsSameOrigin] = useState(false);
 
-  useEffect(() => {
-    if (!window.location.hostname.startsWith(`${chatId}.`)) {
-      setIsSameOrigin(true);
-    }
-  }, [chatId]);
 
   const {
     data,
@@ -161,25 +155,8 @@ export default function PreviewSubdomainPage({
     );
 
   return (
-    <div className="relative h-screen w-screen bg-white">
-      {isSameOrigin && (
-        <div className="absolute top-0 right-0 left-0 z-50 border-b border-yellow-300 bg-yellow-50 px-4 py-2 text-center text-xs text-yellow-800">
-          This preview is running on the same origin as the main app. In
-          production, use a domain with wildcard subdomains for isolation.
-        </div>
-      )}
+    <div className="h-screen w-screen bg-white">
       <Component />
-      {app?.expiresAt && (
-        <div className="absolute right-0 bottom-0 left-0 z-50 border-t border-gray-200 bg-gray-50/90 px-4 py-1.5 text-center text-xs text-gray-400">
-          This app is ephemeral — all data will be deleted on{' '}
-          {new Date(app.expiresAt).toLocaleDateString(undefined, {
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-          })}
-          .
-        </div>
-      )}
     </div>
   );
 }

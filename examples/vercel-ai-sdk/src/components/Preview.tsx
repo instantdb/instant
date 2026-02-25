@@ -13,6 +13,7 @@ type PreviewProps = {
   chatId?: string;
   modelId?: string;
   matchedPrompt?: string;
+  expiresAt?: string;
 };
 
 export function Preview({
@@ -23,6 +24,7 @@ export function Preview({
   chatId,
   modelId,
   matchedPrompt,
+  expiresAt,
 }: PreviewProps) {
   const [view, setView] = useState<'preview' | 'code'>(
     isStreaming || !isPreviewReady ? 'code' : 'preview',
@@ -174,12 +176,27 @@ export function Preview({
           style={{ display: view === 'preview' ? 'flex' : 'none' }}
         >
           <div className="relative flex flex-1 flex-col overflow-hidden rounded-xl border bg-white">
+            <div className="shrink-0 border-b border-yellow-300 bg-yellow-50 px-4 py-2 text-center text-xs text-yellow-800">
+              This preview is running on the same origin as the main app. In
+              production, use a domain with wildcard subdomains for isolation.
+            </div>
             <iframe
               src={`/preview/${chatId}`}
-              className="h-full w-full border-none"
+              className="min-h-0 flex-1 border-none"
               title="Application Preview"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             />
+            {expiresAt && (
+              <div className="shrink-0 border-t border-gray-200 bg-gray-50/90 px-4 py-1.5 text-center text-xs text-gray-400">
+                This app is ephemeral — all data will be deleted on{' '}
+                {new Date(expiresAt).toLocaleDateString(undefined, {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+                .
+              </div>
+            )}
           </div>
         </div>
 
