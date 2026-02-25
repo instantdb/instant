@@ -8,7 +8,7 @@ import { simulateReadableStream } from 'ai';
  */
 export function createMockModel(): {
   model: LanguageModelV3;
-  matchedPrompt: Promise<string>;
+  matchedPrompt: Promise<string | null>;
 } {
   let resolvePrompt: (prompt: string | null) => void;
   const matchedPrompt = new Promise<string | null>((resolve) => {

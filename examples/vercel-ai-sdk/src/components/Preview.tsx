@@ -13,7 +13,7 @@ type PreviewProps = {
   chatId?: string;
   modelId?: string;
   matchedPrompt?: string;
-  expiresAt?: string;
+  expiresAt?: string | number;
 };
 
 export function Preview({
@@ -209,6 +209,7 @@ export function Preview({
             <Editor
               height="100%"
               defaultLanguage="typescript"
+              defaultPath="App.tsx"
               theme="vs-dark"
               value={rawCode}
               onMount={handleEditorMount}
