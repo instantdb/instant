@@ -504,7 +504,7 @@ program
   )
   .option(
     '-a --app <app-id>',
-    'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
+    'App ID to pull from. Defaults to *_INSTANT_APP_ID in .env',
   )
   .option(
     '-p --package <react|react-native|core|admin|solid>',
