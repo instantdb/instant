@@ -40,7 +40,7 @@ import { InstantStream } from './Stream.ts';
 /** @typedef {import('./reactorTypes.ts').QuerySub} QuerySub */
 /** @typedef {import('./reactorTypes.ts').QuerySubInStorage} QuerySubInStorage */
 /** @typedef {import('./clientTypes.ts').User} User */
-/** @typedef {import('./clientTypes.ts').AuthResult} AuthResult */
+/** @typedef {import('./clientTypes.ts').AuthState} AuthState */
 
 export const STATUS = {
   CONNECTING: 'connecting',
@@ -1999,7 +1999,7 @@ export default class Reactor {
     if (error) {
       throw new InstantError('Could not get current user: ' + error.message);
     }
-    return user;
+    return user ?? null;
   }
 
   subscribeConnectionStatus(cb) {
@@ -2067,14 +2067,14 @@ export default class Reactor {
 
   /**
    * @param {{ forceReadFromStorage?: boolean }} [opts]
-   * @returns {Promise<AuthResult>}
+   * @returns {Promise<AuthState>}
    */
   async getCurrentUser(opts) {
     const oauthResp = await this._waitForOAuthCallbackResponse();
     if (oauthResp?.error) {
       const errorV = { error: oauthResp.error, user: undefined };
       this._currentUserCached = { isLoading: false, ...errorV };
-      return errorV;
+      return this._currentUserCached;
     }
     try {
       const user = await this._getCurrentUser(opts);
@@ -2083,7 +2083,7 @@ export default class Reactor {
         isLoading: false,
         ...userV,
       };
-      return userV;
+      return this._currentUserCached;
     } catch (e) {
       return {
         user: undefined,
@@ -2176,7 +2176,7 @@ export default class Reactor {
       appId: this.config.appId,
       email,
       code,
-      refreshToken: isGuest ? currentUser.user.refresh_token : undefined,
+      refreshToken: isGuest ? currentUser?.user?.refresh_token : undefined,
     });
     await this.changeCurrentUser(res.user);
     return res;
@@ -2255,7 +2255,7 @@ export default class Reactor {
       appId: this.config.appId,
       code: code,
       codeVerifier,
-      refreshToken: isGuest ? currentUser.user.refresh_token : undefined,
+      refreshToken: isGuest ? currentUser?.user?.refresh_token : undefined,
     });
     await this.changeCurrentUser(res.user);
     return res;
