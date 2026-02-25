@@ -17,6 +17,8 @@ export const GlobalOptsLive = Layer.effect(
   Effect.gen(function* () {
     return {
       yes: program.optsWithGlobals()?.yes || false,
+      token: program.optsWithGlobals()?.token,
+      env: program.optsWithGlobals()?.env,
     };
   }),
 );
