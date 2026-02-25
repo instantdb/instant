@@ -137,7 +137,7 @@ export default function PreviewSubdomainPage({
         err instanceof Error ? err.message : 'Failed to evaluate application.',
       );
     }
-  }, [app?.id, codeMessage, tailwindLoaded, isLoading]);
+  }, [app?.appId, codeMessage, tailwindLoaded, isLoading]);
 
   if (queryError || error) {
     return (

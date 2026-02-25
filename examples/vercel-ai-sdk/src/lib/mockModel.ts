@@ -10,8 +10,8 @@ export function createMockModel(): {
   model: LanguageModelV3;
   matchedPrompt: Promise<string>;
 } {
-  let resolvePrompt: (prompt: string) => void;
-  const matchedPrompt = new Promise<string>((resolve) => {
+  let resolvePrompt: (prompt: string | null) => void;
+  const matchedPrompt = new Promise<string | null>((resolve) => {
     resolvePrompt = resolve;
   });
 
@@ -26,14 +26,24 @@ export function createMockModel(): {
         ? lastMessage.content[0].text
         : 'Default prompt';
 
-    const resp = await fetch('https://api.instantdb.com/examples/mma', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: userText }),
-    });
-    const { code, prompt: actualPrompt } = await resp.json();
-    resolvePrompt(actualPrompt);
-    return '```tsx\n' + code + '\n```';
+    try {
+      const resp = await fetch('https://api.instantdb.com/examples/mma', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: userText }),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Failed to fetch code: ${resp.statusText}`);
+      }
+
+      const { code, prompt: actualPrompt } = await resp.json();
+      resolvePrompt(actualPrompt ?? null);
+      return '```tsx\n' + code + '\n```';
+    } catch (error) {
+      resolvePrompt(null);
+      throw error;
+    }
   }
 
   const mockUsage = {

@@ -63,6 +63,29 @@ export default function ChatPage({
 
   const chat = data.chats[0];
 
+  const transport = useMemo(() => {
+    return new ChatTransport({});
+  }, []);
+
+  const { messages, resumeStream, status, error, clearError } = useChat({
+    id: chatId,
+    messages: chat?.messages as UIMessage[],
+    transport,
+    generateId,
+  });
+
+  const streamId = chat?.stream?.id;
+
+  const hasAssistantMessage = !!messages.find((m) => m.role === 'assistant');
+
+  useEffect(() => {
+    if (streamId && !hasAssistantMessage) {
+      resumeStream();
+    }
+  }, [resumeStream, streamId, hasAssistantMessage]);
+
+  const code = useMemo(() => getLatestAssistantCode(messages), [messages]);
+
   if (!chat) {
     return (
       <main className="flex min-h-screen items-center justify-center">
@@ -81,29 +104,6 @@ export default function ChatPage({
       </main>
     );
   }
-
-  const transport = useMemo(() => {
-    return new ChatTransport({});
-  }, []);
-
-  const { messages, resumeStream, status, error, clearError } = useChat({
-    id: chatId,
-    messages: chat.messages as UIMessage[],
-    transport,
-    generateId,
-  });
-
-  const streamId = chat.stream?.id;
-
-  const hasAssistantMessage = !!messages.find((m) => m.role === 'assistant');
-
-  useEffect(() => {
-    if (streamId && !hasAssistantMessage) {
-      resumeStream();
-    }
-  }, [resumeStream, streamId, hasAssistantMessage]);
-
-  const code = useMemo(() => getLatestAssistantCode(messages), [messages]);
 
   return (
     <main className="relative flex min-h-screen w-full flex-col p-4 md:p-8">
