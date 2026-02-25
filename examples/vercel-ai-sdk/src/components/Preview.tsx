@@ -117,7 +117,7 @@ export function Preview({
             return (
               <button
                 key={v}
-                className={`relative rounded-lg border px-3 py-1.5 text-xs transition-all ${
+                className={`relative w-[4.5rem] rounded-lg border px-3 py-1.5 text-xs transition-all ${
                   view === v
                     ? 'border-[var(--accent-2)] bg-[#edf8fb] font-bold'
                     : isFinishedPreview

@@ -112,9 +112,12 @@ export default function ChatPage({
         <div className="pointer-events-none absolute -top-12 -right-8 h-32 w-32 rounded-full bg-[color-mix(in_oklab,var(--accent)_40%,transparent)] blur-2xl" />
         <div className="flex items-center justify-between gap-6">
           <div className="min-w-0 flex-1">
-            <p className="font-mono text-[10px] font-bold tracking-[0.3em] text-[var(--muted)]/70 uppercase">
+            <Link
+              href="/"
+              className="font-mono text-[10px] font-bold tracking-[0.3em] text-[var(--muted)]/70 uppercase hover:text-[var(--ink)]"
+            >
               Instant Mini-App Builder
-            </p>
+            </Link>
             <h1
               className="mt-2 truncate text-3xl font-bold tracking-tight md:text-4xl"
               title={getUserPrompt(messages, chat.messages)}

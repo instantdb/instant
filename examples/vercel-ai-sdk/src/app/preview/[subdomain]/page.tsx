@@ -22,7 +22,6 @@ export default function PreviewSubdomainPage({
   const [Component, setComponent] = useState<React.ComponentType | null>(null);
   const [tailwindLoaded, setTailwindLoaded] = useState(false);
 
-
   const {
     data,
     isLoading,
