@@ -1,4 +1,5 @@
 import { useMemo, useRef } from 'react';
+
 import { tx, id, i, InstantReactAbstractDatabase } from '@instantdb/react';
 import EphemeralAppPage, {
   ResetButton,

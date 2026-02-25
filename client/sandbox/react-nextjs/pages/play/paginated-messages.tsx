@@ -38,7 +38,6 @@ function Messages({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
     },
   });
 
-  console.log('Page info:', pageInfo);
   const { hasNextPage, hasPreviousPage } = pageInfo?.messages || {};
   const messages = data?.messages || [];
 
