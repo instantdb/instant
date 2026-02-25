@@ -147,25 +147,6 @@ data.ref('owner.id') == null
 data.ref('owner.id').length > 0
 ```
 
-## auth.ref
-
-- Same as `data.ref` but path must start with `$user`.
-- Returns a list.
-
-**Correct**
-
-```cel
-'admin' in auth.ref('$user.role.type')
-auth.ref('$user.role.type')[0] == 'admin'
-```
-
-**Errors**
-
-```cel
-auth.ref('role.type')
-auth.ref('$user.role.type') == 'admin'
-```
-
 ## Unsupported
 
 ```cel
