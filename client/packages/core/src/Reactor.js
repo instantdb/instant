@@ -39,6 +39,8 @@ import { InstantStream } from './Stream.ts';
 /** @typedef {import('./Connection.ts').EventSourceConstructor} EventSourceConstructor */
 /** @typedef {import('./reactorTypes.ts').QuerySub} QuerySub */
 /** @typedef {import('./reactorTypes.ts').QuerySubInStorage} QuerySubInStorage */
+/** @typedef {import('./clientTypes.ts').User} User */
+/** @typedef {import('./clientTypes.ts').AuthResult} AuthResult */
 
 export const STATUS = {
   CONNECTING: 'connecting',
@@ -320,7 +322,9 @@ export default class Reactor {
       this._broadcastChannel.addEventListener('message', async (e) => {
         try {
           if (e.data?.type === 'auth') {
-            const res = await this.getCurrentUser();
+            const res = await this.getCurrentUser({
+              forceReadFromStorage: true,
+            });
             await this.updateUser(res.user).catch((error) => {
               this._log.error('[error] update user', error);
             });
@@ -2049,12 +2053,23 @@ export default class Reactor {
     return this._currentUserCached;
   }
 
-  async _getCurrentUser() {
+  /**
+   * @param {{ forceReadFromStorage?: boolean }} [opts]
+   * @returns {Promise<User | undefined>}
+   */
+  async _getCurrentUser(opts) {
+    if (opts?.forceReadFromStorage) {
+      await this.kv.unloadKey(currentUserKey);
+    }
     const user = await this.kv.waitForKeyToLoad(currentUserKey);
     return typeof user === 'string' ? JSON.parse(user) : user;
   }
 
-  async getCurrentUser() {
+  /**
+   * @param {{ forceReadFromStorage?: boolean }} [opts]
+   * @returns {Promise<AuthResult>}
+   */
+  async getCurrentUser(opts) {
     const oauthResp = await this._waitForOAuthCallbackResponse();
     if (oauthResp?.error) {
       const errorV = { error: oauthResp.error, user: undefined };
@@ -2062,7 +2077,7 @@ export default class Reactor {
       return errorV;
     }
     try {
-      const user = await this._getCurrentUser();
+      const user = await this._getCurrentUser(opts);
       const userV = { user: user, error: undefined };
       this._currentUserCached = {
         isLoading: false,
@@ -2096,6 +2111,9 @@ export default class Reactor {
     await this.updateUser(newUser);
 
     try {
+      // Make sure everything is written to storage before we tell the
+      // other tab to refetch
+      await this.kv.flush();
       this._broadcastChannel?.postMessage({ type: 'auth' });
     } catch (error) {
       console.error('Error posting message to broadcast channel', error);
