@@ -29,6 +29,13 @@ export function Preview({
   const [view, setView] = useState<'preview' | 'code'>(
     isStreaming || !isPreviewReady ? 'code' : 'preview',
   );
+  const [isSameOrigin, setIsSameOrigin] = useState(false);
+
+  useEffect(() => {
+    const host = window.location.hostname;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsSameOrigin(host.includes('localhost') || host.includes('vercel.app'));
+  }, []);
 
   const [showToast, setShowToast] = useState(false);
   const editorRef = useRef<MonacoEditor | null>(null);
@@ -177,10 +184,12 @@ export function Preview({
           style={{ display: view === 'preview' ? 'flex' : 'none' }}
         >
           <div className="relative flex flex-1 flex-col overflow-hidden rounded-xl border bg-white">
-            <div className="shrink-0 border-b border-yellow-300 bg-yellow-50 px-4 py-2 text-center text-xs text-yellow-800">
-              This preview is running on the same origin as the main app. In
-              production, use a domain with wildcard subdomains for isolation.
-            </div>
+            {isSameOrigin && (
+              <div className="shrink-0 border-b border-yellow-300 bg-yellow-50 px-4 py-2 text-center text-xs text-yellow-800">
+                This preview is running on the same origin as the main app. In
+                production, use a domain with wildcard subdomains for isolation.
+              </div>
+            )}
             <iframe
               src={`/preview/${chatId}`}
               className="min-h-0 flex-1 border-none"
