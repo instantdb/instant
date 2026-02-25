@@ -163,6 +163,7 @@ export default function Page() {
                         key={chat.id}
                         href={`/chat/${chat.id}`}
                         className="rounded-lg border border-[var(--line)]/40 bg-white/20 px-3 py-1.5 text-[11px] font-medium text-[var(--muted)] transition hover:border-[var(--accent)] hover:bg-white hover:text-[var(--ink)]"
+                        title={firstMsg}
                       >
                         {firstMsg.slice(0, 45)}
                         {firstMsg.length > 45 ? '...' : ''}

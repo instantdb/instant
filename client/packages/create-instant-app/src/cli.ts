@@ -243,7 +243,7 @@ export const runCli = async (): Promise<{
               },
               {
                 value: 'vercel-ai-sdk',
-                label: 'Vercel ai sdk + SSR',
+                label: 'Vercel AI SDK + SSR',
                 secondary: true,
               },
             ],
