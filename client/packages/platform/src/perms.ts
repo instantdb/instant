@@ -74,9 +74,7 @@ export function permsTypescriptFileToCode(
     plugins: ['typescript'],
   });
   if (ast.errors?.length) {
-    throw new Error(
-      `Could not parse perms file. ${ast.errors[0].reasonCode}.`,
-    );
+    throw new Error(`Could not parse perms file. ${ast.errors[0].reasonCode}.`);
   }
 
   return astToPermsCode(ast);
