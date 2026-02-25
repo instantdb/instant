@@ -442,7 +442,7 @@ program
   )
   .option(
     '-a --app <app-id>',
-    'App ID to push too. Defaults to *_INSTANT_APP_ID in .env',
+    'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
   )
   .option(
     '--skip-check-types',
@@ -568,7 +568,7 @@ program
   .description('Opens the Explorer in your browser')
   .option(
     '-a --app <app-id>',
-    'App ID to push too. Defaults to *_INSTANT_APP_ID in .env',
+    'App ID to open the explorer to. Defaults to *_INSTANT_APP_ID in .env',
   )
   .action(async function (opts) {
     console.log('Opening Explorer...');
