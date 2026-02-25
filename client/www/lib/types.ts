@@ -1,5 +1,4 @@
 import { InstantIssue } from '@instantdb/core';
-import { OnDelete } from 'node_modules/@instantdb/components/dist/types';
 
 export type InstantApp = {
   id: string;
@@ -165,6 +164,8 @@ export type DBIdent =
   | [string, string, string, boolean];
 
 export type CheckedDataType = 'string' | 'number' | 'boolean' | 'date';
+
+export type OnDelete = 'cascade' | 'restrict';
 
 export interface DBAttr {
   id: string;
