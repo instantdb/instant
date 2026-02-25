@@ -24,7 +24,6 @@ import { parseNameAndPath } from './utils/validateAppName.js';
 import { execa } from 'execa';
 import { getRules, getSchema } from './utils/appConfig.js';
 
-
 const main = async () => {
   if (
     !process.argv.some((arg) =>
@@ -52,8 +51,8 @@ const main = async () => {
     template: project.base,
     aiTool: project.ruleFiles ?? 'none',
     usedAiPrompt: !!project.prompt,
-    rules: await getRules(projectDir),
-    schema: await getSchema(projectDir),
+    rules: getRules(projectDir),
+    schema: getSchema(projectDir),
   };
 
   const possibleAppTokenPair = await tryConnectApp(appFlags, scaffoldMetadata);
