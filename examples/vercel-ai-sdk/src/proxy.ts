@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getDomain } from 'tldts';
 
 export default function proxy(request: NextRequest) {
   const url = request.nextUrl;
@@ -24,9 +25,7 @@ export default function proxy(request: NextRequest) {
       const newUrl = url.clone();
       // Strip any existing subdomain prefix (e.g. www.) so we get
       // chatId.example.com instead of chatId.www.example.com
-      const hostParts = newUrl.host.split('.');
-      const baseDomain =
-        hostParts.length > 2 ? hostParts.slice(-2).join('.') : newUrl.host;
+      const baseDomain = getDomain(newUrl.hostname) || newUrl.host;
       newUrl.host = `${chatId}.${baseDomain}`;
       return NextResponse.redirect(newUrl.toString());
     }

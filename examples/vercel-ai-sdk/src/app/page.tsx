@@ -58,7 +58,11 @@ export default function Page() {
     userId
       ? {
           chats: {
-            $: { where: { owner: userId }, order: { createdAt: 'desc' } },
+            $: {
+              where: { owner: userId },
+              order: { createdAt: 'desc' },
+              limit: 100,
+            },
             messages: { $: { order: { createdAt: 'asc' } } },
           },
         }

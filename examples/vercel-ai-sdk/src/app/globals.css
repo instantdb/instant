@@ -19,7 +19,7 @@
 }
 
 body {
-  min-height: 100vh;
+  min-height: 100dvh;
   color: var(--ink);
   background:
     radial-gradient(circle at 6% 9%, #f1c7a7 0%, transparent 26%),
