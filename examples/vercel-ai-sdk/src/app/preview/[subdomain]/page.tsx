@@ -51,15 +51,8 @@ export default function PreviewSubdomainPage({
 
   useEffect(() => {
     if (!isLoading) {
-      if (
       const refreshThreshold = Date.now() + 1000 * 60 * 60 * 24;
       if (!app || new Date(app.expiresAt).getTime() < refreshThreshold) {
-        fetch('/api/refresh-app', {
-          method: 'POST',
-          body: JSON.stringify({ chatId }),
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
         fetch('/api/refresh-app', {
           method: 'POST',
           body: JSON.stringify({ chatId }),
