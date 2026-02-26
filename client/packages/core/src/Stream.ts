@@ -277,7 +277,7 @@ function createWriteStream({
           attempts++;
           await new Promise((resolve) => {
             // Try again immediately for the first two attempts, then back off
-            setTimeout(resolve, nextAttempt - Date.now());
+            setTimeout(resolve, Math.max(0, nextAttempt - Date.now()));
           });
           break;
         }
@@ -639,7 +639,7 @@ function createReadStream({
           attempts = 0;
         }
         await new Promise((resolve) => {
-          setTimeout(resolve, nextAttempt - Date.now());
+          setTimeout(resolve, Math.max(0, nextAttempt - Date.now()));
         });
       }
     }

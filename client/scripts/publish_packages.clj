@@ -17,7 +17,8 @@
                     :mcp "./packages/mcp"
                     :components "./packages/components"
                     :solidjs "./packages/solidjs"
-                    :react-native-mmkv "./packages/react-native-mmkv"})
+                    :react-native-mmkv "./packages/react-native-mmkv"
+                    :resumable-stream "./packages/resumable-stream"})
 
 (defn package-json-path [main]
   (str main "/package.json"))
