@@ -19,7 +19,6 @@
    [instant.system-catalog :as system-catalog]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.async :as ua]
-   [instant.util.coll :as ucoll]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
@@ -176,15 +175,12 @@
                (when-let [ent (get-entity (if stream-id
                                             stream-id
                                             [(resolve-id "clientId") client-id]))]
-                 (let [machine-id-aid (resolve-id "machineId")
-                       machine-id-updated-at (some->> ent
-                                                      meta
-                                                      :triples
-                                                      (ucoll/seek (fn [t]
-                                                                    (= (nth t 1)
-                                                                       machine-id-aid)))
-                                                      last)]
-                   (assoc ent :machine-id-updated-at machine-id-updated-at)))))))
+                 (let [last-updated-at (some->> ent
+                                                meta
+                                                :triples
+                                                (map last)
+                                                (apply max))]
+                   (assoc ent :last-updated-at last-updated-at)))))))
 
 (defn stream-file-name-prefix [stream-id]
   (format "$stream/%s/" stream-id))
@@ -722,9 +718,9 @@
                             (when-let [msg (msg-for-unconnected-stream app-id stream-id requested-offset)]
                               (on-payload msg)))
 
-                          (when (or (not= (:machine-id-updated-at stream)
-                                          (:machine-id-updated-at (get-stream {:app-id app-id
-                                                                               :stream-id stream-id})))
+                          (when (or (not= (:last-updated-at stream)
+                                          (:last-updated-at (get-stream {:app-id app-id
+                                                                         :stream-id stream-id})))
                                     @machine-id-changed)
                             {:error true
                              :retry true
