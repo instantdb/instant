@@ -433,6 +433,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
     if: github.ref != 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -480,6 +483,7 @@ jobs:
           echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
         fi
     - name: Deploy Project Artifacts to Vercel
+      id: deploy
       run: |
         vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt
         code=$?
@@ -488,10 +492,12 @@ jobs:
           safeBranch=$(echo $BRANCH_NAME | sed 's/[^a-zA-Z0-9-]/-/g')
           aliasUrl="instant-www-js-$safeBranch-jsv.vercel.app"
           echo "ALIAS_URL=$aliasUrl" >> $GITHUB_ENV
+          echo "url=https://$aliasUrl" >> $GITHUB_OUTPUT
           echo "aliasing $deploymentUrl to https://$aliasUrl"
           vercel alias $deploymentUrl $aliasUrl --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
         else
             echo "There was an error"
+            exit 1
         fi
     - name: Comment on PR with deploy preview url
       uses: actions/github-script@v7
