@@ -28,7 +28,7 @@ Instant's streams have no dependency on Redis and they never expire.
 
 ## Usage
 
-You can provide your appId and adminToken as arguments to `createResumableStreamContext` or export `INSTANT_APP_ID` and `INSTANT_APP_ADMIN_TOKEN`.
+You can provide your `appId` and `adminToken` as arguments to `createResumableStreamContext` or export `INSTANT_APP_ID` and `INSTANT_APP_ADMIN_TOKEN`.
 
 ### Idempotent API
 
