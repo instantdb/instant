@@ -82,6 +82,7 @@ describe('resumable stream', () => {
   }, 60000);
 
   beforeEach(() => {
+    waitUntilPromises = [];
     const baseContext = createResumableStreamContext({
       waitUntil: (p) => waitUntilPromises.push(p),
       appId: app.appId,

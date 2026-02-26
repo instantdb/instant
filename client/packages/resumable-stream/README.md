@@ -8,7 +8,7 @@
 <p align="center">
   <a
     href="https://discord.com/invite/VU53p7uQcE" >
-    <img height=20 src="https://img.shields.io/discord/1031957483243188235" />
+    <img height=20 src="https://img.shields.io/discord/1031957483243188235" alt="Discord members" />
   </a>
   <img src="https://img.shields.io/github/stars/instantdb/instant" alt="stars">
 </p>
@@ -18,7 +18,7 @@
    <a href="https://instantdb.com/examples">Examples</a> ·
    <a href="https://www.instantdb.com/docs/start-vanilla">Docs</a> ·
    <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
-<p>
+</p>
 
 Welcome to [Instant's](http://instantdb.com) resumable-stream library.
 
@@ -64,7 +64,7 @@ export async function GET(
 ### Usage with explicit resumption
 
 ```typescript
-import { createResumableStreamContext } from 'resumable-stream';
+import { createResumableStreamContext } from '@instantdb/resumable-stream';
 import { after } from 'next/server';
 
 const streamContext = createResumableStreamContext({

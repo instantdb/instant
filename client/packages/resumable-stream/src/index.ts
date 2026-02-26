@@ -14,7 +14,7 @@ export interface CreateResumableStreamContextOptions {
    */
   appId?: string;
   /**
-   * The appId for your InstantDB app. It may also be provided with the INSTANT_ADMIN_TOKEN environment variable.
+   * The appId for your InstantDB app. It may also be provided with the INSTANT_APP_ADMIN_TOKEN environment variable.
    */
   adminToken?: string;
   /**
@@ -84,7 +84,7 @@ function skipCharactersTransformer(skipCharacters: number) {
         return;
       }
       if (skipLeft > chunk.length) {
-        skipLeft += chunk.length;
+        skipLeft -= chunk.length;
         return;
       }
       const remaining = chunk.slice(skipLeft);
@@ -104,7 +104,7 @@ export function createResumableStreamContext(
     );
   }
   const adminToken = options.adminToken || process.env.INSTANT_APP_ADMIN_TOKEN;
-  if (!appId) {
+  if (!adminToken) {
     throw new Error(
       'Missing adminToken. Pass it as an argument to createResumableStreamContext or set the INSTANT_APP_ADMIN_TOKEN environment variable.',
     );
