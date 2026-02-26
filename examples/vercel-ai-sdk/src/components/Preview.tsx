@@ -191,14 +191,14 @@ export function Preview({
                 production, use a domain with wildcard subdomains for isolation.
               </div>
             )}
-            {isSameOrigin !== null && (
-              <iframe
-                src={`/preview/${chatId}`}
-                className="min-h-0 flex-1 border-none"
-                title="Application Preview"
-                sandbox={`allow-scripts allow-forms allow-popups${isSameOrigin ? ' allow-same-origin' : ''}`}
-              />
-            )}
+
+            <iframe
+              src={`/preview/${chatId}`}
+              className="min-h-0 flex-1 border-none"
+              title="Application Preview"
+              sandbox="allow-scripts allow-forms allow-popups allow-same-origin"
+            />
+
             {expiresAt && (
               <div className="shrink-0 border-t border-gray-200 bg-gray-50/90 px-4 py-1.5 text-center text-xs text-gray-400">
                 This app is ephemeral — all data will be deleted on{' '}
