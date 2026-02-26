@@ -11,7 +11,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.47",
+    "@ai-sdk/anthropic": "latest",
     "@ai-sdk/openai": "latest",
     "@ai-sdk/react": "latest",
     "@babel/standalone": "^7.29.1",
