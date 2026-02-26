@@ -12,7 +12,7 @@ import {
 } from '@/components/marketingUi';
 import { Button, Fence, cn } from '@/components/ui';
 
-function ProductNav({ currentSlug }: { currentSlug: string }) {
+export function ProductNav({ currentSlug }: { currentSlug: string }) {
   return (
     <div className="hidden border-b border-gray-200 min-[60rem]:block">
       <div className="mx-auto max-w-7xl px-8">
