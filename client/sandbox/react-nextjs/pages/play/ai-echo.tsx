@@ -274,8 +274,18 @@ function ChatPanel({
 function App({ appId }: { appId: string }) {
   const adminToken = localStorage.getItem(`ephemeral-admin-token-${appId}`);
   const [input, setInput] = useState('');
-  const [resumableEnabled, setResumableEnabled] = useState(true);
-  const [instantEnabled, setInstantEnabled] = useState(true);
+  const [resumableEnabled, setResumableEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('ai-echo-resumable-enabled') !== 'false';
+  });
+  const [instantEnabled, setInstantEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('ai-echo-instant-enabled') !== 'false';
+  });
+  const [instantStreamEnabled, setInstantStreamEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('ai-echo-instant-stream-enabled') !== 'false';
+  });
   const sendFnsRef = useRef<Array<(opts: { text: string }) => void>>([]);
 
   useEffect(() => {
@@ -305,6 +315,18 @@ function App({ appId }: { appId: string }) {
     });
   }, [appId, adminToken]);
 
+  const instantStreamTransport = useMemo(() => {
+    if (!adminToken) return null;
+    return new DefaultChatTransport({
+      api: '/api/chat-instant-stream',
+      body: {
+        appId,
+        adminToken,
+        apiURI: config.apiURI,
+      },
+    });
+  }, [appId, adminToken]);
+
   const registerResumable = useCallback(
     (fns: { sendMessage: (opts: { text: string }) => void }) => {
       sendFnsRef.current[0] = fns.sendMessage;
@@ -315,6 +337,13 @@ function App({ appId }: { appId: string }) {
   const registerInstant = useCallback(
     (fns: { sendMessage: (opts: { text: string }) => void }) => {
       sendFnsRef.current[1] = fns.sendMessage;
+    },
+    [],
+  );
+
+  const registerInstantStream = useCallback(
+    (fns: { sendMessage: (opts: { text: string }) => void }) => {
+      sendFnsRef.current[2] = fns.sendMessage;
     },
     [],
   );
@@ -333,15 +362,15 @@ function App({ appId }: { appId: string }) {
       <div className="mb-4">
         <h1 className="text-2xl font-bold">AI Echo Demo</h1>
         <p className="text-gray-600">
-          Comparing Vercel AI SDK resumable streams (left) with InstantDB
-          streams (right).
+          Comparing Vercel AI SDK resumable streams (left), InstantDB streams
+          (middle), and InstantDB resumable streams (right).
         </p>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-4">
+      <div className="grid min-h-0 flex-1 grid-cols-3 gap-4">
         <div className="flex h-full flex-col">
           <button
-            onClick={() => setResumableEnabled((v) => !v)}
+            onClick={() => setResumableEnabled((v) => { localStorage.setItem('ai-echo-resumable-enabled', String(!v)); return !v; })}
             className={`mb-2 rounded px-2 py-1 text-xs ${resumableEnabled ? 'bg-green-200 hover:bg-green-300' : 'bg-gray-200 hover:bg-gray-300'}`}
           >
             {resumableEnabled ? 'Disable' : 'Enable'} Resumable
@@ -365,7 +394,7 @@ function App({ appId }: { appId: string }) {
         </div>
         <div className="flex h-full flex-col">
           <button
-            onClick={() => setInstantEnabled((v) => !v)}
+            onClick={() => setInstantEnabled((v) => { localStorage.setItem('ai-echo-instant-enabled', String(!v)); return !v; })}
             className={`mb-2 rounded px-2 py-1 text-xs ${instantEnabled ? 'bg-purple-200 hover:bg-purple-300' : 'bg-gray-200 hover:bg-gray-300'}`}
           >
             {instantEnabled ? 'Disable' : 'Enable'} Instant
@@ -384,6 +413,32 @@ function App({ appId }: { appId: string }) {
           ) : (
             <div className="flex flex-1 items-center justify-center rounded border text-gray-400">
               {!instantTransport ? 'No admin token available' : 'Disabled'}
+            </div>
+          )}
+        </div>
+        <div className="flex h-full flex-col">
+          <button
+            onClick={() => setInstantStreamEnabled((v) => { localStorage.setItem('ai-echo-instant-stream-enabled', String(!v)); return !v; })}
+            className={`mb-2 rounded px-2 py-1 text-xs ${instantStreamEnabled ? 'bg-orange-200 hover:bg-orange-300' : 'bg-gray-200 hover:bg-gray-300'}`}
+          >
+            {instantStreamEnabled ? 'Disable' : 'Enable'} Instant Stream
+          </button>
+          {instantStreamEnabled && instantStreamTransport ? (
+            <div className="min-h-0 flex-1">
+              <ChatPanel
+                prefix="ai-echo-instant-stream"
+                transport={instantStreamTransport}
+                title="Instant Resumable Streams"
+                subtitle="InstantDB resumable-stream context"
+                badgeColor="bg-orange-50 text-orange-700"
+                onReady={registerInstantStream}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-1 items-center justify-center rounded border text-gray-400">
+              {!instantStreamTransport
+                ? 'No admin token available'
+                : 'Disabled'}
             </div>
           )}
         </div>
