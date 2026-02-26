@@ -1215,14 +1215,10 @@
                              (if (:nil? vs)
                                (+ nil-count undefined-count)
                                (- total nil-count undefined-count)))
-                     ;; Improvements for comparison and LIKE
-                     ;; estimates.  For LIKE, we use a heuristic based
-                     ;; on estimated cardinality and the structure of
-                     ;; the pattern (wildcards).
+
                      :compare (let [total (:total sketch)
                                     op (:op vs)
-                                    val (str (:value vs))
-                                    cardinality (max 1 (cms/estimate-cardinality sketch))]
+                                    val (str (:value vs))]
                                 (if (flags/toggled? :disable-like-count-optimization)
                                   (long (/ total 2))
                                   (case op
@@ -1235,12 +1231,12 @@
                                           selectivity
                                           (cond
                                             (= val "%") 1.0
-                                            (not any-wild) (/ 1.0 cardinality)
+                                            (not any-wild) (/ 1.0 total)
                                             (and prefix-wild suffix-wild (= len 2)) 1.0
-                                            (and prefix-wild suffix-wild) (/ 1.0 (Math/pow cardinality 0.25))
-                                            prefix-wild (/ 1.0 (Math/pow cardinality 0.5))
-                                            suffix-wild (/ 1.0 (Math/pow cardinality 0.75))
-                                            :else (/ 1.0 (Math/sqrt cardinality)))]
+                                            (and prefix-wild suffix-wild) (/ 1.0 (Math/pow total 0.25))
+                                            prefix-wild (/ 1.0 (Math/pow total 0.5))
+                                            suffix-wild (/ 1.0 (Math/pow total 0.75))
+                                            :else (/ 1.0 (Math/sqrt total)))]
                                       (long (max 1 (* total selectivity))))
                                     (long (/ total 2))))))))]
     (reduce + 0 counts)))

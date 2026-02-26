@@ -221,35 +221,6 @@
             nil
             (range (:depth sketch)))))
 
-(defn estimate-cardinality
-  "Estimates the number of distinct items in the sketch using linear counting.
-   Uses the proportion of empty bins in each row and takes the minimum
-   to avoid over-estimation from collisions."
-  [^Sketch sketch]
-  (let [width (:width sketch)
-        depth (:depth sketch)
-        ^longs bins (:bins sketch)]
-    (if (zero? (:total sketch))
-      0
-      (let [row-estimates
-            (map (fn [d]
-                   (let [row-start (* d width)
-                         row-end (+ row-start width)
-                         zero-count (loop [i row-start
-                                           acc 0]
-                                      (if (< i row-end)
-                                        (recur (inc i)
-                                               (if (zero? (aget bins i))
-                                                 (inc acc)
-                                                 acc))
-                                        acc))]
-                     (if (pos? zero-count)
-                       (long (* -1 width (Math/log (/ zero-count (double width)))))
-                       ;; If no zeros, we know it's at least 'width'
-                       (long (* width (Math/log width))))))
-                 (range depth))]
-        (apply min row-estimates)))))
-
 ;; --------
 ;; Database
 
