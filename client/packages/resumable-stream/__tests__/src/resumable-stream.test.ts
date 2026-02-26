@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   createResumableStreamContext,
   type ResumableStreamContext,
-} from '../index.js';
+} from '../../src/index.js';
 import { createTestingStream, streamToBuffer } from './testing-stream.js';
 
 type EphemeralApp = {
