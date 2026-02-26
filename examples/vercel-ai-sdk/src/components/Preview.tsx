@@ -10,7 +10,7 @@ type PreviewProps = {
   isStreaming: boolean;
   isPreviewReady: boolean;
   onStop?: () => void;
-  chatId?: string;
+  chatId: string;
   modelId?: string;
   matchedPrompt?: string;
   expiresAt?: string | number;
@@ -172,8 +172,9 @@ export function Preview({
           <button
             onClick={() => setShowToast(false)}
             className="text-[var(--muted)] hover:text-[var(--ink)]"
+            aria-label="Dismiss toast"
           >
-            ×
+            <span aria-hidden="true">×</span>
           </button>
         </div>
       )}
@@ -194,7 +195,7 @@ export function Preview({
               src={`/preview/${chatId}`}
               className="min-h-0 flex-1 border-none"
               title="Application Preview"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              sandbox={`allow-scripts allow-forms allow-popups${isSameOrigin ? 'allow-same-origin' : ''}`}
             />
             {expiresAt && (
               <div className="shrink-0 border-t border-gray-200 bg-gray-50/90 px-4 py-1.5 text-center text-xs text-gray-400">
