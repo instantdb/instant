@@ -434,7 +434,7 @@ jobs:
     needs: [ detect_changes ]
     if: github.ref != 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
     environment:
-      name: preview
+      name: Preview
       url: ${{ steps.deploy.outputs.url }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -531,6 +531,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
     if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
+    environment:
+      name: Production
+      url: ${{ steps.deploy.outputs.url }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -570,7 +573,17 @@ jobs:
     - name: Build Project Artifacts
       run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
     - name: Deploy Project Artifacts to Vercel
-      run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      id: deploy
+      run: |
+        vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt
+        code=$?
+        if [ $code -eq 0 ]; then
+          deploymentUrl=`cat deployment-url.txt`
+          echo "url=$deploymentUrl" >> $GITHUB_OUTPUT
+        else
+            echo "There was an error"
+            exit 1
+        fi
 
   vercel-staging-deploy:
     name: Deploy to vercel staging
