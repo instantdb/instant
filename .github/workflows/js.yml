@@ -345,7 +345,7 @@ jobs:
                        version (->> version-js
                                     (re-find #"const version = '"'"'(v\d+\.\d+\.\d+)'"'"'")
                                     last)
-                       new-version (format "%s-experimental.%s.%s.%s"
+                       new-version (format "%s-branch-%s.%s.%s"
                                            version
                                            (System/getenv "BRANCH_NAME")
                                            (System/getenv "GITHUB_RUN_ID")
@@ -355,7 +355,7 @@ jobs:
 
       - name: Publish experimental
         working-directory: client
-        run: make publish-experimental
+        run: ./scripts/publish_packages.clj "branch-${BRANCH_NAME}"
         env:
           NPM_CONFIG_PROVENANCE: true
 
