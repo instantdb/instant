@@ -491,10 +491,11 @@
             deref
             ;; wait for future inside of promise
             deref))
-      (flush-to-file stream-object
-                     nil
-                     on-flush-to-file
-                     on-flush-to-file-error))))
+      @(ua/severed-vfuture
+         (flush-to-file stream-object
+                        nil
+                        on-flush-to-file
+                        on-flush-to-file-error)))))
 
 (defn file-url [app-id location-id]
   (instant-s3/create-signed-download-url! app-id location-id))
@@ -581,7 +582,10 @@
             msg (if (zero? (:offset req))
                   (grpc/->StreamInit 0 (map file->stream-file $files) buffer)
                   (stream-init-msg (:offset req) stream-object-after))]
-        (sink msg)))
+        (sink msg)
+        (when (:done? stream-object-after)
+          (sink {:type ::completed
+                 :abort-reason (:abort-reason stream-object-after)}))))
     cleanup))
 
 (defn handle-bidi-subscribe
