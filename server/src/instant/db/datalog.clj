@@ -1215,9 +1215,34 @@
                              (if (:nil? vs)
                                (+ nil-count undefined-count)
                                (- total nil-count undefined-count)))
-                     ;; We don't have a good way to do comparisions, yet, so we'll
-                     ;; just put a default of half the items.
-                     :compare (long (/ (:total sketch) 2)))))]
+                     ;; Improvements for comparison and LIKE
+                     ;; estimates.  For LIKE, we use a heuristic based
+                     ;; on estimated cardinality and the structure of
+                     ;; the pattern (wildcards).
+                     :compare (let [total (:total sketch)
+                                    op (:op vs)
+                                    val (str (:value vs))
+                                    cardinality (max 1 (cms/estimate-cardinality sketch))]
+                                (if (flags/toggled? :disable-like-count-optimization)
+                                  (long (/ total 2))
+                                  (case op
+                                    (:$like :$ilike)
+                                    (let [len (count val)
+                                          prefix-wild (string/starts-with? val "%")
+                                          suffix-wild (string/ends-with? val "%")
+                                          any-wild (or (string/includes? val "%")
+                                                       (string/includes? val "_"))
+                                          selectivity
+                                          (cond
+                                            (= val "%") 1.0
+                                            (not any-wild) (/ 1.0 cardinality)
+                                            (and prefix-wild suffix-wild (= len 2)) 1.0
+                                            (and prefix-wild suffix-wild) (/ 1.0 (Math/pow cardinality 0.25))
+                                            prefix-wild (/ 1.0 (Math/pow cardinality 0.5))
+                                            suffix-wild (/ 1.0 (Math/pow cardinality 0.75))
+                                            :else (/ 1.0 (Math/sqrt cardinality)))]
+                                      (long (max 1 (* total selectivity))))
+                                    (long (/ total 2))))))))]
     (reduce + 0 counts)))
 
 (defn rows-size-from-sketch [ctx named-p]
