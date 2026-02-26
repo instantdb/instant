@@ -61,9 +61,7 @@ export async function streamToBuffer(
     return new Promise((_, reject) =>
       setTimeout(
         () =>
-          reject(
-            new Error(`Timeout with buffer ${JSON.stringify(buffer)}`),
-          ),
+          reject(new Error(`Timeout with buffer ${JSON.stringify(buffer)}`)),
         ms,
       ),
     );

@@ -370,7 +370,12 @@ function App({ appId }: { appId: string }) {
       <div className="grid min-h-0 flex-1 grid-cols-3 gap-4">
         <div className="flex h-full flex-col">
           <button
-            onClick={() => setResumableEnabled((v) => { localStorage.setItem('ai-echo-resumable-enabled', String(!v)); return !v; })}
+            onClick={() =>
+              setResumableEnabled((v) => {
+                localStorage.setItem('ai-echo-resumable-enabled', String(!v));
+                return !v;
+              })
+            }
             className={`mb-2 rounded px-2 py-1 text-xs ${resumableEnabled ? 'bg-green-200 hover:bg-green-300' : 'bg-gray-200 hover:bg-gray-300'}`}
           >
             {resumableEnabled ? 'Disable' : 'Enable'} Resumable
@@ -394,7 +399,12 @@ function App({ appId }: { appId: string }) {
         </div>
         <div className="flex h-full flex-col">
           <button
-            onClick={() => setInstantEnabled((v) => { localStorage.setItem('ai-echo-instant-enabled', String(!v)); return !v; })}
+            onClick={() =>
+              setInstantEnabled((v) => {
+                localStorage.setItem('ai-echo-instant-enabled', String(!v));
+                return !v;
+              })
+            }
             className={`mb-2 rounded px-2 py-1 text-xs ${instantEnabled ? 'bg-purple-200 hover:bg-purple-300' : 'bg-gray-200 hover:bg-gray-300'}`}
           >
             {instantEnabled ? 'Disable' : 'Enable'} Instant
@@ -418,7 +428,15 @@ function App({ appId }: { appId: string }) {
         </div>
         <div className="flex h-full flex-col">
           <button
-            onClick={() => setInstantStreamEnabled((v) => { localStorage.setItem('ai-echo-instant-stream-enabled', String(!v)); return !v; })}
+            onClick={() =>
+              setInstantStreamEnabled((v) => {
+                localStorage.setItem(
+                  'ai-echo-instant-stream-enabled',
+                  String(!v),
+                );
+                return !v;
+              })
+            }
             className={`mb-2 rounded px-2 py-1 text-xs ${instantStreamEnabled ? 'bg-orange-200 hover:bg-orange-300' : 'bg-gray-200 hover:bg-gray-300'}`}
           >
             {instantStreamEnabled ? 'Disable' : 'Enable'} Instant Stream
