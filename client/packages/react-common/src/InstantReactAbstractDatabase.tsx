@@ -43,15 +43,104 @@ const defaultAuthState = {
   error: undefined,
 };
 
-type InfiniteScrollChunk = {
-  query: any;
-  data: any; // TODO: update
-  isLoading: boolean;
-  isStable: boolean;
+export type ChunkStatus = 'bootstrapping' | 'stable' | 'error';
+
+export type ChunkQueryKind = 'head-live' | 'frozen' | 'tail-live';
+
+export interface Chunk {
+  id: string;
+  afterCursor: Cursor | null;
   startCursor: Cursor | null;
   endCursor: Cursor | null;
-  hasPageAfter?: boolean;
+  status: ChunkStatus;
+  queryKind: ChunkQueryKind;
+  data: any[];
+  hasNextPage: boolean;
+}
+
+export interface InfiniteScrollState {
+  chunks: Chunk[];
+}
+
+const createInitialInfiniteScrollState = (): InfiniteScrollState => ({
+  chunks: [],
+});
+
+const headChunkId = '__head-live__';
+const tailChunkId = '__tail-live__';
+
+const getChunkId = (afterCursor: Cursor | null) =>
+  JSON.stringify(afterCursor ?? null);
+
+const getFrozenChunkId = (startCursor: Cursor) => `frozen:${getChunkId(startCursor)}`;
+
+const getItemId = (item: any): string | null => {
+  if (!item || typeof item !== 'object') return null;
+  if (typeof item.id !== 'string') return null;
+  return item.id;
 };
+
+const dedupeItemsById = (items: any[]) => {
+  const seenIds = new Set<string>();
+
+  return items.filter((item) => {
+    const itemId = getItemId(item);
+    if (!itemId) return true;
+    if (seenIds.has(itemId)) return false;
+    seenIds.add(itemId);
+    return true;
+  });
+};
+
+export const isCursorWindowAligned = (
+  data: any[],
+  startCursor: Cursor | null,
+  endCursor: Cursor | null,
+  pageSize: number,
+) => {
+  if (!startCursor || !endCursor) return false;
+  if (data.length < pageSize) return false;
+
+  const firstRow = data[0];
+  const boundaryRow = data[Math.min(pageSize, data.length) - 1];
+  if (!firstRow || !boundaryRow) return false;
+
+  return firstRow.id === startCursor[0] && boundaryRow.id === endCursor[0];
+};
+
+const chunkOrder = (chunk: Chunk) => {
+  if (chunk.queryKind === 'head-live') return 0;
+  if (chunk.queryKind === 'frozen') return 1;
+  return 2;
+};
+
+const orderChunks = (chunks: Chunk[]) => {
+  return [...chunks].sort((a, b) => {
+    const rankDiff = chunkOrder(a) - chunkOrder(b);
+    if (rankDiff !== 0) return rankDiff;
+
+    if (a.queryKind === 'frozen' && b.queryKind === 'frozen') {
+      if (!a.startCursor) return -1;
+      if (!b.startCursor) return 1;
+      if (a.startCursor[0] === b.startCursor[0]) return 0;
+      return a.startCursor[0] < b.startCursor[0] ? -1 : 1;
+    }
+
+    return a.id < b.id ? -1 : 1;
+  });
+};
+
+export function deriveMergedInfiniteData(state: InfiniteScrollState): any[] {
+  const headChunk = state.chunks.find((chunk) => chunk.queryKind === 'head-live');
+  const frozenChunks = state.chunks.filter((chunk) => chunk.queryKind === 'frozen');
+
+  const orderedSources = [
+    ...(headChunk ? [headChunk.data] : []),
+    ...orderChunks(frozenChunks).map((chunk) => chunk.data),
+  ];
+
+  return dedupeItemsById(orderedSources.flat());
+}
 
 type InfiniteQueryResult<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -60,7 +149,7 @@ type InfiniteQueryResult<
   UseDates extends boolean,
 > = {
   data: any[];
-  chunks: InfiniteScrollChunk[];
+  chunks: Chunk[];
   isLoading: boolean;
   isLoadingMore: boolean;
   loadMore: () => Promise<void>;
@@ -428,210 +517,351 @@ export default abstract class InstantReactAbstractDatabase<
     _query: Q,
     opts?: InstaQLOptions,
   ): InfiniteQueryResult<Schema, Entity, Q, UseDates> => {
-    const [chunkMap, setChunkMap] = useState<Map<string, InfiniteScrollChunk>>(
-      new Map(),
+    const [state, setState] = useState<InfiniteScrollState>(
+      createInitialInfiniteScrollState,
     );
     const subscriptionsRef = useRef<Map<string, () => void>>(new Map());
+    const tailSubscriptionKeyRef = useRef<string | null>(null);
+    const serializedQuery = JSON.stringify(_query);
+    const queryRef = useRef(_query);
 
-    const getChunkKey = (startCursor?: Cursor | null) =>
-      JSON.stringify(startCursor ?? null);
+    useEffect(() => {
+      queryRef.current = _query;
+    }, [serializedQuery]);
 
-    const clearSubscriptionAtKey = (chunkKey: string) => {
+    const clearSubscriptionAtKey = useCallback((chunkKey: string) => {
       const unsub = subscriptionsRef.current.get(chunkKey);
       if (unsub) {
         unsub();
         subscriptionsRef.current.delete(chunkKey);
       }
-    };
+    }, []);
 
-    const clearAllSubscriptions = () => {
+    const clearAllSubscriptions = useCallback(() => {
       for (const unsub of subscriptionsRef.current.values()) {
         unsub?.();
       }
       subscriptionsRef.current = new Map();
-    };
+      tailSubscriptionKeyRef.current = null;
+    }, []);
 
-    const setChunkAtCursor = (
-      startCursor: Cursor | null | undefined,
-      chunk: InfiniteScrollChunk,
-    ) => {
-      // Very first non-stable chunk will have id of "null"
-      const chunkKey = getChunkKey(startCursor);
-      setChunkMap((prev) => {
-        const next = new Map(prev);
-        next.set(chunkKey, chunk);
-        return next;
-      });
-    };
-
-    const setupChunk = (startCursor?: Cursor) => {
-      const chunkKey = getChunkKey(startCursor);
-      clearSubscriptionAtKey(chunkKey);
-
-      const query = {
-        [entity]: {
-          ..._query,
-          $: {
-            first: _query.$.pageSize,
-            after: startCursor,
-            // common fields
-            where: _query.$.where,
-            fields: _query.$.fields,
-            order: _query.$.order,
-          },
-        },
-      };
-
-      setChunkAtCursor(startCursor, {
-        query,
-        data: [],
-        isLoading: true,
-        isStable: false,
-        startCursor: null,
-        endCursor: null,
-        hasPageAfter: false,
-      });
-
-      let bootstrapUnsub = this.core.subscribeQuery(
-        // @ts-expect-error entity key'd query
-        query,
-        (resp) => {
-          if (resp.error || !resp.data) {
-            setChunkAtCursor(startCursor, {
-              query,
-              data: [],
-              isLoading: false,
-              isStable: false,
-              startCursor: null,
-              endCursor: null,
-              hasPageAfter: resp.pageInfo?.[entity].hasNextPage,
-            });
-            return;
-          }
-
-          const data = resp.data[entity];
-          const start = resp.pageInfo?.[entity]?.startCursor ?? null;
-          const end = resp.pageInfo?.[entity]?.endCursor ?? null;
-
-          setChunkAtCursor(startCursor, {
-            query,
-            data,
-            isLoading: false,
-            isStable: false,
-            startCursor: start,
-            endCursor: end,
-            hasPageAfter: resp.pageInfo?.[entity].hasNextPage,
-          });
-
-          // Keep listening on the bootstrap query while the chunk is not full.
-          if (data.length < _query.$.pageSize) {
-            return;
-          }
-
-          // If we are missing cursors, we can't lock to a fixed window yet.
-          if (!start || !end) {
-            return;
-          }
-
-          // During optimistic updates, data can grow before pageInfo catches up.
-          // Wait until cursors align with the current page boundary before
-          // switching to a fixed sticky window.
-          const firstRow = data[0];
-          const boundaryRow =
-            data[Math.min(_query.$.pageSize, data.length) - 1];
-          if (!firstRow || !boundaryRow) {
-            return;
-          }
-          if (firstRow.id !== start[0] || boundaryRow.id !== end[0]) {
-            return;
-          }
-
-          bootstrapUnsub();
-
-          const stickyQuery = {
-            [entity]: {
-              ..._query,
-              $: {
-                after: startCursor ?? decrementCursor(start),
-                before: incrementCursor(end),
-                // common fields
-                where: _query.$.where,
-                fields: _query.$.fields,
-                order: _query.$.order,
-              },
-            },
+    const upsertChunk = useCallback((nextChunk: Chunk) => {
+      setState((prev) => {
+        const index = prev.chunks.findIndex((chunk) => chunk.id === nextChunk.id);
+        if (index === -1) {
+          return {
+            chunks: orderChunks([...prev.chunks, nextChunk]),
           };
+        }
 
-          const stickyUnsub = this.core.subscribeQuery(
-            // @ts-expect-error entity key'd query
-            stickyQuery,
-            (dataResp) => {
-              if (!dataResp.data?.[entity]) return;
-              setChunkAtCursor(startCursor, {
-                query: stickyQuery,
-                data: dataResp.data[entity],
-                isLoading: false,
-                isStable: true,
-                startCursor: dataResp.pageInfo?.[entity]?.startCursor ?? null,
-                endCursor: dataResp.pageInfo?.[entity]?.endCursor ?? null,
-                hasPageAfter: dataResp.pageInfo?.[entity].hasNextPage,
-              });
+        const nextChunks = [...prev.chunks];
+        nextChunks[index] = {
+          ...nextChunks[index],
+          ...nextChunk,
+        };
+
+        return {
+          chunks: orderChunks(nextChunks),
+        };
+      });
+    }, []);
+
+    const setupFrozenChunk = useCallback(
+      (start: Cursor, end: Cursor, initialData: any[], hasNextPage: boolean) => {
+        const chunkId = getFrozenChunkId(start);
+
+        if (subscriptionsRef.current.has(chunkId)) {
+          return;
+        }
+
+        upsertChunk({
+          id: chunkId,
+          afterCursor: start,
+          startCursor: start,
+          endCursor: end,
+          status: 'bootstrapping',
+          queryKind: 'frozen',
+          data: initialData,
+          hasNextPage,
+        });
+
+        const queryConfig = queryRef.current;
+        const stickyQuery = {
+          [entity]: {
+            ...queryConfig,
+            $: {
+              after: decrementCursor(start),
+              before: incrementCursor(end),
+              where: queryConfig.$.where,
+              fields: queryConfig.$.fields,
+              order: queryConfig.$.order,
             },
-            opts,
-          );
+          },
+        };
 
-          subscriptionsRef.current.set(chunkKey, stickyUnsub);
-        },
+        const stickyUnsub = this.core.subscribeQuery(
+          // @ts-expect-error entity key'd query
+          stickyQuery,
+          (resp) => {
+            if (resp.error || !resp.data) {
+              upsertChunk({
+                id: chunkId,
+                afterCursor: start,
+                startCursor: start,
+                endCursor: end,
+                status: 'error',
+                queryKind: 'frozen',
+                data: initialData,
+                hasNextPage,
+              });
+              return;
+            }
+
+            const frozenData = resp.data[entity];
+            upsertChunk({
+              id: chunkId,
+              afterCursor: start,
+              startCursor: resp.pageInfo?.[entity]?.startCursor ?? start,
+              endCursor: resp.pageInfo?.[entity]?.endCursor ?? end,
+              status: 'stable',
+              queryKind: 'frozen',
+              data: frozenData,
+              hasNextPage: resp.pageInfo?.[entity].hasNextPage ?? hasNextPage,
+            });
+          },
+          opts,
+        );
+
+        subscriptionsRef.current.set(chunkId, stickyUnsub);
+      },
+      [entity, opts, upsertChunk],
+    );
+
+    const setupTailChunk = useCallback(
+      (afterCursor: Cursor | null) => {
+        if (!afterCursor) {
+          return;
+        }
+
+        const tailSubKey = `tail-live:${getChunkId(afterCursor)}`;
+        if (tailSubscriptionKeyRef.current === tailSubKey) {
+          return;
+        }
+
+        if (tailSubscriptionKeyRef.current) {
+          clearSubscriptionAtKey(tailSubscriptionKeyRef.current);
+        }
+        tailSubscriptionKeyRef.current = tailSubKey;
+
+        upsertChunk({
+          id: tailChunkId,
+          afterCursor,
+          startCursor: null,
+          endCursor: null,
+          status: 'bootstrapping',
+          queryKind: 'tail-live',
+          data: [],
+          hasNextPage: false,
+        });
+
+        const queryConfig = queryRef.current;
+        const tailQuery = {
+          [entity]: {
+            ...queryConfig,
+            $: {
+              first: queryConfig.$.pageSize,
+              after: afterCursor,
+              where: queryConfig.$.where,
+              fields: queryConfig.$.fields,
+              order: queryConfig.$.order,
+            },
+          },
+        };
+
+        const tailUnsub = this.core.subscribeQuery(
+          // @ts-expect-error entity key'd query
+          tailQuery,
+          (resp) => {
+            if (resp.error || !resp.data) {
+              upsertChunk({
+                id: tailChunkId,
+                afterCursor,
+                startCursor: null,
+                endCursor: null,
+                status: 'error',
+                queryKind: 'tail-live',
+                data: [],
+                hasNextPage: false,
+              });
+              return;
+            }
+
+            const tailData = resp.data[entity];
+            upsertChunk({
+              id: tailChunkId,
+              afterCursor,
+              startCursor: resp.pageInfo?.[entity]?.startCursor ?? null,
+              endCursor: resp.pageInfo?.[entity]?.endCursor ?? null,
+              status: 'stable',
+              queryKind: 'tail-live',
+              data: tailData,
+              hasNextPage: resp.pageInfo?.[entity].hasNextPage ?? false,
+            });
+          },
+          opts,
+        );
+
+        subscriptionsRef.current.set(tailSubKey, tailUnsub);
+      },
+      [clearSubscriptionAtKey, entity, opts, upsertChunk],
+    );
+
+    const setupChunk = useCallback(
+      (afterCursor?: Cursor | null) => {
+        const queryConfig = queryRef.current;
+        const chunkId = headChunkId;
+
+        if (afterCursor != null) {
+          setupTailChunk(afterCursor);
+          return;
+        }
+
+        if (subscriptionsRef.current.has(chunkId)) {
+          return;
+        }
+
+        upsertChunk({
+          id: chunkId,
+          afterCursor: null,
+          startCursor: null,
+          endCursor: null,
+          status: 'bootstrapping',
+          queryKind: 'head-live',
+          data: [],
+          hasNextPage: false,
+        });
+
+        const query = {
+          [entity]: {
+            ...queryConfig,
+            $: {
+              first: queryConfig.$.pageSize,
+              after: null,
+              // common fields
+              where: queryConfig.$.where,
+              fields: queryConfig.$.fields,
+              order: queryConfig.$.order,
+            },
+          },
+        };
+
+        const bootstrapUnsub = this.core.subscribeQuery(
+          // @ts-expect-error entity key'd query
+          query,
+          (resp) => {
+            if (resp.error || !resp.data) {
+              clearSubscriptionAtKey(chunkId);
+              upsertChunk({
+                id: chunkId,
+                afterCursor: null,
+                startCursor: null,
+                endCursor: null,
+                status: 'error',
+                queryKind: 'head-live',
+                data: [],
+                hasNextPage: false,
+              });
+              return;
+            }
+
+            const data = resp.data[entity];
+            const start = resp.pageInfo?.[entity]?.startCursor ?? null;
+            const end = resp.pageInfo?.[entity]?.endCursor ?? null;
+            const hasNextPage = resp.pageInfo?.[entity].hasNextPage ?? false;
+
+            upsertChunk({
+              id: chunkId,
+              afterCursor: null,
+              startCursor: start,
+              endCursor: end,
+              status: 'stable',
+              queryKind: 'head-live',
+              data,
+              hasNextPage,
+            });
+
+            if (!isCursorWindowAligned(data, start, end, queryConfig.$.pageSize)) {
+              return;
+            }
+
+            setupFrozenChunk(start, end, data, hasNextPage);
+            setupTailChunk(end);
+          },
+          opts,
+        );
+
+        subscriptionsRef.current.set(chunkId, bootstrapUnsub);
+      },
+      [
+        clearSubscriptionAtKey,
+        entity,
         opts,
-      );
-
-      subscriptionsRef.current.set(chunkKey, bootstrapUnsub);
-    };
+        setupFrozenChunk,
+        setupTailChunk,
+        upsertChunk,
+      ],
+    );
 
     useEffect(() => {
+      setState(createInitialInfiniteScrollState());
+      clearAllSubscriptions();
       setupChunk();
 
       return () => {
         clearAllSubscriptions();
       };
-    }, []);
+    }, [clearAllSubscriptions, entity, serializedQuery, setupChunk]);
 
-    const chunks = Array.from(chunkMap.values());
-
-    // TODO: double check order chunks
-    const mergedData = chunks.flatMap((chunk) => chunk.data);
+    const headChunk = state.chunks.find((chunk) => chunk.id === headChunkId);
+    const tailChunk = state.chunks.find((chunk) => chunk.id === tailChunkId);
+    const frozenChunks = state.chunks.filter((chunk) => chunk.queryKind === 'frozen');
 
     const isLoading =
-      chunks.length === 0 || chunks.some((chunk) => chunk.isLoading);
+      state.chunks.length === 0 || headChunk?.status === 'bootstrapping';
     const isLoadingMore =
-      chunks.length > 1 && chunks[chunks.length - 1].isLoading;
+      frozenChunks.length > 0 && tailChunk?.status === 'bootstrapping';
+    const canLoadMore =
+      tailChunk?.status === 'stable' &&
+      !!tailChunk.startCursor &&
+      !!tailChunk.endCursor &&
+      tailChunk.data.length > 0;
 
-    const getCanLoadMore = () => {
-      const lastChunk = chunks[chunks.length - 1];
-      if (!lastChunk) return false;
-      if (!lastChunk.isStable || !lastChunk.endCursor) return false;
-      if (lastChunk.data.length < _query.$.pageSize) return false;
-
-      return (
-        (chunks.length > 0 && chunks[chunks.length - 1].hasPageAfter) || false
-      );
-    };
-
-    const canLoadMore = getCanLoadMore();
+    const mergedData = deriveMergedInfiniteData(state);
 
     const loadMore = async () => {
-      const lastChunk = chunks[chunks.length - 1];
-      if (!lastChunk) return;
-      if (!lastChunk.isStable || !lastChunk.endCursor) return;
-      if (lastChunk.data.length < _query.$.pageSize) return;
-      setupChunk(lastChunk.endCursor);
+      if (
+        !tailChunk ||
+        tailChunk.status !== 'stable' ||
+        !tailChunk.startCursor ||
+        !tailChunk.endCursor
+      ) {
+        return;
+      }
+
+      setupFrozenChunk(
+        tailChunk.startCursor,
+        tailChunk.endCursor,
+        tailChunk.data,
+        tailChunk.hasNextPage,
+      );
+      setupTailChunk(tailChunk.endCursor);
     };
 
     return {
       data: mergedData,
       isLoading,
       isLoadingMore,
-      chunks,
+      chunks: state.chunks,
       loadMore,
       canLoadMore,
     };
