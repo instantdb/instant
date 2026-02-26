@@ -29,7 +29,7 @@ export function Preview({
   const [view, setView] = useState<'preview' | 'code'>(
     isStreaming || !isPreviewReady ? 'code' : 'preview',
   );
-  const [isSameOrigin, setIsSameOrigin] = useState(false);
+  const [isSameOrigin, setIsSameOrigin] = useState<boolean | null>(null);
 
   useEffect(() => {
     const host = window.location.hostname;
@@ -49,7 +49,7 @@ export function Preview({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setView('code');
       setShowToast(false);
-    } else if (!isStreaming && prevStreaming.current && rawCode) {
+    } else if (!isStreaming && prevStreaming.current && isPreviewReady) {
       if (isAtBottom.current) {
         setView('preview');
       } else {
@@ -57,7 +57,7 @@ export function Preview({
       }
     }
     prevStreaming.current = isStreaming;
-  }, [isStreaming, rawCode]);
+  }, [isStreaming, isPreviewReady]);
 
   useEffect(() => {
     isStreamingRef.current = isStreaming;
@@ -120,7 +120,7 @@ export function Preview({
         <div className="flex flex-wrap items-center gap-2">
           {(['preview', 'code'] as const).map((v) => {
             const isFinishedPreview =
-              v === 'preview' && !isStreaming && rawCode;
+              v === 'preview' && !isStreaming && isPreviewReady;
             const isGeneratingPreview = v === 'preview' && isStreaming;
             return (
               <button
@@ -191,12 +191,14 @@ export function Preview({
                 production, use a domain with wildcard subdomains for isolation.
               </div>
             )}
-            <iframe
-              src={`/preview/${chatId}`}
-              className="min-h-0 flex-1 border-none"
-              title="Application Preview"
-              sandbox={`allow-scripts allow-forms allow-popups${isSameOrigin ? 'allow-same-origin' : ''}`}
-            />
+            {isSameOrigin !== null && (
+              <iframe
+                src={`/preview/${chatId}`}
+                className="min-h-0 flex-1 border-none"
+                title="Application Preview"
+                sandbox={`allow-scripts allow-forms allow-popups${isSameOrigin ? ' allow-same-origin' : ''}`}
+              />
+            )}
             {expiresAt && (
               <div className="shrink-0 border-t border-gray-200 bg-gray-50/90 px-4 py-1.5 text-center text-xs text-gray-400">
                 This app is ephemeral — all data will be deleted on{' '}
