@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "src/__types__", "src/__tests__"],
+  "compilerOptions": {
+    "outDir": "dist/tsc",
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": "src",
+    "checkJs": false,
+    "strictNullChecks": true
+  }
+}
