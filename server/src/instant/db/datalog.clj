@@ -1223,7 +1223,8 @@
                                   (long (/ total 2))
                                   (case op
                                     (:$like :$ilike)
-                                    (let [len (count val)
+                                    (let [denom (max 1 total)
+                                          len (count val)
                                           prefix-wild (string/starts-with? val "%")
                                           suffix-wild (string/ends-with? val "%")
                                           any-wild (or (string/includes? val "%")
@@ -1231,12 +1232,12 @@
                                           selectivity
                                           (cond
                                             (= val "%") 1.0
-                                            (not any-wild) (/ 1.0 total)
+                                            (not any-wild) (/ 1.0 denom)
                                             (and prefix-wild suffix-wild (= len 2)) 1.0
-                                            (and prefix-wild suffix-wild) (/ 1.0 (Math/pow total 0.25))
-                                            prefix-wild (/ 1.0 (Math/pow total 0.5))
-                                            suffix-wild (/ 1.0 (Math/pow total 0.75))
-                                            :else (/ 1.0 (Math/sqrt total)))]
+                                            (and prefix-wild suffix-wild) (/ 1.0 (Math/pow denom 0.25))
+                                            prefix-wild (/ 1.0 (Math/pow denom 0.5))
+                                            suffix-wild (/ 1.0 (Math/pow denom 0.75))
+                                            :else (/ 1.0 (Math/sqrt denom)))]
                                       (long (max 1 (* total selectivity))))
                                     (long (/ total 2))))))))]
     (reduce + 0 counts)))
