@@ -10,6 +10,7 @@ const envNames: Record<Project['base'], string> = {
   'bun-react': 'BUN_PUBLIC_INSTANT_APP_ID',
   'solidjs-vite': 'VITE_INSTANT_APP_ID',
   'tanstack-start-with-tanstack-query': 'VITE_INSTANT_APP_ID',
+  'vercel-ai-sdk': 'NEXT_PUBLIC_INSTANT_APP_ID',
 };
 
 export const applyEnvFile = (

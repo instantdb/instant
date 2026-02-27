@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+
+:root {
+  --bg: #f1efe8;
+  --card: #fffdfa;
+  --ink: #171411;
+  --muted: #5a5249;
+  --line: #d3cbbe;
+  --accent: #d66c2f;
+  --accent-2: #1d4f59;
+  --panel-shadow: 0 18px 55px rgba(24, 28, 33, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-heading);
+  --font-mono: var(--font-code);
+}
+
+body {
+  min-height: 100dvh;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 6% 9%, #f1c7a7 0%, transparent 26%),
+    radial-gradient(circle at 87% 6%, #9ecad4 0%, transparent 23%),
+    radial-gradient(circle at 78% 96%, #f6e0b9 0%, transparent 19%), var(--bg);
+}
+
+* {
+  border-color: var(--line);
+}
+
+.paper-grid {
+  background-image:
+    linear-gradient(to right, rgba(23, 20, 17, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(23, 20, 17, 0.045) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.panel {
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--card) 92%, white);
+  box-shadow: var(--panel-shadow);
+}
+
+.chat-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(19, 16, 13, 0.3) transparent;
+}
+
+.chat-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(19, 16, 13, 0.3);
+  border-radius: 999px;
+}
