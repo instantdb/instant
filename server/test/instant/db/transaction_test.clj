@@ -4909,7 +4909,20 @@
                  (test-util/find-entids-by-ids app-id attr->id ids))))
 
         (testing "deleting user works if you unlink the book"
-          (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:retract-triple (suid "b2") (:book/author attr->id) (suid "a")]
+          (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                                #"violates an on-delete constraint"
+                                (tx/transact! (aurora/conn-pool :write) attr-model app-id
+                                              [[:retract-triple (suid "b2") (:book/author attr->id) (suid "a")]
+                                               [:add-triple (suid "b2") (:book/author attr->id) (suid "a")]
+                                               [:retract-triple (suid "b3") (:book/author attr->id) (suid "a")]
+                                               [:delete-entity (suid "a") "user"]])))
+
+          (is (= #{(suid "a") (suid "b2") (suid "b3")}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))
+
+        (testing "deleting user works if you unlink the book"
+          (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:add-triple (suid "b2") (:book/author attr->id) (suid "a")]
+                                                                     [:retract-triple (suid "b2") (:book/author attr->id) (suid "a")]
                                                                      [:retract-triple (suid "b3") (:book/author attr->id) (suid "a")]
                                                                      [:delete-entity (suid "a") "user"]])
           (is (= #{(suid "b2") (suid "b3")}
@@ -5019,10 +5032,24 @@
           (is (= #{(suid "a") (suid "b2") (suid "b3")}
                  (test-util/find-entids-by-ids app-id attr->id ids))))
 
+        (testing "deleting user is blocked if you add the triple after retracting it"
+          (is (thrown-with-msg?
+               clojure.lang.ExceptionInfo
+               #"violates an on-delete constraint"
+               (tx/transact! (aurora/conn-pool :write) attr-model app-id
+                             [[:retract-triple (suid "a") (:user/books attr->id) (suid "b2")]
+                              [:add-triple (suid "a") (:user/books attr->id) (suid "b3")]
+                              [:retract-triple (suid "a") (:user/books attr->id) (suid "b3")]
+                              [:delete-entity (suid "a") "user"]])))
+          (is (= #{(suid "a") (suid "b2") (suid "b3")}
+                 (test-util/find-entids-by-ids app-id attr->id ids))))
+
         (testing "deleting user works if you also unlink the book"
-          (tx/transact! (aurora/conn-pool :write) attr-model app-id [[:retract-triple (suid "a") (:user/books attr->id) (suid "b2")]
-                                                                     [:retract-triple (suid "a") (:user/books attr->id) (suid "b3")]
-                                                                     [:delete-entity (suid "a") "user"]])
+          (tx/transact! (aurora/conn-pool :write) attr-model app-id
+                        [[:add-triple (suid "a") (:user/books attr->id) (suid "b3")]
+                         [:retract-triple (suid "a") (:user/books attr->id) (suid "b2")]
+                         [:retract-triple (suid "a") (:user/books attr->id) (suid "b3")]
+                         [:delete-entity (suid "a") "user"]])
           (is (= #{(suid "b2") (suid "b3")}
                  (test-util/find-entids-by-ids app-id attr->id ids))))))))
 

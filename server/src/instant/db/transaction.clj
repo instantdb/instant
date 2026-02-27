@@ -516,20 +516,42 @@
                                                :when (and (= :rule-params op) (uuid? eid))]
                                            [eid value]))
             original-deleted-entities (set ids+etypes)
-            ;; TODO Also needs to account for added triples (if you add and delete in the same tx)
-            original-deleted-triples (coll/reduce-tr (fn [acc step]
-                                                       (case (:op step)
-                                                         :retract-triple
-                                                         (let [attr (attr-model/seek-by-id (:aid step) attrs)]
-                                                           (if (= :ref (:value-type attr))
-                                                             (conj! acc [(:eid step)
-                                                                         (:aid step)
-                                                                         (uuid/coerce (:value step))])
-                                                             acc))
 
-                                                         acc))
-                                                     #{}
-                                                     tx-step-maps)
+            {:keys [first-step add-triple retract-triple]}
+            (coll/reduce-tr (fn [acc step]
+                              (case (:op step)
+                                (:add-triple :retract-triple)
+                                (let [attr (attr-model/seek-by-id (:aid step) attrs)]
+                                  (if-not (= :ref (:value-type attr))
+                                    acc
+                                    (cond-> acc
+
+                                      (or (nil? (:first-step acc))
+                                          (= :retract-triple (:first-step acc))
+                                          (not= :add-triple (:op step)))
+                                      (assoc! (:op step)
+                                              (conj! (get acc (:op step))
+                                                     [(:eid step)
+                                                      (:aid step)
+                                                      (uuid/coerce (:value step))]))
+
+                                      (not (:first-step acc))
+                                      (assoc! :first-step (:op step)))))
+                                acc))
+                            {:first-step nil
+                             :add-triple (transient #{})
+                             :retract-triple (transient #{})}
+                            tx-step-maps)
+
+            original-deleted-triples
+            (case first-step
+              nil #{}
+              ;; add-triple is first, so they won't overwrite our retracts
+              :add-triple (persistent! retract-triple)
+              :retract-triple (as-> retract-triple %
+                                (apply disj! % (persistent! add-triple))
+                                (persistent! %)))
+
 
             ;; Only get the cascaded entities (where parent_id != entity_id)
             cascaded-entities
@@ -551,16 +573,9 @@
                                                                                     [entity_id attr_id parent_id]
                                                                                     :on-delete-reverse
                                                                                     [parent_id attr_id entity_id])))))
-                            (ex/throw-validation-err!
-                             :on-delete-restrict
-                             (map vectorize-tx-step tx-step-maps)
-                             [{:message (format (clojure.string/join
-                                                 " "
-                                                 ["This transaction violates an on-delete constraint."
-                                                  "The `%s` entity cannot be deleted unless its"
-                                                  "linked `%s` entity is deleted first."]                                                 )
-                                                parent_etype
-                                                etype)}]))
+
+
+)
                           #_else
                           ent))))
                   res)
