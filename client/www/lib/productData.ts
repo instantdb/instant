@@ -95,7 +95,7 @@ const rules = {
     codeLanguage: 'javascript',
   },
   {
-    id: 'sync-engine',
+    id: 'sync',
     name: 'Sync Engine',
     tagline: 'Optimistic updates, multiplayer, and offline mode',
     description:
@@ -247,7 +247,7 @@ export const productIcons: Record<
 > = {
   database: CircleStackIcon,
   auth: LockClosedIcon,
-  'sync-engine': ArrowPathIcon,
+  sync: ArrowPathIcon,
   storage: FolderIcon,
   'admin-sdk': CodeBracketIcon,
   'platform-api': CubeTransparentIcon,
