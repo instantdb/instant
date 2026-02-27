@@ -1,5 +1,8 @@
 # Welcome to your InstantDB NextJS app 👋
 
+[InstantDB Docs](https://www.instantdb.com/docs)
+[NextJS Docs](https://nextjs.org/docs)
+
 This is a NextJS project scaffolded with create-instant-app.
 
 To run the development server:

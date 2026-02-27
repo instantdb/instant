@@ -1,5 +1,8 @@
 # Welcome to your InstantDB Expo app 👋
 
+[InstantDB Docs](https://www.instantdb.com/docs)
+[Expo Docs](https://docs.expo.dev/)
+
 This is an Expo project scaffolded with create-instant-app.
 
 To run the development server:
