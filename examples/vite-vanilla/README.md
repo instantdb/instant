@@ -15,5 +15,3 @@ To pull schema changes:
 
 
 Got any feedback or questions? Join our [Discord](https://discord.gg/hgVf9R6SBm)
-
-Using AI? Add the Instant LLM Rules to your repo with: `npx skills add instantdb/skills`

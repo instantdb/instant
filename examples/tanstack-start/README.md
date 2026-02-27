@@ -1,7 +1,6 @@
 # Welcome to your InstantDB Tanstack Start app 👋
 
 [TanStack Start Docs](https://tanstack.com/start/latest/docs/framework/react/overview)
-
 [InstantDB Docs](https://www.instantdb.com/docs)
 
 This is a Tanstack Start project scaffolded with create-instant-app.
@@ -16,5 +15,3 @@ To pull schema changes:
 `npx instant-cli pull`
 
 Got any feedback or questions? Join our [Discord](https://discord.gg/hgVf9R6SBm)
-
-Using AI? Add the Instant LLM Rules to your repo with: `npx skills add instantdb/skills`
