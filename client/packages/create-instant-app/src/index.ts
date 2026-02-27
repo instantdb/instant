@@ -22,6 +22,7 @@ import {
 import { promptClaude } from './claude.js';
 import { parseNameAndPath } from './utils/validateAppName.js';
 import { execa } from 'execa';
+import { getRules, getSchema } from './utils/appConfig.js';
 
 const main = async () => {
   if (
@@ -50,6 +51,8 @@ const main = async () => {
     template: project.base,
     aiTool: project.ruleFiles ?? 'none',
     usedAiPrompt: !!project.prompt,
+    rules: getRules(projectDir),
+    schema: getSchema(projectDir),
   };
 
   const possibleAppTokenPair = await tryConnectApp(appFlags, scaffoldMetadata);

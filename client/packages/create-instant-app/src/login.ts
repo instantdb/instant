@@ -45,7 +45,18 @@ export const createApp = async (
 ) => {
   const id = randomUUID();
   const token = randomUUID();
-  const app = { id, title, admin_token: token, org_id: orgId };
+  const app: Record<string, any> = {
+    id,
+    title,
+    admin_token: token,
+    org_id: orgId,
+  };
+  if (metadata?.rules) {
+    app.rules = metadata.rules;
+  }
+  if (metadata?.schema) {
+    app.schema = metadata.schema;
+  }
   await fetchJson({
     method: 'POST',
     authToken,

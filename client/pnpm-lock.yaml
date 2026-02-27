@@ -420,6 +420,9 @@ importers:
       '@ianvs/prettier-plugin-sort-imports':
         specifier: ^4.2.1
         version: 4.6.1(@vue/compiler-sfc@3.5.13)(prettier@3.6.2)
+      '@instantdb/platform':
+        specifier: workspace:*
+        version: link:../platform
       '@instantdb/version':
         specifier: workspace:*
         version: link:../version
@@ -788,6 +791,46 @@ importers:
         specifier: ^0.21.0
         version: 0.21.1(jsdom@20.0.3)(terser@5.37.0)
 
+  packages/resumable-stream:
+    dependencies:
+      '@instantdb/admin':
+        specifier: workspace:*
+        version: link:../admin
+    devDependencies:
+      '@arethetypeswrong/cli':
+        specifier: ^0.17.4
+        version: 0.17.4
+      '@babel/core':
+        specifier: ^7.17.9
+        version: 7.28.5
+      '@babel/preset-env':
+        specifier: ^7.16.11
+        version: 7.26.7(@babel/core@7.28.5)
+      '@types/node':
+        specifier: ^18.11.18
+        version: 18.19.74
+      '@types/uuid':
+        specifier: ^10.0.0
+        version: 10.0.0
+      '@types/websocket':
+        specifier: ^1.0.5
+        version: 1.0.10
+      npm-run-all:
+        specifier: ^4.1.5
+        version: 4.1.5
+      tshy:
+        specifier: ^3.0.2
+        version: 3.0.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.2.0
+        version: 5.4.14(@types/node@18.19.74)(lightningcss@1.30.2)(terser@5.37.0)
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@18.19.74)(jsdom@20.0.3)(lightningcss@1.30.2)(terser@5.37.0)
+
   packages/solidjs:
     dependencies:
       '@instantdb/core':
@@ -998,6 +1041,9 @@ importers:
       '@instantdb/react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@instantdb/resumable-stream':
+        specifier: workspace:*
+        version: link:../../packages/resumable-stream
       '@react-oauth/google':
         specifier: ^0.12.1
         version: 0.12.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -3716,7 +3762,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {node: '>=0.10.0'}
+    engines: {'0': node >=0.10.0}
 
   '@expo/cli@0.20.3':
     resolution: {integrity: sha512-+nL2f6ZPV6e4yXS0P02jChstSJePihfFluapqnRM8+4pH4wsBOL1GoOc7hVFfwsP0vRE3HDqn5EEzrO+ZaCbpQ==}

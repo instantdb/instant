@@ -72,6 +72,7 @@ function dbForAttrs(
     ...baseDb.core._reactor.config,
     disableValidation: true,
     schema,
+    devtool: false,
   });
 }
 

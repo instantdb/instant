@@ -401,6 +401,10 @@
   (throw+ {::type ::rate-limited
            ::message "You're making too many requests. Please email support@instantdb.com or ask for help in the Discord."}))
 
+(defn throw-record-email-rate-limited! []
+  (throw+ {::type ::rate-limited
+           ::message "Too many verification codes requested for this email. Please try again later."}))
+
 ;; -------
 ;; Sockets
 

@@ -116,7 +116,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: '10.2.0'
 
@@ -139,7 +139,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: client
-        run: pnpm i --frozen-lockfile
+        run: pnpm i --frozen-lockfile --prefer-offline
 
       - name: Build packages
         working-directory: client
@@ -157,10 +157,10 @@ jobs:
         working-directory: client
         run: pnpm run bench
 
-      - name: Prune cache
+      - name: Prune store
         if: github.ref == 'refs/heads/main'
         working-directory: client
-        run: pnpm prune
+        run: pnpm store prune
 
       - uses: actions/cache/save@v4
         if: github.ref == 'refs/heads/main'
@@ -188,7 +188,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: '10.2.0'
 
@@ -197,7 +197,6 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
-          cache-dependency-path: client/pnpm-lock.yaml
 
       - name: Get pnpm cache directory path
         id: pnpm-cache-dir-path
@@ -212,7 +211,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: client
-        run: pnpm i --frozen-lockfile
+        run: pnpm i --frozen-lockfile --prefer-offline
 
       - name: Check prettier formatting
         working-directory: client
@@ -233,7 +232,7 @@ jobs:
         key: ${{ runner.os }}-turbo-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-turbo-
-    - uses: pnpm/action-setup@v2
+    - uses: pnpm/action-setup@v4
       with:
         version: '10.2.0'
     - name: Setup Node.js environment
@@ -255,7 +254,7 @@ jobs:
 
     - name: Install dependencies
       working-directory: 'client'
-      run: pnpm i --frozen-lockfile
+      run: pnpm i --frozen-lockfile --prefer-offline
     - name: Reindex Algolia
       env:
         ALGOLIA_API_KEY: ${{ secrets.ALGOLIA_API_KEY }}
@@ -316,7 +315,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: client
-        run: pnpm i --frozen-lockfile
+        run: pnpm i --frozen-lockfile --prefer-offline
 
       - name: Install babashka
         working-directory: client
@@ -346,7 +345,7 @@ jobs:
                        version (->> version-js
                                     (re-find #"const version = '"'"'(v\d+\.\d+\.\d+)'"'"'")
                                     last)
-                       new-version (format "%s-experimental.%s.%s.%s"
+                       new-version (format "%s-branch-%s.%s.%s"
                                            version
                                            (System/getenv "BRANCH_NAME")
                                            (System/getenv "GITHUB_RUN_ID")
@@ -356,7 +355,7 @@ jobs:
 
       - name: Publish experimental
         working-directory: client
-        run: make publish-experimental
+        run: ./scripts/publish_packages.clj "branch-${BRANCH_NAME}"
         env:
           NPM_CONFIG_PROVENANCE: true
 
@@ -405,7 +404,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: client
-        run: pnpm i --frozen-lockfile
+        run: pnpm i --frozen-lockfile --prefer-offline
 
       - name: Install babashka
         working-directory: client
@@ -434,6 +433,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
     if: github.ref != 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
+    environment:
+      name: Preview
+      url: ${{ steps.deploy.outputs.url }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -447,7 +449,7 @@ jobs:
         key: ${{ runner.os }}-turbo-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-turbo-
-    - uses: pnpm/action-setup@v2
+    - uses: pnpm/action-setup@v4
       with:
         version: '10.2.0'
     - name: Setup Node.js environment
@@ -481,6 +483,7 @@ jobs:
           echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
         fi
     - name: Deploy Project Artifacts to Vercel
+      id: deploy
       run: |
         vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt
         code=$?
@@ -489,10 +492,12 @@ jobs:
           safeBranch=$(echo $BRANCH_NAME | sed 's/[^a-zA-Z0-9-]/-/g')
           aliasUrl="instant-www-js-$safeBranch-jsv.vercel.app"
           echo "ALIAS_URL=$aliasUrl" >> $GITHUB_ENV
+          echo "url=https://$aliasUrl" >> $GITHUB_OUTPUT
           echo "aliasing $deploymentUrl to https://$aliasUrl"
           vercel alias $deploymentUrl $aliasUrl --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
         else
             echo "There was an error"
+            exit 1
         fi
     - name: Comment on PR with deploy preview url
       uses: actions/github-script@v7
@@ -526,6 +531,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
     if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
+    environment:
+      name: Production
+      url: ${{ steps.deploy.outputs.url }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -539,7 +547,7 @@ jobs:
         key: ${{ runner.os }}-turbo-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-turbo-
-    - uses: pnpm/action-setup@v2
+    - uses: pnpm/action-setup@v4
       with:
         version: '10.2.0'
     - name: Setup Node.js environment
@@ -565,7 +573,17 @@ jobs:
     - name: Build Project Artifacts
       run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
     - name: Deploy Project Artifacts to Vercel
-      run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      id: deploy
+      run: |
+        vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt
+        code=$?
+        if [ $code -eq 0 ]; then
+          deploymentUrl=`cat deployment-url.txt`
+          echo "url=$deploymentUrl" >> $GITHUB_OUTPUT
+        else
+            echo "There was an error"
+            exit 1
+        fi
 
   vercel-staging-deploy:
     name: Deploy to vercel staging
@@ -584,7 +602,7 @@ jobs:
         key: ${{ runner.os }}-turbo-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-turbo-
-    - uses: pnpm/action-setup@v2
+    - uses: pnpm/action-setup@v4
       with:
         version: '10.2.0'
     - name: Setup Node.js environment

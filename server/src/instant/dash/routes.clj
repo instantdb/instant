@@ -414,6 +414,11 @@
         id (ex/get-param! req [:body :id] uuid-util/coerce)
         token (ex/get-param! req [:body :admin_token] uuid-util/coerce)
         org-id-input (ex/get-optional-param! req [:body :org_id] uuid-util/coerce)
+        schema (get-in req [:body :schema])
+        rules-code (ex/get-optional-param! req [:body :rules :code] w/stringify-keys)
+        _ (when rules-code
+            (ex/assert-valid! :rule rules-code (rule-model/validation-errors
+                                                rules-code)))
         user (req->auth-user-accepting-superadmin-token! :apps/write req)
         owner-fields (if org-id-input
                        (let [org-id (-> (org-with-role-for-user!
@@ -428,6 +433,17 @@
                      :title title
                      :admin-token token}
                     owner-fields))]
+    (when rules-code
+      (rule-model/put! {:app-id (:id app)
+                        :code rules-code}))
+
+    (when schema
+      (->> schema
+           (schema-model/plan! {:app-id (:id app)
+                                :check-types? true
+                                :background-updates? false})
+           (schema-model/apply-plan! (:id app))))
+
     (posthog/track! req
                     "app:create"
                     (cond-> {:app-id (str (:id app))}

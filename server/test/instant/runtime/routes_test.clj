@@ -15,6 +15,9 @@
    [instant.util.coll :as coll]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json]]
+   [instant.flags :as flags]
+   [instant.runtime.magic-code-auth :as magic-code-auth]
+   [instant.util.cache :as cache]
    [instant.util.test :as test-util]
    [instant.util.tracer :as tracer])
   (:import
@@ -180,6 +183,29 @@
        (let [code (send-code app {:email "a@b.c"})]
          (update-created-at app-id code (- (System/currentTimeMillis) (* 23 60 60 1000)))
          (is (= "a@b.c" (:email (verify-code app {:email "a@b.c" :code code})))))))))
+
+(deftest magic-codes-rate-limit-test
+  (with-empty-app
+    (fn [app]
+      (cache/reset magic-code-auth/send-rate-limit-cache)
+      (with-redefs [flags/magic-code-rate-limit-per-hour (constantly 1)
+                    postmark/send-structured! (constantly nil)]
+        (testing "first request succeeds"
+          (is (= 200 (:status (request {:method :post
+                                        :url "/runtime/auth/send_magic_code"
+                                        :body {:app-id (:id app)
+                                               :email "a@b.c"}})))))
+        (testing "second request is rate limited"
+          (is (thrown-with-msg? ExceptionInfo #"status 429"
+                                (request {:method :post
+                                          :url "/runtime/auth/send_magic_code"
+                                          :body {:app-id (:id app)
+                                                 :email "a@b.c"}}))))
+        (testing "different email is not rate limited"
+          (is (= 200 (:status (request {:method :post
+                                        :url "/runtime/auth/send_magic_code"
+                                        :body {:app-id (:id app)
+                                               :email "different@b.c"}})))))))))
 
 (deftest guest-test
   (test-util/test-matrix

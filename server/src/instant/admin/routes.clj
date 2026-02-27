@@ -106,8 +106,9 @@
                 :else
                 (let [{:keys [app-id]} (req->app-id-authed! req oauth-scope)]
                   {:app-id app-id
-                   :admin? true}))]
-    (assoc perms :show-cel-errors? true)))
+                   :admin? true
+                   :show-cel-errors? true}))]
+    perms))
 
 (comment
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
@@ -216,7 +217,8 @@
                          "authorization" (str "Bearer " admin-token)}}))
 
 (defn query-perms-check [req]
-  (let [{:keys [app-id] :as perms} (get-perms! req :data/read)
+  (let [_ (req->app-id-authed! req :data/read) ;; do a perms check to make sure the admin has access
+        {:keys [app-id] :as perms} (get-perms! req :data/read)
         _ (ex/assert-valid! :non-admin "non-admin"
                             (when (:admin? perms)
                               [{:message "Cannot test perms as admin"}]))
@@ -234,7 +236,8 @@
                     :attrs attrs
                     :datalog-query-fn d/query
                     :datalog-loader (d/make-loader)
-                    :inference? inference?}
+                    :inference? inference?
+                    :show-cel-errors? true}
                    perms)
         {:keys [check-results nodes rule-wheres]}
         (binding [*request-info* (cond-> *request-info*
@@ -319,7 +322,8 @@
               (response/ok {:tx-id (:id (:ok result))}))))))
 
 (defn transact-perms-check [req]
-  (let [{:keys [app-id] :as perms} (get-perms! req :data/write)
+  (let [_ (req->app-id-authed! req :data/write) ;; do a perms check to make sure the admin has access
+        {:keys [app-id] :as perms} (get-perms! req :data/write)
         _ (ex/assert-valid! :non-admin "non-admin"
                             (when (:admin? perms)
                               [{:message "Cannot test perms as admin"}]))
@@ -347,7 +351,8 @@
                     :datalog-query-fn d/query
                     :rules rules
                     :admin-check? true
-                    :admin-dry-run? dry-run}
+                    :admin-dry-run? dry-run
+                    :show-cel-errors? true}
                    perms)
         tx-steps (admin-model/->tx-steps! {:attrs attrs
                                            :throw-on-missing-attrs? throw-on-missing-attrs?}

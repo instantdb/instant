@@ -4,7 +4,10 @@ import {
   type OAuthHandlerConfig,
   OAuthHandler,
 } from './oauth.ts';
-import { generatePermsTypescriptFile } from './perms.ts';
+import {
+  generatePermsTypescriptFile,
+  permsTypescriptFileToCode,
+} from './perms.ts';
 import {
   type InstantAPIPlatformSchema,
   generateSchemaTypescriptFile,
@@ -37,6 +40,7 @@ export {
   validateSchema,
   SchemaValidationError,
   generatePermsTypescriptFile,
+  permsTypescriptFileToCode,
   apiSchemaToInstantSchemaDef,
   schemaTypescriptFileToInstantSchema,
   version,
