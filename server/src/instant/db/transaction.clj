@@ -573,9 +573,16 @@
                                                                                     [entity_id attr_id parent_id]
                                                                                     :on-delete-reverse
                                                                                     [parent_id attr_id entity_id])))))
-
-
-)
+                            (ex/throw-validation-err!
+                             :on-delete-restrict
+                             (map vectorize-tx-step tx-step-maps)
+                             [{:message (format (clojure.string/join
+                                                 " "
+                                                 ["This transaction violates an on-delete constraint."
+                                                  "The `%s` entity cannot be deleted unless its"
+                                                  "linked `%s` entity is deleted first."])
+                                                parent_etype
+                                                etype)}]))
                           #_else
                           ent))))
                   res)

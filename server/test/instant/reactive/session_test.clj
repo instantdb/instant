@@ -1275,7 +1275,7 @@
                   {:keys [offset]}
                   (blocking-send-msg :start-stream-ok socket-2 {:op :start-stream
                                                                 :client-id "stream-1"
-                                                                :reconnect-token (str reconnect-token)})
+                                                                :reconnect-token reconnect-token})
                   _ (is (= offset 8))
 
                   _ (send-msg socket-2 {:op :append-stream
@@ -1287,7 +1287,7 @@
               (testing "if someone steals our session, we can't write to it"
                 (blocking-send-msg :start-stream-ok socket-3 {:op :start-stream
                                                               :client-id "stream-1"
-                                                              :reconnect-token (str reconnect-token)})
+                                                              :reconnect-token reconnect-token})
                 (blocking-send-msg :error socket-2 {:op :append-stream
                                                     :client-id "stream-1"
                                                     :chunks ["GHI"]
