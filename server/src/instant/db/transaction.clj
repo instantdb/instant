@@ -400,13 +400,13 @@
       (let [attrs+etypes
             (->> attrs
                  (filter #(= :ref (:value-type %)))
-                 (filter #(= :cascade (:on-delete %)))
+                 (filter #(:on-delete %))
                  (mapv #(vector (:id %) (-> % :forward-identity second) (-> % :reverse-identity second))))
 
             reverse-attrs+etypes
             (->> attrs
                  (filter #(= :ref (:value-type %)))
-                 (filter #(= :cascade (:on-delete-reverse %)))
+                 (filter #(:on-delete-reverse %))
                  (mapv #(vector (:id %) (-> % :forward-identity second) (-> % :reverse-identity second))))
 
             query+args
@@ -431,13 +431,15 @@
                   jsonb_array_elements(cast(?reverse-attrs+etypes AS jsonb)) AS elem
               ),
 
-              entids (entity_id, etype, parent_id) AS (
+              entids (entity_id, etype, parent_id, parent_etype, attr_id, direction) AS (
                 -- Starting entities (the parents being deleted)
                 SELECT
                   cast(elem ->> 0 AS uuid) as entity_id,
                   cast(elem ->> 1 AS text) as etype,
                   cast(elem ->> 0 AS uuid) as parent_id,  -- parent_id is itself for root entities
-                  cast(elem ->> 1 as text) as parent_etype -- parent_etype is itself for root entities
+                  cast(elem ->> 1 as text) as parent_etype, -- parent_etype is itself for root entities
+                  cast(null as uuid) as attr_id,
+                  cast(null as text) as direction
                 FROM
                   jsonb_array_elements(cast(?ids+etypes AS jsonb)) AS elem
 
@@ -452,7 +454,8 @@
                       entity_id,
                       etype,
                       parent_id,
-                      parent_etype
+                      parent_etype,
+                      attr_id
                     FROM
                       entids
                   )
@@ -462,7 +465,9 @@
                     triples.entity_id AS entity_id,
                     attrs_forward.forward_etype AS etype,
                     entids_inner.parent_id AS parent_id,  -- inherit parent from the entity that triggered cascade
-                    entids_inner.parent_etype as parent_etype
+                    entids_inner.parent_etype as parent_etype,
+                    attrs_forward.id as attr_id,
+                    'forward' as direction
                   FROM
                     entids_inner
                   JOIN triples
@@ -481,7 +486,9 @@
                     json_uuid_to_uuid(triples.value) AS entity_id,
                     attrs_reverse.reverse_etype AS etype,
                     entids_inner.parent_id AS parent_id,  -- inherit parent from the entity that triggered cascade
-                    entids_inner.parent_etype as parent_etype
+                    entids_inner.parent_etype as parent_etype,
+                    attrs_reverse.id as attr_id,
+                    'reverse' as direction
                   FROM
                     entids_inner
                   JOIN triples
@@ -496,7 +503,7 @@
               )
 
               SELECT
-                entity_id, etype, parent_id, parent_etype
+                entity_id, etype, parent_id, parent_etype, attr_id, direction
               FROM
                 entids"
              {"?app-id"               app-id
@@ -508,25 +515,94 @@
                                          (for [{:keys [op eid value]} tx-step-maps
                                                :when (and (= :rule-params op) (uuid? eid))]
                                            [eid value]))
+            original-deleted-entities (set ids+etypes)
+
+            {:keys [first-step add-triple retract-triple]}
+            (coll/reduce-tr (fn [acc step]
+                              (case (:op step)
+                                (:add-triple :retract-triple)
+                                (let [attr (attr-model/seek-by-id (:aid step) attrs)]
+                                  (if-not (= :ref (:value-type attr))
+                                    acc
+                                    (cond-> acc
+
+                                      (or (nil? (:first-step acc))
+                                          (= :retract-triple (:first-step acc))
+                                          (not= :add-triple (:op step)))
+                                      (assoc! (:op step)
+                                              (conj! (get acc (:op step))
+                                                     [(:eid step)
+                                                      (:aid step)
+                                                      (uuid/coerce (:value step))]))
+
+                                      (not (:first-step acc))
+                                      (assoc! :first-step (:op step)))))
+                                acc))
+                            {:first-step nil
+                             :add-triple (transient #{})
+                             :retract-triple (transient #{})}
+                            tx-step-maps)
+
+            original-deleted-triples
+            (case first-step
+              nil #{}
+              ;; add-triple is first, so they won't overwrite our retracts
+              :add-triple (persistent! retract-triple)
+              :retract-triple (as-> retract-triple %
+                                (apply disj! % (persistent! add-triple))
+                                (persistent! %)))
+
+
             ;; Only get the cascaded entities (where parent_id != entity_id)
-            cascaded-entities (remove #(and (= (:parent_id %) (:entity_id %))
-                                            (= (:parent_etype %) (:etype %)))
-                                      res)]
-        (concat
-         tx-step-maps
-         ;; Add delete operations for cascaded entities only
-         (for [{:keys [entity_id etype]} cascaded-entities]
-           {:op :delete-entity
-            :eid entity_id
-            :etype etype})
-         ;; Add rule-params for cascaded entities that have a parent with rule-params
-         (for [{:keys [entity_id etype parent_id]} cascaded-entities
-               :let [rule-params (get parent-id->rule-params parent_id)]
-               :when rule-params]
-           {:op :rule-params
-            :eid entity_id
-            :etype etype
-            :value rule-params}))))))
+            cascaded-entities
+            (keep (fn [{:keys [parent_id entity_id parent_etype etype attr_id direction] :as ent}]
+                    (when-not (and (= parent_id entity_id)
+                                   (= parent_etype etype))
+                      (let [on-delete (case direction
+                                        "forward" :on-delete
+                                        "reverse" :on-delete-reverse)
+                            attr (attr-model/seek-by-id attr_id attrs)
+                            cascade-rule (-> attr
+                                             (get on-delete))]
+                        (case cascade-rule
+                          :restrict
+                          (when (and (= cascade-rule :restrict)
+                                     (not (or (contains? original-deleted-entities [entity_id etype])
+                                              (contains? original-deleted-triples (case on-delete
+                                                                                    :on-delete
+                                                                                    [entity_id attr_id parent_id]
+                                                                                    :on-delete-reverse
+                                                                                    [parent_id attr_id entity_id])))))
+                            (ex/throw-validation-err!
+                             :on-delete-restrict
+                             (map vectorize-tx-step tx-step-maps)
+                             [{:message (format (clojure.string/join
+                                                 " "
+                                                 ["This transaction violates an on-delete constraint."
+                                                  "The `%s` entity cannot be deleted unless its"
+                                                  "linked `%s` entity is deleted first."])
+                                                parent_etype
+                                                etype)}]))
+                          #_else
+                          ent))))
+                  res)
+
+            steps (concat
+                   tx-step-maps
+                   ;; Add delete operations for cascaded entities only
+                   (for [{:keys [entity_id etype]} cascaded-entities]
+                     {:op :delete-entity
+                      :eid entity_id
+                      :etype etype})
+                   ;; Add rule-params for cascaded entities that have a parent with rule-params
+                   (for [{:keys [entity_id etype parent_id]} cascaded-entities
+                         :let [rule-params (get parent-id->rule-params parent_id)]
+                         :when rule-params]
+                     {:op :rule-params
+                      :eid entity_id
+                      :etype etype
+                      :value rule-params}))]
+        steps))))
 
 (defn validate-value-lookup-etypes
   "Check that in the case of

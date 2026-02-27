@@ -8,7 +8,7 @@ export type InstantDBInferredType = 'number' | 'string' | 'boolean' | 'json';
 
 export type InstantDBCheckedDataType = 'number' | 'string' | 'boolean' | 'date';
 
-export type InstantDBAttrOnDelete = 'cascade';
+export type InstantDBAttrOnDelete = 'cascade' | 'restrict';
 
 export type InstantDBAttr = {
   id: string;
