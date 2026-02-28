@@ -188,6 +188,14 @@ const scaffoldBaseCode = async ({
 
   if (method === 'bundled-template') {
     fs.copySync(srcDir, projectDir);
+
+    // Rename _gitignore back to .gitignore (npm strips .gitignore during publish)
+    const underscorePath = path.join(projectDir, '_gitignore');
+    const gitignorePath = path.join(projectDir, '.gitignore');
+    if (fs.pathExistsSync(underscorePath)) {
+      fs.renameSync(underscorePath, gitignorePath);
+    }
+
     return;
   }
 
