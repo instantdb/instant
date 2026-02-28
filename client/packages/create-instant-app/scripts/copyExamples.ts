@@ -29,6 +29,14 @@ async function main() {
 
       await fs.remove(targetDir);
       await copyRespectingGitignore(sourceDir, targetDir);
+
+      // Rename .gitignore to _gitignore so npm doesn't strip it during publish
+      const gitignorePath = path.join(targetDir, '.gitignore');
+      const underscorePath = path.join(targetDir, '_gitignore');
+      if (await fs.pathExists(gitignorePath)) {
+        await fs.rename(gitignorePath, underscorePath);
+      }
+
       return exampleName;
     }),
   );
