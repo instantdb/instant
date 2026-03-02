@@ -1,5 +1,8 @@
 # Welcome to your InstantDB TanStack Start app 👋
 
+[TanStack Start Docs](https://tanstack.com/start/latest/docs/framework/react/overview)
+[InstantDB Docs](https://www.instantdb.com/docs)
+
 This is a Tanstack Start project scaffolded with create-instant-app.
 
 To run the development server:
