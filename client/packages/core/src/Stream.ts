@@ -67,11 +67,12 @@ function createWriteStream({
 } {
   const clientId = opts.clientId;
   let streamId_: string | null = null;
+  let error_: InstantError | null = null;
   let controller_: WritableStreamDefaultController | null = null;
   const reconnectToken = uuid();
   let isDone: boolean = false;
   let closed: boolean = false;
-  const closeCbs: (() => void)[] = [];
+  const closeCbs: ((error?: InstantError) => void)[] = [];
   const streamIdCbs: ((streamId: string) => void)[] = [];
   const completeCbs: (() => void)[] = [];
   let disconnected: boolean = false;
@@ -84,12 +85,15 @@ function createWriteStream({
   function markClosed() {
     closed = true;
     for (const cb of closeCbs) {
-      cb();
+      cb(error_ ?? undefined);
     }
   }
 
-  function addCloseCb(cb: () => void) {
+  function addCloseCb(cb: (error?: InstantError) => void) {
     closeCbs.push(cb);
+    if (closed) {
+      cb(error_ ?? undefined);
+    }
     return () => {
       const i = closeCbs.indexOf(cb);
       if (i !== -1) {
@@ -128,6 +132,9 @@ function createWriteStream({
 
   function addStreamIdCb(cb: (streamId: string) => void) {
     streamIdCbs.push(cb);
+    if (streamId_) {
+      cb(streamId_);
+    }
     return () => {
       const i = streamIdCbs.indexOf(cb);
       if (i !== -1) {
@@ -171,6 +178,7 @@ function createWriteStream({
   }
 
   function error(controller: WritableStreamDefaultController, e: InstantError) {
+    error_ = e;
     markClosed();
     controller.error(e);
     runCompleteCbs();
@@ -315,8 +323,8 @@ function createWriteStream({
           resolve(streamId);
           cleanup();
         };
-        const rejectCb = () => {
-          reject(new InstantError('Stream is closed.'));
+        const rejectCb = (e?: InstantError) => {
+          reject(e || new InstantError('Stream is closed.'));
           cleanup();
         };
 
