@@ -133,7 +133,7 @@ export const pushSchema = (
 
     const txSteps = convertTxSteps(diffResult, currentAttrs);
     if (txSteps.length === 0) {
-      console.log(chalk.bgGray('No schema changes to apply!'));
+      yield* Effect.log(chalk.bgGray('No schema changes to apply!'));
       return;
     }
 
@@ -164,7 +164,7 @@ export const pushSchema = (
       });
     }
 
-    console.log(chalk.green('Schema updated!'));
+    yield* Effect.log(chalk.green('Schema updated!'));
   });
 
 export class WaitForJobsError extends Schema.TaggedError<WaitForJobsError>(

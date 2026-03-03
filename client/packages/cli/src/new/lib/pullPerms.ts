@@ -3,7 +3,6 @@ import { CurrentApp } from '../context/currentApp.js';
 import { InstantHttpAuthed, withCommand } from './http.js';
 import { HttpClientResponse } from '@effect/platform';
 import { readLocalPermsFile } from '../../index.js';
-import { existsSync } from 'fs';
 import { getPermsPathToWrite } from '../../util/findConfigCandidates.js';
 import { promptOk } from './ui.js';
 import { UI } from '../../ui/index.js';
@@ -12,7 +11,7 @@ import { generatePermsTypescriptFile } from '@instantdb/platform';
 import { ProjectInfo } from '../context/projectInfo.js';
 
 export const pullPerms = Effect.gen(function* () {
-  console.log('Pulling perms...');
+  yield* Effect.log('Pulling perms...');
   const { appId } = yield* CurrentApp;
   const http = yield* InstantHttpAuthed;
   const permsResponse = yield* http
@@ -38,5 +37,5 @@ export const pullPerms = Effect.gen(function* () {
   );
 
   yield* writeTypescript(shortPermsPath, fileContent);
-  console.log('✅ Wrote permissions to ' + shortPermsPath);
+  yield* Effect.log('✅ Wrote permissions to ' + shortPermsPath);
 });

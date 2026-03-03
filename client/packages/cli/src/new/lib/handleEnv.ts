@@ -22,10 +22,10 @@ export const handleEnv = Effect.fn(function* (app: CurrentAppInfo) {
   if (hasEnvFile) {
     return printDotEnvInfo(envType, app.appId, dashOrigin);
   }
-  console.log(
+  yield* Effect.log(
     `\nLooks like you don't have a ${chalk.green(`\`${envFile}\``)} file yet.`,
   );
-  console.log(
+  yield* Effect.log(
     `If we set ${chalk.green(envName)} & ${chalk.green('INSTANT_APP_ADMIN_TOKEN')}, we can remember the app that you chose for all future commands.`,
   );
   const saveExtraInfo =
@@ -40,7 +40,7 @@ export const handleEnv = Effect.fn(function* (app: CurrentAppInfo) {
     true,
   );
   if (!ok) {
-    console.log(
+    yield* Effect.log(
       `No .env file created. You can always set ${chalk.green('`' + envName + '`')} later. \n`,
     );
     return;
@@ -56,9 +56,9 @@ export const handleEnv = Effect.fn(function* (app: CurrentAppInfo) {
   yield* fs.writeFileString(path.join(pkgDir, envFile), content);
 
   if (envFile !== '.env') {
-    console.log(`Created ${chalk.green(envFile)}!`);
+    yield* Effect.log(`Created ${chalk.green(envFile)}!`);
   } else {
-    console.log(`Created ${chalk.green('.env')} file!`);
+    yield* Effect.log(`Created ${chalk.green('.env')} file!`);
   }
 });
 

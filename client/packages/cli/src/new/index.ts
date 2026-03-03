@@ -7,7 +7,7 @@ import { initWithoutFilesCommand } from './commands/initWithoutFiles.js';
 import { loginCommand } from './commands/login.js';
 import { logoutCommand } from './commands/logout.js';
 import { loadEnv } from '../util/loadEnv.js';
-import { AuthLayerLive, BaseLayerLive, printRedErrors } from './layer.js';
+import { BaseLayerLive, printRedErrors, runCommandEffect } from './layer.js';
 import { infoCommand } from './commands/info.js';
 import { pullCommand, SchemaPermsOrBoth } from './commands/pull.js';
 import { claimCommand } from './commands/claim.js';
@@ -46,7 +46,7 @@ export const initDef = program
   )
   .option('--title <title>', 'Title for the created app')
   .action((options) => {
-    return Effect.runPromise(initCommand(options).pipe(printRedErrors));
+    return runCommandEffect(initCommand(options));
   });
 
 export const initWithoutFilesDef = program
@@ -62,11 +62,8 @@ export const initWithoutFilesDef = program
     'Create a temporary app which will automatically delete itself after >24 hours.',
   )
   .action((opts) => {
-    return Effect.runPromise(
-      initWithoutFilesCommand(opts).pipe(
-        Effect.provide(BaseLayerLive),
-        printRedErrors,
-      ),
+    return runCommandEffect(
+      initWithoutFilesCommand(opts).pipe(Effect.provide(BaseLayerLive)),
     );
   });
 
@@ -79,25 +76,21 @@ export const loginDef = program
     'Print the login URL instead of trying to open the browser',
   )
   .action(async (opts) => {
-    Effect.runPromise(
-      loginCommand(opts).pipe(Effect.provide(BaseLayerLive), printRedErrors),
-    );
+    runCommandEffect(loginCommand(opts).pipe(Effect.provide(BaseLayerLive)));
   });
 
 const _logoutDef = program
   .command('logout')
   .description('Log out of your Instant account')
   .action(async () => {
-    Effect.runPromise(
-      logoutCommand().pipe(Effect.provide(BaseLayerLive), printRedErrors),
-    );
+    runCommandEffect(logoutCommand().pipe(Effect.provide(BaseLayerLive)));
   });
 
 export const infoDef = program
   .command('info')
   .description('Display CLI version and login status')
   .action(async () => {
-    Effect.runPromise(infoCommand().pipe(printRedErrors));
+    runCommandEffect(infoCommand());
   });
 
 export const pullDef = program

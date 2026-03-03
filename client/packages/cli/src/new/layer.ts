@@ -1,16 +1,21 @@
 import { NodeContext, NodeHttpClient } from '@effect/platform-node';
-import chalk from 'chalk';
-import { Cause, Console, Effect, Layer } from 'effect';
-import { InstantHttpAuthedLive, InstantHttpLive } from './lib/http.js';
-import { AuthTokenCoerceLive, AuthTokenLive } from './context/authToken.js';
-import { PlatformApi } from './context/platformApi.js';
+import { Cause, Effect, Layer, ManagedRuntime } from 'effect';
+import { AuthTokenLive } from './context/authToken.js';
+import { CurrentAppLive } from './context/currentApp.js';
 import { GlobalOptsLive } from './context/globalOpts.js';
+import { PlatformApi } from './context/platformApi.js';
 import {
   PACKAGE_ALIAS_AND_FULL_NAMES,
   ProjectInfoLive,
 } from './context/projectInfo.js';
-import { CurrentAppLive } from './context/currentApp.js';
-import { error } from './logging.js';
+import { InstantHttpAuthedLive, InstantHttpLive } from './lib/http.js';
+import { SimpleLogLayer } from './logging.js';
+
+const runtime = ManagedRuntime.make(SimpleLogLayer);
+
+export const runCommandEffect = <A, E, R extends never>(
+  effect: Effect.Effect<A, E, R>,
+): Promise<any> => runtime.runPromise(effect.pipe(printRedErrors));
 
 export const printRedErrors = Effect.catchAllCause((cause) => {
   const failure = Cause.failureOption(cause);
@@ -23,11 +28,9 @@ export const printRedErrors = Effect.catchAllCause((cause) => {
     'message' in failure.value &&
     !('cause' in failure.value)
   ) {
-    return Effect.succeed(
-      error((failure.value as { message: string }).message),
-    );
+    return Effect.logError((failure.value as { message: string }).message);
   }
-  return Effect.succeed(error(Cause.pretty(cause, { renderErrorCause: true })));
+  return Effect.logError(Cause.pretty(cause, { renderErrorCause: true }));
 });
 
 /**

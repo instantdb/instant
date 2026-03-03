@@ -15,7 +15,7 @@ import { promptOk } from './ui.js';
 import { ReadSchemaFileError } from './pushSchema.js';
 
 export const pullSchema = Effect.gen(function* () {
-  console.log('Pulling schema...');
+  yield* Effect.log('Pulling schema...');
   const { appId } = yield* CurrentApp;
   const http = yield* InstantHttpAuthed;
 
@@ -28,7 +28,7 @@ export const pullSchema = Effect.gen(function* () {
     !countEntities(schemaResponse.schema.refs) &&
     !countEntities(schemaResponse.schema.blobs)
   ) {
-    console.log('Schema is empty. Skipping.');
+    yield* Effect.log('Schema is empty. Skipping.');
     return;
   }
 
@@ -61,7 +61,7 @@ export const pullSchema = Effect.gen(function* () {
   );
 
   yield* writeTypescript(schemaPath, newSchemaContent);
-  console.log('✅ Wrote schema to ' + shortSchemaPath);
+  yield* Effect.log('✅ Wrote schema to ' + shortSchemaPath);
 });
 
 export const writeTypescript = (path: string, content: string) =>

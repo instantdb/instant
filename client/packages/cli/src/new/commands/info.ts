@@ -1,5 +1,5 @@
 import { HttpClientResponse } from '@effect/platform';
-import { Effect, Schema } from 'effect';
+import { Effect, Layer, Schema } from 'effect';
 import { AuthLayerLive } from '../layer.js';
 import { InstantHttpAuthed } from '../lib/http.js';
 import { version } from '@instantdb/version';
@@ -19,6 +19,6 @@ export const infoCommand = () =>
       .get('/dash/me')
       .pipe(Effect.flatMap(HttpClientResponse.schemaBodyJson(DashMeResponse)));
 
-    console.log('CLI Version:', version);
-    console.log(`Logged in as ${meData.user.email}`);
-  }).pipe(Effect.provide(AuthLayerLive));
+    yield* Effect.log('CLI Version:', version);
+    yield* Effect.log(`Logged in as ${meData.user.email}`);
+  }).pipe(Effect.provide(AuthLayerLive), Effect.annotateLogs('silent', true));

@@ -31,7 +31,7 @@ export const initWithoutFilesCommand = Effect.fn(function* (
     const app = yield* createApp(opts.title, opts.orgId).pipe(
       Effect.provide(AuthLayerLive),
     );
-    console.log(app);
+    yield* Effect.log(app);
   } else {
     const platform = yield* PlatformApi;
     const app = yield* platform.use((api) =>
@@ -39,6 +39,6 @@ export const initWithoutFilesCommand = Effect.fn(function* (
         title: opts.title!,
       }),
     );
-    console.log(app);
+    yield* Effect.log(app);
   }
 });

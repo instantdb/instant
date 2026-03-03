@@ -24,7 +24,7 @@ const PullPermsResponse = Schema.Struct({
 });
 
 export const pushPerms = Effect.gen(function* () {
-  console.log('Planning perms...');
+  yield* Effect.log('Planning perms...');
   const { appId } = yield* CurrentApp;
   const http = yield* InstantHttpAuthed;
 
@@ -46,7 +46,7 @@ export const pushPerms = Effect.gen(function* () {
   );
 
   if (!diffedStr.length) {
-    console.log('No perms changes detected. Skipping.');
+    yield* Effect.log('No perms changes detected. Skipping.');
     return;
   }
 
@@ -75,5 +75,5 @@ export const pushPerms = Effect.gen(function* () {
     .post(`/dash/apps/${appId}/perms/push`)
     .pipe(Effect.flatMap(HttpClientResponse.schemaBodyJson(Schema.Any)));
 
-  console.log(chalk.green('Permissions updated!'));
+  yield* Effect.log(chalk.green('Permissions updated!'));
 });

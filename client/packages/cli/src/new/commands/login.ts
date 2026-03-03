@@ -29,15 +29,15 @@ const isHeadLessEnvironment = (opts: OptsFromCommand<typeof loginDef>) => {
 export const loginCommand = Effect.fn(function* (
   opts: OptsFromCommand<typeof loginDef>,
 ) {
-  console.log("Let's log you in!");
+  yield* Effect.log("Let's log you in!");
 
   const loginInfo = yield* getLoginTicketAndSecret;
   const { secret, ticket } = loginInfo;
   const dashOrigin = yield* getDashUrl;
-  console.log();
+  yield* Effect.log();
   // TODO: flip these so rejecting the prompt prints url
   if (isHeadLessEnvironment(opts)) {
-    console.log(
+    yield* Effect.log(
       `Open this URL in a browser to log in:\n ${dashOrigin}/dash?ticket=${ticket}\n`,
     );
   } else {
@@ -56,15 +56,17 @@ export const loginCommand = Effect.fn(function* (
     );
   }
 
-  console.log('Waiting for authentication...');
+  yield* Effect.log('Waiting for authentication...');
 
   const result = yield* waitForAuthToken(secret);
   const { token, email } = result;
   if (opts.print) {
-    console.log(chalk.red('[Do not share] Your Instant auth token:', token));
+    yield* Effect.log(
+      chalk.red('[Do not share] Your Instant auth token:', token),
+    );
   } else {
     yield* saveConfigAuthToken(token);
-    console.log(chalk.green(`Successfully logged in as ${email}!`));
+    yield* Effect.log(chalk.green(`Successfully logged in as ${email}!`));
   }
   return {
     authToken: token,

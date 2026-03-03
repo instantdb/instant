@@ -9,7 +9,7 @@ import { InstantHttpAuthed } from '../lib/http.js';
 export const claimCommand = Effect.gen(function* () {
   const { appId, adminToken } = yield* CurrentApp;
 
-  console.log(`Found app: ${appId}`);
+  yield* Effect.log(`Found app: ${appId}`);
 
   const http = yield* InstantHttpAuthed;
 
@@ -28,7 +28,7 @@ export const claimCommand = Effect.gen(function* () {
     )
     .post(`/dash/apps/ephemeral/${appId}/claim`);
 
-  console.log(chalk.green('App claimed!'));
+  yield* Effect.log(chalk.green('App claimed!'));
 }).pipe(
   Effect.provide(
     WithAppLayer({

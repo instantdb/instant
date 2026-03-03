@@ -22,13 +22,6 @@ export const promptOk = Effect.fn('promptOk')(function* (
     renderUnwrap(
       new UI.Confirmation({
         ...props,
-        // boxen(out, {
-        //   dimBorder: true,
-        //   padding: {
-        //     left: 1,
-        //     right: 1,
-        //   },
-        // }),
         defaultValue,
       }),
     ),

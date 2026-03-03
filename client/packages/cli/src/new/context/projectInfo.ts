@@ -66,14 +66,16 @@ const getProjectInfo = (
         new ProjectInfoError({ message: "Couldn't read package.json" }),
     });
 
-    console.log('Checking for an Instant SDK...');
+    yield* Effect.log('Checking for an Instant SDK...');
     let moduleName = getInstantModuleName(pkgJson);
     if (!moduleName && !coerce) {
       return yield* new ProjectInfoError({
         message: 'No instant client library installed',
       });
     }
-    console.log(`Found ${chalk.green(moduleName)} in your package.json.\n`);
+    yield* Effect.log(
+      `Found ${chalk.green(moduleName)} in your package.json.\n`,
+    );
 
     // TODO: Clean up with option
     const packageManager = yield* Effect.tryPromise(() => detect()).pipe(
@@ -125,7 +127,7 @@ const getProjectInfo = (
         packageManager.agent,
         packagesToInstall.join(' '),
       );
-      console.log(installCommand);
+      yield* Effect.log(installCommand);
       yield* runUIEffect(
         new UI.Spinner({
           promise: execAsync(installCommand, {
