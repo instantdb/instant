@@ -380,7 +380,7 @@ We'll provide a full example that includes storing chat data in Instant and uses
 If you want to jump into building an app, `create-instant-app` has a working template that uses this pattern:
 
 
-```sh {% showCopy=true}
+```sh {% showCopy=true %}
 npx create-instant-app@latest --base ai-chat
 ```
 
