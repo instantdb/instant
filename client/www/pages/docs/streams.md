@@ -37,7 +37,7 @@ await writer.close();
 Use `db.streams.createReadStream({ clientId })` or `db.streams.createReadStream({ streamId })` to read from a stream.
 
 - `clientId`: Find the stream by the client-provided ID.
-- `streamId`: Find the stream by its persistent Instant ID.
+- `streamId`: Find the stream by the server-generated UUID that Instant assigns when the stream is created.
 - `byteOffset`: Optionally start reading from a specific offset.
 
 If the stream does not exist, the stream will enter an error state and return an error from `read()`.
