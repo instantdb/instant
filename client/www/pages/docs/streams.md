@@ -205,7 +205,7 @@ export function Chat({
 }) {
   const { messages, sendMessage, status } = useChat({
     id: chatData.id,
-    initialMessages: chatData.messages,
+    messages: chatData.messages,
     resume: true, // Enable automatic stream resumption
     generateId,
     transport: new DefaultChatTransport({
@@ -247,11 +247,13 @@ export async function POST(req: Request) {
     id: string;
   } = await req.json();
 
+  if (!message) return new Response(null, { status: 400 });
+
   const chat = await readChat(id);
-  const messages = [...chat.messages, message!];
+  const messages = [...chat.messages, message];
 
   // Clear any previous active stream and save the user message
-  await saveChat({ id, messages: [message!], activeStreamId: null });
+  await saveChat({ id, messages: [message], activeStreamId: null });
 
   const result = streamText({
     model: openai('gpt-4o'),
@@ -639,14 +641,19 @@ async function saveChat({
   id,
   messages,
   activeStreamId,
+  inactiveStreamId,
 }: {
   id: string;
   messages?: UIMessage[];
-  activeStreamId?: string;
+  activeStreamId?: string | null;
+  inactiveStreamId?: string | null;
 }): Promise<void> {
   const txs = [];
   if (activeStreamId) {
     txs.push(db.tx.chats[id].link({ stream: activeStreamId }));
+  }
+  if (inactiveStreamId) {
+    txs.push(db.tx.chats[id].unlink({ stream: inactiveStreamId }));
   }
 
   if (messages) {
@@ -683,6 +690,7 @@ export async function POST(req: Request) {
   const { chats, messages: existingMessages } = await db.query({
     chats: {
       $: { where: { id, owner: user.id } },
+      stream: {},
     },
     messages: {
       $: {
@@ -694,13 +702,18 @@ export async function POST(req: Request) {
 
   const chat = chats[0];
   if (!chat) return new NextResponse(null, { status: 404 });
+  if (!message) return new NextResponse(null, { status: 400 });
 
   const history = (existingMessages || []) as UIMessage[];
 
-  const messages = [...history, message!];
+  const messages = [...history, message];
 
-  // Save the new user message
-  await saveChat({ id, messages: [message!] });
+  // Save the new user message and unlink any stale stream
+  await saveChat({
+    id,
+    messages: [message],
+    inactiveStreamId: chat.stream?.id,
+  });
 
   const result = streamText({
     model: openai('gpt-4o'),
