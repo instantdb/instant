@@ -47,7 +47,8 @@ const getProjectInfo = (
 
     if (!projectDir) {
       return yield* new ProjectInfoError({
-        message: "Couldn't find a project directory (package.json)",
+        message:
+          "Couldn't find a project directory (package.json). Is there a package.json or deno.json file",
       });
     }
 

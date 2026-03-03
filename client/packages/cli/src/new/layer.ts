@@ -10,6 +10,7 @@ import {
   ProjectInfoLive,
 } from './context/projectInfo.js';
 import { CurrentAppLive } from './context/currentApp.js';
+import { error } from './logging.js';
 
 export const printRedErrors = Effect.catchAllCause((cause) => {
   const failure = Cause.failureOption(cause);
@@ -23,12 +24,10 @@ export const printRedErrors = Effect.catchAllCause((cause) => {
     !('cause' in failure.value)
   ) {
     return Effect.succeed(
-      console.error(chalk.red((failure.value as { message: string }).message)),
+      error((failure.value as { message: string }).message),
     );
   }
-  return Effect.succeed(
-    console.error(chalk.red(Cause.pretty(cause, { renderErrorCause: true }))),
-  );
+  return Effect.succeed(error(Cause.pretty(cause, { renderErrorCause: true })));
 });
 
 /**
