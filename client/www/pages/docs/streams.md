@@ -3,17 +3,15 @@ title: Streams
 description: How to stream and persist data with Instant.
 ---
 
-Instant Streams provide a simple way to build durable, real-time data flows. They are designed from the ground up for LLM-native applications, making it easy to stream AI chat completions while ensuring every token is persisted for perfect rehydration.
+Instant Streams provide a simple way to build durable, real-time data flows. They are excellent for LLM-native applications, making it easy to stream AI chat completions.
 
 ## How Streams work
 
-Streams are built on top of the standard [Web Streams API](https://developer.mozilla.org/en-US/docs/Web/API/Streams_API). When you create a write stream, the most recent data is buffered in memory on Instant's servers. The stream is periodically flushed to [Storage](/docs/storage) and is fully flushed to storage when finished.
+Instant streams implement the standard [Web Streams API](https://developer.mozilla.org/en-US/docs/Web/API/Streams_API). When you create a write stream, the most recent data is buffered in memory on Instant's servers. The stream is periodically flushed to [Storage](/docs/storage) and is fully flushed to storage when finished.
 
 Because streams are backed by storage, they never expire. A reader can pick up from any point in the stream, and resume if the connection is lost.
 
 ## Streams client SDK
-
-Below you'll find a more detailed guide on how to use the Streams API with Vercel's ai sdk and with react.
 
 ### Creating a Write Stream
 
@@ -21,7 +19,7 @@ Use `const stream = db.streams.createWriteStream({ clientId })` to create a new 
 
 - `clientId`: A unique ID for your stream. If the `clientId` is already taken, the stream will enter an error state and `await stream.streamId()` will throw an error. There can only be one writer per `clientId`.
 
-```javascript
+```javascript {% showCopy=true %}
 const stream = db.streams.createWriteStream({ clientId: 'my-unique-stream' });
 const writer = stream.getWriter();
 
@@ -42,7 +40,9 @@ Use `db.streams.createReadStream({ clientId })` or `db.streams.createReadStream(
 - `streamId`: Find the stream by its persistent Instant ID.
 - `byteOffset`: Optionally start reading from a specific offset.
 
-```javascript
+If the stream does not exist, the stream will enter an error state and return an error from `read()`.
+
+```javascript {% showCopy=true %}
 const stream = db.streams.createReadStream({ clientId: 'my-unique-stream' });
 const reader = stream.getReader();
 
@@ -63,7 +63,7 @@ try {
 
 You can retrieve stream metadata by querying the `$streams` namespace.
 
-```javascript
+```javascript {% showCopy=true %}
 const { data } = db.useQuery({
   $streams: {
     $: {
@@ -75,10 +75,11 @@ const { data } = db.useQuery({
 
 The `$streams` entity contains useful information:
 
-- `id`: The persistent stream ID.
+- `id`: The persistent stream ID, assigned by the server.
 - `clientId`: The ID you provided when creating the stream.
 - `done`: A boolean indicating if the stream has been closed.
 - `size`: The total number of bytes written to the stream. This will be `null` until `done` is true.
+- `abortReason`: A string describing why the stream was aborted, if applicable.
 
 ### Customizing Stream Metadata
 
@@ -92,7 +93,7 @@ When a stream is created, you can get its ID and link it to other entities in yo
 
 First, define the link in your schema:
 
-```ts
+```ts {% showCopy=true %}
 // instant.schema.ts
 import { i } from '@instantdb/react';
 
@@ -121,7 +122,7 @@ export default _schema;
 
 Then link the stream after creating it:
 
-```javascript
+```javascript {% showCopy=true %}
 const stream = db.streams.createWriteStream({ clientId: 'my-chat-session' });
 const streamId = await stream.streamId();
 
@@ -140,7 +141,7 @@ You control access to streams in `instant.perms.ts` under the `$streams` namespa
 - `update`: Controls updates to stream metadata.
 - `delete`: Controls stream deletion.
 
-```javascript
+```javascript {% showCopy=true %}
 const rules = {
   $streams: {
     allow: {
@@ -161,7 +162,7 @@ Streams are fully supported in the Admin SDK for use in backends or serverless e
 
 In serverless environments, the process might be shut down before the stream has finished flushing to the server. You can use the `waitUntil` option to ensure the stream is fully persisted.
 
-```javascript
+```javascript {% showCopy=true %}
 // Next.js API Route example
 import { after } from 'next/server';
 import { init, id } from '@instantdb/admin';
@@ -191,7 +192,7 @@ export async function POST(req) {
 
 Use the `resume` option in the `useChat` hook to enable stream resumption. When `resume` is true, the hook automatically attempts to reconnect to any active stream for the chat on mount:
 
-```tsx
+```tsx {% showCopy=true %}
 'use client';
 
 import { useChat } from '@ai-sdk/react';
@@ -229,7 +230,7 @@ export function Chat({
 
 The POST handler creates resumable streams using the `consumeSseStream` callback:
 
-```ts
+```ts {% showCopy=true %}
 // app/api/chat/route.ts
 import { openai } from '@ai-sdk/openai';
 import { readChat, saveChat } from '@util/chat-store';
@@ -287,7 +288,7 @@ export async function POST(req: Request) {
 
 #### Server-side: Create the GET handler for resumption
 
-```ts
+```ts {% showCopy=true %}
 // app/api/chat/[id]/stream/route.ts
 import { readChat } from '@util/chat-store';
 import { UI_MESSAGE_STREAM_HEADERS } from 'ai';
@@ -326,7 +327,7 @@ The key advantage of Instant is that the client can reconnect to the stream **di
 
 By implementing a custom `DefaultChatTransport`, the Vercel AI SDK will automatically use Instant to resume any interrupted streams.
 
-```ts
+```ts {% showCopy=true %}
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage, type UIMessageChunk } from 'ai';
 import { id as generateId } from '@instantdb/react';
@@ -380,7 +381,7 @@ We'll provide a full example that includes storing chat data in Instant and uses
 
 We'll start with a simple schema for our chats:
 
-```ts
+```ts {% showCopy=true %}
 // src/instant.schema.ts
 import { i } from '@instantdb/react';
 
@@ -417,9 +418,9 @@ const _schema = i.schema({
 export default _schema;
 ```
 
-And we'll set permissions so that the user can read their own chats. We'll handle all writes from the server:
+And we'll set permissions so that the user can read their own chats. We'll handle all writes, except for creating the initial chat, from the server:
 
-```ts
+```ts {% showCopy=true %}
 // src/instant.perms.ts
 import type { InstantRules } from '@instantdb/react';
 
@@ -459,7 +460,7 @@ export default rules;
 
 We'll set up auth syncing so that the backend that talks to the LLM can authenticate the current user.
 
-```typescript
+```typescript {% showCopy=true %}
 // src/lib/db.ts
 import { init } from '@instantdb/react/nextjs';
 import schema from '@/instant.schema';
@@ -471,7 +472,7 @@ export const db = init({
 });
 ```
 
-```typescript
+```typescript {% showCopy=true %}
 // src/app/api/instant/route.ts
 import { createInstantRouteHandler } from '@instantdb/react/nextjs';
 
@@ -480,7 +481,7 @@ export const { POST } = createInstantRouteHandler({
 });
 ```
 
-```ts
+```ts {% showCopy=true %}
 // src/lib/adminDb.ts
 import { init } from '@instantdb/admin';
 import schema from '@/instant.schema';
@@ -496,7 +497,7 @@ export const db = init({
 
 By implementing a custom `DefaultChatTransport`, the Vercel AI SDK will automatically use Instant to resume any interrupted streams directly from the browser without hitting your backend again.
 
-```tsx
+```tsx {% showCopy=true %}
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -515,7 +516,7 @@ class InstantChatTransport extends DefaultChatTransport<UIMessage> {
         $streams: { $: { where: { chat: options.chatId } } },
       });
       const $stream = data.$streams?.[0];
-      if (!$stream || $stream.done) return null;
+      if (!$stream) return null;
 
       // 2. Connect to the read stream directly from the browser
       const readStream = db.streams.createReadStream({ streamId: $stream.id });
@@ -629,7 +630,7 @@ export function Chat({ id }: { id: string }) {
 
 The POST handler saves the user message and pipes the AI completion to an Instant write stream.
 
-```ts
+```ts {% showCopy=true %}
 // app/api/chat/route.ts
 import { openai } from '@ai-sdk/openai';
 import { convertToModelMessages, streamText, type UIMessage } from 'ai';
