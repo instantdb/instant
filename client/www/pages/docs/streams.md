@@ -375,7 +375,7 @@ function Chat() {
 }
 ```
 
-We'll provide a full example that includes storing chat data in Instant and uses Instant auth for authorization.
+Below is a full example that includes storing chat data in Instant and uses Instant auth for authorization.
 
 If you want to jump into building an app, `create-instant-app` has a working template that uses this pattern:
 
