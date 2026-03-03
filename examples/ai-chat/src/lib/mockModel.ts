@@ -23,10 +23,19 @@ async function getRandomWikipediaArticle(): Promise<{
   title: string;
   text: string;
 }> {
-  // Pick a random Good Article by jumping to a random alphabetical position
+  // Pick a random Good Article: fetch 50 titles, pick one, then get its extract
   const randomPrefix = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  const listData = (await fetchJson(
+    `https://en.wikipedia.org/w/api.php?action=query&format=json&list=categorymembers&cmtitle=Category:Good_articles&cmnamespace=0&cmlimit=500&cmstartsortkeyprefix=${randomPrefix}&origin=*`,
+  )) as {
+    query: { categorymembers: { title: string }[] };
+  };
+  const members = listData.query.categorymembers;
+  const randomTitle =
+    members[Math.floor(Math.random() * members.length)]?.title || 'Cat';
+
   const data = (await fetchJson(
-    `https://en.wikipedia.org/w/api.php?action=query&format=json&generator=categorymembers&gcmtitle=Category:Good_articles&gcmnamespace=0&gcmlimit=1&gcmstartsortkeyprefix=${randomPrefix}&prop=extracts&origin=*`,
+    `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&titles=${encodeURIComponent(randomTitle)}&origin=*`,
   )) as {
     query: { pages: Record<string, { title?: string; extract?: string }> };
   };
