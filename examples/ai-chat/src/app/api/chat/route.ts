@@ -86,12 +86,13 @@ export async function POST(req: Request) {
 
   const chat = chats?.[0];
   if (!chat) return new NextResponse(null, { status: 404 });
+  if (!message) return new NextResponse(null, { status: 400 });
 
   const history = (existingMessages || []) as UIMessage[];
-  const messages = [...history, message!];
+  const messages = [...history, message];
 
   // Set the chat title from the first user message
-  if (!chat.title && message?.role === 'user') {
+  if (!chat.title && message.role === 'user') {
     const text = message.parts
       ?.filter((p: { type: string }) => p.type === 'text')
       .map((p: { type: string; text?: string }) => p.text)
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
   // Save the new user message and clear any stale active stream
   await saveChat({
     id,
-    messages: [message!],
+    messages: [message],
     inactiveStreamId: chat.stream?.id,
   });
 
