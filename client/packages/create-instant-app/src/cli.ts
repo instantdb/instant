@@ -14,7 +14,8 @@ export type Project = {
     | 'tanstack-start-with-tanstack-query'
     | 'bun-react'
     | 'solidjs-vite'
-    | 'vercel-ai-sdk';
+    | 'vercel-ai-sdk'
+    | 'ai-chat';
   ruleFiles:
     | 'cursor'
     | 'claude'
@@ -76,6 +77,7 @@ export const runCli = async (): Promise<{
         'tanstack-start-with-tanstack-query',
         'solidjs-vite',
         'vercel-ai-sdk',
+        'ai-chat',
       ]),
     )
     .addOption(
@@ -243,7 +245,12 @@ export const runCli = async (): Promise<{
               },
               {
                 value: 'vercel-ai-sdk',
-                label: 'Vercel AI SDK + SSR',
+                label: 'Vercel AI SDK App Builder + SSR',
+                secondary: true,
+              },
+              {
+                value: 'ai-chat',
+                label: 'Vercel AI SDK Chat App',
                 secondary: true,
               },
             ],
