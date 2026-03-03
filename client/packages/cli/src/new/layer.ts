@@ -37,6 +37,8 @@ export const printRedErrors = Effect.catchAllCause((cause) => {
  Layers are memoized using reference equality. Therefore, if you have a layer that is created by calling a function like f(), you should only call that f once and re-use the resulting layer so that you are always using the same instance.
  */
 
+// TODO: make coerce param work for auth too
+
 // Base layers
 const AuthTokenLayer = Layer.provide(AuthTokenLive, NodeContext.layer);
 const AuthTokenCoerceLayer = Layer.provide(AuthTokenLive, NodeContext.layer);

@@ -65,7 +65,9 @@ export class SchemaValidationError extends Schema.TaggedError<SchemaValidationEr
   message: Schema.String,
 }) {}
 
-export const pushSchema = (rename: OptsFromCommand<typeof pushDef>['rename']) =>
+export const pushSchema = (
+  rename?: OptsFromCommand<typeof pushDef>['rename'],
+) =>
   Effect.gen(function* () {
     const localSchemaFile = yield* Effect.tryPromise(readLocalSchemaFile).pipe(
       Effect.mapError((e) => ReadSchemaFileError.make(e)),

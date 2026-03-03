@@ -24,12 +24,15 @@ export const initCommand = (options: OptsFromCommand<typeof initDef>) =>
         onFailure: () => pullSchema,
         onSuccess: () =>
           Effect.gen(function* () {
-            const doSchemaPush = yield* promptOk({
-              promptText: 'Found local schema. Push it to the new app?',
-              inline: true,
-            });
+            const doSchemaPush = yield* promptOk(
+              {
+                promptText: 'Found local schema. Push it to the new app?',
+                inline: true,
+              },
+              false,
+            );
             if (doSchemaPush) {
-              yield* pushSchema(undefined);
+              yield* pushSchema();
             }
           }),
       },
@@ -44,10 +47,13 @@ export const initCommand = (options: OptsFromCommand<typeof initDef>) =>
         onFailure: () => pullPerms,
         onSuccess: () =>
           Effect.gen(function* () {
-            const doPermsPush = yield* promptOk({
-              promptText: 'Found local perms. Push it to the new app?',
-              inline: true,
-            });
+            const doPermsPush = yield* promptOk(
+              {
+                promptText: 'Found local perms. Push it to the new app?',
+                inline: true,
+              },
+              false,
+            );
             if (doPermsPush) {
               yield* pushPerms;
             }
