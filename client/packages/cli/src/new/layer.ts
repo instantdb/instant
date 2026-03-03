@@ -39,7 +39,8 @@ export const printRedErrors = Effect.catchAllCause((cause) => {
  */
 
 // Base layers
-const AuthTokenLayer = Layer.provide(AuthTokenCoerceLive, NodeContext.layer);
+const AuthTokenLayer = Layer.provide(AuthTokenLive, NodeContext.layer);
+const AuthTokenCoerceLayer = Layer.provide(AuthTokenLive, NodeContext.layer);
 const InstantHttpLayer = Layer.provide(InstantHttpLive, NodeHttpClient.layer);
 
 // Unauthenticated layer with InstantHttp + PlatformApi + GlobalOpts + NodeContext
@@ -49,11 +50,19 @@ export const BaseLayerLive = Layer.provideMerge(
 );
 
 // Authenticated layer extends BaseLayerLive with InstantHttpAuthed
-export const AuthLayerLive = (coerce: boolean) =>
+export const AuthLayerLive = Layer.provideMerge(
+  Layer.provideMerge(
+    InstantHttpAuthedLive,
+    Layer.merge(AuthTokenLayer, InstantHttpLayer),
+  ),
+  BaseLayerLive,
+);
+
+export const AuthLayerCoerceLive = () =>
   Layer.provideMerge(
     Layer.provideMerge(
       InstantHttpAuthedLive,
-      Layer.merge(AuthTokenLayer, InstantHttpLayer),
+      Layer.merge(AuthTokenCoerceLayer, InstantHttpLayer),
     ),
     BaseLayerLive,
   );
@@ -74,6 +83,6 @@ export const WithAppLayer = (args: {
     }),
   ).pipe(
     Layer.provideMerge(GlobalOptsLive),
-    Layer.provideMerge(AuthLayerLive(args.coerce)),
+    Layer.provideMerge(AuthLayerLive),
     Layer.provideMerge(ProjectInfoLive(args.coerce, args.packageName)),
   );

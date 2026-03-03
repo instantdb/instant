@@ -3,6 +3,8 @@ import { PlatformApi } from '../context/platformApi.js';
 import { BadArgsError } from '../errors.js';
 import { OptsFromCommand, initWithoutFilesDef } from '../index.js';
 import { createApp } from '../lib/createApp.js';
+import { AuthTokenLive } from '../context/authToken.js';
+import { AuthLayerLive } from '../layer.js';
 
 export const initWithoutFilesCommand = Effect.fn(function* (
   opts: OptsFromCommand<typeof initWithoutFilesDef>,
@@ -26,7 +28,9 @@ export const initWithoutFilesCommand = Effect.fn(function* (
   }
 
   if (!opts.temp) {
-    const app = yield* createApp(opts.title, opts.orgId);
+    const app = yield* createApp(opts.title, opts.orgId).pipe(
+      Effect.provide(AuthLayerLive),
+    );
     console.log(app);
   } else {
     const platform = yield* PlatformApi;

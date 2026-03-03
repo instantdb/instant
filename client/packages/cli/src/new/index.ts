@@ -64,7 +64,7 @@ export const initWithoutFilesDef = program
   .action((opts) => {
     return Effect.runPromise(
       initWithoutFilesCommand(opts).pipe(
-        Effect.provide(AuthLayerLive(false)),
+        Effect.provide(BaseLayerLive),
         printRedErrors,
       ),
     );

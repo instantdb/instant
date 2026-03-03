@@ -21,4 +21,4 @@ export const infoCommand = () =>
 
     console.log('CLI Version:', version);
     console.log(`Logged in as ${meData.user.email}`);
-  }).pipe(Effect.provide(AuthLayerLive(true)));
+  }).pipe(Effect.provide(AuthLayerLive));
