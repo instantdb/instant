@@ -17,6 +17,7 @@ export function Sidebar() {
             $: {
               where: { owner: user.id },
               order: { serverCreatedAt: 'desc' },
+              limit: 500,
             },
           },
         }

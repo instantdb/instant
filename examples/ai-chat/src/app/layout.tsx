@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { InstantProvider } from '@/components/InstantProvider';
 import { AuthGate } from '@/components/AuthGate';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { getUnverifiedUserFromInstantCookie } from '@instantdb/react/nextjs';
 
 export const metadata: Metadata = {
@@ -23,7 +24,9 @@ export default async function RootLayout({
     <html lang="en">
       <body>
         <InstantProvider user={user}>
-          <AuthGate>{children}</AuthGate>
+          <TooltipProvider>
+            <AuthGate>{children}</AuthGate>
+          </TooltipProvider>
         </InstantProvider>
       </body>
     </html>

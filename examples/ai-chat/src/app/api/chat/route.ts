@@ -25,14 +25,19 @@ async function saveChat({
   id,
   messages,
   activeStreamId,
+  inactiveStreamId,
 }: {
   id: string;
   messages?: UIMessage[];
   activeStreamId?: string | null;
+  inactiveStreamId?: string | null;
 }): Promise<void> {
   const txs: Parameters<typeof adminDb.transact>[0] = [];
   if (activeStreamId) {
     txs.push(adminDb.tx.chats[id].link({ stream: activeStreamId }));
+  }
+  if (inactiveStreamId) {
+    txs.push(adminDb.tx.chats[id].unlink({ stream: inactiveStreamId }));
   }
 
   if (messages) {
@@ -69,6 +74,7 @@ export async function POST(req: Request) {
   const { chats, messages: existingMessages } = await adminDb.query({
     chats: {
       $: { where: { id, owner: user.id } },
+      stream: {},
     },
     messages: {
       $: {
@@ -98,7 +104,11 @@ export async function POST(req: Request) {
   }
 
   // Save the new user message and clear any stale active stream
-  await saveChat({ id, messages: [message!], activeStreamId: null });
+  await saveChat({
+    id,
+    messages: [message!],
+    inactiveStreamId: chat.stream?.id,
+  });
 
   const result = streamText({
     model: getModel(),
@@ -109,8 +119,8 @@ export async function POST(req: Request) {
     originalMessages: messages,
     generateMessageId: generateId,
     onFinish: ({ messages: finalMessages }) => {
-      // Save completion and clear active stream
-      saveChat({ id, messages: finalMessages, activeStreamId: null });
+      // Save completion
+      saveChat({ id, messages: finalMessages });
     },
     async consumeSseStream({ stream }) {
       const writeStream = adminDb.streams.createWriteStream({
