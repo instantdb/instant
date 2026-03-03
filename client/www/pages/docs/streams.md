@@ -327,10 +327,12 @@ The key advantage of Instant is that the client can reconnect to the stream **di
 
 By implementing a custom `DefaultChatTransport`, the Vercel AI SDK will automatically use Instant to resume any interrupted streams.
 
-```ts {% showCopy=true %}
+```tsx {% showCopy=true %}
+import { useMemo } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage, type UIMessageChunk } from 'ai';
 import { id as generateId } from '@instantdb/react';
+import { db } from '@/lib/db';
 
 class InstantChatTransport extends DefaultChatTransport<UIMessage> {
   async reconnectToStream(
@@ -371,14 +373,13 @@ function Chat() {
     resume: true,
   });
 
-  return /* ... */;
+  return <>{/* Your chat UI */}</>;
 }
 ```
 
 Below is a full example that includes storing chat data in Instant and uses Instant auth for authorization.
 
 If you want to jump into building an app, `create-instant-app` has a working template that uses this pattern:
-
 
 ```sh {% showCopy=true %}
 npx create-instant-app@latest --base ai-chat
