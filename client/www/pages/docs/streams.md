@@ -377,6 +377,13 @@ function Chat() {
 
 We'll provide a full example that includes storing chat data in Instant and uses Instant auth for authorization.
 
+If you want to jump into building an app, `create-instant-app` has a working template that uses this pattern:
+
+
+```sh {% showCopy=true}
+npx create-instant-app@latest --base ai-chat
+```
+
 ### Setup
 
 We'll start with a simple schema for our chats:
