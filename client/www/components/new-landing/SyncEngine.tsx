@@ -316,10 +316,9 @@ export function SyncEngine() {
                 Instant updates
               </h3>
               <p className="mt-2 text-lg">
-                Apps built with Instant update immediately. Click a button,
-                toggle a switch, type in a field — whatever you do, you see the
-                result right away. Your apps feel more responsive and alive and
-                your users stay in flow.
+                Click a button, toggle a switch, type in a field — whatever you
+                do, you see the result right away. Your apps feel more
+                responsive and alive and your users stay in flow.
               </p>
             </div>
             <div className="col-span-2 bg-[#B8B8B8]/20 px-20 py-9">

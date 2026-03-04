@@ -3,49 +3,69 @@ import { useState, useEffect } from 'react';
 import { AnimateIn } from './AnimateIn';
 import { motion, AnimatePresence } from 'motion/react';
 
-// Animated terminal that types out commands
+// Animated terminal that types out commands character by character
 function AnimatedTerminal() {
-  const [step, setStep] = useState(0);
-  const [isTyping, setIsTyping] = useState(true);
-
   const steps = [
-    { type: 'command', text: 'npx instant-cli login' },
-    { type: 'output', text: 'Successfully logged in as joe@instantdb.com!' },
-    { type: 'command', text: 'npx create-instant-app awesome-gram' },
-    { type: 'output', text: '🎉 Success! Your project is ready to go!' },
-    { type: 'command', text: 'npx instant-cli push schema' },
-    { type: 'output', text: 'Schema updated!' },
-    { type: 'command', text: 'npx vercel --prod' },
-    {
-      type: 'output',
-      text: '✓ App deployed at https://awesome-gram.vercel.app',
-    },
+    { type: 'command' as const, text: 'npx instant-cli login' },
+    { type: 'output' as const, text: 'Successfully logged in as joe@instantdb.com!' },
+    { type: 'command' as const, text: 'npx create-instant-app awesome-gram' },
+    { type: 'output' as const, text: '🎉 Success! Your project is ready to go!' },
+    { type: 'command' as const, text: 'npx instant-cli push schema' },
+    { type: 'output' as const, text: 'Schema updated!' },
+    { type: 'command' as const, text: 'npx vercel --prod' },
+    { type: 'output' as const, text: '✓ App deployed at https://awesome-gram.vercel.app' },
   ];
 
+  // completedSteps: number of fully rendered steps
+  // typingIndex: characters typed so far in the current command
+  const [completedSteps, setCompletedSteps] = useState(0);
+  const [typingIndex, setTypingIndex] = useState(0);
+
+  const currentStep = completedSteps < steps.length ? steps[completedSteps] : null;
+  const isTypingCommand = currentStep?.type === 'command';
+
   useEffect(() => {
-    if (step >= steps.length) {
-      // Reset after a pause
+    if (completedSteps >= steps.length) {
+      // All done — pause then restart
       const timeout = setTimeout(() => {
-        setStep(0);
-        setIsTyping(true);
+        setCompletedSteps(0);
+        setTypingIndex(0);
       }, 6000);
       return () => clearTimeout(timeout);
     }
 
-    const currentStep = steps[step];
-    const delay = currentStep.type === 'command' ? 800 : 600;
+    const step = steps[completedSteps];
 
+    if (step.type === 'output') {
+      // Outputs appear instantly after a short pause
+      const timeout = setTimeout(() => {
+        setCompletedSteps((s) => s + 1);
+        setTypingIndex(0);
+      }, 400);
+      return () => clearTimeout(timeout);
+    }
+
+    // Command: type character by character
+    if (typingIndex < step.text.length) {
+      const timeout = setTimeout(() => {
+        setTypingIndex((i) => i + 1);
+      }, 8 + Math.random() * 16);
+      return () => clearTimeout(timeout);
+    }
+
+    // Command fully typed — brief pause then advance
     const timeout = setTimeout(() => {
-      setStep((s) => s + 1);
-    }, delay);
-
+      setCompletedSteps((s) => s + 1);
+      setTypingIndex(0);
+    }, 300);
     return () => clearTimeout(timeout);
-  }, [step, steps.length]);
+  }, [completedSteps, typingIndex, steps.length]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl">
       <div className="min-h-[300px] p-4 font-mono text-sm sm:p-6">
-        {steps.slice(0, step).map((s, i) => (
+        {/* Already-completed steps */}
+        {steps.slice(0, completedSteps).map((s, i) => (
           <div key={i} className={`${i > 0 ? 'mt-1' : ''}`}>
             {s.type === 'command' && (
               <div className="flex items-center gap-2">
@@ -60,23 +80,24 @@ function AnimatedTerminal() {
                 {s.text}
               </div>
             )}
-            {s.type === 'comment' && (
-              <div className="mt-2 text-gray-600">{s.text}</div>
-            )}
           </div>
         ))}
 
-        {/* Typing cursor */}
-        {step < steps.length && (
-          <div className="mt-1 flex items-center gap-2">
-            {steps[step].type === 'command' && (
-              <span className="text-green-400">$</span>
-            )}
-            {steps[step].type === 'command' && (
-              <span className="text-gray-100">
-                <span className="inline-block h-5 w-2 animate-pulse bg-gray-100" />
-              </span>
-            )}
+        {/* Currently typing command */}
+        {isTypingCommand && currentStep && (
+          <div className={`${completedSteps > 0 ? 'mt-1' : ''} flex items-center gap-2`}>
+            <span className="text-green-400">$</span>
+            <span className="text-gray-100">
+              {currentStep.text.slice(0, typingIndex)}
+              <span className="inline-block h-[0.85em] w-[0.5em] translate-y-[1px] animate-pulse bg-gray-100/70" />
+            </span>
+          </div>
+        )}
+
+        {/* Waiting cursor before output appears */}
+        {currentStep?.type === 'output' && (
+          <div className={`${completedSteps > 0 ? 'mt-1' : ''}`}>
+            <span className="inline-block h-[1em] w-[2px] animate-pulse bg-gray-400" />
           </div>
         )}
       </div>

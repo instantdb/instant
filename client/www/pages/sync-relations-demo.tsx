@@ -63,14 +63,15 @@ export default function SyncRelationsDemo() {
           <SyncRelationsV4 />
         </section>
 
-        {/* Variant 5: Dual Live Queries */}
+        {/* Variant 5: Dual-Panel */}
         <section>
           <h2 className="mb-1 text-2xl font-bold">
-            Variant 5: Dual Live Queries
+            Variant 5: Dual-Panel
           </h2>
           <p className="mb-8 text-gray-500">
-            Two live views of the same data — messages by channel and messages
-            by user — each with its own query, both updating in real time.
+            Two side-by-side panels — same data, different query shapes.
+            Left queries channels &rarr; messages, right queries users &rarr;
+            messages.
           </p>
           <SyncRelationsV5 />
         </section>
