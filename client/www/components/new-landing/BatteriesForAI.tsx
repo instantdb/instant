@@ -474,18 +474,12 @@ function PaymentsDemo() {
         ))}
       </div>
 
-      {/* Scene content */}
-      <div className="relative h-[220px] p-5">
-        <AnimatePresence mode="wait">
-          {activeTab === 0 && (
-            <motion.div
-              key="onetime"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="flex flex-col items-center gap-4"
-            >
+      {/* Scene content — grid stacks all tabs so container sizes to the tallest */}
+      <div className="relative p-5">
+        <div className="grid [&>*]:col-start-1 [&>*]:row-start-1">
+          {/* One-time */}
+          <div className={activeTab === 0 ? '' : 'invisible pointer-events-none'}>
+            <div className="flex flex-col items-center gap-4">
               <div className="w-full max-w-[200px] rounded-lg border border-blue-200 bg-blue-50 p-4 text-center">
                 <p className="text-sm font-semibold text-gray-800">Pro License</p>
                 <p className="mt-1 text-2xl font-bold text-blue-600">$49</p>
@@ -497,18 +491,12 @@ function PaymentsDemo() {
                   Buy Now
                 </button>
               </div>
-            </motion.div>
-          )}
+            </div>
+          </div>
 
-          {activeTab === 1 && (
-            <motion.div
-              key="subscription"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-3"
-            >
+          {/* Subscription */}
+          <div className={activeTab === 1 ? '' : 'invisible pointer-events-none'}>
+            <div className="space-y-3">
               <div className="flex gap-2 justify-center">
                 {[
                   { name: 'Hobby', price: '$0', border: 'border-gray-200', bg: '', badge: false },
@@ -542,18 +530,12 @@ function PaymentsDemo() {
                   </div>
                 ))}
               </div>
-            </motion.div>
-          )}
+            </div>
+          </div>
 
-          {activeTab === 2 && (
-            <motion.div
-              key="usage"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-3"
-            >
+          {/* Usage-based */}
+          <div className={activeTab === 2 ? '' : 'invisible pointer-events-none'}>
+            <div className="space-y-3">
               <p className="text-xs font-semibold text-gray-700">Credits</p>
 
               <div className="space-y-2.5">
@@ -586,9 +568,9 @@ function PaymentsDemo() {
                 <span className="text-xs font-semibold text-green-700">1,520 credits remaining</span>
                 <span className="text-xs text-green-600"> — $15.20</span>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        </div>
 
         {/* Toast overlay */}
         <AnimatePresence>

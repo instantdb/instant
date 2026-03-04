@@ -4,6 +4,7 @@ import { SyncRelationsV1 } from '@/components/new-landing/SyncRelationsV1';
 import { SyncRelationsV2 } from '@/components/new-landing/SyncRelationsV2';
 import { SyncRelationsV3 } from '@/components/new-landing/SyncRelationsV3';
 import { SyncRelationsV4 } from '@/components/new-landing/SyncRelationsV4';
+import { SyncRelationsV5 } from '@/components/new-landing/SyncRelationsV5';
 
 export default function SyncRelationsDemo() {
   return (
@@ -60,6 +61,18 @@ export default function SyncRelationsDemo() {
             change.
           </p>
           <SyncRelationsV4 />
+        </section>
+
+        {/* Variant 5: Dual Live Queries */}
+        <section>
+          <h2 className="mb-1 text-2xl font-bold">
+            Variant 5: Dual Live Queries
+          </h2>
+          <p className="mb-8 text-gray-500">
+            Two live views of the same data — messages by channel and messages
+            by user — each with its own query, both updating in real time.
+          </p>
+          <SyncRelationsV5 />
         </section>
       </main>
     </div>
