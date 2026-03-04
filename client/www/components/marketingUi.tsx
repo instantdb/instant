@@ -77,7 +77,91 @@ const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
   );
 };
 
-export function LogoType({ collapsed = false }: { collapsed?: boolean }) {
+export function LogoType({
+  collapsed = false,
+  morphOnCollapse = false,
+}: {
+  collapsed?: boolean;
+  morphOnCollapse?: boolean;
+}) {
+  if (morphOnCollapse) {
+    const trailingLetters = ['n', 's', 't', 'a', 'n', 't'];
+
+    return (
+      <Link href="/" className="inline-flex items-center">
+        <span
+          className={cn(
+            'relative inline-block h-6 overflow-hidden align-middle transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+            collapsed ? 'w-4' : 'w-[6.5rem]',
+          )}
+        >
+          <span
+            aria-hidden
+            className={cn(
+              'pointer-events-none absolute top-1/2 left-0 inline-flex -translate-y-1/2 items-center',
+            )}
+          >
+            <span
+              className={cn(
+                'relative mr-[1px] inline-flex h-[1.12rem] items-center justify-center overflow-hidden align-middle transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+                collapsed ? 'w-4' : 'w-[0.58rem]',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute inset-0 bg-black transition-[opacity,transform] duration-420 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+                  collapsed
+                    ? 'scale-100 opacity-100 [transition-delay:70ms]'
+                    : 'scale-x-[0.28] scale-y-[0.84] opacity-0 [transition-delay:40ms]',
+                )}
+              />
+              <span
+                className={cn(
+                  'absolute top-[3px] left-[3px] h-[10px] w-[4px] bg-white transition-[opacity,transform] duration-320 ease-out motion-reduce:transition-none',
+                  collapsed
+                    ? 'translate-y-0 opacity-100 [transition-delay:170ms]'
+                    : 'translate-y-[2px] opacity-0 [transition-delay:0ms]',
+                )}
+              />
+              <span
+                className={cn(
+                  `${headingClasses} relative z-10 inline-block text-[20px] leading-none font-bold transition-[opacity,transform,filter,color] duration-420 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none`,
+                  collapsed
+                    ? 'translate-y-[0.22rem] text-white opacity-0 blur-[1px] [transition-delay:40ms]'
+                    : 'blur-0 translate-y-0 text-current opacity-100 [transition-delay:0ms]',
+                )}
+              >
+                i
+              </span>
+            </span>
+            <span className="inline-flex">
+              {trailingLetters.map((char, index) => (
+                <span
+                  key={`${char}-${index}`}
+                  className={cn(
+                    `${headingClasses} inline-block text-[20px] leading-none font-bold transition-[opacity,transform,filter] duration-350 ease-out motion-reduce:transition-none`,
+                    collapsed ? 'opacity-0 blur-[2px]' : 'blur-0 opacity-100',
+                  )}
+                  style={{
+                    transform: collapsed
+                      ? `translate(${-8 - index * 3}px, 10px)`
+                      : 'translate(0px, 0px)',
+                    transitionDelay: collapsed
+                      ? `${40 + index * 28}ms`
+                      : `${(trailingLetters.length - index) * 18}ms`,
+                  }}
+                >
+                  {char}
+                </span>
+              ))}
+            </span>
+          </span>
+          <span className="sr-only">instant</span>
+        </span>
+      </Link>
+    );
+  }
+
   return (
     <Link
       href="/"
@@ -89,10 +173,10 @@ export function LogoType({ collapsed = false }: { collapsed?: boolean }) {
       <LogoIcon />
       <span
         className={cn(
-          'inline-flex overflow-hidden [transform-origin:left_center] transition-[max-width,opacity,transform] duration-300 ease-out',
+          'inline-flex [transform-origin:left_center] overflow-hidden transition-[max-width,opacity,transform] duration-300 ease-out',
           collapsed
-            ? 'max-w-0 opacity-0 [transform:perspective(260px)_rotateY(-82deg)]'
-            : 'max-w-[7.5rem] opacity-100 [transform:perspective(260px)_rotateY(0deg)]',
+            ? 'max-w-0 [transform:perspective(260px)_rotateY(-82deg)] opacity-0'
+            : 'max-w-[7.5rem] [transform:perspective(260px)_rotateY(0deg)] opacity-100',
         )}
       >
         <HeadingBrand>instant</HeadingBrand>
@@ -160,7 +244,11 @@ function OtherNavItems() {
 export function BareNav({
   children,
   collapseLogo = false,
-}: PropsWithChildren<{ collapseLogo?: boolean }>) {
+  morphLogoOnCollapse = false,
+}: PropsWithChildren<{
+  collapseLogo?: boolean;
+  morphLogoOnCollapse?: boolean;
+}>) {
   const [isOpen, setIsOpen] = useState(false);
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : 'auto';
@@ -168,7 +256,10 @@ export function BareNav({
 
   return (
     <div className="flex flex-row items-center gap-[24px] text-lg md:text-base">
-      <LogoType collapsed={collapseLogo} />
+      <LogoType
+        collapsed={collapseLogo}
+        morphOnCollapse={morphLogoOnCollapse}
+      />
       <button
         className="ml-auto min-[60rem]:hidden"
         onClick={() => setIsOpen(true)}
@@ -214,11 +305,7 @@ export function BareNav({
   );
 }
 
-export function MainNav({
-  transparent = false,
-}: {
-  transparent?: boolean;
-}) {
+export function MainNav({ transparent = false }: { transparent?: boolean }) {
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -251,7 +338,10 @@ export function MainNav({
       )}
     >
       <div className="landing-width mx-auto">
-        <BareNav collapseLogo={transparent && isScrolled} />
+        <BareNav
+          collapseLogo={transparent && isScrolled}
+          morphLogoOnCollapse={transparent}
+        />
       </div>
     </div>
   );

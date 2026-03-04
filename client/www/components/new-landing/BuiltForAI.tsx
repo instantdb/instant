@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { AnimateIn } from './AnimateIn';
-import Image from 'next/image';
+import { motion, AnimatePresence } from 'motion/react';
 
 // Animated terminal that types out commands
 function AnimatedTerminal() {
@@ -401,6 +401,243 @@ function PermsCode() {
 
 // Type safety visualization
 
+function BlinkingCursor() {
+  return (
+    <motion.span
+      className="inline-block h-[1.1em] w-[2px] translate-y-[2px] bg-gray-300"
+      animate={{ opacity: [1, 0] }}
+      transition={{ duration: 0.8, repeat: Infinity, repeatType: 'reverse' }}
+    />
+  );
+}
+
+type DropdownItem = {
+  icon: string;
+  iconColor: string;
+  name: string;
+  type: string;
+  highlighted?: boolean;
+};
+
+function AutocompleteDropdown({ items }: { items: DropdownItem[] }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.15 }}
+      className="absolute left-0 top-full z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border border-gray-700 bg-[#1e1e2e] shadow-xl"
+    >
+      {items.map((item) => (
+        <div
+          key={item.name}
+          className={`flex items-center gap-2 px-3 py-1.5 text-[13px] ${
+            item.highlighted
+              ? 'border-l-2 border-l-blue-400 bg-blue-500/15'
+              : 'border-l-2 border-l-transparent'
+          }`}
+        >
+          <span className={item.iconColor}>◆</span>
+          <span className="text-gray-100">{item.name}</span>
+          <span className="ml-auto text-gray-500">{item.type}</span>
+        </div>
+      ))}
+    </motion.div>
+  );
+}
+
+type Phase =
+  | 'typing-prefix'
+  | 'show-dropdown'
+  | 'select-item'
+  | 'show-annotation'
+  | 'pause';
+
+type Scene = {
+  prefix: React.ReactNode;
+  dropdownItems: DropdownItem[];
+  selectedText: string;
+  suffix: string;
+  annotation: string;
+};
+
+const scenes: Scene[] = [
+  {
+    prefix: (
+      <>
+        <span className="text-orange-300">db</span>
+        <span className="text-gray-400">.</span>
+        <span className="text-yellow-300">useQuery</span>
+        <span className="text-gray-400">({"{"}</span>
+      </>
+    ),
+    dropdownItems: [
+      {
+        icon: '◆',
+        iconColor: 'text-purple-400',
+        name: 'messages',
+        type: 'EntityDef',
+        highlighted: true,
+      },
+      {
+        icon: '◆',
+        iconColor: 'text-blue-400',
+        name: 'users',
+        type: 'EntityDef',
+      },
+      {
+        icon: '◆',
+        iconColor: 'text-emerald-400',
+        name: 'channels',
+        type: 'EntityDef',
+      },
+    ],
+    selectedText: 'messages: {}',
+    suffix: ' })',
+    annotation: '// → { messages: Message[] }',
+  },
+  {
+    prefix: (
+      <>
+        <span className="text-blue-300">data</span>
+        <span className="text-gray-400">.</span>
+        <span className="text-blue-300">messages</span>
+        <span className="text-gray-400">[</span>
+        <span className="text-orange-300">0</span>
+        <span className="text-gray-400">].</span>
+      </>
+    ),
+    dropdownItems: [
+      {
+        icon: '◆',
+        iconColor: 'text-emerald-400',
+        name: 'text',
+        type: 'string',
+        highlighted: true,
+      },
+      { icon: '◆', iconColor: 'text-blue-400', name: 'id', type: 'string' },
+      {
+        icon: '◆',
+        iconColor: 'text-purple-400',
+        name: 'createdAt',
+        type: 'number',
+      },
+    ],
+    selectedText: 'text',
+    suffix: '',
+    annotation: '// → string',
+  },
+];
+
+function TypeSafetyDemo() {
+  const [sceneIndex, setSceneIndex] = useState(0);
+  const [phase, setPhase] = useState<Phase>('typing-prefix');
+
+  const scene = scenes[sceneIndex];
+
+  useEffect(() => {
+    let delay: number;
+    switch (phase) {
+      case 'typing-prefix':
+        delay = 800;
+        break;
+      case 'show-dropdown':
+        delay = 1200;
+        break;
+      case 'select-item':
+        delay = 800;
+        break;
+      case 'show-annotation':
+        delay = 2000;
+        break;
+      case 'pause':
+        delay = 2000;
+        break;
+      default:
+        delay = 1000;
+    }
+
+    const timeout = setTimeout(() => {
+      switch (phase) {
+        case 'typing-prefix':
+          setPhase('show-dropdown');
+          break;
+        case 'show-dropdown':
+          setPhase('select-item');
+          break;
+        case 'select-item':
+          setPhase('show-annotation');
+          break;
+        case 'show-annotation':
+          setPhase('pause');
+          break;
+        case 'pause':
+          setSceneIndex((i) => (i + 1) % scenes.length);
+          setPhase('typing-prefix');
+          break;
+      }
+    }, delay);
+
+    return () => clearTimeout(timeout);
+  }, [phase, sceneIndex]);
+
+  const showDropdown = phase === 'show-dropdown';
+  const showSelected = phase === 'select-item' || phase === 'show-annotation' || phase === 'pause';
+  const showAnnotation = phase === 'show-annotation' || phase === 'pause';
+  const showCursor = phase !== 'pause';
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl">
+      {/* Editor title bar */}
+      <div className="flex items-center border-b border-gray-800 bg-gray-900 px-4 py-2">
+        <span className="font-mono text-xs text-gray-500">app.tsx</span>
+      </div>
+
+      <div className="min-h-[160px] p-5 font-mono text-sm sm:p-6 sm:text-[15px]">
+        {/* Code line */}
+        <div className="relative inline-flex flex-wrap items-center">
+          {scene.prefix}
+          {showSelected && (
+            <motion.span
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-blue-300"
+            >
+              {scene.selectedText}
+            </motion.span>
+          )}
+          {showCursor && !showSelected && <BlinkingCursor />}
+          {showSelected && (
+            <span className="text-gray-400">{scene.suffix}</span>
+          )}
+          {showSelected && showCursor && <BlinkingCursor />}
+
+          {/* Dropdown */}
+          <AnimatePresence>
+            {showDropdown && (
+              <AutocompleteDropdown items={scene.dropdownItems} />
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Type annotation */}
+        <AnimatePresence>
+          {showAnnotation && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="mt-3 text-gray-500"
+            >
+              {scene.annotation}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
 export function BuiltForAI() {
   return (
     <div className="space-y-24">
@@ -475,21 +712,8 @@ export function BuiltForAI() {
               the first try.
             </p>
           </div>
-          <div className="bg-surface/20 grow px-[161px] py-[85px]">
-            <div className="rounded-[20px] bg-[#25283A] px-[44px] py-8 shadow">
-              <Image
-                style={{
-                  width: '407',
-                  minWidth: '407px',
-                  height: '122',
-                  minHeight: '122px',
-                }}
-                width={407}
-                height={122}
-                src="/img/typesafety.png"
-                alt="Type safety visualization"
-              />
-            </div>
+          <div className="bg-surface/20 grow px-[66px] py-[37px]">
+            <TypeSafetyDemo />
           </div>
         </div>
       </AnimateIn>

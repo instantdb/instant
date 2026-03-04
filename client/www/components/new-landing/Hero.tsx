@@ -76,45 +76,14 @@ function PlayIcon({ className }: { className?: string }) {
 }
 
 function VideoPlayer() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState<boolean | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  // Check for mobile only once on mount (don't update on resize to avoid issues with rotation)
-  useEffect(() => {
-    // Use touch capability as a more reliable mobile check
-    const checkMobile =
-      'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    setIsMobile(checkMobile);
-  }, []);
-
-  // Close on escape key and lock body scroll
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsOpen(false);
-    };
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
-  // Don't render until we know if it's mobile or not (prevents flicker)
-  if (isMobile === null) {
+  if (isPlaying) {
     return (
-      <div className="aspect-video overflow-hidden rounded-[2rem] bg-gray-900 shadow-2xl" />
-    );
-  }
-
-  // On mobile/touch devices, show Mux Player directly for native fullscreen
-  if (isMobile) {
-    return (
-      <div className="overflow-hidden rounded-xl shadow-2xl">
+      <div className="overflow-hidden rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.22)]">
         <MuxPlayer
           playbackId={PLAYBACK_ID}
+          autoPlay
           accentColor="#ea580c"
           metadata={{ video_title: 'InstantDB Demo' }}
           style={{ aspectRatio: '16/9', display: 'block' }}
@@ -123,79 +92,36 @@ function VideoPlayer() {
     );
   }
 
-  // On desktop, show thumbnail that opens modal
   return (
-    <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="group relative w-full cursor-pointer overflow-hidden rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.22)]"
-      >
-        <img
-          src={THUMBNAIL_URL}
-          alt="Watch demo video"
-          className="aspect-video w-full scale-[1.01] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-        />
+    <button
+      onClick={() => setIsPlaying(true)}
+      className="group relative w-full cursor-pointer overflow-hidden rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.22)]"
+    >
+      <img
+        src={THUMBNAIL_URL}
+        alt="Watch demo video"
+        className="aspect-video w-full scale-[1.01] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+      />
 
-        <div className="absolute inset-0 bg-black/58 transition-colors duration-300 group-hover:bg-black/50" />
+      <div className="absolute inset-0 bg-black/58 transition-colors duration-300 group-hover:bg-black/50" />
 
-        <div className="absolute inset-x-0 top-8 px-6 text-center sm:top-12 sm:px-10">
-          <p className="font-mono text-xs tracking-[0.18em] text-white/85 sm:text-[13px]">
-            instant in action
-          </p>
-          <p className="mx-auto mt-6 max-w-5xl text-4xl leading-[0.96] font-semibold text-white sm:text-6xl lg:text-8xl">
-            Agents build a realtime instagram, in 12 minutes
-          </p>
+      <div className="absolute inset-x-0 top-[13%] px-6 text-center sm:top-[14%] sm:px-10">
+        <p className="font-mono text-xs tracking-[0.16em] text-white/85 sm:text-[13px]">
+          instant in action
+        </p>
+        <p className="mx-auto mt-6 text-3xl leading-[1.05] font-semibold tracking-[-0.02em] text-white sm:text-4xl md:text-5xl lg:text-[3.5rem]">
+          Agents build a realtime
+          <br />
+          instagram, in 12 minutes
+        </p>
+      </div>
+
+      <div className="absolute top-[73%] left-1/2 -translate-x-1/2 -translate-y-1/2">
+        <div className="flex h-24 w-24 items-center justify-center rounded-full bg-orange-600 shadow-[0_20px_48px_rgba(234,88,12,0.55)] transition-transform duration-300 group-hover:scale-110 sm:h-32 sm:w-32 lg:h-40 lg:w-40">
+          <PlayIcon className="ml-1 h-11 w-11 text-white sm:h-[3.4rem] sm:w-[3.4rem] lg:h-[4rem] lg:w-[4rem]" />
         </div>
-
-        <div className="absolute inset-x-0 bottom-8 flex justify-center sm:bottom-14">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-orange-600 shadow-[0_20px_48px_rgba(234,88,12,0.55)] transition-transform duration-300 group-hover:scale-110 sm:h-32 sm:w-32 lg:h-40 lg:w-40">
-            <PlayIcon className="ml-1 h-11 w-11 text-white sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
-          </div>
-        </div>
-      </button>
-
-      {/* Lightbox modal — portaled to body to escape transformed ancestors */}
-      {createPortal(
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-center p-8 transition-all duration-500 ease-out ${
-            isOpen
-              ? 'pointer-events-auto opacity-100'
-              : 'pointer-events-none opacity-0'
-          }`}
-          onClick={() => setIsOpen(false)}
-        >
-          <div
-            className={`absolute inset-0 bg-black/90 transition-opacity duration-500 ease-out ${isOpen ? 'opacity-100' : 'opacity-0'}`}
-          />
-
-          <button
-            onClick={() => setIsOpen(false)}
-            className={`absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-all duration-500 ease-out hover:bg-white/20 ${
-              isOpen ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
-            }`}
-          >
-            <XIcon className="h-6 w-6 text-white" />
-          </button>
-
-          <div
-            className={`relative w-full max-w-6xl overflow-hidden rounded-xl shadow-2xl transition-all duration-500 ease-out ${
-              isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {isOpen && (
-              <MuxPlayer
-                playbackId={PLAYBACK_ID}
-                accentColor="#ea580c"
-                metadata={{ video_title: 'InstantDB Demo' }}
-                style={{ aspectRatio: '16/9', display: 'block' }}
-              />
-            )}
-          </div>
-        </div>,
-        document.body,
-      )}
-    </>
+      </div>
+    </button>
   );
 }
 
@@ -214,7 +140,7 @@ export function Hero() {
             LLMs can use Instant to write concise and maintainable code.
           </p>
 
-          <div className="hero-stagger-3 mx-auto mt-10 max-w-3xl">
+          <div className="hero-stagger-3 mx-auto mt-10 max-w-[1100px]">
             <VideoPlayer />
           </div>
         </div>
