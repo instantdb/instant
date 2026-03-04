@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AnimateIn } from './AnimateIn';
 
@@ -24,15 +24,7 @@ function AuthDemo() {
     setView('success');
   };
 
-  useEffect(() => {
-    if (view !== 'success') return;
-    const t = setTimeout(() => {
-      setView('form');
-      setEmail('');
-      setName('');
-    }, 2000);
-    return () => clearTimeout(t);
-  }, [view]);
+
 
   return (
     <div className="flex items-center justify-center rounded-xl bg-[#FAFAFA] p-4">
@@ -113,6 +105,12 @@ function AuthDemo() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
               </motion.div>
+              <a
+                href="/docs/auth"
+                className="mt-1 text-xs font-medium text-orange-500 hover:text-orange-600 transition-colors"
+              >
+                Add this to your app in 2 minutes →
+              </a>
             </motion.div>
           )}
         </AnimatePresence>
@@ -236,9 +234,6 @@ function PermissionsDemo() {
             </div>
           )}
         </div>
-        <span className="text-gray-400">?</span>
-        <div className="flex-1" />
-        <span className="text-gray-400">?</span>
         <div className="flex-1" />
         <AnimatePresence mode="wait">
           <motion.span
@@ -255,31 +250,31 @@ function PermissionsDemo() {
 
       {/* Rules table */}
       <div>
-        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-400">
-          Permissions: messages
-        </p>
-        <div className="divide-y divide-gray-100 font-mono text-xs">
-          {permRules.map((r, i) => (
-            <div
-              key={r.action}
-              className={`flex items-center justify-between px-2 py-1.5 transition-colors ${
-                activeRuleIdx === i ? 'bg-gray-100' : ''
-              }`}
-            >
-              <span className={`font-semibold ${activeRuleIdx === i ? r.color : 'text-gray-400'}`}>
-                {r.action}
-              </span>
-              <span className={activeRuleIdx === i ? 'text-gray-600' : 'text-gray-400'}>
-                {r.rule}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 border-t border-gray-100 pt-2">
-          <p className="px-2 font-mono text-[11px] text-gray-400">
-            <span className="font-semibold text-gray-500">bind</span>{' '}
-            isOwner: auth.id == data.creator
-          </p>
+        <div className="font-mono text-xs">
+          <p className="px-2 py-1 text-gray-400">messages</p>
+          <p className="px-2 py-1 pl-6 text-gray-400">allow</p>
+          <div className="divide-y divide-gray-100 pl-10">
+            {permRules.map((r, i) => (
+              <div
+                key={r.action}
+                className={`px-2 py-1.5 transition-colors ${
+                  activeRuleIdx === i ? 'bg-gray-100' : ''
+                }`}
+              >
+                <span className={`font-semibold ${activeRuleIdx === i ? r.color : 'text-gray-400'}`}>
+                  {r.action}
+                </span>
+                <span className={activeRuleIdx === i ? 'text-gray-600' : 'text-gray-400'}>
+                  : {r.rule}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="px-2 py-1 pl-6 text-gray-400">bind</p>
+          <div className="px-2 py-1.5 pl-10">
+            <span className="font-semibold text-gray-400">isOwner</span>
+            <span className="text-gray-400">: auth.id == data.creator</span>
+          </div>
         </div>
       </div>
     </div>
@@ -288,103 +283,144 @@ function PermissionsDemo() {
 
 // ─── Storage Demo ────────────────────────────────────────
 
-const storageFiles = [
-  { name: 'vacation.jpg', icon: '🖼', gradient: 'from-blue-100 to-blue-200' },
-  { name: 'demo.mp4', icon: '🎬', gradient: 'from-purple-100 to-purple-200' },
-  { name: 'report.pdf', icon: '📄', gradient: 'from-red-100 to-red-200' },
-  { name: 'podcast.mp3', icon: '🎵', gradient: 'from-green-100 to-green-200' },
-];
-
 function StorageDemo() {
-  const [uploadedFiles, setUploadedFiles] = useState<number[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [view, setView] = useState<'idle' | 'uploading' | 'success'>('idle');
   const [progress, setProgress] = useState(0);
-  const [currentFileIndex, setCurrentFileIndex] = useState(0);
-
-  const file = storageFiles[currentFileIndex];
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Progress tick
   useEffect(() => {
-    if (!uploading) return;
+    if (view !== 'uploading') return;
     if (progress >= 100) {
-      const t = setTimeout(() => {
-        setUploading(false);
-        setProgress(0);
-        setUploadedFiles((prev) => [...prev, currentFileIndex]);
-        setCurrentFileIndex((i) => i + 1);
-      }, 200);
+      const t = setTimeout(() => setView('success'), 100);
       return () => clearTimeout(t);
     }
-    const t = setTimeout(() => setProgress((p) => Math.min(p + 5, 100)), 40);
+    const t = setTimeout(() => setProgress((p) => Math.min(p + 25, 100)), 30);
     return () => clearTimeout(t);
-  }, [uploading, progress, currentFileIndex]);
+  }, [view, progress]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadedFileName(file.name);
+    setProgress(0);
+    setView('uploading');
+  };
 
   const handleClick = () => {
-    if (uploading) return;
-    if (currentFileIndex >= storageFiles.length) {
-      // Reset
-      setUploadedFiles([]);
-      setCurrentFileIndex(0);
-      return;
-    }
-    setProgress(0);
-    setUploading(true);
+    if (view === 'uploading') return;
+    fileInputRef.current?.click();
   };
 
   return (
     <div className="space-y-3">
-      {/* Upload zone */}
-      <button
-        onClick={handleClick}
-        className={`flex h-14 w-full items-center gap-3 rounded-lg border-2 border-dashed px-4 transition-colors cursor-pointer ${
-          uploading
-            ? 'border-blue-400 bg-blue-50/50'
-            : 'border-gray-300 hover:border-gray-400'
-        }`}
-      >
-        {uploading ? (
-          <div className="flex flex-1 items-center gap-3">
-            <span className="shrink-0 font-mono text-xs text-gray-700">{file.name}</span>
-            <div className="h-1.5 flex-1 rounded-full bg-gray-200">
-              <div
-                className="h-full rounded-full bg-blue-500 transition-all duration-75"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-        ) : (
-          <span className="flex items-center text-xs text-gray-400">
-            <CloudIcon />
-            Click to upload
-          </span>
-        )}
-      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
 
-      {/* File grid */}
-      <div className="grid grid-cols-4 gap-2">
-        {storageFiles.map((f, i) => {
-          const isUploaded = uploadedFiles.includes(i);
-          return (
-            <div key={f.name} className="aspect-square">
-              {isUploaded ? (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.85 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                  className={`flex h-full flex-col items-center justify-center gap-1 rounded-lg bg-gradient-to-br ${f.gradient}`}
-                >
-                  <span className="text-xl">{f.icon}</span>
-                  <span className="text-[10px] font-medium text-gray-600">
-                    {f.name.split('.')[1]}
-                  </span>
-                </motion.div>
+      <AnimatePresence mode="wait">
+        {view === 'success' ? (
+          <motion.div
+            key="success"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="flex flex-col items-center gap-3 py-6"
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+            >
+              <svg className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </motion.div>
+            <p className="text-center text-sm font-semibold text-gray-800">
+              This is a demo, but we could upload <span className="inline-block max-w-[160px] truncate align-bottom">{uploadedFileName}</span> for real in a jiffy!
+            </p>
+            <p className="text-center text-xs text-gray-500">
+              Add file uploads to your app in minutes.
+            </p>
+            <a
+              href="/docs/storage"
+              className="text-xs font-medium text-orange-500 hover:text-orange-600 transition-colors"
+            >
+              Check out the docs →
+            </a>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="upload"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-3"
+          >
+            {/* Upload zone */}
+            <button
+              onClick={handleClick}
+              className={`flex h-14 w-full items-center gap-3 rounded-lg border-2 border-dashed px-4 transition-colors cursor-pointer ${
+                view === 'uploading'
+                  ? 'border-blue-400 bg-blue-50/50'
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+            >
+              {view === 'uploading' ? (
+                <div className="flex flex-1 items-center gap-3">
+                  <span className="shrink-0 font-mono text-xs text-gray-700">{uploadedFileName}</span>
+                  <div className="h-1.5 flex-1 rounded-full bg-gray-200">
+                    <div
+                      className="h-full rounded-full bg-blue-500 transition-all duration-75"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
               ) : (
-                <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-gray-200" />
+                <span className="flex items-center text-xs text-gray-400">
+                  <CloudIcon />
+                  Click to upload
+                </span>
               )}
+            </button>
+
+            {/* File grid */}
+            <div className="grid grid-cols-4 gap-2">
+              {/* conjurer.jpg — Bosch's Conjurer */}
+              <div className="aspect-square overflow-hidden rounded-lg">
+                <img
+                  src="/img/landing/conjurer-bosch.jpg"
+                  alt="conjurer.jpg"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+
+              {/* melencolia.mp4 — Dürer's Melencolia I */}
+              <div className="aspect-square overflow-hidden rounded-lg">
+                <img
+                  src="/img/landing/melencolia-durer.jpg"
+                  alt="melencolia.mp4"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+
+              {/* Empty slots */}
+              <div className="aspect-square">
+                <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-gray-200" />
+              </div>
+              <div className="aspect-square">
+                <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-gray-200" />
+              </div>
             </div>
-          );
-        })}
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

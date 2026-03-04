@@ -2,9 +2,9 @@ import Image from 'next/image';
 import { AnimateIn } from './AnimateIn';
 
 const stats = [
-  { value: '10k+', label: 'Concurrent connections' },
-  { value: '1k+', label: 'Queries per second' },
-  { value: '9.6k', label: 'GitHub stars' },
+  { number: '10', suffix: 'k+', label: 'Concurrent connections' },
+  { number: '1', suffix: 'k+', label: 'Queries per second' },
+  { number: '9.6', suffix: 'k', label: 'GitHub stars' },
 ];
 
 const backers = [
@@ -52,12 +52,12 @@ export function SocialProof() {
       <AnimateIn>
         <div className="mx-auto grid max-w-3xl grid-cols-3 gap-4 sm:gap-8">
           {stats.map((stat) => (
-            <div
-              key={stat.label}
-              className="border-t-2 border-gray-200 pt-4 text-center"
-            >
-              <div className="text-3xl font-medium sm:text-5xl">
-                {stat.value}
+            <div key={stat.label} className="text-center">
+              <div className="text-3xl font-semibold tracking-tight sm:text-5xl">
+                {stat.number}
+                <span className="text-2xl font-medium text-gray-400 sm:text-3xl">
+                  {stat.suffix}
+                </span>
               </div>
               <div className="mt-1 text-xs text-gray-500 sm:mt-2 sm:text-sm">
                 {stat.label}
@@ -70,21 +70,20 @@ export function SocialProof() {
       {/* Credibility badges */}
       <AnimateIn delay={100}>
         <div>
-          <div className="mx-auto mb-6 h-px max-w-md bg-gray-200" />
           <div className="flex items-center justify-center gap-4 text-xs text-gray-400 sm:gap-6 sm:text-sm">
             <div className="flex items-center gap-1.5">
               <YCIcon className="h-4 w-4" />
-              <span>Y Combinator</span>
+              <span>Backed by Y Combinator</span>
             </div>
             <span className="text-gray-300">·</span>
             <div className="flex items-center gap-1.5">
               <SVAngelIcon className="h-4 w-4" />
-              <span>SV Angel</span>
+              <span>Backed by SV Angel</span>
             </div>
             <span className="text-gray-300">·</span>
             <div className="flex items-center gap-1.5">
               <TechCrunchIcon className="h-3.5 w-3.5" />
-              <span>TechCrunch</span>
+              <span>Featured in TechCrunch</span>
             </div>
           </div>
         </div>
