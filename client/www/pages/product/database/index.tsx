@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import Head from 'next/head';
+import * as og from '@/lib/og';
 import {
   LandingContainer,
   LandingFooter,
@@ -286,14 +287,27 @@ function CLIDetails() {
 }
 
 export default function Database() {
+  const title = 'Database - Instant';
+  const description =
+    'Instant has everything you need to build web and mobile apps with your favorite LLM.';
+
   return (
     <LandingContainer>
       <Head>
-        <title>Database - Instant</title>
+        <title>{title}</title>
+        <meta name="description" content={description} />
+        <meta key="og:title" property="og:title" content={title} />
         <meta
-          name="description"
-          content="Instant has everything you need to build web and mobile apps with your favorite LLM."
+          key="og:description"
+          property="og:description"
+          content={description}
         />
+        <meta
+          key="og:image"
+          property="og:image"
+          content={og.url({ title: 'Database', section: 'Product' })}
+        />
+        <meta name="twitter:card" content="summary_large_image" />
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <div>
@@ -313,8 +327,7 @@ export default function Database() {
                     <span className="text-orange-600">AI-coded apps.</span>
                   </h2>
                   <p className="max-w-lg text-lg text-gray-600">
-                    Instant has everything you need to build web and mobile apps
-                    with your favorite LLM.
+                    {description}
                   </p>
                   <div className="flex gap-3">
                     <Button type="link" variant="cta" size="large" href="/dash">

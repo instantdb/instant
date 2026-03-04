@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Head from 'next/head';
+import * as og from '@/lib/og';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -189,14 +190,27 @@ function PermissionsCard() {
 }
 
 export default function Auth() {
+  const title = 'Auth - Instant';
+  const description =
+    'Users, permissions, and social logins come integrated with your data.';
+
   return (
     <LandingContainer>
       <Head>
-        <title>Auth - Instant</title>
+        <title>{title}</title>
+        <meta name="description" content={description} />
+        <meta key="og:title" property="og:title" content={title} />
         <meta
-          name="description"
-          content="Users, permissions, and social logins come integrated with your data."
+          key="og:description"
+          property="og:description"
+          content={description}
         />
+        <meta
+          key="og:image"
+          property="og:image"
+          content={og.url({ title: 'Auth', section: 'Product' })}
+        />
+        <meta name="twitter:card" content="summary_large_image" />
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <div>

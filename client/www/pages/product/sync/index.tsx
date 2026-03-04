@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Head from 'next/head';
+import * as og from '@/lib/og';
 import Image from 'next/image';
 import {
   LandingContainer,
@@ -107,14 +108,27 @@ function HardSection() {
 }
 
 export default function SyncEngine() {
+  const title = 'Sync Engine - Instant';
+  const description =
+    'Make every feature feel instant, be collaborative, and work offline. No extra code required.';
+
   return (
     <LandingContainer>
       <Head>
-        <title>Sync Engine - Instant</title>
+        <title>{title}</title>
+        <meta name="description" content={description} />
+        <meta key="og:title" property="og:title" content={title} />
         <meta
-          name="description"
-          content="Make every feature feel instant, be collaborative, and work offline. No extra code required."
+          key="og:description"
+          property="og:description"
+          content={description}
         />
+        <meta
+          key="og:image"
+          property="og:image"
+          content={og.url({ title: 'Sync Engine', section: 'Product' })}
+        />
+        <meta name="twitter:card" content="summary_large_image" />
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <div>

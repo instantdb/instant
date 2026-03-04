@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import Head from 'next/head';
+import * as og from '@/lib/og';
 import {
   LandingContainer,
   LandingFooter,
@@ -60,14 +61,27 @@ function ExampleCard({
 }
 
 export default function AdminSdk() {
+  const title = 'Admin SDK - Instant';
+  const description =
+    'Use Instant on your backend with elevated permissions. Same APIs, server-side power.';
+
   return (
     <LandingContainer>
       <Head>
-        <title>Admin SDK - Instant</title>
+        <title>{title}</title>
+        <meta name="description" content={description} />
+        <meta key="og:title" property="og:title" content={title} />
         <meta
-          name="description"
-          content="Use Instant on your backend with elevated permissions. Same APIs, server-side power."
+          key="og:description"
+          property="og:description"
+          content={description}
         />
+        <meta
+          key="og:image"
+          property="og:image"
+          content={og.url({ title: 'Admin SDK', section: 'Product' })}
+        />
+        <meta name="twitter:card" content="summary_large_image" />
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <div>
