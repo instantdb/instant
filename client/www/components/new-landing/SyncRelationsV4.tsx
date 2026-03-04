@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, ReactNode } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 
 // -- Types -------------------------------------------------------------------
 
@@ -128,17 +127,7 @@ function QueryCodeBlock({
           <Pn>=</Pn> <Pn>{'{'}</Pn>
         </QLine>
         <QLine indent={1} highlight={depth >= 1} active={depth === 1}>
-          <AnimatePresence mode="wait">
-            <motion.span
-              key={entities[0]}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Ent active={depth >= 1}>{entities[0]}</Ent>
-            </motion.span>
-          </AnimatePresence>
+          <Ent active={depth >= 1}>{entities[0]}</Ent>
           <Pn>{': {'}</Pn>
         </QLine>
         <QLine indent={2} highlight={depth >= 2} active={depth === 2}>

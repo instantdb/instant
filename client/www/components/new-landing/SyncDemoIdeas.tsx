@@ -615,31 +615,33 @@ function FloatingHeart({ id, onDone }: { id: number; onDone: (id: number) => voi
   );
 }
 
-function HeartButton({
+function SocialPostScreen({
   onClick,
-  interactive,
   floatingHearts,
   onHeartDone,
 }: {
-  onClick?: () => void;
-  interactive: boolean;
+  onClick: () => void;
   floatingHearts: number[];
   onHeartDone: (id: number) => void;
 }) {
   return (
-    <button
-      onClick={interactive ? onClick : undefined}
-      className={`relative flex items-center justify-center rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-150 ${
-        interactive
-          ? 'cursor-pointer hover:scale-105 hover:border-pink-200 hover:shadow-md active:scale-95'
-          : ''
-      }`}
-    >
-      <span style={{ fontSize: 36 }}>❤️</span>
-      {floatingHearts.map((hId) => (
-        <FloatingHeart key={hId} id={hId} onDone={onHeartDone} />
-      ))}
-    </button>
+    <div className="relative h-full">
+      <img
+        src="/img/landing/pet.jpg"
+        alt=""
+        className="h-full w-full object-cover"
+      />
+      {/* Heart button — bottom right */}
+      <button
+        onClick={onClick}
+        className="absolute bottom-2 right-2 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm transition-transform duration-150 hover:scale-110 active:scale-90"
+      >
+        <span style={{ fontSize: 18 }}>❤️</span>
+        {floatingHearts.map((hId) => (
+          <FloatingHeart key={hId} id={hId} onDone={onHeartDone} />
+        ))}
+      </button>
+    </div>
   );
 }
 
@@ -690,25 +692,19 @@ export function DeviceFrameReactionsDemo() {
       <HeartFloatStyle />
       <div className="flex items-start justify-center gap-6">
         <LaptopFrame2>
-          <div className="flex h-full items-center justify-center">
-            <HeartButton
-              onClick={addHeart}
-              interactive
-              floatingHearts={floatingHearts}
-              onHeartDone={removeHeart}
-            />
-          </div>
+          <SocialPostScreen
+            onClick={addHeart}
+            floatingHearts={floatingHearts}
+            onHeartDone={removeHeart}
+          />
         </LaptopFrame2>
 
         <LaptopFrame2>
-          <div className="flex h-full items-center justify-center">
-            <HeartButton
-              onClick={addHeart}
-              interactive
-              floatingHearts={floatingHearts}
-              onHeartDone={removeHeart}
-            />
-          </div>
+          <SocialPostScreen
+            onClick={addHeart}
+            floatingHearts={floatingHearts}
+            onHeartDone={removeHeart}
+          />
         </LaptopFrame2>
       </div>
     </div>

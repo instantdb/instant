@@ -63,15 +63,15 @@ export default function SyncRelationsDemo() {
           <SyncRelationsV4 />
         </section>
 
-        {/* Variant 5: Dual-Panel */}
+        {/* Variant 5: Relationship Swap */}
         <section>
           <h2 className="mb-1 text-2xl font-bold">
-            Variant 5: Dual-Panel
+            Variant 5: Relationship Swap
           </h2>
           <p className="mb-8 text-gray-500">
-            Two side-by-side panels — same data, different query shapes.
-            Left queries channels &rarr; messages, right queries users &rarr;
-            messages.
+            Same entities, flipped nesting — toggle between channels &rarr;
+            users and users &rarr; channels. The entity names in the query
+            physically swap positions with a layout animation.
           </p>
           <SyncRelationsV5 />
         </section>

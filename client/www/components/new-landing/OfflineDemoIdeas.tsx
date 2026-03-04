@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { produce } from 'immer';
 
 // ─── Revived interactive offline demo ───────────────────────────────
@@ -161,6 +161,90 @@ interface MsgState {
   shared: ChatMsg[];
 }
 
+function DeviceCard({
+  msgs,
+  onSend,
+}: {
+  msgs: ChatMsg[];
+  onSend: () => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [msgs.length]);
+
+  return (
+    <div className="flex flex-1 flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
+      {/* Header */}
+      <div className="border-b border-gray-100 px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs">💬</span>
+          <span className="text-xs font-semibold text-gray-700">#general</span>
+        </div>
+      </div>
+
+      {/* Message list */}
+      <div
+        ref={scrollRef}
+        className="max-h-[200px] min-h-[180px] overflow-y-auto p-3"
+      >
+        <div className="flex min-h-full flex-col justify-end">
+          <div className="space-y-2">
+            {msgs.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex items-start gap-2 rounded-lg px-2 py-1.5 ${
+                  msg.synced ? 'bg-white' : 'bg-amber-50'
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <span className="text-[11px] font-semibold text-gray-700">
+                    {msg.user}
+                  </span>
+                  <p className="text-xs text-gray-600">{msg.text}</p>
+                </div>
+                {msg.synced ? (
+                  <svg
+                    className="mt-0.5 h-3 w-3 shrink-0 text-green-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2.5}
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="m4.5 12.75 6 6 9-13.5"
+                    />
+                  </svg>
+                ) : (
+                  <span className="mt-0.5 shrink-0 text-[10px] font-medium text-amber-500">
+                    queued
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Send button */}
+      <div className="border-t border-gray-100 px-3 py-2">
+        <button
+          className="w-full rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-orange-700 active:scale-[0.98]"
+          onClick={onSend}
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function OfflineDemoMessages() {
   const nextId = useRef(1);
   const userIdx = useRef(0);
@@ -245,80 +329,14 @@ export function OfflineDemoMessages() {
 
       {/* Two device cards */}
       <div className="flex gap-3">
-        {(['queue1', 'queue2'] as const).map((q, i) => {
-          const localMsgs = state[q];
-          const allMsgs = [...state.shared, ...localMsgs];
-
-          return (
-            <div
-              key={q}
-              className="flex flex-1 flex-col rounded-xl border border-gray-200 bg-white shadow-sm"
-            >
-              {/* Device header */}
-              <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs">💬</span>
-                  <span className="text-xs font-semibold text-gray-700">
-                    #general
-                  </span>
-                </div>
-                <span className="text-[10px] text-gray-400">
-                  {i === 0 ? 'Laptop' : 'Phone'}
-                </span>
-              </div>
-
-              {/* Message list */}
-              <div className="flex max-h-[200px] min-h-[180px] flex-col justify-end overflow-y-auto p-3">
-                <div className="space-y-2">
-                  {allMsgs.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex items-start gap-2 rounded-lg px-2 py-1.5 ${
-                        msg.synced ? 'bg-white' : 'bg-amber-50'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <span className="text-[11px] font-semibold text-gray-700">
-                          {msg.user}
-                        </span>
-                        <p className="text-xs text-gray-600">{msg.text}</p>
-                      </div>
-                      {msg.synced ? (
-                        <svg
-                          className="mt-0.5 h-3 w-3 shrink-0 text-green-500"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={2.5}
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="m4.5 12.75 6 6 9-13.5"
-                          />
-                        </svg>
-                      ) : (
-                        <span className="mt-0.5 shrink-0 text-[10px] font-medium text-amber-500">
-                          queued
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Send button */}
-              <div className="border-t border-gray-100 px-3 py-2">
-                <button
-                  className="w-full rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-orange-700 active:scale-[0.98]"
-                  onClick={() => onSend(q)}
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-          );
-        })}
+        <DeviceCard
+          msgs={[...state.shared, ...state.queue1]}
+          onSend={() => onSend('queue1')}
+        />
+        <DeviceCard
+          msgs={[...state.shared, ...state.queue2]}
+          onSend={() => onSend('queue2')}
+        />
       </div>
     </div>
   );

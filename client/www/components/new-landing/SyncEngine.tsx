@@ -2,72 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { AnimateIn } from './AnimateIn';
-
-// Interactive demo: click a todo and see it update instantly (no spinner)
-function InstantUpdatesDemo() {
-  const [todos, setTodos] = useState([
-    { id: 1, text: 'Design landing page', done: true },
-    { id: 2, text: 'Write API docs', done: false },
-    { id: 3, text: 'Ship v1.0', done: false },
-  ]);
-
-  const toggle = (id: number) => {
-    setTodos((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-    );
-  };
-
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-medium">My Tasks</span>
-        <span className="flex items-center gap-1 text-xs font-medium text-green-600">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-          Synced
-        </span>
-      </div>
-      <div className="space-y-1.5">
-        {todos.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => toggle(t.id)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
-          >
-            <div
-              className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${
-                t.done ? 'border-orange-600 bg-orange-600' : 'border-gray-300'
-              }`}
-            >
-              {t.done && (
-                <svg
-                  className="h-3 w-3 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={3}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m4.5 12.75 6 6 9-13.5"
-                  />
-                </svg>
-              )}
-            </div>
-            <span
-              className={`text-sm ${t.done ? 'text-gray-400 line-through' : 'text-gray-700'}`}
-            >
-              {t.text}
-            </span>
-          </button>
-        ))}
-      </div>
-      <p className="mt-3 text-center text-xs text-gray-400">
-        Click a task — no spinner, no delay
-      </p>
-    </div>
-  );
-}
+import { SideBySideDemo } from './InstantUpdatesDemoIdeas';
 
 // Two devices showing real-time sync
 function RealtimeSyncDemo() {
@@ -321,8 +256,8 @@ export function SyncEngine() {
                 responsive and alive and your users stay in flow.
               </p>
             </div>
-            <div className="col-span-2 bg-[#B8B8B8]/20 px-20 py-9">
-              <InstantUpdatesDemo />
+            <div className="col-span-2 rounded-2xl bg-[#B8B8B8]/20 px-12 py-9">
+              <SideBySideDemo />
             </div>
           </div>
         </AnimateIn>
