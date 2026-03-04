@@ -475,7 +475,7 @@ db.transact(
     label: 'Lookup',
     code: `// Upsert a user by email
 db.transact(
-  db.tx.users[lookup("email", "alice@company.com")].update({
+  db.tx.users.lookup("email", "alice@company.com").update({
     name: "Alice",
     role: "admin",
   })
