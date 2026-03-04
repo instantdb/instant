@@ -37,7 +37,7 @@
     }
   },
   "scripts": {
-    "pretest": "pnpm exec playwright install",
+    "pretest": "playwright install chromium --with-deps",
     "test": "vitest",
     "bench": "vitest bench",
     "test:types": "tsc -p tsconfig.test.json --noEmit",
