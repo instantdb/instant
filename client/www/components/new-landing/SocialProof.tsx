@@ -1,35 +1,43 @@
+import Image from 'next/image';
 import { AnimateIn } from './AnimateIn';
+import { Subheading } from './typography';
 
 const stats = [
-  { value: '10k+', label: 'Concurrent connections' },
-  { value: '1k+', label: 'Queries per second' },
-  { value: '10k', label: 'GitHub stars' },
+  { value: '10,000+', label: 'concurrent connections' },
+  { value: '1,000+', label: 'queries per second' },
+  { value: '9,600+', label: 'github stars' },
 ];
 
 const backers = [
   {
-    name: 'James Tamplin',
-    role: 'Firebase founder',
-    initials: 'JT',
-    color: 'bg-orange-100 text-orange-700',
-  },
-  {
     name: 'Greg Brockman',
-    role: 'OpenAI',
-    initials: 'GB',
-    color: 'bg-blue-100 text-blue-700',
+    role: 'Co-Founder of OpenAI',
+    imageSrc: '/img/investors/greg-brockman.jpg',
   },
   {
     name: 'Jeff Dean',
     role: 'Chief Scientist of Google DeepMind',
-    initials: 'JD',
-    color: 'bg-green-100 text-green-700',
+    imageSrc: '/img/investors/jeff-dean.jpg',
+  },
+  {
+    name: 'Paul Graham',
+    role: 'Co-Founder of YCombinator',
+    imageSrc: '/img/investors/paul-graham.jpg',
   },
   {
     name: 'Amjad Masad',
     role: 'CEO of Replit',
-    initials: 'AM',
-    color: 'bg-purple-100 text-purple-700',
+    imageSrc: '/img/investors/amjad-masad.jpg',
+  },
+  {
+    name: 'Karri Saarinen',
+    role: 'CEO of Linear',
+    imageSrc: '/img/investors/karri-saarinen.jpg',
+  },
+  {
+    name: 'Zach Sims',
+    role: 'CEO of Codecademy',
+    imageSrc: '/img/investors/zach-sims.jpg',
   },
 ];
 
@@ -41,10 +49,10 @@ export function SocialProof() {
         <div className="mx-auto grid max-w-3xl grid-cols-3 gap-4 sm:gap-8">
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
-              <div className="text-3xl font-semibold sm:text-7xl">
+              <div className="font-mono text-3xl font-semibold tracking-tighter sm:text-5xl">
                 {stat.value}
               </div>
-              <div className="mt-1 text-xs text-gray-500 sm:mt-2 sm:text-sm">
+              <div className="mt-1 font-mono text-xs text-gray-500 sm:mt-2 sm:text-sm">
                 {stat.label}
               </div>
             </div>
@@ -54,20 +62,21 @@ export function SocialProof() {
 
       {/* Credibility badges */}
       <AnimateIn delay={100}>
-        <div className="flex items-center justify-center gap-6 sm:gap-10">
-          <div className="flex items-center gap-2 text-gray-400">
-            <YCIcon className="h-6 w-6 sm:h-8 sm:w-8" />
-            <div className="text-xs sm:text-sm">
-              <div className="font-semibold text-gray-600">Backed by</div>
-              <div className="text-gray-400">Y Combinator</div>
+        <div>
+          <div className="flex items-center justify-center gap-4 text-xs text-gray-400 sm:gap-6 sm:text-sm">
+            <div className="flex items-center gap-1.5">
+              <YCIcon className="h-4 w-4" />
+              <span>Backed by Y Combinator</span>
             </div>
-          </div>
-          <div className="h-8 w-px bg-gray-200" />
-          <div className="flex items-center gap-2 text-gray-400">
-            <TechCrunchIcon className="h-5 w-5 sm:h-7 sm:w-7" />
-            <div className="text-xs sm:text-sm">
-              <div className="font-semibold text-gray-600">Featured in</div>
-              <div className="text-gray-400">TechCrunch</div>
+            <span className="text-gray-300">·</span>
+            <div className="flex items-center gap-1.5">
+              <SVAngelIcon className="h-4 w-4" />
+              <span>Backed by SV Angel</span>
+            </div>
+            <span className="text-gray-300">·</span>
+            <div className="flex items-center gap-1.5">
+              <TechCrunchIcon className="h-3.5 w-3.5" />
+              <span>Featured in TechCrunch</span>
             </div>
           </div>
         </div>
@@ -77,24 +86,27 @@ export function SocialProof() {
       <AnimateIn delay={200}>
         <div>
           <div className="mb-8 text-center">
-            <h3 className="text-xl font-semibold sm:text-2xl">
-              Backed by the best
-            </h3>
+            <Subheading>Backed by the best</Subheading>
           </div>
-          <div className="mx-auto grid max-w-2xl grid-cols-2 gap-6 sm:grid-cols-4">
+          <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-x-10 gap-y-10">
             {backers.map((backer) => (
-              <div key={backer.name} className="text-center">
-                <div
-                  className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-lg font-semibold sm:h-20 sm:w-20 sm:text-xl ${backer.color}`}
-                >
-                  {backer.initials}
-                </div>
+              <div key={backer.name} className="w-32 text-center">
+                <Image
+                  src={backer.imageSrc}
+                  alt={backer.name}
+                  width={80}
+                  height={80}
+                  className="mx-auto h-16 w-16 rounded-full object-cover object-center sm:h-20 sm:w-20"
+                />
                 <div className="mt-3">
                   <div className="text-sm font-semibold">{backer.name}</div>
                   <div className="text-xs text-gray-500">{backer.role}</div>
                 </div>
               </div>
             ))}
+          </div>
+          <div className="mt-10 text-center text-sm text-gray-500">
+            And 50+ technical founders from Sendbird, Panther, Segment, and more
           </div>
         </div>
       </AnimateIn>
@@ -116,6 +128,25 @@ function YCIcon({ className }: { className?: string }) {
         fontFamily="sans-serif"
       >
         Y
+      </text>
+    </svg>
+  );
+}
+
+function SVAngelIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="4" fill="#1a1a1a" />
+      <text
+        x="12"
+        y="17"
+        textAnchor="middle"
+        fill="white"
+        fontSize="10"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        SVA
       </text>
     </svg>
   );

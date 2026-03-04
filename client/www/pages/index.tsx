@@ -1,7 +1,5 @@
 import Head from 'next/head';
-import { Link, MainNav } from '@/components/marketingUi';
-
-import { ChevronRightIcon } from '@heroicons/react/24/solid';
+import { MainNav } from '@/components/marketingUi';
 import { Hero } from '@/components/new-landing/Hero';
 import { Section } from '@/components/new-landing/Section';
 import { BuiltForAI } from '@/components/new-landing/BuiltForAI';
@@ -9,111 +7,121 @@ import { BatteriesForAI } from '@/components/new-landing/BatteriesForAI';
 import { SyncEngine } from '@/components/new-landing/SyncEngine';
 import { SyncRelations } from '@/components/new-landing/SyncRelations';
 import { SocialProof } from '@/components/new-landing/SocialProof';
-import { WallOfLove } from '@/components/new-landing/WallOfLove';
+import { StartupShowcase } from '@/components/new-landing/StartupShowcase';
+import { FirebaseTestimonial } from '@/components/new-landing/FirebaseTestimonial';
 import { FinalCTA } from '@/components/new-landing/FinalCTA';
 import { Footer } from '@/components/new-landing/Footer';
-import { CoolBackground } from '@/components/CoolBackground';
+import { AgentPathsBgSoftCenter } from '@/components/home/AgentPathsBgSoftCenter';
+import type { ReactNode } from 'react';
 
-const SeeTheCodeButton = ({ href }: { href: string }) => (
-  <Link
-    href={href}
-    className="flex items-center gap-1 rounded-full border bg-white px-2.5 py-0.5 text-sm shadow-sm backdrop-blur-lg hover:bg-gray-50"
-  >
-    See the code <ChevronRightIcon height="1rem" />
-  </Link>
-);
-
-export default function Landing2026() {
+function HomeSeo() {
   return (
-    <div className="text-off-black">
-      <MainNav />
-      <Head>
-        <title>Instant</title>
-        <meta
-          key="og:title"
-          property="og:title"
-          content="InstantDB: A Modern Firebase"
-        />
-        <meta
-          key="og:description"
-          property="og:description"
-          content="We make you productive by giving your frontend a real-time database."
-        />
-      </Head>
-      <CoolBackground>
-        <main className="flex-1">
-          {/* Hero Section */}
-          <Hero />
+    <Head>
+      <title>Instant</title>
+      <meta
+        key="og:title"
+        property="og:title"
+        content="InstantDB: the best backend for AI-coded apps"
+      />
+      <meta
+        key="og:description"
+        property="og:description"
+        content="We make you and your agent more productive by giving your frontend a real-time database."
+      />
+    </Head>
+  );
+}
 
-          {/* Placeholder sections */}
-          <Section className="" id="built-for-ai">
-            <BuiltForAI />
-          </Section>
-
-          <Section id="batteries-for-ai">
-            <BatteriesForAI />
-          </Section>
-
-          <div className="bg-linear-to-b from-[#F7F7F7] to-white">
-            <Section className="" id="sync-engine">
-              <SyncEngine />
-            </Section>
-          </div>
-
-          <Section id="sync-relations">
-            <SyncRelations />
-          </Section>
-
-          <Section className="bg-[#F9FAFB]" id="social-proof">
-            <SocialProof />
-          </Section>
-
-          <Section id="wall-of-love">
-            <WallOfLove />
-          </Section>
-
-          {/* Final CTA */}
-          <Section className="pt-0!">
-            <FinalCTA />
-          </Section>
-        </main>
-      </CoolBackground>{' '}
-      <Footer />
+function LandingBand({
+  id,
+  className,
+  fadeHeightClass,
+  background,
+  children,
+}: {
+  id?: string;
+  className: string;
+  fadeHeightClass: string;
+  background?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div id={id} className={`relative overflow-hidden ${className}`}>
+      {background}
+      <div
+        className={`pointer-events-none absolute top-0 right-0 left-0 z-[5] ${fadeHeightClass} bg-gradient-to-b from-white to-transparent`}
+      />
+      <div
+        className={`pointer-events-none absolute right-0 bottom-0 left-0 z-[5] ${fadeHeightClass} bg-gradient-to-b from-transparent to-white`}
+      />
+      <div className="relative z-10">{children}</div>
     </div>
   );
 }
 
-export function ExampleMultiPreview({
-  numViews,
-  appId,
-  pathName,
-}: {
-  numViews: number;
-  appId: string;
-  pathName: string;
-}) {
+export default function Landing2026() {
   return (
-    <div className="flex flex-col gap-2">
-      {Array(numViews)
-        .fill(null)
-        .map((_, i) => (
-          <div
-            key={i}
-            className="flex h-36 rounded-sm border bg-white shadow-xs"
-          >
-            {appId ? (
-              <iframe
-                className="flex-1"
-                src={'/recipes/' + pathName + '?__appId=' + appId}
-              />
-            ) : (
-              <div className="animate-slow-pulse flex-1 bg-gray-300"></div>
-            )}
+    <div className="text-off-black relative">
+      <MainNav transparent />
+      <HomeSeo />
+      <main className="flex-1">
+        <section className="relative overflow-hidden bg-[#F8F8F8]">
+          <AgentPathsBgSoftCenter />
+          <div className="relative z-10 pt-10 pb-8 sm:pt-16 sm:pb-12">
+            <Hero />
           </div>
-        ))}
-      <div className="flex justify-center">
-        <SeeTheCodeButton href={`/recipes#${pathName}`} />
-      </div>
+          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-48 bg-gradient-to-b from-transparent to-white" />
+        </section>
+
+        <Section id="built-for-ai">
+          <BuiltForAI />
+        </Section>
+
+        <LandingBand className="bg-[#F0F5FA]" fadeHeightClass="h-24">
+          <Section id="startup-showcase">
+            <StartupShowcase />
+          </Section>
+        </LandingBand>
+
+        <Section id="batteries-for-ai">
+          <BatteriesForAI />
+        </Section>
+
+        <div className="bg-linear-to-b from-[#F7F7F7] to-white">
+          <Section id="sync-engine">
+            <SyncEngine />
+          </Section>
+        </div>
+
+        <Section id="sync-relations">
+          <SyncRelations />
+        </Section>
+
+        <LandingBand
+          id="social-proof"
+          className="bg-[#F8F8F8]"
+          fadeHeightClass="h-32"
+          background={
+            <div className="opacity-40">
+              <AgentPathsBgSoftCenter />
+            </div>
+          }
+        >
+          <div className="py-16 sm:py-24">
+            <div className="landing-width mx-auto">
+              <SocialProof />
+              <div className="mt-16">
+                <FirebaseTestimonial />
+              </div>
+            </div>
+          </div>
+        </LandingBand>
+
+        <Section className="pt-0!">
+          <FinalCTA />
+        </Section>
+      </main>
+      <Footer />
     </div>
   );
 }
