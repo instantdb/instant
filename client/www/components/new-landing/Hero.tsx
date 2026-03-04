@@ -105,7 +105,7 @@ function VideoPlayer() {
   // Don't render until we know if it's mobile or not (prevents flicker)
   if (isMobile === null) {
     return (
-      <div className="aspect-video overflow-hidden rounded-xl bg-gray-900 shadow-2xl" />
+      <div className="aspect-video overflow-hidden rounded-[2rem] bg-gray-900 shadow-2xl" />
     );
   }
 
@@ -128,16 +128,28 @@ function VideoPlayer() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="group relative w-full cursor-pointer overflow-hidden rounded-xl shadow-2xl"
+        className="group relative w-full cursor-pointer overflow-hidden rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.22)]"
       >
         <img
           src={THUMBNAIL_URL}
           alt="Watch demo video"
-          className="aspect-video w-full object-cover"
+          className="aspect-video w-full scale-[1.01] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
         />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/90 shadow-lg transition-all group-hover:scale-110 group-hover:bg-white">
-            <PlayIcon className="ml-1 h-10 w-10 text-orange-600" />
+
+        <div className="absolute inset-0 bg-black/58 transition-colors duration-300 group-hover:bg-black/50" />
+
+        <div className="absolute inset-x-0 top-8 px-6 text-center sm:top-12 sm:px-10">
+          <p className="font-mono text-xs tracking-[0.18em] text-white/85 sm:text-[13px]">
+            instant in action
+          </p>
+          <p className="mx-auto mt-6 max-w-5xl text-4xl leading-[0.96] font-semibold text-white sm:text-6xl lg:text-8xl">
+            Agents build a realtime instagram, in 12 minutes
+          </p>
+        </div>
+
+        <div className="absolute inset-x-0 bottom-8 flex justify-center sm:bottom-14">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-orange-600 shadow-[0_20px_48px_rgba(234,88,12,0.55)] transition-transform duration-300 group-hover:scale-110 sm:h-32 sm:w-32 lg:h-40 lg:w-40">
+            <PlayIcon className="ml-1 h-11 w-11 text-white sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
           </div>
         </div>
       </button>
@@ -197,7 +209,9 @@ export function Hero() {
             The backend for AI-coded apps
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
-            Insant gives you everything you need to vibe code delightful apps. You can create unlimited projects, they’re never paused, and your LLMs can use Instant to write concise and maintainable code.
+            Insant gives you everything you need to vibe code delightful apps.
+            You can create unlimited projects, they’re never paused, and your
+            LLMs can use Instant to write concise and maintainable code.
           </p>
 
           <div className="hero-stagger-3 mx-auto mt-10 max-w-3xl">
