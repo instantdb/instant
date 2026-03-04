@@ -638,7 +638,7 @@ function SocialPostScreen({
           <img
             src="/img/landing/pet.jpg"
             alt=""
-            className="h-full w-full object-cover object-[center_55%]"
+            className="h-full w-full object-cover object-[center_30%]"
           />
         </div>
         {/* Like button overlay — bottom right */}

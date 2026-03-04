@@ -193,7 +193,7 @@ function ChatCode() {
         <span className="text-orange-300">db</span>
         <span className="text-gray-400">.</span>
         <span className="text-yellow-300">useQuery</span>
-        <span className="text-gray-400">({'{ '}</span>
+        <span className="text-gray-400">{'({ '}</span>
         <span className="text-blue-300">messages</span>
         <span className="text-gray-400">{': {} })'}</span>
       </div>
@@ -489,7 +489,7 @@ const scenes: Scene[] = [
         <span className="text-orange-300">db</span>
         <span className="text-gray-400">.</span>
         <span className="text-yellow-300">useQuery</span>
-        <span className="text-gray-400">({"{"}</span>
+        <span className="text-gray-400">{"({"}</span>
       </>
     ),
     dropdownItems: [
@@ -513,8 +513,8 @@ const scenes: Scene[] = [
         type: 'EntityDef',
       },
     ],
-    selectedText: 'messages: {}',
-    suffix: ' })',
+    selectedText: ' messages: {} ',
+    suffix: '})',
     annotation: '// → { messages: Message[] }',
   },
   {
@@ -616,7 +616,7 @@ function TypeSafetyDemo() {
 
       <div className="min-h-[160px] p-5 font-mono text-sm sm:p-6 sm:text-[15px]">
         {/* Code line */}
-        <div className="relative inline-flex flex-wrap items-center">
+        <div className="relative inline-flex flex-wrap items-center whitespace-pre">
           {scene.prefix}
           {showSelected && (
             <motion.span
