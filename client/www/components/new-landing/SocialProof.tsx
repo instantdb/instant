@@ -2,9 +2,9 @@ import Image from 'next/image';
 import { AnimateIn } from './AnimateIn';
 
 const stats = [
-  { number: '10', suffix: 'k+', label: 'Concurrent connections' },
-  { number: '1', suffix: 'k+', label: 'Queries per second' },
-  { number: '9.6', suffix: 'k', label: 'GitHub stars' },
+  { value: '10,000+', label: 'Concurrent connections' },
+  { value: '1,000+', label: 'Queries per second' },
+  { value: '9,600+', label: 'GitHub stars' },
 ];
 
 const backers = [
@@ -53,11 +53,8 @@ export function SocialProof() {
         <div className="mx-auto grid max-w-3xl grid-cols-3 gap-4 sm:gap-8">
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
-              <div className="text-3xl font-semibold tracking-tight sm:text-5xl">
-                {stat.number}
-                <span className="text-2xl font-medium text-gray-400 sm:text-3xl">
-                  {stat.suffix}
-                </span>
+              <div className="text-2xl font-semibold tracking-tighter sm:text-4xl">
+                {stat.value}
               </div>
               <div className="mt-1 text-xs text-gray-500 sm:mt-2 sm:text-sm">
                 {stat.label}
