@@ -9,15 +9,16 @@ export const logoutCommand = Effect.fn(function* () {
   const { authConfigFilePath } = getAuthPaths();
   const fs = yield* FileSystem.FileSystem;
 
-  yield* Effect.match(fs.remove(authConfigFilePath), {
-    onFailure: (e) => {
-      if (e instanceof SystemError && e.reason === 'NotFound') {
-        console.log(chalk.green('You were already logged out!'));
-      } else {
-        error('Failed to logout: ' + e.message);
-      }
-    },
+  yield* Effect.matchEffect(fs.remove(authConfigFilePath), {
+    onFailure: (e) =>
+      Effect.gen(function* () {
+        if (e instanceof SystemError && e.reason === 'NotFound') {
+          yield* Effect.log(chalk.green('You were already logged out!'));
+        } else {
+          yield* Effect.logError(chalk.red('Failed to logout: ' + e.message));
+        }
+      }),
     onSuccess: () =>
-      console.log(chalk.green('Successfully logged out from Instant!')),
+      Effect.log(chalk.green('Successfully logged out from Instant!')),
   });
 });

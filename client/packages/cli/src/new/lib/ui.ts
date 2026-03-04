@@ -1,7 +1,6 @@
 import { Data, Effect } from 'effect';
 import { GlobalOpts } from '../context/globalOpts.js';
 import { Prompt, renderUnwrap } from '../../ui/lib.js';
-import boxen from 'boxen';
 import { UI } from '../../ui/index.js';
 
 export class UIError extends Data.TaggedError('UIError')<{

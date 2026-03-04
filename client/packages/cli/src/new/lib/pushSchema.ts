@@ -96,7 +96,7 @@ export const pushSchema = (
       .get(`/dash/apps/${appId}/schema/pull`)
       .pipe(
         Effect.flatMap(HttpClientResponse.schemaBodyJson(FetchSchemaResponse)),
-        Effect.mapError((e) => GetSchemaError.make(e)),
+        Effect.mapError((e) => GetSchemaError.make({ message: e.message })),
       );
 
     const currentAttrs = res['attrs'];

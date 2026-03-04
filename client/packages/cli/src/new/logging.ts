@@ -17,7 +17,11 @@ const simpleLogger = Logger.make(({ logLevel, message, annotations }) => {
     Match.tag('Info', () => console.log(formattedMessage)),
     Match.tag('Warning', () => console.warn(formattedMessage)),
     Match.tag('Error', () =>
-      console.error(chalk.red('[error') + ' ' + formattedMessage),
+      console.error(chalk.red('[error]') + ' ' + formattedMessage),
+    ),
+    Match.tag('Debug', () => console.debug(formattedMessage)),
+    Match.tag('Fatal', () =>
+      console.error(chalk.red('[error]') + ' ' + formattedMessage),
     ),
   );
 });

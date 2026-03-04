@@ -162,7 +162,7 @@ Environment Variables:
 `,
   )
   .action(async function (arg, inputOpts) {
-    Effect.runPromise(pushCommand(arg, inputOpts).pipe(printRedErrors));
+    runCommandEffect(pushCommand(arg, inputOpts));
   });
 
 const claimDef = program
