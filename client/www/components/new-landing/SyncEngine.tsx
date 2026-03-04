@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { AnimateIn } from './AnimateIn';
 import { SideBySideDemo } from './InstantUpdatesDemoIdeas';
 import { DeviceFrameReactionsDemo } from './SyncDemoIdeas';
+import { OfflineDemoReactions } from './OfflineDemoIdeas';
 
 // Two devices showing real-time sync
 function RealtimeSyncDemo() {
@@ -296,7 +297,7 @@ export function SyncEngine() {
               </p>
             </div>
             <div className="col-span-2 bg-[#B8B8B8]/20 px-20 py-9">
-              <OfflineDemo />
+              <OfflineDemoReactions />
             </div>
           </div>
         </AnimateIn>

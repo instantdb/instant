@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AnimateIn } from './AnimateIn';
+import { RevenueDashboardDemo } from './PaymentsIdea_Dashboard';
 
 // ─── Auth Demo ───────────────────────────────────────────
 
@@ -675,7 +676,7 @@ export function BatteriesForAI() {
           </div>
           <div className="col-span-2">
             <div className="bg-radial from-white to-[#FFF9F4] px-6 py-6">
-              <PaymentsDemo />
+              <RevenueDashboardDemo />
             </div>
           </div>
         </div>

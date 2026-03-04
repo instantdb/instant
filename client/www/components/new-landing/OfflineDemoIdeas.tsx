@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { produce } from 'immer';
+import { MotionValue, motion, useSpring, useTransform } from 'motion/react';
 
 // ─── Revived interactive offline demo ───────────────────────────────
 
@@ -149,6 +150,77 @@ function countLikes(likes: Like[], msgId: number) {
   return likes.filter((l) => l.msgId === msgId).length;
 }
 
+// ─── Rolling digit counter ──────────────────────────────────────────
+
+const DIGIT_HEIGHT = 16;
+
+function RollingDigit({ value }: { value: number }) {
+  const animatedValue = useSpring(value, { stiffness: 200, damping: 20 });
+  useEffect(() => {
+    animatedValue.set(value);
+  }, [animatedValue, value]);
+
+  return (
+    <div
+      className="relative overflow-hidden"
+      style={{ height: DIGIT_HEIGHT, width: '0.6em' }}
+    >
+      {Array.from({ length: 10 }, (_, i) => (
+        <RollingDigitNumber
+          key={i}
+          mv={animatedValue}
+          number={i}
+          height={DIGIT_HEIGHT}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RollingDigitNumber({
+  mv,
+  number,
+  height,
+}: {
+  mv: MotionValue;
+  number: number;
+  height: number;
+}) {
+  const y = useTransform(mv, (latest) => {
+    const placeValue = latest % 10;
+    const offset = (10 + number - placeValue) % 10;
+    let memo = offset * height;
+    if (offset > 5) memo -= 10 * height;
+    return memo;
+  });
+
+  return (
+    <motion.span
+      style={{ y }}
+      className="absolute inset-0 flex items-center justify-center"
+    >
+      {number}
+    </motion.span>
+  );
+}
+
+function RollingCount({
+  value,
+  className,
+}: {
+  value: number;
+  className?: string;
+}) {
+  const digits = `${value}`.split('');
+  return (
+    <span className={`inline-flex items-center tabular-nums ${className ?? ''}`}>
+      {digits.map((d, i) => (
+        <RollingDigit key={i} value={+d} />
+      ))}
+    </span>
+  );
+}
+
 function LikeDeviceCard({
   synced,
   queued,
@@ -185,22 +257,25 @@ function LikeDeviceCard({
                 </span>
                 <p className="text-xs text-gray-600">{msg.text}</p>
               </div>
-              <button
-                onClick={() => onLike(msg.id)}
-                className="flex shrink-0 items-center gap-1 rounded-full border border-gray-200 px-2 py-1 text-xs transition-all hover:bg-gray-50 active:scale-95"
-              >
-                <span>{msg.emoji}</span>
-                {syncedCount > 0 && (
-                  <span className="font-medium text-gray-500">
-                    {syncedCount}
-                  </span>
-                )}
+              <div className="flex shrink-0 items-center gap-1.5">
                 {queuedCount > 0 && (
-                  <span className="font-medium text-amber-500">
-                    + {queuedCount}
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
+                    +{queuedCount} queued
                   </span>
                 )}
-              </button>
+                <button
+                  onClick={() => onLike(msg.id)}
+                  className="flex items-center gap-1 rounded-full border border-gray-200 px-2 py-1 text-xs transition-all hover:bg-gray-50 active:scale-95"
+                >
+                  <span>{msg.emoji}</span>
+                  {syncedCount + queuedCount > 0 && (
+                    <RollingCount
+                      value={syncedCount + queuedCount}
+                      className="font-medium text-gray-500"
+                    />
+                  )}
+                </button>
+              </div>
             </div>
           );
         })}
