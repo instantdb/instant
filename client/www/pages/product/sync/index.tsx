@@ -5,9 +5,9 @@ import {
   LandingContainer,
   LandingFooter,
   MainNav,
+  ProductNav,
   SectionWide,
 } from '@/components/marketingUi';
-import { ProductNav } from '@/components/marketingUi';
 import { Button } from '@/components/ui';
 import { features, layers, hardClosing } from '@/lib/product/sync/examples';
 
@@ -110,7 +110,7 @@ export default function SyncEngine() {
   return (
     <LandingContainer>
       <Head>
-        <title>Instant Sync Engine</title>
+        <title>Sync Engine - Instant</title>
         <meta
           name="description"
           content="Make every feature feel instant, be collaborative, and work offline. No extra code required."

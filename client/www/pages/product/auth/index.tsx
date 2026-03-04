@@ -7,8 +7,8 @@ import {
   LandingFooter,
   MainNav,
   SectionWide,
+  ProductNav,
 } from '@/components/marketingUi';
-import { ProductNav } from '@/components/marketingUi';
 import { Button, Fence, cn } from '@/components/ui';
 import { permissionExamples } from '@/lib/product/auth/examples';
 

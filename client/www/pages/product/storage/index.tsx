@@ -5,9 +5,9 @@ import {
   LandingContainer,
   LandingFooter,
   MainNav,
+  ProductNav,
   SectionWide,
 } from '@/components/marketingUi';
-import { ProductNav } from '@/components/marketingUi';
 import { Button, Fence, cn } from '@/components/ui';
 import {
   storageExamples,
@@ -270,7 +270,7 @@ export default function Storage() {
   return (
     <LandingContainer>
       <Head>
-        <title>Instant Storage</title>
+        <title>Storage - Instant</title>
         <meta
           name="description"
           content="Digital content is just another table in your database. No separate service needed."

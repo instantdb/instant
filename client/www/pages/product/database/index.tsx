@@ -7,8 +7,8 @@ import {
   MainNav,
   SectionWide,
   Link,
+  ProductNav,
 } from '@/components/marketingUi';
-import { ProductNav } from '@/components/marketingUi';
 import { Button, Fence, cn } from '@/components/ui';
 import {
   queryExamples,

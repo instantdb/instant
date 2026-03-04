@@ -195,32 +195,30 @@ function ProductDropdownDesktop() {
       </button>
       {isOpen && (
         <div className="absolute top-full left-0 z-50 pt-3">
-          <div className="w-[480px] rounded-sm border bg-white p-4 shadow-lg">
-            <div className="grid grid-cols-2 gap-1">
-              {products.map((product) => (
+          <div className="w-[360px] rounded-lg border bg-white py-2 shadow-lg">
+            {products.map((product) => {
+              const Icon = productIcons[product.id];
+              return (
                 <NextLink
                   key={product.id}
                   href={`/product/${product.id}`}
                   onClick={() => setIsOpen(false)}
-                  className="flex items-start gap-3 rounded-sm p-3 transition-colors hover:bg-gray-50"
+                  className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50"
                 >
-                  <div className="mt-0.5 text-gray-500">
-                    {(() => {
-                      const Icon = productIcons[product.id];
-                      return <Icon className="h-5 w-5" />;
-                    })()}
+                  <div className="text-gray-400 transition-colors group-hover:text-orange-500">
+                    <Icon className="h-5 w-5" />
                   </div>
                   <div>
                     <div className="text-sm font-medium text-gray-900">
                       {product.name}
                     </div>
-                    <div className="max-w-64 text-xs text-gray-500">
+                    <div className="text-xs text-gray-500">
                       {product.tagline}
                     </div>
                   </div>
                 </NextLink>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </div>
       )}

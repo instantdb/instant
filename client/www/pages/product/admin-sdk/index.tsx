@@ -4,10 +4,11 @@ import Head from 'next/head';
 import {
   LandingContainer,
   LandingFooter,
+  Link,
   MainNav,
+  ProductNav,
   SectionWide,
 } from '@/components/marketingUi';
-import { ProductNav } from '@/components/marketingUi';
 import { Button, Fence, type FenceLanguage, cn } from '@/components/ui';
 import { adminExamples, httpExamples } from '@/lib/product/admin-sdk/examples';
 
@@ -124,12 +125,12 @@ export default function AdminSdk() {
                     It has the same API as the client SDK but with elevated
                     permissions. This makes it perfect for running background
                     jobs, integrating third-party APIs{' '}
-                    <a
+                    <Link
                       href="/docs/stripe-payments"
                       className="underline hover:text-gray-800"
                     >
                       like Stripe
-                    </a>
+                    </Link>
                     , and executing any transactions that you don't want exposed
                     to the client.
                   </p>
