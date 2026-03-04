@@ -9,7 +9,6 @@ import { Button, cn } from '@/components/ui';
 import { LogoIcon } from '@instantdb/components';
 import { useReadyRouter } from './clientOnlyPage';
 import { useRouter } from 'next/router';
-import { AnimatePresence, motion } from 'motion/react';
 
 const headingClasses = `font-mono`;
 
@@ -63,34 +62,41 @@ const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
   href,
   children,
 }) => {
-  // add an underline if the link is active
   const router = useRouter();
   const pathname = router.pathname;
   return (
     <NextLink
       href={href}
       className={cn(
-        'relative z-20 whitespace-nowrap decoration-black/20 hover:text-blue-500',
+        'relative z-20 whitespace-nowrap text-gray-700 transition-colors hover:text-gray-950',
+        pathname === href && 'text-gray-950',
       )}
     >
-      <AnimatePresence>
-        {pathname === href && (
-          <motion.div
-            layoutId="nav-underline"
-            className="absolute inset-0 z-0 -translate-y-[2px] scale-x-110 border-b-2 border-b-gray-900/20"
-          />
-        )}
-      </AnimatePresence>
       {children}
     </NextLink>
   );
 };
 
-export function LogoType() {
+export function LogoType({ collapsed = false }: { collapsed?: boolean }) {
   return (
-    <Link href="/" className="inline-flex items-center space-x-2">
+    <Link
+      href="/"
+      className={cn(
+        'inline-flex items-center',
+        collapsed ? 'gap-0.5' : 'gap-2',
+      )}
+    >
       <LogoIcon />
-      <HeadingBrand>instant</HeadingBrand>
+      <span
+        className={cn(
+          'inline-flex overflow-hidden [transform-origin:left_center] transition-[max-width,opacity,transform] duration-300 ease-out',
+          collapsed
+            ? 'max-w-0 opacity-0 [transform:perspective(260px)_rotateY(-82deg)]'
+            : 'max-w-[7.5rem] opacity-100 [transform:perspective(260px)_rotateY(0deg)]',
+        )}
+      >
+        <HeadingBrand>instant</HeadingBrand>
+      </span>
     </Link>
   );
 }
@@ -140,7 +146,7 @@ function OtherNavItems() {
       ) : (
         <Link
           className={cn(
-            'whitespace-nowrap decoration-black/20 hover:text-blue-500',
+            'whitespace-nowrap text-gray-700 transition-colors hover:text-gray-950',
           )}
           href="/dash"
         >
@@ -151,7 +157,10 @@ function OtherNavItems() {
   );
 }
 
-export function BareNav({ children }: PropsWithChildren) {
+export function BareNav({
+  children,
+  collapseLogo = false,
+}: PropsWithChildren<{ collapseLogo?: boolean }>) {
   const [isOpen, setIsOpen] = useState(false);
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : 'auto';
@@ -159,8 +168,11 @@ export function BareNav({ children }: PropsWithChildren) {
 
   return (
     <div className="flex flex-row items-center gap-[24px] text-lg md:text-base">
-      <LogoType />
-      <button className="min-[60rem]:hidden" onClick={() => setIsOpen(true)}>
+      <LogoType collapsed={collapseLogo} />
+      <button
+        className="ml-auto min-[60rem]:hidden"
+        onClick={() => setIsOpen(true)}
+      >
         <Bars3Icon height={'1em'} />
       </button>
       <div
@@ -202,11 +214,44 @@ export function BareNav({ children }: PropsWithChildren) {
   );
 }
 
-export function MainNav() {
+export function MainNav({
+  transparent = false,
+}: {
+  transparent?: boolean;
+}) {
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    if (!transparent) return;
+
+    const updateScrollState = () => {
+      setIsScrolled(window.scrollY > 40);
+    };
+
+    window.addEventListener('scroll', updateScrollState, { passive: true });
+    updateScrollState();
+
+    return () => {
+      window.removeEventListener('scroll', updateScrollState);
+    };
+  }, [transparent]);
+
   return (
-    <div className="border-b border-b-gray-200 py-4 shadow">
+    <div
+      className={cn(
+        'py-4',
+        transparent
+          ? cn(
+              'fixed top-0 right-0 left-0 z-50 border-b transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300',
+              isScrolled
+                ? 'border-b-gray-200/80 bg-white/80 shadow-sm backdrop-blur-md'
+                : 'border-b-transparent bg-transparent shadow-none backdrop-blur-none',
+            )
+          : 'border-b border-b-gray-200 shadow',
+      )}
+    >
       <div className="landing-width mx-auto">
-        <BareNav />
+        <BareNav collapseLogo={transparent && isScrolled} />
       </div>
     </div>
   );

@@ -190,28 +190,19 @@ function VideoPlayer() {
 // Main Hero component
 export function Hero() {
   return (
-    <section className="pt-20 pb-16 sm:pb-24">
+    <section className="pt-28 pb-8 sm:pt-32 sm:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h1 className="hero-stagger-1 text-4xl font-semibold sm:text-5xl">
-            Give your AI a database
+          <h1 className="hero-stagger-1 text-9xl font-semibold sm:text-5xl">
+            The backend for AI-coded apps
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
-            Without a database, your app is just a demo. Add Instant and your
-            app becomes real — users can signup, create content, and{' '}
-            <span className="inline-block font-semibold text-orange-600 italic sm:text-2xl">
-              feel delight
-            </span>
-            .
+            Insant gives you everything you need to vibe code delightful apps. You can create unlimited projects, they’re never paused, and your LLMs can use Instant to write concise and maintainable code.
           </p>
 
           <div className="hero-stagger-3 mx-auto mt-10 max-w-3xl">
             <VideoPlayer />
           </div>
-        </div>
-
-        <div className="mt-20">
-          <BeforeAfterVisual />
         </div>
       </div>
     </section>

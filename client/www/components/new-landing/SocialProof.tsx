@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { AnimateIn } from './AnimateIn';
 
 const stats = [
@@ -10,26 +11,22 @@ const backers = [
   {
     name: 'James Tamplin',
     role: 'Firebase founder',
-    initials: 'JT',
-    color: 'bg-orange-100 text-orange-700',
+    imageSrc: '/img/investors/james-tamplin.jpg',
   },
   {
     name: 'Greg Brockman',
     role: 'OpenAI',
-    initials: 'GB',
-    color: 'bg-blue-100 text-blue-700',
+    imageSrc: '/img/investors/greg-brockman.jpg',
   },
   {
     name: 'Jeff Dean',
     role: 'Chief Scientist of Google DeepMind',
-    initials: 'JD',
-    color: 'bg-green-100 text-green-700',
+    imageSrc: '/img/investors/jeff-dean.jpg',
   },
   {
     name: 'Amjad Masad',
     role: 'CEO of Replit',
-    initials: 'AM',
-    color: 'bg-purple-100 text-purple-700',
+    imageSrc: '/img/investors/amjad-masad.jpg',
   },
 ];
 
@@ -84,11 +81,13 @@ export function SocialProof() {
           <div className="mx-auto grid max-w-2xl grid-cols-2 gap-6 sm:grid-cols-4">
             {backers.map((backer) => (
               <div key={backer.name} className="text-center">
-                <div
-                  className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-lg font-semibold sm:h-20 sm:w-20 sm:text-xl ${backer.color}`}
-                >
-                  {backer.initials}
-                </div>
+                <Image
+                  src={backer.imageSrc}
+                  alt={backer.name}
+                  width={80}
+                  height={80}
+                  className="mx-auto h-16 w-16 rounded-full object-cover object-center sm:h-20 sm:w-20"
+                />
                 <div className="mt-3">
                   <div className="text-sm font-semibold">{backer.name}</div>
                   <div className="text-xs text-gray-500">{backer.role}</div>
