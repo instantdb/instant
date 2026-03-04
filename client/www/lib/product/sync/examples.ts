@@ -63,7 +63,7 @@ export const layers = [
 We send that to the server, which then broadcasts it to Client B.
 Client B merges that change into their local store and updates the UI.
 
-    ┌─ Client A ─────────┐      ┌─ Client B ─────────┐
+┌─ Client A ─────────┐      ┌─ Client B ─────────┐
 │                    │      │                    │
 │  Local Store       │      │  Local Store       │
 │  ┌──────────────┐  │      │  ┌──────────────┐  │
@@ -94,13 +94,13 @@ Client B merges that change into their local store and updates the UI.
   },
   {
     title: 'Offline Persistence',
-    why: "Users wants to be able to use their apps even when offline. Spotty connections shouldn't mean lost work either.",
+    why: "Users want to be able to use their apps even when offline. Spotty connections shouldn't mean lost work either.",
     description:
       "We need to persist every mutation to IndexedDB in case the user goes offline. When the user comes back, we replay their queued transactions in order. Any transactions that have already been acknowledged are removed so the store doesn't grow forever.",
     diagram: `User edits while offline
          │
          ▼
-┌──────────────────┐     ┌─────────────────────┐
+┌──────────────────┐     ┌──────────────────────┐
 │ Mutation Queue   │────▶│ IndexedDB            │
 │ (in-memory)      │     │                      │
 └──────────────────┘     │ mutations table:     │
@@ -111,22 +111,22 @@ Client B merges that change into their local store and updates the UI.
                          │ │ 2 │ create │ 171 │ │
                          │ │ 3 │ delete │ 172 │ │
                          │ └───┴────────┴─────┘ │
-                         └──────────┬────────────┘
-                                    │
+                         └───────────┬──────────┘
+                                     │
                            on reconnect:
-                                    │
-                         ┌──────────▼────────────┐
-                         │ Replay engine          │
-                         │ ├─ send #1 → ack ✓    │
-                         │ ├─ send #2 → ack ✓    │
-                         │ ├─ send #3 → ack ✓    │
-                         │ └─ clear persisted     │
-                         └────────────────────────┘`,
+                                     │
+                         ┌───────────▼──────────┐
+                         │ Replay engine        │
+                         │ ├─ send #1 → ack ✓   │
+                         │ ├─ send #2 → ack ✓   │
+                         │ ├─ send #3 → ack ✓   │
+                         │ └─ clear persisted   │
+                         └──────────────────────┘`,
     highlights: ['ack ✓', 'on reconnect:'],
   },
   {
     title: 'Conflict Resolution',
-    why: 'When you allow collaboration, you need handle what happens when two people edit the same thing at once.',
+    why: 'When you allow collaboration, you need to handle what happens when two people edit the same thing at once.',
     description:
       'Client A and Client B both edit the same todo title at the same time. Who wins? We need a strategy to decide (for example last write wins). We also need to rollback clients who have inconsistent optimistic state.',
     diagram: `Client A (t=1)              Client B (t=2)

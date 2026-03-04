@@ -243,7 +243,7 @@ db.useQuery({
   products: {
     $: {
       where: {
-        price: { $gte: 10, $lte: 100 },
+        price: { and: [{ $gte: 10 }, { $lte: 100 }] },
       },
       order: { price: 'asc' },
     },

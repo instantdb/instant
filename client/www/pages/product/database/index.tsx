@@ -100,7 +100,7 @@ function QueryCard() {
             [
               ['query', 'InstaQL'],
               ['result', 'Result'],
-              ['sql', 'SQL'],
+              ['sql', 'Equivalent SQL'],
             ] as const
           ).map(([key, label]) => (
             <button
