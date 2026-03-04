@@ -7,7 +7,7 @@ import {
   MainNav,
   SectionWide,
 } from '@/components/marketingUi';
-import { ProductNav } from '@/components/productPageUi';
+import { ProductNav } from '@/components/marketingUi';
 import { Button } from '@/components/ui';
 import { features, layers, hardClosing } from '@/lib/product/sync/examples';
 

@@ -7,8 +7,8 @@ import {
   MainNav,
   SectionWide,
 } from '@/components/marketingUi';
-import { ProductNav } from '@/components/productPageUi';
-import { Button, Fence, cn } from '@/components/ui';
+import { ProductNav } from '@/components/marketingUi';
+import { Button, Fence, type FenceLanguage, cn } from '@/components/ui';
 import { adminExamples, httpExamples } from '@/lib/product/admin-sdk/examples';
 
 function ExampleCard({
@@ -16,7 +16,7 @@ function ExampleCard({
   language,
 }: {
   examples: { label: string; code: string }[];
-  language: string;
+  language: FenceLanguage;
 }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const example = examples[selectedIdx];

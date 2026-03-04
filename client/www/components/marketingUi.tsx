@@ -1,13 +1,95 @@
 import { useAuthToken } from '@/lib/auth';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/solid';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
+import {
+  ChevronDownIcon,
+  CircleStackIcon,
+  LockClosedIcon,
+  ArrowPathIcon,
+  FolderIcon,
+  CodeBracketIcon,
+} from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import NextLink from 'next/link';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Button, cn, LogoIcon } from '@/components/ui';
-import { products, productIcons } from '@/lib/productData';
+import { ComponentType, SVGProps } from 'react';
+
+type Product = {
+  id: string;
+  name: string;
+  tagline: string;
+};
+
+const products: Product[] = [
+  {
+    id: 'database',
+    name: 'Database',
+    tagline:
+      'Everything you need to build web and mobile apps with your favorite LLM.',
+  },
+  {
+    id: 'auth',
+    name: 'Auth',
+    tagline: 'No split brain. Easy setup. Fine-grained access control.',
+  },
+  {
+    id: 'sync',
+    name: 'Sync Engine',
+    tagline:
+      'Every feature feels instant, is collaborative, and works offline.',
+  },
+  {
+    id: 'storage',
+    name: 'Storage',
+    tagline: 'Digital content is just another table in your database.',
+  },
+  {
+    id: 'admin-sdk',
+    name: 'Admin SDK',
+    tagline: 'Use Instant on your backend',
+  },
+];
+
+const productIcons: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
+  database: CircleStackIcon,
+  auth: LockClosedIcon,
+  sync: ArrowPathIcon,
+  storage: FolderIcon,
+  'admin-sdk': CodeBracketIcon,
+};
+
+export function ProductNav({ currentSlug }: { currentSlug: string }) {
+  return (
+    <div className="hidden border-b border-gray-200 py-3 min-[60rem]:block">
+      <div className="mx-auto max-w-7xl px-8">
+        <div className="flex justify-center">
+          <div className="inline-flex gap-1 rounded-lg bg-gray-100 p-1">
+            {products.map((product) => {
+              const Icon = productIcons[product.id];
+              return (
+                <Link
+                  key={product.id}
+                  href={`/product/${product.id}`}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all',
+                    product.id === currentSlug
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700',
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {product.name}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const headingClasses = `font-mono tracking-wide leading-relaxed`;
 
@@ -82,7 +164,7 @@ function ProductDropdownDesktop() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const open = () => {
-    clearTimeout(timeoutRef.current);
+    if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
     setIsOpen(true);
   };
 
@@ -91,7 +173,9 @@ function ProductDropdownDesktop() {
   };
 
   useEffect(() => {
-    return () => clearTimeout(timeoutRef.current);
+    return () => {
+      if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
+    };
   }, []);
 
   return (
