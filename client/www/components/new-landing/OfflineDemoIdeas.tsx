@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { produce } from 'immer';
 
 // ─── Revived interactive offline demo ───────────────────────────────
@@ -128,55 +128,60 @@ export function OfflineDemoRevived() {
   );
 }
 
-// ─── Messages-themed offline demo ────────────────────────────────────
+// ─── Reactions-themed offline demo ───────────────────────────────────
 
-const users = [
-  { name: 'Alyssa' },
-  { name: 'Ben' },
-  { name: 'Eva Lu' },
-] as const;
-
-const cannedTexts = [
-  'The eval is ready',
-  'Just need the environment',
-  'Cons the pair first',
-  'It\'s all lambdas',
-  'Metacircular!',
-  'Tail calls work now',
-  'Check the substitution',
-  'Apply then eval',
+const fixedMessages = [
+  { id: 1, user: 'Alyssa', text: 'The eval is ready' },
+  { id: 2, user: 'Ben', text: 'Cons the pair first' },
+  { id: 3, user: 'Eva Lu', text: 'Tail calls work now' },
 ];
 
-interface ChatMsg {
-  id: number;
-  user: string;
-  text: string;
-  synced: boolean;
-}
+const reactionEmojis = ['👍', '🚀', '💯', '🎯'];
 
-interface MsgState {
+type Reaction = { msgId: number; emoji: string };
+
+interface ReactionsState {
   online: boolean;
-  queue1: ChatMsg[];
-  queue2: ChatMsg[];
-  shared: ChatMsg[];
+  queue1: Reaction[];
+  queue2: Reaction[];
+  synced: Reaction[];
 }
 
-function DeviceCard({
-  msgs,
-  onSend,
+function reactionKey(r: Reaction) {
+  return `${r.msgId}:${r.emoji}`;
+}
+
+function hasReaction(reactions: Reaction[], msgId: number, emoji: string) {
+  return reactions.some((r) => r.msgId === msgId && r.emoji === emoji);
+}
+
+function toggleInList(list: Reaction[], msgId: number, emoji: string) {
+  const exists = hasReaction(list, msgId, emoji);
+  if (exists) {
+    return list.filter((r) => !(r.msgId === msgId && r.emoji === emoji));
+  }
+  return [...list, { msgId, emoji }];
+}
+
+function dedup(reactions: Reaction[]): Reaction[] {
+  const seen = new Set<string>();
+  return reactions.filter((r) => {
+    const k = reactionKey(r);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+function ReactionDeviceCard({
+  synced,
+  queued,
+  onReact,
 }: {
-  msgs: ChatMsg[];
-  onSend: () => void;
+  synced: Reaction[];
+  queued: Reaction[];
+  onReact: (msgId: number, emoji: string) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [msgs.length]);
-
   return (
     <div className="flex flex-1 flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
       {/* Header */}
@@ -187,97 +192,66 @@ function DeviceCard({
         </div>
       </div>
 
-      {/* Message list */}
-      <div
-        ref={scrollRef}
-        className="max-h-[200px] min-h-[180px] overflow-y-auto p-3"
-      >
-        <div className="flex min-h-full flex-col justify-end">
-          <div className="space-y-2">
-            {msgs.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex items-start gap-2 rounded-lg px-2 py-1.5 ${
-                  msg.synced ? 'bg-white' : 'bg-amber-50'
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <span className="text-[11px] font-semibold text-gray-700">
-                    {msg.user}
-                  </span>
-                  <p className="text-xs text-gray-600">{msg.text}</p>
-                </div>
-                {msg.synced ? (
-                  <svg
-                    className="mt-0.5 h-3 w-3 shrink-0 text-green-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2.5}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="m4.5 12.75 6 6 9-13.5"
-                    />
-                  </svg>
-                ) : (
-                  <span className="mt-0.5 shrink-0 text-[10px] font-medium text-amber-500">
-                    queued
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* Messages with reactions */}
+      <div className="space-y-3 p-3">
+        {fixedMessages.map((msg) => {
+          const msgSynced = synced.filter((r) => r.msgId === msg.id);
+          const msgQueued = queued.filter((r) => r.msgId === msg.id);
 
-      {/* Send button */}
-      <div className="border-t border-gray-100 px-3 py-2">
-        <button
-          className="w-full rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-orange-700 active:scale-[0.98]"
-          onClick={onSend}
-        >
-          Send
-        </button>
+          return (
+            <div key={msg.id}>
+              <div className="mb-1">
+                <span className="text-[11px] font-semibold text-gray-700">
+                  {msg.user}
+                </span>
+                <p className="text-xs text-gray-600">{msg.text}</p>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {reactionEmojis.map((emoji) => {
+                  const isSynced = hasReaction(msgSynced, msg.id, emoji);
+                  const isQueued = hasReaction(msgQueued, msg.id, emoji);
+                  const isActive = isSynced || isQueued;
+
+                  return (
+                    <button
+                      key={emoji}
+                      onClick={() => onReact(msg.id, emoji)}
+                      className={`rounded-full border px-2 py-0.5 text-xs transition-all active:scale-95 ${
+                        isQueued
+                          ? 'border-amber-300 bg-amber-50'
+                          : isActive
+                            ? 'border-gray-300 bg-gray-100'
+                            : 'border-gray-200 bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-export function OfflineDemoMessages() {
-  const nextId = useRef(1);
-  const userIdx = useRef(0);
-  const textIdx = useRef(0);
-
-  const [state, setState] = useState<MsgState>({
+export function OfflineDemoReactions() {
+  const [state, setState] = useState<ReactionsState>({
     online: true,
     queue1: [],
     queue2: [],
-    shared: [],
+    synced: [],
   });
 
-  function nextMessage(): ChatMsg {
-    const user = users[userIdx.current % users.length];
-    const text = cannedTexts[textIdx.current % cannedTexts.length];
-    userIdx.current++;
-    textIdx.current++;
-    return {
-      id: nextId.current++,
-      user: user.name,
-      text,
-      synced: false,
-    };
-  }
-
-  function onSend(q: 'queue1' | 'queue2') {
-    const msg = nextMessage();
+  function onReact(q: 'queue1' | 'queue2', msgId: number, emoji: string) {
     setState((s) =>
       produce(s, (d) => {
         if (s.online) {
-          d.shared.push({ ...msg, synced: true });
+          d.synced = toggleInList(d.synced, msgId, emoji);
         } else {
-          d[q].push(msg);
+          d[q] = toggleInList(d[q], msgId, emoji);
         }
       }),
     );
@@ -288,16 +262,11 @@ export function OfflineDemoMessages() {
       if (!online) {
         return { ...s, online: false };
       }
-      // Flush queues into shared, mark as synced
-      const flushed = [...s.queue1, ...s.queue2].map((m) => ({
-        ...m,
-        synced: true,
-      }));
       return {
         online: true,
         queue1: [],
         queue2: [],
-        shared: [...s.shared, ...flushed],
+        synced: dedup([...s.synced, ...s.queue1, ...s.queue2]),
       };
     });
   }
@@ -329,13 +298,15 @@ export function OfflineDemoMessages() {
 
       {/* Two device cards */}
       <div className="flex gap-3">
-        <DeviceCard
-          msgs={[...state.shared, ...state.queue1]}
-          onSend={() => onSend('queue1')}
+        <ReactionDeviceCard
+          synced={state.synced}
+          queued={state.queue1}
+          onReact={(msgId, emoji) => onReact('queue1', msgId, emoji)}
         />
-        <DeviceCard
-          msgs={[...state.shared, ...state.queue2]}
-          onSend={() => onSend('queue2')}
+        <ReactionDeviceCard
+          synced={state.synced}
+          queued={state.queue2}
+          onReact={(msgId, emoji) => onReact('queue2', msgId, emoji)}
         />
       </div>
     </div>

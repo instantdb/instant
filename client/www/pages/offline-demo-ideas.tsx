@@ -1,6 +1,6 @@
 import {
   OfflineDemoRevived,
-  OfflineDemoMessages,
+  OfflineDemoReactions,
 } from '@/components/new-landing/OfflineDemoIdeas';
 
 export default function OfflineDemoIdeasPage() {
@@ -41,11 +41,11 @@ export default function OfflineDemoIdeasPage() {
               having to do a thing. Pure magic.
             </p>
             <p className="mt-4 text-sm font-medium text-gray-400">
-              Variant 2: Messages
+              Variant 2: Reactions
             </p>
           </div>
           <div className="col-span-2 rounded-2xl bg-gray-50 px-20 py-9">
-            <OfflineDemoMessages />
+            <OfflineDemoReactions />
           </div>
         </div>
       </div>

@@ -634,9 +634,10 @@ function SocialPostScreen({
       {/* Heart button — bottom right */}
       <button
         onClick={onClick}
-        className="absolute bottom-2 right-2 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm transition-transform duration-150 hover:scale-110 active:scale-90"
+        className="absolute bottom-2 right-2 inline-flex cursor-pointer items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium transition-all hover:bg-gray-50 active:scale-95"
       >
-        <span style={{ fontSize: 18 }}>❤️</span>
+        <span style={{ fontSize: 14 }}>❤️</span>
+        <span className="text-gray-700">Like</span>
         {floatingHearts.map((hId) => (
           <FloatingHeart key={hId} id={hId} onDone={onHeartDone} />
         ))}
@@ -659,7 +660,6 @@ function HeartFloatStyle() {
 export function DeviceFrameReactionsDemo() {
   const [floatingHearts, setFloatingHearts] = useState<number[]>([]);
   const nextId = useRef(0);
-  const autoRef = useRef<NodeJS.Timeout | null>(null);
 
   const removeHeart = (id: number) => {
     setFloatingHearts((prev) => prev.filter((h) => h !== id));
@@ -669,23 +669,6 @@ export function DeviceFrameReactionsDemo() {
     const id = nextId.current++;
     setFloatingHearts((prev) => [...prev, id]);
   };
-
-  // Simulated other users reacting
-  useEffect(() => {
-    const cycle = () => {
-      autoRef.current = setTimeout(
-        () => {
-          addHeart();
-          cycle();
-        },
-        3000 + Math.random() * 3000,
-      );
-    };
-    cycle();
-    return () => {
-      if (autoRef.current) clearTimeout(autoRef.current);
-    };
-  }, []);
 
   return (
     <div>
