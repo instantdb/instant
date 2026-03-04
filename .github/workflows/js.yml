@@ -141,6 +141,10 @@ jobs:
         working-directory: client
         run: pnpm i --frozen-lockfile --prefer-offline
 
+      - name: Install Browser
+        working-directory: client/packages/core
+        run: pnpm exec playwright install chromium --with-deps
+        
       - name: Build packages
         working-directory: client
         run: pnpm run build-packages
@@ -148,10 +152,6 @@ jobs:
       - name: Build sandbox
         working-directory: client
         run: pnpm run build-sandbox
-
-      - name: Install Browser
-        working-directory: client/packages/core
-        run: npx playwright install chromium --with-deps
         
       - name: Run tests
         working-directory: client

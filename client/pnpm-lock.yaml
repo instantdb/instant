@@ -402,6 +402,9 @@ importers:
       npm-run-all:
         specifier: ^4.1.5
         version: 4.1.5
+      playwright:
+        specifier: ^1.58.2
+        version: 1.58.2
       tshy:
         specifier: ^3.0.2
         version: 3.0.2
