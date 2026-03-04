@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import MuxPlayer from '@mux/mux-player-react';
 
 // Types
