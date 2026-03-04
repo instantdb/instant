@@ -130,7 +130,7 @@ function ProductDropdownDesktop() {
                     <div className="text-sm font-medium text-gray-900">
                       {product.name}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="max-w-64 text-xs text-gray-500">
                       {product.tagline}
                     </div>
                   </div>
@@ -188,7 +188,7 @@ function ProductAccordionMobile() {
                   </div>
                   <div>
                     <div className="text-sm font-medium">{product.name}</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="max-w-64 text-xs text-gray-500">
                       {product.tagline}
                     </div>
                   </div>

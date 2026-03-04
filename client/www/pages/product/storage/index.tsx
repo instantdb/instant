@@ -9,7 +9,10 @@ import {
 } from '@/components/marketingUi';
 import { ProductNav } from '@/components/productPageUi';
 import { Button, Fence, cn } from '@/components/ui';
-import { storageExamples, permissionExamples } from './examples';
+import {
+  storageExamples,
+  permissionExamples,
+} from '@/lib/product/storage/examples';
 
 function MusicApp() {
   const tracks = [

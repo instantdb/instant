@@ -22,7 +22,8 @@ export const products: Product[] = [
   {
     id: 'database',
     name: 'Database',
-    tagline: 'Query in the shape of your data',
+    tagline:
+      'Everything you need to build web and mobile apps with your favorite LLM.',
     description:
       'Instant is built on top of Aurora Postgres. But you never write SQL. Instead you use InstaQL for queries and InstaML for transactions. InstaQL is a declarative query language that lets you write queries in the shape of your data. No nested SQL, no data manipulation in your application code. InstaML gives you a Firebase-like syntax with a few verbs for creating, updating, deleting, and linking data. Every transaction is atomic.',
     features: [
@@ -60,7 +61,7 @@ function App() {
   {
     id: 'auth',
     name: 'Auth',
-    tagline: 'Authentication that understands your data',
+    tagline: 'No split brain. Easy setup. Fine-grained access control.',
     description:
       'Instant comes with a built-in auth system. Add user accounts and social logins easily. Because auth is integrated with your database, you can create relations between users, their data, and permissions. Only allow users to see their own data, or let any member of a team view and edit shared data. Permissions use CEL, a powerful expression language originally developed by Google.',
     features: [
@@ -97,7 +98,8 @@ const rules = {
   {
     id: 'sync',
     name: 'Sync Engine',
-    tagline: 'Optimistic updates, multiplayer, and offline mode',
+    tagline:
+      'Every feature feels instant, is collaborative, and works offline.',
     description:
       'The best apps are powered by sync engines. Figma, Notion, and Linear all feel instant because every interaction is optimistic, collaboration is default, and they work offline. Instant gives you these features for free whenever you use useQuery and transact. No additional code required. We use a last-write-wins strategy, broadcast updates via WebSockets, and persist transactions locally for offline support.',
     features: [
@@ -134,7 +136,7 @@ function TodoList() {
   {
     id: 'storage',
     name: 'Storage',
-    tagline: 'File uploads connected to your data',
+    tagline: 'Digital content is just another table in your database.',
     description:
       'Instant comes with built-in file storage. Upload files and link them to your data in the database. No separate storage service needed. Because storage is integrated with the database, you can create relations between uploads and data. Use the same permissions system to control access to files. Build features like profile pictures or photo-sharing apps with ease.',
     features: [

@@ -14,7 +14,59 @@ import {
   queryExamples,
   transactionExamples,
   typeSafetyBlocks,
-} from './examples';
+  typicalArch,
+  instantArch,
+} from '@/lib/product/database/examples';
+import CLIPushCard from '@/components/product/database/CLIPushCard';
+
+function DiagramPre({
+  diagram,
+  highlights = [],
+  className,
+}: {
+  diagram: string;
+  highlights?: string[];
+  className?: string;
+}) {
+  const parts =
+    highlights.length === 0
+      ? [diagram]
+      : diagram.split(
+          new RegExp(
+            `(${highlights.map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+            'g',
+          ),
+        );
+
+  return (
+    <div className={cn('overflow-x-auto rounded-lg border p-5', className)}>
+      <pre className="mx-auto w-fit font-mono text-xs leading-relaxed text-gray-600">
+        {parts.map((part, i) =>
+          highlights.includes(part) ? (
+            <span key={i} className="text-orange-500">
+              {part}
+            </span>
+          ) : (
+            part
+          ),
+        )}
+      </pre>
+    </div>
+  );
+}
+
+function ArchDiagram() {
+  return (
+    <div className="flex flex-col gap-3">
+      <DiagramPre diagram={typicalArch} className="bg-gray-50" />
+      <DiagramPre
+        diagram={instantArch}
+        highlights={['With Instant', '{ todos: {} }', 'realtime data']}
+        className="bg-gray-50"
+      />
+    </div>
+  );
+}
 
 function QueryCard() {
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -218,85 +270,6 @@ function FeatureSection({
   );
 }
 
-function CLIPushCard() {
-  return (
-    <div className="overflow-hidden rounded-xl border border-[#444] bg-[#1c1c1c]">
-      {/* Title bar with traffic lights */}
-      <div className="flex items-center gap-2 border-b border-[#333] bg-[#2a2a2a] px-4 py-3">
-        <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-        <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-        <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-      </div>
-      <pre
-        className="px-5 pt-4 pb-5 text-sm leading-[1.7] break-all whitespace-pre-wrap"
-        style={{ fontFamily: 'Menlo, Monaco, "Courier New", monospace' }}
-      >
-        <span className="text-[#5fd700]">nezaj</span>
-        <span className="text-[#d4d4d4]"> at </span>
-        <span className="text-[#e5e510]">nezaj</span>
-        <span className="text-[#d4d4d4]"> in </span>
-        <span className="text-[#00d7ff]">~/my-app</span>
-        <span className="text-[#d4d4d4]"> at </span>
-        <span className="text-[#5fd700]">main</span>
-        {'\n'}
-        <span className="text-[#d4d4d4]">$ </span>
-        <span className="text-[#d4d4d4]">npx instant-cli push</span>
-        {'\n'}
-        <span className="text-[#d4d4d4]">Found </span>
-        <span className="text-[#5fd700]">NEXT_PUBLIC_INSTANT_APP_ID</span>
-        <span className="text-[#d4d4d4]">
-          : a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
-        </span>
-
-        {'\n'}
-      </pre>
-      <div className="mx-5 mb-4 rounded border border-[#444] px-4 py-3">
-        <pre
-          className="text-sm leading-[1.7] break-all whitespace-pre-wrap"
-          style={{ fontFamily: 'Menlo, Monaco, "Courier New", monospace' }}
-        >
-          <span className="bg-[#2ea043] text-[#fff]">
-            {' + CREATE NAMESPACE '}
-          </span>
-          <span className="text-[#d4d4d4]"> todos</span>
-          {'\n'}
-          <span className="text-[#666]"> + CREATE ATTR </span>
-          <span className="text-[#9a9a9a]">todos.id</span>
-          {'\n'}
-          <span className="text-[#666]"> + CREATE ATTR </span>
-          <span className="text-[#9a9a9a]">todos.text</span>
-          {'\n'}
-          <span className="text-[#666]"> DATA TYPE: </span>
-          <span className="text-[#9a9a9a]">string</span>
-          {'\n'}
-          <span className="text-[#666]"> + CREATE ATTR </span>
-          <span className="text-[#9a9a9a]">todos.done</span>
-          {'\n'}
-          <span className="text-[#666]"> DATA TYPE: </span>
-          <span className="text-[#9a9a9a]">boolean</span>
-          {'\n'}
-          <span className="text-[#666]"> + CREATE ATTR </span>
-          <span className="text-[#9a9a9a]">todos.createdAt</span>
-          {'\n'}
-          <span className="text-[#666]"> DATA TYPE: </span>
-          <span className="text-[#9a9a9a]">number</span>
-        </pre>
-      </div>
-      <pre
-        className="px-5 pb-5 text-sm leading-[1.7] break-all whitespace-pre-wrap"
-        style={{ fontFamily: 'Menlo, Monaco, "Courier New", monospace' }}
-      >
-        {'\n'}
-        <span className="text-[#d4d4d4]">Push these changes?</span>
-        {'\n'}
-        <span className="bg-[#c87b2e] text-[#fff]">{'  Push  '}</span>
-        <span>{'    '}</span>
-        <span className="bg-[#555] text-[#ccc]">{'  Cancel  '}</span>
-      </pre>
-    </div>
-  );
-}
-
 function CLIDetails() {
   return (
     <>
@@ -306,7 +279,7 @@ function CLIDetails() {
       <p className="text-gray-600">
         Our CLI tools make it easy to manage your Instant project and scaffold
         new ones. Anything you can do in the dashboard your agent can do from
-        the terminal.{' '}
+        the terminal.
       </p>
     </>
   );
@@ -456,12 +429,8 @@ export default function Database() {
                       handle the rest.
                     </p>
                   </div>
-                  <div className="overflow-hidden rounded-sm border md:flex-1">
-                    <img
-                      src="/img/product-pages/database/instant-arch.webp"
-                      alt="Instant architecture diagram"
-                      className="w-full"
-                    />
+                  <div className="flex flex-col gap-4 md:flex-1">
+                    <ArchDiagram />
                   </div>
                 </div>
 

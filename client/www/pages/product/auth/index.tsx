@@ -10,7 +10,7 @@ import {
 } from '@/components/marketingUi';
 import { ProductNav } from '@/components/productPageUi';
 import { Button, Fence, cn } from '@/components/ui';
-import { permissionExamples } from './examples';
+import { permissionExamples } from '@/lib/product/auth/examples';
 
 import googleIcon from '@/public/img/google_g.svg';
 import appleIcon from '@/public/img/apple_logo_black.svg';

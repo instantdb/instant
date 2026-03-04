@@ -9,7 +9,7 @@ import {
 } from '@/components/marketingUi';
 import { ProductNav } from '@/components/productPageUi';
 import { Button } from '@/components/ui';
-import { features, layers, hardClosing } from './examples';
+import { features, layers, hardClosing } from '@/lib/product/sync/examples';
 
 import figmaIcon from '@/public/img/product-pages/sync/figma.svg';
 import notionIcon from '@/public/img/product-pages/sync/notion.svg';
