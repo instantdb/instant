@@ -22,7 +22,8 @@
       "@/lib/*": ["lib/*"],
       "@/data/*": ["data/*"],
       "@/utils/*": ["utils/*"],
-      "@/styles/*": ["styles/*"]
+      "@/styles/*": ["styles/*"],
+      "@/public/*": ["public/*"]
     },
     "plugins": [
       {
