@@ -128,59 +128,35 @@ export function OfflineDemoRevived() {
   );
 }
 
-// ─── Reactions-themed offline demo ───────────────────────────────────
+// ─── Likes-themed offline demo ──────────────────────────────────────
 
 const fixedMessages = [
-  { id: 1, user: 'Alyssa', text: 'The eval is ready' },
-  { id: 2, user: 'Ben', text: 'Cons the pair first' },
-  { id: 3, user: 'Eva Lu', text: 'Tail calls work now' },
+  { id: 1, user: 'Alyssa', emoji: '❤️', text: 'The eval is ready' },
+  { id: 2, user: 'Ben', emoji: '🔥', text: 'Cons the pair first' },
+  { id: 3, user: 'Eva Lu', emoji: '🚀', text: 'Tail calls work now' },
 ];
 
-const reactionEmojis = ['👍', '🚀', '💯', '🎯'];
+type Like = { msgId: number };
 
-type Reaction = { msgId: number; emoji: string };
-
-interface ReactionsState {
+interface LikesState {
   online: boolean;
-  queue1: Reaction[];
-  queue2: Reaction[];
-  synced: Reaction[];
+  queue1: Like[];
+  queue2: Like[];
+  synced: Like[];
 }
 
-function reactionKey(r: Reaction) {
-  return `${r.msgId}:${r.emoji}`;
+function countLikes(likes: Like[], msgId: number) {
+  return likes.filter((l) => l.msgId === msgId).length;
 }
 
-function hasReaction(reactions: Reaction[], msgId: number, emoji: string) {
-  return reactions.some((r) => r.msgId === msgId && r.emoji === emoji);
-}
-
-function toggleInList(list: Reaction[], msgId: number, emoji: string) {
-  const exists = hasReaction(list, msgId, emoji);
-  if (exists) {
-    return list.filter((r) => !(r.msgId === msgId && r.emoji === emoji));
-  }
-  return [...list, { msgId, emoji }];
-}
-
-function dedup(reactions: Reaction[]): Reaction[] {
-  const seen = new Set<string>();
-  return reactions.filter((r) => {
-    const k = reactionKey(r);
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-}
-
-function ReactionDeviceCard({
+function LikeDeviceCard({
   synced,
   queued,
-  onReact,
+  onLike,
 }: {
-  synced: Reaction[];
-  queued: Reaction[];
-  onReact: (msgId: number, emoji: string) => void;
+  synced: Like[];
+  queued: Like[];
+  onLike: (msgId: number) => void;
 }) {
   return (
     <div className="flex flex-1 flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -192,66 +168,64 @@ function ReactionDeviceCard({
         </div>
       </div>
 
-      {/* Messages with reactions */}
-      <div className="space-y-3 p-3">
+      {/* Messages with like buttons */}
+      <div className="space-y-2.5 p-3">
         {fixedMessages.map((msg) => {
-          const msgSynced = synced.filter((r) => r.msgId === msg.id);
-          const msgQueued = queued.filter((r) => r.msgId === msg.id);
+          const syncedCount = countLikes(synced, msg.id);
+          const queuedCount = countLikes(queued, msg.id);
 
           return (
-            <div key={msg.id}>
-              <div className="mb-1">
+            <div
+              key={msg.id}
+              className="flex items-center gap-2"
+            >
+              <div className="min-w-0 flex-1">
                 <span className="text-[11px] font-semibold text-gray-700">
                   {msg.user}
                 </span>
                 <p className="text-xs text-gray-600">{msg.text}</p>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {reactionEmojis.map((emoji) => {
-                  const isSynced = hasReaction(msgSynced, msg.id, emoji);
-                  const isQueued = hasReaction(msgQueued, msg.id, emoji);
-                  const isActive = isSynced || isQueued;
-
-                  return (
-                    <button
-                      key={emoji}
-                      onClick={() => onReact(msg.id, emoji)}
-                      className={`rounded-full border px-2 py-0.5 text-xs transition-all active:scale-95 ${
-                        isQueued
-                          ? 'border-amber-300 bg-amber-50'
-                          : isActive
-                            ? 'border-gray-300 bg-gray-100'
-                            : 'border-gray-200 bg-white hover:bg-gray-50'
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  );
-                })}
-              </div>
+              <button
+                onClick={() => onLike(msg.id)}
+                className="flex shrink-0 items-center gap-1 rounded-full border border-gray-200 px-2 py-1 text-xs transition-all hover:bg-gray-50 active:scale-95"
+              >
+                <span>{msg.emoji}</span>
+                {syncedCount > 0 && (
+                  <span className="font-medium text-gray-500">
+                    {syncedCount}
+                  </span>
+                )}
+                {queuedCount > 0 && (
+                  <span className="font-medium text-amber-500">
+                    + {queuedCount}
+                  </span>
+                )}
+              </button>
             </div>
           );
         })}
       </div>
+
     </div>
   );
 }
 
 export function OfflineDemoReactions() {
-  const [state, setState] = useState<ReactionsState>({
+  const [state, setState] = useState<LikesState>({
     online: true,
     queue1: [],
     queue2: [],
     synced: [],
   });
 
-  function onReact(q: 'queue1' | 'queue2', msgId: number, emoji: string) {
+  function onLike(q: 'queue1' | 'queue2', msgId: number) {
     setState((s) =>
       produce(s, (d) => {
+        const like = { msgId };
         if (s.online) {
-          d.synced = toggleInList(d.synced, msgId, emoji);
+          d.synced.push(like);
         } else {
-          d[q] = toggleInList(d[q], msgId, emoji);
+          d[q].push(like);
         }
       }),
     );
@@ -266,7 +240,7 @@ export function OfflineDemoReactions() {
         online: true,
         queue1: [],
         queue2: [],
-        synced: dedup([...s.synced, ...s.queue1, ...s.queue2]),
+        synced: [...s.synced, ...s.queue1, ...s.queue2],
       };
     });
   }
@@ -298,15 +272,15 @@ export function OfflineDemoReactions() {
 
       {/* Two device cards */}
       <div className="flex gap-3">
-        <ReactionDeviceCard
+        <LikeDeviceCard
           synced={state.synced}
           queued={state.queue1}
-          onReact={(msgId, emoji) => onReact('queue1', msgId, emoji)}
+          onLike={(msgId) => onLike('queue1', msgId)}
         />
-        <ReactionDeviceCard
+        <LikeDeviceCard
           synced={state.synced}
           queued={state.queue2}
-          onReact={(msgId, emoji) => onReact('queue2', msgId, emoji)}
+          onLike={(msgId) => onLike('queue2', msgId)}
         />
       </div>
     </div>

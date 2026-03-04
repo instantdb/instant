@@ -625,23 +625,34 @@ function SocialPostScreen({
   onHeartDone: (id: number) => void;
 }) {
   return (
-    <div className="relative h-full">
-      <img
-        src="/img/landing/pet.jpg"
-        alt=""
-        className="h-full w-full object-cover"
-      />
-      {/* Heart button — bottom right */}
-      <button
-        onClick={onClick}
-        className="absolute bottom-2 right-2 inline-flex cursor-pointer items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium transition-all hover:bg-gray-50 active:scale-95"
-      >
-        <span style={{ fontSize: 14 }}>❤️</span>
-        <span className="text-gray-700">Like</span>
-        {floatingHearts.map((hId) => (
-          <FloatingHeart key={hId} id={hId} onDone={onHeartDone} />
-        ))}
-      </button>
+    <div className="flex h-full flex-col bg-gray-100 p-2">
+      {/* White card wrapping name + image */}
+      <div className="relative flex flex-1 flex-col overflow-hidden rounded-lg bg-white">
+        {/* Top bar */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+          <span className="text-[9px] font-semibold text-gray-800">stopa</span>
+          <span className="text-[9px] text-gray-400">· 2h</span>
+        </div>
+        {/* Image */}
+        <div className="relative flex-1 overflow-hidden">
+          <img
+            src="/img/landing/pet.jpg"
+            alt=""
+            className="h-full w-full object-cover object-[center_55%]"
+          />
+        </div>
+        {/* Like button overlay — bottom right */}
+        <button
+          onClick={onClick}
+          className="absolute bottom-2 right-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-[10px] font-medium text-gray-700 shadow-sm backdrop-blur-sm transition-all hover:bg-white active:scale-95"
+        >
+          <span style={{ fontSize: 13 }}>❤️</span>
+          Like
+          {floatingHearts.map((hId) => (
+            <FloatingHeart key={hId} id={hId} onDone={onHeartDone} />
+          ))}
+        </button>
+      </div>
     </div>
   );
 }

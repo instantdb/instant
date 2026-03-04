@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { AnimateIn } from './AnimateIn';
 import { SideBySideDemo } from './InstantUpdatesDemoIdeas';
+import { DeviceFrameReactionsDemo } from './SyncDemoIdeas';
 
 // Two devices showing real-time sync
 function RealtimeSyncDemo() {
@@ -276,7 +277,7 @@ export function SyncEngine() {
               </p>
             </div>
             <div className="col-span-2 bg-[#FFE7E7]/20 px-20 py-9">
-              <RealtimeSyncDemo />
+              <DeviceFrameReactionsDemo />
             </div>
           </div>
         </AnimateIn>
