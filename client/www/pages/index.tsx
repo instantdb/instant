@@ -78,7 +78,7 @@ export default function Landing2026() {
           <SyncRelations />
         </Section>
 
-        <Section className="bg-[#F9FAFB]" id="social-proof">
+        <Section className="bg-gradient-to-b from-white via-[#F5F5F7] to-white" id="social-proof">
           <SocialProof />
         </Section>
 
