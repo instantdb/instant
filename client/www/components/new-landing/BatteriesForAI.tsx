@@ -603,7 +603,7 @@ export function BatteriesForAI() {
             Batteries included
           </h2>
           <p className="mt-12 max-w-2xl text-lg sm:mx-auto">
-            Shipping real products mean adding auth, permissions, file storage, and payments. Instant comes with these services out of the box, and they're designed to work well together.
+            Shipping real products mean adding auth, permissions, file storage, and payments. Sometimes you want to share cursors, and sometimes you want to stream LLM content. Instant comes with these services out of the box, and they're designed to work well together.
           </p>
         </div>
       </AnimateIn>
