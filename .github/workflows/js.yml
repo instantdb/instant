@@ -151,7 +151,7 @@ jobs:
 
       - name: Install Browser
         working-directory: client
-        run: pnpm exec playwright install chromium --with-deps
+        run: npx playwright install chromium --with-deps
         
       - name: Run tests
         working-directory: client
