@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
 
 // Types
@@ -76,51 +76,66 @@ function PlayIcon({ className }: { className?: string }) {
 
 function VideoPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
+  const playerRef = useRef<any>(null);
 
-  if (isPlaying) {
-    return (
-      <div className="overflow-hidden rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.22)]">
+  const handlePlay = useCallback(() => {
+    setIsPlaying(true);
+    // Start playback on the already-preloaded player
+    const el = playerRef.current;
+    if (el) {
+      el.currentTime = 0;
+      el.play();
+    }
+  }, []);
+
+  return (
+    <div className="relative overflow-hidden rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.22)]">
+      {/* MuxPlayer is always mounted for eager preloading, but hidden until play */}
+      <div className={isPlaying ? '' : 'invisible absolute inset-0'}>
         <MuxPlayer
+          ref={playerRef}
           playbackId={PLAYBACK_ID}
-          autoPlay
           accentColor="#ea580c"
           metadata={{ video_title: 'InstantDB Demo' }}
+          preload="auto"
+          minResolution="1080p"
+          renditionOrder="desc"
           style={{ aspectRatio: '16/9', display: 'block' }}
         />
       </div>
-    );
-  }
 
-  return (
-    <button
-      onClick={() => setIsPlaying(true)}
-      className="group relative w-full cursor-pointer overflow-hidden rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.22)]"
-    >
-      <img
-        src={THUMBNAIL_URL}
-        alt="Watch demo video"
-        className="aspect-video w-full scale-[1.01] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-      />
+      {!isPlaying && (
+        <button
+          onClick={handlePlay}
+          className="group relative w-full cursor-pointer"
+        >
+          <img
+            src={THUMBNAIL_URL}
+            alt="Watch demo video"
+            className="aspect-video w-full scale-[1.01] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          />
 
-      <div className="absolute inset-0 bg-black/58 transition-colors duration-300 group-hover:bg-black/50" />
+          <div className="absolute inset-0 bg-black/58 transition-colors duration-300 group-hover:bg-black/50" />
 
-      <div className="absolute inset-x-0 top-[13%] px-6 text-center sm:top-[14%] sm:px-10">
-        <p className="font-mono text-xs tracking-[0.16em] text-white/85 sm:text-[13px]">
-          instant in action
-        </p>
-        <p className="mx-auto mt-6 text-3xl leading-[1.05] font-semibold tracking-[-0.02em] text-white sm:text-4xl md:text-5xl lg:text-[3.5rem]">
-          Agents build a realtime
-          <br />
-          instagram, in 12 minutes
-        </p>
-      </div>
+          <div className="absolute inset-x-0 top-[13%] px-6 text-center sm:top-[14%] sm:px-10">
+            <p className="font-mono text-xs tracking-[0.16em] text-white/85 sm:text-[13px]">
+              instant in action
+            </p>
+            <p className="mx-auto mt-6 text-3xl leading-[1.05] font-semibold tracking-[-0.02em] text-white sm:text-4xl md:text-5xl lg:text-[3.5rem]">
+              Agents build a realtime
+              <br />
+              instagram, in 12 minutes
+            </p>
+          </div>
 
-      <div className="absolute top-[73%] left-1/2 -translate-x-1/2 -translate-y-1/2">
-        <div className="flex h-24 w-24 items-center justify-center rounded-full bg-orange-600 shadow-[0_20px_48px_rgba(234,88,12,0.55)] transition-transform duration-300 group-hover:scale-110 sm:h-32 sm:w-32 lg:h-40 lg:w-40">
-          <PlayIcon className="ml-1 h-11 w-11 text-white sm:h-[3.4rem] sm:w-[3.4rem] lg:h-[4rem] lg:w-[4rem]" />
-        </div>
-      </div>
-    </button>
+          <div className="absolute top-[73%] left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-orange-600 shadow-[0_20px_48px_rgba(234,88,12,0.55)] transition-transform duration-300 group-hover:scale-110 sm:h-32 sm:w-32 lg:h-40 lg:w-40">
+              <PlayIcon className="ml-1 h-11 w-11 text-white sm:h-[3.4rem] sm:w-[3.4rem] lg:h-[4rem] lg:w-[4rem]" />
+            </div>
+          </div>
+        </button>
+      )}
+    </div>
   );
 }
 

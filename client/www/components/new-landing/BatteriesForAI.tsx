@@ -475,7 +475,7 @@ function PaymentsDemo() {
       </div>
 
       {/* Scene content */}
-      <div className="relative min-h-[200px] p-5">
+      <div className="relative h-[220px] p-5">
         <AnimatePresence mode="wait">
           {activeTab === 0 && (
             <motion.div
@@ -554,33 +554,37 @@ function PaymentsDemo() {
               transition={{ duration: 0.2 }}
               className="space-y-3"
             >
-              <p className="text-xs font-semibold text-gray-700">API Usage This Month</p>
+              <p className="text-xs font-semibold text-gray-700">Credits</p>
 
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {[
-                  { label: 'Wk 1', width: 45 },
-                  { label: 'Wk 2', width: 72 },
-                  { label: 'Wk 3', width: 58 },
-                  { label: 'Wk 4', width: 88 },
-                ].map((bar) => (
-                  <div key={bar.label} className="flex items-center gap-2">
-                    <span className="w-8 text-[10px] text-gray-500">{bar.label}</span>
-                    <div className="h-4 flex-1 rounded-full bg-gray-100">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${bar.width}%`,
-                          background: 'linear-gradient(90deg, rgb(74 222 128) 0%, rgb(22 163 74) 100%)',
-                        }}
-                      />
-                    </div>
+                  { label: 'GPT-4o', amount: 1200, color: 'rgb(22 163 74)' },
+                  { label: 'Claude', amount: 850, color: 'rgb(74 222 128)' },
+                  { label: 'Gemini', amount: 430, color: 'rgb(34 197 94)' },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center justify-between">
+                    <span className="text-[11px] text-gray-600">{item.label}</span>
+                    <span className="text-[11px] font-semibold text-gray-700">{item.amount.toLocaleString()} credits</span>
                   </div>
                 ))}
               </div>
 
+              <div className="mt-1 h-3 w-full rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: '62%',
+                    background: 'linear-gradient(90deg, rgb(74 222 128) 0%, rgb(22 163 74) 100%)',
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-400">2,480 / 4,000 credits used</span>
+              </div>
+
               <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-center">
-                <span className="text-xs font-semibold text-green-700">12,847 requests</span>
-                <span className="text-xs text-green-600"> — $12.85</span>
+                <span className="text-xs font-semibold text-green-700">1,520 credits remaining</span>
+                <span className="text-xs text-green-600"> — $15.20</span>
               </div>
             </motion.div>
           )}
@@ -616,9 +620,7 @@ export function BatteriesForAI() {
             Batteries included
           </h2>
           <p className="mt-12 max-w-2xl text-lg sm:mx-auto">
-            Your AI built a todo app. But there's no login, no file uploads, and
-            anyone can see your tasks. You need auth, permissions, storage and
-            payments. Instant has them built in.
+            Shipping real products mean adding auth, permissions, file storage, and payments. Instant comes with these services out of the box, and they're designed to work well together.
           </p>
         </div>
       </AnimateIn>

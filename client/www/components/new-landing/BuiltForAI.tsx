@@ -701,7 +701,7 @@ export function BuiltForAI() {
       {/* Feature 3: Type safety */}
       <AnimateIn>
         <div className="flex items-center gap-7">
-          <div className="max-w-[440px] text-center">
+          <div className="max-w-[440px]">
             <h3 className="text-2xl font-semibold sm:text-2xl">
               End-to-end type safety
             </h3>

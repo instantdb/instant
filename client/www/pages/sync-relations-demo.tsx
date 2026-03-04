@@ -3,6 +3,7 @@ import { MainNav } from '@/components/marketingUi';
 import { SyncRelationsV1 } from '@/components/new-landing/SyncRelationsV1';
 import { SyncRelationsV2 } from '@/components/new-landing/SyncRelationsV2';
 import { SyncRelationsV3 } from '@/components/new-landing/SyncRelationsV3';
+import { SyncRelationsV4 } from '@/components/new-landing/SyncRelationsV4';
 
 export default function SyncRelationsDemo() {
   return (
@@ -46,6 +47,19 @@ export default function SyncRelationsDemo() {
             record-count annotations and a truncated JSON result.
           </p>
           <SyncRelationsV3 />
+        </section>
+
+        {/* Variant 4: Messaging Query Shapes */}
+        <section>
+          <h2 className="mb-1 text-2xl font-bold">
+            Variant 4: Query Shapes
+          </h2>
+          <p className="mb-8 text-gray-500">
+            One messaging app, two query shapes — toggle between
+            channels &rarr; messages and users &rarr; messages to see the query
+            change.
+          </p>
+          <SyncRelationsV4 />
         </section>
       </main>
     </div>
