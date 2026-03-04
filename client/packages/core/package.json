@@ -58,7 +58,7 @@
     "@arethetypeswrong/cli": "^0.17.4",
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
-    "@types/node": "^18.11.18",
+    "@types/node": "^18.19.74",
     "@types/uuid": "^10.0.0",
     "@types/websocket": "^1.0.5",
     "@vitest/browser-playwright": "^4.0.18",
