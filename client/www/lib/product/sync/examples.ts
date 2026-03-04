@@ -70,7 +70,7 @@ Client B merges that change into their local store and updates the UI.
 │  │ todo.done: T │  │      │  │ todo.done: F │  │
 │  └──────────────┘  │      │  └──────────────┘  │
 │                    │      │                    │
-│  WS Client ────────┼──┐┌──┼──── WS Client     │
+│  WS Client ────────┼──┐┌──┼──── WS Client      │
 └────────────────────┘  ││  └────────────────────┘
                         ▼▼
                ┌────────────────┐
