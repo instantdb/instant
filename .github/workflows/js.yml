@@ -149,6 +149,10 @@ jobs:
         working-directory: client
         run: pnpm run build-sandbox
 
+      - name: Install Browser
+        working-directory: client
+        run: pnpm exec playwright install chromium --with-deps
+        
       - name: Run tests
         working-directory: client
         run: pnpm run test
