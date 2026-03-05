@@ -234,6 +234,8 @@ function LikeDeviceCard({
   queued: Like[];
   onLike: (msgId: number) => void;
 }) {
+  const totalQueued = queued.length;
+
   return (
     <div className="min-w-0 flex-1">
       <div className="mb-2 flex items-center gap-2.5 px-1">
@@ -245,9 +247,16 @@ function LikeDeviceCard({
         <span className="text-sm font-medium">{name}&apos;s phone</span>
       </div>
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="mb-3 flex items-center gap-1.5">
-          <span className="text-xs">💬</span>
-          <span className="text-sm font-medium text-gray-500">#ship-it</span>
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs">💬</span>
+            <span className="text-sm font-medium text-gray-500">#ship-it</span>
+          </div>
+          {totalQueued > 0 && (
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
+              +{totalQueued} queued
+            </span>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -264,11 +273,6 @@ function LikeDeviceCard({
                   <p className="text-xs text-gray-600">{msg.text}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
-                  {queuedCount > 0 && (
-                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
-                      +{queuedCount} queued
-                    </span>
-                  )}
                   <button
                     onClick={() => onLike(msg.id)}
                     className="flex items-center gap-1 rounded-full border border-gray-200 px-2 py-1 text-xs transition-all hover:bg-gray-50 active:scale-95"

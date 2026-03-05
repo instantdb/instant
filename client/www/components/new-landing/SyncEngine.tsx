@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { AnimateIn } from './AnimateIn';
-import { SideBySideDemo } from './InstantUpdatesDemoIdeas';
+import { AutoPlayDemo } from './InstantUpdatesDemoIdeas';
 import { RealtimeChecklistDemo } from './SyncDemoIdeas';
 import { OfflineDemoReactions } from './OfflineDemoIdeas';
 
@@ -258,8 +258,8 @@ export function SyncEngine() {
                 responsive and alive and your users stay in flow.
               </p>
             </div>
-            <div className="col-span-2 rounded-2xl bg-[#B8B8B8]/20 px-12 py-9">
-              <SideBySideDemo />
+            <div className="col-span-2 bg-[#B8B8B8]/20 px-12 py-9">
+              <AutoPlayDemo />
             </div>
           </div>
         </AnimateIn>
@@ -267,7 +267,7 @@ export function SyncEngine() {
         {/* Real-time sync — demo left, text right */}
         <AnimateIn>
           <div className="grid grid-cols-3 items-center gap-6">
-            <div className="col-span-2 rounded-2xl bg-[#FFE7E7]/20 px-12 py-9">
+            <div className="col-span-2 bg-[#FFE7E7]/20 px-12 py-9">
               <RealtimeChecklistDemo />
             </div>
             <div className="col-span-1">
@@ -296,7 +296,7 @@ export function SyncEngine() {
                 them having to do a thing. Pure magic.
               </p>
             </div>
-            <div className="col-span-2 rounded-2xl bg-[#B8B8B8]/20 px-12 py-9">
+            <div className="col-span-2 bg-[#B8B8B8]/20 px-12 py-9">
               <OfflineDemoReactions />
             </div>
           </div>

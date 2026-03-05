@@ -712,6 +712,7 @@ export function DeviceFrameReactionsDemo() {
 const SYNC_TASKS = [
   { id: 1, text: 'Review PR #42', done: false },
   { id: 2, text: 'Deploy to staging', done: false },
+  { id: 3, text: 'Update docs', done: false },
 ];
 
 type SyncDot = {
