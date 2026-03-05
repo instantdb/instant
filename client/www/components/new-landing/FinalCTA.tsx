@@ -63,7 +63,7 @@ export function FinalCTA() {
       </AnimateIn>
 
       <AnimateIn delay={100}>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-gray-500">
+        <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
           What are you waiting for? Start building out your dreams today.
         </p>
       </AnimateIn>
