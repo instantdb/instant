@@ -10,7 +10,10 @@ const startups = [
     avatar: '/img/peeps/ari_bapna.jpg',
     quote:
       'The DX is unreal. useQuery and transact are the only two concepts you need. My whole team was productive on day one.',
-    demo: { type: 'video' as const, src: 'https://stream.mux.com/vQSRJTGQgLuInsUJjw01klupQSKE7a00nWY4MGbcmU5Xc/720p.mp4' },
+    demo: {
+      type: 'video' as const,
+      src: 'https://stream.mux.com/vQSRJTGQgLuInsUJjw01klupQSKE7a00nWY4MGbcmU5Xc/720p.mp4',
+    },
   },
   {
     name: 'HeroUI',
@@ -133,11 +136,11 @@ function StartupCard({
       <div
         className={`flex flex-col gap-8 ${isEven ? 'lg:flex-row' : 'lg:flex-row-reverse'}`}
       >
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <AppDemo demo={startup.demo} />
         </div>
 
-        <div className="flex flex-1 flex-col justify-center min-w-0">
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
           <blockquote className="text-lg leading-relaxed text-gray-700 italic">
             &ldquo;{startup.quote}&rdquo;
           </blockquote>

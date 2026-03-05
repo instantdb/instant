@@ -46,7 +46,7 @@ const allBackers = [
 
 // Option A: James removed from grid, shown only in testimonial with photo
 const backersWithoutJames = allBackers.filter(
-  (b) => b.name !== 'James Tamplin'
+  (b) => b.name !== 'James Tamplin',
 );
 
 function BackersGrid({

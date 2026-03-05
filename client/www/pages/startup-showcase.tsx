@@ -15,7 +15,10 @@ const startups = [
     avatarLarge: '/img/startups/ari-bapna-large.jpeg',
     quote:
       'The DX is unreal. useQuery and transact are the only two concepts you need. My whole team was productive on day one.',
-    demo: { type: 'video' as const, src: 'https://stream.mux.com/vQSRJTGQgLuInsUJjw01klupQSKE7a00nWY4MGbcmU5Xc/720p.mp4' },
+    demo: {
+      type: 'video' as const,
+      src: 'https://stream.mux.com/vQSRJTGQgLuInsUJjw01klupQSKE7a00nWY4MGbcmU5Xc/720p.mp4',
+    },
   },
   {
     name: 'HeroUI',
@@ -97,7 +100,10 @@ function AppDemo({ demo }: { demo: (typeof startups)[0]['demo'] }) {
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-100 shadow-sm">
       {demo.type === 'video' && isPortrait ? (
-        <div className="flex items-center justify-center bg-gray-900 py-6" style={{ maxHeight: '500px' }}>
+        <div
+          className="flex items-center justify-center bg-gray-900 py-6"
+          style={{ maxHeight: '500px' }}
+        >
           <video
             src={demo.src}
             autoPlay
@@ -153,12 +159,12 @@ function StartupCardV1({
         className={`flex flex-col gap-8 ${isEven ? 'lg:flex-row' : 'lg:flex-row-reverse'}`}
       >
         {/* App demo */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <AppDemo demo={startup.demo} />
         </div>
 
         {/* Quote + person */}
-        <div className="flex flex-1 flex-col justify-center min-w-0">
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
           <blockquote className="text-lg leading-relaxed text-gray-700 italic">
             &ldquo;{startup.quote}&rdquo;
           </blockquote>
@@ -218,7 +224,7 @@ function StartupCardV2({ startup }: { startup: (typeof startups)[0] }) {
     <AnimateIn>
       <div className="flex flex-col gap-8 lg:flex-row">
         {/* Fake video thumbnail */}
-        <div className="relative flex-1 min-w-0 overflow-hidden rounded-lg">
+        <div className="relative min-w-0 flex-1 overflow-hidden rounded-lg">
           <Image
             src={startup.avatarLarge}
             alt={startup.person}
@@ -244,7 +250,7 @@ function StartupCardV2({ startup }: { startup: (typeof startups)[0] }) {
         </div>
 
         {/* Quote + person */}
-        <div className="flex flex-1 flex-col justify-center min-w-0">
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
           <blockquote className="text-lg leading-relaxed text-gray-700 italic">
             &ldquo;{startup.quote}&rdquo;
           </blockquote>
