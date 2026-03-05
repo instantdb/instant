@@ -329,12 +329,12 @@ export function MainNav({ transparent = false }: { transparent?: boolean }) {
         'py-4',
         transparent
           ? cn(
-              'fixed top-0 right-0 left-0 z-50 border-b transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300',
+              'fixed top-0 right-0 left-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-300',
               isScrolled
-                ? 'border-b-gray-200/80 bg-white/80 shadow-sm backdrop-blur-md'
-                : 'border-b-transparent bg-transparent shadow-none backdrop-blur-none',
+                ? 'border-b-gray-200/80 bg-white/80 backdrop-blur-md'
+                : 'border-b-transparent bg-transparent backdrop-blur-none',
             )
-          : 'border-b border-b-gray-200 shadow',
+          : 'border-b border-b-gray-200',
       )}
     >
       <div className="landing-width mx-auto">
