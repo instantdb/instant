@@ -7,7 +7,8 @@ const apiUrl = import.meta.env.VITE_INSTANT_DEV
 
 const websocketURI = import.meta.env.VITE_INSTANT_DEV
   ? 'ws://localhost:8888/runtime/session'
-  : import.meta.env.VITE_INSTANT_WEBSOCKET_URI || 'wss://api.instantdb.com';
+  : import.meta.env.VITE_INSTANT_WEBSOCKET_URI ||
+    'wss://api.instantdb.com/runtime/session';
 
 export const e2eTest = baseTest.extend<{
   db: InstantCoreDatabase<any, false>;
