@@ -9,7 +9,8 @@ import { BatteriesForAI } from '@/components/new-landing/BatteriesForAI';
 import { SyncEngine } from '@/components/new-landing/SyncEngine';
 import { SyncRelations } from '@/components/new-landing/SyncRelations';
 import { SocialProof } from '@/components/new-landing/SocialProof';
-import { WallOfLove } from '@/components/new-landing/WallOfLove';
+import { StartupShowcase } from '@/components/new-landing/StartupShowcase';
+import { FirebaseTestimonial } from '@/components/new-landing/FirebaseTestimonial';
 import { FinalCTA } from '@/components/new-landing/FinalCTA';
 import { Footer } from '@/components/new-landing/Footer';
 import { AgentPathsBg } from '@/components/home/AgentPathsBg';
@@ -90,12 +91,15 @@ export default function Landing2026() {
           <div className="relative z-10 py-16 sm:py-24">
             <div className="landing-width mx-auto">
               <SocialProof />
+              <div className="mt-16">
+                <FirebaseTestimonial />
+              </div>
             </div>
           </div>
         </div>
 
-        <Section id="wall-of-love">
-          <WallOfLove />
+        <Section id="startup-showcase">
+          <StartupShowcase />
         </Section>
 
         <Section className="pt-0!">

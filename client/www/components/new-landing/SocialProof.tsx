@@ -9,11 +9,6 @@ const stats = [
 
 const backers = [
   {
-    name: 'James Tamplin',
-    role: 'CEO of Firebase',
-    imageSrc: '/img/investors/james-tamplin.jpg',
-  },
-  {
     name: 'Greg Brockman',
     role: 'Co-Founder of OpenAI',
     imageSrc: '/img/investors/greg-brockman.jpg',
@@ -114,6 +109,7 @@ export function SocialProof() {
           <div className="mt-10 text-center text-sm text-gray-500">
             And 50+ technical founders from Sendbird, Panther, Segment, and more
           </div>
+
         </div>
       </AnimateIn>
     </div>
