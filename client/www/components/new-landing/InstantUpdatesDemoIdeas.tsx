@@ -534,197 +534,179 @@ type FooterState =
   | { kind: 'done'; ms: number };
 
 export function SideBySideDemo() {
-  const [mode, setMode] = useState<'instant' | 'traditional'>('instant');
-  const [items, setItems] = useState([
+  // "With Instant" state
+  const [fastItems, setFastItems] = useState([
+    { id: 1, text: 'Design landing page', done: true },
+    { id: 2, text: 'Write API docs', done: false },
+    { id: 3, text: 'Ship v1.0', done: false },
+  ]);
+  const [fastFooter, setFastFooter] = useState<'idle' | 'flash'>('idle');
+  const fastFadeRef = useRef<NodeJS.Timeout | null>(null);
+
+  // "Without Instant" state
+  const [slowItems, setSlowItems] = useState([
     { id: 1, text: 'Design landing page', done: true },
     { id: 2, text: 'Write API docs', done: false },
     { id: 3, text: 'Ship v1.0', done: false },
   ]);
   const [pending, setPending] = useState<number | null>(null);
-  const [footer, setFooter] = useState<FooterState>({ kind: 'idle' });
-  const [timerMs, setTimerMs] = useState(0);
-
-  const rafRef = useRef<number | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const resolveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const cleanup = useCallback(() => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    if (resolveTimeoutRef.current !== null) {
-      clearTimeout(resolveTimeoutRef.current);
-      resolveTimeoutRef.current = null;
-    }
-    if (fadeTimeoutRef.current !== null) {
-      clearTimeout(fadeTimeoutRef.current);
-      fadeTimeoutRef.current = null;
-    }
-  }, []);
-
-  const switchMode = (m: 'instant' | 'traditional') => {
-    cleanup();
-    setPending(null);
-    setMode(m);
-    setItems([
-      { id: 1, text: 'Design landing page', done: true },
-      { id: 2, text: 'Write API docs', done: false },
-      { id: 3, text: 'Ship v1.0', done: false },
-    ]);
-    setFooter({ kind: 'idle' });
-    setTimerMs(0);
-  };
+  const [slowFooter, setSlowFooter] = useState<
+    'idle' | 'waiting' | 'done'
+  >('idle');
+  const resolveRef = useRef<NodeJS.Timeout | null>(null);
 
   const toggle = (id: number) => {
     if (pending !== null) return;
-    cleanup();
 
-    if (mode === 'instant') {
-      // Toggle immediately
-      setItems((prev) =>
+    // Fast side: instant
+    setFastItems((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+    );
+    setFastFooter('flash');
+    if (fastFadeRef.current) clearTimeout(fastFadeRef.current);
+    fastFadeRef.current = setTimeout(() => setFastFooter('idle'), 2000);
+
+    // Slow side: delayed
+    setPending(id);
+    setSlowFooter('waiting');
+    if (resolveRef.current) clearTimeout(resolveRef.current);
+    resolveRef.current = setTimeout(() => {
+      setSlowItems((prev) =>
         prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
       );
-      setFooter({ kind: 'instant', visible: true });
-
-      // Fade after 2s
-      fadeTimeoutRef.current = setTimeout(() => {
-        setFooter({ kind: 'instant', visible: false });
-      }, 2000);
-    } else {
-      // Freeze checkbox, start ticking timer
-      setPending(id);
-      setTimerMs(0);
-      setFooter({ kind: 'ticking' });
-      startTimeRef.current = performance.now();
-
-      const tick = () => {
-        const elapsed = performance.now() - startTimeRef.current;
-        setTimerMs(Math.round(elapsed));
-        rafRef.current = requestAnimationFrame(tick);
-      };
-      rafRef.current = requestAnimationFrame(tick);
-
-      // Resolve at ~600ms
-      resolveTimeoutRef.current = setTimeout(() => {
-        if (rafRef.current !== null) {
-          cancelAnimationFrame(rafRef.current);
-          rafRef.current = null;
-        }
-        const finalMs = Math.round(performance.now() - startTimeRef.current);
-        setTimerMs(finalMs);
-        setItems((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-        );
-        setPending(null);
-        setFooter({ kind: 'done', ms: finalMs });
-      }, 600);
-    }
+      setPending(null);
+      setSlowFooter('done');
+    }, 600);
   };
 
-  useEffect(() => () => cleanup(), [cleanup]);
+  useEffect(
+    () => () => {
+      if (fastFadeRef.current) clearTimeout(fastFadeRef.current);
+      if (resolveRef.current) clearTimeout(resolveRef.current);
+    },
+    [],
+  );
+
+  const Checkbox = ({
+    done,
+    isPending,
+  }: {
+    done: boolean;
+    isPending: boolean;
+  }) => (
+    <div
+      className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${
+        isPending
+          ? 'border-gray-300 bg-gray-100'
+          : done
+            ? 'border-orange-600 bg-orange-600'
+            : 'border-gray-300'
+      }`}
+    >
+      {isPending ? (
+        <div className="h-3 w-3 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+      ) : (
+        done && (
+          <svg
+            className="h-3 w-3 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={3}
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="m4.5 12.75 6 6 9-13.5"
+            />
+          </svg>
+        )
+      )}
+    </div>
+  );
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      {/* Header: title + pill toggle */}
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-medium">My Tasks</span>
-        <div className="flex items-center gap-1 rounded-full bg-gray-100 p-0.5 text-xs font-medium">
-          <button
-            onClick={() => switchMode('instant')}
-            className={`rounded-full px-3 py-1 transition-colors ${
-              mode === 'instant'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500'
-            }`}
-          >
-            With Instant
-          </button>
-          <button
-            onClick={() => switchMode('traditional')}
-            className={`rounded-full px-3 py-1 transition-colors ${
-              mode === 'traditional'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500'
-            }`}
-          >
-            Without Instant
-          </button>
+    <div className="flex items-start gap-6">
+      {/* With Instant */}
+      <div className="min-w-0 flex-1">
+        <div className="mb-2 flex items-center gap-2.5 px-1">
+          <img
+            src="/img/icon/favicon-96x96.svg"
+            alt="Instant"
+            className="h-6 w-6 rounded"
+          />
+          <span className="text-sm font-medium">With Instant</span>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 text-sm font-medium text-gray-500">
+            My Tasks
+          </div>
+          <div className="space-y-1.5">
+            {fastItems.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => toggle(t.id)}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
+              >
+                <Checkbox done={t.done} isPending={false} />
+                <span
+                  className={`text-sm ${t.done ? 'text-gray-400 line-through' : 'text-gray-700'}`}
+                >
+                  {t.text}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 flex min-h-[20px] items-center justify-center">
+            {fastFooter === 'flash' && (
+              <span className="text-xs font-medium text-green-600">
+                0ms ✓
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Task list */}
-      <div className="space-y-1.5">
-        {items.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => toggle(t.id)}
-            disabled={pending !== null}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-gray-50 disabled:cursor-not-allowed"
-          >
-            <div
-              className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${
-                pending === t.id
-                  ? 'border-gray-300 bg-gray-100'
-                  : t.done
-                    ? 'border-orange-600 bg-orange-600'
-                    : 'border-gray-300'
-              }`}
-            >
-              {pending === t.id ? (
-                <div className="h-3 w-3 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-              ) : (
-                t.done && (
-                  <svg
-                    className="h-3 w-3 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={3}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="m4.5 12.75 6 6 9-13.5"
-                    />
-                  </svg>
-                )
-              )}
-            </div>
-            <span
-              className={`text-sm ${t.done && pending !== t.id ? 'text-gray-400 line-through' : 'text-gray-700'}`}
-            >
-              {t.text}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Footer: timer */}
-      <div className="mt-4 flex min-h-[24px] items-center justify-center">
-        {footer.kind === 'idle' && (
-          <span className="text-xs text-gray-400">Click a task</span>
-        )}
-        {footer.kind === 'instant' && (
-          <span
-            className={`text-xs font-medium text-green-600 transition-opacity duration-500 ${
-              footer.visible ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            0ms ✓
-          </span>
-        )}
-        {footer.kind === 'ticking' && (
-          <span className="tabular-nums text-xs font-medium text-gray-500">
-            {timerMs}ms…
-          </span>
-        )}
-        {footer.kind === 'done' && (
-          <span className="text-xs font-medium text-amber-600">
-            {footer.ms}ms
-          </span>
-        )}
+      {/* Without Instant */}
+      <div className="min-w-0 flex-1">
+        <div className="mb-2 flex items-center gap-2.5 px-1">
+          <span className="text-lg">😟</span>
+          <span className="text-sm font-medium">Without Instant</span>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 text-sm font-medium text-gray-500">
+            My Tasks
+          </div>
+          <div className="space-y-1.5">
+            {slowItems.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => toggle(t.id)}
+                disabled={pending !== null}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-gray-50 disabled:cursor-not-allowed"
+              >
+                <Checkbox done={t.done} isPending={pending === t.id} />
+                <span
+                  className={`text-sm ${t.done && pending !== t.id ? 'text-gray-400 line-through' : 'text-gray-700'}`}
+                >
+                  {t.text}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 flex min-h-[20px] items-center justify-center">
+            {slowFooter === 'waiting' && (
+              <span className="text-xs font-medium text-amber-600">
+                Waiting for server...
+              </span>
+            )}
+            {slowFooter === 'done' && (
+              <span className="text-xs font-medium text-gray-400">
+                600ms
+              </span>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
