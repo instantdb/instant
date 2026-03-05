@@ -3,116 +3,154 @@ import { useState, useEffect } from 'react';
 import { AnimateIn } from './AnimateIn';
 import { motion, AnimatePresence } from 'motion/react';
 
-// Animated terminal that types out commands character by character
-function AnimatedTerminal() {
-  const steps = [
-    { type: 'command' as const, text: 'npx instant-cli login' },
-    {
-      type: 'output' as const,
-      text: 'Successfully logged in as joe@instantdb.com!',
-    },
-    { type: 'command' as const, text: 'npx create-instant-app awesome-gram' },
-    {
-      type: 'output' as const,
-      text: '🎉 Success! Your project is ready to go!',
-    },
-    { type: 'command' as const, text: 'npx instant-cli push schema' },
-    { type: 'output' as const, text: 'Schema updated!' },
-    { type: 'command' as const, text: 'npx vercel --prod' },
-    {
-      type: 'output' as const,
-      text: '✓ App deployed at https://awesome-gram.vercel.app',
-    },
-  ];
+// Animated terminal showing `npx instant-cli push` with schema diff
+type TerminalPhase =
+  | 'typing'
+  | 'found'
+  | 'diff'
+  | 'buttons'
+  | 'result'
+  | 'pause';
 
-  // completedSteps: number of fully rendered steps
-  // typingIndex: characters typed so far in the current command
-  const [completedSteps, setCompletedSteps] = useState(0);
+const PUSH_COMMAND = 'npx instant-cli push';
+
+function AnimatedTerminal() {
+  const [phase, setPhase] = useState<TerminalPhase>('typing');
   const [typingIndex, setTypingIndex] = useState(0);
 
-  const currentStep =
-    completedSteps < steps.length ? steps[completedSteps] : null;
-  const isTypingCommand = currentStep?.type === 'command';
+  const showFound = phase !== 'typing';
+  const showDiff = !['typing', 'found'].includes(phase);
+  const showButtons = !['typing', 'found', 'diff'].includes(phase);
+  const showResult = phase === 'result' || phase === 'pause';
 
   useEffect(() => {
-    if (completedSteps >= steps.length) {
-      // All done — pause then restart
+    if (phase === 'typing') {
+      if (typingIndex < PUSH_COMMAND.length) {
+        const timeout = setTimeout(
+          () => setTypingIndex((i) => i + 1),
+          8 + Math.random() * 16,
+        );
+        return () => clearTimeout(timeout);
+      }
+      const timeout = setTimeout(() => setPhase('found'), 300);
+      return () => clearTimeout(timeout);
+    }
+
+    if (phase === 'found') {
+      const timeout = setTimeout(() => setPhase('diff'), 500);
+      return () => clearTimeout(timeout);
+    }
+
+    if (phase === 'diff') {
+      const timeout = setTimeout(() => setPhase('buttons'), 400);
+      return () => clearTimeout(timeout);
+    }
+
+    if (phase === 'buttons') {
+      // Auto-push after 5 seconds if user doesn't click
+      const timeout = setTimeout(() => setPhase('result'), 5000);
+      return () => clearTimeout(timeout);
+    }
+
+    if (phase === 'result') {
+      const timeout = setTimeout(() => setPhase('pause'), 3000);
+      return () => clearTimeout(timeout);
+    }
+
+    if (phase === 'pause') {
       const timeout = setTimeout(() => {
-        setCompletedSteps(0);
+        setPhase('typing');
         setTypingIndex(0);
-      }, 6000);
+      }, 3000);
       return () => clearTimeout(timeout);
     }
+  }, [phase, typingIndex]);
 
-    const step = steps[completedSteps];
-
-    if (step.type === 'output') {
-      // Outputs appear instantly after a short pause
-      const timeout = setTimeout(() => {
-        setCompletedSteps((s) => s + 1);
-        setTypingIndex(0);
-      }, 400);
-      return () => clearTimeout(timeout);
+  const handlePush = () => {
+    if (phase === 'buttons') {
+      setPhase('result');
     }
-
-    // Command: type character by character
-    if (typingIndex < step.text.length) {
-      const timeout = setTimeout(
-        () => {
-          setTypingIndex((i) => i + 1);
-        },
-        8 + Math.random() * 16,
-      );
-      return () => clearTimeout(timeout);
-    }
-
-    // Command fully typed — brief pause then advance
-    const timeout = setTimeout(() => {
-      setCompletedSteps((s) => s + 1);
-      setTypingIndex(0);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [completedSteps, typingIndex, steps.length]);
+  };
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl">
       <div className="min-h-[300px] p-4 font-mono text-sm sm:p-6">
-        {/* Already-completed steps */}
-        {steps.slice(0, completedSteps).map((s, i) => (
-          <div key={i} className={`${i > 0 ? 'mt-1' : ''}`}>
-            {s.type === 'command' && (
-              <div className="flex items-center gap-2">
-                <span className="text-green-400">$</span>
-                <span className="text-gray-100">{s.text}</span>
-              </div>
+        {/* Command line */}
+        <div className="flex items-center gap-2">
+          <span className="text-green-400">$</span>
+          <span className="text-gray-100">
+            {phase === 'typing' ? (
+              <>
+                {PUSH_COMMAND.slice(0, typingIndex)}
+                <span className="inline-block h-[0.85em] w-[0.5em] translate-y-[1px] animate-pulse bg-gray-100/70" />
+              </>
+            ) : (
+              PUSH_COMMAND
             )}
-            {s.type === 'output' && (
-              <div
-                className={`${s.text.startsWith('✓') ? 'text-green-400' : 'text-gray-400'}`}
-              >
-                {s.text}
-              </div>
-            )}
-          </div>
-        ))}
+          </span>
+        </div>
 
-        {/* Currently typing command */}
-        {isTypingCommand && currentStep && (
-          <div
-            className={`${completedSteps > 0 ? 'mt-1' : ''} flex items-center gap-2`}
-          >
-            <span className="text-green-400">$</span>
-            <span className="text-gray-100">
-              {currentStep.text.slice(0, typingIndex)}
-              <span className="inline-block h-[0.85em] w-[0.5em] translate-y-[1px] animate-pulse bg-gray-100/70" />
+        {/* Found app ID */}
+        {showFound && (
+          <div className="mt-1 text-gray-400">
+            Found{' '}
+            <span className="rounded bg-green-900/60 px-1 text-green-300">
+              NEXT_PUBLIC_INSTANT_APP_ID
             </span>
+            : a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
           </div>
         )}
 
-        {/* Waiting cursor before output appears */}
-        {currentStep?.type === 'output' && (
-          <div className={`${completedSteps > 0 ? 'mt-1' : ''}`}>
-            <span className="inline-block h-[1em] w-[2px] animate-pulse bg-gray-400" />
+        {/* Schema diff box */}
+        {showDiff && (
+          <div className="mt-4 rounded border border-gray-700 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="rounded bg-green-600 px-2 py-0.5 text-xs font-bold text-white">
+                + CREATE NAMESPACE
+              </span>
+              <span className="text-gray-300">todos</span>
+            </div>
+            <div className="mt-2 space-y-0.5 pl-2">
+              <div className="text-green-400">+ CREATE ATTR todos.id</div>
+              <div className="text-green-400">+ CREATE ATTR todos.text</div>
+              <div className="pl-6 text-gray-500">DATA TYPE: string</div>
+              <div className="text-green-400">+ CREATE ATTR todos.done</div>
+              <div className="pl-6 text-gray-500">DATA TYPE: boolean</div>
+              <div className="text-green-400">
+                + CREATE ATTR todos.createdAt
+              </div>
+              <div className="pl-6 text-gray-500">DATA TYPE: number</div>
+            </div>
+          </div>
+        )}
+
+        {/* Push prompt + buttons */}
+        {showButtons && (
+          <div className="mt-4">
+            <div className="text-gray-300">Push these changes?</div>
+            <div className="mt-2 flex gap-4">
+              <button
+                onClick={handlePush}
+                className={`rounded px-4 py-1 text-sm font-bold transition-colors ${
+                  showResult
+                    ? 'bg-amber-600/50 text-white/60'
+                    : 'bg-amber-600 text-white hover:bg-amber-500 cursor-pointer'
+                }`}
+              >
+                Push
+              </button>
+              <span className="rounded bg-gray-600 px-4 py-1 text-sm font-bold text-gray-300">
+                Cancel
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Result */}
+        {showResult && (
+          <div className="mt-3">
+            <div className="font-bold text-green-400">Schema updated!</div>
+            <div className="text-green-400">✓ Done</div>
           </div>
         )}
       </div>

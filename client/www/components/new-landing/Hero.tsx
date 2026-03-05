@@ -171,7 +171,7 @@ function VideoPlayer() {
             <p className="font-mono text-xs tracking-[0.16em] text-white/85 sm:text-[13px]">
               instant in action
             </p>
-            <p className="mx-auto mt-6 text-3xl leading-[1.05] font-semibold tracking-[-0.02em] text-white sm:text-4xl md:text-5xl lg:text-[3.5rem]">
+            <p className="mx-auto mt-6 text-9xl leading-[1.2] font-semibold tracking-[-0.02em] text-white sm:text-5xl">
               Agents build a realtime
               <br />
               instagram, in 12 minutes
@@ -179,8 +179,8 @@ function VideoPlayer() {
           </div>
 
           <div className="absolute top-[73%] left-1/2 -translate-x-1/2 -translate-y-1/2">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-orange-600 shadow-[0_20px_48px_rgba(234,88,12,0.55)] transition-transform duration-300 group-hover:scale-110 sm:h-32 sm:w-32 lg:h-40 lg:w-40">
-              <PlayIcon className="ml-1 h-11 w-11 text-white sm:h-[3.4rem] sm:w-[3.4rem] lg:h-[4rem] lg:w-[4rem]" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-600 shadow-[0_20px_48px_rgba(234,88,12,0.55)] transition-transform duration-300 group-hover:scale-110 sm:h-24 sm:w-24 lg:h-28 lg:w-28">
+              <PlayIcon className="ml-1 h-8 w-8 text-white sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
             </div>
           </div>
         </button>
@@ -196,7 +196,7 @@ export function Hero() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <h1 className="hero-stagger-1 text-9xl font-semibold sm:text-5xl">
-            The backend for AI-coded apps
+            The best backend for vibe-coded apps
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
             Insant gives you everything you need to vibe code delightful apps.
@@ -218,7 +218,7 @@ export function Hero() {
             </Link>
           </div>
 
-          <div className="hero-stagger-3 mx-auto mt-10 max-w-[1100px]">
+          <div className="hero-stagger-3 mx-auto mt-10 max-w-[880px]">
             <VideoPlayer />
           </div>
         </div>

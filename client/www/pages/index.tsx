@@ -13,16 +13,17 @@ import { StartupShowcase } from '@/components/new-landing/StartupShowcase';
 import { FirebaseTestimonial } from '@/components/new-landing/FirebaseTestimonial';
 import { FinalCTA } from '@/components/new-landing/FinalCTA';
 import { Footer } from '@/components/new-landing/Footer';
-import { AgentPathsBg } from '@/components/home/AgentPathsBg';
+import { AgentPathsBgSoftCenter } from '@/components/home/AgentPathsBgSoftCenter';
 
 // ---------------------------------------------------------
 // Hero background — swap this import to change the effect:
 //   import { AgentPathsBg } from '@/components/home/AgentPathsBg';
+//   import { AgentPathsBgSoftCenter } from '@/components/home/AgentPathsBgSoftCenter';
 //   import { ConstellationBg } from '@/components/home/ConstellationBg';
 //   import { RipplesBg } from '@/components/home/RipplesBg';
-// Then replace <AgentPathsBg /> below with the chosen component.
+// Then replace the HeroBg assignment below with the chosen component.
 // ---------------------------------------------------------
-const HeroBg = AgentPathsBg;
+const HeroBg = AgentPathsBgSoftCenter;
 
 const SeeTheCodeButton = ({ href }: { href: string }) => (
   <Link

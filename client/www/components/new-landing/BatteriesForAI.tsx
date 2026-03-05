@@ -27,7 +27,7 @@ function AuthDemo() {
   };
 
   return (
-    <div className="flex items-center justify-center rounded-xl bg-[#FAFAFA] p-4">
+    <div className="flex items-center justify-center rounded-xl p-4">
       <div className="w-full max-w-[280px]">
         <AnimatePresence mode="wait">
           {view === 'form' ? (
@@ -173,10 +173,10 @@ function GitHubIcon() {
 // ─── Permissions Demo ────────────────────────────────────
 
 const permRules = [
-  { action: 'read', rule: 'true', color: 'text-green-600' },
-  { action: 'create', rule: 'isOwner', color: 'text-blue-600' },
-  { action: 'update', rule: 'isOwner', color: 'text-orange-600' },
-  { action: 'delete', rule: 'false', color: 'text-red-600' },
+  { action: 'read', rule: 'true' },
+  { action: 'create', rule: 'isOwner' },
+  { action: 'update', rule: 'isOwner' },
+  { action: 'delete', rule: 'false' },
 ];
 
 const permUsers = [
@@ -249,7 +249,7 @@ function PermissionsDemo() {
               setOpOpen(!opOpen);
               setUserOpen(false);
             }}
-            className={`rounded-md bg-white px-2.5 py-1 font-semibold shadow-sm ring-1 ring-gray-200 transition-colors hover:ring-gray-300 ${permRules[activeRuleIdx].color}`}
+            className="rounded-md bg-white px-2.5 py-1 font-mono font-semibold text-gray-900 shadow-sm ring-1 ring-gray-200 transition-colors hover:ring-gray-300"
           >
             {selectedOp}
             <span className="ml-1 text-gray-400">&#9662;</span>
@@ -263,7 +263,7 @@ function PermissionsDemo() {
                     setSelectedOp(op);
                     setOpOpen(false);
                   }}
-                  className={`block w-full px-3 py-1 text-left text-sm hover:bg-gray-50 ${
+                  className={`block w-full px-3 py-1 text-left font-mono text-sm hover:bg-gray-50 ${
                     selectedOp === op
                       ? 'font-semibold text-gray-900'
                       : 'text-gray-600'
@@ -306,7 +306,7 @@ function PermissionsDemo() {
                   />
                 )}
                 <span
-                  className={`relative font-semibold ${activeRuleIdx === i ? r.color : 'text-gray-400'}`}
+                  className={`relative font-semibold ${activeRuleIdx === i ? 'text-gray-900' : 'text-gray-400'}`}
                 >
                   {r.action}
                 </span>
