@@ -129,7 +129,7 @@ CRITICAL: If you are unsure how something works in InstantDB you fetch the relev
 
 Below are some CRITICAL guidelines for writing permissions in InstantDB.
 
-## data.ref
+## `data.ref`
 
 - Use `data.ref("<path.to.attr>")` for linked attributes.
 - Always returns a **list**.
@@ -153,7 +153,7 @@ data.ref('owner.id') == null
 data.ref('owner.id').length > 0
 ```
 
-## auth.ref
+## `auth.ref`
 
 - Same as `data.ref` but path must start with `$user`.
 - Returns a list.
@@ -382,12 +382,14 @@ Fetch the URL for a topic to learn more about it.
 - [Reading data](https://instantdb.com/docs/instaql.md): How to read data with Instant using InstaQL.
 - [Instant on the Backend](https://instantdb.com/docs/backend.md): How to use Instant on the server with the Admin SDK.
 - [Patterns](https://instantdb.com/docs/patterns.md): Common patterns for working with InstantDB.
-- [Auth](https://instantdb.com/docs/auth.md): Instant supports magic code, OAuth, Clerk, and custom auth.
 - [Auth](https://instantdb.com/docs/auth/magic-codes.md): How to add magic code auth to your Instant app.
+- [Guest Auth](https://www.instantdb.com/docs/auth/guest-auth.md): How to add guest auth to your Instant app.
+- [Other Auth](https://instantdb.com/docs/auth.md): Additional auth methods supported by Instant.
 - [Managing users](https://instantdb.com/docs/users.md): How to manage users in your Instant app.
 - [Presence, Cursors, and Activity](https://instantdb.com/docs/presence-and-topics.md): How to add ephemeral features like presence and cursors to your Instant app.
 - [Instant CLI](https://instantdb.com/docs/cli.md): How to use the Instant CLI to manage schema.
 - [Storage](https://instantdb.com/docs/storage.md): How to upload and serve files with Instant.
+- [Streams](https://instantdb.com/docs/streams.md): How to use streams with Instant.
 - [Stripe Payments](https://instantdb.com/docs/stripe-payments.md): How to integrate Stripe payments with Instant.
 
 # Final Note
