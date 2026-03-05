@@ -1,4 +1,4 @@
-import { test as baseTest, expect } from 'vitest';
+import { test as baseTest } from 'vitest';
 import { init, InstantCoreDatabase } from '../../../src';
 
 const apiUrl = import.meta.env.VITE_INSTANT_DEV
