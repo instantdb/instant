@@ -151,9 +151,9 @@ function GitHubIcon() {
 
 const permRules = [
   { action: 'read', rule: 'true', color: 'text-green-600' },
-  { action: 'create', rule: 'auth.id != null', color: 'text-blue-600' },
+  { action: 'create', rule: 'isOwner', color: 'text-blue-600' },
   { action: 'update', rule: 'isOwner', color: 'text-orange-600' },
-  { action: 'delete', rule: 'isOwner', color: 'text-red-600' },
+  { action: 'delete', rule: 'false', color: 'text-red-600' },
 ];
 
 const permUsers = [
@@ -166,8 +166,9 @@ const permOps = ['read', 'create', 'update', 'delete'] as const;
 
 function evaluatePermission(userId: string, op: string): boolean {
   if (op === 'read') return true;
-  if (op === 'create') return userId !== 'anon';
-  return userId === 'alice';
+  if (op === 'delete') return false;
+  // create & update use isOwner — passes for any logged-in user
+  return userId !== 'anon';
 }
 
 function PermissionsDemo() {
@@ -238,10 +239,11 @@ function PermissionsDemo() {
         <div className="flex-1" />
         <AnimatePresence mode="wait">
           <motion.span
-            key={`${selectedUser}-${selectedOp}`}
+            key={allowed ? 'allowed' : 'denied'}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.12 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className={`font-mono text-sm font-semibold ${allowed ? 'text-green-600' : 'text-red-500'}`}
           >
             {allowed ? '✓ allowed' : '✗ denied'}
@@ -258,14 +260,19 @@ function PermissionsDemo() {
             {permRules.map((r, i) => (
               <div
                 key={r.action}
-                className={`px-2 py-1.5 transition-colors ${
-                  activeRuleIdx === i ? 'bg-gray-100' : ''
-                }`}
+                className="relative px-2 py-1.5"
               >
-                <span className={`font-semibold ${activeRuleIdx === i ? r.color : 'text-gray-400'}`}>
+                {activeRuleIdx === i && (
+                  <motion.div
+                    layoutId="perm-highlight"
+                    className="absolute inset-0 rounded bg-gray-100"
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <span className={`relative font-semibold ${activeRuleIdx === i ? r.color : 'text-gray-400'}`}>
                   {r.action}
                 </span>
-                <span className={activeRuleIdx === i ? 'text-gray-600' : 'text-gray-400'}>
+                <span className={`relative ${activeRuleIdx === i ? 'text-gray-600' : 'text-gray-400'}`}>
                   : {r.rule}
                 </span>
               </div>

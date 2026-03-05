@@ -1182,35 +1182,37 @@ export function AutoPlayDemo() {
   return (
     <div ref={containerRef} className="flex items-start gap-6">
       <div className="relative min-w-0 flex-1">
-        <div className="mb-2 flex items-center gap-2.5 px-1">
-          <img
-            src="/img/icon/favicon-96x96.svg"
-            alt="Instant"
-            className="h-6 w-6 rounded"
-          />
-          <span className="text-sm font-medium">With Instant</span>
+        <div className="mb-2 flex items-center justify-between px-1">
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/img/icon/favicon-96x96.svg"
+              alt="Instant"
+              className="h-6 w-6 rounded"
+            />
+            <span className="text-sm font-medium">With Instant</span>
+          </div>
+          <span className="text-xs font-medium text-green-600">
+            Updates right away
+          </span>
         </div>
         <AutoPlayTaskCard
           title="My Tasks"
           items={fastItems}
           onToggle={(id) => handleUserClick('fast', id)}
         />
-        <motion.p
-          className="mt-2 px-1 text-xs font-medium text-green-600"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: fastDone ? 1 : 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          Updates right away
-        </motion.p>
         {showCursor && activeSide === 'fast' && (
           <AutoPlayFakeCursor index={cursorIndex!} />
         )}
       </div>
       <div className="relative min-w-0 flex-1">
-        <div className="mb-2 flex items-center gap-2.5 px-1">
-          <span className="text-lg">😬</span>
-          <span className="text-sm font-medium">Without Instant</span>
+        <div className="mb-2 flex items-center justify-between px-1">
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">😬</span>
+            <span className="text-sm font-medium">Without Instant</span>
+          </div>
+          <span className="text-xs font-medium text-gray-400">
+            Waits on the server
+          </span>
         </div>
         <AutoPlayTaskCard
           title="My Tasks"
@@ -1218,14 +1220,6 @@ export function AutoPlayDemo() {
           pending={slowPending}
           onToggle={(id) => handleUserClick('slow', id)}
         />
-        <motion.p
-          className="mt-2 px-1 text-xs font-medium text-gray-400"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: slowDone ? 1 : 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          Waits on the server
-        </motion.p>
         {showCursor && activeSide === 'slow' && (
           <AutoPlayFakeCursor index={cursorIndex!} />
         )}

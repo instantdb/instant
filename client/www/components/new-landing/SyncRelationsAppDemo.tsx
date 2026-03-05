@@ -34,7 +34,10 @@ export const demoLists: List[] = [
         id: 2,
         text: 'Set up auth providers',
         done: true,
-        comments: [],
+        comments: [
+          { id: 10, user: 'Bob', text: 'Google and GitHub are live' },
+          { id: 11, user: 'Carol', text: 'Nice, testing now' },
+        ],
       },
       {
         id: 3,
