@@ -1,29 +1,52 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AnimateIn } from './AnimateIn';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Animated terminal showing `npx instant-cli push` with schema diff
-type TerminalPhase =
-  | 'typing'
-  | 'found'
-  | 'diff'
-  | 'buttons'
-  | 'result'
-  | 'pause';
+type TerminalPhase = 'idle' | 'typing' | 'found' | 'diff' | 'result' | 'cancelled' | 'pause';
 
-const PUSH_COMMAND = 'npx instant-cli push';
+const PUSH_COMMAND = 'npx instant-cli push schema';
 
 function AnimatedTerminal() {
-  const [phase, setPhase] = useState<TerminalPhase>('typing');
+  const [phase, setPhase] = useState<TerminalPhase>('idle');
   const [typingIndex, setTypingIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const showFound = phase !== 'typing';
-  const showDiff = !['typing', 'found'].includes(phase);
-  const showButtons = !['typing', 'found', 'diff'].includes(phase);
-  const showResult = phase === 'result' || phase === 'pause';
+  const showFound = !['idle', 'typing'].includes(phase);
+  const showDiff = !['idle', 'typing', 'found'].includes(phase);
+  const showButtons = showDiff;
+  const showResult = phase === 'result' || phase === 'cancelled' || phase === 'pause';
+
+  // Start animation when the terminal scrolls into view
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && phase === 'idle') {
+          setPhase('typing');
+        }
+      },
+      { threshold: 0.5 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [phase]);
 
   useEffect(() => {
+    requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    });
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase === 'idle') return;
+
     if (phase === 'typing') {
       if (typingIndex < PUSH_COMMAND.length) {
         const timeout = setTimeout(
@@ -42,17 +65,11 @@ function AnimatedTerminal() {
     }
 
     if (phase === 'diff') {
-      const timeout = setTimeout(() => setPhase('buttons'), 400);
-      return () => clearTimeout(timeout);
-    }
-
-    if (phase === 'buttons') {
-      // Auto-push after 5 seconds if user doesn't click
       const timeout = setTimeout(() => setPhase('result'), 5000);
       return () => clearTimeout(timeout);
     }
 
-    if (phase === 'result') {
+    if (phase === 'result' || phase === 'cancelled') {
       const timeout = setTimeout(() => setPhase('pause'), 3000);
       return () => clearTimeout(timeout);
     }
@@ -61,20 +78,26 @@ function AnimatedTerminal() {
       const timeout = setTimeout(() => {
         setPhase('typing');
         setTypingIndex(0);
-      }, 3000);
+      }, 60000);
       return () => clearTimeout(timeout);
     }
   }, [phase, typingIndex]);
 
   const handlePush = () => {
-    if (phase === 'buttons') {
+    if (phase === 'diff') {
       setPhase('result');
     }
   };
 
+  const handleCancel = () => {
+    if (phase === 'diff') {
+      setPhase('cancelled');
+    }
+  };
+
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl">
-      <div className="min-h-[300px] p-4 font-mono text-sm sm:p-6">
+    <div ref={containerRef} className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl">
+      <div ref={scrollRef} className="h-[340px] overflow-y-auto p-4 font-mono text-sm sm:p-6">
         {/* Command line */}
         <div className="flex items-center gap-2">
           <span className="text-green-400">$</span>
@@ -94,65 +117,64 @@ function AnimatedTerminal() {
         {showFound && (
           <div className="mt-1 text-gray-400">
             Found{' '}
-            <span className="rounded bg-green-900/60 px-1 text-green-300">
+            <span className="bg-green-900/60 px-0.5 text-green-300">
               NEXT_PUBLIC_INSTANT_APP_ID
             </span>
-            : a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+            : a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a
           </div>
         )}
 
         {/* Schema diff box */}
         {showDiff && (
-          <div className="mt-4 rounded border border-gray-700 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="rounded bg-green-600 px-2 py-0.5 text-xs font-bold text-white">
+          <div className="mt-3 border border-gray-700 px-3 py-2">
+            <div>
+              <span className="bg-green-600 px-1.5 py-px text-white">
                 + CREATE NAMESPACE
               </span>
-              <span className="text-gray-300">todos</span>
+              <span className="ml-2 text-gray-300">todos</span>
             </div>
-            <div className="mt-2 space-y-0.5 pl-2">
+            <div className="mt-1.5 space-y-px pl-2">
               <div className="text-green-400">+ CREATE ATTR todos.id</div>
               <div className="text-green-400">+ CREATE ATTR todos.text</div>
               <div className="pl-6 text-gray-500">DATA TYPE: string</div>
-              <div className="text-green-400">+ CREATE ATTR todos.done</div>
-              <div className="pl-6 text-gray-500">DATA TYPE: boolean</div>
-              <div className="text-green-400">
-                + CREATE ATTR todos.createdAt
-              </div>
-              <div className="pl-6 text-gray-500">DATA TYPE: number</div>
             </div>
           </div>
         )}
 
         {/* Push prompt + buttons */}
         {showButtons && (
-          <div className="mt-4">
+          <div className="mt-3">
             <div className="text-gray-300">Push these changes?</div>
-            <div className="mt-2 flex gap-4">
+            <div className="mt-1.5 flex gap-4">
               <button
                 onClick={handlePush}
-                className={`rounded px-4 py-1 text-sm font-bold transition-colors ${
-                  showResult
-                    ? 'bg-amber-600/50 text-white/60'
-                    : 'bg-amber-600 text-white hover:bg-amber-500 cursor-pointer'
-                }`}
+                className="bg-amber-600 px-3 py-0.5 text-white cursor-pointer"
               >
                 Push
               </button>
-              <span className="rounded bg-gray-600 px-4 py-1 text-sm font-bold text-gray-300">
+              <button
+                onClick={handleCancel}
+                className="bg-gray-700 px-3 py-0.5 text-gray-400 cursor-pointer"
+              >
                 Cancel
-              </span>
+              </button>
             </div>
           </div>
         )}
 
         {/* Result */}
-        {showResult && (
-          <div className="mt-3">
-            <div className="font-bold text-green-400">Schema updated!</div>
+        {phase === 'cancelled' && (
+          <div className="mt-2">
+            <div className="text-gray-400">Schema migration cancelled!</div>
+          </div>
+        )}
+        {(phase === 'result' || phase === 'pause') && (
+          <div className="mt-2">
+            <div className="text-green-400">Schema updated!</div>
             <div className="text-green-400">✓ Done</div>
           </div>
         )}
+
       </div>
     </div>
   );
@@ -406,11 +428,11 @@ function PermsCode() {
 
       <div className="pl-8">
         <span className="text-blue-300">bind</span>
-        <span className="text-gray-400">: [</span>
+        <span className="text-gray-400">{': {'}</span>
         <span className="text-emerald-300">"isOwner"</span>
-        <span className="text-gray-400">, </span>
-        <span className="text-emerald-300">"auth.id == data.creatorId"</span>
-        <span className="text-gray-400">],</span>
+        <span className="text-gray-400">: </span>
+        <span className="text-emerald-300">"auth.id == data.creator"</span>
+        <span className="text-gray-400">{'},'}</span>
       </div>
 
       <div className="mt-2 pl-8">
@@ -429,11 +451,9 @@ function PermsCode() {
       <div className="pl-12">
         <span className="text-blue-300">create</span>
         <span className="text-gray-400">: </span>
-        <span className="text-emerald-300">"auth.id != null"</span>
+        <span className="text-emerald-300">"isOwner"</span>
         <span className="text-gray-400">,</span>
-        <span className="ml-4 text-gray-400">
-          // Logged-in users can create
-        </span>
+        <span className="ml-4 text-gray-400">// Only owner</span>
       </div>
 
       <div className="pl-12">

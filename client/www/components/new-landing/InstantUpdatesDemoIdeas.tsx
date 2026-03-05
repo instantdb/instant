@@ -1206,7 +1206,6 @@ export function AutoPlayDemo() {
       <div className="relative min-w-0 flex-1">
         <div className="mb-2 flex items-center justify-between px-1">
           <div className="flex items-center gap-2.5">
-            <span className="text-lg">😬</span>
             <span className="text-sm font-medium">Without Instant</span>
           </div>
           <span className="text-xs font-medium text-gray-400">

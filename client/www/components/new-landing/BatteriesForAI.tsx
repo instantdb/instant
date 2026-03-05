@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AnimateIn } from './AnimateIn';
 import { RevenueDashboardDemo } from './PaymentsIdea_Dashboard';
@@ -331,179 +331,381 @@ function PermissionsDemo() {
 
 // ─── Storage Demo ────────────────────────────────────────
 
+function StorageFakeCursor({
+  x,
+  y,
+  clicking,
+}: {
+  x: number;
+  y: number;
+  clicking: boolean;
+}) {
+  return (
+    <motion.div
+      className="pointer-events-none absolute z-10"
+      initial={false}
+      animate={{ left: x, top: y, scale: clicking ? 0.85 : 1 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+    >
+      <svg
+        width="16"
+        height="20"
+        viewBox="0 0 16 20"
+        fill="none"
+        className="drop-shadow-md"
+      >
+        <path
+          d="M1 1L1 15L5 11L9 18L12 16.5L8 9.5L13 9L1 1Z"
+          fill="black"
+          stroke="white"
+          strokeWidth="1.5"
+        />
+      </svg>
+    </motion.div>
+  );
+}
+
 function StorageDemo() {
-  const [view, setView] = useState<'idle' | 'uploading' | 'success'>('idle');
-  const [progress, setProgress] = useState(0);
-  const [uploadedFileName, setUploadedFileName] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [phase, setPhase] = useState<
+    'compose' | 'dragging' | 'uploading' | 'typing' | 'post'
+  >('compose');
+  const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
+  const [showCursor, setShowCursor] = useState(false);
+  const [clicking, setClicking] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [typedText, setTypedText] = useState('');
+  const [showDragThumb, setShowDragThumb] = useState(false);
+  const [imageDropped, setImageDropped] = useState(false);
 
-  // Progress tick
-  useEffect(() => {
-    if (view !== 'uploading') return;
-    if (progress >= 100) {
-      const t = setTimeout(() => setView('success'), 100);
-      return () => clearTimeout(t);
+  const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const heartRef = useRef<HTMLDivElement>(null);
+  const hasStarted = useRef(false);
+
+  const caption = 'Newest member of the team';
+
+  const clear = useCallback(() => {
+    timeouts.current.forEach(clearTimeout);
+    timeouts.current = [];
+  }, []);
+
+  const sched = (fn: () => void, ms: number) => {
+    const t = setTimeout(fn, ms);
+    timeouts.current.push(t);
+  };
+
+  const animateHeart = () => {
+    const target = heartRef.current;
+    if (!target) return;
+
+    const count = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.innerText = '❤️';
+      target.appendChild(el);
+
+      const size = 14 + Math.random() * 14;
+      const xDrift = (Math.random() - 0.5) * 60;
+      const yDist = -(50 + Math.random() * 40);
+      const delay = i * 60;
+      const duration = 600 + Math.random() * 300;
+      const rotation = (Math.random() - 0.5) * 40;
+
+      Object.assign(el.style, {
+        position: 'absolute',
+        left: '50%',
+        top: '50%',
+        fontSize: `${size}px`,
+        lineHeight: '1',
+        pointerEvents: 'none',
+        zIndex: '9999',
+        transform: 'translate(-50%, -50%) scale(0)',
+        opacity: '1',
+        transition: `transform ${duration}ms cubic-bezier(0.2, 0.6, 0.3, 1), opacity ${duration}ms ease-out`,
+        transitionDelay: `${delay}ms`,
+      });
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          Object.assign(el.style, {
+            transform: `translate(calc(-50% + ${xDrift}px), calc(-50% + ${yDist}px)) scale(1) rotate(${rotation}deg)`,
+            opacity: '0',
+          });
+        });
+      });
+
+      setTimeout(() => el.remove(), duration + delay + 50);
     }
-    const t = setTimeout(() => setProgress((p) => Math.min(p + 25, 100)), 30);
-    return () => clearTimeout(t);
-  }, [view, progress]);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadedFileName(file.name);
-    setProgress(0);
-    setView('uploading');
   };
 
-  const handleClick = () => {
-    if (view === 'uploading') return;
-    fileInputRef.current?.click();
+  const runCycle = useCallback(() => {
+    clear();
+    setPhase('compose');
+    setShowCursor(false);
+    setClicking(false);
+    setUploadProgress(0);
+    setTypedText('');
+    setShowDragThumb(false);
+    setImageDropped(false);
+
+    let t = 400;
+
+    // Cursor appears from the right, carrying a thumbnail
+    sched(() => {
+      setCursorPos({ x: 230, y: 80 });
+      setShowCursor(true);
+      setShowDragThumb(true);
+      setPhase('dragging');
+    }, t);
+
+    t += 500;
+
+    // Drag to the dropzone center
+    sched(() => setCursorPos({ x: 110, y: 130 }), t);
+
+    t += 800;
+
+    // Drop the image
+    sched(() => setClicking(true), t);
+    t += 200;
+    sched(() => {
+      setClicking(false);
+      setShowDragThumb(false);
+      setImageDropped(true);
+      setPhase('uploading');
+    }, t);
+
+    // Upload progress bar fills over ~1s
+    const uploadDuration = 1000;
+    const uploadSteps = 20;
+    const stepMs = uploadDuration / uploadSteps;
+    for (let i = 1; i <= uploadSteps; i++) {
+      const progress = (i / uploadSteps) * 100;
+      sched(() => setUploadProgress(progress), t + i * stepMs);
+    }
+    t += uploadDuration + 300;
+
+    // Move cursor to text area (below the image)
+    sched(() => {
+      setPhase('typing');
+      setCursorPos({ x: 35, y: 195 });
+    }, t);
+
+    t += 400;
+
+    // Type out caption character by character
+    for (let i = 0; i <= caption.length; i++) {
+      const text = caption.slice(0, i);
+      sched(() => setTypedText(text), t + i * 50);
+    }
+    t += caption.length * 50 + 500;
+
+    // Transition to post view
+    sched(() => setPhase('post'), t);
+
+    t += 600;
+
+    // Cursor moves to heart
+    sched(() => setCursorPos({ x: 18, y: 280 }), t);
+
+    t += 500;
+
+    // Heart click
+    sched(() => setClicking(true), t);
+    t += 200;
+    sched(() => {
+      setClicking(false);
+      animateHeart();
+    }, t);
+
+    t += 400;
+
+    // Hide cursor — animation ends, user can interact freely
+    sched(() => setShowCursor(false), t);
+  }, [clear]);
+
+  const handleHeartClick = () => {
+    if (phase !== 'post') return;
+    animateHeart();
   };
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasStarted.current) {
+          hasStarted.current = true;
+          runCycle();
+        }
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      clear();
+    };
+  }, [runCycle, clear]);
 
   return (
-    <div className="space-y-3">
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={handleFileSelect}
-      />
-
+    <div ref={containerRef} className="relative mx-auto max-w-[260px]">
       <AnimatePresence mode="wait">
-        {view === 'success' ? (
+        {phase !== 'post' ? (
           <motion.div
-            key="success"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="flex flex-col items-center gap-3 py-6"
+            key="compose"
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden rounded-lg border border-gray-200 bg-white"
           >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-            >
-              <svg
-                className="h-8 w-8 text-green-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                />
-              </svg>
-            </motion.div>
-            <p className="text-center text-sm font-semibold text-gray-800">
-              This is a demo, but we could upload{' '}
-              <span className="inline-block max-w-[160px] truncate align-bottom">
-                {uploadedFileName}
-              </span>{' '}
-              for real in a jiffy!
-            </p>
-            <p className="text-center text-xs text-gray-500">
-              Add file uploads to your app in minutes.
-            </p>
-            <a
-              href="/docs/storage"
-              className="text-xs font-medium text-orange-500 transition-colors hover:text-orange-600"
-            >
-              Check out the docs →
-            </a>
+            {/* Header */}
+            <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2">
+              <img
+                src="/img/landing/stopa.jpg"
+                alt="stopa"
+                className="h-6 w-6 rounded-full object-cover"
+              />
+              <span className="text-xs font-semibold text-gray-900">
+                stopa
+              </span>
+            </div>
+
+            {/* Dropzone / Image */}
+            <div className="px-3 pt-2">
+              {imageDropped ? (
+                <div className="relative overflow-hidden">
+                  <img
+                    src="/img/landing/dog-post.jpg"
+                    alt="Dog"
+                    className="w-full object-cover"
+                    style={{ aspectRatio: '4/3' }}
+                  />
+                  {phase === 'uploading' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      <div className="h-1.5 w-3/4 rounded-full bg-white/30">
+                        <div
+                          className="h-full rounded-full bg-white transition-all duration-75"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center rounded-md border-2 border-dashed border-gray-200 py-10 text-gray-300">
+                  <svg
+                    className="h-8 w-8"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
+                    />
+                  </svg>
+                  <span className="mt-1 text-xs">Drop image here</span>
+                </div>
+              )}
+            </div>
+
+            {/* Caption area */}
+            <div className="px-3 pb-3 pt-1">
+              <div className="min-h-[20px] text-xs text-gray-800">
+                {typedText ? (
+                  <span>
+                    {typedText}
+                    {phase === 'typing' && (
+                      <span className="animate-pulse text-gray-400">|</span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-gray-300">Write a caption...</span>
+                )}
+              </div>
+            </div>
           </motion.div>
         ) : (
           <motion.div
-            key="upload"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            key="post"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="space-y-3"
+            transition={{ duration: 0.3 }}
+            className="relative rounded-lg border border-gray-200 bg-white"
           >
-            {/* Upload zone */}
-            <button
-              onClick={handleClick}
-              className={`flex h-14 w-full cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed px-4 transition-colors ${
-                view === 'uploading'
-                  ? 'border-blue-400 bg-blue-50/50'
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              {view === 'uploading' ? (
-                <div className="flex flex-1 items-center gap-3">
-                  <span className="shrink-0 font-mono text-xs text-gray-700">
-                    {uploadedFileName}
-                  </span>
-                  <div className="h-1.5 flex-1 rounded-full bg-gray-200">
-                    <div
-                      className="h-full rounded-full bg-blue-500 transition-all duration-75"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <span className="flex items-center text-xs text-gray-400">
-                  <CloudIcon />
-                  Click to upload
+            {/* Header */}
+            <div className="flex items-center gap-2 px-3 py-2">
+              <img
+                src="/img/landing/stopa.jpg"
+                alt="stopa"
+                className="h-7 w-7 rounded-full object-cover"
+              />
+              <span className="text-xs font-semibold text-gray-900">
+                stopa
+              </span>
+            </div>
+            {/* Photo */}
+            <div className="relative aspect-square w-full overflow-visible">
+              <img
+                src="/img/landing/dog-post.jpg"
+                alt="Dog licking a spoon"
+                className="h-full w-full object-cover"
+              />
+              {/* Heart button — pill, overlapping bottom-right of image */}
+              <div
+                ref={heartRef}
+                className="absolute -right-2 -bottom-3"
+                style={{ overflow: 'visible' }}
+              >
+                <button
+                  onClick={handleHeartClick}
+                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xl shadow-sm transition-transform hover:shadow-md active:scale-90"
+                >
+                  ❤️
+                </button>
+              </div>
+            </div>
+            {/* Caption */}
+            <div className="px-3 pt-3 pb-2">
+              <p className="text-xs text-gray-800">
+                <span className="font-semibold">stopa</span>{' '}
+                <span className="text-gray-600">
+                  Newest member of the team
                 </span>
-              )}
-            </button>
-
-            {/* File grid */}
-            <div className="grid grid-cols-4 gap-2">
-              {/* conjurer.jpg — Bosch's Conjurer */}
-              <div className="aspect-square overflow-hidden rounded-lg">
-                <img
-                  src="/img/landing/conjurer-bosch.jpg"
-                  alt="conjurer.jpg"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              {/* melencolia.mp4 — Dürer's Melencolia I */}
-              <div className="aspect-square overflow-hidden rounded-lg">
-                <img
-                  src="/img/landing/melencolia-durer.jpg"
-                  alt="melencolia.mp4"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              {/* Empty slots */}
-              <div className="aspect-square">
-                <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-gray-200" />
-              </div>
-              <div className="aspect-square">
-                <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-gray-200" />
-              </div>
+              </p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
-  );
-}
 
-function CloudIcon() {
-  return (
-    <svg
-      className="mr-1 inline h-4 w-4 text-gray-400"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={1.5}
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
-      />
-    </svg>
+      {/* Drag thumbnail following cursor */}
+      {showDragThumb && (
+        <motion.div
+          className="pointer-events-none absolute z-20"
+          animate={{ left: cursorPos.x + 12, top: cursorPos.y + 12 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        >
+          <div className="h-10 w-10 overflow-hidden rounded border border-white shadow-lg">
+            <img
+              src="/img/landing/dog-post.jpg"
+              alt="Dog"
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </motion.div>
+      )}
+
+      {showCursor && (
+        <StorageFakeCursor
+          x={cursorPos.x}
+          y={cursorPos.y}
+          clicking={clicking}
+        />
+      )}
+    </div>
   );
 }
 

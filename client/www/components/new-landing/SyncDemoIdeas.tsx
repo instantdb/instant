@@ -1,5 +1,6 @@
 'use client';
 
+import { AnimatePresence, motion } from 'motion/react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 // ─── Shared ───
@@ -691,6 +692,266 @@ export function DeviceFrameReactionsDemo() {
           />
         </LaptopFrame2>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Variant F: Live Chat Bubbles — Daniel & Joe
+// ─────────────────────────────────────────────
+
+type ChatMsg = {
+  id: number;
+  sender: 'daniel' | 'joe';
+  text: string;
+};
+
+const CHAT_SEED: ChatMsg[] = [
+  { id: 1, sender: 'daniel', text: 'Ready for code review?' },
+  { id: 2, sender: 'joe', text: 'Yep, PR looks clean' },
+];
+
+// Pre-loaded messages that cycle on button press
+const CANNED_MESSAGES: { sender: 'daniel' | 'joe'; text: string }[] = [
+  { sender: 'daniel', text: 'Approved, merging now' },
+  { sender: 'joe', text: 'Deploying to staging' },
+  { sender: 'daniel', text: 'All green in prod' },
+  { sender: 'joe', text: 'Nice, shipping it' },
+  { sender: 'daniel', text: 'Docs updated too' },
+  { sender: 'joe', text: 'Great, closing the ticket' },
+];
+
+const SENDER_META = {
+  daniel: { name: 'Daniel', img: '/img/landing/daniel.png' },
+  joe: { name: 'Joe', img: '/img/landing/joe.jpg' },
+};
+
+type ChatSyncDot = {
+  id: number;
+  direction: 'left-to-right' | 'right-to-left';
+};
+
+function ChatBubble({ msg }: { msg: ChatMsg }) {
+  const meta = SENDER_META[msg.sender];
+  return (
+    <div className="flex items-start gap-2 rounded-lg px-2.5 py-2">
+      <img
+        src={meta.img}
+        alt={meta.name}
+        className="h-5 w-5 shrink-0 rounded-full object-cover"
+      />
+      <div className="min-w-0">
+        <span className="text-[11px] font-semibold text-gray-700">
+          {meta.name}
+        </span>
+        <p className="text-xs text-gray-600">{msg.text}</p>
+      </div>
+    </div>
+  );
+}
+
+// Fixed height — fits ~3 messages, older ones clip out the top
+const CHAT_HEIGHT = 126;
+
+function ChatPhoneCard({
+  owner,
+  messages,
+  onSend,
+}: {
+  owner: 'daniel' | 'joe';
+  messages: ChatMsg[];
+  onSend: () => void;
+}) {
+  const meta = SENDER_META[owner];
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="mb-2 flex items-center gap-2.5 px-1">
+        <img
+          src={meta.img}
+          alt={meta.name}
+          className="h-7 w-7 rounded-full object-cover"
+        />
+        <span className="text-sm font-medium">{meta.name}&apos;s phone</span>
+      </div>
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="mb-3 flex items-center gap-1.5">
+          <span className="text-xs">#</span>
+          <span className="text-sm font-medium text-gray-500">code-review</span>
+        </div>
+        <div
+          className="flex flex-col justify-end overflow-hidden"
+          style={{ height: CHAT_HEIGHT }}
+        >
+          <motion.div
+            className="space-y-0.5"
+            layout
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          >
+            {messages.map((msg) => (
+              <motion.div
+                key={msg.id}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+              >
+                <ChatBubble msg={msg} />
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+        <button
+          onClick={onSend}
+          className="mt-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-100 active:scale-[0.98]"
+        >
+          Send message
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function RealtimeChatDemo() {
+  const [messages, setMessages] = useState<ChatMsg[]>(CHAT_SEED);
+  const [dots, setDots] = useState<ChatSyncDot[]>([]);
+  const nextId = useRef(CHAT_SEED.length + 1);
+  const cannedIdx = useRef(0);
+  const dotIdRef = useRef(0);
+  const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hasStarted = useRef(false);
+
+  const clearTimeouts = useCallback(() => {
+    timeouts.current.forEach(clearTimeout);
+    timeouts.current = [];
+  }, []);
+
+  const fireSyncDot = useCallback(
+    (direction: ChatSyncDot['direction']) => {
+      const id = dotIdRef.current++;
+      setDots((prev) => [...prev, { id, direction }]);
+      const t = setTimeout(() => {
+        setDots((prev) => prev.filter((d) => d.id !== id));
+      }, 350);
+      timeouts.current.push(t);
+    },
+    [],
+  );
+
+  const sendNext = useCallback(
+    (sender: 'daniel' | 'joe') => {
+      const canned = CANNED_MESSAGES[cannedIdx.current % CANNED_MESSAGES.length];
+      // Use the sender from the canned message pool but override with the button's owner
+      const id = nextId.current++;
+      const msg: ChatMsg = { id, sender, text: canned.text };
+      cannedIdx.current++;
+      setMessages((prev) => [...prev, msg]);
+      fireSyncDot(
+        sender === 'daniel' ? 'left-to-right' : 'right-to-left',
+      );
+    },
+    [fireSyncDot],
+  );
+
+  // Autoplay: 2 messages then loop
+  const runCycle = useCallback(() => {
+    clearTimeouts();
+    nextId.current = CHAT_SEED.length + 1;
+    cannedIdx.current = 0;
+    setMessages(CHAT_SEED);
+
+    const autoMsgs = CANNED_MESSAGES.slice(0, 2);
+    autoMsgs.forEach((m, i) => {
+      const delay = 1500 + i * 1800;
+      const t = setTimeout(() => {
+        const id = nextId.current++;
+        setMessages((prev) => [...prev, { id, sender: m.sender, text: m.text }]);
+        fireSyncDot(
+          m.sender === 'daniel' ? 'left-to-right' : 'right-to-left',
+        );
+        cannedIdx.current = i + 1;
+      }, delay);
+      timeouts.current.push(t);
+    });
+
+    const totalTime = 1500 + autoMsgs.length * 1800 + 4000;
+    const tLoop = setTimeout(() => runCycle(), totalTime);
+    timeouts.current.push(tLoop);
+  }, [clearTimeouts, fireSyncDot]);
+
+  const stopAutoplay = useCallback(() => {
+    clearTimeouts();
+  }, [clearTimeouts]);
+
+  const handleSend = useCallback(
+    (owner: 'daniel' | 'joe') => {
+      stopAutoplay();
+      sendNext(owner);
+    },
+    [stopAutoplay, sendNext],
+  );
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasStarted.current) {
+          hasStarted.current = true;
+          runCycle();
+        }
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      clearTimeouts();
+    };
+  }, [runCycle, clearTimeouts]);
+
+  return (
+    <div ref={containerRef} className="relative flex items-start gap-6">
+      <ChatPhoneCard
+        owner="daniel"
+        messages={messages}
+        onSend={() => handleSend('daniel')}
+      />
+      <ChatPhoneCard
+        owner="joe"
+        messages={messages}
+        onSend={() => handleSend('joe')}
+      />
+
+      {/* Green sync dot */}
+      {dots.map((dot) => (
+        <span
+          key={dot.id}
+          className="pointer-events-none absolute top-1/2 h-2 w-2 rounded-full bg-green-400"
+          style={{
+            boxShadow:
+              '0 0 8px 2px rgba(74, 222, 128, 0.6), 0 0 20px 4px rgba(74, 222, 128, 0.3)',
+            animation: `${
+              dot.direction === 'left-to-right'
+                ? 'chatSyncDotLR'
+                : 'chatSyncDotRL'
+            } 0.3s ease-in-out forwards`,
+          }}
+        />
+      ))}
+
+      <style>{`
+        @keyframes chatSyncDotLR {
+          0% { left: 45%; opacity: 1; transform: translate(-50%, -50%) scale(0.8); }
+          50% { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
+          100% { left: 55%; opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+        }
+        @keyframes chatSyncDotRL {
+          0% { left: 55%; opacity: 1; transform: translate(-50%, -50%) scale(0.8); }
+          50% { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
+          100% { left: 45%; opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+        }
+      `}</style>
     </div>
   );
 }
