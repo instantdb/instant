@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { AnimateIn } from './AnimateIn';
 import { SideBySideDemo } from './InstantUpdatesDemoIdeas';
-import { DeviceFrameReactionsDemo } from './SyncDemoIdeas';
+import { RealtimeChecklistDemo } from './SyncDemoIdeas';
 import { OfflineDemoReactions } from './OfflineDemoIdeas';
 
 // Two devices showing real-time sync
@@ -245,9 +245,9 @@ export function SyncEngine() {
 
       {/* Features */}
       <div className="flex flex-col gap-9">
-        {/* Instant updates */}
+        {/* Instant updates — text left, demo right */}
         <AnimateIn>
-          <div className="grid grid-cols-3 items-center gap-6 space-y-4">
+          <div className="grid grid-cols-3 items-center gap-6">
             <div className="col-span-1">
               <h3 className="text-2xl font-semibold sm:text-3xl">
                 Instant updates
@@ -264,10 +264,13 @@ export function SyncEngine() {
           </div>
         </AnimateIn>
 
-        {/* Real-time sync */}
+        {/* Real-time sync — demo left, text right */}
         <AnimateIn>
-          <div className="grid grid-cols-3 items-center gap-6 space-y-4">
-            <div>
+          <div className="grid grid-cols-3 items-center gap-6">
+            <div className="col-span-2 rounded-2xl bg-[#FFE7E7]/20 px-12 py-9">
+              <RealtimeChecklistDemo />
+            </div>
+            <div className="col-span-1">
               <h3 className="text-2xl font-semibold sm:text-3xl">
                 Real-time sync
               </h3>
@@ -277,16 +280,13 @@ export function SyncEngine() {
                 refresh or re-open the app to see the latest.
               </p>
             </div>
-            <div className="col-span-2 bg-[#FFE7E7]/20 px-20 py-9">
-              <DeviceFrameReactionsDemo />
-            </div>
           </div>
         </AnimateIn>
 
-        {/* Works offline */}
+        {/* Works offline — text left, demo right */}
         <AnimateIn>
-          <div className="grid grid-cols-3 items-center gap-6 space-y-4">
-            <div>
+          <div className="grid grid-cols-3 items-center gap-6">
+            <div className="col-span-1">
               <h3 className="text-2xl font-semibold sm:text-3xl">
                 Works offline
               </h3>
@@ -296,7 +296,7 @@ export function SyncEngine() {
                 them having to do a thing. Pure magic.
               </p>
             </div>
-            <div className="col-span-2 bg-[#B8B8B8]/20 px-20 py-9">
+            <div className="col-span-2 rounded-2xl bg-[#B8B8B8]/20 px-12 py-9">
               <OfflineDemoReactions />
             </div>
           </div>

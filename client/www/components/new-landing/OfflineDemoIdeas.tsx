@@ -132,9 +132,9 @@ export function OfflineDemoRevived() {
 // ─── Likes-themed offline demo ──────────────────────────────────────
 
 const fixedMessages = [
-  { id: 1, user: 'Alyssa', emoji: '❤️', text: 'The eval is ready' },
-  { id: 2, user: 'Ben', emoji: '🔥', text: 'Cons the pair first' },
-  { id: 3, user: 'Eva Lu', emoji: '🚀', text: 'Tail calls work now' },
+  { id: 1, user: 'Daniel', emoji: '🚀', text: 'Just shipped the new sync engine' },
+  { id: 2, user: 'Joe', emoji: '🔥', text: 'Perf is looking great' },
+  { id: 3, user: 'Drew', emoji: '❤️', text: 'Deploys are green across the board' },
 ];
 
 type Like = { msgId: number };
@@ -222,66 +222,108 @@ function RollingCount({
 }
 
 function LikeDeviceCard({
+  name,
+  img,
   synced,
   queued,
   onLike,
 }: {
+  name: string;
+  img: string;
   synced: Like[];
   queued: Like[];
   onLike: (msgId: number) => void;
 }) {
   return (
-    <div className="flex flex-1 flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
-      {/* Header */}
-      <div className="border-b border-gray-100 px-3 py-2">
-        <div className="flex items-center gap-1.5">
+    <div className="min-w-0 flex-1">
+      <div className="mb-2 flex items-center gap-2.5 px-1">
+        <img
+          src={img}
+          alt={name}
+          className="h-7 w-7 rounded-full object-cover"
+        />
+        <span className="text-sm font-medium">{name}&apos;s phone</span>
+      </div>
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="mb-3 flex items-center gap-1.5">
           <span className="text-xs">💬</span>
-          <span className="text-xs font-semibold text-gray-700">#general</span>
+          <span className="text-sm font-medium text-gray-500">#ship-it</span>
+        </div>
+
+        <div className="space-y-3">
+          {fixedMessages.map((msg) => {
+            const syncedCount = countLikes(synced, msg.id);
+            const queuedCount = countLikes(queued, msg.id);
+
+            return (
+              <div key={msg.id} className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <span className="text-[11px] font-semibold text-gray-700">
+                    {msg.user}
+                  </span>
+                  <p className="text-xs text-gray-600">{msg.text}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {queuedCount > 0 && (
+                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
+                      +{queuedCount} queued
+                    </span>
+                  )}
+                  <button
+                    onClick={() => onLike(msg.id)}
+                    className="flex items-center gap-1 rounded-full border border-gray-200 px-2 py-1 text-xs transition-all hover:bg-gray-50 active:scale-95"
+                  >
+                    <span>{msg.emoji}</span>
+                    {syncedCount + queuedCount > 0 && (
+                      <RollingCount
+                        value={syncedCount + queuedCount}
+                        className="font-medium text-gray-500"
+                      />
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
-
-      {/* Messages with like buttons */}
-      <div className="space-y-2.5 p-3">
-        {fixedMessages.map((msg) => {
-          const syncedCount = countLikes(synced, msg.id);
-          const queuedCount = countLikes(queued, msg.id);
-
-          return (
-            <div
-              key={msg.id}
-              className="flex items-center gap-2"
-            >
-              <div className="min-w-0 flex-1">
-                <span className="text-[11px] font-semibold text-gray-700">
-                  {msg.user}
-                </span>
-                <p className="text-xs text-gray-600">{msg.text}</p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                {queuedCount > 0 && (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
-                    +{queuedCount} queued
-                  </span>
-                )}
-                <button
-                  onClick={() => onLike(msg.id)}
-                  className="flex items-center gap-1 rounded-full border border-gray-200 px-2 py-1 text-xs transition-all hover:bg-gray-50 active:scale-95"
-                >
-                  <span>{msg.emoji}</span>
-                  {syncedCount + queuedCount > 0 && (
-                    <RollingCount
-                      value={syncedCount + queuedCount}
-                      className="font-medium text-gray-500"
-                    />
-                  )}
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
     </div>
+  );
+}
+
+function WifiIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12 18.75h.008v.008H12v-.008Z"
+      />
+    </svg>
+  );
+}
+
+function WifiOffIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 3l18 18M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12 18.75h.008v.008H12v-.008Z"
+      />
+    </svg>
   );
 }
 
@@ -306,18 +348,17 @@ export function OfflineDemoReactions() {
     );
   }
 
-  function onToggleSync(online: boolean) {
-    setState((s) => {
-      if (!online) {
-        return { ...s, online: false };
-      }
-      return {
+  function onToggleSync() {
+    if (state.online) {
+      setState((s) => ({ ...s, online: false }));
+    } else {
+      setState((s) => ({
         online: true,
         queue1: [],
         queue2: [],
         synced: [...s.synced, ...s.queue1, ...s.queue2],
-      };
-    });
+      }));
+    }
   }
 
   return (
@@ -325,7 +366,7 @@ export function OfflineDemoReactions() {
       {/* Sync toggle */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => onToggleSync(!state.online)}
+          onClick={onToggleSync}
           className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
             state.online ? 'bg-green-500' : 'bg-gray-300'
           }`}
@@ -337,22 +378,36 @@ export function OfflineDemoReactions() {
           />
         </button>
         <span
-          className={`text-sm font-medium transition-colors ${
+          className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
             state.online ? 'text-green-700' : 'text-gray-500'
           }`}
         >
-          {state.online ? 'Sync On' : 'Sync Off'}
+          {state.online ? (
+            <>
+              <WifiIcon className="h-4 w-4" />
+              Synced
+            </>
+          ) : (
+            <>
+              <WifiOffIcon className="h-4 w-4" />
+              Offline
+            </>
+          )}
         </span>
       </div>
 
       {/* Two device cards */}
-      <div className="flex gap-3">
+      <div className="flex gap-6">
         <LikeDeviceCard
+          name="Stopa"
+          img="/img/landing/stopa.jpg"
           synced={state.synced}
           queued={state.queue1}
           onLike={(msgId) => onLike('queue1', msgId)}
         />
         <LikeDeviceCard
+          name="Drew"
+          img="/img/landing/drew.jpg"
           synced={state.synced}
           queued={state.queue2}
           onLike={(msgId) => onLike('queue2', msgId)}
