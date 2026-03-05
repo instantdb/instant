@@ -83,9 +83,7 @@ function stepAgent(agent: Agent, cw: number, ch: number) {
       agent.trail[agent.trail.length - 1].isTurn = true;
     }
     const [ndx, ndy] =
-      Math.random() < 0.85
-        ? perpendicularDir(agent.dx, agent.dy)
-        : randomDir();
+      Math.random() < 0.85 ? perpendicularDir(agent.dx, agent.dy) : randomDir();
     agent.dx = ndx;
     agent.dy = ndy;
     agent.steps = 0;
@@ -232,7 +230,6 @@ export function AgentPathsBg() {
       ctx!.fillStyle = atmGrad;
       ctx!.fillRect(0, 0, cw, ch);
 
-
       for (const agent of agents) {
         const [cr, cg2, cb] = agent.isUser ? USER_COLOR : AGENT_COLOR;
 
@@ -277,9 +274,7 @@ export function AgentPathsBg() {
             ? Math.sqrt((segX - mx) ** 2 + (segY - my) ** 2)
             : 9999;
           const cursorBoost =
-            dCursor < CURSOR_RADIUS
-              ? (1 - dCursor / CURSOR_RADIUS) * 0.35
-              : 0;
+            dCursor < CURSOR_RADIUS ? (1 - dCursor / CURSOR_RADIUS) * 0.35 : 0;
 
           const baseAlpha = agent.isUser ? 0.3 : 0.22;
           const alpha = life * baseAlpha + cursorBoost;
@@ -308,8 +303,7 @@ export function AgentPathsBg() {
           const dM = hasMouse
             ? Math.sqrt((p.x - mx) ** 2 + (p.y - my) ** 2)
             : 9999;
-          const near =
-            dM < CURSOR_RADIUS ? (1 - dM / CURSOR_RADIUS) * 0.8 : 0;
+          const near = dM < CURSOR_RADIUS ? (1 - dM / CURSOR_RADIUS) * 0.8 : 0;
           const nodeAlpha = life * 0.25 + near * 0.35;
           ctx!.beginPath();
           ctx!.arc(p.x, p.y, 2 + near * 2, 0, Math.PI * 2);

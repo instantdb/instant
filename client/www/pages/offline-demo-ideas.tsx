@@ -5,7 +5,7 @@ import {
 
 export default function OfflineDemoIdeasPage() {
   return (
-    <div className="relative min-h-screen bg-white text-off-black">
+    <div className="text-off-black relative min-h-screen bg-white">
       <div className="landing-width mx-auto py-16 sm:py-24">
         {/* Variant 1: Check-ins (original) */}
         <div className="grid grid-cols-3 items-center gap-6">

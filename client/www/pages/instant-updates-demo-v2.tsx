@@ -186,13 +186,16 @@ function AutoPlayDemo() {
 
     // --- Fast side: click all 3 rapidly (~150ms apart) ---
     ids.forEach((id, i) => {
-      const t = setTimeout(() => {
-        setActiveSide('fast');
-        setCursorIndex(i);
-        setFastItems((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, done: true } : t)),
-        );
-      }, 500 + i * 150);
+      const t = setTimeout(
+        () => {
+          setActiveSide('fast');
+          setCursorIndex(i);
+          setFastItems((prev) =>
+            prev.map((t) => (t.id === id ? { ...t, done: true } : t)),
+          );
+        },
+        500 + i * 150,
+      );
       timeouts.current.push(t);
     });
 
@@ -203,19 +206,25 @@ function AutoPlayDemo() {
     // --- Slow side: sequential, each waits 600ms for "server" ---
     const slowStart = 500 + ids.length * 150 + 800;
     ids.forEach((id, i) => {
-      const tClick = setTimeout(() => {
-        setActiveSide('slow');
-        setCursorIndex(i);
-        setSlowPending(id);
-      }, slowStart + i * 750);
+      const tClick = setTimeout(
+        () => {
+          setActiveSide('slow');
+          setCursorIndex(i);
+          setSlowPending(id);
+        },
+        slowStart + i * 750,
+      );
       timeouts.current.push(tClick);
 
-      const tResolve = setTimeout(() => {
-        setSlowItems((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, done: true } : t)),
-        );
-        setSlowPending(null);
-      }, slowStart + i * 750 + 600);
+      const tResolve = setTimeout(
+        () => {
+          setSlowItems((prev) =>
+            prev.map((t) => (t.id === id ? { ...t, done: true } : t)),
+          );
+          setSlowPending(null);
+        },
+        slowStart + i * 750 + 600,
+      );
       timeouts.current.push(tResolve);
     });
 
@@ -386,12 +395,8 @@ function FakeCursor({ index }: { index: number }) {
 // ---------------------------------------------------------------------------
 
 function RapidFireDemo() {
-  const [fastItems, setFastItems] = useState(
-    taskData.map((t) => ({ ...t })),
-  );
-  const [slowItems, setSlowItems] = useState(
-    taskData.map((t) => ({ ...t })),
-  );
+  const [fastItems, setFastItems] = useState(taskData.map((t) => ({ ...t })));
+  const [slowItems, setSlowItems] = useState(taskData.map((t) => ({ ...t })));
   const [slowPending, setSlowPending] = useState<number | null>(null);
   const [slowQueue, setSlowQueue] = useState<Set<number>>(new Set());
   const queueRef = useRef<number[]>([]);
@@ -709,35 +714,37 @@ export default function InstantUpdatesDemoV2() {
       </Head>
       <div className="mx-auto max-w-5xl space-y-24 px-6 py-16">
         <div>
-          <h1 className="text-3xl font-bold">Instant Updates — Demo Variants</h1>
+          <h1 className="text-3xl font-bold">
+            Instant Updates — Demo Variants
+          </h1>
           <p className="mt-2 text-gray-500">
             4 approaches to demonstrate the speed difference.
           </p>
         </div>
 
         <div>
-          <h2 className="mb-6 text-sm font-semibold uppercase tracking-wide text-gray-400">
+          <h2 className="mb-6 text-sm font-semibold tracking-wide text-gray-400 uppercase">
             Variant 1 — Auto-playing sequence
           </h2>
           <AutoPlayDemo />
         </div>
 
         <div>
-          <h2 className="mb-6 text-sm font-semibold uppercase tracking-wide text-gray-400">
+          <h2 className="mb-6 text-sm font-semibold tracking-wide text-gray-400 uppercase">
             Variant 2 — Rapid-fire clicking
           </h2>
           <RapidFireDemo />
         </div>
 
         <div>
-          <h2 className="mb-6 text-sm font-semibold uppercase tracking-wide text-gray-400">
+          <h2 className="mb-6 text-sm font-semibold tracking-wide text-gray-400 uppercase">
             Variant 3 — Single card toggle
           </h2>
           <ToggleModeDemo />
         </div>
 
         <div>
-          <h2 className="mb-6 text-sm font-semibold uppercase tracking-wide text-gray-400">
+          <h2 className="mb-6 text-sm font-semibold tracking-wide text-gray-400 uppercase">
             Variant 4 — Add item workflow
           </h2>
           <AddItemDemo />

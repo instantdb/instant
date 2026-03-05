@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import React, { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 
-type PaymentModel = "one-time" | "subscription" | "usage";
+type PaymentModel = 'one-time' | 'subscription' | 'usage';
 
 const models: {
   key: PaymentModel;
@@ -17,43 +17,43 @@ const models: {
   features: string[];
 }[] = [
   {
-    key: "one-time",
-    label: "One-time",
-    color: "text-blue-600",
-    dotColor: "bg-blue-500",
-    bgColor: "bg-blue-50",
-    borderColor: "border-blue-200",
-    btnColor: "bg-blue-600 hover:bg-blue-700",
-    price: "$49",
-    unit: "one-time",
-    description: "Lifetime license",
-    features: ["Perpetual access", "1 year of updates", "Community support"],
+    key: 'one-time',
+    label: 'One-time',
+    color: 'text-blue-600',
+    dotColor: 'bg-blue-500',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    btnColor: 'bg-blue-600 hover:bg-blue-700',
+    price: '$49',
+    unit: 'one-time',
+    description: 'Lifetime license',
+    features: ['Perpetual access', '1 year of updates', 'Community support'],
   },
   {
-    key: "subscription",
-    label: "Subscription",
-    color: "text-purple-600",
-    dotColor: "bg-purple-500",
-    bgColor: "bg-purple-50",
-    borderColor: "border-purple-200",
-    btnColor: "bg-purple-600 hover:bg-purple-700",
-    price: "$20",
-    unit: "/mo",
-    description: "Monthly plan",
-    features: ["Unlimited access", "Priority support", "All future features"],
+    key: 'subscription',
+    label: 'Subscription',
+    color: 'text-purple-600',
+    dotColor: 'bg-purple-500',
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-200',
+    btnColor: 'bg-purple-600 hover:bg-purple-700',
+    price: '$20',
+    unit: '/mo',
+    description: 'Monthly plan',
+    features: ['Unlimited access', 'Priority support', 'All future features'],
   },
   {
-    key: "usage",
-    label: "Usage-based",
-    color: "text-green-600",
-    dotColor: "bg-green-500",
-    bgColor: "bg-green-50",
-    borderColor: "border-green-200",
-    btnColor: "bg-green-600 hover:bg-green-700",
-    price: "$0.01",
-    unit: "/request",
-    description: "Pay per use",
-    features: ["No minimum", "Scale to zero", "Volume discounts"],
+    key: 'usage',
+    label: 'Usage-based',
+    color: 'text-green-600',
+    dotColor: 'bg-green-500',
+    bgColor: 'bg-green-50',
+    borderColor: 'border-green-200',
+    btnColor: 'bg-green-600 hover:bg-green-700',
+    price: '$0.01',
+    unit: '/request',
+    description: 'Pay per use',
+    features: ['No minimum', 'Scale to zero', 'Volume discounts'],
   },
 ];
 
@@ -70,13 +70,13 @@ function Toggle({
     <button
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-        checked ? color : "bg-gray-200"
+        checked ? color : 'bg-gray-200'
       }`}
     >
       <motion.span
         className="block h-3.5 w-3.5 rounded-full bg-white shadow-sm"
         animate={{ x: checked ? 18 : 3 }}
-        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       />
     </button>
   );
@@ -84,7 +84,7 @@ function Toggle({
 
 export function PricingBuilderDemo() {
   const [enabled, setEnabled] = useState<Record<PaymentModel, boolean>>({
-    "one-time": true,
+    'one-time': true,
     subscription: true,
     usage: true,
   });
@@ -96,14 +96,11 @@ export function PricingBuilderDemo() {
     setEnabled((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
-  const handleSelect = useCallback(
-    (label: string) => {
-      if (toastTimeout.current) clearTimeout(toastTimeout.current);
-      setToast(`${label} selected!`);
-      toastTimeout.current = setTimeout(() => setToast(null), 1500);
-    },
-    [],
-  );
+  const handleSelect = useCallback((label: string) => {
+    if (toastTimeout.current) clearTimeout(toastTimeout.current);
+    setToast(`${label} selected!`);
+    toastTimeout.current = setTimeout(() => setToast(null), 1500);
+  }, []);
 
   const enabledModels = models.filter((m) => enabled[m.key]);
 
@@ -118,16 +115,16 @@ export function PricingBuilderDemo() {
                 checked={enabled[m.key]}
                 onChange={() => toggleModel(m.key)}
                 color={
-                  m.key === "one-time"
-                    ? "bg-blue-500"
-                    : m.key === "subscription"
-                      ? "bg-purple-500"
-                      : "bg-green-500"
+                  m.key === 'one-time'
+                    ? 'bg-blue-500'
+                    : m.key === 'subscription'
+                      ? 'bg-purple-500'
+                      : 'bg-green-500'
                 }
               />
               <span
                 className={`text-xs font-medium ${
-                  enabled[m.key] ? "text-gray-700" : "text-gray-400"
+                  enabled[m.key] ? 'text-gray-700' : 'text-gray-400'
                 }`}
               >
                 {m.label}
@@ -145,10 +142,10 @@ export function PricingBuilderDemo() {
               <motion.div
                 key={m.key}
                 layout
-                initial={{ opacity: 0, scale: 0.9, filter: "blur(4px)" }}
-                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                exit={{ opacity: 0, scale: 0.9, filter: "blur(4px)" }}
-                transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+                animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
                 className={`flex-1 rounded-lg border ${m.borderColor} ${m.bgColor} p-3`}
               >
                 <div className="mb-2 flex items-center gap-1.5">
@@ -187,7 +184,7 @@ export function PricingBuilderDemo() {
                   onClick={() => handleSelect(m.label)}
                   className={`w-full rounded-md ${m.btnColor} px-3 py-1.5 text-xs font-medium text-white transition-colors active:scale-[0.98]`}
                 >
-                  {m.key === "one-time" ? "Buy" : "Select"}
+                  {m.key === 'one-time' ? 'Buy' : 'Select'}
                 </button>
               </motion.div>
             ))}

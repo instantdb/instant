@@ -57,19 +57,19 @@ function QueryCodeBlock({ mode }: { mode: Mode }) {
       <div className="flex-1 p-4 font-mono text-[13px] leading-relaxed">
         <LayoutGroup>
           {/* const query = { */}
-          <div className="border-l-2 border-transparent rounded px-2 py-0.5">
+          <div className="rounded border-l-2 border-transparent px-2 py-0.5">
             <Kw>const</Kw> <span className="text-gray-300">query</span>{' '}
             <Pn>=</Pn> <Pn>{'{'}</Pn>
           </div>
 
           {/* Level 1 entity */}
           <div
-            className="border-l-2 border-orange-400 bg-orange-500/15 rounded px-2 py-0.5"
+            className="rounded border-l-2 border-orange-400 bg-orange-500/15 px-2 py-0.5"
             style={{ paddingLeft: '28px' }}
           >
             <motion.span
               layoutId={isChannelsFirst ? 'entity-channels' : 'entity-users'}
-              className="text-orange-300 inline-block"
+              className="inline-block text-orange-300"
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
               {isChannelsFirst ? 'channels' : 'users'}
@@ -79,12 +79,12 @@ function QueryCodeBlock({ mode }: { mode: Mode }) {
 
           {/* Level 2 entity */}
           <div
-            className="border-l-2 border-orange-400 bg-orange-500/15 rounded px-2 py-0.5"
+            className="rounded border-l-2 border-orange-400 bg-orange-500/15 px-2 py-0.5"
             style={{ paddingLeft: '48px' }}
           >
             <motion.span
               layoutId={isChannelsFirst ? 'entity-users' : 'entity-channels'}
-              className="text-orange-300 inline-block"
+              className="inline-block text-orange-300"
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
               {isChannelsFirst ? 'users' : 'channels'}
@@ -94,12 +94,12 @@ function QueryCodeBlock({ mode }: { mode: Mode }) {
 
           {/* closing braces */}
           <div
-            className="border-l-2 border-transparent rounded px-2 py-0.5"
+            className="rounded border-l-2 border-transparent px-2 py-0.5"
             style={{ paddingLeft: '28px' }}
           >
             <Pn>{'}'}</Pn>
           </div>
-          <div className="border-l-2 border-transparent rounded px-2 py-0.5">
+          <div className="rounded border-l-2 border-transparent px-2 py-0.5">
             <Pn>{'}'}</Pn>
           </div>
         </LayoutGroup>
@@ -133,7 +133,13 @@ function PillButton({
   );
 }
 
-function LeftPanel({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
+function LeftPanel({
+  mode,
+  setMode,
+}: {
+  mode: Mode;
+  setMode: (m: Mode) => void;
+}) {
   const isChannelsFirst = mode === 'channels-users';
 
   const parentItems = isChannelsFirst
@@ -149,7 +155,10 @@ function LeftPanel({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }
 
   const childItems = isChannelsFirst
     ? usersInChannel(validKey).map((u) => ({ label: u, emoji: userEmojis[u] }))
-    : channelsForUser(validKey).map((ch) => ({ label: ch, emoji: channelEmojis[ch] }));
+    : channelsForUser(validKey).map((ch) => ({
+        label: ch,
+        emoji: channelEmojis[ch],
+      }));
 
   const header = isChannelsFirst
     ? `Users in ${validKey}`
@@ -160,7 +169,10 @@ function LeftPanel({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }
       {/* Toggle buttons */}
       <div className="flex items-center gap-1 border-b border-gray-100 bg-gray-50 px-4 py-2">
         <button
-          onClick={() => { setMode('channels-users'); setSelectedKey(channels[0]); }}
+          onClick={() => {
+            setMode('channels-users');
+            setSelectedKey(channels[0]);
+          }}
           className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
             isChannelsFirst
               ? 'bg-white text-gray-900 shadow-sm'
@@ -170,7 +182,10 @@ function LeftPanel({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }
           Channels → Users
         </button>
         <button
-          onClick={() => { setMode('users-channels'); setSelectedKey(users[0]); }}
+          onClick={() => {
+            setMode('users-channels');
+            setSelectedKey(users[0]);
+          }}
           className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
             !isChannelsFirst
               ? 'bg-white text-gray-900 shadow-sm'
@@ -183,7 +198,7 @@ function LeftPanel({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }
 
       {/* Selector pills */}
       <div className="border-b border-gray-100 px-3 py-2">
-        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+        <div className="mb-1.5 text-[10px] font-semibold tracking-wider text-gray-400 uppercase">
           {isChannelsFirst ? 'Channel' : 'User'}
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -206,9 +221,14 @@ function LeftPanel({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }
         </div>
         <div className="space-y-2">
           {childItems.map((item) => (
-            <div key={item.label} className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5">
+            <div
+              key={item.label}
+              className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5"
+            >
               <span className="text-sm">{item.emoji}</span>
-              <span className="text-xs font-medium text-gray-700">{item.label}</span>
+              <span className="text-xs font-medium text-gray-700">
+                {item.label}
+              </span>
             </div>
           ))}
         </div>

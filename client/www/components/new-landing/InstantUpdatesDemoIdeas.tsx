@@ -28,7 +28,7 @@ function DemoShell({
 }) {
   return (
     <div>
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+      <h2 className="mb-3 text-sm font-semibold tracking-wide text-gray-400 uppercase">
         {label}
       </h2>
       <div className="grid grid-cols-3 items-center gap-6">
@@ -198,17 +198,18 @@ export function UnderTheHoodDemo() {
     steps.forEach((_, i) => {
       const t1 = setTimeout(() => {
         setTimeline((prev) =>
-          prev.map((s, j) =>
-            j === i ? { ...s, status: 'active' } : s,
-          ),
+          prev.map((s, j) => (j === i ? { ...s, status: 'active' } : s)),
         );
       }, i * 400);
 
-      const t2 = setTimeout(() => {
-        setTimeline((prev) =>
-          prev.map((s, j) => (j === i ? { ...s, status: 'done' } : s)),
-        );
-      }, i * 400 + 300);
+      const t2 = setTimeout(
+        () => {
+          setTimeline((prev) =>
+            prev.map((s, j) => (j === i ? { ...s, status: 'done' } : s)),
+          );
+        },
+        i * 400 + 300,
+      );
 
       timeoutRefs.current.push(t1, t2);
     });
@@ -341,16 +342,19 @@ export function CodeAndResultDemo() {
     timeoutRef.current = setTimeout(() => setSynced(true), 800);
   };
 
-  useEffect(() => () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    },
+    [],
+  );
 
   return (
     <div className="space-y-3">
       {/* Code panel */}
       <div className="rounded-xl border border-gray-200 bg-[#1e1e2e] p-4 font-mono text-sm shadow-sm">
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+          <span className="text-[10px] font-medium tracking-wider text-gray-500 uppercase">
             Your code
           </span>
           {lastAction && (
@@ -365,9 +369,7 @@ export function CodeAndResultDemo() {
           {lastAction ? (
             <span className="text-green-300">{lastAction}</span>
           ) : (
-            <span className="text-gray-600">
-              {'// click a task below...'}
-            </span>
+            <span className="text-gray-600">{'// click a task below...'}</span>
           )}
         </div>
       </div>
@@ -390,9 +392,7 @@ export function CodeAndResultDemo() {
             >
               <div
                 className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${
-                  t.done
-                    ? 'border-orange-600 bg-orange-600'
-                    : 'border-gray-300'
+                  t.done ? 'border-orange-600 bg-orange-600' : 'border-gray-300'
                 }`}
               >
                 {t.done && (
@@ -550,9 +550,9 @@ export function SideBySideDemo() {
     { id: 3, text: 'Ship v1.0', done: false },
   ]);
   const [pending, setPending] = useState<number | null>(null);
-  const [slowFooter, setSlowFooter] = useState<
-    'idle' | 'waiting' | 'done'
-  >('idle');
+  const [slowFooter, setSlowFooter] = useState<'idle' | 'waiting' | 'done'>(
+    'idle',
+  );
   const resolveRef = useRef<NodeJS.Timeout | null>(null);
 
   const toggle = (id: number) => {
@@ -638,9 +638,7 @@ export function SideBySideDemo() {
           <span className="text-sm font-medium">With Instant</span>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 text-sm font-medium text-gray-500">
-            My Tasks
-          </div>
+          <div className="mb-3 text-sm font-medium text-gray-500">My Tasks</div>
           <div className="space-y-1.5">
             {fastItems.map((t) => (
               <button
@@ -659,9 +657,7 @@ export function SideBySideDemo() {
           </div>
           <div className="mt-3 flex min-h-[20px] items-center justify-center">
             {fastFooter === 'flash' && (
-              <span className="text-xs font-medium text-green-600">
-                0ms ✓
-              </span>
+              <span className="text-xs font-medium text-green-600">0ms ✓</span>
             )}
           </div>
         </div>
@@ -674,9 +670,7 @@ export function SideBySideDemo() {
           <span className="text-sm font-medium">Without Instant</span>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 text-sm font-medium text-gray-500">
-            My Tasks
-          </div>
+          <div className="mb-3 text-sm font-medium text-gray-500">My Tasks</div>
           <div className="space-y-1.5">
             {slowItems.map((t) => (
               <button
@@ -701,9 +695,7 @@ export function SideBySideDemo() {
               </span>
             )}
             {slowFooter === 'done' && (
-              <span className="text-xs font-medium text-gray-400">
-                600ms
-              </span>
+              <span className="text-xs font-medium text-gray-400">600ms</span>
             )}
           </div>
         </div>
@@ -757,7 +749,9 @@ export function SyncPulseDemo() {
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-900">One action in time</p>
+          <p className="text-sm font-medium text-gray-900">
+            One action in time
+          </p>
           <p className="text-xs text-gray-500">Scrub and compare both models</p>
         </div>
         <button
@@ -815,13 +809,7 @@ export function SyncPulseDemo() {
   );
 }
 
-function ModeLane({
-  mode,
-  ms,
-}: {
-  mode: ModeConfig;
-  ms: number;
-}) {
+function ModeLane({ mode, ms }: { mode: ModeConfig; ms: number }) {
   const uiOn = ms >= mode.uiAt;
   const peersOn = ms >= mode.peersAt;
   const ackOn = ms >= mode.ackAt;
@@ -843,7 +831,9 @@ function ModeLane({
       className={`rounded-lg border p-3 ${mode.ring} ${mode.tint}`}
     >
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-700">{mode.label}</span>
+        <span className="text-xs font-semibold text-gray-700">
+          {mode.label}
+        </span>
         <span className="text-[11px] text-gray-500">{stepText}</span>
       </div>
 
@@ -878,7 +868,7 @@ function CounterPill({
       }`}
     >
       <div className="text-[10px] font-medium text-gray-500">{label}</div>
-      <div className="mt-0.5 flex min-w-[24px] tabular-nums text-sm font-semibold text-gray-900">
+      <div className="mt-0.5 flex min-w-[24px] text-sm font-semibold text-gray-900 tabular-nums">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={count}
@@ -1069,13 +1059,16 @@ export function AutoPlayDemo() {
     const ids = autoPlayTaskData.map((t) => t.id);
 
     ids.forEach((id, i) => {
-      const t = setTimeout(() => {
-        setActiveSide('fast');
-        setCursorIndex(i);
-        setFastItems((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, done: true } : t)),
-        );
-      }, 500 + i * 150);
+      const t = setTimeout(
+        () => {
+          setActiveSide('fast');
+          setCursorIndex(i);
+          setFastItems((prev) =>
+            prev.map((t) => (t.id === id ? { ...t, done: true } : t)),
+          );
+        },
+        500 + i * 150,
+      );
       timeouts.current.push(t);
     });
 
@@ -1084,19 +1077,25 @@ export function AutoPlayDemo() {
 
     const slowStart = 500 + ids.length * 150 + 800;
     ids.forEach((id, i) => {
-      const tClick = setTimeout(() => {
-        setActiveSide('slow');
-        setCursorIndex(i);
-        setSlowPending(id);
-      }, slowStart + i * 750);
+      const tClick = setTimeout(
+        () => {
+          setActiveSide('slow');
+          setCursorIndex(i);
+          setSlowPending(id);
+        },
+        slowStart + i * 750,
+      );
       timeouts.current.push(tClick);
 
-      const tResolve = setTimeout(() => {
-        setSlowItems((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, done: true } : t)),
-        );
-        setSlowPending(null);
-      }, slowStart + i * 750 + 600);
+      const tResolve = setTimeout(
+        () => {
+          setSlowItems((prev) =>
+            prev.map((t) => (t.id === id ? { ...t, done: true } : t)),
+          );
+          setSlowPending(null);
+        },
+        slowStart + i * 750 + 600,
+      );
       timeouts.current.push(tResolve);
     });
 

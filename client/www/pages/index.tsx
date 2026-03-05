@@ -34,7 +34,7 @@ const SeeTheCodeButton = ({ href }: { href: string }) => (
 
 export default function Landing2026() {
   return (
-    <div className="relative text-off-black">
+    <div className="text-off-black relative">
       <MainNav transparent />
       <Head>
         <title>Instant</title>
@@ -53,7 +53,7 @@ export default function Landing2026() {
         {/* Hero — animated background, fades to white at bottom */}
         <section className="relative overflow-hidden bg-[#F8F8F8]">
           <HeroBg />
-          <div className="relative z-10 pt-10 sm:pt-16 pb-8 sm:pb-12">
+          <div className="relative z-10 pt-10 pb-8 sm:pt-16 sm:pb-12">
             <Hero />
           </div>
           <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-48 bg-gradient-to-b from-transparent to-white" />
@@ -78,11 +78,14 @@ export default function Landing2026() {
           <SyncRelations />
         </Section>
 
-        <div className="relative overflow-hidden bg-[#F8F8F8]" id="social-proof">
+        <div
+          className="relative overflow-hidden bg-[#F8F8F8]"
+          id="social-proof"
+        >
           <div className="opacity-40">
             <HeroBg />
           </div>
-          <div className="pointer-events-none absolute right-0 top-0 left-0 z-[5] h-32 bg-gradient-to-b from-white to-transparent" />
+          <div className="pointer-events-none absolute top-0 right-0 left-0 z-[5] h-32 bg-gradient-to-b from-white to-transparent" />
           <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-32 bg-gradient-to-b from-transparent to-white" />
           <div className="relative z-10 py-16 sm:py-24">
             <div className="landing-width mx-auto">

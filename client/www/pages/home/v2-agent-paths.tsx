@@ -14,7 +14,7 @@ import { AgentPathsBg } from '@/components/home/AgentPathsBg';
 
 export default function HomeAgentPaths() {
   return (
-    <div className="relative text-off-black">
+    <div className="text-off-black relative">
       <MainNav transparent />
       <Head>
         <title>Instant</title>
@@ -33,7 +33,7 @@ export default function HomeAgentPaths() {
         {/* Hero — agent paths canvas behind, fades out at bottom */}
         <section className="relative overflow-hidden bg-[#F8F8F8]">
           <AgentPathsBg />
-          <div className="relative z-10 pt-10 sm:pt-16 pb-8 sm:pb-12">
+          <div className="relative z-10 pt-10 pb-8 sm:pt-16 sm:pb-12">
             <Hero />
           </div>
           {/* Smooth fade to white */}

@@ -60,7 +60,7 @@ export default function SyncDemoIdeasPage() {
         <div className="space-y-24">
           {variants.map(({ label, name, hint, Demo }) => (
             <div key={label}>
-              <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-orange-500">
+              <div className="mb-2 text-sm font-semibold tracking-wide text-orange-500 uppercase">
                 Variant {label}: {name}
               </div>
               <p className="mb-4 text-xs text-gray-400">{hint}</p>

@@ -10,8 +10,7 @@ import type { List } from './SyncRelationsAppDemo';
 function QueryView({ lists }: { lists: List[] }) {
   const totalItems = lists.reduce((sum, l) => sum + l.items.length, 0);
   const totalComments = lists.reduce(
-    (sum, l) =>
-      sum + l.items.reduce((s, i) => s + i.comments.length, 0),
+    (sum, l) => sum + l.items.reduce((s, i) => s + i.comments.length, 0),
     0,
   );
 
@@ -32,8 +31,7 @@ function QueryView({ lists }: { lists: List[] }) {
     null,
     2,
   );
-  const truncated =
-    jsonPreview.split('\n').slice(0, 18).join('\n') + '\n  ...';
+  const truncated = jsonPreview.split('\n').slice(0, 18).join('\n') + '\n  ...';
 
   return (
     <div className="space-y-4 p-5">
@@ -44,24 +42,23 @@ function QueryView({ lists }: { lists: List[] }) {
         </div>
         <div className="text-gray-800">
           <div>
-            <span className="text-purple-600">const</span> query ={' '}
-            {'{'}
+            <span className="text-purple-600">const</span> query = {'{'}
           </div>
           <div className="pl-5">
             lists: {'{'}{' '}
-            <span className="text-gray-400 text-[11px]">
+            <span className="text-[11px] text-gray-400">
               &larr; {lists.length} records
             </span>
           </div>
           <div className="pl-10">
             items: {'{'}{' '}
-            <span className="text-gray-400 text-[11px]">
+            <span className="text-[11px] text-gray-400">
               &larr; {totalItems} records
             </span>
           </div>
           <div className="pl-[60px]">
             comments: {'{}'}{' '}
-            <span className="text-gray-400 text-[11px]">
+            <span className="text-[11px] text-gray-400">
               &larr; {totalComments} records
             </span>
           </div>

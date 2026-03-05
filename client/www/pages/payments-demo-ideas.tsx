@@ -1,15 +1,15 @@
-import { CustomerJourneyDemo } from "@/components/new-landing/PaymentsIdea_Journey";
-import { RevenueDashboardDemo } from "@/components/new-landing/PaymentsIdea_Dashboard";
-import { PricingBuilderDemo } from "@/components/new-landing/PaymentsIdea_PricingBuilder";
-import { CodePreviewDemo } from "@/components/new-landing/PaymentsIdea_CodePreview";
-import { CheckoutFlowDemo } from "@/components/new-landing/PaymentsIdea_Checkout";
+import { CustomerJourneyDemo } from '@/components/new-landing/PaymentsIdea_Journey';
+import { RevenueDashboardDemo } from '@/components/new-landing/PaymentsIdea_Dashboard';
+import { PricingBuilderDemo } from '@/components/new-landing/PaymentsIdea_PricingBuilder';
+import { CodePreviewDemo } from '@/components/new-landing/PaymentsIdea_CodePreview';
+import { CheckoutFlowDemo } from '@/components/new-landing/PaymentsIdea_Checkout';
 
 const variants = [
-  { label: "Idea 1: Customer Journey Timeline", Demo: CustomerJourneyDemo },
-  { label: "Idea 2: Revenue Dashboard", Demo: RevenueDashboardDemo },
-  { label: "Idea 3: Pricing Page Builder", Demo: PricingBuilderDemo },
-  { label: "Idea 4: Code ↔ Preview", Demo: CodePreviewDemo },
-  { label: "Idea 5: Checkout Flow", Demo: CheckoutFlowDemo },
+  { label: 'Idea 1: Customer Journey Timeline', Demo: CustomerJourneyDemo },
+  { label: 'Idea 2: Revenue Dashboard', Demo: RevenueDashboardDemo },
+  { label: 'Idea 3: Pricing Page Builder', Demo: PricingBuilderDemo },
+  { label: 'Idea 4: Code ↔ Preview', Demo: CodePreviewDemo },
+  { label: 'Idea 5: Checkout Flow', Demo: CheckoutFlowDemo },
 ];
 
 export default function PaymentsDemoIdeasPage() {
@@ -27,7 +27,7 @@ export default function PaymentsDemoIdeasPage() {
         <div className="space-y-16">
           {variants.map(({ label, Demo }) => (
             <div key={label}>
-              <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+              <p className="mb-3 text-sm font-semibold tracking-wide text-gray-400 uppercase">
                 {label}
               </p>
               <div className="grid grid-cols-3 items-center gap-7">

@@ -29,13 +29,69 @@ type User = {
 // -- Data --------------------------------------------------------------------
 
 const allMessages: Message[] = [
-  { id: 1, text: 'Hey team, ready to ship?', time: '2m', user: 'Alice', userEmoji: '👩', channel: '#general', channelEmoji: '💬' },
-  { id: 2, text: 'One sec, pushing now', time: '1m', user: 'Bob', userEmoji: '👨', channel: '#general', channelEmoji: '💬' },
-  { id: 3, text: 'Let\'s gooo', time: '30s', user: 'Carol', userEmoji: '👧', channel: '#general', channelEmoji: '💬' },
-  { id: 4, text: 'New palette looks great', time: '5m', user: 'Alice', userEmoji: '👩', channel: '#design', channelEmoji: '🎨' },
-  { id: 5, text: 'Love the orange accent', time: '3m', user: 'Carol', userEmoji: '👧', channel: '#design', channelEmoji: '🎨' },
-  { id: 6, text: 'v2.0 is live!', time: '10m', user: 'Bob', userEmoji: '👨', channel: '#shipped', channelEmoji: '🚀' },
-  { id: 7, text: 'Nice work everyone!', time: '8m', user: 'Alice', userEmoji: '👩', channel: '#shipped', channelEmoji: '🚀' },
+  {
+    id: 1,
+    text: 'Hey team, ready to ship?',
+    time: '2m',
+    user: 'Alice',
+    userEmoji: '👩',
+    channel: '#general',
+    channelEmoji: '💬',
+  },
+  {
+    id: 2,
+    text: 'One sec, pushing now',
+    time: '1m',
+    user: 'Bob',
+    userEmoji: '👨',
+    channel: '#general',
+    channelEmoji: '💬',
+  },
+  {
+    id: 3,
+    text: "Let's gooo",
+    time: '30s',
+    user: 'Carol',
+    userEmoji: '👧',
+    channel: '#general',
+    channelEmoji: '💬',
+  },
+  {
+    id: 4,
+    text: 'New palette looks great',
+    time: '5m',
+    user: 'Alice',
+    userEmoji: '👩',
+    channel: '#design',
+    channelEmoji: '🎨',
+  },
+  {
+    id: 5,
+    text: 'Love the orange accent',
+    time: '3m',
+    user: 'Carol',
+    userEmoji: '👧',
+    channel: '#design',
+    channelEmoji: '🎨',
+  },
+  {
+    id: 6,
+    text: 'v2.0 is live!',
+    time: '10m',
+    user: 'Bob',
+    userEmoji: '👨',
+    channel: '#shipped',
+    channelEmoji: '🚀',
+  },
+  {
+    id: 7,
+    text: 'Nice work everyone!',
+    time: '8m',
+    user: 'Alice',
+    userEmoji: '👩',
+    channel: '#shipped',
+    channelEmoji: '🚀',
+  },
 ];
 
 const channelList: Channel[] = [
@@ -91,13 +147,7 @@ function Kw({ children }: { children: ReactNode }) {
   return <span className="text-purple-400">{children}</span>;
 }
 
-function Ent({
-  children,
-  active,
-}: {
-  children: ReactNode;
-  active?: boolean;
-}) {
+function Ent({ children, active }: { children: ReactNode; active?: boolean }) {
   return (
     <span className={active ? 'text-orange-300' : 'text-gray-500'}>
       {children}
@@ -123,8 +173,8 @@ function QueryCodeBlock({
       </div>
       <div className="flex-1 p-4 font-mono text-[13px] leading-relaxed">
         <QLine>
-          <Kw>const</Kw> <span className="text-gray-300">query</span>{' '}
-          <Pn>=</Pn> <Pn>{'{'}</Pn>
+          <Kw>const</Kw> <span className="text-gray-300">query</span> <Pn>=</Pn>{' '}
+          <Pn>{'{'}</Pn>
         </QLine>
         <QLine indent={1} highlight={depth >= 1} active={depth === 1}>
           <Ent active={depth >= 1}>{entities[0]}</Ent>
@@ -204,9 +254,7 @@ export function SyncRelationsV4() {
   };
 
   const queryEntities: [string, string] =
-    viewMode === 'channels'
-      ? ['channels', 'messages']
-      : ['users', 'messages'];
+    viewMode === 'channels' ? ['channels', 'messages'] : ['users', 'messages'];
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -274,9 +322,7 @@ export function SyncRelationsV4() {
                   : activeUser.emoji}
               </span>
               <span className="text-sm font-semibold">
-                {viewMode === 'channels'
-                  ? activeChannel.name
-                  : activeUser.name}
+                {viewMode === 'channels' ? activeChannel.name : activeUser.name}
               </span>
             </div>
             <div className="space-y-3">

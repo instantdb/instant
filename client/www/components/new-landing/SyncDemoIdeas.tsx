@@ -51,9 +51,7 @@ export function TypeSyncDemo() {
       <div className="flex gap-4">
         {/* Laptop */}
         <div className="min-w-0 flex-1">
-          <div className="mb-1.5 text-center text-xs text-gray-400">
-            Laptop
-          </div>
+          <div className="mb-1.5 text-center text-xs text-gray-400">Laptop</div>
           <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-medium text-gray-500">
@@ -80,9 +78,7 @@ export function TypeSyncDemo() {
 
         {/* Phone */}
         <div className="min-w-0 flex-1">
-          <div className="mb-1.5 text-center text-xs text-gray-400">
-            Phone
-          </div>
+          <div className="mb-1.5 text-center text-xs text-gray-400">Phone</div>
           <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-medium text-gray-500">
@@ -93,7 +89,7 @@ export function TypeSyncDemo() {
                 online
               </span>
             </div>
-            <div className="min-h-[74px] w-full whitespace-pre-wrap break-words rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+            <div className="min-h-[74px] w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs break-words whitespace-pre-wrap text-gray-700">
               {remoteText || (
                 <span className="text-gray-400">Start typing a note...</span>
               )}
@@ -160,8 +156,7 @@ export function SharedChecklistDemo() {
               // All done — uncheck one to keep it alive
               target = prev[Math.floor(Math.random() * prev.length)];
             } else {
-              target =
-                unchecked[Math.floor(Math.random() * unchecked.length)];
+              target = unchecked[Math.floor(Math.random() * unchecked.length)];
             }
             setLaptopHighlights(new Set([target.id]));
             setTimeout(() => setLaptopHighlights(new Set()), 600);
@@ -260,11 +255,7 @@ export function SharedChecklistDemo() {
         <div className="flex items-center">
           <SyncIcon className="h-5 w-5 text-gray-300" />
         </div>
-        <ChecklistView
-          highlights={phoneHighlights}
-          label="Phone"
-          user="Alex"
-        />
+        <ChecklistView highlights={phoneHighlights} label="Phone" user="Alex" />
       </div>
       <p className="mt-3 text-center text-xs text-gray-400">
         Check a task on Laptop — watch it propagate to Phone
@@ -354,7 +345,7 @@ export function LiveCursorsDemo() {
         />
       </svg>
       <span
-        className="absolute left-3 top-3.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[8px] font-medium text-white"
+        className="absolute top-3.5 left-3 rounded-full px-1.5 py-0.5 text-[8px] font-medium whitespace-nowrap text-white"
         style={{ backgroundColor: color }}
       >
         {label}
@@ -367,7 +358,7 @@ export function LiveCursorsDemo() {
       <div className="h-2 w-3/4 rounded bg-gray-100" />
       <div className="h-2 w-full rounded bg-gray-100" />
       <div className="h-2 w-5/6 rounded bg-gray-100" />
-      <div className="h-8 w-full rounded bg-gray-50 border border-dashed border-gray-200" />
+      <div className="h-8 w-full rounded border border-dashed border-gray-200 bg-gray-50" />
       <div className="h-2 w-2/3 rounded bg-gray-100" />
       <div className="h-2 w-4/5 rounded bg-gray-100" />
     </div>
@@ -378,9 +369,7 @@ export function LiveCursorsDemo() {
       <div className="flex gap-4">
         {/* Laptop */}
         <div className="min-w-0 flex-1">
-          <div className="mb-1.5 text-center text-xs text-gray-400">
-            Laptop
-          </div>
+          <div className="mb-1.5 text-center text-xs text-gray-400">Laptop</div>
           <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-medium text-gray-500">
@@ -413,9 +402,7 @@ export function LiveCursorsDemo() {
 
         {/* Phone */}
         <div className="min-w-0 flex-1">
-          <div className="mb-1.5 text-center text-xs text-gray-400">
-            Phone
-          </div>
+          <div className="mb-1.5 text-center text-xs text-gray-400">Phone</div>
           <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-medium text-gray-500">
@@ -478,8 +465,7 @@ export function EmojiReactionsDemo() {
     const cycle = () => {
       autoRef.current = setTimeout(
         () => {
-          const emoji =
-            REACTIONS[Math.floor(Math.random() * REACTIONS.length)];
+          const emoji = REACTIONS[Math.floor(Math.random() * REACTIONS.length)];
           setCounts((prev) => ({ ...prev, [emoji]: (prev[emoji] || 0) + 1 }));
           setJustBumped((prev) => ({ ...prev, [emoji]: 'remote' }));
           setTimeout(
@@ -508,9 +494,7 @@ export function EmojiReactionsDemo() {
       <div className="mb-1.5 text-center text-xs text-gray-400">{label}</div>
       <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-medium text-gray-500">
-            Ship it! 🚀
-          </span>
+          <span className="text-xs font-medium text-gray-500">Ship it! 🚀</span>
           <span className="flex items-center gap-1 text-[10px] font-medium text-green-600">
             <span className="h-1.5 w-1.5 rounded-full bg-green-500" />4 online
           </span>
@@ -570,8 +554,8 @@ function LaptopFrame2({ children }: { children: React.ReactNode }) {
       {/* Screen lid */}
       <div className="relative mx-auto rounded-t-xl border-[6px] border-gray-800 bg-gray-800">
         {/* Camera notch */}
-        <div className="absolute left-1/2 top-[-3px] z-10 h-[8px] w-[32px] -translate-x-1/2 rounded-b-[5px] bg-gray-800">
-          <div className="absolute left-1/2 top-[2px] h-[3px] w-[3px] -translate-x-1/2 rounded-full bg-gray-600" />
+        <div className="absolute top-[-3px] left-1/2 z-10 h-[8px] w-[32px] -translate-x-1/2 rounded-b-[5px] bg-gray-800">
+          <div className="absolute top-[2px] left-1/2 h-[3px] w-[3px] -translate-x-1/2 rounded-full bg-gray-600" />
         </div>
         {/* Screen */}
         <div className="relative h-[140px] w-[210px] overflow-hidden rounded bg-white">
@@ -586,14 +570,20 @@ function LaptopFrame2({ children }: { children: React.ReactNode }) {
             'linear-gradient(to bottom, #6b6b6d, #b0b0b2 2px, #d1d1d3 3px, #b8b8ba 5px, #a0a0a2)',
         }}
       >
-        <div className="absolute left-1/2 top-0 h-[4px] w-[50px] -translate-x-1/2 rounded-b-md bg-gray-500/30 shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]" />
+        <div className="absolute top-0 left-1/2 h-[4px] w-[50px] -translate-x-1/2 rounded-b-md bg-gray-500/30 shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]" />
       </div>
     </div>
   );
 }
 
 // Floating hearts that pop out and fade
-function FloatingHeart({ id, onDone }: { id: number; onDone: (id: number) => void }) {
+function FloatingHeart({
+  id,
+  onDone,
+}: {
+  id: number;
+  onDone: (id: number) => void;
+}) {
   const xDrift = useRef((Math.random() - 0.5) * 40);
   useEffect(() => {
     const timer = setTimeout(() => onDone(id), 800);
@@ -644,7 +634,7 @@ function SocialPostScreen({
         {/* Like button overlay — bottom right */}
         <button
           onClick={onClick}
-          className="absolute bottom-2 right-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-[10px] font-medium text-gray-700 shadow-sm backdrop-blur-sm transition-all hover:bg-white active:scale-95"
+          className="absolute right-2 bottom-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-[10px] font-medium text-gray-700 shadow-sm backdrop-blur-sm transition-all hover:bg-white active:scale-95"
         >
           <span style={{ fontSize: 13 }}>❤️</span>
           Like
@@ -722,9 +712,7 @@ type SyncDot = {
 };
 
 export function RealtimeChecklistDemo() {
-  const [items, setItems] = useState(
-    SYNC_TASKS.map((t) => ({ ...t })),
-  );
+  const [items, setItems] = useState(SYNC_TASKS.map((t) => ({ ...t })));
   const [dots, setDots] = useState<SyncDot[]>([]);
   const dotIdRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -738,9 +726,7 @@ export function RealtimeChecklistDemo() {
       const direction: SyncDot['direction'] =
         source === 'left' ? 'left-to-right' : 'right-to-left';
       const containerRect = containerRef.current?.getBoundingClientRect();
-      const yPx = containerRect
-        ? e.clientY - containerRect.top
-        : 0;
+      const yPx = containerRect ? e.clientY - containerRect.top : 0;
       setDots((prev) => [...prev, { id: dotId, direction, yPx }]);
       setTimeout(() => {
         setDots((prev) => prev.filter((d) => d.id !== dotId));
@@ -794,20 +780,20 @@ export function RealtimeChecklistDemo() {
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="mb-3 text-sm font-medium text-gray-500">Team Todos</div>
         <div className="space-y-1.5">
-        {items.map((t) => (
-          <button
-            key={t.id}
-            onClick={(e) => toggle(t.id, source, e)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
-          >
-            <Checkbox done={t.done} />
-            <span
-              className={`text-sm ${t.done ? 'text-gray-400 line-through' : 'text-gray-700'}`}
+          {items.map((t) => (
+            <button
+              key={t.id}
+              onClick={(e) => toggle(t.id, source, e)}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
             >
-              {t.text}
-            </span>
-          </button>
-        ))}
+              <Checkbox done={t.done} />
+              <span
+                className={`text-sm ${t.done ? 'text-gray-400 line-through' : 'text-gray-700'}`}
+              >
+                {t.text}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -815,16 +801,8 @@ export function RealtimeChecklistDemo() {
 
   return (
     <div ref={containerRef} className="relative flex items-start gap-6">
-      <TaskCard
-        name="Daniel"
-        img="/img/landing/daniel.png"
-        source="left"
-      />
-      <TaskCard
-        name="Joe"
-        img="/img/landing/joe.jpg"
-        source="right"
-      />
+      <TaskCard name="Daniel" img="/img/landing/daniel.png" source="left" />
+      <TaskCard name="Joe" img="/img/landing/joe.jpg" source="right" />
 
       {/* Green sync dot that shoots through the gap between cards */}
       {dots.map((dot) => (
@@ -833,11 +811,10 @@ export function RealtimeChecklistDemo() {
           className="pointer-events-none absolute h-2 w-2 rounded-full bg-green-400"
           style={{
             top: dot.yPx,
-            boxShadow: '0 0 8px 2px rgba(74, 222, 128, 0.6), 0 0 20px 4px rgba(74, 222, 128, 0.3)',
+            boxShadow:
+              '0 0 8px 2px rgba(74, 222, 128, 0.6), 0 0 20px 4px rgba(74, 222, 128, 0.3)',
             animation: `${
-              dot.direction === 'left-to-right'
-                ? 'syncDotLR'
-                : 'syncDotRL'
+              dot.direction === 'left-to-right' ? 'syncDotLR' : 'syncDotRL'
             } 0.3s ease-in-out forwards`,
           }}
         />

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 
 // --- Shared hook ---
 
@@ -79,22 +79,22 @@ const LockIcon = () => (
 
 const creditActions = [
   {
-    label: "Generate Image",
+    label: 'Generate Image',
     cost: 10,
-    color: "bg-purple-500 hover:bg-purple-600",
-    result: "Generated a sunset over mountains",
+    color: 'bg-purple-500 hover:bg-purple-600',
+    result: 'Generated a sunset over mountains',
   },
   {
-    label: "Summarize",
+    label: 'Summarize',
     cost: 5,
-    color: "bg-blue-500 hover:bg-blue-600",
-    result: "Summary: 3 key points extracted",
+    color: 'bg-blue-500 hover:bg-blue-600',
+    result: 'Summary: 3 key points extracted',
   },
   {
-    label: "Translate",
+    label: 'Translate',
     cost: 3,
-    color: "bg-green-600 hover:bg-green-700",
-    result: "Translated to Spanish",
+    color: 'bg-green-600 hover:bg-green-700',
+    result: 'Translated to Spanish',
   },
 ];
 
@@ -139,12 +139,12 @@ export function CreditSystemDemo() {
     <div className="rounded-xl bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-gray-400">
+          <div className="text-xs font-medium tracking-wide text-gray-400 uppercase">
             Credit Balance
           </div>
           <motion.div
             className={`text-3xl font-bold tabular-nums ${
-              isLow ? "text-orange-500" : "text-gray-800"
+              isLow ? 'text-orange-500' : 'text-gray-800'
             }`}
             animate={{ scale: loading ? [1, 1.05, 1] : 1 }}
             transition={{ duration: 0.3 }}
@@ -169,7 +169,7 @@ export function CreditSystemDemo() {
               onClick={() => handleAction(action)}
               disabled={disabled}
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium text-white transition-colors active:scale-[0.98] ${
-                disabled ? "cursor-not-allowed bg-gray-300" : action.color
+                disabled ? 'cursor-not-allowed bg-gray-300' : action.color
               }`}
               whileTap={disabled ? {} : { scale: 0.98 }}
             >
@@ -206,7 +206,7 @@ export function CreditSystemDemo() {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 300 }}
               className="rounded-lg bg-gray-50 px-4 py-3"
             >
               <div className="mb-1 text-xs font-medium text-gray-400">
@@ -235,9 +235,9 @@ export function CreditSystemDemo() {
         {isLow && (
           <motion.div
             initial={{ opacity: 0, height: 0, marginTop: 0 }}
-            animate={{ opacity: 1, height: "auto", marginTop: 16 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
             exit={{ opacity: 0, height: 0, marginTop: 0 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           >
             <div className="flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
               <div>
@@ -246,7 +246,7 @@ export function CreditSystemDemo() {
                 </div>
                 <div className="text-xs text-orange-500">
                   {credits === 0
-                    ? "No credits remaining"
+                    ? 'No credits remaining'
                     : `Only ${credits} credits left`}
                 </div>
               </div>
@@ -284,7 +284,7 @@ export function PaywallUnlockDemo() {
               initial={{ scale: 0, rotate: -90 }}
               animate={{ scale: 1, rotate: 0 }}
               exit={{ scale: 0, rotate: 90 }}
-              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
               className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100"
             >
               <svg
@@ -309,7 +309,7 @@ export function PaywallUnlockDemo() {
               initial={{ scale: 0, rotate: 90 }}
               animate={{ scale: 1, rotate: 0 }}
               exit={{ scale: 0, rotate: -90 }}
-              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
               className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100"
             >
               <svg
@@ -367,13 +367,13 @@ export function PaywallUnlockDemo() {
             <motion.div
               initial={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
               className="absolute inset-0 flex items-center justify-center"
             >
               <motion.div
-                initial={{ backdropFilter: "blur(6px)" }}
-                exit={{ backdropFilter: "blur(0px)" }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
+                initial={{ backdropFilter: 'blur(6px)' }}
+                exit={{ backdropFilter: 'blur(0px)' }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
                 className="absolute inset-0 bg-white/60"
               />
               <motion.div
@@ -397,9 +397,9 @@ export function PaywallUnlockDemo() {
         {unlocked && (
           <motion.div
             initial={{ opacity: 0, height: 0, marginTop: 0 }}
-            animate={{ opacity: 1, height: "auto", marginTop: 12 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
             exit={{ opacity: 0, height: 0, marginTop: 0 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
             className="flex justify-end overflow-hidden"
           >
             <button
@@ -420,14 +420,14 @@ export function PaywallUnlockDemo() {
 // =============================================================
 
 const transactions = [
-  { amount: 24.99, email: "sarah@acme.co", plan: "Pro Plan" },
-  { amount: 9.99, email: "mike@startup.io", plan: "Starter" },
-  { amount: 49.0, email: "team@bigcorp.com", plan: "Team Plan" },
-  { amount: 24.99, email: "lisa@dev.sh", plan: "Pro Plan" },
-  { amount: 9.99, email: "alex@indie.co", plan: "Starter" },
-  { amount: 99.0, email: "ops@enterprise.io", plan: "Enterprise" },
-  { amount: 24.99, email: "james@agency.co", plan: "Pro Plan" },
-  { amount: 14.99, email: "nina@freelance.me", plan: "Plus" },
+  { amount: 24.99, email: 'sarah@acme.co', plan: 'Pro Plan' },
+  { amount: 9.99, email: 'mike@startup.io', plan: 'Starter' },
+  { amount: 49.0, email: 'team@bigcorp.com', plan: 'Team Plan' },
+  { amount: 24.99, email: 'lisa@dev.sh', plan: 'Pro Plan' },
+  { amount: 9.99, email: 'alex@indie.co', plan: 'Starter' },
+  { amount: 99.0, email: 'ops@enterprise.io', plan: 'Enterprise' },
+  { amount: 24.99, email: 'james@agency.co', plan: 'Pro Plan' },
+  { amount: 14.99, email: 'nina@freelance.me', plan: 'Plus' },
 ];
 
 export function RevenueFeedDemo() {
@@ -461,7 +461,7 @@ export function RevenueFeedDemo() {
   return (
     <div className="rounded-xl bg-white p-5 shadow-sm">
       <div className="mb-4">
-        <div className="text-xs font-medium uppercase tracking-wide text-gray-400">
+        <div className="text-xs font-medium tracking-wide text-gray-400 uppercase">
           Revenue
         </div>
         <div className="mt-1 text-3xl font-bold text-emerald-600">
@@ -476,7 +476,7 @@ export function RevenueFeedDemo() {
               initial={{ opacity: 0, x: 40 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
               className="mb-2 flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-2 py-1.5"
             >
               <div className="flex min-w-0 items-center gap-2">
@@ -487,9 +487,7 @@ export function RevenueFeedDemo() {
                   {txn.email}
                 </span>
               </div>
-              <span className="shrink-0 text-xs text-gray-400">
-                {txn.plan}
-              </span>
+              <span className="shrink-0 text-xs text-gray-400">{txn.plan}</span>
             </motion.div>
           ))}
         </AnimatePresence>
@@ -508,39 +506,39 @@ type Feature = {
 };
 
 const features: Feature[] = [
-  { name: "Unlimited projects", proOnly: false },
-  { name: "Real-time sync", proOnly: false },
-  { name: "Custom permissions", proOnly: true },
-  { name: "File storage", proOnly: true },
-  { name: "Priority support", proOnly: true },
+  { name: 'Unlimited projects', proOnly: false },
+  { name: 'Real-time sync', proOnly: false },
+  { name: 'Custom permissions', proOnly: true },
+  { name: 'File storage', proOnly: true },
+  { name: 'Priority support', proOnly: true },
 ];
 
 export function FeatureGatesDemo() {
-  const [plan, setPlan] = useState<"free" | "pro">("free");
-  const isPro = plan === "pro";
+  const [plan, setPlan] = useState<'free' | 'pro'>('free');
+  const isPro = plan === 'pro';
 
   return (
     <div className="rounded-xl bg-white p-5 shadow-sm">
       <div className="mb-5 flex justify-center">
         <div className="relative flex rounded-full bg-gray-100 p-0.5">
-          {(["free", "pro"] as const).map((option) => (
+          {(['free', 'pro'] as const).map((option) => (
             <button
               key={option}
               onClick={() => setPlan(option)}
               className="relative z-10 px-5 py-1.5 text-sm font-medium capitalize transition-colors"
               style={{
-                color: plan === option ? "#fff" : "#6b7280",
+                color: plan === option ? '#fff' : '#6b7280',
               }}
             >
-              {option === "free" ? "Free" : "Pro"}
+              {option === 'free' ? 'Free' : 'Pro'}
               {plan === option && (
                 <motion.div
                   layoutId="toggle-indicator"
                   className={`absolute inset-0 rounded-full ${
-                    option === "pro" ? "bg-blue-500" : "bg-gray-500"
+                    option === 'pro' ? 'bg-blue-500' : 'bg-gray-500'
                   }`}
                   style={{ zIndex: -1 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
             </button>
@@ -569,7 +567,7 @@ export function FeatureGatesDemo() {
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.5, opacity: 0 }}
                       transition={{
-                        type: "spring",
+                        type: 'spring',
                         stiffness: 500,
                         damping: 25,
                       }}
@@ -580,7 +578,7 @@ export function FeatureGatesDemo() {
                     <motion.span
                       key="check"
                       className={
-                        feature.proOnly ? "text-blue-500" : "text-green-500"
+                        feature.proOnly ? 'text-blue-500' : 'text-green-500'
                       }
                       initial={
                         feature.proOnly ? { scale: 0.5, opacity: 0 } : false
@@ -588,7 +586,7 @@ export function FeatureGatesDemo() {
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.5, opacity: 0 }}
                       transition={{
-                        type: "spring",
+                        type: 'spring',
                         stiffness: 500,
                         damping: 25,
                       }}
@@ -601,7 +599,7 @@ export function FeatureGatesDemo() {
 
               <motion.span
                 className="text-sm font-medium"
-                animate={{ color: locked ? "#9ca3af" : "#374151" }}
+                animate={{ color: locked ? '#9ca3af' : '#374151' }}
                 transition={{ duration: 0.25 }}
               >
                 {feature.name}
@@ -611,8 +609,8 @@ export function FeatureGatesDemo() {
                 <motion.span
                   className="ml-auto rounded-full px-2 py-0.5 text-xs font-medium"
                   animate={{
-                    backgroundColor: isPro ? "#dbeafe" : "#f3f4f6",
-                    color: isPro ? "#3b82f6" : "#9ca3af",
+                    backgroundColor: isPro ? '#dbeafe' : '#f3f4f6',
+                    color: isPro ? '#3b82f6' : '#9ca3af',
                   }}
                   transition={{ duration: 0.25 }}
                 >

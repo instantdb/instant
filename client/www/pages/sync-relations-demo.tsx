@@ -16,9 +16,7 @@ export default function SyncRelationsDemo() {
       <main className="mx-auto max-w-6xl space-y-24 px-4 pt-24 pb-16">
         {/* Variant 1: Query Mirror */}
         <section>
-          <h2 className="mb-1 text-2xl font-bold">
-            Variant 1: Query Mirror
-          </h2>
+          <h2 className="mb-1 text-2xl font-bold">Variant 1: Query Mirror</h2>
           <p className="mb-8 text-gray-500">
             Side-by-side — app on the left, live InstaQL query on the right.
             Click lists and items to see the active query depth change.
@@ -28,9 +26,7 @@ export default function SyncRelationsDemo() {
 
         {/* Variant 2: Anatomy Labels */}
         <section>
-          <h2 className="mb-1 text-2xl font-bold">
-            Variant 2: Anatomy Labels
-          </h2>
+          <h2 className="mb-1 text-2xl font-bold">Variant 2: Anatomy Labels</h2>
           <p className="mb-8 text-gray-500">
             Full-width app with colored entity labels above each panel. InstaQL
             query below with matching entity highlights.
@@ -40,9 +36,7 @@ export default function SyncRelationsDemo() {
 
         {/* Variant 3: Tab Toggle */}
         <section>
-          <h2 className="mb-1 text-2xl font-bold">
-            Variant 3: Tab Toggle
-          </h2>
+          <h2 className="mb-1 text-2xl font-bold">Variant 3: Tab Toggle</h2>
           <p className="mb-8 text-gray-500">
             App/Query tabs in the demo top bar. Query tab shows InstaQL with
             record-count annotations and a truncated JSON result.
@@ -52,13 +46,10 @@ export default function SyncRelationsDemo() {
 
         {/* Variant 4: Messaging Query Shapes */}
         <section>
-          <h2 className="mb-1 text-2xl font-bold">
-            Variant 4: Query Shapes
-          </h2>
+          <h2 className="mb-1 text-2xl font-bold">Variant 4: Query Shapes</h2>
           <p className="mb-8 text-gray-500">
-            One messaging app, two query shapes — toggle between
-            channels &rarr; messages and users &rarr; messages to see the query
-            change.
+            One messaging app, two query shapes — toggle between channels &rarr;
+            messages and users &rarr; messages to see the query change.
           </p>
           <SyncRelationsV4 />
         </section>

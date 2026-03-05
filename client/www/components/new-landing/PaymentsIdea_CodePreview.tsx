@@ -35,7 +35,7 @@ function OnetimeCode() {
         <span className="text-yellow-300">sessions</span>
         <span className="text-gray-400">.</span>
         <span className="text-yellow-300">create</span>
-        <span className="text-gray-400">({"{"}</span>
+        <span className="text-gray-400">({'{'}</span>
       </div>
       <div className="pl-4">
         <span className="text-blue-300">mode</span>
@@ -45,14 +45,14 @@ function OnetimeCode() {
       </div>
       <div className="pl-4">
         <span className="text-blue-300">line_items</span>
-        <span className="text-gray-400">: [{"{ "}</span>
+        <span className="text-gray-400">: [{'{ '}</span>
         <span className="text-blue-300">price</span>
         <span className="text-gray-400">: </span>
         <span className="text-emerald-300">"price_pro"</span>
-        <span className="text-gray-400">{" }],"}</span>
+        <span className="text-gray-400">{' }],'}</span>
       </div>
       <div>
-        <span className="text-gray-400">{"})"}</span>
+        <span className="text-gray-400">{'})'}</span>
       </div>
     </div>
   );
@@ -71,7 +71,7 @@ function SubscriptionCode() {
         <span className="text-yellow-300">subscriptions</span>
         <span className="text-gray-400">.</span>
         <span className="text-yellow-300">create</span>
-        <span className="text-gray-400">({"{"}</span>
+        <span className="text-gray-400">({'{'}</span>
       </div>
       <div className="pl-4">
         <span className="text-blue-300">customer</span>
@@ -81,14 +81,14 @@ function SubscriptionCode() {
       </div>
       <div className="pl-4">
         <span className="text-blue-300">items</span>
-        <span className="text-gray-400">: [{"{ "}</span>
+        <span className="text-gray-400">: [{'{ '}</span>
         <span className="text-blue-300">price</span>
         <span className="text-gray-400">: </span>
         <span className="text-orange-300">selectedPlan</span>
-        <span className="text-gray-400">{".priceId }],"}</span>
+        <span className="text-gray-400">{'.priceId }],'}</span>
       </div>
       <div>
-        <span className="text-gray-400">{"})"}</span>
+        <span className="text-gray-400">{'})'}</span>
       </div>
     </div>
   );
@@ -106,7 +106,7 @@ function UsageCode() {
         <span className="text-yellow-300">meterEvents</span>
         <span className="text-gray-400">.</span>
         <span className="text-yellow-300">create</span>
-        <span className="text-gray-400">({"{"}</span>
+        <span className="text-gray-400">({'{'}</span>
       </div>
       <div className="pl-4">
         <span className="text-blue-300">event_name</span>
@@ -116,16 +116,16 @@ function UsageCode() {
       </div>
       <div className="pl-4">
         <span className="text-blue-300">payload</span>
-        <span className="text-gray-400">: {"{ "}</span>
+        <span className="text-gray-400">: {'{ '}</span>
         <span className="text-blue-300">value</span>
         <span className="text-gray-400">: </span>
         <span className="text-orange-300">credits</span>
         <span className="text-gray-400">,</span>
         <span className="text-blue-300"> stripe_customer_id</span>
-        <span className="text-gray-400">{" },"}</span>
+        <span className="text-gray-400">{' },'}</span>
       </div>
       <div>
-        <span className="text-gray-400">{"})"}</span>
+        <span className="text-gray-400">{'})'}</span>
       </div>
     </div>
   );
@@ -141,7 +141,7 @@ function OnetimePreview() {
   return (
     <div className="flex h-full items-center justify-center p-4">
       <div className="w-full max-w-[200px] rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">
+        <div className="mb-1 text-xs font-medium tracking-wide text-gray-400 uppercase">
           One-time purchase
         </div>
         <div className="text-lg font-bold text-gray-800">Pro License</div>
@@ -270,9 +270,7 @@ function UsagePreview() {
       <div className="w-full max-w-[220px] rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="mb-1 flex items-center justify-between">
           <span className="text-xs font-medium text-gray-500">API Usage</span>
-          <span className="text-xs font-medium text-gray-400">
-            This month
-          </span>
+          <span className="text-xs font-medium text-gray-400">This month</span>
         </div>
         <div className="mt-2 text-lg font-bold text-gray-800">
           {used.toLocaleString()}{' '}
@@ -305,9 +303,9 @@ export function CodePreviewDemo() {
   const [activeTab, setActiveTab] = useState<TabId>('onetime');
 
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm overflow-hidden">
+    <div className="overflow-hidden rounded-xl bg-white p-5 shadow-sm">
       {/* Tab bar */}
-      <div className="mb-4 flex gap-1 border-b border-gray-200 bg-gray-50 rounded-t-lg px-1">
+      <div className="mb-4 flex gap-1 rounded-t-lg border-b border-gray-200 bg-gray-50 px-1">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -343,7 +341,7 @@ export function CodePreviewDemo() {
               <div className="grid grid-cols-2 gap-0 overflow-hidden rounded-lg border border-gray-200">
                 {/* Left: Code */}
                 <div className="bg-gray-900 p-4 font-mono text-[11px] leading-relaxed">
-                  <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                  <div className="mb-2 text-[10px] font-medium tracking-wider text-gray-500 uppercase">
                     Code
                   </div>
                   {tab.id === 'onetime' && <OnetimeCode />}
@@ -354,7 +352,7 @@ export function CodePreviewDemo() {
                 {/* Right: Preview */}
                 <div className="bg-gray-50">
                   <div className="px-4 pt-3">
-                    <div className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                    <div className="text-[10px] font-medium tracking-wider text-gray-400 uppercase">
                       Preview
                     </div>
                   </div>

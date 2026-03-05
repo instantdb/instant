@@ -29,13 +29,7 @@ const entityStyles: Record<
   },
 };
 
-function EntityLabel({
-  name,
-  active,
-}: {
-  name: EntityName;
-  active: boolean;
-}) {
+function EntityLabel({ name, active }: { name: EntityName; active: boolean }) {
   const s = entityStyles[name];
   return (
     <span
@@ -97,10 +91,7 @@ function QueryLine({
 
 const entityOrder: EntityName[] = ['lists', 'items', 'comments'];
 
-function entityTextClass(
-  entity: EntityName,
-  activeEntity: EntityName,
-): string {
+function entityTextClass(entity: EntityName, activeEntity: EntityName): string {
   const isActive =
     entityOrder.indexOf(entity) <= entityOrder.indexOf(activeEntity);
   if (!isActive) return 'text-gray-600';
@@ -114,9 +105,7 @@ function entityTextClass(
 function QueryCodeBlock({ activeEntity }: { activeEntity: EntityName }) {
   return (
     <div className="rounded-xl border border-gray-800 bg-[#0D1117] p-5">
-      <div className="mb-3 text-[11px] font-medium text-gray-500">
-        InstaQL
-      </div>
+      <div className="mb-3 text-[11px] font-medium text-gray-500">InstaQL</div>
       <div className="font-mono text-[13px] leading-relaxed">
         <QueryLine>
           <span className="text-purple-400">const</span>{' '}

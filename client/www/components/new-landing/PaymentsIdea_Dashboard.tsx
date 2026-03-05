@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, useInView } from "motion/react";
+import { useState, useEffect, useRef } from 'react';
+import { motion, useInView } from 'motion/react';
 
 // --- Types ---
 
-type Category = "one-time" | "subscription" | "usage";
+type Category = 'one-time' | 'subscription' | 'usage';
 
 interface CategoryConfig {
   id: Category;
@@ -17,29 +17,29 @@ interface CategoryConfig {
 
 const categories: CategoryConfig[] = [
   {
-    id: "one-time",
-    label: "One-time purchases",
-    subtitle: "Licenses & upgrades",
-    dotColor: "bg-blue-500",
-    barColor: "bg-blue-400",
+    id: 'one-time',
+    label: 'One-time purchases',
+    subtitle: 'Licenses & upgrades',
+    dotColor: 'bg-blue-500',
+    barColor: 'bg-blue-400',
     total: 1561.0,
     barValues: [49, 99, 29, 79, 149],
   },
   {
-    id: "subscription",
-    label: "Subscriptions",
-    subtitle: "Recurring revenue",
-    dotColor: "bg-purple-500",
-    barColor: "bg-purple-400",
+    id: 'subscription',
+    label: 'Subscriptions',
+    subtitle: 'Recurring revenue',
+    dotColor: 'bg-purple-500',
+    barColor: 'bg-purple-400',
     total: 1140.0,
     barValues: [100, 120, 140, 100, 120],
   },
   {
-    id: "usage",
-    label: "Usage metering",
-    subtitle: "+$2.47 API calls",
-    dotColor: "bg-green-500",
-    barColor: "bg-green-400",
+    id: 'usage',
+    label: 'Usage metering',
+    subtitle: '+$2.47 API calls',
+    dotColor: 'bg-green-500',
+    barColor: 'bg-green-400',
     total: 88.92,
     barValues: [8, 12, 5, 10, 7],
   },
@@ -95,7 +95,7 @@ function MiniBarChart({
           initial={{ height: 0 }}
           animate={animate ? { height: Math.max((v / max) * 28, 2) } : {}}
           transition={{
-            type: "spring",
+            type: 'spring',
             stiffness: 300,
             damping: 25,
             delay: i * 0.05,
@@ -141,7 +141,7 @@ function CategoryRow({
 
       {/* Amount */}
       <div className="flex-shrink-0 text-right">
-        <div className="text-sm font-semibold tabular-nums text-gray-800">
+        <div className="text-sm font-semibold text-gray-800 tabular-nums">
           ${animatedTotal.toFixed(2)}
         </div>
       </div>
@@ -177,11 +177,11 @@ export function RevenueDashboardDemo() {
         transition={{ duration: 0.4 }}
       >
         <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-gray-400">
+          <div className="text-xs font-medium tracking-wide text-gray-400 uppercase">
             Revenue Dashboard
           </div>
           <div className="mt-0.5 flex items-baseline gap-2">
-            <span className="text-lg font-bold tabular-nums text-gray-800">
+            <span className="text-lg font-bold text-gray-800 tabular-nums">
               ${animatedGrandTotal.toFixed(2)}
             </span>
             <span className="text-[10px] text-gray-400">total revenue</span>

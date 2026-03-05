@@ -139,8 +139,7 @@ export function ConstellationBg({ children }: PropsWithChildren) {
           for (let dc = -1; dc <= 1; dc++) {
             const nr = gr + dr;
             const nc = gc + dc;
-            if (nr < 0 || nr >= gridRows || nc < 0 || nc >= gridCols)
-              continue;
+            if (nr < 0 || nr >= gridRows || nc < 0 || nc >= gridCols) continue;
             const cell = grid[nr * gridCols + nc];
             for (const j of cell) {
               if (j <= i) continue;

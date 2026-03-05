@@ -23,7 +23,7 @@ export default function InstantUpdatesDemoPage() {
 
         <div className="flex flex-col gap-16">
           <div>
-            <div className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-4 text-sm font-semibold tracking-wide text-gray-400 uppercase">
               New: Scrubbable causality — one action, two models
             </div>
             <div className="grid grid-cols-3 items-center gap-6">
@@ -38,7 +38,7 @@ export default function InstantUpdatesDemoPage() {
 
           {/* E: Side-by-side (favorite) */}
           <div>
-            <div className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-4 text-sm font-semibold tracking-wide text-gray-400 uppercase">
               E: Side-by-side — same click, feel the difference
             </div>
             <div className="grid grid-cols-3 items-center gap-6">
@@ -53,7 +53,7 @@ export default function InstantUpdatesDemoPage() {
 
           {/* A: Feel the Difference */}
           <div>
-            <div className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-4 text-sm font-semibold tracking-wide text-gray-400 uppercase">
               A: &ldquo;Feel the Difference&rdquo; — latency toggle
             </div>
             <div className="grid grid-cols-3 items-center gap-6">
@@ -66,7 +66,7 @@ export default function InstantUpdatesDemoPage() {
 
           {/* B: Under the Hood */}
           <div>
-            <div className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-4 text-sm font-semibold tracking-wide text-gray-400 uppercase">
               B: Under the hood — optimistic update pipeline
             </div>
             <div className="grid grid-cols-3 items-center gap-6">
@@ -79,7 +79,7 @@ export default function InstantUpdatesDemoPage() {
 
           {/* C: Code + Result */}
           <div>
-            <div className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-4 text-sm font-semibold tracking-wide text-gray-400 uppercase">
               C: Code + Result — show the one-liner
             </div>
             <div className="grid grid-cols-3 items-center gap-6">
@@ -92,7 +92,7 @@ export default function InstantUpdatesDemoPage() {
 
           {/* D: Drag to Reorder */}
           <div>
-            <div className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-4 text-sm font-semibold tracking-wide text-gray-400 uppercase">
               D: Drag to reorder — richer interaction
             </div>
             <div className="grid grid-cols-3 items-center gap-6">

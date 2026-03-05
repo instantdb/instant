@@ -18,7 +18,7 @@ export function HomePageLayout({
   Background: ComponentType<PropsWithChildren>;
 }) {
   return (
-    <div className="relative text-off-black">
+    <div className="text-off-black relative">
       <MainNav transparent />
       <Head>
         <title>Instant</title>

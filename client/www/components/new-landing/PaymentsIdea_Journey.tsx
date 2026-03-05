@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 
 // --- Types ---
 
-type StepStatus = "locked" | "ready" | "playing" | "done";
+type StepStatus = 'locked' | 'ready' | 'playing' | 'done';
 
 type Step = {
   id: number;
@@ -22,53 +22,53 @@ type Step = {
 const steps: Step[] = [
   {
     id: 0,
-    label: "One-time",
-    sublabel: "License",
-    color: "blue",
-    bgActive: "bg-blue-500",
-    bgDone: "bg-blue-500",
-    textColor: "text-blue-600",
-    ringColor: "ring-blue-500",
-    price: "$49",
-    description: "Purchase app license",
+    label: 'One-time',
+    sublabel: 'License',
+    color: 'blue',
+    bgActive: 'bg-blue-500',
+    bgDone: 'bg-blue-500',
+    textColor: 'text-blue-600',
+    ringColor: 'ring-blue-500',
+    price: '$49',
+    description: 'Purchase app license',
     resultLines: [
-      "Payment received — $49.00",
-      "License key generated",
-      "Access granted",
+      'Payment received — $49.00',
+      'License key generated',
+      'Access granted',
     ],
   },
   {
     id: 1,
-    label: "Subscription",
-    sublabel: "Monthly",
-    color: "purple",
-    bgActive: "bg-purple-500",
-    bgDone: "bg-purple-500",
-    textColor: "text-purple-600",
-    ringColor: "ring-purple-500",
-    price: "$20/mo",
-    description: "Upgrade to Pro plan",
+    label: 'Subscription',
+    sublabel: 'Monthly',
+    color: 'purple',
+    bgActive: 'bg-purple-500',
+    bgDone: 'bg-purple-500',
+    textColor: 'text-purple-600',
+    ringColor: 'ring-purple-500',
+    price: '$20/mo',
+    description: 'Upgrade to Pro plan',
     resultLines: [
-      "Subscription started — $20/mo",
-      "Next billing: Apr 4, 2026",
-      "Pro features unlocked",
+      'Subscription started — $20/mo',
+      'Next billing: Apr 4, 2026',
+      'Pro features unlocked',
     ],
   },
   {
     id: 2,
-    label: "Usage-based",
-    sublabel: "API credits",
-    color: "green",
-    bgActive: "bg-green-500",
-    bgDone: "bg-green-500",
-    textColor: "text-green-600",
-    ringColor: "ring-green-500",
-    price: "$0.01/req",
-    description: "Burn API credits",
+    label: 'Usage-based',
+    sublabel: 'API credits',
+    color: 'green',
+    bgActive: 'bg-green-500',
+    bgDone: 'bg-green-500',
+    textColor: 'text-green-600',
+    ringColor: 'ring-green-500',
+    price: '$0.01/req',
+    description: 'Burn API credits',
     resultLines: [
-      "247 requests processed",
-      "Charged $2.47 to balance",
-      "Usage synced in real-time",
+      '247 requests processed',
+      'Charged $2.47 to balance',
+      'Usage synced in real-time',
     ],
   },
 ];
@@ -178,7 +178,7 @@ function StepResultPanel({
                 initial={{ opacity: 0, x: 12 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{
-                  type: "spring",
+                  type: 'spring',
                   stiffness: 400,
                   damping: 25,
                 }}
@@ -188,15 +188,15 @@ function StepResultPanel({
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{
-                    type: "spring",
+                    type: 'spring',
                     stiffness: 500,
                     damping: 20,
                     delay: 0.05,
                   }}
                   className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
                     i === lineIndex
-                      ? step.bgActive + " text-white"
-                      : "bg-gray-200 text-gray-500"
+                      ? step.bgActive + ' text-white'
+                      : 'bg-gray-200 text-gray-500'
                   }`}
                 >
                   {i < lineIndex ? (
@@ -233,11 +233,11 @@ export function CustomerJourneyDemo() {
 
   const getStepStatus = useCallback(
     (stepId: number): StepStatus => {
-      if (activeStep === stepId) return "playing";
-      if (completedSteps.has(stepId)) return "done";
-      if (stepId === 0) return "ready";
-      if (completedSteps.has(stepId - 1)) return "ready";
-      return "locked";
+      if (activeStep === stepId) return 'playing';
+      if (completedSteps.has(stepId)) return 'done';
+      if (stepId === 0) return 'ready';
+      if (completedSteps.has(stepId - 1)) return 'ready';
+      return 'locked';
     },
     [activeStep, completedSteps],
   );
@@ -245,7 +245,7 @@ export function CustomerJourneyDemo() {
   const playStep = useCallback(
     (stepId: number) => {
       const status = getStepStatus(stepId);
-      if (status === "locked" || status === "playing") return;
+      if (status === 'locked' || status === 'playing') return;
 
       // Clear any existing timers
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -256,9 +256,12 @@ export function CustomerJourneyDemo() {
       // Reveal lines one by one
       const step = steps[stepId];
       step.resultLines.forEach((_, i) => {
-        setTimeout(() => {
-          setPlayingLineIndex(i);
-        }, 400 + i * 500);
+        setTimeout(
+          () => {
+            setPlayingLineIndex(i);
+          },
+          400 + i * 500,
+        );
       });
 
       // Mark complete after all lines shown
@@ -292,7 +295,7 @@ export function CustomerJourneyDemo() {
       {/* Header */}
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-gray-400">
+          <div className="text-xs font-medium tracking-wide text-gray-400 uppercase">
             Customer Journey
           </div>
           <div className="mt-0.5 text-sm font-semibold text-gray-800">
@@ -311,7 +314,7 @@ export function CustomerJourneyDemo() {
       <div className="mb-5 flex items-center justify-between px-2">
         {steps.map((step, i) => {
           const status = getStepStatus(step.id);
-          const isClickable = status === "ready" || status === "done";
+          const isClickable = status === 'ready' || status === 'done';
 
           return (
             <React.Fragment key={step.id}>
@@ -321,16 +324,16 @@ export function CustomerJourneyDemo() {
                   <div className="absolute inset-0 rounded-full bg-gray-200" />
                   <motion.div
                     className={`absolute inset-y-0 left-0 rounded-full ${steps[i - 1].bgDone}`}
-                    initial={{ width: "0%" }}
+                    initial={{ width: '0%' }}
                     animate={{
                       width:
                         completedSteps.has(i - 1) ||
                         activeStep === i ||
                         completedSteps.has(i)
-                          ? "100%"
-                          : "0%",
+                          ? '100%'
+                          : '0%',
                     }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
                   />
                 </div>
               )}
@@ -341,11 +344,11 @@ export function CustomerJourneyDemo() {
                   onClick={() => playStep(step.id)}
                   disabled={!isClickable}
                   className={`relative flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors ${
-                    status === "playing"
+                    status === 'playing'
                       ? `border-current ${step.textColor} bg-white`
-                      : status === "done"
+                      : status === 'done'
                         ? `${step.bgDone} border-transparent text-white`
-                        : status === "ready"
+                        : status === 'ready'
                           ? `border-gray-300 bg-white text-gray-500 hover:border-gray-400`
                           : `border-gray-200 bg-gray-50 text-gray-300`
                   }`}
@@ -353,28 +356,28 @@ export function CustomerJourneyDemo() {
                   whileTap={isClickable ? { scale: 0.95 } : {}}
                 >
                   <AnimatePresence mode="wait">
-                    {status === "done" ? (
+                    {status === 'done' ? (
                       <motion.span
                         key="check"
                         initial={{ scale: 0, rotate: -90 }}
                         animate={{ scale: 1, rotate: 0 }}
                         exit={{ scale: 0 }}
                         transition={{
-                          type: "spring",
+                          type: 'spring',
                           stiffness: 500,
                           damping: 20,
                         }}
                       >
                         <CheckIcon />
                       </motion.span>
-                    ) : status === "playing" ? (
+                    ) : status === 'playing' ? (
                       <motion.span
                         key="playing"
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
                         transition={{
-                          type: "spring",
+                          type: 'spring',
                           stiffness: 500,
                           damping: 20,
                         }}
@@ -388,7 +391,7 @@ export function CustomerJourneyDemo() {
                           transition={{ duration: 1, repeat: Infinity }}
                         />
                       </motion.span>
-                    ) : status === "locked" ? (
+                    ) : status === 'locked' ? (
                       <motion.span
                         key="lock"
                         initial={{ scale: 0 }}
@@ -410,21 +413,21 @@ export function CustomerJourneyDemo() {
                   </AnimatePresence>
 
                   {/* Pulse ring when playing */}
-                  {status === "playing" && (
+                  {status === 'playing' && (
                     <motion.div
                       className={`absolute inset-0 rounded-full border-2 ${
-                        step.color === "blue"
-                          ? "border-blue-400"
-                          : step.color === "purple"
-                            ? "border-purple-400"
-                            : "border-green-400"
+                        step.color === 'blue'
+                          ? 'border-blue-400'
+                          : step.color === 'purple'
+                            ? 'border-purple-400'
+                            : 'border-green-400'
                       }`}
                       initial={{ scale: 1, opacity: 0.6 }}
                       animate={{ scale: 1.5, opacity: 0 }}
                       transition={{
                         duration: 1,
                         repeat: Infinity,
-                        ease: "easeOut",
+                        ease: 'easeOut',
                       }}
                     />
                   )}
@@ -434,22 +437,20 @@ export function CustomerJourneyDemo() {
                 <motion.div
                   className="mt-2 text-center"
                   animate={{
-                    opacity: status === "locked" ? 0.4 : 1,
+                    opacity: status === 'locked' ? 0.4 : 1,
                   }}
                   transition={{ duration: 0.3 }}
                 >
                   <div
                     className={`text-xs font-semibold ${
-                      status === "done" || status === "playing"
+                      status === 'done' || status === 'playing'
                         ? step.textColor
-                        : "text-gray-600"
+                        : 'text-gray-600'
                     }`}
                   >
                     {step.label}
                   </div>
-                  <div className="text-[10px] text-gray-400">
-                    {step.price}
-                  </div>
+                  <div className="text-[10px] text-gray-400">{step.price}</div>
                 </motion.div>
               </div>
             </React.Fragment>
@@ -466,13 +467,13 @@ export function CustomerJourneyDemo() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className={`rounded-lg border px-4 py-3 ${
-                steps[activeStep].color === "blue"
-                  ? "border-blue-100 bg-blue-50"
-                  : steps[activeStep].color === "purple"
-                    ? "border-purple-100 bg-purple-50"
-                    : "border-green-100 bg-green-50"
+                steps[activeStep].color === 'blue'
+                  ? 'border-blue-100 bg-blue-50'
+                  : steps[activeStep].color === 'purple'
+                    ? 'border-purple-100 bg-purple-50'
+                    : 'border-green-100 bg-green-50'
               }`}
             >
               <div className="mb-2 flex items-center gap-2">
@@ -501,14 +502,14 @@ export function CustomerJourneyDemo() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="flex flex-col items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-4"
             >
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{
-                  type: "spring",
+                  type: 'spring',
                   stiffness: 400,
                   damping: 15,
                   delay: 0.1,

@@ -7,13 +7,22 @@ import { motion, AnimatePresence } from 'motion/react';
 function AnimatedTerminal() {
   const steps = [
     { type: 'command' as const, text: 'npx instant-cli login' },
-    { type: 'output' as const, text: 'Successfully logged in as joe@instantdb.com!' },
+    {
+      type: 'output' as const,
+      text: 'Successfully logged in as joe@instantdb.com!',
+    },
     { type: 'command' as const, text: 'npx create-instant-app awesome-gram' },
-    { type: 'output' as const, text: '🎉 Success! Your project is ready to go!' },
+    {
+      type: 'output' as const,
+      text: '🎉 Success! Your project is ready to go!',
+    },
     { type: 'command' as const, text: 'npx instant-cli push schema' },
     { type: 'output' as const, text: 'Schema updated!' },
     { type: 'command' as const, text: 'npx vercel --prod' },
-    { type: 'output' as const, text: '✓ App deployed at https://awesome-gram.vercel.app' },
+    {
+      type: 'output' as const,
+      text: '✓ App deployed at https://awesome-gram.vercel.app',
+    },
   ];
 
   // completedSteps: number of fully rendered steps
@@ -21,7 +30,8 @@ function AnimatedTerminal() {
   const [completedSteps, setCompletedSteps] = useState(0);
   const [typingIndex, setTypingIndex] = useState(0);
 
-  const currentStep = completedSteps < steps.length ? steps[completedSteps] : null;
+  const currentStep =
+    completedSteps < steps.length ? steps[completedSteps] : null;
   const isTypingCommand = currentStep?.type === 'command';
 
   useEffect(() => {
@@ -47,9 +57,12 @@ function AnimatedTerminal() {
 
     // Command: type character by character
     if (typingIndex < step.text.length) {
-      const timeout = setTimeout(() => {
-        setTypingIndex((i) => i + 1);
-      }, 8 + Math.random() * 16);
+      const timeout = setTimeout(
+        () => {
+          setTypingIndex((i) => i + 1);
+        },
+        8 + Math.random() * 16,
+      );
       return () => clearTimeout(timeout);
     }
 
@@ -85,7 +98,9 @@ function AnimatedTerminal() {
 
         {/* Currently typing command */}
         {isTypingCommand && currentStep && (
-          <div className={`${completedSteps > 0 ? 'mt-1' : ''} flex items-center gap-2`}>
+          <div
+            className={`${completedSteps > 0 ? 'mt-1' : ''} flex items-center gap-2`}
+          >
             <span className="text-green-400">$</span>
             <span className="text-gray-100">
               {currentStep.text.slice(0, typingIndex)}
@@ -447,7 +462,7 @@ function AutocompleteDropdown({ items }: { items: DropdownItem[] }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
       transition={{ duration: 0.15 }}
-      className="absolute left-0 top-full z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border border-gray-700 bg-[#1e1e2e] shadow-xl"
+      className="absolute top-full left-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border border-gray-700 bg-[#1e1e2e] shadow-xl"
     >
       {items.map((item) => (
         <div
@@ -489,7 +504,7 @@ const scenes: Scene[] = [
         <span className="text-orange-300">db</span>
         <span className="text-gray-400">.</span>
         <span className="text-yellow-300">useQuery</span>
-        <span className="text-gray-400">{"({"}</span>
+        <span className="text-gray-400">{'({'}</span>
       </>
     ),
     dropdownItems: [
@@ -603,7 +618,8 @@ function TypeSafetyDemo() {
   }, [phase, sceneIndex]);
 
   const showDropdown = phase === 'show-dropdown';
-  const showSelected = phase === 'select-item' || phase === 'show-annotation' || phase === 'pause';
+  const showSelected =
+    phase === 'select-item' || phase === 'show-annotation' || phase === 'pause';
   const showAnnotation = phase === 'show-annotation' || phase === 'pause';
   const showCursor = phase !== 'pause';
 

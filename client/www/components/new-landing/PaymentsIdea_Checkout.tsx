@@ -1,9 +1,9 @@
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 
 // --- Plan data ---
 
-type PlanId = "one-time" | "monthly" | "usage";
+type PlanId = 'one-time' | 'monthly' | 'usage';
 
 interface Plan {
   id: PlanId;
@@ -14,22 +14,22 @@ interface Plan {
 
 const plans: Plan[] = [
   {
-    id: "one-time",
-    name: "One-time license",
-    price: "$49",
-    detail: "one-time",
+    id: 'one-time',
+    name: 'One-time license',
+    price: '$49',
+    detail: 'one-time',
   },
   {
-    id: "monthly",
-    name: "Monthly plan",
-    price: "$20/mo",
-    detail: "subscription",
+    id: 'monthly',
+    name: 'Monthly plan',
+    price: '$20/mo',
+    detail: 'subscription',
   },
   {
-    id: "usage",
-    name: "Pay per use",
-    price: "~$0.01",
-    detail: "/request",
+    id: 'usage',
+    name: 'Pay per use',
+    price: '~$0.01',
+    detail: '/request',
   },
 ];
 
@@ -43,12 +43,12 @@ function ConfettiDots() {
     const x = Math.cos(rad) * distance;
     const y = Math.sin(rad) * distance;
     const colors = [
-      "bg-blue-400",
-      "bg-green-400",
-      "bg-purple-400",
-      "bg-yellow-400",
-      "bg-pink-400",
-      "bg-indigo-400",
+      'bg-blue-400',
+      'bg-green-400',
+      'bg-purple-400',
+      'bg-yellow-400',
+      'bg-pink-400',
+      'bg-indigo-400',
     ];
     const color = colors[i % colors.length];
     const size = 3 + Math.random() * 3;
@@ -60,8 +60,8 @@ function ConfettiDots() {
         style={{
           width: size,
           height: size,
-          left: "50%",
-          top: "50%",
+          left: '50%',
+          top: '50%',
           marginLeft: -size / 2,
           marginTop: -size / 2,
         }}
@@ -74,7 +74,7 @@ function ConfettiDots() {
         }}
         transition={{
           duration: 0.7,
-          ease: "easeOut",
+          ease: 'easeOut',
           delay: i * 0.02,
         }}
       />
@@ -113,27 +113,27 @@ function OneTimeCheckout({ onPay }: { onPay: () => void }) {
 }
 
 function SubscriptionCheckout({ onPay }: { onPay: () => void }) {
-  const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
+  const [cycle, setCycle] = useState<'monthly' | 'annual'>('monthly');
   const monthly = 20;
   const annual = 16;
-  const price = cycle === "monthly" ? monthly : annual;
-  const total = cycle === "monthly" ? monthly : annual * 12;
+  const price = cycle === 'monthly' ? monthly : annual;
+  const total = cycle === 'monthly' ? monthly : annual * 12;
 
   return (
     <div>
       <div className="mb-3 flex rounded-lg bg-gray-50 p-0.5">
-        {(["monthly", "annual"] as const).map((option) => (
+        {(['monthly', 'annual'] as const).map((option) => (
           <button
             key={option}
             onClick={() => setCycle(option)}
             className={`relative flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
               cycle === option
-                ? "bg-white text-gray-800 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+                ? 'bg-white text-gray-800 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {option === "monthly" ? "Monthly" : "Annual"}
-            {option === "annual" && (
+            {option === 'monthly' ? 'Monthly' : 'Annual'}
+            {option === 'annual' && (
               <span className="ml-1 text-[10px] font-semibold text-green-600">
                 -20%
               </span>
@@ -143,21 +143,19 @@ function SubscriptionCheckout({ onPay }: { onPay: () => void }) {
       </div>
       <div className="mb-2 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
         <span className="text-xs text-gray-500">
-          {cycle === "monthly" ? "Billed monthly" : "Billed annually"}
+          {cycle === 'monthly' ? 'Billed monthly' : 'Billed annually'}
         </span>
-        <span className="text-sm font-semibold text-gray-800">
-          ${price}/mo
-        </span>
+        <span className="text-sm font-semibold text-gray-800">${price}/mo</span>
       </div>
       <div className="mb-3 flex items-center justify-between border-t border-gray-100 px-1 pt-2">
         <span className="text-xs font-medium text-gray-600">
-          {cycle === "monthly" ? "Monthly total" : "Annual total"}
+          {cycle === 'monthly' ? 'Monthly total' : 'Annual total'}
         </span>
         <div className="text-right">
           <span className="text-sm font-bold text-gray-900">
             ${total.toFixed(2)}
           </span>
-          {cycle === "annual" && (
+          {cycle === 'annual' && (
             <div className="text-[10px] text-green-600">
               Save ${((monthly - annual) * 12).toFixed(2)}/yr
             </div>
@@ -185,7 +183,7 @@ function UsageCheckout({ onPay }: { onPay: () => void }) {
       <div className="mb-3">
         <div className="mb-1 flex items-center justify-between">
           <span className="text-xs text-gray-500">Estimated requests/mo</span>
-          <span className="text-xs font-semibold tabular-nums text-gray-800">
+          <span className="text-xs font-semibold text-gray-800 tabular-nums">
             {requests.toLocaleString()}
           </span>
         </div>
@@ -238,7 +236,12 @@ function SuccessState() {
           className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100"
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 400, damping: 20, delay: 0.1 }}
+          transition={{
+            type: 'spring',
+            stiffness: 400,
+            damping: 20,
+            delay: 0.1,
+          }}
         >
           <motion.svg
             width="24"
@@ -278,7 +281,7 @@ function SuccessState() {
 // --- Main component ---
 
 export function CheckoutFlowDemo() {
-  const [selected, setSelected] = useState<PlanId>("one-time");
+  const [selected, setSelected] = useState<PlanId>('one-time');
   const [showSuccess, setShowSuccess] = useState(false);
 
   const handlePay = useCallback(() => {
@@ -307,15 +310,15 @@ export function CheckoutFlowDemo() {
               onClick={() => setSelected(plan.id)}
               className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
                 isSelected
-                  ? "border-blue-500 bg-blue-50/40 ring-2 ring-blue-100"
-                  : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
+                  ? 'border-blue-500 bg-blue-50/40 ring-2 ring-blue-100'
+                  : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50'
               }`}
               whileTap={{ scale: 0.99 }}
             >
               {/* Radio indicator */}
               <div
                 className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                  isSelected ? "border-blue-500" : "border-gray-300"
+                  isSelected ? 'border-blue-500' : 'border-gray-300'
                 }`}
               >
                 <AnimatePresence>
@@ -326,7 +329,7 @@ export function CheckoutFlowDemo() {
                       animate={{ scale: 1 }}
                       exit={{ scale: 0 }}
                       transition={{
-                        type: "spring",
+                        type: 'spring',
                         stiffness: 500,
                         damping: 25,
                       }}
@@ -340,7 +343,7 @@ export function CheckoutFlowDemo() {
                 <div>
                   <div
                     className={`text-sm font-medium ${
-                      isSelected ? "text-gray-800" : "text-gray-700"
+                      isSelected ? 'text-gray-800' : 'text-gray-700'
                     }`}
                   >
                     {plan.name}
@@ -349,7 +352,7 @@ export function CheckoutFlowDemo() {
                 </div>
                 <div
                   className={`text-sm font-semibold ${
-                    isSelected ? "text-blue-600" : "text-gray-600"
+                    isSelected ? 'text-blue-600' : 'text-gray-600'
                   }`}
                 >
                   {plan.price}
@@ -363,7 +366,7 @@ export function CheckoutFlowDemo() {
       {/* Checkout preview */}
       <div className="rounded-lg border border-gray-100 bg-white p-3">
         <AnimatePresence mode="wait">
-          {selected === "one-time" && (
+          {selected === 'one-time' && (
             <motion.div
               key="one-time"
               initial={{ opacity: 0, y: 8 }}
@@ -374,7 +377,7 @@ export function CheckoutFlowDemo() {
               <OneTimeCheckout onPay={handlePay} />
             </motion.div>
           )}
-          {selected === "monthly" && (
+          {selected === 'monthly' && (
             <motion.div
               key="monthly"
               initial={{ opacity: 0, y: 8 }}
@@ -385,7 +388,7 @@ export function CheckoutFlowDemo() {
               <SubscriptionCheckout onPay={handlePay} />
             </motion.div>
           )}
-          {selected === "usage" && (
+          {selected === 'usage' && (
             <motion.div
               key="usage"
               initial={{ opacity: 0, y: 8 }}
@@ -400,9 +403,7 @@ export function CheckoutFlowDemo() {
       </div>
 
       {/* Success overlay */}
-      <AnimatePresence>
-        {showSuccess && <SuccessState />}
-      </AnimatePresence>
+      <AnimatePresence>{showSuccess && <SuccessState />}</AnimatePresence>
     </div>
   );
 }

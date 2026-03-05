@@ -20,13 +20,7 @@ function Kw({ children }: { children: ReactNode }) {
   return <span className="text-purple-400">{children}</span>;
 }
 
-function Ent({
-  children,
-  active,
-}: {
-  children: ReactNode;
-  active?: boolean;
-}) {
+function Ent({ children, active }: { children: ReactNode; active?: boolean }) {
   return (
     <span className={active ? 'text-orange-300' : 'text-gray-300'}>
       {children}
@@ -68,8 +62,8 @@ function buildQueryLines(state: DemoState, lists: List[]): QL[] {
     indent: 0,
     content: (
       <>
-        <Kw>const</Kw> <span className="text-gray-300">query</span>{' '}
-        <Pn>=</Pn> <Pn>{'{'}</Pn>
+        <Kw>const</Kw> <span className="text-gray-300">query</span> <Pn>=</Pn>{' '}
+        <Pn>{'{'}</Pn>
       </>
     ),
   });
@@ -210,14 +204,7 @@ function buildQueryLines(state: DemoState, lists: List[]): QL[] {
   return lines;
 }
 
-
-function QueryCodeBlock({
-  state,
-  lists,
-}: {
-  state: DemoState;
-  lists: List[];
-}) {
+function QueryCodeBlock({ state, lists }: { state: DemoState; lists: List[] }) {
   const queryLines = buildQueryLines(state, lists);
 
   return (
@@ -424,7 +411,7 @@ function ItemsView({
                     transition={{ duration: 0.25 }}
                     className="overflow-hidden"
                   >
-                    <div className="ml-6 mt-1 mb-2 space-y-2 rounded-lg bg-gray-50 p-2.5">
+                    <div className="mt-1 mb-2 ml-6 space-y-2 rounded-lg bg-gray-50 p-2.5">
                       {item.comments.map((c) => (
                         <div key={c.id} className="flex gap-2">
                           <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-[9px] font-bold text-gray-500">
@@ -448,7 +435,6 @@ function ItemsView({
           ))}
         </AnimatePresence>
       </div>
-
     </div>
   );
 }

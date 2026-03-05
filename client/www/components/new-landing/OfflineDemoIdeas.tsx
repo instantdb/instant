@@ -132,9 +132,19 @@ export function OfflineDemoRevived() {
 // ─── Likes-themed offline demo ──────────────────────────────────────
 
 const fixedMessages = [
-  { id: 1, user: 'Daniel', emoji: '🚀', text: 'Just shipped the new sync engine' },
+  {
+    id: 1,
+    user: 'Daniel',
+    emoji: '🚀',
+    text: 'Just shipped the new sync engine',
+  },
   { id: 2, user: 'Joe', emoji: '🔥', text: 'Perf is looking great' },
-  { id: 3, user: 'Drew', emoji: '❤️', text: 'Deploys are green across the board' },
+  {
+    id: 3,
+    user: 'Drew',
+    emoji: '❤️',
+    text: 'Deploys are green across the board',
+  },
 ];
 
 type Like = { msgId: number };
@@ -213,7 +223,9 @@ function RollingCount({
 }) {
   const digits = `${value}`.split('');
   return (
-    <span className={`inline-flex items-center tabular-nums ${className ?? ''}`}>
+    <span
+      className={`inline-flex items-center tabular-nums ${className ?? ''}`}
+    >
       {digits.map((d, i) => (
         <RollingDigit key={i} value={+d} />
       ))}
