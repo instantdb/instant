@@ -482,18 +482,16 @@ type ValidQueryObject<
   Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema['entities'],
   TopLevel extends boolean,
-> = keyof T extends keyof Schema['entities'][EntityName]['links'] | '$'
-  ? {
-      [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
-        T[K],
-        Schema,
-        Schema['entities'][EntityName]['links'][K]['entityName'],
-        false
-      >;
-    } & {
-      $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
-    }
-  : never;
+> = {
+  [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
+    T[K],
+    Schema,
+    Schema['entities'][EntityName]['links'][K]['entityName'],
+    false
+  >;
+} & {
+  $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
+};
 
 type ValidInfiniteQueryObject<
   T extends Record<string, any>,

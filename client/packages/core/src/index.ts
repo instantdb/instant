@@ -147,6 +147,7 @@ import {
   ReadableStreamCtor,
   WritableStreamCtor,
 } from './Stream.ts';
+import { subscribeInfiniteQuery } from './infiniteQuery.ts';
 
 const defaultOpenDevtool = true;
 
@@ -698,6 +699,25 @@ class InstantCoreDatabase<
     opts?: InstaQLOptions,
   ) {
     return this._reactor.subscribeQuery(query, cb, opts);
+  }
+
+  /**
+   *
+   */
+  subscribeInfiniteQuery<
+    Q extends ValidQuery<Q, Schema>,
+    UseDatesLocal extends boolean = UseDates,
+  >(
+    query: Q,
+    cb: (resp: InstaQLResponse<Schema, Q, UseDatesLocal>) => void,
+    opts?: InstaQLOptions,
+  ) {
+    return subscribeInfiniteQuery<Schema, Q, UseDatesLocal>(
+      this,
+      query,
+      cb,
+      opts,
+    );
   }
 
   /**
