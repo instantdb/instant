@@ -507,7 +507,7 @@ type ValidInfiniteQueryObject<
 } & {
   $: {
     where?: ValidWhereObject<T['$']['where'], Schema, EntityName>;
-    pageSize: number;
+    limit?: number;
     fields?: ValidFieldNames<Schema, EntityName>[];
     order?: Order<Schema, EntityName>;
   };

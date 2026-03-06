@@ -20,7 +20,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
 
   const scrollResult = db.useInfiniteQuery('items', {
     $: {
-      pageSize,
+      limit: pageSize,
 
       order: {
         value: 'asc',
