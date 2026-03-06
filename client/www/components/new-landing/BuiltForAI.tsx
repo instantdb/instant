@@ -73,8 +73,8 @@ function AnimatedTerminal() {
     }
 
     if (phase === 'diff') {
-      const timeout = setTimeout(() => setPhase('result'), 5000);
-      return () => clearTimeout(timeout);
+      // Wait for user to click Push or Cancel — don't auto-advance
+      return;
     }
 
     if (phase === 'result' || phase === 'cancelled') {

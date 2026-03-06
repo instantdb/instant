@@ -755,47 +755,6 @@ function ChatBubble({ msg }: { msg: ChatMsg }) {
   );
 }
 
-function ChatMessageRow({
-  msg,
-  shouldAnimate,
-}: {
-  msg: ChatMsg;
-  shouldAnimate: boolean;
-}) {
-  const [hasEntered, setHasEntered] = useState(!shouldAnimate);
-
-  useEffect(() => {
-    if (!shouldAnimate) return;
-
-    const frame = requestAnimationFrame(() => {
-      setHasEntered(true);
-    });
-
-    return () => cancelAnimationFrame(frame);
-  }, [shouldAnimate]);
-
-  return (
-    <div
-      style={
-        shouldAnimate
-          ? {
-              overflowAnchor: 'none',
-              opacity: hasEntered ? 1 : 0,
-              transform: hasEntered
-                ? 'translate3d(0, 0, 0)'
-                : 'translate3d(0, 14px, 0)',
-              transition:
-                'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms cubic-bezier(0.22, 1, 0.36, 1)',
-              willChange: hasEntered ? undefined : 'transform, opacity',
-            }
-          : { overflowAnchor: 'none' }
-      }
-    >
-      <ChatBubble msg={msg} />
-    </div>
-  );
-}
-
 // Fixed height — fits ~3 messages, older ones scroll
 const CHAT_HEIGHT = 126;
 
@@ -803,19 +762,21 @@ function ChatPhoneCard({
   owner,
   messages,
   onSend,
-  latestMessageId,
 }: {
   owner: 'daniel' | 'joe';
   messages: ChatMsg[];
   onSend: () => void;
-  latestMessageId?: number;
 }) {
   const meta = SENDER_META[owner];
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const bottomAnchorRef = useRef<HTMLDivElement>(null);
   const hadOverflowRef = useRef(false);
   const shouldStickToBottomRef = useRef(true);
   const prevMessageCountRef = useRef(messages.length);
+  const prevContentHeightRef = useRef<number | null>(null);
+  const motionFrameRef = useRef<number | null>(null);
+  const motionResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const supportsScrollAnchoring =
     typeof CSS !== 'undefined' && CSS.supports?.('overflow-anchor: auto');
 
@@ -831,12 +792,34 @@ function ChatPhoneCard({
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
+    const content = contentRef.current;
     const bottomAnchor = bottomAnchorRef.current;
-    if (!el || !bottomAnchor) return;
+    if (!el || !content || !bottomAnchor) return;
+
+    if (motionFrameRef.current) {
+      cancelAnimationFrame(motionFrameRef.current);
+      motionFrameRef.current = null;
+    }
+    if (motionResetRef.current) {
+      clearTimeout(motionResetRef.current);
+      motionResetRef.current = null;
+    }
+    content.style.transition = '';
+    content.style.transform = '';
 
     const hasOverflow = el.scrollHeight > el.clientHeight + 1;
+    const nextContentHeight = content.offsetHeight;
+    if (prevContentHeightRef.current == null) {
+      prevContentHeightRef.current = nextContentHeight;
+      hadOverflowRef.current = hasOverflow;
+      prevMessageCountRef.current = messages.length;
+      return;
+    }
+
+    const didAppend = messages.length > prevMessageCountRef.current;
     const didReset = messages.length < prevMessageCountRef.current;
     const overflowJustStarted = hasOverflow && !hadOverflowRef.current;
+    const contentHeightDelta = nextContentHeight - prevContentHeightRef.current;
 
     if (supportsScrollAnchoring) {
       if (overflowJustStarted || (didReset && hasOverflow)) {
@@ -852,9 +835,36 @@ function ChatPhoneCard({
       }
     }
 
+    if (didAppend && contentHeightDelta > 0) {
+      content.style.transform = `translate3d(0, ${contentHeightDelta}px, 0)`;
+      content.getBoundingClientRect();
+      motionFrameRef.current = requestAnimationFrame(() => {
+        content.style.transition =
+          'transform 240ms cubic-bezier(0.22, 1, 0.36, 1)';
+        content.style.transform = 'translate3d(0, 0, 0)';
+      });
+      motionResetRef.current = setTimeout(() => {
+        if (contentRef.current === content) {
+          content.style.transition = '';
+        }
+      }, 260);
+    }
+
     hadOverflowRef.current = hasOverflow;
+    prevContentHeightRef.current = nextContentHeight;
     prevMessageCountRef.current = messages.length;
   }, [messages.length, supportsScrollAnchoring]);
+
+  useEffect(() => {
+    return () => {
+      if (motionFrameRef.current) {
+        cancelAnimationFrame(motionFrameRef.current);
+      }
+      if (motionResetRef.current) {
+        clearTimeout(motionResetRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="min-w-0 flex-1">
@@ -877,21 +887,23 @@ function ChatPhoneCard({
           onScroll={handleScroll}
           style={{ height: CHAT_HEIGHT }}
         >
-          <div className="space-y-0.5 pr-1">
+          <div
+            ref={contentRef}
+            className="space-y-0.5 pr-1"
+            style={{ overflowAnchor: 'none' }}
+          >
             {messages.map((msg) => (
-              <ChatMessageRow
-                key={msg.id}
-                msg={msg}
-                shouldAnimate={msg.id === latestMessageId}
-              />
+              <div key={msg.id} style={{ overflowAnchor: 'none' }}>
+                <ChatBubble msg={msg} />
+              </div>
             ))}
-            <div
-              ref={bottomAnchorRef}
-              aria-hidden="true"
-              className="h-px shrink-0"
-              style={{ overflowAnchor: 'auto' }}
-            />
           </div>
+          <div
+            ref={bottomAnchorRef}
+            aria-hidden="true"
+            className="h-px shrink-0"
+            style={{ overflowAnchor: 'auto' }}
+          />
         </div>
         <button
           type="button"
@@ -909,7 +921,6 @@ function ChatPhoneCard({
 export function RealtimeChatDemo() {
   const [messages, setMessages] = useState<ChatMsg[]>(CHAT_SEED);
   const [dots, setDots] = useState<ChatSyncDot[]>([]);
-  const [latestMessageId, setLatestMessageId] = useState<number | undefined>();
   const nextId = useRef(CHAT_SEED.length + 1);
   const cannedIdx = useRef(0);
   const dotIdRef = useRef(0);
@@ -940,7 +951,6 @@ export function RealtimeChatDemo() {
       const msg: ChatMsg = { id, sender, text: canned.text };
       cannedIdx.current++;
       setMessages((prev) => [...prev, msg]);
-      setLatestMessageId(id);
       fireSyncDot(sender === 'daniel' ? 'left-to-right' : 'right-to-left');
     },
     [fireSyncDot],
@@ -951,7 +961,6 @@ export function RealtimeChatDemo() {
     clearTimeouts();
     nextId.current = CHAT_SEED.length + 1;
     cannedIdx.current = 0;
-    setLatestMessageId(undefined);
     setMessages(CHAT_SEED);
 
     const autoMsgs = CANNED_MESSAGES.slice(0, 2);
@@ -959,7 +968,6 @@ export function RealtimeChatDemo() {
       const delay = 1500 + i * 1800;
       const t = setTimeout(() => {
         const id = nextId.current++;
-        setLatestMessageId(id);
         setMessages((prev) => [
           ...prev,
           { id, sender: m.sender, text: m.text },
@@ -1012,13 +1020,11 @@ export function RealtimeChatDemo() {
         owner="daniel"
         messages={messages}
         onSend={() => handleSend('daniel')}
-        latestMessageId={latestMessageId}
       />
       <ChatPhoneCard
         owner="joe"
         messages={messages}
         onSend={() => handleSend('joe')}
-        latestMessageId={latestMessageId}
       />
 
       {/* Green sync dot */}
