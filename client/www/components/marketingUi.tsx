@@ -1,10 +1,95 @@
 import { useAuthToken } from '@/lib/auth';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/solid';
+import {
+  ChevronDownIcon,
+  CircleStackIcon,
+  LockClosedIcon,
+  ArrowPathIcon,
+  FolderIcon,
+  CodeBracketIcon,
+} from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import NextLink from 'next/link';
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Button, cn, LogoIcon } from '@/components/ui';
+import { ComponentType, SVGProps } from 'react';
+
+type Product = {
+  id: string;
+  name: string;
+  tagline: string;
+};
+
+const products: Product[] = [
+  {
+    id: 'database',
+    name: 'Database',
+    tagline:
+      'Everything you need to build web and mobile apps with your favorite LLM.',
+  },
+  {
+    id: 'auth',
+    name: 'Auth',
+    tagline: 'No split brain. Easy setup. Fine-grained access control.',
+  },
+  {
+    id: 'sync',
+    name: 'Sync Engine',
+    tagline:
+      'Every feature feels instant, is collaborative, and works offline.',
+  },
+  {
+    id: 'storage',
+    name: 'Storage',
+    tagline: 'Digital content is just another table in your database.',
+  },
+  {
+    id: 'admin-sdk',
+    name: 'Admin SDK',
+    tagline: 'Use Instant on your backend',
+  },
+];
+
+const productIcons: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
+  database: CircleStackIcon,
+  auth: LockClosedIcon,
+  sync: ArrowPathIcon,
+  storage: FolderIcon,
+  'admin-sdk': CodeBracketIcon,
+};
+
+export function ProductNav({ currentSlug }: { currentSlug: string }) {
+  return (
+    <div className="hidden border-b border-gray-200 py-3 min-[60rem]:block">
+      <div className="mx-auto max-w-7xl px-8">
+        <div className="flex justify-center">
+          <div className="inline-flex gap-1 rounded-lg bg-gray-100 p-1">
+            {products.map((product) => {
+              const Icon = productIcons[product.id];
+              return (
+                <Link
+                  key={product.id}
+                  href={`/product/${product.id}`}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all',
+                    product.id === currentSlug
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700',
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {product.name}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const headingClasses = `font-mono tracking-wide leading-relaxed`;
 
@@ -74,12 +159,139 @@ function LogoType() {
   );
 }
 
+function ProductDropdownDesktop() {
+  const [isOpen, setIsOpen] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const open = () => {
+    if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
+    setIsOpen(true);
+  };
+
+  const close = () => {
+    timeoutRef.current = setTimeout(() => setIsOpen(false), 150);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  return (
+    <div
+      className="relative hidden min-[60rem]:block"
+      onMouseEnter={open}
+      onMouseLeave={close}
+    >
+      <button className="flex items-center gap-0.5 whitespace-nowrap hover:text-blue-500">
+        Product
+        <ChevronDownIcon
+          className={cn(
+            'h-3.5 w-3.5 transition-transform',
+            isOpen && 'rotate-180',
+          )}
+        />
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 z-50 pt-3">
+          <div className="w-[360px] rounded-lg border bg-white py-2 shadow-lg">
+            {products.map((product) => {
+              const Icon = productIcons[product.id];
+              return (
+                <NextLink
+                  key={product.id}
+                  href={`/product/${product.id}`}
+                  onClick={() => setIsOpen(false)}
+                  className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50"
+                >
+                  <div className="text-gray-400 transition-colors group-hover:text-orange-500">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {product.name}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {product.tagline}
+                    </div>
+                  </div>
+                </NextLink>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductAccordionMobile() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="self-stretch min-[60rem]:hidden">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className="flex w-full items-center justify-between whitespace-nowrap hover:text-blue-500"
+      >
+        Product
+        <motion.span
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        >
+          <ChevronDownIcon className="h-4 w-4" />
+        </motion.span>
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="overflow-hidden"
+          >
+            <div className="mt-2 flex flex-col gap-1 pl-2">
+              {products.map((product) => (
+                <NextLink
+                  key={product.id}
+                  href={`/product/${product.id}`}
+                  className="flex items-center gap-3 rounded-sm py-2"
+                >
+                  <div className="text-gray-500">
+                    {(() => {
+                      const Icon = productIcons[product.id];
+                      return <Icon className="h-5 w-5" />;
+                    })()}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium">{product.name}</div>
+                    <div className="max-w-64 text-xs text-gray-500">
+                      {product.tagline}
+                    </div>
+                  </div>
+                </NextLink>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function NavItems() {
   const isHydrated = useIsHydrated();
   const isAuthed = !!useAuthToken();
   if (!isHydrated) return null;
   return (
     <>
+      <ProductDropdownDesktop />
+      <ProductAccordionMobile />
       <NavLink href="/pricing">Pricing</NavLink>
       <NavLink href="/tutorial">Tutorial</NavLink>
       <NavLink href="/examples">Examples</NavLink>
@@ -143,7 +355,7 @@ export function BareNav({ children }: PropsWithChildren) {
           // pos
           'fixed inset-0 z-40 min-[60rem]:relative',
           // scroll
-          'overflow-y-scroll min-[60rem]:overflow-y-auto',
+          'overflow-y-scroll min-[60rem]:overflow-visible',
           // size
           'h-full w-full min-[60rem]:h-12 min-[60rem]:w-auto',
           // layout
