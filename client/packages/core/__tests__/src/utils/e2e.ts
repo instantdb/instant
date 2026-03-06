@@ -39,6 +39,9 @@ export function makeE2ETest<Schema extends InstantSchemaDef<any, any, any>>({
         method: 'POST',
         signal,
       });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
       const { app } = await response.json();
       const db = init<Schema>({
         appId: app.id,
