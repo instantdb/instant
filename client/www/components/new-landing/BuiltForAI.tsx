@@ -4,7 +4,14 @@ import { AnimateIn } from './AnimateIn';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Animated terminal showing `npx instant-cli push` with schema diff
-type TerminalPhase = 'idle' | 'typing' | 'found' | 'diff' | 'result' | 'cancelled' | 'pause';
+type TerminalPhase =
+  | 'idle'
+  | 'typing'
+  | 'found'
+  | 'diff'
+  | 'result'
+  | 'cancelled'
+  | 'pause';
 
 const PUSH_COMMAND = 'npx instant-cli push schema';
 
@@ -17,7 +24,8 @@ function AnimatedTerminal() {
   const showFound = !['idle', 'typing'].includes(phase);
   const showDiff = !['idle', 'typing', 'found'].includes(phase);
   const showButtons = showDiff;
-  const showResult = phase === 'result' || phase === 'cancelled' || phase === 'pause';
+  const showResult =
+    phase === 'result' || phase === 'cancelled' || phase === 'pause';
 
   // Start animation when the terminal scrolls into view
   useEffect(() => {
@@ -96,8 +104,14 @@ function AnimatedTerminal() {
   };
 
   return (
-    <div ref={containerRef} className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl">
-      <div ref={scrollRef} className="h-[340px] overflow-y-auto p-4 font-mono text-sm sm:p-6">
+    <div
+      ref={containerRef}
+      className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl"
+    >
+      <div
+        ref={scrollRef}
+        className="h-[340px] overflow-y-auto p-4 font-mono text-sm sm:p-6"
+      >
         {/* Command line */}
         <div className="flex items-center gap-2">
           <span className="text-green-400">$</span>
@@ -148,13 +162,13 @@ function AnimatedTerminal() {
             <div className="mt-1.5 flex gap-4">
               <button
                 onClick={handlePush}
-                className="bg-amber-600 px-3 py-0.5 text-white cursor-pointer"
+                className="cursor-pointer bg-amber-600 px-3 py-0.5 text-white"
               >
                 Push
               </button>
               <button
                 onClick={handleCancel}
-                className="bg-gray-700 px-3 py-0.5 text-gray-400 cursor-pointer"
+                className="cursor-pointer bg-gray-700 px-3 py-0.5 text-gray-400"
               >
                 Cancel
               </button>
@@ -174,7 +188,6 @@ function AnimatedTerminal() {
             <div className="text-green-400">✓ Done</div>
           </div>
         )}
-
       </div>
     </div>
   );

@@ -199,7 +199,8 @@ export function Hero() {
             The best backend for vibe-coded apps
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
-            Give your AI a backend and build delightful, full-stack apps. Try it yourself, you can see Instant in action with one command.
+            Give your AI a backend and build delightful, full-stack apps. Try it
+            yourself, you can see Instant in action with one command.
           </p>
 
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">

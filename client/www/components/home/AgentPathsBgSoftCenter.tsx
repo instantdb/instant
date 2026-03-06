@@ -25,7 +25,7 @@ interface Agent {
 // --- Constants ---
 
 const NUM_AGENTS = 20;
-const SPEED = 0.8;
+const SPEED = 0.45;
 const TRAIL_LIFETIME = 18_000;
 const TURN_MIN = 50;
 const TURN_MAX = 180;
@@ -55,9 +55,7 @@ function createAgent(w: number, h: number, side: 'left' | 'right'): Agent {
   // Spawn agents on their assigned side (outer 40% of each half)
   const edgeZone = w * 0.4;
   const x =
-    side === 'left'
-      ? Math.random() * edgeZone
-      : w - Math.random() * edgeZone;
+    side === 'left' ? Math.random() * edgeZone : w - Math.random() * edgeZone;
   return {
     x,
     y: Math.random() * h,

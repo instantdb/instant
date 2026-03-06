@@ -181,8 +181,8 @@ export function StartupShowcase() {
           Startups love Instant
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-center text-[21px]">
-          From collaborative whiteboards to mobile games, teams ship
-          real-time products in days instead of months.
+          From collaborative whiteboards to mobile games, teams ship real-time
+          products in days instead of months.
         </p>
       </AnimateIn>
 

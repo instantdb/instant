@@ -565,9 +565,7 @@ function StorageDemo() {
                 alt="stopa"
                 className="h-6 w-6 rounded-full object-cover"
               />
-              <span className="text-xs font-semibold text-gray-900">
-                stopa
-              </span>
+              <span className="text-xs font-semibold text-gray-900">stopa</span>
             </div>
 
             {/* Dropzone / Image */}
@@ -643,9 +641,7 @@ function StorageDemo() {
                 alt="stopa"
                 className="h-7 w-7 rounded-full object-cover"
               />
-              <span className="text-xs font-semibold text-gray-900">
-                stopa
-              </span>
+              <span className="text-xs font-semibold text-gray-900">stopa</span>
             </div>
             {/* Photo */}
             <div className="relative aspect-square w-full overflow-visible">
@@ -672,9 +668,7 @@ function StorageDemo() {
             <div className="px-3 pt-3 pb-2">
               <p className="text-xs text-gray-800">
                 <span className="font-semibold">stopa</span>{' '}
-                <span className="text-gray-600">
-                  Newest member of the team
-                </span>
+                <span className="text-gray-600">Newest member of the team</span>
               </p>
             </div>
           </motion.div>
