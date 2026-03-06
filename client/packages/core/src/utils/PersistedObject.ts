@@ -561,7 +561,6 @@ export class PersistedObject<K extends string, T, SerializedT> {
       }
 
       this._pendingSaveKeys.add(key as K);
-      console.log('adding', key);
       needsPersist = true;
     }
     if (needsPersist) {
