@@ -66,6 +66,14 @@ export default function Landing2026() {
           <BuiltForAI />
         </Section>
 
+        <div className="relative bg-[#FBF9F7]">
+          <div className="pointer-events-none absolute top-0 right-0 left-0 h-24 bg-gradient-to-b from-white to-transparent" />
+          <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-24 bg-gradient-to-b from-transparent to-white" />
+          <Section id="startup-showcase">
+            <StartupShowcase />
+          </Section>
+        </div>
+
         <Section id="batteries-for-ai">
           <BatteriesForAI />
         </Section>
@@ -98,10 +106,6 @@ export default function Landing2026() {
             </div>
           </div>
         </div>
-
-        <Section id="startup-showcase">
-          <StartupShowcase />
-        </Section>
 
         <Section className="pt-0!">
           <FinalCTA />

@@ -177,9 +177,13 @@ export function StartupShowcase() {
   return (
     <div className="space-y-16">
       <AnimateIn>
-        <h2 className="text-center text-3xl font-semibold sm:text-4xl">
-          Startups use Instant for their core infra
+        <h2 className="text-center text-2xl font-semibold sm:text-5xl">
+          Startups love Instant
         </h2>
+        <p className="mx-auto mt-4 max-w-2xl text-center text-[21px]">
+          From collaborative whiteboards to mobile games, teams ship
+          real-time products in days instead of months.
+        </p>
       </AnimateIn>
 
       <div className="space-y-20">

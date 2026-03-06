@@ -203,7 +203,7 @@ function Version1() {
       <div className="space-y-16">
         <AnimateIn>
           <h2 className="text-center text-3xl font-semibold sm:text-4xl">
-            Startups use Instant for their core infra
+            Startups love Instant
           </h2>
         </AnimateIn>
 
@@ -289,7 +289,7 @@ function Version2() {
       <div className="space-y-16">
         <AnimateIn>
           <h2 className="text-center text-3xl font-semibold sm:text-4xl">
-            Startups use Instant for their core infra
+            Startups love Instant
           </h2>
         </AnimateIn>
 

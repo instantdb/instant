@@ -612,7 +612,7 @@ function StorageDemo() {
             </div>
 
             {/* Caption area */}
-            <div className="px-3 pb-3 pt-1">
+            <div className="px-3 py-3">
               <div className="min-h-[20px] text-xs text-gray-800">
                 {typedText ? (
                   <span>
@@ -921,7 +921,7 @@ export function BatteriesForAI() {
       {/* Section header */}
       <AnimateIn>
         <div className="sm:text-center">
-          <h2 className="text-3xl font-semibold sm:text-7xl">
+          <h2 className="text-2xl font-semibold sm:text-5xl">
             Batteries included
           </h2>
           <p className="mt-12 max-w-2xl text-lg sm:mx-auto">

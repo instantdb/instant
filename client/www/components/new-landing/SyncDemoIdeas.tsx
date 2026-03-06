@@ -1,7 +1,12 @@
 'use client';
 
-import { AnimatePresence, motion } from 'motion/react';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useLayoutEffect,
+} from 'react';
 
 // ─── Shared ───
 
@@ -750,19 +755,107 @@ function ChatBubble({ msg }: { msg: ChatMsg }) {
   );
 }
 
-// Fixed height — fits ~3 messages, older ones clip out the top
+function ChatMessageRow({
+  msg,
+  shouldAnimate,
+}: {
+  msg: ChatMsg;
+  shouldAnimate: boolean;
+}) {
+  const [hasEntered, setHasEntered] = useState(!shouldAnimate);
+
+  useEffect(() => {
+    if (!shouldAnimate) return;
+
+    const frame = requestAnimationFrame(() => {
+      setHasEntered(true);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [shouldAnimate]);
+
+  return (
+    <div
+      style={
+        shouldAnimate
+          ? {
+              overflowAnchor: 'none',
+              opacity: hasEntered ? 1 : 0,
+              transform: hasEntered
+                ? 'translate3d(0, 0, 0)'
+                : 'translate3d(0, 14px, 0)',
+              transition:
+                'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+              willChange: hasEntered ? undefined : 'transform, opacity',
+            }
+          : { overflowAnchor: 'none' }
+      }
+    >
+      <ChatBubble msg={msg} />
+    </div>
+  );
+}
+
+// Fixed height — fits ~3 messages, older ones scroll
 const CHAT_HEIGHT = 126;
 
 function ChatPhoneCard({
   owner,
   messages,
   onSend,
+  latestMessageId,
 }: {
   owner: 'daniel' | 'joe';
   messages: ChatMsg[];
   onSend: () => void;
+  latestMessageId?: number;
 }) {
   const meta = SENDER_META[owner];
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomAnchorRef = useRef<HTMLDivElement>(null);
+  const hadOverflowRef = useRef(false);
+  const shouldStickToBottomRef = useRef(true);
+  const prevMessageCountRef = useRef(messages.length);
+  const supportsScrollAnchoring =
+    typeof CSS !== 'undefined' && CSS.supports?.('overflow-anchor: auto');
+
+  const handleScroll = useCallback(() => {
+    if (supportsScrollAnchoring) return;
+
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    shouldStickToBottomRef.current = distanceFromBottom < 24;
+  }, [supportsScrollAnchoring]);
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    const bottomAnchor = bottomAnchorRef.current;
+    if (!el || !bottomAnchor) return;
+
+    const hasOverflow = el.scrollHeight > el.clientHeight + 1;
+    const didReset = messages.length < prevMessageCountRef.current;
+    const overflowJustStarted = hasOverflow && !hadOverflowRef.current;
+
+    if (supportsScrollAnchoring) {
+      if (overflowJustStarted || (didReset && hasOverflow)) {
+        bottomAnchor.scrollIntoView({ block: 'end' });
+      }
+    } else {
+      if (didReset) {
+        shouldStickToBottomRef.current = true;
+      }
+
+      if (shouldStickToBottomRef.current && hasOverflow) {
+        el.scrollTop = el.scrollHeight - el.clientHeight;
+      }
+    }
+
+    hadOverflowRef.current = hasOverflow;
+    prevMessageCountRef.current = messages.length;
+  }, [messages.length, supportsScrollAnchoring]);
+
   return (
     <div className="min-w-0 flex-1">
       <div className="mb-2 flex items-center gap-2.5 px-1">
@@ -779,28 +872,30 @@ function ChatPhoneCard({
           <span className="text-sm font-medium text-gray-500">code-review</span>
         </div>
         <div
-          className="flex flex-col justify-end overflow-hidden"
+          ref={scrollRef}
+          className="overflow-y-auto overscroll-contain"
+          onScroll={handleScroll}
           style={{ height: CHAT_HEIGHT }}
         >
-          <motion.div
-            className="space-y-0.5"
-            layout
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          >
+          <div className="space-y-0.5 pr-1">
             {messages.map((msg) => (
-              <motion.div
+              <ChatMessageRow
                 key={msg.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-              >
-                <ChatBubble msg={msg} />
-              </motion.div>
+                msg={msg}
+                shouldAnimate={msg.id === latestMessageId}
+              />
             ))}
-          </motion.div>
+            <div
+              ref={bottomAnchorRef}
+              aria-hidden="true"
+              className="h-px shrink-0"
+              style={{ overflowAnchor: 'auto' }}
+            />
+          </div>
         </div>
         <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={onSend}
           className="mt-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-100 active:scale-[0.98]"
         >
@@ -814,6 +909,7 @@ function ChatPhoneCard({
 export function RealtimeChatDemo() {
   const [messages, setMessages] = useState<ChatMsg[]>(CHAT_SEED);
   const [dots, setDots] = useState<ChatSyncDot[]>([]);
+  const [latestMessageId, setLatestMessageId] = useState<number | undefined>();
   const nextId = useRef(CHAT_SEED.length + 1);
   const cannedIdx = useRef(0);
   const dotIdRef = useRef(0);
@@ -826,29 +922,26 @@ export function RealtimeChatDemo() {
     timeouts.current = [];
   }, []);
 
-  const fireSyncDot = useCallback(
-    (direction: ChatSyncDot['direction']) => {
-      const id = dotIdRef.current++;
-      setDots((prev) => [...prev, { id, direction }]);
-      const t = setTimeout(() => {
-        setDots((prev) => prev.filter((d) => d.id !== id));
-      }, 350);
-      timeouts.current.push(t);
-    },
-    [],
-  );
+  const fireSyncDot = useCallback((direction: ChatSyncDot['direction']) => {
+    const id = dotIdRef.current++;
+    setDots((prev) => [...prev, { id, direction }]);
+    const t = setTimeout(() => {
+      setDots((prev) => prev.filter((d) => d.id !== id));
+    }, 350);
+    timeouts.current.push(t);
+  }, []);
 
   const sendNext = useCallback(
     (sender: 'daniel' | 'joe') => {
-      const canned = CANNED_MESSAGES[cannedIdx.current % CANNED_MESSAGES.length];
+      const canned =
+        CANNED_MESSAGES[cannedIdx.current % CANNED_MESSAGES.length];
       // Use the sender from the canned message pool but override with the button's owner
       const id = nextId.current++;
       const msg: ChatMsg = { id, sender, text: canned.text };
       cannedIdx.current++;
       setMessages((prev) => [...prev, msg]);
-      fireSyncDot(
-        sender === 'daniel' ? 'left-to-right' : 'right-to-left',
-      );
+      setLatestMessageId(id);
+      fireSyncDot(sender === 'daniel' ? 'left-to-right' : 'right-to-left');
     },
     [fireSyncDot],
   );
@@ -858,6 +951,7 @@ export function RealtimeChatDemo() {
     clearTimeouts();
     nextId.current = CHAT_SEED.length + 1;
     cannedIdx.current = 0;
+    setLatestMessageId(undefined);
     setMessages(CHAT_SEED);
 
     const autoMsgs = CANNED_MESSAGES.slice(0, 2);
@@ -865,10 +959,12 @@ export function RealtimeChatDemo() {
       const delay = 1500 + i * 1800;
       const t = setTimeout(() => {
         const id = nextId.current++;
-        setMessages((prev) => [...prev, { id, sender: m.sender, text: m.text }]);
-        fireSyncDot(
-          m.sender === 'daniel' ? 'left-to-right' : 'right-to-left',
-        );
+        setLatestMessageId(id);
+        setMessages((prev) => [
+          ...prev,
+          { id, sender: m.sender, text: m.text },
+        ]);
+        fireSyncDot(m.sender === 'daniel' ? 'left-to-right' : 'right-to-left');
         cannedIdx.current = i + 1;
       }, delay);
       timeouts.current.push(t);
@@ -916,11 +1012,13 @@ export function RealtimeChatDemo() {
         owner="daniel"
         messages={messages}
         onSend={() => handleSend('daniel')}
+        latestMessageId={latestMessageId}
       />
       <ChatPhoneCard
         owner="joe"
         messages={messages}
         onSend={() => handleSend('joe')}
+        latestMessageId={latestMessageId}
       />
 
       {/* Green sync dot */}
