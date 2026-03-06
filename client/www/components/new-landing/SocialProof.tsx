@@ -48,7 +48,7 @@ export function SocialProof() {
         <div className="mx-auto grid max-w-3xl grid-cols-3 gap-4 sm:gap-8">
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
-              <div className="font-mono text-2xl font-semibold tracking-tighter sm:text-4xl">
+              <div className="font-mono text-3xl font-semibold tracking-tighter sm:text-5xl">
                 {stat.value}
               </div>
               <div className="mt-1 font-mono text-xs text-gray-500 sm:mt-2 sm:text-sm">

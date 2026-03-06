@@ -755,7 +755,7 @@ export function BuiltForAI() {
           <h2 className="text-off-black text-2xl font-semibold sm:text-5xl">
             Built for AI
           </h2>
-          <p className="mt-4 max-w-2xl text-[21px] sm:mx-auto">
+          <p className="mt-6 max-w-3xl text-xl sm:mx-auto">
             Instant is fully type-safe and supports a CLI-first workflow.
             Schema, permissions, queries, and transactions are all defined in
             code. No need to navigate UIs or dashboards. Go further and faster

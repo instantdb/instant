@@ -236,7 +236,7 @@ export function SyncEngine() {
           <h2 className="text-3xl font-semibold sm:text-7xl">
             The Sync Engine
           </h2>
-          <p className="mt-6 max-w-2xl text-[21px] sm:mx-auto">
+          <p className="mt-6 max-w-3xl text-xl sm:mx-auto">
             Apps powered by Instant feel smoother. No loading spinners. No
             waiting. No refreshing to check if it worked. Changes just happen.
           </p>

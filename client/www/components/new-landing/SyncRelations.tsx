@@ -12,7 +12,7 @@ export function SyncRelations() {
           <h2 className="text-3xl font-semibold sm:text-6xl">
             Sync + Relations
           </h2>
-          <p className="mt-8 max-w-2xl text-[21px] sm:mx-auto">
+          <p className="mt-6 max-w-3xl text-xl sm:mx-auto">
             Real apps aren't flat. Data needs to connect. Most backends make you
             choose between real-time sync and relational queries. Instant gives
             you both.

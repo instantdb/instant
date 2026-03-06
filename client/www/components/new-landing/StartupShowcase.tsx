@@ -180,7 +180,7 @@ export function StartupShowcase() {
         <h2 className="text-center text-2xl font-semibold sm:text-5xl">
           Startups love Instant
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-center text-[21px]">
+        <p className="mx-auto mt-6 max-w-3xl text-center text-xl">
           From collaborative whiteboards to mobile games, teams ship real-time
           products in days instead of months.
         </p>

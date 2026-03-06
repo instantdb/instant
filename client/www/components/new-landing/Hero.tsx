@@ -196,7 +196,7 @@ export function Hero() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <h1 className="hero-stagger-1 text-9xl font-semibold sm:text-5xl">
-            The best backend for vibe-coded apps
+            The best backend for AI-coded apps
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
             Give your AI a backend and build delightful, full-stack apps. Try it

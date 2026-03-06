@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AnimateIn } from './AnimateIn';
 import { RevenueDashboardDemo } from './PaymentsIdea_Dashboard';
+import { LiveStreamDemo } from './LiveStreamDemo';
 
 // ─── Auth Demo ───────────────────────────────────────────
 
@@ -918,7 +919,7 @@ export function BatteriesForAI() {
           <h2 className="text-2xl font-semibold sm:text-5xl">
             Batteries included
           </h2>
-          <p className="mt-12 max-w-2xl text-lg sm:mx-auto">
+          <p className="mt-6 max-w-3xl text-xl sm:mx-auto">
             Shipping real products mean adding auth, permissions, file storage,
             and payments. Sometimes you want to share cursors, and sometimes you
             want to stream LLM content. Instant comes with these services out of
@@ -997,6 +998,24 @@ export function BatteriesForAI() {
             <div className="bg-radial from-white to-[#FFF9F4] px-6 py-6">
               <RevenueDashboardDemo />
             </div>
+          </div>
+        </div>
+      </AnimateIn>
+
+      <AnimateIn>
+        <div className="grid grid-cols-3 items-center gap-7">
+          <div className="col-span-2">
+            <div className="bg-radial from-white to-[#F5F0FF] px-6 py-8">
+              <LiveStreamDemo />
+            </div>
+          </div>
+          <div className="col-span-1">
+            <h3 className="text-2xl font-semibold sm:text-3xl">Presence</h3>
+            <p className="mt-2 text-lg">
+              Use presence to show who&apos;s online, share cursors, broadcast
+              typing indicators, and send reactions. Build collaborative
+              experiences where users can feel each other.
+            </p>
           </div>
         </div>
       </AnimateIn>
