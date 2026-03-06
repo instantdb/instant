@@ -2154,6 +2154,11 @@ export default class Reactor {
         delete prev[k].result;
       });
     });
+    this.querySubs.clearUnloadedKeys();
+    this._updatePendingMutations((prev) => {
+      prev.clear();
+    });
+
     this._reconnectTimeoutMs = 0;
     this._transport.close();
     this._oauthCallbackResponse = null;
