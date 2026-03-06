@@ -66,7 +66,7 @@ export default function Landing2026() {
           <BuiltForAI />
         </Section>
 
-        <div className="relative bg-[#FBF9F7]">
+        <div className="relative bg-[#F0F5FA]">
           <div className="pointer-events-none absolute top-0 right-0 left-0 h-24 bg-gradient-to-b from-white to-transparent" />
           <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-24 bg-gradient-to-b from-transparent to-white" />
           <Section id="startup-showcase">

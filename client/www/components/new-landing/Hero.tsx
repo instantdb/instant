@@ -209,6 +209,8 @@ export function Hero() {
               <CopyButton text="npx create-instant-app" />
             </div>
 
+            <span className="text-base text-gray-400">or</span>
+
             <Link href="/dash">
               <button className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-orange-700 sm:text-lg">
                 Sign up now
