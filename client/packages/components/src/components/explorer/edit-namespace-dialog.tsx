@@ -34,6 +34,7 @@ import {
   ToggleGroup,
 } from '@lib/components/ui';
 import {
+  OnDelete,
   RelationshipKinds,
   relationshipConstraints,
   relationshipConstraintsInverse,
@@ -360,8 +361,8 @@ function AddAttrForm({
   const [isRequired, setIsRequired] = useState(false);
   const [isIndex, setIsIndex] = useState(false);
   const [isUniq, setIsUniq] = useState(false);
-  const [isCascade, setIsCascade] = useState(false);
-  const [isCascadeReverse, setIsCascadeReverse] = useState(false);
+  const [onDelete, setOnDelete] = useState<OnDelete>(null);
+  const [onDeleteReverse, setOnDeleteReverse] = useState<OnDelete>(null);
   const [checkedDataType, setCheckedDataType] =
     useState<CheckedDataType | null>(null);
   const [attrType, setAttrType] = useState<'blob' | 'ref'>('blob');
@@ -374,9 +375,9 @@ function AddAttrForm({
   const [attrName, setAttrName] = useState('');
   const [reverseAttrName, setReverseAttrName] = useState(namespace.name);
 
-  const isCascadeAllowed =
+  const isOnDeleteAllowed =
     relationship === 'one-one' || relationship === 'one-many';
-  const isCascadeReverseAllowed =
+  const isOnDeleteReverseAllowed =
     relationship === 'one-one' || relationship === 'many-one';
 
   const linkValidation = validateLink({
@@ -428,9 +429,10 @@ function AddAttrForm({
         'value-type': 'ref',
         'index?': false,
         'required?': isRequired,
-        'on-delete': isCascadeAllowed && isCascade ? 'cascade' : undefined,
-        'on-delete-reverse':
-          isCascadeReverseAllowed && isCascadeReverse ? 'cascade' : undefined,
+        'on-delete': isOnDeleteAllowed ? onDelete : undefined,
+        'on-delete-reverse': isOnDeleteReverseAllowed
+          ? onDeleteReverse
+          : undefined,
       };
 
       const ops = [['add-attr', attr]];
@@ -578,12 +580,12 @@ function AddAttrForm({
             setAttrName={setAttrName}
             setReverseAttrName={setReverseAttrName}
             setRelationship={setRelationship}
-            isCascadeAllowed={isCascadeAllowed}
-            isCascade={isCascade}
-            setIsCascade={setIsCascade}
-            isCascadeReverseAllowed={isCascadeReverseAllowed}
-            isCascadeReverse={isCascadeReverse}
-            setIsCascadeReverse={setIsCascadeReverse}
+            isOnDeleteAllowed={isOnDeleteAllowed}
+            onDelete={onDelete}
+            setOnDelete={setOnDelete}
+            isOnDeleteReverseAllowed={isOnDeleteReverseAllowed}
+            onDeleteReverse={onDeleteReverse}
+            setOnDeleteReverse={setOnDeleteReverse}
             isRequired={isRequired}
             setIsRequired={setIsRequired}
             constraints={constraints}
@@ -834,12 +836,12 @@ function RelationshipConfigurator({
   setAttrName,
   setReverseAttrName,
   setRelationship,
-  isCascade,
-  setIsCascade,
-  isCascadeAllowed,
-  isCascadeReverse,
-  setIsCascadeReverse,
-  isCascadeReverseAllowed,
+  onDelete,
+  setOnDelete,
+  isOnDeleteAllowed,
+  onDeleteReverse,
+  setOnDeleteReverse,
+  isOnDeleteReverseAllowed,
   isRequired,
   setIsRequired,
   constraints,
@@ -854,13 +856,13 @@ function RelationshipConfigurator({
   setReverseAttrName: (n: string) => void;
   setRelationship: (n: RelationshipKinds) => void;
 
-  isCascadeAllowed: boolean;
-  isCascade: boolean;
-  setIsCascade: (n: boolean) => void;
+  isOnDeleteAllowed: boolean;
+  onDelete: OnDelete;
+  setOnDelete: (n: OnDelete) => void;
 
-  isCascadeReverseAllowed: boolean;
-  isCascadeReverse: boolean;
-  setIsCascadeReverse: (n: boolean) => void;
+  isOnDeleteReverseAllowed: boolean;
+  onDeleteReverse: OnDelete;
+  setOnDeleteReverse: (n: OnDelete) => void;
 
   isRequired: boolean;
   setIsRequired: (n: boolean) => void;
@@ -952,9 +954,11 @@ function RelationshipConfigurator({
 
       <div className="flex gap-2">
         <Checkbox
-          checked={isCascadeAllowed && isCascade}
-          disabled={!isCascadeAllowed || constraints.attr.disabled}
-          onChange={setIsCascade}
+          checked={isOnDeleteAllowed && onDelete === 'cascade'}
+          disabled={!isOnDeleteAllowed || constraints.attr.disabled}
+          onChange={() =>
+            setOnDelete(onDelete === 'cascade' ? null : 'cascade')
+          }
           title={constraints.attr.message}
           label={
             <span className="dark:text-neutral-200">
@@ -970,12 +974,36 @@ function RelationshipConfigurator({
           }
         />
       </div>
+      <div className="flex gap-2">
+        <Checkbox
+          checked={isOnDeleteAllowed && onDelete === 'restrict'}
+          disabled={!isOnDeleteAllowed || constraints.attr.disabled}
+          onChange={() =>
+            setOnDelete(onDelete === 'restrict' ? null : 'restrict')
+          }
+          title={constraints.attr.message}
+          label={
+            <span className="dark:text-neutral-200">
+              <div>
+                <strong>
+                  Restrict Delete {reverseNamespaceName} → {namespaceName}
+                </strong>
+              </div>
+              When a <strong>{reverseNamespaceName}</strong> entity is deleted,
+              the transaction will be blocked if all linked{' '}
+              <strong>{namespaceName}</strong> are not deleted or unlinked
+            </span>
+          }
+        />
+      </div>
 
       <div className="flex gap-2">
         <Checkbox
-          checked={isCascadeReverseAllowed && isCascadeReverse}
-          disabled={!isCascadeReverseAllowed || constraints.attr.disabled}
-          onChange={setIsCascadeReverse}
+          checked={isOnDeleteReverseAllowed && onDeleteReverse === 'cascade'}
+          disabled={!isOnDeleteReverseAllowed || constraints.attr.disabled}
+          onChange={() =>
+            setOnDeleteReverse(onDeleteReverse === 'cascade' ? null : 'cascade')
+          }
           title={constraints.attr.message}
           label={
             <span className="dark:text-neutral-200">
@@ -987,6 +1015,32 @@ function RelationshipConfigurator({
               When a <strong>{namespaceName}</strong> entity is deleted, all
               linked <strong>{reverseNamespaceName}</strong> will be deleted
               automatically
+            </span>
+          }
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <Checkbox
+          checked={isOnDeleteReverseAllowed && onDeleteReverse === 'restrict'}
+          disabled={!isOnDeleteReverseAllowed || constraints.attr.disabled}
+          onChange={() =>
+            setOnDeleteReverse(
+              onDeleteReverse === 'restrict' ? null : 'restrict',
+            )
+          }
+          title={constraints.attr.message}
+          label={
+            <span className="dark:text-neutral-200">
+              <div>
+                <strong>
+                  Restrict Delete {namespaceName} → {reverseNamespaceName}
+                </strong>
+              </div>
+              When a <strong>{namespaceName}</strong> entity is deleted, the
+              transaction will be blocked if all linked{' '}
+              <strong>{reverseNamespaceName}</strong> are not deleted or
+              unlinked
             </span>
           }
         />
@@ -1578,10 +1632,10 @@ function EditAttrForm({
 
   const explorerProps = useExplorerProps();
 
-  const [isCascade, setIsCascade] = useState(() => attr.onDelete === 'cascade');
+  const [onDelete, setOnDelete] = useState<OnDelete>(() => attr.onDelete);
 
-  const [isCascadeReverse, setIsCascadeReverse] = useState(
-    () => attr.onDeleteReverse === 'cascade',
+  const [onDeleteReverse, setOnDeleteReverse] = useState<OnDelete>(
+    () => attr.onDeleteReverse,
   );
 
   const [isRequired, setIsRequired] = useState(attr.isRequired || false);
@@ -1598,9 +1652,9 @@ function EditAttrForm({
     return () => stopFetchLoop.current?.();
   }, [stopFetchLoop]);
 
-  const isCascadeAllowed =
+  const isOnDeleteAllowed =
     relationship === 'one-one' || relationship === 'one-many';
-  const isCascadeReverseAllowed =
+  const isOnDeleteReverseAllowed =
     relationship === 'one-one' || relationship === 'many-one';
 
   const linkValidation = validateLink({
@@ -1645,9 +1699,10 @@ function EditAttrForm({
             attr.linkConfig.reverse.namespace,
             reverseAttrName,
           ],
-          'on-delete': isCascadeAllowed && isCascade ? 'cascade' : null,
-          'on-delete-reverse':
-            isCascadeReverseAllowed && isCascadeReverse ? 'cascade' : null,
+          'on-delete': isOnDeleteAllowed ? onDelete : null,
+          'on-delete-reverse': isOnDeleteReverseAllowed
+            ? onDeleteReverse
+            : null,
         },
       ],
     ];
@@ -1772,12 +1827,12 @@ function EditAttrForm({
             setAttrName={setAttrName}
             setReverseAttrName={setReverseAttrName}
             setRelationship={setRelationship}
-            isCascadeAllowed={isCascadeAllowed}
-            isCascade={isCascade}
-            setIsCascade={setIsCascade}
-            isCascadeReverseAllowed={isCascadeReverseAllowed}
-            isCascadeReverse={isCascadeReverse}
-            setIsCascadeReverse={setIsCascadeReverse}
+            isOnDeleteAllowed={isOnDeleteAllowed}
+            onDelete={onDelete}
+            setOnDelete={setOnDelete}
+            isOnDeleteReverseAllowed={isOnDeleteReverseAllowed}
+            onDeleteReverse={onDeleteReverse}
+            setOnDeleteReverse={setOnDeleteReverse}
             isRequired={isRequired}
             setIsRequired={setIsRequired}
             constraints={constraints}

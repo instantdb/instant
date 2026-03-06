@@ -222,6 +222,8 @@ export type DBIdent =
 
 export type CheckedDataType = 'string' | 'number' | 'boolean' | 'date';
 
+export type OnDelete = 'cascade' | 'restrict' | null | undefined;
+
 export interface DBAttr {
   id: string;
   'forward-identity': DBIdent;
@@ -235,8 +237,8 @@ export interface DBAttr {
   'inferred-types'?: Array<'string' | 'number' | 'boolean' | 'json'>;
   catalog?: 'user' | 'system';
   'checked-data-type'?: CheckedDataType;
-  'on-delete'?: 'cascade';
-  'on-delete-reverse'?: 'cascade';
+  'on-delete'?: OnDelete;
+  'on-delete-reverse'?: OnDelete;
   metadata?: any;
 }
 
