@@ -570,23 +570,32 @@ function createReadStream({
           }
 
           if (res.body) {
-            for await (const bodyChunk of res.body) {
-              if (canceled) {
-                fetchAbort.abort();
-                return;
-              }
-              let chunk = bodyChunk;
-              if (discardLen > 0) {
-                chunk = bodyChunk.subarray(discardLen);
-                discardLen -= bodyChunk.length - chunk.length;
-              }
-              if (!chunk.length) {
-                continue;
-              }
-              seenOffset += chunk.length;
-              const s = decoder.decode(chunk);
+            const reader = res.body.getReader();
+            try {
+              while (true) {
+                const { done, value: bodyChunk } = await reader.read();
+                if (done) {
+                  break;
+                }
+                if (canceled) {
+                  fetchAbort.abort();
+                  return;
+                }
+                let chunk = bodyChunk;
+                if (discardLen > 0) {
+                  chunk = bodyChunk.subarray(discardLen);
+                  discardLen -= bodyChunk.length - chunk.length;
+                }
+                if (!chunk.length) {
+                  continue;
+                }
+                seenOffset += chunk.length;
+                const s = decoder.decode(chunk);
 
-              controller.enqueue(s);
+                controller.enqueue(s);
+              }
+            } finally {
+              reader.releaseLock();
             }
           } else {
             // RN doesn't support request.body
