@@ -703,7 +703,7 @@
                     StreamError
                     (tracer/with-span! {:name "app_stream/stream-error"
                                         :attributes {:stream-id stream-id
-                                                     :error (:error v)}}
+                                                     :error-type (:error v)}}
                       (case (:error v)
                         :rate-limit {:error true
                                      :error-type :rate-limit
