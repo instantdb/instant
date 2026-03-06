@@ -22,7 +22,6 @@ import {
   InstantError,
   ValidQuery,
   Streams,
-  ValidInfiniteQueryObject,
 } from '@instantdb/core';
 import {
   ReactNode,

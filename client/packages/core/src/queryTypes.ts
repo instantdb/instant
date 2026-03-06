@@ -482,16 +482,18 @@ type ValidQueryObject<
   Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema['entities'],
   TopLevel extends boolean,
-> = {
-  [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
-    T[K],
-    Schema,
-    Schema['entities'][EntityName]['links'][K]['entityName'],
-    false
-  >;
-} & {
-  $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
-};
+> = keyof T extends keyof Schema['entities'][EntityName]['links'] | '$'
+  ? {
+      [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
+        T[K],
+        Schema,
+        Schema['entities'][EntityName]['links'][K]['entityName'],
+        false
+      >;
+    } & {
+      $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
+    }
+  : never;
 
 type PaginationKeys =
   | 'limit'
