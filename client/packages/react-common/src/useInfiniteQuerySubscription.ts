@@ -4,7 +4,6 @@ import {
   type InstantCoreDatabase,
   type InstantSchemaDef,
   type InstaQLOptions,
-  type ValidInfiniteQueryObject,
   type InfiniteQuerySubscription,
   ValidQuery,
 } from '@instantdb/core';

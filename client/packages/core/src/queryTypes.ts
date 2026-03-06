@@ -493,26 +493,6 @@ type ValidQueryObject<
   $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
 };
 
-type ValidInfiniteQueryObject<
-  T extends Record<string, any>,
-  Schema extends IContainEntitiesAndLinks<any, any>,
-  EntityName extends keyof Schema['entities'],
-> = {
-  [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
-    T[K],
-    Schema,
-    Schema['entities'][EntityName]['links'][K]['entityName'],
-    false
-  >;
-} & {
-  $: {
-    where?: ValidWhereObject<T['$']['where'], Schema, EntityName>;
-    limit?: number;
-    fields?: ValidFieldNames<Schema, EntityName>[];
-    order?: Order<Schema, EntityName>;
-  };
-};
-
 type PaginationKeys =
   | 'limit'
   | 'last'
@@ -722,7 +702,6 @@ export {
   Remove$,
   ValidQuery,
   ValidQueryObject,
-  ValidInfiniteQueryObject,
   InstaQLQueryResult,
   InstaQLParams,
   InstaQLOptions,
