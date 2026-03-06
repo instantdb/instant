@@ -18,12 +18,14 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [numberInput, setNumberInput] = useState('');
 
-  const scrollResult = db.useInfiniteQuery('items', {
-    $: {
-      limit: pageSize,
+  const scrollResult = db.useInfiniteQuery({
+    items: {
+      $: {
+        limit: pageSize,
 
-      order: {
-        value: 'asc',
+        order: {
+          value: 'asc',
+        },
       },
     },
   });

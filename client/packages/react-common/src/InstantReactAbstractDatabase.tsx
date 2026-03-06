@@ -399,17 +399,15 @@ export default abstract class InstantReactAbstractDatabase<
    *
    */
   useInfiniteQuery = <
+    Q extends ValidQuery<Q, Schema>,
     Entity extends keyof Schema['entities'],
-    Q extends ValidInfiniteQueryObject<Q, Schema, Entity>,
   >(
-    entity: Entity,
-    _query: Q,
+    query: Q,
     opts?: InstaQLOptions,
   ): InfiniteQueryResult<Schema, Entity, Q, UseDates> => {
     return useInfiniteQuerySubscription<Schema, Entity, Q, UseDates>({
       core: this.core,
-      entity,
-      query: _query,
+      query: query,
       opts,
     });
   };

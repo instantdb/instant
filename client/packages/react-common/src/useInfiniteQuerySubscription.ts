@@ -6,6 +6,7 @@ import {
   type InstaQLOptions,
   type ValidInfiniteQueryObject,
   type InfiniteQuerySubscription,
+  ValidQuery,
 } from '@instantdb/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -21,7 +22,7 @@ export interface Chunk {
 export type InfiniteQueryResult<
   Schema extends InstantSchemaDef<any, any, any>,
   Entity extends keyof Schema['entities'],
-  Q extends ValidInfiniteQueryObject<Q, Schema, Entity>,
+  Q extends ValidQuery<Q, Schema>,
   UseDates extends boolean,
 > = {
   data: InstaQLQueryEntityResult<
@@ -40,19 +41,28 @@ export type InfiniteQueryResult<
 export function useInfiniteQuerySubscription<
   Schema extends InstantSchemaDef<any, any, any>,
   Entity extends keyof Schema['entities'],
-  Q extends ValidInfiniteQueryObject<Q, Schema, Entity>,
+  Q extends ValidQuery<Q, Schema>,
   UseDates extends boolean,
 >({
   core,
-  entity,
   query,
   opts,
 }: {
   core: InstantCoreDatabase<Schema, UseDates>;
-  entity: Entity;
   query: Q;
   opts?: InstaQLOptions;
 }): InfiniteQueryResult<Schema, Entity, Q, UseDates> {
+  const entities = Object.keys(query);
+  if (entities.length !== 1) {
+    throw new Error('subscribeInfiniteQuery expects exactly one entity');
+  }
+
+  const entity = entities[0] as Entity;
+  const entityQuery = query[entity];
+  if (!entityQuery) {
+    throw new Error('No query provided for infinite entity');
+  }
+
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [canLoadMore, setCanLoadMore] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,7 +73,7 @@ export function useInfiniteQuerySubscription<
 
   useEffect(() => {
     const sub = core.subscribeInfiniteQuery(
-      { [entity]: query } as any,
+      query,
       (resp) => {
         setData((resp.data?.[entity] ?? []) as any);
         setChunks(resp.chunks as Chunk[]);
