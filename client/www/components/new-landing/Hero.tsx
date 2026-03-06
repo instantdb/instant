@@ -199,9 +199,7 @@ export function Hero() {
             The best backend for vibe-coded apps
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
-            Insant gives you everything you need to vibe code delightful apps.
-            You can create unlimited projects, they’re never paused, and your
-            LLMs can use Instant to write concise and maintainable code.
+            Give your AI a backend and build delightful, full-stack apps. Try it yourself, you can see Instant in action with one command.
           </p>
 
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -213,7 +211,7 @@ export function Hero() {
 
             <Link href="/dash">
               <button className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-orange-700 sm:text-lg">
-                Get a DB
+                Sign up now
               </button>
             </Link>
           </div>
