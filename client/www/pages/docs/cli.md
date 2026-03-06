@@ -161,6 +161,18 @@ Sometimes you want to create an Instant app without generating `instant.schema.t
 npx instant-cli@latest init-without-files --title "Hello World"
 ```
 
+The app's id and admin token are outputted to stdout as JSON:
+
+```shell
+{
+  "app": {
+    "appId": "4f1e575c-6c00-44dd-bc69-004e89b9d788",
+    "adminToken": "67ce37cb-aa47-468d-9c54-99efcf40497f"
+  },
+  "error": null
+}
+```
+
 You can also make ephemeral apps that will clean up themselves after >24 hours
 via the `--temp` flag:
 
