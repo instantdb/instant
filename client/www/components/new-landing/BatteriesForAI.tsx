@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AnimateIn } from './AnimateIn';
 import { RevenueDashboardDemo } from './PaymentsIdea_Dashboard';
 import { LiveStreamDemo } from './LiveStreamDemo';
+import { StreamsDemoJoin } from './StreamsDemoEventFeed';
 
 // ─── Auth Demo ───────────────────────────────────────────
 
@@ -1016,6 +1017,24 @@ export function BatteriesForAI() {
               typing indicators, and send reactions. Build collaborative
               experiences where users can feel each other.
             </p>
+          </div>
+        </div>
+      </AnimateIn>
+
+      <AnimateIn>
+        <div className="grid grid-cols-3 items-center gap-7">
+          <div className="col-span-1">
+            <h3 className="text-2xl font-semibold sm:text-3xl">Streams</h3>
+            <p className="mt-2 text-lg">
+              Use streams to broadcast ephemeral data in real-time. Stream LLM
+              responses token-by-token, replay drawings, or push live updates
+              — all synced across clients instantly.
+            </p>
+          </div>
+          <div className="col-span-2">
+            <div className="bg-radial from-white to-[#FFF9F4] px-6 py-8">
+              <StreamsDemoJoin />
+            </div>
           </div>
         </div>
       </AnimateIn>

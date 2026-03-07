@@ -94,11 +94,11 @@ function renderCanvas(
   drawStrokes(ctx, strokes, w, h);
 }
 
-// ─── Flying coordinate label ─────────────────────────────
+// ─── Flying pellet ───────────────────────────────────────
 
-type FlyingCoord = {
+type FlyingPellet = {
   id: number;
-  label: string;
+  variant: 'live' | 'storage';
   startX: number;
   startY: number;
   endX: number;
@@ -116,6 +116,8 @@ export function StreamsDemoJoin() {
 
   // Wrapper refs for flying coord positioning
   const stopaWrapperRef = useRef<HTMLDivElement>(null);
+  const serverRef = useRef<HTMLDivElement>(null);
+  const storageRef = useRef<HTMLDivElement>(null);
   const drewWrapperRef = useRef<HTMLDivElement>(null);
   const danielWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -157,9 +159,9 @@ export function StreamsDemoJoin() {
 
   // Flying coords
   const coordIdRef = useRef(0);
-  const coordsBufferRef = useRef<FlyingCoord[]>([]);
+  const coordsBufferRef = useRef<FlyingPellet[]>([]);
   const coordFlushRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [flyingCoords, setFlyingCoords] = useState<FlyingCoord[]>([]);
+  const [flyingCoords, setFlyingCoords] = useState<FlyingPellet[]>([]);
   const coordCounterRef = useRef(0);
 
   const setupCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
@@ -259,26 +261,121 @@ export function StreamsDemoJoin() {
 
   // ─── Flying coord helpers ───
 
-  const spawnFlyingCoord = useCallback(
-    (destId: CanvasId, point: Point) => {
-      const container = containerRef.current;
-      const stopaWrapper = stopaWrapperRef.current;
-      const destWrapper =
-        destId === 'drew'
+  const getWrapperEl = useCallback(
+    (id: CanvasId): HTMLDivElement | null =>
+      id === 'stopa'
+        ? stopaWrapperRef.current
+        : id === 'drew'
           ? drewWrapperRef.current
-          : danielWrapperRef.current;
-      if (!container || !stopaWrapper || !destWrapper) return;
+          : danielWrapperRef.current,
+    [],
+  );
+
+  // Spawn pellets for a broadcast: source → server → all active dests + server → storage
+  const spawnBroadcastPellets = useCallback(
+    (sourceId: CanvasId, _point: Point) => {
+      const container = containerRef.current;
+      const server = serverRef.current;
+      const storage = storageRef.current;
+      const sourceEl = getWrapperEl(sourceId);
+      if (!container || !server || !storage || !sourceEl) return;
 
       const cRect = container.getBoundingClientRect();
-      const sRect = stopaWrapper.getBoundingClientRect();
-      const dRect = destWrapper.getBoundingClientRect();
+      const svRect = server.getBoundingClientRect();
+      const stRect = storage.getBoundingClientRect();
+      const sRect = sourceEl.getBoundingClientRect();
 
+      const serverCX = svRect.left + svRect.width / 2 - cRect.left;
+      const serverCY = svRect.top + svRect.height / 2 - cRect.top;
+
+      // Inbound: source → server
+      const sourceIsLeft = sRect.right < svRect.left;
       coordIdRef.current += 1;
       coordsBufferRef.current.push({
         id: coordIdRef.current,
-        label: `[${point.x.toFixed(2)}, ${point.y.toFixed(2)}]`,
-        startX: sRect.right - cRect.left + 6,
+        variant: 'live',
+        startX: sourceIsLeft
+          ? sRect.right - cRect.left + 6
+          : sRect.left - cRect.left - 6,
         startY: sRect.top - cRect.top + sRect.height / 2,
+        endX: sourceIsLeft
+          ? svRect.left - cRect.left - 2
+          : svRect.right - cRect.left + 2,
+        endY: serverCY,
+      });
+
+      // Outbound: server → each dest
+      for (const destId of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
+        if (destId === sourceId) continue;
+        if (destId === 'daniel' && !danielJoinedRef.current) continue;
+        const destEl = getWrapperEl(destId);
+        if (!destEl) continue;
+        const dRect = destEl.getBoundingClientRect();
+        const destIsRight = dRect.left > svRect.right;
+        coordIdRef.current += 1;
+        coordsBufferRef.current.push({
+          id: coordIdRef.current,
+          variant: 'live',
+          startX: destIsRight
+            ? svRect.right - cRect.left + 2
+            : svRect.left - cRect.left - 2,
+          startY: serverCY,
+          endX: destIsRight
+            ? dRect.left - cRect.left - 6
+            : dRect.right - cRect.left + 6,
+          endY: dRect.top - cRect.top + dRect.height / 2,
+        });
+      }
+
+      // Persist: server → storage
+      coordIdRef.current += 1;
+      coordsBufferRef.current.push({
+        id: coordIdRef.current,
+        variant: 'storage',
+        startX: serverCX,
+        startY: svRect.bottom - cRect.top + 2,
+        endX: stRect.left + stRect.width / 2 - cRect.left,
+        endY: stRect.top - cRect.top,
+      });
+    },
+    [getWrapperEl],
+  );
+
+  // Spawn pellets from storage → server → Daniel
+  const spawnStorageCoord = useCallback(
+    (point: Point) => {
+      const container = containerRef.current;
+      const storage = storageRef.current;
+      const server = serverRef.current;
+      const destWrapper = danielWrapperRef.current;
+      if (!container || !storage || !server || !destWrapper) return;
+
+      const cRect = container.getBoundingClientRect();
+      const stRect = storage.getBoundingClientRect();
+      const svRect = server.getBoundingClientRect();
+      const dRect = destWrapper.getBoundingClientRect();
+
+      const serverCX = svRect.left + svRect.width / 2 - cRect.left;
+      const serverCY = svRect.top + svRect.height / 2 - cRect.top;
+
+      // Inbound: storage → server
+      coordIdRef.current += 1;
+      coordsBufferRef.current.push({
+        id: coordIdRef.current,
+        variant: 'storage',
+        startX: stRect.left + stRect.width / 2 - cRect.left,
+        startY: stRect.top - cRect.top,
+        endX: serverCX,
+        endY: svRect.bottom - cRect.top + 2,
+      });
+
+      // Outbound: server → Daniel
+      coordIdRef.current += 1;
+      coordsBufferRef.current.push({
+        id: coordIdRef.current,
+        variant: 'storage',
+        startX: svRect.right - cRect.left + 2,
+        startY: serverCY,
         endX: dRect.left - cRect.left - 6,
         endY: dRect.top - cRect.top + dRect.height / 2,
       });
@@ -365,10 +462,7 @@ export function StreamsDemoJoin() {
 
       coordCounterRef.current += 1;
       if (coordCounterRef.current % 3 === 0) {
-        spawnFlyingCoord('drew', point);
-        if (danielJoinedRef.current) {
-          spawnFlyingCoord('daniel', point);
-        }
+        spawnBroadcastPellets('stopa', point);
       }
 
       autoplayPointIdxRef.current = pi + 1;
@@ -376,7 +470,7 @@ export function StreamsDemoJoin() {
     };
 
     playNextPoint();
-  }, [clearAutoplay, clearCanvasData, spawnFlyingCoord]);
+  }, [clearAutoplay, clearCanvasData, spawnBroadcastPellets]);
 
   // Trigger autoplay on scroll-in
   useEffect(() => {
@@ -400,8 +494,8 @@ export function StreamsDemoJoin() {
   // ─── User drawing ───
 
   const getCanvasPoint = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>): Point | null => {
-      const canvas = canvasRefs.current['stopa'];
+    (canvasId: CanvasId, e: React.PointerEvent<HTMLCanvasElement>): Point | null => {
+      const canvas = canvasRefs.current[canvasId];
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       return {
@@ -413,26 +507,26 @@ export function StreamsDemoJoin() {
   );
 
   const handlePointerDown = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
+    (canvasId: CanvasId, e: React.PointerEvent<HTMLCanvasElement>) => {
       e.preventDefault();
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       clearAutoplay();
       cursorPosRef.current = null;
 
-      // Clear canvas data but preserve Daniel's join status
       clearCanvasData();
-      activeSourceRef.current = 'stopa';
+      activeSourceRef.current = canvasId;
       isDrawingRef.current = true;
 
-      const point = getCanvasPoint(e);
+      const point = getCanvasPoint(canvasId, e);
       if (!point) return;
 
-      strokesRef.current['stopa'].push([point]);
-      currentStrokeRef.current = strokesRef.current['stopa'][0];
+      strokesRef.current[canvasId].push([point]);
+      currentStrokeRef.current = strokesRef.current[canvasId][0];
 
-      queuesRef.current['drew'].push({ strokeIdx: 0, point });
-      if (danielJoinedRef.current) {
-        queuesRef.current['daniel'].push({ strokeIdx: 0, point });
+      for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
+        if (id === canvasId) continue;
+        if (id === 'daniel' && !danielJoinedRef.current) continue;
+        queuesRef.current[id].push({ strokeIdx: 0, point });
       }
       recordingRef.current.push({ strokeIdx: 0, point });
     },
@@ -440,29 +534,27 @@ export function StreamsDemoJoin() {
   );
 
   const handlePointerMove = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
+    (canvasId: CanvasId, e: React.PointerEvent<HTMLCanvasElement>) => {
       if (!isDrawingRef.current) return;
-      if (activeSourceRef.current !== 'stopa') return;
-      const point = getCanvasPoint(e);
+      if (activeSourceRef.current !== canvasId) return;
+      const point = getCanvasPoint(canvasId, e);
       if (!point) return;
       currentStrokeRef.current.push(point);
-      const strokeIdx = strokesRef.current['stopa'].length - 1;
+      const strokeIdx = strokesRef.current[canvasId].length - 1;
 
-      queuesRef.current['drew'].push({ strokeIdx, point });
-      if (danielJoinedRef.current) {
-        queuesRef.current['daniel'].push({ strokeIdx, point });
+      for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
+        if (id === canvasId) continue;
+        if (id === 'daniel' && !danielJoinedRef.current) continue;
+        queuesRef.current[id].push({ strokeIdx, point });
       }
       recordingRef.current.push({ strokeIdx, point });
 
       coordCounterRef.current += 1;
       if (coordCounterRef.current % 3 === 0) {
-        spawnFlyingCoord('drew', point);
-        if (danielJoinedRef.current) {
-          spawnFlyingCoord('daniel', point);
-        }
+        spawnBroadcastPellets(canvasId, point);
       }
     },
-    [getCanvasPoint, spawnFlyingCoord],
+    [getCanvasPoint, spawnBroadcastPellets],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -489,7 +581,7 @@ export function StreamsDemoJoin() {
     // Now enable live streaming to Daniel
     danielJoinedRef.current = true;
 
-    // After entrance animation, setup canvas & spawn replay flying coords
+    // After entrance animation, setup canvas & spawn replay flying coords from storage
     setTimeout(() => {
       setupCanvas(canvasRefs.current['daniel']);
 
@@ -497,14 +589,14 @@ export function StreamsDemoJoin() {
       const spawnNext = () => {
         if (i >= recording.length) return;
         if (i % 3 === 0) {
-          spawnFlyingCoord('daniel', recording[i].point);
+          spawnStorageCoord(recording[i].point);
         }
         i++;
         setTimeout(spawnNext, 12);
       };
       spawnNext();
     }, 350);
-  }, [setupCanvas, spawnFlyingCoord]);
+  }, [setupCanvas, spawnStorageCoord]);
 
   return (
     <div ref={containerRef} className="relative">
@@ -530,8 +622,8 @@ export function StreamsDemoJoin() {
                 }}
                 className="w-full cursor-crosshair"
                 style={{ aspectRatio: '4/3', touchAction: 'none' }}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
+                onPointerDown={(e) => handlePointerDown('stopa', e)}
+                onPointerMove={(e) => handlePointerMove('stopa', e)}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
               />
@@ -559,26 +651,27 @@ export function StreamsDemoJoin() {
           </div>
         </div>
 
-        {/* ─── Instant server ─── */}
-        <div className="flex flex-col items-center gap-1.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white shadow-sm">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-gray-400"
-            >
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
+        {/* ─── Instant server + storage ─── */}
+        <div className="flex flex-col items-center">
+          <div ref={serverRef}>
+            <img
+              src="/img/icon/logo-512.svg"
+              alt="Instant"
+              className="h-[28px] w-[28px]"
+            />
           </div>
-          <span className="text-[10px] font-medium text-gray-400">
-            Instant
-          </span>
+
+          <div className="h-3" />
+
+          {/* Storage */}
+          <div
+            ref={storageRef}
+            className="flex h-[28px] w-[28px] items-center justify-center border border-gray-200 bg-white"
+          >
+            <span className="font-mono text-sm font-bold text-gray-400">
+              S3
+            </span>
+          </div>
         </div>
 
         {/* ─── Subscribers column ─── */}
@@ -587,7 +680,7 @@ export function StreamsDemoJoin() {
           <div
             style={{
               width: 130,
-              transform: 'translateY(12px) rotate(-2deg)',
+              transform: 'translateY(12px) rotate(2deg)',
             }}
           >
             <div className="mb-1.5 flex items-center gap-2 px-1">
@@ -606,127 +699,91 @@ export function StreamsDemoJoin() {
                 ref={(el) => {
                   canvasRefs.current['drew'] = el;
                 }}
-                className="w-full"
-                style={{ aspectRatio: '4/3' }}
+                className="w-full cursor-crosshair"
+                style={{ aspectRatio: '4/3', touchAction: 'none' }}
+                onPointerDown={(e) => handlePointerDown('drew', e)}
+                onPointerMove={(e) => handlePointerMove('drew', e)}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
               />
             </div>
           </div>
 
-          {/* Daniel or Join placeholder */}
-          <AnimatePresence mode="wait">
-            {danielJoined ? (
-              <motion.div
-                key="daniel"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-                style={{
-                  width: 130,
-                  transform: 'translateY(4px) rotate(1.5deg)',
+          {/* Daniel — always rendered, with Join overlay when not joined */}
+          <div
+            style={{
+              width: 130,
+              transform: 'translateY(4px) rotate(-3deg)',
+            }}
+          >
+            <div className="mb-1.5 flex items-center gap-2 px-1">
+              <img
+                src="/img/landing/daniel.png"
+                alt="Daniel"
+                className={`h-5 w-5 rounded-full object-cover transition-opacity ${danielJoined ? '' : 'opacity-40'}`}
+              />
+              <span className={`text-xs font-medium transition-opacity ${danielJoined ? '' : 'opacity-40'}`}>
+                Daniel
+              </span>
+            </div>
+            <div
+              ref={danielWrapperRef}
+              className="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+            >
+              <canvas
+                ref={(el) => {
+                  canvasRefs.current['daniel'] = el;
                 }}
-              >
-                <div className="mb-1.5 flex items-center gap-2 px-1">
-                  <img
-                    src="/img/landing/daniel.png"
-                    alt="Daniel"
-                    className="h-5 w-5 rounded-full object-cover"
-                  />
-                  <span className="text-xs font-medium">Daniel</span>
-                </div>
-                <div
-                  ref={danielWrapperRef}
-                  className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
-                >
-                  <canvas
-                    ref={(el) => {
-                      canvasRefs.current['daniel'] = el;
-                    }}
-                    className="w-full"
-                    style={{ aspectRatio: '4/3' }}
-                  />
-                </div>
-              </motion.div>
-            ) : (
-              <motion.button
-                key="join"
-                onClick={handleJoin}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                style={{
-                  width: 130,
-                  transform: 'translateY(4px) rotate(1.5deg)',
-                }}
-                className="group text-left"
-              >
-                <div className="mb-1.5 flex items-center gap-2 px-1">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-gray-300 transition-colors group-hover:border-orange-300">
-                    <svg
-                      width="9"
-                      height="9"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      className="text-gray-300 transition-colors group-hover:text-orange-400"
-                    >
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                  </div>
-                  <span className="text-xs font-medium text-gray-300 transition-colors group-hover:text-orange-400">
-                    Join
-                  </span>
-                </div>
-                <div
-                  className="flex items-center justify-center rounded-xl border border-dashed border-gray-200 bg-white/40 transition-colors group-hover:border-orange-200 group-hover:bg-orange-50/30"
-                  style={{ aspectRatio: '4/3' }}
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="text-gray-200 transition-colors group-hover:text-orange-300"
+                className="w-full cursor-crosshair"
+                style={{ aspectRatio: '4/3', touchAction: 'none' }}
+                onPointerDown={(e) => handlePointerDown('daniel', e)}
+                onPointerMove={(e) => handlePointerMove('daniel', e)}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+              />
+              {/* Join overlay */}
+              <AnimatePresence>
+                {!danielJoined && (
+                  <motion.div
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[1px]"
                   >
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <line x1="19" y1="8" x2="19" y2="14" />
-                    <line x1="22" y1="11" x2="16" y2="11" />
-                  </svg>
-                </div>
-              </motion.button>
-            )}
-          </AnimatePresence>
+                    <button
+                      onClick={handleJoin}
+                      className="cursor-pointer rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white shadow-[0_0_20px_rgba(234,88,12,0.3)] transition-all hover:bg-orange-700 hover:shadow-[0_0_30px_rgba(234,88,12,0.45)]"
+                    >
+                      Join
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Flying coordinate labels */}
-      {flyingCoords.map((coord) => (
-        <motion.span
-          key={coord.id}
-          className="pointer-events-none absolute font-mono text-[9px] font-medium text-orange-400/70"
-          style={{ left: 0, top: 0, whiteSpace: 'nowrap' }}
-          initial={{
-            x: coord.startX,
-            y: coord.startY - 5,
-            opacity: 0.9,
-          }}
-          animate={{
-            x: coord.endX,
-            y: coord.endY - 5,
-            opacity: 0,
-          }}
-          transition={{ duration: 0.45, ease: 'linear' }}
-          onAnimationComplete={() => removeCoord(coord.id)}
-        >
-          {coord.label}
-        </motion.span>
-      ))}
+      {/* Flying pellets — traveling pulse lines */}
+      <svg className="pointer-events-none absolute left-0 top-0 h-full w-full">
+        {flyingCoords.map((coord) => {
+          const color =
+            coord.variant === 'live' ? '#F97316' : '#6366F1';
+          return (
+            <motion.path
+              key={coord.id}
+              d={`M${coord.startX},${coord.startY} L${coord.endX},${coord.endY}`}
+              stroke={color}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              fill="none"
+              initial={{ pathLength: 0.3, pathOffset: 0, opacity: 0.9 }}
+              animate={{ pathOffset: 1, opacity: 0 }}
+              transition={{ duration: 0.45, ease: 'easeIn' }}
+              onAnimationComplete={() => removeCoord(coord.id)}
+            />
+          );
+        })}
+      </svg>
     </div>
   );
 }

@@ -65,10 +65,16 @@ function spawnFloater(emoji: string, container: HTMLElement, p: FloaterParams) {
 
 export function LiveStreamDemo() {
   const screenRefs = useRef<HTMLElement[]>([]);
+  const videoRefs = useRef<HTMLVideoElement[]>([]);
 
   const registerScreen = useCallback((el: HTMLElement | null) => {
     if (!el) return;
     if (!screenRefs.current.includes(el)) screenRefs.current.push(el);
+  }, []);
+
+  const registerVideo = useCallback((el: HTMLVideoElement | null) => {
+    if (!el) return;
+    if (!videoRefs.current.includes(el)) videoRefs.current.push(el);
   }, []);
 
   const react = useCallback((emoji: string, btn: HTMLButtonElement) => {
@@ -82,6 +88,11 @@ export function LiveStreamDemo() {
     screenRefs.current.forEach((s) => {
       const pct = relX * 100;
       spawnFloater(emoji, s, { ...params, startX: pct });
+    });
+
+    videoRefs.current.forEach((v) => {
+      v.currentTime = 0;
+      v.play();
     });
   }, []);
 
@@ -123,8 +134,8 @@ export function LiveStreamDemo() {
               className="relative aspect-video overflow-hidden"
             >
               <video
+                ref={registerVideo}
                 autoPlay
-                loop
                 muted
                 playsInline
                 className="absolute inset-0 h-full w-full object-cover"

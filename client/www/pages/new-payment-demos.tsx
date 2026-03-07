@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import { LaunchDayDemo } from '@/components/new-landing/PaymentsIdea_LaunchDay';
 import { LiveTransactionFeedDemo } from '@/components/new-landing/PaymentsIdea_LiveFeed';
 import { CheckoutFlowDemo } from '@/components/new-landing/PaymentsIdea_CheckoutFlow';
 import { PricingBuilderDemo } from '@/components/new-landing/PaymentsIdea_PricingBuilderV2';
@@ -18,6 +19,21 @@ export default function NewPaymentDemosPage() {
         </p>
 
         <div className="space-y-20">
+          {/* The One */}
+          <section>
+            <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-gray-400">
+              The One
+            </h2>
+            <h3 className="mb-2 text-2xl font-semibold">Launch Day</h3>
+            <p className="mb-6 text-gray-500">
+              Your first customers arrive. Slow at first, then a hockey stick.
+              Rolling odometer MRR, floating revenue, accelerating pace.
+            </p>
+            <div className="rounded-xl bg-radial from-white to-[#FFF9F4] px-6 py-6">
+              <LaunchDayDemo />
+            </div>
+          </section>
+
           {/* Existing */}
           <section>
             <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-gray-400">
