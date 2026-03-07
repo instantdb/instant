@@ -48,7 +48,7 @@
   "scripts": {
     "build": "rm -rf dist; tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch --skipLibCheck --preserveWatchOutput | grep -v '^$'",
-    "test": "vitest",
+    "test": "vitest --project unit",
     "test:ci": "vitest run",
     "publish-package": "pnpm pack && npm publish *.tgz --access public",
     "clean": "rm -rf dist"
