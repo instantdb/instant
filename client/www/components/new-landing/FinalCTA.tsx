@@ -63,20 +63,23 @@ export function FinalCTA() {
       </AnimateIn>
 
       <AnimateIn delay={100}>
-        {/* Terminal command */}
-        <div className="mt-8 inline-flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-100 px-4 py-3 font-mono">
-          <span className="text-orange-600">$</span>
-          <span className="text-gray-700">npx create-instant-app</span>
-          <CopyButton text="npx create-instant-app" />
-        </div>
+        <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
+          What are you waiting for? Start building out your dreams today.
+        </p>
       </AnimateIn>
 
       <AnimateIn delay={200}>
-        <div className="mt-8">
+        <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="inline-flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-100 px-4 py-3 font-mono text-base sm:text-lg">
+            <span className="text-orange-600">$</span>
+            <span className="text-gray-700">npx create-instant-app</span>
+            <CopyButton text="npx create-instant-app" />
+          </div>
+
           <Link href="/dash">
-            <Button size="lg" className="glow-pulse px-8 py-3.5 text-base">
+            <button className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-orange-700 sm:text-lg">
               Get a DB
-            </Button>
+            </button>
           </Link>
         </div>
       </AnimateIn>

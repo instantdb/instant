@@ -1,82 +1,191 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AnimateIn } from './AnimateIn';
-import Image from 'next/image';
+import { motion, AnimatePresence } from 'motion/react';
 
-// Animated terminal that types out commands
+// Animated terminal showing `npx instant-cli push` with schema diff
+type TerminalPhase =
+  | 'idle'
+  | 'typing'
+  | 'found'
+  | 'diff'
+  | 'result'
+  | 'cancelled'
+  | 'pause';
+
+const PUSH_COMMAND = 'npx instant-cli push schema';
+
 function AnimatedTerminal() {
-  const [step, setStep] = useState(0);
-  const [isTyping, setIsTyping] = useState(true);
+  const [phase, setPhase] = useState<TerminalPhase>('idle');
+  const [typingIndex, setTypingIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const steps = [
-    { type: 'command', text: 'npx instant-cli login' },
-    { type: 'output', text: 'Successfully logged in as joe@instantdb.com!' },
-    { type: 'command', text: 'npx create-instant-app awesome-gram' },
-    { type: 'output', text: '🎉 Success! Your project is ready to go!' },
-    { type: 'command', text: 'npx instant-cli push schema' },
-    { type: 'output', text: 'Schema updated!' },
-    { type: 'command', text: 'npx vercel --prod' },
-    {
-      type: 'output',
-      text: '✓ App deployed at https://awesome-gram.vercel.app',
-    },
-  ];
+  const showFound = !['idle', 'typing'].includes(phase);
+  const showDiff = !['idle', 'typing', 'found'].includes(phase);
+  const showButtons = showDiff;
+  const showResult =
+    phase === 'result' || phase === 'cancelled' || phase === 'pause';
+
+  // Start animation when the terminal scrolls into view
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && phase === 'idle') {
+          setPhase('typing');
+        }
+      },
+      { threshold: 0.5 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [phase]);
 
   useEffect(() => {
-    if (step >= steps.length) {
-      // Reset after a pause
-      const timeout = setTimeout(() => {
-        setStep(0);
-        setIsTyping(true);
-      }, 6000);
+    requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    });
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase === 'idle') return;
+
+    if (phase === 'typing') {
+      if (typingIndex < PUSH_COMMAND.length) {
+        const timeout = setTimeout(
+          () => setTypingIndex((i) => i + 1),
+          8 + Math.random() * 16,
+        );
+        return () => clearTimeout(timeout);
+      }
+      const timeout = setTimeout(() => setPhase('found'), 300);
       return () => clearTimeout(timeout);
     }
 
-    const currentStep = steps[step];
-    const delay = currentStep.type === 'command' ? 800 : 600;
+    if (phase === 'found') {
+      const timeout = setTimeout(() => setPhase('diff'), 500);
+      return () => clearTimeout(timeout);
+    }
 
-    const timeout = setTimeout(() => {
-      setStep((s) => s + 1);
-    }, delay);
+    if (phase === 'diff') {
+      // Wait for user to click Push or Cancel — don't auto-advance
+      return;
+    }
 
-    return () => clearTimeout(timeout);
-  }, [step, steps.length]);
+    if (phase === 'result' || phase === 'cancelled') {
+      const timeout = setTimeout(() => setPhase('pause'), 3000);
+      return () => clearTimeout(timeout);
+    }
+
+    if (phase === 'pause') {
+      const timeout = setTimeout(() => {
+        setPhase('typing');
+        setTypingIndex(0);
+      }, 60000);
+      return () => clearTimeout(timeout);
+    }
+  }, [phase, typingIndex]);
+
+  const handlePush = () => {
+    if (phase === 'diff') {
+      setPhase('result');
+    }
+  };
+
+  const handleCancel = () => {
+    if (phase === 'diff') {
+      setPhase('cancelled');
+    }
+  };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl">
-      <div className="min-h-[300px] p-4 font-mono text-sm sm:p-6">
-        {steps.slice(0, step).map((s, i) => (
-          <div key={i} className={`${i > 0 ? 'mt-1' : ''}`}>
-            {s.type === 'command' && (
-              <div className="flex items-center gap-2">
-                <span className="text-green-400">$</span>
-                <span className="text-gray-100">{s.text}</span>
-              </div>
+    <div
+      ref={containerRef}
+      className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl"
+    >
+      <div
+        ref={scrollRef}
+        className="h-[340px] overflow-y-auto p-4 font-mono text-sm sm:p-6"
+      >
+        {/* Command line */}
+        <div className="flex items-center gap-2">
+          <span className="text-green-400">$</span>
+          <span className="text-gray-100">
+            {phase === 'typing' ? (
+              <>
+                {PUSH_COMMAND.slice(0, typingIndex)}
+                <span className="inline-block h-[0.85em] w-[0.5em] translate-y-[1px] animate-pulse bg-gray-100/70" />
+              </>
+            ) : (
+              PUSH_COMMAND
             )}
-            {s.type === 'output' && (
-              <div
-                className={`${s.text.startsWith('✓') ? 'text-green-400' : 'text-gray-400'}`}
-              >
-                {s.text}
-              </div>
-            )}
-            {s.type === 'comment' && (
-              <div className="mt-2 text-gray-600">{s.text}</div>
-            )}
-          </div>
-        ))}
+          </span>
+        </div>
 
-        {/* Typing cursor */}
-        {step < steps.length && (
-          <div className="mt-1 flex items-center gap-2">
-            {steps[step].type === 'command' && (
-              <span className="text-green-400">$</span>
-            )}
-            {steps[step].type === 'command' && (
-              <span className="text-gray-100">
-                <span className="inline-block h-5 w-2 animate-pulse bg-gray-100" />
+        {/* Found app ID */}
+        {showFound && (
+          <div className="mt-1 text-gray-400">
+            Found{' '}
+            <span className="bg-green-900/60 px-0.5 text-green-300">
+              NEXT_PUBLIC_INSTANT_APP_ID
+            </span>
+            : a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a
+          </div>
+        )}
+
+        {/* Schema diff box */}
+        {showDiff && (
+          <div className="mt-3 border border-gray-700 px-3 py-2">
+            <div>
+              <span className="bg-green-600 px-1.5 py-px text-white">
+                + CREATE NAMESPACE
               </span>
-            )}
+              <span className="ml-2 text-gray-300">todos</span>
+            </div>
+            <div className="mt-1.5 space-y-px pl-2">
+              <div className="text-green-400">+ CREATE ATTR todos.id</div>
+              <div className="text-green-400">+ CREATE ATTR todos.text</div>
+              <div className="pl-6 text-gray-500">DATA TYPE: string</div>
+            </div>
+          </div>
+        )}
+
+        {/* Push prompt + buttons */}
+        {showButtons && (
+          <div className="mt-3">
+            <div className="text-gray-300">Push these changes?</div>
+            <div className="mt-1.5 flex gap-4">
+              <button
+                onClick={handlePush}
+                className="cursor-pointer bg-amber-600 px-3 py-0.5 text-white"
+              >
+                Push
+              </button>
+              <button
+                onClick={handleCancel}
+                className="cursor-pointer bg-gray-700 px-3 py-0.5 text-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Result */}
+        {phase === 'cancelled' && (
+          <div className="mt-2">
+            <div className="text-gray-400">Schema migration cancelled!</div>
+          </div>
+        )}
+        {(phase === 'result' || phase === 'pause') && (
+          <div className="mt-2">
+            <div className="text-green-400">Schema updated!</div>
+            <div className="text-green-400">✓ Done</div>
           </div>
         )}
       </div>
@@ -172,7 +281,7 @@ function ChatCode() {
         <span className="text-orange-300">db</span>
         <span className="text-gray-400">.</span>
         <span className="text-yellow-300">useQuery</span>
-        <span className="text-gray-400">({'{ '}</span>
+        <span className="text-gray-400">{'({ '}</span>
         <span className="text-blue-300">messages</span>
         <span className="text-gray-400">{': {} })'}</span>
       </div>
@@ -332,11 +441,11 @@ function PermsCode() {
 
       <div className="pl-8">
         <span className="text-blue-300">bind</span>
-        <span className="text-gray-400">: [</span>
+        <span className="text-gray-400">{': {'}</span>
         <span className="text-emerald-300">"isOwner"</span>
-        <span className="text-gray-400">, </span>
-        <span className="text-emerald-300">"auth.id == data.creatorId"</span>
-        <span className="text-gray-400">],</span>
+        <span className="text-gray-400">: </span>
+        <span className="text-emerald-300">"auth.id == data.creator"</span>
+        <span className="text-gray-400">{'},'}</span>
       </div>
 
       <div className="mt-2 pl-8">
@@ -355,11 +464,9 @@ function PermsCode() {
       <div className="pl-12">
         <span className="text-blue-300">create</span>
         <span className="text-gray-400">: </span>
-        <span className="text-emerald-300">"auth.id != null"</span>
+        <span className="text-emerald-300">"isOwner"</span>
         <span className="text-gray-400">,</span>
-        <span className="ml-4 text-gray-400">
-          // Logged-in users can create
-        </span>
+        <span className="ml-4 text-gray-400">// Only owner</span>
       </div>
 
       <div className="pl-12">
@@ -401,6 +508,244 @@ function PermsCode() {
 
 // Type safety visualization
 
+function BlinkingCursor() {
+  return (
+    <motion.span
+      className="inline-block h-[1.1em] w-[2px] translate-y-[2px] bg-gray-300"
+      animate={{ opacity: [1, 0] }}
+      transition={{ duration: 0.8, repeat: Infinity, repeatType: 'reverse' }}
+    />
+  );
+}
+
+type DropdownItem = {
+  icon: string;
+  iconColor: string;
+  name: string;
+  type: string;
+  highlighted?: boolean;
+};
+
+function AutocompleteDropdown({ items }: { items: DropdownItem[] }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.15 }}
+      className="absolute top-full left-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border border-gray-700 bg-[#1e1e2e] shadow-xl"
+    >
+      {items.map((item) => (
+        <div
+          key={item.name}
+          className={`flex items-center gap-2 px-3 py-1.5 text-[13px] ${
+            item.highlighted
+              ? 'border-l-2 border-l-blue-400 bg-blue-500/15'
+              : 'border-l-2 border-l-transparent'
+          }`}
+        >
+          <span className={item.iconColor}>◆</span>
+          <span className="text-gray-100">{item.name}</span>
+          <span className="ml-auto text-gray-500">{item.type}</span>
+        </div>
+      ))}
+    </motion.div>
+  );
+}
+
+type Phase =
+  | 'typing-prefix'
+  | 'show-dropdown'
+  | 'select-item'
+  | 'show-annotation'
+  | 'pause';
+
+type Scene = {
+  prefix: React.ReactNode;
+  dropdownItems: DropdownItem[];
+  selectedText: string;
+  suffix: string;
+  annotation: string;
+};
+
+const scenes: Scene[] = [
+  {
+    prefix: (
+      <>
+        <span className="text-orange-300">db</span>
+        <span className="text-gray-400">.</span>
+        <span className="text-yellow-300">useQuery</span>
+        <span className="text-gray-400">{'({'}</span>
+      </>
+    ),
+    dropdownItems: [
+      {
+        icon: '◆',
+        iconColor: 'text-purple-400',
+        name: 'messages',
+        type: 'EntityDef',
+        highlighted: true,
+      },
+      {
+        icon: '◆',
+        iconColor: 'text-blue-400',
+        name: 'users',
+        type: 'EntityDef',
+      },
+      {
+        icon: '◆',
+        iconColor: 'text-emerald-400',
+        name: 'channels',
+        type: 'EntityDef',
+      },
+    ],
+    selectedText: ' messages: {} ',
+    suffix: '})',
+    annotation: '// → { messages: Message[] }',
+  },
+  {
+    prefix: (
+      <>
+        <span className="text-blue-300">data</span>
+        <span className="text-gray-400">.</span>
+        <span className="text-blue-300">messages</span>
+        <span className="text-gray-400">[</span>
+        <span className="text-orange-300">0</span>
+        <span className="text-gray-400">].</span>
+      </>
+    ),
+    dropdownItems: [
+      {
+        icon: '◆',
+        iconColor: 'text-emerald-400',
+        name: 'text',
+        type: 'string',
+        highlighted: true,
+      },
+      { icon: '◆', iconColor: 'text-blue-400', name: 'id', type: 'string' },
+      {
+        icon: '◆',
+        iconColor: 'text-purple-400',
+        name: 'createdAt',
+        type: 'number',
+      },
+    ],
+    selectedText: 'text',
+    suffix: '',
+    annotation: '// → string',
+  },
+];
+
+function TypeSafetyDemo() {
+  const [sceneIndex, setSceneIndex] = useState(0);
+  const [phase, setPhase] = useState<Phase>('typing-prefix');
+
+  const scene = scenes[sceneIndex];
+
+  useEffect(() => {
+    let delay: number;
+    switch (phase) {
+      case 'typing-prefix':
+        delay = 800;
+        break;
+      case 'show-dropdown':
+        delay = 1200;
+        break;
+      case 'select-item':
+        delay = 800;
+        break;
+      case 'show-annotation':
+        delay = 2000;
+        break;
+      case 'pause':
+        delay = 2000;
+        break;
+      default:
+        delay = 1000;
+    }
+
+    const timeout = setTimeout(() => {
+      switch (phase) {
+        case 'typing-prefix':
+          setPhase('show-dropdown');
+          break;
+        case 'show-dropdown':
+          setPhase('select-item');
+          break;
+        case 'select-item':
+          setPhase('show-annotation');
+          break;
+        case 'show-annotation':
+          setPhase('pause');
+          break;
+        case 'pause':
+          setSceneIndex((i) => (i + 1) % scenes.length);
+          setPhase('typing-prefix');
+          break;
+      }
+    }, delay);
+
+    return () => clearTimeout(timeout);
+  }, [phase, sceneIndex]);
+
+  const showDropdown = phase === 'show-dropdown';
+  const showSelected =
+    phase === 'select-item' || phase === 'show-annotation' || phase === 'pause';
+  const showAnnotation = phase === 'show-annotation' || phase === 'pause';
+  const showCursor = phase !== 'pause';
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl">
+      {/* Editor title bar */}
+      <div className="flex items-center border-b border-gray-800 bg-gray-900 px-4 py-2">
+        <span className="font-mono text-xs text-gray-500">app.tsx</span>
+      </div>
+
+      <div className="min-h-[160px] p-5 font-mono text-sm sm:p-6 sm:text-[15px]">
+        {/* Code line */}
+        <div className="relative inline-flex flex-wrap items-center whitespace-pre">
+          {scene.prefix}
+          {showSelected && (
+            <motion.span
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-blue-300"
+            >
+              {scene.selectedText}
+            </motion.span>
+          )}
+          {showCursor && !showSelected && <BlinkingCursor />}
+          {showSelected && (
+            <span className="text-gray-400">{scene.suffix}</span>
+          )}
+          {showSelected && showCursor && <BlinkingCursor />}
+
+          {/* Dropdown */}
+          <AnimatePresence>
+            {showDropdown && (
+              <AutocompleteDropdown items={scene.dropdownItems} />
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Type annotation */}
+        <AnimatePresence>
+          {showAnnotation && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="mt-3 text-gray-500"
+            >
+              {scene.annotation}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
 export function BuiltForAI() {
   return (
     <div className="space-y-24">
@@ -410,7 +755,7 @@ export function BuiltForAI() {
           <h2 className="text-off-black text-2xl font-semibold sm:text-5xl">
             Built for AI
           </h2>
-          <p className="mt-4 max-w-2xl text-[21px] sm:mx-auto">
+          <p className="mt-6 max-w-3xl text-xl sm:mx-auto">
             Instant is fully type-safe and supports a CLI-first workflow.
             Schema, permissions, queries, and transactions are all defined in
             code. No need to navigate UIs or dashboards. Go further and faster
@@ -464,7 +809,7 @@ export function BuiltForAI() {
       {/* Feature 3: Type safety */}
       <AnimateIn>
         <div className="flex items-center gap-7">
-          <div className="max-w-[440px] text-center">
+          <div className="max-w-[440px]">
             <h3 className="text-2xl font-semibold sm:text-2xl">
               End-to-end type safety
             </h3>
@@ -475,21 +820,8 @@ export function BuiltForAI() {
               the first try.
             </p>
           </div>
-          <div className="bg-surface/20 grow px-[161px] py-[85px]">
-            <div className="rounded-[20px] bg-[#25283A] px-[44px] py-8 shadow">
-              <Image
-                style={{
-                  width: '407',
-                  minWidth: '407px',
-                  height: '122',
-                  minHeight: '122px',
-                }}
-                width={407}
-                height={122}
-                src="/img/typesafety.png"
-                alt="Type safety visualization"
-              />
-            </div>
+          <div className="bg-surface/20 grow px-[66px] py-[37px]">
+            <TypeSafetyDemo />
           </div>
         </div>
       </AnimateIn>

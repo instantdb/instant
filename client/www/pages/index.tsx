@@ -9,10 +9,21 @@ import { BatteriesForAI } from '@/components/new-landing/BatteriesForAI';
 import { SyncEngine } from '@/components/new-landing/SyncEngine';
 import { SyncRelations } from '@/components/new-landing/SyncRelations';
 import { SocialProof } from '@/components/new-landing/SocialProof';
-import { WallOfLove } from '@/components/new-landing/WallOfLove';
+import { StartupShowcase } from '@/components/new-landing/StartupShowcase';
+import { FirebaseTestimonial } from '@/components/new-landing/FirebaseTestimonial';
 import { FinalCTA } from '@/components/new-landing/FinalCTA';
 import { Footer } from '@/components/new-landing/Footer';
-import { CoolBackground } from '@/components/CoolBackground';
+import { AgentPathsBgSoftCenter } from '@/components/home/AgentPathsBgSoftCenter';
+
+// ---------------------------------------------------------
+// Hero background — swap this import to change the effect:
+//   import { AgentPathsBg } from '@/components/home/AgentPathsBg';
+//   import { AgentPathsBgSoftCenter } from '@/components/home/AgentPathsBgSoftCenter';
+//   import { ConstellationBg } from '@/components/home/ConstellationBg';
+//   import { RipplesBg } from '@/components/home/RipplesBg';
+// Then replace the HeroBg assignment below with the chosen component.
+// ---------------------------------------------------------
+const HeroBg = AgentPathsBgSoftCenter;
 
 const SeeTheCodeButton = ({ href }: { href: string }) => (
   <Link
@@ -25,8 +36,8 @@ const SeeTheCodeButton = ({ href }: { href: string }) => (
 
 export default function Landing2026() {
   return (
-    <div className="text-off-black">
-      <MainNav />
+    <div className="text-off-black relative">
+      <MainNav transparent />
       <Head>
         <title>Instant</title>
         <meta
@@ -40,44 +51,66 @@ export default function Landing2026() {
           content="We make you productive by giving your frontend a real-time database."
         />
       </Head>
-      <CoolBackground>
-        <main className="flex-1">
-          {/* Hero Section */}
-          <Hero />
-
-          {/* Placeholder sections */}
-          <Section className="" id="built-for-ai">
-            <BuiltForAI />
-          </Section>
-
-          <Section id="batteries-for-ai">
-            <BatteriesForAI />
-          </Section>
-
-          <div className="bg-linear-to-b from-[#F7F7F7] to-white">
-            <Section className="" id="sync-engine">
-              <SyncEngine />
-            </Section>
+      <main className="flex-1">
+        {/* Hero — animated background, fades to white at bottom */}
+        <section className="relative overflow-hidden bg-[#F8F8F8]">
+          <HeroBg />
+          <div className="relative z-10 pt-10 pb-8 sm:pt-16 sm:pb-12">
+            <Hero />
           </div>
+          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-48 bg-gradient-to-b from-transparent to-white" />
+        </section>
 
-          <Section id="sync-relations">
-            <SyncRelations />
-          </Section>
+        {/* Rest of page — clean */}
+        <Section className="" id="built-for-ai">
+          <BuiltForAI />
+        </Section>
 
-          <Section className="bg-[#F9FAFB]" id="social-proof">
-            <SocialProof />
+        <div className="relative bg-[#F0F5FA]">
+          <div className="pointer-events-none absolute top-0 right-0 left-0 h-24 bg-gradient-to-b from-white to-transparent" />
+          <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-24 bg-gradient-to-b from-transparent to-white" />
+          <Section id="startup-showcase">
+            <StartupShowcase />
           </Section>
+        </div>
 
-          <Section id="wall-of-love">
-            <WallOfLove />
-          </Section>
+        <Section id="batteries-for-ai">
+          <BatteriesForAI />
+        </Section>
 
-          {/* Final CTA */}
-          <Section className="pt-0!">
-            <FinalCTA />
+        <div className="bg-linear-to-b from-[#F7F7F7] to-white">
+          <Section className="" id="sync-engine">
+            <SyncEngine />
           </Section>
-        </main>
-      </CoolBackground>{' '}
+        </div>
+
+        <Section id="sync-relations">
+          <SyncRelations />
+        </Section>
+
+        <div
+          className="relative overflow-hidden bg-[#F8F8F8]"
+          id="social-proof"
+        >
+          <div className="opacity-40">
+            <HeroBg />
+          </div>
+          <div className="pointer-events-none absolute top-0 right-0 left-0 z-[5] h-32 bg-gradient-to-b from-white to-transparent" />
+          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-32 bg-gradient-to-b from-transparent to-white" />
+          <div className="relative z-10 py-16 sm:py-24">
+            <div className="landing-width mx-auto">
+              <SocialProof />
+              <div className="mt-16">
+                <FirebaseTestimonial />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Section className="pt-0!">
+          <FinalCTA />
+        </Section>
+      </main>
       <Footer />
     </div>
   );

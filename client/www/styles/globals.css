@@ -96,10 +96,41 @@
 
   @font-face {
     font-family: 'Switzer';
-    font-weight: normal;
+    font-weight: 400;
     font-style: normal;
-    font-stretch: normal;
-    src: url('/fonts/Switzer-Variable.woff2') format('woff2');
+    src: url('/fonts/Switzer-Regular.woff') format('woff');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 400;
+    font-style: italic;
+    src: url('/fonts/Switzer-Italic.woff') format('woff');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 500;
+    font-style: normal;
+    src: url('/fonts/Switzer-Medium.woff') format('woff');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 600;
+    font-style: normal;
+    src: url('/fonts/Switzer-Semibold.woff') format('woff');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 700;
+    font-style: normal;
+    src: url('/fonts/Switzer-Bold.woff') format('woff');
     font-display: swap;
   }
 }

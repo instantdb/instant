@@ -1,8 +1,57 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import MuxPlayer from '@mux/mux-player-react';
+import { Button } from './Button';
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      onClick={copy}
+      className="cursor-pointer text-gray-400 transition-colors hover:text-gray-600"
+      title="Copy to clipboard"
+    >
+      {copied ? (
+        <svg
+          className="h-4 w-4 text-green-500"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="m4.5 12.75 6 6 9-13.5"
+          />
+        </svg>
+      ) : (
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.5}
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184"
+          />
+        </svg>
+      )}
+    </button>
+  );
+}
 
 // Types
 type Task = {
@@ -76,142 +125,103 @@ function PlayIcon({ className }: { className?: string }) {
 }
 
 function VideoPlayer() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState<boolean | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playerRef = useRef<any>(null);
 
-  // Check for mobile only once on mount (don't update on resize to avoid issues with rotation)
-  useEffect(() => {
-    // Use touch capability as a more reliable mobile check
-    const checkMobile =
-      'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    setIsMobile(checkMobile);
+  const handlePlay = useCallback(() => {
+    setIsPlaying(true);
+    // Start playback on the already-preloaded player
+    const el = playerRef.current;
+    if (el) {
+      el.currentTime = 0;
+      el.play();
+    }
   }, []);
 
-  // Close on escape key and lock body scroll
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsOpen(false);
-    };
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
-  // Don't render until we know if it's mobile or not (prevents flicker)
-  if (isMobile === null) {
-    return (
-      <div className="aspect-video overflow-hidden rounded-xl bg-gray-900 shadow-2xl" />
-    );
-  }
-
-  // On mobile/touch devices, show Mux Player directly for native fullscreen
-  if (isMobile) {
-    return (
-      <div className="overflow-hidden rounded-xl shadow-2xl">
+  return (
+    <div className="relative overflow-hidden rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.22)]">
+      {/* MuxPlayer is always mounted for eager preloading, but hidden until play */}
+      <div className={isPlaying ? '' : 'invisible absolute inset-0'}>
         <MuxPlayer
+          ref={playerRef}
           playbackId={PLAYBACK_ID}
           accentColor="#ea580c"
           metadata={{ video_title: 'InstantDB Demo' }}
+          preload="auto"
+          minResolution="1080p"
+          renditionOrder="desc"
           style={{ aspectRatio: '16/9', display: 'block' }}
         />
       </div>
-    );
-  }
 
-  // On desktop, show thumbnail that opens modal
-  return (
-    <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="group relative w-full cursor-pointer overflow-hidden rounded-xl shadow-2xl"
-      >
-        <img
-          src={THUMBNAIL_URL}
-          alt="Watch demo video"
-          className="aspect-video w-full object-cover"
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/90 shadow-lg transition-all group-hover:scale-110 group-hover:bg-white">
-            <PlayIcon className="ml-1 h-10 w-10 text-orange-600" />
-          </div>
-        </div>
-      </button>
-
-      {/* Lightbox modal — portaled to body to escape transformed ancestors */}
-      {createPortal(
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-center p-8 transition-all duration-500 ease-out ${
-            isOpen
-              ? 'pointer-events-auto opacity-100'
-              : 'pointer-events-none opacity-0'
-          }`}
-          onClick={() => setIsOpen(false)}
+      {!isPlaying && (
+        <button
+          onClick={handlePlay}
+          className="group relative w-full cursor-pointer"
         >
-          <div
-            className={`absolute inset-0 bg-black/90 transition-opacity duration-500 ease-out ${isOpen ? 'opacity-100' : 'opacity-0'}`}
+          <img
+            src={THUMBNAIL_URL}
+            alt="Watch demo video"
+            className="aspect-video w-full scale-[1.01] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
 
-          <button
-            onClick={() => setIsOpen(false)}
-            className={`absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-all duration-500 ease-out hover:bg-white/20 ${
-              isOpen ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
-            }`}
-          >
-            <XIcon className="h-6 w-6 text-white" />
-          </button>
+          <div className="absolute inset-0 bg-black/58 transition-colors duration-300 group-hover:bg-black/50" />
 
-          <div
-            className={`relative w-full max-w-6xl overflow-hidden rounded-xl shadow-2xl transition-all duration-500 ease-out ${
-              isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {isOpen && (
-              <MuxPlayer
-                playbackId={PLAYBACK_ID}
-                accentColor="#ea580c"
-                metadata={{ video_title: 'InstantDB Demo' }}
-                style={{ aspectRatio: '16/9', display: 'block' }}
-              />
-            )}
+          <div className="absolute inset-x-0 top-[13%] px-6 text-center sm:top-[14%] sm:px-10">
+            <p className="font-mono text-xs tracking-[0.16em] text-white/85 sm:text-[13px]">
+              instant in action
+            </p>
+            <p className="mx-auto mt-6 text-9xl leading-[1.2] font-semibold tracking-[-0.02em] text-white sm:text-5xl">
+              Agents build a realtime
+              <br />
+              instagram, in 12 minutes
+            </p>
           </div>
-        </div>,
-        document.body,
+
+          <div className="absolute top-[73%] left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-600 shadow-[0_20px_48px_rgba(234,88,12,0.55)] transition-transform duration-300 group-hover:scale-110 sm:h-24 sm:w-24 lg:h-28 lg:w-28">
+              <PlayIcon className="ml-1 h-8 w-8 text-white sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
+            </div>
+          </div>
+        </button>
       )}
-    </>
+    </div>
   );
 }
 
 // Main Hero component
 export function Hero() {
   return (
-    <section className="pt-20 pb-16 sm:pb-24">
+    <section className="pt-28 pb-8 sm:pt-32 sm:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h1 className="hero-stagger-1 text-4xl font-semibold sm:text-5xl">
-            Give your AI a database
+          <h1 className="hero-stagger-1 text-9xl font-semibold sm:text-5xl">
+            The best backend for AI-coded apps
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
-            Without a database, your app is just a demo. Add Instant and your
-            app becomes real — users can signup, create content, and{' '}
-            <span className="inline-block font-semibold text-orange-600 italic sm:text-2xl">
-              feel delight
-            </span>
-            .
+            Give your AI a backend and build delightful, full-stack apps. Try it
+            yourself, you can see Instant in action with one command.
           </p>
 
-          <div className="hero-stagger-3 mx-auto mt-10 max-w-3xl">
+          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <div className="inline-flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-100 px-4 py-3 font-mono text-base sm:text-lg">
+              <span className="text-orange-600">$</span>
+              <span className="text-gray-700">npx create-instant-app</span>
+              <CopyButton text="npx create-instant-app" />
+            </div>
+
+            <span className="text-base text-gray-400">or</span>
+
+            <Link href="/dash">
+              <button className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-orange-700 sm:text-lg">
+                Sign up now
+              </button>
+            </Link>
+          </div>
+
+          <div className="hero-stagger-3 mx-auto mt-10 max-w-[880px]">
             <VideoPlayer />
           </div>
-        </div>
-
-        <div className="mt-20">
-          <BeforeAfterVisual />
         </div>
       </div>
     </section>

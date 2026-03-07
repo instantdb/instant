@@ -2,72 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { AnimateIn } from './AnimateIn';
-
-// Interactive demo: click a todo and see it update instantly (no spinner)
-function InstantUpdatesDemo() {
-  const [todos, setTodos] = useState([
-    { id: 1, text: 'Design landing page', done: true },
-    { id: 2, text: 'Write API docs', done: false },
-    { id: 3, text: 'Ship v1.0', done: false },
-  ]);
-
-  const toggle = (id: number) => {
-    setTodos((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-    );
-  };
-
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-medium">My Tasks</span>
-        <span className="flex items-center gap-1 text-xs font-medium text-green-600">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-          Synced
-        </span>
-      </div>
-      <div className="space-y-1.5">
-        {todos.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => toggle(t.id)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
-          >
-            <div
-              className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${
-                t.done ? 'border-orange-600 bg-orange-600' : 'border-gray-300'
-              }`}
-            >
-              {t.done && (
-                <svg
-                  className="h-3 w-3 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={3}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m4.5 12.75 6 6 9-13.5"
-                  />
-                </svg>
-              )}
-            </div>
-            <span
-              className={`text-sm ${t.done ? 'text-gray-400 line-through' : 'text-gray-700'}`}
-            >
-              {t.text}
-            </span>
-          </button>
-        ))}
-      </div>
-      <p className="mt-3 text-center text-xs text-gray-400">
-        Click a task — no spinner, no delay
-      </p>
-    </div>
-  );
-}
+import { AutoPlayDemo } from './InstantUpdatesDemoIdeas';
+import { RealtimeChecklistDemo } from './SyncDemoIdeas';
+import { OfflineDemoReactions } from './OfflineDemoIdeas';
 
 // Two devices showing real-time sync
 function RealtimeSyncDemo() {
@@ -299,7 +236,7 @@ export function SyncEngine() {
           <h2 className="text-3xl font-semibold sm:text-7xl">
             The Sync Engine
           </h2>
-          <p className="mt-6 max-w-2xl text-[21px] sm:mx-auto">
+          <p className="mt-6 max-w-3xl text-xl sm:mx-auto">
             Apps powered by Instant feel smoother. No loading spinners. No
             waiting. No refreshing to check if it worked. Changes just happen.
           </p>
@@ -308,30 +245,32 @@ export function SyncEngine() {
 
       {/* Features */}
       <div className="flex flex-col gap-9">
-        {/* Instant updates */}
+        {/* Instant updates — text left, demo right */}
         <AnimateIn>
-          <div className="grid grid-cols-3 items-center gap-6 space-y-4">
+          <div className="grid grid-cols-3 items-center gap-6">
             <div className="col-span-1">
               <h3 className="text-2xl font-semibold sm:text-3xl">
                 Instant updates
               </h3>
               <p className="mt-2 text-lg">
-                Apps built with Instant update immediately. Click a button,
-                toggle a switch, type in a field — whatever you do, you see the
-                result right away. Your apps feel more responsive and alive and
-                your users stay in flow.
+                Click a button, toggle a switch, type in a field — whatever you
+                do, you see the result right away. Your apps feel more
+                responsive and alive and your users stay in flow.
               </p>
             </div>
-            <div className="col-span-2 bg-[#B8B8B8]/20 px-20 py-9">
-              <InstantUpdatesDemo />
+            <div className="col-span-2 px-12 py-9">
+              <AutoPlayDemo />
             </div>
           </div>
         </AnimateIn>
 
-        {/* Real-time sync */}
+        {/* Real-time sync — demo left, text right */}
         <AnimateIn>
-          <div className="grid grid-cols-3 items-center gap-6 space-y-4">
-            <div>
+          <div className="grid grid-cols-3 items-center gap-6">
+            <div className="col-span-2 px-12 py-9">
+              <RealtimeChecklistDemo />
+            </div>
+            <div className="col-span-1">
               <h3 className="text-2xl font-semibold sm:text-3xl">
                 Real-time sync
               </h3>
@@ -341,16 +280,13 @@ export function SyncEngine() {
                 refresh or re-open the app to see the latest.
               </p>
             </div>
-            <div className="col-span-2 bg-[#FFE7E7]/20 px-20 py-9">
-              <RealtimeSyncDemo />
-            </div>
           </div>
         </AnimateIn>
 
-        {/* Works offline */}
+        {/* Works offline — text left, demo right */}
         <AnimateIn>
-          <div className="grid grid-cols-3 items-center gap-6 space-y-4">
-            <div>
+          <div className="grid grid-cols-3 items-center gap-6">
+            <div className="col-span-1">
               <h3 className="text-2xl font-semibold sm:text-3xl">
                 Works offline
               </h3>
@@ -360,8 +296,8 @@ export function SyncEngine() {
                 them having to do a thing. Pure magic.
               </p>
             </div>
-            <div className="col-span-2 bg-[#B8B8B8]/20 px-20 py-9">
-              <OfflineDemo />
+            <div className="col-span-2 px-12 py-9">
+              <OfflineDemoReactions />
             </div>
           </div>
         </AnimateIn>
