@@ -174,6 +174,14 @@ function centerFade(x: number, cw: number): number {
   return t * t * (3 - 2 * t);
 }
 
+// Alpha bucket boundaries for batched trail rendering
+const ALPHA_BUCKETS = [
+  { minLife: 0.75, maxLife: 1.0, alpha: 0.22 },
+  { minLife: 0.5, maxLife: 0.75, alpha: 0.15 },
+  { minLife: 0.25, maxLife: 0.5, alpha: 0.08 },
+  { minLife: 0, maxLife: 0.25, alpha: 0.04 },
+];
+
 // --- Component ---
 
 export function AgentPathsBgSoftCenter() {
@@ -193,6 +201,50 @@ export function AgentPathsBgSoftCenter() {
     const dpr = window.devicePixelRatio || 1;
     let cw = 0;
     let ch = 0;
+    let isVisible = true;
+
+    // Offscreen canvas for atmospheric wash
+    let washCanvas: OffscreenCanvas | HTMLCanvasElement;
+    let washCtx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
+    try {
+      washCanvas = new OffscreenCanvas(1, 1);
+      washCtx = washCanvas.getContext('2d');
+    } catch {
+      washCanvas = document.createElement('canvas');
+      washCtx = (washCanvas as HTMLCanvasElement).getContext('2d');
+    }
+
+    function rebuildWash() {
+      if (!washCtx) return;
+      washCanvas.width = cw * dpr;
+      washCanvas.height = ch * dpr;
+      washCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      washCtx.clearRect(0, 0, cw, ch);
+
+      const sideWidth = cw * 0.4;
+
+      // Left side wash
+      const leftGrad = washCtx.createRadialGradient(
+        0, ch * 0.35, 0,
+        0, ch * 0.35, sideWidth,
+      );
+      leftGrad.addColorStop(0, 'rgba(255, 237, 213, 0.35)');
+      leftGrad.addColorStop(0.5, 'rgba(254, 215, 170, 0.12)');
+      leftGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      washCtx.fillStyle = leftGrad;
+      washCtx.fillRect(0, 0, cw, ch);
+
+      // Right side wash
+      const rightGrad = washCtx.createRadialGradient(
+        cw, ch * 0.35, 0,
+        cw, ch * 0.35, sideWidth,
+      );
+      rightGrad.addColorStop(0, 'rgba(255, 237, 213, 0.35)');
+      rightGrad.addColorStop(0.5, 'rgba(254, 215, 170, 0.12)');
+      rightGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      washCtx.fillStyle = rightGrad;
+      washCtx.fillRect(0, 0, cw, ch);
+    }
 
     function resize() {
       const rect = container!.getBoundingClientRect();
@@ -203,6 +255,7 @@ export function AgentPathsBgSoftCenter() {
       canvas!.style.width = cw + 'px';
       canvas!.style.height = ch + 'px';
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      rebuildWash();
     }
 
     function init() {
@@ -224,6 +277,12 @@ export function AgentPathsBgSoftCenter() {
     }
 
     function tick() {
+      // D. Skip tick when off-screen
+      if (!isVisible) {
+        animId = requestAnimationFrame(tick);
+        return;
+      }
+
       const now = performance.now();
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
@@ -231,39 +290,8 @@ export function AgentPathsBgSoftCenter() {
 
       ctx!.clearRect(0, 0, cw, ch);
 
-      // --- Atmospheric gradient wash (faded toward center) ---
-      // Draw two side gradients instead of one centered one
-      const sideWidth = cw * 0.4;
-
-      // Left side wash
-      const leftGrad = ctx!.createRadialGradient(
-        0,
-        ch * 0.35,
-        0,
-        0,
-        ch * 0.35,
-        sideWidth,
-      );
-      leftGrad.addColorStop(0, 'rgba(255, 237, 213, 0.35)');
-      leftGrad.addColorStop(0.5, 'rgba(254, 215, 170, 0.12)');
-      leftGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      ctx!.fillStyle = leftGrad;
-      ctx!.fillRect(0, 0, cw, ch);
-
-      // Right side wash
-      const rightGrad = ctx!.createRadialGradient(
-        cw,
-        ch * 0.35,
-        0,
-        cw,
-        ch * 0.35,
-        sideWidth,
-      );
-      rightGrad.addColorStop(0, 'rgba(255, 237, 213, 0.35)');
-      rightGrad.addColorStop(0.5, 'rgba(254, 215, 170, 0.12)');
-      rightGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      ctx!.fillStyle = rightGrad;
-      ctx!.fillRect(0, 0, cw, ch);
+      // C. Blit cached atmospheric wash
+      ctx!.drawImage(washCanvas, 0, 0, cw, ch);
 
       for (const agent of agents) {
         const [cr, cg2, cb] = agent.isUser ? USER_COLOR : AGENT_COLOR;
@@ -287,48 +315,97 @@ export function AgentPathsBgSoftCenter() {
         }
 
         agent.trail.push({ x: agent.x, y: agent.y, time: now });
-        agent.trail = agent.trail.filter((p) => now - p.time < TRAIL_LIFETIME);
+
+        // B. In-place splice instead of filter (GC fix)
+        const cutoff = now - TRAIL_LIFETIME;
+        let trimIdx = 0;
+        while (trimIdx < agent.trail.length && agent.trail[trimIdx].time < cutoff) trimIdx++;
+        if (trimIdx > 0) agent.trail.splice(0, trimIdx);
 
         // --- Draw trail ---
         if (agent.trail.length < 2) continue;
 
-        for (let i = 1; i < agent.trail.length; i++) {
-          const p0 = agent.trail[i - 1];
-          const p1 = agent.trail[i];
+        // A. Batch trail segments into single path per alpha bucket
+        const lineWidth = agent.isUser ? 1.6 : 1.2;
+        const baseAlpha = agent.isUser ? 0.3 : 0.22;
 
-          if (Math.abs(p1.x - p0.x) > 100 || Math.abs(p1.y - p0.y) > 100)
-            continue;
-
-          const age = now - p1.time;
-          const life = 1 - age / TRAIL_LIFETIME;
-
-          // Boost near cursor
-          const segX = (p0.x + p1.x) / 2;
-          const segY = (p0.y + p1.y) / 2;
-          const dCursor = hasMouse
-            ? Math.sqrt((segX - mx) ** 2 + (segY - my) ** 2)
-            : 9999;
-          const cursorBoost =
-            dCursor < CURSOR_RADIUS ? (1 - dCursor / CURSOR_RADIUS) * 0.35 : 0;
-
-          const baseAlpha = agent.isUser ? 0.3 : 0.22;
-          // Apply center fade to alpha
-          const fade = centerFade(segX, cw);
-          const alpha = life * baseAlpha * fade + cursorBoost;
-          if (alpha < 0.002) continue;
-
-          // Color: neutral gray → agent color based on recency + cursor
-          const warmth = Math.min(1, life * 0.4 + cursorBoost * 1.5);
+        // Pre-compute color at warmth midpoint for each bucket
+        for (const bucket of ALPHA_BUCKETS) {
+          const midLife = (bucket.minLife + bucket.maxLife) / 2;
+          const warmth = Math.min(1, midLife * 0.4);
           const r = Math.round(175 + warmth * (cr - 175));
           const g = Math.round(175 + warmth * (cg2 - 175));
           const b = Math.round(185 + warmth * (cb - 185));
+          const alpha = midLife * baseAlpha;
 
           ctx!.beginPath();
-          ctx!.moveTo(p0.x, p0.y);
-          ctx!.lineTo(p1.x, p1.y);
-          ctx!.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-          ctx!.lineWidth = (agent.isUser ? 1.6 : 1.2) + cursorBoost * 0.8;
-          ctx!.stroke();
+          let hasSegments = false;
+
+          for (let i = 1; i < agent.trail.length; i++) {
+            const p0 = agent.trail[i - 1];
+            const p1 = agent.trail[i];
+
+            if (Math.abs(p1.x - p0.x) > 100 || Math.abs(p1.y - p0.y) > 100)
+              continue;
+
+            const life = 1 - (now - p1.time) / TRAIL_LIFETIME;
+            if (life < bucket.minLife || life >= bucket.maxLife) continue;
+
+            const fade = centerFade((p0.x + p1.x) / 2, cw);
+            if (alpha * fade < 0.002) continue;
+
+            ctx!.moveTo(p0.x, p0.y);
+            ctx!.lineTo(p1.x, p1.y);
+            hasSegments = true;
+          }
+
+          if (hasSegments) {
+            ctx!.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            ctx!.lineWidth = lineWidth;
+            ctx!.stroke();
+          }
+        }
+
+        // Cursor-boosted segments — only when mouse is active
+        if (hasMouse) {
+          ctx!.beginPath();
+          let hasBoosted = false;
+
+          for (let i = 1; i < agent.trail.length; i++) {
+            const p0 = agent.trail[i - 1];
+            const p1 = agent.trail[i];
+
+            if (Math.abs(p1.x - p0.x) > 100 || Math.abs(p1.y - p0.y) > 100)
+              continue;
+
+            const segX = (p0.x + p1.x) / 2;
+            const segY = (p0.y + p1.y) / 2;
+            const dCursor = Math.sqrt((segX - mx) ** 2 + (segY - my) ** 2);
+            if (dCursor >= CURSOR_RADIUS) continue;
+
+            const cursorBoost = (1 - dCursor / CURSOR_RADIUS) * 0.35;
+            const life = 1 - (now - p1.time) / TRAIL_LIFETIME;
+            if (life <= 0) continue;
+
+            // Draw boosted segments with extra width
+            const warmth = Math.min(1, life * 0.4 + cursorBoost * 1.5);
+            const r = Math.round(175 + warmth * (cr - 175));
+            const g = Math.round(175 + warmth * (cg2 - 175));
+            const b2 = Math.round(185 + warmth * (cb - 185));
+
+            // Each boosted segment needs its own style, but there are few
+            ctx!.stroke(); // flush previous
+            ctx!.beginPath();
+            ctx!.moveTo(p0.x, p0.y);
+            ctx!.lineTo(p1.x, p1.y);
+            ctx!.strokeStyle = `rgba(${r}, ${g}, ${b2}, ${cursorBoost})`;
+            ctx!.lineWidth = lineWidth + cursorBoost * 0.8;
+            hasBoosted = true;
+          }
+
+          if (hasBoosted) {
+            ctx!.stroke();
+          }
         }
 
         // --- Turn-point nodes (PCB vias) ---
@@ -405,6 +482,15 @@ export function AgentPathsBgSoftCenter() {
     const ro = new ResizeObserver(() => resize());
     ro.observe(container);
 
+    // D. IntersectionObserver — pause when off-screen
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting;
+      },
+      { threshold: 0 },
+    );
+    io.observe(container);
+
     const onMouse = (e: MouseEvent) => {
       const rect = container!.getBoundingClientRect();
       mouseRef.current = {
@@ -422,6 +508,7 @@ export function AgentPathsBgSoftCenter() {
     return () => {
       cancelAnimationFrame(animId);
       ro.disconnect();
+      io.disconnect();
       window.removeEventListener('mousemove', onMouse);
       document.removeEventListener('mouseleave', onLeave);
     };
