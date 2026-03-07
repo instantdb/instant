@@ -95,8 +95,17 @@ let dotGridCacheW = 0;
 let dotGridCacheH = 0;
 let dotGridCacheDpr = 0;
 
-function getDotGridCanvas(w: number, h: number, dpr: number): HTMLCanvasElement {
-  if (dotGridCacheCanvas && dotGridCacheW === w && dotGridCacheH === h && dotGridCacheDpr === dpr) {
+function getDotGridCanvas(
+  w: number,
+  h: number,
+  dpr: number,
+): HTMLCanvasElement {
+  if (
+    dotGridCacheCanvas &&
+    dotGridCacheW === w &&
+    dotGridCacheH === h &&
+    dotGridCacheDpr === dpr
+  ) {
     return dotGridCacheCanvas;
   }
   if (!dotGridCacheCanvas) {
