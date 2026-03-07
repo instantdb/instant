@@ -89,7 +89,23 @@ const LINE_WIDTH = 2.5;
 const DOT_GRID_COLOR = '#e5e7eb';
 const DOT_GRID_SPACING = 20;
 
-function drawDotGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
+// Cached offscreen dot grid (static content, drawn once per size)
+let dotGridCacheCanvas: HTMLCanvasElement | null = null;
+let dotGridCacheW = 0;
+let dotGridCacheH = 0;
+let dotGridCacheDpr = 0;
+
+function getDotGridCanvas(w: number, h: number, dpr: number): HTMLCanvasElement {
+  if (dotGridCacheCanvas && dotGridCacheW === w && dotGridCacheH === h && dotGridCacheDpr === dpr) {
+    return dotGridCacheCanvas;
+  }
+  if (!dotGridCacheCanvas) {
+    dotGridCacheCanvas = document.createElement('canvas');
+  }
+  dotGridCacheCanvas.width = w * dpr;
+  dotGridCacheCanvas.height = h * dpr;
+  const ctx = dotGridCacheCanvas.getContext('2d')!;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = DOT_GRID_COLOR;
   for (let x = DOT_GRID_SPACING; x < w; x += DOT_GRID_SPACING) {
     for (let y = DOT_GRID_SPACING; y < h; y += DOT_GRID_SPACING) {
@@ -98,6 +114,10 @@ function drawDotGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
       ctx.fill();
     }
   }
+  dotGridCacheW = w;
+  dotGridCacheH = h;
+  dotGridCacheDpr = dpr;
+  return dotGridCacheCanvas;
 }
 
 function drawStrokes(
@@ -133,7 +153,7 @@ function renderCanvas(
   const h = canvas.height / dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  drawDotGrid(ctx, w, h);
+  ctx.drawImage(getDotGridCanvas(w, h, dpr), 0, 0, w, h);
   drawStrokes(ctx, strokes, w, h);
 }
 
@@ -145,6 +165,7 @@ export function StreamsDemo() {
   const cursorPosRef = useRef<{ x: number; y: number } | null>(null);
   const dprRef = useRef(1);
   const rafRef = useRef<number>(0);
+  const dirtyRef = useRef(true);
 
   // Per-canvas refs
   const canvasRefs = useRef<Record<CanvasId, HTMLCanvasElement | null>>({
@@ -227,7 +248,10 @@ export function StreamsDemo() {
     let running = true;
     const loop = () => {
       if (!running) return;
-      redraw();
+      if (dirtyRef.current) {
+        dirtyRef.current = false;
+        redraw();
+      }
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
@@ -250,6 +274,7 @@ export function StreamsDemo() {
           strokes.push([]);
         }
         strokes[item.strokeIdx].push(item.point);
+        dirtyRef.current = true;
       }
     }, 12);
     return () => {
@@ -350,6 +375,7 @@ export function StreamsDemo() {
         queuesRef.current[id].push({ strokeIdx: si, point });
       }
       recordingRef.current.push({ strokeIdx: si, point });
+      dirtyRef.current = true;
 
       autoplayPointIdxRef.current = pi + 1;
       autoplayTimerRef.current = setTimeout(playNextPoint, 18);
@@ -420,6 +446,7 @@ export function StreamsDemo() {
         queuesRef.current[id].push({ strokeIdx: 0, point });
       }
       recordingRef.current.push({ strokeIdx: 0, point });
+      dirtyRef.current = true;
     },
     [clearAutoplay, clearAllData, getCanvasPoint],
   );
@@ -440,6 +467,7 @@ export function StreamsDemo() {
         queuesRef.current[id].push({ strokeIdx, point });
       }
       recordingRef.current.push({ strokeIdx, point });
+      dirtyRef.current = true;
     },
     [getCanvasPoint],
   );
@@ -497,6 +525,7 @@ export function StreamsDemo() {
       if (source === 'stopa') {
         cursorPosRef.current = entry.point;
       }
+      dirtyRef.current = true;
 
       pos++;
       replayTimerRef.current = setTimeout(step, 9);

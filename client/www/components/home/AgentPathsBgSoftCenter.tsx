@@ -288,11 +288,8 @@ export function AgentPathsBgSoftCenter() {
     }
 
     function tick() {
-      // D. Skip tick when off-screen
-      if (!isVisible) {
-        animId = requestAnimationFrame(tick);
-        return;
-      }
+      // D. Fully stop rAF when off-screen (IO callback restarts it)
+      if (!isVisible) return;
 
       const now = performance.now();
       const mx = mouseRef.current.x;
@@ -500,7 +497,11 @@ export function AgentPathsBgSoftCenter() {
     // D. IntersectionObserver — pause when off-screen
     const io = new IntersectionObserver(
       ([entry]) => {
+        const wasVisible = isVisible;
         isVisible = entry.isIntersecting;
+        if (isVisible && !wasVisible) {
+          animId = requestAnimationFrame(tick);
+        }
       },
       { threshold: 0 },
     );
