@@ -1027,8 +1027,8 @@ export function BatteriesForAI() {
             <h3 className="text-2xl font-semibold sm:text-3xl">Streams</h3>
             <p className="mt-2 text-lg">
               Use streams to broadcast ephemeral data in real-time. Stream LLM
-              responses token-by-token, replay drawings, or push live updates
-              — all synced across clients instantly.
+              responses token-by-token, replay drawings, or push live updates —
+              all synced across clients instantly.
             </p>
           </div>
           <div className="col-span-2">

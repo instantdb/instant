@@ -140,9 +140,12 @@ export function CheckoutFlowDemo() {
       // Type email character by character
       const chars = s.email.split('');
       chars.forEach((_, i) => {
-        sched(() => {
-          setTypedEmail(s.email.slice(0, i + 1));
-        }, 400 + i * 60);
+        sched(
+          () => {
+            setTypedEmail(s.email.slice(0, i + 1));
+          },
+          400 + i * 60,
+        );
       });
 
       const typingDone = 400 + chars.length * 60 + 200;
@@ -218,8 +221,7 @@ export function CheckoutFlowDemo() {
     };
   }, [runCycle, clearAllTimeouts]);
 
-  const isForm =
-    phase !== 'success' && phase !== 'pausing';
+  const isForm = phase !== 'success' && phase !== 'pausing';
 
   return (
     <div ref={containerRef} className="relative flex flex-col items-center">
@@ -229,7 +231,7 @@ export function CheckoutFlowDemo() {
           Revenue
         </span>
         <motion.span
-          className="rounded-md bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-emerald-600"
+          className="rounded-md bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-600 tabular-nums"
           animate={{ scale: revenue > 0 ? [1, 1.08, 1] : 1 }}
           transition={{ duration: 0.3 }}
           key={revenue}

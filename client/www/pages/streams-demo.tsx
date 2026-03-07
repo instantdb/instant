@@ -12,7 +12,7 @@ export default function StreamsDemoPage() {
         <div className="space-y-20">
           {/* Current */}
           <section>
-            <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-gray-400">
+            <h2 className="mb-1 text-sm font-medium tracking-wide text-gray-400 uppercase">
               Current
             </h2>
             <h3 className="mb-6 text-2xl font-semibold">Streams</h3>
@@ -23,12 +23,10 @@ export default function StreamsDemoPage() {
 
           {/* Data Pellets + Join */}
           <section>
-            <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-gray-400">
+            <h2 className="mb-1 text-sm font-medium tracking-wide text-gray-400 uppercase">
               Variation
             </h2>
-            <h3 className="mb-6 text-2xl font-semibold">
-              Data Pellets + Join
-            </h3>
+            <h3 className="mb-6 text-2xl font-semibold">Data Pellets + Join</h3>
             <div className="rounded-xl bg-radial from-white to-[#FFF0E6] px-6 py-6">
               <StreamsDemoJoin />
             </div>

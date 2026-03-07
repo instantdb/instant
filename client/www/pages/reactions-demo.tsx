@@ -14,7 +14,12 @@ const PEOPLE = {
 
 type PersonKey = keyof typeof PEOPLE;
 
-const REACTIONS = ['\u2764\uFE0F', '\uD83D\uDD25', '\uD83C\uDF89', '\uD83D\uDC4F'] as const;
+const REACTIONS = [
+  '\u2764\uFE0F',
+  '\uD83D\uDD25',
+  '\uD83C\uDF89',
+  '\uD83D\uDC4F',
+] as const;
 
 function IPhoneShell({
   owner,
@@ -34,9 +39,7 @@ function IPhoneShell({
           alt={person.name}
           className="h-7 w-7 rounded-full object-cover"
         />
-        <span className="text-xs font-medium text-gray-600">
-          {person.name}
-        </span>
+        <span className="text-xs font-medium text-gray-600">{person.name}</span>
       </div>
       {/* iPhone shell */}
       <div
@@ -66,7 +69,11 @@ function IPhoneShell({
 
 // ─── Variant A: Emoji Burst ────────────────────────────
 
-function spawnButtonFloater(emoji: string, container: HTMLElement, p: FloaterParams) {
+function spawnButtonFloater(
+  emoji: string,
+  container: HTMLElement,
+  p: FloaterParams,
+) {
   const el = document.createElement('span');
   el.textContent = emoji;
   el.style.cssText =
@@ -108,15 +115,12 @@ function spawnButtonFloater(emoji: string, container: HTMLElement, p: FloaterPar
 function VariantA() {
   const cellRefs = useRef<Record<string, HTMLElement[]>>({});
 
-  const registerCell = useCallback(
-    (emoji: string, el: HTMLElement | null) => {
-      if (!el) return;
-      if (!cellRefs.current[emoji]) cellRefs.current[emoji] = [];
-      const arr = cellRefs.current[emoji];
-      if (!arr.includes(el)) arr.push(el);
-    },
-    [],
-  );
+  const registerCell = useCallback((emoji: string, el: HTMLElement | null) => {
+    if (!el) return;
+    if (!cellRefs.current[emoji]) cellRefs.current[emoji] = [];
+    const arr = cellRefs.current[emoji];
+    if (!arr.includes(el)) arr.push(el);
+  }, []);
 
   const react = useCallback((emoji: string) => {
     const cells = cellRefs.current[emoji];
@@ -128,7 +132,9 @@ function VariantA() {
   const PhoneScreen = ({ owner }: { owner: PersonKey }) => (
     <IPhoneShell
       owner={owner}
-      className={owner === 'drew' ? '-rotate-3 translate-y-2' : 'rotate-2 -translate-y-3'}
+      className={
+        owner === 'drew' ? 'translate-y-2 -rotate-3' : '-translate-y-3 rotate-2'
+      }
     >
       <div className="grid grid-cols-2 pt-5">
         {REACTIONS.map((emoji) => (
@@ -136,7 +142,7 @@ function VariantA() {
             key={emoji}
             ref={(el) => registerCell(emoji, el)}
             onClick={() => react(emoji)}
-            className="relative flex items-center justify-center overflow-visible py-5 text-2xl transition-transform active:scale-90 hover:bg-gray-50 first:rounded-tl-[19px] [&:nth-child(2)]:rounded-tr-[19px] [&:nth-child(3)]:rounded-bl-[19px] last:rounded-br-[19px]"
+            className="relative flex items-center justify-center overflow-visible py-5 text-2xl transition-transform first:rounded-tl-[19px] last:rounded-br-[19px] hover:bg-gray-50 active:scale-90 [&:nth-child(2)]:rounded-tr-[19px] [&:nth-child(3)]:rounded-bl-[19px]"
           >
             {emoji}
           </button>
@@ -231,13 +237,16 @@ function VariantB() {
   const PhoneScreen = ({ owner }: { owner: PersonKey }) => (
     <IPhoneShell
       owner={owner}
-      className={owner === 'drew' ? '-rotate-3 translate-y-2' : 'rotate-2 -translate-y-3'}
+      className={
+        owner === 'drew' ? 'translate-y-2 -rotate-3' : '-translate-y-3 rotate-2'
+      }
     >
       <div
         ref={registerScreen}
         className="relative flex min-h-[180px] flex-col justify-between rounded-[19px] pt-5 pb-3"
         style={{
-          background: 'linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+          background:
+            'linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
         }}
       >
         {/* LIVE badge + viewer count */}
@@ -253,7 +262,7 @@ function VariantB() {
             <button
               key={emoji}
               onClick={() => react(emoji)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm backdrop-blur-sm transition-transform active:scale-90 hover:bg-white/20"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm backdrop-blur-sm transition-transform hover:bg-white/20 active:scale-90"
             >
               {emoji}
             </button>
@@ -324,12 +333,15 @@ function VariantC() {
     if (!arr.includes(el)) arr.push(el);
   }, []);
 
-  const registerEmojiSpan = useCallback((emoji: string, el: HTMLElement | null) => {
-    if (!el) return;
-    if (!emojiSpanRefs.current[emoji]) emojiSpanRefs.current[emoji] = [];
-    const arr = emojiSpanRefs.current[emoji];
-    if (!arr.includes(el)) arr.push(el);
-  }, []);
+  const registerEmojiSpan = useCallback(
+    (emoji: string, el: HTMLElement | null) => {
+      if (!el) return;
+      if (!emojiSpanRefs.current[emoji]) emojiSpanRefs.current[emoji] = [];
+      const arr = emojiSpanRefs.current[emoji];
+      if (!arr.includes(el)) arr.push(el);
+    },
+    [],
+  );
 
   const react = useCallback((emoji: string) => {
     setCounts((prev) => ({ ...prev, [emoji]: prev[emoji] + 1 }));
@@ -341,7 +353,9 @@ function VariantC() {
   const PhoneScreen = ({ owner }: { owner: PersonKey }) => (
     <IPhoneShell
       owner={owner}
-      className={owner === 'drew' ? '-rotate-3 translate-y-2' : 'rotate-2 -translate-y-3'}
+      className={
+        owner === 'drew' ? 'translate-y-2 -rotate-3' : '-translate-y-3 rotate-2'
+      }
     >
       <div className="flex min-h-[180px] flex-col gap-3 rounded-[19px] bg-white px-3 pt-6 pb-3">
         {/* Chat bubble */}
@@ -374,14 +388,14 @@ function VariantC() {
                   border: `1.5px solid ${active ? color : '#e5e7eb'}`,
                 }}
               >
-                <span ref={(el) => registerEmojiSpan(emoji, el)} className="inline-block">
+                <span
+                  ref={(el) => registerEmojiSpan(emoji, el)}
+                  className="inline-block"
+                >
                   {emoji}
                 </span>
                 {active && (
-                  <span
-                    className="font-medium"
-                    style={{ color }}
-                  >
+                  <span className="font-medium" style={{ color }}>
                     {count}
                   </span>
                 )}
@@ -440,10 +454,10 @@ export default function ReactionsDemo() {
                     Emoji Burst
                   </h3>
                   <p className="mt-2 text-lg">
-                    See who&apos;s online and react in real-time. Use
-                    presence to track active users, and topics to broadcast
-                    ephemeral events like reactions, cursors, and typing
-                    indicators — no extra infrastructure needed.
+                    See who&apos;s online and react in real-time. Use presence
+                    to track active users, and topics to broadcast ephemeral
+                    events like reactions, cursors, and typing indicators — no
+                    extra infrastructure needed.
                   </p>
                 </div>
                 <div className="col-span-2 rounded-2xl bg-radial from-white to-[#FFF0F5] px-6 py-8">
@@ -460,10 +474,9 @@ export default function ReactionsDemo() {
                     Rising Hearts
                   </h3>
                   <p className="mt-2 text-lg">
-                    Instagram Live &amp; TikTok-style floating reactions.
-                    Emojis drift upward in gentle S-curves, creating a
-                    cascade of real-time engagement that syncs across every
-                    viewer.
+                    Instagram Live &amp; TikTok-style floating reactions. Emojis
+                    drift upward in gentle S-curves, creating a cascade of
+                    real-time engagement that syncs across every viewer.
                   </p>
                 </div>
                 <div className="col-span-2 rounded-2xl bg-radial from-white to-[#FFF5F5] px-6 py-8">
@@ -480,9 +493,9 @@ export default function ReactionsDemo() {
                     Reaction Bar
                   </h3>
                   <p className="mt-2 text-lg">
-                    Slack &amp; iMessage-style reaction pills with live
-                    counts. Each tap increments and pulses — counts stay
-                    in sync across every connected device.
+                    Slack &amp; iMessage-style reaction pills with live counts.
+                    Each tap increments and pulses — counts stay in sync across
+                    every connected device.
                   </p>
                 </div>
                 <div className="col-span-2 rounded-2xl bg-radial from-white to-[#F0F9FF] px-6 py-8">
@@ -500,8 +513,8 @@ export default function ReactionsDemo() {
                   </h3>
                   <p className="mt-2 text-lg">
                     YouTube Live-style floating reactions over a live video
-                    stream. Viewers react in real-time and every emoji
-                    floats across all connected screens simultaneously.
+                    stream. Viewers react in real-time and every emoji floats
+                    across all connected screens simultaneously.
                   </p>
                 </div>
                 <div className="col-span-2 rounded-2xl bg-radial from-white to-[#F5F0FF] px-6 py-8">

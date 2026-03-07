@@ -342,46 +342,43 @@ export function StreamsDemoJoin() {
   );
 
   // Spawn pellets from storage → server → Daniel
-  const spawnStorageCoord = useCallback(
-    (point: Point) => {
-      const container = containerRef.current;
-      const storage = storageRef.current;
-      const server = serverRef.current;
-      const destWrapper = danielWrapperRef.current;
-      if (!container || !storage || !server || !destWrapper) return;
+  const spawnStorageCoord = useCallback((point: Point) => {
+    const container = containerRef.current;
+    const storage = storageRef.current;
+    const server = serverRef.current;
+    const destWrapper = danielWrapperRef.current;
+    if (!container || !storage || !server || !destWrapper) return;
 
-      const cRect = container.getBoundingClientRect();
-      const stRect = storage.getBoundingClientRect();
-      const svRect = server.getBoundingClientRect();
-      const dRect = destWrapper.getBoundingClientRect();
+    const cRect = container.getBoundingClientRect();
+    const stRect = storage.getBoundingClientRect();
+    const svRect = server.getBoundingClientRect();
+    const dRect = destWrapper.getBoundingClientRect();
 
-      const serverCX = svRect.left + svRect.width / 2 - cRect.left;
-      const serverCY = svRect.top + svRect.height / 2 - cRect.top;
+    const serverCX = svRect.left + svRect.width / 2 - cRect.left;
+    const serverCY = svRect.top + svRect.height / 2 - cRect.top;
 
-      // Inbound: storage → server
-      coordIdRef.current += 1;
-      coordsBufferRef.current.push({
-        id: coordIdRef.current,
-        variant: 'storage',
-        startX: stRect.left + stRect.width / 2 - cRect.left,
-        startY: stRect.top - cRect.top,
-        endX: serverCX,
-        endY: svRect.bottom - cRect.top + 2,
-      });
+    // Inbound: storage → server
+    coordIdRef.current += 1;
+    coordsBufferRef.current.push({
+      id: coordIdRef.current,
+      variant: 'storage',
+      startX: stRect.left + stRect.width / 2 - cRect.left,
+      startY: stRect.top - cRect.top,
+      endX: serverCX,
+      endY: svRect.bottom - cRect.top + 2,
+    });
 
-      // Outbound: server → Daniel
-      coordIdRef.current += 1;
-      coordsBufferRef.current.push({
-        id: coordIdRef.current,
-        variant: 'storage',
-        startX: svRect.right - cRect.left + 2,
-        startY: serverCY,
-        endX: dRect.left - cRect.left - 6,
-        endY: dRect.top - cRect.top + dRect.height / 2,
-      });
-    },
-    [],
-  );
+    // Outbound: server → Daniel
+    coordIdRef.current += 1;
+    coordsBufferRef.current.push({
+      id: coordIdRef.current,
+      variant: 'storage',
+      startX: svRect.right - cRect.left + 2,
+      startY: serverCY,
+      endX: dRect.left - cRect.left - 6,
+      endY: dRect.top - cRect.top + dRect.height / 2,
+    });
+  }, []);
 
   const removeCoord = useCallback((id: number) => {
     setFlyingCoords((prev) => prev.filter((c) => c.id !== id));
@@ -494,7 +491,10 @@ export function StreamsDemoJoin() {
   // ─── User drawing ───
 
   const getCanvasPoint = useCallback(
-    (canvasId: CanvasId, e: React.PointerEvent<HTMLCanvasElement>): Point | null => {
+    (
+      canvasId: CanvasId,
+      e: React.PointerEvent<HTMLCanvasElement>,
+    ): Point | null => {
       const canvas = canvasRefs.current[canvasId];
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
@@ -722,7 +722,9 @@ export function StreamsDemoJoin() {
                 alt="Daniel"
                 className={`h-5 w-5 rounded-full object-cover transition-opacity ${danielJoined ? '' : 'opacity-40'}`}
               />
-              <span className={`text-xs font-medium transition-opacity ${danielJoined ? '' : 'opacity-40'}`}>
+              <span
+                className={`text-xs font-medium transition-opacity ${danielJoined ? '' : 'opacity-40'}`}
+              >
                 Daniel
               </span>
             </div>
@@ -764,10 +766,9 @@ export function StreamsDemoJoin() {
       </div>
 
       {/* Flying pellets — traveling pulse lines */}
-      <svg className="pointer-events-none absolute left-0 top-0 h-full w-full">
+      <svg className="pointer-events-none absolute top-0 left-0 h-full w-full">
         {flyingCoords.map((coord) => {
-          const color =
-            coord.variant === 'live' ? '#F97316' : '#6366F1';
+          const color = coord.variant === 'live' ? '#F97316' : '#6366F1';
           return (
             <motion.path
               key={coord.id}

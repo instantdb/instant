@@ -23,7 +23,12 @@ const tierText: Record<Tier, string> = {
   Team: 'text-blue-700 bg-blue-50',
 };
 
-const revenueScript: { delay: number; name: string; tier: Tier; amount: number }[] = [
+const revenueScript: {
+  delay: number;
+  name: string;
+  tier: Tier;
+  amount: number;
+}[] = [
   { delay: 3800, name: 'Alice M.', tier: 'Pro', amount: 20 },
   { delay: 5000, name: 'Bob T.', tier: 'Team', amount: 50 },
   { delay: 6000, name: 'Priya K.', tier: 'Pro', amount: 20 },
@@ -208,12 +213,9 @@ export function LaunchDayDemo() {
     timersRef.current = [];
   }, []);
 
-  const sched = useCallback(
-    (fn: () => void, ms: number) => {
-      timersRef.current.push(setTimeout(fn, ms));
-    },
-    [],
-  );
+  const sched = useCallback((fn: () => void, ms: number) => {
+    timersRef.current.push(setTimeout(fn, ms));
+  }, []);
 
   const runCycle = useCallback(() => {
     clear();
@@ -328,7 +330,10 @@ export function LaunchDayDemo() {
   const moreCount = Math.max(0, customers.length - MAX_VISIBLE);
 
   return (
-    <div ref={containerRef} className="relative rounded-xl bg-white p-5 shadow-sm">
+    <div
+      ref={containerRef}
+      className="relative rounded-xl bg-white p-5 shadow-sm"
+    >
       <FakeCursor
         x={cursorPos.x}
         y={cursorPos.y}
@@ -361,7 +366,9 @@ export function LaunchDayDemo() {
                       <span className="animate-pulse text-gray-400">|</span>
                     </span>
                   ) : (
-                    <span className="text-gray-300">What&apos;s happening?</span>
+                    <span className="text-gray-300">
+                      What&apos;s happening?
+                    </span>
                   )}
                 </div>
               </div>
@@ -462,7 +469,7 @@ export function LaunchDayDemo() {
                           >
                             {c.tier}
                           </span>
-                          <span className="w-16 text-right text-sm font-semibold tabular-nums text-gray-700">
+                          <span className="w-16 text-right text-sm font-semibold text-gray-700 tabular-nums">
                             ${c.amount}/mo
                           </span>
                         </motion.div>

@@ -12,14 +12,12 @@ import Head from 'next/head';
 function BatteriesHeader() {
   return (
     <div className="sm:text-center">
-      <h2 className="text-2xl font-semibold sm:text-5xl">
-        Batteries included
-      </h2>
+      <h2 className="text-2xl font-semibold sm:text-5xl">Batteries included</h2>
       <p className="mt-12 max-w-2xl text-lg sm:mx-auto">
-        Shipping real products means adding auth, permissions, file storage,
-        and payments. Sometimes you want to share cursors, and sometimes you
-        want to stream LLM content. Instant comes with these services out of
-        the box, and they're designed to work well together.
+        Shipping real products means adding auth, permissions, file storage, and
+        payments. Sometimes you want to share cursors, and sometimes you want to
+        stream LLM content. Instant comes with these services out of the box,
+        and they're designed to work well together.
       </p>
     </div>
   );
@@ -32,9 +30,7 @@ function StreamsPlaceholder() {
     <div className="flex h-48 items-center justify-center rounded-xl border-2 border-dashed border-purple-300 bg-purple-50/50">
       <div className="text-center">
         <div className="text-3xl">~</div>
-        <p className="mt-1 text-sm font-medium text-purple-400">
-          Streams Demo
-        </p>
+        <p className="mt-1 text-sm font-medium text-purple-400">Streams Demo</p>
         <p className="mt-0.5 text-xs text-purple-300">
           Drawing replay / LLM streaming
         </p>
@@ -48,9 +44,7 @@ function PresencePlaceholder() {
     <div className="flex h-48 items-center justify-center rounded-xl border-2 border-dashed border-teal-300 bg-teal-50/50">
       <div className="text-center">
         <div className="text-3xl">+</div>
-        <p className="mt-1 text-sm font-medium text-teal-400">
-          Presence Demo
-        </p>
+        <p className="mt-1 text-sm font-medium text-teal-400">Presence Demo</p>
         <p className="mt-0.5 text-xs text-teal-300">
           Reactions / cursors / who's online
         </p>
@@ -107,8 +101,8 @@ function StreamsText() {
       <h3 className="text-2xl font-semibold sm:text-3xl">Streams</h3>
       <p className="mt-2 text-lg">
         Use streams to broadcast ephemeral data in real-time. Stream LLM
-        responses token-by-token, replay drawings, or push live updates
-        &mdash; all synced across clients instantly.
+        responses token-by-token, replay drawings, or push live updates &mdash;
+        all synced across clients instantly.
       </p>
     </div>
   );
@@ -120,8 +114,8 @@ function PresenceText() {
       <h3 className="text-2xl font-semibold sm:text-3xl">Presence</h3>
       <p className="mt-2 text-lg">
         Use presence to show who's online, share cursors, broadcast typing
-        indicators, and send reactions. Build collaborative experiences
-        where users can feel each other.
+        indicators, and send reactions. Build collaborative experiences where
+        users can feel each other.
       </p>
     </div>
   );
@@ -132,9 +126,9 @@ function AuthText() {
     <div>
       <h3 className="text-2xl font-semibold sm:text-3xl">Auth</h3>
       <p className="mt-2 text-lg">
-        Use auth to enable your users to sign up for your app. With Instant
-        you can easily enable sign up via email, Google, Apple, GitHub,
-        Clerk, and more.
+        Use auth to enable your users to sign up for your app. With Instant you
+        can easily enable sign up via email, Google, Apple, GitHub, Clerk, and
+        more.
       </p>
     </div>
   );
@@ -145,9 +139,8 @@ function PermissionsText() {
     <div>
       <h3 className="text-2xl font-semibold sm:text-3xl">Permissions</h3>
       <p className="mt-2 text-lg">
-        Use permissions to control who can access and modify data in your
-        app. These rules run on the Instant backend, so they can never be
-        bypassed.
+        Use permissions to control who can access and modify data in your app.
+        These rules run on the Instant backend, so they can never be bypassed.
       </p>
     </div>
   );
@@ -169,9 +162,8 @@ function PaymentsText() {
     <div>
       <h3 className="text-2xl font-semibold sm:text-3xl">Payments</h3>
       <p className="mt-2 text-lg">
-        Build apps that monetize. Easily add one-time purchases,
-        subscriptions, or usage-based billing by telling AI to add Stripe to
-        your Instant app.
+        Build apps that monetize. Easily add one-time purchases, subscriptions,
+        or usage-based billing by telling AI to add Stripe to your Instant app.
       </p>
     </div>
   );
@@ -615,9 +607,7 @@ export default function LayoutExplorations() {
         {/* Sticky layout picker */}
         <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/90 backdrop-blur">
           <div className="landing-width mx-auto flex items-center gap-4 py-3">
-            <span className="text-sm font-semibold text-gray-500">
-              Layout:
-            </span>
+            <span className="text-sm font-semibold text-gray-500">Layout:</span>
             <div className="flex gap-2">
               {layouts.map((l) => (
                 <button
@@ -649,7 +639,7 @@ export default function LayoutExplorations() {
         {/* For reference: the current layout */}
         <div className="border-t-4 border-dashed border-gray-300">
           <div className="landing-width mx-auto py-6">
-            <p className="text-center text-sm font-semibold text-gray-400 uppercase tracking-wide">
+            <p className="text-center text-sm font-semibold tracking-wide text-gray-400 uppercase">
               Current layout (for reference)
             </p>
           </div>

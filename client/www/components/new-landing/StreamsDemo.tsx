@@ -58,9 +58,30 @@ const CANVASES: {
   rotate: number;
   scale: number;
 }[] = [
-  { id: 'stopa', name: 'Stopa', img: '/img/landing/stopa.jpg', offsetY: 0, rotate: 0, scale: 1 },
-  { id: 'drew', name: 'Drew', img: '/img/landing/drew.jpg', offsetY: 20, rotate: -2, scale: 0.65 },
-  { id: 'daniel', name: 'Daniel', img: '/img/landing/daniel.png', offsetY: 8, rotate: 1.5, scale: 0.65 },
+  {
+    id: 'stopa',
+    name: 'Stopa',
+    img: '/img/landing/stopa.jpg',
+    offsetY: 0,
+    rotate: 0,
+    scale: 1,
+  },
+  {
+    id: 'drew',
+    name: 'Drew',
+    img: '/img/landing/drew.jpg',
+    offsetY: 20,
+    rotate: -2,
+    scale: 0.65,
+  },
+  {
+    id: 'daniel',
+    name: 'Daniel',
+    img: '/img/landing/daniel.png',
+    offsetY: 8,
+    rotate: 1.5,
+    scale: 0.65,
+  },
 ];
 
 const STROKE_COLOR = '#F97316';
@@ -170,7 +191,6 @@ export function StreamsDemo() {
 
   // UI state
   const [showReplay, setShowReplay] = useState(false);
-
 
   const setupCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
     if (!canvas) return;
@@ -331,7 +351,6 @@ export function StreamsDemo() {
       }
       recordingRef.current.push({ strokeIdx: si, point });
 
-
       autoplayPointIdxRef.current = pi + 1;
       autoplayTimerRef.current = setTimeout(playNextPoint, 18);
     };
@@ -361,7 +380,10 @@ export function StreamsDemo() {
   // ─── User drawing ───
 
   const getCanvasPoint = useCallback(
-    (canvasId: CanvasId, e: React.PointerEvent<HTMLCanvasElement>): Point | null => {
+    (
+      canvasId: CanvasId,
+      e: React.PointerEvent<HTMLCanvasElement>,
+    ): Point | null => {
       const canvas = canvasRefs.current[canvasId];
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
@@ -380,7 +402,6 @@ export function StreamsDemo() {
       clearAutoplay();
       cursorPosRef.current = null;
       setShowReplay(false);
-
 
       clearAllData();
       activeSourceRef.current = canvasId;
@@ -436,7 +457,6 @@ export function StreamsDemo() {
   const handleReplay = useCallback(() => {
     setShowReplay(false);
 
-
     // Copy recording before clearing
     const recording = [...recordingRef.current];
     const source = recordingSourceRef.current;
@@ -488,65 +508,63 @@ export function StreamsDemo() {
   return (
     <div ref={containerRef}>
       <div className="flex items-start justify-between">
-          {CANVASES.map((config) => (
-            <div
-              key={config.id}
-              style={{
-                width: `${config.scale * 200}px`,
-                transform: `translateY(${config.offsetY}px) rotate(${config.rotate}deg)`,
-              }}
-            >
-              <div className="mb-1.5 flex items-center gap-2 px-1">
-                <img
-                  src={config.img}
-                  alt={config.name}
-                  className="h-5 w-5 rounded-full object-cover"
+        {CANVASES.map((config) => (
+          <div
+            key={config.id}
+            style={{
+              width: `${config.scale * 200}px`,
+              transform: `translateY(${config.offsetY}px) rotate(${config.rotate}deg)`,
+            }}
+          >
+            <div className="mb-1.5 flex items-center gap-2 px-1">
+              <img
+                src={config.img}
+                alt={config.name}
+                className="h-5 w-5 rounded-full object-cover"
+              />
+              <span className="text-xs font-medium">{config.name}</span>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+              <div className="relative">
+                <canvas
+                  ref={(el) => {
+                    canvasRefs.current[config.id] = el;
+                  }}
+                  className="w-full cursor-crosshair"
+                  style={{ aspectRatio: '4/3', touchAction: 'none' }}
+                  onPointerDown={(e) => handlePointerDown(config.id, e)}
+                  onPointerMove={(e) => handlePointerMove(config.id, e)}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerUp}
                 />
-                <span className="text-xs font-medium">{config.name}</span>
-              </div>
-              <div
-                className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
-              >
-                <div className="relative">
-                  <canvas
-                    ref={(el) => {
-                      canvasRefs.current[config.id] = el;
-                    }}
-                    className="w-full cursor-crosshair"
-                    style={{ aspectRatio: '4/3', touchAction: 'none' }}
-                    onPointerDown={(e) => handlePointerDown(config.id, e)}
-                    onPointerMove={(e) => handlePointerMove(config.id, e)}
-                    onPointerUp={handlePointerUp}
-                    onPointerCancel={handlePointerUp}
-                  />
-                  {/* Cursor overlay — only on stopa's canvas */}
-                  {config.id === 'stopa' && (
-                    <div
-                      ref={cursorRef}
-                      className="pointer-events-none absolute z-10"
-                      style={{ display: 'none' }}
+                {/* Cursor overlay — only on stopa's canvas */}
+                {config.id === 'stopa' && (
+                  <div
+                    ref={cursorRef}
+                    className="pointer-events-none absolute z-10"
+                    style={{ display: 'none' }}
+                  >
+                    <svg
+                      width="16"
+                      height="20"
+                      viewBox="0 0 16 20"
+                      fill="none"
+                      className="drop-shadow-md"
                     >
-                      <svg
-                        width="16"
-                        height="20"
-                        viewBox="0 0 16 20"
-                        fill="none"
-                        className="drop-shadow-md"
-                      >
-                        <path
-                          d="M1 1L1 15L5 11L9 18L12 16.5L8 9.5L13 9L1 1Z"
-                          fill="black"
-                          stroke="white"
-                          strokeWidth="1.5"
-                        />
-                      </svg>
-                    </div>
-                  )}
-                </div>
+                      <path
+                        d="M1 1L1 15L5 11L9 18L12 16.5L8 9.5L13 9L1 1Z"
+                        fill="black"
+                        stroke="white"
+                        strokeWidth="1.5"
+                      />
+                    </svg>
+                  </div>
+                )}
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+      </div>
 
       {/* Replay button */}
       <div className="mt-2 flex h-5 justify-end">

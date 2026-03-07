@@ -180,7 +180,7 @@ export function LiveTransactionFeedDemo() {
           <div className="text-xs font-medium tracking-wide text-gray-400 uppercase">
             Transaction Feed
           </div>
-          <div className="mt-0.5 text-2xl font-bold tabular-nums text-gray-800">
+          <div className="mt-0.5 text-2xl font-bold text-gray-800 tabular-nums">
             $
             {animatedTotal.toLocaleString('en-US', {
               minimumFractionDigits: 2,
@@ -235,7 +235,7 @@ export function LiveTransactionFeedDemo() {
                   </div>
 
                   {/* Right: amount */}
-                  <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-800">
+                  <span className="shrink-0 text-sm font-semibold text-gray-800 tabular-nums">
                     ${txn.amount.toFixed(2)}
                   </span>
                 </div>

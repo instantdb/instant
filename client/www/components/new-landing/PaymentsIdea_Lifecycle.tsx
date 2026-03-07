@@ -320,13 +320,10 @@ export function SubscriptionLifecycleDemo() {
     timeouts.current = [];
   }, []);
 
-  const sched = useCallback(
-    (fn: () => void, ms: number) => {
-      const t = setTimeout(fn, ms);
-      timeouts.current.push(t);
-    },
-    [],
-  );
+  const sched = useCallback((fn: () => void, ms: number) => {
+    const t = setTimeout(fn, ms);
+    timeouts.current.push(t);
+  }, []);
 
   const runCycle = useCallback(() => {
     clear();
@@ -431,14 +428,14 @@ export function SubscriptionLifecycleDemo() {
                         ? `${step.color} border-transparent text-white`
                         : 'border-gray-200 bg-white text-gray-400'
                     }`}
-                    animate={
-                      isCurrent
-                        ? { scale: [1, 1.1, 1] }
-                        : { scale: 1 }
-                    }
+                    animate={isCurrent ? { scale: [1, 1.1, 1] } : { scale: 1 }}
                     transition={
                       isCurrent
-                        ? { duration: 0.6, repeat: Infinity, repeatType: 'loop' }
+                        ? {
+                            duration: 0.6,
+                            repeat: Infinity,
+                            repeatType: 'loop',
+                          }
                         : { duration: 0.3 }
                     }
                   >

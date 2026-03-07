@@ -1,7 +1,12 @@
 import { useRef, useCallback } from 'react';
 import { motion, useAnimation } from 'motion/react';
 
-const REACTIONS = ['\u2764\uFE0F', '\uD83D\uDD25', '\uD83C\uDF89', '\uD83D\uDC4F'] as const;
+const REACTIONS = [
+  '\u2764\uFE0F',
+  '\uD83D\uDD25',
+  '\uD83C\uDF89',
+  '\uD83D\uDC4F',
+] as const;
 
 interface FloaterParams {
   startX: number;
@@ -82,7 +87,8 @@ export function LiveStreamDemo() {
     if (!row) return;
     const rowRect = row.getBoundingClientRect();
     const btnRect = btn.getBoundingClientRect();
-    const relX = (btnRect.left + btnRect.width / 2 - rowRect.left) / rowRect.width;
+    const relX =
+      (btnRect.left + btnRect.width / 2 - rowRect.left) / rowRect.width;
 
     const params = randomFloaterParams();
     screenRefs.current.forEach((s) => {
@@ -116,16 +122,38 @@ export function LiveStreamDemo() {
               <span className="rounded bg-red-600 px-2 py-0.5 text-sm font-bold tracking-wide text-white">
                 LIVE
               </span>
-              <span className="text-base text-gray-500">
-                14 viewers
-              </span>
+              <span className="text-base text-gray-500">14 viewers</span>
               <div className="ml-auto flex items-center gap-2 text-gray-300">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 12 12 15 15" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 9 12 12 15 9" />
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 15 12 12 15 15"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 9 12 12 15 9"
+                  />
                 </svg>
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"
+                  />
                 </svg>
               </div>
             </div>
@@ -153,7 +181,7 @@ export function LiveStreamDemo() {
               <button
                 key={emoji}
                 onClick={(e) => react(emoji, e.currentTarget)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-lg shadow-md transition-transform active:scale-90 hover:bg-gray-50"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-lg shadow-md transition-transform hover:bg-gray-50 active:scale-90"
               >
                 {emoji}
               </button>

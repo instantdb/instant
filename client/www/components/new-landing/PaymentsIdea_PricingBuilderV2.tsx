@@ -96,7 +96,12 @@ function AnimatedPrice({
             initial={{ y: 14, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -14, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 32, mass: 0.6 }}
+            transition={{
+              type: 'spring',
+              stiffness: 500,
+              damping: 32,
+              mass: 0.6,
+            }}
             className="inline-block"
           >
             {char}
