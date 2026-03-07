@@ -1,7 +1,6 @@
 import Head from 'next/head';
 import { StreamsDemo } from '@/components/new-landing/StreamsDemo';
-import { StreamsDemoEventFeed } from '@/components/new-landing/StreamsDemoEventFeed';
-import { StreamsDemoPubSub } from '@/components/new-landing/StreamsDemoPubSub';
+import { StreamsDemoJoin } from '@/components/new-landing/StreamsDemoEventFeed';
 
 export default function StreamsDemoPage() {
   return (
@@ -22,27 +21,16 @@ export default function StreamsDemoPage() {
             </div>
           </section>
 
-          {/* Event Feed */}
+          {/* Data Pellets + Join */}
           <section>
             <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-gray-400">
-              Variation 1
-            </h2>
-            <h3 className="mb-6 text-2xl font-semibold">Event Feed</h3>
-            <div className="rounded-xl bg-radial from-white to-[#FFF0E6] px-6 py-6">
-              <StreamsDemoEventFeed />
-            </div>
-          </section>
-
-          {/* Publish / Subscribe */}
-          <section>
-            <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-gray-400">
-              Variation 2
+              Variation
             </h2>
             <h3 className="mb-6 text-2xl font-semibold">
-              Publish / Subscribe
+              Data Pellets + Join
             </h3>
             <div className="rounded-xl bg-radial from-white to-[#FFF0E6] px-6 py-6">
-              <StreamsDemoPubSub />
+              <StreamsDemoJoin />
             </div>
           </section>
         </div>

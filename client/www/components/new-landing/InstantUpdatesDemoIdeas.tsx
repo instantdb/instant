@@ -975,7 +975,7 @@ function AutoPlayTaskCard({
         {items.map((t) => (
           <button
             key={t.id}
-            className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-gray-50"
+            className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm"
             onClick={() => onToggle?.(t.id)}
           >
             <AutoPlayCheckbox done={t.done} isPending={pending === t.id} />

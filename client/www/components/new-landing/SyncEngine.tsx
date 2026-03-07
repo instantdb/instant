@@ -258,7 +258,7 @@ export function SyncEngine() {
                 responsive and alive and your users stay in flow.
               </p>
             </div>
-            <div className="col-span-2 bg-[#B8B8B8]/20 px-12 py-9">
+            <div className="col-span-2 px-12 py-9">
               <AutoPlayDemo />
             </div>
           </div>
@@ -267,7 +267,7 @@ export function SyncEngine() {
         {/* Real-time sync — demo left, text right */}
         <AnimateIn>
           <div className="grid grid-cols-3 items-center gap-6">
-            <div className="col-span-2 bg-[#FFE7E7]/20 px-12 py-9">
+            <div className="col-span-2 px-12 py-9">
               <RealtimeChecklistDemo />
             </div>
             <div className="col-span-1">
@@ -296,7 +296,7 @@ export function SyncEngine() {
                 them having to do a thing. Pure magic.
               </p>
             </div>
-            <div className="col-span-2 bg-[#B8B8B8]/20 px-12 py-9">
+            <div className="col-span-2 px-12 py-9">
               <OfflineDemoReactions />
             </div>
           </div>
