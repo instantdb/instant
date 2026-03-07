@@ -3,7 +3,6 @@ import { getAuthPaths } from '../../util/getAuthPaths.js';
 import { FileSystem } from '@effect/platform';
 import chalk from 'chalk';
 import { SystemError } from '@effect/platform/Error';
-import { error } from '../logging.js';
 
 export const logoutCommand = Effect.fn(function* () {
   const { authConfigFilePath } = getAuthPaths();

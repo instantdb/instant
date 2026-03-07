@@ -36,7 +36,7 @@ export const waitForAuthToken = Effect.fn(function* (secret: string) {
     Effect.flatMap(HttpClientResponse.schemaBodyJson(TokenResult)),
     Effect.retry({
       schedule: Schedule.fixed('1 seconds'),
-      times: 12,
+      times: 120,
     }),
   );
   return res;

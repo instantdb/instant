@@ -72,7 +72,7 @@ export const pushPerms = Effect.gen(function* () {
         HttpClientRequest.bodyJson({ code: permsFile.perms }),
       ),
     )
-    .post(`/dash/apps/${appId}/perms/push`)
+    .post(`/dash/apps/${appId}/rules`)
     .pipe(Effect.flatMap(HttpClientResponse.schemaBodyJson(Schema.Any)));
 
   yield* Effect.log(chalk.green('Permissions updated!'));

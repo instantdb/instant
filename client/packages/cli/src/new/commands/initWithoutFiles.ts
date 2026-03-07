@@ -5,6 +5,7 @@ import { OptsFromCommand, initWithoutFilesDef } from '../index.js';
 import { createApp } from '../lib/createApp.js';
 import { AuthTokenLive } from '../context/authToken.js';
 import { AuthLayerLive } from '../layer.js';
+import chalk from 'chalk';
 
 export const initWithoutFilesCommand = Effect.fn(function* (
   opts: OptsFromCommand<typeof initWithoutFilesDef>,
@@ -31,7 +32,8 @@ export const initWithoutFilesCommand = Effect.fn(function* (
     const app = yield* createApp(opts.title, opts.orgId).pipe(
       Effect.provide(AuthLayerLive),
     );
-    yield* Effect.log(app);
+    console.error(`${chalk.green('Successfully created new app!')}\n`);
+    yield* Effect.log(JSON.stringify({ app, error: null }, null, 2));
   } else {
     const platform = yield* PlatformApi;
     const app = yield* platform.use((api) =>
@@ -39,6 +41,8 @@ export const initWithoutFilesCommand = Effect.fn(function* (
         title: opts.title!,
       }),
     );
-    yield* Effect.log(app);
+
+    console.error(`${chalk.green('Successfully created new app!')}\n`);
+    yield* Effect.log(JSON.stringify({ app, error: null }, null, 2));
   }
 });

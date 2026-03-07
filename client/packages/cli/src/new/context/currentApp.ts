@@ -149,6 +149,7 @@ const promptImportOrCreateApp = Effect.gen(function* () {
   const api = yield* getSimpleApi;
   const result = yield* runUIEffect(
     new UI.AppSelector({
+      startingMenuIndex: 0,
       allowEphemeral: true,
       allowCreate: true,
       api,

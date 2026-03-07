@@ -21,4 +21,4 @@ export const infoCommand = () =>
 
     yield* Effect.log('CLI Version:', version);
     yield* Effect.log(`Logged in as ${meData.user.email}`);
-  }).pipe(Effect.provide(AuthLayerLive), Effect.annotateLogs('silent', true));
+  }).pipe(Effect.provide(AuthLayerLive));

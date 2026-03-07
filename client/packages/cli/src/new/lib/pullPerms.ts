@@ -9,6 +9,7 @@ import { UI } from '../../ui/index.js';
 import { writeTypescript } from './pullSchema.js';
 import { generatePermsTypescriptFile } from '@instantdb/platform';
 import { ProjectInfo } from '../context/projectInfo.js';
+import { Path } from '@effect/platform';
 
 export const pullPerms = Effect.gen(function* () {
   yield* Effect.log('Pulling perms...');
@@ -30,12 +31,14 @@ export const pullPerms = Effect.gen(function* () {
     });
     if (!shouldContinue) return;
   }
-  const { instantModuleName } = yield* ProjectInfo;
+  const { instantModuleName, pkgDir } = yield* ProjectInfo;
   const fileContent = generatePermsTypescriptFile(
     permsResponse.perms || {},
     instantModuleName,
   );
 
-  yield* writeTypescript(shortPermsPath, fileContent);
+  const path = yield* Path.Path;
+
+  yield* writeTypescript(path.join(pkgDir, shortPermsPath), fileContent);
   yield* Effect.log('✅ Wrote permissions to ' + shortPermsPath);
 });

@@ -61,11 +61,7 @@ export const AuthTokenLive = Layer.effect(AuthToken, authTokenGetEffect);
 export const AuthTokenCoerceLive = Layer.effect(
   AuthToken,
   authTokenGetEffect.pipe(
-    Effect.catchTag('NotAuthedError', () =>
-      loginCommand({
-        print: true,
-      }),
-    ),
+    Effect.catchTag('NotAuthedError', () => loginCommand({})),
   ),
 );
 
