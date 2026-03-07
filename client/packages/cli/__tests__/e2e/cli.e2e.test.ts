@@ -59,7 +59,7 @@ describe.concurrent('CLI e2e', { timeout: 30_000 }, () => {
       expect(result.exitCode).not.toBe(0);
     });
 
-    it('rejects title starting with a dash', async () => {
+    it('fails when title value looks like a flag', async () => {
       const result = await runCli([
         'init-without-files',
         '--title',
@@ -410,13 +410,14 @@ export default _schema;
         appId,
         permsFile: PERMS_FILE,
       });
-      await runCli(['push', 'perms', '--yes'], {
+      const pushResult = await runCli(['push', 'perms', '--yes'], {
         cwd: pushProject.dir,
         env: {
           INSTANT_CLI_AUTH_TOKEN: adminToken,
           INSTANT_APP_ID: appId,
         },
       });
+      expect(pushResult.exitCode).toBe(0);
       await pushProject.cleanup();
 
       const project = await createTestProject({ appId });
@@ -452,13 +453,14 @@ export default _schema;
         schemaFile: SCHEMA_FILE,
         permsFile: PERMS_FILE,
       });
-      await runCli(['push', '--yes'], {
+      const pushResult = await runCli(['push', '--yes'], {
         cwd: pushProject.dir,
         env: {
           INSTANT_CLI_AUTH_TOKEN: adminToken,
           INSTANT_APP_ID: appId,
         },
       });
+      expect(pushResult.exitCode).toBe(0);
       await pushProject.cleanup();
 
       const project = await createTestProject({ appId });
@@ -522,13 +524,11 @@ export default _schema;
 
   describe('claim', () => {
     it('fails when not logged in', async () => {
-      const { appId, adminToken } = await createTempApp();
-
       const result = await runCli(['claim'], {
         env: {
           INSTANT_CLI_AUTH_TOKEN: '',
-          INSTANT_APP_ID: appId,
-          INSTANT_APP_ADMIN_TOKEN: adminToken,
+          INSTANT_APP_ID: 'fake-app-id',
+          INSTANT_APP_ADMIN_TOKEN: 'fake-token',
         },
       });
 

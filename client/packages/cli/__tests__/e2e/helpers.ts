@@ -41,7 +41,7 @@ export function runCli(
         resolve({
           stdout: stdout?.toString() ?? '',
           stderr: stderr?.toString() ?? '',
-          exitCode: error?.code
+          exitCode: error
             ? typeof error.code === 'number'
               ? error.code
               : 1
