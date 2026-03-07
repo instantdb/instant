@@ -205,7 +205,10 @@ export function AgentPathsBgSoftCenter() {
 
     // Offscreen canvas for atmospheric wash
     let washCanvas: OffscreenCanvas | HTMLCanvasElement;
-    let washCtx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
+    let washCtx:
+      | OffscreenCanvasRenderingContext2D
+      | CanvasRenderingContext2D
+      | null;
     try {
       washCanvas = new OffscreenCanvas(1, 1);
       washCtx = washCanvas.getContext('2d');
@@ -225,8 +228,12 @@ export function AgentPathsBgSoftCenter() {
 
       // Left side wash
       const leftGrad = washCtx.createRadialGradient(
-        0, ch * 0.35, 0,
-        0, ch * 0.35, sideWidth,
+        0,
+        ch * 0.35,
+        0,
+        0,
+        ch * 0.35,
+        sideWidth,
       );
       leftGrad.addColorStop(0, 'rgba(255, 237, 213, 0.35)');
       leftGrad.addColorStop(0.5, 'rgba(254, 215, 170, 0.12)');
@@ -236,8 +243,12 @@ export function AgentPathsBgSoftCenter() {
 
       // Right side wash
       const rightGrad = washCtx.createRadialGradient(
-        cw, ch * 0.35, 0,
-        cw, ch * 0.35, sideWidth,
+        cw,
+        ch * 0.35,
+        0,
+        cw,
+        ch * 0.35,
+        sideWidth,
       );
       rightGrad.addColorStop(0, 'rgba(255, 237, 213, 0.35)');
       rightGrad.addColorStop(0.5, 'rgba(254, 215, 170, 0.12)');
@@ -319,7 +330,11 @@ export function AgentPathsBgSoftCenter() {
         // B. In-place splice instead of filter (GC fix)
         const cutoff = now - TRAIL_LIFETIME;
         let trimIdx = 0;
-        while (trimIdx < agent.trail.length && agent.trail[trimIdx].time < cutoff) trimIdx++;
+        while (
+          trimIdx < agent.trail.length &&
+          agent.trail[trimIdx].time < cutoff
+        )
+          trimIdx++;
         if (trimIdx > 0) agent.trail.splice(0, trimIdx);
 
         // --- Draw trail ---
