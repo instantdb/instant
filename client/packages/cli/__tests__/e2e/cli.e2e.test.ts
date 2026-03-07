@@ -209,13 +209,14 @@ export default _schema;
         appId,
         schemaFile: initialSchema,
       });
-      await runCli(['push', 'schema', '--yes'], {
+      const seedResult = await runCli(['push', 'schema', '--yes'], {
         cwd: project1.dir,
         env: {
           INSTANT_CLI_AUTH_TOKEN: adminToken,
           INSTANT_APP_ID: appId,
         },
       });
+      expect(seedResult.exitCode).toBe(0);
       await project1.cleanup();
 
       const project2 = await createTestProject({

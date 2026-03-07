@@ -9,6 +9,10 @@ const CLI_BIN = join(__dirname, '../../bin/index.js');
 
 const apiUrl = process.env.INSTANT_CLI_API_URI || 'https://api.instantdb.com';
 
+// Temp directory used to sandbox CLI config (auth tokens, etc.)
+// so tests never read or mutate the real user config on disk.
+const sandboxHome = join(tmpdir(), 'instant-cli-e2e-home');
+
 export type CliResult = {
   stdout: string;
   stderr: string;
@@ -32,6 +36,9 @@ export function runCli(
           INSTANT_CLI_API_URI: apiUrl,
           DOTENV_CONFIG_PATH: '/dev/null',
           INSTANT_CLI_AUTH_TOKEN: '',
+          HOME: sandboxHome,
+          XDG_CONFIG_HOME: join(sandboxHome, '.config'),
+          XDG_DATA_HOME: join(sandboxHome, '.local', 'share'),
           ...opts.env,
         },
         cwd: opts.cwd,
