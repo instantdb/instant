@@ -464,7 +464,10 @@ export function BareNav({
 
   return (
     <div className="flex flex-row items-center justify-between gap-4 text-lg md:text-base">
-      <LogoType />
+      <LogoType
+        collapsed={collapseLogo}
+        morphOnCollapse={morphLogoOnCollapse}
+      />
       <button className="min-[60rem]:hidden" onClick={() => setIsOpen(true)}>
         <Bars3Icon height={'1em'} />
       </button>
@@ -494,6 +497,8 @@ export function BareNav({
             <XMarkIcon height="1em" />
           </button>
         </div>
+        <NavItems />
+        {children}
       </div>
     </div>
   );
