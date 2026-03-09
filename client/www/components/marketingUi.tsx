@@ -121,6 +121,10 @@ export const Section = ({ children }: PropsWithChildren) => (
   <section className={clsx('landing-width mx-auto')}>{children}</section>
 );
 
+export const SectionWide = ({ children }: PropsWithChildren) => (
+  <section className={clsx('landing-width mx-auto')}>{children}</section>
+);
+
 export const TwoColResponsive = ({ children }: PropsWithChildren) => (
   <div
     className={clsx(
