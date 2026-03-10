@@ -89,8 +89,8 @@ export function InternalTools() {
           <SectionTitle>Let every employee build what they need</SectionTitle>
           <SectionSubtitle>
             Does your team already use LLMs? Pair them with Instant and every
-            employee can build the internal tools they actually need. Empower the
-            person who understands the problem to build the solution.
+            employee can build the internal tools they actually need. Empower
+            the person who understands the problem to build the solution.
           </SectionSubtitle>
         </SectionIntro>
       </AnimateIn>
@@ -186,9 +186,9 @@ export function InternalTools() {
         <SectionIntro>
           <SectionSubtitle>
             Every tool gets auth built in — employees can log in with their
-            existing SSO. Permissions ensure people only see what they should. And
-            because everything syncs in real-time, teams always see the latest
-            data.
+            existing SSO. Permissions ensure people only see what they should.
+            And because everything syncs in real-time, teams always see the
+            latest data.
           </SectionSubtitle>
         </SectionIntro>
       </AnimateIn>

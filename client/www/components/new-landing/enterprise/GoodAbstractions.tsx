@@ -1,5 +1,10 @@
 import { AnimateIn } from '../AnimateIn';
-import { SectionIntro, SectionTitle, SectionSubtitle, Subheading } from '../typography';
+import {
+  SectionIntro,
+  SectionTitle,
+  SectionSubtitle,
+  Subheading,
+} from '../typography';
 
 export function GoodAbstractions() {
   return (

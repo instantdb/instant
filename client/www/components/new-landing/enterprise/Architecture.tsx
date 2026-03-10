@@ -77,7 +77,8 @@ export function Architecture() {
           <SectionTitle>One platform, millions of backends</SectionTitle>
           <SectionSubtitle>
             Traditional backends need a VM for every app. With Instant all apps
-            can live in one shared DB. Much easier and cost effective to maintain.
+            can live in one shared DB. Much easier and cost effective to
+            maintain.
           </SectionSubtitle>
         </SectionIntro>
       </AnimateIn>

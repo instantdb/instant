@@ -172,8 +172,9 @@ export function ChatPlatforms() {
         <SectionIntro>
           <SectionSubtitle>
             Instant&apos;s multi-tenant architecture means spinning up a new
-            backend is a metadata operation — not a new database instance. You can
-            create millions of backends with the same infrastructure cost as one.
+            backend is a metadata operation — not a new database instance. You
+            can create millions of backends with the same infrastructure cost as
+            one.
           </SectionSubtitle>
         </SectionIntro>
       </AnimateIn>

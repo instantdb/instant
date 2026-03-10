@@ -123,8 +123,8 @@ export function AppBuilders() {
         <SectionIntro>
           <SectionTitle>Power every app your users create</SectionTitle>
           <SectionSubtitle>
-            Instant gives each app its own backend. No per-app infrastructure. No
-            cold starts. Go from prompt to production app in seconds.
+            Instant gives each app its own backend. No per-app infrastructure.
+            No cold starts. Go from prompt to production app in seconds.
           </SectionSubtitle>
         </SectionIntro>
       </AnimateIn>
