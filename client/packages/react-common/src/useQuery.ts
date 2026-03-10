@@ -45,7 +45,7 @@ export function useQueryInternal<
     _query = { $$ruleParams: _opts['ruleParams'], ..._query };
   }
   const query = _query ? coerceQuery(_query) : null;
-  const queryHash = weakHash(query);  
+  const queryHash = weakHash(query);
 
   // We use a ref to store the result of the query.
   // This is becuase `useSyncExternalStore` uses `Object.is`
