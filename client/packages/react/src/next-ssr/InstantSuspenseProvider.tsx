@@ -23,6 +23,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useEffect,
 } from 'react';
 import {
   InstantReactAbstractDatabase,
@@ -122,7 +123,7 @@ function makeUseSuspenseQueryClient(
   db: InstantReactAbstractDatabase<any, any>,
   client: FrameworkClient,
 ) {
-  function getEntry(query: any, opts: SuspenseQueryOpts) {
+  function getEntry(query: any, opts: SuspenseQueryOpts, allowFetch: boolean) {
     const entry = client.getExistingResultForQuery(query, opts);
 
     if (entry?.status === 'pending') {
@@ -152,8 +153,10 @@ function makeUseSuspenseQueryClient(
       }
     }
 
-    const promise = client.queryClient(query, opts);
-    throw promise;
+    if (allowFetch) {
+      const promise = client.queryClient(query, opts);
+      throw promise;
+    }
   }
 
   return function useSuspenseQueryClient(query: any, opts: SuspenseQueryOpts) {
@@ -164,20 +167,25 @@ function makeUseSuspenseQueryClient(
       // Returns the server result for useSyncExternalStore
       () => {
         try {
-          return getEntry(query, opts);
+          const res = getEntry(query, opts, false);
+          return res;
         } catch (throwable) {
-          if (throwable instanceof Promise) {
-            return undefined;
-          }
           return { error: throwable };
         }
       },
     );
 
+    const hasData = !!useQueryResult.state.data;
+
+    useEffect(() => {
+      if (hasData) {
+        // We have a newer result, so remove the cached SSR or suspended
+        // result from the framework client cache
+        client.removeCachedQueryResult(useQueryResult.queryHash);
+      }
+    }, [hasData]);
+
     if (useQueryResult.state.data) {
-      // We have a newer result, so remove the cached SSR or suspended
-      // result from the framework client cache
-      client.removeCachedQueryResult(useQueryResult.queryHash);
       return {
         data: useQueryResult.state.data,
         pageInfo: useQueryResult.state.pageInfo,
@@ -188,7 +196,7 @@ function makeUseSuspenseQueryClient(
       throw useQueryResult.state.error;
     }
 
-    return getEntry(query, opts);
+    return getEntry(query, opts, true);
   };
 }
 

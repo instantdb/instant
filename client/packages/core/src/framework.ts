@@ -139,7 +139,9 @@ export class FrameworkClient {
       promise: promise as any,
     };
 
-    let unsub = this.db.subscribeQuery(query, (res) => {
+    let unsub;
+
+    unsub = this.db.subscribeQuery(query, (res) => {
       if (res.error) {
         entry.status = 'error';
         entry.error = res.error;
@@ -151,8 +153,10 @@ export class FrameworkClient {
         entry.promise = null;
         resolve(res);
       }
-      unsub();
+      // Give subscribeQuery a chance to return
+      setTimeout(unsub, 0);
     });
+
     this.resultMap.set(hash, entry);
     return promise;
   };
