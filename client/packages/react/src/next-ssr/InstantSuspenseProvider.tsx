@@ -128,7 +128,7 @@ function makeUseSuspenseQueryClient(
     }
 
     if (entry?.status === 'error') {
-      return entry.error;
+      throw entry.error;
     }
 
     if (entry?.status === 'success') {
