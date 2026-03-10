@@ -1,24 +1,27 @@
 import { AnimateIn } from '../AnimateIn';
+import {
+  SectionIntro,
+  SectionTitle,
+  SectionSubtitle,
+  Subheading,
+} from '../typography';
 
 export function GoodAbstractions() {
   return (
     <div className="space-y-[32px]">
       <AnimateIn>
-        <h2 className="text-center text-3xl font-semibold sm:text-[60px]">
-          Good abstractions compound
-        </h2>
-      </AnimateIn>
-
-      <AnimateIn delay={100}>
-        <div className="mx-auto max-w-[810px] text-center text-[21px] text-balance">
-          When agents use a tight abstraction, the benefits multiply at every
-          level: for agents, platforms, and end users.
-        </div>
+        <SectionIntro>
+          <SectionTitle>Good abstractions compound</SectionTitle>
+          <SectionSubtitle>
+            When agents use a tight abstraction, the benefits multiply at every
+            level: for agents, platforms, and end users.
+          </SectionSubtitle>
+        </SectionIntro>
       </AnimateIn>
       <AnimateIn delay={100}>
         <div className="grid grid-cols-3 gap-7">
           <div>
-            <div className="text-[36px] font-semibold">Agents</div>
+            <Subheading>Agents</Subheading>
             <div className="pt-6">
               <span>For the agent, there's</span>
               <span className="font-semibold"> locality </span>
@@ -30,7 +33,7 @@ export function GoodAbstractions() {
             </div>
           </div>
           <div>
-            <div className="text-[36px] font-semibold">Platforms</div>
+            <Subheading>Platforms</Subheading>
             <div className="pt-6">
               <span>For the platform, there's </span>
               <span className="font-semibold"> efficiency</span>
@@ -42,7 +45,7 @@ export function GoodAbstractions() {
             </div>
           </div>
           <div>
-            <div className="text-[36px] font-semibold">End-users</div>
+            <Subheading>End-users</Subheading>
             <div className="pt-6">
               <span>For end-users, there's </span>
               <span className="font-semibold"> extensibility </span>
@@ -55,10 +58,12 @@ export function GoodAbstractions() {
           </div>
         </div>
       </AnimateIn>
-      <div className="pt-5 text-center text-balance">
-        These advantages stack. Agents build faster. Platforms host cheaper.
-        Users get more. That's what good infrastructure makes possible.
-      </div>
+      <SectionIntro>
+        <SectionSubtitle>
+          These advantages stack. Agents build faster. Platforms host cheaper.
+          Users get more. That's what good infrastructure makes possible.
+        </SectionSubtitle>
+      </SectionIntro>
     </div>
   );
 }

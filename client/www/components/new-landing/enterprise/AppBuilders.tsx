@@ -1,4 +1,5 @@
 import { AnimateIn } from '../AnimateIn';
+import { SectionIntro, SectionTitle, SectionSubtitle } from '../typography';
 
 function DatabaseIcon({ className = 'w-4 h-4' }: { className?: string }) {
   return (
@@ -119,13 +120,13 @@ export function AppBuilders() {
   return (
     <div className="space-y-12">
       <AnimateIn>
-        <h2 className="text-center text-3xl font-semibold sm:text-5xl">
-          Power every app your users create
-        </h2>
-        <p className="mx-auto mt-[58px] max-w-[800px] text-center text-[21px] text-balance">
-          Instant gives each app its own backend. No per-app infrastructure. No
-          cold starts. Go from prompt to production app in seconds.
-        </p>
+        <SectionIntro>
+          <SectionTitle>Power every app your users create</SectionTitle>
+          <SectionSubtitle>
+            Instant gives each app its own backend. No per-app infrastructure.
+            No cold starts. Go from prompt to production app in seconds.
+          </SectionSubtitle>
+        </SectionIntro>
       </AnimateIn>
 
       {/* Visual: App builder → Deployed app */}
@@ -318,11 +319,13 @@ export function AppBuilders() {
 
       {/* Supporting detail */}
       <AnimateIn delay={200}>
-        <p className="mx-auto max-w-3xl text-center text-[21px]">
-          Data, auth, storage, and permissions are all scoped per-app. Manage
-          everything through the Platform API — create apps, set schemas,
-          configure permissions, all programmatically.
-        </p>
+        <SectionIntro>
+          <SectionSubtitle>
+            Data, auth, storage, and permissions are all scoped per-app. Manage
+            everything through the Platform API — create apps, set schemas,
+            configure permissions, all programmatically.
+          </SectionSubtitle>
+        </SectionIntro>
       </AnimateIn>
     </div>
   );
