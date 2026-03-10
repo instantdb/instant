@@ -1,9 +1,13 @@
 export class InstantError extends Error {
   hint?: unknown;
+  traceId?: string;
 
-  constructor(message: string, hint?: unknown) {
+  constructor(message: string, hint?: unknown, traceId?: string) {
     super(message);
     this.hint = hint;
+    if (traceId) {
+      this.traceId = traceId;
+    }
 
     const actualProto = new.target.prototype;
     if (Object.setPrototypeOf) {

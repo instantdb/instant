@@ -122,20 +122,18 @@ function makeUseSuspenseQueryClient(
   db: InstantReactAbstractDatabase<any, any>,
   client: FrameworkClient,
 ) {
-  function entryResult(query: any, opts: SuspenseQueryOpts) {
+  function getEntry(query: any, opts: SuspenseQueryOpts) {
     const entry = client.getExistingResultForQuery(query, opts);
-    if (!entry) {
-      return null;
-    }
-    if (entry.status === 'pending') {
+
+    if (entry?.status === 'pending') {
       throw entry.promise;
     }
 
-    if (entry.status === 'error') {
-      throw entry.error;
+    if (entry?.status === 'error') {
+      return entry.error;
     }
 
-    if (entry.status === 'success') {
+    if (entry?.status === 'success') {
       switch (entry.type) {
         case 'session': {
           return entry.data;
@@ -153,11 +151,28 @@ function makeUseSuspenseQueryClient(
         }
       }
     }
+
+    const promise = client.queryClient(query, opts);
+    throw promise;
   }
+
   return function useSuspenseQueryClient(query: any, opts: SuspenseQueryOpts) {
-    const useQueryResult = useQueryInternal(db.core, query, opts, () => {
-      return entryResult(query, opts);
-    });
+    const useQueryResult = useQueryInternal(
+      db.core,
+      query,
+      opts,
+      // Returns the server result for useSyncExternalStore
+      () => {
+        try {
+          return getEntry(query, opts);
+        } catch (throwable) {
+          if (throwable instanceof Promise) {
+            return undefined;
+          }
+          return { error: throwable };
+        }
+      },
+    );
 
     if (useQueryResult.state.data) {
       // We have a newer result, so remove the cached SSR or suspended
@@ -173,17 +188,7 @@ function makeUseSuspenseQueryClient(
       throw useQueryResult.state.error;
     }
 
-    const result = entryResult(query, opts);
-    if (result?.error) {
-      throw result.error;
-    }
-
-    if (result) {
-      return result;
-    }
-
-    const promise = client.queryClient(query, opts);
-    throw promise;
+    return getEntry(query, opts);
   };
 }
 

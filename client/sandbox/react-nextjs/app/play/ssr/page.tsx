@@ -115,6 +115,9 @@ export default function Page() {
       <div>
         <Link href="/play/ssr/with-fallback">Fallback version</Link>
       </div>
+      <div>
+        <Link href="/play/ssr/with-error">Error handling</Link>
+      </div>
       <UserHeader />
       <div>
         <AddTodo />

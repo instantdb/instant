@@ -7,17 +7,16 @@
     "start": "next start"
   },
   "dependencies": {
-    "ai": "^6.0.57",
     "@ai-sdk/react": "^3.0.59",
-    "resumable-stream": "^2.2.10",
     "@clerk/nextjs": "^5.3.7",
     "@instantdb/admin": "workspace:*",
+    "@instantdb/components": "workspace:*",
     "@instantdb/core": "workspace:*",
     "@instantdb/platform": "workspace:*",
     "@instantdb/react": "workspace:*",
-    "@instantdb/components": "workspace:*",
     "@instantdb/resumable-stream": "workspace:*",
     "@react-oauth/google": "^0.12.1",
+    "ai": "^6.0.57",
     "date-fns": "^2.29.3",
     "fast-check": "^3.1.1",
     "firebase": "^12.5.0",
@@ -26,7 +25,9 @@
     "react": "18.3.1",
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "18.3.1",
-    "react-transition-group": "^4.4.5"
+    "react-error-boundary": "^6.1.1",
+    "react-transition-group": "^4.4.5",
+    "resumable-stream": "^2.2.10"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.2",

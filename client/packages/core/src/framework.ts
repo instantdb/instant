@@ -5,6 +5,7 @@ import {
   coerceQuery,
   InstantCoreDatabase,
   InstantDBAttr,
+  InstantError,
   weakHash,
 } from './index.ts';
 import * as s from './store.js';
@@ -329,7 +330,19 @@ export class FrameworkClient {
       );
 
       if (!response.ok) {
-        throw new Error('Error getting triples from server');
+        try {
+          const data = await response.json();
+          if ('message' in data) {
+            throw new InstantError(data.message, data.hint, data['trace-id']);
+          } else {
+            throw new Error('Error getting triples from server');
+          }
+        } catch (e) {
+          if (e instanceof InstantError) {
+            throw e;
+          }
+          throw new Error('Error getting triples from server');
+        }
       }
 
       const data = await response.json();
@@ -354,6 +367,9 @@ export class FrameworkClient {
         pageInfo,
       };
     } catch (err: any) {
+      if (err instanceof InstantError) {
+        throw err;
+      }
       const errWithMessage = new Error(
         'Error getting triples from framework client',
       );
