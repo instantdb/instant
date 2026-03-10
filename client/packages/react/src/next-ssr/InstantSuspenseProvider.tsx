@@ -81,9 +81,6 @@ type SuspenseQueryOpts = {
   ruleParams: RuleParams;
 };
 
-// XXX: Things to test
-//   1. Do multiple useSuspenseQuery calls still work if they're all throwing (but we only throw on server)?
-
 function makeUseSuspenseQueryServer(client: FrameworkClient) {
   return function useSuspenseQueryServer(query: any, opts: SuspenseQueryOpts) {
     let entry = client.getExistingResultForQuery(query, opts);
@@ -131,7 +128,7 @@ function makeUseSuspenseQueryClient(
       return null;
     }
     if (entry.status === 'pending') {
-      throw new Error('Invalid query status on client');
+      throw entry.promise;
     }
 
     if (entry.status === 'error') {
