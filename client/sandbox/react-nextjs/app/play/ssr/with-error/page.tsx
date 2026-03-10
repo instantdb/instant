@@ -97,7 +97,7 @@ export default function Page() {
             return (
               <div>
                 <div>Error from the server</div>
-                <pre>{props.error.message}</pre>
+                <pre>{(props.error as Error).message}</pre>
               </div>
             );
           }}
@@ -109,7 +109,7 @@ export default function Page() {
             return (
               <div>
                 <div>Error from the client</div>
-                <pre>{props.error.message}</pre>
+                <pre>{(props.error as Error).message}</pre>
               </div>
             );
           }}
@@ -125,7 +125,7 @@ export default function Page() {
                   Error from the server only (you shouldn't see this once js
                   executes)
                 </div>
-                <pre>{props.error.message}</pre>
+                <pre>{(props.error as Error).message}</pre>
               </div>
             );
           }}
