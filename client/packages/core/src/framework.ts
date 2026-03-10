@@ -109,6 +109,45 @@ export class FrameworkClient {
     }
   };
 
+  public queryClient = (
+    query_: any,
+    opts?: { ruleParams: RuleParams },
+  ): Promise<QueryPromise> => {
+    const { hash, query } = this.hashQuery(query_, opts);
+
+    let resolve;
+    let reject;
+
+    const promise: Promise<QueryPromise> = new Promise(
+      (resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+      },
+    );
+
+    let entry = {
+      status: 'pending' as 'pending' | 'success' | 'error',
+      type: 'session' as 'http' | 'session',
+      data: undefined as any,
+      error: undefined as any,
+      promise: promise as any,
+    };
+
+    let unsub = this.db.subscribeQuery(query, (res) => {
+      if (res.error) {
+        reject(res.error);
+      } else {
+        resolve(res);
+      }
+      if (this.resultMap.get(hash)?.promise === promise) {
+        this.resultMap.delete(hash);
+      }
+      unsub();
+    });
+    this.resultMap.set(hash, entry);
+    return promise;
+  };
+
   // creates an entry in the results map
   // and returns the same thing added to the map
   public query = (

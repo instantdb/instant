@@ -1,3 +1,5 @@
+'use client';
+
 import {
   weakHash,
   coerceQuery,
@@ -34,6 +36,7 @@ export function useQueryInternal<
   _core: InstantCoreDatabase<Schema, UseDates>,
   _query: null | Q,
   _opts?: InstaQLOptions,
+  serverSnapshot?: () => InstaQLLifecycleState<Schema, Q, UseDates> | undefined,
 ): {
   state: InstaQLLifecycleState<Schema, Q, UseDates>;
   query: any;
@@ -43,6 +46,7 @@ export function useQueryInternal<
   }
   const query = _query ? coerceQuery(_query) : null;
   const queryHash = weakHash(query);
+  const resultCbs = useRef<any[]>([]);
 
   // We use a ref to store the result of the query.
   // This is becuase `useSyncExternalStore` uses `Object.is`
@@ -52,6 +56,12 @@ export function useQueryInternal<
   const resultCacheRef = useRef<InstaQLLifecycleState<Schema, Q, UseDates>>(
     stateForResult(_core._reactor.getPreviousResult(query)),
   );
+
+  // Cache the server snapshot to satisfy useSyncExternalStore's requirement
+  // that getServerSnapshot returns the same reference across calls.
+  const serverSnapshotCacheRef = useRef<
+    InstaQLLifecycleState<Schema, Q, UseDates>
+  >(defaultState as any);
 
   // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
   // if `subscribe` changes, so we use `useCallback` to memoize the function.
@@ -98,7 +108,17 @@ export function useQueryInternal<
   >(
     subscribe,
     () => resultCacheRef.current,
-    () => defaultState,
+    () => {
+      if (serverSnapshot && serverSnapshotCacheRef.current === defaultState) {
+        const result = serverSnapshot();
+        if (result) {
+          serverSnapshotCacheRef.current = result;
+        }
+      }
+
+      return serverSnapshotCacheRef.current;
+    },
   );
+
   return { state, query };
 }

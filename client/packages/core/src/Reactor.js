@@ -41,6 +41,7 @@ import { InstantStream } from './Stream.ts';
 /** @typedef {import('./reactorTypes.ts').QuerySubInStorage} QuerySubInStorage */
 /** @typedef {import('./clientTypes.ts').User} User */
 /** @typedef {import('./clientTypes.ts').AuthState} AuthState */
+/** @typedef {import('./framework.ts').FrameworkClient} FrameworkClient */
 
 export const STATUS = {
   CONNECTING: 'connecting',
@@ -272,6 +273,8 @@ export default class Reactor {
   _pendingTxCleanupTimeout;
   _pendingMutationCleanupThreshold;
   _inFlightMutationEventIds = new Set();
+  /** @type FrameworkClient | null */
+  _frameworkClient = null;
 
   constructor(
     config,
@@ -404,6 +407,15 @@ export default class Reactor {
       this._beforeUnload = this._beforeUnload.bind(this);
       addEventListener('beforeunload', this._beforeUnload);
     }
+  }
+
+  getFrameworkClient() {
+    return this._frameworkClient;
+  }
+
+  /** @param {FrameworkClient} client  */
+  setFrameworkClient(client) {
+    this._frameworkClient = client;
   }
 
   ensureAttrs() {

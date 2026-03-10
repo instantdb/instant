@@ -17,6 +17,7 @@ const _schema = i.schema({
       text: i.string(),
       done: i.boolean(),
       createdAt: i.date(),
+      creatorId: i.string().optional()
     }),
   },
   links: {
@@ -43,7 +44,7 @@ const _schema = i.schema({
 
 // This helps TypeScript display nicer intellisense
 type _AppSchema = typeof _schema;
-interface AppSchema extends _AppSchema {}
+interface AppSchema extends _AppSchema { }
 const schema: AppSchema = _schema;
 
 export type { AppSchema };

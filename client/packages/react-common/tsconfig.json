@@ -7,6 +7,7 @@
     "rewriteRelativeImportExtensions": true,
     "rootDir": "src",
     "jsx": "react-jsx",
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "skipLibCheck": true
   }
 }
