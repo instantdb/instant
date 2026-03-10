@@ -3,6 +3,7 @@
 // The class is generic so that it can be a good starting off point to make other ssr adapters.
 import {
   coerceQuery,
+  InstantAPIError,
   InstantCoreDatabase,
   InstantDBAttr,
   InstantError,
@@ -337,7 +338,7 @@ export class FrameworkClient {
         try {
           const data = await response.json();
           if ('message' in data) {
-            throw new InstantError(data.message, data.hint, data['trace-id']);
+            throw new InstantAPIError({ body: data, status: response.status });
           } else {
             throw new Error('Error getting triples from server');
           }
