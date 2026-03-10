@@ -160,6 +160,9 @@ function makeUseSuspenseQueryClient(
     });
 
     if (useQueryResult.state.data) {
+      // We have a newer result, so remove the cached SSR or suspended
+      // result from the framework client cache
+      client.removeCachedQueryResult(useQueryResult.queryHash);
       return {
         data: useQueryResult.state.data,
         pageInfo: useQueryResult.state.pageInfo,
@@ -171,7 +174,7 @@ function makeUseSuspenseQueryClient(
     }
 
     const result = entryResult(query, opts);
-    if (result.error) {
+    if (result?.error) {
       throw result.error;
     }
 

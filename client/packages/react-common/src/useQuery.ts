@@ -40,6 +40,7 @@ export function useQueryInternal<
 ): {
   state: InstaQLLifecycleState<Schema, Q, UseDates>;
   query: any;
+  queryHash: string;
 } {
   if (_query && _opts && 'ruleParams' in _opts) {
     _query = { $$ruleParams: _opts['ruleParams'], ..._query };
@@ -119,5 +120,5 @@ export function useQueryInternal<
     },
   );
 
-  return { state, query };
+  return { state, query, queryHash };
 }

@@ -109,6 +109,10 @@ export class FrameworkClient {
     }
   };
 
+  public removeCachedQueryResult = (queryHash: string) => {
+    this.resultMap.delete(queryHash);
+  };
+
   // Run a query on the client and return a promise with the result
   public queryClient = (
     query_: any,
@@ -136,15 +140,15 @@ export class FrameworkClient {
 
     let unsub = this.db.subscribeQuery(query, (res) => {
       if (res.error) {
+        entry.status = 'error';
+        entry.error = res.error;
+        entry.promise = null;
         reject(res.error);
       } else {
+        entry.status = 'success';
+        entry.data = res;
+        entry.promise = null;
         resolve(res);
-      }
-      // Remove ourselves from the result map so that we don't grow forever
-      // The useQuery will take over after the promise is thrown, so no need
-      // to keep it forever.
-      if (this.resultMap.get(hash)?.promise === promise) {
-        this.resultMap.delete(hash);
       }
       unsub();
     });
