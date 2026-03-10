@@ -1,4 +1,5 @@
 import { AnimateIn } from '../AnimateIn';
+import { SectionIntro, SectionTitle, SectionSubtitle } from '../typography';
 
 const stats = [
   {
@@ -72,13 +73,13 @@ export function Architecture() {
   return (
     <div className="space-y-12">
       <AnimateIn>
-        <h2 className="mx-auto text-center text-3xl font-semibold sm:text-[50px]">
-          One platform, millions of backends
-        </h2>
-        <p className="mx-auto mt-4 max-w-[819px] text-center text-lg text-[21px] text-gray-500">
-          Traditional backends need a VM for every app. With Instant all apps
-          can live in one shared DB. Much easier and cost effective to maintain.
-        </p>
+        <SectionIntro>
+          <SectionTitle>One platform, millions of backends</SectionTitle>
+          <SectionSubtitle>
+            Traditional backends need a VM for every app. With Instant all apps
+            can live in one shared DB. Much easier and cost effective to maintain.
+          </SectionSubtitle>
+        </SectionIntro>
       </AnimateIn>
 
       {/* Stat cards */}

@@ -1,4 +1,5 @@
 import { AnimateIn } from '../AnimateIn';
+import { HeroTitle, SectionSubtitle } from '../typography';
 
 function MiniApp({ label }: { label: string }) {
   return (
@@ -29,13 +30,11 @@ export function EnterpriseHero() {
     <section className="pt-20 pb-16 sm:pt-32 sm:pb-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h1 className="text-4xl font-semibold sm:text-5xl lg:text-[70px]">
-            Give every chat a backend
-          </h1>
-          <p className="mx-auto mt-6 min-w-[930px] text-lg text-balance sm:text-[24px]">
+          <HeroTitle>Give every chat a backend</HeroTitle>
+          <SectionSubtitle>
             Instant gives agents a real database — with auth, storage,
             permissions, and real-time sync. One API call to spin up a backend.
-          </p>
+          </SectionSubtitle>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <a

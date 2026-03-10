@@ -1,4 +1,5 @@
 import { AnimateIn } from '../AnimateIn';
+import { SectionIntro, SectionTitle, SectionSubtitle } from '../typography';
 
 const steps = [
   {
@@ -132,13 +133,13 @@ export function ChatPlatforms() {
   return (
     <div className="space-y-12">
       <AnimateIn>
-        <h2 className="text-center text-3xl font-semibold sm:text-[50px]">
-          Turn conversations into applications
-        </h2>
-        <p className="mx-auto mt-4 max-w-[819px] text-center text-[21px]">
-          What if every chat could have its own backend? You could turn
-          conversations into personal software.
-        </p>
+        <SectionIntro>
+          <SectionTitle>Turn conversations into applications</SectionTitle>
+          <SectionSubtitle>
+            What if every chat could have its own backend? You could turn
+            conversations into personal software.
+          </SectionSubtitle>
+        </SectionIntro>
       </AnimateIn>
 
       {/* 4-step storyboard */}
@@ -168,11 +169,13 @@ export function ChatPlatforms() {
 
       {/* Supporting detail */}
       <AnimateIn delay={200}>
-        <p className="mx-auto max-w-3xl text-center text-lg text-[21px]">
-          Instant&apos;s multi-tenant architecture means spinning up a new
-          backend is a metadata operation — not a new database instance. You can
-          create millions of backends with the same infrastructure cost as one.
-        </p>
+        <SectionIntro>
+          <SectionSubtitle>
+            Instant&apos;s multi-tenant architecture means spinning up a new
+            backend is a metadata operation — not a new database instance. You can
+            create millions of backends with the same infrastructure cost as one.
+          </SectionSubtitle>
+        </SectionIntro>
       </AnimateIn>
     </div>
   );

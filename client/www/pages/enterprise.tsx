@@ -11,7 +11,7 @@ import { Footer } from '@/components/new-landing/Footer';
 export default function () {
   return (
     <div className="text-off-black">
-      <MainNav />
+      <MainNav transparent />
       <main className="flex-1">
         <EnterpriseHero />
 
