@@ -140,7 +140,8 @@ export class FrameworkClient {
       promise: promise as any,
     };
 
-    let unsub;
+    let unsub: null | (() => void) = null;
+    let unsubImmediately = false;
 
     unsub = this.db.subscribeQuery(query, (res) => {
       if (res.error) {
@@ -154,9 +155,18 @@ export class FrameworkClient {
         entry.promise = null;
         resolve(res);
       }
-      // Give subscribeQuery a chance to return
-      setTimeout(unsub, 0);
+      if (unsub !== null) {
+        unsub();
+      } else {
+        unsubImmediately;
+      }
     });
+
+    // We may have gotten the result inside of subscribeQuery before
+    // we defined the `unsub` function
+    if (unsubImmediately) {
+      unsub();
+    }
 
     this.resultMap.set(hash, entry);
     return promise;
