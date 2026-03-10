@@ -37,6 +37,7 @@ export const TodosWithoutSuspense = () => {
 
   return (
     <div className="m-2 overflow-auto border-4 border-red-500 p-2">
+      USER:{' '}
       <pre className="overflow-auto text-xs">
         {JSON.stringify(user, null, 2)}
       </pre>
