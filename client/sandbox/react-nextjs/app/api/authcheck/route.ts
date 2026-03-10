@@ -7,7 +7,7 @@ if (!appId) {
   console.warn('warning: NEXT_PUBLIC_INSTANT_APP_ID is not set');
 }
 
-export const db = init({
+const db = init({
   appId: appId!,
   apiURI: 'http://localhost:8888',
   schema,
