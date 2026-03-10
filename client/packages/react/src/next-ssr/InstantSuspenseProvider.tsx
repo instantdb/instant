@@ -176,14 +176,15 @@ function makeUseSuspenseQueryClient(
     );
 
     const hasData = !!useQueryResult.state.data;
+    const queryHash = useQueryResult.queryHash;
 
     useEffect(() => {
       if (hasData) {
         // We have a newer result, so remove the cached SSR or suspended
         // result from the framework client cache
-        client.removeCachedQueryResult(useQueryResult.queryHash);
+        client.removeCachedQueryResult(queryHash);
       }
-    }, [hasData]);
+    }, [hasData, queryHash]);
 
     if (useQueryResult.state.data) {
       return {
