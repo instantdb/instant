@@ -1,13 +1,13 @@
 import { init } from '@instantdb/admin';
 import schema from '../../play/ssr/instant.schema';
 
-export const appId = process.env.NEXT_PUBLIC_INSTANT_APP_ID;
+const appId = process.env.NEXT_PUBLIC_INSTANT_APP_ID;
 
 if (!appId) {
   console.warn('warning: NEXT_PUBLIC_INSTANT_APP_ID is not set');
 }
 
-export const db = init({
+const db = init({
   appId: appId!,
   apiURI: 'http://localhost:8888',
   schema,
