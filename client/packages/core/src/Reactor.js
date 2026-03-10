@@ -2117,6 +2117,9 @@ export default class Reactor {
       // bother updating
       return;
     }
+
+    // Clear any data in the framework client
+    this._frameworkClient = null;
     await this.setCurrentUser(newUser);
     // We need to remove all `result` from querySubs,
     // as they are no longer valid for the new user

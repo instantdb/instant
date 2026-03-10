@@ -35,10 +35,7 @@ type InstantSuspenseProviderProps<
 > = {
   nonce?: string;
   children: React.ReactNode;
-  db?: InstantReactWebDatabase<Schema, any>;
-  config?: Omit<InstantConfig<any, any>, 'schema'> & {
-    schema: string;
-  };
+  db: InstantReactWebDatabase<Schema, any>;
   user?: User | null;
 };
 
@@ -233,9 +230,7 @@ export const InstantSuspenseProvider = (
   props: InstantSuspenseProviderProps<any>,
 ) => {
   if (!props.db) {
-    throw new Error(
-      'Must provide either a db or config to InstantSuspenseProvider',
-    );
+    throw new Error('Must provide db to InstantSuspenseProvider');
   }
 
   const db = props.db;
