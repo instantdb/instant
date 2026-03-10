@@ -2,9 +2,23 @@
 
 import { db } from './db';
 
+const TodoWithSuspense = ({ id }: { id: string }) => {
+  const { data } = db.useSuspenseQuery({
+    todos: {
+      $: {
+        where: { id: id },
+      },
+    },
+  });
+
+  const todo = data.todos[0];
+
+  return <div>{JSON.stringify(todo, null, 2)}</div>;
+};
+
 export const TodosWithSuspense = () => {
   const user = db.useAuth();
-  const { data: todos } = db.useSuspenseQuery({
+  const { data } = db.useSuspenseQuery({
     todos: {
       $: {
         limit: 100,
@@ -21,7 +35,9 @@ export const TodosWithSuspense = () => {
       </pre>
       <h1>With Suspense / SSR</h1>
       <pre className="overflow-auto text-xs">
-        {JSON.stringify(todos, null, 2)}
+        {data.todos.map((t) => (
+          <TodoWithSuspense key={t.id} id={t.id} />
+        ))}
       </pre>
     </div>
   );

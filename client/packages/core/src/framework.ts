@@ -109,6 +109,7 @@ export class FrameworkClient {
     }
   };
 
+  // Run a query on the client and return a promise with the result
   public queryClient = (
     query_: any,
     opts?: { ruleParams: RuleParams },
@@ -139,6 +140,9 @@ export class FrameworkClient {
       } else {
         resolve(res);
       }
+      // Remove ourselves from the result map so that we don't grow forever
+      // The useQuery will take over after the promise is thrown, so no need
+      // to keep it forever.
       if (this.resultMap.get(hash)?.promise === promise) {
         this.resultMap.delete(hash);
       }
