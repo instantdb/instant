@@ -27,7 +27,7 @@ export default function PreviewSubdomainPage({
     data,
     isLoading,
     error: queryError,
-  } = db.useQuery({
+  } = db.useSuspenseQuery({
     chats: {
       $: { where: { id: chatId } },
       messages: {
