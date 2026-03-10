@@ -64,7 +64,7 @@ const TodosWithServerOnlyError = () => {
     todos: {
       $: {
         limit: 100,
-        // @ts-ignore: we want this to throw an error on the client
+        // @ts-ignore: we want this to throw an error on the server
         order:
           typeof window !== 'undefined'
             ? { serverCreatedAt: 'desc' }
