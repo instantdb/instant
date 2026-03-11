@@ -524,13 +524,16 @@ export default _schema;
           ['update', 'posts', randomUUID(), { title: 'Second', body: 'Post' }],
         ]);
 
-        const result = await runCli(['query', JSON.stringify({ posts: {} })], {
-          cwd: project.dir,
-          env: {
-            INSTANT_CLI_AUTH_TOKEN: adminToken,
-            INSTANT_APP_ID: appId,
+        const result = await runCli(
+          ['query', '--admin', JSON.stringify({ posts: {} })],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
           },
-        });
+        );
 
         expect(result.exitCode).toBe(0);
         const data = JSON.parse(result.stdout);
@@ -569,13 +572,16 @@ export default _schema;
         const query = {
           posts: { $: { where: { title: 'Match' } } },
         };
-        const result = await runCli(['query', JSON.stringify(query)], {
-          cwd: project.dir,
-          env: {
-            INSTANT_CLI_AUTH_TOKEN: adminToken,
-            INSTANT_APP_ID: appId,
+        const result = await runCli(
+          ['query', '--admin', JSON.stringify(query)],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
           },
-        });
+        );
 
         expect(result.exitCode).toBe(0);
         const data = JSON.parse(result.stdout);
@@ -603,13 +609,16 @@ export default _schema;
         });
         expect(pushResult.exitCode).toBe(0);
 
-        const result = await runCli(['query', JSON.stringify({ posts: {} })], {
-          cwd: project.dir,
-          env: {
-            INSTANT_CLI_AUTH_TOKEN: adminToken,
-            INSTANT_APP_ID: appId,
+        const result = await runCli(
+          ['query', '--admin', JSON.stringify({ posts: {} })],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
           },
-        });
+        );
 
         expect(result.exitCode).toBe(0);
         const data = JSON.parse(result.stdout);
@@ -636,7 +645,7 @@ export default _schema;
         expect(pushResult.exitCode).toBe(0);
 
         const result = await runCli(
-          ['query', '--app', appId, JSON.stringify({ posts: {} })],
+          ['query', '--admin', '--app', appId, JSON.stringify({ posts: {} })],
           {
             cwd: project.dir,
             env: { INSTANT_CLI_AUTH_TOKEN: adminToken },
@@ -656,7 +665,7 @@ export default _schema;
       const project = await createTestProject({ appId });
 
       try {
-        const result = await runCli(['query', 'not valid json'], {
+        const result = await runCli(['query', '--admin', 'not valid json'], {
           cwd: project.dir,
           env: {
             INSTANT_CLI_AUTH_TOKEN: adminToken,
@@ -670,20 +679,44 @@ export default _schema;
       }
     });
 
-    it('fails without auth', async () => {
-      const { appId } = await createTempApp();
+    it('fails without context flag', async () => {
+      const { appId, adminToken } = await createTempApp();
       const project = await createTestProject({ appId });
 
       try {
         const result = await runCli(['query', JSON.stringify({ posts: {} })], {
           cwd: project.dir,
           env: {
-            INSTANT_CLI_AUTH_TOKEN: '',
-            INSTANT_APP_ADMIN_TOKEN: '',
-            INSTANT_ADMIN_TOKEN: '',
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
             INSTANT_APP_ID: appId,
           },
         });
+
+        expect(result.exitCode).not.toBe(0);
+        const output = result.stdout + result.stderr;
+        expect(output).toMatch(/--admin|--as-email|--as-guest/);
+      } finally {
+        await project.cleanup();
+      }
+    });
+
+    it('fails without auth', async () => {
+      const { appId } = await createTempApp();
+      const project = await createTestProject({ appId });
+
+      try {
+        const result = await runCli(
+          ['query', '--admin', JSON.stringify({ posts: {} })],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: '',
+              INSTANT_APP_ADMIN_TOKEN: '',
+              INSTANT_ADMIN_TOKEN: '',
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
 
         expect(result.exitCode).not.toBe(0);
       } finally {
@@ -717,7 +750,7 @@ export default _schema;
         ]);
 
         const result = await runCli(
-          ['query', JSON.stringify({ posts: { comments: {} } })],
+          ['query', '--admin', JSON.stringify({ posts: { comments: {} } })],
           {
             cwd: project.dir,
             env: {
@@ -799,7 +832,7 @@ export default _schema;
 
         // Admin sees all posts
         const adminResult = await runCli(
-          ['query', JSON.stringify({ posts: {} })],
+          ['query', '--admin', JSON.stringify({ posts: {} })],
           {
             cwd: project.dir,
             env: {
@@ -917,7 +950,7 @@ export default _schema;
 
         // Admin sees both
         const adminResult = await runCli(
-          ['query', JSON.stringify({ posts: {} })],
+          ['query', '--admin', JSON.stringify({ posts: {} })],
           {
             cwd: project.dir,
             env: {

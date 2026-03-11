@@ -279,7 +279,7 @@ function App() {
 
 # Ad-hoc queries from the CLI
 
-Run `npx instant-cli query '<instaql-json>'` to query your app. Options: `--app <id>`, `--as-email <email>`, `--as-guest`.
+Run `npx instant-cli query <context> '<instaql-json>'` to query your app. Context is required: `--admin`, `--as-email <email>`, or `--as-guest`. Also supports `--app <id>`.
 
 # Ad-hoc scripts with the Admin SDK
 

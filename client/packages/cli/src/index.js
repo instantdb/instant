@@ -592,6 +592,7 @@ program
     '-a --app <app-id>',
     'App ID to query. Defaults to *_INSTANT_APP_ID in .env',
   )
+  .option('--admin', 'Run the query as admin (bypasses permissions)')
   .option('--as-email <email>', 'Run the query as a specific user by email')
   .option('--as-guest', 'Run the query as an unauthenticated guest')
   .description('Run an InstaQL query against your app.')
@@ -714,6 +715,13 @@ async function detectAppIdQuietly(opts) {
 }
 
 async function handleQuery(queryArg, opts) {
+  if (!opts.admin && !opts.asEmail && !opts.asGuest) {
+    error(
+      'Please specify a context: --admin, --as-email <email>, or --as-guest',
+    );
+    return process.exit(1);
+  }
+
   const { ok, appId } = await detectAppIdQuietly(opts);
   if (!ok) return process.exit(1);
   if (!appId) {
