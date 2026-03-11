@@ -1,15 +1,12 @@
 import { RssIcon } from '@heroicons/react/24/outline';
+import clsx from 'clsx';
 import Head from 'next/head';
 import NextLink from 'next/link';
+import type { ElementType, ReactNode } from 'react';
 import { LandingContainer, MainNav } from '@/components/marketingUi';
 import * as og from '@/lib/og';
 import { Footer } from '@/components/new-landing/Footer';
-import {
-  BodyText,
-  CardTitle,
-  ProminentTitle,
-  SectionTitle,
-} from '@/components/new-landing/typography';
+import { SectionTitle } from '@/components/new-landing/typography';
 import { getAllPosts, type Author, type Post } from '../../lib/posts';
 
 type EssaysIndexPost = Omit<Post, 'content'>;
@@ -44,6 +41,27 @@ function formatDuration(post: Pick<EssaysIndexPost, 'duration'>): string {
   return `${mins} min ${label}`;
 }
 
+function LinkedHeading({
+  children,
+  as: Tag = 'h3',
+  className,
+}: {
+  children: ReactNode;
+  as?: ElementType;
+  className?: string;
+}) {
+  return (
+    <Tag
+      className={clsx(
+        'font-bold leading-snug underline decoration-transparent decoration-2 underline-offset-4 transition-[text-decoration-color] duration-300 group-hover:decoration-current',
+        className,
+      )}
+    >
+      {children}
+    </Tag>
+  );
+}
+
 function PostCard({ post }: { post: EssaysIndexPost }) {
   return (
     <NextLink
@@ -59,12 +77,16 @@ function PostCard({ post }: { post: EssaysIndexPost }) {
           />
         </div>
       )}
-      <CardTitle>{post.title}</CardTitle>
+      <LinkedHeading className="text-lg">{post.title}</LinkedHeading>
       <div className="mt-3 flex items-center text-base text-gray-500">
         <span>{formatAuthorByline(post.authors)}</span>
         <span className="ml-auto">{formatDuration(post)}</span>
       </div>
-      {post.summary && <BodyText className="mt-4">{post.summary}</BodyText>}
+      {post.summary && (
+        <p className="mt-4 text-base leading-relaxed text-gray-500">
+          {post.summary}
+        </p>
+      )}
     </NextLink>
   );
 }
@@ -86,12 +108,18 @@ function HeroPostCard({ post }: { post: EssaysIndexPost }) {
           </div>
         )}
         <div className="flex flex-col justify-center p-6 md:p-8">
-          <ProminentTitle>{post.title}</ProminentTitle>
+          <LinkedHeading as="h2" className="text-2xl md:text-3xl">
+            {post.title}
+          </LinkedHeading>
           <div className="mt-5 flex items-center text-base text-gray-500">
             <span>{formatAuthorByline(post.authors)}</span>
             <span className="ml-auto">{formatDuration(post)}</span>
           </div>
-          {post.summary && <BodyText className="mt-3">{post.summary}</BodyText>}
+          {post.summary && (
+            <p className="mt-3 text-base leading-relaxed text-gray-500">
+              {post.summary}
+            </p>
+          )}
         </div>
       </div>
     </NextLink>
