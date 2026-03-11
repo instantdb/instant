@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import { randomUUID } from 'crypto';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { runCli, createTestProject, createTempApp } from './helpers';
+import {
+  runCli,
+  createTestProject,
+  createTempApp,
+  adminTransact,
+  createAppUser,
+} from './helpers';
 
 const SCHEMA_FILE = `
 import { i } from "@instantdb/core";
@@ -488,6 +495,456 @@ export default _schema;
           'utf-8',
         );
         expect(permsContent).toContain('posts');
+      } finally {
+        await project.cleanup();
+      }
+    });
+  });
+
+  describe('query', () => {
+    it('queries data from an app', async () => {
+      const { appId, adminToken } = await createTempApp();
+      const project = await createTestProject({
+        appId,
+        schemaFile: SCHEMA_FILE,
+      });
+
+      try {
+        const pushResult = await runCli(['push', 'schema', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        await adminTransact(appId, adminToken, [
+          ['update', 'posts', randomUUID(), { title: 'Hello', body: 'World' }],
+          ['update', 'posts', randomUUID(), { title: 'Second', body: 'Post' }],
+        ]);
+
+        const result = await runCli(['query', JSON.stringify({ posts: {} })], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.posts).toHaveLength(2);
+        expect(data.posts.map((p: any) => p.title).sort()).toEqual([
+          'Hello',
+          'Second',
+        ]);
+      } finally {
+        await project.cleanup();
+      }
+    });
+
+    it('queries with filters', async () => {
+      const { appId, adminToken } = await createTempApp();
+      const project = await createTestProject({
+        appId,
+        schemaFile: SCHEMA_FILE,
+      });
+
+      try {
+        const pushResult = await runCli(['push', 'schema', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        await adminTransact(appId, adminToken, [
+          ['update', 'posts', randomUUID(), { title: 'Match', body: 'Yes' }],
+          ['update', 'posts', randomUUID(), { title: 'Nope', body: 'No' }],
+        ]);
+
+        const query = {
+          posts: { $: { where: { title: 'Match' } } },
+        };
+        const result = await runCli(['query', JSON.stringify(query)], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.posts).toHaveLength(1);
+        expect(data.posts[0].title).toBe('Match');
+      } finally {
+        await project.cleanup();
+      }
+    });
+
+    it('returns empty arrays for entities with no data', async () => {
+      const { appId, adminToken } = await createTempApp();
+      const project = await createTestProject({
+        appId,
+        schemaFile: SCHEMA_FILE,
+      });
+
+      try {
+        const pushResult = await runCli(['push', 'schema', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        const result = await runCli(['query', JSON.stringify({ posts: {} })], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.posts).toEqual([]);
+      } finally {
+        await project.cleanup();
+      }
+    });
+
+    it('works with --app flag', async () => {
+      const { appId, adminToken } = await createTempApp();
+      const project = await createTestProject({
+        schemaFile: SCHEMA_FILE,
+      });
+
+      try {
+        const pushResult = await runCli(
+          ['push', 'schema', '--app', appId, '--yes'],
+          {
+            cwd: project.dir,
+            env: { INSTANT_CLI_AUTH_TOKEN: adminToken },
+          },
+        );
+        expect(pushResult.exitCode).toBe(0);
+
+        const result = await runCli(
+          ['query', '--app', appId, JSON.stringify({ posts: {} })],
+          {
+            cwd: project.dir,
+            env: { INSTANT_CLI_AUTH_TOKEN: adminToken },
+          },
+        );
+
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.posts).toEqual([]);
+      } finally {
+        await project.cleanup();
+      }
+    });
+
+    it('fails with invalid JSON', async () => {
+      const { appId, adminToken } = await createTempApp();
+      const project = await createTestProject({ appId });
+
+      try {
+        const result = await runCli(['query', 'not valid json'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+
+        expect(result.exitCode).not.toBe(0);
+      } finally {
+        await project.cleanup();
+      }
+    });
+
+    it('fails without auth', async () => {
+      const { appId } = await createTempApp();
+      const project = await createTestProject({ appId });
+
+      try {
+        const result = await runCli(['query', JSON.stringify({ posts: {} })], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: '',
+            INSTANT_APP_ADMIN_TOKEN: '',
+            INSTANT_ADMIN_TOKEN: '',
+            INSTANT_APP_ID: appId,
+          },
+        });
+
+        expect(result.exitCode).not.toBe(0);
+      } finally {
+        await project.cleanup();
+      }
+    });
+
+    it('queries nested associations', async () => {
+      const { appId, adminToken } = await createTempApp();
+      const project = await createTestProject({
+        appId,
+        schemaFile: SCHEMA_FILE,
+      });
+
+      try {
+        const pushResult = await runCli(['push', 'schema', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        const postId = randomUUID();
+        const commentId = randomUUID();
+        await adminTransact(appId, adminToken, [
+          ['update', 'posts', postId, { title: 'My Post', body: 'Content' }],
+          ['update', 'comments', commentId, { text: 'Great post!' }],
+          ['link', 'posts', postId, { comments: commentId }],
+        ]);
+
+        const result = await runCli(
+          ['query', JSON.stringify({ posts: { comments: {} } })],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
+
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.posts).toHaveLength(1);
+        expect(data.posts[0].comments).toHaveLength(1);
+        expect(data.posts[0].comments[0].text).toBe('Great post!');
+      } finally {
+        await project.cleanup();
+      }
+    });
+
+    it('--as-email runs query as a specific user with perms applied', async () => {
+      const { appId, adminToken } = await createTempApp();
+
+      const schemaWithCreator = `
+import { i } from "@instantdb/core";
+const _schema = i.schema({
+  entities: {
+    posts: i.entity({
+      title: i.string(),
+      creatorEmail: i.string(),
+    }),
+  },
+});
+export default _schema;
+`;
+
+      // Only allow users to view posts they created
+      const restrictedPerms = `export default {
+  posts: {
+    allow: {
+      view: "auth.email == data.creatorEmail",
+    },
+  },
+};
+`;
+
+      const project = await createTestProject({
+        appId,
+        schemaFile: schemaWithCreator,
+        permsFile: restrictedPerms,
+      });
+
+      try {
+        const pushResult = await runCli(['push', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        await createAppUser(appId, adminToken, 'alice@test.com');
+        await createAppUser(appId, adminToken, 'bob@test.com');
+
+        await adminTransact(appId, adminToken, [
+          [
+            'update',
+            'posts',
+            randomUUID(),
+            { title: "Alice's Post", creatorEmail: 'alice@test.com' },
+          ],
+          [
+            'update',
+            'posts',
+            randomUUID(),
+            { title: "Bob's Post", creatorEmail: 'bob@test.com' },
+          ],
+        ]);
+
+        // Admin sees all posts
+        const adminResult = await runCli(
+          ['query', JSON.stringify({ posts: {} })],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
+        expect(adminResult.exitCode).toBe(0);
+        const adminData = JSON.parse(adminResult.stdout);
+        expect(adminData.posts).toHaveLength(2);
+
+        // Alice only sees her post
+        const aliceResult = await runCli(
+          [
+            'query',
+            '--as-email',
+            'alice@test.com',
+            JSON.stringify({ posts: {} }),
+          ],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
+        expect(aliceResult.exitCode).toBe(0);
+        const aliceData = JSON.parse(aliceResult.stdout);
+        expect(aliceData.posts).toHaveLength(1);
+        expect(aliceData.posts[0].title).toBe("Alice's Post");
+
+        // Bob only sees his post
+        const bobResult = await runCli(
+          [
+            'query',
+            '--as-email',
+            'bob@test.com',
+            JSON.stringify({ posts: {} }),
+          ],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
+        expect(bobResult.exitCode).toBe(0);
+        const bobData = JSON.parse(bobResult.stdout);
+        expect(bobData.posts).toHaveLength(1);
+        expect(bobData.posts[0].title).toBe("Bob's Post");
+      } finally {
+        await project.cleanup();
+      }
+    });
+
+    it('--as-guest runs query as unauthenticated user', async () => {
+      const { appId, adminToken } = await createTempApp();
+
+      // Guests can only see posts marked as public
+      const schemaWithVisibility = `
+import { i } from "@instantdb/core";
+const _schema = i.schema({
+  entities: {
+    posts: i.entity({
+      title: i.string(),
+      isPublic: i.boolean(),
+    }),
+  },
+});
+export default _schema;
+`;
+
+      const guestPerms = `export default {
+  posts: {
+    allow: {
+      view: "data.isPublic == true",
+    },
+  },
+};
+`;
+
+      const project = await createTestProject({
+        appId,
+        schemaFile: schemaWithVisibility,
+        permsFile: guestPerms,
+      });
+
+      try {
+        const pushResult = await runCli(['push', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        await adminTransact(appId, adminToken, [
+          [
+            'update',
+            'posts',
+            randomUUID(),
+            { title: 'Public Post', isPublic: true },
+          ],
+          [
+            'update',
+            'posts',
+            randomUUID(),
+            { title: 'Private Post', isPublic: false },
+          ],
+        ]);
+
+        // Admin sees both
+        const adminResult = await runCli(
+          ['query', JSON.stringify({ posts: {} })],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
+        expect(adminResult.exitCode).toBe(0);
+        const adminData = JSON.parse(adminResult.stdout);
+        expect(adminData.posts).toHaveLength(2);
+
+        // Guest only sees public post
+        const guestResult = await runCli(
+          ['query', '--as-guest', JSON.stringify({ posts: {} })],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
+        expect(guestResult.exitCode).toBe(0);
+        const guestData = JSON.parse(guestResult.stdout);
+        expect(guestData.posts).toHaveLength(1);
+        expect(guestData.posts[0].title).toBe('Public Post');
       } finally {
         await project.cleanup();
       }
