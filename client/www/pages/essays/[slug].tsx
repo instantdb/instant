@@ -25,6 +25,9 @@ import ReactMarkdown, { Components } from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 
+const breakoutVideoClassName =
+  'relative left-1/2 block w-[min(100vw-2rem,48rem)] max-w-3xl -translate-x-1/2';
+
 const Post = ({ post }: { post: Post }) => {
   const { title, authors, hero, content, og_image } = post;
 
@@ -78,7 +81,7 @@ const Post = ({ post }: { post: Post }) => {
             <img src={hero} alt={title} className="w-full" />
           </div>
         )}
-        <div className="prose prose-lg prose-headings:font-semibold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-12 prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl [&_.md-video-container]:relative [&_.md-video-container]:left-1/2 [&_.md-video-container]:w-[min(100vw-2rem,48rem)] [&_.md-video-container]:max-w-3xl [&_.md-video-container]:-translate-x-1/2 [&_img]:relative [&_img]:left-1/2 [&_img]:w-[min(100vw-2rem,48rem)] [&_img]:max-w-3xl [&_img]:-translate-x-1/2 [&_img]:rounded-none [&_pre]:relative [&_pre]:left-1/2 [&_pre]:w-[min(100vw-2rem,48rem)] [&_pre]:max-w-3xl [&_pre]:-translate-x-1/2 [&_pre]:rounded-none [&_pre]:border [&_pre]:border-gray-200 [&_pre]:p-5 [&_table]:relative [&_table]:left-1/2 [&_table]:w-[min(100vw-2rem,48rem)] [&_table]:max-w-3xl [&_table]:-translate-x-1/2 [&_table_img]:static [&_table_img]:w-auto [&_table_img]:max-w-full [&_table_img]:translate-x-0">
+        <div className="prose prose-lg prose-headings:font-semibold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-12 prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl [&_img]:relative [&_img]:left-1/2 [&_img]:w-[min(100vw-2rem,48rem)] [&_img]:max-w-3xl [&_img]:-translate-x-1/2 [&_img]:rounded-none [&_pre]:relative [&_pre]:left-1/2 [&_pre]:w-[min(100vw-2rem,48rem)] [&_pre]:max-w-3xl [&_pre]:-translate-x-1/2 [&_pre]:rounded-none [&_pre]:border [&_pre]:border-gray-200 [&_pre]:p-5 [&_table]:relative [&_table]:left-1/2 [&_table]:w-[min(100vw-2rem,48rem)] [&_table]:max-w-3xl [&_table]:-translate-x-1/2 [&_table_img]:static [&_table_img]:w-auto [&_table_img]:max-w-full [&_table_img]:translate-x-0 [&>iframe]:relative [&>iframe]:left-1/2 [&>iframe]:block [&>iframe]:w-[min(100vw-2rem,48rem)] [&>iframe]:max-w-3xl [&>iframe]:-translate-x-1/2">
           <ReactMarkdown
             rehypePlugins={[rehypeRaw, rehypeKatex]}
             remarkPlugins={[remarkGfm, remarkMath]}
@@ -109,7 +112,9 @@ const Post = ({ post }: { post: Post }) => {
                   const ytMatch = props.href?.match(youtubePattern);
                   if (ytMatch) {
                     return (
-                      <span className="md-video-container block">
+                      <span
+                        className={`md-video-container ${breakoutVideoClassName}`}
+                      >
                         <iframe
                           width="100%"
                           src={`https://www.youtube.com/embed/${ytMatch[1]}?${youtubeParams}`}
@@ -125,7 +130,7 @@ const Post = ({ post }: { post: Post }) => {
                   if (muxMatch) {
                     return (
                       <span
-                        className="md-video-container block overflow-hidden rounded-2xl"
+                        className={`md-video-container ${breakoutVideoClassName} overflow-hidden rounded-2xl`}
                         style={{ paddingBottom: 0, border: 'none' }}
                       >
                         <MuxPlayer
