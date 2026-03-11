@@ -771,7 +771,7 @@ export function BuiltForAI() {
 
       {/* Feature 1: CLI-first - the hero visual */}
       <AnimateIn>
-        <div className="flex grid-cols-1 flex-col items-center gap-8 md:grid lg:grid-cols-2 lg:gap-12">
+        <div className="flex grid-cols-1 flex-col items-center gap-8 md:grid md:grid-cols-2 md:gap-12">
           <div className="lg:max-w-[400px]">
             <Subheading>Never leave your terminal</Subheading>
             <FeatureBody>
