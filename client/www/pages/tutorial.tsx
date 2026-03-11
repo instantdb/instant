@@ -21,12 +21,13 @@ const overviewSteps = [
   'Login to Instant in the terminal',
   'Scaffold a starter Instant app',
   'Prompt an LLM to build us an app (This is the fun part!)',
+  'Deploy the app to Vercel',
 ];
 
 const packageManagers = [
-  { id: 'npx', name: 'npx', runner: 'npx' },
-  { id: 'pnpx', name: 'pnpx', runner: 'pnpx' },
-  { id: 'bunx', name: 'bunx', runner: 'bunx' },
+  { id: 'npm', name: 'npm', runner: 'npx', scriptRunner: 'npm' },
+  { id: 'pnpm', name: 'pnpm', runner: 'pnpx', scriptRunner: 'pnpm' },
+  { id: 'bun', name: 'bun', runner: 'bunx', scriptRunner: 'bun' },
 ] as const;
 
 const examplePrompts = [
@@ -172,15 +173,19 @@ function CopyButton({ command, label }: { command: string; label?: string }) {
 
 function PackageManagerSelector({
   commandTemplate,
+  type = 'runner',
 }: {
   commandTemplate: string;
+  type?: 'runner' | 'script';
 }) {
   const [selectedIndex, setSelectedIndex] = useLocalStorage<number>(
     'package-manager-index',
     0,
   );
 
-  const currentCommand = `${packageManagers[selectedIndex].runner} ${commandTemplate}`;
+  const pm = packageManagers[selectedIndex];
+  const prefix = type === 'script' ? pm.scriptRunner : pm.runner;
+  const currentCommand = `${prefix} ${commandTemplate}`;
 
   return (
     <div className="flex justify-center">
@@ -356,22 +361,81 @@ function DebuggingSection() {
   );
 }
 
+// Compact code block that reads the stored package manager selection (no tabs)
+function CommandBlock({
+  commandTemplate,
+  type = 'runner',
+}: {
+  commandTemplate: string;
+  type?: 'runner' | 'script';
+}) {
+  const [selectedIndex] = useLocalStorage<number>('package-manager-index', 0);
+  const pm = packageManagers[selectedIndex];
+  const prefix = type === 'script' ? pm.scriptRunner : pm.runner;
+  const command = `${prefix} ${commandTemplate}`;
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-gray-300 bg-white px-5 py-3 shadow-xs">
+      <span className="font-mono text-xs text-gray-900 md:text-sm">
+        {command}
+      </span>
+      <CopyButton command={command} />
+    </div>
+  );
+}
+
+function VercelSection() {
+  return (
+    <div className="mb-16">
+      <div>
+        <H3>4. Deploy the app to Vercel</H3>
+      </div>
+      <div className="space-y-4 text-gray-700">
+        <p>
+          Once you've got a working app we can get it live by deploying to
+          Vercel! Before we deploy, let's verify there are no build errors. In
+          the terminal run:
+        </p>
+        <CommandBlock commandTemplate="run build" type="script" />
+        <p>
+          If there are build errors paste them into your agent to get them fixed
+          up. Make sure your app still works as expected after your agent gets
+          the build to pass:
+        </p>
+        <CommandBlock commandTemplate="run dev" type="script" />
+        <p>If all looks well let's kick off a deploy!</p>
+        <CommandBlock commandTemplate="vercel --prod" />
+        <p>
+          Your app should be live after vercel finishes deploying! If you see
+          any error about a missing <code>app-id</code> it means we need to add
+          it to the vercel environment. Run this command
+        </p>
+        <CommandBlock commandTemplate="vercel env add NEXT_PUBLIC_INSTANT_APP_ID production" />
+        <p>
+          and it will prompt you to paste your app id. You can find the value in
+          your <code>.env</code> file. Redeploy and you should have a
+          fully-working app.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ClosingSection() {
   return (
-    <p>
-      Huzzah! You've built your first app with Instant! If you're curious, you
-      can go to your{' '}
+    <p className="-mt-6">
+      Huzzah! If you're curious, you can go to your{' '}
       <a href="/dash" className="text-blue-600 underline hover:text-blue-800">
         Instant dashboard
       </a>{' '}
-      and see all the data you've created in the Explorer tab.
+      and see your data in the Explorer tab as you interact with your app.
     </p>
   );
 }
 
 function ShareCreationSection() {
   return (
-    <div className="mb-16">
+    <div className="-mt-3 mb-16">
       <div className="rounded-lg border border-orange-200 bg-linear-to-br from-orange-50 to-red-50 p-6">
         <div className="flex items-start gap-4">
           <div className="text-3xl">🎉</div>
@@ -495,6 +559,7 @@ export default function TutorialNew() {
             </div>
             <BuildAppSection />
             <DebuggingSection />
+            <VercelSection />
             <ClosingSection />
             <ShareCreationSection />
             <RatingBox pageId="llm-tutorial" />
