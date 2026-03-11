@@ -283,9 +283,13 @@ function App() {
 }
 ```
 
-# Ad-hoc queries & transactions
+# Ad-hoc queries from the CLI
 
-Use `@instantdb/admin` to run ad-hoc queries and transactions on the backend.
+Run `npx instant-cli query '{ posts: {} }' --admin` to query your app. A context flag is required: `--admin`, `--as-email <email>`, or `--as-guest`. Also supports `--app <id>`.
+
+# Ad-hoc scripts with the Admin SDK
+
+Use `@instantdb/admin` to run ad-hoc scripts on the backend.
 Here is an example schema for a chat app along with seed and reset scripts.
 
 ```tsx

@@ -35,6 +35,7 @@
     "env-paths": "^3.0.0",
     "find-up-simple": "^1.0.0",
     "json-diff": "^1.0.6",
+    "json5": "^2.2.3",
     "lodash.throttle": "^4.1.1",
     "open": "^10.1.0",
     "package-directory": "^8.1.0",
