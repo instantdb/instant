@@ -679,6 +679,27 @@ export default _schema;
       }
     });
 
+    it('accepts JSON5 syntax (unquoted keys)', async () => {
+      const { appId, adminToken } = await createTempApp();
+      const project = await createTestProject({ appId });
+
+      try {
+        const result = await runCli(['query', '--admin', '{ $users: {} }'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.$users).toEqual([]);
+      } finally {
+        await project.cleanup();
+      }
+    });
+
     it('fails without context flag', async () => {
       const { appId, adminToken } = await createTempApp();
       const project = await createTestProject({ appId });
