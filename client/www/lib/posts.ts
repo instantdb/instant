@@ -58,40 +58,34 @@ function getAuthors(authorStr: string): Author[] {
   return authorStr.split(',').map((x) => AUTHORS[x.trim()]);
 }
 
-function getDuration(content: string, watchTime?: number): Post['duration'] {
-  return {
-    minutes:
-      watchTime ?? Math.max(1, Math.round(content.split(/\s+/).length / 250)),
-    type: watchTime ? 'watch' : 'read',
-  };
-}
-
-function definedPostFields(fields: Partial<Post>): Partial<Post> {
-  return Object.fromEntries(
-    Object.entries(fields).filter(([, value]) => value !== undefined),
-  ) as Partial<Post>;
+function getMinutesForContent(content: string): number {
+  return Math.max(1, Math.round(content.split(/\s+/).length / 250));
 }
 
 export function getPostBySlug(slug: string): Post {
   const file = fs.readFileSync(`./_posts/${slug}.md`, 'utf-8');
   const { data, content } = matter(file);
 
-  return {
+  const post: Post = {
     slug,
     title: data.title,
     date: data.date,
     authors: getAuthors(data.authors),
     content,
-    duration: getDuration(content, data.watch_time),
-    ...definedPostFields({
-      isDraft: data.isDraft,
-      summary: data.summary,
-      thumbnail: data.thumbnail,
-      hero: data.hero,
-      watch_time: data.watch_time,
-      og_image: data.og_image,
-    }),
+    duration: {
+      minutes: data.watch_time ?? getMinutesForContent(content),
+      type: data.watch_time ? 'watch' : 'read',
+    },
   };
+
+  if (data.isDraft) post.isDraft = data.isDraft;
+  if (data.summary) post.summary = data.summary;
+  if (data.thumbnail) post.thumbnail = data.thumbnail;
+  if (data.hero) post.hero = data.hero;
+  if (data.watch_time) post.watch_time = data.watch_time;
+  if (data.og_image) post.og_image = data.og_image;
+
+  return post;
 }
 
 function removeMdExtension(str: string): string {
