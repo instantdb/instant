@@ -109,9 +109,7 @@ const Post = ({ post }: { post: Post }) => {
                   const ytMatch = props.href?.match(youtubePattern);
                   if (ytMatch) {
                     return (
-                      <span
-                        className="md-video-container essay-video-breakout"
-                      >
+                      <span className="md-video-container essay-video-breakout">
                         <iframe
                           width="100%"
                           src={`https://www.youtube.com/embed/${ytMatch[1]}?${youtubeParams}`}
