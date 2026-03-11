@@ -111,6 +111,9 @@ importers:
       json-diff:
         specifier: ^1.0.6
         version: 1.0.6
+      json5:
+        specifier: ^2.2.3
+        version: 2.2.3
       lodash.throttle:
         specifier: ^4.1.1
         version: 4.1.1
