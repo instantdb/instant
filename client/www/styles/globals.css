@@ -37,7 +37,7 @@
 }
 
 @utility landing-width {
-  @apply max-w-[1206px] px-8;
+  @apply max-w-[1280px] px-8;
 }
 
 @utility no-scrollbar {

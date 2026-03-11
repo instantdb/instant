@@ -1,0 +1,234 @@
+import {
+  LandingContainer,
+  MainNav,
+  PageProgressBar,
+} from '@/components/marketingUi';
+import * as og from '@/lib/og';
+import format from 'date-fns/format';
+import parse from 'date-fns/parse';
+import 'katex/dist/katex.min.css';
+import Head from 'next/head';
+import rehypeKatex from 'rehype-katex';
+import remarkMath from 'remark-math';
+import _ from 'lodash';
+import { getAllSlugs, getPostBySlug, type Post } from '../../lib/posts';
+import {
+  customDurations,
+  customThumbnails,
+  flyPlaceholders,
+  hidePreview,
+} from '@/lib/essays';
+
+import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
+import { GPT52Leaderboard } from '@/components/essays/GPT52Leaderboard';
+import { Lightbox } from '@/components/Lightbox';
+import MuxPlayer from '@mux/mux-player-react';
+
+import { DemoIframe } from '@/components/DemoIframe';
+import { SketchDemo } from '@/components/essays/sketch/SketchDemo';
+import { Footer } from '@/components/new-landing/Footer';
+import { Fence } from '@/components/ui';
+import { muxPattern, youtubeParams, youtubePattern } from '@/lib/videos';
+import { isValidElement } from 'react';
+import ReactMarkdown, { Components } from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import remarkGfm from 'remark-gfm';
+
+const Post = ({
+  post,
+  previewImage,
+  readingTime,
+}: {
+  post: Post;
+  previewImage: string | null;
+  readingTime: number;
+}) => {
+  const { title, date, authors, hero, content, og_image } = post;
+
+  return (
+    <LandingContainer>
+      <Head>
+        <title>{title}</title>
+        <meta key="og:title" property="og:title" content={title} />
+        <meta
+          key="og:image"
+          property="og:image"
+          content={og_image || hero || og.url({ title, section: 'blog' })}
+        />
+        <meta key="og:type" property="og:type" content="article" />
+        <meta
+          key="og:article:author"
+          property="article:author"
+          content={authors.map((author) => author.name).join(', ')}
+        />
+      </Head>
+      <PageProgressBar />
+      <MainNav transparent />
+      <div className="mx-auto max-w-4xl px-4 pt-28 pb-8 sm:pt-32">
+        <div className="mx-auto mb-8 max-w-2xl">
+          <h1 className="mb-4 text-5xl leading-tight font-semibold tracking-tight">
+            {title}
+          </h1>
+          <div className="flex text-base text-gray-500">
+            <span>
+              {authors.map((author, idx) => {
+                return (
+                  <span key={author.name}>
+                    <a
+                      className="underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-300 hover:decoration-current"
+                      href={author.url}
+                      target="_blank"
+                    >
+                      {author.name}
+                    </a>
+                    {idx !== authors.length - 1 ? ', ' : ''}
+                  </span>
+                );
+              })}
+            </span>
+            <span className="mx-1">·</span>
+            {readingTime} min {title.startsWith('Video:') ? 'watch' : 'read'}
+          </div>
+        </div>
+        {previewImage && (
+          <div className="mx-auto mb-10 max-w-3xl">
+            <img src={previewImage} className="w-full" />
+          </div>
+        )}
+        <div className="prose prose-lg prose-headings:font-semibold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-12 prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl [&_.md-video-container]:relative [&_.md-video-container]:left-1/2 [&_.md-video-container]:w-[min(100vw-2rem,48rem)] [&_.md-video-container]:max-w-3xl [&_.md-video-container]:-translate-x-1/2 [&_img]:relative [&_img]:left-1/2 [&_img]:w-[min(100vw-2rem,48rem)] [&_img]:max-w-3xl [&_img]:-translate-x-1/2 [&_img]:rounded-none [&_pre]:relative [&_pre]:left-1/2 [&_pre]:w-[min(100vw-2rem,48rem)] [&_pre]:max-w-3xl [&_pre]:-translate-x-1/2 [&_pre]:rounded-none [&_pre]:border [&_pre]:border-gray-200 [&_pre]:p-5 [&_table]:relative [&_table]:left-1/2 [&_table]:w-[min(100vw-2rem,48rem)] [&_table]:max-w-3xl [&_table]:-translate-x-1/2 [&_table_img]:static [&_table_img]:w-auto [&_table_img]:max-w-full [&_table_img]:translate-x-0">
+          <ReactMarkdown
+            rehypePlugins={[rehypeRaw, rehypeKatex]}
+            remarkPlugins={[remarkGfm, remarkMath]}
+            components={
+              {
+                // Note if you change the custom component key, you
+                // must also change all references in the markdown files
+                'agents-essay-demo-section': AgentsEssayDemoSection,
+                'sketch-demo': (props: { demo: string }) => {
+                  return <SketchDemo demo={props.demo} />;
+                },
+                'gpt52-leaderboard': GPT52Leaderboard,
+
+                p: ({ children }) => (
+                  <div className="prose prose-lg mt-[1.25em] mb-[1.25em] leading-relaxed">
+                    {children}
+                  </div>
+                ),
+                'demo-iframe': DemoIframe,
+                a(props) {
+                  if (props.hasOwnProperty('data-footnote-ref')) {
+                    return <a {...props}>[{props.children}]</a>;
+                  }
+                  if (props.children !== '!video') {
+                    return <a {...props} />;
+                  }
+
+                  const ytMatch = props.href?.match(youtubePattern);
+                  if (ytMatch) {
+                    return (
+                      <span className="md-video-container block">
+                        <iframe
+                          width="100%"
+                          src={`https://www.youtube.com/embed/${ytMatch[1]}?${youtubeParams}`}
+                          title="${title}"
+                          allow="autoplay; picture-in-picture"
+                          allowFullScreen
+                        ></iframe>
+                      </span>
+                    );
+                  }
+
+                  const muxMatch = props.href?.match(muxPattern);
+                  if (muxMatch) {
+                    return (
+                      <span
+                        className="md-video-container block overflow-hidden rounded-2xl"
+                        style={{ paddingBottom: 0, border: 'none' }}
+                      >
+                        <MuxPlayer
+                          playbackId={muxMatch[1]}
+                          accentColor="#ea580c"
+                          style={{ aspectRatio: '16/9', display: 'block' }}
+                        />
+                      </span>
+                    );
+                  }
+
+                  return <a {...props} />;
+                },
+                pre(props) {
+                  if (!isValidElement(props.children)) {
+                    return <pre {...props} />;
+                  }
+                  const language =
+                    (isValidElement(props.children) &&
+                      props.children?.props.className?.replace(
+                        'language-',
+                        '',
+                      )) ||
+                    '';
+
+                  return (
+                    <Fence
+                      code={String(props.children.props.children).replace(
+                        /\n$/,
+                        '',
+                      )}
+                      language={language}
+                      style={{ backgroundColor: '#faf8f5' }}
+                    ></Fence>
+                  );
+                },
+                img(props) {
+                  const { src, alt, ...rest } = props;
+                  if (src?.includes('?lightbox')) {
+                    const cleanSrc = src.replace('?lightbox', '');
+                    return <Lightbox src={cleanSrc} alt={alt} />;
+                  }
+                  return <img src={src} alt={alt} {...rest} />;
+                },
+              } as Components
+            }
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
+      </div>
+      <Footer />
+    </LandingContainer>
+  );
+};
+
+export async function getStaticPaths() {
+  return {
+    paths: getAllSlugs().map((slug) => `/essays-2/${slug}`),
+    fallback: false,
+  };
+}
+
+export async function getStaticProps({
+  params: { slug },
+}: {
+  params: { slug: string };
+}) {
+  const post = getPostBySlug(slug);
+  const allPosts = getAllSlugs()
+    .map((s) => getPostBySlug(s))
+    .filter((p) => !p.isDraft);
+  const sorted = _.orderBy(allPosts, 'date', 'desc');
+  const idx = sorted.findIndex((p) => p.slug === slug);
+  const previewImage = hidePreview.has(slug)
+    ? null
+    : customThumbnails[slug] ||
+      post.hero ||
+      post.og_image ||
+      flyPlaceholders[(idx === -1 ? 0 : idx) % flyPlaceholders.length];
+  const readingTime =
+    customDurations[slug] ??
+    Math.max(1, Math.round(post.content.split(/\s+/).length / 250));
+  return {
+    props: { post, previewImage, readingTime },
+  };
+}
+
+export default Post;

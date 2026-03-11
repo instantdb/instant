@@ -1,5 +1,5 @@
 ---
-title: 'Founding Firebase with James Tamplin [Video]'
+title: 'Video: Founding Firebase with James Tamplin'
 date: '2025-09-29'
 authors: stopachka
 ---

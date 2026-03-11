@@ -828,7 +828,7 @@ export function BuiltForAI() {
       {/* Feature 4: Undo destructive changes */}
       <AnimateIn>
         <div className="flex items-center gap-8 lg:gap-12">
-          <div className="bg-[#CC4E05]/10 grow px-[66px] py-[37px]">
+          <div className="grow bg-[#CC4E05]/10 px-[66px] py-[37px]">
             <UndoDemo />
           </div>
           <div className="max-w-[400px]">
