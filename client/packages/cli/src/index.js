@@ -588,7 +588,7 @@ program
 
 program
   .command('query')
-  .argument('<query>', 'InstaQL query as JSON')
+  .argument('<query>', 'InstaQL query as JSON/JSON5')
   .option(
     '-a --app <app-id>',
     'App ID to query. Defaults to *_INSTANT_APP_ID in .env',
