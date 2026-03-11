@@ -1,0 +1,80 @@
+
+Hey crew! It's time for another edition of Instant News 🙂 Here's a slice of what happened last month
+
+**Stripe Payments**
+
+Want to add payments to your Instant app? We just made that a lot easier [with our new Stripe docs](https://www.instantdb.com/docs/stripe-payments)!
+
+In these docs we cover three common payment patterns for one-off purchases, subscriptions, and credit-based models.
+
+We also included a reference to these docs in our instant-rules file. If you’ve scaffolded your project with `create-instant-app` you can just say "add Stripe payments" and follow along step by step!
+
+**Support for Streams**
+
+If you’ve built LLM-based apps on Instant, you may have encountered the problem of where to put the stream of LLM-generated output.
+
+Now, you can use Instant streams to efficiently deliver streaming content.
+
+Instant streams implement the Web Streams API, so they easily slot in to any AI sdk you might be using. In fact, if you’re using Vercel’s `resumable-stream` package, you can replace it with `@instantdb/resumable-stream`. You’ll get streams that never expire and don’t require a separate Redis instance.
+
+You can try out building an AI chat app that uses streaming with create-instant-app:
+
+```bash
+npx create-instant-app@latest --base ai-chat
+```
+
+Read more in [the stream docs!](https://www.instantdb.com/docs/streams)
+
+**Starter templates for Tanstack, Bun, and SolidJS**
+
+You can now scaffold full TanStack Start, Bun with React, and SolidJS apps using Instant! Try them out with the following commands:
+
+```bash
+npx create-instant-app@latest --base tanstack-start
+npx create-instant-app@latest --base bun-react
+npx create-instant-app@latest --base solidjs
+```
+
+**MMKV in React Native**
+
+Courtesy of lots of user requests from Instant React Native hackers: **Instant now offers support for react-native-mmkv**!
+
+The basic pattern to implement this looks like:
+
+```typescript
+import Store from '@instantdb/react-native-mmkv';
+import { init } from '@instantdb/react-native';
+
+const db = init({
+  appId: APP_ID,
+  Store: Store,
+});
+```
+
+If you need other adapters, the `Store` abstraction makes it easy for you to swap in your own implementation.
+
+To learn more, [check out the docs!](https://www.instantdb.com/docs/start-rn#using-mmkv-for-faster-storage-optional)
+
+**Request Object in Permissions**
+
+You now have access to a `request` object in your permission rules! The `request` object comes with a few special properties you can use for writing more powerful security rules:
+
+* **request.modifiedFields** gives you which fields are being set in a transaction
+* **request.time** gives you the timestamp of when the rule was evaluated.
+* **request.origin** is the origin that made the request
+* **request.ip** gives you the IP address of the request as a string
+
+You can test all of these in the dashboard sandbox too! To learn more check out the [permission docs](https://www.instantdb.com/docs/permissions#request-time)
+
+**And a few more things!**
+
+Here are a few more wins that got shipped thanks to your feedback!
+
+* Schema deletions and renames are now supported in the Platform API. If you’re building an app builder the platform API should now have full parity with Instant’s CLI.
+* **lookup** is now type-safe! Use this [handy function](https://www.instantdb.com/docs/instaml#lookup-by-unique-attribute) to look up an entity's id by a unique value
+* You can now set a custom domain when using the web redirect for OAuth. Previously this would only work if you used the native OAuth buttons
+* We added an [examples page](https://www.instantdb.com/examples?tab=mobile) for React Native apps. These feature two tutorials from Beto and Simon Grimm as well as a live app in the App store!
+
+**Looking ahead**
+
+We shipped a lot in February and have been racing away towards a big launch across Twitter, Product Hunt, and HN. Stay tuned :)
