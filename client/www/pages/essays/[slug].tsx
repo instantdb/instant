@@ -4,8 +4,6 @@ import {
   PageProgressBar,
 } from '@/components/marketingUi';
 import * as og from '@/lib/og';
-import format from 'date-fns/format';
-import parse from 'date-fns/parse';
 import 'katex/dist/katex.min.css';
 import Head from 'next/head';
 import rehypeKatex from 'rehype-katex';
@@ -15,6 +13,7 @@ import { getAllSlugs, getPostBySlug, type Post } from '../../lib/posts';
 import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
 import { GPT52Leaderboard } from '@/components/essays/GPT52Leaderboard';
 import { Lightbox } from '@/components/Lightbox';
+import MuxPlayer from '@mux/mux-player-react';
 
 import { DemoIframe } from '@/components/DemoIframe';
 import { SketchDemo } from '@/components/essays/sketch/SketchDemo';
@@ -27,7 +26,7 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 
 const Post = ({ post }: { post: Post }) => {
-  const { title, date, authors, hero, content, og_image } = post;
+  const { title, authors, hero, content, og_image } = post;
 
   return (
     <LandingContainer>
@@ -47,19 +46,19 @@ const Post = ({ post }: { post: Post }) => {
         />
       </Head>
       <PageProgressBar />
-      <MainNav />
-      <div className="mt-6 space-y-4 p-4">
-        <div className="mx-auto mb-4 max-w-prose py-4">
-          <h1 className="mb-2 font-mono text-4xl leading-snug font-bold">
+      <MainNav transparent />
+      <div className="mx-auto max-w-4xl px-4 pt-28 pb-8 sm:pt-32">
+        <div className="mx-auto mb-8 max-w-2xl">
+          <h1 className="mb-4 text-5xl leading-tight font-semibold tracking-tight">
             {title}
           </h1>
-          <div className="flex text-sm text-gray-500">
+          <div className="flex text-base text-gray-500">
             <span>
               {authors.map((author, idx) => {
                 return (
                   <span key={author.name}>
                     <a
-                      className="hover:text-blue-500"
+                      className="underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-300 hover:decoration-current"
                       href={author.url}
                       target="_blank"
                     >
@@ -71,15 +70,15 @@ const Post = ({ post }: { post: Post }) => {
               })}
             </span>
             <span className="mx-1">·</span>
-            {format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM do, yyyy')}
+            {post.duration.minutes} min {post.duration.type}
           </div>
         </div>
         {hero && (
-          <div className="mx-auto max-w-3xl">
-            <img src={hero} className="w-full rounded-sm" />
+          <div className="mx-auto mb-10 max-w-3xl">
+            <img src={hero} alt={title} className="w-full" />
           </div>
         )}
-        <div className="prose prose-headings:font-mono prose-headings:font-bold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-8 prose-h2:mb-2 prose-h2:mt-4 prose-pre:bg-gray-100 mx-auto">
+        <div className="prose prose-lg prose-headings:font-semibold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-12 prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl [&_.md-video-container]:relative [&_.md-video-container]:left-1/2 [&_.md-video-container]:w-[min(100vw-2rem,48rem)] [&_.md-video-container]:max-w-3xl [&_.md-video-container]:-translate-x-1/2 [&_img]:relative [&_img]:left-1/2 [&_img]:w-[min(100vw-2rem,48rem)] [&_img]:max-w-3xl [&_img]:-translate-x-1/2 [&_img]:rounded-none [&_pre]:relative [&_pre]:left-1/2 [&_pre]:w-[min(100vw-2rem,48rem)] [&_pre]:max-w-3xl [&_pre]:-translate-x-1/2 [&_pre]:rounded-none [&_pre]:border [&_pre]:border-gray-200 [&_pre]:p-5 [&_table]:relative [&_table]:left-1/2 [&_table]:w-[min(100vw-2rem,48rem)] [&_table]:max-w-3xl [&_table]:-translate-x-1/2 [&_table_img]:static [&_table_img]:w-auto [&_table_img]:max-w-full [&_table_img]:translate-x-0">
           <ReactMarkdown
             rehypePlugins={[rehypeRaw, rehypeKatex]}
             remarkPlugins={[remarkGfm, remarkMath]}
@@ -94,7 +93,7 @@ const Post = ({ post }: { post: Post }) => {
                 'gpt52-leaderboard': GPT52Leaderboard,
 
                 p: ({ children }) => (
-                  <div className="prose mt-[1.25em] mb-[1.25em] text-base leading-relaxed">
+                  <div className="prose prose-lg mt-[1.25em] mb-[1.25em] leading-relaxed">
                     {children}
                   </div>
                 ),
@@ -114,7 +113,7 @@ const Post = ({ post }: { post: Post }) => {
                         <iframe
                           width="100%"
                           src={`https://www.youtube.com/embed/${ytMatch[1]}?${youtubeParams}`}
-                          title="${title}"
+                          title={title}
                           allow="autoplay; picture-in-picture"
                           allowFullScreen
                         ></iframe>
@@ -125,13 +124,15 @@ const Post = ({ post }: { post: Post }) => {
                   const muxMatch = props.href?.match(muxPattern);
                   if (muxMatch) {
                     return (
-                      <span className="md-video-container block">
-                        <iframe
-                          width="100%"
-                          src={`https://stream.mux.com/${muxMatch[1]}`}
-                          title="${title}"
-                          allowFullScreen
-                        ></iframe>
+                      <span
+                        className="md-video-container block overflow-hidden rounded-2xl"
+                        style={{ paddingBottom: 0, border: 'none' }}
+                      >
+                        <MuxPlayer
+                          playbackId={muxMatch[1]}
+                          accentColor="#ea580c"
+                          style={{ aspectRatio: '16/9', display: 'block' }}
+                        />
                       </span>
                     );
                   }
@@ -157,6 +158,7 @@ const Post = ({ post }: { post: Post }) => {
                         '',
                       )}
                       language={language}
+                      style={{ backgroundColor: '#faf8f5' }}
                     ></Fence>
                   );
                 },

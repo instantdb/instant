@@ -2,6 +2,9 @@
 title: How and where will agents ship software?
 date: '2025-07-14'
 authors: stopachka, nikitonsky
+summary: Beginners are vibe-coding apps and experts are maxing out their LLM subscriptions. What does this mean for how we build software?
+thumbnail: /img/essays/agents.jpg
+hero: /img/essays/agents.jpg
 og_image: /posts/agents/og_image.png
 ---
 

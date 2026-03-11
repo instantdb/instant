@@ -2,6 +2,9 @@
 title: 'Codex, Opus, Gemini try to build Counter Strike'
 date: '2025-11-26'
 authors: stopachka
+summary: 'Introducing CS Bench: we ask all top models to build a multiplayer Counter-Strike from scratch.'
+thumbnail: /img/essays/agents_building_counterstrike.jpg
+hero: /img/essays/agents_building_counterstrike.jpg
 ---
 
 In the last week we’ve had three major model updates: Gemini 3 Pro, Codex Max 5.1, Claude Opus 4.5. We thought we’d give them a challenge:

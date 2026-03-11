@@ -2,6 +2,9 @@
 title: 'Video: Founding Firebase with James Tamplin'
 date: '2025-09-29'
 authors: stopachka
+summary: We sat down with one of the founders of Firebase to learn about the story behind the database platform that inspired many of us.
+thumbnail: /img/essays/founding_firebase.jpg
+watch_time: 81
 ---
 
 [!video](https://www.youtube.com/watch?v=re64AhYrYBY 'Founding Firebase with James Tamplin')

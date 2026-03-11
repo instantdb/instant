@@ -2,6 +2,9 @@
 title: 'Video: Building a Sync Engine in Clojure'
 date: '2024-10-24'
 authors: nezaj
+summary: Our CTO gave a talk about building Instant at Clojure Conj 2024! In this talk he discusses the common schleps developers face when building apps, and how Instant compresses them.
+thumbnail: /img/essays/conj.jpg
+watch_time: 34
 ---
 
 [!video](https://www.youtube.com/watch?v=6FikTQf8qho 'Building a Sync Engine in Clojure')

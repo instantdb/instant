@@ -2,6 +2,9 @@
 title: 'GPT 5.2 on the Counter-Strike Benchmark'
 date: '2025-12-12'
 authors: stopachka
+summary: How does GPT 5.2 do when you ask it to build a multiplayer Counter-Strike?
+thumbnail: /img/essays/gpt_52_on_the_counterstrike_benchmark.jpg
+hero: /img/essays/gpt_52_on_the_counterstrike_benchmark.jpg
 ---
 
 About 2 weeks ago we asked Codex 5.1 Max, Claude 4.5 Opus, and Gemini 3 Pro to [build Counter Strike](/essays/agents_building_counterstrike). It had to be a 3D UI, and it had to be multiplayer.

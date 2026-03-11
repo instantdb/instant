@@ -2,6 +2,8 @@
 title: 'Counter-Strike Bench: GPT 5.3 Codex vs Claude Opus 4.6'
 date: '2026-2-5'
 authors: stopachka
+summary: GPT 5.3 Codex and Claude Opus 4.6 shipped within minutes of each other. How well do they compare building a multiplayer Counter-Strike?
+thumbnail: /img/essays/codex_53_opus_46_cs_bench.jpg
 ---
 
 _We're Instant. We give you and your agents unlimited databases and backends. Build whatever you like, from your next startup to an alternative Counter-Strike. [Sign up](https://instantdb.com/dash) and build your first app in minutes_
