@@ -16,6 +16,7 @@ import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
 import path, { join } from 'path';
 import { randomUUID } from 'crypto';
 import jsonDiff from 'json-diff';
+import JSON5 from 'json5';
 import chalk from 'chalk';
 import { program, Option } from 'commander';
 import boxen from 'boxen';
@@ -741,7 +742,7 @@ async function handleQuery(queryArg, opts) {
 
   let query;
   try {
-    query = JSON.parse(queryArg);
+    query = JSON5.parse(queryArg);
   } catch {
     error('Invalid JSON query argument.');
     return process.exit(1);

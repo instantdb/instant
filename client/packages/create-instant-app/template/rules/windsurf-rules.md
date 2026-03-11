@@ -285,7 +285,7 @@ function App() {
 
 # Ad-hoc queries from the CLI
 
-Run `npx instant-cli query '<instaql-json>' --admin` to query your app. A context flag is required: `--admin`, `--as-email <email>`, or `--as-guest`. Also supports `--app <id>`.
+Run `npx instant-cli query '{ posts: {} }' --admin` to query your app. A context flag is required: `--admin`, `--as-email <email>`, or `--as-guest`. Also supports `--app <id>`.
 
 # Ad-hoc scripts with the Admin SDK
 
