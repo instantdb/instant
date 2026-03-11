@@ -81,7 +81,7 @@ const Post = ({ post }: { post: Post }) => {
             <img src={hero} alt={title} className="w-full" />
           </div>
         )}
-        <div className="prose prose-lg prose-headings:font-semibold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-12 prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl [&_.essay-breakout]:relative [&_.essay-breakout]:left-1/2 [&_.essay-breakout]:w-[min(100vw-2rem,48rem)] [&_.essay-breakout]:max-w-3xl [&_.essay-breakout]:-translate-x-1/2 [&_img]:relative [&_img]:left-1/2 [&_img]:w-[min(100vw-2rem,48rem)] [&_img]:max-w-3xl [&_img]:-translate-x-1/2 [&_img]:rounded-none [&_pre]:relative [&_pre]:left-1/2 [&_pre]:w-[min(100vw-2rem,48rem)] [&_pre]:max-w-3xl [&_pre]:-translate-x-1/2 [&_pre]:rounded-none [&_pre]:border [&_pre]:border-gray-200 [&_pre]:p-5 [&_table]:relative [&_table]:left-1/2 [&_table]:w-[min(100vw-2rem,48rem)] [&_table]:max-w-3xl [&_table]:-translate-x-1/2 [&_table_img]:static [&_table_img]:w-auto [&_table_img]:max-w-full [&_table_img]:translate-x-0 [&>iframe]:relative [&>iframe]:left-1/2 [&>iframe]:block [&>iframe]:!w-[min(100vw-2rem,48rem)] [&>iframe]:max-w-3xl [&>iframe]:-translate-x-1/2">
+        <div className="prose prose-lg prose-headings:font-semibold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-12 prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl [&_.essay-breakout]:relative [&_.essay-breakout]:left-1/2 [&_.essay-breakout]:w-[min(100vw-2rem,48rem)] [&_.essay-breakout]:max-w-3xl [&_.essay-breakout]:-translate-x-1/2 [&_.essay-image-breakout]:relative [&_.essay-image-breakout]:left-1/2 [&_.essay-image-breakout]:w-[min(100vw-2rem,48rem)] [&_.essay-image-breakout]:max-w-3xl [&_.essay-image-breakout]:-translate-x-1/2 [&_.essay-image-breakout]:rounded-none [&_pre]:relative [&_pre]:left-1/2 [&_pre]:w-[min(100vw-2rem,48rem)] [&_pre]:max-w-3xl [&_pre]:-translate-x-1/2 [&_pre]:rounded-none [&_pre]:border [&_pre]:border-gray-200 [&_pre]:p-5 [&_table]:relative [&_table]:left-1/2 [&_table]:w-[min(100vw-2rem,48rem)] [&_table]:max-w-3xl [&_table]:-translate-x-1/2 [&_table_.essay-image-breakout]:static [&_table_.essay-image-breakout]:w-auto [&_table_.essay-image-breakout]:max-w-full [&_table_.essay-image-breakout]:translate-x-0 [&>iframe]:relative [&>iframe]:left-1/2 [&>iframe]:block [&>iframe]:!w-[min(100vw-2rem,48rem)] [&>iframe]:max-w-3xl [&>iframe]:-translate-x-1/2">
           <ReactMarkdown
             rehypePlugins={[rehypeRaw, rehypeKatex]}
             remarkPlugins={[remarkGfm, remarkMath]}
@@ -168,12 +168,28 @@ const Post = ({ post }: { post: Post }) => {
                   );
                 },
                 img(props) {
-                  const { src, alt, ...rest } = props;
+                  const { src, alt, className, ...rest } = props;
+                  const resolvedClassName = className
+                    ? className
+                    : 'essay-image-breakout';
                   if (src?.includes('?lightbox')) {
                     const cleanSrc = src.replace('?lightbox', '');
-                    return <Lightbox src={cleanSrc} alt={alt} />;
+                    return (
+                      <Lightbox
+                        src={cleanSrc}
+                        alt={alt}
+                        className={resolvedClassName}
+                      />
+                    );
                   }
-                  return <img src={src} alt={alt} {...rest} />;
+                  return (
+                    <img
+                      src={src}
+                      alt={alt}
+                      className={resolvedClassName}
+                      {...rest}
+                    />
+                  );
                 },
               } as Components
             }
