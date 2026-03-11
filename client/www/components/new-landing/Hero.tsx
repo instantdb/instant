@@ -124,7 +124,7 @@ function VideoPlayer() {
             <p className="font-mono text-xs tracking-[0.16em] text-white/85 sm:text-[13px]">
               instant in action
             </p>
-            <p className="mx-auto mt-6 text-9xl leading-[1.2] font-semibold tracking-[-0.02em] text-white sm:text-5xl">
+            <p className="mx-auto mt-6 text-3xl leading-[1.2] font-semibold tracking-[-0.02em] text-white sm:text-5xl">
               Agents build realtime
               <br />
               Instagram in 12 minutes

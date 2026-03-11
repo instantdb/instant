@@ -934,7 +934,7 @@ export function BatteriesForAI() {
       </AnimateIn>
 
       {/* Features */}
-      <div className="grid auto-rows-fr grid-cols-3 gap-6">
+      <div className="grid-cols 2 grid auto-rows-fr gap-6 md:grid-cols-3">
         {/* Auth */}
         <AnimateIn className="flex">
           <div className="col-span-1 space-y-4">
