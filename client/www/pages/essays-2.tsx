@@ -167,7 +167,7 @@ function PostCard({ post }: { post: PostWithSnippet }) {
   return (
     <NextLink
       href={`/essays-2/${slug}`}
-      className="group block h-full border border-gray-200 bg-white p-5 transition-colors hover:border-gray-300 lg:p-6"
+      className="group block h-full border border-gray-200 bg-white p-5 lg:p-6"
     >
       {thumbnail && (
         <div className="mb-5 h-44 overflow-hidden">
@@ -243,7 +243,7 @@ export default function Essays3({ posts }: { posts: PostWithSnippet[] }) {
           {hero && (
             <NextLink
               href={`/essays-2/${hero.slug}`}
-              className="group block overflow-hidden border border-gray-200 bg-white transition-colors hover:border-gray-300"
+              className="group block overflow-hidden border border-gray-200 bg-white"
             >
               <div className="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr]">
                 <div className="overflow-hidden">
