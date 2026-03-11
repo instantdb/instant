@@ -715,9 +715,17 @@ async function detectAppIdQuietly(opts) {
 }
 
 async function handleQuery(queryArg, opts) {
-  if (!opts.admin && !opts.asEmail && !opts.asGuest) {
+  const contextCount =
+    (opts.admin ? 1 : 0) + (opts.asEmail ? 1 : 0) + (opts.asGuest ? 1 : 0);
+  if (contextCount === 0) {
     error(
       'Please specify a context: --admin, --as-email <email>, or --as-guest',
+    );
+    return process.exit(1);
+  }
+  if (contextCount > 1) {
+    error(
+      'Please specify exactly one context: --admin, --as-email <email>, or --as-guest',
     );
     return process.exit(1);
   }

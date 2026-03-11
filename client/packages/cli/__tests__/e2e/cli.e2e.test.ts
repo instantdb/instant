@@ -700,6 +700,36 @@ export default _schema;
       }
     });
 
+    it('fails with multiple context flags', async () => {
+      const { appId, adminToken } = await createTempApp();
+      const project = await createTestProject({ appId });
+
+      try {
+        const result = await runCli(
+          [
+            'query',
+            '--as-email',
+            'alice@example.com',
+            '--as-guest',
+            JSON.stringify({ posts: {} }),
+          ],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
+
+        expect(result.exitCode).not.toBe(0);
+        const output = result.stdout + result.stderr;
+        expect(output).toMatch(/exactly one context/);
+      } finally {
+        await project.cleanup();
+      }
+    });
+
     it('fails without auth', async () => {
       const { appId } = await createTempApp();
       const project = await createTestProject({ appId });
@@ -719,6 +749,8 @@ export default _schema;
         );
 
         expect(result.exitCode).not.toBe(0);
+        const output = result.stdout + result.stderr;
+        expect(output).toMatch(/not logged in/i);
       } finally {
         await project.cleanup();
       }
