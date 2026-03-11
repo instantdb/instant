@@ -173,19 +173,15 @@ function CopyButton({ command, label }: { command: string; label?: string }) {
 
 function PackageManagerSelector({
   commandTemplate,
-  type = 'runner',
 }: {
   commandTemplate: string;
-  type?: 'runner' | 'script';
 }) {
   const [selectedIndex, setSelectedIndex] = useLocalStorage<number>(
     'package-manager-index',
     0,
   );
 
-  const pm = packageManagers[selectedIndex];
-  const prefix = type === 'script' ? pm.scriptRunner : pm.runner;
-  const currentCommand = `${prefix} ${commandTemplate}`;
+  const currentCommand = `${packageManagers[selectedIndex].runner} ${commandTemplate}`;
 
   return (
     <div className="flex justify-center">
@@ -361,7 +357,6 @@ function DebuggingSection() {
   );
 }
 
-// Compact code block that reads the stored package manager selection (no tabs)
 function CommandBlock({
   commandTemplate,
   type = 'runner',
@@ -398,9 +393,9 @@ function VercelSection() {
         </p>
         <CommandBlock commandTemplate="run build" type="script" />
         <p>
-          If there are build errors paste them into your agent to get them fixed
-          up. Make sure your app still works as expected after your agent gets
-          the build to pass:
+          If there are build errors, paste them into your agent to get them
+          fixed up. Make sure your app still works as expected after your agent
+          gets the build to pass:
         </p>
         <CommandBlock commandTemplate="run dev" type="script" />
         <p>If all looks well let's kick off a deploy!</p>
