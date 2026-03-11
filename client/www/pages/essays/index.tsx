@@ -44,21 +44,6 @@ function formatDuration(post: Pick<EssaysIndexPost, 'duration'>): string {
   return `${mins} min ${label}`;
 }
 
-function AuthorAvatars({ authors }: { authors: Author[] }) {
-  return (
-    <div className="flex -space-x-1.5">
-      {authors.map((author) => (
-        <img
-          key={author.name}
-          src={author.avatar}
-          alt={author.name}
-          className="h-6 w-6 rounded-full object-cover"
-        />
-      ))}
-    </div>
-  );
-}
-
 function PostCard({ post }: { post: EssaysIndexPost }) {
   return (
     <NextLink
@@ -103,8 +88,7 @@ function HeroPostCard({ post }: { post: EssaysIndexPost }) {
         <div className="flex flex-col justify-center p-6 md:p-8">
           <ProminentTitle>{post.title}</ProminentTitle>
           <div className="mt-5 flex items-center text-base text-gray-500">
-            <AuthorAvatars authors={post.authors} />
-            <span className="ml-2">{formatAuthorByline(post.authors)}</span>
+            <span>{formatAuthorByline(post.authors)}</span>
             <span className="ml-auto">{formatDuration(post)}</span>
           </div>
           {post.summary && <BodyText className="mt-3">{post.summary}</BodyText>}
