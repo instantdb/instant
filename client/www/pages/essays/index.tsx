@@ -1,39 +1,37 @@
+import { RssIcon } from '@heroicons/react/24/outline';
 import Head from 'next/head';
 import NextLink from 'next/link';
 import { LandingContainer, MainNav } from '@/components/marketingUi';
 import * as og from '@/lib/og';
 import { Footer } from '@/components/new-landing/Footer';
-import { SectionTitle } from '@/components/new-landing/typography';
 import {
-  getAllSlugs,
-  getPostBySlug,
-  type Author,
-  type Post,
-} from '../../lib/posts';
+  BodyText,
+  CardTitle,
+  ProminentTitle,
+  SectionTitle,
+} from '@/components/new-landing/typography';
+import { getAllPosts, type Author, type Post } from '../../lib/posts';
+
+type EssaysIndexPost = Omit<Post, 'content'>;
 
 export async function getStaticProps() {
-  const posts = getAllSlugs()
-    .map((slug) => getPostBySlug(slug))
-    .filter((post) => !post.isDraft)
-    .sort((a, b) => b.date.localeCompare(a.date));
-
   return {
-    props: { posts },
+    props: { posts: getAllPosts() },
   };
 }
 
-function shortName(name: string): string {
-  const parts = name.split(' ');
-  if (parts.length < 2) return parts[0];
-  return `${parts[0]} ${parts[1][0]}.`;
+function abbreviateAuthorName(name: string): string {
+  const [firstName, lastName] = name.split(' ');
+  if (!lastName) return firstName;
+  return `${firstName} ${lastName[0]}.`;
 }
 
-function formatAuthors(authors: Author[]): string {
+function formatAuthorByline(authors: Author[]): string {
   if (authors.length === 1) return authors[0].name;
-  return authors.map((author) => shortName(author.name)).join(' & ');
+  return authors.map((author) => abbreviateAuthorName(author.name)).join(' & ');
 }
 
-function formatDuration(post: Pick<Post, 'duration'>): string {
+function formatDuration(post: Pick<EssaysIndexPost, 'duration'>): string {
   const mins = post.duration.minutes;
   const label = post.duration.type;
   if (mins >= 60) {
@@ -49,28 +47,19 @@ function formatDuration(post: Pick<Post, 'duration'>): string {
 function AuthorAvatars({ authors }: { authors: Author[] }) {
   return (
     <div className="flex -space-x-1.5">
-      {authors.map((author) =>
-        author.avatar ? (
-          <img
-            key={author.name}
-            src={author.avatar}
-            alt={author.name}
-            className="h-6 w-6 rounded-full object-cover"
-          />
-        ) : (
-          <div
-            key={author.name}
-            className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-500"
-          >
-            {author.name[0]}
-          </div>
-        ),
-      )}
+      {authors.map((author) => (
+        <img
+          key={author.name}
+          src={author.avatar}
+          alt={author.name}
+          className="h-6 w-6 rounded-full object-cover"
+        />
+      ))}
     </div>
   );
 }
 
-function PostCard({ post }: { post: Post }) {
+function PostCard({ post }: { post: EssaysIndexPost }) {
   return (
     <NextLink
       href={`/essays/${post.slug}`}
@@ -85,25 +74,49 @@ function PostCard({ post }: { post: Post }) {
           />
         </div>
       )}
-      <h3 className="text-lg leading-snug font-bold underline decoration-transparent decoration-2 underline-offset-4 transition-[text-decoration-color] duration-300 group-hover:decoration-current">
-        {post.title}
-      </h3>
+      <CardTitle>{post.title}</CardTitle>
       <div className="mt-3 flex items-center text-base text-gray-500">
-        <span>{formatAuthors(post.authors)}</span>
+        <span>{formatAuthorByline(post.authors)}</span>
         <span className="ml-auto">{formatDuration(post)}</span>
       </div>
-      {post.summary && (
-        <p className="mt-4 text-base leading-relaxed text-gray-500">
-          {post.summary}
-        </p>
-      )}
+      {post.summary && <BodyText className="mt-4">{post.summary}</BodyText>}
     </NextLink>
   );
 }
 
-export default function Page({ posts }: { posts: Post[] }) {
-  const hero = posts[0];
-  const rest = posts.slice(1);
+function HeroPostCard({ post }: { post: EssaysIndexPost }) {
+  return (
+    <NextLink
+      href={`/essays/${post.slug}`}
+      className="group block overflow-hidden border border-gray-200 bg-white transition-[box-shadow] hover:shadow-sm"
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr]">
+        {post.thumbnail && (
+          <div className="overflow-hidden">
+            <img
+              src={post.thumbnail}
+              alt={post.title}
+              className="aspect-[16/10] h-full w-full object-cover"
+            />
+          </div>
+        )}
+        <div className="flex flex-col justify-center p-6 md:p-8">
+          <ProminentTitle>{post.title}</ProminentTitle>
+          <div className="mt-5 flex items-center text-base text-gray-500">
+            <AuthorAvatars authors={post.authors} />
+            <span className="ml-2">{formatAuthorByline(post.authors)}</span>
+            <span className="ml-auto">{formatDuration(post)}</span>
+          </div>
+          {post.summary && <BodyText className="mt-3">{post.summary}</BodyText>}
+        </div>
+      </div>
+    </NextLink>
+  );
+}
+
+export default function Page({ posts }: { posts: EssaysIndexPost[] }) {
+  const publishedPosts = posts.filter((post) => !post.isDraft);
+  const [hero, ...rest] = publishedPosts;
 
   return (
     <LandingContainer>
@@ -129,47 +142,13 @@ export default function Page({ posts }: { posts: Post[] }) {
             <NextLink
               href="/rss.xml"
               className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              aria-label="RSS Feed"
             >
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M3.75 3a.75.75 0 00-.75.75v.5c0 .414.336.75.75.75H4c6.075 0 11 4.925 11 11v.25c0 .414.336.75.75.75h.5a.75.75 0 00.75-.75V16C17 8.82 11.18 3 4 3h-.25z" />
-                <path d="M3 8.75A.75.75 0 013.75 8H4a8 8 0 018 8v.25a.75.75 0 01-.75.75h-.5a.75.75 0 01-.75-.75V16a6 6 0 00-6-6h-.25A.75.75 0 013 9.25v-.5zM7 15a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
+              <RssIcon className="h-5 w-5" />
             </NextLink>
           </div>
 
-          {hero && (
-            <NextLink
-              href={`/essays/${hero.slug}`}
-              className="group block overflow-hidden border border-gray-200 bg-white transition-[box-shadow] hover:shadow-sm"
-            >
-              <div className="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr]">
-                {hero.thumbnail && (
-                  <div className="overflow-hidden">
-                    <img
-                      src={hero.thumbnail}
-                      alt={hero.title}
-                      className="aspect-[16/10] h-full w-full object-cover"
-                    />
-                  </div>
-                )}
-                <div className="flex flex-col justify-center p-6 md:p-8">
-                  <h2 className="text-2xl leading-snug font-bold underline decoration-transparent decoration-2 underline-offset-4 transition-[text-decoration-color] duration-300 group-hover:decoration-current md:text-3xl">
-                    {hero.title}
-                  </h2>
-                  <div className="mt-5 flex items-center text-base text-gray-500">
-                    <AuthorAvatars authors={hero.authors} />
-                    <span className="ml-2">{formatAuthors(hero.authors)}</span>
-                    <span className="ml-auto">{formatDuration(hero)}</span>
-                  </div>
-                  {hero.summary && (
-                    <p className="mt-3 text-base leading-relaxed text-gray-500">
-                      {hero.summary}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </NextLink>
-          )}
+          {hero && <HeroPostCard post={hero} />}
 
           <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-10">
             {rest.map((post) => (

@@ -16,7 +16,7 @@ Wodehouse is known for eccentric diction. Instead of "Freddie walked over", heâ€
 
 Well I could tell you _approximately_ how many times Wodehouse used any word in his entire lexicon, just by loading the data structure embedded in this image:
 
-<div class="flex justify-center">
+<div class="essay-breakout flex justify-center">
   <img class="m-0" src="/posts/count_min_sketch/compressedSketch.png" />
 </div>
 

@@ -117,7 +117,7 @@ The final challenge for the frontend was sounds and animations:
 
 Here's predecessor vs 5.2:
 
-<div class="grid grid-cols-1 md:grid-cols-2 grap-4">
+<div class="essay-breakout grid grid-cols-1 gap-4 md:grid-cols-2">
   <div>
     <div class="text-center font-mono text-sm font-bold">Codex 5.1 Max</div>
     <iframe
@@ -140,7 +140,7 @@ Here's predecessor vs 5.2:
 
 We didn't change the ratings here. We like the 5.2's animation, but Claude's version still felt more interesting.
 
-<div class="grid grid-cols-1 md:grid-cols-2 grap-4">
+<div class="essay-breakout grid grid-cols-1 gap-4 md:grid-cols-2">
   <div>
     <div class="text-center font-mono text-sm font-bold">Claude 4.5 Opus</div>
     <iframe

@@ -5,7 +5,7 @@ import _ from 'lodash';
 export interface Author {
   name: string;
   url: string;
-  avatar?: string;
+  avatar: string;
 }
 
 export interface Post {
@@ -50,7 +50,7 @@ const AUTHORS: Record<string, Author> = {
   instantdb: {
     name: 'Instant',
     url: 'https://x.com/instant_db',
-    avatar: '/img/landing/daniel.png',
+    avatar: '/img/icon/logo-512.svg',
   },
 };
 
@@ -58,33 +58,40 @@ function getAuthors(authorStr: string): Author[] {
   return authorStr.split(',').map((x) => AUTHORS[x.trim()]);
 }
 
+function getDuration(content: string, watchTime?: number): Post['duration'] {
+  return {
+    minutes:
+      watchTime ?? Math.max(1, Math.round(content.split(/\s+/).length / 250)),
+    type: watchTime ? 'watch' : 'read',
+  };
+}
+
+function definedPostFields(fields: Partial<Post>): Partial<Post> {
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined),
+  ) as Partial<Post>;
+}
+
 export function getPostBySlug(slug: string): Post {
   const file = fs.readFileSync(`./_posts/${slug}.md`, 'utf-8');
   const { data, content } = matter(file);
 
-  const post: Post = {
+  return {
     slug,
     title: data.title,
     date: data.date,
     authors: getAuthors(data.authors),
-    content: content,
-    duration: {
-      minutes:
-        data.watch_time ??
-        Math.max(1, Math.round(content.split(/\s+/).length / 250)),
-      type: data.watch_time ? 'watch' : 'read',
-    },
+    content,
+    duration: getDuration(content, data.watch_time),
+    ...definedPostFields({
+      isDraft: data.isDraft,
+      summary: data.summary,
+      thumbnail: data.thumbnail,
+      hero: data.hero,
+      watch_time: data.watch_time,
+      og_image: data.og_image,
+    }),
   };
-
-  // Only add optional fields if they exist
-  if (data.isDraft) post.isDraft = data.isDraft;
-  if (data.summary) post.summary = data.summary;
-  if (data.thumbnail) post.thumbnail = data.thumbnail;
-  if (data.hero) post.hero = data.hero;
-  if (data.watch_time) post.watch_time = data.watch_time;
-  if (data.og_image) post.og_image = data.og_image;
-
-  return post;
 }
 
 function removeMdExtension(str: string): string {

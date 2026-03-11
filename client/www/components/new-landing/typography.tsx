@@ -1,7 +1,24 @@
-import type { ReactNode } from 'react';
+import type { ElementType, ReactNode } from 'react';
 
 interface TypographyProps {
   children: ReactNode;
+  as?: ElementType;
+  className?: string;
+}
+
+function renderWithTag(
+  Tag: ElementType,
+  className: string,
+  children: ReactNode,
+  extraClassName?: string,
+) {
+  return (
+    <Tag
+      className={extraClassName ? `${className} ${extraClassName}` : className}
+    >
+      {children}
+    </Tag>
+  );
 }
 
 export function HeroTitle({ children }: TypographyProps) {
@@ -28,4 +45,43 @@ export function FeatureBody({ children }: TypographyProps) {
 
 export function SectionIntro({ children }: TypographyProps) {
   return <div className="sm:text-center">{children}</div>;
+}
+
+export function ProminentTitle({
+  children,
+  as: Tag = 'h2',
+  className,
+}: TypographyProps) {
+  return renderWithTag(
+    Tag,
+    'text-2xl leading-snug font-bold underline decoration-transparent decoration-2 underline-offset-4 transition-[text-decoration-color] duration-300 group-hover:decoration-current md:text-3xl',
+    children,
+    className,
+  );
+}
+
+export function CardTitle({
+  children,
+  as: Tag = 'h3',
+  className,
+}: TypographyProps) {
+  return renderWithTag(
+    Tag,
+    'text-lg leading-snug font-bold underline decoration-transparent decoration-2 underline-offset-4 transition-[text-decoration-color] duration-300 group-hover:decoration-current',
+    children,
+    className,
+  );
+}
+
+export function BodyText({
+  children,
+  as: Tag = 'p',
+  className,
+}: TypographyProps) {
+  return renderWithTag(
+    Tag,
+    'text-base leading-relaxed text-gray-500',
+    children,
+    className,
+  );
 }

@@ -129,7 +129,7 @@ All 3 models misunderstood the sentence in in the same way: they thought the wan
 
 Here’s the results they came up with:
 
-<div class="grid grid-cols-1 md:grid-cols-3 grap-4">
+<div class="essay-breakout grid grid-cols-1 gap-4 md:grid-cols-3">
   <div>
     <div class="text-center font-mono text-sm font-bold">Codex</div>
     <iframe
