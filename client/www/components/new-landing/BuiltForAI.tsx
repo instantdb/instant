@@ -23,7 +23,7 @@ type TerminalPhase =
 
 const PUSH_COMMAND = 'npx instant-cli push schema';
 
-function AnimatedTerminal() {
+export function AnimatedTerminal() {
   const [phase, setPhase] = useState<TerminalPhase>('idle');
   const [typingIndex, setTypingIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -155,7 +155,7 @@ function AnimatedTerminal() {
               </span>
               <span className="ml-2 text-gray-300">todos</span>
             </div>
-            <div className="mt-1.5 space-y-px pl-2">
+            <div className="mt-px space-y-px pl-2">
               <div className="text-green-400">+ CREATE ATTR todos.id</div>
               <div className="text-green-400">+ CREATE ATTR todos.text</div>
               <div className="pl-6 text-gray-500">DATA TYPE: string</div>
@@ -644,7 +644,7 @@ const scenes: Scene[] = [
   },
 ];
 
-function TypeSafetyDemo() {
+export function TypeSafetyDemo() {
   const [sceneIndex, setSceneIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('typing-prefix');
 
@@ -771,8 +771,8 @@ export function BuiltForAI() {
 
       {/* Feature 1: CLI-first - the hero visual */}
       <AnimateIn>
-        <div className="flex grid-cols-1 flex-col items-center gap-8 md:grid md:grid-cols-2 md:gap-12">
-          <div className="lg:max-w-[400px]">
+        <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-center">
+          <div className="md:max-w-[400px]">
             <Subheading>Never leave your terminal</Subheading>
             <FeatureBody>
               Create an account, spin up a database, push schema, and build from
@@ -780,8 +780,10 @@ export function BuiltForAI() {
               your agent, and your code.
             </FeatureBody>
           </div>
-          <div className="order-2 grow md:bg-[#CC4E05]/20 lg:order-1 xl:px-[129px] xl:py-[96px]">
-            <AnimatedTerminal />
+          <div className="grow lg:bg-[#CC4E05]/20 lg:px-[66px] lg:py-[37px]">
+            <div className="mx-auto max-w-[420px]">
+              <AnimatedTerminal />
+            </div>
           </div>
         </div>
       </AnimateIn>
@@ -828,7 +830,7 @@ export function BuiltForAI() {
       {/* Feature 4: Undo destructive changes */}
       <AnimateIn>
         <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center lg:gap-12">
-          <div className="grow bg-[#CC4E05]/10 px-4 py-[22px] md:px-[66px] md:py-[37px]">
+          <div className="grow lg:bg-[#CC4E05]/10 lg:px-[66px] lg:py-[37px]">
             <UndoDemo />
           </div>
           <div className="md:max-w-[400px]">

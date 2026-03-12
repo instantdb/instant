@@ -1,10 +1,14 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import MuxPlayer from '@mux/mux-player-react';
 import { CopyToClipboardButton } from './CopyToClipboardButton';
-import { HeroTitle, SectionSubtitle, SectionTitle } from './typography';
+import {
+  HeroTitle,
+  LandingButton,
+  SectionSubtitle,
+  SectionTitle,
+} from './typography';
 
 // Types
 type Task = {
@@ -165,11 +169,7 @@ export function Hero() {
 
             <span className="text-base text-gray-400">or</span>
 
-            <Link href="/dash">
-              <button className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-orange-700 sm:text-lg">
-                Sign up now
-              </button>
-            </Link>
+            <LandingButton href="/dash">Sign up now</LandingButton>
           </div>
 
           <div className="hero-stagger-3 mx-auto mt-10 max-w-[880px]">

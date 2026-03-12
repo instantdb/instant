@@ -1,5 +1,5 @@
 import { AnimateIn } from '../AnimateIn';
-import { SectionTitle } from '../typography';
+import { LandingButton, SectionTitle } from '../typography';
 
 export function EnterpriseCTA() {
   return (
@@ -10,18 +10,10 @@ export function EnterpriseCTA() {
 
       <AnimateIn delay={200}>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <a
-            href="#contact"
-            className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-6 py-3 text-base font-medium text-white shadow-[0_0_20px_rgba(234,88,12,0.3)] transition-all hover:bg-orange-700 hover:shadow-[0_0_30px_rgba(234,88,12,0.45)]"
-          >
-            Talk to us
-          </a>
-          <a
-            href="https://instantdb.com/docs"
-            className="bg-surface/40 inline-flex items-center justify-center rounded-lg border border-gray-200 px-6 py-3 text-base font-medium transition-all"
-          >
+          <LandingButton href="#contact">Talk to us</LandingButton>
+          <LandingButton href="https://instantdb.com/docs" variant="secondary">
             Read the docs
-          </a>
+          </LandingButton>
         </div>
       </AnimateIn>
     </div>

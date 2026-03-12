@@ -1,3 +1,5 @@
+import clsx from 'clsx';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 interface TypographyProps {
@@ -34,4 +36,31 @@ export function FeatureBody({ children }: TypographyProps) {
 
 export function SectionIntro({ children }: TypographyProps) {
   return <div className="sm:text-center">{children}</div>;
+}
+
+const landingButtonVariants = {
+  cta: 'bg-orange-600 text-white hover:bg-orange-700',
+  secondary: 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
+};
+
+export function LandingButton({
+  href,
+  variant = 'cta',
+  children,
+}: {
+  href: string;
+  variant?: keyof typeof landingButtonVariants;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={clsx(
+        'inline-flex items-center justify-center rounded-lg px-6 py-3 text-base font-medium transition-colors sm:text-lg',
+        landingButtonVariants[variant],
+      )}
+    >
+      {children}
+    </Link>
+  );
 }

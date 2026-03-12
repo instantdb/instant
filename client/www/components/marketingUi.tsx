@@ -64,7 +64,7 @@ const productIcons: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
 
 export function ProductNav({ currentSlug }: { currentSlug: string }) {
   return (
-    <div className="hidden border-b border-gray-200 py-3 min-[60rem]:block">
+    <div className="relative hidden pt-5 pb-3 min-[60rem]:block">
       <div className="mx-auto max-w-7xl px-8">
         <div className="flex justify-center">
           <div className="inline-flex gap-1 rounded-lg bg-gray-100 p-1">
