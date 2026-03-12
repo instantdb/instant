@@ -11,7 +11,6 @@ import { CurrentApp } from '../context/currentApp.js';
 import { promptOk } from './ui.js';
 import boxen from 'boxen';
 import chalk from 'chalk';
-import { parseSchemaFromJSON } from '@instantdb/core';
 
 export class NoPermsFileError extends Schema.TaggedError<NoPermsFileError>(
   'NoPermsFileError',

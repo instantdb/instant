@@ -3,7 +3,6 @@ import { Effect, Layer, pipe, Schema, Option } from 'effect';
 import { AuthLayerLive } from '../layer.js';
 import { InstantHttpAuthed } from '../lib/http.js';
 import { version } from '@instantdb/version';
-import { AuthToken } from '../context/authToken.js';
 
 const DashMeResponse = Schema.Struct({
   user: Schema.Struct({
@@ -35,6 +34,9 @@ export const infoCommand = () =>
     }
   }).pipe(
     Effect.provide(
-      AuthLayerLive(false).pipe(Layer.catchAll((e) => Layer.empty)),
+      AuthLayerLive({
+        coerce: false,
+        allowAdminToken: false,
+      }).pipe(Layer.catchAll((e) => Layer.empty)),
     ),
   );

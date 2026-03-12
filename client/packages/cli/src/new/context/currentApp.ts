@@ -82,8 +82,13 @@ export const CurrentAppLive = (args: {
           const config = yield* Effect.tryPromise(() =>
             readInstantConfigFile(),
           );
+          if (!config) {
+            return yield* new BadArgsError({
+              message: `App ID provided (${args.appId}) is not valid UUID`,
+            });
+          }
           const nameMatch = config?.apps?.[args.appId];
-          if (!nameMatch.id) {
+          if (!nameMatch?.id) {
             return yield* BadArgsError.make({
               message: 'App ID not found in app inside instant.config.ts',
             });
@@ -265,5 +270,5 @@ const getAdminToken = Effect.gen(function* () {
 const trackAppImport = (appId: string) =>
   Effect.gen(function* () {
     const http = (yield* InstantHttpAuthed).pipe(withCommand('init'));
-    yield* http.post(`/dash/apps/${appId}/import`);
+    yield* http.post(`/dash/apps/${appId}/track-import`);
   });

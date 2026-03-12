@@ -3,7 +3,6 @@ import { PlatformApi } from '../context/platformApi.js';
 import { BadArgsError } from '../errors.js';
 import { OptsFromCommand, initWithoutFilesDef } from '../index.js';
 import { createApp } from '../lib/createApp.js';
-import { AuthTokenLive } from '../context/authToken.js';
 import { AuthLayerLive } from '../layer.js';
 import chalk from 'chalk';
 
@@ -30,7 +29,12 @@ export const initWithoutFilesCommand = Effect.fn(function* (
 
   if (!opts.temp) {
     const app = yield* createApp(opts.title, opts.orgId).pipe(
-      Effect.provide(AuthLayerLive(false)),
+      Effect.provide(
+        AuthLayerLive({
+          allowAdminToken: false,
+          coerce: false,
+        }),
+      ),
     );
     console.error(`${chalk.green('Successfully created new app!')}\n`);
     yield* Effect.log(

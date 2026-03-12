@@ -1,7 +1,5 @@
 import { Effect, Option } from 'effect';
 import { OptsFromCommand, initDef } from '../index.js';
-import { ProjectInfo } from '../context/projectInfo.js';
-import { CurrentApp } from '../context/currentApp.js';
 import { WithAppLayer } from '../layer.js';
 import { readLocalPermsFile, readLocalSchemaFile } from '../../index.js';
 import { pullSchema } from '../lib/pullSchema.js';
@@ -12,9 +10,6 @@ import { pushPerms } from '../lib/pushPerms.js';
 
 export const initCommand = (options: OptsFromCommand<typeof initDef>) =>
   Effect.gen(function* () {
-    const _info = yield* ProjectInfo;
-    const _app = yield* CurrentApp;
-
     yield* Effect.matchEffect(
       Effect.tryPromise(readLocalSchemaFile).pipe(
         // Throws NoSuchElementException if no file found
@@ -29,7 +24,7 @@ export const initCommand = (options: OptsFromCommand<typeof initDef>) =>
                 promptText: 'Found local schema. Push it to the new app?',
                 inline: true,
               },
-              false,
+              true,
             );
             if (doSchemaPush) {
               yield* pushSchema();
@@ -52,7 +47,7 @@ export const initCommand = (options: OptsFromCommand<typeof initDef>) =>
                 promptText: 'Found local perms. Push it to the new app?',
                 inline: true,
               },
-              false,
+              true,
             );
             if (doPermsPush) {
               yield* pushPerms;

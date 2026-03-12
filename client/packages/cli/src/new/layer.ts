@@ -1,6 +1,6 @@
 import { NodeContext, NodeHttpClient } from '@effect/platform-node';
 import { Cause, Effect, Layer, ManagedRuntime } from 'effect';
-import { AuthTokenCoerceLive, AuthTokenLive } from './context/authToken.js';
+import { AuthTokenLive } from './context/authToken.js';
 import { CurrentAppLive } from './context/currentApp.js';
 import { GlobalOptsLive } from './context/globalOpts.js';
 import { PlatformApi } from './context/platformApi.js';
@@ -15,7 +15,7 @@ const runtime = ManagedRuntime.make(SimpleLogLayer);
 
 export const runCommandEffect = <A, E, R extends never>(
   effect: Effect.Effect<A, E, R>,
-): Promise<any> => runtime.runPromise(effect.pipe(printRedErrors));
+): Promise<any> => runtime.runPromise(effect.pipe(printRedErrors) as any);
 
 export const printRedErrors = Effect.catchAllCause((cause) => {
   const failure = Cause.failureOption(cause);
@@ -28,9 +28,17 @@ export const printRedErrors = Effect.catchAllCause((cause) => {
     'message' in failure.value &&
     !('cause' in failure.value)
   ) {
-    return Effect.logError((failure.value as { message: string }).message);
+    return Effect.logError((failure.value as { message: string }).message).pipe(
+      Effect.tap(() => {
+        process.exit(1);
+      }),
+    );
   }
-  return Effect.logError(Cause.pretty(cause, { renderErrorCause: true }));
+  return Effect.logError(Cause.pretty(cause, { renderErrorCause: true })).pipe(
+    Effect.tap(() => {
+      process.exit(1);
+    }),
+  );
 });
 
 /**
@@ -43,10 +51,15 @@ export const printRedErrors = Effect.catchAllCause((cause) => {
 // TODO: make coerce param work for auth too
 
 // Base layers
-const AuthTokenLayer = (allowAdminToken: boolean = true) =>
-  Layer.provide(AuthTokenLive(allowAdminToken), NodeContext.layer);
-const AuthTokenCoerceLayer = (allowAdminToken: boolean = true) =>
-  Layer.provide(AuthTokenCoerceLive(allowAdminToken), NodeContext.layer);
+const AuthTokenLayer = ({
+  allowAdminToken = true,
+  coerce = false,
+}: {
+  allowAdminToken: boolean;
+  coerce: boolean;
+}) =>
+  Layer.provide(AuthTokenLive({ allowAdminToken, coerce }), NodeContext.layer);
+
 const InstantHttpLayer = Layer.provide(InstantHttpLive, NodeHttpClient.layer);
 
 // Unauthenticated layer with InstantHttp + PlatformApi + GlobalOpts + NodeContext
@@ -56,11 +69,20 @@ export const BaseLayerLive = Layer.provideMerge(
 );
 
 // Authenticated layer extends BaseLayerLive with InstantHttpAuthed
-export const AuthLayerLive = (allowAdminToken: boolean = true) =>
+export const AuthLayerLive = ({
+  allowAdminToken = true,
+  coerce = false,
+}: {
+  allowAdminToken: boolean;
+  coerce: boolean;
+}) =>
   Layer.provideMerge(
     Layer.provideMerge(
       InstantHttpAuthedLive,
-      Layer.merge(AuthTokenCoerceLayer(allowAdminToken), InstantHttpLayer),
+      Layer.merge(
+        AuthTokenLayer({ allowAdminToken, coerce }),
+        InstantHttpLayer,
+      ),
     ),
     BaseLayerLive,
   );
@@ -69,6 +91,7 @@ export const WithAppLayer = (args: {
   appId?: string;
   title?: string;
   coerce: boolean;
+  coerceAuth?: boolean;
   packageName?: keyof typeof PACKAGE_ALIAS_AND_FULL_NAMES;
   applyEnv?: boolean;
 }) =>
@@ -81,6 +104,11 @@ export const WithAppLayer = (args: {
     }),
   ).pipe(
     Layer.provideMerge(GlobalOptsLive),
-    Layer.provideMerge(AuthLayerLive(true)),
+    Layer.provideMerge(
+      AuthLayerLive({
+        allowAdminToken: true,
+        coerce: args.coerceAuth || false,
+      }),
+    ),
     Layer.provideMerge(ProjectInfoLive(args.coerce, args.packageName)),
   );

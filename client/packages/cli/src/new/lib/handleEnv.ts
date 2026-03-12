@@ -83,6 +83,9 @@ const detectEnvType = Effect.gen(function* () {
   if (pkgJson.dependencies?.nuxt) {
     return 'nuxt';
   }
+  if (pkgJson.dependencies?.['@types/bun']) {
+    return 'bun';
+  }
   return 'catchall';
 }).pipe(Effect.catchTag('ProjectInfoError', () => Effect.succeed('catchall')));
 
