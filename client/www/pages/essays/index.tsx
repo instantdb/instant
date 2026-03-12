@@ -30,7 +30,7 @@ function LinkedHeading({
   return (
     <Tag
       className={clsx(
-        'font-bold leading-snug underline decoration-transparent decoration-2 underline-offset-4 transition-[text-decoration-color] duration-300 group-hover:decoration-current',
+        'leading-snug font-bold underline decoration-transparent decoration-2 underline-offset-4 transition-[text-decoration-color] duration-300 group-hover:decoration-current',
         className,
       )}
     >

@@ -25,4 +25,3 @@ export function FeatureBody({ children }: { children: ReactNode }) {
 export function SectionIntro({ children }: { children: ReactNode }) {
   return <div className="sm:text-center">{children}</div>;
 }
-
