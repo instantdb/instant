@@ -188,7 +188,7 @@ The fields you pass must be defined in your schema as optional attributes on `$u
 db.auth.signInWithMagicCode({
   email: sentEmail,
   code,
-  extraFields: { nickname: 'ari_the_great' },
+  extraFields: { nickname: 'nezaj' },
 });
 ```
 
@@ -199,7 +199,7 @@ db.auth.signInWithIdToken({
   clientName: 'google',
   idToken,
   nonce,
-  extraFields: { nickname: 'ari_the_great' },
+  extraFields: { nickname: 'nezaj' },
 });
 ```
 
@@ -211,7 +211,7 @@ For the redirect flow, pass `extraFields` when creating the authorization URL. I
 const url = db.auth.createAuthorizationURL({
   clientName: 'google',
   redirectURL: window.location.href,
-  extraFields: { nickname: 'ari_the_great' },
+  extraFields: { nickname: 'nezaj' },
 });
 ```
 
@@ -221,7 +221,7 @@ const url = db.auth.createAuthorizationURL({
 db.auth.exchangeOAuthCode({
   code: res.params.code,
   codeVerifier: request.codeVerifier,
-  extraFields: { nickname: 'ari_the_great' },
+  extraFields: { nickname: 'nezaj' },
 });
 ```
 
