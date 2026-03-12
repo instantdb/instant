@@ -91,6 +91,9 @@ import {
 import { InstantSvelteDatabase } from './InstantSvelteDatabase.svelte.js';
 import { init } from './InstantSvelteDatabase.svelte.js';
 import { InstantSvelteRoom } from './InstantSvelteRoom.svelte.js';
+import SignedIn from './SignedIn.svelte';
+import SignedOut from './SignedOut.svelte';
+import Cursors from './Cursors.svelte';
 
 export {
   id,
@@ -99,6 +102,9 @@ export {
   init,
   InstantSvelteDatabase,
   InstantSvelteRoom,
+  SignedIn,
+  SignedOut,
+  Cursors,
   i,
 
   // error
