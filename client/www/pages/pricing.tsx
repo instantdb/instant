@@ -1,8 +1,9 @@
 import Head from 'next/head';
-import { LandingContainer, MainNav } from '@/components/marketingUi';
+import { MainNav } from '@/components/marketingUi';
 import { Button } from '@/components/ui';
 import * as og from '@/lib/og';
 import { Footer } from '@/components/new-landing/Footer';
+import { SectionTitle, SectionSubtitle } from '@/components/new-landing/typography';
 
 // Helpers
 // ------------------
@@ -13,7 +14,6 @@ const getVariantStyles = (variant: string) => {
         outline: 'outline-orange-600/80',
         outlineWidth: 'outline-2',
         background: 'bg-white',
-        textColor: 'text-black',
         iconColor: 'text-orange-500',
       };
     default:
@@ -21,7 +21,6 @@ const getVariantStyles = (variant: string) => {
         outline: 'outline-gray-600/10',
         outlineWidth: 'outline-2',
         background: 'bg-white',
-        textColor: 'text-black',
         iconColor: 'text-gray-500',
       };
   }
@@ -128,11 +127,11 @@ function Feature({
       </svg>
       {typeof feature === 'object' ? (
         <div className="flex flex-col gap-1">
-          <span className="text-black">{feature[0]}</span>
+          <span>{feature[0]}</span>
           <span className="text-sm text-gray-500">{feature[1]}</span>
         </div>
       ) : (
-        <span className="text-black">{feature}</span>
+        <span>{feature}</span>
       )}
     </div>
   );
@@ -156,32 +155,26 @@ function Plan({ plan }: { plan: any }) {
 
   return (
     <div
-      className={`box-border rounded-lg ${styles.background} outline-solid ${styles.outlineWidth} -outline-offset-1 ${styles.outline} flex h-full flex-col justify-between gap-4 p-6 ${opacityStyle(ctaDisabled)}`}
+      className={`box-border rounded-lg ${styles.background} outline-solid ${styles.outlineWidth} -outline-offset-1 ${styles.outline} flex h-full flex-col justify-between gap-6 p-6 ${opacityStyle(ctaDisabled)}`}
     >
       <div>
         <div className="my-2 flex items-center justify-between">
-          <h5
-            className={`mr-2 text-2xl font-semibold tracking-tight ${styles.textColor}`}
-          >
+          <h5 className="mr-2 text-2xl font-normal tracking-tight">
             {name}
           </h5>
         </div>
-        <div className={`opacity-70 ${styles.textColor}`}>{description}</div>
+        <div className="opacity-60">{description}</div>
         {price && (
-          <span
-            className={`my-4 inline-flex items-baseline gap-1 ${styles.textColor}`}
-          >
-            <h3
-              className={`text-3xl leading-none font-medium tracking-tight sm:text-4xl ${styles.textColor}`}
-            >
+          <span className="my-4 inline-flex items-baseline gap-1">
+            <h3 className="text-3xl leading-none font-normal tracking-tight sm:text-4xl">
               {price}
             </h3>
             {price !== 'Custom' && (
-              <span className={`leading-none ${styles.textColor}`}>/month</span>
+              <span className="leading-none opacity-60">/month</span>
             )}
           </span>
         )}
-        <div className={`py-2 text-sm opacity-70 ${styles.textColor}`}>
+        <div className="py-2 text-sm opacity-60">
           {featuresDescription}
         </div>
         <div className="flex flex-col">
@@ -206,33 +199,26 @@ function Plan({ plan }: { plan: any }) {
 
 function FourPlanGrid() {
   return (
-    <div>
-      <div className="flex flex-1 flex-col gap-12 px-4 py-8">
-        <div className="mx-auto flex max-w-3xl flex-1 flex-col">
-          <h1 className="text-center text-3xl leading-10 font-semibold text-black">
+    <div className="pt-32 pb-16 sm:pt-40 sm:pb-24">
+      <div className="landing-width mx-auto flex flex-col gap-16">
+        <div className="text-center">
+          <SectionTitle>
             Never paused.
             <br />
             Unlimited free projects.
             <br />
             Simple pricing.
-          </h1>
+          </SectionTitle>
+
+          <SectionSubtitle>
+            Whether you're building a side project or your next big thing, you
+            can get started with Instant for free. We don't pause projects, we
+            don't limit active applications, and we have no restrictions for
+            commercial use.
+          </SectionSubtitle>
         </div>
 
-        <div className="mx-auto flex max-w-3xl flex-1 flex-col">
-          <div className="space-y-4 text-lg text-black">
-            <p>
-              Whether you're building a side project or your next big thing, you
-              can get started with Instant for free.
-            </p>
-            <p>
-              We don't pause projects, we don't limit number of active
-              applications, and we have no restrictions for commercial use. When
-              you're ready to grow, we have plans that scale with you.
-            </p>
-          </div>
-        </div>
-
-        <div className="landing-width mx-auto grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-4">
           {plans.map((plan) => (
             <Plan key={plan.name} plan={plan} />
           ))}
@@ -246,7 +232,7 @@ function FourPlanGrid() {
 // ------------------
 export default function Page() {
   return (
-    <LandingContainer>
+    <div className="text-off-black relative min-h-screen">
       <Head>
         <title>Instant Pricing</title>
         <meta
@@ -255,14 +241,11 @@ export default function Page() {
           content={og.url({ section: 'pricing' })}
         />
       </Head>
-      <div className="flex min-h-screen flex-col justify-between">
-        <div>
-          {' '}
-          <MainNav />
-          <FourPlanGrid />
-        </div>
-        <Footer />
-      </div>
-    </LandingContainer>
+      <MainNav transparent />
+      <main className="flex-1">
+        <FourPlanGrid />
+      </main>
+      <Footer />
+    </div>
   );
 }
