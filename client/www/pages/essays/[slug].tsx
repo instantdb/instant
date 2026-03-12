@@ -8,7 +8,7 @@ import 'katex/dist/katex.min.css';
 import Head from 'next/head';
 import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
-import { abbreviateAuthorName, formatDuration } from '../../lib/postUtils';
+import { authorFirstName, formatDuration } from '../../lib/postUtils';
 import { getAllSlugs, getPostBySlug, type Post } from '../../lib/posts';
 
 import { TopWash } from '@/components/new-landing/TopWash';
@@ -61,7 +61,7 @@ const Post = ({ post }: { post: Post }) => {
                 {authors.map((author, idx) => {
                   const name =
                     authors.length > 1
-                      ? abbreviateAuthorName(author.name)
+                      ? authorFirstName(author)
                       : author.name;
                   return (
                     <span key={author.name}>

@@ -7,7 +7,7 @@ import { LandingContainer, MainNav } from '@/components/marketingUi';
 import * as og from '@/lib/og';
 import { Footer } from '@/components/new-landing/Footer';
 import { TopWash } from '@/components/new-landing/TopWash';
-import { formatAuthorByline, formatDuration } from '../../lib/postUtils';
+import { authorFirstName, formatDuration } from '../../lib/postUtils';
 import { getAllPosts, type Author, type Post } from '../../lib/posts';
 
 type EssaysIndexPost = Omit<Post, 'content'>;
@@ -39,14 +39,36 @@ function LinkedHeading({
   );
 }
 
+function AuthorByline({ authors, duration }: { authors: Author[]; duration: string }) {
+  return (
+    <div className="flex items-center justify-between text-sm text-gray-500">
+      <div className="flex items-center gap-2">
+        <div className="flex -space-x-1.5">
+          {authors.map((author) => (
+            <img
+              key={author.name}
+              src={author.avatar}
+              alt={author.name}
+              className="h-5 w-5 rounded-full ring-2 ring-white object-cover"
+            />
+          ))}
+        </div>
+        <span>{authors.map(authorFirstName).join(' & ')}</span>
+      </div>
+      <span>{duration}</span>
+    </div>
+  );
+}
+
 function PostCard({ post }: { post: EssaysIndexPost }) {
   return (
     <NextLink
       href={`/essays/${post.slug}`}
       className="group block h-full rounded-xl border border-gray-200 bg-white p-5 lg:p-6"
     >
+      <AuthorByline authors={post.authors} duration={formatDuration(post)} />
       {post.thumbnail && (
-        <div className="mb-5 h-44 overflow-hidden">
+        <div className="mt-3 h-44 overflow-hidden">
           <img
             src={post.thumbnail}
             alt={post.title}
@@ -54,13 +76,9 @@ function PostCard({ post }: { post: EssaysIndexPost }) {
           />
         </div>
       )}
-      <LinkedHeading className="text-lg">{post.title}</LinkedHeading>
-      <div className="mt-3 flex items-center text-base text-gray-500">
-        <span>{formatAuthorByline(post.authors)}</span>
-        <span className="ml-auto">{formatDuration(post)}</span>
-      </div>
+      <LinkedHeading className="mt-3 text-lg">{post.title}</LinkedHeading>
       {post.summary && (
-        <p className="mt-4 text-base leading-relaxed text-gray-500">
+        <p className="mt-3 text-base leading-relaxed text-gray-500">
           {post.summary}
         </p>
       )}
@@ -85,13 +103,10 @@ function HeroPostCard({ post }: { post: EssaysIndexPost }) {
           </div>
         )}
         <div className="flex flex-col justify-center p-6 md:p-8">
-          <LinkedHeading as="h2" className="text-2xl md:text-3xl">
+          <AuthorByline authors={post.authors} duration={formatDuration(post)} />
+          <LinkedHeading as="h2" className="mt-4 text-2xl md:text-3xl">
             {post.title}
           </LinkedHeading>
-          <div className="mt-5 flex items-center text-base text-gray-500">
-            <span>{formatAuthorByline(post.authors)}</span>
-            <span className="ml-auto">{formatDuration(post)}</span>
-          </div>
           {post.summary && (
             <p className="mt-3 text-base leading-relaxed text-gray-500">
               {post.summary}
