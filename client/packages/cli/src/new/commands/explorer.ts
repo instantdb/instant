@@ -9,6 +9,7 @@ export const explorerCmd = (opts: OptsFromCommand<typeof explorerDef>) =>
   Effect.gen(function* () {
     const { appId } = yield* CurrentApp;
     const dashUrl = yield* getDashUrl;
+    yield* Effect.log('Opening Explorer...');
     const url = `${dashUrl}/dash?s=main&app=${appId}&t=explorer`;
     yield* Effect.tryPromise(() => openInBrowser(url)).pipe(
       Effect.catchAll(() =>
