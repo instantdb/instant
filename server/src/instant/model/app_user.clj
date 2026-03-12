@@ -1,5 +1,6 @@
 (ns instant.model.app-user
   (:require
+   [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
@@ -11,10 +12,30 @@
 
 (def etype "$users")
 
+(defn validate-extra-fields!
+  "Validates that extra-fields keys exist in the $users schema and
+   are not system fields."
+  [app-id extra-fields]
+  (when (seq extra-fields)
+    (let [attrs (attr-model/get-by-app-id app-id)]
+      (doseq [[k _v] extra-fields]
+        (let [k-str (name k)
+              attr (attr-model/seek-by-fwd-ident-name [etype k-str] attrs)]
+          (when-not attr
+            (ex/throw-validation-err!
+             :extra-fields
+             extra-fields
+             [{:message (format "Unknown field: %s. It must be defined in your $users schema." k-str)}]))
+          (when (= :system (:catalog attr))
+            (ex/throw-validation-err!
+             :extra-fields
+             extra-fields
+             [{:message (format "Cannot set system field: %s" k-str)}])))))))
+
 (defn create!
   ([params]
    (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id email id type imageURL] :as params}]
+  ([conn {:keys [app-id email id type imageURL extra-fields] :as params}]
    (let [id (or id (random-uuid))]
      (update-op
       conn
@@ -29,7 +50,10 @@
           (when (contains? params :type)
             [[:add-triple id (resolve-id :type) type]])
           (when (and (contains? params :imageURL) imageURL)
-            [[:add-triple id (resolve-id :imageURL) imageURL]])))
+            [[:add-triple id (resolve-id :imageURL) imageURL]])
+          (map (fn [[k v]]
+                 [:add-triple id (resolve-id (keyword k)) v])
+               extra-fields)))
         (get-entity id))))))
 
 (defn get-by-id

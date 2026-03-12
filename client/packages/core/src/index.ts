@@ -388,6 +388,7 @@ class Auth {
   createAuthorizationURL = (params: {
     clientName: string;
     redirectURL: string;
+    extraFields?: Record<string, any>;
   }): string => {
     return this.db.createAuthorizationURL(params);
   };

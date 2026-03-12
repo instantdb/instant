@@ -27,9 +27,11 @@ export type VerifyMagicCodeParams = {
   email: string;
   code: string;
   refreshToken?: string | undefined;
+  extraFields?: Record<string, any> | undefined;
 };
 export type VerifyResponse = {
   user: User;
+  created?: boolean;
 };
 export async function verifyMagicCode({
   apiURI,
@@ -37,6 +39,7 @@ export async function verifyMagicCode({
   email,
   code,
   refreshToken,
+  extraFields,
 }: SharedInput & VerifyMagicCodeParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
     method: 'POST',
@@ -46,6 +49,7 @@ export async function verifyMagicCode({
       email,
       code,
       ...(refreshToken ? { 'refresh-token': refreshToken } : {}),
+      ...(extraFields ? { 'extra-fields': extraFields } : {}),
     }),
   });
   return res;
@@ -86,6 +90,7 @@ export type ExchangeCodeForTokenParams = {
   code: string;
   codeVerifier?: string;
   refreshToken?: string | undefined;
+  extraFields?: Record<string, any> | undefined;
 };
 
 export async function exchangeCodeForToken({
@@ -94,6 +99,7 @@ export async function exchangeCodeForToken({
   code,
   codeVerifier,
   refreshToken,
+  extraFields,
 }: SharedInput & ExchangeCodeForTokenParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/token`, {
     method: 'POST',
@@ -103,6 +109,7 @@ export async function exchangeCodeForToken({
       code: code,
       code_verifier: codeVerifier,
       refresh_token: refreshToken,
+      ...(extraFields ? { extra_fields: extraFields } : {}),
     }),
   });
   return res;
@@ -113,6 +120,7 @@ export type SignInWithIdTokenParams = {
   idToken: string;
   clientName: string;
   refreshToken?: string;
+  extraFields?: Record<string, any> | undefined;
 };
 
 export async function signInWithIdToken({
@@ -122,6 +130,7 @@ export async function signInWithIdToken({
   idToken,
   clientName,
   refreshToken,
+  extraFields,
 }: SharedInput & SignInWithIdTokenParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/id_token`, {
     method: 'POST',
@@ -132,6 +141,7 @@ export async function signInWithIdToken({
       id_token: idToken,
       client_name: clientName,
       refresh_token: refreshToken,
+      ...(extraFields ? { extra_fields: extraFields } : {}),
     }),
   });
   return res;
