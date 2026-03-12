@@ -4,7 +4,7 @@ import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import config from '../../config';
 import Link from 'next/link';
 
-const APP_ID = '2d960014-0690-4dc5-b13f-a3c202663241';
+const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID;
 const GOOGLE_CLIENT_ID =
   '873926401300-t33oit5b8j5n0gl1nkk9fee6lvuiaia0.apps.googleusercontent.com';
 
@@ -19,7 +19,7 @@ const schema = i.schema({
 
 const db = init({
   ...config,
-  appId: APP_ID,
+  appId: APP_ID!,
   schema,
 });
 
@@ -39,7 +39,59 @@ function App() {
   if (user) {
     return <Main user={user} />;
   }
-  return <Login />;
+  return (
+    <div>
+      <Instructions />
+      <Login />
+    </div>
+  );
+}
+
+function Instructions() {
+  return (
+    <div className="m-4 rounded bg-yellow-50 p-4 text-sm">
+      <p className="mb-2 font-bold">Prerequisites</p>
+      <ol className="mb-3 list-inside list-decimal space-y-1">
+        <li>
+          Sandbox app in `.env` must exist with{' '}
+          <code className="rounded bg-gray-100 px-1">displayName</code> as an
+          optional attr on{' '}
+          <code className="rounded bg-gray-100 px-1">$users</code>
+        </li>
+        <li>
+          Set up Google OAuth clients via dashboard. Use{' '}
+          <code className="rounded bg-gray-100 px-1">google-web</code> for
+          redirect and{' '}
+          <code className="rounded bg-gray-100 px-1">
+            google-button-for-web
+          </code>{' '}
+          for the native button
+        </li>
+        <li>Local server running with the extra-fields branch</li>
+        <li>
+          (Optional) For Google Button: sync your clock to avoid clock sync
+          error:{' '}
+          <code className="rounded bg-gray-100 px-1">
+            sudo sntp -sS time.apple.com
+          </code>
+        </li>
+      </ol>
+      <p className="mb-2 font-bold">Testing</p>
+      <ol className="list-inside list-decimal space-y-1">
+        <li>Type a display name below</li>
+        <li>Click either "Google (Redirect)" or the Google Button</li>
+        <li>After sign-in, the $users record should show your displayName</li>
+        <li>
+          Sign out, delete the user from the explorer, and sign in again without
+          a display name to verify backwards compat
+        </li>
+      </ol>
+      <p className="mt-3 text-xs text-gray-500">
+        extraFields are only written on first creation. If displayName is
+        missing, the user likely already existed. Delete and retry.
+      </p>
+    </div>
+  );
 }
 
 function Login() {
