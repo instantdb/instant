@@ -403,7 +403,7 @@ export default abstract class InstantReactAbstractDatabase<
    * reset the subscription and start over with new data.
    * @example
    * const {
-   *   data: homeFeedPosts,
+   *   data,
    *   loadMore,
    *   canLoadMore,
    * } = db.useInfiniteQuery({

@@ -25,9 +25,9 @@ export type InfiniteQueryCallbackResponse<
   Query extends Record<string, any>,
   UseDatesLocal extends boolean,
 > = {
+  error?: Error;
   data?: InstaQLResponse<Schema, Query, UseDatesLocal>;
-  canLoadMore: boolean;
-  loadMore: () => void;
+  canLoadMore?: boolean;
 };
 
 export const subscribeInfiniteQuery = <
@@ -59,6 +59,10 @@ export const subscribeInfiniteQuery = <
   let isActive = true;
   let lastReverseAdvancedChunkKey: string | null = null;
   let starterSub: (() => void) | null = null;
+
+  const sendError = (err: Error) => {
+    cb({ error: err });
+  };
 
   const chunkSubKey = (direction: 'forward' | 'reverse', cursor: Cursor) =>
     `${direction}:${JSON.stringify(cursor)}`;
@@ -170,6 +174,9 @@ export const subscribeInfiniteQuery = <
         },
       },
       (frozenData) => {
+        if (frozenData.error?.message) {
+          return sendError(new Error(frozenData.error.message));
+        }
         if (!frozenData?.data || !frozenData.pageInfo) return;
 
         const rows = frozenData.data[entity];
@@ -204,6 +211,9 @@ export const subscribeInfiniteQuery = <
         },
       } as any,
       (windowData) => {
+        if (windowData.error?.message) {
+          return sendError(new Error(windowData.error.message));
+        }
         if (!windowData?.data || !windowData.pageInfo) return;
 
         const rows = windowData.data[entity];
@@ -279,6 +289,9 @@ export const subscribeInfiniteQuery = <
         },
       } as any,
       (frozenData) => {
+        if (frozenData.error?.message) {
+          return sendError(new Error(frozenData.error.message));
+        }
         if (!frozenData?.data || !frozenData.pageInfo) return;
 
         const rows = frozenData.data[entity];
@@ -337,6 +350,9 @@ export const subscribeInfiniteQuery = <
       },
     } as any,
     async (starterData) => {
+      if (starterData.error?.message) {
+        return sendError(new Error(starterData.error.message));
+      }
       if (!starterData?.pageInfo) return;
       const pageInfo = starterData.pageInfo[entity];
       if (!pageInfo?.startCursor || hasKickstarted) return;
