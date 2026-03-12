@@ -125,24 +125,24 @@ export default function Page({ posts }: { posts: EssaysIndexPost[] }) {
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav transparent />
         <div className="landing-width mx-auto flex-1 pt-28 pb-16 sm:pt-32 sm:pb-20">
-            <div className="mb-10 flex items-center justify-between">
-              <h2 className="text-2xl font-normal sm:text-5xl">Essays</h2>
-              <NextLink
-                href="/rss.xml"
-                className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                aria-label="RSS Feed"
-              >
-                <RssIcon className="h-5 w-5" />
-              </NextLink>
-            </div>
+          <div className="mb-10 flex items-center justify-between">
+            <h2 className="text-2xl font-normal sm:text-5xl">Essays</h2>
+            <NextLink
+              href="/rss.xml"
+              className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              aria-label="RSS Feed"
+            >
+              <RssIcon className="h-5 w-5" />
+            </NextLink>
+          </div>
 
-            {hero && <HeroPostCard post={hero} />}
+          {hero && <HeroPostCard post={hero} />}
 
-            <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-10">
-              {rest.map((post) => (
-                <PostCard key={post.slug} post={post} />
-              ))}
-            </div>
+          <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-10">
+            {rest.map((post) => (
+              <PostCard key={post.slug} post={post} />
+            ))}
+          </div>
         </div>
         <Footer />
       </div>
