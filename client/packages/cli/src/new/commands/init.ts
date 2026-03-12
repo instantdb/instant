@@ -59,6 +59,7 @@ export const initCommand = (options: OptsFromCommand<typeof initDef>) =>
     Effect.provide(
       WithAppLayer({
         coerce: true,
+        coerceAuth: true,
         title: options.title,
         appId: options.app,
         packageName: options.package as any,
