@@ -60,9 +60,7 @@ const Post = ({ post }: { post: Post }) => {
               <span>
                 {authors.map((author, idx) => {
                   const name =
-                    authors.length > 1
-                      ? authorFirstName(author)
-                      : author.name;
+                    authors.length > 1 ? authorFirstName(author) : author.name;
                   return (
                     <span key={author.name}>
                       <a

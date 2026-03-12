@@ -39,7 +39,13 @@ function LinkedHeading({
   );
 }
 
-function AuthorByline({ authors, duration }: { authors: Author[]; duration: string }) {
+function AuthorByline({
+  authors,
+  duration,
+}: {
+  authors: Author[];
+  duration: string;
+}) {
   return (
     <div className="flex items-center justify-between text-sm text-gray-500">
       <div className="flex items-center gap-2">
@@ -49,7 +55,7 @@ function AuthorByline({ authors, duration }: { authors: Author[]; duration: stri
               key={author.name}
               src={author.avatar}
               alt={author.name}
-              className="h-5 w-5 rounded-full ring-2 ring-white object-cover"
+              className="h-5 w-5 rounded-full object-cover ring-2 ring-white"
             />
           ))}
         </div>
@@ -103,7 +109,10 @@ function HeroPostCard({ post }: { post: EssaysIndexPost }) {
           </div>
         )}
         <div className="flex flex-col justify-center p-6 md:p-8">
-          <AuthorByline authors={post.authors} duration={formatDuration(post)} />
+          <AuthorByline
+            authors={post.authors}
+            duration={formatDuration(post)}
+          />
           <LinkedHeading as="h2" className="mt-4 text-2xl md:text-3xl">
             {post.title}
           </LinkedHeading>
