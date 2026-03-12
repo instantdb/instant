@@ -2,6 +2,9 @@
 title: 'Database in the Browser, a Spec'
 date: '2021-04-29'
 authors: stopachka
+summary: How will we build web applications in the future? We think it's going to look like a database in the browser, and this essay explains why.
+thumbnail: /img/essays/db_browser.jpg
+hero: /img/essays/db_browser.jpg
 ---
 
 How will we build web applications in the future?

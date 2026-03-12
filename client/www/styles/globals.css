@@ -37,7 +37,7 @@
 }
 
 @utility landing-width {
-  @apply max-w-[1206px] px-8;
+  @apply max-w-[1280px] px-8;
 }
 
 @utility no-scrollbar {
@@ -291,4 +291,43 @@ div.Toastify__toast-icon {
 
 .katex-display > .katex {
   background-color: transparent;
+}
+
+/* Essay breakout styles — elements inside .essay-content that break out
+   of the narrow prose column to the wider max-w-3xl width */
+.essay-content
+  :is(.essay-breakout, .essay-image-breakout, table, .essay-video-breakout),
+.essay-content > pre,
+.essay-content > iframe {
+  position: relative;
+  left: 50%;
+  width: min(100vw - 2rem, 48rem);
+  max-width: 48rem; /* 3xl */
+  transform: translateX(-50%);
+}
+
+.essay-content .essay-image-breakout {
+  border-radius: 0;
+}
+
+.essay-content > pre {
+  border-radius: 0;
+  border: 1px solid #e5e7eb;
+  padding: 1.25rem;
+}
+
+.essay-content .essay-video-breakout {
+  display: block;
+}
+
+.essay-content > iframe {
+  display: block;
+  width: min(100vw - 2rem, 48rem) !important;
+}
+
+.essay-content table .essay-image-breakout {
+  position: static;
+  width: auto;
+  max-width: 100%;
+  transform: translateX(0);
 }

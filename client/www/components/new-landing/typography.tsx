@@ -1,31 +1,27 @@
 import type { ReactNode } from 'react';
 
-interface TypographyProps {
-  children: ReactNode;
+export function HeroTitle({ children }: { children: ReactNode }) {
+  return <h1 className="text-9xl font-normal sm:text-5xl">{children}</h1>;
 }
 
-export function HeroTitle({ children }: TypographyProps) {
-  return <h1 className="text-9xl font-semibold sm:text-5xl">{children}</h1>;
+export function SectionTitle({ children }: { children: ReactNode }) {
+  return <h2 className="text-2xl font-normal sm:text-5xl">{children}</h2>;
 }
 
-export function SectionTitle({ children }: TypographyProps) {
-  return <h2 className="text-2xl font-semibold sm:text-5xl">{children}</h2>;
-}
-
-export function SectionSubtitle({ children }: TypographyProps) {
+export function SectionSubtitle({ children }: { children: ReactNode }) {
   return (
     <p className="mx-auto mt-6 max-w-3xl text-xl text-balance">{children}</p>
   );
 }
 
-export function Subheading({ children }: TypographyProps) {
-  return <h3 className="text-2xl font-semibold sm:text-3xl">{children}</h3>;
+export function Subheading({ children }: { children: ReactNode }) {
+  return <h3 className="text-2xl font-normal sm:text-3xl">{children}</h3>;
 }
 
-export function FeatureBody({ children }: TypographyProps) {
+export function FeatureBody({ children }: { children: ReactNode }) {
   return <p className="mt-2 text-lg">{children}</p>;
 }
 
-export function SectionIntro({ children }: TypographyProps) {
+export function SectionIntro({ children }: { children: ReactNode }) {
   return <div className="sm:text-center">{children}</div>;
 }
