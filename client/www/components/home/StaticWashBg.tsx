@@ -26,7 +26,14 @@ export function StaticWashBg() {
 
       // Wide elliptical wash from the top center, fading downward
       const radius = Math.max(cw, ch) * 0.7;
-      const topGrad = ctx!.createRadialGradient(cw * 0.5, 0, 0, cw * 0.5, 0, radius);
+      const topGrad = ctx!.createRadialGradient(
+        cw * 0.5,
+        0,
+        0,
+        cw * 0.5,
+        0,
+        radius,
+      );
       topGrad.addColorStop(0, 'rgba(255, 237, 213, 0.35)');
       topGrad.addColorStop(0.4, 'rgba(254, 215, 170, 0.12)');
       topGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
