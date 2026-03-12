@@ -43,7 +43,7 @@ function PostCard({ post }: { post: EssaysIndexPost }) {
   return (
     <NextLink
       href={`/essays/${post.slug}`}
-      className="group block h-full rounded-xl border border-gray-200 bg-white p-5 transition-[box-shadow] hover:shadow-sm lg:p-6"
+      className="group block h-full p-5 lg:p-6"
     >
       {post.thumbnail && (
         <div className="mb-5 h-44 overflow-hidden">
@@ -126,7 +126,7 @@ export default function Page({ posts }: { posts: EssaysIndexPost[] }) {
       <div className="relative flex min-h-screen flex-col justify-between">
         <TopWash />
         <MainNav transparent />
-        <div className="relative landing-width mx-auto flex-1 pt-28 pb-16 sm:pt-32 sm:pb-20">
+        <div className="landing-width relative mx-auto flex-1 pt-28 pb-16 sm:pt-32 sm:pb-20">
           <div className="mb-10 flex items-center justify-between">
             <h2 className="text-2xl font-normal sm:text-5xl">Essays</h2>
             <NextLink
