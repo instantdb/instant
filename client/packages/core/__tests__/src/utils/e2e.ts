@@ -6,18 +6,19 @@ import {
   InstantSchemaDef,
 } from '../../../src';
 
-// @ts-ignore
-const apiUrl = import.meta.env.VITE_INSTANT_DEV
-  ? 'http://localhost:8888'
-  : // @ts-ignore
-    import.meta.env.VITE_INSTANT_API_URL || 'https://api.instantdb.com';
+// __DEV_LOCAL_PORT__ is set by vitest.config.ts.
+// This allows us to run tests against mulutple checkouts
+// If CI=1 then __DEV_LOCAL_PORT__ will be falsey and tests will hit prod.
+// Otherwise they will hit localhost at the specified port.
+declare const __DEV_LOCAL_PORT__: number;
 
-// @ts-ignore
-const websocketURI = import.meta.env.VITE_INSTANT_DEV
-  ? 'ws://localhost:8888/runtime/session'
-  : // @ts-ignore
-    import.meta.env.VITE_INSTANT_WEBSOCKET_URI ||
-    'wss://api.instantdb.com/runtime/session';
+const apiUrl = __DEV_LOCAL_PORT__
+  ? `http://localhost:${__DEV_LOCAL_PORT__}`
+  : 'https://api.instantdb.com';
+
+const websocketURI = __DEV_LOCAL_PORT__
+  ? `ws://localhost:${__DEV_LOCAL_PORT__}/runtime/session`
+  : 'wss://api.instantdb.com/runtime/session';
 
 // Make a factory function that returns a typed test instance
 export function makeE2ETest<Schema extends InstantSchemaDef<any, any, any>>({
