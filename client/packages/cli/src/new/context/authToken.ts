@@ -70,14 +70,25 @@ export const authTokenGetEffect = (allowAdminToken: boolean = true) =>
     return yield* NotAuthedError.make({ message: 'You are not logged in' });
   });
 
-export const AuthTokenLive = (allowAdminToken: boolean = true) =>
-  Layer.effect(AuthToken, authTokenGetEffect(allowAdminToken));
-
-export const AuthTokenCoerceLive = (allowAdminToken: boolean = true) =>
+export const AuthTokenLive = ({
+  coerce,
+  allowAdminToken = true,
+}: {
+  coerce: boolean;
+  allowAdminToken: boolean;
+}) =>
   Layer.effect(
     AuthToken,
     authTokenGetEffect(allowAdminToken).pipe(
-      Effect.catchTag('NotAuthedError', () => loginCommand({})),
+      Effect.catchTag('NotAuthedError', (e) =>
+        Effect.gen(function* () {
+          if (coerce) {
+            return yield* loginCommand({});
+          } else {
+            return yield* e;
+          }
+        }),
+      ),
     ),
   );
 
