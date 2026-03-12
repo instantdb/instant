@@ -6,6 +6,7 @@ import type { ElementType, ReactNode } from 'react';
 import { LandingContainer, MainNav } from '@/components/marketingUi';
 import * as og from '@/lib/og';
 import { Footer } from '@/components/new-landing/Footer';
+import { TopWash } from '@/components/new-landing/TopWash';
 import { formatAuthorByline, formatDuration } from '../../lib/postUtils';
 import { getAllPosts, type Author, type Post } from '../../lib/posts';
 
@@ -123,9 +124,7 @@ export default function Page({ posts }: { posts: EssaysIndexPost[] }) {
         />
       </Head>
       <div className="relative flex min-h-screen flex-col justify-between">
-        <div className="absolute inset-x-0 top-0 h-[420px] overflow-hidden bg-[#F8F8F8]">
-          <div className="absolute right-0 bottom-0 left-0 h-48 bg-gradient-to-b from-transparent to-white" />
-        </div>
+        <TopWash />
         <MainNav transparent />
         <div className="relative landing-width mx-auto flex-1 pt-28 pb-16 sm:pt-32 sm:pb-20">
           <div className="mb-10 flex items-center justify-between">

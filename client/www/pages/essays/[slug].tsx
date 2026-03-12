@@ -11,6 +11,7 @@ import remarkMath from 'remark-math';
 import { abbreviateAuthorName, formatDuration } from '../../lib/postUtils';
 import { getAllSlugs, getPostBySlug, type Post } from '../../lib/posts';
 
+import { TopWash } from '@/components/new-landing/TopWash';
 import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
 import { GPT52Leaderboard } from '@/components/essays/GPT52Leaderboard';
 import { Lightbox } from '@/components/Lightbox';
@@ -48,9 +49,7 @@ const Post = ({ post }: { post: Post }) => {
       </Head>
       <PageProgressBar />
       <div className="relative">
-        <div className="absolute inset-x-0 top-0 h-[420px] overflow-hidden bg-[#F8F8F8]">
-          <div className="absolute right-0 bottom-0 left-0 h-48 bg-gradient-to-b from-transparent to-white" />
-        </div>
+        <TopWash />
         <MainNav transparent />
         <div className="relative mx-auto max-w-4xl px-4 pt-28 pb-8 sm:pt-32">
         <div className="mx-auto mb-8 max-w-2xl">

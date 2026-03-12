@@ -77,7 +77,7 @@ export default function Landing2026() {
           <BuiltForAI />
         </Section>
 
-        <LandingBand className="bg-[#F0F5FA]" fadeHeightClass="h-24">
+        <LandingBand className="bg-[#F0F5FA]" fadeHeightClass="h-48">
           <Section id="startup-showcase">
             <StartupShowcase />
           </Section>
@@ -100,7 +100,7 @@ export default function Landing2026() {
         <LandingBand
           id="social-proof"
           className="bg-[#F8F8F8]"
-          fadeHeightClass="h-32"
+          fadeHeightClass="h-48"
           background={
             <div className="opacity-40">
               <AgentPathsBgSoftCenter />
