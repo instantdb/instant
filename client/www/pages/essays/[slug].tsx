@@ -50,7 +50,7 @@ const Post = ({ post }: { post: Post }) => {
       <MainNav transparent />
       <div className="mx-auto max-w-4xl px-4 pt-28 pb-8 sm:pt-32">
         <div className="mx-auto mb-8 max-w-2xl">
-          <h1 className="mb-4 text-5xl leading-tight font-semibold tracking-tight">
+          <h1 className="mb-4 text-5xl leading-tight font-normal tracking-tight">
             {title}
           </h1>
           <div className="flex items-center text-base text-gray-500">
@@ -82,7 +82,7 @@ const Post = ({ post }: { post: Post }) => {
             <img src={hero} alt={title} className="w-full" />
           </div>
         )}
-        <div className="essay-content prose prose-lg prose-headings:font-semibold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-12 prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl">
+        <div className="essay-content prose prose-lg prose-headings:font-normal prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-12 prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl">
           <ReactMarkdown
             rehypePlugins={[rehypeRaw, rehypeKatex]}
             remarkPlugins={[remarkGfm, remarkMath]}

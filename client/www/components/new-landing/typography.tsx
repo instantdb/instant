@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 
 export function HeroTitle({ children }: { children: ReactNode }) {
-  return <h1 className="text-9xl font-semibold sm:text-5xl">{children}</h1>;
+  return <h1 className="text-9xl font-normal sm:text-5xl">{children}</h1>;
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h2 className="text-2xl font-semibold sm:text-5xl">{children}</h2>;
+  return <h2 className="text-2xl font-normal sm:text-5xl">{children}</h2>;
 }
 
 export function SectionSubtitle({ children }: { children: ReactNode }) {
@@ -15,7 +15,7 @@ export function SectionSubtitle({ children }: { children: ReactNode }) {
 }
 
 export function Subheading({ children }: { children: ReactNode }) {
-  return <h3 className="text-2xl font-semibold sm:text-3xl">{children}</h3>;
+  return <h3 className="text-2xl font-normal sm:text-3xl">{children}</h3>;
 }
 
 export function FeatureBody({ children }: { children: ReactNode }) {
