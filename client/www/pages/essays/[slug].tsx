@@ -8,6 +8,7 @@ import 'katex/dist/katex.min.css';
 import Head from 'next/head';
 import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
+import { abbreviateAuthorName, formatDuration } from '../../lib/postUtils';
 import { getAllSlugs, getPostBySlug, type Post } from '../../lib/posts';
 
 import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
@@ -52,9 +53,13 @@ const Post = ({ post }: { post: Post }) => {
           <h1 className="mb-4 text-5xl leading-tight font-semibold tracking-tight">
             {title}
           </h1>
-          <div className="flex text-base text-gray-500">
+          <div className="flex items-center text-base text-gray-500">
             <span>
               {authors.map((author, idx) => {
+                const name =
+                  authors.length > 1
+                    ? abbreviateAuthorName(author.name)
+                    : author.name;
                 return (
                   <span key={author.name}>
                     <a
@@ -62,15 +67,14 @@ const Post = ({ post }: { post: Post }) => {
                       href={author.url}
                       target="_blank"
                     >
-                      {author.name}
+                      {name}
                     </a>
-                    {idx !== authors.length - 1 ? ', ' : ''}
+                    {idx !== authors.length - 1 ? ' & ' : ''}
                   </span>
                 );
               })}
             </span>
-            <span className="mx-1">·</span>
-            {post.duration.minutes} min {post.duration.type}
+            <span className="ml-auto">{formatDuration(post)}</span>
           </div>
         </div>
         {hero && (

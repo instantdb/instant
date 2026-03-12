@@ -7,6 +7,7 @@ import { LandingContainer, MainNav } from '@/components/marketingUi';
 import * as og from '@/lib/og';
 import { Footer } from '@/components/new-landing/Footer';
 import { SectionTitle } from '@/components/new-landing/typography';
+import { formatAuthorByline, formatDuration } from '../../lib/postUtils';
 import { getAllPosts, type Author, type Post } from '../../lib/posts';
 
 type EssaysIndexPost = Omit<Post, 'content'>;
@@ -15,30 +16,6 @@ export async function getStaticProps() {
   return {
     props: { posts: getAllPosts() },
   };
-}
-
-function abbreviateAuthorName(name: string): string {
-  const [firstName, lastName] = name.split(' ');
-  if (!lastName) return firstName;
-  return `${firstName} ${lastName[0]}.`;
-}
-
-function formatAuthorByline(authors: Author[]): string {
-  if (authors.length === 1) return authors[0].name;
-  return authors.map((author) => abbreviateAuthorName(author.name)).join(' & ');
-}
-
-function formatDuration(post: Pick<EssaysIndexPost, 'duration'>): string {
-  const mins = post.duration.minutes;
-  const label = post.duration.type;
-  if (mins >= 60) {
-    const hours = Math.floor(mins / 60);
-    const minutes = mins % 60;
-    return minutes > 0
-      ? `${hours}h ${minutes}m ${label}`
-      : `${hours}h ${label}`;
-  }
-  return `${mins} min ${label}`;
 }
 
 function LinkedHeading({
