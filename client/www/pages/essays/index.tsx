@@ -4,7 +4,6 @@ import Head from 'next/head';
 import NextLink from 'next/link';
 import type { ElementType, ReactNode } from 'react';
 import { LandingContainer, MainNav } from '@/components/marketingUi';
-import { StaticWashBg } from '@/components/home/StaticWashBg';
 import * as og from '@/lib/og';
 import { Footer } from '@/components/new-landing/Footer';
 import { formatAuthorByline, formatDuration } from '../../lib/postUtils';
@@ -125,10 +124,7 @@ export default function Page({ posts }: { posts: EssaysIndexPost[] }) {
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav transparent />
-        <section className="relative overflow-hidden bg-[#F8F8F8]">
-          <StaticWashBg />
-          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-48 bg-gradient-to-b from-transparent to-white" />
-          <div className="landing-width relative z-10 mx-auto pt-28 pb-16 sm:pt-32 sm:pb-20">
+        <div className="landing-width mx-auto flex-1 pt-28 pb-16 sm:pt-32 sm:pb-20">
             <div className="mb-10 flex items-center justify-between">
               <h2 className="text-2xl font-normal sm:text-5xl">Essays</h2>
               <NextLink
@@ -147,8 +143,7 @@ export default function Page({ posts }: { posts: EssaysIndexPost[] }) {
                 <PostCard key={post.slug} post={post} />
               ))}
             </div>
-          </div>
-        </section>
+        </div>
         <Footer />
       </div>
     </LandingContainer>
