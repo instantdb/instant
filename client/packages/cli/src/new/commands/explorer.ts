@@ -22,6 +22,7 @@ export const explorerCmd = (opts: OptsFromCommand<typeof explorerDef>) =>
     Effect.provide(
       WithAppLayer({
         coerce: true,
+        coerceAuth: true,
         appId: opts.app,
       }),
     ),
