@@ -96,7 +96,7 @@
 
               (and org-member-role
                    good-org-role?
-                   (or (= :owner org-member-role)
+                   (or (= :owner (:role org-member-role))
                        (some-> org-member-role
                                :member
                                instant-org-members/created-before-free-teams-cutoff?)
