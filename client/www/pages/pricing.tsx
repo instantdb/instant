@@ -12,9 +12,9 @@ const getVariantStyles = (variant: string) => {
   switch (variant) {
     case 'startup':
       return {
-        outline: 'outline-orange-600/80',
+        outline: 'outline-orange-400',
         outlineWidth: 'outline-2',
-        background: 'bg-radial from-white to-[#FFF9F4]',
+        background: 'bg-white',
         iconColor: 'text-orange-500',
       };
     default:
@@ -160,14 +160,14 @@ function Plan({ plan }: { plan: any }) {
     >
       <div>
         <div className="my-2 flex items-center justify-between">
-          <h5 className="mr-2 text-2xl font-normal tracking-tight">
+          <h5 className="mr-2 text-3xl font-normal tracking-tight">
             {name}
           </h5>
         </div>
         <div className="opacity-60">{description}</div>
         {price && (
           <span className="my-4 inline-flex items-baseline gap-1">
-            <h3 className="text-3xl leading-none font-normal tracking-tight sm:text-4xl">
+            <h3 className="text-3xl leading-none font-normal tracking-tight">
               {price}
             </h3>
             {price !== 'Custom' && (

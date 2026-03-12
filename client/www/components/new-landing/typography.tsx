@@ -5,12 +5,12 @@ export function HeroTitle({ children }: { children: ReactNode }) {
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h2 className="text-2xl font-normal leading-snug sm:text-5xl">{children}</h2>;
+  return <h2 className="text-3xl font-normal leading-snug sm:text-5xl">{children}</h2>;
 }
 
 export function SectionSubtitle({ children }: { children: ReactNode }) {
   return (
-    <p className="mx-auto mt-6 max-w-3xl text-xl text-balance">{children}</p>
+    <p className="mx-auto mt-6 max-w-3xl text-lg text-balance sm:text-xl">{children}</p>
   );
 }
 
