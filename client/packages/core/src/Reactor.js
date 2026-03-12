@@ -64,7 +64,7 @@ const defaultConfig = {
 // Param that the backend adds if this is an oauth redirect
 const OAUTH_REDIRECT_PARAM = '_instant_oauth_redirect';
 
-const OAUTH_EXTRA_FIELDS_KEY = '_instant_oauth_extra_fields';
+const oauthExtraFieldsKey = 'oauthExtraFields';
 
 const currentUserKey = `currentUser`;
 
@@ -1953,15 +1953,11 @@ export default class Reactor {
     }
     this._replaceUrlAfterOAuth();
     try {
-      let extraFields;
-      if (typeof sessionStorage !== 'undefined') {
-        try {
-          const stored = sessionStorage.getItem(OAUTH_EXTRA_FIELDS_KEY);
-          if (stored) {
-            extraFields = JSON.parse(stored);
-            sessionStorage.removeItem(OAUTH_EXTRA_FIELDS_KEY);
-          }
-        } catch (_e) {}
+      const extraFields = await this.kv.waitForKeyToLoad(oauthExtraFieldsKey);
+      if (extraFields) {
+        this.kv.updateInPlace((prev) => {
+          delete prev[oauthExtraFieldsKey];
+        });
       }
       const currentUser = await this._getCurrentUser();
       const isGuest = currentUser?.type === 'guest';
@@ -2268,11 +2264,10 @@ export default class Reactor {
    * @returns {string} The created authorization URL.
    */
   createAuthorizationURL({ clientName, redirectURL, extraFields }) {
-    if (extraFields && typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem(
-        OAUTH_EXTRA_FIELDS_KEY,
-        JSON.stringify(extraFields),
-      );
+    if (extraFields) {
+      this.kv.updateInPlace((prev) => {
+        prev[oauthExtraFieldsKey] = extraFields;
+      });
     }
     const { apiURI, appId } = this.config;
     return `${apiURI}/runtime/oauth/start?app_id=${appId}&client_name=${clientName}&redirect_uri=${redirectURL}`;
