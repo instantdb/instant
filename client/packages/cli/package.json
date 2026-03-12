@@ -23,7 +23,6 @@
   },
   "dependencies": {
     "@commander-js/extra-typings": "^14.0.0",
-    "@effect/cli": "^0.73.0",
     "@effect/platform": "^0.94.1",
     "@effect/platform-node": "^0.104.0",
     "@instantdb/core": "workspace:*",
