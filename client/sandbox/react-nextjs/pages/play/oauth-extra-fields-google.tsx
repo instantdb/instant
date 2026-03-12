@@ -132,6 +132,7 @@ function Login() {
             nonce={nonce}
             onError={() => alert('Login failed')}
             onSuccess={({ credential }) => {
+              if (!credential) return;
               db.auth
                 .signInWithIdToken({
                   clientName: 'google-button-for-web',
