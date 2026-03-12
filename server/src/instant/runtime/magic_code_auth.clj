@@ -130,19 +130,22 @@
 
    If a guest-user-id is passed in, it will either upgrade the guest user
    or link it to the existing user for the email."
-  [{:keys [app-id email code guest-user-id]}]
+  [{:keys [app-id email code guest-user-id extra-fields]}]
   (app-user-magic-code-model/consume!
    {:app-id app-id
     :code   code
     :email  email})
-  (let [user (or (app-user-model/get-by-email
-                  {:app-id app-id
-                   :email  email})
+  (let [existing-user (app-user-model/get-by-email
+                       {:app-id app-id
+                        :email  email})
+        created? (nil? existing-user)
+        user (or existing-user
                  (app-user-model/create!
                   {:id (or guest-user-id (random-uuid))
                    :app-id app-id
                    :email  email
-                   :type   "user"}))
+                   :type   "user"
+                   :extra-fields extra-fields}))
         refresh-token-id (random-uuid)]
     (when (and guest-user-id
                (not= (:id user)
@@ -154,7 +157,7 @@
      {:app-id  app-id
       :id      refresh-token-id
       :user-id (:id user)})
-    (assoc user :refresh_token refresh-token-id)))
+    (assoc user :refresh_token refresh-token-id :created created?)))
 
 (comment
   (def instant-user (instant-user-model/get-by-email

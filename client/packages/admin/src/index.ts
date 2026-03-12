@@ -515,16 +515,26 @@ class Auth {
    *
    * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
-  verifyMagicCode = async (email: string, code: string): Promise<User> => {
-    const { user } = await jsonFetch(
+  verifyMagicCode = async (
+    email: string,
+    code: string,
+    options?: { extraFields?: Record<string, any> },
+  ): Promise<User & { created?: boolean }> => {
+    const res = await jsonFetch(
       `${this.config.apiURI}/admin/verify_magic_code?app_id=${this.config.appId}`,
       {
         method: 'POST',
         headers: authorizedHeaders(this.config),
-        body: JSON.stringify({ email, code }),
+        body: JSON.stringify({
+          email,
+          code,
+          ...(options?.extraFields
+            ? { 'extra-fields': options.extraFields }
+            : {}),
+        }),
       },
     );
-    return user;
+    return { ...res.user, created: res.created };
   };
 
   /**
