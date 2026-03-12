@@ -58,7 +58,7 @@ export function makeE2ETest<Schema extends InstantSchemaDef<any, any, any>>({
       await use((db as any)._testApp.id);
     },
     adminToken: async ({ db }, use) => {
-      await use((db as any)._testApp.admin_token);
+      await use((db as any)._testApp['admin-token']);
     },
   });
 }
