@@ -34,6 +34,9 @@ export const InstantHttpLive = Layer.effect(
           HttpClientRequest.setHeader('X-Instant-Version', version),
         ),
       ),
+      HttpClient.transformResponse((r) =>
+        r.pipe(Effect.timeout('5 minutes'), Effect.orDie),
+      ),
       HttpClient.filterStatusOk, // makes non 2xx http codes error
     );
   }),
