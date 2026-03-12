@@ -61,7 +61,7 @@ function LandingBand({
 
 export default function Landing2026() {
   return (
-    <div className="text-off-black relative">
+    <div className="text-off-black w-full overflow-x-auto">
       <MainNav transparent />
       <HomeSeo />
       <main className="flex-1">
