@@ -730,12 +730,12 @@ class InstantCoreDatabase<
     cb: (resp: InfiniteQueryCallbackResponse<Schema, Q, UseDates>) => void,
     opts?: InstaQLOptions,
   ): InfiniteQuerySubscription {
-    const entities = Object.keys(query);
-    if (entities.length !== 1) {
+    const entityNames = Object.keys(query);
+    if (entityNames.length !== 1) {
       throw new Error('subscribeInfiniteQuery expects exactly one entity');
     }
 
-    const entity = entities[0] as Entity;
+    const entity = entityNames[0] as Entity;
     const entityQuery = query[entity];
     if (!entityQuery) {
       throw new Error('No query provided for infinite entity');
