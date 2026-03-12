@@ -283,6 +283,30 @@ function App() {
 }
 ```
 
+## Set custom properties at signup with `extraFields`
+
+Pass `extraFields` to any sign-in method to write custom `$users` properties atomically on user creation.
+Fields must be defined as optional attrs on `$users` in your schema.
+Use the `created` boolean to scaffold data for new users.
+
+```tsx
+// Set properties at signup
+const { user, created } = await db.auth.signInWithMagicCode({
+  email,
+  code,
+  extraFields: { nickname, createdAt: Date.now() },
+});
+
+// Scaffold data for new users
+if (created) {
+  db.transact([
+    tx.settings[id()]
+      .update({ theme: 'light', notifications: true })
+      .link({ user: user.id }),
+  ]);
+}
+```
+
 # Ad-hoc queries from the CLI
 
 Run `npx instant-cli query '{ posts: {} }' --admin` to query your app. A context flag is required: `--admin`, `--as-email <email>`, or `--as-guest`. Also supports `--app <id>`.
