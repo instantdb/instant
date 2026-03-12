@@ -253,7 +253,7 @@ export function SyncEngine() {
       <div className="flex flex-col gap-9">
         {/* Instant updates — text left, demo right */}
         <AnimateIn>
-          <div className="grid grid-cols-3 items-center gap-6">
+          <div className="flex grid-cols-3 flex-col items-center gap-6 md:grid">
             <div className="col-span-1">
               <Subheading>Instant updates</Subheading>
               <FeatureBody>
@@ -262,7 +262,7 @@ export function SyncEngine() {
                 users stay in flow.
               </FeatureBody>
             </div>
-            <div className="col-span-2 px-12 py-9">
+            <div className="col-span-2 md:px-12 md:py-9">
               <AutoPlayDemo />
             </div>
           </div>
@@ -270,8 +270,8 @@ export function SyncEngine() {
 
         {/* Real-time sync — demo left, text right */}
         <AnimateIn>
-          <div className="grid grid-cols-3 items-center gap-6">
-            <div className="col-span-2 px-12 py-9">
+          <div className="flex grid-cols-3 flex-col-reverse items-center gap-6 md:grid">
+            <div className="col-span-2 md:px-12 md:py-9">
               <RealtimeChecklistDemo />
             </div>
             <div className="col-span-1">
@@ -287,7 +287,7 @@ export function SyncEngine() {
 
         {/* Works offline — text left, demo right */}
         <AnimateIn>
-          <div className="grid grid-cols-3 items-center gap-6">
+          <div className="flex grid-cols-3 flex-col items-center gap-6 lg:grid">
             <div className="col-span-1">
               <Subheading>Works offline</Subheading>
               <FeatureBody>

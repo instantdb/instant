@@ -118,13 +118,13 @@ function VideoPlayer() {
             className="aspect-video w-full scale-[1.01] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
 
-          <div className="absolute inset-0 bg-black/58 transition-colors duration-300 group-hover:bg-black/50" />
+          <div className="absolute top-0 right-0 -bottom-2 left-0 bg-black/50 transition-colors duration-300 group-hover:bg-black/50" />
 
           <div className="absolute inset-x-0 top-[13%] px-6 text-center sm:top-[14%] sm:px-10">
             <p className="font-mono text-xs tracking-[0.16em] text-white/85 sm:text-[13px]">
               instant in action
             </p>
-            <p className="mx-auto mt-6 text-9xl leading-[1.2] font-semibold tracking-[-0.02em] text-white sm:text-5xl">
+            <p className="mx-auto mt-6 text-3xl leading-[1.2] font-semibold tracking-[-0.02em] text-white sm:text-5xl">
               Agents build realtime
               <br />
               Instagram in 12 minutes

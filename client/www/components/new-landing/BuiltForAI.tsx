@@ -771,8 +771,8 @@ export function BuiltForAI() {
 
       {/* Feature 1: CLI-first - the hero visual */}
       <AnimateIn>
-        <div className="flex items-center gap-8 lg:grid-cols-2 lg:gap-12">
-          <div className="max-w-[400px]">
+        <div className="flex grid-cols-1 flex-col items-center gap-8 md:grid md:grid-cols-2 md:gap-12">
+          <div className="lg:max-w-[400px]">
             <Subheading>Never leave your terminal</Subheading>
             <FeatureBody>
               Create an account, spin up a database, push schema, and build from
@@ -780,7 +780,7 @@ export function BuiltForAI() {
               your agent, and your code.
             </FeatureBody>
           </div>
-          <div className="order-2 grow bg-[#CC4E05]/20 px-[129px] py-[96px] lg:order-1">
+          <div className="order-2 grow md:bg-[#CC4E05]/20 lg:order-1 xl:px-[129px] xl:py-[96px]">
             <AnimatedTerminal />
           </div>
         </div>
@@ -788,11 +788,11 @@ export function BuiltForAI() {
 
       {/* Feature 2: LLMs get it right */}
       <AnimateIn>
-        <div className="flex items-center gap-8">
-          <div className="bg-surface/20 grow px-[66px] py-[37px]">
+        <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row lg:items-center">
+          <div className="lg:bg-surface/20 grow lg:px-[66px] lg:py-[37px]">
             <InstantCodeSnippet />
           </div>
-          <div className="max-w-[440px]">
+          <div className="lg:max-w-[440px]">
             <Subheading>Easy for humans, perfect for LLMs</Subheading>
             <FeatureBody>
               Instant has a tiny API surface. Modern LLMs already know it from
@@ -809,8 +809,8 @@ export function BuiltForAI() {
 
       {/* Feature 3: Type safety */}
       <AnimateIn>
-        <div className="flex items-center gap-7">
-          <div className="max-w-[440px]">
+        <div className="flex flex-col items-stretch gap-7 md:flex-row md:items-center">
+          <div className="md:max-w-[440px]">
             <Subheading>End-to-end type safety</Subheading>
             <FeatureBody>
               Instant comes with types for your schema, permissions, queries,
@@ -819,7 +819,7 @@ export function BuiltForAI() {
               first try.
             </FeatureBody>
           </div>
-          <div className="bg-surface/20 grow px-[66px] py-[37px]">
+          <div className="lg:bg-surface/20 grow lg:px-[66px] lg:py-[37px]">
             <TypeSafetyDemo />
           </div>
         </div>
@@ -827,11 +827,11 @@ export function BuiltForAI() {
 
       {/* Feature 4: Undo destructive changes */}
       <AnimateIn>
-        <div className="flex items-center gap-8 lg:gap-12">
-          <div className="grow bg-[#CC4E05]/10 px-[66px] py-[37px]">
+        <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center lg:gap-12">
+          <div className="grow bg-[#CC4E05]/10 px-4 py-[22px] md:px-[66px] md:py-[37px]">
             <UndoDemo />
           </div>
-          <div className="max-w-[400px]">
+          <div className="md:max-w-[400px]">
             <Subheading>Undo destructive changes</Subheading>
             <FeatureBody>
               LLMs can make mistakes. For destructive actions like schema

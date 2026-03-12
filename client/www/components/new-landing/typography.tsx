@@ -1,18 +1,22 @@
 import type { ReactNode } from 'react';
 
-export function HeroTitle({ children }: { children: ReactNode }) {
-  return <h1 className="text-9xl font-normal sm:text-5xl">{children}</h1>;
+interface TypographyProps {
+  children: ReactNode;
 }
 
-export function SectionTitle({ children }: { children: ReactNode }) {
+export function HeroTitle({ children }: TypographyProps) {
+  return <h1 className="text-3xl font-semibold sm:text-5xl">{children}</h1>;
+}
+
+export function SectionTitle({ children }: TypographyProps) {
   return (
-    <h2 className="text-3xl leading-snug font-normal sm:text-5xl">
+    <h2 className="text-3xl leading-snug font-semibold sm:text-5xl">
       {children}
     </h2>
   );
 }
 
-export function SectionSubtitle({ children }: { children: ReactNode }) {
+export function SectionSubtitle({ children }: TypographyProps) {
   return (
     <p className="mx-auto mt-6 max-w-3xl text-lg text-balance sm:text-xl">
       {children}

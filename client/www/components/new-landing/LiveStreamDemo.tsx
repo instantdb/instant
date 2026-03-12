@@ -193,7 +193,7 @@ export function LiveStreamDemo() {
   };
 
   return (
-    <div className="flex items-end justify-center gap-10">
+    <div className="flex flex-col items-end justify-center gap-10 md:flex-row">
       <StreamCard tilt="-rotate-2 translate-y-2" />
       <StreamCard tilt="rotate-1 -translate-y-3" />
     </div>

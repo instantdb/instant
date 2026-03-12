@@ -934,7 +934,7 @@ export function BatteriesForAI() {
       </AnimateIn>
 
       {/* Features */}
-      <div className="grid auto-rows-fr grid-cols-3 gap-6">
+      <div className="grid auto-rows-fr grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Auth */}
         <AnimateIn className="flex">
           <div className="col-span-1 space-y-4">
@@ -989,7 +989,7 @@ export function BatteriesForAI() {
         {/* Payments */}
       </div>
       <AnimateIn>
-        <div className="grid grid-cols-3 items-center gap-7">
+        <div className="flex grid-cols-3 flex-col items-stretch gap-7 lg:grid lg:items-center">
           <div className="col-span-1">
             <Subheading>Payments</Subheading>
             <FeatureBody>
@@ -1007,7 +1007,7 @@ export function BatteriesForAI() {
       </AnimateIn>
 
       <AnimateIn>
-        <div className="grid grid-cols-3 items-center gap-7">
+        <div className="flex grid-cols-3 flex-col-reverse gap-7 md:items-center lg:grid lg:items-stretch">
           <div className="col-span-2">
             <div className="bg-radial from-white to-[#F5F0FF] px-6 py-8">
               <LiveStreamDemo />
@@ -1025,7 +1025,7 @@ export function BatteriesForAI() {
       </AnimateIn>
 
       <AnimateIn>
-        <div className="grid grid-cols-3 items-center gap-7">
+        <div className="flex grid-cols-3 flex-col items-stretch gap-7 lg:grid lg:items-center">
           <div className="col-span-1">
             <Subheading>Streams</Subheading>
             <FeatureBody>
