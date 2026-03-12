@@ -47,8 +47,12 @@ const Post = ({ post }: { post: Post }) => {
         />
       </Head>
       <PageProgressBar />
-      <MainNav transparent />
-      <div className="mx-auto max-w-4xl px-4 pt-28 pb-8 sm:pt-32">
+      <div className="relative">
+        <div className="absolute inset-x-0 top-0 h-[420px] overflow-hidden bg-[#F8F8F8]">
+          <div className="absolute right-0 bottom-0 left-0 h-48 bg-gradient-to-b from-transparent to-white" />
+        </div>
+        <MainNav transparent />
+        <div className="relative mx-auto max-w-4xl px-4 pt-28 pb-8 sm:pt-32">
         <div className="mx-auto mb-8 max-w-2xl">
           <h1 className="mb-4 text-5xl leading-tight font-normal tracking-tight">
             {title}
@@ -196,6 +200,7 @@ const Post = ({ post }: { post: Post }) => {
             {content}
           </ReactMarkdown>
         </div>
+      </div>
       </div>
       <Footer />
     </LandingContainer>

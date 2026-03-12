@@ -122,9 +122,12 @@ export default function Page({ posts }: { posts: EssaysIndexPost[] }) {
           href="/rss.xml"
         />
       </Head>
-      <div className="flex min-h-screen flex-col justify-between">
+      <div className="relative flex min-h-screen flex-col justify-between">
+        <div className="absolute inset-x-0 top-0 h-[420px] overflow-hidden bg-[#F8F8F8]">
+          <div className="absolute right-0 bottom-0 left-0 h-48 bg-gradient-to-b from-transparent to-white" />
+        </div>
         <MainNav transparent />
-        <div className="landing-width mx-auto flex-1 pt-28 pb-16 sm:pt-32 sm:pb-20">
+        <div className="relative landing-width mx-auto flex-1 pt-28 pb-16 sm:pt-32 sm:pb-20">
           <div className="mb-10 flex items-center justify-between">
             <h2 className="text-2xl font-normal sm:text-5xl">Essays</h2>
             <NextLink
