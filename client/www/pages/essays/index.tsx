@@ -43,7 +43,7 @@ function PostCard({ post }: { post: EssaysIndexPost }) {
   return (
     <NextLink
       href={`/essays/${post.slug}`}
-      className="group block h-full p-5 lg:p-6"
+      className="group block h-full rounded-xl border border-gray-200 bg-white p-5 lg:p-6"
     >
       {post.thumbnail && (
         <div className="mb-5 h-44 overflow-hidden">
@@ -72,7 +72,7 @@ function HeroPostCard({ post }: { post: EssaysIndexPost }) {
   return (
     <NextLink
       href={`/essays/${post.slug}`}
-      className="group block overflow-hidden rounded-xl border border-gray-200 bg-white transition-[box-shadow] hover:shadow-sm"
+      className="group block overflow-hidden rounded-xl border border-gray-200 bg-white"
     >
       <div className="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr]">
         {post.thumbnail && (
