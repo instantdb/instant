@@ -59,8 +59,7 @@ const Post = ({ post }: { post: Post }) => {
             <div className="flex items-center text-base text-gray-500">
               <span>
                 {authors.map((author, idx) => {
-                  const name =
-                    authors.length > 1 ? authorFirstName(author) : author.name;
+                  const name = authorFirstName(author);
                   return (
                     <span key={author.name}>
                       <a
