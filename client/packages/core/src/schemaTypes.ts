@@ -164,13 +164,13 @@ export type LinkDef<
     label: FwdAttr;
     has: FwdCardinality;
     required?: RequirementKind;
-    onDelete?: 'cascade';
+    onDelete?: 'cascade' | 'restrict';
   };
   reverse: {
     on: RevEntity;
     label: RevAttr;
     has: RevCardinality;
-    onDelete?: 'cascade';
+    onDelete?: 'cascade' | 'restrict';
   };
 };
 

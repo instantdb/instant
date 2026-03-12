@@ -484,6 +484,105 @@ test('update link delete cascade', async () => {
   expect((result[0] as any).partialAttr['on-delete']).toBe('cascade');
 });
 
+test('update link delete restrict', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: { on: 'albums', has: 'one', label: 'songs' },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: {
+            on: 'albums',
+            has: 'one',
+            onDelete: 'restrict',
+            label: 'songs',
+          },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    createChooser([]),
+    systemCatalogIdentNames,
+  );
+  console.log(result);
+  expectTxType(result, 'update-attr', 1);
+  expect((result[0] as any).partialAttr['on-delete']).toBe('restrict');
+});
+
+test('update link delete cascade to restrict', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: {
+            on: 'albums',
+            has: 'one',
+            onDelete: 'cascade',
+            label: 'songs',
+          },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: {
+            on: 'albums',
+            has: 'one',
+            onDelete: 'restrict',
+            label: 'songs',
+          },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    createChooser([]),
+    systemCatalogIdentNames,
+  );
+  console.log(result);
+  expectTxType(result, 'update-attr', 1);
+  expect((result[0] as any).partialAttr['on-delete']).toBe('restrict');
+});
+
 test('system catalog attrs are ignored when adding entities', async () => {
   const result = await diffSchemas(
     i.schema({

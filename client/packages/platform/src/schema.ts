@@ -493,14 +493,14 @@ export const validateSchema = (
       );
     }
 
-    if (link.forward.has === 'many' && link.forward.onDelete === 'cascade') {
+    if (link.forward.has === 'many' && link.forward.onDelete) {
       throw new SchemaValidationError(
-        `${link.forward.on}${link.forward.label} -> ${link.reverse.on}${link.reverse.label} has onDelete: "cascade" with has: "many"`,
+        `${link.forward.on}${link.forward.label} -> ${link.reverse.on}${link.reverse.label} has onDelete: "${link.forward.onDelete}" with has: "many"`,
       );
     }
-    if (link.reverse.has === 'many' && link.reverse.onDelete === 'cascade') {
+    if (link.reverse.has === 'many' && link.reverse.onDelete) {
       throw new SchemaValidationError(
-        `${link.forward.on}${link.forward.label} -> ${link.reverse.on}${link.reverse.label} has onDelete: "cascade" with has: "many"`,
+        `${link.forward.on}${link.forward.label} -> ${link.reverse.on}${link.reverse.label} has onDelete: "${link.reverse.onDelete}" with has: "many"`,
       );
     }
 

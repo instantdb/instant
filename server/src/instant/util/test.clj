@@ -109,7 +109,9 @@
                      :index?            (assoc m :index? true)
                      :required?         (assoc m :required? true)
                      :on-delete         (assoc m :on-delete :cascade)
-                     :on-delete-reverse (assoc m :on-delete-reverse :cascade)))
+                     :on-delete-restrict (assoc m :on-delete :restrict)
+                     :on-delete-reverse (assoc m :on-delete-reverse :cascade)
+                     :on-delete-reverse-restrict (assoc m :on-delete-reverse :restrict)))
                  {:id               (random-uuid)
                   :forward-identity [(random-uuid) (namespace fwd) (name fwd)]
                   :reverse-identity (when rvr

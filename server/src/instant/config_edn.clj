@@ -116,7 +116,7 @@
     (when override
       ;; Can't use tracer because it requires config to be decoded before
       ;; it is initialized
-      (log/infof "Using config at resources/config/override.edn"))
+      (log/info "Using config at resources/config/override.edn"))
     (-> (or override
             (io/resource (format "config/%s.edn" (name env))))
         slurp

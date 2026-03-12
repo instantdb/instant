@@ -343,9 +343,13 @@ Our micro-blog example has the following relationship types:
 - **One-to-many** between `comments` and `profiles`
 - **Many-to-many** between `posts` and `tags`
 
-### Cascade Delete
+### On Delete
 
-Links defined with `has: "one"` can set `onDelete: "cascade"`. In this case, when the profile entity is deleted, all post entities will be deleted too:
+Links defined with `has: "one"` can set `onDelete` to either `cascade` or `restrict`.
+
+#### `cascade`
+
+In this case, when the profile entity is deleted, all post entities will be deleted too:
 
 ```typescript
 postAuthor: {
@@ -357,14 +361,41 @@ postAuthor: {
 db.tx.profiles[user_id].delete();
 ```
 
-Without `onDelete: "cascade"`, deleting a profile would simply delete the links but not delete the underlying posts.
+Without `onDelete`, deleting a profile would simply delete the links but not delete the underlying posts.
 
 If you prefer to model links in other direction, you can do it, too:
 
-```
+```typescript
 postAuthor: {
   forward: { on: "profiles", has: "many", label: "authoredPosts" },
   reverse: { on: "posts", has: "one", label: "author", onDelete: "cascade" },
+}
+```
+
+#### `restrict`
+
+In this case, when the profile entity is deleted, the post entities must be deleted first, or the transaction will fail:
+
+```typescript
+postAuthor: {
+  forward: { on: "posts", has: "one", label: "author", onDelete: "restrict" },
+  reverse: { on: "profiles", has: "many", label: "authoredPosts" },
+}
+
+// this will prevent deleting the profile if there are posts
+await db.transact(db.tx.profiles[user_id].delete());
+// throws validation error
+
+// If all posts are deleted in the same transaction, then it will succeed
+await db.transact([db.tx.profiles[user_id].delete(), db.tx.posts[linked_post_id].delete()])
+```
+
+If you prefer to model links in other direction, you can do it, too:
+
+```typescript
+postAuthor: {
+  forward: { on: "profiles", has: "many", label: "authoredPosts" },
+  reverse: { on: "posts", has: "one", label: "author", onDelete: "restrict" },
 }
 ```
 
