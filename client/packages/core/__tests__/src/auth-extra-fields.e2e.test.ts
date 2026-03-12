@@ -1,18 +1,6 @@
-import { test as baseTest, expect } from 'vitest';
-import { init, i, type InstantCoreDatabase } from '../../src';
-
-// @ts-ignore
-const apiUrl = import.meta.env.VITE_INSTANT_DEV
-  ? 'http://localhost:8888'
-  : // @ts-ignore
-    import.meta.env.VITE_INSTANT_API_URL || 'https://api.instantdb.com';
-
-// @ts-ignore
-const websocketURI = import.meta.env.VITE_INSTANT_DEV
-  ? 'ws://localhost:8888/runtime/session'
-  : // @ts-ignore
-    import.meta.env.VITE_INSTANT_WEBSOCKET_URI ||
-    'wss://api.instantdb.com/runtime/session';
+import { expect } from 'vitest';
+import { i } from '../../src';
+import { makeE2ETest, apiUrl } from './utils/e2e';
 
 const schema = i.schema({
   entities: {
@@ -42,38 +30,11 @@ async function generateMagicCode(
   return data.code;
 }
 
-const authTest = baseTest.extend<{
-  db: InstantCoreDatabase<typeof schema, false>;
-}>({
-  db: async ({ task, signal }, use) => {
-    const response = await fetch(`${apiUrl}/dash/apps/ephemeral`, {
-      body: JSON.stringify({ title: `e2e-auth-${task.id}`, schema }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'POST',
-      signal,
-    });
-    if (!response.ok) {
-      throw new Error(await response.text());
-    }
-    const { app } = await response.json();
-    const db = init<typeof schema>({
-      appId: app.id,
-      apiURI: apiUrl,
-      websocketURI,
-      schema,
-    });
-    // Stash app info on the db instance for tests to access
-    (db as any)._testAppId = app.id;
-    (db as any)._testAdminToken = app.admin_token;
-    await use(db);
-  },
-});
+const authTest = makeE2ETest({ schema });
 
 authTest(
   'new user with extraFields gets fields written and created=true',
-  async ({ db }) => {
-    const appId = (db as any)._testAppId;
-    const adminToken = (db as any)._testAdminToken;
+  async ({ db, appId, adminToken }) => {
     const email = `new-${Date.now()}@test.com`;
 
     const code = await generateMagicCode(appId, adminToken, email);
@@ -93,27 +54,26 @@ authTest(
   },
 );
 
-authTest('returning user gets created=false', async ({ db }) => {
-  const appId = (db as any)._testAppId;
-  const adminToken = (db as any)._testAdminToken;
-  const email = `returning-${Date.now()}@test.com`;
+authTest(
+  'returning user gets created=false',
+  async ({ db, appId, adminToken }) => {
+    const email = `returning-${Date.now()}@test.com`;
 
-  // First sign in -- creates user
-  const code1 = await generateMagicCode(appId, adminToken, email);
-  const res1 = await db.auth.signInWithMagicCode({ email, code: code1 });
-  expect(res1.created).toBe(true);
+    // First sign in -- creates user
+    const code1 = await generateMagicCode(appId, adminToken, email);
+    const res1 = await db.auth.signInWithMagicCode({ email, code: code1 });
+    expect(res1.created).toBe(true);
 
-  // Second sign in -- existing user
-  const code2 = await generateMagicCode(appId, adminToken, email);
-  const res2 = await db.auth.signInWithMagicCode({ email, code: code2 });
-  expect(res2.created).toBe(false);
-});
+    // Second sign in -- existing user
+    const code2 = await generateMagicCode(appId, adminToken, email);
+    const res2 = await db.auth.signInWithMagicCode({ email, code: code2 });
+    expect(res2.created).toBe(false);
+  },
+);
 
 authTest(
   'sign in without extraFields works (backwards compat)',
-  async ({ db }) => {
-    const appId = (db as any)._testAppId;
-    const adminToken = (db as any)._testAdminToken;
+  async ({ db, appId, adminToken }) => {
     const email = `compat-${Date.now()}@test.com`;
 
     const code = await generateMagicCode(appId, adminToken, email);

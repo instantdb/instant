@@ -31,6 +31,8 @@ export function makeE2ETest<Schema extends InstantSchemaDef<any, any, any>>({
 }) {
   return baseTest.extend<{
     db: InstantCoreDatabase<Schema, false>;
+    appId: string;
+    adminToken: string;
   }>({
     db: async ({ task, signal }, use) => {
       const response = await fetch(`${apiUrl}/dash/apps/ephemeral`, {
@@ -49,9 +51,18 @@ export function makeE2ETest<Schema extends InstantSchemaDef<any, any, any>>({
         websocketURI,
         schema,
       });
+      (db as any)._testApp = app;
       await use(db);
+    },
+    appId: async ({ db }, use) => {
+      await use((db as any)._testApp.id);
+    },
+    adminToken: async ({ db }, use) => {
+      await use((db as any)._testApp.admin_token);
     },
   });
 }
+
+export { apiUrl };
 
 export const e2eTest = makeE2ETest({});
