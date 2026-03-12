@@ -4,6 +4,7 @@ import { Button } from '@/components/ui';
 import * as og from '@/lib/og';
 import { Footer } from '@/components/new-landing/Footer';
 import { SectionTitle, SectionSubtitle } from '@/components/new-landing/typography';
+import { AnimateIn } from '@/components/new-landing/AnimateIn';
 
 // Helpers
 // ------------------
@@ -13,7 +14,7 @@ const getVariantStyles = (variant: string) => {
       return {
         outline: 'outline-orange-600/80',
         outlineWidth: 'outline-2',
-        background: 'bg-white',
+        background: 'bg-radial from-white to-[#FFF9F4]',
         iconColor: 'text-orange-500',
       };
     default:
@@ -199,28 +200,39 @@ function Plan({ plan }: { plan: any }) {
 
 function FourPlanGrid() {
   return (
-    <div className="pt-32 pb-16 sm:pt-40 sm:pb-24">
-      <div className="landing-width mx-auto flex flex-col gap-16">
-        <div className="text-center">
-          <SectionTitle>
-            Never paused.
-            <br />
-            Unlimited free projects.
-            <br />
-            Simple pricing.
-          </SectionTitle>
+    <div className="pb-16 sm:pb-24">
+      <section className="relative overflow-hidden bg-[#F8F8F8]">
+        <div className="relative z-10 pt-32 pb-24 sm:pt-40 sm:pb-32">
+          <div className="landing-width mx-auto text-center">
+            <AnimateIn>
+              <SectionTitle>
+                Never paused.
+                <br />
+                Unlimited free projects.
+                <br />
+                Simple pricing.
+              </SectionTitle>
+            </AnimateIn>
 
-          <SectionSubtitle>
-            Whether you're building a side project or your next big thing, you
-            can get started with Instant for free. We don't pause projects, we
-            don't limit active applications, and we have no restrictions for
-            commercial use.
-          </SectionSubtitle>
+            <AnimateIn delay={100}>
+              <SectionSubtitle>
+                Whether you're building a side project or your next big thing,
+                you can get started with Instant for free. We don't pause
+                projects, we don't limit active applications, and we have no
+                restrictions for commercial use.
+              </SectionSubtitle>
+            </AnimateIn>
+          </div>
         </div>
+        <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-48 bg-gradient-to-b from-transparent to-white" />
+      </section>
 
+      <div className="landing-width mx-auto px-4">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-4">
-          {plans.map((plan) => (
-            <Plan key={plan.name} plan={plan} />
+          {plans.map((plan, i) => (
+            <AnimateIn key={plan.name} delay={i * 100} className="h-full">
+              <Plan plan={plan} />
+            </AnimateIn>
           ))}
         </div>
       </div>
