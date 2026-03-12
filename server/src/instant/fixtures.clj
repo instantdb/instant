@@ -335,3 +335,21 @@
                                 :collaborator collaborator
                                 :admin admin
                                 :outside-user outside-user})))))))))))))))
+
+(defn with-free-org [f]
+  (with-user
+    (fn [owner]
+      (with-user
+        (fn [outside-user]
+          (with-org
+            (:id owner)
+            (fn [org]
+              (with-empty-app
+                (fn [app]
+                  (sql/do-execute! (aurora/conn-pool :write) ["update apps set org_id = ?::uuid, creator_id = null where id = ?::uuid"
+                                                              (:id org)
+                                                              (:id app)])
+                  (f {:app app
+                      :org org
+                      :owner owner
+                      :outside-user outside-user}))))))))))
