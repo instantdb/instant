@@ -3,7 +3,10 @@ import { MainNav } from '@/components/marketingUi';
 import { Button } from '@/components/ui';
 import * as og from '@/lib/og';
 import { Footer } from '@/components/new-landing/Footer';
-import { SectionTitle, SectionSubtitle } from '@/components/new-landing/typography';
+import {
+  SectionTitle,
+  SectionSubtitle,
+} from '@/components/new-landing/typography';
 import { AnimateIn } from '@/components/new-landing/AnimateIn';
 
 // Helpers
@@ -160,9 +163,7 @@ function Plan({ plan }: { plan: any }) {
     >
       <div>
         <div className="my-2 flex items-center justify-between">
-          <h5 className="mr-2 text-3xl font-normal tracking-tight">
-            {name}
-          </h5>
+          <h5 className="mr-2 text-3xl font-normal tracking-tight">{name}</h5>
         </div>
         <div className="opacity-60">{description}</div>
         {price && (
@@ -175,9 +176,7 @@ function Plan({ plan }: { plan: any }) {
             )}
           </span>
         )}
-        <div className="py-2 text-sm opacity-60">
-          {featuresDescription}
-        </div>
+        <div className="py-2 text-sm opacity-60">{featuresDescription}</div>
         <div className="flex flex-col">
           {features.map((feature: any, idx: number) => (
             <Feature key={idx} feature={feature} variant={variant} />
