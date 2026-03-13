@@ -124,7 +124,7 @@ Replace the content of `src/routes/+page.svelte` with the following:
 
   type Todo = InstaQLEntity<AppSchema, 'todos'>;
 
-  const state = db.useQuery({ todos: {} });
+  const query = db.useQuery({ todos: {} });
 
   let text = $state('');
 
@@ -154,11 +154,11 @@ Replace the content of `src/routes/+page.svelte` with the following:
   }
 </script>
 
-{#if state.isLoading}
+{#if query.isLoading}
 <div>Loading...</div>
-{:else if state.error}
-<div>Error: {state.error.message}</div>
-{:else} {@const todos = state.data?.todos ?? []}
+{:else if query.error}
+<div>Error: {query.error.message}</div>
+{:else} {@const todos = query.data?.todos ?? []}
 <div>
   <h2>Todos</h2>
   <div>
@@ -198,12 +198,12 @@ In Svelte 5, Instant's hooks return `$state` proxies. You read properties direct
 
 ```html
 <script lang="ts">
-  const state = db.useQuery({ todos: {} });
-  // state.isLoading, state.data, state.error are all reactive
+  const query = db.useQuery({ todos: {} });
+  // query.isLoading, query.data, query.error are all reactive
 </script>
 
-{#if !state.isLoading}
-<p>{state.data?.todos.length} todos</p>
+{#if !query.isLoading}
+<p>{query.data?.todos.length} todos</p>
 {/if}
 ```
 
