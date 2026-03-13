@@ -22,6 +22,42 @@ import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
 import { PreviewPlayer, tracks } from '@/lib/product/storage/musicPreview';
 
+function FrequencyBars({ player }: { player: PreviewPlayer }) {
+  const barsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    const update = () => {
+      const [low, mid, high] = player.getFrequencyBars();
+      const values = [low, mid, high];
+      barsRef.current.forEach((bar, i) => {
+        if (bar) {
+          const h = 3 + values[i] * 13;
+          bar.style.height = `${h}px`;
+        }
+      });
+      rafRef.current = requestAnimationFrame(update);
+    };
+    rafRef.current = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [player]);
+
+  return (
+    <div className="flex h-4 items-end gap-[2px]">
+      {[0, 1, 2].map((j) => (
+        <div
+          key={j}
+          ref={(el) => {
+            barsRef.current[j] = el;
+          }}
+          className="w-[2.5px] rounded-sm bg-gray-900 transition-[height] duration-75"
+          style={{ height: '3px' }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function MusicApp() {
   const [activeTrack, setActiveTrack] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -50,12 +86,6 @@ function MusicApp() {
 
   return (
     <div className="overflow-hidden rounded-lg border bg-white">
-      <style>{`
-        @keyframes equalize {
-          0%, 100% { height: 4px; }
-          50% { height: 16px; }
-        }
-      `}</style>
       <div className="flex items-center gap-3 border-b px-3 py-2.5">
         <button
           onClick={() => {
@@ -77,14 +107,14 @@ function MusicApp() {
         </button>
         <div className="min-w-0">
           <p className="truncate text-xs font-semibold text-gray-900">
-            My favorite songs
+            Favorite classical
           </p>
           <div className="mt-0.5 flex items-center gap-1">
             <img
-              src="/img/landing/joe.jpg"
+              src="/img/landing/stopa.jpg"
               className="h-4 w-4 rounded-full object-cover"
             />
-            <span className="text-[10px] text-gray-500">Joe</span>
+            <span className="text-[10px] text-gray-500">Stopa</span>
           </div>
         </div>
       </div>
@@ -103,18 +133,8 @@ function MusicApp() {
               className="flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-gray-50"
             >
               <div className="flex w-4 items-center justify-center">
-                {isActive && playing ? (
-                  <div className="flex h-3 items-end gap-[2px]">
-                    {[-0.4, -0.25, -0.35].map((delay, j) => (
-                      <div
-                        key={j}
-                        className="w-[2.5px] rounded-sm bg-gray-900"
-                        style={{
-                          animation: `equalize 0.8s ease-in-out ${delay}s infinite`,
-                        }}
-                      />
-                    ))}
-                  </div>
+                {isActive && playing && playerRef.current ? (
+                  <FrequencyBars player={playerRef.current} />
                 ) : (
                   <span className="text-[10px] text-gray-400">{i + 1}</span>
                 )}
@@ -128,7 +148,23 @@ function MusicApp() {
                 >
                   {t.title}
                 </p>
-                <p className="text-[10px] text-gray-400">{t.artist}</p>
+                <p className="text-[10px] text-gray-400">
+                  {t.artist}
+                  {isActive && playing && 'sourceUrl' in t && t.sourceUrl && (
+                    <>
+                      {' · '}
+                      <a
+                        href={t.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-400 underline hover:text-gray-600"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {t.license}
+                      </a>
+                    </>
+                  )}
+                </p>
               </div>
             </div>
           );
