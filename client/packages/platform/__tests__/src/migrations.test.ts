@@ -484,6 +484,102 @@ test('update link delete cascade', async () => {
   expect((result[0] as any).partialAttr['on-delete']).toBe('cascade');
 });
 
+test('make link required', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: { on: 'albums', has: 'many', label: 'songs' },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: { on: 'albums', has: 'many', label: 'songs', required: true },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    createChooser([]),
+    systemCatalogIdentNames,
+  );
+
+  expectTxType(result, 'required', 1);
+  const found = result.find(
+    (tx) =>
+      tx.type === 'required' &&
+      tx.identifier.namespace === 'albums' &&
+      tx.identifier.attrName === 'songs',
+  );
+  expect(found).toBeDefined();
+});
+
+test('make link optional', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: { on: 'albums', has: 'many', label: 'songs', required: true },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: { on: 'albums', has: 'many', label: 'songs', required: false },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    createChooser([]),
+    systemCatalogIdentNames,
+  );
+
+  expectTxType(result, 'remove-required', 1);
+  const found = result.find(
+    (tx) =>
+      tx.type === 'remove-required' &&
+      tx.identifier.namespace === 'albums' &&
+      tx.identifier.attrName === 'songs',
+  );
+  expect(found).toBeDefined();
+});
+
 test('system catalog attrs are ignored when adding entities', async () => {
   const result = await diffSchemas(
     i.schema({
