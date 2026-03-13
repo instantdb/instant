@@ -76,7 +76,7 @@ function MusicApp() {
           )}
         </button>
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-gray-900 truncate">My fav chiptunes</p>
+          <p className="text-xs font-semibold text-gray-900 truncate">My favorite songs</p>
           <div className="flex items-center gap-1 mt-0.5">
             <img src="/img/landing/joe.jpg" className="h-4 w-4 rounded-full object-cover" />
             <span className="text-[10px] text-gray-500">Joe</span>
