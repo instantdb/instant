@@ -28,8 +28,10 @@
     zIndex?: number;
   } = $props();
 
+  // svelte-ignore state_referenced_locally
   const spaceId = _spaceId || `cursors-space-default--${String(room.type)}-${room.id}`;
 
+  // svelte-ignore state_referenced_locally
   const cursorsPresence = usePresence(room, {
     keys: [spaceId] as (keyof RoomSchema[RoomType]['presence'])[],
   });
@@ -84,7 +86,7 @@
   );
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_no_static_element_interactions a11y_mouse_events_have_key_events -->
 <svelte:element
   this={as}
   class={className}

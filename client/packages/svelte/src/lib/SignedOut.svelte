@@ -8,6 +8,7 @@
     children: Snippet;
   } = $props();
 
+  // svelte-ignore state_referenced_locally
   const auth = db.useAuth();
 </script>
 

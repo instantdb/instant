@@ -83,7 +83,6 @@
       <input
         bind:value={text}
         class="w-full h-full placeholder-neutral-300 px-2 outline-none bg-transparent"
-        autofocus
         placeholder="What needs to be done?"
         type="text"
       />
