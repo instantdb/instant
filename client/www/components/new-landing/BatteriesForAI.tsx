@@ -16,7 +16,7 @@ import {
 
 // ─── Auth Demo ───────────────────────────────────────────
 
-function AuthDemo() {
+export function AuthDemo() {
   const [view, setView] = useState<'form' | 'success'>('form');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

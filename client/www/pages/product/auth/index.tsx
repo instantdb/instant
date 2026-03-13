@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import Image from 'next/image';
+
 import * as og from '@/lib/og';
 import { MainNav, ProductNav, Link } from '@/components/marketingUi';
 import { permissionExamples } from '@/lib/product/auth/examples';
@@ -14,22 +14,7 @@ import { Footer } from '@/components/new-landing/Footer';
 import { TopWash } from '@/components/new-landing/TopWash';
 import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
-
-import googleIcon from '@/public/img/google_g.svg';
-import appleIcon from '@/public/img/apple_logo_black.svg';
-import githubIcon from '@/public/img/github.svg';
-import linkedinIcon from '@/public/img/linkedin.svg';
-import clerkIcon from '@/public/img/clerk_logo_black.svg';
-import firebaseIcon from '@/public/img/firebase_auth.svg';
-
-const authMethods = [
-  { name: 'Google', icon: googleIcon, href: '/docs/auth/google-oauth' },
-  { name: 'Apple', icon: appleIcon, href: '/docs/auth/apple' },
-  { name: 'GitHub', icon: githubIcon, href: '/docs/auth/github-oauth' },
-  { name: 'LinkedIn', icon: linkedinIcon, href: '/docs/auth/linkedin-oauth' },
-  { name: 'Clerk', icon: clerkIcon, href: '/docs/auth/clerk' },
-  { name: 'Firebase', icon: firebaseIcon, href: '/docs/auth/firebase' },
-];
+import { AuthDemo } from '@/components/new-landing/BatteriesForAI';
 
 const tables = [
   { name: '$users', highlight: true, fields: 'email, name, role' },
@@ -145,26 +130,8 @@ export default function Auth() {
                 Want to use another auth provider? You can do that too!
               </p>
             </div>
-            <div className="min-w-0 grow lg:bg-radial lg:from-white lg:to-[#FFF9F4] lg:px-[66px] lg:py-[37px]">
-              <div className="flex flex-col items-center gap-4">
-                <div className="grid grid-cols-3 gap-5">
-                  {authMethods.map((method) => (
-                    <a
-                      key={method.name}
-                      href={method.href}
-                      className="flex h-20 w-20 items-center justify-center rounded-full border bg-white shadow-sm transition-shadow hover:shadow-md"
-                    >
-                      <Image
-                        alt={`${method.name} icon`}
-                        src={method.icon}
-                        width={36}
-                        height={36}
-                      />
-                    </a>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400">and more</p>
-              </div>
+            <div className="min-w-0 grow rounded-xl bg-radial from-white to-[#FFF9F4] px-5 py-12">
+              <AuthDemo />
             </div>
           </div>
 
