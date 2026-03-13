@@ -29,6 +29,13 @@ module.exports = [
         optionalLLM: true,
       },
       {
+        title: 'Getting started w/ Svelte',
+        href: '/docs/start-svelte',
+        prevHref: null,
+        nextHref: '/docs/create-instant-app',
+        optionalLLM: true,
+      },
+      {
         title: 'Getting started w/ TanStack Start',
         href: '/docs/start-tanstack',
         prevHref: null,
