@@ -185,7 +185,9 @@ export function useSyncPresence<
   $effect(() => {
     if (deps) {
       // Track deps by reading them
-      deps.forEach((d) => (typeof d === 'function' ? d() : d));
+      deps.forEach((d) => {
+        if (typeof d === 'function') d();
+      });
     } else {
       JSON.stringify(data);
     }

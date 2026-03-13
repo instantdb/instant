@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { tick } from 'svelte';
+import type { AuthState, ConnectionStatus } from '@instantdb/core';
 
 function createMockCore() {
   return {
     _reactor: {
-      status: 'connecting',
-      _currentUserCached: null as any,
-      getPreviousResult: vi.fn(() => null),
-      getPresence: vi.fn(() => null),
+      status: 'connecting' as ConnectionStatus,
+      _currentUserCached: null as AuthState | null,
+      getPreviousResult: vi.fn((): Record<string, unknown> | null => null),
+      getPresence: vi.fn((): Record<string, unknown> | null => null),
       subscribeTopic: vi.fn(() => vi.fn()),
       subscribePresence: vi.fn(() => vi.fn()),
       joinRoom: vi.fn(() => vi.fn()),
@@ -213,7 +214,12 @@ describe('InstantSvelteDatabase', () => {
     it('uses cached auth state', () => {
       mockCore._reactor._currentUserCached = {
         isLoading: false,
-        user: { id: 'cached', email: 'cached@test.com' },
+        user: {
+          id: 'cached',
+          email: 'cached@test.com',
+          refresh_token: '',
+          isGuest: false,
+        },
         error: undefined,
       };
       const freshDb = new InstantSvelteDatabase(mockCore as any);
@@ -223,7 +229,12 @@ describe('InstantSvelteDatabase', () => {
         auth = freshDb.useAuth();
       });
 
-      expect(auth.user).toEqual({ id: 'cached', email: 'cached@test.com' });
+      expect(auth.user).toEqual({
+        id: 'cached',
+        email: 'cached@test.com',
+        refresh_token: '',
+        isGuest: false,
+      });
       cleanup();
     });
 

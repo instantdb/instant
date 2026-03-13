@@ -164,13 +164,11 @@ export class InstantSvelteDatabase<
 
       const coerced = coerceQuery(q);
       const prev = this.core._reactor.getPreviousResult(coerced);
-      if (prev) {
-        const prevState = stateForResult(prev);
-        result.isLoading = prevState.isLoading;
-        result.data = prevState.data;
-        result.pageInfo = prevState.pageInfo;
-        result.error = prevState.error;
-      }
+      const prevState = stateForResult(prev);
+      result.isLoading = prevState.isLoading;
+      result.data = prevState.data;
+      result.pageInfo = prevState.pageInfo;
+      result.error = prevState.error;
 
       const unsub = this.core.subscribeQuery<Q, UseDates>(coerced, (r: any) => {
         result.isLoading = false;
