@@ -6,7 +6,7 @@
   type Todo = InstaQLEntity<AppSchema, 'todos'>;
 
   const auth = db.useAuth();
-  const state = db.useQuery({ todos: {} });
+  const query = db.useQuery({ todos: {} });
 
   let text = $state('');
   let email = $state('');
@@ -109,12 +109,12 @@
     <div class="text-xs pb-4">
       Open another tab to see todos update in realtime!
     </div>
-    {#if state.isLoading}
+    {#if query.isLoading}
       <div>Loading...</div>
-    {:else if state.error}
-      <div class="text-red-500">Error: {state.error.message}</div>
+    {:else if query.error}
+      <div class="text-red-500">Error: {query.error.message}</div>
     {:else}
-      {@const todos = state.data?.todos ?? []}
+      {@const todos = query.data?.todos ?? []}
       <div class="border rounded border-neutral-300">
         {@render todoForm()}
         {@render todoList(todos)}
@@ -138,7 +138,6 @@
       <input
         bind:value={text}
         class="w-full h-full placeholder-neutral-300 px-2 outline-none bg-transparent"
-        autofocus
         placeholder="What needs to be done?"
         type="text"
       />

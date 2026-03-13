@@ -13,10 +13,10 @@
   <div class="p-8 text-red-500">Error: {dbState.error}</div>
 {:else}
   {@const db = dbState.db!}
-  {@const state = db.useQuery({ todos: {} })}
+  {@const query = db.useQuery({ todos: {} })}
   <div class="p-8 grid grid-cols-2 items-start gap-2">
     {@render welcome()}
-    {@render todoApp(db, state)}
+    {@render todoApp(db, query)}
   </div>
 {/if}
 
@@ -48,18 +48,18 @@
   </div>
 {/snippet}
 
-{#snippet todoApp(db: any, state: any)}
+{#snippet todoApp(db: any, query: any)}
   <div class="bg-white rounded-lg p-6 border border-neutral-200 shadow flex flex-col">
     <h2 class="tracking-wide text-[#F54A00] text-2xl">Todos</h2>
     <div class="text-xs pb-4">
       Open another tab to see todos update in realtime!
     </div>
-    {#if state.isLoading}
+    {#if query.isLoading}
       <div>Loading...</div>
-    {:else if state.error}
-      <div class="text-red-500">Error: {state.error.message}</div>
+    {:else if query.error}
+      <div class="text-red-500">Error: {query.error.message}</div>
     {:else}
-      {@const todos = state.data?.todos ?? []}
+      {@const todos = query.data?.todos ?? []}
       <div class="border rounded border-neutral-300">
         {@render todoForm(db)}
         {@render todoList(db, todos)}
