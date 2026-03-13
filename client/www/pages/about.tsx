@@ -1,5 +1,6 @@
 import { MainNav } from '@/components/marketingUi';
 import { Footer } from '@/components/new-landing/Footer';
+import { LandingButton } from '@/components/new-landing/typography';
 
 const timelineEvents = [
   {
@@ -641,18 +642,15 @@ export default function AboutPage() {
               on hard problems at the intersection of databases, sync, and AI.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <a
-                href="https://instantdb.com/dash"
-                className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-6 py-3 text-base font-medium text-white shadow-[0_0_20px_rgba(234,88,12,0.3)] transition-all hover:bg-orange-700 hover:shadow-[0_0_30px_rgba(234,88,12,0.45)]"
-              >
+              <LandingButton href="https://instantdb.com/dash">
                 Get started
-              </a>
-              <a
+              </LandingButton>
+              <LandingButton
                 href="mailto:founders@instantdb.com"
-                className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-6 py-3 text-base font-medium transition-all hover:bg-gray-50"
+                variant="secondary"
               >
                 Get in touch
-              </a>
+              </LandingButton>
             </div>
           </div>
         </section>

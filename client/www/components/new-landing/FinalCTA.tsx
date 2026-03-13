@@ -1,9 +1,8 @@
 'use client';
 
 import { AnimateIn } from './AnimateIn';
-import Link from 'next/link';
 import { CopyToClipboardButton } from './CopyToClipboardButton';
-import { SectionSubtitle, SectionTitle } from './typography';
+import { LandingButton, SectionSubtitle, SectionTitle } from './typography';
 
 export function FinalCTA() {
   return (
@@ -29,11 +28,7 @@ export function FinalCTA() {
 
           <span className="text-base text-gray-400">or</span>
 
-          <Link href="/dash">
-            <button className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-orange-700 sm:text-lg">
-              Sign up now
-            </button>
-          </Link>
+          <LandingButton href="/dash">Sign up now</LandingButton>
         </div>
       </AnimateIn>
     </div>

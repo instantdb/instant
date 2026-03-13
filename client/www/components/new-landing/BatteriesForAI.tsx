@@ -934,7 +934,7 @@ export function BatteriesForAI() {
       </AnimateIn>
 
       {/* Features */}
-      <div className="grid auto-rows-fr grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Auth */}
         <AnimateIn className="flex">
           <div className="col-span-1 space-y-4">
@@ -987,24 +987,24 @@ export function BatteriesForAI() {
         </AnimateIn>
 
         {/* Payments */}
-      </div>
-      <AnimateIn>
-        <div className="flex grid-cols-3 flex-col items-stretch gap-7 lg:grid lg:items-center">
-          <div className="col-span-1">
-            <Subheading>Payments</Subheading>
-            <FeatureBody>
-              Build apps that monetize. Easily add one-time purchases,
-              subscriptions, or usage-based billing by telling AI to add Stripe
-              to your Instant app.
-            </FeatureBody>
-          </div>
-          <div className="col-span-2">
-            <div className="bg-radial from-white to-[#FFF9F4] px-6 py-6">
-              <RevenueDashboardDemo />
+        <AnimateIn className="flex lg:col-span-3">
+          <div className="flex flex-col space-y-4 lg:grid lg:grid-cols-3 lg:items-center lg:gap-7 lg:space-y-0">
+            <div className="col-span-1">
+              <Subheading>Payments</Subheading>
+              <FeatureBody>
+                Build apps that monetize. Easily add one-time purchases,
+                subscriptions, or usage-based billing by telling AI to add
+                Stripe to your Instant app.
+              </FeatureBody>
+            </div>
+            <div className="grow lg:col-span-2">
+              <div className="bg-radial from-white to-[#FFF9F4] px-6 py-6">
+                <RevenueDashboardDemo />
+              </div>
             </div>
           </div>
-        </div>
-      </AnimateIn>
+        </AnimateIn>
+      </div>
 
       <AnimateIn>
         <div className="flex grid-cols-3 flex-col-reverse gap-7 md:items-center lg:grid lg:items-stretch">
