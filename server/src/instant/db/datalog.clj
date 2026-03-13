@@ -707,6 +707,15 @@
     (uuid-util/coerce s)
     (uuid-util/coerce (str s (subs all-fs-uuid (count s))))))
 
+(defn op->sql-op [op]
+  (case op
+    :$gt :>
+    :$gte :>=
+    :$lt :<
+    :$lte :<=
+    :$like :like
+    :$ilike :ilike))
+
 (defn- value-function-clauses [app-id triples-alias idx [v-tag v-value]]
   (case v-tag
     :function (let [[func val] (first v-value)]
@@ -739,13 +748,7 @@
                                                 [[:not= (kw alias :.value) [:cast (->json nil) :jsonb]]]))})]]
                   :$comparator (let [{:keys [op value data-type]} val]
                                  [(data-type-comparison data-type
-                                                        (case op
-                                                          :$gt :>
-                                                          :$gte :>=
-                                                          :$lt :<
-                                                          :$lte :<=
-                                                          :$like :like
-                                                          :$ilike :ilike)
+                                                        (op->sql-op op)
                                                         :value
                                                         value)])
                   :$entityIdStartsWith
@@ -1264,7 +1267,7 @@
                                         next-cost)))
                                   1
                                   (:path costs))
-        join-cost (reduce + 1 (vals (:join-remaining costs)))
+        join-cost (reduce * 1 (vals (:join-remaining costs)))
         filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
                                                    (:filter-components costs))))]
     (* 1.0
@@ -1278,26 +1281,142 @@
   nested loop."
   [index]
   (let [costs (:index-costs index)
+        unique-cols (or (:unique-cols index) #{})
+        unique-hit? (some #(contains? unique-cols (:col %)) (:path costs))
         index-lookup-cost (reduce (fn [acc {:keys [cost col]}]
                                     (let [next-cost (* acc cost)]
-                                      (if (contains? (:unique-cols index) col)
+                                      (if (contains? unique-cols col)
                                         (reduced next-cost)
                                         next-cost)))
                                   1
                                   (:path costs))
+        unbounded-filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
+                                                             (:filter-components costs))))
+        filtered-row-cost (if unique-hit?
+                            (min index-lookup-cost unbounded-filter-cost)
+                            unbounded-filter-cost)
         join-cost (reduce * 1 (vals (:join-remaining costs)))
-        filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
-                                                   (:filter-components costs))))]
+        filter-cost filtered-row-cost]
     (* 1.0
        (+ index-lookup-cost
           (* 2 filter-cost))
        (max 1 (* 1.1 join-cost)))))
 
+(defn use-new-index-cost? []
+  (flags/toggled? :new-index-cost true))
+
 (defn path-cost-with-joins
   [index]
-  (if (flags/toggled? :new-index-cost)
+  (if (use-new-index-cost?)
     (path-cost-with-joins-new index)
     (path-cost-with-joins-old index)))
+
+(defn- value-access-mode
+  "Returns :raw if we will compare the value as json in the sql query or
+   :typed-extract if we will extract a sql value (e.g. [:triples-extract-number-value])"
+  [named-p]
+  (let [value-pattern (:v named-p)
+        data-type (idx-data-type (:idx named-p))]
+    (cond
+      (nil? data-type)
+      :raw
+
+      (= :constant (first value-pattern))
+      (if (extract-value-fn data-type :=)
+        :typed-extract
+        :raw)
+
+      (= :function (first value-pattern))
+      (let [[func {:keys [op]}] (first (second value-pattern))
+            sql-op (op->sql-op op)]
+        (case func
+          :$comparator (if (extract-value-fn data-type sql-op)
+                         :typed-extract
+                         :raw)
+          :$not (if (extract-value-fn data-type :is-distinct-from)
+                  :typed-extract
+                  :raw)
+          :raw))
+
+      :else
+      :raw)))
+
+(defn- can-match-on-index-column?
+  "Returns true if we can use this index column in the query. For example,
+   this will return false if we're checking the :v column on the ave_index
+   against a query against a number type."
+  [named-p idx-config component]
+  (case component
+    :v (let [access-mode (value-access-mode named-p)
+             candidate-data-type (:data-type idx-config)]
+         (case access-mode
+           :typed-extract (= candidate-data-type (idx-data-type (:idx named-p)))
+           :raw (nil? candidate-data-type)))
+    true))
+
+(defn- debug-realistic-prefix
+  "Computes the prefix that is realistically usable by this index based on the
+   SQL shape we emit, not just the abstract pattern."
+  [named-p idx-config known-components]
+  (loop [cols (:cols idx-config)
+         prefix []
+         blocked nil]
+    (if-let [col (first cols)]
+      (cond
+        (not (contains? known-components col))
+        {:path prefix
+         :blocked-on {:col col
+                      :reason :unknown-component}}
+
+        (not (can-match-on-index-column? named-p idx-config col))
+        {:path prefix
+         :blocked-on {:col col
+                      :reason :not-indexable-for-sql-shape
+                      :value-access-mode (value-access-mode named-p)
+                      :idx-data-type (:data-type idx-config)
+                      :pattern-data-type (idx-data-type (:idx named-p))}}
+
+        :else
+        (recur (rest cols)
+               (conj prefix col)
+               blocked))
+      {:path prefix
+       :blocked-on blocked})))
+
+(defn- debug-cost-breakdown
+  [named-p idx-config costs path-cost-with-joins]
+  (let [unique-cols (or (:unique-cols idx-config) #{})
+        unique-hit? (some #(contains? unique-cols (:col %)) (:path costs))
+        index-lookup-cost (reduce (fn [acc {:keys [cost col]}]
+                                    (let [next-cost (* acc cost)]
+                                      (if (contains? unique-cols col)
+                                        (reduced next-cost)
+                                        next-cost)))
+                                  1
+                                  (:path costs))
+        join-cost-old (reduce + 1 (vals (:join-remaining costs)))
+        join-cost-new (reduce * 1 (vals (:join-remaining costs)))
+        unbounded-filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
+                                                             (:filter-components costs))))
+        filter-cost (if unique-hit?
+                      (min index-lookup-cost unbounded-filter-cost)
+                      unbounded-filter-cost)
+        realistic-prefix (debug-realistic-prefix named-p idx-config
+                                                 (:known-components costs))]
+    {:lookup-cost index-lookup-cost
+     :filter-cost filter-cost
+     :unbounded-filter-cost unbounded-filter-cost
+     :unique-hit? unique-hit?
+     :join-cost-old join-cost-old
+     :join-cost-new join-cost-new
+     :score path-cost-with-joins
+     :value-access-mode (value-access-mode named-p)
+     :optimistic-path (mapv :col (:path costs))
+     :realistic-prefix (:path realistic-prefix)
+     :blocked-on (:blocked-on realistic-prefix)
+     :known-remaining (:known-remaining costs)
+     :join-remaining (:join-remaining costs)
+     :filter-remaining (:filter-remaining costs)}))
 
 (defn index-compare
   "Compares the indexes pairwise to try to pick the best one.
@@ -1471,15 +1590,18 @@
         indexes-with-costs
         (map (fn [idx-config]
                (let [costs (reduce (fn [acc col]
-                                     (if-let [cost (get (:known-remaining acc) col)]
-                                       (-> acc
-                                           (update :known-remaining dissoc col)
-                                           (update :join-remaining dissoc col)
-                                           (update :filter-remaining disj col)
-                                           (update :path conj {:cost cost
-                                                               :col col
-                                                               :type :index-lookup}))
-                                       (reduced acc)))
+                                     (if (and (use-new-index-cost?)
+                                              (not (can-match-on-index-column? named-p idx-config col)))
+                                       (reduced acc)
+                                       (if-let [cost (get (:known-remaining acc) col)]
+                                         (-> acc
+                                             (update :known-remaining dissoc col)
+                                             (update :join-remaining dissoc col)
+                                             (update :filter-remaining disj col)
+                                             (update :path conj {:cost cost
+                                                                 :col col
+                                                                 :type :index-lookup}))
+                                         (reduced acc))))
                                    {:known-remaining known-components
                                     :known-components known-components
                                     :join-components join-components
@@ -1495,8 +1617,15 @@
                                 :matching-idx-key? (= (:idx-key idx-config)
                                                       (idx-key (:idx named-p)))
                                 :matching-data-type? (= (:data-type idx-config)
-                                                        (idx-data-type (:idx named-p))))]
-                 (assoc cfg :path-cost-with-joins (path-cost-with-joins cfg))))
+                                                        (idx-data-type (:idx named-p))))
+                     path-cost (path-cost-with-joins cfg)
+                     cfg (assoc cfg :path-cost-with-joins path-cost)]
+                 (cond-> cfg
+                   *debug* (assoc :debug-costs
+                                  (debug-cost-breakdown named-p
+                                                        idx-config
+                                                        costs
+                                                        path-cost)))))
              index-candidates)
 
         sorted-indexes (sort index-compare indexes-with-costs)
@@ -1696,8 +1825,7 @@
                                   (into acc (map (fn [path]
                                                    [ctype (:ctype path)])
                                                  paths))
-                                  acc)
-                                )
+                                  acc))
                               #{}
                               (variable-components named-p))]
       (if (or (= #{[:e :e]} join-ctypes)
@@ -2834,9 +2962,9 @@
                                                                (get "exists")))
                               (:page-info group) (assoc-in [:page-info :has-previous-page?]
                                                            (let [has-prev (-> sql-res
-                                                                             (get (name (has-prev-tbl table)))
-                                                                             first
-                                                                             (get "exists"))
+                                                                              (get (name (has-prev-tbl table)))
+                                                                              first
+                                                                              (get "exists"))
                                                                  offset (get-in group [:page-info :offset])
                                                                  after-cursor (get-in group [:page-info :after])]
                                                              ;; If the page is empty but we have an offset > 0 or an after cursor,
