@@ -176,6 +176,74 @@ const updateNick = (newNick, currentUser) => {
 
 At the moment you can only use `transact` to update the custom properties you added. Changing default columns like `email` would cause the transaction to fail.
 
+## Setting properties at signup
+
+You can set custom `$users` properties at the moment a user is created by passing `extraFields` to your sign-in method. Fields are only written when the user is first created. Returning users are unaffected.
+
+The fields you pass must be defined in your schema as optional attributes on `$users`.
+
+**Magic codes**
+
+```javascript
+db.auth.signInWithMagicCode({
+  email: sentEmail,
+  code,
+  extraFields: { nickname: 'nezaj' },
+});
+```
+
+**OAuth with ID token** (Google Button, Apple, Clerk, Firebase)
+
+```javascript
+db.auth.signInWithIdToken({
+  clientName: 'google',
+  idToken,
+  nonce,
+  extraFields: { nickname: 'nezaj' },
+});
+```
+
+**OAuth with web redirect** (Google, GitHub, LinkedIn)
+
+For the redirect flow, pass `extraFields` when creating the authorization URL. Instant stores them and applies them when the user is created after the redirect.
+
+```javascript
+const url = db.auth.createAuthorizationURL({
+  clientName: 'google',
+  redirectURL: window.location.href,
+  extraFields: { nickname: 'nezaj' },
+});
+```
+
+**OAuth with code exchange** (Expo, React Native)
+
+```javascript
+db.auth.exchangeOAuthCode({
+  code: res.params.code,
+  codeVerifier: request.codeVerifier,
+  extraFields: { nickname: 'nezaj' },
+});
+```
+
+All sign-in methods return a `created` boolean so you can distinguish new users from returning ones. This is useful for scaffolding initial data when a user first signs up:
+
+```javascript
+const { user, created } = await db.auth.signInWithMagicCode({
+  email,
+  code,
+  extraFields: { nickname },
+});
+
+if (created) {
+  // Create default data for the new user
+  db.transact([
+    tx.settings[id()]
+      .update({ theme: 'light', notifications: true })
+      .link({ user: user.id }),
+  ]);
+}
+```
+
 ## User permissions
 
 You can reference the `$users` namespace in your permission rules just like a

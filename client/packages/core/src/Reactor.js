@@ -64,6 +64,8 @@ const defaultConfig = {
 // Param that the backend adds if this is an oauth redirect
 const OAUTH_REDIRECT_PARAM = '_instant_oauth_redirect';
 
+const oauthExtraFieldsKey = 'oauthExtraFields';
+
 const currentUserKey = `currentUser`;
 
 /**
@@ -1951,6 +1953,12 @@ export default class Reactor {
     }
     this._replaceUrlAfterOAuth();
     try {
+      const extraFields = await this.kv.waitForKeyToLoad(oauthExtraFieldsKey);
+      if (extraFields) {
+        this.kv.updateInPlace((prev) => {
+          delete prev[oauthExtraFieldsKey];
+        });
+      }
       const currentUser = await this._getCurrentUser();
       const isGuest = currentUser?.type === 'guest';
       const { user } = await authAPI.exchangeCodeForToken({
@@ -1958,6 +1966,7 @@ export default class Reactor {
         appId: this.config.appId,
         code,
         refreshToken: isGuest ? currentUser.refresh_token : undefined,
+        extraFields,
       });
       this.setCurrentUser(user);
       return null;
@@ -2183,15 +2192,16 @@ export default class Reactor {
     });
   }
 
-  async signInWithMagicCode({ email, code }) {
+  async signInWithMagicCode(params) {
     const currentUser = await this.getCurrentUser();
     const isGuest = currentUser?.user?.type === 'guest';
     const res = await authAPI.verifyMagicCode({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
-      email,
-      code,
+      email: params.email,
+      code: params.code,
       refreshToken: isGuest ? currentUser?.user?.refresh_token : undefined,
+      extraFields: params.extraFields,
     });
     await this.changeCurrentUser(res.user);
     return res;
@@ -2250,9 +2260,15 @@ export default class Reactor {
    * @param {Object} params - The parameters to create the authorization URL.
    * @param {string} params.clientName - The name of the client requesting authorization.
    * @param {string} params.redirectURL - The URL to redirect users to after authorization.
+   * @param {Record<string, any>} [params.extraFields] - Extra fields to write to $users on creation
    * @returns {string} The created authorization URL.
    */
-  createAuthorizationURL({ clientName, redirectURL }) {
+  createAuthorizationURL({ clientName, redirectURL, extraFields }) {
+    if (extraFields) {
+      this.kv.updateInPlace((prev) => {
+        prev[oauthExtraFieldsKey] = extraFields;
+      });
+    }
     const { apiURI, appId } = this.config;
     return `${apiURI}/runtime/oauth/start?app_id=${appId}&client_name=${clientName}&redirect_uri=${redirectURL}`;
   }
@@ -2261,8 +2277,9 @@ export default class Reactor {
    * @param {Object} params
    * @param {string} params.code - The code received from the OAuth service.
    * @param {string} [params.codeVerifier] - The code verifier used to generate the code challenge.
+   * @param {Record<string, any>} [params.extraFields] - Extra fields to write to $users on creation
    */
-  async exchangeCodeForToken({ code, codeVerifier }) {
+  async exchangeCodeForToken({ code, codeVerifier, extraFields }) {
     const currentUser = await this.getCurrentUser();
     const isGuest = currentUser?.user?.type === 'guest';
     const res = await authAPI.exchangeCodeForToken({
@@ -2271,6 +2288,7 @@ export default class Reactor {
       code: code,
       codeVerifier,
       refreshToken: isGuest ? currentUser?.user?.refresh_token : undefined,
+      extraFields,
     });
     await this.changeCurrentUser(res.user);
     return res;
@@ -2286,18 +2304,20 @@ export default class Reactor {
    * @param {string} params.clientName - The name of the client requesting authorization.
    * @param {string} params.idToken - The id_token from the external service
    * @param {string | null | undefined} [params.nonce] - The nonce used when requesting the id_token from the external service
+   * @param {Record<string, any>} [params.extraFields] - Extra fields to write to $users on creation
    */
-  async signInWithIdToken({ idToken, clientName, nonce }) {
+  async signInWithIdToken(params) {
     const currentUser = await this.getCurrentUser();
     const refreshToken = currentUser?.user?.refresh_token;
 
     const res = await authAPI.signInWithIdToken({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
-      idToken,
-      clientName,
-      nonce,
+      idToken: params.idToken,
+      clientName: params.clientName,
+      nonce: params.nonce,
       refreshToken,
+      extraFields: params.extraFields,
     });
     await this.changeCurrentUser(res.user);
     return res;

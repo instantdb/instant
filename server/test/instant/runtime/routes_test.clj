@@ -3,6 +3,7 @@
    [clj-http.client :as http]
    [clojure.test :refer [deftest is testing]]
    [instant.config :as config]
+   [instant.db.model.attr :as attr-model]
    [instant.fixtures :refer [with-empty-app]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
@@ -376,3 +377,172 @@
         (is anon-link)
         (is (not= (:id email-user) (:user_id anon-link)))
         (is (= (:id email-user) (:user_id revealed-link)))))))
+
+;; -----
+;; Extra fields on signup
+
+(defn verify-code-body-runtime [app body]
+  (-> (request {:method :post
+                :url    "/runtime/auth/verify_magic_code"
+                :body   (assoc body :app-id (:id app))})
+      :body))
+
+(defn verify-code-body-admin [app body]
+  (-> (request {:method :post
+                :url     "/admin/verify_magic_code"
+                :headers {"app-id"        (:id app)
+                          "authorization" (str "Bearer " (:admin-token app))}
+                :body    body})
+      :body))
+
+(deftest extra-fields-magic-code-test
+  (test-util/test-matrix
+   [[send-code verify-body]
+    [[send-code-runtime verify-code-body-runtime]
+     [post-code-admin   verify-code-body-admin]]]
+   (with-empty-app
+     (fn [{app-id :id :as app}]
+       ;; Add custom attrs to $users
+       (test-util/make-attrs app-id
+                             [[:$users/username :unique? :index?]
+                              [:$users/displayName]])
+
+       (testing "new user with extra-fields"
+         (let [code (send-code app {:email "new@test.com"})
+               body (verify-body app {:email "new@test.com"
+                                      :code code
+                                      :extra-fields {"username" "cool_user"
+                                                     "displayName" "Cool User"}})
+               user (app-user-model/get-by-email {:app-id app-id
+                                                  :email "new@test.com"})]
+           (is (true? (:created body)))
+           (is (= "new@test.com" (-> body :user :email)))
+           (is (= "cool_user" (:username user)))
+           (is (= "Cool User" (:displayName user)))))
+
+       (testing "existing user ignores extra-fields"
+         (let [code (send-code app {:email "new@test.com"})
+               body (verify-body app {:email "new@test.com"
+                                      :code code
+                                      :extra-fields {"username" "different_name"
+                                                     "displayName" "Different"}})
+               user (app-user-model/get-by-email {:app-id app-id
+                                                  :email "new@test.com"})]
+           (is (false? (:created body)))
+           (is (= "cool_user" (:username user)))
+           (is (= "Cool User" (:displayName user)))))
+
+       (testing "without extra-fields (backwards compat)"
+         (let [code (send-code app {:email "compat@test.com"})
+               body (verify-body app {:email "compat@test.com"
+                                      :code code})]
+           (is (true? (:created body)))
+           (is (= "compat@test.com" (-> body :user :email)))))
+
+       (testing "unknown keys rejected"
+         (let [code (send-code app {:email "bad@test.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 400"
+                (verify-body app {:email "bad@test.com"
+                                  :code code
+                                  :extra-fields {"nonexistent" "value"}})))))
+
+       (testing "system fields rejected"
+         (let [code (send-code app {:email "sys@test.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 400"
+                (verify-body app {:email "sys@test.com"
+                                  :code code
+                                  :extra-fields {"email" "evil@test.com"}})))))))))
+
+(deftest extra-fields-guest-upgrade-test
+  (test-util/test-matrix
+   [sign-in-guest [sign-in-guest-runtime
+                   sign-in-guest-admin]
+    send-code     [send-code-runtime]
+    verify-body   [verify-code-body-runtime
+                   verify-code-body-admin]]
+   (with-empty-app
+     (fn [{app-id :id :as app}]
+       (test-util/make-attrs app-id
+                             [[:$users/username]])
+
+       (let [guest (sign-in-guest app)
+             _     (is (= "guest" (:type guest)))
+             code  (send-code app {:email "guest@test.com"})
+             body  (verify-body app {:email "guest@test.com"
+                                     :code code
+                                     :refresh-token (:refresh_token guest)
+                                     :extra-fields {"username" "upgraded_user"}})
+             user  (app-user-model/get-by-email {:app-id app-id
+                                                 :email "guest@test.com"})]
+         (is (true? (:created body)))
+         (is (= (:id guest) (-> body :user :id)))
+         (is (= "upgraded_user" (:username user))))))))
+
+(deftest extra-fields-oauth-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (test-util/make-attrs app-id
+                            [[:$users/username]
+                             [:$users/displayName]])
+
+      (let [provider (provider-model/create! {:app-id app-id
+                                              :provider-name "clerk"})]
+
+        (testing "new user with extra-fields via oauth"
+          (let [result (route/upsert-oauth-link! {:email "oauth@test.com"
+                                                  :sub "oauth-sub-1"
+                                                  :app-id app-id
+                                                  :provider-id (:id provider)
+                                                  :extra-fields {"username" "oauth_user"
+                                                                 "displayName" "OAuth User"}})
+                user   (app-user-model/get-by-id {:id (:user_id result)
+                                                  :app-id app-id})]
+            (is (true? (:created result)))
+            (is (= "oauth_user" (:username user)))
+            (is (= "OAuth User" (:displayName user)))))
+
+        (testing "existing oauth user ignores extra-fields"
+          (let [result (route/upsert-oauth-link! {:email "oauth@test.com"
+                                                  :sub "oauth-sub-1"
+                                                  :app-id app-id
+                                                  :provider-id (:id provider)
+                                                  :extra-fields {"username" "different_name"}})
+                user   (app-user-model/get-by-id {:id (:user_id result)
+                                                  :app-id app-id})]
+            (is (false? (:created result)))
+            (is (= "oauth_user" (:username user)))))))))
+
+(deftest extra-fields-admin-refresh-tokens-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (test-util/make-attrs app-id
+                            [[:$users/username]])
+
+      (testing "new user with extra-fields via admin refresh-tokens"
+        (let [resp (request {:method :post
+                             :url "/admin/refresh_tokens"
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " (:admin-token app))}
+                             :body {:email "admin@test.com"
+                                    :extra-fields {"username" "admin_user"}}})
+              body (:body resp)
+              user (app-user-model/get-by-email {:app-id app-id
+                                                 :email "admin@test.com"})]
+          (is (true? (:created body)))
+          (is (= "admin_user" (:username user)))))
+
+      (testing "existing user ignores extra-fields"
+        (let [resp (request {:method :post
+                             :url "/admin/refresh_tokens"
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " (:admin-token app))}
+                             :body {:email "admin@test.com"
+                                    :extra-fields {"username" "different"}}})
+              body (:body resp)
+              user (app-user-model/get-by-email {:app-id app-id
+                                                 :email "admin@test.com"})]
+          (is (false? (:created body)))
+          (is (= "admin_user" (:username user))))))))
+
