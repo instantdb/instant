@@ -245,13 +245,13 @@ function BookApp() {
         />
         <span className="text-xs font-medium text-gray-700">Zeneca</span>
       </div>
-      <div className="grid grid-cols-3 gap-3 p-4">
+      <div className="grid grid-cols-3 gap-x-3 gap-y-6 px-4 py-4">
         {books.map((b, i) => (
           <div key={b.title}>
             <img
               src={b.cover}
               alt={b.title}
-              className="aspect-[2/3] cursor-pointer rounded object-cover"
+              className="aspect-[2/3] cursor-pointer rounded object-cover transition-transform duration-300 hover:scale-[0.98]"
               onClick={() => setSelectedBook(i)}
             />
           </div>
@@ -298,9 +298,9 @@ function BookApp() {
                     href={`https://www.amazon.com/s?k=${encodeURIComponent(book.title + ' ' + book.author)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-md bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-700"
+                    className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
                   >
-                    Get it on Amazon &rarr;
+                    Get it on Amazon
                   </a>
                 </div>
               </div>
