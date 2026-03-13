@@ -57,6 +57,9 @@ import type {
   InstaQLResult,
   InstaQLFields,
   ValidQuery,
+  Cursor,
+  Order,
+  InstaQLQueryEntityResult,
 } from './queryTypes.ts';
 import type { PresencePeer } from './presenceTypes.ts';
 import type {
@@ -142,6 +145,11 @@ import {
   ReadableStreamCtor,
   WritableStreamCtor,
 } from './Stream.ts';
+import {
+  type InfiniteQueryCallbackResponse,
+  type InfiniteQuerySubscription,
+  subscribeInfiniteQuery,
+} from './infiniteQuery.ts';
 
 const defaultOpenDevtool = true;
 
@@ -696,6 +704,53 @@ class InstantCoreDatabase<
   }
 
   /**
+   * Subscribe to a query and incrementally load more items
+   *
+   * Only one top level namespace in the query is allowed.
+   * @example
+   * const { unsubscribe, loadMore } = db.subscribeInfiniteQuery({
+   *   posts: {
+   *     $: {
+   *       limit: 20,   // Load 20 posts at a time
+   *       order: {
+   *         createdAt: 'desc',
+   *       },
+   *     },
+   *   },
+   *   (resp) => {
+   *     console.log(resp.data.posts);
+   *   }
+   * });
+   */
+  subscribeInfiniteQuery<
+    Q extends ValidQuery<Q, Schema>,
+    Entity extends keyof Schema['entities'],
+  >(
+    query: Q,
+    cb: (resp: InfiniteQueryCallbackResponse<Schema, Q, UseDates>) => void,
+    opts?: InstaQLOptions,
+  ): InfiniteQuerySubscription {
+    const entityNames = Object.keys(query);
+    if (entityNames.length !== 1) {
+      throw new Error('subscribeInfiniteQuery expects exactly one entity');
+    }
+
+    const entity = entityNames[0] as Entity;
+    const entityQuery = query[entity];
+    if (!entityQuery) {
+      throw new Error('No query provided for infinite entity');
+    }
+
+    return subscribeInfiniteQuery<Schema, Entity, Q, UseDates>(
+      this as any,
+      entity,
+      entityQuery as any,
+      cb as any,
+      opts,
+    );
+  }
+
+  /**
    * Listen for the logged in state. This is useful
    * for deciding when to show a login screen.
    *
@@ -1057,6 +1112,7 @@ export {
   // new query types
   type InstaQLParams,
   type ValidQuery,
+  type Cursor,
   type InstaQLOptions,
   type InstaQLQueryParams,
   type InstantQuery,
@@ -1065,6 +1121,10 @@ export {
   type InstantEntity,
   type InstantSchemaDatabase,
   type InstaQLFields,
+  type Order,
+  type InstaQLQueryEntityResult,
+  type InfiniteQueryCallbackResponse,
+  type InfiniteQuerySubscription,
 
   // schema types
   type AttrsDefs,
