@@ -52,11 +52,15 @@ export function Fence({ children, language, showCopy, lineHighlight }) {
     )
     .replace('__APP_ID__', app ? app.id : '__APP_ID__');
 
+  // Prism doesn't have a svelte grammar, so highlight as html
+  let lang = language;
+  if (lang === 'svelte') lang = 'html';
+
   return (
     <Highlight
       {...defaultProps}
       code={code}
-      language={language}
+      language={lang}
       theme={rosePineDawnTheme}
     >
       {({ className, style, tokens, getLineProps, getTokenProps }) => (

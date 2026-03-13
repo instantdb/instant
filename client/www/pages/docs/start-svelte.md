@@ -116,8 +116,7 @@ Replace the content of `src/routes/+page.svelte` with the following:
 
 {% file label="src/routes/+page.svelte" /%}
 
-<!-- prettier-ignore-start -->
-```html {% showCopy=true %}
+```svelte {% showCopy=true %}
 <script lang="ts">
   import { id, type InstaQLEntity } from '@instantdb/svelte';
   import { db } from '$lib/db';
@@ -191,7 +190,6 @@ Replace the content of `src/routes/+page.svelte` with the following:
 </div>
 {/if}
 ```
-<!-- prettier-ignore-end -->
 
 Go to `localhost:5173`, and huzzah 🎉 You've got a fully functional todo list running!
 
@@ -199,8 +197,7 @@ Go to `localhost:5173`, and huzzah 🎉 You've got a fully functional todo list 
 
 In Svelte 5, Instant's hooks return `$state` proxies. You read properties directly off the returned object, and Svelte automatically tracks them for re-rendering.
 
-<!-- prettier-ignore-start -->
-```html
+```svelte
 <script lang="ts">
   const query = db.useQuery({ todos: {} });
   // query.isLoading, query.data, query.error are all reactive
@@ -210,12 +207,10 @@ In Svelte 5, Instant's hooks return `$state` proxies. You read properties direct
 <p>{query.data?.todos.length} todos</p>
 {/if}
 ```
-<!-- prettier-ignore-end -->
 
 For primitive values like connection status and local IDs, hooks return a `{ current: value }` wrapper (since primitives cannot be `$state` proxies):
 
-<!-- prettier-ignore-start -->
-```html
+```svelte
 <script lang="ts">
   const status = db.useConnectionStatus();
   // status.current is reactive
@@ -223,7 +218,6 @@ For primitive values like connection status and local IDs, hooks return a `{ cur
 
 <p>Connection: {status.current}</p>
 ```
-<!-- prettier-ignore-end -->
 
 Transactions in Svelte work the same way they do in React via `db.transact`. To learn more see our [writing data](/docs/instaml) docs.
 
@@ -235,8 +229,7 @@ The Svelte SDK includes a few helper components for common patterns.
 
 Auth guard components that conditionally render their children based on login state:
 
-<!-- prettier-ignore-start -->
-```html
+```svelte
 <script lang="ts">
   import { SignedIn, SignedOut } from '@instantdb/svelte';
   import { db } from '$lib/db';
@@ -251,14 +244,12 @@ Auth guard components that conditionally render their children based on login st
   <p>Please log in.</p>
 </SignedOut>
 ```
-<!-- prettier-ignore-end -->
 
 ### Cursors
 
 A multiplayer cursor component that tracks mouse positions via presence. Wrap any area where you want to show live cursors from other users:
 
-<!-- prettier-ignore-start -->
-```html
+```svelte
 <script lang="ts">
   import { Cursors } from '@instantdb/svelte';
   import { db } from '$lib/db';
@@ -270,6 +261,5 @@ A multiplayer cursor component that tracks mouse positions via presence. Wrap an
   <div>Move your mouse around!</div>
 </Cursors>
 ```
-<!-- prettier-ignore-end -->
 
 The `Cursors` component supports custom cursor rendering via a `renderCursor` snippet, a configurable wrapper element (`as`), and `className`/`style` props for styling. See the [Presence, Cursors, and Activity](/docs/presence-and-topics) docs for more details.
