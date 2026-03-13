@@ -274,35 +274,35 @@ export default function Database() {
         <div className="space-y-24">
           {/* Easy to query */}
           <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-center">
-              <div className="space-y-4 md:max-w-[400px]">
-                <Subheading>Easy to query</Subheading>
-                <p className="mt-2 text-base">
-                  Instant's query language, InstaQL, is designed to be easy to
-                  understand. It uses plain JavaScript objects to declare the
-                  data you want to fetch and the shape you want.
-                </p>
-                <p className="mt-2 text-base">
-                  If you ever need to change what to fetch you can just change
-                  the query object and your UI will update on its own. No need
-                  for a build step or to update any backend code.
-                </p>
-                <p className="mt-2 text-base">
-                  InstaQL supports filtering, sorting, pagination and more. The
-                  syntax is simple enough to learn in minutes and LLMs can
-                  easily generate queries for you too!
-                </p>
-              </div>
-              <div className="min-w-0 grow lg:bg-[#F0F5FA] lg:px-[66px] lg:py-[37px]">
-                <TabbedCodeExample
-                  examples={queryExamples}
-                  tabs={[
-                    { key: 'query', label: 'InstaQL' },
-                    { key: 'result', label: 'Result' },
-                    { key: 'sql', label: 'Equivalent SQL', language: 'sql' },
-                  ]}
-                />
-              </div>
+            <div className="space-y-4 md:max-w-[400px]">
+              <Subheading>Easy to query</Subheading>
+              <p className="mt-2 text-base">
+                Instant's query language, InstaQL, is designed to be easy to
+                understand. It uses plain JavaScript objects to declare the data
+                you want to fetch and the shape you want.
+              </p>
+              <p className="mt-2 text-base">
+                If you ever need to change what to fetch you can just change the
+                query object and your UI will update on its own. No need for a
+                build step or to update any backend code.
+              </p>
+              <p className="mt-2 text-base">
+                InstaQL supports filtering, sorting, pagination and more. The
+                syntax is simple enough to learn in minutes and LLMs can easily
+                generate queries for you too!
+              </p>
             </div>
+            <div className="min-w-0 grow lg:bg-[#F0F5FA] lg:px-[66px] lg:py-[37px]">
+              <TabbedCodeExample
+                examples={queryExamples}
+                tabs={[
+                  { key: 'query', label: 'InstaQL' },
+                  { key: 'result', label: 'Result' },
+                  { key: 'sql', label: 'Equivalent SQL', language: 'sql' },
+                ]}
+              />
+            </div>
+          </div>
 
           {/* Easy to transact */}
           <AnimateIn>
