@@ -86,13 +86,14 @@
   );
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions a11y_mouse_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <svelte:element
   this={as}
   class={className}
   style="position: relative; {style ?? ''}"
   onmousemove={onMouseMove}
   onmouseout={onMouseOut}
+  onblur={onMouseOut}
   ontouchmove={onTouchMove}
   ontouchend={onTouchEnd}
 >
