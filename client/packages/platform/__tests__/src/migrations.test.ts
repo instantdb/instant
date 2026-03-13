@@ -513,7 +513,12 @@ test('make link required', async () => {
       },
       links: {
         songAlbum: {
-          forward: { on: 'albums', has: 'many', label: 'songs', required: true },
+          forward: {
+            on: 'albums',
+            has: 'many',
+            label: 'songs',
+            required: true,
+          },
           reverse: { on: 'songs', has: 'one', label: 'albums' },
         },
       },
@@ -545,7 +550,12 @@ test('make link optional', async () => {
       },
       links: {
         songAlbum: {
-          forward: { on: 'albums', has: 'many', label: 'songs', required: true },
+          forward: {
+            on: 'albums',
+            has: 'many',
+            label: 'songs',
+            required: true,
+          },
           reverse: { on: 'songs', has: 'one', label: 'albums' },
         },
       },
@@ -561,7 +571,12 @@ test('make link optional', async () => {
       },
       links: {
         songAlbum: {
-          forward: { on: 'albums', has: 'many', label: 'songs', required: false },
+          forward: {
+            on: 'albums',
+            has: 'many',
+            label: 'songs',
+            required: false,
+          },
           reverse: { on: 'songs', has: 'one', label: 'albums' },
         },
       },
