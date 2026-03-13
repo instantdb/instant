@@ -45,7 +45,7 @@ export const tracks = [
   },
 ];
 
-export class ChiptunePlayer {
+export class PreviewPlayer {
   private audio: HTMLAudioElement | null = null;
   private currentTrack = -1;
 

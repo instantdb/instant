@@ -44,13 +44,7 @@ const editorTheme = {
   ],
 };
 
-function CodeEditor({
-  code,
-  language,
-}: {
-  code: string;
-  language: string;
-}) {
+function CodeEditor({ code, language }: { code: string; language: string }) {
   return (
     <Highlight
       {...defaultProps}

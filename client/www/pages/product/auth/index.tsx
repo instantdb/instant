@@ -214,14 +214,20 @@ export default function Auth() {
                 </p>
                 <p className="mt-2 text-base">
                   Your rules can traverse relationships in your data, leverage
-                  auth, and use helper functions and variables to express complex
-                  logic.
+                  auth, and use helper functions and variables to express
+                  complex logic.
                 </p>
               </div>
               <div className="min-w-0 grow lg:bg-[#F0F5FA] lg:px-[66px] lg:py-[37px]">
                 <TabbedCodeExample
                   examples={permissionExamples}
-                  tabs={[{ key: 'code', label: 'instant.perms.ts', language: 'typescript' }]}
+                  tabs={[
+                    {
+                      key: 'code',
+                      label: 'instant.perms.ts',
+                      language: 'typescript',
+                    },
+                  ]}
                 />
               </div>
             </div>

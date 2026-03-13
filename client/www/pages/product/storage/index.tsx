@@ -20,18 +20,18 @@ import { Footer } from '@/components/new-landing/Footer';
 import { TopWash } from '@/components/new-landing/TopWash';
 import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
-import { ChiptunePlayer, tracks } from '@/lib/product/storage/chiptuneSynth';
+import { PreviewPlayer, tracks } from '@/lib/product/storage/musicPreview';
 
 function MusicApp() {
   const [activeTrack, setActiveTrack] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const playerRef = useRef<ChiptunePlayer | null>(null);
+  const playerRef = useRef<PreviewPlayer | null>(null);
   const activeTrackRef = useRef(activeTrack);
   activeTrackRef.current = activeTrack;
 
   const getPlayer = () => {
     if (!playerRef.current) {
-      const player = new ChiptunePlayer();
+      const player = new PreviewPlayer();
       player.onTrackEnd = () => {
         const next = (activeTrackRef.current + 1) % tracks.length;
         setActiveTrack(next);
@@ -56,7 +56,7 @@ function MusicApp() {
           50% { height: 16px; }
         }
       `}</style>
-      <div className="flex items-center gap-3 px-3 py-2.5 border-b">
+      <div className="flex items-center gap-3 border-b px-3 py-2.5">
         <button
           onClick={() => {
             const player = getPlayer();
@@ -67,23 +67,28 @@ function MusicApp() {
             }
             setPlaying(!playing);
           }}
-          className="flex items-center justify-center h-8 w-8 flex-shrink-0 rounded-full bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-900 text-white transition-colors hover:bg-gray-800"
         >
           {playing ? (
             <PauseIcon className="h-4 w-4" />
           ) : (
-            <PlayIcon className="h-4 w-4 ml-0.5" />
+            <PlayIcon className="ml-0.5 h-4 w-4" />
           )}
         </button>
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-gray-900 truncate">My favorite songs</p>
-          <div className="flex items-center gap-1 mt-0.5">
-            <img src="/img/landing/joe.jpg" className="h-4 w-4 rounded-full object-cover" />
+          <p className="truncate text-xs font-semibold text-gray-900">
+            My favorite songs
+          </p>
+          <div className="mt-0.5 flex items-center gap-1">
+            <img
+              src="/img/landing/joe.jpg"
+              className="h-4 w-4 rounded-full object-cover"
+            />
             <span className="text-[10px] text-gray-500">Joe</span>
           </div>
         </div>
       </div>
-      <div className="divide-y max-h-[180px] overflow-y-auto">
+      <div className="max-h-[180px] divide-y overflow-y-auto">
         {tracks.map((t, i) => {
           const isActive = i === activeTrack;
           return (
@@ -95,11 +100,11 @@ function MusicApp() {
                 setPlaying(true);
                 player.play(i);
               }}
-              className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50"
+              className="flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-gray-50"
             >
-              <div className="w-4 flex items-center justify-center">
+              <div className="flex w-4 items-center justify-center">
                 {isActive && playing ? (
-                  <div className="flex items-end gap-[2px] h-3">
+                  <div className="flex h-3 items-end gap-[2px]">
                     {[-0.4, -0.25, -0.35].map((delay, j) => (
                       <div
                         key={j}
@@ -115,7 +120,14 @@ function MusicApp() {
                 )}
               </div>
               <div className="flex-1">
-                <p className={cn("text-xs font-medium", isActive ? "text-gray-900" : "text-gray-600")}>{t.title}</p>
+                <p
+                  className={cn(
+                    'text-xs font-medium',
+                    isActive ? 'text-gray-900' : 'text-gray-600',
+                  )}
+                >
+                  {t.title}
+                </p>
                 <p className="text-[10px] text-gray-400">{t.artist}</p>
               </div>
             </div>
@@ -299,7 +311,7 @@ function BookApp() {
               onClick={() => setSelectedBook(null)}
             />
             <motion.div
-              className="absolute left-1/2 top-1/2 z-50 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-6 shadow-xl"
+              className="absolute top-1/2 left-1/2 z-50 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-6 shadow-xl"
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.85 }}
@@ -307,7 +319,7 @@ function BookApp() {
             >
               <button
                 onClick={() => setSelectedBook(null)}
-                className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                className="absolute top-3 right-3 flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
               >
                 &times;
               </button>
@@ -318,7 +330,7 @@ function BookApp() {
                   className="h-44 w-28 flex-shrink-0 rounded-lg object-cover shadow-md"
                 />
                 <div className="flex min-w-0 flex-col">
-                  <p className="text-lg font-bold leading-snug text-gray-900">
+                  <p className="text-lg leading-snug font-bold text-gray-900">
                     {book.title}
                   </p>
                   <p className="mt-1 text-sm text-gray-500">{book.author}</p>
@@ -357,13 +369,13 @@ const cardStyles = [
 
 function AppGallery() {
   return (
-    <div className="grid items-end max-w-[740px] mx-auto">
+    <div className="mx-auto grid max-w-[740px] items-end">
       {appDemos.map((demo, i) => {
         const Demo = demo.component;
         return (
           <div
             key={demo.label}
-            className={cn('w-[240px] col-start-1 row-start-1', cardStyles[i])}
+            className={cn('col-start-1 row-start-1 w-[240px]', cardStyles[i])}
           >
             <Demo />
           </div>
@@ -372,7 +384,6 @@ function AppGallery() {
     </div>
   );
 }
-
 
 export default function Storage() {
   const title = 'Storage - Instant';
@@ -426,14 +437,16 @@ export default function Storage() {
           {/* No need for a separate file storage system */}
           <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-center">
             <div className="space-y-4 md:max-w-[400px]">
-              <Subheading>No need for a separate file storage system</Subheading>
+              <Subheading>
+                No need for a separate file storage system
+              </Subheading>
               <p className="mt-2 text-base">
                 Instant comes with built-in file storage. No S3 buckets to
                 configure, no signed URLs to manage.
               </p>
               <p className="mt-2 text-base">
-                When you've got storage with your database you can easily
-                build apps like Instagram, Spotify, Goodreads and more!
+                When you've got storage with your database you can easily build
+                apps like Instagram, Spotify, Goodreads and more!
               </p>
             </div>
             <div className="min-w-0 grow lg:bg-radial lg:from-white lg:to-[#FFF9F4] lg:px-[66px] lg:py-[37px]">
@@ -455,8 +468,8 @@ export default function Storage() {
                 <Subheading>Files are integrated into your database</Subheading>
                 <p className="mt-2 text-base">
                   Files are stored alongside other entities in Instant. Upload
-                  them, link them to your data, and query with InstaQL just
-                  like any other table.
+                  them, link them to your data, and query with InstaQL just like
+                  any other table.
                 </p>
                 <p className="mt-2 text-base">
                   Best of all, your files are reactive too! When a file is
@@ -472,9 +485,9 @@ export default function Storage() {
               <div className="space-y-4 md:max-w-[400px]">
                 <Subheading>Secure with permissions</Subheading>
                 <p className="mt-2 text-base">
-                  Files use the same permission system as the rest of your
-                  data. Control who can upload, view, and delete files with
-                  simple rules.
+                  Files use the same permission system as the rest of your data.
+                  Control who can upload, view, and delete files with simple
+                  rules.
                 </p>
                 <p className="mt-2 text-base">
                   Your rules can traverse relationships, check auth state, and
@@ -484,7 +497,9 @@ export default function Storage() {
               <div className="min-w-0 grow lg:bg-[#F0F5FA] lg:px-[66px] lg:py-[37px]">
                 <TabbedCodeExample
                   examples={permissionExamples}
-                  tabs={[{ key: 'code', label: 'Rules', language: 'typescript' }]}
+                  tabs={[
+                    { key: 'code', label: 'Rules', language: 'typescript' },
+                  ]}
                   height="h-96"
                 />
               </div>
@@ -501,11 +516,8 @@ export default function Storage() {
           <AnimateIn>
             <div className="text-center">
               <SectionTitle>
-                <span className="text-orange-600">
-                  Build rich applications
-                </span>
-                <br className="hidden md:block" /> with files and data
-                together.
+                <span className="text-orange-600">Build rich applications</span>
+                <br className="hidden md:block" /> with files and data together.
               </SectionTitle>
               <div className="mt-10 flex justify-center gap-3">
                 <LandingButton href="/dash">Get started</LandingButton>
