@@ -3,6 +3,7 @@
   "type": "module",
   "version": "0.0.0",
   "description": "Svelte client for InstantDB",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/svelte",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/instantdb/instant.git",
