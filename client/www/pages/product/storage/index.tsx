@@ -1,4 +1,6 @@
 import { useState, useRef } from 'react';
+import { PlayIcon, PauseIcon } from '@heroicons/react/24/solid';
+import { AnimatePresence, motion } from 'motion/react';
 import Head from 'next/head';
 import * as og from '@/lib/og';
 import { MainNav, ProductNav } from '@/components/marketingUi';
@@ -20,12 +22,13 @@ import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
 
 function MusicApp() {
+  const [activeTrack, setActiveTrack] = useState(0);
   const [playing, setPlaying] = useState(false);
   const tracks = [
-    { title: 'Midnight City', artist: 'M83', duration: '4:03' },
-    { title: 'Intro', artist: 'The xx', duration: '2:07' },
-    { title: 'Tadow', artist: 'Masego & FKJ', duration: '5:48' },
-    { title: 'Rhiannon', artist: 'Fleetwood Mac', duration: '4:13' },
+    { title: 'Midnight City', artist: 'M83' },
+    { title: 'Intro', artist: 'The xx' },
+    { title: 'Tadow', artist: 'Masego & FKJ' },
+    { title: 'Rhiannon', artist: 'Fleetwood Mac' },
   ];
   return (
     <div className="overflow-hidden rounded-lg border bg-white">
@@ -35,49 +38,58 @@ function MusicApp() {
           50% { height: 16px; }
         }
       `}</style>
-      <div className="flex items-center gap-3 border-b bg-gray-950 px-4 py-3">
+      <div className="flex items-center gap-3 px-3 py-2.5 border-b">
         <button
           onClick={() => setPlaying(!playing)}
-          className="flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:opacity-90 transition-opacity"
+          className="flex items-center justify-center h-8 w-8 flex-shrink-0 rounded-full bg-gray-900 text-white hover:bg-gray-800 transition-colors"
         >
           {playing ? (
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-            </svg>
+            <PauseIcon className="h-4 w-4" />
           ) : (
-            <svg className="h-4 w-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+            <PlayIcon className="h-4 w-4 ml-0.5" />
           )}
         </button>
-        <div>
-          <p className="text-xs font-medium text-white">Now Playing</p>
-          <p className="text-[10px] text-gray-400">Midnight City - M83</p>
-        </div>
-        <div className="ml-auto flex items-end gap-[3px] h-4">
-          {[-0.4, -0.25, -0.35, -0.15].map((delay, i) => (
-            <div
-              key={i}
-              className="w-[3px] rounded-sm bg-purple-400"
-              style={{
-                animation: `equalize 0.8s ease-in-out ${delay}s infinite`,
-                animationPlayState: playing ? 'running' : 'paused',
-              }}
-            />
-          ))}
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-gray-900 truncate">My fav chiptunes</p>
+          <div className="flex items-center gap-1 mt-0.5">
+            <img src="/img/landing/joe.jpg" className="h-4 w-4 rounded-full object-cover" />
+            <span className="text-[10px] text-gray-500">Joe</span>
+          </div>
         </div>
       </div>
       <div className="divide-y">
-        {tracks.map((t, i) => (
-          <div key={t.title} className="flex items-center gap-3 px-4 py-2">
-            <span className="w-4 text-[10px] text-gray-300">{i + 1}</span>
-            <div className="flex-1">
-              <p className="text-xs font-medium text-gray-800">{t.title}</p>
-              <p className="text-[10px] text-gray-400">{t.artist}</p>
+        {tracks.map((t, i) => {
+          const isActive = i === activeTrack;
+          return (
+            <div
+              key={t.title}
+              onClick={() => { setActiveTrack(i); setPlaying(true); }}
+              className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50"
+            >
+              <div className="w-4 flex items-center justify-center">
+                {isActive && playing ? (
+                  <div className="flex items-end gap-[2px] h-3">
+                    {[-0.4, -0.25, -0.35].map((delay, j) => (
+                      <div
+                        key={j}
+                        className="w-[2.5px] rounded-sm bg-gray-900"
+                        style={{
+                          animation: `equalize 0.8s ease-in-out ${delay}s infinite`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-gray-400">{i + 1}</span>
+                )}
+              </div>
+              <div className="flex-1">
+                <p className={cn("text-xs font-medium", isActive ? "text-gray-900" : "text-gray-600")}>{t.title}</p>
+                <p className="text-[10px] text-gray-400">{t.artist}</p>
+              </div>
             </div>
-            <span className="text-[10px] text-gray-400">{t.duration}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -176,40 +188,55 @@ function PhotoApp() {
 
 const books = [
   {
-    title: 'How to Win Friends',
+    title: 'How to Win Friends and Influence People',
     author: 'Dale Carnegie',
     cover: '/img/product-pages/storage/book-1.webp',
+    description:
+      "Dale Carnegie's rock-solid, time-tested advice has carried countless people up the ladder of success in their business and personal lives.",
   },
   {
-    title: '7 Habits',
-    author: 'Stephen Covey',
+    title: 'The 7 Habits of Highly Effective People',
+    author: 'Stephen R. Covey',
     cover: '/img/product-pages/storage/book-5.webp',
+    description:
+      'A leading management consultant outlines seven organizational rules for improving effectiveness and increasing productivity at work and at home.',
   },
   {
     title: 'East of Eden',
     author: 'John Steinbeck',
     cover: '/img/product-pages/storage/book-3.webp',
+    description:
+      "A masterpiece of Biblical scope, and the magnum opus of one of America's most enduring authors. Set in the rich farmland of California's Salinas Valley.",
   },
   {
     title: 'Antifragile',
-    author: 'Nassim Taleb',
+    author: 'Nassim Nicholas Taleb',
     cover: '/img/product-pages/storage/book-4.webp',
+    description:
+      'Shares insights into how adversity can bring out the best in individuals and communities, drawing on multiple disciplines.',
   },
   {
-    title: 'SICP',
-    author: 'Abelson & Sussman',
+    title: 'Structure and Interpretation of Computer Programs',
+    author: 'Harold Abelson & Gerald Jay Sussman',
     cover: '/img/product-pages/storage/book-2.webp',
+    description:
+      'The foundational computer science textbook, licensed under Creative Commons. A deep dive into the simplicity behind our craft.',
   },
   {
     title: 'Hackers & Painters',
     author: 'Paul Graham',
     cover: '/img/product-pages/storage/book-6.webp',
+    description:
+      'Big ideas from the computer age. We are living in a world increasingly designed and engineered by computer programmers and software.',
   },
 ];
 
 function BookApp() {
+  const [selectedBook, setSelectedBook] = useState<number | null>(null);
+  const book = selectedBook !== null ? books[selectedBook] : null;
+
   return (
-    <div className="overflow-hidden rounded-lg border bg-white">
+    <div className="relative rounded-lg border bg-white">
       <div className="flex items-center gap-2 border-b px-4 py-2.5">
         <img
           src="/img/product-pages/storage/zeneca-icon.webp"
@@ -219,17 +246,68 @@ function BookApp() {
         <span className="text-xs font-medium text-gray-700">Zeneca</span>
       </div>
       <div className="grid grid-cols-3 gap-3 p-4">
-        {books.map((b) => (
-          <div key={b.title} className="flex flex-col gap-1">
+        {books.map((b, i) => (
+          <div key={b.title}>
             <img
               src={b.cover}
               alt={b.title}
-              className="aspect-[2/3] rounded object-cover"
+              className="aspect-[2/3] cursor-pointer rounded object-cover"
+              onClick={() => setSelectedBook(i)}
             />
-            <p className="truncate text-[10px] text-gray-500">{b.author}</p>
           </div>
         ))}
       </div>
+      <AnimatePresence>
+        {book && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedBook(null)}
+            />
+            <motion.div
+              className="absolute left-1/2 top-1/2 z-50 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-6 shadow-xl"
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            >
+              <button
+                onClick={() => setSelectedBook(null)}
+                className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              >
+                &times;
+              </button>
+              <div className="flex gap-5">
+                <img
+                  src={book.cover}
+                  alt={book.title}
+                  className="h-44 w-28 flex-shrink-0 rounded-lg object-cover shadow-md"
+                />
+                <div className="flex min-w-0 flex-col">
+                  <p className="text-lg font-bold leading-snug text-gray-900">
+                    {book.title}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500">{book.author}</p>
+                  <p className="mt-3 text-sm leading-relaxed text-gray-600">
+                    {book.description}
+                  </p>
+                  <a
+                    href={`https://www.amazon.com/s?k=${encodeURIComponent(book.title + ' ' + book.author)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-md bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-700"
+                  >
+                    Get it on Amazon &rarr;
+                  </a>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
