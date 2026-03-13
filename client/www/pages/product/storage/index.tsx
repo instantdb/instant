@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { PlayIcon, PauseIcon } from '@heroicons/react/24/solid';
 import { AnimatePresence, motion } from 'motion/react';
 import Head from 'next/head';
@@ -20,16 +20,34 @@ import { Footer } from '@/components/new-landing/Footer';
 import { TopWash } from '@/components/new-landing/TopWash';
 import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
+import { ChiptunePlayer, tracks } from '@/lib/product/storage/chiptuneSynth';
 
 function MusicApp() {
   const [activeTrack, setActiveTrack] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const tracks = [
-    { title: 'Midnight City', artist: 'M83' },
-    { title: 'Intro', artist: 'The xx' },
-    { title: 'Tadow', artist: 'Masego & FKJ' },
-    { title: 'Rhiannon', artist: 'Fleetwood Mac' },
-  ];
+  const playerRef = useRef<ChiptunePlayer | null>(null);
+  const activeTrackRef = useRef(activeTrack);
+  activeTrackRef.current = activeTrack;
+
+  const getPlayer = () => {
+    if (!playerRef.current) {
+      const player = new ChiptunePlayer();
+      player.onTrackEnd = () => {
+        const next = (activeTrackRef.current + 1) % tracks.length;
+        setActiveTrack(next);
+        player.play(next);
+      };
+      playerRef.current = player;
+    }
+    return playerRef.current;
+  };
+
+  useEffect(() => {
+    return () => {
+      playerRef.current?.stop();
+    };
+  }, []);
+
   return (
     <div className="overflow-hidden rounded-lg border bg-white">
       <style>{`
@@ -40,7 +58,15 @@ function MusicApp() {
       `}</style>
       <div className="flex items-center gap-3 px-3 py-2.5 border-b">
         <button
-          onClick={() => setPlaying(!playing)}
+          onClick={() => {
+            const player = getPlayer();
+            if (playing) {
+              player.pause();
+            } else {
+              player.play(activeTrack);
+            }
+            setPlaying(!playing);
+          }}
           className="flex items-center justify-center h-8 w-8 flex-shrink-0 rounded-full bg-gray-900 text-white hover:bg-gray-800 transition-colors"
         >
           {playing ? (
@@ -57,13 +83,18 @@ function MusicApp() {
           </div>
         </div>
       </div>
-      <div className="divide-y">
+      <div className="divide-y max-h-[180px] overflow-y-auto">
         {tracks.map((t, i) => {
           const isActive = i === activeTrack;
           return (
             <div
               key={t.title}
-              onClick={() => { setActiveTrack(i); setPlaying(true); }}
+              onClick={() => {
+                const player = getPlayer();
+                setActiveTrack(i);
+                setPlaying(true);
+                player.play(i);
+              }}
               className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50"
             >
               <div className="w-4 flex items-center justify-center">
