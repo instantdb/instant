@@ -12,6 +12,6 @@
   const auth = db.useAuth();
 </script>
 
-{#if !auth.isLoading && !auth.user}
+{#if !auth.isLoading && !auth.error && !auth.user}
   {@render children()}
 {/if}
