@@ -136,9 +136,9 @@ const IDB_W = 80;
 const IDB_ITEM_H = 28;
 
 // Vertical positions
-const BAR1_TOP = 24;
+const BAR1_TOP = 30;
 const BAR1_CY = BAR1_TOP + BAR_H / 2;
-const BAR2_TOP = BAR1_TOP + BAR_H + 28;
+const BAR2_TOP = BAR1_TOP + BAR_H + 16;
 const BAR2_CY = BAR2_TOP + BAR_H / 2;
 const BOX_TOP = BAR2_TOP + BAR_H + GAP;
 
