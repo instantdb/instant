@@ -17,6 +17,7 @@ import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import { RealtimeSyncWalkthrough } from '@/components/product/sync/RealtimeSyncWalkthrough';
 import { OptimisticUpdateDiagram } from '@/components/product/sync/OptimisticUpdateDiagram';
 import { ConflictResolutionWalkthrough } from '@/components/product/sync/ConflictResolutionWalkthrough';
+import { OfflinePersistenceWalkthrough } from '@/components/product/sync/OfflinePersistenceWalkthrough';
 
 import figmaIcon from '@/public/img/product-pages/sync/figma.svg';
 import notionIcon from '@/public/img/product-pages/sync/notion.svg';
@@ -103,6 +104,8 @@ function HardSection() {
             <OptimisticUpdateDiagram />
           ) : active === 1 ? (
             <RealtimeSyncWalkthrough />
+          ) : active === 2 ? (
+            <OfflinePersistenceWalkthrough />
           ) : active === 3 ? (
             <ConflictResolutionWalkthrough />
           ) : (
