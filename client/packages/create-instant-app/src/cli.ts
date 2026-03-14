@@ -14,6 +14,7 @@ export type Project = {
     | 'tanstack-start-with-tanstack-query'
     | 'bun-react'
     | 'solidjs-vite'
+    | 'sveltekit'
     | 'vercel-ai-sdk'
     | 'ai-chat';
   ruleFiles:
@@ -76,6 +77,7 @@ export const runCli = async (): Promise<{
         'tanstack-start',
         'tanstack-start-with-tanstack-query',
         'solidjs-vite',
+        'sveltekit',
         'vercel-ai-sdk',
         'ai-chat',
       ]),
@@ -95,6 +97,9 @@ export const runCli = async (): Promise<{
       new Option('--vanilla', 'Use the vanilla JS starter template').default(
         false,
       ),
+    )
+    .addOption(
+      new Option('--sv', 'Use the SvelteKit starter template').default(false),
     )
     .addOption(
       new Option('--no-git', "Don't create a git repo in the new project"),
@@ -199,6 +204,9 @@ export const runCli = async (): Promise<{
         if (flags.expo) {
           return 'expo';
         }
+        if (flags.sv) {
+          return 'sveltekit';
+        }
 
         if (results.prompt) {
           return renderUnwrap(
@@ -241,6 +249,11 @@ export const runCli = async (): Promise<{
               {
                 value: 'solidjs-vite',
                 label: 'Vite: SolidJS',
+                secondary: true,
+              },
+              {
+                value: 'sveltekit',
+                label: 'SvelteKit',
                 secondary: true,
               },
               {
