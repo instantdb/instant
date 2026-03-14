@@ -1,9 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-} from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { LogoIcon } from '@/components/ui';
 
 // -- Step definitions --------------------------------------------------------
@@ -103,10 +100,30 @@ const SERVER_BALL_CY = BOX_TOP + BOX_H / 2 + 10;
 const DESIGN_H = BOX_TOP + BOX_H + 28;
 
 // Edge endpoints (in design-px, used by SVG overlay)
-const EDGE_AP = { x1: A_LEFT + COL_W, y1: BAR2_CY, x2: S_LEFT, y2: BOX_TOP + BOX_H / 3 };
-const EDGE_SA = { x1: S_LEFT, y1: BOX_TOP + BOX_H / 5, x2: A_LEFT + COL_W, y2: BAR1_CY };
-const EDGE_BP = { x1: B_LEFT, y1: BAR2_CY, x2: S_LEFT + COL_W, y2: BOX_TOP + BOX_H / 3 };
-const EDGE_SB = { x1: S_LEFT + COL_W, y1: BOX_TOP + BOX_H / 5, x2: B_LEFT, y2: BAR1_CY };
+const EDGE_AP = {
+  x1: A_LEFT + COL_W,
+  y1: BAR2_CY,
+  x2: S_LEFT,
+  y2: BOX_TOP + BOX_H / 3,
+};
+const EDGE_SA = {
+  x1: S_LEFT,
+  y1: BOX_TOP + BOX_H / 5,
+  x2: A_LEFT + COL_W,
+  y2: BAR1_CY,
+};
+const EDGE_BP = {
+  x1: B_LEFT,
+  y1: BAR2_CY,
+  x2: S_LEFT + COL_W,
+  y2: BOX_TOP + BOX_H / 3,
+};
+const EDGE_SB = {
+  x1: S_LEFT + COL_W,
+  y1: BOX_TOP + BOX_H / 5,
+  x2: B_LEFT,
+  y2: BAR1_CY,
+};
 const ALICE_PENDING = { cx: EDGE_AP.x1, cy: EDGE_AP.y1 };
 const ALICE_WAIT = { cx: EDGE_AP.x2, cy: EDGE_AP.y2 };
 
@@ -123,7 +140,11 @@ function LayerBar({ color }: { color: BallColor | null }) {
           <motion.div
             key="dot"
             className="rounded-full"
-            style={{ width: BAR_H - 8, height: BAR_H - 8, backgroundColor: color }}
+            style={{
+              width: BAR_H - 8,
+              height: BAR_H - 8,
+              backgroundColor: color,
+            }}
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5 }}
@@ -139,9 +160,7 @@ function ClientColumn({ name, state }: { name: string; state: ClientState }) {
   const ball = ballColor(state);
   return (
     <div className="flex flex-col items-center" style={{ width: COL_W }}>
-      <p className="mb-1 self-start text-sm text-gray-500">
-        Server Result
-      </p>
+      <p className="mb-1 self-start text-sm text-gray-500">Server Result</p>
       <LayerBar color={state.serverUpdate} />
       <p className="mt-2 mb-1 self-start text-sm text-gray-500">
         Pending Mutations
@@ -174,26 +193,44 @@ function MutationDot({
   waitPos: { cx: number; cy: number };
   serverPos: { cx: number; cy: number };
 }) {
-  const pos = dot.position === 'pending' ? pendingPos
-    : dot.position === 'waiting' ? waitPos
-    : dot.position === 'server' ? serverPos
-    : waitPos;
+  const pos =
+    dot.position === 'pending'
+      ? pendingPos
+      : dot.position === 'waiting'
+        ? waitPos
+        : dot.position === 'server'
+          ? serverPos
+          : waitPos;
 
   return (
     <motion.circle
       r={5}
       fill={dot.color}
       initial={{ cx: pendingPos.cx, cy: pendingPos.cy, opacity: 0 }}
-      animate={{ cx: pos.cx, cy: pos.cy, opacity: dot.position === 'gone' ? 0 : 1 }}
+      animate={{
+        cx: pos.cx,
+        cy: pos.cy,
+        opacity: dot.position === 'gone' ? 0 : 1,
+      }}
       transition={{ duration: 0.8, ease: 'easeInOut' }}
     />
   );
 }
 
 function TravelingDot({
-  x1, y1, x2, y2, color, delay = 0,
+  x1,
+  y1,
+  x2,
+  y2,
+  color,
+  delay = 0,
 }: {
-  x1: number; y1: number; x2: number; y2: number; color: BallColor; delay?: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: BallColor;
+  delay?: number;
 }) {
   return (
     <motion.circle
@@ -215,7 +252,8 @@ export function RealtimeSyncWalkthrough() {
 
   // Delayed visual state: server ball and client states wait for dots to arrive
   const hasDotEntering = step.aliceDot?.position === 'server';
-  const hasBroadcast = step.dotServerToAlice != null || step.dotServerToBob != null;
+  const hasBroadcast =
+    step.dotServerToAlice != null || step.dotServerToBob != null;
 
   const [serverBallVisual, setServerBallVisual] = useState(step.serverBall);
   const [aliceVisual, setAliceVisual] = useState(step.alice);
@@ -274,7 +312,11 @@ export function RealtimeSyncWalkthrough() {
   return (
     <div className="mt-4 rounded-lg border bg-gray-50 p-5">
       {/* Scaled diagram */}
-      <div ref={outerRef} className="flex justify-center" style={{ height: DESIGN_H * scale }}>
+      <div
+        ref={outerRef}
+        className="flex justify-center"
+        style={{ height: DESIGN_H * scale }}
+      >
         <div
           className="relative"
           style={{
@@ -323,10 +365,30 @@ export function RealtimeSyncWalkthrough() {
             height={DESIGN_H}
           >
             {/* Edge lines */}
-            <line {...EDGE_AP} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 3" />
-            <line {...EDGE_SA} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 3" />
-            <line {...EDGE_BP} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 3" />
-            <line {...EDGE_SB} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 3" />
+            <line
+              {...EDGE_AP}
+              stroke="#d1d5db"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+            />
+            <line
+              {...EDGE_SA}
+              stroke="#d1d5db"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+            />
+            <line
+              {...EDGE_BP}
+              stroke="#d1d5db"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+            />
+            <line
+              {...EDGE_SB}
+              stroke="#d1d5db"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+            />
 
             {/* Mutation dot (only Alice sends) */}
             {step.aliceDot && (
@@ -342,10 +404,20 @@ export function RealtimeSyncWalkthrough() {
             {/* Dots broadcasting from server */}
             <AnimatePresence>
               {step.dotServerToAlice && (
-                <TravelingDot key={`sa-${stepIdx}`} {...EDGE_SA} color={step.dotServerToAlice} delay={0.8} />
+                <TravelingDot
+                  key={`sa-${stepIdx}`}
+                  {...EDGE_SA}
+                  color={step.dotServerToAlice}
+                  delay={0.8}
+                />
               )}
               {step.dotServerToBob && (
-                <TravelingDot key={`sb-${stepIdx}`} {...EDGE_SB} color={step.dotServerToBob} delay={0.8} />
+                <TravelingDot
+                  key={`sb-${stepIdx}`}
+                  {...EDGE_SB}
+                  color={step.dotServerToBob}
+                  delay={0.8}
+                />
               )}
             </AnimatePresence>
           </svg>
@@ -353,7 +425,7 @@ export function RealtimeSyncWalkthrough() {
       </div>
 
       {/* Step indicator + nav */}
-      <div className="mt-4 flex items-center justify-between rounded-lg bg-white px-3 py-2 border border-gray-200">
+      <div className="mt-4 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
         <button
           onClick={() => setStepIdx((s) => Math.max(0, s - 1))}
           disabled={stepIdx === 0}
@@ -373,9 +445,7 @@ export function RealtimeSyncWalkthrough() {
           ))}
         </div>
         <button
-          onClick={() =>
-            setStepIdx((s) => Math.min(STEPS.length - 1, s + 1))
-          }
+          onClick={() => setStepIdx((s) => Math.min(STEPS.length - 1, s + 1))}
           disabled={stepIdx === STEPS.length - 1}
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 text-white shadow-sm transition-all hover:bg-orange-600 active:scale-95 disabled:opacity-30"
         >

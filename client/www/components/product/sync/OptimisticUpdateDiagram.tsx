@@ -1,9 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-} from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { LogoIcon } from '@/components/ui';
 
 // -- Step definitions --------------------------------------------------------
@@ -491,9 +488,7 @@ export function OptimisticUpdateDiagram() {
             transition={{ duration: 0.2 }}
           >
             <p className="text-base font-medium text-gray-900">{step.title}</p>
-            <p className="mt-0.5 text-base text-gray-500">
-              {step.description}
-            </p>
+            <p className="mt-0.5 text-base text-gray-500">{step.description}</p>
           </motion.div>
         </AnimatePresence>
       </div>
