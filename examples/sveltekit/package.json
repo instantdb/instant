@@ -1,0 +1,25 @@
+{
+  "name": "sveltekit",
+  "version": "0.1.0",
+  "description": "InstantDB + SvelteKit example",
+  "type": "module",
+  "scripts": {
+    "prepare": "svelte-kit sync",
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "^3.0.0",
+    "@sveltejs/kit": "^2.16.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@tailwindcss/vite": "^4.1.13",
+    "svelte": "^5.0.0",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2",
+    "vite": "^6.0.0"
+  },
+  "dependencies": {
+    "@instantdb/svelte": "latest"
+  }
+}
