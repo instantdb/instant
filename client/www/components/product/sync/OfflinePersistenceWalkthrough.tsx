@@ -135,16 +135,18 @@ const IDB_LEFT = 20;
 const IDB_W = 80;
 const IDB_ITEM_H = 28;
 
-// Vertical positions
-const BAR1_TOP = 30;
+// Vertical positions (match ClientColumn flexbox layout)
+const BAR1_TOP = 24;
 const BAR1_CY = BAR1_TOP + BAR_H / 2;
-const BAR2_TOP = BAR1_TOP + BAR_H + 16;
+const BAR2_TOP = BAR1_TOP + BAR_H + 28;
 const BAR2_CY = BAR2_TOP + BAR_H / 2;
 const BOX_TOP = BAR2_TOP + BAR_H + GAP;
 
-// IDB cylinder positions (vertically centered on their respective bars)
-const IDB_TOP1 = BAR1_CY - IDB_ITEM_H / 2;
-const IDB_TOP2 = BAR2_CY - IDB_ITEM_H / 2;
+// IDB cylinder positions (nudged inward so they sit closer together)
+const IDB_CY1 = BAR1_CY + 8;
+const IDB_CY2 = BAR2_CY - 8;
+const IDB_TOP1 = IDB_CY1 - IDB_ITEM_H / 2;
+const IDB_TOP2 = IDB_CY2 - IDB_ITEM_H / 2;
 
 // Horizontal positions
 const CLIENT_LEFT = IDB_LEFT + IDB_W + 50;
@@ -165,18 +167,18 @@ const EDGE_BROADCAST = {
   x2: CLIENT_LEFT + COL_W,
   y2: BAR1_CY,
 };
-// Two horizontal edges: client bars -> IDB cylinders
+// Edges: client bars -> IDB cylinders (slightly angled)
 const EDGE_TO_IDB_SR = {
   x1: CLIENT_LEFT,
   y1: BAR1_CY,
   x2: IDB_LEFT + IDB_W,
-  y2: BAR1_CY,
+  y2: IDB_CY1,
 };
 const EDGE_TO_IDB_PM = {
   x1: CLIENT_LEFT,
   y1: BAR2_CY,
   x2: IDB_LEFT + IDB_W,
-  y2: BAR2_CY,
+  y2: IDB_CY2,
 };
 
 const MUT_EDGE_MID_X = (EDGE_MUT.x1 + EDGE_MUT.x2) / 2;
@@ -465,7 +467,7 @@ export function OfflinePersistenceWalkthrough() {
             className="absolute text-sm text-gray-500"
             style={{
               left: IDB_LEFT,
-              top: IDB_TOP1 - 18,
+              top: IDB_TOP1 - 24,
               width: IDB_W,
               textAlign: 'center',
             }}
