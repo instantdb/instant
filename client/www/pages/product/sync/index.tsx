@@ -14,6 +14,9 @@ import {
 import { Footer } from '@/components/new-landing/Footer';
 import { TopWash } from '@/components/new-landing/TopWash';
 import { AnimateIn } from '@/components/new-landing/AnimateIn';
+import { RealtimeSyncWalkthrough } from '@/components/product/sync/RealtimeSyncWalkthrough';
+import { OptimisticUpdateDiagram } from '@/components/product/sync/OptimisticUpdateDiagram';
+import { ConflictResolutionWalkthrough } from '@/components/product/sync/ConflictResolutionWalkthrough';
 
 import figmaIcon from '@/public/img/product-pages/sync/figma.svg';
 import notionIcon from '@/public/img/product-pages/sync/notion.svg';
@@ -96,7 +99,15 @@ function HardSection() {
         <div className="flex-1">
           <p className="font-medium text-gray-900">{layer.why}</p>
           <p className="mt-2 text-base text-gray-600">{layer.description}</p>
-          <DiagramPre diagram={layer.diagram} highlights={layer.highlights} />
+          {active === 0 ? (
+            <OptimisticUpdateDiagram />
+          ) : active === 1 ? (
+            <RealtimeSyncWalkthrough />
+          ) : active === 3 ? (
+            <ConflictResolutionWalkthrough />
+          ) : (
+            <DiagramPre diagram={layer.diagram} highlights={layer.highlights} />
+          )}
         </div>
       </div>
       <div className="mt-10 max-w-2xl space-y-3 text-gray-600 md:hidden">
