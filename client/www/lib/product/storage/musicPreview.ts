@@ -59,7 +59,7 @@ export class PreviewPlayer {
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private source: MediaElementAudioSourceNode | null = null;
-  private freqData: Uint8Array | null = null;
+  private freqData: Uint8Array<ArrayBuffer> | null = null;
 
   onTrackEnd: (() => void) | null = null;
 
@@ -93,7 +93,9 @@ export class PreviewPlayer {
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 256;
       this.analyser.smoothingTimeConstant = 0.6;
-      this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
+      this.freqData = new Uint8Array(
+        new ArrayBuffer(this.analyser.frequencyBinCount),
+      );
       this.analyser.connect(this.audioContext.destination);
     }
   }
