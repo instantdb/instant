@@ -129,7 +129,11 @@ const COL_W = 130;
 const BAR_H = 20;
 const BOX_H = 110;
 const GAP = 10;
-const IDB_W = 110;
+
+// IDB small cylinders
+const IDB_LEFT = 20;
+const IDB_W = 80;
+const IDB_ITEM_H = 28;
 
 // Vertical positions
 const BAR1_TOP = 24;
@@ -138,15 +142,13 @@ const BAR2_TOP = BAR1_TOP + BAR_H + 28;
 const BAR2_CY = BAR2_TOP + BAR_H / 2;
 const BOX_TOP = BAR2_TOP + BAR_H + GAP;
 
-// Horizontal positions
-const IDB_LEFT = 10;
-const CLIENT_LEFT = IDB_LEFT + IDB_W + 30;
-const SERVER_LEFT = DESIGN_W - COL_W - 20;
+// IDB cylinder positions (vertically centered on their respective bars)
+const IDB_TOP1 = BAR1_CY - IDB_ITEM_H / 2;
+const IDB_TOP2 = BAR2_CY - IDB_ITEM_H / 2;
 
-// IDB cylinder spans both bar levels
-const IDB_LABEL_TOP = 4;
-const IDB_CYL_TOP = BAR1_TOP - 2;
-const IDB_H = BAR2_TOP + BAR_H - IDB_CYL_TOP + 8;
+// Horizontal positions
+const CLIENT_LEFT = IDB_LEFT + IDB_W + 50;
+const SERVER_LEFT = DESIGN_W - COL_W - 20;
 
 const DESIGN_H = BOX_TOP + BOX_H + 28;
 
@@ -163,11 +165,18 @@ const EDGE_BROADCAST = {
   x2: CLIENT_LEFT + COL_W,
   y2: BAR1_CY,
 };
-const EDGE_TO_IDB = {
+// Two horizontal edges: client bars -> IDB cylinders
+const EDGE_TO_IDB_SR = {
+  x1: CLIENT_LEFT,
+  y1: BAR1_CY,
+  x2: IDB_LEFT + IDB_W,
+  y2: BAR1_CY,
+};
+const EDGE_TO_IDB_PM = {
   x1: CLIENT_LEFT,
   y1: BAR2_CY,
   x2: IDB_LEFT + IDB_W,
-  y2: IDB_CYL_TOP + IDB_H / 2,
+  y2: BAR2_CY,
 };
 
 const MUT_EDGE_MID_X = (EDGE_MUT.x1 + EDGE_MUT.x2) / 2;
@@ -175,21 +184,65 @@ const MUT_EDGE_MID_Y = (EDGE_MUT.y1 + EDGE_MUT.y2) / 2;
 
 // -- Sub-components ----------------------------------------------------------
 
-function DbCylinder({ width, height }: { width: number; height: number }) {
-  const ry = 7;
+function SmallCylinder({
+  width,
+  height,
+  shapes,
+}: {
+  width: number;
+  height: number;
+  shapes: ShapeState[];
+}) {
+  const ry = 4;
   const rx = width / 2 - 1;
   const cx = width / 2;
   const top = ry + 1;
   const bottom = height - ry - 1;
   return (
-    <svg width={width} height={height} className="absolute inset-0" fill="none">
-      <path
-        d={`M ${cx - rx} ${top} L ${cx - rx} ${bottom} A ${rx} ${ry} 0 0 0 ${cx + rx} ${bottom} L ${cx + rx} ${top}`}
-        fill="white"
-        stroke="#e5e7eb"
-      />
-      <ellipse cx={cx} cy={top} rx={rx} ry={ry} fill="white" stroke="#e5e7eb" />
-    </svg>
+    <div className="relative" style={{ width, height }}>
+      <svg
+        width={width}
+        height={height}
+        className="absolute inset-0"
+        fill="none"
+      >
+        <path
+          d={`M ${cx - rx} ${top} L ${cx - rx} ${bottom} A ${rx} ${ry} 0 0 0 ${cx + rx} ${bottom} L ${cx + rx} ${top}`}
+          fill="white"
+          stroke="#e5e7eb"
+        />
+        <ellipse
+          cx={cx}
+          cy={top}
+          rx={rx}
+          ry={ry}
+          fill="white"
+          stroke="#e5e7eb"
+        />
+      </svg>
+      <div
+        className="relative z-10 flex items-center justify-center gap-1"
+        style={{ height }}
+      >
+        <AnimatePresence>
+          {shapes.map((s, i) => (
+            <motion.div
+              key={`${i}-${s.color}-${s.form}`}
+              style={{
+                width: BAR_H - 8,
+                height: BAR_H - 8,
+                backgroundColor: s.color,
+                borderRadius: s.form === 'circle' ? '50%' : '2px',
+              }}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={{ duration: 0.3 }}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }
 
@@ -271,74 +324,6 @@ function ClientColumn({ state }: { state: ClientState }) {
         />
       </div>
       <p className="mt-2 text-base text-gray-500">Client</p>
-    </div>
-  );
-}
-
-function IdbBox({ state }: { state: IdbState }) {
-  return (
-    <div style={{ width: IDB_W }}>
-      <p className="mb-1 text-center text-sm text-gray-500">IndexedDB</p>
-      <div className="relative" style={{ width: IDB_W, height: IDB_H }}>
-        <DbCylinder width={IDB_W} height={IDB_H} />
-        <div
-          className="relative z-10 flex flex-col items-center justify-center gap-2"
-          style={{ height: IDB_H, paddingTop: 14, paddingBottom: 8 }}
-        >
-          {/* Server result row */}
-          <div
-            className="flex items-center justify-center"
-            style={{ height: BAR_H, width: IDB_W - 24 }}
-          >
-            <AnimatePresence>
-              {state.serverResult && (
-                <motion.div
-                  key={`sr-${state.serverResult.color}-${state.serverResult.form}`}
-                  style={{
-                    width: BAR_H - 8,
-                    height: BAR_H - 8,
-                    backgroundColor: state.serverResult.color,
-                    borderRadius:
-                      state.serverResult.form === 'circle' ? '50%' : '2px',
-                  }}
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.5 }}
-                  transition={{ duration: 0.3 }}
-                />
-              )}
-            </AnimatePresence>
-          </div>
-          {/* Separator */}
-          <div
-            className="bg-gray-200"
-            style={{ width: IDB_W - 30, height: 1 }}
-          />
-          {/* Pending mutations row */}
-          <div
-            className="flex items-center justify-center gap-1"
-            style={{ height: BAR_H, width: IDB_W - 24 }}
-          >
-            <AnimatePresence>
-              {state.pendingMuts.map((mut, i) => (
-                <motion.div
-                  key={`pm-${i}-${mut.color}-${mut.form}`}
-                  style={{
-                    width: BAR_H - 8,
-                    height: BAR_H - 8,
-                    backgroundColor: mut.color,
-                    borderRadius: mut.form === 'circle' ? '50%' : '2px',
-                  }}
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.5 }}
-                  transition={{ duration: 0.3 }}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -475,12 +460,35 @@ export function OfflinePersistenceWalkthrough() {
             transform: `scale(${scale})`,
           }}
         >
-          {/* IndexedDB -- label outside, cylinder box */}
-          <div
-            className="absolute"
-            style={{ left: IDB_LEFT, top: IDB_LABEL_TOP }}
+          {/* IndexedDB label */}
+          <p
+            className="absolute text-sm text-gray-500"
+            style={{
+              left: IDB_LEFT,
+              top: IDB_TOP1 - 18,
+              width: IDB_W,
+              textAlign: 'center',
+            }}
           >
-            <IdbBox state={idbVisual} />
+            IndexedDB
+          </p>
+
+          {/* IDB: server result cylinder */}
+          <div className="absolute" style={{ left: IDB_LEFT, top: IDB_TOP1 }}>
+            <SmallCylinder
+              width={IDB_W}
+              height={IDB_ITEM_H}
+              shapes={idbVisual.serverResult ? [idbVisual.serverResult] : []}
+            />
+          </div>
+
+          {/* IDB: pending mutations cylinder */}
+          <div className="absolute" style={{ left: IDB_LEFT, top: IDB_TOP2 }}>
+            <SmallCylinder
+              width={IDB_W}
+              height={IDB_ITEM_H}
+              shapes={idbVisual.pendingMuts}
+            />
           </div>
 
           {/* Client */}
@@ -532,9 +540,15 @@ export function OfflinePersistenceWalkthrough() {
               strokeWidth={1.5}
               strokeDasharray="4 3"
             />
-            {/* Client -> IndexedDB edge */}
+            {/* Client -> IDB edges (two horizontal lines) */}
             <line
-              {...EDGE_TO_IDB}
+              {...EDGE_TO_IDB_SR}
+              stroke="#d1d5db"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+            />
+            <line
+              {...EDGE_TO_IDB_PM}
               stroke="#d1d5db"
               strokeWidth={1.5}
               strokeDasharray="4 3"
@@ -555,12 +569,12 @@ export function OfflinePersistenceWalkthrough() {
               </text>
             )}
 
-            {/* Dot: Client -> IndexedDB (steps 3, 4) */}
+            {/* Dot: Client -> IDB pending muts cylinder (steps 3, 4) */}
             <AnimatePresence>
               {step.dotToIdb && (
                 <TravelingShape
                   key={`idb-${stepIdx}`}
-                  {...EDGE_TO_IDB}
+                  {...EDGE_TO_IDB_PM}
                   color={step.dotToIdb.color}
                   form={step.dotToIdb.form}
                 />
