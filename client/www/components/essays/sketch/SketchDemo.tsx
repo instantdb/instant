@@ -91,5 +91,5 @@ export function SketchDemo({ demo }: { demo: string }) {
   if (!renderFn) {
     throw new Error(`Unknown demo: ${demo}`);
   }
-  return renderFn();
+  return <div className="essay-breakout not-prose">{renderFn()}</div>;
 }

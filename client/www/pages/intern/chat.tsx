@@ -13,6 +13,7 @@ import { useAdmin } from '@/lib/auth';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { AuthGate } from '@/components/intern/docs-feedback/auth';
 import { AIChatUsageDashboard } from '@/components/intern/docs-feedback/ai-chat-usage-dashboard';
+import { Footer } from '@/components/new-landing/Footer';
 
 export default function AIChatUsagePage() {
   const isHydrated = useIsHydrated();
@@ -32,7 +33,7 @@ export default function AIChatUsagePage() {
             <FullscreenLoading />
           </div>
         </Section>
-        <LandingFooter />
+        <Footer />
       </LandingContainer>
     );
   }
@@ -52,7 +53,7 @@ export default function AIChatUsagePage() {
             </p>
           </div>
         </Section>
-        <LandingFooter />
+        <Footer />
       </LandingContainer>
     );
   }

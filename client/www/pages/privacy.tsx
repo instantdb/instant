@@ -1,9 +1,6 @@
 import Head from 'next/head';
-import {
-  LandingContainer,
-  LandingFooter,
-  MainNav,
-} from '@/components/marketingUi';
+import { LandingContainer, MainNav } from '@/components/marketingUi';
+import { Footer } from '@/components/new-landing/Footer';
 
 function PrivacyPolicyContent() {
   return (
@@ -485,7 +482,7 @@ export default function Page() {
         <div className="mx-auto mt-6 p-4 md:max-w-2xl">
           <PrivacyPolicyContent />
         </div>
-        <LandingFooter />
+        <Footer />
       </div>
     </LandingContainer>
   );

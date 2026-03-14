@@ -5,6 +5,7 @@ import _ from 'lodash';
 export interface Author {
   name: string;
   url: string;
+  avatar: string;
 }
 
 export interface Post {
@@ -13,8 +14,15 @@ export interface Post {
   date: string;
   content: string;
   authors: Author[];
+  duration: {
+    minutes: number;
+    type: 'read' | 'watch';
+  };
   isDraft?: boolean;
+  summary?: string;
+  thumbnail?: string;
   hero?: string;
+  watch_time?: number;
   og_image?: string;
 }
 
@@ -22,27 +30,36 @@ const AUTHORS: Record<string, Author> = {
   stopachka: {
     name: 'Stepan Parunashvili',
     url: 'https://x.com/stopachka',
+    avatar: '/img/landing/stopa.jpg',
   },
   nezaj: {
     name: 'Joe Averbukh',
     url: 'https://x.com/JoeAverbukh',
+    avatar: '/img/landing/joe.jpg',
   },
   dww: {
     name: 'Daniel Woelfel',
     url: 'https://twitter.com/DanielWoelfel',
+    avatar: '/img/landing/daniel.png',
   },
   nikitonsky: {
     name: 'Nikita Prokopov',
     url: 'https://mastodon.online/@nikitonsky',
+    avatar: '/img/peeps/nikitonsky.jpeg',
   },
   instantdb: {
     name: 'Instant',
     url: 'https://x.com/instant_db',
+    avatar: '/img/icon/logo-512.svg',
   },
 };
 
 function getAuthors(authorStr: string): Author[] {
   return authorStr.split(',').map((x) => AUTHORS[x.trim()]);
+}
+
+function getMinutesForContent(content: string): number {
+  return Math.max(1, Math.round(content.split(/\s+/).length / 250));
 }
 
 export function getPostBySlug(slug: string): Post {
@@ -54,12 +71,18 @@ export function getPostBySlug(slug: string): Post {
     title: data.title,
     date: data.date,
     authors: getAuthors(data.authors),
-    content: content,
+    content,
+    duration: {
+      minutes: data.watch_time ?? getMinutesForContent(content),
+      type: data.watch_time ? 'watch' : 'read',
+    },
   };
 
-  // Only add optional fields if they exist
   if (data.isDraft) post.isDraft = data.isDraft;
+  if (data.summary) post.summary = data.summary;
+  if (data.thumbnail) post.thumbnail = data.thumbnail;
   if (data.hero) post.hero = data.hero;
+  if (data.watch_time) post.watch_time = data.watch_time;
   if (data.og_image) post.og_image = data.og_image;
 
   return post;

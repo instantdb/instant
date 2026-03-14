@@ -1,9 +1,17 @@
 @import 'tailwindcss';
 
-@plugin 'tailwindcss-animate';
-@custom-variant dark (&:is(.dark *));
+@theme {
+  --default-mono-font-family: 'Berk Mono';
+  --font-mono: 'Berk Mono', var(--default-mono-font-family);
+}
 
 @config '../tailwind.config.js';
+
+@plugin 'tailwindcss-animate';
+@plugin '@tailwindcss/typography';
+@plugin '@tailwindcss/forms';
+@plugin 'tailwindcss-animate';
+@custom-variant dark (&:is(.dark *));
 
 /*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
@@ -21,6 +29,15 @@
   ::file-selector-button {
     border-color: oklch(92.8% 0.006 264.531);
   }
+  *,
+  html {
+    --default-font-family: 'Switzer', 'IBM Plex Sans', sans-serif;
+    --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
+  }
+}
+
+@utility landing-width {
+  @apply max-w-[1280px] px-8;
 }
 
 @utility no-scrollbar {
@@ -76,10 +93,51 @@
       format('woff2');
     font-display: swap;
   }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 400;
+    font-style: normal;
+    src: url('/fonts/Switzer-Regular.woff') format('woff');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 400;
+    font-style: italic;
+    src: url('/fonts/Switzer-Italic.woff') format('woff');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 500;
+    font-style: normal;
+    src: url('/fonts/Switzer-Medium.woff') format('woff');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 600;
+    font-style: normal;
+    src: url('/fonts/Switzer-Semibold.woff') format('woff');
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 700;
+    font-style: normal;
+    src: url('/fonts/Switzer-Bold.woff') format('woff');
+    font-display: swap;
+  }
 }
 
 html {
   height: 100%;
+  --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
 }
 
 body,
@@ -233,4 +291,43 @@ div.Toastify__toast-icon {
 
 .katex-display > .katex {
   background-color: transparent;
+}
+
+/* Essay breakout styles — elements inside .essay-content that break out
+   of the narrow prose column to the wider max-w-3xl width */
+.essay-content
+  :is(.essay-breakout, .essay-image-breakout, table, .essay-video-breakout),
+.essay-content > pre,
+.essay-content > iframe {
+  position: relative;
+  left: 50%;
+  width: min(100vw - 2rem, 48rem);
+  max-width: 48rem; /* 3xl */
+  transform: translateX(-50%);
+}
+
+.essay-content .essay-image-breakout {
+  border-radius: 0;
+}
+
+.essay-content > pre {
+  border-radius: 0;
+  border: 1px solid #e5e7eb;
+  padding: 1.25rem;
+}
+
+.essay-content .essay-video-breakout {
+  display: block;
+}
+
+.essay-content > iframe {
+  display: block;
+  width: min(100vw - 2rem, 48rem) !important;
+}
+
+.essay-content table .essay-image-breakout {
+  position: static;
+  width: auto;
+  max-width: 100%;
+  transform: translateX(0);
 }

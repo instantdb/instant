@@ -2,6 +2,9 @@
 title: 'Datalog in Javascript'
 date: '2022-04-25'
 authors: stopachka
+summary: Let's build a query engine from scratch. In about 100 lines of Javascript, we'll support joins, indexes, and find our answer for Arnold!
+thumbnail: /img/essays/datalogjs.jpg
+hero: /img/essays/datalogjs.jpg
 ---
 
 Query engines make me feel like a wizard. I cast my incantation: “Give me all the directors and the movies where Arnold Schwarzenegger was a cast member”. Then charges zip through wires, algorithms churn on CPUs, and voila, an answer bubbles up.
