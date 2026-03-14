@@ -1327,10 +1327,9 @@
         :raw)
 
       (= :function (first value-pattern))
-      (let [[func {:keys [op]}] (first (second value-pattern))
-            sql-op (op->sql-op op)]
+      (let [[func {:keys [op]}] (first (second value-pattern))]
         (case func
-          :$comparator (if (extract-value-fn data-type sql-op)
+          :$comparator (if (extract-value-fn data-type (op->sql-op op))
                          :typed-extract
                          :raw)
           :$not (if (extract-value-fn data-type :is-distinct-from)
