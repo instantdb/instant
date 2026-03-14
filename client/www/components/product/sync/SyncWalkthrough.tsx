@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
+import { LogoIcon } from '@/components/ui';
 
 // -- Step definitions --------------------------------------------------------
 
@@ -18,23 +19,21 @@ interface ClientState {
   pendingMut: BallColor | null;
 }
 
+type DotPosition = 'pending' | 'waiting' | 'server' | 'gone';
+
+interface MutDot {
+  color: BallColor;
+  position: DotPosition;
+}
+
 interface Step {
   title: string;
   description: string;
   alice: ClientState;
   bob: ClientState;
   serverBall: BallColor;
-  /** Dot traveling from Alice's pending bar toward server edge */
-  dotAliceToServer: BallColor | null;
-  /** Dot traveling from Bob's pending bar toward server edge */
-  dotBobToServer: BallColor | null;
-  /** Circles waiting at the server edge (parked, not yet accepted) */
-  aliceWaiting: BallColor | null;
-  bobWaiting: BallColor | null;
-  /** Dot entering server from left (Alice's mutation accepted) */
-  dotEnterFromAlice: BallColor | null;
-  /** Dot entering server from right (Bob's mutation accepted) */
-  dotEnterFromBob: BallColor | null;
+  aliceDot: MutDot | null;
+  bobDot: MutDot | null;
   /** Dot from server → Alice's server-result bar */
   dotServerToAlice: BallColor | null;
   /** Dot from server → Bob's server-result bar */
@@ -53,12 +52,8 @@ const STEPS: Step[] = [
     alice: { serverUpdate: GRAY, pendingMut: null },
     bob: { serverUpdate: GRAY, pendingMut: null },
     serverBall: GRAY,
-    dotAliceToServer: null,
-    dotBobToServer: null,
-    aliceWaiting: null,
-    bobWaiting: null,
-    dotEnterFromAlice: null,
-    dotEnterFromBob: null,
+    aliceDot: null,
+    bobDot: null,
     dotServerToAlice: null,
     dotServerToBob: null,
   },
@@ -69,12 +64,8 @@ const STEPS: Step[] = [
     alice: { serverUpdate: GRAY, pendingMut: BLUE },
     bob: { serverUpdate: GRAY, pendingMut: RED },
     serverBall: GRAY,
-    dotAliceToServer: BLUE,
-    dotBobToServer: RED,
-    aliceWaiting: BLUE,
-    bobWaiting: RED,
-    dotEnterFromAlice: null,
-    dotEnterFromBob: null,
+    aliceDot: { color: BLUE, position: 'waiting' },
+    bobDot: { color: RED, position: 'waiting' },
     dotServerToAlice: null,
     dotServerToBob: null,
   },
@@ -85,210 +76,74 @@ const STEPS: Step[] = [
     alice: { serverUpdate: RED, pendingMut: BLUE },
     bob: { serverUpdate: RED, pendingMut: null },
     serverBall: RED,
-    dotAliceToServer: null,
-    dotBobToServer: null,
-    aliceWaiting: BLUE,
-    bobWaiting: null,
-    dotEnterFromAlice: null,
-    dotEnterFromBob: RED,
+    aliceDot: { color: BLUE, position: 'waiting' },
+    bobDot: { color: RED, position: 'server' },
     dotServerToAlice: RED,
-    dotServerToBob: null,
+    dotServerToBob: RED,
   },
   {
     title: "Alice's blue arrives",
     description:
-      "Blue enters the server. Server turns blue (last-write-wins) and broadcasts to Bob. Both clients converge on blue.",
+      "Blue enters the server. Server turns blue (last-write-wins) and broadcasts to both. Both clients converge on blue.",
     alice: { serverUpdate: BLUE, pendingMut: null },
     bob: { serverUpdate: BLUE, pendingMut: null },
     serverBall: BLUE,
-    dotAliceToServer: null,
-    dotBobToServer: null,
-    aliceWaiting: null,
-    bobWaiting: null,
-    dotEnterFromAlice: BLUE,
-    dotEnterFromBob: null,
-    dotServerToAlice: null,
+    aliceDot: { color: BLUE, position: 'server' },
+    bobDot: null,
+    dotServerToAlice: BLUE,
     dotServerToBob: BLUE,
   },
 ];
 
-// -- Layout constants --------------------------------------------------------
+// -- Design-size layout constants (px at 520px design width) -----------------
 
-const VB_W = 520;
-
-// Client column dimensions
+const DESIGN_W = 520;
 const COL_W = 130;
-const BAR_H = 18;
-const BAR_RX = 4;
+const BAR_H = 20;
 const BOX_H = 110;
-const BALL_R = 22;
+const GAP = 10;
 
-// Vertical positions (shared by Alice & Bob columns)
-const LABEL1_Y = 10;
-const BAR1_Y = 20;
-const BAR1_CY = BAR1_Y + BAR_H / 2;
-const LABEL2_Y = BAR1_Y + BAR_H + 14;
-const BAR2_Y = LABEL2_Y + 10;
-const BAR2_CY = BAR2_Y + BAR_H / 2;
-const BOX_Y = BAR2_Y + BAR_H + 10;
-const BALL_CY = BOX_Y + BOX_H / 2;
-const NAME_Y = BOX_Y + BOX_H + 14;
-const VB_H = NAME_Y + 8;
+// Vertical positions
+const BAR1_TOP = 24;
+const BAR1_CY = BAR1_TOP + BAR_H / 2;
+const BAR2_TOP = BAR1_TOP + BAR_H + 28;
+const BAR2_CY = BAR2_TOP + BAR_H / 2;
+const BOX_TOP = BAR2_TOP + BAR_H + GAP;
+const BALL_CY = BOX_TOP + BOX_H / 2;
 
-// Alice column
-const AX = 10;
+// Horizontal positions
+const A_LEFT = 10;
+const S_LEFT = (DESIGN_W - COL_W) / 2;
+const B_LEFT = DESIGN_W - COL_W - 10;
+const S_CX = S_LEFT + COL_W / 2;
+const SERVER_BALL_CY = BOX_TOP + BOX_H / 2 + 10;
 
-// Server
-const SX = (VB_W - COL_W) / 2;
-const SY = BOX_Y;
-const SERVER_CX = SX + COL_W / 2;
-const SERVER_BALL_CY = SY + BOX_H / 2 + 10;
+const DESIGN_H = BOX_TOP + BOX_H + 28;
 
-// Bob column
-const BX = VB_W - COL_W - 10;
-
-// -- Edge endpoints ----------------------------------------------------------
-
-// Alice pending bar → Server (outgoing mutation)
-const EDGE_AP = {
-  x1: AX + COL_W,
-  y1: BAR2_CY,
-  x2: SX,
-  y2: SY + BOX_H / 3,
-};
-
-// Server → Alice server-result bar (incoming broadcast)
-const EDGE_SA = {
-  x1: SX,
-  y1: SY + BOX_H / 5,
-  x2: AX + COL_W,
-  y2: BAR1_CY,
-};
-
-// Bob pending bar → Server (outgoing mutation)
-const EDGE_BP = {
-  x1: BX,
-  y1: BAR2_CY,
-  x2: SX + COL_W,
-  y2: SY + BOX_H / 3,
-};
-
-// Server → Bob server-result bar (incoming broadcast)
-const EDGE_SB = {
-  x1: SX + COL_W,
-  y1: SY + BOX_H / 5,
-  x2: BX,
-  y2: BAR1_CY,
-};
-
-// Waiting circle positions (at the server edge of each pending→server line)
+// Edge endpoints (in design-px, used by SVG overlay)
+const EDGE_AP = { x1: A_LEFT + COL_W, y1: BAR2_CY, x2: S_LEFT, y2: BOX_TOP + BOX_H / 3 };
+const EDGE_SA = { x1: S_LEFT, y1: BOX_TOP + BOX_H / 5, x2: A_LEFT + COL_W, y2: BAR1_CY };
+const EDGE_BP = { x1: B_LEFT, y1: BAR2_CY, x2: S_LEFT + COL_W, y2: BOX_TOP + BOX_H / 3 };
+const EDGE_SB = { x1: S_LEFT + COL_W, y1: BOX_TOP + BOX_H / 5, x2: B_LEFT, y2: BAR1_CY };
+const ALICE_PENDING = { cx: EDGE_AP.x1, cy: EDGE_AP.y1 };
 const ALICE_WAIT = { cx: EDGE_AP.x2, cy: EDGE_AP.y2 };
+const BOB_PENDING = { cx: EDGE_BP.x1, cy: EDGE_BP.y1 };
 const BOB_WAIT = { cx: EDGE_BP.x2, cy: EDGE_BP.y2 };
 
 // -- Sub-components ----------------------------------------------------------
 
-function TravelingDot({
-  x1,
-  y1,
-  x2,
-  y2,
-  color,
-}: {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  color: BallColor;
-}) {
+function LayerBar({ color }: { color: BallColor | null }) {
   return (
-    <motion.circle
-      r={5}
-      fill={color}
-      initial={{ cx: x1, cy: y1, opacity: 0 }}
-      animate={{ cx: x2, cy: y2, opacity: [0, 1, 1, 0] }}
-      transition={{ duration: 0.8, ease: 'easeInOut' }}
-    />
-  );
-}
-
-function WaitingDot({
-  cx,
-  cy,
-  color,
-}: {
-  cx: number;
-  cy: number;
-  color: BallColor;
-}) {
-  return (
-    <motion.circle
-      r={5}
-      fill={color}
-      cx={cx}
-      cy={cy}
-      initial={{ opacity: 0, scale: 0.3 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.3 }}
-      transition={{ duration: 0.3 }}
-    />
-  );
-}
-
-function EdgeLine({
-  x1,
-  y1,
-  x2,
-  y2,
-}: {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-}) {
-  return (
-    <line
-      x1={x1}
-      y1={y1}
-      x2={x2}
-      y2={y2}
-      stroke="#d1d5db"
-      strokeWidth={1.5}
-      strokeDasharray="4 3"
-    />
-  );
-}
-
-function LayerBar({
-  x,
-  y,
-  color,
-}: {
-  x: number;
-  y: number;
-  color: BallColor | null;
-}) {
-  const circleR = BAR_H / 2 - 3;
-  return (
-    <g>
-      <rect
-        x={x}
-        y={y}
-        width={COL_W}
-        height={BAR_H}
-        rx={BAR_RX}
-        fill="white"
-        stroke="#d1d5db"
-        strokeWidth={1.5}
-        strokeDasharray="0"
-      />
+    <div
+      className="flex items-center justify-center rounded border border-gray-300 bg-white"
+      style={{ height: BAR_H, width: COL_W }}
+    >
       <AnimatePresence>
         {color && (
-          <motion.circle
+          <motion.div
             key="dot"
-            cx={x + COL_W / 2}
-            cy={y + BAR_H / 2}
-            r={circleR}
-            fill={color}
+            className="rounded-full"
+            style={{ width: BAR_H - 8, height: BAR_H - 8, backgroundColor: color }}
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5 }}
@@ -296,79 +151,78 @@ function LayerBar({
           />
         )}
       </AnimatePresence>
-    </g>
+    </div>
   );
 }
 
-function ClientColumn({
-  x,
-  name,
-  state,
-}: {
-  x: number;
-  name: string;
-  state: ClientState;
-}) {
+function ClientColumn({ name, state }: { name: string; state: ClientState }) {
   const ball = ballColor(state);
+  return (
+    <div className="flex flex-col items-center" style={{ width: COL_W }}>
+      <p className="mb-1 self-start text-sm text-gray-500">
+        Server Result
+      </p>
+      <LayerBar color={state.serverUpdate} />
+      <p className="mt-2 mb-1 self-start text-sm text-gray-500">
+        Pending Mutations
+      </p>
+      <LayerBar color={state.pendingMut} />
+      <div
+        className="mt-2 flex items-center justify-center rounded-lg border border-gray-200 bg-white"
+        style={{ width: COL_W, height: BOX_H }}
+      >
+        <motion.div
+          className="rounded-full"
+          style={{ width: 44, height: 44 }}
+          animate={{ backgroundColor: ball }}
+          transition={{ duration: 0.4 }}
+        />
+      </div>
+      <p className="mt-2 text-base text-gray-500">{name}</p>
+    </div>
+  );
+}
+
+function MutationDot({
+  dot,
+  pendingPos,
+  waitPos,
+  serverPos,
+}: {
+  dot: MutDot;
+  pendingPos: { cx: number; cy: number };
+  waitPos: { cx: number; cy: number };
+  serverPos: { cx: number; cy: number };
+}) {
+  const pos = dot.position === 'pending' ? pendingPos
+    : dot.position === 'waiting' ? waitPos
+    : dot.position === 'server' ? serverPos
+    : waitPos;
 
   return (
-    <g>
-      {/* Server Result layer */}
-      <text
-        x={x}
-        y={LABEL1_Y}
-        className="text-[12px] font-medium"
-        fill="#9ca3af"
-      >
-        Server Result
-      </text>
-      <LayerBar x={x} y={BAR1_Y} color={state.serverUpdate} />
+    <motion.circle
+      r={5}
+      fill={dot.color}
+      initial={{ cx: pendingPos.cx, cy: pendingPos.cy, opacity: 0 }}
+      animate={{ cx: pos.cx, cy: pos.cy, opacity: dot.position === 'gone' ? 0 : 1 }}
+      transition={{ duration: 0.8, ease: 'easeInOut' }}
+    />
+  );
+}
 
-      {/* Pending Mutations layer */}
-      <text
-        x={x}
-        y={LABEL2_Y}
-        className="text-[12px] font-medium"
-        fill="#9ca3af"
-      >
-        Pending Mutations
-      </text>
-      <LayerBar x={x} y={BAR2_Y} color={state.pendingMut} />
-
-      {/* Device box */}
-      <rect
-        x={x}
-        y={BOX_Y}
-        width={COL_W}
-        height={BOX_H}
-        rx={8}
-        fill="white"
-        stroke="#e5e7eb"
-        strokeWidth={1.5}
-      />
-
-      {/* Ball */}
-      <motion.circle
-        cx={x + COL_W / 2}
-        cy={BALL_CY}
-        r={BALL_R}
-        animate={{ fill: ball }}
-        transition={{ duration: 0.4 }}
-        stroke="#e5e7eb"
-        strokeWidth={1}
-      />
-
-      {/* Name */}
-      <text
-        x={x + COL_W / 2}
-        y={NAME_Y}
-        textAnchor="middle"
-        className="text-[13px] font-medium"
-        fill="#6b7280"
-      >
-        {name}
-      </text>
-    </g>
+function TravelingDot({
+  x1, y1, x2, y2, color, delay = 0,
+}: {
+  x1: number; y1: number; x2: number; y2: number; color: BallColor; delay?: number;
+}) {
+  return (
+    <motion.circle
+      r={5}
+      fill={color}
+      initial={{ cx: x1, cy: y1, opacity: 0 }}
+      animate={{ cx: x2, cy: y2, opacity: [0, 1, 1, 0] }}
+      transition={{ duration: 0.8, delay, ease: 'easeInOut' }}
+    />
   );
 }
 
@@ -377,141 +231,158 @@ function ClientColumn({
 export function SyncWalkthrough() {
   const [stepIdx, setStepIdx] = useState(0);
   const step = STEPS[stepIdx];
+  const prevStep = STEPS[Math.max(0, stepIdx - 1)];
+
+  // Delayed visual state: server ball and client states wait for dots to arrive
+  const hasDotEntering = step.bobDot?.position === 'server' || step.aliceDot?.position === 'server';
+  const hasBroadcast = step.dotServerToAlice != null || step.dotServerToBob != null;
+
+  const [serverBallVisual, setServerBallVisual] = useState(step.serverBall);
+  const [aliceVisual, setAliceVisual] = useState(step.alice);
+  const [bobVisual, setBobVisual] = useState(step.bob);
+
+  useEffect(() => {
+    if (!hasDotEntering) {
+      // No dot entering server — apply immediately
+      setServerBallVisual(step.serverBall);
+      setAliceVisual(step.alice);
+      setBobVisual(step.bob);
+      return;
+    }
+
+    // Start with previous step's state
+    setServerBallVisual(prevStep.serverBall);
+    setAliceVisual(prevStep.alice);
+    setBobVisual(prevStep.bob);
+
+    // After dot enters server (0.8s), update server ball
+    const t1 = setTimeout(() => {
+      setServerBallVisual(step.serverBall);
+      if (!hasBroadcast) {
+        setAliceVisual(step.alice);
+        setBobVisual(step.bob);
+      }
+    }, 800);
+
+    // After broadcast arrives (0.8s delay + 0.8s travel), update client states
+    const t2 = hasBroadcast
+      ? setTimeout(() => {
+          setAliceVisual(step.alice);
+          setBobVisual(step.bob);
+        }, 1600)
+      : undefined;
+
+    return () => {
+      clearTimeout(t1);
+      if (t2) clearTimeout(t2);
+    };
+  }, [stepIdx]);
+
+  const outerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setScale(Math.min(1, entry.contentRect.width / DESIGN_W));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <div className="mt-4 rounded-lg border bg-gray-50 p-5">
-      {/* SVG diagram */}
-      <div className="overflow-x-auto">
-        <svg
-          viewBox={`0 0 ${VB_W} ${VB_H}`}
-          className="mx-auto block w-full max-w-[520px]"
-          role="img"
-          aria-label="Sync walkthrough diagram"
+      {/* Scaled diagram */}
+      <div ref={outerRef} className="flex justify-center" style={{ height: DESIGN_H * scale }}>
+        <div
+          className="relative"
+          style={{
+            width: DESIGN_W,
+            height: DESIGN_H,
+            transformOrigin: 'top center',
+            transform: `scale(${scale})`,
+          }}
         >
-          {/* Edges */}
-          <EdgeLine {...EDGE_AP} />
-          <EdgeLine {...EDGE_SA} />
-          <EdgeLine {...EDGE_BP} />
-          <EdgeLine {...EDGE_SB} />
-
           {/* Alice */}
-          <ClientColumn x={AX} name="Alice" state={step.alice} />
+          <div className="absolute" style={{ left: A_LEFT, top: 0 }}>
+            <ClientColumn name="Alice" state={aliceVisual} />
+          </div>
 
           {/* Server */}
-          <rect
-            x={SX}
-            y={SY}
-            width={COL_W}
-            height={BOX_H}
-            rx={8}
-            fill="white"
-            stroke="#e5e7eb"
-            strokeWidth={1.5}
-          />
-          <text
-            x={SERVER_CX}
-            y={SY + 18}
-            textAnchor="middle"
-            className="text-[13px] font-medium"
-            fill="#6b7280"
+          <div
+            className="absolute flex flex-col items-center"
+            style={{ left: S_LEFT, top: BOX_TOP - 24, width: COL_W }}
           >
-            Server
-          </text>
-          <motion.circle
-            cx={SERVER_CX}
-            cy={SERVER_BALL_CY}
-            r={18}
-            animate={{ fill: step.serverBall }}
-            transition={{ duration: 0.4 }}
-            stroke="#e5e7eb"
-            strokeWidth={1}
-          />
+            <div className="mb-1 flex items-center gap-1">
+              <LogoIcon size="mini" />
+              <p className="text-sm text-gray-500">Server</p>
+            </div>
+            <div
+              className="flex items-center justify-center rounded-lg border border-gray-200 bg-white"
+              style={{ width: COL_W, height: BOX_H }}
+            >
+              <motion.div
+                className="rounded-full"
+                style={{ width: 36, height: 36 }}
+                animate={{ backgroundColor: serverBallVisual }}
+                transition={{ duration: 0.4 }}
+              />
+            </div>
+          </div>
 
           {/* Bob */}
-          <ClientColumn x={BX} name="Bob" state={step.bob} />
+          <div className="absolute" style={{ left: B_LEFT, top: 0 }}>
+            <ClientColumn name="Bob" state={bobVisual} />
+          </div>
 
-          {/* Dots traveling from pending bars to server edges */}
-          <AnimatePresence>
-            {step.dotAliceToServer && (
-              <TravelingDot
-                key={`ap-${stepIdx}`}
-                {...EDGE_AP}
-                color={step.dotAliceToServer}
-              />
-            )}
-            {step.dotBobToServer && (
-              <TravelingDot
-                key={`bp-${stepIdx}`}
-                {...EDGE_BP}
-                color={step.dotBobToServer}
-              />
-            )}
-          </AnimatePresence>
+          {/* SVG overlay for edges + animated dots */}
+          <svg
+            className="pointer-events-none absolute inset-0"
+            width={DESIGN_W}
+            height={DESIGN_H}
+          >
+            {/* Edge lines */}
+            <line {...EDGE_AP} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 3" />
+            <line {...EDGE_SA} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 3" />
+            <line {...EDGE_BP} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 3" />
+            <line {...EDGE_SB} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 3" />
 
-          {/* Waiting dots at server edges */}
-          <AnimatePresence>
-            {step.aliceWaiting && (
-              <WaitingDot
-                key="alice-wait"
-                {...ALICE_WAIT}
-                color={step.aliceWaiting}
+            {/* Mutation dots (persistent per side, animate between positions) */}
+            {step.aliceDot && (
+              <MutationDot
+                key="alice-dot"
+                dot={step.aliceDot}
+                pendingPos={ALICE_PENDING}
+                waitPos={ALICE_WAIT}
+                serverPos={{ cx: S_CX, cy: SERVER_BALL_CY }}
               />
             )}
-            {step.bobWaiting && (
-              <WaitingDot
-                key="bob-wait"
-                {...BOB_WAIT}
-                color={step.bobWaiting}
+            {step.bobDot && (
+              <MutationDot
+                key="bob-dot"
+                dot={step.bobDot}
+                pendingPos={BOB_PENDING}
+                waitPos={BOB_WAIT}
+                serverPos={{ cx: S_CX, cy: SERVER_BALL_CY }}
               />
             )}
-          </AnimatePresence>
 
-          {/* Dots entering server */}
-          <AnimatePresence>
-            {step.dotEnterFromAlice && (
-              <TravelingDot
-                key={`enter-a-${stepIdx}`}
-                x1={ALICE_WAIT.cx}
-                y1={ALICE_WAIT.cy}
-                x2={SERVER_CX}
-                y2={SERVER_BALL_CY}
-                color={step.dotEnterFromAlice}
-              />
-            )}
-            {step.dotEnterFromBob && (
-              <TravelingDot
-                key={`enter-b-${stepIdx}`}
-                x1={BOB_WAIT.cx}
-                y1={BOB_WAIT.cy}
-                x2={SERVER_CX}
-                y2={SERVER_BALL_CY}
-                color={step.dotEnterFromBob}
-              />
-            )}
-          </AnimatePresence>
-
-          {/* Dots broadcasting from server to client server-result bars */}
-          <AnimatePresence>
-            {step.dotServerToAlice && (
-              <TravelingDot
-                key={`sa-${stepIdx}`}
-                {...EDGE_SA}
-                color={step.dotServerToAlice}
-              />
-            )}
-            {step.dotServerToBob && (
-              <TravelingDot
-                key={`sb-${stepIdx}`}
-                {...EDGE_SB}
-                color={step.dotServerToBob}
-              />
-            )}
-          </AnimatePresence>
-        </svg>
+            {/* Dots broadcasting from server */}
+            <AnimatePresence>
+              {step.dotServerToAlice && (
+                <TravelingDot key={`sa-${stepIdx}`} {...EDGE_SA} color={step.dotServerToAlice} delay={0.8} />
+              )}
+              {step.dotServerToBob && (
+                <TravelingDot key={`sb-${stepIdx}`} {...EDGE_SB} color={step.dotServerToBob} delay={0.8} />
+              )}
+            </AnimatePresence>
+          </svg>
+        </div>
       </div>
 
       {/* Step indicator + nav */}
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-4 flex items-center justify-between rounded-lg bg-white px-3 py-2 border border-gray-200">
         <button
           onClick={() => setStepIdx((s) => Math.max(0, s - 1))}
           disabled={stepIdx === 0}
