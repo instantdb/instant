@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CLI_BIN = join(__dirname, '../../bin/index.js');
+const CLI_BIN = join(__dirname, '../../dist/new/index.js');
 
 const apiUrl = process.env.INSTANT_CLI_API_URI || 'https://api.instantdb.com';
 

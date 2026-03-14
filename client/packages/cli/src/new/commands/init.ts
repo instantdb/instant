@@ -1,0 +1,69 @@
+import { Effect, Option } from 'effect';
+import { OptsFromCommand, initDef } from '../index.js';
+import { WithAppLayer } from '../layer.js';
+import { readLocalPermsFile, readLocalSchemaFile } from '../../index.js';
+import { pullSchema } from '../lib/pullSchema.js';
+import { pullPerms } from '../lib/pullPerms.js';
+import { promptOk } from '../lib/ui.js';
+import { pushSchema } from '../lib/pushSchema.js';
+import { pushPerms } from '../lib/pushPerms.js';
+
+export const initCommand = (options: OptsFromCommand<typeof initDef>) =>
+  Effect.gen(function* () {
+    yield* Effect.matchEffect(
+      Effect.tryPromise(readLocalSchemaFile).pipe(
+        // Throws NoSuchElementException if no file found
+        Effect.flatMap(Option.fromNullable),
+      ),
+      {
+        onFailure: () => pullSchema({ experimentalTypePreservation: false }),
+        onSuccess: () =>
+          Effect.gen(function* () {
+            const doSchemaPush = yield* promptOk(
+              {
+                promptText: 'Found local schema. Push it to the new app?',
+                inline: true,
+              },
+              true,
+            );
+            if (doSchemaPush) {
+              yield* pushSchema();
+            }
+          }),
+      },
+    );
+
+    yield* Effect.matchEffect(
+      Effect.tryPromise(readLocalPermsFile).pipe(
+        // Throws NoSuchElementException if no file found
+        Effect.flatMap(Option.fromNullable),
+      ),
+      {
+        onFailure: () => pullPerms,
+        onSuccess: () =>
+          Effect.gen(function* () {
+            const doPermsPush = yield* promptOk(
+              {
+                promptText: 'Found local perms. Push it to the new app?',
+                inline: true,
+              },
+              true,
+            );
+            if (doPermsPush) {
+              yield* pushPerms;
+            }
+          }),
+      },
+    );
+  }).pipe(
+    Effect.provide(
+      WithAppLayer({
+        coerce: true,
+        coerceAuth: true,
+        title: options.title,
+        appId: options.app,
+        packageName: options.package as any,
+        applyEnv: true,
+      }),
+    ),
+  );
