@@ -1,6 +1,7 @@
 import { expect, test as test } from 'vitest';
 import { i } from '@instantdb/core';
 import {
+  convertTxSteps,
   diffSchemas,
   Identifier,
   MigrationTx,
@@ -593,6 +594,66 @@ test('make link optional', async () => {
       tx.identifier.attrName === 'songs',
   );
   expect(found).toBeDefined();
+});
+
+test('create required link', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {},
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: {
+            on: 'albums',
+            has: 'many',
+            label: 'songs',
+            required: true,
+          },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    createChooser([]),
+    systemCatalogIdentNames,
+  );
+
+  expectTxType(result, 'add-attr', 1);
+
+  const addAttr = result.find(
+    (tx) =>
+      tx.type === 'add-attr' &&
+      tx.identifier.namespace === 'albums' &&
+      tx.identifier.attrName === 'songs',
+  );
+  expect(addAttr).toMatchObject({
+    type: 'add-attr',
+    'required?': true,
+  });
+
+  const requiredPlanStep = convertTxSteps(result, []).find(
+    (step) =>
+      step[0] === 'required' &&
+      step[1]['forward-identity'][1] === 'albums' &&
+      step[1]['forward-identity'][2] === 'songs',
+  );
+  expect(requiredPlanStep).toBeDefined();
 });
 
 test('system catalog attrs are ignored when adding entities', async () => {

@@ -35,7 +35,7 @@ export const linkDefToNewAttrTx = (link: AnyLink): MigrationTx => {
     'checked-data-type': null,
     'index?': false,
     ...uniqueAndCardinality,
-    'required?': false,
+    'required?': !!link.forward.required,
     identifier: {
       attrName: link.forward.label,
       namespace: link.forward.on,
