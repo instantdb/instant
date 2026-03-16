@@ -219,7 +219,77 @@ For primitive values like connection status and local IDs, hooks return a `{ cur
 <p>Connection: {status.current}</p>
 ```
 
-Transactions in Svelte work the same way they do in React via `db.transact`. To learn more see our [writing data](/docs/instaml) docs.
+### Reactive and conditional queries
+
+You can pass a function to `useQuery` to make queries reactive or conditional. The function will be re-evaluated whenever its dependencies change. Return `null` to skip the query:
+
+```svelte
+<script lang="ts">
+  import { db } from '$lib/db';
+
+  const auth = db.useAuth();
+
+  // Only query when we have a logged-in user
+  const query = db.useQuery(() =>
+    auth.user ? { todos: {} } : null
+  );
+</script>
+
+{#if auth.isLoading}
+  <p>Loading...</p>
+{:else if !auth.user}
+  <p>Please log in.</p>
+{:else if query.isLoading}
+  <p>Loading todos...</p>
+{:else}
+  {@const todos = query.data?.todos ?? []}
+  <p>{todos.length} todos</p>
+{/if}
+```
+
+This also works for reactive parameters. Any `$state` variable read inside the function will automatically trigger a new query when it changes:
+
+```svelte
+<script lang="ts">
+  import { db } from '$lib/db';
+
+  let filter = $state<'all' | 'active' | 'done'>('all');
+
+  const query = db.useQuery(() => {
+    if (filter === 'all') return { todos: {} };
+    return { todos: { $: { where: { done: filter === 'done' } } } };
+  });
+</script>
+
+<button onclick={() => filter = 'all'}>All</button>
+<button onclick={() => filter = 'active'}>Active</button>
+<button onclick={() => filter = 'done'}>Done</button>
+```
+
+### Writing data
+
+Transactions in Svelte work the same way they do in React via `db.transact`:
+
+```svelte
+<script lang="ts">
+  import { id } from '@instantdb/svelte';
+  import { db } from '$lib/db';
+
+  function addTodo(text: string) {
+    db.transact(db.tx.todos[id()].update({ text, done: false, createdAt: Date.now() }));
+  }
+
+  function toggleDone(todo: { id: string; done: boolean }) {
+    db.transact(db.tx.todos[todo.id].update({ done: !todo.done }));
+  }
+
+  function deleteTodo(todoId: string) {
+    db.transact(db.tx.todos[todoId].delete());
+  }
+</script>
+```
+
+To learn more see our [writing data](/docs/instaml) docs.
 
 ## Auth
 
