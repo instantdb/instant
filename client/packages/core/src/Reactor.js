@@ -148,9 +148,8 @@ function querySubFromStorage(x, useDateObjects) {
  */
 function querySubToStorage(_key, sub) {
   const { result, ...rest } = sub;
-  const jsonSub = /** @type {import('./reactorTypes.ts').QuerySubInStorage} */ (
-    rest
-  );
+  const jsonSub =
+    /** @type {import('./reactorTypes.ts').QuerySubInStorage} */ rest;
   if (result) {
     /** @type {import('./reactorTypes.ts').QuerySubResultInStorage} */
     const jsonResult = {
@@ -2171,6 +2170,17 @@ export default class Reactor {
     });
     this.querySubs.clearUnloadedKeys();
     this._updatePendingMutations((prev) => {
+      // Mark all pending mutations with an error, since we won't be able to
+      // deliver the result
+      for (const [eventId, _v] of prev.entries()) {
+        if (this.mutationDeferredStore.get(eventId)) {
+          this._finishTransaction('error', eventId, {
+            message: 'User changed while transaction was in progress.',
+            type: 'user-changed',
+          });
+        }
+      }
+
       prev.clear();
     });
 
