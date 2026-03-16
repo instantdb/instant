@@ -172,79 +172,23 @@ export function LogoType({
   morphOnCollapse?: boolean;
 }) {
   if (morphOnCollapse) {
-    const trailingLetters = ['n', 's', 't', 'a', 'n', 't'];
-
     return (
-      <Link href="/" className="inline-flex items-center">
-        <span
-          className={cn(
-            'relative inline-block h-6 overflow-hidden align-middle transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
-            collapsed ? 'w-4' : 'w-[6.5rem]',
-          )}
+      <Link
+        href="/"
+        className="inline-flex flex-row-reverse items-center gap-1 overflow-clip pr-4 font-mono"
+      >
+        <motion.div
+          animate={{
+            x: collapsed ? -90 : 0,
+            scaleX: collapsed ? 0.5 : 1,
+            opacity: collapsed ? 0 : 1,
+          }}
+          className="z-10 font-mono text-[20px] font-bold"
+          transition={{ type: 'tween', ease: 'easeOut', duration: 0.2 }}
         >
-          <span
-            aria-hidden
-            className={cn(
-              'pointer-events-none absolute top-1/2 left-0 inline-flex -translate-y-1/2 items-center',
-            )}
-          >
-            <span
-              className={cn(
-                'relative mr-[1px] inline-flex h-[1.12rem] items-center justify-center overflow-hidden align-middle transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
-                collapsed ? 'w-4' : 'w-[0.58rem]',
-              )}
-            >
-              <span
-                className={cn(
-                  'absolute inset-0 bg-black transition-[opacity,transform] duration-420 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
-                  collapsed
-                    ? 'scale-100 opacity-100 [transition-delay:70ms]'
-                    : 'scale-x-[0.28] scale-y-[0.84] opacity-0 [transition-delay:40ms]',
-                )}
-              />
-              <span
-                className={cn(
-                  'absolute top-[3px] left-[3px] h-[10px] w-[4px] bg-white transition-[opacity,transform] duration-320 ease-out motion-reduce:transition-none',
-                  collapsed
-                    ? 'translate-y-0 opacity-100 [transition-delay:170ms]'
-                    : 'translate-y-[2px] opacity-0 [transition-delay:0ms]',
-                )}
-              />
-              <span
-                className={cn(
-                  `${headingClasses} relative z-10 inline-block text-[20px] leading-none font-bold transition-[opacity,transform,filter,color] duration-420 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none`,
-                  collapsed
-                    ? 'translate-y-[0.22rem] text-white opacity-0 blur-[1px] [transition-delay:40ms]'
-                    : 'blur-0 translate-y-0 text-current opacity-100 [transition-delay:0ms]',
-                )}
-              >
-                i
-              </span>
-            </span>
-            <span className="inline-flex">
-              {trailingLetters.map((char, index) => (
-                <span
-                  key={`${char}-${index}`}
-                  className={cn(
-                    `${headingClasses} inline-block text-[20px] leading-none font-bold transition-[opacity,transform,filter] duration-350 ease-out motion-reduce:transition-none`,
-                    collapsed ? 'opacity-0 blur-[2px]' : 'blur-0 opacity-100',
-                  )}
-                  style={{
-                    transform: collapsed
-                      ? `translate(${-8 - index * 3}px, 10px)`
-                      : 'translate(0px, 0px)',
-                    transitionDelay: collapsed
-                      ? `${40 + index * 28}ms`
-                      : `${(trailingLetters.length - index) * 18}ms`,
-                  }}
-                >
-                  {char}
-                </span>
-              ))}
-            </span>
-          </span>
-          <span className="sr-only">instant</span>
-        </span>
+          instant
+        </motion.div>
+        <LogoIcon size="normal" className="z-20" />
       </Link>
     );
   }
