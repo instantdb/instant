@@ -188,7 +188,7 @@ export function LogoType({
         >
           instant
         </motion.div>
-        <LogoIcon size="normal" className="z-20" />
+        <LogoIcon size="mini" className="z-20" />
       </Link>
     );
   }
