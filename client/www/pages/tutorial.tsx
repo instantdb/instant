@@ -1,32 +1,38 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
-import { TabGroup, TabList, TabPanels, TabPanel, Tab } from '@headlessui/react';
+import { MainNav } from '@/components/marketingUi';
+import { Section } from '@/components/new-landing/Section';
 import {
-  Section,
-  MainNav,
-  LandingContainer,
-  PageProgressBar,
-  H2,
-  H3,
-} from '@/components/marketingUi';
-import { SubsectionHeading } from '@/components/ui';
+  SectionTitle,
+  SectionSubtitle,
+  Subheading,
+  LandingButton,
+} from '@/components/new-landing/typography';
+import { Footer } from '@/components/new-landing/Footer';
+import { XIcon } from '@/components/new-landing/icons';
+import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import RatingBox from '@/components/docs/RatingBox';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import clsx from 'clsx';
 import { CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/solid';
 import CopyToClipboard from 'react-copy-to-clipboard';
-import { Footer } from '@/components/new-landing/Footer';
+import { AnimatePresence, motion } from 'motion/react';
+
+// -----------
+// Data
+// -----------
 
 const overviewSteps = [
   'Login to Instant in the terminal',
   'Scaffold a starter Instant app',
   'Prompt an LLM to build us an app (This is the fun part!)',
+  'Deploy the app to Vercel',
 ];
 
 const packageManagers = [
-  { id: 'npx', name: 'npx', runner: 'npx' },
-  { id: 'pnpx', name: 'pnpx', runner: 'pnpx' },
-  { id: 'bunx', name: 'bunx', runner: 'bunx' },
+  { id: 'npm', name: 'npx', runner: 'npx', scriptRunner: 'npm' },
+  { id: 'pnpm', name: 'pnpx', runner: 'pnpx', scriptRunner: 'pnpm' },
+  { id: 'bun', name: 'bunx', runner: 'bunx', scriptRunner: 'bun' },
 ] as const;
 
 const examplePrompts = [
@@ -47,7 +53,12 @@ const examplePrompts = [
   },
 ];
 
-const debuggingItems = [
+const debuggingItems: {
+  id: string;
+  title: string;
+  content: React.ReactNode;
+  videoUrl?: string;
+}[] = [
   {
     id: 'general-troubleshooting',
     title: 'General troubleshooting',
@@ -59,8 +70,16 @@ const debuggingItems = [
         </p>
         <p>
           If you encounter an issue not listed below please feel free to let us
-          know via the feedback tool at the bottom of this page or via our
-          Discord.
+          know via the feedback tool at the bottom of this page or via our{' '}
+          <a
+            href="https://discord.com/invite/VU53p7uQcE"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            Discord
+          </a>
+          .
         </p>
       </div>
     ),
@@ -142,102 +161,259 @@ const debuggingItems = [
   },
 ];
 
-function CopyButton({ command, label }: { command: string; label?: string }) {
-  const [showCopySuccess, setShowCopySuccess] = useState(false);
+// -----------
+// Icons
+// -----------
+
+function NpmIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 256 256" fill="currentColor">
+      <rect width="256" height="256" rx="0" fill="#C12127" />
+      <path d="M48 48v160h80V80h40v128h40V48H48z" fill="#fff" />
+    </svg>
+  );
+}
+
+function PnpmIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 256 256">
+      <rect x="0" y="0" width="78" height="78" fill="#F9AD00" />
+      <rect x="89" y="0" width="78" height="78" fill="#F9AD00" />
+      <rect x="178" y="0" width="78" height="78" fill="#F9AD00" />
+      <rect x="178" y="89" width="78" height="78" fill="#F9AD00" />
+      <rect x="89" y="89" width="78" height="78" fill="#4E4E4E" />
+      <rect x="89" y="178" width="78" height="78" fill="#4E4E4E" />
+      <rect x="178" y="178" width="78" height="78" fill="#4E4E4E" />
+    </svg>
+  );
+}
+
+function BunIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 80 80">
+      <circle cx="40" cy="40" r="40" fill="#FBF0DF" />
+      <ellipse cx="40" cy="44" rx="28" ry="24" fill="#FBF0DF" />
+      <path
+        d="M22 38c2-14 12-22 18-22s16 8 18 22"
+        fill="none"
+        stroke="#362712"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <circle cx="32" cy="42" r="3.5" fill="#362712" />
+      <circle cx="48" cy="42" r="3.5" fill="#362712" />
+      <ellipse cx="40" cy="50" rx="4" ry="2.5" fill="#E8878A" />
+    </svg>
+  );
+}
+
+const pmIcons = [NpmIcon, PnpmIcon, BunIcon];
+
+// -----------
+// Reusable components
+// -----------
+
+function ConfettiParticle({
+  delay,
+  x,
+  color,
+}: {
+  delay: number;
+  x: number;
+  color: string;
+}) {
+  return (
+    <motion.div
+      className="absolute top-1/2 left-1/2 h-1.5 w-1.5 rounded-full"
+      style={{ backgroundColor: color }}
+      initial={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+      animate={{
+        opacity: [1, 1, 0],
+        x: x,
+        y: [0, -20 - Math.random() * 15, 10 + Math.random() * 10],
+        scale: [1, 1.2, 0.5],
+      }}
+      transition={{
+        duration: 0.6,
+        delay,
+        ease: 'easeOut',
+      }}
+    />
+  );
+}
+
+const confettiColors = [
+  '#F97316',
+  '#FB923C',
+  '#3B82F6',
+  '#A855F7',
+  '#EC4899',
+  '#10B981',
+];
+
+function TerminalCopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
 
   return (
     <CopyToClipboard
-      text={command}
+      text={text}
       onCopy={() => {
-        setShowCopySuccess(true);
-        setTimeout(() => setShowCopySuccess(false), 2000);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
       }}
     >
-      <div className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 transition-colors">
-        {showCopySuccess ? (
-          <button className="flex items-center gap-2">
-            <CheckIcon className="h-4 w-4 text-orange-600" />
-            {label && <span>Copied!</span>}
-          </button>
-        ) : (
-          <button className="flex items-center gap-2">
-            <ClipboardDocumentIcon className="h-4 w-4" />
-            {label && <span>{label}</span>}
-          </button>
+      <button className="relative h-9 w-[105px] overflow-hidden rounded-lg bg-orange-600 text-sm font-medium text-white shadow-lg transition-colors hover:bg-orange-700">
+        <AnimatePresence initial={false} custom={copied}>
+          <motion.span
+            key={copied ? 'copied' : 'copy'}
+            custom={copied}
+            className="absolute inset-0 flex items-center justify-center gap-2"
+            initial={(isCopied: boolean) => ({ y: isCopied ? 24 : -24 })}
+            animate={{ y: 0 }}
+            exit={(isCopied: boolean) => ({ y: isCopied ? 24 : -24 })}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+          >
+            {copied ? (
+              <>
+                <CheckIcon className="h-4 w-4" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <ClipboardDocumentIcon className="h-4 w-4" />
+                Copy
+              </>
+            )}
+          </motion.span>
+        </AnimatePresence>
+        {copied && (
+          <>
+            {confettiColors.map((color, i) => (
+              <ConfettiParticle
+                key={i}
+                delay={i * 0.03}
+                x={(i % 2 === 0 ? -1 : 1) * (12 + i * 6)}
+                color={color}
+              />
+            ))}
+          </>
         )}
-      </div>
+      </button>
     </CopyToClipboard>
   );
 }
 
-function PackageManagerSelector({
+function PackageManagerTabs({
+  selectedPmIndex,
+  onPmChange,
+}: {
+  selectedPmIndex: number;
+  onPmChange: (index: number) => void;
+}) {
+  return (
+    <div className="flex gap-1 rounded-full bg-gray-100 p-1">
+      {packageManagers.map((pm, i) => {
+        const Icon = pmIcons[i];
+        return (
+          <button
+            key={pm.id}
+            onClick={() => onPmChange(i)}
+            className={clsx(
+              'flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+              selectedPmIndex === i
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700',
+            )}
+          >
+            <Icon className="h-4 w-4" />
+            {pm.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TerminalBlock({
   commandTemplate,
+  type = 'runner',
+  selectedPmIndex,
+  onPmChange,
 }: {
   commandTemplate: string;
+  type?: 'runner' | 'script';
+  selectedPmIndex: number;
+  onPmChange?: (index: number) => void;
 }) {
-  const [selectedIndex, setSelectedIndex] = useLocalStorage<number>(
-    'package-manager-index',
-    0,
-  );
-
-  const currentCommand = `${packageManagers[selectedIndex].runner} ${commandTemplate}`;
+  const pm = packageManagers[selectedPmIndex];
+  const prefix = type === 'script' ? pm.scriptRunner : pm.runner;
+  const command = `${prefix} ${commandTemplate}`;
 
   return (
-    <div className="flex justify-center">
-      <div className="w-full">
-        <TabGroup selectedIndex={selectedIndex} onChange={setSelectedIndex}>
-          <TabList className="mb-0 flex space-x-1 rounded-t-xl bg-gray-200 p-1">
-            {packageManagers.map((pm) => (
-              <Tab
-                key={pm.id}
-                className={({ selected }) =>
-                  clsx(
-                    'w-full rounded-lg py-2.5 text-sm font-medium transition-all',
-                    'ring-opacity-60 ring-white ring-offset-2 ring-offset-gray-400 focus:ring-2 focus:outline-hidden',
-                    selected
-                      ? 'bg-white text-gray-900 shadow-md'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                  )
-                }
-              >
-                {pm.name}
-              </Tab>
-            ))}
-          </TabList>
-
-          <div className="rounded-b-lg border border-gray-300 bg-white shadow-xs">
-            <TabPanels>
-              {packageManagers.map((pm) => (
-                <TabPanel key={pm.id} className="focus:outline-hidden">
-                  <div className="flex items-center justify-between p-5 font-mono text-xs md:text-sm">
-                    <span className="text-gray-900">{currentCommand}</span>
-                    <CopyButton command={currentCommand} />
-                  </div>
-                </TabPanel>
-              ))}
-            </TabPanels>
+    <div>
+      {onPmChange && (
+        <div className="mb-3 flex justify-end">
+          <PackageManagerTabs
+            selectedPmIndex={selectedPmIndex}
+            onPmChange={onPmChange}
+          />
+        </div>
+      )}
+      <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950">
+        <div className="flex items-center justify-between px-5 py-3 font-mono text-sm">
+          <div>
+            <span className="text-green-400">$ </span>
+            <span className="text-gray-300">{command}</span>
           </div>
-        </TabGroup>
+          <TerminalCopyButton text={command} />
+        </div>
       </div>
     </div>
   );
 }
 
-function PromptExample({ title, content }: { title: string; content: string }) {
+function TabbedPrompts() {
+  const [activeTab, setActiveTab] = useState(0);
+  const prompt = examplePrompts[activeTab];
+
   return (
-    <div className="mb-8">
-      <div className="mb-4 flex items-start justify-between">
-        <SubsectionHeading className="flex-1">{title}</SubsectionHeading>
-        <CopyButton command={content} label="Copy Prompt" />
+    <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-950 shadow-2xl">
+      <div className="flex items-center justify-between border-b border-gray-800 px-2 py-2">
+        <div className="flex gap-1">
+          {examplePrompts.map((p, i) => (
+            <button
+              key={i}
+              onClick={() => setActiveTab(i)}
+              className={clsx(
+                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                activeTab === i
+                  ? 'bg-gray-800 text-white'
+                  : 'text-gray-500 hover:text-gray-300',
+              )}
+            >
+              {p.title}
+            </button>
+          ))}
+        </div>
+        <TerminalCopyButton text={prompt.content} />
       </div>
-      <div className="rounded-md border-l-4 border-l-gray-300 bg-gray-50 p-4 font-mono text-sm whitespace-pre-wrap text-gray-800">
-        {content}
-      </div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="p-6 font-mono text-sm whitespace-pre-wrap text-gray-400"
+        >
+          {prompt.content}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
 
-function DebuggingAccordion() {
+function DebuggingSection() {
   const [openItems, setOpenItems] = useState<Set<string>>(new Set());
 
   const toggleItem = (id: string) => {
@@ -251,167 +427,111 @@ function DebuggingAccordion() {
   };
 
   return (
-    <div className="space-y-2">
-      {debuggingItems.map((item) => {
-        const isOpen = openItems.has(item.id);
-        return (
-          <div
-            key={item.id}
-            className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
-          >
-            <button
-              onClick={() => toggleItem(item.id)}
-              className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-100 focus:bg-gray-100 focus:outline-hidden"
-            >
-              <span className="font-medium text-gray-900">{item.title}</span>
-              <svg
-                className={`h-5 w-5 text-gray-500 transition-transform ${
-                  isOpen ? 'rotate-180' : ''
-                }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-            {isOpen && (
-              <div className="border-t border-gray-100 px-4 pb-4 text-gray-700">
-                <div className="space-y-4">
-                  {item.content}
-                  {item.videoUrl && (
-                    <div className="pt-2">
-                      <a
-                        href={item.videoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+    <div className="relative overflow-hidden bg-[#F8F8F8]">
+      <div className="pointer-events-none absolute top-0 right-0 left-0 z-[5] h-24 bg-gradient-to-b from-white to-transparent" />
+      <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-24 bg-gradient-to-b from-transparent to-white" />
+      <div className="relative z-10">
+        <Section>
+          <AnimateIn>
+            <div className="text-center">
+              <Subheading>Debugging Common Issues</Subheading>
+              <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-700">
+                Run into an issue? Here are solutions to common problems you
+                might encounter:
+              </p>
+            </div>
+            <div className="mx-auto mt-10 max-w-3xl space-y-3">
+              {debuggingItems.map((item) => {
+                const isOpen = openItems.has(item.id);
+                return (
+                  <div
+                    key={item.id}
+                    className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                  >
+                    <button
+                      onClick={() => toggleItem(item.id)}
+                      className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-gray-50 focus:bg-gray-50 focus:outline-hidden"
+                    >
+                      <span className="font-medium text-gray-900">
+                        {item.title}
+                      </span>
+                      <motion.svg
+                        animate={{ rotate: isOpen ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="h-5 w-5 text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        <svg
-                          className="h-4 w-4"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </motion.svg>
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {isOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.25, ease: 'easeInOut' }}
+                          className="overflow-hidden"
                         >
-                          <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
-                        </svg>
-                        <span>Watch debugging video</span>
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function BuildAppSection() {
-  return (
-    <div className="mb-16">
-      <div className="mb-6">
-        <H3>3. Prompt the LLM to build us an app! (This is the fun part!)</H3>
-      </div>
-      <div className="mb-6 space-y-3 text-gray-700">
-        <p>
-          Woohoo! Now that we've got everything set up, we're ready to build an
-          app! Fire up your editor (cursor, windsurf, zed, etc.) or your CLI
-          tool (claude, gemini, etc) and type up a prompt. Hit enter and watch
-          the magic happen!
-        </p>
-        <p>Here are some example prompts for inspiration</p>
-      </div>
-      <div className="space-y-6">
-        {examplePrompts.map((prompt, index) => (
-          <PromptExample
-            key={index}
-            title={prompt.title}
-            content={prompt.content}
-          />
-        ))}
+                          <div className="border-t border-gray-100 px-5 pt-4 pb-5 text-gray-700">
+                            <div className="space-y-4">
+                              {item.content}
+                              {item.videoUrl && (
+                                <div className="pt-2">
+                                  <a
+                                    href={item.videoUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                                  >
+                                    <svg
+                                      className="h-4 w-4"
+                                      fill="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+                                    </svg>
+                                    <span>Watch debugging video</span>
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
+          </AnimateIn>
+        </Section>
       </div>
     </div>
   );
 }
 
-function DebuggingSection() {
-  return (
-    <div className="mb-16">
-      <div className="mb-6">
-        <H3>Debugging Common Issues</H3>
-      </div>
-      <p className="mb-6 text-gray-700">
-        Run into an issue? Here are solutions to common problems you might
-        encounter:
-      </p>
-      <DebuggingAccordion />
-    </div>
-  );
-}
-
-function ClosingSection() {
-  return (
-    <p>
-      Huzzah! You've built your first app with Instant! If you're curious, you
-      can go to your{' '}
-      <a href="/dash" className="text-blue-600 underline hover:text-blue-800">
-        Instant dashboard
-      </a>{' '}
-      and see all the data you've created in the Explorer tab.
-    </p>
-  );
-}
-
-function ShareCreationSection() {
-  return (
-    <div className="mb-16">
-      <div className="rounded-lg border border-orange-200 bg-linear-to-br from-orange-50 to-red-50 p-6">
-        <div className="flex items-start gap-4">
-          <div className="text-3xl">🎉</div>
-          <div className="flex-1">
-            <h4 className="mb-2 text-lg font-semibold text-gray-800">
-              Show off your creation!
-            </h4>
-            <p className="mb-4 text-gray-600">
-              We'd love to see what you built! Tweet us{' '}
-              <a
-                href="https://twitter.com/instant_db"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-orange-600 hover:text-orange-800"
-              >
-                @instant_db
-              </a>{' '}
-              and we'll amplify your awesome creations to the community.
-            </p>
-            <a
-              href="https://twitter.com/intent/tweet?text=%0A%0ABuilt%20with%20@instant_db%20%F0%9F%9A%80%20Tutorial:%20https://instantdb.com/labs/mcp-tutorial"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-4 py-2 text-sm font-medium text-orange-800 transition-colors hover:bg-orange-200"
-            >
-              <span>🧡</span>
-              <span>Share on Twitter</span>
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+// -----------
+// Page
+// -----------
 
 const pageTitle = 'Whirlwind tour: Build a full-stack app with InstantDB';
 
-export default function TutorialNew() {
+export default function Tutorial() {
+  const [selectedPmIndex, setSelectedPmIndex] = useLocalStorage<number>(
+    'package-manager-index',
+    0,
+  );
+
   return (
-    <LandingContainer>
+    <div className="text-off-black w-full">
       <Head>
         <title>{pageTitle}</title>
         <meta
@@ -420,89 +540,259 @@ export default function TutorialNew() {
         />
       </Head>
 
-      <PageProgressBar />
-      <MainNav />
+      {/* Hero band */}
+      <div className="bg-[#F0F5FA]">
+        <MainNav transparent />
+        <div className="pt-16">
+          <div className="landing-width mx-auto px-8">
+            <div className="mx-auto max-w-3xl">
+              <div className="pt-16 pb-12">
+                <SectionTitle>{pageTitle}</SectionTitle>
+                <p className="mt-6 text-lg text-gray-700">
+                  In this tutorial we'll walk through creating a full-stack app
+                  with InstantDB.{' '}
+                  <b>
+                    Within 5-10 minutes you'll have an app that runs on your
+                    computer
+                  </b>
+                  , and if you like, can be deployed into the wild!
+                </p>
 
-      <Section>
-        <div className="mx-auto max-w-4xl">
-          <div className="mt-12 mb-8">
-            <div className="mb-6">
-              <H2>{pageTitle}</H2>
-            </div>
-
-            <div className="mb-12 space-y-6 text-lg text-gray-700">
-              <p>👋 Hey there!</p>
-              <p>
-                In this tutorial we'll walk through creating a full-stack app
-                with InstantDB. Within 5-10 minutes you'll have an app that runs
-                on your computer, and if you like, can be deployed into the
-                wild!
-              </p>
+                {/* Table of contents */}
+                <ol className="mt-8 space-y-2">
+                  {overviewSteps.map((step, i) => (
+                    <li key={i} className="flex items-center gap-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-600 text-xs font-bold text-white">
+                        {i + 1}
+                      </span>
+                      <span className="text-lg text-gray-700">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </div>
           </div>
-          <div className="space-y-12 text-gray-700">
-            <div>
-              <H3>What we'll do:</H3>
-              <ol className="mt-4 space-y-2 text-lg text-gray-700">
-                {overviewSteps.map((step, index) => (
-                  <li key={index} className="flex items-start gap-3">
-                    <span className="font-mono text-gray-500">
-                      {index + 1}.
-                    </span>
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
+        </div>
+      </div>
+      <div className="h-12 bg-gradient-to-b from-[#F0F5FA] to-white" />
 
-            {/* instant-cli login */}
-            <div className="space-y-3">
-              <H3>1. Log in to Instant via instant-cli</H3>
-              <p>
-                As a first step let's make sure you're logged in. Run the
-                following command in the terminal with your favorite package
-                manager.
-              </p>
-              <PackageManagerSelector commandTemplate="instant-cli login" />
-              <p>
+      <div className="landing-width mx-auto px-8">
+        <div className="mx-auto max-w-3xl">
+          {/* Step 1: Login */}
+          <AnimateIn>
+            <div className="py-10">
+              <div className="mb-3 text-lg font-medium text-orange-600">
+                Step 1
+              </div>
+              <Subheading>Log in to Instant via instant-cli</Subheading>
+              <div className="mt-4 space-y-4 text-lg text-gray-700">
+                <p>
+                  As a first step let's make sure you're logged in. Run the
+                  following command in the terminal with your favorite package
+                  manager.
+                </p>
+              </div>
+              <div className="mt-6">
+                <TerminalBlock
+                  commandTemplate="instant-cli login"
+                  selectedPmIndex={selectedPmIndex}
+                  onPmChange={setSelectedPmIndex}
+                />
+              </div>
+              <p className="mt-4 text-lg text-gray-700">
                 This will open up a browser window where you can log in to your
                 Instant account or sign up if you don't have one yet.
               </p>
             </div>
+          </AnimateIn>
 
-            {/* create-instant-app */}
-            <div className="space-y-3">
-              <H3>2. Scaffold a starter instant app</H3>
-
-              <p>
-                Now that you're authenticated any app you make will persist
-                unless you delete the data later — woohoo!
-              </p>
-
-              <p>
-                As a next step we'll use <b>create-instant-app</b>, our CLI
-                tool, which makes it super easy to get started with a new
-                Instant project. Run the following in your terminal.
-              </p>
-
-              <PackageManagerSelector commandTemplate="create-instant-app" />
-
-              <p>
+          {/* Step 2: Scaffold */}
+          <AnimateIn>
+            <div className="py-10">
+              <div className="mb-3 text-lg font-medium text-orange-600">
+                Step 2
+              </div>
+              <Subheading>Scaffold a starter instant app</Subheading>
+              <div className="mt-4 space-y-4 text-lg text-gray-700">
+                <p>
+                  Now that you're authenticated any app you make will persist
+                  unless you delete the data later — woohoo!
+                </p>
+                <p>
+                  As a next step we'll use <b>create-instant-app</b>, our CLI
+                  tool, which makes it super easy to get started with a new
+                  Instant project. Run the following in your terminal.
+                </p>
+              </div>
+              <div className="mt-6">
+                <TerminalBlock
+                  commandTemplate="create-instant-app"
+                  selectedPmIndex={selectedPmIndex}
+                  onPmChange={setSelectedPmIndex}
+                />
+              </div>
+              <p className="mt-4 text-lg text-gray-700">
                 Go through the prompts to select your framework and llm. Once
                 the app is generated change into the new directory and go on to
                 step 3!
               </p>
             </div>
-            <BuildAppSection />
-            <DebuggingSection />
-            <ClosingSection />
-            <ShareCreationSection />
-            <RatingBox pageId="llm-tutorial" />
-          </div>
+          </AnimateIn>
+
+          {/* Step 3: Prompt */}
+          <AnimateIn>
+            <div className="py-10">
+              <div className="mb-3 text-lg font-medium text-orange-600">
+                Step 3
+              </div>
+              <Subheading>
+                Prompt the LLM to build us an app! (This is the fun part!)
+              </Subheading>
+              <div className="mt-4 space-y-4 text-lg text-gray-700">
+                <p>
+                  Woohoo! Now that we've got everything set up, we're ready to
+                  build an app! Fire up your editor (cursor, windsurf, zed,
+                  etc.) or your CLI tool (claude, gemini, etc) and type up a
+                  prompt. Hit enter and watch the magic happen!
+                </p>
+                <p>Here are some example prompts for inspiration</p>
+              </div>
+              <div className="mt-6">
+                <TabbedPrompts />
+              </div>
+            </div>
+          </AnimateIn>
         </div>
-      </Section>
-      <div className="h-6" />
+      </div>
+
+      {/* Debugging */}
+      <DebuggingSection />
+
+      {/* Step 4: Deploy */}
+      <div className="landing-width mx-auto px-8">
+        <div className="mx-auto max-w-3xl">
+          <AnimateIn>
+            <div className="pt-10">
+              <div className="mb-3 text-lg font-medium text-orange-600">
+                Step 4
+              </div>
+              <Subheading>Deploy the app to Vercel</Subheading>
+              <div className="mt-4 space-y-4 text-lg text-gray-700">
+                <p>
+                  Once you've got a working app we can get it live by deploying
+                  to Vercel! Before we deploy, let's verify there are no build
+                  errors. In the terminal run:
+                </p>
+              </div>
+            </div>
+          </AnimateIn>
+          <div className="mt-6">
+            <TerminalBlock
+              commandTemplate="run build"
+              type="script"
+              selectedPmIndex={selectedPmIndex}
+              onPmChange={setSelectedPmIndex}
+            />
+          </div>
+          <div className="mt-4 space-y-4 text-lg text-gray-700">
+            <p>
+              If there are build errors, paste them into your agent to get them
+              fixed up. Make sure your app still works as expected after your
+              agent gets the build to pass:
+            </p>
+          </div>
+          <div className="mt-6">
+            <TerminalBlock
+              commandTemplate="run dev"
+              type="script"
+              selectedPmIndex={selectedPmIndex}
+            />
+          </div>
+          <div className="mt-4 space-y-4 text-lg text-gray-700">
+            <p>If all looks well let's kick off a deploy!</p>
+          </div>
+          <div className="mt-6">
+            <TerminalBlock
+              commandTemplate="vercel --prod"
+              selectedPmIndex={selectedPmIndex}
+            />
+          </div>
+          <div className="mt-4 space-y-4 text-lg text-gray-700">
+            <p>
+              Your app should be live after vercel finishes deploying! If you
+              see any error about a missing <code>app-id</code> it means we need
+              to add it to the vercel environment. Run this command
+            </p>
+          </div>
+          <div className="mt-6">
+            <TerminalBlock
+              commandTemplate="vercel env add NEXT_PUBLIC_INSTANT_APP_ID production"
+              selectedPmIndex={selectedPmIndex}
+            />
+          </div>
+          <p className="mt-4 pb-10 text-lg text-gray-700">
+            and it will prompt you to paste your app id. You can find the value
+            in your <code>.env</code> file. Redeploy and you should have a
+            fully-working app.
+          </p>
+        </div>
+      </div>
+
+      {/* Closing / Share / Rating */}
+      <div className="relative overflow-hidden bg-[#F0F5FA]">
+        <div className="pointer-events-none absolute top-0 right-0 left-0 z-[5] h-48 bg-gradient-to-b from-white to-transparent" />
+        <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-48 bg-gradient-to-b from-transparent to-white" />
+        <Section className="relative z-10">
+          <div className="mx-auto max-w-3xl text-center">
+            <AnimateIn>
+              <SectionTitle>Huzzah!</SectionTitle>
+              <SectionSubtitle>
+                If you're curious, you can go to your{' '}
+                <a
+                  href="/dash"
+                  className="text-blue-600 underline hover:text-blue-800"
+                >
+                  Instant dashboard
+                </a>{' '}
+                and see your data in the Explorer tab as you interact with your
+                app. And tag us on{' '}
+                <a
+                  href="https://twitter.com/instant_db"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-orange-600 hover:text-orange-800"
+                >
+                  @instant_db
+                </a>
+                , we'd love to see what you built!
+              </SectionSubtitle>
+            </AnimateIn>
+
+            <AnimateIn delay={100}>
+              <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+                <LandingButton href="/dash">Go to Dashboard</LandingButton>
+                <a
+                  href="https://twitter.com/intent/tweet?text=%0A%0ABuilt%20with%20@instant_db%20%F0%9F%9A%80%20Tutorial:%20https://instantdb.com/labs/mcp-tutorial"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-6 py-3 text-base font-medium text-gray-700 transition-colors hover:bg-gray-50 sm:text-lg"
+                >
+                  <XIcon className="h-4 w-4" />
+                  Share on X
+                </a>
+              </div>
+            </AnimateIn>
+
+            <AnimateIn delay={300}>
+              <div className="mt-12 text-lg">
+                <RatingBox pageId="tutorial" />
+              </div>
+            </AnimateIn>
+          </div>
+        </Section>
+      </div>
+
       <Footer />
-    </LandingContainer>
+    </div>
   );
 }
