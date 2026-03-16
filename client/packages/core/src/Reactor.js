@@ -148,8 +148,9 @@ function querySubFromStorage(x, useDateObjects) {
  */
 function querySubToStorage(_key, sub) {
   const { result, ...rest } = sub;
-  const jsonSub =
-    /** @type {import('./reactorTypes.ts').QuerySubInStorage} */ rest;
+  const jsonSub = /** @type {import('./reactorTypes.ts').QuerySubInStorage} */ (
+    rest
+  );
   if (result) {
     /** @type {import('./reactorTypes.ts').QuerySubResultInStorage} */
     const jsonResult = {
