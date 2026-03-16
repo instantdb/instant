@@ -39,7 +39,7 @@ export function SectionIntro({ children }: TypographyProps) {
 }
 
 const landingButtonVariants = {
-  cta: 'bg-orange-600 text-white hover:bg-orange-700',
+  cta: 'border border-transparent bg-orange-600 text-white hover:bg-orange-700',
   secondary: 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
 };
 
