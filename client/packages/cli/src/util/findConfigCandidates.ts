@@ -14,7 +14,8 @@ type ConfigCandidate = {
  * - @instantdb/svelte re-exports .svelte files which can't be parsed
  *
  * Since schema files only need schema types (i, id, tx, etc.) which all
- * come from @instantdb/core, we rewrite these imports to safe alternatives.
+ * come from @instantdb/core, we rewrite these imports to a safe export
+ * in the package that only re-exports from @instantdb/core.
  */
 function transformImports(code: string): string {
   return code
