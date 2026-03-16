@@ -22,7 +22,7 @@ function transformImports(code: string): string {
       /["']@instantdb\/react-native["']/g,
       '"@instantdb/react-native/dist/cli"',
     )
-    .replace(/["']@instantdb\/svelte["']/g, '"@instantdb/core"');
+    .replace(/["']@instantdb\/svelte["']/g, '"@instantdb/svelte/dist/cli"');
 }
 
 function findPathsRecursive(
