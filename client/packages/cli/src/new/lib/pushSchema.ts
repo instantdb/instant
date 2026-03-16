@@ -19,8 +19,10 @@ import {
   collectSystemCatalogIdentNames,
   convertTxSteps,
   diffSchemas,
+  SchemaValidationError as PlatformSchemaError,
   validateSchema,
 } from '@instantdb/platform';
+
 import { OptsFromCommand, pushDef } from '../index.js';
 import { GlobalOpts } from '../context/globalOpts.js';
 import {
@@ -69,9 +71,13 @@ export const pushSchema = (
   rename?: OptsFromCommand<typeof pushDef>['rename'],
 ) =>
   Effect.gen(function* () {
-    const localSchemaFile = yield* Effect.tryPromise(readLocalSchemaFile).pipe(
-      Effect.mapError((e) => ReadSchemaFileError.make(e)),
-    );
+    const localSchemaFile = yield* Effect.tryPromise({
+      try: readLocalSchemaFile,
+      catch: (e) =>
+        e instanceof Error
+          ? ReadSchemaFileError.make({ message: e.message })
+          : ReadSchemaFileError.make({ message: String(e) }),
+    });
     if (!localSchemaFile || !localSchemaFile?.schema) {
       error(
         `We couldn't find your ${chalk.yellow('`instant.schema.ts`')} file. Make sure it's in the root directory. (Hint: You can use an INSTANT_SCHEMA_FILE_PATH environment variable to specify it.)`,
@@ -95,7 +101,7 @@ export const pushSchema = (
       .pipe(withCommand('push'))
       .get(`/dash/apps/${appId}/schema/pull`)
       .pipe(
-        Effect.flatMap(HttpClientResponse.schemaBodyJson(FetchSchemaResponse)),
+        Effect.andThen(HttpClientResponse.schemaBodyJson(FetchSchemaResponse)),
         Effect.mapError((e) => GetSchemaError.make({ message: e.message })),
       );
 
@@ -107,13 +113,20 @@ export const pushSchema = (
     const systemCatalogIdentNames =
       collectSystemCatalogIdentNames(currentAttrs);
 
-    yield* Effect.tryPromise(async () =>
-      validateSchema(localSchemaFile.schema, systemCatalogIdentNames),
-    ).pipe(
-      Effect.mapError((e) =>
-        SchemaValidationError.make({ message: 'Invalid Schema: ' + e.message }),
-      ),
-    );
+    yield* Effect.tryPromise({
+      try: async () =>
+        validateSchema(localSchemaFile.schema, systemCatalogIdentNames),
+      catch: (e) => {
+        if (e instanceof PlatformSchemaError) {
+          return SchemaValidationError.make({
+            message: 'Invalid Schema: ' + e.message,
+          });
+        }
+        return SchemaValidationError.make({
+          message: 'Failed to validate schema' + e,
+        });
+      },
+    });
     const renames = rename && Array.isArray(rename) ? rename : [];
     const globalOpts = yield* GlobalOpts;
     const renameSelector = globalOpts.yes
@@ -128,7 +141,12 @@ export const pushSchema = (
         systemCatalogIdentNames,
       ),
     ).pipe(
-      Effect.mapError((e) => SchemaDiffError.make({ message: e.message })),
+      Effect.mapError((e) => {
+        if (e.cause instanceof Error) {
+          return SchemaDiffError.make({ message: e.cause.message });
+        }
+        return e.message;
+      }),
     );
 
     const txSteps = convertTxSteps(diffResult, currentAttrs);

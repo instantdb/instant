@@ -49,7 +49,7 @@ export const loginCommand = Effect.fn(function* (
       true,
     );
     if (!ok) {
-      process.exit(1);
+      process.exit(0);
     }
     yield* Effect.tryPromise(() =>
       openInBrowser(`${dashOrigin}/dash?ticket=${ticket}`),
