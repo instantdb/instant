@@ -160,6 +160,62 @@ describe('InstantSvelteDatabase', () => {
       cleanup();
     });
 
+    it('accepts a function that returns a query', async () => {
+      const cleanup = $effect.root(() => {
+        db.useQuery(() => ({ goals: {} }) as any);
+      });
+      await tick();
+
+      expect(mockCore.subscribeQuery).toHaveBeenCalled();
+      cleanup();
+    });
+
+    it('skips subscription when function returns null', async () => {
+      let state: any;
+      const cleanup = $effect.root(() => {
+        state = db.useQuery(() => null);
+      });
+      await tick();
+
+      expect(state.isLoading).toBe(true);
+      expect(state.data).toBeUndefined();
+      expect(mockCore.subscribeQuery).not.toHaveBeenCalled();
+      cleanup();
+    });
+
+    it('re-subscribes when function query changes', async () => {
+      const unsub = vi.fn();
+      mockCore.subscribeQuery.mockImplementation(() => unsub);
+
+      let queryFilter = $state<string | null>(null);
+
+      const cleanup = $effect.root(() => {
+        db.useQuery(() =>
+          queryFilter
+            ? ({ goals: { $: { where: { status: queryFilter } } } } as any)
+            : null,
+        );
+      });
+      await tick();
+
+      // Initially null, no subscription
+      expect(mockCore.subscribeQuery).not.toHaveBeenCalled();
+
+      // Change filter to trigger a query
+      queryFilter = 'active';
+      await tick();
+
+      expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(1);
+
+      // Change filter again to trigger re-subscription
+      queryFilter = 'done';
+      await tick();
+
+      expect(unsub).toHaveBeenCalled();
+      expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(2);
+      cleanup();
+    });
+
     it('uses cached result when available', async () => {
       mockCore._reactor.getPreviousResult.mockReturnValue({
         data: { goals: [{ id: '1' }] },

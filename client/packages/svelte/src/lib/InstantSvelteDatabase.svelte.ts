@@ -135,8 +135,24 @@ export class InstantSvelteDatabase<
    * @see https://instantdb.com/docs/instaql
    *
    * @example
+   *   // basic query
    *   const state = db.useQuery({ goals: {} });
    *   // state.isLoading, state.error, state.data
+   *
+   * @example
+   *   // conditional query (pass a function that returns null to skip)
+   *   const auth = db.useAuth();
+   *   const state = db.useQuery(() =>
+   *     auth.user ? { todos: { $: { where: { 'owner.id': auth.user.id } } } } : null
+   *   );
+   *
+   * @example
+   *   // reactive query (re-runs when $state variables change)
+   *   let filter = $state<'all' | 'done'>('all');
+   *   const state = db.useQuery(() => {
+   *     if (filter === 'all') return { todos: {} };
+   *     return { todos: { $: { where: { done: true } } } };
+   *   });
    */
   useQuery = <Q extends ValidQuery<Q, Schema>>(
     query: (() => null | Q) | null | Q,
