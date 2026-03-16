@@ -32,9 +32,9 @@ interface Step {
 
 const STEPS: Step[] = [
   {
-    title: 'Alyssa sees a grey ball',
+    title: 'Alyssa sees a gray ball',
     description:
-      'Alyssa has a browser open and sees a grey ball. What happens when she changes the color?',
+      'Alyssa has a browser open and sees a gray ball. What happens when she changes the color?',
     client: { serverUpdate: GRAY, pendingMut: null },
     serverBall: GRAY,
     mutDot: null,
@@ -54,7 +54,7 @@ const STEPS: Step[] = [
   {
     title: 'Server accepts blue',
     description:
-      'When the server accepts, it will send a new "blue" result back. The pending mutation will clear and the ball says blue, this time backed by the server.',
+      'When the server accepts, it will send a new "blue" result back. The pending mutation will clear and the ball stays blue, this time backed by the server.',
     client: { serverUpdate: BLUE, pendingMut: null },
     serverBall: BLUE,
     mutDot: { color: BLUE, position: 'server' },
@@ -74,7 +74,7 @@ const STEPS: Step[] = [
   {
     title: 'Server rejects',
     description:
-      "If the server rejects the mutation, we can remove it from Alyssa's pending queue. Alyssa will then see blue (the last confirmed color) automaticaly.",
+      "If the server rejects the mutation, we can remove it from Alyssa's pending queue. Alyssa will then see blue (the last confirmed color) automatically.",
     client: { serverUpdate: BLUE, pendingMut: null },
     serverBall: BLUE,
     mutDot: { color: RED, position: 'gone' },

@@ -54,7 +54,7 @@ const STEPS: Step[] = [
   {
     title: 'Alyssa is online',
     description:
-      'Alyssa is online and sees her grey circle. Both the query result and her pending mutations are saved in IndexedDB. What happens when the network drops?',
+      'Alyssa is online and sees her gray circle. Both the query result and her pending mutations are saved in IndexedDB. What happens when the network drops?',
     client: { serverUpdate: GRAY_CIRCLE, pendingMuts: [] },
     serverShape: GRAY_CIRCLE,
     offline: false,

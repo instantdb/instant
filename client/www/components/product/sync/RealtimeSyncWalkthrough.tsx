@@ -32,9 +32,9 @@ interface Step {
 
 const STEPS: Step[] = [
   {
-    title: 'Alyssa and Louis see a grey ball',
+    title: 'Alyssa and Louis see a gray ball',
     description:
-      'Alyssa and Louis both see the same gray ball, connected to the server. What happens if one of them make a change?',
+      'Alyssa and Louis both see the same gray ball, connected to the server. What happens if one of them makes a change?',
     alyssa: { serverUpdate: GRAY, pendingMut: null },
     louis: { serverUpdate: GRAY, pendingMut: null },
     serverBall: GRAY,
