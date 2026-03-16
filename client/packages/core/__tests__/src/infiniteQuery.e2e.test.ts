@@ -73,14 +73,14 @@ describe('infinite scroll number line', () => {
     await expect.poll(() => getLoadedValues(response)).toContain(3);
     await addNumberItems(db, [5, 6, 7, 8]);
     await expect.poll(() => getLoadedValues(response)).toEqual([0, 1, 2, 3]);
-    scrollSub.loadMore();
+    scrollSub.loadNextPage();
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([0, 1, 2, 3, 5, 6, 7, 8]);
-    await expect.poll(() => response.canLoadMore).toEqual(false);
+    await expect.poll(() => response.canLoadNextPage).toEqual(false);
     await addNumberItems(db, [9]);
-    await expect.poll(() => response.canLoadMore).toEqual(true);
-    scrollSub.loadMore();
+    await expect.poll(() => response.canLoadNextPage).toEqual(true);
+    scrollSub.loadNextPage();
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([0, 1, 2, 3, 5, 6, 7, 8, 9]);
@@ -131,11 +131,11 @@ describe('infinite scroll number line', () => {
       .poll(() => getLoadedValues(response))
       .toEqual([-4, -2, -1, 0, 1, 2, 3]);
 
-    await expect.poll(() => response.canLoadMore).toEqual(true);
+    await expect.poll(() => response.canLoadNextPage).toEqual(true);
 
-    scrollSub.loadMore();
+    scrollSub.loadNextPage();
 
-    await expect.poll(() => response.canLoadMore).toEqual(false);
+    await expect.poll(() => response.canLoadNextPage).toEqual(false);
   });
 
   test('add zero twice', async ({ db }) => {
@@ -191,8 +191,8 @@ describe('unique queries', () => {
     await expect.poll(() => getLoadedValues(response)).toEqual([5, 4, 1]);
     await addNumberItems(db, [1, 2, 3]);
     await expect.poll(() => getLoadedValues(response)).toEqual([5, 4, 3, 2]);
-    await expect.poll(() => response.canLoadMore).toEqual(true);
-    scrollSub.loadMore();
+    await expect.poll(() => response.canLoadNextPage).toEqual(true);
+    scrollSub.loadNextPage();
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([5, 4, 3, 2, 1, 1]);
@@ -221,22 +221,22 @@ describe('unique queries', () => {
     await addNumberItems(db, [5, 4, 3, 2, 2, 2, 1]);
 
     await expect.poll(() => getLoadedValues(response)).toEqual([5, 4, 3]);
-    await expect.poll(() => response.canLoadMore).toEqual(true);
+    await expect.poll(() => response.canLoadNextPage).toEqual(true);
 
-    scrollSub.loadMore();
+    scrollSub.loadNextPage();
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([5, 4, 3, 2, 2, 2]);
-    await expect.poll(() => response.canLoadMore).toEqual(true);
+    await expect.poll(() => response.canLoadNextPage).toEqual(true);
 
-    scrollSub.loadMore();
+    scrollSub.loadNextPage();
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([5, 4, 3, 2, 2, 2, 1]);
-    await expect.poll(() => response.canLoadMore).toEqual(false);
+    await expect.poll(() => response.canLoadNextPage).toEqual(false);
   });
 
-  test('rapid loadMore calls do not duplicate pages', async ({ db }) => {
+  test('rapid loadNextPage calls do not duplicate pages', async ({ db }) => {
     let response: Record<string, any> = {};
 
     const scrollSub = db.subscribeInfiniteQuery(
@@ -258,13 +258,13 @@ describe('unique queries', () => {
     await addNumberItems(db, [1, 2, 3, 4, 5, 6]);
 
     await expect.poll(() => getLoadedValues(response)).toEqual([1, 2]);
-    await expect.poll(() => response.canLoadMore).toEqual(true);
+    await expect.poll(() => response.canLoadNextPage).toEqual(true);
 
-    scrollSub.loadMore();
-    scrollSub.loadMore();
+    scrollSub.loadNextPage();
+    scrollSub.loadNextPage();
 
     await expect.poll(() => getLoadedValues(response)).toEqual([1, 2, 3, 4]);
-    await expect.poll(() => response.canLoadMore).toEqual(true);
+    await expect.poll(() => response.canLoadNextPage).toEqual(true);
   });
 
   test('deleting an item', async ({ db }) => {
@@ -289,17 +289,17 @@ describe('unique queries', () => {
     await addNumberItems(db, [1, 2, 3, 4, 5, 6]);
     await expect.poll(() => getLoadedValues(response)).toEqual([1, 2, 3, 4]);
 
-    scrollSub.loadMore();
+    scrollSub.loadNextPage();
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([1, 2, 3, 4, 5, 6]);
-    await expect.poll(() => response.canLoadMore).toEqual(false);
+    await expect.poll(() => response.canLoadNextPage).toEqual(false);
 
     const threeId = await getItemIdByValue(db, 3);
     await db.transact(db.tx.items[threeId].delete());
 
     await expect.poll(() => getLoadedValues(response)).toEqual([1, 2, 4, 5, 6]);
-    await expect.poll(() => response.canLoadMore).toEqual(false);
+    await expect.poll(() => response.canLoadNextPage).toEqual(false);
   });
 
   test('updating an out-of-window item can reorder into visible chunk', async ({
@@ -325,18 +325,18 @@ describe('unique queries', () => {
 
     await addNumberItems(db, [10, 20, 30, 40, 50, 60]);
     await expect.poll(() => getLoadedValues(response)).toEqual([10, 20, 30]);
-    await expect.poll(() => response.canLoadMore).toEqual(true);
+    await expect.poll(() => response.canLoadNextPage).toEqual(true);
 
     const sixtyId = await getItemIdByValue(db, 60);
     await db.transact(db.tx.items[sixtyId].update({ value: 15 }));
 
     await expect.poll(() => getLoadedValues(response)).toEqual([10, 15, 20]);
-    await expect.poll(() => response.canLoadMore).toEqual(true);
+    await expect.poll(() => response.canLoadNextPage).toEqual(true);
 
-    scrollSub.loadMore();
+    scrollSub.loadNextPage();
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([10, 15, 20, 30, 40, 50]);
-    await expect.poll(() => response.canLoadMore).toEqual(false);
+    await expect.poll(() => response.canLoadNextPage).toEqual(false);
   });
 });

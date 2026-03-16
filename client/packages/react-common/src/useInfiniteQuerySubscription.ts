@@ -18,22 +18,22 @@ export type InfiniteQueryResult<
       error: { message: string };
       data: undefined;
       isLoading: false;
-      canLoadMore: boolean;
-      loadMore: () => void;
+      canLoadNextPage: boolean;
+      loadNextPage: () => void;
     }
   | {
       error: undefined;
       data: undefined;
       isLoading: true;
-      canLoadMore: boolean;
-      loadMore: () => void;
+      canLoadNextPage: boolean;
+      loadNextPage: () => void;
     }
   | {
       error: undefined;
       data: InstaQLResponse<Schema, Q, UseDates>;
       isLoading: false;
-      canLoadMore: boolean;
-      loadMore: () => void;
+      canLoadNextPage: boolean;
+      loadNextPage: () => void;
     };
 
 export function useInfiniteQuerySubscription<
@@ -51,12 +51,12 @@ export function useInfiniteQuerySubscription<
 }): InfiniteQueryResult<Schema, Q, UseDates> {
   const subRef = useRef<InfiniteQuerySubscription | null>(null);
   const [state, setState] = useState<
-    Omit<InfiniteQueryResult<Schema, Q, UseDates>, 'loadMore'>
+    Omit<InfiniteQueryResult<Schema, Q, UseDates>, 'loadNextPage'>
   >({
     error: undefined,
     data: undefined,
     isLoading: true,
-    canLoadMore: false,
+    canLoadNextPage: false,
   });
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export function useInfiniteQuerySubscription<
       error: undefined,
       data: undefined,
       isLoading: true,
-      canLoadMore: false,
+      canLoadNextPage: false,
     });
 
     try {
@@ -75,14 +75,14 @@ export function useInfiniteQuerySubscription<
           if (resp.error) {
             setState({
               data: undefined,
-              canLoadMore: false,
+              canLoadNextPage: false,
               error: resp.error,
               isLoading: false,
             });
           } else {
             setState({
               data: resp.data,
-              canLoadMore: resp.canLoadMore || false,
+              canLoadNextPage: resp.canLoadNextPage || false,
               error: resp.error,
               isLoading: false,
             });
@@ -100,20 +100,20 @@ export function useInfiniteQuerySubscription<
     } catch (e) {
       setState({
         data: undefined,
-        canLoadMore: false,
+        canLoadNextPage: false,
         error: { message: e instanceof Error ? e.message : String(e) },
         isLoading: false,
       });
     }
   }, [weakHash(query), weakHash(opts)]);
 
-  const loadMore = () => {
-    subRef.current?.loadMore();
+  const loadNextPage = () => {
+    subRef.current?.loadNextPage();
   };
 
   // @ts-expect-error union type
   return {
     ...state,
-    loadMore,
+    loadNextPage,
   };
 }

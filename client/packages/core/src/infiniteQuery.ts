@@ -17,8 +17,45 @@ interface Chunk {
 
 export interface InfiniteQuerySubscription {
   unsubscribe: () => void;
-  loadMore: () => void;
+  loadNextPage: () => void;
 }
+
+const chunkSubKey = (direction: 'forward' | 'reverse', cursor: Cursor) =>
+  `${direction}:${JSON.stringify(cursor)}`;
+
+const reverseOrder = <
+  Schema extends InstantSchemaDef<any, any, any>,
+  Entity extends keyof Schema['entities'],
+>(
+  order?: Order<Schema, Entity>,
+): Order<Schema, Entity> => {
+  if (!order) {
+    return {
+      serverCreatedAt: 'asc',
+    } satisfies Order<Schema, Entity>;
+  }
+  const key = Object.keys(order).at(0);
+  if (!key) {
+    return {
+      serverCreatedAt: 'asc',
+    } satisfies Order<Schema, Entity>;
+  }
+  return {
+    [key]: order[key as keyof typeof order] === 'asc' ? 'desc' : 'asc',
+  } as Order<Schema, Entity>;
+};
+
+const isDescendingOrder = <
+  Schema extends InstantSchemaDef<any, any, any>,
+  Entity extends keyof Schema['entities'],
+>(
+  order?: Order<Schema, Entity>,
+): boolean => {
+  if (!order) return false;
+  const key = Object.keys(order).at(0);
+  if (!key) return false;
+  return order[key as keyof typeof order] === 'desc';
+};
 
 export type InfiniteQueryCallbackResponse<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -28,12 +65,12 @@ export type InfiniteQueryCallbackResponse<
   | {
       error: { message: string };
       data: undefined;
-      canLoadMore?: boolean;
+      canLoadNextPage?: boolean;
     }
   | {
       error: undefined;
       data: InstaQLResponse<Schema, Query, UseDatesLocal>;
-      canLoadMore?: boolean;
+      canLoadNextPage?: boolean;
     };
 
 export const subscribeInfiniteQuery = <
@@ -68,35 +105,6 @@ export const subscribeInfiniteQuery = <
 
   const sendError = (err: { message: string }) => {
     cb({ error: err, data: undefined });
-  };
-
-  const chunkSubKey = (direction: 'forward' | 'reverse', cursor: Cursor) =>
-    `${direction}:${JSON.stringify(cursor)}`;
-
-  const reverseOrder = (
-    order?: Order<Schema, Entity>,
-  ): Order<Schema, Entity> => {
-    if (!order) {
-      return {
-        serverCreatedAt: 'asc',
-      } satisfies Order<Schema, Entity>;
-    }
-    const key = Object.keys(order).at(0);
-    if (!key) {
-      return {
-        serverCreatedAt: 'asc',
-      } satisfies Order<Schema, Entity>;
-    }
-    return {
-      [key]: order[key as keyof typeof order] === 'asc' ? 'desc' : 'asc',
-    } as Order<Schema, Entity>;
-  };
-
-  const isDescendingOrder = (order?: Order<Schema, Entity>): boolean => {
-    if (!order) return false;
-    const key = Object.keys(order).at(0);
-    if (!key) return false;
-    return order[key as keyof typeof order] === 'desc';
   };
 
   const inclusiveBeforeCursor = (
@@ -138,8 +146,8 @@ export const subscribeInfiniteQuery = <
       >,
       // @ts-expect-error chunks hidden from type
       chunks,
-      canLoadMore: readCanLoadMore(),
-      loadMore,
+      canLoadNextPage: readCanLoadMore(),
+      loadNextPage,
     });
   };
 
@@ -325,14 +333,14 @@ export const subscribeInfiniteQuery = <
     if (!chunk?.hasMore || !chunk.endCursor) return;
 
     const advanceKey = `${chunkKey}:${JSON.stringify(chunk.endCursor)}`;
-    if (advanceKey === lastReverseAdvancedChunkKey) return;
+    if (advanceKey == lastReverseAdvancedChunkKey) return;
 
     lastReverseAdvancedChunkKey = advanceKey;
     freezeReverse(JSON.parse(chunkKey));
     pushNewReverse(chunk.endCursor);
   };
 
-  const loadMore = () => {
+  const loadNextPage = () => {
     const tailEntry = Array.from(forwardChunks.entries()).at(-1);
     if (!tailEntry) return;
 
@@ -416,7 +424,7 @@ export const subscribeInfiniteQuery = <
 
   return {
     unsubscribe,
-    loadMore,
+    loadNextPage,
   };
 };
 

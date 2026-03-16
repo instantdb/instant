@@ -404,7 +404,7 @@ export default abstract class InstantReactAbstractDatabase<
    * @example
    * const {
    *   data,
-   *   loadMore,
+   *   loadNextPage,
    *   canLoadMore,
    * } = db.useInfiniteQuery({
    *   posts: {

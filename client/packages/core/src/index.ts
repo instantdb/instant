@@ -708,7 +708,7 @@ class InstantCoreDatabase<
    *
    * Only one top level namespace in the query is allowed.
    * @example
-   * const { unsubscribe, loadMore } = db.subscribeInfiniteQuery({
+   * const { unsubscribe, loadNextPage } = db.subscribeInfiniteQuery({
    *   posts: {
    *     $: {
    *       limit: 20,   // Load 20 posts at a time
