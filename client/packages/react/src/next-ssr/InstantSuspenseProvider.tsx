@@ -16,18 +16,26 @@ import {
   createHydrationStreamProvider,
   isServer,
 } from './HydrationStreamProvider.tsx';
-import { createContext, useContext, useRef, useState } from 'react';
-import { InstantReactAbstractDatabase } from '@instantdb/react-common';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+} from 'react';
+import {
+  InstantReactAbstractDatabase,
+  useQueryInternal,
+} from '@instantdb/react-common';
 
 type InstantSuspenseProviderProps<
   Schema extends InstantSchemaDef<any, any, any>,
 > = {
   nonce?: string;
   children: React.ReactNode;
-  db?: InstantReactWebDatabase<Schema, any>;
-  config?: Omit<InstantConfig<any, any>, 'schema'> & {
-    schema: string;
-  };
+  db: InstantReactWebDatabase<Schema, any>;
   user?: User | null;
 };
 
@@ -71,64 +79,12 @@ type SuspenseQueryOpts = {
   ruleParams: RuleParams;
 };
 
-export const InstantSuspenseProvider = (
-  props: InstantSuspenseProviderProps<any>,
-) => {
-  const clientRef = useRef<FrameworkClient | null>(null);
-
-  if (!props.db) {
-    throw new Error(
-      'Must provide either a db or config to InstantSuspenseProvider',
-    );
-  }
-
-  const db = useRef<InstantReactAbstractDatabase<any, any>>(props.db);
-
-  const [trackedKeys] = useState(() => new Set<string>());
-
-  if (!clientRef.current) {
-    if (props.user && !props.user.refresh_token) {
-      throw new Error(
-        'User must have a refresh_token field. Recieved: ' +
-          JSON.stringify(props.user, null, 2),
-      );
-    }
-    clientRef.current = new FrameworkClient({
-      token: props.user?.refresh_token,
-      db: db.current.core,
-    });
-  }
-
-  if (isServer) {
-    clientRef.current.subscribe((result) => {
-      const { queryHash } = result;
-      trackedKeys.add(queryHash);
-    });
-  }
-
-  const useSuspenseQuery = (query: any, opts: SuspenseQueryOpts) => {
-    const nonSuspenseResult = db.current.useQuery(query, {
-      ...opts,
-    });
-
-    if (nonSuspenseResult.data) {
-      return {
-        data: nonSuspenseResult.data,
-        pageInfo: nonSuspenseResult.pageInfo,
-      };
-    }
-
-    // should never happen (typeguard)
-    if (!clientRef.current) {
-      throw new Error('Client ref not set up');
-    }
-
-    let entry = clientRef.current.getExistingResultForQuery(query, {
-      ruleParams: opts?.ruleParams,
-    });
+function makeUseSuspenseQueryServer(client: FrameworkClient) {
+  return function useSuspenseQueryServer(query: any, opts: SuspenseQueryOpts) {
+    let entry = client.getExistingResultForQuery(query, opts);
 
     if (!entry) {
-      entry = clientRef.current!.query(query, opts);
+      entry = client.query(query, opts);
     }
 
     if (entry.status === 'pending') {
@@ -139,27 +95,172 @@ export const InstantSuspenseProvider = (
       throw entry.error;
     }
 
-    if (entry.status === 'success' && entry.type === 'session') {
-      return entry.data;
-    }
-
     if (entry.status === 'success') {
-      const data = entry.data;
-      const result = clientRef.current.completeIsomorphic(
-        query,
-        data.triples,
-        data.attrs,
-        data.pageInfo,
-      );
+      switch (entry.type) {
+        case 'session': {
+          return entry.data;
+        }
+        case 'http': {
+          const data = entry.data;
+          const result = client.completeIsomorphic(
+            query,
+            data.triples,
+            data.attrs,
+            data.pageInfo,
+          );
 
-      return result;
+          return result;
+        }
+      }
     }
   };
+}
+
+function makeUseSuspenseQueryClient(
+  db: InstantReactAbstractDatabase<any, any>,
+  client: FrameworkClient,
+) {
+  function getEntry(query: any, opts: SuspenseQueryOpts, allowFetch: boolean) {
+    const entry = client.getExistingResultForQuery(query, opts);
+
+    if (entry?.status === 'pending') {
+      throw entry.promise;
+    }
+
+    if (entry?.status === 'error') {
+      throw entry.error;
+    }
+
+    if (entry?.status === 'success') {
+      switch (entry.type) {
+        case 'session': {
+          return entry.data;
+        }
+        case 'http': {
+          const data = entry.data;
+          const result = client.completeIsomorphic(
+            query,
+            data.triples,
+            data.attrs,
+            data.pageInfo,
+          );
+
+          return result;
+        }
+      }
+    }
+
+    if (allowFetch) {
+      const promise = client.queryClient(query, opts);
+      throw promise;
+    }
+  }
+
+  return function useSuspenseQueryClient(query: any, opts: SuspenseQueryOpts) {
+    const useQueryResult = useQueryInternal(
+      db.core,
+      query,
+      opts,
+      // Returns the server result for useSyncExternalStore
+      () => {
+        try {
+          const res = getEntry(query, opts, false);
+          return res;
+        } catch (throwable) {
+          return { error: throwable };
+        }
+      },
+    );
+
+    const hasData = !!useQueryResult.state.data;
+    const queryHash = useQueryResult.queryHash;
+
+    useEffect(() => {
+      if (hasData) {
+        // We have a newer result, so remove the cached SSR or suspended
+        // result from the framework client cache
+        client.removeCachedQueryResult(queryHash);
+      }
+    }, [hasData, queryHash]);
+
+    if (useQueryResult.state.data) {
+      return {
+        data: useQueryResult.state.data,
+        pageInfo: useQueryResult.state.pageInfo,
+      };
+    }
+
+    if (useQueryResult.state.error) {
+      throw useQueryResult.state.error;
+    }
+
+    return getEntry(query, opts, true);
+  };
+}
+
+function createFrameworkClient(
+  db: InstantReactAbstractDatabase<any, any>,
+  user: User | null | undefined,
+) {
+  if (isServer) {
+    if (user && !user.refresh_token) {
+      throw new Error(
+        'User must have a refresh_token field. Recieved: ' +
+          JSON.stringify(user, null, 2),
+      );
+    }
+    return new FrameworkClient({
+      token: user?.refresh_token,
+      db: db.core,
+    });
+  }
+
+  // On the client, make sure we only have a single framework
+  // in case our suspense provider gets unmounted
+  const existing = db.core._reactor._frameworkClient;
+  if (existing) {
+    return existing;
+  }
+  const client = new FrameworkClient({ db: db.core });
+  db.core._reactor.setFrameworkClient(client);
+  return client;
+}
+
+export const InstantSuspenseProvider = (
+  props: InstantSuspenseProviderProps<any>,
+) => {
+  if (!props.db) {
+    throw new Error('Must provide db to InstantSuspenseProvider');
+  }
+
+  const db = props.db;
+
+  const [trackedKeys] = useState(() => new Set<string>());
+
+  const clientRef = useRef<FrameworkClient>(
+    createFrameworkClient(props.db, props.user),
+  );
+
+  if (isServer) {
+    clientRef.current.subscribe((result) => {
+      const { queryHash } = result;
+      trackedKeys.add(queryHash);
+    });
+  }
+
+  const useSuspenseQuery = useCallback(
+    isServer
+      ? makeUseSuspenseQueryServer(clientRef.current)
+      : makeUseSuspenseQueryClient(db, clientRef.current),
+    [],
+  );
+
+  const contextValue = useMemo(() => {
+    return { useSuspenseQuery, ssrUser: props.user };
+  }, [useSuspenseQuery, props.user]);
 
   return (
-    <SuspsenseQueryContext.Provider
-      value={{ useSuspenseQuery, ssrUser: props.user }}
-    >
+    <SuspsenseQueryContext.Provider value={contextValue}>
       <stream.Provider
         nonce={props.nonce}
         onFlush={() => {

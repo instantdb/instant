@@ -1,5 +1,10 @@
 import { test as baseTest } from 'vitest';
-import { init, InstantCoreDatabase } from '../../../src';
+import {
+  init,
+  InstantCoreDatabase,
+  InstantRules,
+  InstantSchemaDef,
+} from '../../../src';
 
 // @ts-ignore
 const apiUrl = import.meta.env.VITE_INSTANT_DEV
@@ -14,20 +19,39 @@ const websocketURI = import.meta.env.VITE_INSTANT_DEV
     import.meta.env.VITE_INSTANT_WEBSOCKET_URI ||
     'wss://api.instantdb.com/runtime/session';
 
-export const e2eTest = baseTest.extend<{
-  db: InstantCoreDatabase<any, false>;
-}>({
-  db: async ({ task, signal }, use) => {
-    const response = await fetch(`${apiUrl}/dash/apps/ephemeral`, {
-      body: JSON.stringify({ title: `e2e-${task.id}` }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
-      signal,
-    });
-    const { app } = await response.json();
-    const db = init({ appId: app.id, apiURI: apiUrl, websocketURI });
-    use(db);
-  },
-});
+// Make a factory function that returns a typed test instance
+export function makeE2ETest<Schema extends InstantSchemaDef<any, any, any>>({
+  schema,
+  rules,
+}: {
+  schema?: Schema;
+  rules?: {
+    code: InstantRules;
+  };
+}) {
+  return baseTest.extend<{
+    db: InstantCoreDatabase<Schema, false>;
+  }>({
+    db: async ({ task, signal }, use) => {
+      const response = await fetch(`${apiUrl}/dash/apps/ephemeral`, {
+        body: JSON.stringify({ title: `e2e-${task.id}`, schema, rules }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        signal,
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const { app } = await response.json();
+      const db = init<Schema>({
+        appId: app.id,
+        apiURI: apiUrl,
+        websocketURI,
+        schema,
+      });
+      await use(db);
+    },
+  });
+}
+
+export const e2eTest = makeE2ETest({});

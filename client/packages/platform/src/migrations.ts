@@ -692,11 +692,13 @@ export const compareLinks = (
     `${oldLink.forward.has}-${oldLink.reverse.has}` as RelationshipKinds;
   const { cardinality: oldCardinal, 'unique?': oldUnique } =
     relationshipConstraints[oldRelationship];
+  const oldRequired = !!oldLink.forward.required;
 
   const newRelationship =
     `${newLink.forward.has}-${newLink.reverse.has}` as RelationshipKinds;
   const { cardinality: newCardinal, 'unique?': newUnique } =
     relationshipConstraints[newRelationship];
+  const newRequired = !!newLink.forward.required;
 
   if (!oldUnique && newUnique) {
     results.push({
@@ -707,6 +709,13 @@ export const compareLinks = (
   if (!newUnique && newUnique !== oldUnique) {
     results.push({
       type: 'remove-unique',
+      identifier: identity,
+    });
+  }
+
+  if (newRequired !== oldRequired) {
+    results.push({
+      type: newRequired ? 'required' : 'remove-required',
       identifier: identity,
     });
   }

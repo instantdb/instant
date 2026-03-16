@@ -16,6 +16,7 @@ import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
 import path, { join } from 'path';
 import { randomUUID } from 'crypto';
 import jsonDiff from 'json-diff';
+import JSON5 from 'json5';
 import chalk from 'chalk';
 import { program, Option } from 'commander';
 import boxen from 'boxen';
@@ -386,7 +387,7 @@ program
     'If you have an existing app ID, we can pull schema and perms from there.',
   )
   .option(
-    '-p --package <react|react-native|core|admin|solid>',
+    '-p --package <react|react-native|core|admin|solid|svelte>',
     'Which package to automatically install if there is not one installed already.',
   )
   .option('--title <title>', 'Title for the created app')
@@ -453,7 +454,7 @@ program
     'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator stores.owner:stores.manager`',
   )
   .option(
-    '-p --package <react|react-native|core|admin|solid>',
+    '-p --package <react|react-native|core|admin|solid|svelte>',
     'Which package to automatically install if there is not one installed already.',
   )
   .description('Push schema and perm files to production.')
@@ -507,7 +508,7 @@ program
     'App ID to pull from. Defaults to *_INSTANT_APP_ID in .env',
   )
   .option(
-    '-p --package <react|react-native|core|admin|solid>',
+    '-p --package <react|react-native|core|admin|solid|svelte>',
     'Which package to automatically install if there is not one installed already.',
   )
   .option(
@@ -583,6 +584,21 @@ program
       return process.exit(1);
     }
     openInBrowser(`${instantDashOrigin}/dash?s=main&app=${appId}&t=explorer`);
+  });
+
+program
+  .command('query')
+  .argument('<query>', 'InstaQL query as JSON/JSON5')
+  .option(
+    '-a --app <app-id>',
+    'App ID to query. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option('--admin', 'Run the query as admin (bypasses permissions)')
+  .option('--as-email <email>', 'Run the query as a specific user by email')
+  .option('--as-guest', 'Run the query as an unauthenticated guest')
+  .description('Run an InstaQL query against your app.')
+  .action(async function (queryArg, opts) {
+    await handleQuery(queryArg, opts);
   });
 
 program.parse(process.argv);
@@ -683,6 +699,75 @@ async function handleInitWithoutFiles(opts) {
     );
     process.exit(1);
   }
+}
+
+async function detectAppIdQuietly(opts) {
+  const fromOpts = await detectAppIdFromOptsWithErrorLogging(opts);
+  if (!fromOpts.ok) return fromOpts;
+  if (fromOpts.appId) {
+    return { ok: true, appId: fromOpts.appId };
+  }
+  const fromEnv = detectAppIdFromEnvWithErrorLogging();
+  if (!fromEnv.ok) return fromEnv;
+  if (fromEnv.found) {
+    return { ok: true, appId: fromEnv.found.value };
+  }
+  return { ok: true };
+}
+
+async function handleQuery(queryArg, opts) {
+  const contextCount =
+    (opts.admin ? 1 : 0) + (opts.asEmail ? 1 : 0) + (opts.asGuest ? 1 : 0);
+  if (contextCount === 0) {
+    error(
+      'Please specify a context: --admin, --as-email <email>, or --as-guest',
+    );
+    return process.exit(1);
+  }
+  if (contextCount > 1) {
+    error(
+      'Please specify exactly one context: --admin, --as-email <email>, or --as-guest',
+    );
+    return process.exit(1);
+  }
+
+  const { ok, appId } = await detectAppIdQuietly(opts);
+  if (!ok) return process.exit(1);
+  if (!appId) {
+    error(
+      'No app ID detected. Please specify one with --app or set up with `instant-cli init`',
+    );
+    return process.exit(1);
+  }
+
+  let query;
+  try {
+    query = JSON5.parse(queryArg);
+  } catch {
+    error('Invalid JSON query argument.');
+    return process.exit(1);
+  }
+
+  const headers = { 'app-id': appId };
+  if (opts.asEmail) {
+    headers['as-email'] = opts.asEmail;
+  } else if (opts.asGuest) {
+    headers['as-guest'] = 'true';
+  }
+
+  const res = await fetchJson({
+    method: 'POST',
+    path: '/admin/query',
+    body: { query },
+    headers,
+    debugName: 'Query',
+    errorMessage: 'Failed to run query.',
+    command: 'query',
+  });
+
+  if (!res.ok) return process.exit(1);
+
+  console.log(JSON.stringify(res.data, null, 2));
 }
 
 async function handlePush(bag, opts) {
@@ -889,6 +974,7 @@ const packageAliasAndFullNames = {
   core: '@instantdb/core',
   admin: '@instantdb/admin',
   solid: '@instantdb/solidjs',
+  svelte: '@instantdb/svelte',
 };
 
 async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
@@ -930,6 +1016,7 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
           { label: '@instantdb/core', value: '@instantdb/core' },
           { label: '@instantdb/admin', value: '@instantdb/admin' },
           { label: '@instantdb/solidjs', value: '@instantdb/solidjs' },
+          { label: '@instantdb/svelte', value: '@instantdb/svelte' },
         ],
       }),
     );
@@ -1183,6 +1270,7 @@ async function getInstantModuleName(pkgJson) {
     '@instantdb/core',
     '@instantdb/admin',
     '@instantdb/solidjs',
+    '@instantdb/svelte',
   ].find((name) => deps[name] || devDeps[name]);
   return instantModuleName;
 }
@@ -1876,6 +1964,7 @@ async function waitForAuthToken({ secret }) {
  * @param {boolean} [options.noLogError]
  * @param {string} [options.command] - The CLI command being executed (e.g., 'push', 'pull', 'login')
  * @param {string} [options.authToken] - Optional auth token to use instead of reading from config
+ * @param {Record<string, string>} [options.headers] - Extra headers to include in the request
  * @returns {Promise<{ ok: boolean; data: any }>}
  */
 async function fetchJson({
@@ -1888,6 +1977,7 @@ async function fetchJson({
   noLogError,
   command,
   authToken: providedAuthToken,
+  headers: extraHeaders,
 }) {
   const withAuth = !noAuth;
   const withErrorLogging = !noLogError;
@@ -1910,6 +2000,7 @@ async function fetchJson({
         'X-Instant-Source': 'instant-cli',
         'X-Instant-Version': version,
         ...(command ? { 'X-Instant-Command': command } : {}),
+        ...extraHeaders,
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(timeoutMs),

@@ -1,0 +1,57 @@
+{
+  "name": "@instantdb/svelte",
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Svelte client for InstantDB",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/svelte",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/svelte"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "build": "rm -rf dist && svelte-package -i src/lib -o dist",
+    "dev": "svelte-package -i src/lib -o dist --watch",
+    "publish-package": "pnpm pack && npm publish *.tgz --access public"
+  },
+  "svelte": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "svelte": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./dist/cli": {
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/**/*.spec.*"
+  ],
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  },
+  "dependencies": {
+    "@instantdb/core": "workspace:*",
+    "@instantdb/version": "workspace:*"
+  },
+  "devDependencies": {
+    "@sveltejs/package": "^2.3.0",
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "@testing-library/svelte": "^5.2.0",
+    "jsdom": "^25.0.0",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.2.0",
+    "vitest": "^2.0.0"
+  }
+}
