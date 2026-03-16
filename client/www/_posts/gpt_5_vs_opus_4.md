@@ -2,6 +2,8 @@
 title: GPT 5 vs Opus 4.1 for Vibe-Coded Apps
 date: '2025-08-08'
 authors: stopachka
+summary: How do GPT-5 and Opus 4.1 compare for vibe coding apps? We built a full-stack chiptunes player to find out.
+thumbnail: /img/essays/gpt_5_vs_opus_4.jpg
 ---
 
 > We're InstantDB, we make it easy to add a backend with auth, file storage, and

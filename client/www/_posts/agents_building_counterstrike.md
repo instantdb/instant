@@ -2,6 +2,9 @@
 title: 'Codex, Opus, Gemini try to build Counter Strike'
 date: '2025-11-26'
 authors: stopachka
+summary: 'Introducing CS Bench: we ask all top models to build a multiplayer Counter-Strike from scratch.'
+thumbnail: /img/essays/agents_building_counterstrike.jpg
+hero: /img/essays/agents_building_counterstrike.jpg
 ---
 
 In the last week we’ve had three major model updates: Gemini 3 Pro, Codex Max 5.1, Claude Opus 4.5. We thought we’d give them a challenge:
@@ -126,7 +129,7 @@ All 3 models misunderstood the sentence in in the same way: they thought the wan
 
 Here’s the results they came up with:
 
-<div class="grid grid-cols-1 md:grid-cols-3 grap-4">
+<div class="essay-breakout grid grid-cols-1 gap-4 md:grid-cols-3">
   <div>
     <div class="text-center font-mono text-sm font-bold">Codex</div>
     <iframe

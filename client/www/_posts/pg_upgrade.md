@@ -2,6 +2,9 @@
 title: 'A Major Postgres Upgrade with Zero Downtime'
 date: '2025-01-29'
 authors: stopachka, dww
+summary: Right before Christmas we discovered that our Aurora Postgres instance needed a major version upgrade. This covers how we made the upgrade with zero seconds of downtime.
+thumbnail: /img/essays/pg_upgrade.jpg
+hero: /img/essays/pg_upgrade.jpg
 ---
 
 <div class="text-lg font-medium">

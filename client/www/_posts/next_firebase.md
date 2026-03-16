@@ -2,6 +2,9 @@
 title: 'A Graph-Based Firebase'
 date: '2022-08-25'
 authors: stopachka
+summary: This essay covers the design behind Instant. If the schleps we face as UI engineers are actually database problems in disguise, would a database-looking solution solve them?
+thumbnail: /img/essays/next_firebase.jpg
+hero: /img/essays/next_firebase.jpg
 ---
 
 In [A Database in the Browser](/essays/db_browser), I wrote that the schleps we face as UI engineers are actually database problems in disguise [^1]. This begged the question: would a database-looking solution solve them?

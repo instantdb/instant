@@ -2,6 +2,8 @@
 title: 'Count-Min Sketches in JS — frequencies, but without the data'
 date: '2025-10-13'
 authors: stopachka
+summary: What's the most efficient way to store frequencies? Come find out with us, and learn some of Wodehouse's favorite words to boot.
+thumbnail: /img/essays/count_min_sketch.jpg
 ---
 
 <div class="text-lg italic font-medium">

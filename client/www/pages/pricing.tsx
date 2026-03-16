@@ -1,11 +1,13 @@
 import Head from 'next/head';
-import {
-  LandingContainer,
-  LandingFooter,
-  MainNav,
-} from '@/components/marketingUi';
+import { MainNav } from '@/components/marketingUi';
 import { Button } from '@/components/ui';
 import * as og from '@/lib/og';
+import { Footer } from '@/components/new-landing/Footer';
+import {
+  SectionTitle,
+  SectionSubtitle,
+} from '@/components/new-landing/typography';
+import { AnimateIn } from '@/components/new-landing/AnimateIn';
 
 // Helpers
 // ------------------
@@ -13,10 +15,9 @@ const getVariantStyles = (variant: string) => {
   switch (variant) {
     case 'startup':
       return {
-        outline: 'outline-orange-600/80',
+        outline: 'outline-orange-400',
         outlineWidth: 'outline-2',
         background: 'bg-white',
-        textColor: 'text-black',
         iconColor: 'text-orange-500',
       };
     default:
@@ -24,7 +25,6 @@ const getVariantStyles = (variant: string) => {
         outline: 'outline-gray-600/10',
         outlineWidth: 'outline-2',
         background: 'bg-white',
-        textColor: 'text-black',
         iconColor: 'text-gray-500',
       };
   }
@@ -131,11 +131,11 @@ function Feature({
       </svg>
       {typeof feature === 'object' ? (
         <div className="flex flex-col gap-1">
-          <span className="text-black">{feature[0]}</span>
+          <span>{feature[0]}</span>
           <span className="text-sm text-gray-500">{feature[1]}</span>
         </div>
       ) : (
-        <span className="text-black">{feature}</span>
+        <span>{feature}</span>
       )}
     </div>
   );
@@ -159,34 +159,24 @@ function Plan({ plan }: { plan: any }) {
 
   return (
     <div
-      className={`box-border rounded-lg ${styles.background} outline-solid ${styles.outlineWidth} -outline-offset-1 ${styles.outline} flex h-full flex-col justify-between gap-4 p-6 ${opacityStyle(ctaDisabled)}`}
+      className={`box-border rounded-lg ${styles.background} outline-solid ${styles.outlineWidth} -outline-offset-1 ${styles.outline} flex h-full flex-col justify-between gap-6 p-6 ${opacityStyle(ctaDisabled)}`}
     >
       <div>
         <div className="my-2 flex items-center justify-between">
-          <h5
-            className={`mr-2 font-mono text-2xl font-medium tracking-tight ${styles.textColor}`}
-          >
-            {name}
-          </h5>
+          <h5 className="mr-2 text-3xl font-normal tracking-tight">{name}</h5>
         </div>
-        <div className={`opacity-70 ${styles.textColor}`}>{description}</div>
+        <div className="opacity-60">{description}</div>
         {price && (
-          <span
-            className={`my-4 inline-flex items-baseline gap-1 ${styles.textColor}`}
-          >
-            <h3
-              className={`text-3xl leading-none font-medium tracking-tight sm:text-4xl ${styles.textColor}`}
-            >
+          <span className="my-4 inline-flex items-baseline gap-1">
+            <h3 className="text-3xl leading-none font-normal tracking-tight">
               {price}
             </h3>
             {price !== 'Custom' && (
-              <span className={`leading-none ${styles.textColor}`}>/month</span>
+              <span className="leading-none opacity-60">/month</span>
             )}
           </span>
         )}
-        <div className={`py-2 text-sm opacity-70 ${styles.textColor}`}>
-          {featuresDescription}
-        </div>
+        <div className="py-2 text-sm opacity-60">{featuresDescription}</div>
         <div className="flex flex-col">
           {features.map((feature: any, idx: number) => (
             <Feature key={idx} feature={feature} variant={variant} />
@@ -209,35 +199,39 @@ function Plan({ plan }: { plan: any }) {
 
 function FourPlanGrid() {
   return (
-    <div>
-      <div className="flex flex-1 flex-col gap-12 px-4 py-8">
-        <div className="mx-auto flex max-w-3xl flex-1 flex-col">
-          <h1 className="text-center font-mono text-3xl leading-10 font-medium tracking-tighter text-black">
-            Never paused.
-            <br />
-            Unlimited free projects.
-            <br />
-            Simple pricing.
-          </h1>
-        </div>
+    <div className="pb-16 sm:pb-24">
+      <section className="relative overflow-hidden bg-[#F8F8F8]">
+        <div className="relative z-10 pt-32 pb-24 sm:pt-40 sm:pb-32">
+          <div className="landing-width mx-auto text-center">
+            <AnimateIn>
+              <SectionTitle>
+                Never paused.
+                <br />
+                Unlimited free projects.
+                <br />
+                Simple pricing.
+              </SectionTitle>
+            </AnimateIn>
 
-        <div className="mx-auto flex max-w-3xl flex-1 flex-col">
-          <div className="space-y-4 text-lg text-black">
-            <p>
-              Whether you're building a side project or your next big thing, you
-              can get started with Instant for free.
-            </p>
-            <p>
-              We don't pause projects, we don't limit number of active
-              applications, and we have no restrictions for commercial use. When
-              you're ready to grow, we have plans that scale with you.
-            </p>
+            <AnimateIn delay={100}>
+              <SectionSubtitle>
+                Whether you're building a side project or your next big thing,
+                you can get started with Instant for free. We don't pause
+                projects, we don't limit active applications, and we have no
+                restrictions for commercial use.
+              </SectionSubtitle>
+            </AnimateIn>
           </div>
         </div>
+        <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-48 bg-gradient-to-b from-transparent to-white" />
+      </section>
 
-        <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-4">
-          {plans.map((plan) => (
-            <Plan key={plan.name} plan={plan} />
+      <div className="landing-width mx-auto px-4">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-4">
+          {plans.map((plan, i) => (
+            <AnimateIn key={plan.name} delay={i * 100} className="h-full">
+              <Plan plan={plan} />
+            </AnimateIn>
           ))}
         </div>
       </div>
@@ -249,7 +243,7 @@ function FourPlanGrid() {
 // ------------------
 export default function Page() {
   return (
-    <LandingContainer>
+    <div className="text-off-black relative min-h-screen">
       <Head>
         <title>Instant Pricing</title>
         <meta
@@ -258,14 +252,11 @@ export default function Page() {
           content={og.url({ section: 'pricing' })}
         />
       </Head>
-      <div className="flex min-h-screen flex-col justify-between">
-        <div>
-          {' '}
-          <MainNav />
-          <FourPlanGrid />
-        </div>
-        <LandingFooter />
-      </div>
-    </LandingContainer>
+      <MainNav transparent />
+      <main className="flex-1">
+        <FourPlanGrid />
+      </main>
+      <Footer />
+    </div>
   );
 }
