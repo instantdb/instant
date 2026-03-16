@@ -1,6 +1,4 @@
 import {
-  Cursor,
-  InfiniteQueryCallbackResponse,
   type InfiniteQuerySubscription,
   type InstantCoreDatabase,
   type InstantSchemaDef,
@@ -10,15 +8,6 @@ import {
   weakHash,
 } from '@instantdb/core';
 import { useEffect, useRef, useState } from 'react';
-
-export type ChunkStatus = 'bootstrapping' | 'frozen';
-
-export interface Chunk {
-  status: ChunkStatus;
-  data: any[];
-  hasMore?: boolean;
-  endCursor?: Cursor;
-}
 
 export type InfiniteQueryResult<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -60,29 +49,43 @@ export function useInfiniteQuerySubscription<
   query: Q;
   opts?: InstaQLOptions;
 }): InfiniteQueryResult<Schema, Q, UseDates> {
-  const [latestResp, setLatestResp] =
-    useState<InfiniteQueryCallbackResponse<Schema, Q, UseDates>>();
-  const [isLoading, setIsLoading] = useState(true);
   const subRef = useRef<InfiniteQuerySubscription | null>(null);
-  const [error, setError] = useState<{ message: string } | undefined>(
-    undefined,
-  );
+  const [state, setState] = useState<
+    Omit<InfiniteQueryResult<Schema, Q, UseDates>, 'loadMore'>
+  >({
+    error: undefined,
+    data: undefined,
+    isLoading: true,
+    canLoadMore: false,
+  });
 
   useEffect(() => {
     // Ensure all data gets reset if the query/opts changes
-    setIsLoading(true);
-    setLatestResp(undefined);
+    setState({
+      error: undefined,
+      data: undefined,
+      isLoading: true,
+      canLoadMore: false,
+    });
 
     try {
       const sub = core.subscribeInfiniteQuery(
         query,
         (resp) => {
           if (resp.error) {
-            setError(resp.error);
-            setIsLoading(false);
+            setState({
+              data: undefined,
+              canLoadMore: false,
+              error: resp.error,
+              isLoading: false,
+            });
           } else {
-            setLatestResp(resp);
-            setIsLoading(false);
+            setState({
+              data: resp.data,
+              canLoadMore: resp.canLoadMore || false,
+              error: resp.error,
+              isLoading: false,
+            });
           }
         },
         opts,
@@ -95,7 +98,12 @@ export function useInfiniteQuerySubscription<
         subRef.current = null;
       };
     } catch (e) {
-      setError(e);
+      setState({
+        data: undefined,
+        canLoadMore: false,
+        error: { message: e instanceof Error ? e.message : String(e) },
+        isLoading: false,
+      });
     }
   }, [weakHash(query), weakHash(opts)]);
 
@@ -103,12 +111,9 @@ export function useInfiniteQuerySubscription<
     subRef.current?.loadMore();
   };
 
-  // @ts-expect-error discrimiated union return type
+  // @ts-expect-error union type
   return {
-    data: error ? undefined : latestResp?.data,
-    error: error,
-    canLoadMore: latestResp?.canLoadMore ?? false,
-    isLoading,
+    ...state,
     loadMore,
   };
 }

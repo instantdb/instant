@@ -144,7 +144,7 @@ describe('infinite scroll number line', () => {
       response = resp;
     });
 
-    const scrollSub = db.subscribeInfiniteQuery(
+    db.subscribeInfiniteQuery(
       {
         items: {
           $: {
