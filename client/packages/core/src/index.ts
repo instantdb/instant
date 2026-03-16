@@ -737,15 +737,17 @@ class InstantCoreDatabase<
       );
     }
 
-    const entity = entityNames[0] as Entity;
-    const entityQuery = query[entity];
-    if (!entityQuery) {
-      throw new QueryValidationError('No query provided for infinite entity');
+    const [entityName, entityQuery] = Object.entries(query)[0] as [
+      Entity,
+      Q[Entity] | undefined,
+    ];
+    if (!entityName || !entityQuery) {
+      throw new QueryValidationError('No query provided for infinite query');
     }
 
     return subscribeInfiniteQuery<Schema, Entity, Q, UseDates>(
       this as any,
-      entity,
+      entityName,
       entityQuery as any,
       cb as any,
       opts,
