@@ -9,22 +9,21 @@ type ConfigCandidate = {
 };
 
 /**
- * We need to do a bit of a hack of `@instantdb/react-native`.
+ * Some framework packages can't be loaded in a Node.js CLI context:
+ * - @instantdb/react-native brings in react-native which isn't available
+ * - @instantdb/svelte re-exports .svelte files which can't be parsed
  *
- * If a user writes import { i } from '@instantdb/react-native'
- *
- * We will fail to evaluate the file. This is because
- * `@instantdb/react-native` brings in `react-native`, which
- * does not run in a node context.
- *
- * To bypass this, we have a 'cli' module inside `react-native`, which
- * has all the necessary imports
+ * Since schema files only need schema types (i, id, tx, etc.) which all
+ * come from @instantdb/core, we rewrite these imports to a safe export
+ * in the package that only re-exports from @instantdb/core.
  */
 function transformImports(code: string): string {
-  return code.replace(
-    /["']@instantdb\/react-native["']/g,
-    '"@instantdb/react-native/dist/cli"',
-  );
+  return code
+    .replace(
+      /["']@instantdb\/react-native["']/g,
+      '"@instantdb/react-native/dist/cli"',
+    )
+    .replace(/["']@instantdb\/svelte["']/g, '"@instantdb/svelte/dist/cli"');
 }
 
 function findPathsRecursive(

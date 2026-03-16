@@ -24,6 +24,7 @@ function getInstantAliases(): Record<string, string> | null {
       '@instantdb/core': coreDir,
       '@instantdb/react': coreDir,
       '@instantdb/react-native': coreDir,
+      '@instantdb/svelte': coreDir,
       '@instantdb/admin': coreDir,
     };
   } catch {
