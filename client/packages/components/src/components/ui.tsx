@@ -66,12 +66,23 @@ export const Label = twel(
   'text-sm font-bold dark:text-neutral-400 text-gray-700',
 );
 
-export const LogoIcon = ({ size = 'mini' }: { size?: 'mini' | 'normal' }) => {
+export const LogoIcon = ({
+  size = 'mini',
+  className,
+}: {
+  size?: 'mini' | 'normal';
+  className?: string;
+}) => {
   const sizeToClass = {
     mini: 'h-4 w-4',
     normal: 'h-6 w-6',
   };
-  return <img src="/img/icon/logo-512.svg" className={sizeToClass[size]} />;
+  return (
+    <img
+      src="/img/icon/logo-512.svg"
+      className={cn(sizeToClass[size], className)}
+    />
+  );
 };
 
 // controls
