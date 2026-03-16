@@ -105,6 +105,7 @@ const getProjectInfo = (
               },
               { label: '@instantdb/core', value: '@instantdb/core' },
               { label: '@instantdb/admin', value: '@instantdb/admin' },
+              { label: '@instantdb/solidjs', value: '@instantdb/solidjs' },
             ],
           }),
         ).pipe(
@@ -166,6 +167,7 @@ function getInstantModuleName(pkgJson: PackageJson) {
     '@instantdb/react-native',
     '@instantdb/core',
     '@instantdb/admin',
+    '@instantdb/solidjs',
   ].find((name) => deps[name] || devDeps[name]);
   return instantModuleName;
 }

@@ -1,6 +1,6 @@
 import { HttpClient, HttpClientRequest } from '@effect/platform';
 import { version } from '@instantdb/version';
-import { Config, Context, Data, Effect, Layer, Option } from 'effect';
+import { Config, Context, Data, Effect, Layer, Option, Schema } from 'effect';
 import { AuthToken } from '../context/authToken.js';
 
 export class InstantHttp extends Context.Tag(
@@ -13,6 +13,8 @@ export class InstantHttpAuthed extends Context.Tag(
 
 export class InstantHttpError extends Data.TaggedError('InstantHttpError')<{
   message: string;
+  type: string;
+  methodAndUrl: string;
 }> {}
 
 // Pipe on a client to set command header
@@ -24,6 +26,11 @@ export const withCommand = (command: string) => {
       ),
     );
 };
+
+class InstantTypicalHttpErrorResponse extends Schema.Struct({
+  message: Schema.String,
+  type: Schema.String.pipe(Schema.optional),
+}) {}
 
 export const InstantHttpLive = Layer.effect(
   InstantHttp,
@@ -44,10 +51,29 @@ export const InstantHttpLive = Layer.effect(
       HttpClient.filterStatusOk, // makes non 2xx http codes error
       HttpClient.transformResponse((r) =>
         r.pipe(
-          Effect.mapError((e) => {
-            console.log(e.response.toJSON());
-            return new InstantHttpError({ message: e.message });
-          }),
+          Effect.catchAll((requestError) =>
+            Effect.gen(function* () {
+              const jsonBody = yield* requestError.response.json.pipe(
+                Effect.andThen(
+                  Schema.decodeUnknown(InstantTypicalHttpErrorResponse),
+                ),
+                Effect.mapError(
+                  (e) =>
+                    new InstantHttpError({
+                      message:
+                        'Error making request to ' + requestError.methodAndUrl,
+                      type: e._tag,
+                      methodAndUrl: requestError.methodAndUrl,
+                    }),
+                ),
+              );
+              return yield* new InstantHttpError({
+                message: jsonBody.message,
+                methodAndUrl: requestError.methodAndUrl,
+                type: jsonBody.type || 'Unknown type',
+              });
+            }),
+          ),
         ),
       ),
     );

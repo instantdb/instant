@@ -5,6 +5,7 @@ import { OptsFromCommand, initWithoutFilesDef } from '../index.js';
 import { createApp } from '../lib/createApp.js';
 import { AuthLayerLive } from '../layer.js';
 import chalk from 'chalk';
+import { NotAuthedError } from '../context/authToken.js';
 
 export const initWithoutFilesCommand = (
   opts: OptsFromCommand<typeof initWithoutFilesDef>,
@@ -76,6 +77,12 @@ export const initWithoutFilesCommand = (
       );
     }
   }).pipe(
+    Effect.catchTag('NotAuthedError', (e) =>
+      NotAuthedError.make({
+        message:
+          'Please log in first with `instant-cli login` before running this command.',
+      }),
+    ),
     Effect.catchAll((e) =>
       Effect.log(
         JSON.stringify(
