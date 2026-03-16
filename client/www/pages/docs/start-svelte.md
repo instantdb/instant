@@ -231,9 +231,7 @@ You can pass a function to `useQuery` to make queries reactive or conditional. T
 
   // Only query when we have a logged-in user
   const query = db.useQuery(() =>
-    auth.user
-      ? { todos: { $: { where: { 'owner.id': auth.user.id } } } }
-      : null
+    auth.user ? { todos: {} } : null
   );
 </script>
 
@@ -278,7 +276,7 @@ Transactions in Svelte work the same way they do in React via `db.transact`:
   import { db } from '$lib/db';
 
   function addTodo(text: string) {
-    db.transact(db.tx.todos[id()].update({ text, done: false }));
+    db.transact(db.tx.todos[id()].update({ text, done: false, createdAt: Date.now() }));
   }
 
   function toggleDone(todo: { id: string; done: boolean }) {
