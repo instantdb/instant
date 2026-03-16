@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { LogoIcon } from '@/components/ui';
+import { WalkthroughShell } from './WalkthroughShell';
 
 // -- Types & constants -------------------------------------------------------
 
@@ -37,11 +37,8 @@ interface Step {
   serverShape: ShapeState;
   offline: boolean;
   idb: IdbState;
-  /** Shape traveling Client -> IDB (null = no dot) */
   dotToIdb: ShapeState | null;
-  /** Shapes traveling Client -> Server on reconnect */
   syncDots: ShapeState[];
-  /** Broadcast dot travels Server -> Client */
   dotServerToClient: boolean;
 }
 
@@ -55,9 +52,9 @@ function shapeDisplay(c: ClientState): ShapeState {
 
 const STEPS: Step[] = [
   {
-    title: 'Client is online',
+    title: 'Alyssa is online',
     description:
-      'The client sees a gray circle, connected to the server. The latest server result is cached in IndexedDB.',
+      'Alyssa is online and sees her grey circle. Both the query result and her pending mutations are saved in IndexedDB. What happens when the network drops?',
     client: { serverUpdate: GRAY_CIRCLE, pendingMuts: [] },
     serverShape: GRAY_CIRCLE,
     offline: false,
@@ -67,9 +64,9 @@ const STEPS: Step[] = [
     dotServerToClient: false,
   },
   {
-    title: 'Client goes offline',
+    title: 'Alyssa goes offline',
     description:
-      'The network drops. The client can no longer reach the server, but data is still available from IndexedDB.',
+      'Even if the network drops, Alyssa can continue working. She can see the last server result thanks to IndexedDB, and all her mutations are saved too.',
     client: { serverUpdate: GRAY_CIRCLE, pendingMuts: [] },
     serverShape: GRAY_CIRCLE,
     offline: true,
@@ -79,9 +76,9 @@ const STEPS: Step[] = [
     dotServerToClient: false,
   },
   {
-    title: 'User paints blue',
+    title: 'Alyssa paints blue',
     description:
-      'The user changes the color to blue. It shows instantly via the pending mutation and is persisted to IndexedDB.',
+      "If Alyssa changes the color offline, that change will get saved into a pending mutation, and she'll see the update even without the server.",
     client: { serverUpdate: GRAY_CIRCLE, pendingMuts: [BLUE_CIRCLE] },
     serverShape: GRAY_CIRCLE,
     offline: true,
@@ -91,9 +88,9 @@ const STEPS: Step[] = [
     dotServerToClient: false,
   },
   {
-    title: 'User changes to square',
+    title: 'Alyssa makes the circle a square',
     description:
-      'The user changes the shape to a square. Another pending mutation is queued and persisted to IndexedDB.',
+      'She can keep going. As she makes more transactions, we grow the pending mutations queue and persist that to IndexedDB.',
     client: {
       serverUpdate: GRAY_CIRCLE,
       pendingMuts: [BLUE_CIRCLE, BLUE_SQUARE],
@@ -109,9 +106,9 @@ const STEPS: Step[] = [
     dotServerToClient: false,
   },
   {
-    title: 'Back online — mutations sync',
+    title: 'Back online, and the mutations sync',
     description:
-      'Connection restored. Both mutations fly to the server. The server confirms and broadcasts the result back.',
+      "When she's back online, we send off Alyssa's mutations to the server. The server confirms it and broadcasts the result to relevant users.",
     client: { serverUpdate: BLUE_SQUARE, pendingMuts: [] },
     serverShape: BLUE_SQUARE,
     offline: false,
@@ -122,7 +119,7 @@ const STEPS: Step[] = [
   },
 ];
 
-// -- Design-size layout constants (px at 540px design width) -----------------
+// -- Layout constants --------------------------------------------------------
 
 const DESIGN_W = 540;
 const COL_W = 130;
@@ -130,31 +127,27 @@ const BAR_H = 20;
 const BOX_H = 110;
 const GAP = 10;
 
-// IDB small cylinders
 const IDB_LEFT = 20;
 const IDB_W = 80;
 const IDB_ITEM_H = 28;
 
-// Vertical positions (match ClientColumn flexbox layout)
 const BAR1_TOP = 24;
 const BAR1_CY = BAR1_TOP + BAR_H / 2;
 const BAR2_TOP = BAR1_TOP + BAR_H + 28;
 const BAR2_CY = BAR2_TOP + BAR_H / 2;
 const BOX_TOP = BAR2_TOP + BAR_H + GAP;
 
-// IDB cylinder positions (nudged inward so they sit closer together)
 const IDB_CY1 = BAR1_CY + 8;
 const IDB_CY2 = BAR2_CY - 8;
 const IDB_TOP1 = IDB_CY1 - IDB_ITEM_H / 2;
 const IDB_TOP2 = IDB_CY2 - IDB_ITEM_H / 2;
 
-// Horizontal positions
 const CLIENT_LEFT = IDB_LEFT + IDB_W + 50;
 const SERVER_LEFT = DESIGN_W - COL_W - 20;
 
 const DESIGN_H = BOX_TOP + BOX_H + 28;
 
-// Edge endpoints (in design-px, used by SVG overlay)
+// Edge endpoints
 const EDGE_MUT = {
   x1: CLIENT_LEFT + COL_W,
   y1: BAR2_CY,
@@ -167,7 +160,6 @@ const EDGE_BROADCAST = {
   x2: CLIENT_LEFT + COL_W,
   y2: BAR1_CY,
 };
-// Edges: client bars -> IDB cylinders (slightly angled)
 const EDGE_TO_IDB_SR = {
   x1: CLIENT_LEFT,
   y1: BAR1_CY,
@@ -302,7 +294,7 @@ function PendingMutsBar({ muts }: { muts: ShapeState[] }) {
   );
 }
 
-function ClientColumn({ state }: { state: ClientState }) {
+function OfflineClientColumn({ state }: { state: ClientState }) {
   const shape = shapeDisplay(state);
   return (
     <div className="flex flex-col items-center" style={{ width: COL_W }}>
@@ -325,7 +317,7 @@ function ClientColumn({ state }: { state: ClientState }) {
           transition={{ duration: 0.4 }}
         />
       </div>
-      <p className="mt-2 text-base text-gray-500">Client</p>
+      <p className="mt-2 text-base text-gray-500">Alyssa</p>
     </div>
   );
 }
@@ -371,14 +363,17 @@ function TravelingShape({
   );
 }
 
-// -- Main component ----------------------------------------------------------
+// -- Diagram -----------------------------------------------------------------
 
-export function OfflinePersistenceWalkthrough() {
-  const [stepIdx, setStepIdx] = useState(0);
-  const step = STEPS[stepIdx];
-  const prevStep = STEPS[Math.max(0, stepIdx - 1)];
-
-  // Delayed visual state: updates lag behind animations
+function Diagram({
+  step,
+  prevStep,
+  stepIdx,
+}: {
+  step: Step;
+  prevStep: Step;
+  stepIdx: number;
+}) {
   const [serverShapeVisual, setServerShapeVisual] = useState(step.serverShape);
   const [clientVisual, setClientVisual] = useState(step.client);
   const [idbVisual, setIdbVisual] = useState(step.idb);
@@ -395,7 +390,6 @@ export function OfflinePersistenceWalkthrough() {
     }
 
     if (hasIdbDot) {
-      // User action is instant; IDB update waits for dot to arrive
       setClientVisual(step.client);
       setServerShapeVisual(step.serverShape);
       setIdbVisual(prevStep.idb);
@@ -412,12 +406,10 @@ export function OfflinePersistenceWalkthrough() {
     setClientVisual(prevStep.client);
     setIdbVisual(prevStep.idb);
 
-    // After sync dots arrive at server (0.8s)
     const t1 = setTimeout(() => {
       setServerShapeVisual(step.serverShape);
     }, 800);
 
-    // After broadcast arrives back at client (0.8s delay + 0.8s travel)
     const t2 = step.dotServerToClient
       ? setTimeout(() => {
           setClientVisual(step.client);
@@ -431,231 +423,168 @@ export function OfflinePersistenceWalkthrough() {
     };
   }, [stepIdx]);
 
-  // Responsive scaling
-  const outerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-
-  useEffect(() => {
-    const el = outerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setScale(Math.min(1, entry.contentRect.width / DESIGN_W));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
   return (
-    <div className="mt-4 rounded-lg border bg-gray-50 p-5">
-      {/* Scaled diagram */}
-      <div
-        ref={outerRef}
-        className="flex justify-center"
-        style={{ height: DESIGN_H * scale }}
+    <>
+      {/* IndexedDB label */}
+      <p
+        className="absolute text-sm text-gray-500"
+        style={{
+          left: IDB_LEFT,
+          top: IDB_TOP1 - 24,
+          width: IDB_W,
+          textAlign: 'center',
+        }}
       >
+        IndexedDB
+      </p>
+
+      {/* IDB: server result cylinder */}
+      <div className="absolute" style={{ left: IDB_LEFT, top: IDB_TOP1 }}>
+        <SmallCylinder
+          width={IDB_W}
+          height={IDB_ITEM_H}
+          shapes={idbVisual.serverResult ? [idbVisual.serverResult] : []}
+        />
+      </div>
+
+      {/* IDB: pending mutations cylinder */}
+      <div className="absolute" style={{ left: IDB_LEFT, top: IDB_TOP2 }}>
+        <SmallCylinder
+          width={IDB_W}
+          height={IDB_ITEM_H}
+          shapes={idbVisual.pendingMuts}
+        />
+      </div>
+
+      {/* Client */}
+      <div className="absolute" style={{ left: CLIENT_LEFT, top: 0 }}>
+        <OfflineClientColumn state={clientVisual} />
+      </div>
+
+      {/* Server */}
+      <div
+        className="absolute flex flex-col items-center"
+        style={{ left: SERVER_LEFT, top: BOX_TOP - 24, width: COL_W }}
+      >
+        <div className="mb-1 flex items-center gap-1">
+          <LogoIcon size="mini" />
+          <p className="text-sm text-gray-500">Server</p>
+        </div>
         <div
-          className="relative"
-          style={{
-            width: DESIGN_W,
-            height: DESIGN_H,
-            transformOrigin: 'top center',
-            transform: `scale(${scale})`,
-          }}
+          className="flex items-center justify-center rounded-lg border border-gray-200 bg-white"
+          style={{ width: COL_W, height: BOX_H }}
         >
-          {/* IndexedDB label */}
-          <p
-            className="absolute text-sm text-gray-500"
-            style={{
-              left: IDB_LEFT,
-              top: IDB_TOP1 - 24,
-              width: IDB_W,
-              textAlign: 'center',
+          <motion.div
+            style={{ width: 36, height: 36 }}
+            animate={{
+              backgroundColor: serverShapeVisual.color,
+              borderRadius: serverShapeVisual.form === 'circle' ? '50%' : '4px',
             }}
-          >
-            IndexedDB
-          </p>
-
-          {/* IDB: server result cylinder */}
-          <div className="absolute" style={{ left: IDB_LEFT, top: IDB_TOP1 }}>
-            <SmallCylinder
-              width={IDB_W}
-              height={IDB_ITEM_H}
-              shapes={idbVisual.serverResult ? [idbVisual.serverResult] : []}
-            />
-          </div>
-
-          {/* IDB: pending mutations cylinder */}
-          <div className="absolute" style={{ left: IDB_LEFT, top: IDB_TOP2 }}>
-            <SmallCylinder
-              width={IDB_W}
-              height={IDB_ITEM_H}
-              shapes={idbVisual.pendingMuts}
-            />
-          </div>
-
-          {/* Client */}
-          <div className="absolute" style={{ left: CLIENT_LEFT, top: 0 }}>
-            <ClientColumn state={clientVisual} />
-          </div>
-
-          {/* Server */}
-          <div
-            className="absolute flex flex-col items-center"
-            style={{ left: SERVER_LEFT, top: BOX_TOP - 24, width: COL_W }}
-          >
-            <div className="mb-1 flex items-center gap-1">
-              <LogoIcon size="mini" />
-              <p className="text-sm text-gray-500">Server</p>
-            </div>
-            <div
-              className="flex items-center justify-center rounded-lg border border-gray-200 bg-white"
-              style={{ width: COL_W, height: BOX_H }}
-            >
-              <motion.div
-                style={{ width: 36, height: 36 }}
-                animate={{
-                  backgroundColor: serverShapeVisual.color,
-                  borderRadius:
-                    serverShapeVisual.form === 'circle' ? '50%' : '4px',
-                }}
-                transition={{ duration: 0.4 }}
-              />
-            </div>
-          </div>
-
-          {/* SVG overlay for edges + animated dots */}
-          <svg
-            className="pointer-events-none absolute inset-0"
-            width={DESIGN_W}
-            height={DESIGN_H}
-          >
-            {/* Client -> Server edges (red when offline) */}
-            <line
-              {...EDGE_MUT}
-              stroke={step.offline ? '#ef4444' : '#d1d5db'}
-              strokeWidth={1.5}
-              strokeDasharray="4 3"
-            />
-            <line
-              {...EDGE_BROADCAST}
-              stroke={step.offline ? '#ef4444' : '#d1d5db'}
-              strokeWidth={1.5}
-              strokeDasharray="4 3"
-            />
-            {/* Client -> IDB edges (two horizontal lines) */}
-            <line
-              {...EDGE_TO_IDB_SR}
-              stroke="#d1d5db"
-              strokeWidth={1.5}
-              strokeDasharray="4 3"
-            />
-            <line
-              {...EDGE_TO_IDB_PM}
-              stroke="#d1d5db"
-              strokeWidth={1.5}
-              strokeDasharray="4 3"
-            />
-
-            {/* Offline x at mutation edge midpoint */}
-            {step.offline && (
-              <text
-                x={MUT_EDGE_MID_X}
-                y={MUT_EDGE_MID_Y}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill="#ef4444"
-                fontSize={14}
-                fontWeight="bold"
-              >
-                ✗
-              </text>
-            )}
-
-            {/* Dot: Client -> IDB pending muts cylinder (steps 3, 4) */}
-            <AnimatePresence>
-              {step.dotToIdb && (
-                <TravelingShape
-                  key={`idb-${stepIdx}`}
-                  {...EDGE_TO_IDB_PM}
-                  color={step.dotToIdb.color}
-                  form={step.dotToIdb.form}
-                />
-              )}
-            </AnimatePresence>
-
-            {/* Sync dots: Client -> Server (step 5) */}
-            <AnimatePresence>
-              {step.syncDots.map((dot, i) => (
-                <TravelingShape
-                  key={`sync${i}-${stepIdx}`}
-                  {...EDGE_MUT}
-                  color={dot.color}
-                  form={dot.form}
-                  delay={i * 0.15}
-                />
-              ))}
-            </AnimatePresence>
-
-            {/* Broadcast dot: Server -> Client (step 5) */}
-            <AnimatePresence>
-              {step.dotServerToClient && (
-                <TravelingShape
-                  key={`bc-${stepIdx}`}
-                  {...EDGE_BROADCAST}
-                  color={BLUE}
-                  form="square"
-                  delay={0.8}
-                />
-              )}
-            </AnimatePresence>
-          </svg>
+            transition={{ duration: 0.4 }}
+          />
         </div>
       </div>
 
-      {/* Step indicator + nav */}
-      <div className="mt-4 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
-        <button
-          onClick={() => setStepIdx((s) => Math.max(0, s - 1))}
-          disabled={stepIdx === 0}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 shadow-sm transition-all hover:bg-gray-50 hover:text-gray-700 active:scale-95 disabled:opacity-30"
-        >
-          <ChevronLeftIcon className="h-4 w-4" />
-        </button>
-        <div className="flex gap-1.5">
-          {STEPS.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setStepIdx(i)}
-              className={`h-3 w-3 rounded-full transition-colors duration-300 ${
-                i === stepIdx ? 'bg-orange-500' : 'bg-gray-300'
-              }`}
+      {/* SVG overlay for edges + animated dots */}
+      <svg
+        className="pointer-events-none absolute inset-0"
+        width={DESIGN_W}
+        height={DESIGN_H}
+      >
+        {/* Client -> Server edges (red when offline) */}
+        <line
+          {...EDGE_MUT}
+          stroke={step.offline ? '#ef4444' : '#d1d5db'}
+          strokeWidth={1.5}
+          strokeDasharray="4 3"
+        />
+        <line
+          {...EDGE_BROADCAST}
+          stroke={step.offline ? '#ef4444' : '#d1d5db'}
+          strokeWidth={1.5}
+          strokeDasharray="4 3"
+        />
+        {/* Client -> IDB edges */}
+        <line
+          {...EDGE_TO_IDB_SR}
+          stroke="#d1d5db"
+          strokeWidth={1.5}
+          strokeDasharray="4 3"
+        />
+        <line
+          {...EDGE_TO_IDB_PM}
+          stroke="#d1d5db"
+          strokeWidth={1.5}
+          strokeDasharray="4 3"
+        />
+
+        {/* Offline x at mutation edge midpoint */}
+        {step.offline && (
+          <text
+            x={MUT_EDGE_MID_X}
+            y={MUT_EDGE_MID_Y}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill="#ef4444"
+            fontSize={14}
+            fontWeight="bold"
+          >
+            ✗
+          </text>
+        )}
+
+        {/* Dot: Client -> IDB pending muts cylinder */}
+        <AnimatePresence>
+          {step.dotToIdb && (
+            <TravelingShape
+              key={`idb-${stepIdx}`}
+              {...EDGE_TO_IDB_PM}
+              color={step.dotToIdb.color}
+              form={step.dotToIdb.form}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Sync dots: Client -> Server */}
+        <AnimatePresence>
+          {step.syncDots.map((dot, i) => (
+            <TravelingShape
+              key={`sync${i}-${stepIdx}`}
+              {...EDGE_MUT}
+              color={dot.color}
+              form={dot.form}
+              delay={i * 0.15}
             />
           ))}
-        </div>
-        <button
-          onClick={() => setStepIdx((s) => Math.min(STEPS.length - 1, s + 1))}
-          disabled={stepIdx === STEPS.length - 1}
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 text-white shadow-sm transition-all hover:bg-orange-600 active:scale-95 disabled:opacity-30"
-        >
-          <ChevronRightIcon className="h-4 w-4" strokeWidth={3} />
-        </button>
-      </div>
-
-      {/* Step text */}
-      <div className="mt-4">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={stepIdx}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2 }}
-          >
-            <p className="text-base font-medium text-gray-900">{step.title}</p>
-            <p className="mt-0.5 text-base text-gray-500">{step.description}</p>
-          </motion.div>
         </AnimatePresence>
-      </div>
-    </div>
+
+        {/* Broadcast dot: Server -> Client */}
+        <AnimatePresence>
+          {step.dotServerToClient && (
+            <TravelingShape
+              key={`bc-${stepIdx}`}
+              {...EDGE_BROADCAST}
+              color={BLUE}
+              form="square"
+              delay={0.8}
+            />
+          )}
+        </AnimatePresence>
+      </svg>
+    </>
+  );
+}
+
+// -- Main component ----------------------------------------------------------
+
+export function OfflinePersistenceWalkthrough() {
+  return (
+    <WalkthroughShell
+      steps={STEPS}
+      designWidth={DESIGN_W}
+      designHeight={DESIGN_H}
+    >
+      {(props) => <Diagram {...props} />}
+    </WalkthroughShell>
   );
 }

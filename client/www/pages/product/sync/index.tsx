@@ -29,36 +29,6 @@ const syncCompanies = [
   { name: 'Linear', icon: linearIcon },
 ];
 
-function DiagramPre({
-  diagram,
-  highlights,
-}: {
-  diagram: string;
-  highlights: string[];
-}) {
-  const escaped = highlights.map((h) =>
-    h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-  );
-  const pattern = new RegExp(`(${escaped.join('|')})`, 'g');
-  const parts = diagram.split(pattern);
-
-  return (
-    <div className="mt-4 overflow-x-auto rounded-lg border bg-gray-50 p-5">
-      <pre className="font-mono text-xs leading-relaxed text-gray-600">
-        {parts.map((part, i) =>
-          highlights.includes(part) ? (
-            <span key={i} className="text-orange-500">
-              {part}
-            </span>
-          ) : (
-            part
-          ),
-        )}
-      </pre>
-    </div>
-  );
-}
-
 function HardSection() {
   const [active, setActive] = useState(0);
   const layer = layers[active];
@@ -106,10 +76,8 @@ function HardSection() {
             <RealtimeSyncWalkthrough />
           ) : active === 2 ? (
             <OfflinePersistenceWalkthrough />
-          ) : active === 3 ? (
-            <ConflictResolutionWalkthrough />
           ) : (
-            <DiagramPre diagram={layer.diagram} highlights={layer.highlights} />
+            <ConflictResolutionWalkthrough />
           )}
         </div>
       </div>
