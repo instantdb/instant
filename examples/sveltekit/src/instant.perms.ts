@@ -1,6 +1,6 @@
 // Docs: https://www.instantdb.com/docs/permissions
 
-import type { InstantRules } from "@instantdb/core";
+import type { InstantRules } from "@instantdb/svelte";
 
 const rules = {
   /**

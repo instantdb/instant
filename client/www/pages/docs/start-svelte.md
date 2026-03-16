@@ -221,13 +221,43 @@ For primitive values like connection status and local IDs, hooks return a `{ cur
 
 Transactions in Svelte work the same way they do in React via `db.transact`. To learn more see our [writing data](/docs/instaml) docs.
 
-## Components
+## Auth
 
-The Svelte SDK includes a few helper components for common patterns.
+The Svelte SDK supports all of Instant's [auth methods](/docs/auth): [magic codes](/docs/auth/magic-codes), [guest auth](/docs/auth/guest-auth), [Google OAuth](/docs/auth/google-oauth), and more.
+
+### useAuth
+
+Use `db.useAuth()` to get the current auth state. This gives you full control over loading, error, and user states:
+
+```svelte
+<script lang="ts">
+  import { db } from '$lib/db';
+
+  const auth = db.useAuth();
+</script>
+
+{#if auth.isLoading}
+  <div>Loading...</div>
+{:else if auth.error}
+  <div>Error: {auth.error.message}</div>
+{:else if auth.user}
+  <div>
+    <p>Hello, {auth.user.isGuest ? 'Guest' : auth.user.email}!</p>
+    <button onclick={() => db.auth.signOut()}>Sign out</button>
+  </div>
+{:else}
+  <div>
+    <p>Please log in.</p>
+    <button onclick={() => db.auth.signInAsGuest()}>
+      Try as guest
+    </button>
+  </div>
+{/if}
+```
 
 ### SignedIn / SignedOut
 
-Auth guard components that conditionally render their children based on login state:
+For simpler cases where you just need to gate content on auth state, you can use the `SignedIn` and `SignedOut` guard components instead:
 
 ```svelte
 <script lang="ts">
@@ -244,6 +274,10 @@ Auth guard components that conditionally render their children based on login st
   <p>Please log in.</p>
 </SignedOut>
 ```
+
+`useAuth` is better when you need access to `isLoading`, `error`, or `user.isGuest`. The guard components are simpler when you just need to show or hide content based on login state.
+
+## Components
 
 ### Cursors
 
