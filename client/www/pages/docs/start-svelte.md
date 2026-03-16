@@ -237,8 +237,12 @@ You can pass a function to `useQuery` to make queries reactive or conditional. T
   );
 </script>
 
-{#if query.isLoading}
+{#if auth.isLoading}
   <p>Loading...</p>
+{:else if !auth.user}
+  <p>Please log in.</p>
+{:else if query.isLoading}
+  <p>Loading todos...</p>
 {:else}
   {@const todos = query.data?.todos ?? []}
   <p>{todos.length} todos</p>
