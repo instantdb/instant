@@ -389,6 +389,11 @@ Fetch the URL for a topic to learn more about it.
 - [Storage](https://instantdb.com/docs/storage.md): How to upload and serve files with Instant.
 - [Streams](https://instantdb.com/docs/streams.md): How to use streams with Instant.
 - [Stripe Payments](https://instantdb.com/docs/stripe-payments.md): How to integrate Stripe payments with Instant.
+- [React Native](https://instantdb.com/docs/start-rn.md): How to use Instant in React Native apps.
+- [Vanilla JS](https://instantdb.com/docs/start-vanilla.md): How to use Instant in vanilla JS apps.
+- [SolidJS](https://instantdb.com/docs/start-solidjs.md): How to use Instant in SolidJS apps.
+- [Svelte](https://instantdb.com/docs/start-svelte.md): How to use Instant in Svelte apps.
+- [TanStack](https://instantdb.com/docs/start-tanstack.md): How to use Instant in TanStack apps.
 
 # Final Note
 
