@@ -1,19 +1,23 @@
 import { HttpClient, HttpClientRequest } from '@effect/platform';
 import { version } from '@instantdb/version';
-import { Config, Context, Effect, Layer, Option } from 'effect';
+import { Config, Context, Data, Effect, Layer, Option } from 'effect';
 import { AuthToken } from '../context/authToken.js';
 
 export class InstantHttp extends Context.Tag(
   'instant-cli/new/lib/http/InstantHttp',
-)<InstantHttp, HttpClient.HttpClient>() {}
+)<InstantHttp, HttpClient.HttpClient.With<InstantHttpError>>() {}
 
 export class InstantHttpAuthed extends Context.Tag(
   'instant-cli/new/lib/http/InstantHttpAuthed',
-)<InstantHttpAuthed, HttpClient.HttpClient>() {}
+)<InstantHttpAuthed, HttpClient.HttpClient.With<InstantHttpError>>() {}
+
+export class InstantHttpError extends Data.TaggedError('InstantHttpError')<{
+  message: string;
+}> {}
 
 // Pipe on a client to set command header
 export const withCommand = (command: string) => {
-  return (client: HttpClient.HttpClient) =>
+  return (client: HttpClient.HttpClient.With<InstantHttpError>) =>
     client.pipe(
       HttpClient.mapRequest((r) =>
         r.pipe(HttpClientRequest.setHeader(`X-Instant-Command`, command)),
@@ -38,6 +42,14 @@ export const InstantHttpLive = Layer.effect(
         r.pipe(Effect.timeout('5 minutes'), Effect.orDie),
       ),
       HttpClient.filterStatusOk, // makes non 2xx http codes error
+      HttpClient.transformResponse((r) =>
+        r.pipe(
+          Effect.mapError((e) => {
+            console.log(e.response.toJSON());
+            return new InstantHttpError({ message: e.message });
+          }),
+        ),
+      ),
     );
   }),
 );

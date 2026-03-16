@@ -29,10 +29,10 @@ export const getLoginTicketAndSecret = Effect.gen(function* () {
 export const waitForAuthToken = Effect.fn(function* (secret: string) {
   const http = (yield* InstantHttp).pipe(withCommand('login'));
   const res = yield* HttpClientRequest.post('/dash/cli/auth/check').pipe(
-    HttpClientRequest.bodyJson({
+    HttpClientRequest.bodyUnsafeJson({
       secret,
     }),
-    Effect.flatMap(http.execute),
+    http.execute,
     Effect.flatMap(HttpClientResponse.schemaBodyJson(TokenResult)),
     Effect.retry({
       schedule: Schedule.fixed('1 seconds'),
