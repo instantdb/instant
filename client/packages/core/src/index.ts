@@ -732,13 +732,15 @@ class InstantCoreDatabase<
   ): InfiniteQuerySubscription {
     const entityNames = Object.keys(query);
     if (entityNames.length !== 1) {
-      throw new Error('subscribeInfiniteQuery expects exactly one entity');
+      throw new QueryValidationError(
+        'subscribeInfiniteQuery expects exactly one entity',
+      );
     }
 
     const entity = entityNames[0] as Entity;
     const entityQuery = query[entity];
     if (!entityQuery) {
-      throw new Error('No query provided for infinite entity');
+      throw new QueryValidationError('No query provided for infinite entity');
     }
 
     return subscribeInfiniteQuery<Schema, Entity, Q, UseDates>(
