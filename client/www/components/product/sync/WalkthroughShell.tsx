@@ -37,10 +37,7 @@ export function WalkthroughShell<S extends WalkthroughStep>({
 
   return (
     <div className="mt-4 rounded-lg border bg-gray-50 p-5">
-      <div
-        ref={outerRef}
-        style={{ height: designHeight * scale }}
-      >
+      <div ref={outerRef} style={{ height: designHeight * scale }}>
         <div style={{ width: designWidth * scale, margin: '0 auto' }}>
           <div
             className="relative"

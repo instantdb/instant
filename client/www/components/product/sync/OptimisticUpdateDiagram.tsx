@@ -74,7 +74,7 @@ const STEPS: Step[] = [
   {
     title: 'Server rejects',
     description:
-      'If the server rejects the mutation, we can remove it from Alyssa\'s pending queue. Alyssa will then see blue (the last confirmed color) automaticaly.',
+      "If the server rejects the mutation, we can remove it from Alyssa's pending queue. Alyssa will then see blue (the last confirmed color) automaticaly.",
     client: { serverUpdate: BLUE, pendingMut: null },
     serverBall: BLUE,
     mutDot: { color: RED, position: 'gone' },
