@@ -39,19 +39,20 @@ export function WalkthroughShell<S extends WalkthroughStep>({
     <div className="mt-4 rounded-lg border bg-gray-50 p-5">
       <div
         ref={outerRef}
-        className="flex justify-center"
         style={{ height: designHeight * scale }}
       >
-        <div
-          className="relative"
-          style={{
-            width: designWidth,
-            height: designHeight,
-            transformOrigin: 'top center',
-            transform: `scale(${scale})`,
-          }}
-        >
-          {children({ step, prevStep, stepIdx })}
+        <div style={{ width: designWidth * scale, margin: '0 auto' }}>
+          <div
+            className="relative"
+            style={{
+              width: designWidth,
+              height: designHeight,
+              transformOrigin: 'top left',
+              transform: `scale(${scale})`,
+            }}
+          >
+            {children({ step, prevStep, stepIdx })}
+          </div>
         </div>
       </div>
 
