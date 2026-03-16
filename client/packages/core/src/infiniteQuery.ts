@@ -357,19 +357,31 @@ export const subscribeInfiniteQuery = <
       const pageInfo = starterData.pageInfo[entity];
       if (!pageInfo?.startCursor || hasKickstarted) return;
 
+      const rows = starterData.data?.[entity];
+      if (!rows) return;
+
       const initialForwardCursor = isDescendingOrder(query.$?.order)
         ? incrementCursor(pageInfo.startCursor)
         : decrementCursor(pageInfo.startCursor);
 
-      if (starterData.data?.[entity].length < pageSize) {
+      if (rows.length < pageSize) {
         // Do a fake save on what's *going* to be saved
         forwardChunks.clear();
         setForwardChunk(initialForwardCursor, {
-          data: starterData.data[entity],
+          data: rows,
           status: 'pre-bootstrap',
         });
         return;
       }
+
+      // Seed the initial window immediately so reverse bootstrap updates
+      // cannot publish a transient empty payload before forward resolves.
+      setForwardChunk(initialForwardCursor as Cursor, {
+        data: rows,
+        status: 'pre-bootstrap',
+        hasMore: pageInfo.hasNextPage,
+        endCursor: pageInfo.endCursor,
+      });
 
       pushNewForward(initialForwardCursor as Cursor);
       pushNewReverse(pageInfo.startCursor);
