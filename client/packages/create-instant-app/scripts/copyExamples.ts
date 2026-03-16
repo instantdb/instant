@@ -6,6 +6,7 @@ import { copyRespectingGitignore } from '../src/scaffold.js';
 const EXAMPLES_TO_COPY = [
   'expo',
   'next-js-app-dir',
+  'sveltekit',
   'vite-vanilla',
   'tanstack-start',
 ] as const;
