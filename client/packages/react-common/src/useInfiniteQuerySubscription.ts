@@ -26,7 +26,7 @@ export type InfiniteQueryResult<
   UseDates extends boolean,
 > =
   | {
-      error: Error;
+      error: { message: string };
       data: undefined;
       isLoading: false;
       canLoadMore: boolean;
@@ -64,7 +64,9 @@ export function useInfiniteQuerySubscription<
     useState<InfiniteQueryCallbackResponse<Schema, Q, UseDates>>();
   const [isLoading, setIsLoading] = useState(true);
   const subRef = useRef<InfiniteQuerySubscription | null>(null);
-  const [error, setError] = useState<Error | undefined>(undefined);
+  const [error, setError] = useState<{ message: string } | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     // Ensure all data gets reset if the query/opts changes

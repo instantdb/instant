@@ -24,11 +24,17 @@ export type InfiniteQueryCallbackResponse<
   Schema extends InstantSchemaDef<any, any, any>,
   Query extends Record<string, any>,
   UseDatesLocal extends boolean,
-> = {
-  error?: Error;
-  data?: InstaQLResponse<Schema, Query, UseDatesLocal>;
-  canLoadMore?: boolean;
-};
+> =
+  | {
+      error: { message: string };
+      data: undefined;
+      canLoadMore?: boolean;
+    }
+  | {
+      error: undefined;
+      data: InstaQLResponse<Schema, Query, UseDatesLocal>;
+      canLoadMore?: boolean;
+    };
 
 export const subscribeInfiniteQuery = <
   Schema extends InstantSchemaDef<any, any, any>,
@@ -60,8 +66,8 @@ export const subscribeInfiniteQuery = <
   let lastReverseAdvancedChunkKey: string | null = null;
   let starterSub: (() => void) | null = null;
 
-  const sendError = (err: Error) => {
-    cb({ error: err });
+  const sendError = (err: { message: string }) => {
+    cb({ error: err, data: undefined });
   };
 
   const chunkSubKey = (direction: 'forward' | 'reverse', cursor: Cursor) =>
@@ -175,7 +181,7 @@ export const subscribeInfiniteQuery = <
       },
       (frozenData) => {
         if (frozenData.error?.message) {
-          return sendError(new Error(frozenData.error.message));
+          return sendError({ message: frozenData.error.message });
         }
         if (!frozenData?.data || !frozenData.pageInfo) return;
 
@@ -212,7 +218,7 @@ export const subscribeInfiniteQuery = <
       } as any,
       (windowData) => {
         if (windowData.error?.message) {
-          return sendError(new Error(windowData.error.message));
+          return sendError({ message: windowData.error.message });
         }
         if (!windowData?.data || !windowData.pageInfo) return;
 
@@ -290,7 +296,7 @@ export const subscribeInfiniteQuery = <
       } as any,
       (frozenData) => {
         if (frozenData.error?.message) {
-          return sendError(new Error(frozenData.error.message));
+          return sendError({ message: frozenData.error.message });
         }
         if (!frozenData?.data || !frozenData.pageInfo) return;
 
@@ -351,7 +357,7 @@ export const subscribeInfiniteQuery = <
     } as any,
     async (starterData) => {
       if (starterData.error?.message) {
-        return sendError(new Error(starterData.error.message));
+        return sendError({ message: starterData.error.message });
       }
       if (!starterData?.pageInfo) return;
       const pageInfo = starterData.pageInfo[entity];
