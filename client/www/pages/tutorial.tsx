@@ -165,49 +165,19 @@ const debuggingItems: {
 // Icons
 // -----------
 
-function NpmIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 256 256" fill="currentColor">
-      <rect width="256" height="256" rx="0" fill="#C12127" />
-      <path d="M48 48v160h80V80h40v128h40V48H48z" fill="#fff" />
-    </svg>
-  );
+function PmIcon({ src, className }: { src: string; className?: string }) {
+  return <img src={src} alt="" className={className} />;
 }
 
-function PnpmIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 256 256">
-      <rect x="0" y="0" width="78" height="78" fill="#F9AD00" />
-      <rect x="89" y="0" width="78" height="78" fill="#F9AD00" />
-      <rect x="178" y="0" width="78" height="78" fill="#F9AD00" />
-      <rect x="178" y="89" width="78" height="78" fill="#F9AD00" />
-      <rect x="89" y="89" width="78" height="78" fill="#4E4E4E" />
-      <rect x="89" y="178" width="78" height="78" fill="#4E4E4E" />
-      <rect x="178" y="178" width="78" height="78" fill="#4E4E4E" />
-    </svg>
-  );
-}
-
-function BunIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 80 80">
-      <circle cx="40" cy="40" r="40" fill="#FBF0DF" />
-      <ellipse cx="40" cy="44" rx="28" ry="24" fill="#FBF0DF" />
-      <path
-        d="M22 38c2-14 12-22 18-22s16 8 18 22"
-        fill="none"
-        stroke="#362712"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      <circle cx="32" cy="42" r="3.5" fill="#362712" />
-      <circle cx="48" cy="42" r="3.5" fill="#362712" />
-      <ellipse cx="40" cy="50" rx="4" ry="2.5" fill="#E8878A" />
-    </svg>
-  );
-}
-
-const pmIcons = [NpmIcon, PnpmIcon, BunIcon];
+// Sources:
+// npm: https://github.com/npm/logos
+// pnpm: https://github.com/pnpm/pnpm.io/blob/main/static/img/pnpm-no-name-with-frame.svg
+// bun: https://bun.sh/logo.svg
+const pmIconSrcs = [
+  '/img/npm-logo.svg',
+  '/img/pnpm-logo.svg',
+  '/img/bun-logo.svg',
+];
 
 // -----------
 // Reusable components
@@ -268,9 +238,14 @@ function TerminalCopyButton({ text }: { text: string }) {
             key={copied ? 'copied' : 'copy'}
             custom={copied}
             className="absolute inset-0 flex items-center justify-center gap-2"
-            initial={(isCopied: boolean) => ({ y: isCopied ? 24 : -24 })}
-            animate={{ y: 0 }}
-            exit={(isCopied: boolean) => ({ y: isCopied ? 24 : -24 })}
+            variants={{
+              enter: (isCopied: boolean) => ({ y: isCopied ? 24 : -24 }),
+              center: { y: 0 },
+              exit: (isCopied: boolean) => ({ y: isCopied ? 24 : -24 }),
+            }}
+            initial="enter"
+            animate="center"
+            exit="exit"
             transition={{ duration: 0.2, ease: 'easeInOut' }}
           >
             {copied ? (
@@ -313,7 +288,6 @@ function PackageManagerTabs({
   return (
     <div className="flex gap-1 rounded-full bg-gray-100 p-1">
       {packageManagers.map((pm, i) => {
-        const Icon = pmIcons[i];
         return (
           <button
             key={pm.id}
@@ -325,7 +299,7 @@ function PackageManagerTabs({
                 : 'text-gray-500 hover:text-gray-700',
             )}
           >
-            <Icon className="h-4 w-4" />
+            <PmIcon src={pmIconSrcs[i]} className="h-4 w-4" />
             {pm.name}
           </button>
         );
