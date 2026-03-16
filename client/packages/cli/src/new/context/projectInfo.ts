@@ -28,6 +28,7 @@ export const PACKAGE_ALIAS_AND_FULL_NAMES = {
   core: '@instantdb/core',
   admin: '@instantdb/admin',
   solid: '@instantdb/solidjs',
+  svelte: '@instantdb/svelte',
 };
 
 export class ProjectInfoError extends Data.TaggedError('ProjectInfoError')<{
@@ -106,6 +107,7 @@ const getProjectInfo = (
               { label: '@instantdb/core', value: '@instantdb/core' },
               { label: '@instantdb/admin', value: '@instantdb/admin' },
               { label: '@instantdb/solidjs', value: '@instantdb/solidjs' },
+              { label: '@instantdb/svelte', value: '@instantdb/svelte' },
             ],
           }),
         ).pipe(

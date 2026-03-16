@@ -133,7 +133,7 @@ export const pullDef = program
     'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
   )
   .option(
-    '-p --package <react|react-native|core|admin|solid>',
+    '-p --package <react|react-native|core|admin|solid|svelte>',
     'Which package to automatically install if there is not one installed already.',
   )
   .option(
@@ -172,7 +172,7 @@ export const pushDef = program
     'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator stores.owner:stores.manager`',
   )
   .option(
-    '-p --package <react|react-native|core|admin|solid>',
+    '-p --package <react|react-native|core|admin|solid|svelte>',
     'Which package to automatically install if there is not one installed already.',
   )
   .description('Push schema and perm files to production.')
