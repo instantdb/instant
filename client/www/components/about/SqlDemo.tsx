@@ -125,7 +125,8 @@ export function SqlDemo() {
     };
   }, []);
 
-  const kw = 'text-gray-400';
+  const kw = 'text-[#286983]';
+  const str = 'text-[#ea9d34]';
 
   return (
     <TooltipProvider>
@@ -184,15 +185,22 @@ export function SqlDemo() {
         <div className="relative z-10 min-w-0 flex-1">
           <div
             ref={sqlCardRef}
-            className="rounded-xl border border-gray-200 bg-white shadow-sm"
+            className="rounded-xl border border-gray-200 shadow-sm"
+            style={{ backgroundColor: '#faf8f5' }}
           >
-            <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-50/80 px-4 py-2">
+            <div className="flex items-center gap-2 border-b border-gray-200/60 px-4 py-2">
               <AuroraIcon className="h-5 w-5 rounded" />
-              <span className="text-xs font-medium text-gray-500">
+              <span
+                className="text-xs font-medium"
+                style={{ color: '#575279' }}
+              >
                 Aurora Postgres
               </span>
             </div>
-            <pre className="overflow-visible px-4 py-3 font-mono text-[11px] leading-[1.7] text-gray-700">
+            <pre
+              className="overflow-visible px-4 py-3 font-mono text-[11px] leading-[1.7]"
+              style={{ color: '#575279' }}
+            >
               <span className={kw}>WITH </span>
               <Tip label="First, find all todo triples where done is true">
                 done_triples
@@ -210,7 +218,7 @@ export function SqlDemo() {
                 {'app_id'}
               </Tip>
               {' = '}
-              <span className="text-gray-400">&apos;app_id&apos;</span>
+              <span className={str}>&apos;instalinear&apos;</span>
               {'\n    '}
               <span className={kw}>AND </span>
               <Tip label="A partial index on (attr, value, entity) that makes queries like this fast">
@@ -219,7 +227,7 @@ export function SqlDemo() {
               {'\n    '}
               <span className={kw}>AND </span>
               {'attr_id = '}
-              <span className="text-gray-400">&apos;todo-done&apos;</span>
+              <span className={str}>&apos;todo-done&apos;</span>
               {'\n    '}
               <span className={kw}>AND </span>
               {'value = '}
@@ -251,7 +259,7 @@ export function SqlDemo() {
               {'\n  '}
               <span className={kw}>WHERE </span>
               {'t.app_id = '}
-              <span className="text-gray-400">&apos;app_id&apos;</span>
+              <span className={str}>&apos;instalinear&apos;</span>
               {'\n'}
               <span className={kw}>{')'}</span>
               {'\n'}
