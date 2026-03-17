@@ -2280,11 +2280,13 @@ export default class Reactor {
    * @returns {string} The created authorization URL.
    */
   createAuthorizationURL({ clientName, redirectURL, extraFields }) {
-    if (extraFields) {
-      this.kv.updateInPlace((prev) => {
+    this.kv.updateInPlace((prev) => {
+      if (extraFields) {
         prev[oauthExtraFieldsKey] = extraFields;
-      });
-    }
+      } else {
+        delete prev[oauthExtraFieldsKey];
+      }
+    });
     const { apiURI, appId } = this.config;
     return `${apiURI}/runtime/oauth/start?app_id=${appId}&client_name=${clientName}&redirect_uri=${redirectURL}`;
   }
