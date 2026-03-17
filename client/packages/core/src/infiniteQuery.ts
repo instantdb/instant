@@ -24,6 +24,21 @@ export interface InfiniteQuerySubscription {
   loadNextPage: () => void;
 }
 
+const readCanLoadMore = (forwardChunks: Map<string, Chunk>) => {
+  const chunksInOrder = Array.from(forwardChunks.values());
+  if (chunksInOrder.length === 0) return false;
+  return chunksInOrder[chunksInOrder.length - 1]?.hasMore || false;
+};
+
+const inclusiveBeforeCursor = <Schema extends InstantSchemaDef<any, any, any>>(
+  cursor: Cursor,
+  order?: Order<Schema, string>,
+): Cursor => {
+  return isDescendingOrder(order)
+    ? decrementCursor(cursor)
+    : incrementCursor(cursor);
+};
+
 const chunkSubKey = (direction: 'forward' | 'reverse', cursor: Cursor) =>
   `${direction}:${JSON.stringify(cursor)}`;
 
@@ -116,21 +131,6 @@ export const subscribeInfiniteQuery = <
     cb({ error: err, data: undefined });
   };
 
-  const inclusiveBeforeCursor = (
-    cursor: Cursor,
-    order?: Order<Schema, string>,
-  ): Cursor => {
-    return isDescendingOrder(order)
-      ? decrementCursor(cursor)
-      : incrementCursor(cursor);
-  };
-
-  const readCanLoadMore = () => {
-    const chunksInOrder = Array.from(forwardChunks.values());
-    if (chunksInOrder.length === 0) return false;
-    return chunksInOrder[chunksInOrder.length - 1]?.hasMore || false;
-  };
-
   const pushUpdate = () => {
     if (!isActive) return;
 
@@ -155,7 +155,7 @@ export const subscribeInfiniteQuery = <
         UseDates
       >,
       chunks,
-      canLoadNextPage: readCanLoadMore(),
+      canLoadNextPage: readCanLoadMore(forwardChunks),
       loadNextPage,
     });
   };
