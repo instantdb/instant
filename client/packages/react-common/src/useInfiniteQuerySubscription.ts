@@ -55,7 +55,6 @@ export function useInfiniteQuerySubscription<
   const initialSnapshot = useRef(
     getInfiniteQueryInitialSnapshot(core, query, opts),
   );
-  console.log('CURRENT SNAPSHOT', initialSnapshot.current);
 
   const [state, setState] = useState<
     Omit<InfiniteQueryResult<Schema, Q, UseDates>, 'loadNextPage'>
