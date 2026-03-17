@@ -161,7 +161,9 @@ type $Option<
     first?: number;
     offset?: number;
     after?: Cursor;
+    afterInclusive?: boolean;
     before?: Cursor;
+    beforeInclusive?: boolean;
     fields?: InstaQLFields<S, K>;
   };
 };
@@ -501,7 +503,9 @@ type PaginationKeys =
   | 'first'
   | 'offset'
   | 'after'
-  | 'before';
+  | 'afterInclusive'
+  | 'before'
+  | 'beforeInclusive';
 
 type AllowedDollarSignKeys<TopLevel extends boolean> = TopLevel extends true
   ? PaginationKeys | 'where' | 'fields' | 'order'
@@ -530,7 +534,9 @@ type ValidDollarSignQuery<
             first?: number;
             offset?: number;
             after?: Cursor;
+            afterInclusive?: boolean;
             before?: Cursor;
+            beforeInclusive?: boolean;
           }
         : {})
     : never;

@@ -27,17 +27,23 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
   const [direction, setDirection] = useState<'asc' | 'desc'>('asc');
   const [limit, setLimit] = useState(5);
   const [orderField, setOrderField] = useState('date');
+  const [beforeInclusiveEnabled, setBeforeInclusiveEnabled] = useState(true);
+  const [afterInclusiveEnabled, setAfterInclusiveEnabled] = useState(true);
 
   const order = { [orderField]: direction };
 
-  const { data: firstFiveData, error: firstFiveError } = db.useQuery({
+  const {
+    data: firstFiveData,
+    error: firstFiveError,
+    pageInfo: firstFivePageInfo,
+  } = db.useQuery({
     goals: { $: { limit: limit, order } },
   });
 
   const {
     data: secondFiveData,
     error: secondFiveError,
-    pageInfo,
+    pageInfo: secondFivePageInfo,
   } = db.useQuery({
     goals: {
       $: { limit: limit, offset: limit, order },
@@ -58,28 +64,135 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
     },
   });
 
-  const endCursor = pageInfo?.goals?.endCursor;
-  const startCursor = pageInfo?.goals?.startCursor;
+  const endCursor = secondFivePageInfo?.goals?.endCursor;
 
-  const { data: afterData, error: afterError } = db.useQuery({
-    goals: {
-      $: {
-        limit: limit,
-        after: endCursor,
-        order,
-      },
-    },
-  });
+  const { data: firstFiveInclusiveData, error: firstFiveInclusiveError } =
+    db.useQuery(
+      firstFivePageInfo?.goals?.startCursor &&
+        firstFivePageInfo?.goals?.endCursor
+        ? {
+            goals: {
+              $: {
+                limit: limit,
+                after: firstFivePageInfo.goals.startCursor,
+                before: firstFivePageInfo.goals.endCursor,
+                afterInclusive: afterInclusiveEnabled,
+                beforeInclusive: beforeInclusiveEnabled,
+                order,
+              },
+            },
+          }
+        : null,
+    );
 
-  const { data: beforeData, error: beforeError } = db.useQuery({
-    goals: {
-      $: {
-        last: limit,
-        before: thirdFivePageInfo?.goals?.startCursor,
-        order,
-      },
-    },
-  });
+  const { data: secondFiveInclusiveData, error: secondFiveInclusiveError } =
+    db.useQuery(
+      secondFivePageInfo?.goals?.startCursor &&
+        secondFivePageInfo?.goals?.endCursor
+        ? {
+            goals: {
+              $: {
+                limit: limit,
+                after: secondFivePageInfo.goals.startCursor,
+                before: secondFivePageInfo.goals.endCursor,
+                afterInclusive: afterInclusiveEnabled,
+                beforeInclusive: beforeInclusiveEnabled,
+                order,
+              },
+            },
+          }
+        : null,
+    );
+
+  const { data: thirdFiveInclusiveData, error: thirdFiveInclusiveError } =
+    db.useQuery(
+      thirdFivePageInfo?.goals?.startCursor &&
+        thirdFivePageInfo?.goals?.endCursor
+        ? {
+            goals: {
+              $: {
+                limit: limit,
+                after: thirdFivePageInfo.goals.startCursor,
+                before: thirdFivePageInfo.goals.endCursor,
+                afterInclusive: afterInclusiveEnabled,
+                beforeInclusive: beforeInclusiveEnabled,
+                order,
+              },
+            },
+          }
+        : null,
+    );
+
+  const {
+    data: afterData,
+    error: afterError,
+    pageInfo: afterPageInfo,
+  } = db.useQuery(
+    endCursor
+      ? {
+          goals: {
+            $: {
+              limit: limit,
+              after: endCursor,
+              order,
+            },
+          },
+        }
+      : null,
+  );
+
+  const { data: afterInclusiveData, error: afterInclusiveError } = db.useQuery(
+    afterPageInfo?.goals?.startCursor && afterPageInfo?.goals?.endCursor
+      ? {
+          goals: {
+            $: {
+              limit: limit,
+              after: afterPageInfo.goals.startCursor,
+              before: afterPageInfo.goals.endCursor,
+              afterInclusive: afterInclusiveEnabled,
+              beforeInclusive: beforeInclusiveEnabled,
+              order,
+            },
+          },
+        }
+      : null,
+  );
+
+  const {
+    data: beforeData,
+    error: beforeError,
+    pageInfo: beforePageInfo,
+  } = db.useQuery(
+    thirdFivePageInfo?.goals?.startCursor
+      ? {
+          goals: {
+            $: {
+              last: limit,
+              before: thirdFivePageInfo?.goals?.startCursor,
+              order,
+            },
+          },
+        }
+      : null,
+  );
+
+  const { data: beforeInclusiveData, error: beforeInclusiveError } =
+    db.useQuery(
+      beforePageInfo?.goals?.startCursor && beforePageInfo?.goals?.endCursor
+        ? {
+            goals: {
+              $: {
+                last: limit,
+                after: beforePageInfo.goals.startCursor,
+                before: beforePageInfo.goals.endCursor,
+                beforeInclusive: beforeInclusiveEnabled,
+                afterInclusive: afterInclusiveEnabled,
+                order,
+              },
+            },
+          }
+        : null,
+    );
 
   let maxNumber = -10;
   for (const g of data?.goals || []) {
@@ -180,7 +293,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
           ))}
         </select>
       </div>
-      <div className="flex">
+      <div className="flex items-start gap-4">
         <div className="p-2">
           <details open>
             <summary>All goals ({data?.goals.length || 0}):</summary>
@@ -200,70 +313,164 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
           </details>
         </div>
 
-        <div className="p-2">
-          <details open>
-            <summary>First {limit} goals</summary>
-            {firstFiveError ? (
-              <pre>{JSON.stringify(firstFiveError, null, 2)}</pre>
-            ) : null}
-            {firstFiveData?.goals.map((g) => (
-              <div key={g.id}>{displayValue(g)}</div>
-            ))}
-          </details>
-        </div>
+        <div className="flex flex-col gap-4">
+          <div>
+            <div className="px-2 font-semibold">Default</div>
+            <div className="flex flex-wrap items-start">
+              <div className="p-2">
+                <details open>
+                  <summary>First {limit} goals</summary>
+                  {firstFiveError ? (
+                    <pre>{JSON.stringify(firstFiveError, null, 2)}</pre>
+                  ) : null}
+                  {firstFiveData?.goals.map((g) => (
+                    <div key={g.id}>{displayValue(g)}</div>
+                  ))}
+                </details>
+              </div>
 
-        <div className="p-2">
-          <details open>
-            <summary>Second {limit} goals</summary>
-            {secondFiveError ? (
-              <pre>{JSON.stringify(secondFiveError, null, 2)}</pre>
-            ) : null}
-            {secondFiveData?.goals.map((g) => (
-              <div key={g.id}>{displayValue(g)}</div>
-            ))}
-          </details>
-        </div>
+              <div className="p-2">
+                <details open>
+                  <summary>Second {limit} goals</summary>
+                  {secondFiveError ? (
+                    <pre>{JSON.stringify(secondFiveError, null, 2)}</pre>
+                  ) : null}
+                  {secondFiveData?.goals.map((g) => (
+                    <div key={g.id}>{displayValue(g)}</div>
+                  ))}
+                </details>
+              </div>
 
-        <div className="p-2">
-          <details open>
-            <summary>Third {limit} goals</summary>
-            {thirdFiveError ? (
-              <pre>{JSON.stringify(thirdFiveError, null, 2)}</pre>
-            ) : null}
-            {thirdFiveData?.goals.map((g) => (
-              <div key={g.id}>{displayValue(g)}</div>
-            ))}
-          </details>
-        </div>
+              <div className="p-2">
+                <details open>
+                  <summary>Third {limit} goals</summary>
+                  {thirdFiveError ? (
+                    <pre>{JSON.stringify(thirdFiveError, null, 2)}</pre>
+                  ) : null}
+                  {thirdFiveData?.goals.map((g) => (
+                    <div key={g.id}>{displayValue(g)}</div>
+                  ))}
+                </details>
+              </div>
 
-        <div className="p-2">
-          <details open>
-            <summary>After second goals</summary>
-            {afterError ? (
-              <pre>{JSON.stringify(afterError, null, 2)}</pre>
-            ) : null}
-            {!endCursor
-              ? null
-              : afterData?.goals.map((g) => (
-                  <div key={g.id}>{displayValue(g)}</div>
-                ))}
-          </details>
-        </div>
+              <div className="p-2">
+                <details open>
+                  <summary>After second goals</summary>
+                  {afterError ? (
+                    <pre>{JSON.stringify(afterError, null, 2)}</pre>
+                  ) : null}
+                  {afterData?.goals.map((g) => (
+                    <div key={g.id}>{displayValue(g)}</div>
+                  ))}
+                </details>
+              </div>
 
-        <div className="p-2">
-          <details open>
-            <summary>Before third goals</summary>
-            {beforeError ? (
-              <pre className="max-w-48">
-                {JSON.stringify(beforeError, null, 2)}
-              </pre>
-            ) : null}
-            {!thirdFivePageInfo?.goals?.startCursor
-              ? null
-              : beforeData?.goals.map((g) => (
-                  <div key={g.id}>{displayValue(g)}</div>
-                ))}
-          </details>
+              <div className="p-2">
+                <details open>
+                  <summary>Before third goals</summary>
+                  {beforeError ? (
+                    <pre className="max-w-48">
+                      {JSON.stringify(beforeError, null, 2)}
+                    </pre>
+                  ) : null}
+                  {beforeData?.goals.map((g) => (
+                    <div key={g.id}>{displayValue(g)}</div>
+                  ))}
+                </details>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-4 px-2 font-semibold">
+              <span>+inclusive</span>
+              <label className="flex items-center gap-1 text-sm font-normal">
+                <input
+                  checked={beforeInclusiveEnabled}
+                  onChange={(e) => setBeforeInclusiveEnabled(e.target.checked)}
+                  type="checkbox"
+                />
+                beforeInclusive
+              </label>
+              <label className="flex items-center gap-1 text-sm font-normal">
+                <input
+                  checked={afterInclusiveEnabled}
+                  onChange={(e) => setAfterInclusiveEnabled(e.target.checked)}
+                  type="checkbox"
+                />
+                afterInclusive
+              </label>
+            </div>
+            <div className="flex flex-wrap items-start">
+              <div className="p-2">
+                <details open>
+                  <summary>First {limit} goals</summary>
+                  {firstFiveInclusiveError ? (
+                    <pre>
+                      {JSON.stringify(firstFiveInclusiveError, null, 2)}
+                    </pre>
+                  ) : null}
+                  {firstFiveInclusiveData?.goals.map((g) => (
+                    <div key={g.id}>{displayValue(g)}</div>
+                  ))}
+                </details>
+              </div>
+
+              <div className="p-2">
+                <details open>
+                  <summary>Second {limit} goals</summary>
+                  {secondFiveInclusiveError ? (
+                    <pre>
+                      {JSON.stringify(secondFiveInclusiveError, null, 2)}
+                    </pre>
+                  ) : null}
+                  {secondFiveInclusiveData?.goals.map((g) => (
+                    <div key={g.id}>{displayValue(g)}</div>
+                  ))}
+                </details>
+              </div>
+
+              <div className="p-2">
+                <details open>
+                  <summary>Third {limit} goals</summary>
+                  {thirdFiveInclusiveError ? (
+                    <pre>
+                      {JSON.stringify(thirdFiveInclusiveError, null, 2)}
+                    </pre>
+                  ) : null}
+                  {thirdFiveInclusiveData?.goals.map((g) => (
+                    <div key={g.id}>{displayValue(g)}</div>
+                  ))}
+                </details>
+              </div>
+
+              <div className="p-2">
+                <details open>
+                  <summary>After second goals</summary>
+                  {afterInclusiveError ? (
+                    <pre>{JSON.stringify(afterInclusiveError, null, 2)}</pre>
+                  ) : null}
+                  {afterInclusiveData?.goals.map((g) => (
+                    <div key={g.id}>{displayValue(g)}</div>
+                  ))}
+                </details>
+              </div>
+
+              <div className="p-2">
+                <details open>
+                  <summary>Before third goals</summary>
+                  {beforeInclusiveError ? (
+                    <pre className="max-w-48">
+                      {JSON.stringify(beforeInclusiveError, null, 2)}
+                    </pre>
+                  ) : null}
+                  {beforeInclusiveData?.goals.map((g) => (
+                    <div key={g.id}>{displayValue(g)}</div>
+                  ))}
+                </details>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

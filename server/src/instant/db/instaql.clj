@@ -112,6 +112,8 @@
 (s/def ::cursor (s/conformer cursor-conformer))
 (s/def ::before ::cursor)
 (s/def ::after ::cursor)
+(s/def ::before-inclusive boolean?)
+(s/def ::after-inclusive boolean?)
 (s/def ::aggregate #{:count})
 (s/def ::fields (s/coll-of string?))
 
@@ -123,6 +125,8 @@
                                      ::offset
                                      ::before
                                      ::after
+                                     ::before-inclusive
+                                     ::after-inclusive
                                      ::aggregate
                                      ::fields]))
 
@@ -337,6 +341,14 @@
      [{:expected 'map? :in in}]))
   x)
 
+(defn- assert-boolean! [{:keys [in root]} x]
+  (when-not (boolean? x)
+    (ex/throw-validation-err!
+     :query
+     root
+     [{:expected 'boolean? :in in}]))
+  x)
+
 (defn- assert-cursor! [{:keys [in root]} x]
   (let [err (fn [msg]
               (ex/throw-validation-err!
@@ -446,15 +458,26 @@
         after (when-let [after (:after x)]
                 (assert-cursor! (update state :in conj :after) after))
 
+        after-inclusive (when-some [after (:afterInclusive x)]
+                          (tool/def-locals)
+                          (assert-boolean! (update state :in conj :afterInclusive) after))
+
         before (when-let [before (:before x)]
                  (assert-cursor! (update state :in conj :before) before))
+
+        before-inclusive (when-some [before (:beforeInclusive x)]
+                           (tool/def-locals)
+                           (assert-boolean! (update state :in conj :beforeInclusive) before))
 
         aggregate (when-let [aggregate (:aggregate x)]
                     (coerce-aggregate! state aggregate))
 
         fields (:fields x)
 
-        x (dissoc x :where :order :limit :first :last :offset :before :after :aggregate :fields)]
+        x (dissoc x
+                  :where :order :limit :first :last :offset
+                  :before :after :beforeInclusive :afterInclusive
+                  :aggregate :fields)]
 
     (when (seq x)
       (ex/throw-validation-err!
@@ -493,6 +516,8 @@
       offset (assoc :offset offset)
       after (assoc :after after)
       before (assoc :before before)
+      after-inclusive (assoc :after-inclusive after-inclusive)
+      before-inclusive (assoc :before-inclusive before-inclusive)
       aggregate (assoc :aggregate aggregate)
       fields (assoc :fields fields))))
 
@@ -888,7 +913,8 @@
 
 (defn page-info-of-form [{:keys [state] :as ctx}
                          {:keys [etype level option-map] :as _form}]
-  (let [{:keys [order limit first last offset before after]} option-map]
+  (let [{:keys [order limit first last offset
+                before after before-inclusive after-inclusive]} option-map]
     (when (and (= level 0) ;; Don't bother ordering child forms since you can't paginate them
                (or limit first last offset before after order))
       (let [{:keys [k direction]} (or order default-order)
@@ -978,7 +1004,9 @@
                      order-sym])
          :attr-id (:id order-attr)
          :before before
-         :after after}))))
+         :before-inclusive before-inclusive
+         :after after
+         :after-inclusive after-inclusive}))))
 
 ;; -----
 ;; query
