@@ -5,6 +5,7 @@ import { TopWash } from '@/components/new-landing/TopWash';
 import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
 import { TripleDemo } from '@/components/about/TripleDemo';
+import { DatalogDemo } from '@/components/about/DatalogDemo';
 import {
   LandingButton,
   SectionTitle,
@@ -351,40 +352,8 @@ export default function AboutPage() {
                   queries and your UI updates before the server even responds.
                 </p>
               </div>
-              <div className="min-w-0 grow lg:bg-radial lg:from-white lg:to-[#FFF9F4] lg:px-[66px] lg:py-[37px]">
-                <div className="rounded-xl border border-gray-200 bg-white p-6">
-                  <div className="flex flex-col gap-3">
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-center">
-                      <div className="text-sm font-medium">InstaQL</div>
-                      <div className="text-[10px] text-gray-400">
-                        your query
-                      </div>
-                    </div>
-                    <DownArrow />
-                    <div className="rounded-lg border-2 border-orange-200 bg-orange-50 px-4 py-2.5 text-center">
-                      <div className="text-sm font-medium text-orange-600">
-                        Datalog Engine
-                      </div>
-                      <div className="text-[10px]">runs in the browser</div>
-                    </div>
-                    <DownArrow />
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-center">
-                      <div className="text-sm font-medium">
-                        Local Triple Store
-                      </div>
-                      <div className="text-[10px] text-gray-400">
-                        instant updates, no round-trip
-                      </div>
-                    </div>
-                    <DownArrow />
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-center">
-                      <div className="text-sm font-medium">UI</div>
-                      <div className="text-[10px] text-gray-400">
-                        re-renders reactively
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex min-w-0 grow items-center justify-center lg:bg-radial lg:from-white lg:to-[#FFF9F4] lg:px-[40px] lg:py-[37px]">
+                <DatalogDemo />
               </div>
             </div>
           </AnimateIn>
