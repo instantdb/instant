@@ -26,7 +26,7 @@
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
-   [instant.util.test :refer [instant-ex-data pretty-perm-q with-sketches]]
+   [instant.util.test :refer [instant-ex-data pretty-perm-q with-sketches stuid]]
    [next.jdbc :as next-jdbc]
    [rewrite-clj.zip :as z]
    [zprint.core :as zprint])
@@ -1136,6 +1136,120 @@
                        (get-page-info {:first 1
                                        :after nicole-cursor
                                        :order {:handle "desc"}})))))))))))
+
+(deftest pagination-with-same-values
+  (with-zeneca-checked-data-app
+    (fn [app _r]
+      (let [id-attr-id (random-uuid)
+            label-attr-id (random-uuid)
+            value-attr-id (random-uuid)
+            labels ["a" "b" "c" "d" "e"]
+            make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool (aurora/conn-pool :write)}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            run-query (fn [q]
+                        (let [ctx (make-ctx)]
+                          (->> (iq/permissioned-query ctx q)
+                               (instaql-nodes->object-tree ctx)
+                               (#(get % "etype"))
+                               (map #(parse-uuid (get % "id"))))))]
+        (tool/inspect (tx/transact! (aurora/conn-pool :write)
+                                    (attr-model/get-by-app-id (:id app))
+                                    (:id app)
+                                    (concat
+                                     [[:add-attr {:id id-attr-id
+                                                  :forward-identity [(random-uuid) "etype" "id"]
+                                                  :unique? true
+                                                  :index? true
+                                                  :value-type :blob
+                                                  :checked-data-type :string
+                                                  :cardinality :one}]
+                                      [:add-attr {:id label-attr-id
+                                                  :forward-identity [(random-uuid) "etype" "label"]
+                                                  :unique? true
+                                                  :index? false
+                                                  :value-type :blob
+                                                  :checked-data-type :string
+                                                  :cardinality :one}]
+                                      [:add-attr {:id value-attr-id
+                                                  :forward-identity [(random-uuid) "etype" "value"]
+                                                  :unique? false
+                                                  :index? true
+                                                  :checked-data-type :string
+                                                  :value-type :blob
+                                                  :cardinality :one}]]
+
+                                     (tool/inspect (mapcat
+                                                    (fn [label]
+                                                      (let [id (stuid label)]
+                                                        [[:add-triple id id-attr-id (str id)]
+                                                         [:add-triple id label-attr-id label]
+                                                         [:add-triple id value-attr-id "value"]]))
+                                                    labels)))))
+
+        (is (= [(stuid "a")
+                (stuid "b")
+                (stuid "c")
+                (stuid "d")
+                (stuid "e")]
+               ;; All have the same value, so this will order by id
+               (run-query {:etype {:$ {:order {:value :asc}}}})))
+
+        (is (= [(stuid "b")
+                (stuid "c")
+                (stuid "d")]
+               ;; All have the same value, so this will order by id
+               (run-query {:etype {:$ {:order {:value :asc}
+                                       :after [(stuid "a")
+                                               value-attr-id
+                                               "value"
+                                               0]
+                                       :before [(stuid "e")
+                                                value-attr-id
+                                                "value"
+                                                0]}}})))
+
+        (is (= [(stuid "a")
+                (stuid "b")
+                (stuid "c")
+                (stuid "d")
+                (stuid "e")]
+               ;; All have the same value, so this will order by id
+               (run-query {:etype {:$ {:order {:value :asc}
+                                       :afterInclusive true
+                                       :beforeInclusive true
+                                       :after [(stuid "a")
+                                               value-attr-id
+                                               "value"
+                                               0]
+                                       :before [(stuid "e")
+                                                value-attr-id
+                                                "value"
+                                                0]}}})))
+
+        (is (= [(stuid "b")
+                (stuid "c")
+                (stuid "d")
+                (stuid "e")]
+               (run-query {:etype {:$ {:order {:value :asc}
+                                       :afterInclusive true
+                                       :after [(stuid "b")
+                                               value-attr-id
+                                               "value"
+                                               0]}}})))
+
+        (is (= [(stuid "a")
+                (stuid "b")
+                (stuid "c")
+                (stuid "d")]
+               (run-query {:etype {:$ {:order {:value :asc}
+                                       :beforeInclusive true
+                                       :before [(stuid "d")
+                                                value-attr-id
+                                                "value"
+                                                0]}}})))))))
 
 (deftest pagination-with-null-values
   (with-zeneca-checked-data-app
