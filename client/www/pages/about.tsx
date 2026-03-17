@@ -409,8 +409,8 @@ export default function AboutPage() {
 
           {/* 4. Permissions */}
           <AnimateIn>
-            <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-start">
-              <div className="min-w-0 grow lg:bg-[#F0F5FA] lg:px-[66px] lg:py-[37px]">
+            <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center">
+              <div className="min-w-0 grow lg:bg-[#F7F7F8] lg:px-[66px] lg:py-[37px]">
                 <TabbedCodeExample
                   examples={permissionExamples}
                   tabs={[

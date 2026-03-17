@@ -61,11 +61,11 @@ export function DatalogDemo() {
         <div className="flex justify-between">
           <span style={{ color: '#797593' }}>[</span>
           <span style={{ color: '#286983' }}>?todo</span>
-          <span style={{ color: '#ea9d34' }}>"done"</span>
+          <span style={{ color: '#575279' }}>"done"</span>
           <button
             onClick={() => setFilterValue((v) => !v)}
             className="w-[5ch] cursor-pointer text-center font-semibold"
-            style={{ color: '#d7827e' }}
+            style={{ color: '#575279' }}
           >
             {String(filterValue)}
           </button>
@@ -74,8 +74,8 @@ export function DatalogDemo() {
         <div className="flex justify-between">
           <span style={{ color: '#797593' }}>[</span>
           <span style={{ color: '#286983' }}>?todo</span>
-          <span style={{ color: '#907aa9' }}>?attr</span>
-          <span style={{ color: '#907aa9' }}>?val</span>
+          <span style={{ color: '#286983' }}>?attr</span>
+          <span style={{ color: '#286983' }}>?val</span>
           <span style={{ color: '#797593' }}>]</span>
         </div>
       </div>
