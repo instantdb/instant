@@ -294,7 +294,7 @@ const { user, created } = await db.auth.signInWithMagicCode({
 // Scaffold data for new users
 if (created) {
   db.transact([
-    tx.settings[id()]
+    db.tx.settings[id()]
       .update({ theme: 'light', notifications: true })
       .link({ user: user.id }),
   ]);
