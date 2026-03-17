@@ -2055,7 +2055,7 @@
 
 (defn add-cursor-comparisons
   "Updates the where query to include the constraints from the cursor."
-  [query {:keys [direction sym-triple-idx cursor cursor-type
+  [query {:keys [direction sym-triple-idx cursor cursor-type order-col-required?
                  order-col-name order-col-type entity-id-col inclusive?]}]
   (let [cursor-val (nth cursor sym-triple-idx)
         comparison (case [cursor-type direction]
@@ -2092,16 +2092,15 @@
     (update query :where (fn [where]
                            [:and
                             where
-                            (if (= order-col-type :created-at-timestamp)
-                              ;; If we're using created-at, we can skip the null checks
+                            (if order-col-required?
+                              ;; If the order col is required, we can skip the null checks
                               [:and
-                               [(inclusive-comparison comparison) order-col val]
+                               [(inclusive-comparison comparison) order-col order-col-val]
                                [:or
                                 [comparison order-col order-col-val]
                                 [:and
                                  [:= order-col order-col-val]
                                  [comparison entity-id-col [:cast (first cursor) :uuid]]]]]
-                              ;; XXX: Do the inclusive comparison trick here
                               [:or
                                [:or [comparison order-col order-col-val]
                                 ;; null > null => null in postgres, so we have to
@@ -2112,7 +2111,6 @@
                                   (:> :>=) [:and
                                             [:not= nil order-col]
                                             [:= nil order-col-val]]
-                                  ;; XXX: Test this
                                   (:< :<=) [:and
                                             [:= nil order-col]
                                             [:not= nil order-col-val]])]
@@ -2153,6 +2151,7 @@
            named-pattern
            order-sym
            order-col-type
+           order-col-required?
            before
            before-inclusive
            after
@@ -2223,6 +2222,7 @@
                                                      :sym-triple-idx sym-triple-idx
                                                      :order-col-name order-col-name
                                                      :order-col-type order-col-type
+                                                     :order-col-required? order-col-required?
                                                      :cursor after
                                                      :cursor-type :after
                                                      :entity-id-col entity-id-col
@@ -2231,6 +2231,7 @@
                                                       :sym-triple-idx sym-triple-idx
                                                       :order-col-name order-col-name
                                                       :order-col-type order-col-type
+                                                      :order-col-required? order-col-required?
                                                       :cursor before
                                                       :cursor-type :before
                                                       :entity-id-col entity-id-col
@@ -2292,6 +2293,7 @@
                                                       :sym-triple-idx 1
                                                       :order-col-name order-col-name
                                                       :order-col-type order-col-type
+                                                      :order-col-required? order-col-required?
                                                       :cursor [:cursor-row.e
                                                                :cursor-row.sym]
                                                       :cursor-type :after
@@ -2331,6 +2333,7 @@
                                                           :sym-triple-idx 1
                                                           :order-col-name order-col-name
                                                           :order-col-type order-col-type
+                                                          :order-col-required? order-col-required?
                                                           :cursor [:cursor-row.e
                                                                    :cursor-row.sym]
                                                           :cursor-type :before

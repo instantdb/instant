@@ -995,6 +995,8 @@
          :order-col-type (if (= k "serverCreatedAt")
                            :created-at-timestamp
                            (:checked-data-type order-attr))
+         :order-col-required? (or (= k "serverCreatedAt")
+                                  (:required? order-attr))
          :pattern (if (= "serverCreatedAt" k)
                     [:ea eid-sym (:id order-attr) '_ order-sym]
                     [{:idx-key :ave
