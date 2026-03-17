@@ -1,5 +1,7 @@
-import { motion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { useRef, useState } from 'react';
+import { ConnectorLine } from './ConnectorLine';
+import { TripleStoreTable } from './TripleStoreTable';
 
 const USERS = [
   { id: 'daniel_1', name: 'Daniel', img: '/img/landing/daniel.png' },
@@ -16,84 +18,8 @@ export function TripleDemo() {
   const containerRef = useRef<HTMLDivElement>(null);
   const taskCardRef = useRef<HTMLDivElement>(null);
   const tripleStoreRef = useRef<HTMLDivElement>(null);
-  const [connectorLine, setConnectorLine] = useState<{
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-  } | null>(null);
 
   const user = USERS[userIdx];
-
-  useEffect(() => {
-    const updateConnector = () => {
-      const container = containerRef.current;
-      const taskCard = taskCardRef.current;
-      const tripleStore = tripleStoreRef.current;
-
-      if (!container || !taskCard || !tripleStore) return;
-
-      const containerRect = container.getBoundingClientRect();
-      const taskCardRect = taskCard.getBoundingClientRect();
-      const tripleStoreRect = tripleStore.getBoundingClientRect();
-
-      const isStacked = taskCardRect.bottom < tripleStoreRect.top - 4;
-
-      const nextLine = isStacked
-        ? {
-            x1: taskCardRect.left - containerRect.left + taskCardRect.width / 2,
-            y1: taskCardRect.bottom - containerRect.top,
-            x2:
-              tripleStoreRect.left -
-              containerRect.left +
-              tripleStoreRect.width / 2,
-            y2: tripleStoreRect.top - containerRect.top,
-          }
-        : {
-            x1: taskCardRect.right - containerRect.left,
-            y1: taskCardRect.top - containerRect.top + taskCardRect.height / 2,
-            x2: tripleStoreRect.left - containerRect.left,
-            y2:
-              tripleStoreRect.top -
-              containerRect.top +
-              tripleStoreRect.height / 2,
-          };
-
-      setConnectorLine((prev) =>
-        prev &&
-        prev.x1 === nextLine.x1 &&
-        prev.y1 === nextLine.y1 &&
-        prev.x2 === nextLine.x2 &&
-        prev.y2 === nextLine.y2
-          ? prev
-          : nextLine,
-      );
-    };
-
-    updateConnector();
-
-    const resizeObserver =
-      typeof ResizeObserver !== 'undefined'
-        ? new ResizeObserver(updateConnector)
-        : null;
-
-    if (resizeObserver) {
-      [
-        containerRef.current,
-        taskCardRef.current,
-        tripleStoreRef.current,
-      ].forEach((node) => {
-        if (node) resizeObserver.observe(node);
-      });
-    }
-
-    window.addEventListener('resize', updateConnector);
-
-    return () => {
-      resizeObserver?.disconnect();
-      window.removeEventListener('resize', updateConnector);
-    };
-  }, []);
 
   const flash = (key: string) => {
     setLastChangedKey(key);
@@ -124,23 +50,11 @@ export function TripleDemo() {
       ref={containerRef}
       className="relative flex flex-col items-stretch gap-6 lg:flex-row lg:items-start lg:gap-12"
     >
-      {connectorLine ? (
-        <svg
-          aria-hidden="true"
-          width="100%"
-          height="100%"
-          className="pointer-events-none absolute inset-0 z-0"
-        >
-          <line
-            x1={connectorLine.x1}
-            y1={connectorLine.y1}
-            x2={connectorLine.x2}
-            y2={connectorLine.y2}
-            stroke="#d1d5db"
-            strokeWidth="2"
-          />
-        </svg>
-      ) : null}
+      <ConnectorLine
+        containerRef={containerRef}
+        fromRef={taskCardRef}
+        toRef={tripleStoreRef}
+      />
 
       {/* Left: Task Detail View */}
       <div className="relative z-10 min-w-0 shrink-0 lg:w-[220px]">
@@ -152,13 +66,20 @@ export function TripleDemo() {
             Team Tasks / #42
             <button
               onClick={() => setShowDropdown((s) => !s)}
-              className="absolute right-4 -bottom-3.5 rounded-full border-2 border-white shadow-sm transition-opacity hover:opacity-80"
+              className="absolute right-4 -bottom-3.5 overflow-hidden rounded-full border-2 border-white shadow-sm transition-opacity hover:opacity-80"
             >
-              <img
-                src={user.img}
-                alt={user.id}
-                className="h-7 w-7 rounded-full object-cover"
-              />
+              <AnimatePresence mode="wait">
+                <motion.img
+                  key={user.id}
+                  src={user.img}
+                  alt={user.id}
+                  className="h-7 w-7 rounded-full object-cover"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                />
+              </AnimatePresence>
             </button>
             {showDropdown && (
               <div className="absolute top-full right-4 z-10 mt-1 flex gap-1 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg">
@@ -227,62 +148,18 @@ export function TripleDemo() {
       </div>
 
       {/* Right: Triple Store Table */}
-      <div className="relative z-10 min-w-0 shrink-0 lg:mt-10">
-        <div
-          ref={tripleStoreRef}
-          className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
-        >
-          <div className="border-b border-gray-200 bg-gray-50/80 px-4 py-2.5 text-xs font-medium tracking-wider text-gray-400 uppercase">
-            Triple Store
-          </div>
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 text-xs text-gray-400">
-                <th className="px-4 py-2 font-medium">entity</th>
-                <th className="px-4 py-2 font-medium">attribute</th>
-                <th className="px-4 py-2 font-medium">value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {triples.map(([e, a, v]) => {
-                const key = `${e}-${a}`;
-                const isChanged = key === lastChangedKey;
-                return (
-                  <motion.tr
-                    key={key}
-                    initial={false}
-                    animate={
-                      isChanged
-                        ? {
-                            backgroundColor: [
-                              'rgba(249, 115, 22, 0)',
-                              'rgba(249, 115, 22, 0.1)',
-                              'rgba(249, 115, 22, 0)',
-                            ],
-                          }
-                        : { backgroundColor: 'rgba(249, 115, 22, 0)' }
-                    }
-                    transition={{ duration: 0.6 }}
-                    className="border-b border-gray-50"
-                  >
-                    <td className="px-4 py-1.5 font-mono text-xs text-gray-500">
-                      {e}
-                    </td>
-                    <td className="px-4 py-1.5 font-mono text-xs text-gray-500">
-                      {a}
-                    </td>
-                    <td className="px-4 py-1.5 font-mono text-xs text-gray-700">
-                      {(() => {
-                        const s = String(v);
-                        return s.length > 12 ? s.slice(0, 9) + '...' : s;
-                      })()}
-                    </td>
-                  </motion.tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      <div
+        ref={tripleStoreRef}
+        className="relative z-10 min-w-0 shrink-0 lg:mt-10"
+      >
+        <TripleStoreTable
+          triples={triples}
+          highlightedKeys={
+            lastChangedKey ? new Set([lastChangedKey]) : undefined
+          }
+          highlightMethod="flash"
+          truncateValues
+        />
       </div>
     </div>
   );

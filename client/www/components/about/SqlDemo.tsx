@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui';
+import { rosePineDawnColors as c } from '@/lib/rosePineDawnTheme';
+import { ConnectorLine } from './ConnectorLine';
 
 function AuroraIcon({ className }: { className?: string }) {
   return (
@@ -57,76 +59,16 @@ function Tip({
   );
 }
 
-export function SqlDemo() {
-  const [filterValue, setFilterValue] = useState(true);
+export function SqlDemo({
+  filterValue,
+  onToggleFilter,
+}: {
+  filterValue: boolean;
+  onToggleFilter: () => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const instaqlRef = useRef<HTMLDivElement>(null);
   const sqlCardRef = useRef<HTMLDivElement>(null);
-  const [line, setLine] = useState<{
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-  } | null>(null);
-
-  const toggle = () => setFilterValue((v) => !v);
-
-  useEffect(() => {
-    const update = () => {
-      const container = containerRef.current;
-      const instaql = instaqlRef.current;
-      const sqlCard = sqlCardRef.current;
-      if (!container || !instaql || !sqlCard) return;
-
-      const cr = container.getBoundingClientRect();
-      const ir = instaql.getBoundingClientRect();
-      const sr = sqlCard.getBoundingClientRect();
-
-      const isStacked = ir.bottom < sr.top - 4;
-
-      const next = isStacked
-        ? {
-            x1: ir.left - cr.left + ir.width / 2,
-            y1: ir.bottom - cr.top,
-            x2: sr.left - cr.left + sr.width / 2,
-            y2: sr.top - cr.top,
-          }
-        : {
-            x1: ir.right - cr.left,
-            y1: ir.top - cr.top + ir.height / 2,
-            x2: sr.left - cr.left,
-            y2: sr.top - cr.top + sr.height / 2,
-          };
-
-      setLine((prev) =>
-        prev &&
-        prev.x1 === next.x1 &&
-        prev.y1 === next.y1 &&
-        prev.x2 === next.x2 &&
-        prev.y2 === next.y2
-          ? prev
-          : next,
-      );
-    };
-
-    update();
-
-    const ro =
-      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
-    if (ro) {
-      [containerRef.current, instaqlRef.current, sqlCardRef.current].forEach(
-        (n) => n && ro.observe(n),
-      );
-    }
-    window.addEventListener('resize', update);
-    return () => {
-      ro?.disconnect();
-      window.removeEventListener('resize', update);
-    };
-  }, []);
-
-  const kw = 'text-[#286983]';
-  const str = 'text-[#ea9d34]';
 
   return (
     <TooltipProvider>
@@ -134,23 +76,11 @@ export function SqlDemo() {
         ref={containerRef}
         className="relative flex flex-col items-center gap-6 lg:flex-row lg:items-center lg:gap-10"
       >
-        {line && (
-          <svg
-            aria-hidden="true"
-            width="100%"
-            height="100%"
-            className="pointer-events-none absolute inset-0 z-0"
-          >
-            <line
-              x1={line.x1}
-              y1={line.y1}
-              x2={line.x2}
-              y2={line.y2}
-              stroke="#d1d5db"
-              strokeWidth="2"
-            />
-          </svg>
-        )}
+        <ConnectorLine
+          containerRef={containerRef}
+          fromRef={instaqlRef}
+          toRef={sqlCardRef}
+        />
 
         {/* Left: InstaQL */}
         <div className="relative z-10 shrink-0">
@@ -160,28 +90,28 @@ export function SqlDemo() {
           <div ref={instaqlRef}>
             <pre
               className="rounded-lg px-3 py-2 font-mono text-xs leading-[1.7]"
-              style={{ backgroundColor: '#faf8f5', color: '#575279' }}
+              style={{ backgroundColor: c.bg, color: c.text }}
             >
-              <span style={{ color: '#797593' }}>{'{\n'}</span>
+              <span style={{ color: c.punctuation }}>{'{\n'}</span>
               {'  todos'}
-              <span style={{ color: '#797593' }}>{': {\n'}</span>
+              <span style={{ color: c.punctuation }}>{': {\n'}</span>
               {'    $'}
-              <span style={{ color: '#797593' }}>{': {\n'}</span>
+              <span style={{ color: c.punctuation }}>{': {\n'}</span>
               {'      where'}
-              <span style={{ color: '#797593' }}>{': {\n'}</span>
+              <span style={{ color: c.punctuation }}>{': {\n'}</span>
               {'        done'}
-              <span style={{ color: '#797593' }}>{': '}</span>
+              <span style={{ color: c.punctuation }}>{': '}</span>
               <button
-                onClick={toggle}
+                onClick={onToggleFilter}
                 className="inline-block w-[3.2em] cursor-pointer rounded py-0.5 text-center font-semibold transition-colors"
                 style={{
                   backgroundColor: 'rgba(234,157,52,0.15)',
-                  color: '#d7827e',
+                  color: c.value,
                 }}
               >
                 {String(filterValue)}
               </button>
-              <span style={{ color: '#797593' }}>
+              <span style={{ color: c.punctuation }}>
                 {'\n      }\n    }\n  }\n}'}
               </span>
             </pre>
@@ -193,86 +123,83 @@ export function SqlDemo() {
           <div
             ref={sqlCardRef}
             className="rounded-xl border border-gray-200 shadow-sm"
-            style={{ backgroundColor: '#faf8f5' }}
+            style={{ backgroundColor: c.bg }}
           >
             <div className="flex items-center gap-2 border-b border-gray-200/60 px-4 py-2">
               <AuroraIcon className="h-5 w-5 rounded" />
-              <span
-                className="text-xs font-medium"
-                style={{ color: '#575279' }}
-              >
+              <span className="text-xs font-medium" style={{ color: c.text }}>
                 Aurora Postgres
               </span>
             </div>
             <pre
               className="overflow-visible px-4 py-3 font-mono text-[11px] leading-[1.7]"
-              style={{ color: '#575279' }}
+              style={{ color: c.text }}
             >
-              <span className={kw}>WITH </span>
+              <span style={{ color: c.keyword }}>WITH </span>
               <Tip label="First, find all todo triples where done is true">
                 done_triples
               </Tip>
-              <span className={kw}>{' AS ('}</span>
+              <span style={{ color: c.keyword }}>{' AS ('}</span>
               {'\n  '}
-              <span className={kw}>SELECT </span>
+              <span style={{ color: c.keyword }}>SELECT </span>
               {'entity_id'}
               {'\n  '}
-              <span className={kw}>FROM </span>
+              <span style={{ color: c.keyword }}>FROM </span>
               {'triples'}
               {'\n  '}
-              <span className={kw}>WHERE </span>
+              <span style={{ color: c.keyword }}>WHERE </span>
               <Tip label="All triples are partitioned by app_id, so data across tenants is isolated">
                 {'app_id'}
               </Tip>
               {' = '}
-              <span className={str}>&apos;instalinear&apos;</span>
+              <span style={{ color: c.string }}>&apos;instalinear&apos;</span>
               {'\n    '}
-              <span className={kw}>AND </span>
+              <span style={{ color: c.keyword }}>AND </span>
               <Tip label="A partial index on (attr, value, entity) that makes queries like this fast">
                 {'ave'}
               </Tip>
               {'\n    '}
-              <span className={kw}>AND </span>
+              <span style={{ color: c.keyword }}>AND </span>
               {'attr_id = '}
-              <span className={str}>&apos;todo-done&apos;</span>
+              <span style={{ color: c.string }}>&apos;todo-done&apos;</span>
               {'\n    '}
-              <span className={kw}>AND </span>
+              <span style={{ color: c.keyword }}>AND </span>
               {'value = '}
               <button
-                onClick={toggle}
+                onClick={onToggleFilter}
                 className="cursor-pointer font-semibold text-orange-600 hover:text-orange-700"
               >
                 {String(filterValue)}
               </button>
               {'\n'}
-              <span className={kw}>{')'}</span>
+              <span style={{ color: c.keyword }}>{')'}</span>
               {',\n'}
               <Tip label="Now fetch all attributes for the done triples we found">
                 todo_data
               </Tip>
-              <span className={kw}>{' AS ('}</span>
+              <span style={{ color: c.keyword }}>{' AS ('}</span>
               {'\n  '}
-              <span className={kw}>SELECT </span>
+              <span style={{ color: c.keyword }}>SELECT </span>
               {'t.entity_id, t.attr_id, t.value'}
               {'\n  '}
-              <span className={kw}>FROM </span>
+              <span style={{ color: c.keyword }}>FROM </span>
               {'triples t'}
               {'\n  '}
-              <span className={kw}>JOIN </span>
+              <span style={{ color: c.keyword }}>JOIN </span>
               {'done_triples d'}
               {'\n    '}
-              <span className={kw}>ON </span>
+              <span style={{ color: c.keyword }}>ON </span>
               {'t.entity_id = d.entity_id'}
               {'\n  '}
-              <span className={kw}>WHERE </span>
+              <span style={{ color: c.keyword }}>WHERE </span>
               {'t.app_id = '}
-              <span className={str}>&apos;instalinear&apos;</span>
+              <span style={{ color: c.string }}>&apos;instalinear&apos;</span>
               {'\n'}
-              <span className={kw}>{')'}</span>
+              <span style={{ color: c.keyword }}>{')'}</span>
               {'\n'}
-              <span className={kw}>SELECT </span>
+              <span style={{ color: c.keyword }}>SELECT </span>
               {'* '}
-              <span className={kw}>FROM </span>
+              <span style={{ color: c.keyword }}>FROM </span>
               {'todo_data'}
             </pre>
           </div>

@@ -1,3 +1,15 @@
+// Flat color map for inline styles (same palette as rosePineDawnTheme)
+export const rosePineDawnColors = {
+  bg: '#faf8f5',
+  text: '#575279',
+  punctuation: '#797593',
+  keyword: '#286983',
+  tag: '#56949f',
+  value: '#d7827e',
+  string: '#ea9d34',
+  parameter: '#907aa9',
+} as const;
+
 // Rosé Pine Dawn theme (matching prism.css)
 export const rosePineDawnTheme = {
   plain: {

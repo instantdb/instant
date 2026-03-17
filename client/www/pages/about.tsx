@@ -13,6 +13,7 @@ import {
   SectionSubtitle,
   Subheading,
 } from '@/components/new-landing/typography';
+import { useState } from 'react';
 import {
   queryExamples,
   transactionExamples,
@@ -153,6 +154,8 @@ const values = [
 ];
 
 export default function AboutPage() {
+  const [filterValue, setFilterValue] = useState(true);
+  const toggleFilter = () => setFilterValue((v) => !v);
   return (
     <div className="text-off-black w-full overflow-x-auto">
       <MainNav transparent />
@@ -354,7 +357,7 @@ export default function AboutPage() {
                 </p>
               </div>
               <div className="flex min-w-0 grow items-center justify-center lg:bg-radial lg:from-white lg:to-[#FFF9F4] lg:px-[40px] lg:py-[37px]">
-                <DatalogDemo />
+                <DatalogDemo filterValue={filterValue} onToggleFilter={toggleFilter} />
               </div>
             </div>
           </AnimateIn>
@@ -363,7 +366,7 @@ export default function AboutPage() {
           <AnimateIn>
             <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center">
               <div className="flex min-w-0 grow items-center justify-center lg:bg-[#F5F3FF] lg:px-[40px] lg:py-[37px]">
-                <SqlDemo />
+                <SqlDemo filterValue={filterValue} onToggleFilter={toggleFilter} />
               </div>
               <div className="space-y-4 md:max-w-[440px]">
                 <Subheading>SQL on the server</Subheading>
