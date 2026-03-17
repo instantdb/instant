@@ -1,12 +1,9 @@
 import Image from 'next/image';
 import { AnimateIn } from './AnimateIn';
 import { Subheading } from './typography';
-
-const stats = [
-  { value: '10,000+', label: 'concurrent connections' },
-  { value: '1,000+', label: 'queries per second' },
-  { value: '9,600+', label: 'github stars' },
-];
+import { useGithubStarCount } from '@/lib/getGithubStarCount';
+import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
+import { formatNumberCompact } from '@/lib/format';
 
 const backers = [
   {
@@ -42,6 +39,21 @@ const backers = [
 ];
 
 export function SocialProof() {
+  const starCount = useGithubStarCount();
+
+  const { data: connectionCount } = useTotalSessionsCount({
+    refreshSeconds: 3,
+  });
+
+  const stats = [
+    {
+      value: formatNumberCompact(connectionCount || 0),
+      label: 'concurrent connections',
+    },
+    { value: '1,000+', label: 'queries per second' },
+    { value: starCount, label: 'github stars' },
+  ];
+
   return (
     <div className="space-y-16">
       {/* Stats */}

@@ -17,6 +17,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Button, cn, LogoIcon } from '@/components/ui';
 import { ComponentType, SVGProps } from 'react';
 import { useRouter } from 'next/router';
+import { useGithubStarCount } from '@/lib/getGithubStarCount';
 
 type Product = {
   id: string;
@@ -357,6 +358,7 @@ function NavItems() {
       <NavLink href="/docs">Docs</NavLink>
       <NavLink href="/essays">Essays</NavLink>
       <NavLink href="/about">About</NavLink>
+      <OtherNavItems />
     </>
   );
 }
@@ -364,7 +366,10 @@ function NavItems() {
 function OtherNavItems() {
   const isHydrated = useIsHydrated();
   const isAuthed = !!useAuthToken();
-  if (!isHydrated) return null;
+  const starCount = useGithubStarCount();
+
+  if (!isHydrated) return;
+
   return (
     <>
       <NavLink href="https://github.com/instantdb/instant">
@@ -374,7 +379,7 @@ function OtherNavItems() {
             alt="GitHub"
             className="h-[18px] w-[18px]"
           />
-          <span className="pl-1 font-semibold">9.6k</span>
+          <span className="min-w-[38px] pl-1 font-semibold">{starCount}</span>
           stars
         </span>
       </NavLink>

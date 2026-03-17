@@ -13,6 +13,8 @@ import { FinalCTA } from '@/components/new-landing/FinalCTA';
 import { Footer } from '@/components/new-landing/Footer';
 import { AgentPathsBgSoftCenter } from '@/components/home/AgentPathsBgSoftCenter';
 import type { ReactNode } from 'react';
+import { getGithubStarCount } from '@/lib/getGithubStarCount';
+import { GetStaticProps } from 'next';
 
 function HomeSeo() {
   return (
@@ -125,3 +127,14 @@ export default function Landing2026() {
     </div>
   );
 }
+
+export const getStaticProps: GetStaticProps = async () => {
+  const starCount = await getGithubStarCount();
+  return {
+    props: {
+      starCount: starCount,
+    },
+    // Revalidate at most once every hour
+    revalidate: 3600,
+  };
+};
