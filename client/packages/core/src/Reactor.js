@@ -2169,6 +2169,22 @@ export default class Reactor {
         delete prev[k].result;
       });
     });
+    this.querySubs.clearUnloadedKeys();
+    this._updatePendingMutations((prev) => {
+      // Mark all pending mutations with an error, since we won't be able to
+      // deliver the result
+      for (const [eventId, _v] of prev.entries()) {
+        if (this.mutationDeferredStore.get(eventId)) {
+          this._finishTransaction('error', eventId, {
+            message: 'User changed while transaction was in progress.',
+            type: 'user-changed',
+          });
+        }
+      }
+
+      prev.clear();
+    });
+
     this._reconnectTimeoutMs = 0;
     this._transport.close();
     this._oauthCallbackResponse = null;
