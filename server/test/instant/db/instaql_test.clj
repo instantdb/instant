@@ -1155,39 +1155,39 @@
                                (instaql-nodes->object-tree ctx)
                                (#(get % "etype"))
                                (map #(parse-uuid (get % "id"))))))]
-        (tool/inspect (tx/transact! (aurora/conn-pool :write)
-                                    (attr-model/get-by-app-id (:id app))
-                                    (:id app)
-                                    (concat
-                                     [[:add-attr {:id id-attr-id
-                                                  :forward-identity [(random-uuid) "etype" "id"]
-                                                  :unique? true
-                                                  :index? true
-                                                  :value-type :blob
-                                                  :checked-data-type :string
-                                                  :cardinality :one}]
-                                      [:add-attr {:id label-attr-id
-                                                  :forward-identity [(random-uuid) "etype" "label"]
-                                                  :unique? true
-                                                  :index? false
-                                                  :value-type :blob
-                                                  :checked-data-type :string
-                                                  :cardinality :one}]
-                                      [:add-attr {:id value-attr-id
-                                                  :forward-identity [(random-uuid) "etype" "value"]
-                                                  :unique? false
-                                                  :index? true
-                                                  :checked-data-type :string
-                                                  :value-type :blob
-                                                  :cardinality :one}]]
+        (tx/transact! (aurora/conn-pool :write)
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      (concat
+                       [[:add-attr {:id id-attr-id
+                                    :forward-identity [(random-uuid) "etype" "id"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]
+                        [:add-attr {:id label-attr-id
+                                    :forward-identity [(random-uuid) "etype" "label"]
+                                    :unique? true
+                                    :index? false
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]
+                        [:add-attr {:id value-attr-id
+                                    :forward-identity [(random-uuid) "etype" "value"]
+                                    :unique? false
+                                    :index? true
+                                    :checked-data-type :string
+                                    :value-type :blob
+                                    :cardinality :one}]]
 
-                                     (tool/inspect (mapcat
-                                                    (fn [label]
-                                                      (let [id (stuid label)]
-                                                        [[:add-triple id id-attr-id (str id)]
-                                                         [:add-triple id label-attr-id label]
-                                                         [:add-triple id value-attr-id "value"]]))
-                                                    labels)))))
+                       (mapcat
+                        (fn [label]
+                          (let [id (stuid label)]
+                            [[:add-triple id id-attr-id (str id)]
+                             [:add-triple id label-attr-id label]
+                             [:add-triple id value-attr-id "value"]]))
+                        labels)))
 
         (is (= [(stuid "a")
                 (stuid "b")
