@@ -167,7 +167,6 @@ export const subscribeInfiniteQuery = <
       >,
       chunks,
       canLoadNextPage: readCanLoadNextPage(forwardChunks),
-      loadNextPage,
     });
   };
 

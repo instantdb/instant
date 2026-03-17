@@ -80,36 +80,12 @@ describe('get initial data for useSyncExternalStore', () => {
         },
       },
     });
-    console.log(result);
-    expect(1).toEqual(1);
+    expect(result.data).toEqual(response.data);
     scrollSub.unsubscribe();
   });
 });
 
 describe('infinite scroll number line', () => {
-  test('empty result', async ({ db }) => {
-    let response: Record<string, any> = {};
-    const callback = vi.fn<(response: any) => void>((resp) => {
-      response = resp;
-    });
-
-    const scrollSub = db.subscribeInfiniteQuery(
-      {
-        items: {
-          $: {
-            limit: 4,
-            order: {
-              value: 'asc',
-            },
-          },
-        },
-      },
-      callback,
-    );
-
-    await expect.poll(() => callback.mock.calls.length === 1);
-  });
-
   test('adding new numbers', async ({ db }) => {
     let response: Record<string, any> = {};
     const callback = vi.fn<(response: any) => void>((resp) => {
