@@ -29345,7 +29345,7 @@ snapshots:
       '@parcel/watcher': 2.5.1
       effect: 3.19.14
       multipasta: 0.2.7
-      ws: 8.18.2
+      ws: 8.19.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -29360,7 +29360,7 @@ snapshots:
       effect: 3.19.14
       mime: 3.0.0
       undici: 7.18.2
-      ws: 8.18.2
+      ws: 8.19.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
