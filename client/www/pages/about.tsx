@@ -6,6 +6,7 @@ import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
 import { TripleDemo } from '@/components/about/TripleDemo';
 import { DatalogDemo } from '@/components/about/DatalogDemo';
+import { SqlDemo } from '@/components/about/SqlDemo';
 import {
   LandingButton,
   SectionTitle,
@@ -361,31 +362,8 @@ export default function AboutPage() {
           {/* 4. SQL on the server */}
           <AnimateIn>
             <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center">
-              <div className="min-w-0 grow lg:bg-[#F0F5FA] lg:px-[66px] lg:py-[37px]">
-                <div className="rounded-xl border border-gray-200 bg-white p-6">
-                  <div className="flex flex-col gap-3">
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-center">
-                      <div className="text-sm font-medium">InstaQL</div>
-                      <div className="text-[10px] text-gray-400">
-                        same query as the frontend
-                      </div>
-                    </div>
-                    <DownArrow />
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-center">
-                      <div className="text-sm font-medium">SQL Translation</div>
-                      <div className="text-[10px] text-gray-400">
-                        InstaQL compiles to SQL
-                      </div>
-                    </div>
-                    <DownArrow />
-                    <div className="rounded-lg border-2 border-blue-200 bg-blue-50 px-4 py-2.5 text-center">
-                      <div className="text-sm font-medium text-blue-600">
-                        Postgres Aurora
-                      </div>
-                      <div className="text-[10px]">source of truth</div>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex min-w-0 grow items-center justify-center lg:bg-[#F0F5FA] lg:px-[40px] lg:py-[37px]">
+                <SqlDemo />
               </div>
               <div className="space-y-4 md:max-w-[440px]">
                 <Subheading>SQL on the server</Subheading>
