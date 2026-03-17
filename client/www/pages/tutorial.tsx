@@ -9,6 +9,7 @@ import {
   LandingButton,
 } from '@/components/new-landing/typography';
 import { Footer } from '@/components/new-landing/Footer';
+import { TopWash } from '@/components/new-landing/TopWash';
 import { XIcon } from '@/components/new-landing/icons';
 import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import RatingBox from '@/components/docs/RatingBox';
@@ -162,24 +163,6 @@ const debuggingItems: {
 ];
 
 // -----------
-// Icons
-// -----------
-
-function PmIcon({ src, className }: { src: string; className?: string }) {
-  return <img src={src} alt="" className={className} />;
-}
-
-// Sources:
-// npm: https://github.com/npm/logos
-// pnpm: https://github.com/pnpm/pnpm.io/blob/main/static/img/pnpm-no-name-with-frame.svg
-// bun: https://bun.sh/logo.svg
-const pmIconSrcs = [
-  '/img/npm-logo.svg',
-  '/img/pnpm-logo.svg',
-  '/img/bun-logo.svg',
-];
-
-// -----------
 // Reusable components
 // -----------
 
@@ -232,14 +215,14 @@ function TerminalCopyButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 2000);
       }}
     >
-      <button className="relative h-9 w-[105px] overflow-hidden rounded-lg bg-orange-600 text-sm font-medium text-white shadow-lg transition-colors hover:bg-orange-700">
+      <button className="relative flex h-9 w-9 items-center justify-center overflow-hidden text-white transition-opacity hover:opacity-70">
         <AnimatePresence initial={false} custom={copied}>
           <motion.span
             key={copied ? 'copied' : 'copy'}
             custom={copied}
-            className="absolute inset-0 flex items-center justify-center gap-2"
+            className="absolute inset-0 flex items-center justify-center"
             variants={{
-              enter: (isCopied: boolean) => ({ y: isCopied ? 24 : -24 }),
+              enter: (isCopied: boolean) => ({ y: isCopied ? -24 : 24 }),
               center: { y: 0 },
               exit: (isCopied: boolean) => ({ y: isCopied ? 24 : -24 }),
             }}
@@ -249,15 +232,9 @@ function TerminalCopyButton({ text }: { text: string }) {
             transition={{ duration: 0.2, ease: 'easeInOut' }}
           >
             {copied ? (
-              <>
-                <CheckIcon className="h-4 w-4" />
-                Copied!
-              </>
+              <CheckIcon className="h-5 w-5 text-green-400" />
             ) : (
-              <>
-                <ClipboardDocumentIcon className="h-4 w-4" />
-                Copy
-              </>
+              <ClipboardDocumentIcon className="h-5 w-5" />
             )}
           </motion.span>
         </AnimatePresence>
@@ -293,13 +270,12 @@ function PackageManagerTabs({
             key={pm.id}
             onClick={() => onPmChange(i)}
             className={clsx(
-              'flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+              'flex items-center rounded-full px-4 py-1.5 font-mono text-sm font-medium transition-colors',
               selectedPmIndex === i
                 ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700',
             )}
           >
-            <PmIcon src={pmIconSrcs[i]} className="h-4 w-4" />
             {pm.name}
           </button>
         );
@@ -334,10 +310,10 @@ function TerminalBlock({
         </div>
       )}
       <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950">
-        <div className="flex items-center justify-between px-5 py-3 font-mono text-sm">
+        <div className="flex items-center justify-between px-6 py-4 font-mono text-base font-normal">
           <div>
             <span className="text-green-400">$ </span>
-            <span className="text-gray-300">{command}</span>
+            <span className="text-white">{command}</span>
           </div>
           <TerminalCopyButton text={command} />
         </div>
@@ -378,7 +354,7 @@ function TabbedPrompts() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className="p-6 font-mono text-sm whitespace-pre-wrap text-gray-400"
+          className="p-6 font-mono text-base whitespace-pre-wrap text-white"
         >
           {prompt.content}
         </motion.div>
@@ -515,40 +491,36 @@ export default function Tutorial() {
       </Head>
 
       {/* Hero band */}
-      <div className="bg-[#F0F5FA]">
+      <div className="relative pt-16">
+        <TopWash />
         <MainNav transparent />
-        <div className="pt-16">
-          <div className="landing-width mx-auto px-8">
-            <div className="mx-auto max-w-3xl">
-              <div className="pt-16 pb-12">
-                <SectionTitle>{pageTitle}</SectionTitle>
-                <p className="mt-6 text-lg text-gray-700">
-                  In this tutorial we'll walk through creating a full-stack app
-                  with InstantDB.{' '}
-                  <b>
-                    Within 5-10 minutes you'll have an app that runs on your
-                    computer
-                  </b>
-                  , and if you like, can be deployed into the wild!
-                </p>
+        <div className="landing-width relative mx-auto px-8 pt-16 pb-12">
+          <div className="mx-auto max-w-3xl">
+            <SectionTitle>{pageTitle}</SectionTitle>
+            <p className="mt-6 text-lg text-gray-700">
+              In this tutorial we'll walk through creating a full-stack app with
+              InstantDB.{' '}
+              <b>
+                Within 5-10 minutes you'll have an app that runs on your
+                computer
+              </b>
+              , and if you like, can be deployed into the wild!
+            </p>
 
-                {/* Table of contents */}
-                <ol className="mt-8 space-y-2">
-                  {overviewSteps.map((step, i) => (
-                    <li key={i} className="flex items-center gap-3">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-600 text-xs font-bold text-white">
-                        {i + 1}
-                      </span>
-                      <span className="text-lg text-gray-700">{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </div>
+            {/* Table of contents */}
+            <ol className="mt-8 space-y-2">
+              {overviewSteps.map((step, i) => (
+                <li key={i} className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-600 text-xs font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <span className="text-lg text-gray-700">{step}</span>
+                </li>
+              ))}
+            </ol>
           </div>
         </div>
       </div>
-      <div className="h-12 bg-gradient-to-b from-[#F0F5FA] to-white" />
 
       <div className="landing-width mx-auto px-8">
         <div className="mx-auto max-w-3xl">
