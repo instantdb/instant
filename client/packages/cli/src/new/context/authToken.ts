@@ -41,6 +41,18 @@ export const authTokenGetEffect = (allowAdminToken: boolean = true) =>
       };
     }
 
+    const secondaryEnv = yield* Config.string('INSTANT_APP_ADMIN_TOKEN').pipe(
+      Config.orElse(() => Config.string('INSTANT_ADMIN_TOKEN')),
+      Config.option,
+      Config.map(Option.getOrNull),
+    );
+    if (secondaryEnv && allowAdminToken) {
+      return {
+        authToken: secondaryEnv,
+        source: 'admin' as 'admin',
+      };
+    }
+
     const authPaths = yield* getAuthPaths;
     const fs = yield* FileSystem.FileSystem;
     const file = yield* fs
@@ -56,17 +68,6 @@ export const authTokenGetEffect = (allowAdminToken: boolean = true) =>
       };
     }
 
-    const secondaryEnv = yield* Config.string('INSTANT_APP_ADMIN_TOKEN').pipe(
-      Config.orElse(() => Config.string('INSTANT_ADMIN_TOKEN')),
-      Config.option,
-      Config.map(Option.getOrNull),
-    );
-    if (secondaryEnv && allowAdminToken) {
-      return {
-        authToken: secondaryEnv,
-        source: 'admin' as 'admin',
-      };
-    }
     return yield* NotAuthedError.make({ message: 'You are not logged in' });
   });
 

@@ -1,18 +1,9 @@
-import {
-  HttpBody,
-  HttpClientRequest,
-  HttpClientResponse,
-} from '@effect/platform';
+import { HttpClientRequest, HttpClientResponse } from '@effect/platform';
 import { randomUUID } from 'crypto';
 import { Context, Data, Effect, Layer, Runtime, Schema, Option } from 'effect';
 import { UI } from '../../ui/index.js';
 import { handleEnv } from '../lib/handleEnv.js';
-import {
-  getBaseUrl,
-  InstantHttp,
-  InstantHttpAuthed,
-  withCommand,
-} from '../lib/http.js';
+import { getBaseUrl, InstantHttpAuthed, withCommand } from '../lib/http.js';
 import { runUIEffect } from '../lib/ui.js';
 import { AuthToken } from './authToken.js';
 import { GlobalOpts } from './globalOpts.js';

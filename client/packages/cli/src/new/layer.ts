@@ -93,6 +93,7 @@ export const WithAppLayer = (args: {
   coerce: boolean;
   coerceAuth?: boolean;
   packageName?: keyof typeof PACKAGE_ALIAS_AND_FULL_NAMES;
+  allowAdminToken?: boolean;
   applyEnv?: boolean;
 }) =>
   Layer.mergeAll(
@@ -106,7 +107,7 @@ export const WithAppLayer = (args: {
     Layer.provideMerge(GlobalOptsLive),
     Layer.provideMerge(
       AuthLayerLive({
-        allowAdminToken: true,
+        allowAdminToken: args.allowAdminToken || true,
         coerce: args.coerceAuth || false,
       }),
     ),
