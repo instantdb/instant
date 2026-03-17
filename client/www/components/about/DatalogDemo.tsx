@@ -29,19 +29,23 @@ export function DatalogDemo() {
       <div className="mb-1 self-start text-[10px] font-medium tracking-wider text-gray-400 uppercase">
         InstaQL
       </div>
-      <div className="rounded-lg bg-gray-100 px-3 py-2 font-mono text-xs whitespace-nowrap text-gray-700">
-        <span className="text-gray-400">{'{ '}</span>
+      <div
+        className="rounded-lg px-3 py-2 font-mono text-xs whitespace-nowrap"
+        style={{ backgroundColor: '#faf8f5', color: '#575279' }}
+      >
+        <span style={{ color: '#797593' }}>{'{ '}</span>
         todos
-        <span className="text-gray-400">{': { $: { where: { '}</span>
+        <span style={{ color: '#797593' }}>{': { $: { where: { '}</span>
         done
-        <span className="text-gray-400">{': '}</span>
+        <span style={{ color: '#797593' }}>{': '}</span>
         <button
           onClick={() => setFilterValue((v) => !v)}
-          className="inline-block w-[3.2em] cursor-pointer rounded bg-orange-100 py-0.5 text-center font-semibold text-orange-600 transition-colors hover:bg-orange-200"
+          className="inline-block w-[3.2em] cursor-pointer rounded py-0.5 text-center font-semibold transition-colors"
+          style={{ backgroundColor: 'rgba(234,157,52,0.15)', color: '#d7827e' }}
         >
           {String(filterValue)}
         </button>
-        <span className="text-gray-400">{' } } } }'}</span>
+        <span style={{ color: '#797593' }}>{' } } } }'}</span>
       </div>
 
       <Connector />
@@ -50,25 +54,29 @@ export function DatalogDemo() {
       <div className="mb-1 text-[10px] font-medium tracking-wider text-gray-400 uppercase">
         Datalog
       </div>
-      <div className="w-full max-w-[12rem] space-y-1 rounded-lg bg-gray-100 px-3 py-2 font-mono text-xs">
+      <div
+        className="w-full max-w-[12rem] space-y-1 rounded-lg px-3 py-2 font-mono text-xs"
+        style={{ backgroundColor: '#faf8f5' }}
+      >
         <div className="flex justify-between">
-          <span className="text-gray-400">[</span>
-          <span className="text-gray-600">?todo</span>
-          <span className="text-gray-500">"done"</span>
+          <span style={{ color: '#797593' }}>[</span>
+          <span style={{ color: '#286983' }}>?todo</span>
+          <span style={{ color: '#ea9d34' }}>"done"</span>
           <button
             onClick={() => setFilterValue((v) => !v)}
-            className="w-[5ch] cursor-pointer text-center font-semibold text-gray-700"
+            className="w-[5ch] cursor-pointer text-center font-semibold"
+            style={{ color: '#d7827e' }}
           >
             {String(filterValue)}
           </button>
-          <span className="text-gray-400">]</span>
+          <span style={{ color: '#797593' }}>]</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-400">[</span>
-          <span className="text-gray-600">?todo</span>
-          <span className="text-gray-500">?attr</span>
-          <span className="text-gray-500">?val</span>
-          <span className="text-gray-400">]</span>
+          <span style={{ color: '#797593' }}>[</span>
+          <span style={{ color: '#286983' }}>?todo</span>
+          <span style={{ color: '#907aa9' }}>?attr</span>
+          <span style={{ color: '#907aa9' }}>?val</span>
+          <span style={{ color: '#797593' }}>]</span>
         </div>
       </div>
 

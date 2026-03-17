@@ -158,23 +158,30 @@ export function SqlDemo() {
             InstaQL
           </div>
           <div ref={instaqlRef}>
-            <pre className="rounded-lg bg-gray-100 px-3 py-2 font-mono text-xs leading-[1.7] text-gray-700">
-              <span className="text-gray-400">{'{\n'}</span>
+            <pre
+              className="rounded-lg px-3 py-2 font-mono text-xs leading-[1.7]"
+              style={{ backgroundColor: '#faf8f5', color: '#575279' }}
+            >
+              <span style={{ color: '#797593' }}>{'{\n'}</span>
               {'  todos'}
-              <span className="text-gray-400">{': {\n'}</span>
+              <span style={{ color: '#797593' }}>{': {\n'}</span>
               {'    $'}
-              <span className="text-gray-400">{': {\n'}</span>
+              <span style={{ color: '#797593' }}>{': {\n'}</span>
               {'      where'}
-              <span className="text-gray-400">{': {\n'}</span>
+              <span style={{ color: '#797593' }}>{': {\n'}</span>
               {'        done'}
-              <span className="text-gray-400">{': '}</span>
+              <span style={{ color: '#797593' }}>{': '}</span>
               <button
                 onClick={toggle}
-                className="inline-block w-[3.2em] cursor-pointer rounded bg-orange-100 py-0.5 text-center font-semibold text-orange-600 transition-colors hover:bg-orange-200"
+                className="inline-block w-[3.2em] cursor-pointer rounded py-0.5 text-center font-semibold transition-colors"
+                style={{
+                  backgroundColor: 'rgba(234,157,52,0.15)',
+                  color: '#d7827e',
+                }}
               >
                 {String(filterValue)}
               </button>
-              <span className="text-gray-400">
+              <span style={{ color: '#797593' }}>
                 {'\n      }\n    }\n  }\n}'}
               </span>
             </pre>

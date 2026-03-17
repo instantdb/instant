@@ -410,7 +410,7 @@ export default function AboutPage() {
           {/* 4. Permissions */}
           <AnimateIn>
             <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-start">
-              <div className="min-w-0 grow lg:bg-radial lg:from-white lg:to-[#FFF9F4] lg:px-[66px] lg:py-[37px]">
+              <div className="min-w-0 grow lg:bg-[#F0F5FA] lg:px-[66px] lg:py-[37px]">
                 <TabbedCodeExample
                   examples={permissionExamples}
                   tabs={[
@@ -422,7 +422,7 @@ export default function AboutPage() {
                   ]}
                 />
               </div>
-              <div className="space-y-4 md:max-w-[440px]">
+              <div className="space-y-4 text-center md:max-w-[440px] md:text-left">
                 <Subheading>Permissions: access control</Subheading>
                 <p className="mt-2 text-base">
                   Every read and every write passes through a permission layer
