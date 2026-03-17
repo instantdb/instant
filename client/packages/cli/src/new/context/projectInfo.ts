@@ -170,6 +170,7 @@ function getInstantModuleName(pkgJson: PackageJson) {
     '@instantdb/core',
     '@instantdb/admin',
     '@instantdb/solidjs',
+    '@instantdb/svelte',
   ].find((name) => deps[name] || devDeps[name]);
   return instantModuleName;
 }

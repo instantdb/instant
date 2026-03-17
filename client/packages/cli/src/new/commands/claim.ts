@@ -33,6 +33,7 @@ export const claimCommand = Effect.gen(function* () {
   Effect.provide(
     WithAppLayer({
       coerce: false,
+      allowAdminToken: false,
       applyEnv: false,
     }),
   ),
