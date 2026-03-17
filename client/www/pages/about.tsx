@@ -169,7 +169,7 @@ export default function AboutPage() {
       <Section className="pt-4 sm:pt-8">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
           {/* Left: narrative */}
-          <div>
+          <div className="text-center lg:text-left">
             <Subheading>Our story</Subheading>
             <div className="mt-8 space-y-6 text-[17px] leading-relaxed text-gray-600">
               <p>
@@ -362,7 +362,7 @@ export default function AboutPage() {
           {/* 4. SQL on the server */}
           <AnimateIn>
             <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center">
-              <div className="flex min-w-0 grow items-center justify-center lg:bg-[#F0F5FA] lg:px-[40px] lg:py-[37px]">
+              <div className="flex min-w-0 grow items-center justify-center lg:bg-[#F5F3FF] lg:px-[40px] lg:py-[37px]">
                 <SqlDemo />
               </div>
               <div className="space-y-4 md:max-w-[440px]">
