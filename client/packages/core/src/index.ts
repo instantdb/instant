@@ -149,6 +149,7 @@ import {
   type InfiniteQueryCallbackResponse,
   type InfiniteQuerySubscription,
   subscribeInfiniteQuery,
+  getInfiniteQueryInitialSnapshot,
 } from './infiniteQuery.ts';
 
 const defaultOpenDevtool = true;
@@ -1064,6 +1065,9 @@ export {
   Streams,
   version,
   InstantError,
+
+  // infinite query
+  getInfiniteQueryInitialSnapshot,
 
   // sync table enums
   SyncTableCallbackEventType,

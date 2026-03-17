@@ -1,5 +1,7 @@
 import {
+  coerceQuery,
   QueryValidationError,
+  weakHash,
   type InstantCoreDatabase,
   type ValidQuery,
 } from './index.ts';
@@ -24,7 +26,7 @@ export interface InfiniteQuerySubscription {
   loadNextPage: () => void;
 }
 
-const readCanLoadMore = (forwardChunks: Map<string, Chunk>) => {
+const readCanLoadNextPage = (forwardChunks: Map<string, Chunk>) => {
   const chunksInOrder = Array.from(forwardChunks.values());
   if (chunksInOrder.length === 0) return false;
   return chunksInOrder[chunksInOrder.length - 1]?.hasMore || false;
@@ -76,6 +78,27 @@ const isDescendingOrder = <
   return order[key as keyof typeof order] === 'desc';
 };
 
+const normalizeChunks = (
+  forwardChunks: Map<string, Chunk>,
+  reverseChunks: Map<string, Chunk>,
+): { chunks: Chunk[]; data: any[] } => {
+  const chunks = [
+    ...Array.from(reverseChunks.values()).slice().reverse(),
+    ...Array.from(forwardChunks.values()),
+  ];
+
+  const data = [
+    ...Array.from(reverseChunks.values())
+      .slice()
+      .reverse()
+      .flatMap((chunk) => chunk.data.slice().reverse()),
+    ...Array.from(forwardChunks.values()).flatMap((chunk) => chunk.data),
+  ];
+  return { chunks, data };
+};
+
+const PRE_BOOTSTRAP_CURSOR: Cursor = ['bootstrap', 'bootstrap', 'bootstrap', 1];
+
 export type InfiniteQueryCallbackResponse<
   Schema extends InstantSchemaDef<any, any, any>,
   Query extends Record<string, any>,
@@ -84,12 +107,12 @@ export type InfiniteQueryCallbackResponse<
   | {
       error: { message: string };
       data: undefined;
-      canLoadNextPage?: boolean;
+      canLoadNextPage: boolean;
     }
   | {
       error: undefined;
       data: InstaQLResponse<Schema, Query, UseDatesLocal>;
-      canLoadNextPage?: boolean;
+      canLoadNextPage: boolean;
     };
 
 export const subscribeInfiniteQuery = <
@@ -128,25 +151,13 @@ export const subscribeInfiniteQuery = <
   let starterSub: (() => void) | null = null;
 
   const sendError = (err: { message: string }) => {
-    cb({ error: err, data: undefined });
+    cb({ error: err, data: undefined, canLoadNextPage: false });
   };
 
   const pushUpdate = () => {
     if (!isActive) return;
 
-    const chunks = [
-      ...Array.from(reverseChunks.values()).slice().reverse(),
-      ...Array.from(forwardChunks.values()),
-    ];
-
-    const data = [
-      ...Array.from(reverseChunks.values())
-        .slice()
-        .reverse()
-        .flatMap((chunk) => chunk.data.slice().reverse()),
-      ...Array.from(forwardChunks.values()).flatMap((chunk) => chunk.data),
-    ];
-
+    const { chunks, data } = normalizeChunks(forwardChunks, reverseChunks);
     cb({
       //@ts-expect-error can't infer entity
       data: { [entity]: data } as InstaQLResponse<
@@ -155,7 +166,7 @@ export const subscribeInfiniteQuery = <
         UseDates
       >,
       chunks,
-      canLoadNextPage: readCanLoadMore(forwardChunks),
+      canLoadNextPage: readCanLoadNextPage(forwardChunks),
       loadNextPage,
     });
   };
@@ -341,6 +352,7 @@ export const subscribeInfiniteQuery = <
     const [chunkKey, chunk] = tailEntry;
     if (!chunk?.hasMore || !chunk.endCursor) return;
 
+    // This prevents adding the same new reverse frame twice
     const advanceKey = `${chunkKey}:${JSON.stringify(chunk.endCursor)}`;
     if (advanceKey == lastReverseAdvancedChunkKey) return;
 
@@ -351,9 +363,12 @@ export const subscribeInfiniteQuery = <
 
   const loadNextPage = () => {
     const tailEntry = Array.from(forwardChunks.entries()).at(-1);
+    // This can happen at the very start when the starter query has not run the callback yet
     if (!tailEntry) return;
 
     const [chunkKey, chunk] = tailEntry;
+    // Only forward chunks that have an end cursor can start a one
+    // so that you know where to start from
     if (!chunk?.endCursor) return;
 
     freezeForward(JSON.parse(chunkKey));
@@ -373,29 +388,36 @@ export const subscribeInfiniteQuery = <
       },
     } as any,
     async (starterData) => {
-      if (starterData.error?.message) {
+      if (hasKickstarted) return;
+      if (starterData.error) {
         return sendError({ message: starterData.error.message });
       }
-      if (!starterData?.pageInfo) return;
+      if (!starterData?.pageInfo) {
+        return sendError({ message: 'No pageInfo in starterData' });
+      }
       const pageInfo = starterData.pageInfo[entity];
-      if (!pageInfo?.startCursor || hasKickstarted) return;
 
-      const rows = starterData.data?.[entity];
-      if (!rows) return;
-
-      const initialForwardCursor = isDescendingOrder(query.$?.order)
-        ? incrementCursor(pageInfo.startCursor)
-        : decrementCursor(pageInfo.startCursor);
+      const rows = starterData?.data?.[entity] || [];
 
       if (rows.length < pageSize) {
         // Do a fake save on what's *going* to be saved
-        forwardChunks.clear();
-        setForwardChunk(initialForwardCursor, {
+        setForwardChunk(PRE_BOOTSTRAP_CURSOR, {
           data: rows,
           status: 'pre-bootstrap',
         });
         return;
       }
+
+      if (!pageInfo.startCursor) {
+        return sendError({
+          message: 'No startCursor in pageInfo after boostrap',
+        });
+      }
+
+      forwardChunks.delete(JSON.stringify(PRE_BOOTSTRAP_CURSOR));
+      const initialForwardCursor = isDescendingOrder(query.$?.order)
+        ? incrementCursor(pageInfo.startCursor)
+        : decrementCursor(pageInfo.startCursor);
 
       // Seed the initial window immediately so reverse bootstrap updates
       // cannot publish a transient empty payload before forward resolves.
@@ -434,6 +456,60 @@ export const subscribeInfiniteQuery = <
   return {
     unsubscribe,
     loadNextPage,
+  };
+};
+
+export const getInfiniteQueryInitialSnapshot = <
+  Schema extends InstantSchemaDef<any, any, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+>(
+  db: InstantCoreDatabase<Schema, UseDates>,
+  fullQuery: Q,
+  opts?: InstaQLOptions,
+): InfiniteQueryCallbackResponse<Schema, Q, UseDates> => {
+  const entityNames = Object.keys(fullQuery);
+  if (entityNames.length !== 1) {
+    throw new QueryValidationError(
+      'subscribeInfiniteQuery expects exactly one entity',
+    );
+  }
+
+  const [entityName, entityQuery] = Object.entries(fullQuery)[0];
+
+  if (!entityName || !entityQuery) {
+    throw new QueryValidationError('No query provided for infinite query');
+  }
+
+  const pageSize = entityQuery.$?.limit || 10;
+  const entity = entityName;
+
+  let coercedQuery = fullQuery
+    ? coerceQuery({
+        [entity]: {
+          ...entityQuery,
+          $: {
+            limit: pageSize,
+            where: entityQuery.$?.where,
+            fields: entityQuery.$?.fields,
+            order: entityQuery.$?.order,
+          },
+        },
+      })
+    : null;
+
+  if (opts && 'ruleParams' in opts) {
+    coercedQuery = {
+      $$ruleParams: opts.ruleParams,
+      ...fullQuery,
+    };
+  }
+  const queryResult = db._reactor.getPreviousResult(coercedQuery);
+
+  return {
+    canLoadNextPage: false,
+    data: queryResult?.data || undefined,
+    error: undefined,
   };
 };
 

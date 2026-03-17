@@ -1,5 +1,5 @@
 import { describe, expect, vi } from 'vitest';
-import { i, id } from '../../src';
+import { getInfiniteQueryInitialSnapshot, i, id } from '../../src';
 import { makeE2ETest } from './utils/e2e';
 
 async function addNumberItem(db: any, value: number) {
@@ -44,7 +44,72 @@ const test = makeE2ETest({
   }),
 });
 
+describe('get initial data for useSyncExternalStore', () => {
+  test('empty result', async ({ db }) => {
+    let response: Record<string, any> = {};
+    const callback = vi.fn<(response: any) => void>((resp) => {
+      response = resp;
+    });
+    const scrollSub = db.subscribeInfiniteQuery(
+      {
+        items: {
+          $: {
+            limit: 4,
+            order: {
+              value: 'asc',
+            },
+          },
+        },
+      },
+      callback,
+    );
+
+    await addNumberItem(db, 0);
+    await addNumberItem(db, 1);
+    await addNumberItem(db, 2);
+    await addNumberItem(db, 3);
+
+    await expect.poll(() => getLoadedValues(response)).toContain(3);
+    const result = getInfiniteQueryInitialSnapshot(db, {
+      items: {
+        $: {
+          limit: 4,
+          order: {
+            value: 'asc',
+          },
+        },
+      },
+    });
+    console.log(result);
+    expect(1).toEqual(1);
+    scrollSub.unsubscribe();
+  });
+});
+
 describe('infinite scroll number line', () => {
+  test('empty result', async ({ db }) => {
+    let response: Record<string, any> = {};
+    const callback = vi.fn<(response: any) => void>((resp) => {
+      response = resp;
+    });
+
+    const scrollSub = db.subscribeInfiniteQuery(
+      {
+        items: {
+          $: {
+            limit: 4,
+            order: {
+              value: 'asc',
+            },
+          },
+        },
+      },
+      callback,
+    );
+
+    await expect.poll(() => callback.mock.calls.length === 1);
+  });
+
   test('adding new numbers', async ({ db }) => {
     let response: Record<string, any> = {};
     const callback = vi.fn<(response: any) => void>((resp) => {

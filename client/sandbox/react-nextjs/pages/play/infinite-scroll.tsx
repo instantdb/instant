@@ -110,7 +110,6 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
 
   return (
     <div>
-      <pre>{JSON.stringify(scrollResult, null, 2)}</pre>
       <div>
         <input
           className="m-2 border border-gray-400 p-2"
@@ -199,5 +198,7 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
 }
 
 export default function Page() {
-  return <EphemeralAppPage schema={schema} Component={Example} />;
+  return (
+    <EphemeralAppPage waitForDBConnected schema={schema} Component={Example} />
+  );
 }

@@ -6,6 +6,7 @@ import {
   InstaQLResponse,
   ValidQuery,
   weakHash,
+  getInfiniteQueryInitialSnapshot,
 } from '@instantdb/core';
 import { useEffect, useRef, useState } from 'react';
 
@@ -50,13 +51,17 @@ export function useInfiniteQuerySubscription<
   opts?: InstaQLOptions;
 }): InfiniteQueryResult<Schema, Q, UseDates> {
   const subRef = useRef<InfiniteQuerySubscription | null>(null);
+
+  const initialSnapshot = useRef(
+    getInfiniteQueryInitialSnapshot(core, query, opts),
+  );
+  console.log('CURRENT SNAPSHOT', initialSnapshot.current);
+
   const [state, setState] = useState<
     Omit<InfiniteQueryResult<Schema, Q, UseDates>, 'loadNextPage'>
   >({
-    error: undefined,
-    data: undefined,
-    isLoading: true,
-    canLoadNextPage: false,
+    ...initialSnapshot.current,
+    isLoading: !initialSnapshot.current.data,
   });
 
   useEffect(() => {
@@ -72,21 +77,10 @@ export function useInfiniteQuerySubscription<
       const sub = core.subscribeInfiniteQuery(
         query,
         (resp) => {
-          if (resp.error) {
-            setState({
-              data: undefined,
-              canLoadNextPage: false,
-              error: resp.error,
-              isLoading: false,
-            });
-          } else {
-            setState({
-              data: resp.data,
-              canLoadNextPage: resp.canLoadNextPage || false,
-              error: resp.error,
-              isLoading: false,
-            });
-          }
+          setState({
+            ...resp,
+            isLoading: false,
+          });
         },
         opts,
       );
