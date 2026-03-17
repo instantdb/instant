@@ -2059,10 +2059,13 @@
                  order-col-name order-col-type entity-id-col inclusive?]}]
   (let [cursor-val (nth cursor sym-triple-idx)
         comparison (case [cursor-type direction]
-                     [:before :asc] (if inclusive? :<= :<)
-                     [:before :desc] (if inclusive? :>= :>)
-                     [:after :asc] (if inclusive? :>= :>)
-                     [:after :desc] (if inclusive? :<= :<))
+                     [:before :asc] :<
+                     [:before :desc] :>
+                     [:after :asc] :>
+                     [:after :desc] :<)
+        eid-comparison (if inclusive?
+                         (inclusive-comparison comparison)
+                         comparison)
         order-col-value-fn (when (not= order-col-type :created-at-timestamp)
                              (extract-value-fn order-col-type comparison))
         order-col (if order-col-value-fn
@@ -2100,7 +2103,7 @@
                                 [comparison order-col order-col-val]
                                 [:and
                                  [:= order-col order-col-val]
-                                 [comparison entity-id-col [:cast (first cursor) :uuid]]]]]
+                                 [eid-comparison entity-id-col [:cast (first cursor) :uuid]]]]]
                               [:or
                                [:or [comparison order-col order-col-val]
                                 ;; null > null => null in postgres, so we have to
@@ -2122,7 +2125,7 @@
                                   [:= order-col nil]
                                   [:= order-col-val nil]]
                                  [:= order-col order-col-val]]
-                                [comparison entity-id-col [:cast (first cursor) :uuid]]]])]))))
+                                [eid-comparison entity-id-col [:cast (first cursor) :uuid]]]])]))))
 
 (defn reverse-direction [direction]
   (case direction

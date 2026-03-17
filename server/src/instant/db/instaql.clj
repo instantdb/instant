@@ -459,14 +459,12 @@
                 (assert-cursor! (update state :in conj :after) after))
 
         after-inclusive (when-some [after (:afterInclusive x)]
-                          (tool/def-locals)
                           (assert-boolean! (update state :in conj :afterInclusive) after))
 
         before (when-let [before (:before x)]
                  (assert-cursor! (update state :in conj :before) before))
 
         before-inclusive (when-some [before (:beforeInclusive x)]
-                           (tool/def-locals)
                            (assert-boolean! (update state :in conj :beforeInclusive) before))
 
         aggregate (when-let [aggregate (:aggregate x)]
