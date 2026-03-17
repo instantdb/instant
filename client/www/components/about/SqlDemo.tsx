@@ -1,4 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui';
 
 function AuroraIcon({ className }: { className?: string }) {
   return (
@@ -38,15 +44,16 @@ function Tip({
   label: string;
 }) {
   return (
-    <span className="group relative inline">
-      <span className="border-b border-dashed border-gray-400/50">
-        {children}
-      </span>
-      <span className="pointer-events-none absolute top-full left-1/2 z-20 mt-1.5 -translate-x-1/2 rounded bg-gray-800 px-2 py-1 text-[10px] leading-tight font-normal whitespace-nowrap text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-        {label}
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-800" />
-      </span>
-    </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="cursor-help border-b border-dashed border-gray-400/50">
+          {children}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p className="max-w-[200px] text-xs">{label}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -121,135 +128,141 @@ export function SqlDemo() {
   const kw = 'text-gray-400';
 
   return (
-    <div
-      ref={containerRef}
-      className="relative flex flex-col items-start gap-6 lg:flex-row lg:items-center lg:gap-10"
-    >
-      {line && (
-        <svg
-          aria-hidden="true"
-          width="100%"
-          height="100%"
-          className="pointer-events-none absolute inset-0 z-0"
-        >
-          <line
-            x1={line.x1}
-            y1={line.y1}
-            x2={line.x2}
-            y2={line.y2}
-            stroke="#d1d5db"
-            strokeWidth="2"
-          />
-        </svg>
-      )}
+    <TooltipProvider>
+      <div
+        ref={containerRef}
+        className="relative flex flex-col items-center gap-6 lg:flex-row lg:items-center lg:gap-10"
+      >
+        {line && (
+          <svg
+            aria-hidden="true"
+            width="100%"
+            height="100%"
+            className="pointer-events-none absolute inset-0 z-0"
+          >
+            <line
+              x1={line.x1}
+              y1={line.y1}
+              x2={line.x2}
+              y2={line.y2}
+              stroke="#d1d5db"
+              strokeWidth="2"
+            />
+          </svg>
+        )}
 
-      {/* Left: InstaQL */}
-      <div className="relative z-10 shrink-0">
-        <div className="mb-1 text-[10px] font-medium tracking-wider text-gray-400 uppercase">
-          InstaQL
-        </div>
-        <div ref={instaqlRef}>
-          <pre className="rounded-lg bg-gray-100 px-3 py-2 font-mono text-xs leading-[1.7] text-gray-700">
-            <span className="text-gray-400">{'{\n'}</span>
-            {'  todos'}
-            <span className="text-gray-400">{': {\n'}</span>
-            {'    $'}
-            <span className="text-gray-400">{': {\n'}</span>
-            {'      where'}
-            <span className="text-gray-400">{': {\n'}</span>
-            {'        done'}
-            <span className="text-gray-400">{': '}</span>
-            <button
-              onClick={toggle}
-              className="inline-block w-[3.2em] cursor-pointer rounded bg-orange-100 py-0.5 text-center font-semibold text-orange-600 transition-colors hover:bg-orange-200"
-            >
-              {String(filterValue)}
-            </button>
-            <span className="text-gray-400">{'\n      }\n    }\n  }\n}'}</span>
-          </pre>
-        </div>
-      </div>
-
-      {/* Right: Postgres card */}
-      <div className="relative z-10 min-w-0 flex-1">
-        <div
-          ref={sqlCardRef}
-          className="rounded-xl border border-gray-200 bg-white shadow-sm"
-        >
-          <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-50/80 px-4 py-2">
-            <AuroraIcon className="h-5 w-5 rounded" />
-            <span className="text-xs font-medium text-gray-500">
-              Aurora Postgres
-            </span>
+        {/* Left: InstaQL */}
+        <div className="relative z-10 shrink-0">
+          <div className="mb-1 text-[10px] font-medium tracking-wider text-gray-400 uppercase">
+            InstaQL
           </div>
-          <pre className="overflow-visible px-4 py-3 font-mono text-[11px] leading-[1.7] text-gray-700">
-            <span className={kw}>WITH </span>
-            <Tip label="First, find all todo triples where done is true">done_triples</Tip>
-            <span className={kw}>{' AS ('}</span>
-            {'\n  '}
-            <span className={kw}>SELECT </span>
-            {'entity_id'}
-            {'\n  '}
-            <span className={kw}>FROM </span>
-            {'triples'}
-            {'\n  '}
-            <span className={kw}>WHERE </span>
-            <Tip label="All triples are partitioned by app_id, so data across tenants is isolated">
-              {'app_id'}
-            </Tip>
-            {' = '}
-            <span className="text-gray-400">&apos;app_id&apos;</span>
-            {'\n    '}
-            <span className={kw}>AND </span>
-            <Tip label="A partial index on (attr, value, entity) that makes queries like this fast">
-              {'ave'}
-            </Tip>
-            {'\n    '}
-            <span className={kw}>AND </span>
-            {'attr_id = '}
-            <span className="text-gray-400">&apos;todo-done&apos;</span>
-            {'\n    '}
-            <span className={kw}>AND </span>
-            {'value = '}
-            <button
-              onClick={toggle}
-              className="cursor-pointer font-semibold text-orange-600 hover:text-orange-700"
-            >
-              {String(filterValue)}
-            </button>
-            {'\n'}
-            <span className={kw}>{')'}</span>
-            {',\n'}
-            <Tip label="Now fetch all attributes for the done triples we found">
-              todo_data
-            </Tip>
-            <span className={kw}>{' AS ('}</span>
-            {'\n  '}
-            <span className={kw}>SELECT </span>
-            {'t.entity_id, t.attr_id, t.value'}
-            {'\n  '}
-            <span className={kw}>FROM </span>
-            {'triples t'}
-            {'\n  '}
-            <span className={kw}>JOIN </span>
-            {'done_triples d'}
-            {'\n    '}
-            <span className={kw}>ON </span>
-            {'t.entity_id = d.entity_id'}
-            {'\n  '}
-            <span className={kw}>WHERE </span>
-            {'t.app_id = '}
-            <span className="text-gray-400">&apos;app_id&apos;</span>
-            {'\n'}
-            <span className={kw}>{')'}</span>
-            {'\n'}
-            <span className={kw}>SELECT </span>
-            {'* '}
-            <span className={kw}>FROM </span>
-            {'todo_data'}
-          </pre>
+          <div ref={instaqlRef}>
+            <pre className="rounded-lg bg-gray-100 px-3 py-2 font-mono text-xs leading-[1.7] text-gray-700">
+              <span className="text-gray-400">{'{\n'}</span>
+              {'  todos'}
+              <span className="text-gray-400">{': {\n'}</span>
+              {'    $'}
+              <span className="text-gray-400">{': {\n'}</span>
+              {'      where'}
+              <span className="text-gray-400">{': {\n'}</span>
+              {'        done'}
+              <span className="text-gray-400">{': '}</span>
+              <button
+                onClick={toggle}
+                className="inline-block w-[3.2em] cursor-pointer rounded bg-orange-100 py-0.5 text-center font-semibold text-orange-600 transition-colors hover:bg-orange-200"
+              >
+                {String(filterValue)}
+              </button>
+              <span className="text-gray-400">
+                {'\n      }\n    }\n  }\n}'}
+              </span>
+            </pre>
+          </div>
+        </div>
+
+        {/* Right: Postgres card */}
+        <div className="relative z-10 min-w-0 flex-1">
+          <div
+            ref={sqlCardRef}
+            className="rounded-xl border border-gray-200 bg-white shadow-sm"
+          >
+            <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-50/80 px-4 py-2">
+              <AuroraIcon className="h-5 w-5 rounded" />
+              <span className="text-xs font-medium text-gray-500">
+                Aurora Postgres
+              </span>
+            </div>
+            <pre className="overflow-visible px-4 py-3 font-mono text-[11px] leading-[1.7] text-gray-700">
+              <span className={kw}>WITH </span>
+              <Tip label="First, find all todo triples where done is true">
+                done_triples
+              </Tip>
+              <span className={kw}>{' AS ('}</span>
+              {'\n  '}
+              <span className={kw}>SELECT </span>
+              {'entity_id'}
+              {'\n  '}
+              <span className={kw}>FROM </span>
+              {'triples'}
+              {'\n  '}
+              <span className={kw}>WHERE </span>
+              <Tip label="All triples are partitioned by app_id, so data across tenants is isolated">
+                {'app_id'}
+              </Tip>
+              {' = '}
+              <span className="text-gray-400">&apos;app_id&apos;</span>
+              {'\n    '}
+              <span className={kw}>AND </span>
+              <Tip label="A partial index on (attr, value, entity) that makes queries like this fast">
+                {'ave'}
+              </Tip>
+              {'\n    '}
+              <span className={kw}>AND </span>
+              {'attr_id = '}
+              <span className="text-gray-400">&apos;todo-done&apos;</span>
+              {'\n    '}
+              <span className={kw}>AND </span>
+              {'value = '}
+              <button
+                onClick={toggle}
+                className="cursor-pointer font-semibold text-orange-600 hover:text-orange-700"
+              >
+                {String(filterValue)}
+              </button>
+              {'\n'}
+              <span className={kw}>{')'}</span>
+              {',\n'}
+              <Tip label="Now fetch all attributes for the done triples we found">
+                todo_data
+              </Tip>
+              <span className={kw}>{' AS ('}</span>
+              {'\n  '}
+              <span className={kw}>SELECT </span>
+              {'t.entity_id, t.attr_id, t.value'}
+              {'\n  '}
+              <span className={kw}>FROM </span>
+              {'triples t'}
+              {'\n  '}
+              <span className={kw}>JOIN </span>
+              {'done_triples d'}
+              {'\n    '}
+              <span className={kw}>ON </span>
+              {'t.entity_id = d.entity_id'}
+              {'\n  '}
+              <span className={kw}>WHERE </span>
+              {'t.app_id = '}
+              <span className="text-gray-400">&apos;app_id&apos;</span>
+              {'\n'}
+              <span className={kw}>{')'}</span>
+              {'\n'}
+              <span className={kw}>SELECT </span>
+              {'* '}
+              <span className={kw}>FROM </span>
+              {'todo_data'}
+            </pre>
+          </div>
         </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
