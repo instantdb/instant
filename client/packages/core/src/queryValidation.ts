@@ -21,7 +21,9 @@ const dollarSignKeys = [
   'first',
   'offset',
   'after',
+  'afterInclusive',
   'before',
+  'beforeInclusive',
   'fields',
   'aggregate',
 ];
@@ -382,7 +384,9 @@ const validateDollarObject = (
     // 'limit', // only supported client side
     'offset',
     'before',
+    'beforeInclusive',
     'after',
+    'afterInclusive',
     'first',
     'last',
   ];
