@@ -1,4 +1,8 @@
-import type { InstantCoreDatabase } from './index.ts';
+import {
+  QueryValidationError,
+  type InstantCoreDatabase,
+  type ValidQuery,
+} from './index.ts';
 import {
   InstaQLResponse,
   InstaQLOptions,
@@ -75,22 +79,27 @@ export type InfiniteQueryCallbackResponse<
 
 export const subscribeInfiniteQuery = <
   Schema extends InstantSchemaDef<any, any, any>,
-  Entity extends keyof Schema['entities'],
-  Q extends Record<string, any>,
-  UseDatesLocal extends boolean,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
 >(
-  db: InstantCoreDatabase<Schema, UseDatesLocal>,
-  entityName: Entity,
-  query: Q,
-  cb: (
-    resp: InfiniteQueryCallbackResponse<
-      Schema,
-      { [K in Entity]: Q },
-      UseDatesLocal
-    >,
-  ) => void,
+  db: InstantCoreDatabase<Schema, UseDates>,
+  fullQuery: Q,
+  cb: (resp: InfiniteQueryCallbackResponse<Schema, Q, UseDates>) => void,
   opts?: InstaQLOptions,
 ): InfiniteQuerySubscription => {
+  const entityNames = Object.keys(fullQuery);
+  if (entityNames.length !== 1) {
+    throw new QueryValidationError(
+      'subscribeInfiniteQuery expects exactly one entity',
+    );
+  }
+
+  const [entityName, query] = Object.entries(fullQuery)[0];
+
+  if (!entityName || !query) {
+    throw new QueryValidationError('No query provided for infinite query');
+  }
+
   const pageSize = query.$?.limit || 10;
   const entity = entityName;
 
@@ -109,7 +118,7 @@ export const subscribeInfiniteQuery = <
 
   const inclusiveBeforeCursor = (
     cursor: Cursor,
-    order?: Order<Schema, Entity>,
+    order?: Order<Schema, string>,
   ): Cursor => {
     return isDescendingOrder(order)
       ? decrementCursor(cursor)
@@ -139,12 +148,12 @@ export const subscribeInfiniteQuery = <
     ];
 
     cb({
+      //@ts-expect-error can't infer entity
       data: { [entity]: data } as InstaQLResponse<
         Schema,
-        { [K in Entity]: Q },
-        UseDatesLocal
+        typeof query,
+        UseDates
       >,
-      // @ts-expect-error chunks hidden from type
       chunks,
       canLoadNextPage: readCanLoadMore(),
       loadNextPage,

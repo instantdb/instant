@@ -722,34 +722,15 @@ class InstantCoreDatabase<
    *   }
    * });
    */
-  subscribeInfiniteQuery<
-    Q extends ValidQuery<Q, Schema>,
-    Entity extends keyof Schema['entities'],
-  >(
+  subscribeInfiniteQuery<Q extends ValidQuery<Q, Schema>>(
     query: Q,
     cb: (resp: InfiniteQueryCallbackResponse<Schema, Q, UseDates>) => void,
     opts?: InstaQLOptions,
   ): InfiniteQuerySubscription {
-    const entityNames = Object.keys(query);
-    if (entityNames.length !== 1) {
-      throw new QueryValidationError(
-        'subscribeInfiniteQuery expects exactly one entity',
-      );
-    }
-
-    const [entityName, entityQuery] = Object.entries(query)[0] as [
-      Entity,
-      Q[Entity] | undefined,
-    ];
-    if (!entityName || !entityQuery) {
-      throw new QueryValidationError('No query provided for infinite query');
-    }
-
-    return subscribeInfiniteQuery<Schema, Entity, Q, UseDates>(
+    return subscribeInfiniteQuery<Schema, Q, UseDates>(
       this as any,
-      entityName,
-      entityQuery as any,
-      cb as any,
+      query,
+      cb,
       opts,
     );
   }
