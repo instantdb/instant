@@ -3,10 +3,8 @@ import { Footer } from '@/components/new-landing/Footer';
 import { Section } from '@/components/new-landing/Section';
 import { TopWash } from '@/components/new-landing/TopWash';
 import { AnimateIn } from '@/components/new-landing/AnimateIn';
-import {
-  CodeEditor,
-  TabbedCodeExample,
-} from '@/components/new-landing/TabbedCodeExample';
+import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
+import { TripleDemo } from '@/components/about/TripleDemo';
 import {
   LandingButton,
   SectionTitle,
@@ -302,24 +300,8 @@ export default function AboutPage() {
                 and backend, we can use the same data model everywhere.
               </p>
             </div>
-            <div className="min-w-0 grow lg:bg-[#F0F5FA] lg:px-[66px] lg:py-[37px]">
-              <div
-                className="overflow-hidden rounded-lg border border-gray-200"
-                style={{ backgroundColor: '#faf8f5' }}
-              >
-                <CodeEditor
-                  language="javascript"
-                  code={`// Every fact is a triple
-// [entity,   attribute,   value]
-
-["user_1",   "name",      "Alice"]
-["goal_1",   "title",     "Ship v2"]
-["goal_1",   "status",    "active"]
-
-// References link entities together
-["goal_1",   "owner",      user_1]`}
-                />
-              </div>
+            <div className="flex min-w-0 grow items-center justify-center lg:bg-[#F0F5FA] lg:px-[40px] lg:py-[37px]">
+              <TripleDemo />
             </div>
           </div>
 
