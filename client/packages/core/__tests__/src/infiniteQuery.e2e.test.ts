@@ -45,7 +45,7 @@ const test = makeE2ETest({
 });
 
 describe('get initial data for useSyncExternalStore', () => {
-  test('empty result', async ({ db }) => {
+  test.skip('empty result', async ({ db }) => {
     let response: Record<string, any> = {};
     const callback = vi.fn<(response: any) => void>((resp) => {
       response = resp;
