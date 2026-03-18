@@ -278,8 +278,8 @@ export function OfflineDemoReactions() {
       {/* Two device cards */}
       <div className="flex gap-3 md:gap-6">
         <LikeDeviceCard
-          name="Stopa"
-          img="/img/landing/stopa.jpg"
+          name="Joe"
+          img="/img/landing/joe.jpg"
           synced={state.synced}
           queued={state.queue1}
           onLike={(msgId) => onLike('queue1', msgId)}
