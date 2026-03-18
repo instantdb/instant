@@ -320,9 +320,7 @@ function TerminalBlock({
         <div className="flex items-center justify-between px-6 py-4 font-mono text-base font-normal">
           <div>
             <span style={{ color: c.keyword }}>$ </span>
-            <span className="font-semibold" style={{ color: c.text }}>
-              {command}
-            </span>
+            <span style={{ color: '#26233a' }}>{command}</span>
           </div>
           <TerminalCopyButton text={command} />
         </div>
@@ -367,7 +365,7 @@ function TabbedPrompts() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
           className="p-6 font-mono text-base whitespace-pre-wrap"
-          style={{ color: c.text }}
+          style={{ color: '#26233a' }}
         >
           {prompt.content}
         </motion.div>
