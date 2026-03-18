@@ -23,6 +23,7 @@ export class InstantHttpError extends Data.TaggedError('InstantHttpError')<{
   message: string;
   type: string;
   methodAndUrl: string;
+  hint?: Record<string, any>;
 }> {}
 
 // Pipe on a client to set command header
@@ -38,6 +39,9 @@ export const withCommand = (command: string) => {
 class InstantTypicalHttpErrorResponse extends Schema.Struct({
   message: Schema.String,
   type: Schema.String.pipe(Schema.optional),
+  hint: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(
+    Schema.optional,
+  ),
 }) {}
 
 export const InstantHttpLive = Layer.effect(
@@ -76,6 +80,7 @@ export const InstantHttpLive = Layer.effect(
               return yield* new InstantHttpError({
                 message: jsonBody.message,
                 methodAndUrl: requestError.methodAndUrl,
+                hint: jsonBody.hint,
                 type: jsonBody.type || 'Unknown type',
               });
             }),
