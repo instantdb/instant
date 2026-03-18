@@ -344,6 +344,9 @@ export const subscribeInfiniteQuery = <
     subs.set(chunkSubKey('forward', startCursor), nextSub);
   };
 
+  // Checks if the "leftmost" reverse chunk has more entries before it.
+  // Then adds a new chunk to the end if so
+  // This gets run on every update to the leftmost chunk
   const maybeAdvanceReverse = () => {
     const tailEntry = Array.from(reverseChunks.entries()).at(-1);
     if (!tailEntry) return;
