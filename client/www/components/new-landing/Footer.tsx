@@ -26,11 +26,11 @@ const footerLinks = {
 export function Footer() {
   return (
     <footer className="border-t border-gray-200 bg-white">
-      <div className="landing-width mx-auto px-4 py-12 sm:px-6 lg:px-8">
+      <div className="landing-width mx-auto px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
           <div className="col-span-2 md:col-span-1">
             <LogoType />
-            <div className="mt-4 flex items-center gap-4">
+            <div className="mt-3 flex items-center gap-3">
               <a
                 href="https://twitter.com/instant_db"
                 target="_blank"
