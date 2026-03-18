@@ -76,20 +76,18 @@ export function RealtimeChecklistDemo() {
         <img
           src={img}
           alt={name}
-          className="h-6 w-6 rounded-full object-cover md:h-7 md:w-7"
+          className="h-7 w-7 rounded-full object-cover"
         />
-        <span className="text-xs font-medium md:text-sm">
-          {name}&apos;s phone
-        </span>
+        <span className="text-sm font-medium">{name}&apos;s phone</span>
       </div>
-      <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm md:p-5">
+      <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm md:p-5">
         <div className="mb-3 text-sm font-medium text-gray-500">Team Todos</div>
         <div className="space-y-1.5">
           {items.map((t) => (
             <button
               key={t.id}
               onClick={(e) => toggle(t.id, source, e)}
-              className="flex w-full items-center gap-1 rounded-lg px-2 py-1 text-left md:gap-3 md:px-3 md:py-2.5"
+              className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left"
             >
               <Checkbox done={t.done} />
               <span

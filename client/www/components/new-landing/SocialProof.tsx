@@ -63,17 +63,17 @@ export function SocialProof() {
       {/* Credibility badges */}
       <AnimateIn delay={100}>
         <div>
-          <div className="flex items-center justify-center gap-4 text-xs text-gray-400 sm:gap-6 sm:text-sm">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-gray-400">
             <div className="flex items-center gap-1.5">
               <YCIcon className="h-4 w-4" />
               <span>Backed by Y Combinator</span>
             </div>
-            <span className="text-gray-300">·</span>
+            <span className="hidden text-gray-300 sm:inline">·</span>
             <div className="flex items-center gap-1.5">
               <SVAngelIcon className="h-4 w-4" />
               <span>Backed by SV Angel</span>
             </div>
-            <span className="text-gray-300">·</span>
+            <span className="hidden text-gray-300 sm:inline">·</span>
             <div className="flex items-center gap-1.5">
               <TechCrunchIcon className="h-3.5 w-3.5" />
               <span>Featured in TechCrunch</span>

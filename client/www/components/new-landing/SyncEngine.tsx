@@ -29,7 +29,7 @@ export function SyncEngine() {
       <div className="flex flex-col gap-9">
         {/* Instant updates — text left, demo right */}
         <AnimateIn>
-          <div className="flex grid-cols-3 flex-col items-center gap-6 md:grid">
+          <div className="flex grid-cols-3 flex-col items-stretch gap-6 md:grid md:items-center">
             <div className="col-span-1">
               <Subheading>Instant updates</Subheading>
               <FeatureBody>
@@ -46,7 +46,7 @@ export function SyncEngine() {
 
         {/* Real-time sync — demo left, text right */}
         <AnimateIn>
-          <div className="flex grid-cols-3 flex-col-reverse items-center gap-6 md:grid">
+          <div className="flex grid-cols-3 flex-col-reverse items-stretch gap-6 md:grid md:items-center">
             <div className="col-span-2 md:px-12 md:py-9">
               <RealtimeChecklistDemo />
             </div>
@@ -63,7 +63,7 @@ export function SyncEngine() {
 
         {/* Works offline — text left, demo right */}
         <AnimateIn>
-          <div className="flex grid-cols-3 flex-col items-center gap-6 lg:grid">
+          <div className="flex grid-cols-3 flex-col items-stretch gap-6 md:grid md:items-center">
             <div className="col-span-1">
               <Subheading>Works offline</Subheading>
               <FeatureBody>
@@ -72,7 +72,7 @@ export function SyncEngine() {
                 to do a thing. Pure magic.
               </FeatureBody>
             </div>
-            <div className="col-span-2 px-4 py-6 md:px-12 md:py-9">
+            <div className="col-span-2 md:px-12 md:py-9">
               <OfflineDemoReactions />
             </div>
           </div>
