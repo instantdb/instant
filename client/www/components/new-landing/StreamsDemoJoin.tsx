@@ -341,40 +341,23 @@ export function StreamsDemoJoin() {
     [getWrapperEl],
   );
 
-  // Spawn pellets from storage → server → Daniel
+  // Spawn pellet from storage directly → Daniel
   const spawnStorageCoord = useCallback((_point: Point) => {
     const container = containerRef.current;
     const storage = storageRef.current;
-    const server = serverRef.current;
     const destWrapper = danielWrapperRef.current;
-    if (!container || !storage || !server || !destWrapper) return;
+    if (!container || !storage || !destWrapper) return;
 
     const cRect = container.getBoundingClientRect();
     const stRect = storage.getBoundingClientRect();
-    const svRect = server.getBoundingClientRect();
     const dRect = destWrapper.getBoundingClientRect();
 
-    const serverCX = svRect.left + svRect.width / 2 - cRect.left;
-    const serverCY = svRect.top + svRect.height / 2 - cRect.top;
-
-    // Inbound: storage → server
     coordIdRef.current += 1;
     coordsBufferRef.current.push({
       id: coordIdRef.current,
       variant: 'storage',
-      startX: stRect.left + stRect.width / 2 - cRect.left,
-      startY: stRect.top - cRect.top,
-      endX: serverCX,
-      endY: svRect.bottom - cRect.top + 2,
-    });
-
-    // Outbound: server → Daniel
-    coordIdRef.current += 1;
-    coordsBufferRef.current.push({
-      id: coordIdRef.current,
-      variant: 'storage',
-      startX: svRect.right - cRect.left + 2,
-      startY: serverCY,
+      startX: stRect.right - cRect.left + 2,
+      startY: stRect.top + stRect.height / 2 - cRect.top,
       endX: dRect.left - cRect.left - 6,
       endY: dRect.top - cRect.top + dRect.height / 2,
     });
@@ -652,25 +635,22 @@ export function StreamsDemoJoin() {
         </div>
 
         {/* ─── Instant server + storage ─── */}
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center gap-3">
           <div ref={serverRef}>
             <img
               src="/img/icon/logo-512.svg"
-              alt="Instant"
+              alt="Instant servers"
               className="h-[28px] w-[28px]"
             />
           </div>
 
-          <div className="h-3" />
-
-          {/* Storage */}
-          <div
-            ref={storageRef}
-            className="flex h-[28px] w-[28px] items-center justify-center border border-gray-200 bg-white"
-          >
-            <span className="font-mono text-sm font-bold text-gray-400">
-              S3
-            </span>
+          {/* S3 storage */}
+          <div ref={storageRef}>
+            <img
+              src="/img/landing/s3-bucket.svg"
+              alt="S3"
+              className="h-[28px] w-[28px]"
+            />
           </div>
         </div>
 
