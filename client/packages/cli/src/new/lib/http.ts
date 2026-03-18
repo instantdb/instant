@@ -2,14 +2,22 @@ import { HttpClient, HttpClientRequest } from '@effect/platform';
 import { version } from '@instantdb/version';
 import { Config, Context, Data, Effect, Layer, Option, Schema } from 'effect';
 import { AuthToken } from '../context/authToken.js';
+import { TimeoutException } from 'effect/Cause';
+import { RequestError } from '@effect/platform/HttpClientError';
 
 export class InstantHttp extends Context.Tag(
   'instant-cli/new/lib/http/InstantHttp',
-)<InstantHttp, HttpClient.HttpClient.With<InstantHttpError>>() {}
+)<
+  InstantHttp,
+  HttpClient.HttpClient.With<InstantHttpError | TimeoutException | RequestError>
+>() {}
 
 export class InstantHttpAuthed extends Context.Tag(
   'instant-cli/new/lib/http/InstantHttpAuthed',
-)<InstantHttpAuthed, HttpClient.HttpClient.With<InstantHttpError>>() {}
+)<
+  InstantHttpAuthed,
+  HttpClient.HttpClient.With<InstantHttpError | TimeoutException | RequestError>
+>() {}
 
 export class InstantHttpError extends Data.TaggedError('InstantHttpError')<{
   message: string;
@@ -45,13 +53,11 @@ export const InstantHttpLive = Layer.effect(
           HttpClientRequest.setHeader('X-Instant-Version', version),
         ),
       ),
-      HttpClient.transformResponse((r) =>
-        r.pipe(Effect.timeout('5 minutes'), Effect.orDie),
-      ),
+      HttpClient.transformResponse((r) => r.pipe(Effect.timeout('5 minutes'))),
       HttpClient.filterStatusOk, // makes non 2xx http codes error
       HttpClient.transformResponse((r) =>
         r.pipe(
-          Effect.catchAll((requestError) =>
+          Effect.catchTag('ResponseError', (requestError) =>
             Effect.gen(function* () {
               const jsonBody = yield* requestError.response.json.pipe(
                 Effect.andThen(

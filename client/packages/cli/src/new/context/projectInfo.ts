@@ -8,6 +8,8 @@ import { UI } from '../../ui/index.js';
 import { findProjectDir } from '../../util/projectDir.js';
 import { runUIEffect } from '../lib/ui.js';
 import chalk from 'chalk';
+import { GlobalOpts } from './globalOpts.js';
+import { BadArgsError } from '../errors.js';
 
 export class ProjectInfo extends Context.Tag(
   'instant-cli/new/context/projectInfo',
@@ -90,11 +92,18 @@ const getProjectInfo = (
       ),
     );
 
+    const { yes } = yield* GlobalOpts;
     if (!moduleName && coerce) {
       // install the packages
       if (packageName) {
         moduleName = PACKAGE_ALIAS_AND_FULL_NAMES[packageName];
       } else {
+        if (yes) {
+          return yield* BadArgsError.make({
+            message:
+              '--yes was provided without a package specificaion and no Instant SDK was found',
+          });
+        }
         moduleName = yield* runUIEffect(
           new UI.Select({
             promptText: 'Which package would you like to use?',
