@@ -49,7 +49,7 @@ const startups = [
     role: 'Founder, Prism (YC S25)',
     avatar: '/img/startups/alex-liu.jpeg',
     quote:
-      'Instant is our competitive advantage. We get real-time collaboration and offline sync without building any of the infrastructure ourselves. Features that would take months to build are just there from day one. This is a fake testimonial.',
+      'InstantDB is the reason we are able to build applications that feel "instant" to the user. When we were using Supabase, we had to manually create optimistic updates and  struggled to keep client state in sync with the backend. InstantDB removes all of that complexity and has become our competitive advantage. That immediate responsiveness consistently gives us a better user experience than our competitors.',
     demo: {
       type: 'video' as const,
       src: 'https://stream.mux.com/QcgsuWVVwBHiHLAKeREBcfXBoQRn486KzU1YwrGfd1c/720p.mp4',
@@ -62,7 +62,7 @@ const startups = [
     role: 'Co-founder, Mirando (Ex-Facebook)',
     avatar: '/img/peeps/nacho.jpg',
     quote:
-      "The fact that you include everything: from auth, a data layer, a client sdk, a way to mutate on the server, and permissions. It's not any one thing: when you put them together it leads to a great developer experience.",
+      'Instant lets us move fast without cutting corners. The schema and permissions are a joy to work with, recovery features have saved us a couple of times, and real-time sync eliminates a ton of boilerplate. The best part? Every time we demo our WhatsApp integration and every action instantly shows up on the web dashboard, clients are in awe. And it took zero effort on our part to achieve that magic.',
     demo: {
       type: 'video' as const,
       src: 'https://stream.mux.com/RKonvNooP6gss8vCLxqnCVcbjzrPn01x01O00vH9bgQAX00/720p.mp4',
