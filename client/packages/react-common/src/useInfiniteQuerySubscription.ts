@@ -8,7 +8,7 @@ import {
   weakHash,
   getInfiniteQueryInitialSnapshot,
 } from '@instantdb/core';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useRef, useSyncExternalStore } from 'react';
 
 export type InfiniteQueryResult<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -52,54 +52,80 @@ export function useInfiniteQuerySubscription<
 }): InfiniteQueryResult<Schema, Q, UseDates> {
   const subRef = useRef<InfiniteQuerySubscription | null>(null);
 
-  const initialSnapshot = useRef(
-    getInfiniteQueryInitialSnapshot(core, query, opts),
-  );
+  const queryHash = weakHash(query);
+  const optsHash = weakHash(opts);
 
-  const [state, setState] = useState<
+  const snapshot = getInfiniteQueryInitialSnapshot(core, query, opts);
+
+  const initialSnapshot = useRef<
     Omit<InfiniteQueryResult<Schema, Q, UseDates>, 'loadNextPage'>
   >({
-    ...initialSnapshot.current,
-    isLoading: !initialSnapshot.current.data && !initialSnapshot.current.error,
+    ...snapshot,
+    isLoading: !snapshot.data && !snapshot.error,
   });
 
-  useEffect(() => {
-    // Ensure all data gets reset if the query/opts changes
-    setState({
-      error: undefined,
-      data: undefined,
-      isLoading: true,
-      canLoadNextPage: false,
-    });
+  const stateCacheRef = useRef<
+    Omit<InfiniteQueryResult<Schema, Q, UseDates>, 'loadNextPage'>
+  >(initialSnapshot.current);
 
-    try {
-      if (!query) return;
-      const sub = core.subscribeInfiniteQuery(
-        query,
-        (resp) => {
-          setState({
-            ...resp,
-            isLoading: false,
-          });
-        },
-        opts,
-      );
+  const serverSnapshotCacheRef = useRef(initialSnapshot.current);
 
-      subRef.current = sub;
-
-      return () => {
-        subRef.current?.unsubscribe();
-        subRef.current = null;
-      };
-    } catch (e) {
-      setState({
+  const subscribe = useCallback(
+    (cb: () => void) => {
+      subRef.current = null;
+      stateCacheRef.current = {
+        error: undefined,
         data: undefined,
+        isLoading: true,
         canLoadNextPage: false,
-        error: { message: e instanceof Error ? e.message : String(e) },
-        isLoading: false,
-      });
-    }
-  }, [weakHash(query), weakHash(opts)]);
+      };
+      cb();
+
+      if (!query) {
+        return () => {};
+      }
+
+      try {
+        const sub = core.subscribeInfiniteQuery(
+          query,
+          (resp) => {
+            stateCacheRef.current = {
+              ...resp,
+              isLoading: false,
+            };
+            cb();
+          },
+          opts,
+        );
+
+        subRef.current = sub;
+
+        return () => {
+          sub.unsubscribe();
+          if (subRef.current === sub) {
+            subRef.current = null;
+          }
+        };
+      } catch (e) {
+        stateCacheRef.current = {
+          data: undefined,
+          canLoadNextPage: false,
+          error: { message: e instanceof Error ? e.message : String(e) },
+          isLoading: false,
+        };
+        cb();
+
+        return () => {};
+      }
+    },
+    [queryHash, optsHash],
+  );
+
+  const state = useSyncExternalStore(
+    subscribe,
+    () => stateCacheRef.current,
+    () => serverSnapshotCacheRef.current,
+  );
 
   const loadNextPage = () => {
     subRef.current?.loadNextPage();
