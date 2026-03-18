@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // ─── Pre-defined doodle: Instant logo ───────────────────
@@ -40,6 +40,7 @@ const PREDEFINED_STROKES = [OUTER, INNER_BAR];
 
 type Point = { x: number; y: number };
 type CanvasId = 'stopa' | 'drew' | 'daniel';
+const CANVAS_IDS: CanvasId[] = ['stopa', 'drew', 'daniel'];
 
 const STROKE_COLOR = '#F97316';
 const LINE_WIDTH = 2.5;
@@ -79,111 +80,300 @@ function drawStrokes(
 }
 
 function renderCanvas(
-  canvas: HTMLCanvasElement | null,
+  canvas: HTMLCanvasElement,
   strokes: Point[][],
   dpr: number,
+  dotGridCache: HTMLCanvasElement | null,
 ) {
-  if (!canvas) return;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   const w = canvas.width / dpr;
   const h = canvas.height / dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  drawDotGrid(ctx, w, h);
+  if (dotGridCache) {
+    ctx.drawImage(dotGridCache, 0, 0, w, h);
+  } else {
+    drawDotGrid(ctx, w, h);
+  }
   drawStrokes(ctx, strokes, w, h);
 }
 
-// ─── Flying pellet ───────────────────────────────────────
+function buildDotGridCache(w: number, h: number, dpr: number) {
+  const offscreen = document.createElement('canvas');
+  offscreen.width = w * dpr;
+  offscreen.height = h * dpr;
+  const ctx = offscreen.getContext('2d');
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawDotGrid(ctx, w, h);
+  return offscreen;
+}
 
-type FlyingPellet = {
-  id: number;
-  variant: 'live' | 'storage';
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-};
+// ─── Flying pellet (imperative SVG + Web Animations API) ─
 
-// ─── StreamsDemoJoin component ───────────────────────────
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
-export function StreamsDemoJoin() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const cursorRef = useRef<HTMLDivElement>(null);
-  const cursorPosRef = useRef<{ x: number; y: number } | null>(null);
-  const dprRef = useRef(1);
-  const rafRef = useRef<number>(0);
+function spawnPellet(
+  svg: SVGSVGElement,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  variant: 'live' | 'storage',
+) {
+  const path = document.createElementNS(SVG_NS, 'path');
+  const color = variant === 'live' ? '#F97316' : '#6366F1';
 
-  // Wrapper refs for flying coord positioning
-  const stopaWrapperRef = useRef<HTMLDivElement>(null);
-  const serverRef = useRef<HTMLDivElement>(null);
-  const storageRef = useRef<HTMLDivElement>(null);
-  const drewWrapperRef = useRef<HTMLDivElement>(null);
-  const danielWrapperRef = useRef<HTMLDivElement>(null);
+  path.setAttribute('d', `M${startX},${startY} L${endX},${endY}`);
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', '2.5');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('fill', 'none');
 
-  const canvasRefs = useRef<Record<CanvasId, HTMLCanvasElement | null>>({
+  svg.appendChild(path);
+
+  const totalLength = path.getTotalLength();
+  const segLen = totalLength * 0.3;
+  path.style.strokeDasharray = `${segLen} ${totalLength}`;
+
+  const anim = path.animate(
+    [
+      { strokeDashoffset: '0', opacity: '0.9' },
+      { strokeDashoffset: `${-totalLength}`, opacity: '0' },
+    ],
+    { duration: 450, easing: 'ease-in', fill: 'forwards' },
+  );
+
+  anim.onfinish = () => path.remove();
+}
+
+// ─── StreamsDemo class ──────────────────────────────────
+
+interface StreamsDemoElements {
+  container: HTMLDivElement;
+  canvases: Record<CanvasId, HTMLCanvasElement>;
+  cursor: HTMLDivElement;
+  wrappers: Record<CanvasId, HTMLDivElement>;
+  server: HTMLDivElement;
+  storage: HTMLDivElement;
+  pelletSvg: SVGSVGElement;
+}
+
+class StreamsDemo {
+  private els: StreamsDemoElements;
+  private onDanielJoinedChange: (joined: boolean) => void;
+
+  // Canvas rendering
+  private dpr = 1;
+  private strokes: Record<CanvasId, Point[][]> = {
+    stopa: [],
+    drew: [],
+    daniel: [],
+  };
+  private queues: Record<CanvasId, { strokeIdx: number; point: Point }[]> = {
+    stopa: [],
+    drew: [],
+    daniel: [],
+  };
+  private dotGridCache: Record<CanvasId, HTMLCanvasElement | null> = {
     stopa: null,
     drew: null,
     daniel: null,
-  });
-  const strokesRef = useRef<Record<CanvasId, Point[][]>>({
-    stopa: [],
-    drew: [],
-    daniel: [],
-  });
-  const queuesRef = useRef<
-    Record<CanvasId, { strokeIdx: number; point: Point }[]>
-  >({
-    stopa: [],
-    drew: [],
-    daniel: [],
-  });
+  };
+  private dirty: Record<CanvasId, boolean> = {
+    stopa: true,
+    drew: true,
+    daniel: true,
+  };
+  private cursorDirty = true;
+  private cursorPos: Point | null = null;
 
-  const activeSourceRef = useRef<CanvasId | null>(null);
+  // rAF
+  private rafId = 0;
+  private rafPending = false;
 
-  const autoplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autoplayActiveRef = useRef(false);
-  const autoplayStrokeIdxRef = useRef(0);
-  const autoplayPointIdxRef = useRef(0);
+  // Source tracking
+  private activeSource: CanvasId | null = null;
 
-  const recordingRef = useRef<{ strokeIdx: number; point: Point }[]>([]);
-  const replayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Autoplay
+  private autoplayTimer: ReturnType<typeof setTimeout> | null = null;
+  private autoplayActive = false;
+  private autoplayStrokeIdx = 0;
+  private autoplayPointIdx = 0;
 
-  const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Recording & replay
+  private recording: { strokeIdx: number; point: Point }[] = [];
+  private joinTimer: ReturnType<typeof setTimeout> | null = null;
+  private replayTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const isDrawingRef = useRef(false);
-  const currentStrokeRef = useRef<Point[]>([]);
+  // Stream consumer
+  private streamInterval: ReturnType<typeof setInterval> | null = null;
 
-  const [danielJoined, setDanielJoined] = useState(false);
-  const danielJoinedRef = useRef(false);
+  // Drawing state
+  private isDrawing = false;
+  private currentStroke: Point[] = [];
 
-  // Flying coords
-  const coordIdRef = useRef(0);
-  const coordsBufferRef = useRef<FlyingPellet[]>([]);
-  const coordFlushRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [flyingCoords, setFlyingCoords] = useState<FlyingPellet[]>([]);
-  const coordCounterRef = useRef(0);
+  // Daniel joined (local mirror for imperative logic)
+  private danielJoined = false;
 
-  const setupCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
-    if (!canvas) return;
+  // Pellet counter
+  private coordCounter = 0;
+
+  constructor(
+    elements: StreamsDemoElements,
+    onDanielJoinedChange: (joined: boolean) => void,
+  ) {
+    this.els = elements;
+    this.onDanielJoinedChange = onDanielJoinedChange;
+
+    for (const id of CANVAS_IDS) {
+      this.setupCanvas(id);
+    }
+    this.scheduleRedraw();
+
+    this.streamInterval = setInterval(() => this.consumeQueues(), 12);
+
+    this.handleResize = this.handleResize.bind(this);
+    window.addEventListener('resize', this.handleResize);
+  }
+
+  destroy() {
+    cancelAnimationFrame(this.rafId);
+    if (this.streamInterval) clearInterval(this.streamInterval);
+    if (this.autoplayTimer) clearTimeout(this.autoplayTimer);
+    if (this.joinTimer) clearTimeout(this.joinTimer);
+    if (this.replayTimer) clearTimeout(this.replayTimer);
+    window.removeEventListener('resize', this.handleResize);
+  }
+
+  // ─── Public methods ───
+
+  startAutoplay() {
+    this.clearAutoplay();
+    this.autoplayActive = true;
+    this.autoplayStrokeIdx = 0;
+    this.autoplayPointIdx = 0;
+
+    this.activeSource = 'stopa';
+    this.onDanielJoinedChange(false);
+    this.danielJoined = false;
+    this.clearCanvasData();
+
+    this.playNextPoint();
+  }
+
+  handlePointerDown(canvasId: CanvasId, clientX: number, clientY: number) {
+    this.clearAutoplay();
+    this.cursorPos = null;
+    this.cursorDirty = true;
+
+    this.clearCanvasData();
+    this.activeSource = canvasId;
+    this.isDrawing = true;
+
+    const point = this.getCanvasPoint(canvasId, clientX, clientY);
+    if (!point) return;
+
+    this.strokes[canvasId].push([point]);
+    this.currentStroke = this.strokes[canvasId][0];
+    this.dirty[canvasId] = true;
+    this.scheduleRedraw();
+
+    for (const id of CANVAS_IDS) {
+      if (id === canvasId) continue;
+      if (id === 'daniel' && !this.danielJoined) continue;
+      this.queues[id].push({ strokeIdx: 0, point });
+    }
+    this.recording.push({ strokeIdx: 0, point });
+  }
+
+  handlePointerMove(canvasId: CanvasId, clientX: number, clientY: number) {
+    if (!this.isDrawing) return;
+    if (this.activeSource !== canvasId) return;
+    const point = this.getCanvasPoint(canvasId, clientX, clientY);
+    if (!point) return;
+    this.currentStroke.push(point);
+    this.dirty[canvasId] = true;
+    this.scheduleRedraw();
+    const strokeIdx = this.strokes[canvasId].length - 1;
+
+    for (const id of CANVAS_IDS) {
+      if (id === canvasId) continue;
+      if (id === 'daniel' && !this.danielJoined) continue;
+      this.queues[id].push({ strokeIdx, point });
+    }
+    this.recording.push({ strokeIdx, point });
+
+    this.coordCounter += 1;
+    if (this.coordCounter % 3 === 0) {
+      this.spawnBroadcastPellets(canvasId, point);
+    }
+  }
+
+  handlePointerUp() {
+    this.isDrawing = false;
+    this.currentStroke = [];
+    this.activeSource = null;
+  }
+
+  join() {
+    this.onDanielJoinedChange(true);
+
+    const recording = [...this.recording];
+
+    for (const entry of recording) {
+      this.queues['daniel'].push({
+        strokeIdx: entry.strokeIdx,
+        point: entry.point,
+      });
+    }
+
+    this.danielJoined = true;
+
+    this.joinTimer = setTimeout(() => {
+      this.setupCanvas('daniel');
+
+      let i = 0;
+      const spawnNext = () => {
+        if (i >= recording.length) return;
+        if (i % 3 === 0) {
+          this.spawnStorageCoord(recording[i].point);
+        }
+        i++;
+        this.replayTimer = setTimeout(spawnNext, 12);
+      };
+      spawnNext();
+    }, 350);
+  }
+
+  // ─── Private: canvas rendering ───
+
+  private setupCanvas(id: CanvasId) {
+    const canvas = this.els.canvases[id];
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    dprRef.current = dpr;
+    this.dpr = dpr;
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
-  }, []);
+    this.dotGridCache[id] = buildDotGridCache(rect.width, rect.height, dpr);
+    this.dirty[id] = true;
+  }
 
-  const redraw = useCallback(() => {
-    for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
+  private redraw() {
+    for (const id of CANVAS_IDS) {
+      if (!this.dirty[id]) continue;
       renderCanvas(
-        canvasRefs.current[id],
-        strokesRef.current[id],
-        dprRef.current,
+        this.els.canvases[id],
+        this.strokes[id],
+        this.dpr,
+        this.dotGridCache[id],
       );
+      this.dirty[id] = false;
     }
-    const cursor = cursorRef.current;
-    const pos = cursorPosRef.current;
-    if (cursor) {
+    if (this.cursorDirty) {
+      const cursor = this.els.cursor;
+      const pos = this.cursorPos;
       if (pos) {
         cursor.style.display = 'block';
         cursor.style.left = `${pos.x * 100}%`;
@@ -191,412 +381,295 @@ export function StreamsDemoJoin() {
       } else {
         cursor.style.display = 'none';
       }
+      this.cursorDirty = false;
     }
-  }, []);
+  }
 
-  // Render loop
-  useEffect(() => {
-    let running = true;
-    const loop = () => {
-      if (!running) return;
-      redraw();
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-    return () => {
-      running = false;
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [redraw]);
+  private scheduleRedraw() {
+    if (this.rafPending) return;
+    this.rafPending = true;
+    this.rafId = requestAnimationFrame(() => {
+      this.rafPending = false;
+      this.redraw();
+    });
+  }
 
-  // Flying coords flush
-  useEffect(() => {
-    coordFlushRef.current = setInterval(() => {
-      if (coordsBufferRef.current.length === 0) return;
-      const batch = coordsBufferRef.current.splice(0);
-      setFlyingCoords((prev) => [...prev, ...batch]);
-    }, 50);
-    return () => {
-      if (coordFlushRef.current) clearInterval(coordFlushRef.current);
-    };
-  }, []);
+  // ─── Private: stream consumer ───
 
-  // Stream consumer: Drew always, Daniel only after join
-  useEffect(() => {
-    streamIntervalRef.current = setInterval(() => {
-      const source = activeSourceRef.current;
-      for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
-        if (id === source) continue;
-        if (id === 'daniel' && !danielJoinedRef.current) continue;
-        const item = queuesRef.current[id].shift();
-        if (!item) continue;
-        const strokes = strokesRef.current[id];
-        while (strokes.length <= item.strokeIdx) {
-          strokes.push([]);
-        }
-        strokes[item.strokeIdx].push(item.point);
+  private consumeQueues() {
+    const source = this.activeSource;
+    for (const id of CANVAS_IDS) {
+      if (id === source) continue;
+      if (id === 'daniel' && !this.danielJoined) continue;
+      const item = this.queues[id].shift();
+      if (!item) continue;
+      const strokes = this.strokes[id];
+      while (strokes.length <= item.strokeIdx) {
+        strokes.push([]);
       }
-    }, 12);
-    return () => {
-      if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-    };
-  }, []);
-
-  // Canvas sizing
-  useEffect(() => {
-    for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
-      setupCanvas(canvasRefs.current[id]);
+      strokes[item.strokeIdx].push(item.point);
+      this.dirty[id] = true;
+      this.scheduleRedraw();
     }
-    redraw();
+  }
 
-    const handleResize = () => {
-      for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
-        setupCanvas(canvasRefs.current[id]);
-      }
-      redraw();
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [setupCanvas, redraw]);
+  // ─── Private: flying coord helpers ───
 
-  // ─── Flying coord helpers ───
-
-  const getWrapperEl = useCallback(
-    (id: CanvasId): HTMLDivElement | null =>
-      id === 'stopa'
-        ? stopaWrapperRef.current
-        : id === 'drew'
-          ? drewWrapperRef.current
-          : danielWrapperRef.current,
-    [],
-  );
-
-  // Spawn pellets for a broadcast: source → server → all active dests + server → storage
-  const spawnBroadcastPellets = useCallback(
-    (sourceId: CanvasId, _point: Point) => {
-      const container = containerRef.current;
-      const server = serverRef.current;
-      const storage = storageRef.current;
-      const sourceEl = getWrapperEl(sourceId);
-      if (!container || !server || !storage || !sourceEl) return;
-
-      const cRect = container.getBoundingClientRect();
-      const svRect = server.getBoundingClientRect();
-      const stRect = storage.getBoundingClientRect();
-      const sRect = sourceEl.getBoundingClientRect();
-
-      const serverCX = svRect.left + svRect.width / 2 - cRect.left;
-      const serverCY = svRect.top + svRect.height / 2 - cRect.top;
-
-      // Inbound: source → server
-      const sourceIsLeft = sRect.right < svRect.left;
-      coordIdRef.current += 1;
-      coordsBufferRef.current.push({
-        id: coordIdRef.current,
-        variant: 'live',
-        startX: sourceIsLeft
-          ? sRect.right - cRect.left + 6
-          : sRect.left - cRect.left - 6,
-        startY: sRect.top - cRect.top + sRect.height / 2,
-        endX: sourceIsLeft
-          ? svRect.left - cRect.left - 2
-          : svRect.right - cRect.left + 2,
-        endY: serverCY,
-      });
-
-      // Outbound: server → each dest
-      for (const destId of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
-        if (destId === sourceId) continue;
-        if (destId === 'daniel' && !danielJoinedRef.current) continue;
-        const destEl = getWrapperEl(destId);
-        if (!destEl) continue;
-        const dRect = destEl.getBoundingClientRect();
-        const destIsRight = dRect.left > svRect.right;
-        coordIdRef.current += 1;
-        coordsBufferRef.current.push({
-          id: coordIdRef.current,
-          variant: 'live',
-          startX: destIsRight
-            ? svRect.right - cRect.left + 2
-            : svRect.left - cRect.left - 2,
-          startY: serverCY,
-          endX: destIsRight
-            ? dRect.left - cRect.left - 6
-            : dRect.right - cRect.left + 6,
-          endY: dRect.top - cRect.top + dRect.height / 2,
-        });
-      }
-
-      // Persist: server → storage
-      coordIdRef.current += 1;
-      coordsBufferRef.current.push({
-        id: coordIdRef.current,
-        variant: 'storage',
-        startX: serverCX,
-        startY: svRect.bottom - cRect.top + 2,
-        endX: stRect.left + stRect.width / 2 - cRect.left,
-        endY: stRect.top - cRect.top,
-      });
-    },
-    [getWrapperEl],
-  );
-
-  // Spawn pellets from storage → server → Daniel
-  const spawnStorageCoord = useCallback((_point: Point) => {
-    const container = containerRef.current;
-    const storage = storageRef.current;
-    const server = serverRef.current;
-    const destWrapper = danielWrapperRef.current;
-    if (!container || !storage || !server || !destWrapper) return;
+  private spawnBroadcastPellets(sourceId: CanvasId, _point: Point) {
+    const { container, server, storage, pelletSvg: svg, wrappers } = this.els;
+    const sourceEl = wrappers[sourceId];
 
     const cRect = container.getBoundingClientRect();
-    const stRect = storage.getBoundingClientRect();
     const svRect = server.getBoundingClientRect();
-    const dRect = destWrapper.getBoundingClientRect();
+    const stRect = storage.getBoundingClientRect();
+    const sRect = sourceEl.getBoundingClientRect();
 
     const serverCX = svRect.left + svRect.width / 2 - cRect.left;
     const serverCY = svRect.top + svRect.height / 2 - cRect.top;
 
-    // Inbound: storage → server
-    coordIdRef.current += 1;
-    coordsBufferRef.current.push({
-      id: coordIdRef.current,
-      variant: 'storage',
-      startX: stRect.left + stRect.width / 2 - cRect.left,
-      startY: stRect.top - cRect.top,
-      endX: serverCX,
-      endY: svRect.bottom - cRect.top + 2,
-    });
+    // Inbound: source → server
+    const sourceIsLeft = sRect.right < svRect.left;
+    spawnPellet(
+      svg,
+      sourceIsLeft ? sRect.right - cRect.left + 6 : sRect.left - cRect.left - 6,
+      sRect.top - cRect.top + sRect.height / 2,
+      sourceIsLeft
+        ? svRect.left - cRect.left - 2
+        : svRect.right - cRect.left + 2,
+      serverCY,
+      'live',
+    );
 
-    // Outbound: server → Daniel
-    coordIdRef.current += 1;
-    coordsBufferRef.current.push({
-      id: coordIdRef.current,
-      variant: 'storage',
-      startX: svRect.right - cRect.left + 2,
-      startY: serverCY,
-      endX: dRect.left - cRect.left - 6,
-      endY: dRect.top - cRect.top + dRect.height / 2,
-    });
-  }, []);
-
-  const removeCoord = useCallback((id: number) => {
-    setFlyingCoords((prev) => prev.filter((c) => c.id !== id));
-  }, []);
-
-  // ─── Clear helpers ───
-
-  const clearCanvasData = useCallback(() => {
-    for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
-      strokesRef.current[id] = [];
-      queuesRef.current[id] = [];
+    // Outbound: server → each dest
+    for (const destId of CANVAS_IDS) {
+      if (destId === sourceId) continue;
+      if (destId === 'daniel' && !this.danielJoined) continue;
+      const destEl = wrappers[destId];
+      const dRect = destEl.getBoundingClientRect();
+      const destIsRight = dRect.left > svRect.right;
+      spawnPellet(
+        svg,
+        destIsRight
+          ? svRect.right - cRect.left + 2
+          : svRect.left - cRect.left - 2,
+        serverCY,
+        destIsRight
+          ? dRect.left - cRect.left - 6
+          : dRect.right - cRect.left + 6,
+        dRect.top - cRect.top + dRect.height / 2,
+        'live',
+      );
     }
-    recordingRef.current = [];
-    coordsBufferRef.current = [];
-    setFlyingCoords([]);
-    coordCounterRef.current = 0;
-  }, []);
 
-  const clearAutoplay = useCallback(() => {
-    if (autoplayTimerRef.current) {
-      clearTimeout(autoplayTimerRef.current);
-      autoplayTimerRef.current = null;
+    // Persist: server → storage
+    spawnPellet(
+      svg,
+      serverCX,
+      svRect.bottom - cRect.top + 2,
+      stRect.left + stRect.width / 2 - cRect.left,
+      stRect.top - cRect.top,
+      'storage',
+    );
+  }
+
+  private spawnStorageCoord(_point: Point) {
+    const { container, storage, pelletSvg: svg, wrappers } = this.els;
+    const destWrapper = wrappers['daniel'];
+
+    const cRect = container.getBoundingClientRect();
+    const stRect = storage.getBoundingClientRect();
+    const dRect = destWrapper.getBoundingClientRect();
+
+    spawnPellet(
+      svg,
+      stRect.right - cRect.left + 2,
+      stRect.top + stRect.height / 2 - cRect.top,
+      dRect.left - cRect.left - 6,
+      dRect.top - cRect.top + dRect.height / 2,
+      'storage',
+    );
+  }
+
+  // ─── Private: clear helpers ───
+
+  private clearCanvasData() {
+    for (const id of CANVAS_IDS) {
+      this.strokes[id] = [];
+      this.queues[id] = [];
+      this.dirty[id] = true;
     }
-    if (replayTimerRef.current) {
-      clearTimeout(replayTimerRef.current);
-      replayTimerRef.current = null;
+    this.cursorDirty = true;
+    this.recording = [];
+    this.coordCounter = 0;
+    const svg = this.els.pelletSvg;
+    while (svg.firstChild) svg.firstChild.remove();
+    this.scheduleRedraw();
+  }
+
+  private clearAutoplay() {
+    if (this.autoplayTimer) {
+      clearTimeout(this.autoplayTimer);
+      this.autoplayTimer = null;
     }
-    autoplayActiveRef.current = false;
-  }, []);
+    if (this.replayTimer) {
+      clearTimeout(this.replayTimer);
+      this.replayTimer = null;
+    }
+    this.autoplayActive = false;
+  }
 
-  // ─── Autoplay ───
+  // ─── Private: autoplay ───
 
-  const startAutoplay = useCallback(() => {
-    clearAutoplay();
-    autoplayActiveRef.current = true;
-    autoplayStrokeIdxRef.current = 0;
-    autoplayPointIdxRef.current = 0;
+  private playNextPoint() {
+    if (!this.autoplayActive) return;
 
-    activeSourceRef.current = 'stopa';
-    setDanielJoined(false);
-    danielJoinedRef.current = false;
-    clearCanvasData();
+    const si = this.autoplayStrokeIdx;
+    const pi = this.autoplayPointIdx;
 
-    const playNextPoint = () => {
-      if (!autoplayActiveRef.current) return;
+    if (si >= PREDEFINED_STROKES.length) {
+      this.cursorPos = null;
+      this.cursorDirty = true;
+      this.scheduleRedraw();
+      this.autoplayActive = false;
+      this.activeSource = null;
+      return;
+    }
 
-      const si = autoplayStrokeIdxRef.current;
-      const pi = autoplayPointIdxRef.current;
+    const stroke = PREDEFINED_STROKES[si];
+    if (pi >= stroke.length) {
+      this.autoplayStrokeIdx = si + 1;
+      this.autoplayPointIdx = 0;
+      this.autoplayTimer = setTimeout(() => this.playNextPoint(), 100);
+      return;
+    }
 
-      if (si >= PREDEFINED_STROKES.length) {
-        cursorPosRef.current = null;
-        autoplayActiveRef.current = false;
-        activeSourceRef.current = null;
-        return;
-      }
+    const point = stroke[pi];
 
-      const stroke = PREDEFINED_STROKES[si];
-      if (pi >= stroke.length) {
-        autoplayStrokeIdxRef.current = si + 1;
-        autoplayPointIdxRef.current = 0;
-        autoplayTimerRef.current = setTimeout(playNextPoint, 100);
-        return;
-      }
+    const sourceStrokes = this.strokes['stopa'];
+    while (sourceStrokes.length <= si) sourceStrokes.push([]);
+    sourceStrokes[si].push(point);
+    this.dirty['stopa'] = true;
 
-      const point = stroke[pi];
+    this.cursorPos = point;
+    this.cursorDirty = true;
+    this.scheduleRedraw();
 
-      const sourceStrokes = strokesRef.current['stopa'];
-      while (sourceStrokes.length <= si) sourceStrokes.push([]);
-      sourceStrokes[si].push(point);
+    this.queues['drew'].push({ strokeIdx: si, point });
+    if (this.danielJoined) {
+      this.queues['daniel'].push({ strokeIdx: si, point });
+    }
+    this.recording.push({ strokeIdx: si, point });
 
-      cursorPosRef.current = point;
+    this.coordCounter += 1;
+    if (this.coordCounter % 3 === 0) {
+      this.spawnBroadcastPellets('stopa', point);
+    }
 
-      queuesRef.current['drew'].push({ strokeIdx: si, point });
-      if (danielJoinedRef.current) {
-        queuesRef.current['daniel'].push({ strokeIdx: si, point });
-      }
-      recordingRef.current.push({ strokeIdx: si, point });
+    this.autoplayPointIdx = pi + 1;
+    this.autoplayTimer = setTimeout(() => this.playNextPoint(), 18);
+  }
 
-      coordCounterRef.current += 1;
-      if (coordCounterRef.current % 3 === 0) {
-        spawnBroadcastPellets('stopa', point);
-      }
+  // ─── Private: pointer helpers ───
 
-      autoplayPointIdxRef.current = pi + 1;
-      autoplayTimerRef.current = setTimeout(playNextPoint, 18);
+  private getCanvasPoint(
+    canvasId: CanvasId,
+    clientX: number,
+    clientY: number,
+  ): Point | null {
+    const canvas = this.els.canvases[canvasId];
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) / rect.width,
+      y: (clientY - rect.top) / rect.height,
     };
+  }
 
-    playNextPoint();
-  }, [clearAutoplay, clearCanvasData, spawnBroadcastPellets]);
+  private handleResize() {
+    for (const id of CANVAS_IDS) {
+      this.setupCanvas(id);
+    }
+    this.scheduleRedraw();
+  }
+}
 
-  // Trigger autoplay on scroll-in
+// ─── StreamsDemoJoin component ───────────────────────────
+
+export function StreamsDemoJoin() {
+  const [danielJoined, setDanielJoined] = useState(false);
+  const demoRef = useRef<StreamsDemo | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const cursorRef = useRef<HTMLDivElement>(null);
+  const stopaCanvasRef = useRef<HTMLCanvasElement>(null);
+  const drewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const danielCanvasRef = useRef<HTMLCanvasElement>(null);
+  const stopaWrapperRef = useRef<HTMLDivElement>(null);
+  const drewWrapperRef = useRef<HTMLDivElement>(null);
+  const danielWrapperRef = useRef<HTMLDivElement>(null);
+  const serverRef = useRef<HTMLDivElement>(null);
+  const storageRef = useRef<HTMLDivElement>(null);
+  const pelletSvgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    const demo = new StreamsDemo(
+      {
+        container: containerRef.current!,
+        canvases: {
+          stopa: stopaCanvasRef.current!,
+          drew: drewCanvasRef.current!,
+          daniel: danielCanvasRef.current!,
+        },
+        cursor: cursorRef.current!,
+        wrappers: {
+          stopa: stopaWrapperRef.current!,
+          drew: drewWrapperRef.current!,
+          daniel: danielWrapperRef.current!,
+        },
+        server: serverRef.current!,
+        storage: storageRef.current!,
+        pelletSvg: pelletSvgRef.current!,
+      },
+      setDanielJoined,
+    );
+    demoRef.current = demo;
+    return () => {
+      demo.destroy();
+      demoRef.current = null;
+    };
+  }, []);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          startAutoplay();
+          demoRef.current?.startAutoplay();
         }
       },
       { threshold: 0.3 },
     );
     observer.observe(el);
-    return () => {
-      observer.disconnect();
-      clearAutoplay();
-    };
-  }, [startAutoplay, clearAutoplay]);
-
-  // ─── User drawing ───
-
-  const getCanvasPoint = useCallback(
-    (
-      canvasId: CanvasId,
-      e: React.PointerEvent<HTMLCanvasElement>,
-    ): Point | null => {
-      const canvas = canvasRefs.current[canvasId];
-      if (!canvas) return null;
-      const rect = canvas.getBoundingClientRect();
-      return {
-        x: (e.clientX - rect.left) / rect.width,
-        y: (e.clientY - rect.top) / rect.height,
-      };
-    },
-    [],
-  );
-
-  const handlePointerDown = useCallback(
-    (canvasId: CanvasId, e: React.PointerEvent<HTMLCanvasElement>) => {
-      e.preventDefault();
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      clearAutoplay();
-      cursorPosRef.current = null;
-
-      clearCanvasData();
-      activeSourceRef.current = canvasId;
-      isDrawingRef.current = true;
-
-      const point = getCanvasPoint(canvasId, e);
-      if (!point) return;
-
-      strokesRef.current[canvasId].push([point]);
-      currentStrokeRef.current = strokesRef.current[canvasId][0];
-
-      for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
-        if (id === canvasId) continue;
-        if (id === 'daniel' && !danielJoinedRef.current) continue;
-        queuesRef.current[id].push({ strokeIdx: 0, point });
-      }
-      recordingRef.current.push({ strokeIdx: 0, point });
-    },
-    [clearAutoplay, clearCanvasData, getCanvasPoint],
-  );
-
-  const handlePointerMove = useCallback(
-    (canvasId: CanvasId, e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (!isDrawingRef.current) return;
-      if (activeSourceRef.current !== canvasId) return;
-      const point = getCanvasPoint(canvasId, e);
-      if (!point) return;
-      currentStrokeRef.current.push(point);
-      const strokeIdx = strokesRef.current[canvasId].length - 1;
-
-      for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
-        if (id === canvasId) continue;
-        if (id === 'daniel' && !danielJoinedRef.current) continue;
-        queuesRef.current[id].push({ strokeIdx, point });
-      }
-      recordingRef.current.push({ strokeIdx, point });
-
-      coordCounterRef.current += 1;
-      if (coordCounterRef.current % 3 === 0) {
-        spawnBroadcastPellets(canvasId, point);
-      }
-    },
-    [getCanvasPoint, spawnBroadcastPellets],
-  );
-
-  const handlePointerUp = useCallback(() => {
-    isDrawingRef.current = false;
-    currentStrokeRef.current = [];
-    activeSourceRef.current = null;
+    return () => observer.disconnect();
   }, []);
 
-  // ─── Join ───
-
-  const handleJoin = useCallback(() => {
-    setDanielJoined(true);
-
-    const recording = [...recordingRef.current];
-
-    // Push all history to Daniel's queue synchronously (no ordering issues)
-    for (const entry of recording) {
-      queuesRef.current['daniel'].push({
-        strokeIdx: entry.strokeIdx,
-        point: entry.point,
-      });
-    }
-
-    // Now enable live streaming to Daniel
-    danielJoinedRef.current = true;
-
-    // After entrance animation, setup canvas & spawn replay flying coords from storage
-    setTimeout(() => {
-      setupCanvas(canvasRefs.current['daniel']);
-
-      let i = 0;
-      const spawnNext = () => {
-        if (i >= recording.length) return;
-        if (i % 3 === 0) {
-          spawnStorageCoord(recording[i].point);
-        }
-        i++;
-        setTimeout(spawnNext, 12);
-      };
-      spawnNext();
-    }, 350);
-  }, [setupCanvas, spawnStorageCoord]);
+  const onPointerDown = (
+    canvasId: CanvasId,
+    e: React.PointerEvent<HTMLCanvasElement>,
+  ) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    demoRef.current?.handlePointerDown(canvasId, e.clientX, e.clientY);
+  };
+  const onPointerMove = (
+    canvasId: CanvasId,
+    e: React.PointerEvent<HTMLCanvasElement>,
+  ) => {
+    demoRef.current?.handlePointerMove(canvasId, e.clientX, e.clientY);
+  };
+  const onPointerUp = () => {
+    demoRef.current?.handlePointerUp();
+  };
 
   return (
     <div ref={containerRef} className="relative">
@@ -617,15 +690,13 @@ export function StreamsDemoJoin() {
           >
             <div className="relative">
               <canvas
-                ref={(el) => {
-                  canvasRefs.current['stopa'] = el;
-                }}
+                ref={stopaCanvasRef}
                 className="w-full cursor-crosshair"
                 style={{ aspectRatio: '4/3', touchAction: 'none' }}
-                onPointerDown={(e) => handlePointerDown('stopa', e)}
-                onPointerMove={(e) => handlePointerMove('stopa', e)}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
+                onPointerDown={(e) => onPointerDown('stopa', e)}
+                onPointerMove={(e) => onPointerMove('stopa', e)}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
               />
               <div
                 ref={cursorRef}
@@ -652,25 +723,22 @@ export function StreamsDemoJoin() {
         </div>
 
         {/* ─── Instant server + storage ─── */}
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center gap-3">
           <div ref={serverRef}>
             <img
               src="/img/icon/logo-512.svg"
-              alt="Instant"
+              alt="Instant servers"
               className="h-[28px] w-[28px]"
             />
           </div>
 
-          <div className="h-3" />
-
-          {/* Storage */}
-          <div
-            ref={storageRef}
-            className="flex h-[28px] w-[28px] items-center justify-center border border-gray-200 bg-white"
-          >
-            <span className="font-mono text-sm font-bold text-gray-400">
-              S3
-            </span>
+          {/* S3 storage */}
+          <div ref={storageRef}>
+            <img
+              src="/img/landing/s3-bucket.svg"
+              alt="S3"
+              className="h-[28px] w-[28px]"
+            />
           </div>
         </div>
 
@@ -696,15 +764,13 @@ export function StreamsDemoJoin() {
               className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
             >
               <canvas
-                ref={(el) => {
-                  canvasRefs.current['drew'] = el;
-                }}
+                ref={drewCanvasRef}
                 className="w-full cursor-crosshair"
                 style={{ aspectRatio: '4/3', touchAction: 'none' }}
-                onPointerDown={(e) => handlePointerDown('drew', e)}
-                onPointerMove={(e) => handlePointerMove('drew', e)}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
+                onPointerDown={(e) => onPointerDown('drew', e)}
+                onPointerMove={(e) => onPointerMove('drew', e)}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
               />
             </div>
           </div>
@@ -733,15 +799,13 @@ export function StreamsDemoJoin() {
               className="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
             >
               <canvas
-                ref={(el) => {
-                  canvasRefs.current['daniel'] = el;
-                }}
+                ref={danielCanvasRef}
                 className="w-full cursor-crosshair"
                 style={{ aspectRatio: '4/3', touchAction: 'none' }}
-                onPointerDown={(e) => handlePointerDown('daniel', e)}
-                onPointerMove={(e) => handlePointerMove('daniel', e)}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
+                onPointerDown={(e) => onPointerDown('daniel', e)}
+                onPointerMove={(e) => onPointerMove('daniel', e)}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
               />
               {/* Join overlay */}
               <AnimatePresence>
@@ -752,7 +816,7 @@ export function StreamsDemoJoin() {
                     className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[1px]"
                   >
                     <button
-                      onClick={handleJoin}
+                      onClick={() => demoRef.current?.join()}
                       className="cursor-pointer rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white shadow-[0_0_20px_rgba(234,88,12,0.3)] transition-all hover:bg-orange-700 hover:shadow-[0_0_30px_rgba(234,88,12,0.45)]"
                     >
                       Join
@@ -765,26 +829,11 @@ export function StreamsDemoJoin() {
         </div>
       </div>
 
-      {/* Flying pellets — traveling pulse lines */}
-      <svg className="pointer-events-none absolute top-0 left-0 h-full w-full">
-        {flyingCoords.map((coord) => {
-          const color = coord.variant === 'live' ? '#F97316' : '#6366F1';
-          return (
-            <motion.path
-              key={coord.id}
-              d={`M${coord.startX},${coord.startY} L${coord.endX},${coord.endY}`}
-              stroke={color}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              fill="none"
-              initial={{ pathLength: 0.3, pathOffset: 0, opacity: 0.9 }}
-              animate={{ pathOffset: 1, opacity: 0 }}
-              transition={{ duration: 0.45, ease: 'easeIn' }}
-              onAnimationComplete={() => removeCoord(coord.id)}
-            />
-          );
-        })}
-      </svg>
+      {/* Flying pellets — imperative SVG, animated via Web Animations API */}
+      <svg
+        ref={pelletSvgRef}
+        className="pointer-events-none absolute top-0 left-0 h-full w-full"
+      />
     </div>
   );
 }

@@ -441,7 +441,10 @@ export function BareNav({
         )}
       >
         <div className="flex justify-between self-stretch min-[60rem]:hidden">
-          <LogoType />
+          <LogoType
+            morphOnCollapse={morphLogoOnCollapse}
+            collapsed={collapseLogo && !isOpen}
+          />
           <button className="z-50 mt-0.5" onClick={() => setIsOpen(false)}>
             <XMarkIcon height="1em" />
           </button>
@@ -477,14 +480,22 @@ export function MainNav({ transparent = false }: { transparent?: boolean }) {
         'py-4',
         transparent
           ? cn(
-              'fixed top-0 right-0 left-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-300',
-              isScrolled
-                ? 'border-b-gray-200/80 bg-white/80 backdrop-blur-md'
-                : 'border-b-transparent bg-transparent backdrop-blur-none',
+              'fixed top-0 right-0 left-0 z-50 border-b transition-[border-color] duration-300',
+              isScrolled ? 'border-b-gray-200/80' : 'border-b-transparent',
             )
           : 'border-b border-b-gray-200',
       )}
     >
+      {transparent && (
+        <div
+          className={cn(
+            'absolute inset-0 -z-10 transition-[background-color,backdrop-filter] duration-300',
+            isScrolled
+              ? 'bg-white/80 backdrop-blur-md'
+              : 'bg-transparent backdrop-blur-none',
+          )}
+        />
+      )}
       <div className="landing-width mx-auto">
         <BareNav
           collapseLogo={transparent && isScrolled}
