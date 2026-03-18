@@ -13,6 +13,7 @@ import {
   SectionTitle,
   Subheading,
 } from './typography';
+import exampleDB from '@/lib/intern/docs-feedback/db';
 
 // ─── Auth Demo ───────────────────────────────────────────
 
@@ -374,6 +375,8 @@ function StorageFakeCursor({
   );
 }
 
+const storageRoom = exampleDB.room('homepageStorageDemo', 'storage');
+
 function StorageDemo() {
   const [phase, setPhase] = useState<
     'compose' | 'dragging' | 'uploading' | 'typing' | 'post'
@@ -533,8 +536,18 @@ function StorageDemo() {
     sched(() => setShowCursor(false), t);
   }, [clear]);
 
+  const publishHeart = exampleDB.rooms.usePublishTopic(storageRoom, 'hearts');
+
+  exampleDB.rooms.useTopicEffect(storageRoom, 'hearts', () => {
+    if (phase !== 'post') {
+      return;
+    }
+    animateHeart();
+  });
+
   const handleHeartClick = () => {
     if (phase !== 'post') return;
+    publishHeart({});
     animateHeart();
   };
 
