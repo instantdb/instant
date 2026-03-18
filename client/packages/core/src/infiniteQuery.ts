@@ -351,7 +351,7 @@ export const subscribeInfiniteQuery = <
     if (!tailEntry) return;
 
     const [chunkKey, chunk] = tailEntry;
-    // Only forward chunks that have an end cursor can start a one
+    // Only forward chunks that have an end cursor can start at one
     // so that you know where to start from
     if (!chunk?.endCursor) return;
 
@@ -438,9 +438,22 @@ export const getInfiniteQueryInitialSnapshot = <
   UseDates extends boolean,
 >(
   db: InstantCoreDatabase<Schema, UseDates>,
-  fullQuery: Q,
+  fullQuery: Q | null,
   opts?: InstaQLOptions,
-): InfiniteQueryCallbackResponse<Schema, Q, UseDates> => {
+):
+  | InfiniteQueryCallbackResponse<Schema, Q, UseDates>
+  | {
+      canLoadNextPage: false;
+      data: undefined;
+      error: undefined;
+    } => {
+  if (!fullQuery) {
+    return {
+      canLoadNextPage: false,
+      data: undefined,
+      error: undefined,
+    };
+  }
   const entityNames = Object.keys(fullQuery);
   if (entityNames.length !== 1) {
     throw new QueryValidationError(

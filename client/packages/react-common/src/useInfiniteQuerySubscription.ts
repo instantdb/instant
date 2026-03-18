@@ -8,7 +8,7 @@ import {
   weakHash,
   getInfiniteQueryInitialSnapshot,
 } from '@instantdb/core';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 export type InfiniteQueryResult<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -47,7 +47,7 @@ export function useInfiniteQuerySubscription<
   opts,
 }: {
   core: InstantCoreDatabase<Schema, UseDates>;
-  query: Q;
+  query: Q | null;
   opts?: InstaQLOptions;
 }): InfiniteQueryResult<Schema, Q, UseDates> {
   const subRef = useRef<InfiniteQuerySubscription | null>(null);
@@ -60,7 +60,7 @@ export function useInfiniteQuerySubscription<
     Omit<InfiniteQueryResult<Schema, Q, UseDates>, 'loadNextPage'>
   >({
     ...initialSnapshot.current,
-    isLoading: !initialSnapshot.current.data,
+    isLoading: !initialSnapshot.current.data && !initialSnapshot.current.error,
   });
 
   useEffect(() => {
@@ -73,6 +73,7 @@ export function useInfiniteQuerySubscription<
     });
 
     try {
+      if (!query) return;
       const sub = core.subscribeInfiniteQuery(
         query,
         (resp) => {
