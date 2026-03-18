@@ -66,6 +66,9 @@ import { InstantSchemaDef } from './schemaTypes.ts';
 //   Chunks are indexed by their starting point cursor, for forward chunks this is the "[" point.
 //   Their starting point cursor is inclusive in the query and exclusive from the following query
 
+const makeCursorKey = (cursor: Cursor) => JSON.stringify(cursor);
+const parseCursorKey = (cursorKey: string) => JSON.parse(cursorKey) as Cursor;
+
 export type ChunkStatus = 'pre-bootstrap' | 'bootstrapping' | 'frozen';
 interface Chunk {
   status: ChunkStatus;
@@ -169,7 +172,8 @@ export const subscribeInfiniteQuery = <
 
   const forwardChunks = new Map<string, Chunk>();
   const reverseChunks = new Map<string, Chunk>();
-  const subs = new Map<string, () => void>();
+  // Keeps track of all subscriptions (besides starter sub)
+  const allSubs = new Map<string, () => void>();
 
   let hasKickstarted = false;
   let isActive = true;
@@ -197,19 +201,19 @@ export const subscribeInfiniteQuery = <
   };
 
   const setForwardChunk = (startCursor: Cursor, chunk: Chunk) => {
-    forwardChunks.set(JSON.stringify(startCursor), chunk);
+    forwardChunks.set(makeCursorKey(startCursor), chunk);
     pushUpdate();
   };
 
   const setReverseChunk = (startCursor: Cursor, chunk: Chunk) => {
-    reverseChunks.set(JSON.stringify(startCursor), chunk);
+    reverseChunks.set(makeCursorKey(startCursor), chunk);
     maybeAdvanceReverse();
     pushUpdate();
   };
 
   const freezeReverse = (startCursor: Cursor) => {
-    const key = JSON.stringify(startCursor);
-    const currentSub = subs.get(chunkSubKey('reverse', startCursor));
+    const key = makeCursorKey(startCursor);
+    const currentSub = allSubs.get(chunkSubKey('reverse', startCursor));
     currentSub?.();
 
     const chunk = reverseChunks.get(key);
@@ -251,7 +255,7 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    subs.set(chunkSubKey('reverse', startCursor), nextSub);
+    allSubs.set(chunkSubKey('reverse', startCursor), nextSub);
   };
 
   const pushNewReverse = (startCursor: Cursor) => {
@@ -288,7 +292,7 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    subs.set(chunkSubKey('reverse', startCursor), querySub);
+    allSubs.set(chunkSubKey('reverse', startCursor), querySub);
   };
 
   const pushNewForward = (startCursor: Cursor, afterInclusive = false) => {
@@ -324,12 +328,12 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    subs.set(chunkSubKey('forward', startCursor), querySub);
+    allSubs.set(chunkSubKey('forward', startCursor), querySub);
   };
 
   const freezeForward = (startCursor: Cursor) => {
-    const key = JSON.stringify(startCursor);
-    const currentSub = subs.get(chunkSubKey('forward', startCursor));
+    const key = makeCursorKey(startCursor);
+    const currentSub = allSubs.get(chunkSubKey('forward', startCursor));
     currentSub?.();
 
     const chunk = forwardChunks.get(key);
@@ -371,7 +375,7 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    subs.set(chunkSubKey('forward', startCursor), nextSub);
+    allSubs.set(chunkSubKey('forward', startCursor), nextSub);
   };
 
   // Checks if the "leftmost" reverse chunk has more entries before it.
@@ -388,11 +392,11 @@ export const subscribeInfiniteQuery = <
     // maybeAdvanceReverse can run multiple times if multiple changes are made to the reverse chunk on the end (leftmost)
     // before the chunk gets officially frozen and a new one is added
     // i.e. if the end chunk changes in quick sucession then multiple overlapping chunks will be created, duplicating data
-    const advanceKey = `${chunkKey}:${JSON.stringify(chunk.endCursor)}`;
+    const advanceKey = `${chunkKey}:${makeCursorKey(chunk.endCursor)}`;
     if (advanceKey == lastReverseAdvancedChunkKey) return;
 
     lastReverseAdvancedChunkKey = advanceKey;
-    freezeReverse(JSON.parse(chunkKey));
+    freezeReverse(parseCursorKey(chunkKey));
     pushNewReverse(chunk.endCursor);
   };
 
@@ -406,7 +410,7 @@ export const subscribeInfiniteQuery = <
     // so that you know where to start from
     if (!chunk?.endCursor) return;
 
-    freezeForward(JSON.parse(chunkKey));
+    freezeForward(parseCursorKey(chunkKey));
     pushNewForward(chunk.endCursor);
   };
 
@@ -451,7 +455,7 @@ export const subscribeInfiniteQuery = <
         });
       }
 
-      forwardChunks.delete(JSON.stringify(PRE_BOOTSTRAP_CURSOR));
+      forwardChunks.delete(makeCursorKey(PRE_BOOTSTRAP_CURSOR));
       const initialForwardCursor = pageInfo.startCursor;
 
       pushNewForward(initialForwardCursor, true);
@@ -462,6 +466,7 @@ export const subscribeInfiniteQuery = <
       // because immediately unsubscribing will never save it for offline in idb
       await db._reactor.querySubs.flush();
 
+      // Unsubscribe the starter subscription
       starterSub?.();
       starterSub = null;
     },
@@ -473,10 +478,10 @@ export const subscribeInfiniteQuery = <
     isActive = false;
     starterSub?.();
     starterSub = null;
-    for (const sub of subs.values()) {
+    for (const sub of allSubs.values()) {
       sub?.();
     }
-    subs.clear();
+    allSubs.clear();
   };
 
   return {
