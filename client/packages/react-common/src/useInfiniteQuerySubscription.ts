@@ -37,6 +37,13 @@ export type InfiniteQueryResult<
       loadNextPage: () => void;
     };
 
+const defaultState = {
+  error: undefined,
+  data: undefined,
+  isLoading: true,
+  canLoadNextPage: false,
+};
+
 export function useInfiniteQuerySubscription<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
@@ -54,21 +61,14 @@ export function useInfiniteQuerySubscription<
 
   const queryHash = weakHash(query);
   const optsHash = weakHash(opts);
-
   const snapshot = getInfiniteQueryInitialSnapshot(core, query, opts);
 
-  const initialSnapshot = useRef<
+  const stateCacheRef = useRef<
     Omit<InfiniteQueryResult<Schema, Q, UseDates>, 'loadNextPage'>
   >({
     ...snapshot,
     isLoading: !snapshot.data && !snapshot.error,
   });
-
-  const stateCacheRef = useRef<
-    Omit<InfiniteQueryResult<Schema, Q, UseDates>, 'loadNextPage'>
-  >(initialSnapshot.current);
-
-  const serverSnapshotCacheRef = useRef(initialSnapshot.current);
 
   const subscribe = useCallback(
     (cb: () => void) => {
@@ -85,38 +85,26 @@ export function useInfiniteQuerySubscription<
         return () => {};
       }
 
-      try {
-        const sub = core.subscribeInfiniteQuery(
-          query,
-          (resp) => {
-            stateCacheRef.current = {
-              ...resp,
-              isLoading: false,
-            };
-            cb();
-          },
-          opts,
-        );
+      const sub = core.subscribeInfiniteQuery(
+        query,
+        (resp) => {
+          stateCacheRef.current = {
+            ...resp,
+            isLoading: false,
+          };
+          cb();
+        },
+        opts,
+      );
 
-        subRef.current = sub;
+      subRef.current = sub;
 
-        return () => {
-          sub.unsubscribe();
-          if (subRef.current === sub) {
-            subRef.current = null;
-          }
-        };
-      } catch (e) {
-        stateCacheRef.current = {
-          data: undefined,
-          canLoadNextPage: false,
-          error: { message: e instanceof Error ? e.message : String(e) },
-          isLoading: false,
-        };
-        cb();
-
-        return () => {};
-      }
+      return () => {
+        sub.unsubscribe();
+        if (subRef.current === sub) {
+          subRef.current = null;
+        }
+      };
     },
     [queryHash, optsHash],
   );
@@ -124,7 +112,7 @@ export function useInfiniteQuerySubscription<
   const state = useSyncExternalStore(
     subscribe,
     () => stateCacheRef.current,
-    () => serverSnapshotCacheRef.current,
+    () => defaultState,
   );
 
   const loadNextPage = () => {

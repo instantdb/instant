@@ -11,6 +11,7 @@ import {
   Order,
 } from './queryTypes.ts';
 import { InstantSchemaDef } from './schemaTypes.ts';
+import { assert } from './utils/error.ts';
 
 //   Example for {order: {value: "asc"}}
 //
@@ -70,13 +71,19 @@ const makeCursorKey = (cursor: Cursor) => JSON.stringify(cursor);
 const parseCursorKey = (cursorKey: string) => JSON.parse(cursorKey) as Cursor;
 
 export type ChunkStatus = 'pre-bootstrap' | 'bootstrapping' | 'frozen';
-interface Chunk {
+type Chunk = {
   status: ChunkStatus;
   data: any[];
   hasMore?: boolean;
   endCursor?: Cursor;
   afterInclusive?: boolean;
-}
+};
+
+type ChunkWithEndCursor = Chunk & { endCursor: Cursor };
+
+const chunkHasEndCursor = (chunk: Chunk): chunk is ChunkWithEndCursor => {
+  return !!chunk.endCursor;
+};
 
 export interface InfiniteQuerySubscription {
   unsubscribe: () => void;
@@ -173,12 +180,12 @@ export const subscribeInfiniteQuery = <
   const forwardChunks = new Map<string, Chunk>();
   const reverseChunks = new Map<string, Chunk>();
   // Keeps track of all subscriptions (besides starter sub)
-  const allSubs = new Map<string, () => void>();
+  const allUnsubs = new Map<string, () => void>();
 
   let hasKickstarted = false;
   let isActive = true;
   let lastReverseAdvancedChunkKey: string | null = null;
-  let starterSub: (() => void) | null = null;
+  let starterUnsub: (() => void) | null = null;
 
   const sendError = (err: { message: string }) => {
     cb({ error: err, data: undefined, canLoadNextPage: false });
@@ -211,17 +218,12 @@ export const subscribeInfiniteQuery = <
     pushUpdate();
   };
 
-  const freezeReverse = (startCursor: Cursor) => {
-    const key = makeCursorKey(startCursor);
-    const currentSub = allSubs.get(chunkSubKey('reverse', startCursor));
+  const freezeReverse = (chunkKey: string, chunk: ChunkWithEndCursor) => {
+    const startCursor = parseCursorKey(chunkKey);
+    const currentSub = allUnsubs.get(chunkSubKey('reverse', startCursor));
     currentSub?.();
 
-    const chunk = reverseChunks.get(key);
-    // Typeguard: This will never happen because maybeAdvanceReverse will not call this function without an end cursor on the chunk
-    if (!chunk?.endCursor) return;
-
     const nextSub = db.subscribeQuery(
-      //@ts-expect-error dynamically built query can't be ValidQuery
       {
         [entity]: {
           ...query,
@@ -234,16 +236,18 @@ export const subscribeInfiniteQuery = <
             order: reverseOrder(query.$?.order),
           },
         },
-      },
+      } as unknown as Q,
       (frozenData) => {
-        if (frozenData.error?.message) {
-          return sendError({ message: frozenData.error.message });
+        if (frozenData.error) {
+          return sendError(frozenData.error);
         }
-        if (!frozenData?.data || !frozenData.pageInfo) return;
 
         const rows = frozenData.data[entity];
         const pageInfo = frozenData.pageInfo[entity];
-        if (!rows || !pageInfo) return;
+        assert(
+          rows && pageInfo,
+          'Expected query subscription to contain rows and pageInfo',
+        );
 
         setReverseChunk(startCursor, {
           data: rows,
@@ -255,7 +259,7 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    allSubs.set(chunkSubKey('reverse', startCursor), nextSub);
+    allUnsubs.set(chunkSubKey('reverse', startCursor), nextSub);
   };
 
   const pushNewReverse = (startCursor: Cursor) => {
@@ -271,16 +275,15 @@ export const subscribeInfiniteQuery = <
             order: reverseOrder(query.$?.order),
           },
         },
-      } as any,
+      } as unknown as Q,
       (windowData) => {
-        if (windowData.error?.message) {
-          return sendError({ message: windowData.error.message });
+        if (windowData.error) {
+          return sendError(windowData.error);
         }
-        if (!windowData?.data || !windowData.pageInfo) return;
 
         const rows = windowData.data[entity];
         const pageInfo = windowData.pageInfo[entity];
-        if (!rows || !pageInfo) return;
+        assert(rows && pageInfo, 'Expected rows and pageInfo');
 
         setReverseChunk(startCursor, {
           data: rows,
@@ -292,7 +295,7 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    allSubs.set(chunkSubKey('reverse', startCursor), querySub);
+    allUnsubs.set(chunkSubKey('reverse', startCursor), querySub);
   };
 
   const pushNewForward = (startCursor: Cursor, afterInclusive = false) => {
@@ -309,13 +312,15 @@ export const subscribeInfiniteQuery = <
             order: query.$?.order,
           },
         },
-      } as any,
+      } as unknown as Q,
       (windowData) => {
-        if (!windowData?.data || !windowData.pageInfo) return;
+        if (windowData.error) {
+          return sendError(windowData.error);
+        }
 
         const rows = windowData.data[entity];
         const pageInfo = windowData.pageInfo[entity];
-        if (!rows || !pageInfo) return;
+        assert(rows && pageInfo, 'Page info and rows');
 
         setForwardChunk(startCursor, {
           data: rows,
@@ -328,12 +333,12 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    allSubs.set(chunkSubKey('forward', startCursor), querySub);
+    allUnsubs.set(chunkSubKey('forward', startCursor), querySub);
   };
 
   const freezeForward = (startCursor: Cursor) => {
     const key = makeCursorKey(startCursor);
-    const currentSub = allSubs.get(chunkSubKey('forward', startCursor));
+    const currentSub = allUnsubs.get(chunkSubKey('forward', startCursor));
     currentSub?.();
 
     const chunk = forwardChunks.get(key);
@@ -353,16 +358,15 @@ export const subscribeInfiniteQuery = <
             order: query.$?.order,
           },
         },
-      } as any,
+      } as unknown as Q,
       (frozenData) => {
-        if (frozenData.error?.message) {
-          return sendError({ message: frozenData.error.message });
+        if (frozenData.error) {
+          return sendError(frozenData.error);
         }
-        if (!frozenData?.data || !frozenData.pageInfo) return;
 
         const rows = frozenData.data[entity];
         const pageInfo = frozenData.pageInfo[entity];
-        if (!rows || !pageInfo) return;
+        assert(rows && pageInfo, 'Expected rows and pageInfo');
 
         setForwardChunk(startCursor, {
           data: rows,
@@ -375,46 +379,49 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    allSubs.set(chunkSubKey('forward', startCursor), nextSub);
+    allUnsubs.set(chunkSubKey('forward', startCursor), nextSub);
   };
 
-  // Checks if the "leftmost" reverse chunk has more entries before it.
-  // Then adds a new chunk to the end if so
-  // This gets run on every update to the leftmost chunk
+  // Consider order: {val: "asc"} with pageItems = 4
+  // A reverse chunk captures all the new items coming in before us.
+  // If we hit 4 then we freeze the current chunk and create a new reverse chunk
   const maybeAdvanceReverse = () => {
     const tailEntry = Array.from(reverseChunks.entries()).at(-1);
     if (!tailEntry) return;
 
     const [chunkKey, chunk] = tailEntry;
-    if (!chunk?.hasMore || !chunk.endCursor) return;
 
+    // If a chunk has more, then it must have an endCursor
+    if (!chunk?.hasMore) return;
+    if (!chunkHasEndCursor(chunk)) return;
+
+    // maybeAdvanceReverse can run multiple times if multiple changes are made
+    // to the reverse chunk
     // This prevents adding the same new reverse frame twice
-    // maybeAdvanceReverse can run multiple times if multiple changes are made to the reverse chunk on the end (leftmost)
-    // before the chunk gets officially frozen and a new one is added
-    // i.e. if the end chunk changes in quick sucession then multiple overlapping chunks will be created, duplicating data
     const advanceKey = `${chunkKey}:${makeCursorKey(chunk.endCursor)}`;
     if (advanceKey == lastReverseAdvancedChunkKey) return;
-
     lastReverseAdvancedChunkKey = advanceKey;
-    freezeReverse(parseCursorKey(chunkKey));
+
+    freezeReverse(chunkKey, chunk);
     pushNewReverse(chunk.endCursor);
   };
 
   const loadNextPage = () => {
     const tailEntry = Array.from(forwardChunks.entries()).at(-1);
-    // This can happen at the very start when the starter query has not run the callback yet
     if (!tailEntry) return;
 
     const [chunkKey, chunk] = tailEntry;
-    // Only forward chunks that have an end cursor can start at one
-    // so that you know where to start from
-    if (!chunk?.endCursor) return;
+
+    // If the chunk has more items after it, it must have an end cursor, and we can
+    // load more items
+    // if (!chunk?.hasMore) return;
+    if (!chunk.endCursor) return;
 
     freezeForward(parseCursorKey(chunkKey));
     pushNewForward(chunk.endCursor);
   };
 
-  starterSub = db.subscribeQuery(
+  starterUnsub = db.subscribeQuery(
     {
       [entity]: {
         ...query,
@@ -425,34 +432,26 @@ export const subscribeInfiniteQuery = <
           order: query.$?.order,
         },
       },
-    } as any,
+    } as unknown as Q,
     async (starterData) => {
       if (hasKickstarted) return;
       if (starterData.error) {
-        return sendError({ message: starterData.error.message });
-      }
-      if (!starterData?.pageInfo) {
-        return sendError({ message: 'No pageInfo in starterData' });
+        return sendError(starterData.error);
       }
       const pageInfo = starterData.pageInfo[entity];
 
-      const rows = starterData?.data?.[entity] || [];
+      const rows = starterData?.data?.[entity];
+      assert(rows && pageInfo, 'Expected rows and pageInfo');
 
       if (rows.length < pageSize) {
-        // This is a simple way to get the data to the subscription
-        // when the windows do not need to be set up because the pageSize
-        // has not been reached
+        // If the rows are less than the page size, then we don't need to
+        // create forward and reverse chunks.
+        // We just treat the starter query as a forward chunk
         setForwardChunk(PRE_BOOTSTRAP_CURSOR, {
           data: rows,
           status: 'pre-bootstrap',
         });
         return;
-      }
-
-      if (!pageInfo.startCursor) {
-        return sendError({
-          message: 'No startCursor in pageInfo after boostrap',
-        });
       }
 
       forwardChunks.delete(makeCursorKey(PRE_BOOTSTRAP_CURSOR));
@@ -467,8 +466,8 @@ export const subscribeInfiniteQuery = <
       await db._reactor.querySubs.flush();
 
       // Unsubscribe the starter subscription
-      starterSub?.();
-      starterSub = null;
+      starterUnsub?.();
+      starterUnsub = null;
     },
     opts,
   );
@@ -476,12 +475,12 @@ export const subscribeInfiniteQuery = <
   const unsubscribe = () => {
     if (!isActive) return;
     isActive = false;
-    starterSub?.();
-    starterSub = null;
-    for (const sub of allSubs.values()) {
-      sub?.();
+    starterUnsub?.();
+    starterUnsub = null;
+    for (const unsub of allUnsubs.values()) {
+      unsub?.();
     }
-    allSubs.clear();
+    allUnsubs.clear();
   };
 
   return {

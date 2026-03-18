@@ -323,6 +323,7 @@ describe('unique queries', () => {
         },
       },
       (resp: any) => {
+        console.log(resp);
         response = resp;
       },
     );
