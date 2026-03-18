@@ -32,8 +32,6 @@ export function AnimatedTerminal() {
   const showFound = !['idle', 'typing'].includes(phase);
   const showDiff = !['idle', 'typing', 'found'].includes(phase);
   const showButtons = showDiff;
-  const showResult =
-    phase === 'result' || phase === 'cancelled' || phase === 'pause';
 
   // Start animation when the terminal scrolls into view
   useEffect(() => {

@@ -124,8 +124,6 @@ export function AutoPlayDemo() {
   const [slowPending, setSlowPending] = useState<number | null>(null);
   const [cursorIndex, setCursorIndex] = useState<number | null>(null);
   const [activeSide, setActiveSide] = useState<'fast' | 'slow' | null>(null);
-  const [fastDone, setFastDone] = useState(false);
-  const [slowDone, setSlowDone] = useState(false);
   const [userTookOver, setUserTookOver] = useState(false);
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
   const restartTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -146,8 +144,6 @@ export function AutoPlayDemo() {
     setSlowPending(null);
     setCursorIndex(null);
     setActiveSide(null);
-    setFastDone(false);
-    setSlowDone(false);
     setUserTookOver(false);
 
     const ids = autoPlayTaskData.map((t) => t.id);
@@ -165,9 +161,6 @@ export function AutoPlayDemo() {
       );
       timeouts.current.push(t);
     });
-
-    const fastEnd = 500 + (ids.length - 1) * 150 + 100;
-    timeouts.current.push(setTimeout(() => setFastDone(true), fastEnd));
 
     const slowStart = 500 + ids.length * 150 + 800;
     ids.forEach((id, i) => {
@@ -194,7 +187,6 @@ export function AutoPlayDemo() {
     });
 
     const slowEnd = slowStart + (ids.length - 1) * 750 + 600;
-    timeouts.current.push(setTimeout(() => setSlowDone(true), slowEnd));
 
     const totalTime = slowEnd + 5000;
     const tLoop = setTimeout(() => {
@@ -216,7 +208,6 @@ export function AutoPlayDemo() {
         prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
       );
       setSlowPending(null);
-      setSlowDone(true);
       slowProcessingRef.current = false;
       processSlowQueue();
     }, 600);
@@ -241,7 +232,6 @@ export function AutoPlayDemo() {
       setFastItems((prev) =>
         prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
       );
-      setFastDone(true);
     } else {
       slowQueueRef.current.push(id);
       processSlowQueue();

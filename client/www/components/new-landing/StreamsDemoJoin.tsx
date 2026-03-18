@@ -342,7 +342,7 @@ export function StreamsDemoJoin() {
   );
 
   // Spawn pellets from storage → server → Daniel
-  const spawnStorageCoord = useCallback((point: Point) => {
+  const spawnStorageCoord = useCallback((_point: Point) => {
     const container = containerRef.current;
     const storage = storageRef.current;
     const server = serverRef.current;

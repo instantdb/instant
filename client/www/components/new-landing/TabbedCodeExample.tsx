@@ -44,7 +44,13 @@ const editorTheme = {
   ],
 };
 
-function CodeEditor({ code, language }: { code: string; language: string }) {
+export function CodeEditor({
+  code,
+  language,
+}: {
+  code: string;
+  language: string;
+}) {
   return (
     <Highlight
       {...defaultProps}
@@ -81,11 +87,7 @@ function CodeEditor({ code, language }: { code: string; language: string }) {
 }
 
 function PillTray({ children }: { children: ReactNode }) {
-  return (
-    <div className="rounded-2xl bg-gray-200/60 p-1.5">
-      <div className="flex flex-wrap gap-1.5">{children}</div>
-    </div>
-  );
+  return <div className="flex flex-wrap gap-1.5">{children}</div>;
 }
 
 export function TabbedCodeExample({
