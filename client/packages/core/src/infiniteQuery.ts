@@ -12,6 +12,60 @@ import {
 } from './queryTypes.ts';
 import { InstantSchemaDef } from './schemaTypes.ts';
 
+//   Example for {order: {value: "asc"}}
+//
+//                      0
+//   <------------------|------------------------------------------------------>
+//                     <- starter sub ->
+//
+//   Bootstrap phase: until the limit (4 in this example) items are reached, the
+//   starter subscription is the only subscription and it writes to the forwardChunks map with the key PRE_BOOTSTRAP_CURSOR.
+//
+//   When the limit is reached it automatically becomes a real forward chunk and has a definite start and end.
+//   A new reverse chunk gets added to watch for any new items at the start of the list.
+//
+//                      0    1    2    3
+//   <------------------|------------------------------------------------------>
+//                     <-  starter sub ->
+//
+//                      ↓ BECOMES ↓
+//
+//                      0    1    2    3
+//   <------------------|------------------------------------------------------>
+//      <-reverse chunk][forward chunk   ]
+//
+//                      0    1    2    3    4
+//   <------------------|------------------------------------------------------>
+//      <-reverse chunk][forward chunk ]
+//   When item 4 is added, the forward chunk subscription gets updated so that
+//   hasNextPage is `true`. This tells the user that a new page can be loaded.
+//
+//   User clicks: loadNextPage
+//                      0          1      2    3    4
+//   <------------------|------------------------------------------------------>
+//      <-reverse chunk][ frozen forward chunk ][  new forward chunk  ]
+//
+//   More numbers get added
+//                      0          1      2    3    4       5    6   7   8
+//   <------------------|------------------------------------------------------>
+//      <-reverse chunk][ frozen forward chunk ][      forward chunk   ] ^
+//                                                       hasNextPage=true^
+//
+//
+//   User clicks: loadNextPage
+//
+//                      0          1      2    3    4         5     6   7   8
+//   <------------------|------------------------------------------------------>
+//      <-reverse chunk][ frozen forward chunk ][ frozen forward chunk  ][ new chunk
+//
+//   The reverse chunks work in the same way as the forward chunks but the order in the query is reversed.
+//   When a reverse chunks recieves an update it will check to see if more can be loaded and it will
+//   automatically freeze the chunk and add a new one. i.e. : works the same as if
+//   loadNextPage was automatically clicked when hasNextPage became true.
+//
+//   Chunks are indexed by their starting point cursor, for forward chunks this is the "[" point.
+//   Their starting point cursor is inclusive in the query and exclusive from the following query
+
 export type ChunkStatus = 'pre-bootstrap' | 'bootstrapping' | 'frozen';
 interface Chunk {
   status: ChunkStatus;
@@ -104,18 +158,7 @@ export const subscribeInfiniteQuery = <
   cb: (resp: InfiniteQueryCallbackResponse<Schema, Q, UseDates>) => void,
   opts?: InstaQLOptions,
 ): InfiniteQuerySubscription => {
-  const entityNames = Object.keys(fullQuery);
-  if (entityNames.length !== 1) {
-    throw new QueryValidationError(
-      'subscribeInfiniteQuery expects exactly one entity',
-    );
-  }
-
-  const [entityName, query] = Object.entries(fullQuery)[0];
-
-  if (!entityName || !query) {
-    throw new QueryValidationError('No query provided for infinite query');
-  }
+  const { entityName, entityQuery: query } = splitAndValidateQuery(fullQuery);
 
   const pageSize = query.$?.limit || 10;
   const entity = entityName;
@@ -138,12 +181,12 @@ export const subscribeInfiniteQuery = <
 
     const { chunks, data } = normalizeChunks(forwardChunks, reverseChunks);
     cb({
-      //@ts-expect-error can't infer entity
       data: { [entity]: data } as InstaQLResponse<
         Schema,
         typeof query,
         UseDates
       >,
+      // @ts-expect-error hidden debug variable
       chunks,
       canLoadNextPage: readCanLoadNextPage(forwardChunks),
     });
@@ -166,6 +209,7 @@ export const subscribeInfiniteQuery = <
     currentSub?.();
 
     const chunk = reverseChunks.get(key);
+    // Typeguard: This will never happen because maybeAdvanceReverse will not call this function without an end cursor on the chunk
     if (!chunk?.endCursor) return;
 
     const nextSub = db.subscribeQuery(
@@ -337,6 +381,9 @@ export const subscribeInfiniteQuery = <
     if (!chunk?.hasMore || !chunk.endCursor) return;
 
     // This prevents adding the same new reverse frame twice
+    // maybeAdvanceReverse can run multiple times if multiple changes are made to the reverse chunk on the end (leftmost)
+    // before the chunk gets officially frozen and a new one is added
+    // i.e. if the end chunk changes in quick sucession then multiple overlapping chunks will be created, duplicating data
     const advanceKey = `${chunkKey}:${JSON.stringify(chunk.endCursor)}`;
     if (advanceKey == lastReverseAdvancedChunkKey) return;
 
@@ -384,7 +431,9 @@ export const subscribeInfiniteQuery = <
       const rows = starterData?.data?.[entity] || [];
 
       if (rows.length < pageSize) {
-        // Do a fake save on what's *going* to be saved
+        // This is a simple way to get the data to the subscription
+        // when the windows do not need to be set up because the pageSize
+        // has not been reached
         setForwardChunk(PRE_BOOTSTRAP_CURSOR, {
           data: rows,
           status: 'pre-bootstrap',
@@ -454,25 +503,13 @@ export const getInfiniteQueryInitialSnapshot = <
       error: undefined,
     };
   }
-  const entityNames = Object.keys(fullQuery);
-  if (entityNames.length !== 1) {
-    throw new QueryValidationError(
-      'subscribeInfiniteQuery expects exactly one entity',
-    );
-  }
-
-  const [entityName, entityQuery] = Object.entries(fullQuery)[0];
-
-  if (!entityName || !entityQuery) {
-    throw new QueryValidationError('No query provided for infinite query');
-  }
+  const { entityName, entityQuery } = splitAndValidateQuery(fullQuery);
 
   const pageSize = entityQuery.$?.limit || 10;
-  const entity = entityName;
 
   let coercedQuery = fullQuery
     ? coerceQuery({
-        [entity]: {
+        [entityName]: {
           ...entityQuery,
           $: {
             limit: pageSize,
@@ -497,4 +534,24 @@ export const getInfiniteQueryInitialSnapshot = <
     data: queryResult?.data || undefined,
     error: undefined,
   };
+};
+
+/**
+ * @throws QueryValidationError
+ * @param fullQuery a ValidQuery with one key (entity)
+ */
+const splitAndValidateQuery = (fullQuery: Record<string, any>) => {
+  const entityNames = Object.keys(fullQuery);
+  if (entityNames.length !== 1) {
+    throw new QueryValidationError(
+      'subscribeInfiniteQuery expects exactly one entity',
+    );
+  }
+
+  const [entityName, entityQuery] = Object.entries(fullQuery)[0];
+
+  if (!entityName || !entityQuery) {
+    throw new QueryValidationError('No query provided for infinite query');
+  }
+  return { entityName, entityQuery };
 };
