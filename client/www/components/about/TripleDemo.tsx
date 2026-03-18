@@ -71,7 +71,9 @@ export function TripleDemo() {
                   src={u.img}
                   alt={u.name}
                   className={`absolute top-0 left-0 h-7 w-7 rounded-full border-2 border-white object-cover shadow-sm transition-all ${
-                    i === userIdx ? 'z-10' : 'z-0 translate-x-2 translate-y-2 scale-90'
+                    i === userIdx
+                      ? 'z-10'
+                      : 'z-0 translate-x-2 translate-y-2 scale-90'
                   }`}
                 />
               ))}
