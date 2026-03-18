@@ -40,6 +40,7 @@ const PREDEFINED_STROKES = [OUTER, INNER_BAR];
 
 type Point = { x: number; y: number };
 type CanvasId = 'stopa' | 'drew' | 'daniel';
+const CANVAS_IDS: CanvasId[] = ['stopa', 'drew', 'daniel'];
 
 const STROKE_COLOR = '#F97316';
 const LINE_WIDTH = 2.5;
@@ -82,6 +83,7 @@ function renderCanvas(
   canvas: HTMLCanvasElement | null,
   strokes: Point[][],
   dpr: number,
+  dotGridCache: HTMLCanvasElement | null,
 ) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -90,20 +92,62 @@ function renderCanvas(
   const h = canvas.height / dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  drawDotGrid(ctx, w, h);
+  if (dotGridCache) {
+    ctx.drawImage(dotGridCache, 0, 0, w, h);
+  } else {
+    drawDotGrid(ctx, w, h);
+  }
   drawStrokes(ctx, strokes, w, h);
 }
 
-// ─── Flying pellet ───────────────────────────────────────
+function buildDotGridCache(w: number, h: number, dpr: number) {
+  const offscreen = document.createElement('canvas');
+  offscreen.width = w * dpr;
+  offscreen.height = h * dpr;
+  const ctx = offscreen.getContext('2d');
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawDotGrid(ctx, w, h);
+  return offscreen;
+}
 
-type FlyingPellet = {
-  id: number;
-  variant: 'live' | 'storage';
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-};
+// ─── Flying pellet (imperative SVG + Web Animations API) ─
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function spawnPellet(
+  svg: SVGSVGElement,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  variant: 'live' | 'storage',
+) {
+  const path = document.createElementNS(SVG_NS, 'path');
+  const color = variant === 'live' ? '#F97316' : '#6366F1';
+
+  path.setAttribute('d', `M${startX},${startY} L${endX},${endY}`);
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', '2.5');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('fill', 'none');
+
+  svg.appendChild(path);
+
+  const totalLength = path.getTotalLength();
+  const segLen = totalLength * 0.3;
+  path.style.strokeDasharray = `${segLen} ${totalLength}`;
+
+  const anim = path.animate(
+    [
+      { strokeDashoffset: '0', opacity: '0.9' },
+      { strokeDashoffset: `${-totalLength}`, opacity: '0' },
+    ],
+    { duration: 450, easing: 'ease-in', fill: 'forwards' },
+  );
+
+  anim.onfinish = () => path.remove();
+}
 
 // ─── StreamsDemoJoin component ───────────────────────────
 
@@ -157,40 +201,67 @@ export function StreamsDemoJoin() {
   const [danielJoined, setDanielJoined] = useState(false);
   const danielJoinedRef = useRef(false);
 
-  // Flying coords
-  const coordIdRef = useRef(0);
-  const coordsBufferRef = useRef<FlyingPellet[]>([]);
-  const coordFlushRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [flyingCoords, setFlyingCoords] = useState<FlyingPellet[]>([]);
+  // Flying coords (imperative)
+  const pelletSvgRef = useRef<SVGSVGElement>(null);
   const coordCounterRef = useRef(0);
 
-  const setupCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    dprRef.current = dpr;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-  }, []);
+  // Dot grid cache (per canvas)
+  const dotGridCacheRef = useRef<Record<CanvasId, HTMLCanvasElement | null>>({
+    stopa: null,
+    drew: null,
+    daniel: null,
+  });
+
+  // Dirty flags
+  const dirtyRef = useRef<Record<CanvasId, boolean>>({
+    stopa: true,
+    drew: true,
+    daniel: true,
+  });
+  const cursorDirtyRef = useRef(true);
+
+  const setupCanvas = useCallback(
+    (id: CanvasId, canvas: HTMLCanvasElement | null) => {
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      dprRef.current = dpr;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      dotGridCacheRef.current[id] = buildDotGridCache(
+        rect.width,
+        rect.height,
+        dpr,
+      );
+      dirtyRef.current[id] = true;
+    },
+    [],
+  );
 
   const redraw = useCallback(() => {
-    for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
+    for (const id of CANVAS_IDS) {
+      if (!dirtyRef.current[id]) continue;
       renderCanvas(
         canvasRefs.current[id],
         strokesRef.current[id],
         dprRef.current,
+        dotGridCacheRef.current[id],
       );
+      dirtyRef.current[id] = false;
     }
-    const cursor = cursorRef.current;
-    const pos = cursorPosRef.current;
-    if (cursor) {
-      if (pos) {
-        cursor.style.display = 'block';
-        cursor.style.left = `${pos.x * 100}%`;
-        cursor.style.top = `${pos.y * 100}%`;
-      } else {
-        cursor.style.display = 'none';
+    if (cursorDirtyRef.current) {
+      const cursor = cursorRef.current;
+      const pos = cursorPosRef.current;
+      if (cursor) {
+        if (pos) {
+          cursor.style.display = 'block';
+          cursor.style.left = `${pos.x * 100}%`;
+          cursor.style.top = `${pos.y * 100}%`;
+        } else {
+          cursor.style.display = 'none';
+        }
       }
+      cursorDirtyRef.current = false;
     }
   }, []);
 
@@ -209,23 +280,11 @@ export function StreamsDemoJoin() {
     };
   }, [redraw]);
 
-  // Flying coords flush
-  useEffect(() => {
-    coordFlushRef.current = setInterval(() => {
-      if (coordsBufferRef.current.length === 0) return;
-      const batch = coordsBufferRef.current.splice(0);
-      setFlyingCoords((prev) => [...prev, ...batch]);
-    }, 50);
-    return () => {
-      if (coordFlushRef.current) clearInterval(coordFlushRef.current);
-    };
-  }, []);
-
   // Stream consumer: Drew always, Daniel only after join
   useEffect(() => {
     streamIntervalRef.current = setInterval(() => {
       const source = activeSourceRef.current;
-      for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
+      for (const id of CANVAS_IDS) {
         if (id === source) continue;
         if (id === 'daniel' && !danielJoinedRef.current) continue;
         const item = queuesRef.current[id].shift();
@@ -235,6 +294,7 @@ export function StreamsDemoJoin() {
           strokes.push([]);
         }
         strokes[item.strokeIdx].push(item.point);
+        dirtyRef.current[id] = true;
       }
     }, 12);
     return () => {
@@ -244,14 +304,14 @@ export function StreamsDemoJoin() {
 
   // Canvas sizing
   useEffect(() => {
-    for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
-      setupCanvas(canvasRefs.current[id]);
+    for (const id of CANVAS_IDS) {
+      setupCanvas(id, canvasRefs.current[id]);
     }
     redraw();
 
     const handleResize = () => {
-      for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
-        setupCanvas(canvasRefs.current[id]);
+      for (const id of CANVAS_IDS) {
+        setupCanvas(id, canvasRefs.current[id]);
       }
       redraw();
     };
@@ -274,11 +334,12 @@ export function StreamsDemoJoin() {
   // Spawn pellets for a broadcast: source → server → all active dests + server → storage
   const spawnBroadcastPellets = useCallback(
     (sourceId: CanvasId, _point: Point) => {
+      const svg = pelletSvgRef.current;
       const container = containerRef.current;
       const server = serverRef.current;
       const storage = storageRef.current;
       const sourceEl = getWrapperEl(sourceId);
-      if (!container || !server || !storage || !sourceEl) return;
+      if (!svg || !container || !server || !storage || !sourceEl) return;
 
       const cRect = container.getBoundingClientRect();
       const svRect = server.getBoundingClientRect();
@@ -290,94 +351,91 @@ export function StreamsDemoJoin() {
 
       // Inbound: source → server
       const sourceIsLeft = sRect.right < svRect.left;
-      coordIdRef.current += 1;
-      coordsBufferRef.current.push({
-        id: coordIdRef.current,
-        variant: 'live',
-        startX: sourceIsLeft
+      spawnPellet(
+        svg,
+        sourceIsLeft
           ? sRect.right - cRect.left + 6
           : sRect.left - cRect.left - 6,
-        startY: sRect.top - cRect.top + sRect.height / 2,
-        endX: sourceIsLeft
+        sRect.top - cRect.top + sRect.height / 2,
+        sourceIsLeft
           ? svRect.left - cRect.left - 2
           : svRect.right - cRect.left + 2,
-        endY: serverCY,
-      });
+        serverCY,
+        'live',
+      );
 
       // Outbound: server → each dest
-      for (const destId of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
+      for (const destId of CANVAS_IDS) {
         if (destId === sourceId) continue;
         if (destId === 'daniel' && !danielJoinedRef.current) continue;
         const destEl = getWrapperEl(destId);
         if (!destEl) continue;
         const dRect = destEl.getBoundingClientRect();
         const destIsRight = dRect.left > svRect.right;
-        coordIdRef.current += 1;
-        coordsBufferRef.current.push({
-          id: coordIdRef.current,
-          variant: 'live',
-          startX: destIsRight
+        spawnPellet(
+          svg,
+          destIsRight
             ? svRect.right - cRect.left + 2
             : svRect.left - cRect.left - 2,
-          startY: serverCY,
-          endX: destIsRight
+          serverCY,
+          destIsRight
             ? dRect.left - cRect.left - 6
             : dRect.right - cRect.left + 6,
-          endY: dRect.top - cRect.top + dRect.height / 2,
-        });
+          dRect.top - cRect.top + dRect.height / 2,
+          'live',
+        );
       }
 
       // Persist: server → storage
-      coordIdRef.current += 1;
-      coordsBufferRef.current.push({
-        id: coordIdRef.current,
-        variant: 'storage',
-        startX: serverCX,
-        startY: svRect.bottom - cRect.top + 2,
-        endX: stRect.left + stRect.width / 2 - cRect.left,
-        endY: stRect.top - cRect.top,
-      });
+      spawnPellet(
+        svg,
+        serverCX,
+        svRect.bottom - cRect.top + 2,
+        stRect.left + stRect.width / 2 - cRect.left,
+        stRect.top - cRect.top,
+        'storage',
+      );
     },
     [getWrapperEl],
   );
 
   // Spawn pellet from storage directly → Daniel
   const spawnStorageCoord = useCallback((_point: Point) => {
+    const svg = pelletSvgRef.current;
     const container = containerRef.current;
     const storage = storageRef.current;
     const destWrapper = danielWrapperRef.current;
-    if (!container || !storage || !destWrapper) return;
+    if (!svg || !container || !storage || !destWrapper) return;
 
     const cRect = container.getBoundingClientRect();
     const stRect = storage.getBoundingClientRect();
     const dRect = destWrapper.getBoundingClientRect();
 
-    coordIdRef.current += 1;
-    coordsBufferRef.current.push({
-      id: coordIdRef.current,
-      variant: 'storage',
-      startX: stRect.right - cRect.left + 2,
-      startY: stRect.top + stRect.height / 2 - cRect.top,
-      endX: dRect.left - cRect.left - 6,
-      endY: dRect.top - cRect.top + dRect.height / 2,
-    });
-  }, []);
-
-  const removeCoord = useCallback((id: number) => {
-    setFlyingCoords((prev) => prev.filter((c) => c.id !== id));
+    spawnPellet(
+      svg,
+      stRect.right - cRect.left + 2,
+      stRect.top + stRect.height / 2 - cRect.top,
+      dRect.left - cRect.left - 6,
+      dRect.top - cRect.top + dRect.height / 2,
+      'storage',
+    );
   }, []);
 
   // ─── Clear helpers ───
 
   const clearCanvasData = useCallback(() => {
-    for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
+    for (const id of CANVAS_IDS) {
       strokesRef.current[id] = [];
       queuesRef.current[id] = [];
+      dirtyRef.current[id] = true;
     }
+    cursorDirtyRef.current = true;
     recordingRef.current = [];
-    coordsBufferRef.current = [];
-    setFlyingCoords([]);
     coordCounterRef.current = 0;
+    const svg = pelletSvgRef.current;
+    if (svg) {
+      while (svg.firstChild) svg.firstChild.remove();
+    }
   }, []);
 
   const clearAutoplay = useCallback(() => {
@@ -413,6 +471,7 @@ export function StreamsDemoJoin() {
 
       if (si >= PREDEFINED_STROKES.length) {
         cursorPosRef.current = null;
+        cursorDirtyRef.current = true;
         autoplayActiveRef.current = false;
         activeSourceRef.current = null;
         return;
@@ -431,8 +490,10 @@ export function StreamsDemoJoin() {
       const sourceStrokes = strokesRef.current['stopa'];
       while (sourceStrokes.length <= si) sourceStrokes.push([]);
       sourceStrokes[si].push(point);
+      dirtyRef.current['stopa'] = true;
 
       cursorPosRef.current = point;
+      cursorDirtyRef.current = true;
 
       queuesRef.current['drew'].push({ strokeIdx: si, point });
       if (danielJoinedRef.current) {
@@ -495,6 +556,7 @@ export function StreamsDemoJoin() {
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       clearAutoplay();
       cursorPosRef.current = null;
+      cursorDirtyRef.current = true;
 
       clearCanvasData();
       activeSourceRef.current = canvasId;
@@ -505,8 +567,9 @@ export function StreamsDemoJoin() {
 
       strokesRef.current[canvasId].push([point]);
       currentStrokeRef.current = strokesRef.current[canvasId][0];
+      dirtyRef.current[canvasId] = true;
 
-      for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
+      for (const id of CANVAS_IDS) {
         if (id === canvasId) continue;
         if (id === 'daniel' && !danielJoinedRef.current) continue;
         queuesRef.current[id].push({ strokeIdx: 0, point });
@@ -523,9 +586,10 @@ export function StreamsDemoJoin() {
       const point = getCanvasPoint(canvasId, e);
       if (!point) return;
       currentStrokeRef.current.push(point);
+      dirtyRef.current[canvasId] = true;
       const strokeIdx = strokesRef.current[canvasId].length - 1;
 
-      for (const id of ['stopa', 'drew', 'daniel'] as CanvasId[]) {
+      for (const id of CANVAS_IDS) {
         if (id === canvasId) continue;
         if (id === 'daniel' && !danielJoinedRef.current) continue;
         queuesRef.current[id].push({ strokeIdx, point });
@@ -566,7 +630,7 @@ export function StreamsDemoJoin() {
 
     // After entrance animation, setup canvas & spawn replay flying coords from storage
     setTimeout(() => {
-      setupCanvas(canvasRefs.current['daniel']);
+      setupCanvas('daniel', canvasRefs.current['daniel']);
 
       let i = 0;
       const spawnNext = () => {
@@ -745,26 +809,11 @@ export function StreamsDemoJoin() {
         </div>
       </div>
 
-      {/* Flying pellets — traveling pulse lines */}
-      <svg className="pointer-events-none absolute top-0 left-0 h-full w-full">
-        {flyingCoords.map((coord) => {
-          const color = coord.variant === 'live' ? '#F97316' : '#6366F1';
-          return (
-            <motion.path
-              key={coord.id}
-              d={`M${coord.startX},${coord.startY} L${coord.endX},${coord.endY}`}
-              stroke={color}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              fill="none"
-              initial={{ pathLength: 0.3, pathOffset: 0, opacity: 0.9 }}
-              animate={{ pathOffset: 1, opacity: 0 }}
-              transition={{ duration: 0.45, ease: 'easeIn' }}
-              onAnimationComplete={() => removeCoord(coord.id)}
-            />
-          );
-        })}
-      </svg>
+      {/* Flying pellets — imperative SVG, animated via Web Animations API */}
+      <svg
+        ref={pelletSvgRef}
+        className="pointer-events-none absolute top-0 left-0 h-full w-full"
+      />
     </div>
   );
 }

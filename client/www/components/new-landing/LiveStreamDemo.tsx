@@ -87,12 +87,13 @@ export function LiveStreamDemo() {
     if (!row) return;
     const rowRect = row.getBoundingClientRect();
     const btnRect = btn.getBoundingClientRect();
-    const relX =
-      (btnRect.left + btnRect.width / 2 - rowRect.left) / rowRect.width;
+    const btnCenterInRow = btnRect.left + btnRect.width / 2 - rowRect.left;
+    const offsetFromRowCenter = btnCenterInRow - rowRect.width / 2;
 
     const params = randomFloaterParams();
     screenRefs.current.forEach((s) => {
-      const pct = relX * 100;
+      const sWidth = s.getBoundingClientRect().width;
+      const pct = ((sWidth / 2 + offsetFromRowCenter) / sWidth) * 100;
       spawnFloater(emoji, s, { ...params, startX: pct });
     });
 
