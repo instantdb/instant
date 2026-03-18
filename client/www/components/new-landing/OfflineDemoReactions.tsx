@@ -131,7 +131,7 @@ function LikeDeviceCard({
         />
         <span className="text-sm font-medium">{name}&apos;s phone</span>
       </div>
-      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm md:p-5">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <span className="text-xs">💬</span>
@@ -150,14 +150,11 @@ function LikeDeviceCard({
             const queuedCount = countLikes(queued, msg.id);
 
             return (
-              <div key={msg.id} className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
+              <div key={msg.id}>
+                <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-gray-700">
                     {msg.user}
                   </span>
-                  <p className="text-xs text-gray-600">{msg.text}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
                   <button
                     onClick={() => onLike(msg.id)}
                     className="flex items-center gap-1 rounded-full border border-gray-200 px-2 py-1 text-xs transition-all hover:bg-gray-50 active:scale-95"
@@ -171,6 +168,7 @@ function LikeDeviceCard({
                     )}
                   </button>
                 </div>
+                <p className="text-xs text-gray-600">{msg.text}</p>
               </div>
             );
           })}
@@ -286,7 +284,7 @@ export function OfflineDemoReactions() {
       </div>
 
       {/* Two device cards */}
-      <div className="flex gap-6">
+      <div className="flex gap-3 md:gap-6">
         <LikeDeviceCard
           name="Stopa"
           img="/img/landing/stopa.jpg"

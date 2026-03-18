@@ -72,7 +72,7 @@ export function SyncEngine() {
                 to do a thing. Pure magic.
               </FeatureBody>
             </div>
-            <div className="col-span-2 px-12 py-9">
+            <div className="col-span-2 px-4 py-6 md:px-12 md:py-9">
               <OfflineDemoReactions />
             </div>
           </div>
