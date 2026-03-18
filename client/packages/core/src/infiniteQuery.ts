@@ -1,7 +1,6 @@
 import {
   coerceQuery,
   QueryValidationError,
-  weakHash,
   type InstantCoreDatabase,
   type ValidQuery,
 } from './index.ts';
@@ -19,6 +18,7 @@ interface Chunk {
   data: any[];
   hasMore?: boolean;
   endCursor?: Cursor;
+  afterInclusive?: boolean;
 }
 
 export interface InfiniteQuerySubscription {
@@ -30,15 +30,6 @@ const readCanLoadNextPage = (forwardChunks: Map<string, Chunk>) => {
   const chunksInOrder = Array.from(forwardChunks.values());
   if (chunksInOrder.length === 0) return false;
   return chunksInOrder[chunksInOrder.length - 1]?.hasMore || false;
-};
-
-const inclusiveBeforeCursor = <Schema extends InstantSchemaDef<any, any, any>>(
-  cursor: Cursor,
-  order?: Order<Schema, string>,
-): Cursor => {
-  return isDescendingOrder(order)
-    ? decrementCursor(cursor)
-    : incrementCursor(cursor);
 };
 
 const chunkSubKey = (direction: 'forward' | 'reverse', cursor: Cursor) =>
@@ -64,18 +55,6 @@ const reverseOrder = <
   return {
     [key]: order[key as keyof typeof order] === 'asc' ? 'desc' : 'asc',
   } as Order<Schema, Entity>;
-};
-
-const isDescendingOrder = <
-  Schema extends InstantSchemaDef<any, any, any>,
-  Entity extends keyof Schema['entities'],
->(
-  order?: Order<Schema, Entity>,
-): boolean => {
-  if (!order) return false;
-  const key = Object.keys(order).at(0);
-  if (!key) return false;
-  return order[key as keyof typeof order] === 'desc';
 };
 
 const normalizeChunks = (
@@ -196,10 +175,8 @@ export const subscribeInfiniteQuery = <
           ...query,
           $: {
             after: startCursor,
-            before: inclusiveBeforeCursor(
-              chunk.endCursor,
-              reverseOrder(query.$?.order),
-            ),
+            before: chunk.endCursor,
+            beforeInclusive: true,
             where: query.$?.where,
             fields: query.$?.fields,
             order: reverseOrder(query.$?.order),
@@ -266,7 +243,7 @@ export const subscribeInfiniteQuery = <
     subs.set(chunkSubKey('reverse', startCursor), querySub);
   };
 
-  const pushNewForward = (startCursor: Cursor) => {
+  const pushNewForward = (startCursor: Cursor, afterInclusive = false) => {
     const querySub = db.subscribeQuery(
       {
         [entity]: {
@@ -274,6 +251,7 @@ export const subscribeInfiniteQuery = <
           $: {
             limit: pageSize,
             after: startCursor,
+            afterInclusive,
             where: query.$?.where,
             fields: query.$?.fields,
             order: query.$?.order,
@@ -292,6 +270,7 @@ export const subscribeInfiniteQuery = <
           status: 'bootstrapping',
           hasMore: pageInfo.hasNextPage,
           endCursor: pageInfo.endCursor,
+          afterInclusive,
         });
       },
       opts,
@@ -314,7 +293,9 @@ export const subscribeInfiniteQuery = <
           ...query,
           $: {
             after: startCursor,
-            before: inclusiveBeforeCursor(chunk.endCursor, query.$?.order),
+            afterInclusive: chunk.afterInclusive,
+            before: chunk.endCursor,
+            beforeInclusive: true,
             where: query.$?.where,
             fields: query.$?.fields,
             order: query.$?.order,
@@ -336,6 +317,7 @@ export const subscribeInfiniteQuery = <
           status: 'frozen',
           hasMore: pageInfo.hasNextPage,
           endCursor: pageInfo.endCursor,
+          afterInclusive: chunk.afterInclusive,
         });
       },
       opts,
@@ -417,20 +399,19 @@ export const subscribeInfiniteQuery = <
       }
 
       forwardChunks.delete(JSON.stringify(PRE_BOOTSTRAP_CURSOR));
-      const initialForwardCursor = isDescendingOrder(query.$?.order)
-        ? incrementCursor(pageInfo.startCursor)
-        : decrementCursor(pageInfo.startCursor);
+      const initialForwardCursor = pageInfo.startCursor;
 
       // Seed the initial window immediately so reverse bootstrap updates
       // cannot publish a transient empty payload before forward resolves.
-      setForwardChunk(initialForwardCursor as Cursor, {
+      setForwardChunk(initialForwardCursor, {
         data: rows,
         status: 'pre-bootstrap',
         hasMore: pageInfo.hasNextPage,
         endCursor: pageInfo.endCursor,
+        afterInclusive: true,
       });
 
-      pushNewForward(initialForwardCursor as Cursor);
+      pushNewForward(initialForwardCursor, true);
       pushNewReverse(pageInfo.startCursor);
       hasKickstarted = true;
 
@@ -514,47 +495,3 @@ export const getInfiniteQueryInitialSnapshot = <
     error: undefined,
   };
 };
-
-function decrementCursor(cursor: Cursor): Cursor {
-  return [decrementUUID(cursor[0]), cursor[1], cursor[2], cursor[3]];
-}
-
-function incrementCursor(cursor: Cursor): Cursor {
-  return [incrementUUID(cursor[0]), cursor[1], cursor[2], cursor[3]];
-}
-
-function decrementUUID(uuid: string): string {
-  const hex = uuid
-    .replace(/-/g, '')
-    .split('')
-    .map((c) => parseInt(c, 16));
-
-  for (let i = hex.length - 1; i >= 0; i--) {
-    if (hex[i] > 0) {
-      hex[i]--;
-      break;
-    }
-    hex[i] = 15;
-  }
-
-  const flat = hex.map((n) => n.toString(16)).join('');
-  return `${flat.slice(0, 8)}-${flat.slice(8, 12)}-${flat.slice(12, 16)}-${flat.slice(16, 20)}-${flat.slice(20)}`;
-}
-
-function incrementUUID(uuid: string): string {
-  const hex = uuid
-    .replace(/-/g, '')
-    .split('')
-    .map((c) => parseInt(c, 16));
-
-  for (let i = hex.length - 1; i >= 0; i--) {
-    if (hex[i] < 15) {
-      hex[i]++;
-      break;
-    }
-    hex[i] = 0;
-  }
-
-  const flat = hex.map((n) => n.toString(16)).join('');
-  return `${flat.slice(0, 8)}-${flat.slice(8, 12)}-${flat.slice(12, 16)}-${flat.slice(16, 20)}-${flat.slice(20)}`;
-}
