@@ -401,16 +401,6 @@ export const subscribeInfiniteQuery = <
       forwardChunks.delete(JSON.stringify(PRE_BOOTSTRAP_CURSOR));
       const initialForwardCursor = pageInfo.startCursor;
 
-      // Seed the initial window immediately so reverse bootstrap updates
-      // cannot publish a transient empty payload before forward resolves.
-      setForwardChunk(initialForwardCursor, {
-        data: rows,
-        status: 'pre-bootstrap',
-        hasMore: pageInfo.hasNextPage,
-        endCursor: pageInfo.endCursor,
-        afterInclusive: true,
-      });
-
       pushNewForward(initialForwardCursor, true);
       pushNewReverse(pageInfo.startCursor);
       hasKickstarted = true;
