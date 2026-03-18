@@ -8,7 +8,11 @@ import {
   PACKAGE_ALIAS_AND_FULL_NAMES,
   ProjectInfoLive,
 } from './context/projectInfo.js';
-import { InstantHttpAuthedLive, InstantHttpLive } from './lib/http.js';
+import {
+  InstantHttpAuthedLive,
+  InstantHttpError,
+  InstantHttpLive,
+} from './lib/http.js';
 import { SimpleLogLayer } from './logging.js';
 
 const runtime = ManagedRuntime.make(SimpleLogLayer);
@@ -17,34 +21,49 @@ export const runCommandEffect = <A, E, R extends never>(
   effect: Effect.Effect<A, E, R>,
 ): Promise<any> => runtime.runPromise(effect.pipe(printRedErrors) as any);
 
-export const printRedErrors = Effect.catchAllCause((cause) => {
-  const failure = Cause.failureOption(cause);
+export const printRedErrors = Effect.catchAllCause((cause) =>
+  Effect.gen(function* () {
+    const failure = Cause.failureOption(cause);
 
-  if (failure._tag !== 'Some') {
-    return Effect.succeed(undefined);
-  }
+    // This should never happen because the catchAllCause should only fire when there IS a failure
+    if (failure._tag !== 'Some') {
+      return;
+    }
 
-  const theError = failure.value;
+    const theError = failure.value;
 
-  // Print just the message if the error has a message attribute and no cause
-  if (
-    typeof failure.value === 'object' &&
-    failure.value !== null &&
-    'message' in failure.value &&
-    !('cause' in failure.value)
-  ) {
-    return Effect.logError((failure.value as { message: string }).message).pipe(
+    // Special error handling for specific error types
+    if (theError instanceof InstantHttpError) {
+      return yield* Effect.logError(
+        `Error making request to Instant API: ${theError.message}`,
+      );
+    }
+
+    // Print just the message if the error has a message attribute and no cause
+    if (
+      typeof failure.value === 'object' &&
+      failure.value !== null &&
+      'message' in failure.value &&
+      !('cause' in failure.value)
+    ) {
+      return yield* Effect.logError(
+        (failure.value as { message: string }).message,
+      ).pipe(
+        Effect.tap(() => {
+          process.exit(1);
+        }),
+      );
+    }
+
+    return yield* Effect.logError(
+      Cause.pretty(cause, { renderErrorCause: true }),
+    ).pipe(
       Effect.tap(() => {
         process.exit(1);
       }),
     );
-  }
-  return Effect.logError(Cause.pretty(cause, { renderErrorCause: true })).pipe(
-    Effect.tap(() => {
-      process.exit(1);
-    }),
-  );
-});
+  }),
+);
 
 /**
  * Note:
@@ -117,4 +136,5 @@ export const WithAppLayer = (args: {
       }),
     ),
     Layer.provideMerge(ProjectInfoLive(args.coerce, args.packageName)),
+    Layer.provideMerge(BaseLayerLive),
   );
