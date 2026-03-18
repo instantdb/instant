@@ -97,12 +97,12 @@ export function SqlDemo({
           >
             <div className="flex items-center gap-2 border-b border-gray-200/60 px-4 py-2">
               <img
-                src="/img/about/aurora-postgres.svg"
-                alt="Aurora Postgres"
-                className="h-5 w-5 rounded"
+                src="/img/about/postgres.svg"
+                alt="Postgres"
+                className="h-5 w-5"
               />
               <span className="text-xs font-medium" style={{ color: c.text }}>
-                Aurora Postgres
+                Postgres
               </span>
             </div>
             <pre

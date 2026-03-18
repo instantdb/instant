@@ -174,7 +174,7 @@ export default function AboutPage() {
           {/* Left: narrative */}
           <div className="text-center lg:text-left">
             <Subheading>Our story</Subheading>
-            <div className="mt-8 space-y-6 text-[17px] leading-relaxed text-gray-600">
+            <div className="mt-8 space-y-6 text-left text-[17px] leading-relaxed text-gray-600">
               <p>
                 In 2021, we wrote{' '}
                 <a
@@ -378,8 +378,8 @@ export default function AboutPage() {
                 <Subheading>SQL on the server</Subheading>
                 <p className="mt-2 text-base">
                   On the server, the same InstaQL queries take a different path.
-                  They&apos;re translated into SQL and executed against Postgres
-                  Aurora.
+                  They&apos;re translated into SQL and executed against
+                  Postgres.
                 </p>
                 <p className="mt-2 text-base">
                   You get the performance and reliability of a battle-tested

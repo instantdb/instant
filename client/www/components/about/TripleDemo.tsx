@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from 'motion/react';
 import { useRef, useState } from 'react';
 import { ConnectorLine } from './ConnectorLine';
 import { TripleStoreTable } from './TripleStoreTable';
@@ -12,7 +11,6 @@ export function TripleDemo() {
   const [userIdx, setUserIdx] = useState(0);
   const [done, setDone] = useState(true);
   const [title, setTitle] = useState('Ship delight');
-  const [showDropdown, setShowDropdown] = useState(false);
   const [lastChangedKey, setLastChangedKey] = useState<string | null>(null);
   const titleRef = useRef<HTMLSpanElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,7 +31,6 @@ export function TripleDemo() {
 
   const selectUser = (idx: number) => {
     setUserIdx(idx);
-    setShowDropdown(false);
     flash('task_1-owner');
   };
 
@@ -65,43 +62,20 @@ export function TripleDemo() {
           <div className="relative border-b border-gray-100 bg-gray-50/60 px-4 py-2 text-xs font-medium text-gray-400">
             Team Tasks / #42
             <button
-              onClick={() => setShowDropdown((s) => !s)}
-              className="absolute right-4 -bottom-3.5 overflow-hidden rounded-full border-2 border-white shadow-sm transition-opacity hover:opacity-80"
+              onClick={() => selectUser((userIdx + 1) % USERS.length)}
+              className="absolute right-4 -bottom-3.5 h-10 w-10 transition-opacity hover:opacity-80"
             >
-              <AnimatePresence mode="wait">
-                <motion.img
-                  key={user.id}
-                  src={user.img}
-                  alt={user.id}
-                  className="h-7 w-7 rounded-full object-cover"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.15 }}
+              {USERS.map((u, i) => (
+                <img
+                  key={u.id}
+                  src={u.img}
+                  alt={u.name}
+                  className={`absolute top-0 left-0 h-7 w-7 rounded-full border-2 border-white object-cover shadow-sm transition-all ${
+                    i === userIdx ? 'z-10' : 'z-0 translate-x-2 translate-y-2 scale-90'
+                  }`}
                 />
-              </AnimatePresence>
+              ))}
             </button>
-            {showDropdown && (
-              <div className="absolute top-full right-4 z-10 mt-1 flex gap-1 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg">
-                {USERS.map((u, i) => (
-                  <button
-                    key={u.id}
-                    onClick={() => selectUser(i)}
-                    className={`rounded-full p-0.5 transition-colors hover:bg-gray-100 ${
-                      i === userIdx
-                        ? 'ring-2 ring-orange-500 ring-offset-1'
-                        : ''
-                    }`}
-                  >
-                    <img
-                      src={u.img}
-                      alt={u.id}
-                      className="h-6 w-6 rounded-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
           <div className="px-5 py-4">
             <div className="flex items-center gap-3">
