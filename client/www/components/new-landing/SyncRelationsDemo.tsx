@@ -2,6 +2,8 @@
 
 import { useState, useCallback, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { CodePanel } from './TabbedCodeExample';
+import { rosePineDawnColors as rc } from '@/lib/rosePineDawnTheme';
 
 // -- Types --------------------------------------------------------------------
 
@@ -22,53 +24,57 @@ type Item = {
 type List = {
   id: number;
   name: string;
-  emoji: string;
   items: Item[];
+};
+
+const teamAvatars: Record<string, string> = {
+  Stopa: '/img/landing/stopa.jpg',
+  Joe: '/img/landing/joe.jpg',
+  Daniel: '/img/landing/daniel.png',
+  Drew: '/img/landing/drew.jpg',
 };
 
 const demoLists: List[] = [
   {
     id: 1,
     name: 'Launch',
-    emoji: '🚀',
     items: [
       {
         id: 1,
-        text: 'Finalize landing page',
+        text: 'Ship homepage update',
         done: true,
-        comments: [{ id: 1, user: 'Alice', text: 'Looks great!' }],
+        comments: [{ id: 1, user: 'Joe', text: 'Looks great!' }],
       },
       {
         id: 2,
-        text: 'Set up auth providers',
+        text: 'Review PR #42',
         done: true,
         comments: [
-          { id: 10, user: 'Bob', text: 'Google and GitHub are live' },
-          { id: 11, user: 'Carol', text: 'Nice, testing now' },
+          { id: 10, user: 'Daniel', text: 'LGTM, merging now' },
+          { id: 11, user: 'Drew', text: 'Nice, testing on staging' },
         ],
       },
       {
         id: 3,
-        text: 'Write announcement post',
+        text: 'Deploy to production',
         done: false,
-        comments: [{ id: 2, user: 'Bob', text: 'Draft is ready for review' }],
+        comments: [{ id: 2, user: 'Stopa', text: 'Waiting on CI to pass' }],
       },
     ],
   },
   {
     id: 2,
     name: 'Design',
-    emoji: '🎨',
     items: [
       {
         id: 4,
         text: 'Update color palette',
         done: false,
-        comments: [{ id: 3, user: 'Carol', text: 'Love the new orange' }],
+        comments: [{ id: 3, user: 'Drew', text: 'Love the new orange' }],
       },
       {
         id: 5,
-        text: 'Mobile responsive pass',
+        text: 'Responsive pass on mobile',
         done: false,
         comments: [],
       },
@@ -77,7 +83,6 @@ const demoLists: List[] = [
   {
     id: 3,
     name: 'Backend',
-    emoji: '⚡',
     items: [
       {
         id: 6,
@@ -89,7 +94,7 @@ const demoLists: List[] = [
         id: 7,
         text: 'Optimize queries',
         done: true,
-        comments: [{ id: 4, user: 'Dave', text: '3x faster now' }],
+        comments: [{ id: 4, user: 'Daniel', text: '3x faster now' }],
       },
     ],
   },
@@ -98,23 +103,19 @@ const demoLists: List[] = [
 // -- Syntax highlighting primitives -------------------------------------------
 
 function Kw({ children }: { children: ReactNode }) {
-  return <span className="text-purple-400">{children}</span>;
+  return <span style={{ color: rc.keyword }}>{children}</span>;
 }
 
 function Ent({ children, active }: { children: ReactNode; active?: boolean }) {
-  return (
-    <span className={active ? 'text-orange-300' : 'text-gray-300'}>
-      {children}
-    </span>
-  );
+  return <span style={{ color: active ? rc.value : rc.text }}>{children}</span>;
 }
 
 function Pn({ children }: { children: ReactNode }) {
-  return <span className="text-gray-500">{children}</span>;
+  return <span style={{ color: rc.punctuation }}>{children}</span>;
 }
 
 function Str({ children }: { children: ReactNode }) {
-  return <span className="text-green-400">{children}</span>;
+  return <span style={{ color: rc.string }}>{children}</span>;
 }
 
 // -- Dynamic query code block -------------------------------------------------
@@ -151,7 +152,7 @@ function buildQueryLines(state: DemoState, lists: List[]): QL[] {
 
   if (state.view === 'lists') {
     lines.push({
-      key: 'lists-leaf',
+      key: 'lists',
       indent: 1,
       content: (
         <>
@@ -164,7 +165,7 @@ function buildQueryLines(state: DemoState, lists: List[]): QL[] {
   } else {
     // lists: {
     lines.push({
-      key: 'lists-open',
+      key: 'lists',
       indent: 1,
       content: (
         <>
@@ -199,7 +200,7 @@ function buildQueryLines(state: DemoState, lists: List[]): QL[] {
     if (!itemsHasBody) {
       // items: {}
       lines.push({
-        key: 'items-leaf',
+        key: 'items',
         indent: 2,
         content: (
           <>
@@ -212,7 +213,7 @@ function buildQueryLines(state: DemoState, lists: List[]): QL[] {
     } else {
       // items: {
       lines.push({
-        key: 'items-open',
+        key: 'items',
         indent: 2,
         content: (
           <>
@@ -236,7 +237,7 @@ function buildQueryLines(state: DemoState, lists: List[]): QL[] {
               <Pn>{': { '}</Pn>
               <Ent>done</Ent>
               <Pn>{': '}</Pn>
-              <span className="text-blue-400">false</span>
+              <span style={{ color: rc.value }}>false</span>
               <Pn>{` } }${showComments ? ',' : ''}`}</Pn>
             </>
           ),
@@ -289,11 +290,11 @@ function QueryCodeBlock({ state, lists }: { state: DemoState; lists: List[] }) {
   const queryLines = buildQueryLines(state, lists);
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-gray-800 bg-[#0D1117]">
-      <div className="border-b border-gray-800 px-4 py-2.5 text-[11px] font-medium text-gray-500">
-        InstaQL
-      </div>
-      <div className="flex-1 p-4 font-mono text-[13px] leading-relaxed">
+    <CodePanel
+      tabs={[{ key: 'instaql', label: 'InstaQL' }]}
+      activeTab="instaql"
+    >
+      <div className="flex-1 p-4 font-mono text-[13px] leading-normal">
         <AnimatePresence initial={false}>
           {queryLines.map((line) => (
             <motion.div
@@ -318,7 +319,7 @@ function QueryCodeBlock({ state, lists }: { state: DemoState; lists: List[] }) {
           ))}
         </AnimatePresence>
       </div>
-    </div>
+    </CodePanel>
   );
 }
 
@@ -377,7 +378,6 @@ function ListsView({
             onClick={() => onSelectList(l.id)}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
           >
-            <span className="text-base">{l.emoji}</span>
             <span className="flex-1 text-sm font-medium text-gray-800">
               {l.name}
             </span>
@@ -423,9 +423,7 @@ function ItemsView({
         >
           ← Lists
         </button>
-        <span className="text-sm font-semibold">
-          {list.emoji} {list.name}
-        </span>
+        <span className="text-sm font-semibold">{list.name}</span>
         <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-[11px] text-gray-400">
           Hide completed
           <button
@@ -493,17 +491,25 @@ function ItemsView({
                     className="overflow-hidden"
                   >
                     <div className="mt-1 mb-2 ml-6 space-y-2 rounded-lg bg-gray-50 p-2.5">
-                      {item.comments.map((c) => (
-                        <div key={c.id} className="flex gap-2">
-                          <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-[9px] font-bold text-gray-500">
-                            {c.user[0]}
-                          </div>
+                      {item.comments.map((cm) => (
+                        <div key={cm.id} className="flex gap-2">
+                          {teamAvatars[cm.user] ? (
+                            <img
+                              src={teamAvatars[cm.user]}
+                              alt={cm.user}
+                              className="h-5 w-5 flex-shrink-0 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-[9px] font-bold text-gray-500">
+                              {cm.user[0]}
+                            </div>
+                          )}
                           <div>
                             <span className="text-[11px] font-semibold text-gray-600">
-                              {c.user}
+                              {cm.user}
                             </span>
                             <p className="text-[11px] text-gray-500">
-                              {c.text}
+                              {cm.text}
                             </p>
                           </div>
                         </div>

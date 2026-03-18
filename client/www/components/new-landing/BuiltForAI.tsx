@@ -10,6 +10,8 @@ import {
   Subheading,
 } from './typography';
 import { UndoDemo } from './UndoDemo';
+import { TabbedCodeExample, CodePanel } from './TabbedCodeExample';
+import { rosePineDawnColors as c } from '@/lib/rosePineDawnTheme';
 
 // Animated terminal showing `npx instant-cli push` with schema diff
 type TerminalPhase =
@@ -110,405 +112,120 @@ export function AnimatedTerminal() {
   };
 
   return (
-    <div
-      ref={containerRef}
-      className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl"
-    >
+    <div ref={containerRef}>
       <div
-        ref={scrollRef}
-        className="h-[340px] overflow-y-auto p-4 font-mono text-sm sm:p-6"
+        className="overflow-hidden rounded-lg border border-gray-200"
+        style={{ backgroundColor: c.bg }}
       >
-        {/* Command line */}
-        <div className="flex items-center gap-2">
-          <span className="text-green-400">$</span>
-          <span className="text-gray-100">
-            {phase === 'typing' ? (
-              <>
-                {PUSH_COMMAND.slice(0, typingIndex)}
-                <span className="inline-block h-[0.85em] w-[0.5em] translate-y-[1px] animate-pulse bg-gray-100/70" />
-              </>
-            ) : (
-              PUSH_COMMAND
-            )}
-          </span>
-        </div>
-
-        {/* Found app ID */}
-        {showFound && (
-          <div className="mt-1 text-gray-400">
-            Found{' '}
-            <span className="bg-green-900/60 px-0.5 text-green-300">
-              NEXT_PUBLIC_INSTANT_APP_ID
+        <div
+          ref={scrollRef}
+          className="h-[340px] overflow-y-auto p-4 font-mono text-sm sm:p-6"
+        >
+          {/* Command line */}
+          <div className="flex items-center gap-2">
+            <span style={{ color: c.keyword }}>$</span>
+            <span style={{ color: c.text }}>
+              {phase === 'typing' ? (
+                <>
+                  {PUSH_COMMAND.slice(0, typingIndex)}
+                  <span
+                    className="inline-block h-[0.85em] w-[0.5em] translate-y-[1px] animate-pulse"
+                    style={{ backgroundColor: c.text }}
+                  />
+                </>
+              ) : (
+                PUSH_COMMAND
+              )}
             </span>
-            : a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a
           </div>
-        )}
 
-        {/* Schema diff box */}
-        {showDiff && (
-          <div className="mt-3 border border-gray-700 px-3 py-2">
-            <div>
-              <span className="bg-green-600 px-1.5 py-px text-white">
-                + CREATE NAMESPACE
+          {/* Found app ID */}
+          {showFound && (
+            <div className="mt-1" style={{ color: c.punctuation }}>
+              Found{' '}
+              <span
+                className="rounded px-0.5"
+                style={{
+                  backgroundColor: `${c.keyword}20`,
+                  color: c.keyword,
+                }}
+              >
+                NEXT_PUBLIC_INSTANT_APP_ID
               </span>
-              <span className="ml-2 text-gray-300">todos</span>
+              : a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a
             </div>
-            <div className="mt-px space-y-px pl-2">
-              <div className="text-green-400">+ CREATE ATTR todos.id</div>
-              <div className="text-green-400">+ CREATE ATTR todos.text</div>
-              <div className="pl-6 text-gray-500">DATA TYPE: string</div>
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Push prompt + buttons */}
-        {showButtons && (
-          <div className="mt-3">
-            <div className="text-gray-300">Push these changes?</div>
-            <div className="mt-1.5 flex gap-4">
-              <button
-                onClick={handlePush}
-                className="cursor-pointer bg-amber-600 px-3 py-0.5 text-white"
-              >
-                Push
-              </button>
-              <button
-                onClick={handleCancel}
-                className="cursor-pointer bg-gray-700 px-3 py-0.5 text-gray-400"
-              >
-                Cancel
-              </button>
+          {/* Schema diff box */}
+          {showDiff && (
+            <div
+              className="mt-3 border px-3 py-2"
+              style={{ borderColor: `${c.punctuation}40` }}
+            >
+              <div>
+                <span
+                  className="px-1.5 py-px text-white"
+                  style={{ backgroundColor: c.keyword }}
+                >
+                  + CREATE NAMESPACE
+                </span>
+                <span className="ml-2" style={{ color: c.text }}>
+                  todos
+                </span>
+              </div>
+              <div className="mt-px space-y-px pl-2">
+                <div style={{ color: c.keyword }}>+ CREATE ATTR todos.id</div>
+                <div style={{ color: c.keyword }}>+ CREATE ATTR todos.text</div>
+                <div className="pl-6" style={{ color: c.punctuation }}>
+                  DATA TYPE: string
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Result */}
-        {phase === 'cancelled' && (
-          <div className="mt-2">
-            <div className="text-gray-400">Schema migration cancelled!</div>
-          </div>
-        )}
-        {(phase === 'result' || phase === 'pause') && (
-          <div className="mt-2">
-            <div className="text-green-400">Schema updated!</div>
-            <div className="text-green-400">✓ Done</div>
-          </div>
-        )}
+          {/* Push prompt + buttons */}
+          {showButtons && (
+            <div className="mt-3">
+              <div style={{ color: c.text }}>Push these changes?</div>
+              <div className="mt-1.5 flex gap-4">
+                <button
+                  onClick={handlePush}
+                  className="cursor-pointer px-3 py-0.5 text-white"
+                  style={{ backgroundColor: c.string }}
+                >
+                  Push
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="cursor-pointer border px-3 py-0.5"
+                  style={{
+                    borderColor: `${c.punctuation}60`,
+                    color: c.punctuation,
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Result */}
+          {phase === 'cancelled' && (
+            <div className="mt-2">
+              <div style={{ color: c.punctuation }}>
+                Schema migration cancelled!
+              </div>
+            </div>
+          )}
+          {(phase === 'result' || phase === 'pause') && (
+            <div className="mt-2">
+              <div style={{ color: c.keyword }}>Schema updated!</div>
+              <div style={{ color: c.keyword }}>✓ Done</div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  );
-}
-
-// Full chat example with tabs for code, schema, and permissions
-function InstantCodeSnippet() {
-  const [activeTab, setActiveTab] = useState<'chat' | 'schema' | 'perms'>(
-    'chat',
-  );
-
-  const tabs = [
-    { id: 'chat' as const, label: 'chat.tsx' },
-    { id: 'schema' as const, label: 'schema.ts' },
-    { id: 'perms' as const, label: 'perms.ts' },
-  ];
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl">
-      {/* Tab bar */}
-      <div className="flex border-b border-gray-800 bg-gray-900">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 font-mono text-xs transition-colors ${
-              activeTab === tab.id
-                ? 'border-b-2 border-orange-500 bg-gray-950 text-gray-100'
-                : 'text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Code content */}
-      <div className="h-[500px] p-4 font-mono text-xs sm:text-sm">
-        {activeTab === 'chat' && <ChatCode />}
-        {activeTab === 'schema' && <SchemaCode />}
-        {activeTab === 'perms' && <PermsCode />}
-      </div>
-    </div>
-  );
-}
-
-function ChatCode() {
-  return (
-    <>
-      <div className="text-gray-400">// ༼ つ ◕_◕ ༽つ Real-time Chat</div>
-      <div className="text-gray-400">// ----------------------------------</div>
-      <div className="text-gray-400">// * Updates instantly</div>
-      <div className="text-gray-400">// * Multiplayer</div>
-      <div className="text-gray-400">// * Works offline</div>
-
-      <div className="mt-4">
-        <span className="text-purple-400">import</span>
-        <span className="text-gray-400">{' { '}</span>
-        <span className="text-blue-300">init</span>
-        <span className="text-gray-400">, </span>
-        <span className="text-blue-300">id</span>
-        <span className="text-gray-400">{' } '}</span>
-        <span className="text-purple-400">from</span>
-        <span className="text-emerald-300"> "@instantdb/react"</span>
-      </div>
-
-      <div className="mt-3">
-        <span className="text-purple-400">const</span>
-        <span className="text-blue-300"> db </span>
-        <span className="text-gray-400">= </span>
-        <span className="text-yellow-300">init</span>
-        <span className="text-gray-400">{`({`}</span>
-        <span className="text-blue-300">appId</span>
-        <span className="text-gray-400">: </span>
-        <span className="text-emerald-300">"your-app-id"</span>
-        <span className="text-gray-400">{' })'}</span>
-      </div>
-
-      <div className="mt-3">
-        <span className="text-purple-400">function</span>
-        <span className="text-yellow-300"> Chat</span>
-        <span className="text-gray-400">() {'{'}</span>
-      </div>
-
-      <div className="mt-1 pl-4 text-gray-400">// 1. Read</div>
-      <div className="pl-4">
-        <span className="text-purple-400">const</span>
-        <span className="text-gray-400">{' { '}</span>
-        <span className="text-blue-300">data</span>
-        <span className="text-gray-400">{' } = '}</span>
-        <span className="text-orange-300">db</span>
-        <span className="text-gray-400">.</span>
-        <span className="text-yellow-300">useQuery</span>
-        <span className="text-gray-400">{'({ '}</span>
-        <span className="text-blue-300">messages</span>
-        <span className="text-gray-400">{': {} })'}</span>
-      </div>
-
-      <div className="mt-3 pl-4 text-gray-400">// 2. Write</div>
-      <div className="pl-4">
-        <span className="text-purple-400">const</span>
-        <span className="text-blue-300"> addMessage </span>
-        <span className="text-gray-400">= (</span>
-        <span className="text-orange-300">msg</span>
-        <span className="text-gray-400">) =&gt; {'{'}</span>
-      </div>
-      <div className="pl-8">
-        <span className="text-orange-300">db</span>
-        <span className="text-gray-400">.</span>
-        <span className="text-yellow-300">transact</span>
-        <span className="text-gray-400">(</span>
-        <span className="text-orange-300">db</span>
-        <span className="text-gray-400">.</span>
-        <span className="text-blue-300">tx</span>
-        <span className="text-gray-400">.</span>
-        <span className="text-blue-300">messages</span>
-        <span className="text-gray-400">[</span>
-        <span className="text-yellow-300">id</span>
-        <span className="text-gray-400">()].</span>
-        <span className="text-yellow-300">update</span>
-        <span className="text-gray-400">(</span>
-        <span className="text-orange-300">msg</span>
-        <span className="text-gray-400">))</span>
-      </div>
-      <div className="pl-4">
-        <span className="text-gray-400">{'}'}</span>
-      </div>
-
-      <div className="mt-3 pl-4 text-gray-400">// 3. Render!</div>
-      <div className="pl-4">
-        <span className="text-purple-400">return</span>
-        <span className="text-gray-400"> &lt;</span>
-        <span className="text-blue-300">UI</span>
-        <span className="text-blue-300"> data</span>
-        <span className="text-gray-400">=</span>
-        <span className="text-gray-400">{'{data}'}</span>
-        <span className="text-blue-300"> onAdd</span>
-        <span className="text-gray-400">=</span>
-        <span className="text-gray-400">{'{addMessage}'}</span>
-        <span className="text-gray-400"> /&gt;</span>
-      </div>
-
-      <div>
-        <span className="text-gray-400">{'}'}</span>
-      </div>
-
-      <div className="mt-3">
-        <span className="text-purple-400">export</span>
-        <span className="text-purple-400"> default</span>
-        <span className="text-blue-300"> Chat</span>
-      </div>
-    </>
-  );
-}
-
-function SchemaCode() {
-  return (
-    <>
-      <div className="text-gray-400">// Declarative data model</div>
-      <div className="text-gray-400">// ----------------------------------</div>
-      <div className="mt-4">
-        <span className="text-purple-400">import</span>
-        <span className="text-gray-400">{' { '}</span>
-        <span className="text-blue-300">i</span>
-        <span className="text-gray-400">{' } '}</span>
-        <span className="text-purple-400">from</span>
-        <span className="text-emerald-300"> "@instantdb/core"</span>
-      </div>
-
-      <div className="mt-3">
-        <span className="text-purple-400">const</span>
-        <span className="text-blue-300"> schema </span>
-        <span className="text-gray-400">= </span>
-        <span className="text-orange-300">i</span>
-        <span className="text-gray-400">.</span>
-        <span className="text-yellow-300">schema</span>
-        <span className="text-gray-400">({'{'}</span>
-      </div>
-
-      <div className="pl-4">
-        <span className="text-blue-300">entities</span>
-        <span className="text-gray-400">: {'{'}</span>
-      </div>
-
-      <div className="pl-8">
-        <span className="text-blue-300">messages</span>
-        <span className="text-gray-400">: </span>
-        <span className="text-orange-300">i</span>
-        <span className="text-gray-400">.</span>
-        <span className="text-yellow-300">entity</span>
-        <span className="text-gray-400">({'{'}</span>
-      </div>
-
-      <div className="pl-12">
-        <span className="text-blue-300">text</span>
-        <span className="text-gray-400">: </span>
-        <span className="text-orange-300">i</span>
-        <span className="text-gray-400">.</span>
-        <span className="text-yellow-300">string</span>
-        <span className="text-gray-400">(),</span>
-      </div>
-
-      <div className="pl-12">
-        <span className="text-blue-300">createdAt</span>
-        <span className="text-gray-400">: </span>
-        <span className="text-orange-300">i</span>
-        <span className="text-gray-400">.</span>
-        <span className="text-yellow-300">date</span>
-        <span className="text-gray-400">(),</span>
-      </div>
-
-      <div className="pl-8">
-        <span className="text-gray-400">{'})'}</span>
-        <span className="text-gray-400">,</span>
-      </div>
-
-      <div className="pl-4">
-        <span className="text-gray-400">{'}'}</span>
-        <span className="text-gray-400">,</span>
-      </div>
-
-      <div>
-        <span className="text-gray-400">{'})'}</span>
-      </div>
-
-      <div className="mt-4">
-        <span className="text-purple-400">export</span>
-        <span className="text-purple-400"> default</span>
-        <span className="text-blue-300"> schema</span>
-      </div>
-    </>
-  );
-}
-
-function PermsCode() {
-  return (
-    <>
-      <div className="text-gray-400">// Declarative rules</div>
-      <div className="text-gray-400">// ----------------------------------</div>
-
-      <div className="mt-4">
-        <span className="text-purple-400">const</span>
-        <span className="text-blue-300"> rules </span>
-        <span className="text-gray-400">= {'{'}</span>
-      </div>
-
-      <div className="pl-4">
-        <span className="text-blue-300">messages</span>
-        <span className="text-gray-400">: {'{'}</span>
-      </div>
-
-      <div className="pl-8">
-        <span className="text-blue-300">bind</span>
-        <span className="text-gray-400">{': {'}</span>
-        <span className="text-emerald-300">"isOwner"</span>
-        <span className="text-gray-400">: </span>
-        <span className="text-emerald-300">"auth.id == data.creator"</span>
-        <span className="text-gray-400">{'},'}</span>
-      </div>
-
-      <div className="mt-2 pl-8">
-        <span className="text-blue-300">allow</span>
-        <span className="text-gray-400">: {'{'}</span>
-      </div>
-
-      <div className="pl-12">
-        <span className="text-blue-300">read</span>
-        <span className="text-gray-400">: </span>
-        <span className="text-emerald-300">"true"</span>
-        <span className="text-gray-400">,</span>
-        <span className="ml-4 text-gray-400">// Anyone can read</span>
-      </div>
-
-      <div className="pl-12">
-        <span className="text-blue-300">create</span>
-        <span className="text-gray-400">: </span>
-        <span className="text-emerald-300">"isOwner"</span>
-        <span className="text-gray-400">,</span>
-        <span className="ml-4 text-gray-400">// Only owner</span>
-      </div>
-
-      <div className="pl-12">
-        <span className="text-blue-300">update</span>
-        <span className="text-gray-400">: </span>
-        <span className="text-emerald-300">"isOwner"</span>
-        <span className="text-gray-400">,</span>
-        <span className="ml-4 text-gray-400">// Only owner</span>
-      </div>
-
-      <div className="pl-12">
-        <span className="text-blue-300">delete</span>
-        <span className="text-gray-400">: </span>
-        <span className="text-emerald-300">"isOwner"</span>
-        <span className="text-gray-400">,</span>
-        <span className="ml-4 text-gray-400">// Only owner</span>
-      </div>
-
-      <div className="pl-8">
-        <span className="text-gray-400">{'}'}</span>
-      </div>
-
-      <div className="pl-4">
-        <span className="text-gray-400">{'}'}</span>
-      </div>
-
-      <div>
-        <span className="text-gray-400">{'}'}</span>
-      </div>
-
-      <div className="mt-4">
-        <span className="text-purple-400">export</span>
-        <span className="text-purple-400"> default</span>
-        <span className="text-blue-300"> rules</span>
-      </div>
-    </>
   );
 }
 
@@ -517,7 +234,8 @@ function PermsCode() {
 function BlinkingCursor() {
   return (
     <motion.span
-      className="inline-block h-[1.1em] w-[2px] translate-y-[2px] bg-gray-300"
+      className="inline-block h-[1.1em] w-[2px] translate-y-[2px]"
+      style={{ backgroundColor: c.text }}
       animate={{ opacity: [1, 0] }}
       transition={{ duration: 0.8, repeat: Infinity, repeatType: 'reverse' }}
     />
@@ -539,20 +257,24 @@ function AutocompleteDropdown({ items }: { items: DropdownItem[] }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
       transition={{ duration: 0.15 }}
-      className="absolute top-full left-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border border-gray-700 bg-[#1e1e2e] shadow-xl"
+      className="absolute top-full left-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border border-gray-200 shadow-xl"
+      style={{ backgroundColor: c.bg }}
     >
       {items.map((item) => (
         <div
           key={item.name}
           className={`flex items-center gap-2 px-3 py-1.5 text-[13px] ${
             item.highlighted
-              ? 'border-l-2 border-l-blue-400 bg-blue-500/15'
+              ? 'border-l-2 bg-blue-50'
               : 'border-l-2 border-l-transparent'
           }`}
+          style={item.highlighted ? { borderLeftColor: c.keyword } : undefined}
         >
-          <span className={item.iconColor}>◆</span>
-          <span className="text-gray-100">{item.name}</span>
-          <span className="ml-auto text-gray-500">{item.type}</span>
+          <span style={{ color: item.iconColor }}>◆</span>
+          <span style={{ color: c.text }}>{item.name}</span>
+          <span className="ml-auto" style={{ color: c.punctuation }}>
+            {item.type}
+          </span>
         </div>
       ))}
     </motion.div>
@@ -578,29 +300,29 @@ const scenes: Scene[] = [
   {
     prefix: (
       <>
-        <span className="text-orange-300">db</span>
-        <span className="text-gray-400">.</span>
-        <span className="text-yellow-300">useQuery</span>
-        <span className="text-gray-400">{'({'}</span>
+        <span style={{ color: c.value }}>db</span>
+        <span style={{ color: c.punctuation }}>.</span>
+        <span style={{ color: c.value }}>useQuery</span>
+        <span style={{ color: c.punctuation }}>{'({'}</span>
       </>
     ),
     dropdownItems: [
       {
         icon: '◆',
-        iconColor: 'text-purple-400',
+        iconColor: c.parameter,
         name: 'messages',
         type: 'EntityDef',
         highlighted: true,
       },
       {
         icon: '◆',
-        iconColor: 'text-blue-400',
+        iconColor: c.tag,
         name: 'users',
         type: 'EntityDef',
       },
       {
         icon: '◆',
-        iconColor: 'text-emerald-400',
+        iconColor: c.keyword,
         name: 'channels',
         type: 'EntityDef',
       },
@@ -612,26 +334,26 @@ const scenes: Scene[] = [
   {
     prefix: (
       <>
-        <span className="text-blue-300">data</span>
-        <span className="text-gray-400">.</span>
-        <span className="text-blue-300">messages</span>
-        <span className="text-gray-400">[</span>
-        <span className="text-orange-300">0</span>
-        <span className="text-gray-400">].</span>
+        <span style={{ color: c.tag }}>data</span>
+        <span style={{ color: c.punctuation }}>.</span>
+        <span style={{ color: c.tag }}>messages</span>
+        <span style={{ color: c.punctuation }}>[</span>
+        <span style={{ color: c.value }}>0</span>
+        <span style={{ color: c.punctuation }}>].</span>
       </>
     ),
     dropdownItems: [
       {
         icon: '◆',
-        iconColor: 'text-emerald-400',
+        iconColor: c.keyword,
         name: 'text',
         type: 'string',
         highlighted: true,
       },
-      { icon: '◆', iconColor: 'text-blue-400', name: 'id', type: 'string' },
+      { icon: '◆', iconColor: c.tag, name: 'id', type: 'string' },
       {
         icon: '◆',
-        iconColor: 'text-purple-400',
+        iconColor: c.parameter,
         name: 'createdAt',
         type: 'number',
       },
@@ -701,12 +423,7 @@ export function TypeSafetyDemo() {
   const showCursor = phase !== 'pause';
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-2xl">
-      {/* Editor title bar */}
-      <div className="flex items-center border-b border-gray-800 bg-gray-900 px-4 py-2">
-        <span className="font-mono text-xs text-gray-500">app.tsx</span>
-      </div>
-
+    <CodePanel tabs={[{ key: 'app', label: 'app.tsx' }]} activeTab="app">
       <div className="min-h-[160px] p-5 font-mono text-sm sm:p-6 sm:text-[15px]">
         {/* Code line */}
         <div className="relative inline-flex flex-wrap items-center whitespace-pre">
@@ -715,14 +432,14 @@ export function TypeSafetyDemo() {
             <motion.span
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-blue-300"
+              style={{ color: c.tag }}
             >
               {scene.selectedText}
             </motion.span>
           )}
           {showCursor && !showSelected && <BlinkingCursor />}
           {showSelected && (
-            <span className="text-gray-400">{scene.suffix}</span>
+            <span style={{ color: c.punctuation }}>{scene.suffix}</span>
           )}
           {showSelected && showCursor && <BlinkingCursor />}
 
@@ -741,16 +458,76 @@ export function TypeSafetyDemo() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="mt-3 text-gray-500"
+              style={{ color: c.punctuation }}
+              className="mt-3"
             >
               {scene.annotation}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </CodePanel>
   );
 }
+
+const chatCode = `// ༼ つ ◕_◕ ༽つ Real-time Chat
+// ----------------------------------
+// * Updates instantly
+// * Multiplayer
+// * Works offline
+
+import { init, id } from "@instantdb/react"
+
+const db = init({ appId: "your-app-id" })
+
+function Chat() {
+  // 1. Read
+  const { data } = db.useQuery({ messages: {} })
+
+  // 2. Write
+  const addMessage = (msg) => {
+    db.transact(db.tx.messages[id()].update(msg))
+  }
+
+  // 3. Render!
+  return <UI data={data} onAdd={addMessage} />
+}
+
+export default Chat`;
+
+const schemaCode = `// Declarative data model
+// ----------------------------------
+
+import { i } from "@instantdb/core"
+
+const schema = i.schema({
+  entities: {
+    messages: i.entity({
+      text: i.string(),
+      createdAt: i.date(),
+    }),
+  },
+})
+
+export default schema`;
+
+const permsCode = `// Declarative rules
+// ----------------------------------
+
+const rules = {
+  messages: {
+    bind: { "isOwner": "auth.id == data.creator" },
+
+    allow: {
+      read: "true",    // Anyone can read
+      create: "isOwner", // Only owner
+      update: "isOwner", // Only owner
+      delete: "isOwner", // Only owner
+    }
+  }
+}
+
+export default rules`;
 
 export function BuiltForAI() {
   return (
@@ -790,7 +567,22 @@ export function BuiltForAI() {
       <AnimateIn>
         <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row lg:items-center">
           <div className="lg:bg-surface/20 grow lg:px-[66px] lg:py-[37px]">
-            <InstantCodeSnippet />
+            <TabbedCodeExample
+              examples={[
+                {
+                  label: 'Chat App',
+                  chat: chatCode,
+                  schema: schemaCode,
+                  perms: permsCode,
+                },
+              ]}
+              tabs={[
+                { key: 'chat', label: 'chat.tsx', language: 'tsx' },
+                { key: 'schema', label: 'schema.ts', language: 'typescript' },
+                { key: 'perms', label: 'perms.ts', language: 'javascript' },
+              ]}
+              height="h-[560px]"
+            />
           </div>
           <div className="lg:max-w-[440px]">
             <Subheading>Easy for humans, perfect for LLMs</Subheading>

@@ -18,6 +18,7 @@ import clsx from 'clsx';
 import { CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/solid';
 import CopyToClipboard from 'react-copy-to-clipboard';
 import { AnimatePresence, motion } from 'motion/react';
+import { rosePineDawnColors as c } from '@/lib/rosePineDawnTheme';
 
 // -----------
 // Data
@@ -215,7 +216,10 @@ function TerminalCopyButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 2000);
       }}
     >
-      <button className="relative flex h-9 w-9 items-center justify-center overflow-hidden text-white transition-opacity hover:opacity-70">
+      <button
+        className="relative flex h-9 w-9 items-center justify-center overflow-hidden transition-opacity hover:opacity-70"
+        style={{ color: c.punctuation }}
+      >
         <AnimatePresence initial={false} custom={copied}>
           <motion.span
             key={copied ? 'copied' : 'copy'}
@@ -309,11 +313,16 @@ function TerminalBlock({
           />
         </div>
       )}
-      <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950">
+      <div
+        className="overflow-hidden rounded-xl border border-gray-200"
+        style={{ backgroundColor: c.bg }}
+      >
         <div className="flex items-center justify-between px-6 py-4 font-mono text-base font-normal">
           <div>
-            <span className="text-green-400">$ </span>
-            <span className="text-white">{command}</span>
+            <span style={{ color: c.keyword }}>$ </span>
+            <span className="font-semibold" style={{ color: c.text }}>
+              {command}
+            </span>
           </div>
           <TerminalCopyButton text={command} />
         </div>
@@ -327,8 +336,11 @@ function TabbedPrompts() {
   const prompt = examplePrompts[activeTab];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-950 shadow-2xl">
-      <div className="flex items-center justify-between border-b border-gray-800 px-2 py-2">
+    <div
+      className="overflow-hidden rounded-2xl border border-gray-200"
+      style={{ backgroundColor: c.bg }}
+    >
+      <div className="flex items-center justify-between border-b border-gray-200/60 px-2 py-2">
         <div className="flex gap-1">
           {examplePrompts.map((p, i) => (
             <button
@@ -337,8 +349,8 @@ function TabbedPrompts() {
               className={clsx(
                 'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
                 activeTab === i
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-500 hover:text-gray-300',
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700',
               )}
             >
               {p.title}
@@ -354,7 +366,8 @@ function TabbedPrompts() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className="p-6 font-mono text-base whitespace-pre-wrap text-white"
+          className="p-6 font-mono text-base whitespace-pre-wrap"
+          style={{ color: c.text }}
         >
           {prompt.content}
         </motion.div>

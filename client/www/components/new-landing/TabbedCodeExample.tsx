@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import Highlight, { defaultProps } from 'prism-react-renderer';
 import { cn } from '@/components/ui';
+import { rosePineDawnColors } from '@/lib/rosePineDawnTheme';
 
 const editorTheme = {
   plain: {
@@ -60,7 +61,7 @@ export function CodeEditor({
     >
       {({ tokens, getTokenProps }) => (
         <pre
-          className="m-0 p-4 font-mono text-sm leading-relaxed"
+          className="m-0 p-4 font-mono text-sm leading-normal"
           style={{ backgroundColor: '#faf8f5' }}
         >
           <code>
@@ -90,6 +91,43 @@ function PillTray({ children }: { children: ReactNode }) {
   return <div className="flex flex-wrap gap-1.5">{children}</div>;
 }
 
+export function CodePanel({
+  tabs,
+  activeTab,
+  onTabChange,
+  children,
+}: {
+  tabs: { key: string; label: string }[];
+  activeTab?: string;
+  onTabChange?: (key: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="min-w-0 overflow-hidden rounded-lg border border-gray-200"
+      style={{ backgroundColor: rosePineDawnColors.bg }}
+    >
+      <div className="flex border-b border-gray-200/60">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => onTabChange?.(tab.key)}
+            className={cn(
+              'border-r border-r-gray-200/60 px-4 py-2 text-sm font-medium transition-colors',
+              activeTab === tab.key
+                ? 'text-gray-900 shadow-[inset_0_-2px_0_0_#f97316]'
+                : 'text-gray-500 hover:text-gray-700',
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function TabbedCodeExample({
   examples,
   tabs,
@@ -106,49 +144,36 @@ export function TabbedCodeExample({
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <PillTray>
-        {examples.map((ex, i) => (
-          <button
-            key={ex.label}
-            onClick={() => setSelectedIdx(i)}
-            className={cn(
-              'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
-              i === selectedIdx
-                ? 'border-orange-600 bg-orange-600 text-white'
-                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
-            )}
-          >
-            {ex.label}
-          </button>
-        ))}
-      </PillTray>
-      <div
-        className="min-w-0 overflow-hidden rounded-lg border border-gray-200"
-        style={{ backgroundColor: '#faf8f5' }}
-      >
-        <div className="flex border-b border-gray-200/60">
-          {tabs.map((tab) => (
+      {examples.length > 1 && (
+        <PillTray>
+          {examples.map((ex, i) => (
             <button
-              key={tab.key}
-              onClick={() => setActiveTabKey(tab.key)}
+              key={ex.label}
+              onClick={() => setSelectedIdx(i)}
               className={cn(
-                'border-r border-r-gray-200/60 px-4 py-2 text-sm font-medium transition-colors',
-                activeTabKey === tab.key
-                  ? 'text-gray-900 shadow-[inset_0_-2px_0_0_#f97316]'
-                  : 'text-gray-500 hover:text-gray-700',
+                'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+                i === selectedIdx
+                  ? 'border-orange-600 bg-orange-600 text-white'
+                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
               )}
             >
-              {tab.label}
+              {ex.label}
             </button>
           ))}
-        </div>
+        </PillTray>
+      )}
+      <CodePanel
+        tabs={tabs}
+        activeTab={activeTabKey}
+        onTabChange={setActiveTabKey}
+      >
         <div className={cn(height, 'overflow-auto text-sm')}>
           <CodeEditor
             language={activeTab.language || 'javascript'}
             code={example[activeTab.key]}
           />
         </div>
-      </div>
+      </CodePanel>
     </div>
   );
 }
