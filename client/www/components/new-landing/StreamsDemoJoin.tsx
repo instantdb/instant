@@ -673,9 +673,9 @@ export function StreamsDemoJoin() {
 
   return (
     <div ref={containerRef} className="relative">
-      <div className="flex items-center justify-center gap-12">
+      <div className="flex items-center justify-center gap-6 md:gap-12">
         {/* ─── Stopa (publisher) ─── */}
-        <div style={{ width: 200 }}>
+        <div className="w-[130px] md:w-[200px]">
           <div className="mb-1.5 flex items-center gap-2 px-1">
             <img
               src="/img/landing/stopa.jpg"
@@ -746,10 +746,8 @@ export function StreamsDemoJoin() {
         <div className="flex flex-col gap-3">
           {/* Drew */}
           <div
-            style={{
-              width: 130,
-              transform: 'translateY(12px) rotate(2deg)',
-            }}
+            className="w-[100px] md:w-[130px]"
+            style={{ transform: 'translateY(12px) rotate(2deg)' }}
           >
             <div className="mb-1.5 flex items-center gap-2 px-1">
               <img
@@ -777,10 +775,8 @@ export function StreamsDemoJoin() {
 
           {/* Daniel — always rendered, with Join overlay when not joined */}
           <div
-            style={{
-              width: 130,
-              transform: 'translateY(4px) rotate(-3deg)',
-            }}
+            className="w-[100px] md:w-[130px]"
+            style={{ transform: 'translateY(4px) rotate(-3deg)' }}
           >
             <div className="mb-1.5 flex items-center gap-2 px-1">
               <img

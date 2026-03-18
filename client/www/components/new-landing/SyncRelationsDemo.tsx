@@ -2,6 +2,7 @@
 
 import { useState, useCallback, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { ChatBubbleOvalLeftIcon } from '@heroicons/react/24/solid';
 import { CodePanel } from './TabbedCodeExample';
 import { rosePineDawnColors as rc } from '@/lib/rosePineDawnTheme';
 
@@ -475,7 +476,8 @@ function ItemsView({
                 </span>
                 {item.comments.length > 0 && (
                   <span className="flex items-center gap-0.5 text-[10px] text-gray-400">
-                    💬 {item.comments.length}
+                    <ChatBubbleOvalLeftIcon className="h-3 w-3" />{' '}
+                    {item.comments.length}
                   </span>
                 )}
               </div>

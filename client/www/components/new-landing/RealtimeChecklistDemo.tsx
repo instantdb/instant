@@ -80,14 +80,14 @@ export function RealtimeChecklistDemo() {
         />
         <span className="text-sm font-medium">{name}&apos;s phone</span>
       </div>
-      <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm md:p-5">
+      <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm md:p-5">
         <div className="mb-3 text-sm font-medium text-gray-500">Team Todos</div>
         <div className="space-y-1.5">
           {items.map((t) => (
             <button
               key={t.id}
               onClick={(e) => toggle(t.id, source, e)}
-              className="flex w-full items-center gap-1 rounded-lg px-3 py-1 text-left md:gap-3 md:py-2.5"
+              className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left"
             >
               <Checkbox done={t.done} />
               <span
@@ -103,7 +103,10 @@ export function RealtimeChecklistDemo() {
   );
 
   return (
-    <div ref={containerRef} className="relative flex items-start gap-6">
+    <div
+      ref={containerRef}
+      className="relative flex items-start gap-3 md:gap-6"
+    >
       <TaskCard name="Daniel" img="/img/landing/daniel.png" source="left" />
       <TaskCard name="Joe" img="/img/landing/joe.jpg" source="right" />
 

@@ -4,8 +4,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 
 const autoPlayTaskData = [
-  { id: 1, text: 'Design landing page', done: false },
-  { id: 2, text: 'Write API docs', done: false },
+  { id: 1, text: 'Design page', done: false },
+  { id: 2, text: 'Write docs', done: false },
   { id: 3, text: 'Ship v1.0', done: false },
 ];
 
@@ -61,11 +61,11 @@ function AutoPlayTaskCard({
   onToggle?: (id: number) => void;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="mb-4">
+    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm md:p-5">
+      <div className="mb-3 md:mb-4">
         <span className="text-sm font-medium">{title}</span>
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         {items.map((t) => (
           <button
             key={t.id}
@@ -263,38 +263,45 @@ export function AutoPlayDemo() {
   const showCursor = !userTookOver && activeSide && cursorIndex !== null;
 
   return (
-    <div ref={containerRef} className="flex items-start gap-6">
+    <div ref={containerRef} className="flex items-start gap-3 md:gap-6">
       <div className="relative min-w-0 flex-1">
-        <div className="mb-2 flex items-center justify-between px-1">
-          <div className="flex items-center gap-2.5">
-            <img
-              src="/img/icon/favicon-96x96.svg"
-              alt="Instant"
-              className="h-6 w-6 rounded"
-            />
-            <span className="text-sm font-medium">With Instant</span>
+        <div className="mb-2 px-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <img
+                src="/img/icon/favicon-96x96.svg"
+                alt="Instant"
+                className="h-6 w-6"
+              />
+              <span className="text-sm font-medium">With Instant</span>
+            </div>
+            <span className="hidden text-xs font-medium text-green-600 md:block">
+              Updates right away
+            </span>
           </div>
-          <span className="text-xs font-medium text-green-600">
-            Updates right away
-          </span>
         </div>
         <AutoPlayTaskCard
           title="My Tasks"
           items={fastItems}
           onToggle={(id) => handleUserClick('fast', id)}
         />
+        <p className="mt-1.5 px-1 text-xs font-medium text-green-600 md:hidden">
+          Updates right away
+        </p>
         {showCursor && activeSide === 'fast' && (
           <AutoPlayFakeCursor index={cursorIndex!} />
         )}
       </div>
       <div className="relative min-w-0 flex-1">
-        <div className="mb-2 flex items-center justify-between px-1">
-          <div className="flex items-center gap-2.5">
-            <span className="text-sm font-medium">Without Instant</span>
+        <div className="mb-2 px-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="text-sm font-medium">Without Instant</span>
+            </div>
+            <span className="hidden text-xs font-medium text-gray-400 md:block">
+              Waits on the server
+            </span>
           </div>
-          <span className="text-xs font-medium text-gray-400">
-            Waits on the server
-          </span>
         </div>
         <AutoPlayTaskCard
           title="My Tasks"
@@ -302,6 +309,9 @@ export function AutoPlayDemo() {
           pending={slowPending}
           onToggle={(id) => handleUserClick('slow', id)}
         />
+        <p className="mt-1.5 px-1 text-xs font-medium text-gray-400 md:hidden">
+          Waits on the server
+        </p>
         {showCursor && activeSide === 'slow' && (
           <AutoPlayFakeCursor index={cursorIndex!} />
         )}
