@@ -86,6 +86,10 @@ const readCanLoadNextPage = (forwardChunks: Map<string, Chunk>) => {
   return chunksInOrder[chunksInOrder.length - 1]?.hasMore || false;
 };
 
+// Chunk sub key is used to create keys to keep track of the subscriptions
+// while the chunk maps are keyed by the cursor, here we disinguish between
+// forward and reverse because the first 2 chunks will have the same starting
+// cursor.
 const chunkSubKey = (direction: 'forward' | 'reverse', cursor: Cursor) =>
   `${direction}:${JSON.stringify(cursor)}`;
 
