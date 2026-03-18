@@ -20,9 +20,14 @@ export const runCommandEffect = <A, E, R extends never>(
 export const printRedErrors = Effect.catchAllCause((cause) => {
   const failure = Cause.failureOption(cause);
 
+  if (failure._tag !== 'Some') {
+    return Effect.succeed(undefined);
+  }
+
+  const theError = failure.value;
+
   // Print just the message if the error has a message attribute and no cause
   if (
-    failure._tag === 'Some' &&
     typeof failure.value === 'object' &&
     failure.value !== null &&
     'message' in failure.value &&
