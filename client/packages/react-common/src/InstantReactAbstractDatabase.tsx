@@ -27,8 +27,8 @@ import {
   ReactNode,
   useCallback,
   useEffect,
-  useState,
   useRef,
+  useState,
   useSyncExternalStore,
 } from 'react';
 import { useQueryInternal } from './useQuery.ts';

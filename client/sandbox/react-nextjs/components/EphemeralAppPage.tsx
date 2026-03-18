@@ -9,12 +9,8 @@ import {
   LinksDef,
   InstantReactWebDatabase,
 } from '@instantdb/react';
-import { ReactNode, useCallback, useEffect, useState } from 'react';
-import {
-  InstantCoreDatabase,
-  RoomsDef,
-  TransactionChunk,
-} from '../../../packages/core/dist/esm';
+import { ReactNode, useEffect, useState } from 'react';
+import { RoomsDef, TransactionChunk } from '../../../packages/core/dist/esm';
 import { IContainEntitiesAndLinks } from '../../../packages/core/dist/esm/schemaTypes';
 import { Explorer, Toaster } from '@instantdb/components';
 
