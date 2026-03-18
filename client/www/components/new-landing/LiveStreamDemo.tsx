@@ -33,7 +33,7 @@ function randomFloaterParams(): FloaterParams {
 function spawnFloater(emoji: string, container: HTMLElement, p: FloaterParams) {
   const el = document.createElement('span');
   el.textContent = emoji;
-  el.style.cssText = `position:absolute;pointer-events:none;font-size:20px;line-height:1;bottom:10px;left:${p.startX}%;z-index:10;`;
+  el.style.cssText = `position:absolute;pointer-events:none;font-size:20px;line-height:1;bottom:10px;left:${p.startX}%;margin-left:-0.5em;z-index:10;`;
   container.appendChild(el);
 
   const anim = el.animate(
@@ -194,7 +194,7 @@ export function LiveStreamDemo() {
   };
 
   return (
-    <div className="flex flex-col items-end justify-center gap-10 md:flex-row">
+    <div className="flex flex-col items-center justify-center gap-10 md:flex-row md:items-end">
       <StreamCard tilt="-rotate-2 translate-y-2" />
       <StreamCard tilt="rotate-1 -translate-y-3" />
     </div>
