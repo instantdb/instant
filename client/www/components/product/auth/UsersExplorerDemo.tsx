@@ -204,7 +204,7 @@ export function UsersExplorerDemo() {
                 <button
                   key={ns}
                   onClick={() => handleSelectNs(ns)}
-                  className={`relative w-full rounded-md px-2.5 py-1.5 text-left font-mono text-xs transition-colors ${
+                  className={`relative w-full cursor-pointer rounded-md px-2.5 py-1.5 text-left font-mono text-xs transition-colors ${
                     isActive
                       ? 'font-medium text-orange-600'
                       : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
@@ -243,7 +243,7 @@ export function UsersExplorerDemo() {
                 <div className="flex items-center gap-1.5 border-b border-gray-100 bg-orange-50/50 px-3 py-1.5">
                   <button
                     onClick={handleClearFilter}
-                    className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-orange-600 hover:bg-orange-100"
+                    className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-orange-600 hover:bg-orange-100"
                   >
                     <svg
                       className="h-3 w-3"
@@ -344,7 +344,7 @@ export function UsersExplorerDemo() {
                                   ids,
                                 });
                               }}
-                              className="truncate font-mono text-orange-500 hover:text-orange-600"
+                              className="cursor-pointer truncate font-mono text-orange-500 hover:text-orange-600"
                             >
                               {String(row[lf.field])}
                             </button>
@@ -366,7 +366,7 @@ export function UsersExplorerDemo() {
                                 onClick={() =>
                                   handleLinkClick(activeNs, row, ns)
                                 }
-                                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-orange-500 transition-colors hover:bg-orange-50 hover:text-orange-600"
+                                className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-orange-500 transition-colors hover:bg-orange-50 hover:text-orange-600"
                               >
                                 {count}
                                 <svg
