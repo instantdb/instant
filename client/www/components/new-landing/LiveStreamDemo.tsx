@@ -9,6 +9,8 @@ const REACTIONS = [
   '\uD83D\uDC4F',
 ] as const;
 
+type Reaction = (typeof REACTIONS)[number];
+
 interface FloaterParams {
   startX: number;
   drift1: number;
@@ -74,9 +76,7 @@ const presenceRoom = exampleDB.room('homepagePresenceDemo', 'presence');
 export function LiveStreamDemo() {
   const screenRefs = useRef<HTMLElement[]>([]);
   const videoRefs = useRef<HTMLVideoElement[]>([]);
-  const emojiRefs = useRef<Map<(typeof REACTIONS)[number], HTMLButtonElement>>(
-    new Map(),
-  );
+  const emojiRefs = useRef<Map<Reaction, HTMLButtonElement>>(new Map());
 
   const registerScreen = useCallback((el: HTMLElement | null) => {
     if (!el) return;
@@ -88,7 +88,7 @@ export function LiveStreamDemo() {
     if (!videoRefs.current.includes(el)) videoRefs.current.push(el);
   }, []);
 
-  const animateEmoji = useCallback((emoji: (typeof REACTIONS)[number]) => {
+  const animateEmoji = useCallback((emoji: Reaction) => {
     const btn = emojiRefs.current.get(emoji);
     const row = btn?.parentElement;
     if (!row) return;
@@ -113,12 +113,15 @@ export function LiveStreamDemo() {
   const publishEmoji = exampleDB.rooms.usePublishTopic(presenceRoom, 'emoji');
 
   exampleDB.rooms.useTopicEffect(presenceRoom, 'emoji', ({ emoji }) => {
-    animateEmoji(emoji as (typeof REACTIONS)[number]);
+    animateEmoji(emoji as Reaction);
   });
-  const react = useCallback((emoji: (typeof REACTIONS)[number]) => {
-    publishEmoji({ emoji });
-    animateEmoji(emoji);
-  }, []);
+  const react = useCallback(
+    (emoji: Reaction) => {
+      publishEmoji({ emoji });
+      animateEmoji(emoji);
+    },
+    [publishEmoji, animateEmoji],
+  );
 
   const { peers } = exampleDB.rooms.usePresence(presenceRoom);
 

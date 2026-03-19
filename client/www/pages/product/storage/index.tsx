@@ -228,8 +228,8 @@ function PhotoApp() {
   });
 
   const handleHeartClick = () => {
-    if (heartRef.current) animateHeart(heartRef.current);
     publishHeart({});
+    if (heartRef.current) animateHeart(heartRef.current);
   };
 
   return (
