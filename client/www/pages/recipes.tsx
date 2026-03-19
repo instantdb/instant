@@ -81,14 +81,12 @@ function Main({ files }: { files: File[] }) {
   });
   const [selectedExample, setSelectedExample] = useState<string | undefined>();
   const [appId, setAppId] = useState<string | undefined>(undefined);
-  const [numColumns, setNumColumns] = useState(2);
   const columnDbsRef = useRef<InstantDB[]>([]);
 
-  // Create db instances on demand — only as many as the current max numViews
-  if (appId && columnDbsRef.current.length < numColumns) {
-    const dbs = columnDbsRef.current;
-    for (let i = dbs.length; i < numColumns; i++) {
-      dbs.push(
+  function getColumnDb(appId: string, index: number): InstantDB {
+    while (columnDbsRef.current.length <= index) {
+      const i = columnDbsRef.current.length;
+      columnDbsRef.current.push(
         init({
           ...config,
           appId,
@@ -96,10 +94,8 @@ function Main({ files }: { files: File[] }) {
         } as any),
       );
     }
-    columnDbsRef.current = dbs;
+    return columnDbsRef.current[index];
   }
-
-  const columnDbs = columnDbsRef.current;
 
   useEffect(() => {
     jumpToExample();
@@ -190,8 +186,8 @@ function Main({ files }: { files: File[] }) {
       </Head>
       <Toaster />
 
-      {columnDbs[0] && appId ? (
-        <RoomStatus db={columnDbs[0]} appId={appId} />
+      {appId ? (
+        <RoomStatus db={getColumnDb(appId, 0)} appId={appId} />
       ) : null}
       <MainNav transparent />
 
@@ -235,10 +231,7 @@ function Main({ files }: { files: File[] }) {
                 key={file.pathName}
                 file={file}
                 appId={isHydrated && appId ? appId : undefined}
-                columnDbs={columnDbs}
-                onNumViewsChange={(n) =>
-                  setNumColumns((prev) => Math.max(prev, n))
-                }
+                getColumnDb={getColumnDb}
                 onViewChange={(inView) => {
                   if (!isHydrated || !router.isReady) return;
                   if (!inView) return;
@@ -260,15 +253,13 @@ function Main({ files }: { files: File[] }) {
 function Example({
   file,
   appId,
-  columnDbs,
-  onNumViewsChange,
+  getColumnDb,
   onViewChange,
   lazy,
 }: {
   file: File;
   appId: string | undefined;
-  columnDbs: InstantDB[];
-  onNumViewsChange: (n: number) => void;
+  getColumnDb: (appId: string, index: number) => InstantDB;
   onViewChange: (inView: boolean) => void;
   lazy: boolean;
 }) {
@@ -316,9 +307,7 @@ function Example({
               disabled={numViews >= 5}
               className="border-l border-gray-200 px-2.5 py-0.5 text-base text-gray-600 transition-colors hover:bg-gray-50 disabled:text-gray-300"
               onClick={() => {
-                const next = Math.min(numViews + 1, 5);
-                setNumViews(next);
-                onNumViewsChange(next);
+                setNumViews(Math.min(numViews + 1, 5));
               }}
             >
               +
@@ -365,7 +354,7 @@ function Example({
               >
                 <BrowserChrome />
                 <div className="h-[calc(100%-32px)] overflow-auto">
-                  {appId && columnDbs[i] && RecipeComponent ? (
+                  {appId && RecipeComponent ? (
                     <ErrorBoundary
                       renderError={() => (
                         <p className="p-2 text-sm text-red-500">
@@ -373,7 +362,7 @@ function Example({
                         </p>
                       )}
                     >
-                      <RecipeDBProvider value={columnDbs[i]}>
+                      <RecipeDBProvider value={getColumnDb(appId, i)}>
                         <RecipeComponent />
                       </RecipeDBProvider>
                     </ErrorBoundary>

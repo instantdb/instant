@@ -5,10 +5,10 @@ import { useRef } from 'react';
 export default function InstantAvatarStack() {
   const db = useRecipeDB();
   const room = db.room('avatars-example', 'avatars-example-1234');
-  const userIdRef = useRef(id());
+  const userId = useRef(id()).current;
 
   const presence = room.usePresence({ user: true });
-  db.rooms.useSyncPresence(room, { name: userIdRef.current.slice(0, 6) });
+  db.rooms.useSyncPresence(room, { name: userId.slice(0, 6) });
 
   const peerCount = Object.keys(presence.peers).length;
 

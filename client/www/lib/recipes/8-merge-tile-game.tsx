@@ -26,10 +26,13 @@ export default function App() {
   useEffect(() => {
     if (isLoading || isPresenceLoading || error) return;
 
+    // If the board doesn't exist, create it
     if (!boardState) {
       db.transact([db.tx.boards[boardId].update({ state: makeEmptyBoard() })]);
     }
 
+    // If I don't have a color, generate one and publish it
+    // make sure to not choose a color that a peer has already chosen
     if (!myColor) {
       const takenColors = new Set(Object.values(peers).map((p) => p.color));
       const available = colors.filter((c) => !takenColors.has(c));
@@ -40,19 +43,8 @@ export default function App() {
     }
   }, [isLoading, isPresenceLoading, error, boardState]);
 
-  if (!boardState || isLoading || isPresenceLoading)
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-400">
-        Loading...
-      </div>
-    );
-
-  if (error)
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-red-400">
-        Error: {error.message}
-      </div>
-    );
+  if (error) return <div className="p-4 text-sm text-red-500">{error.message}</div>;
+  if (!boardState || isLoading || isPresenceLoading) return null;
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 bg-[radial-gradient(circle,#e0ddd5_1px,transparent_1px)] bg-[length:24px_24px] p-4">
@@ -121,7 +113,10 @@ const boardId = '83c059e2-ed47-42e5-bdd9-6de88d26c521';
 
 function makeEmptyBoard() {
   const board: Record<string, string> = {};
-  for (let r = 0; r < boardSize; r++)
-    for (let c = 0; c < boardSize; c++) board[`${r}-${c}`] = emptyColor;
+  for (let r = 0; r < boardSize; r++) {
+    for (let c = 0; c < boardSize; c++) {
+      board[`${r}-${c}`] = emptyColor;
+    }
+  }
   return board;
 }

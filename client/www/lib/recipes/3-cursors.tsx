@@ -5,11 +5,11 @@ import { useRef } from 'react';
 export default function InstantCursors() {
   const db = useRecipeDB();
   const room = db.room('cursors-example', '123');
-  const colorRef = useRef(randomDarkColor());
+  const color = useRef(randomDarkColor()).current;
   return (
     <Cursors
       room={room}
-      userCursorColor={colorRef.current}
+      userCursorColor={color}
       className={cursorsClassNames}
     >
       <span className="text-sm text-gray-400 italic">

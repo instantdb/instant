@@ -5,8 +5,8 @@ import { useRef } from 'react';
 export default function InstantTypingIndicator() {
   const db = useRecipeDB();
   const room = db.room('typing-indicator-example', '1234');
-  const userIdRef = useRef(id());
-  db.rooms.useSyncPresence(room, { id: userIdRef.current });
+  const userId = useRef(id()).current;
+  db.rooms.useSyncPresence(room, { id: userId });
 
   const presence = db.rooms.usePresence(room);
   const { active, inputProps } = db.rooms.useTypingIndicator(
@@ -14,8 +14,8 @@ export default function InstantTypingIndicator() {
     'chat-input',
   );
 
-  const peers = Object.values(presence.peers).filter((p) => p.id);
-  const activeMap = Object.fromEntries(active.map((p) => [p.id, true]));
+  const peers = Object.values(presence.peers);
+  const activeSet = new Set(active.map((p) => p.id));
 
   return (
     <div className="flex h-full">
@@ -27,7 +27,7 @@ export default function InstantTypingIndicator() {
               alt=""
               className="h-8 w-8 rounded-full"
             />
-            {activeMap[peer.id] ? (
+            {activeSet.has(peer.id) ? (
               <div className="absolute -right-1 bottom-0 rounded-xs bg-black px-1 text-[10px] leading-3 text-white">
                 ⋯
               </div>

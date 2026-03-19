@@ -40,9 +40,7 @@ export default function InstantTodos() {
           Add
         </button>
       </form>
-      {isLoading ? (
-        <p className="text-sm text-gray-400 italic">Loading...</p>
-      ) : data?.todos.length ? (
+      {data?.todos.length ? (
         <ul className="flex flex-col">
           {data.todos.map((todo) => (
             <li
@@ -75,9 +73,9 @@ export default function InstantTodos() {
             </li>
           ))}
         </ul>
-      ) : (
+      ) : isLoading ? null : (
         <p className="text-sm text-gray-400 italic">
-          No todos yet — add one above!
+          No todos just yet! Create your first one :)
         </p>
       )}
     </div>
