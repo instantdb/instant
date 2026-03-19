@@ -63,9 +63,11 @@
                     (.build))
 
         ^GetMetricDataResponse response (.getMetricData client ^GetMetricDataRequest request)
-        ^MetricDataResult result (.metricDataResults response)]
+        result (.metricDataResults response)]
     (int (/ (reduce (fn [acc ^MetricDataResult result]
-                      (+ acc (first (.values result))))
+                      (if-some [total (first (.values result))]
+                        (+ acc total)
+                        acc))
                     0
                     result)
             period))))
