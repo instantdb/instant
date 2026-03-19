@@ -15,16 +15,12 @@ import {
 } from '@instantdb/react';
 import { errorToast } from '@/lib/toast';
 import { MainNav } from '@/components/marketingUi';
-import { useAuthToken } from '@/lib/auth';
 import * as og from '@/lib/og';
 import { Toaster } from '@instantdb/components';
 import { Footer } from '@/components/new-landing/Footer';
 import { TopWash } from '@/components/new-landing/TopWash';
 import { Section } from '@/components/new-landing/Section';
-import {
-  SectionTitle,
-  LandingButton,
-} from '@/components/new-landing/typography';
+import { SectionTitle } from '@/components/new-landing/typography';
 import { CopyToClipboardButton } from '@/components/new-landing/CopyToClipboardButton';
 import { BrowserChrome } from '@/components/BrowserChrome';
 
@@ -71,7 +67,6 @@ export default function Page({ files }: { files: File[] }) {
 
 function Main({ files }: { files: File[] }) {
   const router = useRouter();
-  const isAuthed = !!useAuthToken();
   const isHydrated = useIsHydrated();
   const recipesContainerElRef = useRef<HTMLDivElement>(null);
   const { ref: topInViewRef } = useInView({
@@ -211,14 +206,6 @@ function Main({ files }: { files: File[] }) {
               progress with a lot less code. Take a look at some of what's
               possible below.
             </p>
-            {isHydrated && !isAuthed && (
-              <div className="mt-8 flex gap-3">
-                <LandingButton href="/dash">Sign up</LandingButton>
-                <LandingButton href="/docs" variant="secondary">
-                  Read the docs
-                </LandingButton>
-              </div>
-            )}
             <div
               ref={topInViewRef}
               className="mt-8 flex w-full max-w-md flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3"
