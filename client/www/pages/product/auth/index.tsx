@@ -15,59 +15,7 @@ import { TopWash } from '@/components/new-landing/TopWash';
 import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
 import { AuthDemo } from '@/components/new-landing/BatteriesForAI';
-
-const tables = [
-  { name: '$users', highlight: true, fields: 'email, name, role' },
-  { name: 'projects', highlight: false, fields: 'title, status' },
-  { name: 'tasks', highlight: false, fields: 'body, completed' },
-  { name: 'comments', highlight: false, fields: 'text, createdAt' },
-];
-
-function UsersTableDiagram() {
-  return (
-    <div className="rounded-lg bg-gray-50 p-4">
-      <div className="flex items-center gap-2 pb-3">
-        <svg
-          className="h-4 w-4 text-gray-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"
-          />
-        </svg>
-        <span className="font-mono text-xs font-medium text-gray-500">
-          My awesome app
-        </span>
-      </div>
-      <div className="space-y-1.5">
-        {tables.map((table) => (
-          <div
-            key={table.name}
-            className={`flex items-center justify-between rounded-md px-4 py-2.5 ${
-              table.highlight
-                ? 'border border-orange-200 bg-orange-50'
-                : 'border border-white bg-white'
-            }`}
-          >
-            <span
-              className={`font-mono text-sm font-medium ${
-                table.highlight ? 'text-orange-600' : 'text-gray-700'
-              }`}
-            >
-              {table.name}
-            </span>
-            <span className="text-xs text-gray-400">{table.fields}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+import { UsersExplorerDemo } from '@/components/product/auth/UsersExplorerDemo';
 
 export default function Auth() {
   const title = 'Auth - Instant';
@@ -138,8 +86,8 @@ export default function Auth() {
           {/* Users are just another table */}
           <AnimateIn>
             <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center">
-              <div className="lg:bg-surface/20 min-w-0 grow lg:px-[66px] lg:py-[37px]">
-                <UsersTableDiagram />
+              <div className="min-w-0 grow rounded-xl bg-radial from-white to-[#FFF9F4] px-5 py-12">
+                <UsersExplorerDemo />
               </div>
               <div className="space-y-4 md:max-w-[440px]">
                 <Subheading>Users are just another table</Subheading>
