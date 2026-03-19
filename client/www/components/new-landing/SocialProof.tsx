@@ -47,7 +47,7 @@ export function SocialProof() {
 
   const stats = [
     {
-      value: formatNumberCompact(connectionCount || 0),
+      value: connectionCount ? formatNumberCompact(connectionCount) : undefined,
       label: 'concurrent connections',
     },
     { value: '1,000+', label: 'queries per second' },
@@ -58,7 +58,7 @@ export function SocialProof() {
     <div className="space-y-16">
       {/* Stats */}
       <AnimateIn>
-        <div className="mx-auto grid max-w-3xl grid-cols-3 gap-4 sm:gap-8">
+        <div className="mx-auto grid max-w-3xl grid-cols-3 items-end gap-4 sm:gap-8">
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
               <div className="font-mono text-3xl font-semibold tracking-tighter sm:text-5xl">
