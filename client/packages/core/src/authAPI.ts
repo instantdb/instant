@@ -27,20 +27,53 @@ export type VerifyMagicCodeParams = {
   email: string;
   code: string;
   refreshToken?: string | undefined;
-  extraFields?: Record<string, any> | undefined;
 };
 export type VerifyResponse = {
   user: User;
-  created?: boolean;
 };
+
+/**
+ * @deprecated Use {@link consumeMagicCode} instead to get the `created` field
+ * and support `extraFields`.
+ */
 export async function verifyMagicCode({
   apiURI,
   appId,
   email,
   code,
   refreshToken,
-  extraFields,
 }: SharedInput & VerifyMagicCodeParams): Promise<VerifyResponse> {
+  const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      'app-id': appId,
+      email,
+      code,
+      ...(refreshToken ? { 'refresh-token': refreshToken } : {}),
+    }),
+  });
+  return res;
+}
+
+export type ConsumeMagicCodeParams = {
+  email: string;
+  code: string;
+  refreshToken?: string | undefined;
+  extraFields?: Record<string, any> | undefined;
+};
+export type ConsumeMagicCodeResponse = {
+  user: User;
+  created: boolean;
+};
+export async function consumeMagicCode({
+  apiURI,
+  appId,
+  email,
+  code,
+  refreshToken,
+  extraFields,
+}: SharedInput & ConsumeMagicCodeParams): Promise<ConsumeMagicCodeResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -100,7 +133,8 @@ export async function exchangeCodeForToken({
   codeVerifier,
   refreshToken,
   extraFields,
-}: SharedInput & ExchangeCodeForTokenParams): Promise<VerifyResponse> {
+}: SharedInput &
+  ExchangeCodeForTokenParams): Promise<ConsumeMagicCodeResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/token`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -131,7 +165,7 @@ export async function signInWithIdToken({
   clientName,
   refreshToken,
   extraFields,
-}: SharedInput & SignInWithIdTokenParams): Promise<VerifyResponse> {
+}: SharedInput & SignInWithIdTokenParams): Promise<ConsumeMagicCodeResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/id_token`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

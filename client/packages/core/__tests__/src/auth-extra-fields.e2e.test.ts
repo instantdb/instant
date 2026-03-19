@@ -83,3 +83,52 @@ authTest(
     expect(res.user.email).toBe(email);
   },
 );
+
+authTest(
+  'admin verify_magic_code returns { user, created } for consumeMagicCode',
+  async ({ db: _db, appId, adminToken }) => {
+    const email = `admin-consume-${Date.now()}@test.com`;
+    const code = await generateMagicCode(appId, adminToken, email);
+
+    // Hit the admin endpoint directly (same as admin SDK consumeMagicCode)
+    const res = await fetch(
+      `${apiUrl}/admin/verify_magic_code?app_id=${appId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          email,
+          code,
+          'extra-fields': { username: 'admin_user' },
+        }),
+      },
+    );
+    const data = await res.json();
+
+    // Response should have user nested (not splatted) and created flag
+    expect(data.user).toBeDefined();
+    expect(data.user.email).toBe(email);
+    expect(data.created).toBe(true);
+
+    // Second call -- existing user
+    const code2 = await generateMagicCode(appId, adminToken, email);
+    const res2 = await fetch(
+      `${apiUrl}/admin/verify_magic_code?app_id=${appId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ email, code: code2 }),
+      },
+    );
+    const data2 = await res2.json();
+
+    expect(data2.user).toBeDefined();
+    expect(data2.created).toBe(false);
+  },
+);

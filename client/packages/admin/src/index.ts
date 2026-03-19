@@ -507,19 +507,42 @@ class Auth {
   };
 
   /**
-   * Verifies a magic code for the user with the given email.
-   *
-   * @example
-   *   const user = await db.auth.verifyMagicCode({ email, code })
-   *   console.log("Verified user:", user)
+   * @deprecated Use {@link consumeMagicCode} instead to get the `created` field
+   * and support `extraFields`.
    *
    * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
-  verifyMagicCode = async (
+  verifyMagicCode = async (email: string, code: string): Promise<User> => {
+    const { user } = await jsonFetch(
+      `${this.config.apiURI}/admin/verify_magic_code?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({ email, code }),
+      },
+    );
+    return user;
+  };
+
+  /**
+   * Verifies a magic code and returns the user along with whether
+   * the user was newly created. Supports `extraFields` to set custom
+   * `$users` properties at signup.
+   *
+   * @example
+   *   const { user, created } = await db.auth.consumeMagicCode(
+   *     email,
+   *     code,
+   *     { extraFields: { nickname: 'ari' } },
+   *   );
+   *
+   * @see https://instantdb.com/docs/backend#custom-magic-codes
+   */
+  consumeMagicCode = async (
     email: string,
     code: string,
     options?: { extraFields?: Record<string, any> },
-  ): Promise<User & { created?: boolean }> => {
+  ): Promise<{ user: User; created: boolean }> => {
     const res = await jsonFetch(
       `${this.config.apiURI}/admin/verify_magic_code?app_id=${this.config.appId}`,
       {
@@ -534,7 +557,7 @@ class Auth {
         }),
       },
     );
-    return { ...res.user, created: res.created };
+    return { user: res.user, created: res.created };
   };
 
   /**
