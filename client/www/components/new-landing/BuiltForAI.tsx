@@ -242,11 +242,32 @@ function BlinkingCursor() {
   );
 }
 
+function PropertyIcon({ color }: { color: string }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      className="inline-block shrink-0"
+      stroke={color}
+      strokeWidth="1.2"
+      strokeLinejoin="round"
+    >
+      {/* Top face */}
+      <polygon points="8,2 14,5 8,8 2,5" />
+      {/* Left face */}
+      <polygon points="2,5 8,8 8,14 2,11" />
+      {/* Right face */}
+      <polygon points="14,5 8,8 8,14 14,11" />
+    </svg>
+  );
+}
+
 type DropdownItem = {
-  icon: string;
   iconColor: string;
   name: string;
-  type: string;
+  type?: string;
   highlighted?: boolean;
 };
 
@@ -270,11 +291,13 @@ function AutocompleteDropdown({ items }: { items: DropdownItem[] }) {
           }`}
           style={item.highlighted ? { borderLeftColor: c.keyword } : undefined}
         >
-          <span style={{ color: item.iconColor }}>◆</span>
+          <PropertyIcon color={item.iconColor} />
           <span style={{ color: c.text }}>{item.name}</span>
-          <span className="ml-auto" style={{ color: c.punctuation }}>
-            {item.type}
-          </span>
+          {item.type && (
+            <span className="ml-auto" style={{ color: c.punctuation }}>
+              {item.type}
+            </span>
+          )}
         </div>
       ))}
     </motion.div>
@@ -288,17 +311,96 @@ type Phase =
   | 'show-annotation'
   | 'pause';
 
+function HoverTooltip({
+  children,
+  content,
+}: {
+  children: React.ReactNode;
+  content: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      className="relative cursor-default"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {children}
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.1 }}
+            className="absolute bottom-full left-0 z-20 mb-1.5 rounded border border-gray-300 px-2.5 py-1.5 text-[12px] whitespace-nowrap shadow-lg"
+            style={{ backgroundColor: c.bg, color: c.text }}
+          >
+            {content}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </span>
+  );
+}
+
+type TypeSegment = { text: string; color: string };
+
 type Scene = {
-  prefix: React.ReactNode;
+  typingSegments: TypeSegment[];
+  dropdownDisplay: React.ReactNode;
+  selectedPrefix: React.ReactNode;
   dropdownItems: DropdownItem[];
   selectedText: string;
   suffix: string;
-  annotation: string;
+  annotation: React.ReactNode;
+  pauseDisplay: React.ReactNode;
 };
+
+function TypingText({
+  segments,
+  charIndex,
+}: {
+  segments: TypeSegment[];
+  charIndex: number;
+}) {
+  let remaining = charIndex;
+  return (
+    <>
+      {segments.map((seg, i) => {
+        if (remaining <= 0) return null;
+        const chars = Math.min(remaining, seg.text.length);
+        remaining -= chars;
+        return (
+          <span key={i} style={{ color: seg.color }}>
+            {seg.text.slice(0, chars)}
+          </span>
+        );
+      })}
+    </>
+  );
+}
 
 const scenes: Scene[] = [
   {
-    prefix: (
+    typingSegments: [
+      { text: 'db', color: c.value },
+      { text: '.', color: c.punctuation },
+      { text: 'useQuery', color: c.value },
+      { text: '({', color: c.punctuation },
+    ],
+    dropdownDisplay: (
+      <>
+        <span style={{ color: c.value }}>db</span>
+        <span style={{ color: c.punctuation }}>.</span>
+        <span style={{ color: c.value }}>useQuery</span>
+        <span style={{ color: c.punctuation }}>{'({'}</span>
+        <span style={{ color: c.string }}>{'""'}</span>
+        <span style={{ color: c.punctuation }}>{'}'}</span>
+        <span style={{ color: c.punctuation }}>{')'}</span>
+      </>
+    ),
+    selectedPrefix: (
       <>
         <span style={{ color: c.value }}>db</span>
         <span style={{ color: c.punctuation }}>.</span>
@@ -308,31 +410,65 @@ const scenes: Scene[] = [
     ),
     dropdownItems: [
       {
-        icon: '◆',
         iconColor: c.parameter,
         name: 'messages',
-        type: 'EntityDef',
         highlighted: true,
       },
       {
-        icon: '◆',
         iconColor: c.tag,
         name: 'users',
-        type: 'EntityDef',
       },
       {
-        icon: '◆',
         iconColor: c.keyword,
         name: 'channels',
-        type: 'EntityDef',
       },
     ],
     selectedText: ' messages: {} ',
     suffix: '})',
-    annotation: '// → { messages: Message[] }',
+    annotation: (
+      <>
+        {'// → { messages: { '}
+        <span style={{ color: c.tag }}>id</span>
+        {': string; '}
+        <span style={{ color: c.tag }}>text</span>
+        {': string; ... }[] }'}
+      </>
+    ),
+    pauseDisplay: (
+      <>
+        <span style={{ color: c.value }}>db</span>
+        <span style={{ color: c.punctuation }}>.</span>
+        <span style={{ color: c.value }}>useQuery</span>
+        <span style={{ color: c.punctuation }}>{'({ '}</span>
+        <HoverTooltip content="(property) messages: { id: string; text: string; createdAt: number }[]">
+          <span style={{ color: c.tag }} className="hover:underline">
+            messages
+          </span>
+        </HoverTooltip>
+        <span style={{ color: c.punctuation }}>{': {} })'}</span>
+      </>
+    ),
   },
   {
-    prefix: (
+    typingSegments: [
+      { text: 'data', color: c.tag },
+      { text: '.', color: c.punctuation },
+      { text: 'messages', color: c.tag },
+      { text: '[', color: c.punctuation },
+      { text: '0', color: c.value },
+      { text: '].', color: c.punctuation },
+    ],
+    dropdownDisplay: (
+      <>
+        <span style={{ color: c.tag }}>data</span>
+        <span style={{ color: c.punctuation }}>.</span>
+        <span style={{ color: c.tag }}>messages</span>
+        <span style={{ color: c.punctuation }}>[</span>
+        <span style={{ color: c.value }}>0</span>
+        <span style={{ color: c.punctuation }}>].</span>
+      </>
+    ),
+    selectedPrefix: (
       <>
         <span style={{ color: c.tag }}>data</span>
         <span style={{ color: c.punctuation }}>.</span>
@@ -344,15 +480,13 @@ const scenes: Scene[] = [
     ),
     dropdownItems: [
       {
-        icon: '◆',
         iconColor: c.keyword,
         name: 'text',
         type: 'string',
         highlighted: true,
       },
-      { icon: '◆', iconColor: c.tag, name: 'id', type: 'string' },
+      { iconColor: c.tag, name: 'id', type: 'string' },
       {
-        icon: '◆',
         iconColor: c.parameter,
         name: 'createdAt',
         type: 'number',
@@ -361,21 +495,60 @@ const scenes: Scene[] = [
     selectedText: 'text',
     suffix: '',
     annotation: '// → string',
+    pauseDisplay: (
+      <>
+        <span style={{ color: c.tag }}>data</span>
+        <span style={{ color: c.punctuation }}>.</span>
+        <HoverTooltip content="(property) messages: { id: string; text: string; createdAt: number }[]">
+          <span style={{ color: c.tag }} className="hover:underline">
+            messages
+          </span>
+        </HoverTooltip>
+        <span style={{ color: c.punctuation }}>[</span>
+        <span style={{ color: c.value }}>0</span>
+        <span style={{ color: c.punctuation }}>].</span>
+        <HoverTooltip content="(property) text: string">
+          <span style={{ color: c.tag }} className="hover:underline">
+            text
+          </span>
+        </HoverTooltip>
+      </>
+    ),
   },
 ];
 
 export function TypeSafetyDemo() {
   const [sceneIndex, setSceneIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('typing-prefix');
+  const [typingIndex, setTypingIndex] = useState(0);
 
   const scene = scenes[sceneIndex];
+  const totalChars = scene.typingSegments.reduce(
+    (sum, seg) => sum + seg.text.length,
+    0,
+  );
 
+  // Character-by-character typing
   useEffect(() => {
+    if (phase !== 'typing-prefix') return;
+    if (typingIndex < totalChars) {
+      const timeout = setTimeout(
+        () => setTypingIndex((i) => i + 1),
+        30 + Math.random() * 40,
+      );
+      return () => clearTimeout(timeout);
+    }
+    // Done typing, move to next phase
+    const timeout = setTimeout(() => setPhase('show-dropdown'), 300);
+    return () => clearTimeout(timeout);
+  }, [phase, typingIndex, totalChars]);
+
+  // Phase transitions (except typing-prefix, handled above)
+  useEffect(() => {
+    if (phase === 'typing-prefix') return;
+
     let delay: number;
     switch (phase) {
-      case 'typing-prefix':
-        delay = 800;
-        break;
       case 'show-dropdown':
         delay = 1200;
         break;
@@ -394,9 +567,6 @@ export function TypeSafetyDemo() {
 
     const timeout = setTimeout(() => {
       switch (phase) {
-        case 'typing-prefix':
-          setPhase('show-dropdown');
-          break;
         case 'show-dropdown':
           setPhase('select-item');
           break;
@@ -408,47 +578,64 @@ export function TypeSafetyDemo() {
           break;
         case 'pause':
           setSceneIndex((i) => (i + 1) % scenes.length);
+          setTypingIndex(0);
           setPhase('typing-prefix');
           break;
       }
     }, delay);
 
     return () => clearTimeout(timeout);
-  }, [phase, sceneIndex]);
+  }, [phase]);
 
   const showDropdown = phase === 'show-dropdown';
   const showSelected =
     phase === 'select-item' || phase === 'show-annotation' || phase === 'pause';
   const showAnnotation = phase === 'show-annotation' || phase === 'pause';
   const showCursor = phase !== 'pause';
+  const isPause = phase === 'pause';
 
   return (
     <CodePanel tabs={[{ key: 'app', label: 'app.tsx' }]} activeTab="app">
       <div className="min-h-[160px] p-5 font-mono text-sm sm:p-6 sm:text-[15px]">
         {/* Code line */}
         <div className="relative inline-flex flex-wrap items-center whitespace-pre">
-          {scene.prefix}
-          {showSelected && (
-            <motion.span
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={{ color: c.tag }}
-            >
-              {scene.selectedText}
-            </motion.span>
-          )}
-          {showCursor && !showSelected && <BlinkingCursor />}
-          {showSelected && (
-            <span style={{ color: c.punctuation }}>{scene.suffix}</span>
-          )}
-          {showSelected && showCursor && <BlinkingCursor />}
+          {isPause ? (
+            scene.pauseDisplay
+          ) : (
+            <>
+              {showSelected ? (
+                scene.selectedPrefix
+              ) : showDropdown ? (
+                scene.dropdownDisplay
+              ) : (
+                <TypingText
+                  segments={scene.typingSegments}
+                  charIndex={typingIndex}
+                />
+              )}
+              {phase === 'typing-prefix' && <BlinkingCursor />}
+              {showSelected && (
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  style={{ color: c.tag }}
+                >
+                  {scene.selectedText}
+                </motion.span>
+              )}
+              {showSelected && (
+                <span style={{ color: c.punctuation }}>{scene.suffix}</span>
+              )}
+              {showSelected && showCursor && <BlinkingCursor />}
 
-          {/* Dropdown */}
-          <AnimatePresence>
-            {showDropdown && (
-              <AutocompleteDropdown items={scene.dropdownItems} />
-            )}
-          </AnimatePresence>
+              {/* Dropdown */}
+              <AnimatePresence>
+                {showDropdown && (
+                  <AutocompleteDropdown items={scene.dropdownItems} />
+                )}
+              </AnimatePresence>
+            </>
+          )}
         </div>
 
         {/* Type annotation */}
@@ -519,10 +706,10 @@ const rules = {
     bind: { "isOwner": "auth.id == data.creator" },
 
     allow: {
-      read: "true",    // Anyone can read
+      view: "true",      // Anyone can view
       create: "isOwner", // Only owner
       update: "isOwner", // Only owner
-      delete: "isOwner", // Only owner
+      "delete": "isOwner", // Only owner
     }
   }
 }
