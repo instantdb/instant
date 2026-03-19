@@ -6,11 +6,9 @@ export default function InstantTypingIndicator() {
   const db = useRecipeDB();
   const room = db.room('typing-indicator-example', '1234');
   const userIdRef = useRef(id());
-  const user = {
+  db.rooms.useSyncPresence(room, {
     id: userIdRef.current,
-    name: userIdRef.current.slice(0, 6),
-  };
-  db.rooms.useSyncPresence(room, user);
+  });
 
   const presence = db.rooms.usePresence(room);
 
@@ -31,11 +29,11 @@ export default function InstantTypingIndicator() {
           return (
             <div
               key={peer.id}
-              className="relative inset-0 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full"
+              className="relative inset-0 flex h-10 w-10 items-center justify-center"
             >
               <img
-                src={`/api/avatar?name=${encodeURIComponent(peer.name || '')}&size=32`}
-                alt={peer.name || ''}
+                src={`/api/avatar?name=${encodeURIComponent(peer.id || '')}&size=32`}
+                alt=""
                 className="h-full w-full rounded-full"
               />
               {activeMap[peer.id] ? (
@@ -48,25 +46,21 @@ export default function InstantTypingIndicator() {
         })}
       </div>
       <div key="main" className="flex flex-1 flex-col justify-end">
+        <div className="truncate text-xs text-gray-500">
+          {active.length ? typingInfo(active) : <>&nbsp;</>}
+        </div>
         <textarea
           placeholder="Compose your message here..."
           className="w-full rounded-md border-gray-300 p-2 text-sm"
           onKeyDown={(e) => inputProps.onKeyDown(e)}
           onBlur={() => inputProps.onBlur()}
         />
-        <div className="truncate text-xs text-gray-500">
-          {active.length ? typingInfo(active) : <>&nbsp;</>}
-        </div>
       </div>
     </div>
   );
 }
 
-function typingInfo(typing: { name: string }[]) {
-  if (typing.length === 0) return null;
-  if (typing.length === 1) return `${typing[0].name} is typing...`;
-  if (typing.length === 2)
-    return `${typing[0].name} and ${typing[1].name} are typing...`;
-
-  return `${typing[0].name} and ${typing.length - 1} others are typing...`;
+function typingInfo(active: unknown[]) {
+  if (active.length === 1) return '1 person is typing...';
+  return `${active.length} people are typing...`;
 }
