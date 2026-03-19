@@ -160,9 +160,9 @@ export default function Page({ posts }: { posts: EssaysIndexPost[] }) {
 
           {hero && <HeroPostCard post={hero} />}
 
-          <div className="relative mt-10 py-16">
+          <div className="relative mt-8 pb-16 lg:mt-10">
             <div className="absolute top-0 bottom-0 left-1/2 w-screen -translate-x-1/2 bg-[#F0F5FA]">
-              <div className="pointer-events-none absolute top-0 right-0 left-0 h-[45%] bg-gradient-to-b from-white to-transparent" />
+              <div className="pointer-events-none absolute top-0 right-0 left-0 h-[20%] bg-gradient-to-b from-white to-transparent" />
               <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-[45%] bg-gradient-to-b from-transparent to-white" />
             </div>
             <div className="relative z-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-10">

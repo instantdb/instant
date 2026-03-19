@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import Head from 'next/head';
 import { Button } from '@/components/ui';
-import { LandingContainer, MainNav, Section } from '@/components/marketingUi';
+import { MainNav } from '@/components/marketingUi';
+import { TopWash } from '@/components/new-landing/TopWash';
 import ReactMarkdown, { Components } from 'react-markdown';
 import { Fence } from '@/components/ui';
 import rehypeRaw from 'rehype-raw';
@@ -52,7 +53,7 @@ function Content({ content }: { content: string }) {
       components={
         {
           p: ({ children }) => (
-            <div className="mt-[1.25em] mb-[1.25em] text-base leading-relaxed">
+            <div className="prose prose-lg mt-[1.25em] mb-[1.25em] leading-relaxed">
               {children}
             </div>
           ),
@@ -69,11 +70,11 @@ function Content({ content }: { content: string }) {
             const ytMatch = props.href?.match(youtubePattern);
             if (ytMatch) {
               return (
-                <span className="md-video-container block">
+                <span className="md-video-container essay-video-breakout">
                   <iframe
                     width="100%"
                     src={`https://www.youtube.com/embed/${ytMatch[1]}?${youtubeParams}`}
-                    title="${title}"
+                    title="Video"
                     allow="autoplay; picture-in-picture"
                     allowFullScreen
                   ></iframe>
@@ -97,6 +98,7 @@ function Content({ content }: { content: string }) {
               <Fence
                 code={String(props.children.props.children).replace(/\n$/, '')}
                 language={language}
+                style={{ backgroundColor: '#faf8f5' }}
               ></Fence>
             );
           },
@@ -112,39 +114,34 @@ function ExampleDetail({ app }: { app: ExampleApp }) {
   const { slug, title, content, shortDescription, platform } = app;
   const backHref = platform === 'mobile' ? '/examples?tab=mobile' : '/examples';
   return (
-    <div className="space-y-12 md:space-y-6">
-      <div className="mx-auto flex max-w-prose flex-col">
-        <div className="pt-6 pb-2">
+    <div className="relative mx-auto max-w-4xl px-4 pt-28 pb-8 sm:pt-32">
+      <div className="mx-auto mb-8 max-w-2xl">
+        <div className="mb-4">
           <Link href={backHref} className="text-sm text-gray-500">
             <ArrowLeftIcon className="mr-1 mb-0.5 inline h-4 w-4" />
             Back To Examples
           </Link>
         </div>
-        <div className="py-4">
-          <div className="mb-1 flex items-center justify-between">
-            <div className="-mt-1 text-3xl leading-relaxed font-bold">
-              {title}
-            </div>
-            <div className="hidden gap-4 md:flex">
-              <ActionButtons app={app} />
-            </div>
-          </div>
-          <p className="text-md text-gray-700">{shortDescription}</p>
+        <h1 className="mb-4 text-5xl leading-tight font-normal tracking-tight">
+          {title}
+        </h1>
+        <div className="flex items-center gap-4">
+          <p className="text-lg text-gray-500">{shortDescription}</p>
         </div>
-        <div className="flex gap-4 md:hidden">
+        <div className="mt-4 flex gap-3">
           <ActionButtons app={app} />
         </div>
-        <div className="prose prose-headings:font-bold prose-headings:leading-relaxed prose-h1:mb-4 prose-h1:mt-8 prose-h1:text-xl prose-h2:mb-2 prose-h2:mt-4 prose-h2:text-lg prose-pre:bg-gray-100">
-          <Content content={content} />
+      </div>
+      <div className="essay-content prose prose-lg prose-headings:font-normal prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-12 prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl">
+        <Content content={content} />
+      </div>
+      <div className="mx-auto mt-8 max-w-2xl border border-dashed border-orange-600 bg-orange-50/50 px-4 pt-2 pb-4">
+        <div className="py-4 text-sm font-light">
+          What did you think of this example? Are there any other apps you'd
+          like to see implemented with InstantDB? Let us know and we'll do our
+          best to add it!
         </div>
-        <div className="my-4 border border-dashed border-orange-600 bg-orange-50/50 px-4 pt-2 pb-4">
-          <div className="py-4 text-sm font-light">
-            What did you think of this example? Are there any other apps you'd
-            like to see implemented with InstantDB? Let us know and we'll do our
-            best to add it!
-          </div>
-          <RatingBox pageId={`examples/${slug}`} />
-        </div>
+        <RatingBox pageId={`examples/${slug}`} />
       </div>
     </div>
   );
@@ -154,18 +151,18 @@ const ExampleAppPage = ({ app }: { app: ExampleApp }) => {
   const { title } = app;
   const pageTitle = `${title} | InstantDB Examples`;
   return (
-    <LandingContainer>
+    <div className="min-h-full overflow-x-hidden">
       <Head>
         <title>{pageTitle}</title>
         <meta name="description" content="Learn Instant through example apps" />
       </Head>
-      <MainNav />
-      <Section>
+      <div className="relative">
+        <TopWash />
+        <MainNav transparent />
         <ExampleDetail app={app} />
-      </Section>
-      <div className="h-12" />
+      </div>
       <Footer />
-    </LandingContainer>
+    </div>
   );
 };
 
