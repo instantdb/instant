@@ -20,7 +20,7 @@ const getStoredTimestamps = (storageKey: string) => {
 };
 
 // Set a max duration for cached values to be valid
-export const serverOverrideAndTtl = ({
+export const serverOverrideAndTTL = ({
   ttlMinutes,
   disableFetchIfCached,
   timestampStorageKey = DEFAULT_TS_STORAGE_KEY,

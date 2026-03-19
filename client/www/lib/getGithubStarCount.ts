@@ -1,7 +1,7 @@
 import z from 'zod';
 import { formatNumberCompact } from './format';
 import useSWR from 'swr';
-import { serverOverrideAndTtl } from './swrMiddleware';
+import { serverOverrideAndTTL } from './swrMiddleware';
 
 const githubStarResponseSchema = z.object({
   stargazers_count: z.number(),
@@ -43,7 +43,7 @@ export const useGithubStarCount = () => {
   // 2. It's been one day since you saved the star count after fetching
   const starCountResult = useSWR('starCount', getGithubStarCount, {
     use: [
-      serverOverrideAndTtl({ ttlMinutes: 1440, disableFetchIfCached: true }),
+      serverOverrideAndTTL({ ttlMinutes: 1440, disableFetchIfCached: true }),
     ],
   });
 
