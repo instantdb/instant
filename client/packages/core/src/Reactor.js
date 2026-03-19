@@ -10,7 +10,7 @@ import * as authAPI from './authAPI.ts';
 import * as StorageApi from './StorageAPI.ts';
 import * as flags from './utils/flags.ts';
 import { buildPresenceSlice, hasPresenceResponseChanged } from './presence.ts';
-import { Deferred } from './utils/Deferred.js';
+import { Deferred } from './utils/Deferred.ts';
 import { PersistedObject } from './utils/PersistedObject.ts';
 
 import { extractTriples } from './model/instaqlResult.js';

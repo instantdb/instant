@@ -9,9 +9,15 @@ export default defineConfig({
         test: {
           name: 'e2e',
           include: ['**/**.e2e.test.ts'],
+          expect: {
+            poll: {
+              timeout: 10_000,
+            },
+          },
           browser: {
             enabled: true,
             provider: playwright(),
+            screenshotFailures: false,
             headless: true,
             instances: [{ browser: 'chromium' }],
           },

@@ -57,6 +57,9 @@ import type {
   InstaQLResult,
   InstaQLFields,
   ValidQuery,
+  Cursor,
+  Order,
+  InstaQLQueryEntityResult,
 } from './queryTypes.ts';
 import type { PresencePeer } from './presenceTypes.ts';
 import type {
@@ -142,6 +145,12 @@ import {
   ReadableStreamCtor,
   WritableStreamCtor,
 } from './Stream.ts';
+import {
+  type InfiniteQueryCallbackResponse,
+  type InfiniteQuerySubscription,
+  subscribeInfiniteQuery,
+  getInfiniteQueryInitialSnapshot,
+} from './infiniteQuery.ts';
 
 const defaultOpenDevtool = true;
 
@@ -696,6 +705,38 @@ class InstantCoreDatabase<
   }
 
   /**
+   * Subscribe to a query and incrementally load more items
+   *
+   * Only one top level namespace in the query is allowed.
+   * @example
+   * const { unsubscribe, loadNextPage } = db.subscribeInfiniteQuery({
+   *   posts: {
+   *     $: {
+   *       limit: 20,   // Load 20 posts at a time
+   *       order: {
+   *         createdAt: 'desc',
+   *       },
+   *     },
+   *   },
+   *   (resp) => {
+   *     console.log(resp.data.posts);
+   *   }
+   * });
+   */
+  subscribeInfiniteQuery<Q extends ValidQuery<Q, Schema>>(
+    query: Q,
+    cb: (resp: InfiniteQueryCallbackResponse<Schema, Q, UseDates>) => void,
+    opts?: InstaQLOptions,
+  ): InfiniteQuerySubscription {
+    return subscribeInfiniteQuery<Schema, Q, UseDates>(
+      this as any,
+      query,
+      cb,
+      opts,
+    );
+  }
+
+  /**
    * Listen for the logged in state. This is useful
    * for deciding when to show a login screen.
    *
@@ -1025,6 +1066,9 @@ export {
   version,
   InstantError,
 
+  // infinite query
+  getInfiniteQueryInitialSnapshot,
+
   // sync table enums
   SyncTableCallbackEventType,
 
@@ -1057,6 +1101,7 @@ export {
   // new query types
   type InstaQLParams,
   type ValidQuery,
+  type Cursor,
   type InstaQLOptions,
   type InstaQLQueryParams,
   type InstantQuery,
@@ -1065,6 +1110,10 @@ export {
   type InstantEntity,
   type InstantSchemaDatabase,
   type InstaQLFields,
+  type Order,
+  type InstaQLQueryEntityResult,
+  type InfiniteQueryCallbackResponse,
+  type InfiniteQuerySubscription,
 
   // schema types
   type AttrsDefs,

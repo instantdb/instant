@@ -7,8 +7,9 @@ import {
   InstantSchemaDef,
   InstantConfig,
   LinksDef,
+  InstantReactWebDatabase,
 } from '@instantdb/react';
-import { useCallback, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { RoomsDef, TransactionChunk } from '../../../packages/core/dist/esm';
 import { IContainEntitiesAndLinks } from '../../../packages/core/dist/esm/schemaTypes';
 import { Explorer, Toaster } from '@instantdb/components';
@@ -53,6 +54,17 @@ type OnCreateApp<
   UseDates extends boolean,
   Config extends Cfg<Entities, Links, Rooms, UseDates>,
 > = (db: DB<Entities, Links, Rooms, UseDates, Config>) => Promise<void>;
+
+const ShowWhenConnected = ({
+  children,
+  db,
+}: {
+  children: ReactNode;
+  db: InstantReactWebDatabase<InstantSchemaDef<any, any, any>, any, any>;
+}) => {
+  const dbStatus = db.useConnectionStatus();
+  return dbStatus === 'authenticated' ? children : null;
+};
 
 export async function provisionEphemeralApp<
   Entities extends EntitiesDef,
@@ -131,6 +143,7 @@ function AppPage<
   Component,
   extraConfig,
   useDateObjects,
+  waitForDBConnected,
 }: {
   urlAppId: string | undefined;
   schema?: InstantSchemaDef<Entities, Links, Rooms>;
@@ -148,6 +161,7 @@ function AppPage<
   }>;
   extraConfig?: Partial<Omit<Config, 'appId' | 'schema' | 'useDateObjects'>>;
   useDateObjects: UseDates;
+  waitForDBConnected?: boolean;
 }) {
   const router = useRouter();
   const [appId, setAppId] = useState<string | undefined>();
@@ -254,7 +268,13 @@ function AppPage<
 
   return (
     <div>
-      <Component key={appId} db={db} appId={appId} />
+      {waitForDBConnected ? (
+        <ShowWhenConnected db={db}>
+          <Component key={appId} db={db} appId={appId} />
+        </ShowWhenConnected>
+      ) : (
+        <Component key={appId} db={db} appId={appId} />
+      )}
       {adminToken && (
         <>
           <button
@@ -337,6 +357,7 @@ function Page<
   Component,
   extraConfig,
   useDateObjects,
+  waitForDBConnected,
 }: {
   schema?: InstantSchemaDef<Entities, Links, Rooms>;
   perms?: any;
@@ -347,6 +368,7 @@ function Page<
   }>;
   extraConfig?: Partial<Omit<Config, 'appId' | 'schema' | 'useDateObjects'>>;
   useDateObjects?: UseDates;
+  waitForDBConnected?: boolean;
 }) {
   const router = useRouter();
   if (router.isReady) {
@@ -359,6 +381,7 @@ function Page<
         extraConfig={extraConfig}
         urlAppId={router.query.app as string}
         useDateObjects={useDateObjects ?? (false as UseDates)}
+        waitForDBConnected={waitForDBConnected}
       />
     );
   } else {
