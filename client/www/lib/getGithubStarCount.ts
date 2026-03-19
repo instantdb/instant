@@ -39,7 +39,7 @@ export const getGithubStarCount = async (): Promise<number> => {
 
 export const useGithubStarCount = () => {
   // Refetch the github star count if:
-  // 1. There's no preloaded value from server (cached houry)
+  // 1. There's no preloaded value from server (cached hourly)
   // 2. It's been one day since you saved the star count after fetching
   const starCountResult = useSWR('starCount', getGithubStarCount, {
     use: [
