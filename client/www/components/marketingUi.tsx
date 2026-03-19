@@ -18,6 +18,7 @@ import { Button, cn, LogoIcon } from '@/components/ui';
 import { ComponentType, SVGProps } from 'react';
 import { useRouter } from 'next/router';
 import { useGithubStarCount } from '@/lib/getGithubStarCount';
+import { formatNumberCompact } from '@/lib/format';
 
 type Product = {
   id: string;
@@ -370,6 +371,10 @@ function OtherNavItems() {
 
   if (!isHydrated) return;
 
+  const formattedStarCount = starCount
+    ? formatNumberCompact(starCount)
+    : undefined;
+
   return (
     <>
       <NavLink href="https://github.com/instantdb/instant">
@@ -379,7 +384,9 @@ function OtherNavItems() {
             alt="GitHub"
             className="h-[18px] w-[18px]"
           />
-          <span className="min-w-[38px] pl-1 font-semibold">{starCount}</span>
+          <span className="min-w-[38px] pl-1 font-semibold">
+            {formattedStarCount}
+          </span>
           stars
         </span>
       </NavLink>

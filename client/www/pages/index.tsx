@@ -13,8 +13,8 @@ import { FinalCTA } from '@/components/new-landing/FinalCTA';
 import { Footer } from '@/components/new-landing/Footer';
 import { AgentPathsBgSoftCenter } from '@/components/home/AgentPathsBgSoftCenter';
 import type { ReactNode } from 'react';
-import { getGithubStarCount } from '@/lib/getGithubStarCount';
 import { GetStaticProps } from 'next';
+import { getGithubStarCount } from 'app/api/stars/route';
 
 function HomeSeo() {
   return (
