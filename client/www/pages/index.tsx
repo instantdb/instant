@@ -14,7 +14,7 @@ import { Footer } from '@/components/new-landing/Footer';
 import { AgentPathsBgSoftCenter } from '@/components/home/AgentPathsBgSoftCenter';
 import type { ReactNode } from 'react';
 import { GetStaticProps } from 'next';
-import { getGithubStarCount } from 'app/api/stars/route';
+import { getGithubStarCount } from '@/lib/getGithubStars';
 
 function HomeSeo() {
   return (

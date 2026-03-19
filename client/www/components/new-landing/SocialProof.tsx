@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import { AnimateIn } from './AnimateIn';
 import { Subheading } from './typography';
-import { useGithubStarCount } from '@/lib/getGithubStarCount';
+import { useGithubStarCount } from '@/lib/useGithubStarCount';
 import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
 import { formatNumberCompact } from '@/lib/format';
 

@@ -17,7 +17,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Button, cn, LogoIcon } from '@/components/ui';
 import { ComponentType, SVGProps } from 'react';
 import { useRouter } from 'next/router';
-import { useGithubStarCount } from '@/lib/getGithubStarCount';
+import { useGithubStarCount } from '@/lib/useGithubStarCount';
 import { formatNumberCompact } from '@/lib/format';
 
 type Product = {
