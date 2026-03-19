@@ -29,9 +29,7 @@ export default function InstantCursors() {
   return (
     <Cursors
       room={room}
-      renderCursor={(props) => (
-        <CustomCursor name={props.presence.name} />
-      )}
+      renderCursor={(props) => <CustomCursor name={props.presence.name} />}
       userCursorColor={colorRef.current}
       className={cursorsClassNames}
     >

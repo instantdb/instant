@@ -7,11 +7,7 @@ export default function InstantCursors() {
   const room = db.room('cursors-example', '123');
   const color = useRef(randomDarkColor()).current;
   return (
-    <Cursors
-      room={room}
-      userCursorColor={color}
-      className={cursorsClassNames}
-    >
+    <Cursors room={room} userCursorColor={color} className={cursorsClassNames}>
       <span className="text-sm text-gray-400 italic">
         Move your cursor around!
       </span>

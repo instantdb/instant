@@ -186,9 +186,7 @@ function Main({ files }: { files: File[] }) {
       </Head>
       <Toaster />
 
-      {appId ? (
-        <RoomStatus db={getColumnDb(appId, 0)} appId={appId} />
-      ) : null}
+      {appId ? <RoomStatus db={getColumnDb(appId, 0)} appId={appId} /> : null}
       <MainNav transparent />
 
       {/* Hero */}

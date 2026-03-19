@@ -43,7 +43,8 @@ export default function App() {
     }
   }, [isLoading, isPresenceLoading, error, boardState]);
 
-  if (error) return <div className="p-4 text-sm text-red-500">{error.message}</div>;
+  if (error)
+    return <div className="p-4 text-sm text-red-500">{error.message}</div>;
   if (!boardState || isLoading || isPresenceLoading) return null;
 
   return (
