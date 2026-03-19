@@ -5,15 +5,17 @@ description: How to subscribe to large amounts of data incrementally
 
 It is a common pattern to show users a long list of items that gets larger as they interact. Instant supports this pattern with the `useInfiniteQuery` hook.
 
-The `useInfiniteQuery` hook is similar to the `useQuery` hook with a few differences. It returns a list of data, a `canLoadNextPage` variable, and a `loadNextPage` function to load more items.
-
-Queries are made with exact same InstaQL language, however, the `$.limit` key now indicates the number of items that you wish to load at a time. Additionally, only one top level namespace is allowed (nested relations are still permitted).
+The useInfiniteQuery hook is designed to work just like the useQuery hook. You make the same kind of queries and it returns the same kind of data. But now you get a canLoadNextPage variable, and a loadNextPage function to load more items.
 
 ## Example
 
 This example demonstrates a typical social media feed where the newest posts are at the top.
 
 ```ts
+import { init } from '@instantdb/react';
+import { db } from "../db"
+import { Post } from "../components/Post"
+
 function HomePage() {
   const { data, canLoadNextPage, loadNextPage, isLoading, error } =
     db.useInfiniteQuery({
@@ -36,7 +38,7 @@ function HomePage() {
 
   return (
     <div>
-      {data.map((post) => (
+      {data.posts.map((post) => (
         <Post key={post.id} post={post} />
       ))}
       {canLoadNextPage && (
