@@ -1,57 +1,35 @@
+import { id } from '@instantdb/react';
 import { useRecipeDB } from './db';
-import { useState } from 'react';
+import { useRef } from 'react';
 
 export default function InstantAvatarStack() {
   const db = useRecipeDB();
   const room = db.room('avatars-example', 'avatars-example-1234');
-  const [{ userId, randomDarkColor }] = useState(() => {
-    const uid = Math.random().toString(36).slice(2, 6);
-    const color =
-      '#' +
-      [0, 0, 0]
-        .map(() =>
-          Math.floor(Math.random() * 200)
-            .toString(16)
-            .padStart(2, '0'),
-        )
-        .join('');
-    return { userId: uid, randomDarkColor: color };
-  });
+  const userIdRef = useRef(id());
+
   const presence = room.usePresence({
     user: true,
   });
 
   db.rooms.useSyncPresence(room, {
-    name: userId,
-    color: randomDarkColor,
+    name: userIdRef.current.slice(0, 6),
   });
 
   return (
     <div className="flex h-full items-center justify-center">
-      {/* show:     <div className="flex h-screen items-center justify-center"> */}
       {presence.user ? (
-        <Avatar
-          key={'user'}
-          name={presence.user.name}
-          color={presence.user.color}
-        />
+        <Avatar key={'user'} name={presence.user.name} />
       ) : null}
-      {Object.entries(presence.peers).map(([id, peer]) => (
-        <Avatar key={id} name={peer.name} color={peer.color} />
+      {Object.entries(presence.peers).map(([peerId, peer]) => (
+        <Avatar key={peerId} name={peer.name} />
       ))}
     </div>
   );
 }
 
-function Avatar({ name, color }: { name: string; color: string }) {
+function Avatar({ name }: { name: string }) {
   return (
-    <div
-      key={'user'}
-      className={avatarClassNames}
-      style={{
-        borderColor: color,
-      }}
-    >
+    <div className={avatarClassNames}>
       <img
         src={`https://instantdb.com/api/avatar?name=${encodeURIComponent(name)}&size=32`}
         alt={name}
@@ -65,4 +43,4 @@ function Avatar({ name, color }: { name: string; color: string }) {
 }
 
 const avatarClassNames =
-  'group relative select-none h-10 w-10 bg-gray-50 border border-4 border-black user-select rounded-full first:ml-0 flex justify-center items-center -ml-2 first:ml-0 relative';
+  'group relative select-none h-10 w-10 bg-gray-50 border border-4 border-black rounded-full first:ml-0 flex justify-center items-center -ml-2 first:ml-0 relative';

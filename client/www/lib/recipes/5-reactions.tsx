@@ -76,9 +76,7 @@ function refsInit() {
 }
 
 const containerClassNames =
-  'flex h-full w-full items-center justify-center overflow-hidden bg-gray-200 select-none'; // hide-line
-// show: const containerClassNames =
-// show:   'flex h-screen w-screen items-center justify-center overflow-hidden bg-gray-200 select-none';
+  'flex h-full w-full items-center justify-center overflow-hidden bg-gray-200 select-none';
 
 const emojiButtonClassNames =
   'rounded-lg bg-white p-3 text-3xl shadow-lg transition duration-200 ease-in-out hover:-translate-y-1 hover:shadow-xl';

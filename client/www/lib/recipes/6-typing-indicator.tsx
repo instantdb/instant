@@ -1,26 +1,15 @@
+import { id } from '@instantdb/react';
 import { useRecipeDB } from './db';
-import { useState } from 'react';
+import { useRef } from 'react';
 
 export default function InstantTypingIndicator() {
   const db = useRecipeDB();
   const room = db.room('typing-indicator-example', '1234');
-  const [user] = useState(() => {
-    const userId = Math.random().toString(36).slice(2, 6);
-    const randomDarkColor =
-      '#' +
-      [0, 0, 0]
-        .map(() =>
-          Math.floor(Math.random() * 200)
-            .toString(16)
-            .padStart(2, '0'),
-        )
-        .join('');
-    return {
-      id: userId,
-      name: `${userId}`,
-      color: randomDarkColor,
-    };
-  });
+  const userIdRef = useRef(id());
+  const user = {
+    id: userIdRef.current,
+    name: userIdRef.current.slice(0, 6),
+  };
   db.rooms.useSyncPresence(room, user);
 
   const presence = db.rooms.usePresence(room);
@@ -37,16 +26,12 @@ export default function InstantTypingIndicator() {
 
   return (
     <div className="flex h-full gap-3 p-2">
-      {/* show:     <div className="flex h-screen gap-3 p-2"> */}
       <div className="flex w-10 flex-col gap-2" key="side">
         {peers.map((peer) => {
           return (
             <div
               key={peer.id}
-              className="relative inset-0 flex h-10 w-10 items-center justify-center rounded-full border-4 bg-white"
-              style={{
-                borderColor: peer.color,
-              }}
+              className="relative inset-0 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full"
             >
               <img
                 src={`https://instantdb.com/api/avatar?name=${encodeURIComponent(peer.name || '')}&size=32`}

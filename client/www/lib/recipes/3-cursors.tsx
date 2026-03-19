@@ -31,6 +31,4 @@ function randomDarkColor() {
 }
 
 const cursorsClassNames =
-  'flex h-full w-full items-center justify-center overflow-hidden font-mono text-sm text-gray-800 touch-none'; // hide-line
-// show: const cursorsClassNames =
-// show:   'flex h-screen w-screen items-center justify-center overflow-hidden font-mono text-sm text-gray-800 touch-none';
+  'flex h-full w-full items-center justify-center overflow-hidden font-mono text-sm text-gray-800 touch-none';

@@ -1,4 +1,4 @@
-import { Cursors } from '@instantdb/react';
+import { Cursors, id } from '@instantdb/react';
 import { useRecipeDB } from './db';
 import { useRef } from 'react';
 
@@ -15,7 +15,7 @@ function CustomCursor({ name }: { color?: string; name: string }) {
 export default function InstantCursors() {
   const db = useRecipeDB();
   const room = db.room('cursors-example', '124');
-  const userIdRef = useRef(Math.random().toString(36).slice(2, 6));
+  const userIdRef = useRef(id());
   const colorRef = useRef(randomDarkColor());
 
   db.rooms.useSyncPresence(room, {
@@ -50,6 +50,4 @@ function randomDarkColor() {
 }
 
 const cursorsClassNames =
-  'flex h-full w-full items-center justify-center overflow-hidden font-mono text-sm text-gray-800'; // hide-line
-// show: const cursorsClassNames =
-// show:   'flex h-screen w-screen items-center justify-center overflow-hidden font-mono text-sm text-gray-800';
+  'flex h-full w-full items-center justify-center overflow-hidden font-mono text-sm text-gray-800';
