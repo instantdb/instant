@@ -69,18 +69,20 @@ The `@instantdb/core` library also supports making infinite queries with the sam
 Example:
 
 ```ts
-const { unsubscribe, loadNextPage } = db.subscribeInfiniteQuery({
-  posts: {
-    $: {
-      limit: 20,   // Load 20 posts at a time
-      order: {
-        createdAt: 'desc',
+const { unsubscribe, loadNextPage } = db.subscribeInfiniteQuery(
+  {
+    posts: {
+      $: {
+        limit: 20, // Load 20 posts at a time
+        order: {
+          createdAt: 'desc',
+        },
       },
     },
   },
   (resp) => {
-    console.log("Posts: ", resp.data.posts);
-    console.log("Can Load More ?", resp.canLoadNextPage);
-  }
-});
+    console.log('Posts: ', resp.data.posts);
+    console.log('Can Load More ?', resp.canLoadNextPage);
+  },
+);
 ```
