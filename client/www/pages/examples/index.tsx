@@ -9,37 +9,11 @@ import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import {
   SectionTitle,
   SectionSubtitle,
+  SmallButton,
 } from '@/components/new-landing/typography';
 import Link from 'next/link';
 import clsx from 'clsx';
 import { BrowserChrome } from '@/components/BrowserChrome';
-
-const smallButtonVariants = {
-  cta: 'border border-transparent bg-orange-600 text-white hover:bg-orange-700',
-  secondary: 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
-};
-
-function SmallButton({
-  href,
-  variant = 'cta',
-  children,
-}: {
-  href: string;
-  variant?: keyof typeof smallButtonVariants;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className={clsx(
-        'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-        smallButtonVariants[variant],
-      )}
-    >
-      {children}
-    </Link>
-  );
-}
 
 function LeftColumn({ app }: { app: AppMetadata }) {
   return (

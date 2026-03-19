@@ -38,10 +38,32 @@ export function SectionIntro({ children }: TypographyProps) {
   return <div className="sm:text-center">{children}</div>;
 }
 
-const landingButtonVariants = {
+const buttonVariants = {
   cta: 'border border-transparent bg-orange-600 text-white hover:bg-orange-700',
   secondary: 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
 };
+
+export function SmallButton({
+  href,
+  variant = 'cta',
+  children,
+}: {
+  href: string;
+  variant?: keyof typeof buttonVariants;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={clsx(
+        'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+        buttonVariants[variant],
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
 
 export function LandingButton({
   href,
@@ -49,7 +71,7 @@ export function LandingButton({
   children,
 }: {
   href: string;
-  variant?: keyof typeof landingButtonVariants;
+  variant?: keyof typeof buttonVariants;
   children: ReactNode;
 }) {
   return (
@@ -57,7 +79,7 @@ export function LandingButton({
       href={href}
       className={clsx(
         'inline-flex items-center justify-center rounded-lg px-6 py-3 text-base font-medium transition-colors sm:text-lg',
-        landingButtonVariants[variant],
+        buttonVariants[variant],
       )}
     >
       {children}
