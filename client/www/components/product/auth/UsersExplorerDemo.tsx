@@ -20,11 +20,41 @@ const data: Record<string, Row[]> = {
     { id: '5', title: 'Tumwater', status: 'active', refiner: 'Dylan G.' },
   ],
   tasks: [
-    { id: '1', body: 'Sort bin WO-4983', project: 'Cold Harbor', owner: 'Mark S.', done: true },
-    { id: '2', body: 'Refine sector 12B', project: 'Dranesville', owner: 'Mark S.', done: true },
-    { id: '3', body: 'Flag scary numbers', project: 'Siena', owner: 'Helly R.', done: false },
-    { id: '4', body: 'Audit file metadata', project: 'Cairns', owner: 'Irving B.', done: false },
-    { id: '5', body: 'Complete quota', project: 'Tumwater', owner: 'Dylan G.', done: false },
+    {
+      id: '1',
+      body: 'Sort bin WO-4983',
+      project: 'Cold Harbor',
+      owner: 'Mark S.',
+      done: true,
+    },
+    {
+      id: '2',
+      body: 'Refine sector 12B',
+      project: 'Dranesville',
+      owner: 'Mark S.',
+      done: true,
+    },
+    {
+      id: '3',
+      body: 'Flag scary numbers',
+      project: 'Siena',
+      owner: 'Helly R.',
+      done: false,
+    },
+    {
+      id: '4',
+      body: 'Audit file metadata',
+      project: 'Cairns',
+      owner: 'Irving B.',
+      done: false,
+    },
+    {
+      id: '5',
+      body: 'Complete quota',
+      project: 'Tumwater',
+      owner: 'Dylan G.',
+      done: false,
+    },
   ],
 };
 
@@ -131,10 +161,9 @@ export function UsersExplorerDemo() {
     const fromId = String(fromRow.id);
     const ids = getLinkedIds(fromNs, toNs, fromId);
     if (ids.length === 0) return;
-    const label =
-      String(
-        fromRow.name || fromRow.title || fromRow.body || fromId
-      ).slice(0, 20);
+    const label = String(
+      fromRow.name || fromRow.title || fromRow.body || fromId,
+    ).slice(0, 20);
     setFilter({ fromNs, fromId, fromLabel: label, toNs, ids });
   }
 
@@ -185,7 +214,11 @@ export function UsersExplorerDemo() {
                     <motion.div
                       layoutId="ns-highlight"
                       className="absolute inset-0 rounded-md bg-orange-50 ring-1 ring-orange-200"
-                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 400,
+                        damping: 30,
+                      }}
                     />
                   )}
                   <span className="relative">{ns}</span>
@@ -294,7 +327,7 @@ export function UsersExplorerDemo() {
                         const ids = getLinkedIds(
                           activeNs,
                           lf.targetNs,
-                          String(row.id)
+                          String(row.id),
                         );
                         return (
                           <td key={lf.field} className="px-3 py-2">
@@ -305,7 +338,7 @@ export function UsersExplorerDemo() {
                                   fromNs: activeNs,
                                   fromId: String(row.id),
                                   fromLabel: String(
-                                    row.name || row.title || row.body || row.id
+                                    row.name || row.title || row.body || row.id,
                                   ).slice(0, 20),
                                   toNs: lf.targetNs,
                                   ids,
@@ -319,45 +352,45 @@ export function UsersExplorerDemo() {
                         );
                       })}
                       {linkCols.map((lc) => {
-                          const ns = getLinkNs(lc);
-                          const linkedIds = getLinkedIds(
-                            activeNs,
-                            ns,
-                            String(row.id)
-                          );
-                          const count = linkedIds.length;
-                          return (
-                            <td key={ns} className="px-3 py-2">
-                              {count > 0 ? (
-                                <button
-                                  onClick={() =>
-                                    handleLinkClick(activeNs, row, ns)
-                                  }
-                                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-orange-500 transition-colors hover:bg-orange-50 hover:text-orange-600"
+                        const ns = getLinkNs(lc);
+                        const linkedIds = getLinkedIds(
+                          activeNs,
+                          ns,
+                          String(row.id),
+                        );
+                        const count = linkedIds.length;
+                        return (
+                          <td key={ns} className="px-3 py-2">
+                            {count > 0 ? (
+                              <button
+                                onClick={() =>
+                                  handleLinkClick(activeNs, row, ns)
+                                }
+                                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-orange-500 transition-colors hover:bg-orange-50 hover:text-orange-600"
+                              >
+                                {count}
+                                <svg
+                                  className="h-2.5 w-2.5"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={2.5}
                                 >
-                                  {count}
-                                  <svg
-                                    className="h-2.5 w-2.5"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth={2.5}
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M9 5l7 7-7 7"
-                                    />
-                                  </svg>
-                                </button>
-                              ) : (
-                                <span className="px-1.5 py-0.5 text-gray-300">
-                                  0
-                                </span>
-                              )}
-                            </td>
-                          );
-                        })}
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M9 5l7 7-7 7"
+                                  />
+                                </svg>
+                              </button>
+                            ) : (
+                              <span className="px-1.5 py-0.5 text-gray-300">
+                                0
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
                     </motion.tr>
                   ))}
                 </AnimatePresence>
