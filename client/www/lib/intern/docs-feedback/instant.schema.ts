@@ -102,7 +102,20 @@ const _schema = i.schema({
       },
     },
   },
-  rooms: {},
+  rooms: {
+    homepageStorageDemo: {
+      presence: i.entity({}),
+      topics: {
+        hearts: i.entity({}),
+      },
+    },
+    homepagePresenceDemo: {
+      presence: i.entity({}),
+      topics: {
+        emoji: i.entity({ emoji: i.string() }),
+      },
+    },
+  },
 });
 
 // This helps TypeScript display nicer intellisense

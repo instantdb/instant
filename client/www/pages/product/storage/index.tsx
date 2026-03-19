@@ -21,6 +21,7 @@ import { TopWash } from '@/components/new-landing/TopWash';
 import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
 import { PreviewPlayer, tracks } from '@/lib/product/storage/musicPreview';
+import exampleDB from '@/lib/intern/docs-feedback/db';
 
 function FrequencyBars({ player }: { player: PreviewPlayer }) {
   const barsRef = useRef<(HTMLDivElement | null)[]>([]);
@@ -215,10 +216,19 @@ function animateHeart(target: HTMLElement) {
   }
 }
 
+const storageRoom = exampleDB.room('homepageStorageDemo', 'storage');
+
 function PhotoApp() {
   const heartRef = useRef<HTMLDivElement>(null);
 
+  const publishHeart = exampleDB.rooms.usePublishTopic(storageRoom, 'hearts');
+
+  exampleDB.rooms.useTopicEffect(storageRoom, 'hearts', () => {
+    if (heartRef.current) animateHeart(heartRef.current);
+  });
+
   const handleHeartClick = () => {
+    publishHeart({});
     if (heartRef.current) animateHeart(heartRef.current);
   };
 

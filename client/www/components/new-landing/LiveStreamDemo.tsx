@@ -1,5 +1,6 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import { motion, useAnimation } from 'motion/react';
+import exampleDB from '@/lib/intern/docs-feedback/db';
 
 const REACTIONS = [
   '\u2764\uFE0F',
@@ -7,6 +8,8 @@ const REACTIONS = [
   '\uD83C\uDF89',
   '\uD83D\uDC4F',
 ] as const;
+
+type Reaction = (typeof REACTIONS)[number];
 
 interface FloaterParams {
   startX: number;
@@ -68,9 +71,12 @@ function spawnFloater(emoji: string, container: HTMLElement, p: FloaterParams) {
   anim.onfinish = () => el.remove();
 }
 
+const presenceRoom = exampleDB.room('homepagePresenceDemo', 'presence');
+
 export function LiveStreamDemo() {
   const screenRefs = useRef<HTMLElement[]>([]);
   const videoRefs = useRef<HTMLVideoElement[]>([]);
+  const emojiRefs = useRef<Map<Reaction, HTMLButtonElement>>(new Map());
 
   const registerScreen = useCallback((el: HTMLElement | null) => {
     if (!el) return;
@@ -82,8 +88,9 @@ export function LiveStreamDemo() {
     if (!videoRefs.current.includes(el)) videoRefs.current.push(el);
   }, []);
 
-  const react = useCallback((emoji: string, btn: HTMLButtonElement) => {
-    const row = btn.parentElement;
+  const animateEmoji = useCallback((emoji: Reaction) => {
+    const btn = emojiRefs.current.get(emoji);
+    const row = btn?.parentElement;
     if (!row) return;
     const rowRect = row.getBoundingClientRect();
     const btnRect = btn.getBoundingClientRect();
@@ -102,6 +109,28 @@ export function LiveStreamDemo() {
       v.play();
     });
   }, []);
+
+  const publishEmoji = exampleDB.rooms.usePublishTopic(presenceRoom, 'emoji');
+
+  exampleDB.rooms.useTopicEffect(presenceRoom, 'emoji', ({ emoji }) => {
+    animateEmoji(emoji as Reaction);
+  });
+  const react = useCallback(
+    (emoji: Reaction) => {
+      publishEmoji({ emoji });
+      animateEmoji(emoji);
+    },
+    [publishEmoji, animateEmoji],
+  );
+
+  const { peers } = exampleDB.rooms.usePresence(presenceRoom);
+
+  const viewerCount = useMemo(() => {
+    return (
+      Object.values(peers).length * 2 + // Multiple by 2 because each peer has two windows open
+      2 // This 2 represents the two panes we're viewing
+    );
+  }, [peers]);
 
   const StreamCard = ({ tilt }: { tilt: string }) => {
     const controls = useAnimation();
@@ -123,7 +152,10 @@ export function LiveStreamDemo() {
               <span className="rounded bg-red-600 px-2 py-0.5 text-sm font-bold tracking-wide text-white">
                 LIVE
               </span>
-              <span className="text-base text-gray-500">14 viewers</span>
+              <span className="text-base text-gray-500">
+                {viewerCount.toLocaleString()} viewer
+                {viewerCount > 1 ? 's' : ''}
+              </span>
               <div className="ml-auto flex items-center gap-2 text-gray-300">
                 <svg
                   className="h-4 w-4"
@@ -180,8 +212,16 @@ export function LiveStreamDemo() {
           <div className="absolute -bottom-5 left-1/2 z-20 flex -translate-x-1/2 gap-2">
             {REACTIONS.map((emoji) => (
               <button
+                ref={(node) => {
+                  const map = emojiRefs.current;
+                  if (node) {
+                    map.set(emoji, node);
+                  } else {
+                    map.delete(emoji);
+                  }
+                }}
                 key={emoji}
-                onClick={(e) => react(emoji, e.currentTarget)}
+                onClick={() => react(emoji)}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-lg shadow-md transition-transform hover:bg-gray-50 active:scale-90"
               >
                 {emoji}
