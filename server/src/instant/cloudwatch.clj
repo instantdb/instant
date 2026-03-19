@@ -10,7 +10,7 @@
    (software.amazon.awssdk.services.cloudwatch CloudWatchClient)
    (software.amazon.awssdk.services.cloudwatch.model GetMetricDataRequest GetMetricDataResponse MetricDataQuery MetricDataResult ScanBy)
    (software.amazon.awssdk.services.rds RdsClient)
-   (software.amazon.awssdk.services.rds.model DBInstance DescribeDbInstancesRequest)))
+   (software.amazon.awssdk.services.rds.model DBInstance DescribeDbInstancesResponse)))
 
 (defonce cloudwatch-client (delay (CloudWatchClient/create)))
 
@@ -21,9 +21,9 @@
   "Returns all resource ids for all database instances in RDS."
   []
   (let [^RdsClient client @rds-client
-        ^DescribeDbInstancesRequest req (-> (DescribeDbInstancesRequest/builder) .build)
-        response (.describeDBInstances client req)]
-    (->> (.dbInstances response)
+        paginator (.describeDBInstancesPaginator client)]
+    (->> (mapcat #(.dbInstances ^DescribeDbInstancesResponse %)
+                 (iterator-seq (.iterator paginator)))
          (filter #(.performanceInsightsEnabled ^DBInstance %))
          (mapv (fn [^DBInstance i]
                  (.dbiResourceId i))))))
