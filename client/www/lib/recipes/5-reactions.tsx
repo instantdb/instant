@@ -1,15 +1,9 @@
-import config from '@/lib/config'; // hide-line
-import { init } from '@instantdb/react';
+import { useRecipeDB } from './db';
 import { RefObject, createRef, useRef } from 'react';
 
-const db = init({
-  ...config, // hide-line
-  appId: __getAppId(),
-});
-
-const room = db.room('topics-example', '123');
-
 export default function InstantTopics() {
+  const db = useRecipeDB();
+  const room = db.room('topics-example', '123');
   const publishEmoji = db.rooms.usePublishTopic(room, 'emoji');
 
   db.rooms.useTopicEffect(
@@ -28,7 +22,7 @@ export default function InstantTopics() {
 
   const elRefsRef = useRef<{
     [k: string]: RefObject<HTMLDivElement>;
-  }>(refsInit);
+  }>(refsInit());
 
   return (
     <div className={containerClassNames}>
@@ -75,12 +69,16 @@ const emoji = {
 
 const emojiNames = Object.keys(emoji) as EmojiName[];
 
-const refsInit = Object.fromEntries(
-  emojiNames.map((name) => [name, createRef<HTMLDivElement>()]),
-);
+function refsInit() {
+  return Object.fromEntries(
+    emojiNames.map((name) => [name, createRef<HTMLDivElement>()]),
+  );
+}
 
 const containerClassNames =
-  'flex h-screen w-screen items-center justify-center overflow-hidden bg-gray-200 select-none';
+  'flex h-full w-full items-center justify-center overflow-hidden bg-gray-200 select-none'; // hide-line
+// show: const containerClassNames =
+// show:   'flex h-screen w-screen items-center justify-center overflow-hidden bg-gray-200 select-none';
 
 const emojiButtonClassNames =
   'rounded-lg bg-white p-3 text-3xl shadow-lg transition duration-200 ease-in-out hover:-translate-y-1 hover:shadow-xl';

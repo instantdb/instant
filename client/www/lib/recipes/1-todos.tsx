@@ -1,12 +1,8 @@
-import config from '@/lib/config'; // hide-line
-import { id, init } from '@instantdb/react';
-
-const db = init({
-  ...config, // hide-line
-  appId: __getAppId(),
-});
+import { id } from '@instantdb/react';
+import { useRecipeDB } from './db';
 
 export default function InstantTodos() {
+  const db = useRecipeDB();
   const { data, isLoading, error } = db.useQuery({
     todos: {},
   });

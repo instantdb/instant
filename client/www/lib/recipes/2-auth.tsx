@@ -1,13 +1,8 @@
-import config from '@/lib/config'; // hide-line
-import { init } from '@instantdb/react';
+import { useRecipeDB } from './db';
 import { useState } from 'react';
 
-const db = init({
-  ...config, // hide-line
-  appId: __getAppId(),
-});
-
 export default function InstantAuth() {
+  const db = useRecipeDB();
   const { isLoading, user, error } = db.useAuth();
 
   if (isLoading) {
@@ -26,6 +21,7 @@ export default function InstantAuth() {
 }
 
 function Login() {
+  const db = useRecipeDB();
   const [state, setState] = useState({
     sentEmail: '',
     email: '',
@@ -105,7 +101,7 @@ function Login() {
 }
 
 const cls = {
-  root: 'flex max-w-xs mx-auto flex-col gap-3 items-center h-screen px-2 pt-12',
+  root: 'flex max-w-xs mx-auto flex-col gap-3 items-center h-full px-2 pt-12',
   heading: 'text-lg font-bold',
   input: 'py-1 border-gray-300 rounded-sm w-full',
   button: 'bg-blue-500 text-white px-3 py-1 rounded-sm w-full',

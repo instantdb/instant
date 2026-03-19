@@ -283,6 +283,8 @@ function initGlobalInstantCoreStore(): Record<string, any> {
 function reactorKey(config: InstantConfig<any, boolean>): string {
   // @ts-expect-error
   const adminToken = config.__adminToken;
+  // @ts-expect-error
+  const extraDedupeKey = config.__extraDedupeKey;
   return (
     config.appId +
     '_' +
@@ -292,7 +294,9 @@ function reactorKey(config: InstantConfig<any, boolean>): string {
     '_' +
     (adminToken || 'client_only') +
     '_' +
-    config.useDateObjects
+    config.useDateObjects +
+    '_' +
+    (extraDedupeKey || '')
   );
 }
 

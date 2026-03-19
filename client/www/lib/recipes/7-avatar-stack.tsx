@@ -1,25 +1,22 @@
-import config from '@/lib/config'; // hide-line
-import { init } from '@instantdb/react';
-
-const db = init({
-  ...config, // hide-line
-  appId: __getAppId(),
-});
-
-const room = db.room('avatars-example', 'avatars-example-1234');
-
-const userId = Math.random().toString(36).slice(2, 6);
-const randomDarkColor =
-  '#' +
-  [0, 0, 0]
-    .map(() =>
-      Math.floor(Math.random() * 200)
-        .toString(16)
-        .padStart(2, '0'),
-    )
-    .join('');
+import { useRecipeDB } from './db';
+import { useState } from 'react';
 
 export default function InstantAvatarStack() {
+  const db = useRecipeDB();
+  const room = db.room('avatars-example', 'avatars-example-1234');
+  const [{ userId, randomDarkColor }] = useState(() => {
+    const uid = Math.random().toString(36).slice(2, 6);
+    const color =
+      '#' +
+      [0, 0, 0]
+        .map(() =>
+          Math.floor(Math.random() * 200)
+            .toString(16)
+            .padStart(2, '0'),
+        )
+        .join('');
+    return { userId: uid, randomDarkColor: color };
+  });
   const presence = room.usePresence({
     user: true,
   });
@@ -30,7 +27,8 @@ export default function InstantAvatarStack() {
   });
 
   return (
-    <div className="flex h-screen items-center justify-center">
+    <div className="flex h-full items-center justify-center">
+      {/* show:     <div className="flex h-screen items-center justify-center"> */}
       {presence.user ? (
         <Avatar
           key={'user'}
@@ -54,7 +52,11 @@ function Avatar({ name, color }: { name: string; color: string }) {
         borderColor: color,
       }}
     >
-      {name?.slice(0, 1)}
+      <img
+        src={`https://instantdb.com/api/avatar?name=${encodeURIComponent(name)}&size=32`}
+        alt={name}
+        className="h-full w-full rounded-full"
+      />
       <div className="absolute bottom-10 z-10 hidden rounded-sm bg-gray-200 px-2 text-sm text-gray-800 group-hover:flex">
         {name}
       </div>

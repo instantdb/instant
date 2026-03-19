@@ -1,30 +1,26 @@
-import config from '@/lib/config'; // hide-line
-import { init } from '@instantdb/react';
-
-const db = init({
-  ...config, // hide-line
-  appId: __getAppId(),
-});
-
-const userId = Math.random().toString(36).slice(2, 6);
-const randomDarkColor =
-  '#' +
-  [0, 0, 0]
-    .map(() =>
-      Math.floor(Math.random() * 200)
-        .toString(16)
-        .padStart(2, '0'),
-    )
-    .join('');
-const user = {
-  id: userId,
-  name: `${userId}`,
-  color: randomDarkColor,
-};
-
-const room = db.room('typing-indicator-example', '1234');
+import { useRecipeDB } from './db';
+import { useState } from 'react';
 
 export default function InstantTypingIndicator() {
+  const db = useRecipeDB();
+  const room = db.room('typing-indicator-example', '1234');
+  const [user] = useState(() => {
+    const userId = Math.random().toString(36).slice(2, 6);
+    const randomDarkColor =
+      '#' +
+      [0, 0, 0]
+        .map(() =>
+          Math.floor(Math.random() * 200)
+            .toString(16)
+            .padStart(2, '0'),
+        )
+        .join('');
+    return {
+      id: userId,
+      name: `${userId}`,
+      color: randomDarkColor,
+    };
+  });
   db.rooms.useSyncPresence(room, user);
 
   const presence = db.rooms.usePresence(room);
@@ -40,7 +36,8 @@ export default function InstantTypingIndicator() {
   );
 
   return (
-    <div className="flex h-screen gap-3 p-2">
+    <div className="flex h-full gap-3 p-2">
+      {/* show:     <div className="flex h-screen gap-3 p-2"> */}
       <div className="flex w-10 flex-col gap-2" key="side">
         {peers.map((peer) => {
           return (
@@ -51,7 +48,11 @@ export default function InstantTypingIndicator() {
                 borderColor: peer.color,
               }}
             >
-              {peer.name?.slice(0, 1)}
+              <img
+                src={`https://instantdb.com/api/avatar?name=${encodeURIComponent(peer.name || '')}&size=32`}
+                alt={peer.name || ''}
+                className="h-full w-full rounded-full"
+              />
               {activeMap[peer.id] ? (
                 <div className="absolute -right-1 bottom-0 rounded-xs bg-black px-1 leading-3 text-white shadow-sm">
                   ⋯

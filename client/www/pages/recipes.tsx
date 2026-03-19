@@ -1,11 +1,11 @@
-import { Button, Copyable, Fence } from '@/components/ui';
+import { CodeEditor } from '@/components/new-landing/TabbedCodeExample';
 import { File, getFiles } from '../recipes';
 import { InstantApp } from '@/lib/types';
 import config from '@/lib/config';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import Head from 'next/head';
 import { useInView } from 'react-intersection-observer';
-import { useEffect, useRef, useState } from 'react';
+import { ComponentType, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import {
@@ -14,11 +14,41 @@ import {
   init,
 } from '@instantdb/react';
 import { errorToast } from '@/lib/toast';
-import { H3, LandingContainer, MainNav } from '@/components/marketingUi';
+import { MainNav } from '@/components/marketingUi';
 import { useAuthToken } from '@/lib/auth';
 import * as og from '@/lib/og';
 import { Toaster } from '@instantdb/components';
 import { Footer } from '@/components/new-landing/Footer';
+import { TopWash } from '@/components/new-landing/TopWash';
+import { Section } from '@/components/new-landing/Section';
+import {
+  SectionTitle,
+  LandingButton,
+} from '@/components/new-landing/typography';
+import { CopyToClipboardButton } from '@/components/new-landing/CopyToClipboardButton';
+
+import { RecipeDBProvider } from '@/lib/recipes/db';
+import InstantTodos from '@/lib/recipes/1-todos';
+import InstantAuth from '@/lib/recipes/2-auth';
+import InstantCursors from '@/lib/recipes/3-cursors';
+import InstantCustomCursors from '@/lib/recipes/4-custom-cursors';
+import InstantTopics from '@/lib/recipes/5-reactions';
+import InstantTypingIndicator from '@/lib/recipes/6-typing-indicator';
+import InstantAvatarStack from '@/lib/recipes/7-avatar-stack';
+import InstantMergeTileGame from '@/lib/recipes/8-merge-tile-game';
+
+const recipeComponents: Record<string, ComponentType> = {
+  '1-todos': InstantTodos,
+  '2-auth': InstantAuth,
+  '3-cursors': InstantCursors,
+  '4-custom-cursors': InstantCustomCursors,
+  '5-reactions': InstantTopics,
+  '6-typing-indicator': InstantTypingIndicator,
+  '7-avatar-stack': InstantAvatarStack,
+  '8-merge-tile-game': InstantMergeTileGame,
+};
+
+const MAX_COLUMNS = 5;
 
 export async function getStaticProps() {
   const files = getFiles();
@@ -55,20 +85,25 @@ function Main({ files }: { files: File[] }) {
   });
   const [selectedExample, setSelectedExample] = useState<string | undefined>();
   const [appId, setAppId] = useState<string | undefined>(undefined);
-  const dbRef = useRef<{ appId: string; db: InstantDB }>();
+  const [numColumns, setNumColumns] = useState(2);
+  const columnDbsRef = useRef<InstantDB[]>([]);
 
-  useEffect(() => {
-    if (!appId) return;
-    if (dbRef.current && dbRef.current.appId === appId) return;
+  // Create db instances on demand — only as many as the current max numViews
+  if (appId && columnDbsRef.current.length < numColumns) {
+    const dbs = columnDbsRef.current;
+    for (let i = dbs.length; i < numColumns; i++) {
+      dbs.push(
+        init({
+          ...config,
+          appId,
+          __extraDedupeKey: `recipes-col-${i}`,
+        } as any),
+      );
+    }
+    columnDbsRef.current = dbs;
+  }
 
-    dbRef.current = {
-      db: init({
-        ...config,
-        appId,
-      }),
-      appId,
-    };
-  }, [appId]);
+  const columnDbs = columnDbsRef.current;
 
   useEffect(() => {
     jumpToExample();
@@ -148,7 +183,7 @@ function Main({ files }: { files: File[] }) {
   }
 
   return (
-    <LandingContainer>
+    <div className="text-off-black w-full overflow-x-auto">
       <Head>
         <title>Instant Recipes</title>
         <meta
@@ -159,77 +194,64 @@ function Main({ files }: { files: File[] }) {
       </Head>
       <Toaster />
 
-      {dbRef.current ? (
-        <RoomStatus db={dbRef.current?.db} appId={dbRef.current.appId} />
+      {columnDbs[0] && appId ? (
+        <RoomStatus db={columnDbs[0]} appId={appId} />
       ) : null}
-      <MainNav />
-      <div className="mx-auto flex max-w-5xl flex-col px-4 py-12">
-        <div className="flex flex-col gap-12" ref={recipesContainerElRef}>
-          <div className="mx-auto flex max-w-md flex-col items-center gap-6">
-            <H3>Instant Code Recipes</H3>
-            <div className="flex flex-col gap-2">
-              <p>
-                Each example is a self-contained Instant app that you can copy
-                and paste into your own projects.
-              </p>
-              {isHydrated && !isAuthed && (
-                <p>
-                  To get rolling, create a free account, grab your app ID, and
-                  install{' '}
-                  <code className="rounded-xs bg-gray-500 px-3 text-sm whitespace-nowrap text-white">
-                    @instantdb/react
-                  </code>
-                  .
-                </p>
-              )}
-            </div>
+      <MainNav transparent />
+
+      {/* Hero */}
+      <div className="relative overflow-hidden pt-16">
+        <TopWash />
+        <Section className="relative pt-12 pb-6 sm:pt-16 sm:pb-10">
+          <div className="flex flex-col items-center text-center">
+            <SectionTitle>Recipes</SectionTitle>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
+              Self-contained Instant apps you can copy and paste into your own
+              projects.
+            </p>
             {isHydrated && !isAuthed && (
-              <div className="flex flex-col items-center gap-3 md:flex-row">
-                <Button size="large" variant="cta" type="link" href="/dash">
-                  Sign up
-                </Button>
-                <Button
-                  size="large"
-                  variant="secondary"
-                  type="link"
-                  href="/docs"
-                >
+              <div className="mt-8 flex gap-3">
+                <LandingButton href="/dash">Sign up</LandingButton>
+                <LandingButton href="/docs" variant="secondary">
                   Read the docs
-                </Button>
+                </LandingButton>
               </div>
             )}
-          </div>
-
-          <div
-            ref={topInViewRef}
-            className="max-w-2xl overflow-hidden rounded-sm border border-gray-300 bg-white p-4 text-gray-700 md:mx-auto"
-          >
-            <div className="flex flex-col gap-2">
-              <h3 className="text-md font-bold">
-                <em>Psst</em>... this is a realtime page! 🔥
-              </h3>
-              <p className="text-sm">
-                We created a full-fledged Instant app just for you. Share this
-                page's unique URL with your friends, and you'll see them in the
-                previews below!
-              </p>
-              <Copyable
-                label="URL"
-                value={isHydrated && appId ? recipesUrl(appId) : 'Loading...'}
+            <div
+              ref={topInViewRef}
+              className="mt-8 flex items-center gap-2 text-sm text-gray-500"
+            >
+              <span>
+                This is a realtime page — share to see friends in the previews!
+              </span>
+            </div>
+            <div className="mt-3 flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2">
+              <span className="shrink-0 text-xs font-medium text-gray-400">
+                URL
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
+                {isHydrated && appId ? recipesUrl(appId) : 'Loading...'}
+              </span>
+              <CopyToClipboardButton
+                text={isHydrated && appId ? recipesUrl(appId) : ''}
               />
-              <p className="text-sm italic">
-                <strong>Please note:</strong> this app will automatically expire
-                and be deleted in 2 weeks.
-              </p>
             </div>
           </div>
+        </Section>
+      </div>
 
+      <div className="landing-width mx-auto pb-16">
+        <div className="flex flex-col gap-12" ref={recipesContainerElRef}>
           {files.map((file, i) => {
             return (
               <Example
                 key={file.pathName}
                 file={file}
                 appId={isHydrated && appId ? appId : undefined}
+                columnDbs={columnDbs}
+                onNumViewsChange={(n) =>
+                  setNumColumns((prev) => Math.max(prev, n))
+                }
                 onViewChange={(inView) => {
                   if (!isHydrated || !router.isReady) return;
                   if (!inView) return;
@@ -244,18 +266,22 @@ function Main({ files }: { files: File[] }) {
         </div>
       </div>
       <Footer />
-    </LandingContainer>
+    </div>
   );
 }
 
 function Example({
   file,
   appId,
+  columnDbs,
+  onNumViewsChange,
   onViewChange,
   lazy,
 }: {
   file: File;
   appId: string | undefined;
+  columnDbs: InstantDB[];
+  onNumViewsChange: (n: number) => void;
   onViewChange: (inView: boolean) => void;
   lazy: boolean;
 }) {
@@ -271,74 +297,113 @@ function Example({
     },
   });
 
+  const RecipeComponent = recipeComponents[file.pathName];
+
   return (
     <div
       ref={ref}
       key={file.pathName}
       data-path-name={file.pathName}
-      className="flex flex-col py-2"
+      className="flex flex-col gap-4"
     >
-      <div className="flex flex-col overflow-hidden rounded-xs border">
-        <div className="flex items-center gap-2 border-b bg-gray-50 px-4 py-2">
-          <h3 className="truncate font-mono font-bold">{file.name}</h3>
-          <Button
-            size="mini"
-            onClick={() => {
-              navigator.clipboard.writeText(file.code);
-            }}
-          >
-            Copy
-          </Button>
-
-          <span className="text-sm whitespace-nowrap">
-            <span className="rounded-xs border bg-white px-1">{numViews}</span>{' '}
-            previews
+      <div className="flex items-center gap-3">
+        <h3 className="text-2xl font-normal sm:text-3xl">{file.name}</h3>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-base text-gray-500">
+            {numViews} {numViews === 1 ? 'preview' : 'previews'}
           </span>
-          <Button
-            disabled={numViews <= 1}
-            size="mini"
-            variant="secondary"
-            onClick={() => {
-              setNumViews(Math.max(numViews - 1, 1));
-            }}
-          >
-            -
-          </Button>
-          <Button
-            disabled={numViews >= 5}
-            size="mini"
-            variant="secondary"
-            onClick={() => {
-              setNumViews(Math.min(numViews + 1, 5));
-            }}
-          >
-            +
-          </Button>
-        </div>
-        <div className="flex flex-col gap-2 overflow-hidden bg-gray-100 md:flex-row">
-          <div className="bg-prism flex h-[50vh] flex-col overflow-auto text-xs md:h-[61vh] md:flex-1">
-            <Fence darkMode={false} code={file.code} language="tsx" />
+          <div className="flex overflow-hidden rounded-md border border-gray-200">
+            <button
+              disabled={numViews <= 1}
+              className="px-2.5 py-0.5 text-base text-gray-600 transition-colors hover:bg-gray-50 disabled:text-gray-300"
+              onClick={() => {
+                setNumViews(Math.max(numViews - 1, 1));
+              }}
+            >
+              -
+            </button>
+            <button
+              disabled={numViews >= 5}
+              className="border-l border-gray-200 px-2.5 py-0.5 text-base text-gray-600 transition-colors hover:bg-gray-50 disabled:text-gray-300"
+              onClick={() => {
+                const next = Math.min(numViews + 1, 5);
+                setNumViews(next);
+                onNumViewsChange(next);
+              }}
+            >
+              +
+            </button>
           </div>
-          <div className="flex flex-col gap-[1vh] md:flex-1">
-            {Array(numViews)
-              .fill(null)
-              .map((_, i) => (
+        </div>
+      </div>
+      <div className="flex flex-col gap-4 md:grid md:grid-cols-2">
+        {/* Code panel — relative wrapper so grid row is sized by previews only */}
+        <div className="relative h-[50vh] md:h-auto">
+          <div
+            className="flex flex-col overflow-hidden rounded-lg border border-gray-200 md:absolute md:inset-0"
+            style={{ backgroundColor: '#faf8f5' }}
+          >
+            <div className="flex items-center border-b border-gray-200/60">
+              <span className="px-4 py-2 text-sm font-medium text-gray-900 shadow-[inset_0_-2px_0_0_#f97316]">
+                {file.fileName}
+              </span>
+              <div className="ml-auto pr-2">
+                <CopyToClipboardButton text={file.code} />
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <CodeEditor code={file.code} language="tsx" />
+            </div>
+          </div>
+        </div>
+        {/* Preview panels */}
+        <div className="relative">
+          {Array(numViews)
+            .fill(null)
+            .map((_, i) => (
+              <div
+                key={i}
+                className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
+                style={{
+                  aspectRatio: '16 / 10',
+                  marginTop: i > 0 ? '-12px' : '0',
+                  transform:
+                    i % 2 === 1 ? 'translateX(8px)' : 'translateX(-8px)',
+                  position: 'relative',
+                  zIndex: i,
+                }}
+              >
+                {/* Browser chrome */}
                 <div
-                  key={i}
-                  className="flex h-[30vh] rounded-sm border bg-white shadow-xs"
+                  className="flex items-center gap-1.5 border-b border-gray-200/60 px-3 py-2"
+                  style={{ backgroundColor: '#faf8f5' }}
                 >
-                  {appId ? (
-                    <iframe
-                      className="flex-1"
-                      src={'/recipes/' + file.pathName + '?__appId=' + appId}
-                      loading={lazy ? 'lazy' : undefined}
-                    />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#ddd8d0]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#ddd8d0]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#ddd8d0]" />
+                  <span className="ml-2 flex-1 truncate rounded-sm bg-[#f0ece6] px-2 py-0.5 text-center text-[10px] text-[#797593]">
+                    localhost/recipes/{file.pathName}
+                  </span>
+                </div>
+                <div className="h-[calc(100%-32px)] overflow-auto">
+                  {appId && columnDbs[i] && RecipeComponent ? (
+                    <ErrorBoundary
+                      renderError={() => (
+                        <p className="p-2 text-sm text-red-500">
+                          Error loading preview
+                        </p>
+                      )}
+                    >
+                      <RecipeDBProvider value={columnDbs[i]}>
+                        <RecipeComponent />
+                      </RecipeDBProvider>
+                    </ErrorBoundary>
                   ) : (
-                    <div className="animate-slow-pulse flex-1 bg-gray-300"></div>
+                    <div className="animate-slow-pulse h-full w-full bg-gray-200"></div>
                   )}
                 </div>
-              ))}
-          </div>
+              </div>
+            ))}
         </div>
       </div>
     </div>

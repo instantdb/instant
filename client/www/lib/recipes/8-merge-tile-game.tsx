@@ -5,18 +5,12 @@
  * overwriting potential changes from other clients.
  * */
 
-import config from '@/lib/config'; // hide-line
-import { init } from '@instantdb/react';
+import { useRecipeDB } from './db';
 import { useEffect, useState } from 'react';
 
-const db = init({
-  ...config, // hide-line
-  appId: __getAppId(),
-});
-
-const room = db.room('main');
-
 export default function App() {
+  const db = useRecipeDB();
+  const room = db.room('main');
   const [hoveredSquare, setHoveredSquare] = useState(null as string | null);
   const [myColor, setMyColor] = useState(null as string | null);
   const { isLoading, error, data } = db.useQuery({ boards: {} });
@@ -33,7 +27,6 @@ export default function App() {
     if (isLoading || isPresenceLoading) return;
     if (error) return;
 
-    // If the board doesn't exist, create it
     if (!boardState) {
       db.transact([
         db.tx.boards[boardId].update({
@@ -42,8 +35,6 @@ export default function App() {
       ]);
     }
 
-    // If I don't have a color, generate one and publish it
-    // make sure to not choose a color that a peer has already chosen
     if (!myColor) {
       const takenColors = new Set(Object.values(peers).map((p) => p.color));
       const availableColors = colors.filter((c) => !takenColors.has(c));
@@ -139,7 +130,6 @@ const colors = [
   '#ff00ff', // Purple
   '#ffa500', // Orange
 ];
-// singleton ID
 const boardId = '83c059e2-ed47-42e5-bdd9-6de88d26c521';
 
 function makeEmptyBoard() {
