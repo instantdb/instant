@@ -11,6 +11,9 @@
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.app-user :as app-user-model]
    [instant.postmark :as postmark]
+   [instant.db.datalog :as d]
+   [instant.db.permissioned-transaction :as permissioned-tx]
+   [instant.model.rule :as rule-model]
    [instant.runtime.routes :as route]
    [instant.system-catalog :as system-catalog]
    [instant.util.coll :as coll]
@@ -545,4 +548,163 @@
                                                  :email "admin@test.com"})]
           (is (false? (:created body)))
           (is (= "admin_user" (:username user))))))))
+
+;; -----
+;; $users create permissions
+
+(deftest users-create-rule-validation-test
+  (testing "can save a $users create rule (no validation errors)"
+    (is (empty? (rule-model/validation-errors
+                 {"$users" {"allow" {"create" "true"}}}))))
+
+  (testing "can still not save a $users delete rule"
+    (is (seq (rule-model/validation-errors
+              {"$users" {"allow" {"delete" "true"}}})))))
+
+(deftest users-create-rule-magic-code-test
+  (test-util/test-matrix
+   [[send-code verify-body]
+    [[send-code-runtime verify-code-body-runtime]]]
+   (with-empty-app
+     (fn [{app-id :id :as app}]
+       (test-util/make-attrs app-id
+                             [[:$users/username]])
+
+       (testing "create rule blocks signup"
+         (rule-model/put! {:app-id app-id
+                           :code {"$users" {"allow" {"create" "false"}}}})
+         (let [code (send-code app {:email "blocked@test.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 403"
+                (verify-body app {:email "blocked@test.com"
+                                  :code code})))
+           ;; Magic code should not be consumed on permission failure
+           ;; so we can retry with the same code after fixing rules
+           (rule-model/put! {:app-id app-id
+                             :code {"$users" {"allow" {"create" "true"}}}})
+           (let [body (verify-body app {:email "blocked@test.com"
+                                        :code code})]
+             (is (true? (:created body)))
+             (is (= "blocked@test.com" (-> body :user :email))))))
+
+       (testing "create rule can restrict by email domain"
+         (rule-model/put! {:app-id app-id
+                           :code {"$users" {"allow" {"create" "data.email.endsWith('@allowed.com')"}}}})
+         (let [code (send-code app {:email "nope@blocked.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 403"
+                (verify-body app {:email "nope@blocked.com"
+                                  :code code}))))
+         (let [code (send-code app {:email "yes@allowed.com"})
+               body (verify-body app {:email "yes@allowed.com"
+                                      :code code})]
+           (is (true? (:created body)))))
+
+       (testing "create rule can block specific extra-fields"
+         (rule-model/put! {:app-id app-id
+                           :code {"$users" {"allow" {"create" "!('username' in data)"}}}})
+         (let [code (send-code app {:email "nofield@test.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 403"
+                (verify-body app {:email "nofield@test.com"
+                                  :code code
+                                  :extra-fields {"username" "sneaky"}}))))
+         ;; Without the blocked field, signup should succeed
+         (let [code (send-code app {:email "nofield@test.com"})
+               body (verify-body app {:email "nofield@test.com"
+                                      :code code})]
+           (is (true? (:created body)))))
+
+       (testing "default (no create rule) allows signup"
+         (rule-model/put! {:app-id app-id :code {}})
+         (let [code (send-code app {:email "default@test.com"})
+               body (verify-body app {:email "default@test.com"
+                                      :code code})]
+           (is (true? (:created body)))))
+
+       (testing "create rule does not run for existing users"
+         (rule-model/put! {:app-id app-id
+                           :code {"$users" {"allow" {"create" "false"}}}})
+         ;; default@test.com already exists from previous test
+         (let [code (send-code app {:email "default@test.com"})
+               body (verify-body app {:email "default@test.com"
+                                      :code code})]
+           (is (false? (:created body)))))))))
+
+(deftest users-create-rule-admin-bypass-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (testing "admin SDK bypasses create rule"
+        (rule-model/put! {:app-id app-id
+                          :code {"$users" {"allow" {"create" "false"}}}})
+        (let [code (post-code-admin app {:email "admin-bypass@test.com"})
+              body (verify-code-body-admin app {:email "admin-bypass@test.com"
+                                                :code code})]
+          (is (true? (:created body)))
+          (is (= "admin-bypass@test.com" (-> body :user :email))))))))
+
+(deftest users-create-rule-oauth-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (test-util/make-attrs app-id
+                            [[:$users/username]])
+      (let [provider (provider-model/create! {:app-id app-id
+                                              :provider-name "clerk"})]
+
+        (testing "create rule blocks oauth signup"
+          (rule-model/put! {:app-id app-id
+                            :code {"$users" {"allow" {"create" "false"}}}})
+          (is (thrown-with-msg?
+               ExceptionInfo #"permission"
+               (route/upsert-oauth-link! {:email "oauth-blocked@test.com"
+                                          :sub "oauth-sub-blocked"
+                                          :app-id app-id
+                                          :provider-id (:id provider)}))))
+
+        (testing "create rule allows oauth signup when passing"
+          (rule-model/put! {:app-id app-id
+                            :code {"$users" {"allow" {"create" "true"}}}})
+          (let [result (route/upsert-oauth-link! {:email "oauth-ok@test.com"
+                                                  :sub "oauth-sub-ok"
+                                                  :app-id app-id
+                                                  :provider-id (:id provider)})]
+            (is (true? (:created result)))))))))
+
+(deftest users-create-rule-guest-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (testing "create rule blocks guest signup"
+        (rule-model/put! {:app-id app-id
+                          :code {"$users" {"allow" {"create" "false"}}}})
+        (is (thrown-with-msg?
+             ExceptionInfo #"status 403"
+             (sign-in-guest-runtime app))))
+
+      (testing "create rule allows guest signup when passing"
+        (rule-model/put! {:app-id app-id
+                          :code {"$users" {"allow" {"create" "true"}}}})
+        (let [guest (sign-in-guest-runtime app)]
+          (is (= "guest" (:type guest))))))))
+
+(deftest users-create-rule-transact-blocked-test
+  (with-empty-app
+    (fn [{app-id :id}]
+      (testing "$users creation via transact is blocked even with create rule set to true"
+        (rule-model/put! {:app-id app-id
+                          :code {"$users" {"allow" {"create" "true"}}}})
+        (let [user-id (random-uuid)
+              attrs (attr-model/get-by-app-id app-id)
+              id-attr (attr-model/seek-by-fwd-ident-name ["$users" "id"] attrs)
+              ctx {:db {:conn-pool (aurora/conn-pool :write)}
+                   :app-id app-id
+                   :attrs attrs
+                   :datalog-query-fn d/query
+                   :rules (rule-model/get-by-app-id
+                           (aurora/conn-pool :read) {:app-id app-id})
+                   :current-user nil}]
+          (is (thrown-with-msg?
+               ExceptionInfo #"not allowed"
+               (permissioned-tx/transact!
+                ctx
+                [[:add-triple user-id (:id id-attr) user-id]]))))))))
 
