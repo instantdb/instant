@@ -454,8 +454,16 @@ export const subscribeInfiniteQuery = <
         return;
       }
 
-      forwardChunks.delete(makeCursorKey(PRE_BOOTSTRAP_CURSOR));
+      // Consider a query with no items; the server will return a result with
+      // no start cursor. If we add {pageSize} optimistic updates we can
+      // get here and still have no startCursor. By returning we are skipping
+      // the optimistic update and just waiting for the result from the
+      // server.
       const initialForwardCursor = pageInfo.startCursor;
+      if (!initialForwardCursor) {
+        return;
+      }
+      forwardChunks.delete(makeCursorKey(PRE_BOOTSTRAP_CURSOR));
 
       pushNewForward(initialForwardCursor, true);
       pushNewReverse(pageInfo.startCursor);
