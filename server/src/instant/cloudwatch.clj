@@ -87,7 +87,7 @@
       @cache-data
       (let [our-promise (promise)
             result-promise (second (swap! query-cache (fn [c]
-                                                        (if (or (not cache-data)
+                                                        (if (or (not (second c))
                                                                 (= (second c) cache-data))
                                                           [now our-promise]
                                                           c))))]
