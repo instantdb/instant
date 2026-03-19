@@ -8,19 +8,26 @@ export type File = {
   pathName: string;
 };
 
-export function getFiles(): File[] {
-  return fs
-    .readdirSync('./lib/recipes')
-    .filter((f) => f.match(/^\d.*\.tsx$/))
-    .map((fileName) => {
-      const pathName = fileName.replace(/\.tsx$/, '');
-      const name = capitalize(pathName.slice(2).split('-').join(' '));
-      const displayFileName = name.split(' ').map(capitalize).join('') + '.tsx';
-      const raw = fs.readFileSync(`./lib/recipes/${fileName}`, 'utf-8');
-      const code = processCode(raw).trimEnd();
+const recipeFiles = [
+  'todos',
+  'cursors',
+  'custom-cursors',
+  'reactions',
+  'typing-indicator',
+  'avatar-stack',
+  'merge-tile-game',
+  'auth',
+];
 
-      return { fileName: displayFileName, pathName, name, code };
-    });
+export function getFiles(): File[] {
+  return recipeFiles.map((pathName) => {
+    const name = capitalize(pathName.split('-').join(' '));
+    const displayFileName = name.split(' ').map(capitalize).join('') + '.tsx';
+    const raw = fs.readFileSync(`./lib/recipes/${pathName}.tsx`, 'utf-8');
+    const code = processCode(raw).trimEnd();
+
+    return { fileName: displayFileName, pathName, name, code };
+  });
 }
 
 function processCode(raw: string): string {

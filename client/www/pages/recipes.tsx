@@ -25,24 +25,24 @@ import { CopyToClipboardButton } from '@/components/new-landing/CopyToClipboardB
 import { BrowserChrome } from '@/components/BrowserChrome';
 
 import { RecipeDBProvider } from '@/lib/recipes/db';
-import InstantTodos from '@/lib/recipes/1-todos';
-import InstantAuth from '@/lib/recipes/2-auth';
-import InstantCursors from '@/lib/recipes/3-cursors';
-import InstantCustomCursors from '@/lib/recipes/4-custom-cursors';
-import InstantTopics from '@/lib/recipes/5-reactions';
-import InstantTypingIndicator from '@/lib/recipes/6-typing-indicator';
-import InstantAvatarStack from '@/lib/recipes/7-avatar-stack';
-import InstantMergeTileGame from '@/lib/recipes/8-merge-tile-game';
+import InstantTodos from '@/lib/recipes/todos';
+import InstantAuth from '@/lib/recipes/auth';
+import InstantCursors from '@/lib/recipes/cursors';
+import InstantCustomCursors from '@/lib/recipes/custom-cursors';
+import InstantTopics from '@/lib/recipes/reactions';
+import InstantTypingIndicator from '@/lib/recipes/typing-indicator';
+import InstantAvatarStack from '@/lib/recipes/avatar-stack';
+import InstantMergeTileGame from '@/lib/recipes/merge-tile-game';
 
 const recipeComponents: Record<string, ComponentType> = {
-  '1-todos': InstantTodos,
-  '2-auth': InstantAuth,
-  '3-cursors': InstantCursors,
-  '4-custom-cursors': InstantCustomCursors,
-  '5-reactions': InstantTopics,
-  '6-typing-indicator': InstantTypingIndicator,
-  '7-avatar-stack': InstantAvatarStack,
-  '8-merge-tile-game': InstantMergeTileGame,
+  todos: InstantTodos,
+  auth: InstantAuth,
+  cursors: InstantCursors,
+  'custom-cursors': InstantCustomCursors,
+  reactions: InstantTopics,
+  'typing-indicator': InstantTypingIndicator,
+  'avatar-stack': InstantAvatarStack,
+  'merge-tile-game': InstantMergeTileGame,
 };
 
 const MAX_COLUMNS = 5;
