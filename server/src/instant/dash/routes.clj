@@ -5,6 +5,7 @@
             [clojure.walk :as w]
             [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
             [hiccup2.core :as h]
+            [instant.cloudwatch :as cloudwatch]
             [instant.config :as config]
             [instant.dash.admin :as dash-admin]
             [instant.dash.ephemeral-app :as ephemeral-app]
@@ -1599,7 +1600,8 @@
     (response/ok {})))
 
 (defn active-sessions-get [_]
-  (response/ok {:total-count (machine-summaries/get-num-sessions-cached)}))
+  (response/ok {:total-count (machine-summaries/get-num-sessions-cached)
+                :total-queries (cloudwatch/total-queries-cached)}))
 
 (defn oauth-apps-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)]
