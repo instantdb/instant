@@ -96,5 +96,7 @@
                     total (total-db-queries-for-resources resource-ids)]
                 (deliver result-promise total)))
             (catch Throwable _t
-              (deliver result-promise 1000))))
+              (deliver result-promise (if (and cache-data (realized? cache-data))
+                                        @cache-data
+                                        1000)))))
         @result-promise))))
