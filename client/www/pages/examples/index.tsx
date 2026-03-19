@@ -12,6 +12,7 @@ import {
 } from '@/components/new-landing/typography';
 import Link from 'next/link';
 import clsx from 'clsx';
+import { BrowserChrome } from '@/components/BrowserChrome';
 
 const smallButtonVariants = {
   cta: 'border border-transparent bg-orange-600 text-white hover:bg-orange-700',
@@ -31,7 +32,7 @@ function SmallButton({
     <Link
       href={href}
       className={clsx(
-        'inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors',
+        'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors',
         smallButtonVariants[variant],
       )}
     >
@@ -79,16 +80,19 @@ function LeftColumn({ app }: { app: AppMetadata }) {
 
 function RightColumn({ app }: { app: AppMetadata }) {
   return (
-    <div>
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <BrowserChrome />
       {/* Screenshot */}
       <img
         src={app.screenshot}
         alt={app.title}
-        className="max-h-[360px] w-full rounded-lg object-cover object-top shadow-sm"
+        className="max-h-[340px] w-full object-cover object-top"
       />
-
       {/* Buttons */}
-      <div className="-mt-5 mr-3 flex justify-end gap-3">
+      <div
+        className="flex justify-end gap-3 border-t border-gray-200/60 px-3 py-2"
+        style={{ backgroundColor: '#f7f7f7' }}
+      >
         <SmallButton href={`/examples/${app.slug}`} variant="cta">
           See Example
         </SmallButton>

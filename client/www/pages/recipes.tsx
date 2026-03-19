@@ -26,6 +26,7 @@ import {
   LandingButton,
 } from '@/components/new-landing/typography';
 import { CopyToClipboardButton } from '@/components/new-landing/CopyToClipboardButton';
+import { BrowserChrome } from '@/components/BrowserChrome';
 
 import { RecipeDBProvider } from '@/lib/recipes/db';
 import InstantTodos from '@/lib/recipes/1-todos';
@@ -223,8 +224,8 @@ function Main({ files }: { files: File[] }) {
               className="mt-8 flex w-full max-w-md flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3"
             >
               <p className="text-left text-sm text-gray-500">
-                P.S we made an Instant app just for you! Share this with your friends and you can play
-                with every example together.
+                P.S we made an Instant app just for you! Share this with your
+                friends and you can play with every example together.
               </p>
               <div className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5">
                 <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
@@ -375,18 +376,7 @@ function Example({
                   zIndex: i,
                 }}
               >
-                {/* Browser chrome */}
-                <div
-                  className="flex items-center gap-1.5 border-b border-gray-200/60 px-3 py-2"
-                  style={{ backgroundColor: '#faf8f5' }}
-                >
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#ddd8d0]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#ddd8d0]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#ddd8d0]" />
-                  <span className="ml-2 flex-1 truncate rounded-sm bg-[#f0ece6] px-2 py-0.5 text-center text-[10px] text-[#797593]">
-                    localhost/recipes/{file.pathName}
-                  </span>
-                </div>
+                <BrowserChrome />
                 <div className="h-[calc(100%-32px)] overflow-auto">
                   {appId && columnDbs[i] && RecipeComponent ? (
                     <ErrorBoundary

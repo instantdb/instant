@@ -18,9 +18,7 @@ export default function InstantAvatarStack() {
         <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
           Online — {peerCount + 1}
         </div>
-        {presence.user ? (
-          <AvatarRow name={presence.user.name} />
-        ) : null}
+        {presence.user ? <AvatarRow name={presence.user.name} /> : null}
         {Object.entries(presence.peers).map(([peerId, peer]) => (
           <AvatarRow key={peerId} name={peer.name} />
         ))}

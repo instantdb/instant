@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import Head from 'next/head';
-import { Button } from '@/components/ui';
 import { MainNav } from '@/components/marketingUi';
 import { TopWash } from '@/components/new-landing/TopWash';
 import ReactMarkdown, { Components } from 'react-markdown';
@@ -19,28 +18,32 @@ import {
 import RatingBox from '@/components/docs/RatingBox';
 import { Footer } from '@/components/new-landing/Footer';
 
+const buttonVariants = {
+  cta: 'border border-transparent bg-orange-600 text-white hover:bg-orange-700',
+  secondary: 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
+};
+
 function ActionButtons({ app }: { app: ExampleApp }) {
   const { youtubeVideoId, githubUrl } = app;
   const youtubeUrl = !youtubeVideoId
     ? null
     : `https://www.youtube.com/watch?v=${youtubeVideoId}`;
-  const githubVariant = !youtubeVideoId ? 'cta' : 'secondary';
-  const githubSize = !youtubeVideoId ? 'normal' : 'mini';
   return (
     <>
       {!youtubeUrl ? null : (
-        <Button type="link" href={youtubeUrl} variant="cta">
+        <a
+          href={youtubeUrl}
+          className={`inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${buttonVariants.cta}`}
+        >
           Watch Tutorial
-        </Button>
+        </a>
       )}
-      <Button
-        size={githubSize}
-        type="link"
+      <a
         href={githubUrl}
-        variant={githubVariant}
+        className={`inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${!youtubeVideoId ? buttonVariants.cta : buttonVariants.secondary}`}
       >
         See Code
-      </Button>
+      </a>
     </>
   );
 }
@@ -116,21 +119,19 @@ function ExampleDetail({ app }: { app: ExampleApp }) {
   return (
     <div className="relative mx-auto max-w-4xl px-4 pt-28 pb-8 sm:pt-32">
       <div className="mx-auto mb-8 max-w-2xl">
-        <div className="mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <Link href={backHref} className="text-sm text-gray-500">
             <ArrowLeftIcon className="mr-1 mb-0.5 inline h-4 w-4" />
             Back To Examples
           </Link>
+          <div className="flex gap-3">
+            <ActionButtons app={app} />
+          </div>
         </div>
-        <h1 className="mb-4 text-5xl leading-tight font-normal tracking-tight">
+        <h1 className="text-5xl leading-tight font-normal tracking-tight">
           {title}
         </h1>
-        <div className="flex items-center gap-4">
-          <p className="text-lg text-gray-500">{shortDescription}</p>
-        </div>
-        <div className="mt-4 flex gap-3">
-          <ActionButtons app={app} />
-        </div>
+        <p className="mt-2 text-lg text-gray-500">{shortDescription}</p>
       </div>
       <div className="essay-content prose prose-lg prose-headings:font-normal prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-12 prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl">
         <Content content={content} />
