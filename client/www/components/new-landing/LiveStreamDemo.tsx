@@ -126,7 +126,10 @@ export function LiveStreamDemo() {
   const { peers } = exampleDB.rooms.usePresence(presenceRoom);
 
   const viewerCount = useMemo(() => {
-    return Object.values(peers).length + 1;
+    return (
+      Object.values(peers).length * 2 + // Multiple by 2 because each peer has two windows open
+      2 // This 2 represents the two panes we're viewing
+    );
   }, [peers]);
 
   const StreamCard = ({ tilt }: { tilt: string }) => {
