@@ -1,5 +1,4 @@
 import { id } from '@instantdb/react';
-import { XMarkIcon } from '@heroicons/react/20/solid';
 import { useRecipeDB } from './db';
 
 export default function InstantTodos() {
@@ -68,7 +67,7 @@ export default function InstantTodos() {
                 onClick={() => db.transact([db.tx.todos[todo.id].delete()])}
                 className="text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-gray-500"
               >
-                <XMarkIcon className="h-4 w-4" />
+                ×
               </button>
             </li>
           ))}

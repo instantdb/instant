@@ -5,7 +5,7 @@ import { useRef } from 'react';
 function CustomCursor({ name }: { name: string }) {
   return (
     <img
-      src={`/api/avatar?name=${encodeURIComponent(name)}&size=40`}
+      src={`https://instantdb.com/api/avatar?name=${encodeURIComponent(name)}&size=40`}
       width={40}
       height={40}
       loading="eager"
@@ -20,7 +20,7 @@ export default function InstantCursors() {
   const db = useRecipeDB();
   const room = db.room('cursors-example', '124');
   const userId = useRef(id()).current;
-  const colorRef = useRef(randomDarkColor());
+  const color = useRef(randomDarkColor()).current;
 
   db.rooms.useSyncPresence(room, {
     name: userId,
@@ -30,7 +30,7 @@ export default function InstantCursors() {
     <Cursors
       room={room}
       renderCursor={(props) => <CustomCursor name={props.presence.name} />}
-      userCursorColor={colorRef.current}
+      userCursorColor={color}
       className={cursorsClassNames}
     >
       <span className="text-sm text-gray-400 italic">

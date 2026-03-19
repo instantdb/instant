@@ -35,7 +35,7 @@ function AvatarRow({ name }: { name: string }) {
     <div className="flex items-center gap-2.5">
       <div className="relative">
         <img
-          src={`/api/avatar?name=${encodeURIComponent(name)}&size=32`}
+          src={`https://instantdb.com/api/avatar?name=${encodeURIComponent(name)}&size=32`}
           alt={name}
           className="h-8 w-8 rounded-full"
         />

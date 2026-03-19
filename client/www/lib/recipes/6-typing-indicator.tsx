@@ -23,7 +23,7 @@ export default function InstantTypingIndicator() {
         {peers.map((peer) => (
           <div key={peer.id} className="relative">
             <img
-              src={`/api/avatar?name=${encodeURIComponent(peer.id || '')}&size=32`}
+              src={`https://instantdb.com/api/avatar?name=${encodeURIComponent(peer.id || '')}&size=32`}
               alt=""
               className="h-8 w-8 rounded-full"
             />
