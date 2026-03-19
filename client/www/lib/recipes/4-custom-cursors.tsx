@@ -5,9 +5,9 @@ import { useRef } from 'react';
 function CustomCursor({ name }: { color?: string; name: string }) {
   return (
     <img
-      src={`/api/avatar?name=${encodeURIComponent(name)}&size=32`}
+      src={`/api/avatar?name=${encodeURIComponent(name)}&size=40`}
       alt={name}
-      className="h-8 w-8"
+      className="h-10 w-10 drop-shadow-md"
     />
   );
 }
@@ -31,7 +31,9 @@ export default function InstantCursors() {
       userCursorColor={colorRef.current}
       className={cursorsClassNames}
     >
-      Move your cursor around! ✨
+      <span className="text-sm text-gray-400">
+        You can customize your cursors too!
+      </span>
     </Cursors>
   );
 }
@@ -49,5 +51,9 @@ function randomDarkColor() {
   );
 }
 
-const cursorsClassNames =
-  'flex h-full w-full items-center justify-center overflow-hidden font-mono text-sm text-gray-800';
+const cursorsClassNames = [
+  'flex h-full w-full items-center justify-center overflow-hidden',
+  'bg-white',
+  'bg-[radial-gradient(circle,#e0ddd5_1px,transparent_1px)]',
+  'bg-[length:24px_24px]',
+].join(' ');

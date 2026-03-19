@@ -1,23 +1,36 @@
-import { useRecipeDB } from './db';
 import { useState } from 'react';
+import { useRecipeDB } from './db';
 
 export default function InstantAuth() {
   const db = useRecipeDB();
-  const { isLoading, user, error } = db.useAuth();
 
-  if (isLoading) {
-    return <div className={cls.root}>Loading...</div>;
-  }
+  return (
+    <div className={cls.root}>
+      <db.SignedIn>
+        <Dashboard />
+      </db.SignedIn>
+      <db.SignedOut>
+        <Login />
+      </db.SignedOut>
+    </div>
+  );
+}
 
-  if (error) {
-    return <div className={cls.root}>Uh oh! {error.message}</div>;
-  }
+function Dashboard() {
+  const db = useRecipeDB();
+  const user = db.useUser();
 
-  if (user) {
-    return <div className={cls.root}>Hello {user.email}!</div>;
-  }
-
-  return <Login />;
+  return (
+    <div className={cls.card}>
+      <h2 className={cls.heading}>Welcome!</h2>
+      <p className={cls.description}>
+        You are signed in as <strong>{user.email}</strong>
+      </p>
+      <button className={cls.secondaryButton} onClick={() => db.auth.signOut()}>
+        Sign Out
+      </button>
+    </div>
+  );
 }
 
 function Login() {
@@ -25,8 +38,8 @@ function Login() {
   const [state, setState] = useState({
     sentEmail: '',
     email: '',
-    error: null,
     code: '',
+    error: '',
   });
 
   const { sentEmail, email, code, error } = state;
@@ -34,32 +47,32 @@ function Login() {
   if (!sentEmail) {
     return (
       <form
-        className={cls.root}
+        className={cls.card}
         onSubmit={async (e) => {
           e.preventDefault();
-
           if (!email) return;
-
-          setState({ ...state, sentEmail: email, error: null });
-
+          setState({ ...state, sentEmail: email, error: '' });
           try {
             await db.auth.sendMagicCode({ email });
-          } catch (error: any) {
-            setState({ ...state, error: error.body?.message });
+          } catch (err: any) {
+            setState({ ...state, sentEmail: '', error: err.body?.message });
           }
         }}
       >
-        <h2 className={cls.heading}>Let's log you in!</h2>
+        <h2 className={cls.heading}>Let's log you in</h2>
+        <p className={cls.description}>
+          Enter your email and we'll send you a verification code.
+        </p>
         <input
           className={cls.input}
           placeholder="Enter your email"
           type="email"
           value={email}
           onChange={(e) =>
-            setState({ ...state, email: e.target.value, error: null })
+            setState({ ...state, email: e.target.value, error: '' })
           }
         />
-        <button type="submit" className={cls.button}>
+        <button type="submit" className={cls.button} disabled={!email.trim()}>
           Send Code
         </button>
         {error ? <p className={cls.error}>{error}</p> : null}
@@ -69,41 +82,59 @@ function Login() {
 
   return (
     <form
-      className={cls.root}
+      className={cls.card}
       onSubmit={async (e) => {
         e.preventDefault();
-
         if (!code) return;
-
         try {
           await db.auth.signInWithMagicCode({ email: sentEmail, code });
-        } catch (error: any) {
-          setState({ ...state, error: error.body?.message });
+        } catch (err: any) {
+          setState({ ...state, error: err.body?.message });
         }
       }}
     >
-      <h2 className={cls.heading}>
-        Okay we sent you an email! What was the code?
-      </h2>
+      <h2 className={cls.heading}>Enter your code</h2>
+      <p className={cls.description}>
+        We sent a code to <strong>{sentEmail}</strong>
+      </p>
       <input
+        autoFocus
         className={cls.input}
         type="text"
-        placeholder="Magic code"
-        value={code || ''}
+        inputMode="numeric"
+        placeholder="Verification code"
+        value={code}
         onChange={(e) =>
-          setState({ ...state, code: e.target.value, error: null })
+          setState({ ...state, code: e.target.value, error: '' })
         }
       />
-      <button className={cls.button}>Verify</button>
+      <button type="submit" className={cls.button} disabled={!code.trim()}>
+        Verify Code
+      </button>
+      <button
+        type="button"
+        className={cls.secondaryButton}
+        onClick={() =>
+          setState({ sentEmail: '', email: '', code: '', error: '' })
+        }
+      >
+        Back
+      </button>
       {error ? <p className={cls.error}>{error}</p> : null}
     </form>
   );
 }
 
 const cls = {
-  root: 'flex max-w-xs mx-auto flex-col gap-3 items-center h-full px-2 pt-12',
+  root: 'flex h-full items-center justify-center px-2',
+  card: 'flex w-full max-w-xs flex-col gap-3',
   heading: 'text-lg font-bold',
-  input: 'py-1 border-gray-300 rounded-sm w-full',
-  button: 'bg-blue-500 text-white px-3 py-1 rounded-sm w-full',
-  error: 'text-red-700 text-sm bg-red-50 border-red-500 border p-2',
+  description: 'text-sm text-gray-600',
+  input:
+    'rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-orange-400 w-full',
+  button:
+    'rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 w-full disabled:opacity-50',
+  secondaryButton:
+    'rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 w-full',
+  error: 'text-red-700 text-sm bg-red-50 border border-red-500 rounded-sm p-2',
 };

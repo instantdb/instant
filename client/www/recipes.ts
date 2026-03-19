@@ -15,8 +15,7 @@ export function getFiles(): File[] {
     .map((fileName) => {
       const pathName = fileName.replace(/\.tsx$/, '');
       const name = capitalize(pathName.slice(2).split('-').join(' '));
-      const displayFileName =
-        name.split(' ').map(capitalize).join('') + '.tsx';
+      const displayFileName = name.split(' ').map(capitalize).join('') + '.tsx';
       const raw = fs.readFileSync(`./lib/recipes/${fileName}`, 'utf-8');
       const code = processCode(raw);
 
@@ -50,9 +49,7 @@ function processCode(raw: string): string {
       }
 
       // {/* show: <text> */} → include <text> as a real line (JSX comment variant)
-      const jsxShowMatch = line.match(
-        /^(\s*)\{\/\*\s*show:\s*(.*?)\s*\*\/\}$/,
-      );
+      const jsxShowMatch = line.match(/^(\s*)\{\/\*\s*show:\s*(.*?)\s*\*\/\}$/);
       if (jsxShowMatch) {
         acc.push(jsxShowMatch[1] + jsxShowMatch[2]);
         return acc;

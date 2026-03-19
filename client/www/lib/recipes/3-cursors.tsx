@@ -12,7 +12,7 @@ export default function InstantCursors() {
       userCursorColor={colorRef.current}
       className={cursorsClassNames}
     >
-      Move your cursor around! ✨
+      <span className="text-sm text-gray-400">Move your cursor around!</span>
     </Cursors>
   );
 }
@@ -30,5 +30,9 @@ function randomDarkColor() {
   );
 }
 
-const cursorsClassNames =
-  'flex h-full w-full items-center justify-center overflow-hidden font-mono text-sm text-gray-800 touch-none';
+const cursorsClassNames = [
+  'flex h-full w-full items-center justify-center overflow-hidden touch-none',
+  'bg-white',
+  'bg-[radial-gradient(circle,#e0ddd5_1px,transparent_1px)]',
+  'bg-[length:24px_24px]',
+].join(' ');

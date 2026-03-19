@@ -6,55 +6,53 @@ export default function InstantTypingIndicator() {
   const db = useRecipeDB();
   const room = db.room('typing-indicator-example', '1234');
   const userIdRef = useRef(id());
-  db.rooms.useSyncPresence(room, {
-    id: userIdRef.current,
-  });
+  db.rooms.useSyncPresence(room, { id: userIdRef.current });
 
   const presence = db.rooms.usePresence(room);
-
   const { active, inputProps } = db.rooms.useTypingIndicator(
     room,
     'chat-input',
   );
 
   const peers = Object.values(presence.peers).filter((p) => p.id);
-  const activeMap = Object.fromEntries(
-    active.map((activePeer) => [activePeer.id, activePeer]),
-  );
+  const activeMap = Object.fromEntries(active.map((p) => [p.id, true]));
 
   return (
-    <div className="flex h-full gap-3 p-2">
-      <div className="flex w-10 flex-col gap-2" key="side">
-        {peers.map((peer) => {
-          return (
-            <div
-              key={peer.id}
-              className="relative inset-0 flex h-10 w-10 items-center justify-center"
-            >
-              <img
-                src={`/api/avatar?name=${encodeURIComponent(peer.id || '')}&size=32`}
-                alt=""
-                className="h-full w-full rounded-full"
-              />
-              {activeMap[peer.id] ? (
-                <div className="absolute -right-1 bottom-0 rounded-xs bg-black px-1 leading-3 text-white shadow-sm">
-                  ⋯
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+    <div className="flex h-full">
+      <div className="flex w-12 flex-col items-center gap-2 border-r border-gray-100 py-3">
+        {peers.map((peer) => (
+          <div key={peer.id} className="relative">
+            <img
+              src={`/api/avatar?name=${encodeURIComponent(peer.id || '')}&size=32`}
+              alt=""
+              className="h-8 w-8 rounded-full"
+            />
+            {activeMap[peer.id] ? (
+              <div className="absolute -right-1 bottom-0 rounded-xs bg-black px-1 text-[10px] leading-3 text-white">
+                ⋯
+              </div>
+            ) : null}
+          </div>
+        ))}
       </div>
-      <div key="main" className="flex flex-1 flex-col justify-end">
-        <div className="truncate text-xs text-gray-500">
-          {active.length ? typingInfo(active) : <>&nbsp;</>}
+      <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 items-center justify-center">
+          <p className="text-sm text-gray-400 italic">
+            Start typing to see the indicator!
+          </p>
         </div>
-        <textarea
-          placeholder="Compose your message here..."
-          className="w-full rounded-md border-gray-300 p-2 text-sm"
-          onKeyDown={(e) => inputProps.onKeyDown(e)}
-          onBlur={() => inputProps.onBlur()}
-        />
+        <div className="px-3 pt-1 pb-3">
+          <div className="truncate text-xs text-gray-500">
+            {active.length ? typingInfo(active) : <>&nbsp;</>}
+          </div>
+          <textarea
+            placeholder="Write a message..."
+            className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-orange-400"
+            rows={1}
+            onKeyDown={(e) => inputProps.onKeyDown(e)}
+            onBlur={() => inputProps.onBlur()}
+          />
+        </div>
       </div>
     </div>
   );

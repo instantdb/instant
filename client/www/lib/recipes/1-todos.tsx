@@ -1,85 +1,84 @@
 import { id } from '@instantdb/react';
+import { XMarkIcon } from '@heroicons/react/20/solid';
 import { useRecipeDB } from './db';
 
 export default function InstantTodos() {
   const db = useRecipeDB();
-  const { data, isLoading, error } = db.useQuery({
-    todos: {},
-  });
+  const { data, isLoading, error } = db.useQuery({ todos: {} });
 
-  if (error)
-    return <p className="flex items-center p-4">Oops, something broke</p>;
+  if (error) return <p className="p-4 text-red-500">Oops, something broke</p>;
 
   return (
-    <div className="flex flex-col gap-2 p-4">
-      <h1 className="text-lg font-bold">InsTodo</h1>
+    <div className="mx-auto flex h-full max-w-md flex-col gap-4 px-4 pt-8">
+      <h1 className="text-xl font-semibold tracking-tight text-gray-800">
+        instado
+      </h1>
       <form
-        className="flex flex-col gap-2"
+        className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          const form = e.currentTarget;
-          const todoInput = form.elements.namedItem('todo') as HTMLInputElement;
-          const text = todoInput?.value;
-
-          if (!text) return;
-
-          form.reset();
-
+          const input = e.currentTarget.elements.namedItem(
+            'todo',
+          ) as HTMLInputElement;
+          if (!input.value) return;
           db.transact([
-            db.tx.todos[id()].update({
-              text,
-              completed: false,
-            }),
+            db.tx.todos[id()].update({ text: input.value, completed: false }),
           ]);
+          e.currentTarget.reset();
         }}
       >
-        <input className="border-gray-300 py-1" type="text" name="todo" />
-        <button type="submit" className="bg-blue-500 p-1 font-bold text-white">
-          Add todo
+        <input
+          name="todo"
+          type="text"
+          placeholder="What needs to be done?"
+          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-orange-400"
+        />
+        <button
+          type="submit"
+          className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+        >
+          Add
         </button>
       </form>
       {isLoading ? (
-        <p className="text-gray-700 italic">Loading...</p>
+        <p className="text-sm text-gray-400 italic">Loading...</p>
       ) : data?.todos.length ? (
-        <ul>
+        <ul className="flex flex-col">
           {data.todos.map((todo) => (
             <li
               key={todo.id}
-              className="flex items-center justify-between gap-2"
+              className="group flex items-center gap-3 rounded-lg px-1 py-2 hover:bg-gray-50"
             >
-              <label className="truncate">
-                <input
-                  type="checkbox"
-                  className="align-middle"
-                  checked={todo.completed}
-                  onChange={(e) => {
-                    db.transact([
-                      db.tx.todos[todo.id].update({
-                        completed: e.currentTarget.checked,
-                      }),
-                    ]);
-                  }}
-                />{' '}
-                <span
-                  className={`align-middle ${
-                    todo.completed ? 'text-gray-400 line-through' : ''
-                  }`}
-                >
-                  {todo.text}
-                </span>
-              </label>
-              <button
-                onClick={(e) => {
-                  db.transact([db.tx.todos[todo.id].delete()]);
-                }}
+              <input
+                type="checkbox"
+                className="accent-orange-600"
+                checked={todo.completed}
+                onChange={(e) =>
+                  db.transact([
+                    db.tx.todos[todo.id].update({
+                      completed: e.currentTarget.checked,
+                    }),
+                  ])
+                }
+              />
+              <span
+                className={`flex-1 text-sm ${todo.completed ? 'text-gray-300 line-through' : 'text-gray-700'}`}
               >
-                ×
+                {todo.text}
+              </span>
+              <button
+                onClick={() => db.transact([db.tx.todos[todo.id].delete()])}
+                className="text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-gray-500"
+              >
+                <XMarkIcon className="h-4 w-4" />
               </button>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-gray-700 italic">No todos!</p>
+        <p className="text-sm text-gray-400 italic">
+          No todos yet — add one above!
+        </p>
       )}
     </div>
   );

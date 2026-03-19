@@ -75,11 +75,14 @@ function refsInit() {
   );
 }
 
-const containerClassNames =
-  'flex h-full w-full items-center justify-center overflow-hidden bg-gray-200 select-none';
+const containerClassNames = [
+  'flex h-full w-full items-center justify-center overflow-hidden select-none',
+  'bg-[radial-gradient(circle,#e0ddd5_1px,transparent_1px)]',
+  'bg-[length:24px_24px]',
+].join(' ');
 
 const emojiButtonClassNames =
-  'rounded-lg bg-white p-3 text-3xl shadow-lg transition duration-200 ease-in-out hover:-translate-y-1 hover:shadow-xl';
+  'rounded-xl bg-white p-3 text-3xl shadow-md ring-1 ring-gray-100 transition duration-200 ease-in-out hover:-translate-y-1 hover:shadow-xl active:scale-95';
 
 function animateEmoji(
   config: { emoji: string; directionAngle: number; rotationAngle: number },
