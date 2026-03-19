@@ -1,10 +1,13 @@
 (ns instant.model.app-user
   (:require
+   [instant.db.cel :as cel]
+   [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.app-user-refresh-token :refer [hash-token]]
+   [instant.model.rule :as rule-model]
    [instant.system-catalog-ops :refer [update-op query-op]]
    [instant.util.exception :as ex])
   (:import
@@ -31,6 +34,25 @@
              :extra-fields
              extra-fields
              [{:message (format "Cannot set system field: %s" k-str)}])))))))
+
+(defn assert-create-permission!
+  "Checks the $users create rule against the user data being created.
+   Used during auth signup flows. If no create rule is set, allows by default.
+   Both `auth` and `data` are set to the user being created."
+  [{:keys [app-id user-data]}]
+  (let [rules (rule-model/get-by-app-id {:app-id app-id})
+        program (rule-model/get-program! rules "$users" "create")]
+    (when program
+      (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                 :app-id app-id
+                 :attrs (attr-model/get-by-app-id app-id)
+                 :datalog-query-fn d/query
+                 :current-user user-data}]
+        (ex/assert-permitted!
+         :has-signup-permission?
+         ["$users" "create"]
+         (cel/eval-program! ctx program {:data user-data
+                                         :new-data user-data}))))))
 
 (defn create!
   ([params]

@@ -129,35 +129,49 @@
   "Consumes the code and if the code is good, upserts the user.
 
    If a guest-user-id is passed in, it will either upgrade the guest user
-   or link it to the existing user for the email."
-  [{:keys [app-id email code guest-user-id extra-fields]}]
-  (app-user-magic-code-model/consume!
-   {:app-id app-id
-    :code   code
-    :email  email})
+   or link it to the existing user for the email.
+
+   Permission check runs before consuming the code so that a failed check
+   doesn't burn the one-time code."
+  [{:keys [app-id email code guest-user-id extra-fields admin?]}]
   (let [existing-user (app-user-model/get-by-email
                        {:app-id app-id
                         :email  email})
         created? (nil? existing-user)
-        user (or existing-user
-                 (app-user-model/create!
-                  {:id (or guest-user-id (random-uuid))
-                   :app-id app-id
-                   :email  email
-                   :type   "user"
-                   :extra-fields extra-fields}))
-        refresh-token-id (random-uuid)]
-    (when (and guest-user-id
-               (not= (:id user)
-                     guest-user-id))
-      (app-user-model/link-guest {:app-id app-id
-                                  :primary-user-id (:id user)
-                                  :guest-user-id guest-user-id}))
-    (app-user-refresh-token-model/create!
-     {:app-id  app-id
-      :id      refresh-token-id
-      :user-id (:id user)})
-    (assoc user :refresh_token refresh-token-id :created created?)))
+        user-id (or guest-user-id (random-uuid))]
+    ;; Check create permission before consuming the code
+    (when (and created? (not admin?))
+      (let [user-data (cond-> {"email" email
+                               "id" (str user-id)}
+                        extra-fields (merge (into {}
+                                                  (map (fn [[k v]] [(name k) v]))
+                                                  extra-fields)))]
+        (app-user-model/assert-create-permission!
+         {:app-id app-id
+          :user-data user-data})))
+    (app-user-magic-code-model/consume!
+     {:app-id app-id
+      :code   code
+      :email  email})
+    (let [user (or existing-user
+                   (app-user-model/create!
+                    {:id user-id
+                     :app-id app-id
+                     :email  email
+                     :type   "user"
+                     :extra-fields extra-fields}))
+          refresh-token-id (random-uuid)]
+      (when (and guest-user-id
+                 (not= (:id user)
+                       guest-user-id))
+        (app-user-model/link-guest {:app-id app-id
+                                    :primary-user-id (:id user)
+                                    :guest-user-id guest-user-id}))
+      (app-user-refresh-token-model/create!
+       {:app-id  app-id
+        :id      refresh-token-id
+        :user-id (:id user)})
+      (assoc user :refresh_token refresh-token-id :created created?))))
 
 (comment
   (def instant-user (instant-user-model/get-by-email

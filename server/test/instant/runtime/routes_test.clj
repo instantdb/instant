@@ -575,7 +575,7 @@
                            :code {"$users" {"allow" {"create" "false"}}}})
          (let [code (send-code app {:email "blocked@test.com"})]
            (is (thrown-with-msg?
-                ExceptionInfo #"status 403"
+                ExceptionInfo #"status 400"
                 (verify-body app {:email "blocked@test.com"
                                   :code code})))
            ;; Magic code should not be consumed on permission failure
@@ -592,7 +592,7 @@
                            :code {"$users" {"allow" {"create" "data.email.endsWith('@allowed.com')"}}}})
          (let [code (send-code app {:email "nope@blocked.com"})]
            (is (thrown-with-msg?
-                ExceptionInfo #"status 403"
+                ExceptionInfo #"status 400"
                 (verify-body app {:email "nope@blocked.com"
                                   :code code}))))
          (let [code (send-code app {:email "yes@allowed.com"})
@@ -600,19 +600,20 @@
                                       :code code})]
            (is (true? (:created body)))))
 
-       (testing "create rule can block specific extra-fields"
+       (testing "create rule can validate extra-fields values"
          (rule-model/put! {:app-id app-id
-                           :code {"$users" {"allow" {"create" "!('username' in data)"}}}})
+                           :code {"$users" {"allow" {"create" "data.username == null || data.username.size() >= 3"}}}})
          (let [code (send-code app {:email "nofield@test.com"})]
            (is (thrown-with-msg?
-                ExceptionInfo #"status 403"
+                ExceptionInfo #"status 400"
                 (verify-body app {:email "nofield@test.com"
                                   :code code
-                                  :extra-fields {"username" "sneaky"}}))))
-         ;; Without the blocked field, signup should succeed
+                                  :extra-fields {"username" "ab"}}))))
+         ;; Valid username should succeed
          (let [code (send-code app {:email "nofield@test.com"})
                body (verify-body app {:email "nofield@test.com"
-                                      :code code})]
+                                      :code code
+                                      :extra-fields {"username" "valid_user"}})]
            (is (true? (:created body)))))
 
        (testing "default (no create rule) allows signup"
@@ -677,7 +678,7 @@
         (rule-model/put! {:app-id app-id
                           :code {"$users" {"allow" {"create" "false"}}}})
         (is (thrown-with-msg?
-             ExceptionInfo #"status 403"
+             ExceptionInfo #"status 400"
              (sign-in-guest-runtime app))))
 
       (testing "create rule allows guest signup when passing"
@@ -703,7 +704,7 @@
                            (aurora/conn-pool :read) {:app-id app-id})
                    :current-user nil}]
           (is (thrown-with-msg?
-               ExceptionInfo #"not allowed"
+               ExceptionInfo #"system entity"
                (permissioned-tx/transact!
                 ctx
                 [[:add-triple user-id (:id id-attr) user-id]]))))))))

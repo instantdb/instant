@@ -525,7 +525,8 @@
                            :email          email
                            :code           code
                            :guest-user-id  (:id guest-user)
-                           :extra-fields   extra-fields})]
+                           :extra-fields   extra-fields
+                           :admin?         true})]
     (response/ok
      {:user (dissoc result :created)
       :created (:created result)})))

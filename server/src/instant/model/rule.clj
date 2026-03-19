@@ -180,6 +180,19 @@
   (when (contains? system-catalog/all-etypes etype)
     (let [compiler (cel/action->compiler action)]
       (cond
+        ;; Default to allowing signup. $users creation via transactions
+        ;; is blocked by validate-system-create-entity!.
+        (and (= "$users" etype)
+             (= "create" action))
+        (let [code "true"
+              ast (cel/->ast compiler code)]
+          {:etype etype
+           :action action
+           :code code
+           :display-code code
+           :cel-ast ast
+           :cel-program (cel/->program ast)})
+
         (and (= "$users" etype)
              (#{"view" "update"} action))
 
@@ -291,11 +304,12 @@
         :paths [path]}))))
 
 (defn $users-validation-errors
-  "Only allow users to changes the `view` and `update` rules for $users, since we don't have
-   a way to create or delete them from transactions."
+  "Allow users to set `view`, `update`, and `create` rules for $users.
+   `create` runs during auth signup flows (not via transactions).
+   `delete` is still blocked."
   [rules action]
   (case action
-    ("create" "delete")
+    "delete"
     (when (and (not (nil? (get-in rules ["$users" "allow" action])))
                (not= (get-in rules ["$users" "allow" action])
                      "false"))
@@ -303,7 +317,7 @@
                          "$users" action "$users" action)
         :in ["$users" "allow" action]}])
 
-    ("update" "view") nil))
+    ("create" "update" "view") nil))
 
 (defn system-attribute-validation-errors
   "Don't allow users to change rules for restricted system namespaces."

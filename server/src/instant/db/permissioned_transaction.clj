@@ -46,6 +46,16 @@
     (throw-tx-step-validation-err! tx-step
                                    (format "%s is a system entity. You aren't allowed to delete this directly." etype))))
 
+(defn- validate-system-create-entity! [{:keys [admin? attrs]} {:keys [aid eid] :as tx-step}]
+  (let [attr (attr-model/seek-by-id aid attrs)
+        [etype label] (attr-model/fwd-ident-name attr)]
+    (when (and (= "$users" etype)
+               (= "id" label)
+               (not admin?))
+      (throw-tx-step-validation-err!
+       tx-step
+       "$users is a system entity. You aren't allowed to create this directly."))))
+
 (defn- validate-system-triple-op! [{:keys [admin? attrs]} {:keys [aid] :as tx-step}]
   (let [attr (attr-model/seek-by-id aid attrs)
         {:keys [catalog]} attr
@@ -107,7 +117,9 @@
           :when (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)]
     (if (= :delete-entity op)
       (validate-system-delete-entity! ctx  tx-step)
-      (validate-system-triple-op! ctx tx-step))))
+      (do
+        (validate-system-create-entity! ctx tx-step)
+        (validate-system-triple-op! ctx tx-step)))))
 
 (defn coerce-value-uuids
   "Checks that all ref values are either lookup refs or UUIDs"

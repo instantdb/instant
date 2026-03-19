@@ -130,13 +130,15 @@
 
 (defn sign-in-guest-post [req]
   (let [app-id        (ex/get-param! req [:body :app-id] uuid-util/coerce)
-        ;; create guest user
         user-id       (random-uuid)
+        user-data     {"id" (str user-id)}
+        _             (app-user-model/assert-create-permission!
+                       {:app-id app-id
+                        :user-data user-data})
         user          (app-user-model/create!
                        {:app-id app-id
                         :id     user-id
                         :type   "guest"})
-        ;; create refresh-token for user
         refresh-token (random-uuid)
         _             (app-user-refresh-token-model/create!
                        {:app-id  app-id
@@ -284,7 +286,15 @@
                                        :sub (:app_user_oauth_links/sub oauth-link)})})))]
 
     (if-not user
-      (let [new-user (app-user-model/create!
+      (let [user-data (cond-> {"email" email
+                               "id" (str (or guest-user-id (random-uuid)))}
+                        extra-fields (merge (into {}
+                                                  (map (fn [[k v]] [(name k) v]))
+                                                  extra-fields)))
+            _        (app-user-model/assert-create-permission!
+                      {:app-id app-id
+                       :user-data user-data})
+            new-user (app-user-model/create!
                        {:id guest-user-id
                         :app-id app-id
                         :email email
