@@ -83,7 +83,7 @@
         now (.toEpochMilli (Instant/now))]
     (if (and cache-time
              (> (+ cache-time cache-millis)
-                (.toEpochMilli (Instant/now))))
+                now))
       @cache-data
       (let [our-promise (promise)
             result-promise (second (swap! query-cache (fn [c]
