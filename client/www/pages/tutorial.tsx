@@ -522,8 +522,8 @@ export default function Tutorial() {
             <ol className="mt-8 space-y-2">
               {overviewSteps.map((step, i) => (
                 <li key={i} className="flex items-center gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-600 text-xs font-bold text-white">
-                    {i + 1}
+                  <span className="shrink-0 text-lg font-bold text-orange-600">
+                    {i + 1}.
                   </span>
                   <span className="text-lg text-gray-700">{step}</span>
                 </li>
