@@ -1,11 +1,11 @@
-import { Button, Copyable, Fence } from '@/components/ui';
+import { CodeEditor } from '@/components/new-landing/TabbedCodeExample';
 import { File, getFiles } from '../recipes';
 import { InstantApp } from '@/lib/types';
 import config from '@/lib/config';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import Head from 'next/head';
 import { useInView } from 'react-intersection-observer';
-import { useEffect, useRef, useState } from 'react';
+import { ComponentType, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import {
@@ -14,11 +14,38 @@ import {
   init,
 } from '@instantdb/react';
 import { errorToast } from '@/lib/toast';
-import { H3, LandingContainer, MainNav } from '@/components/marketingUi';
-import { useAuthToken } from '@/lib/auth';
+import { MainNav } from '@/components/marketingUi';
 import * as og from '@/lib/og';
 import { Toaster } from '@instantdb/components';
 import { Footer } from '@/components/new-landing/Footer';
+import { TopWash } from '@/components/new-landing/TopWash';
+import { Section } from '@/components/new-landing/Section';
+import { SectionTitle } from '@/components/new-landing/typography';
+import { CopyToClipboardButton } from '@/components/new-landing/CopyToClipboardButton';
+import { BrowserChrome } from '@/components/BrowserChrome';
+
+import { RecipeDBProvider } from '@/lib/recipes/db';
+import InstantTodos from '@/lib/recipes/todos';
+import InstantAuth from '@/lib/recipes/auth';
+import InstantCursors from '@/lib/recipes/cursors';
+import InstantCustomCursors from '@/lib/recipes/custom-cursors';
+import InstantTopics from '@/lib/recipes/reactions';
+import InstantTypingIndicator from '@/lib/recipes/typing-indicator';
+import InstantAvatarStack from '@/lib/recipes/avatar-stack';
+import InstantMergeTileGame from '@/lib/recipes/merge-tile-game';
+
+const recipeComponents: Record<string, ComponentType> = {
+  todos: InstantTodos,
+  auth: InstantAuth,
+  cursors: InstantCursors,
+  'custom-cursors': InstantCustomCursors,
+  reactions: InstantTopics,
+  'typing-indicator': InstantTypingIndicator,
+  'avatar-stack': InstantAvatarStack,
+  'merge-tile-game': InstantMergeTileGame,
+};
+
+const MAX_COLUMNS = 5;
 
 export async function getStaticProps() {
   const files = getFiles();
@@ -40,7 +67,6 @@ export default function Page({ files }: { files: File[] }) {
 
 function Main({ files }: { files: File[] }) {
   const router = useRouter();
-  const isAuthed = !!useAuthToken();
   const isHydrated = useIsHydrated();
   const recipesContainerElRef = useRef<HTMLDivElement>(null);
   const { ref: topInViewRef } = useInView({
@@ -55,20 +81,21 @@ function Main({ files }: { files: File[] }) {
   });
   const [selectedExample, setSelectedExample] = useState<string | undefined>();
   const [appId, setAppId] = useState<string | undefined>(undefined);
-  const dbRef = useRef<{ appId: string; db: InstantDB }>();
+  const columnDbsRef = useRef<InstantDB[]>([]);
 
-  useEffect(() => {
-    if (!appId) return;
-    if (dbRef.current && dbRef.current.appId === appId) return;
-
-    dbRef.current = {
-      db: init({
-        ...config,
-        appId,
-      }),
-      appId,
-    };
-  }, [appId]);
+  function getColumnDb(appId: string, index: number): InstantDB {
+    while (columnDbsRef.current.length <= index) {
+      const i = columnDbsRef.current.length;
+      columnDbsRef.current.push(
+        init({
+          ...config,
+          appId,
+          __extraDedupeKey: `recipes-col-${i}`,
+        } as any),
+      );
+    }
+    return columnDbsRef.current[index];
+  }
 
   useEffect(() => {
     jumpToExample();
@@ -148,7 +175,7 @@ function Main({ files }: { files: File[] }) {
   }
 
   return (
-    <LandingContainer>
+    <div className="text-off-black w-full overflow-x-auto">
       <Head>
         <title>Instant Recipes</title>
         <meta
@@ -159,77 +186,50 @@ function Main({ files }: { files: File[] }) {
       </Head>
       <Toaster />
 
-      {dbRef.current ? (
-        <RoomStatus db={dbRef.current?.db} appId={dbRef.current.appId} />
-      ) : null}
-      <MainNav />
-      <div className="mx-auto flex max-w-5xl flex-col px-4 py-12">
-        <div className="flex flex-col gap-12" ref={recipesContainerElRef}>
-          <div className="mx-auto flex max-w-md flex-col items-center gap-6">
-            <H3>Instant Code Recipes</H3>
-            <div className="flex flex-col gap-2">
-              <p>
-                Each example is a self-contained Instant app that you can copy
-                and paste into your own projects.
+      {appId ? <RoomStatus db={getColumnDb(appId, 0)} appId={appId} /> : null}
+      <MainNav transparent />
+
+      {/* Hero */}
+      <div className="relative overflow-hidden pt-16">
+        <TopWash />
+        <Section className="relative pt-12 pb-6 sm:pt-16 sm:pb-10">
+          <div className="flex flex-col items-center text-center">
+            <SectionTitle>Recipes</SectionTitle>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
+              With the right abstractions, you and your agents can make a lot of
+              progress with a lot less code. Take a look at some of what's
+              possible below.
+            </p>
+            <div
+              ref={topInViewRef}
+              className="mt-8 flex w-full max-w-md flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3"
+            >
+              <p className="text-left text-sm text-gray-500">
+                P.S we made an Instant app just for you! Share this with your
+                friends and you can play with every example together.
               </p>
-              {isHydrated && !isAuthed && (
-                <p>
-                  To get rolling, create a free account, grab your app ID, and
-                  install{' '}
-                  <code className="rounded-xs bg-gray-500 px-3 text-sm whitespace-nowrap text-white">
-                    @instantdb/react
-                  </code>
-                  .
-                </p>
-              )}
-            </div>
-            {isHydrated && !isAuthed && (
-              <div className="flex flex-col items-center gap-3 md:flex-row">
-                <Button size="large" variant="cta" type="link" href="/dash">
-                  Sign up
-                </Button>
-                <Button
-                  size="large"
-                  variant="secondary"
-                  type="link"
-                  href="/docs"
-                >
-                  Read the docs
-                </Button>
+              <div className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5">
+                <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
+                  {isHydrated && appId ? recipesUrl(appId) : 'Loading...'}
+                </span>
+                <CopyToClipboardButton
+                  text={isHydrated && appId ? recipesUrl(appId) : ''}
+                />
               </div>
-            )}
-          </div>
-
-          <div
-            ref={topInViewRef}
-            className="max-w-2xl overflow-hidden rounded-sm border border-gray-300 bg-white p-4 text-gray-700 md:mx-auto"
-          >
-            <div className="flex flex-col gap-2">
-              <h3 className="text-md font-bold">
-                <em>Psst</em>... this is a realtime page! 🔥
-              </h3>
-              <p className="text-sm">
-                We created a full-fledged Instant app just for you. Share this
-                page's unique URL with your friends, and you'll see them in the
-                previews below!
-              </p>
-              <Copyable
-                label="URL"
-                value={isHydrated && appId ? recipesUrl(appId) : 'Loading...'}
-              />
-              <p className="text-sm italic">
-                <strong>Please note:</strong> this app will automatically expire
-                and be deleted in 2 weeks.
-              </p>
             </div>
           </div>
+        </Section>
+      </div>
 
+      <div className="landing-width mx-auto pb-16">
+        <div className="flex flex-col gap-12" ref={recipesContainerElRef}>
           {files.map((file, i) => {
             return (
               <Example
                 key={file.pathName}
                 file={file}
                 appId={isHydrated && appId ? appId : undefined}
+                getColumnDb={getColumnDb}
                 onViewChange={(inView) => {
                   if (!isHydrated || !router.isReady) return;
                   if (!inView) return;
@@ -244,18 +244,20 @@ function Main({ files }: { files: File[] }) {
         </div>
       </div>
       <Footer />
-    </LandingContainer>
+    </div>
   );
 }
 
 function Example({
   file,
   appId,
+  getColumnDb,
   onViewChange,
   lazy,
 }: {
   file: File;
   appId: string | undefined;
+  getColumnDb: (appId: string, index: number) => InstantDB;
   onViewChange: (inView: boolean) => void;
   lazy: boolean;
 }) {
@@ -271,74 +273,103 @@ function Example({
     },
   });
 
+  const RecipeComponent = recipeComponents[file.pathName];
+
   return (
     <div
       ref={ref}
       key={file.pathName}
       data-path-name={file.pathName}
-      className="flex flex-col py-2"
+      className="flex flex-col gap-4"
     >
-      <div className="flex flex-col overflow-hidden rounded-xs border">
-        <div className="flex items-center gap-2 border-b bg-gray-50 px-4 py-2">
-          <h3 className="truncate font-mono font-bold">{file.name}</h3>
-          <Button
-            size="mini"
-            onClick={() => {
-              navigator.clipboard.writeText(file.code);
-            }}
-          >
-            Copy
-          </Button>
-
-          <span className="text-sm whitespace-nowrap">
-            <span className="rounded-xs border bg-white px-1">{numViews}</span>{' '}
-            previews
+      <div className="flex items-baseline gap-3">
+        <h3 className="text-2xl font-normal sm:text-3xl">{file.name}</h3>
+        <span className="text-base text-gray-400">
+          {file.code.split('\n').length} lines
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-base text-gray-500">
+            {numViews} {numViews === 1 ? 'preview' : 'previews'}
           </span>
-          <Button
-            disabled={numViews <= 1}
-            size="mini"
-            variant="secondary"
-            onClick={() => {
-              setNumViews(Math.max(numViews - 1, 1));
-            }}
-          >
-            -
-          </Button>
-          <Button
-            disabled={numViews >= 5}
-            size="mini"
-            variant="secondary"
-            onClick={() => {
-              setNumViews(Math.min(numViews + 1, 5));
-            }}
-          >
-            +
-          </Button>
-        </div>
-        <div className="flex flex-col gap-2 overflow-hidden bg-gray-100 md:flex-row">
-          <div className="bg-prism flex h-[50vh] flex-col overflow-auto text-xs md:h-[61vh] md:flex-1">
-            <Fence darkMode={false} code={file.code} language="tsx" />
+          <div className="flex overflow-hidden rounded-md border border-gray-200">
+            <button
+              disabled={numViews <= 1}
+              className="px-2.5 py-0.5 text-base text-gray-600 transition-colors hover:bg-gray-50 disabled:text-gray-300"
+              onClick={() => {
+                setNumViews(Math.max(numViews - 1, 1));
+              }}
+            >
+              -
+            </button>
+            <button
+              disabled={numViews >= 5}
+              className="border-l border-gray-200 px-2.5 py-0.5 text-base text-gray-600 transition-colors hover:bg-gray-50 disabled:text-gray-300"
+              onClick={() => {
+                setNumViews(Math.min(numViews + 1, 5));
+              }}
+            >
+              +
+            </button>
           </div>
-          <div className="flex flex-col gap-[1vh] md:flex-1">
-            {Array(numViews)
-              .fill(null)
-              .map((_, i) => (
-                <div
-                  key={i}
-                  className="flex h-[30vh] rounded-sm border bg-white shadow-xs"
-                >
-                  {appId ? (
-                    <iframe
-                      className="flex-1"
-                      src={'/recipes/' + file.pathName + '?__appId=' + appId}
-                      loading={lazy ? 'lazy' : undefined}
-                    />
+        </div>
+      </div>
+      <div className="flex flex-col gap-4 md:grid md:grid-cols-2">
+        {/* Code panel — relative wrapper so grid row is sized by previews only */}
+        <div className="relative h-[50vh] md:h-auto">
+          <div
+            className="flex flex-col overflow-hidden rounded-lg border border-gray-200 md:absolute md:inset-0"
+            style={{ backgroundColor: '#faf8f5' }}
+          >
+            <div className="flex items-center border-b border-gray-200/60">
+              <span className="px-4 py-2 text-sm font-medium text-gray-900 shadow-[inset_0_-2px_0_0_#f97316]">
+                {file.fileName}
+              </span>
+              <div className="ml-auto pr-2">
+                <CopyToClipboardButton text={file.code} />
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <CodeEditor code={file.code} language="tsx" />
+            </div>
+          </div>
+        </div>
+        {/* Preview panels */}
+        <div className="relative">
+          {Array(numViews)
+            .fill(null)
+            .map((_, i) => (
+              <div
+                key={i}
+                className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
+                style={{
+                  aspectRatio: '16 / 10',
+                  marginTop: i > 0 ? '-12px' : '0',
+                  transform:
+                    i % 2 === 1 ? 'translateX(8px)' : 'translateX(-8px)',
+                  position: 'relative',
+                  zIndex: i,
+                }}
+              >
+                <BrowserChrome />
+                <div className="h-[calc(100%-32px)] overflow-auto">
+                  {appId && RecipeComponent ? (
+                    <ErrorBoundary
+                      renderError={() => (
+                        <p className="p-2 text-sm text-red-500">
+                          Error loading preview
+                        </p>
+                      )}
+                    >
+                      <RecipeDBProvider value={getColumnDb(appId, i)}>
+                        <RecipeComponent />
+                      </RecipeDBProvider>
+                    </ErrorBoundary>
                   ) : (
-                    <div className="animate-slow-pulse flex-1 bg-gray-300"></div>
+                    <div className="animate-slow-pulse h-full w-full bg-gray-200"></div>
                   )}
                 </div>
-              ))}
-          </div>
+              </div>
+            ))}
         </div>
       </div>
     </div>

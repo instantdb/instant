@@ -283,6 +283,12 @@ function initGlobalInstantCoreStore(): Record<string, any> {
 function reactorKey(config: InstantConfig<any, boolean>): string {
   // @ts-expect-error
   const adminToken = config.__adminToken;
+  // Sometimes you _want_ to simulate two separate db instances in the same
+  // page. This can happen when doing real-time demos. To make this work we
+  // have a hidden `__extraDedupeKey` that you can use to differentiate db
+  // configs that are otherwise exactly the same.
+  // @ts-expect-error
+  const extraDedupeKey = config.__extraDedupeKey;
   return (
     config.appId +
     '_' +
@@ -292,7 +298,9 @@ function reactorKey(config: InstantConfig<any, boolean>): string {
     '_' +
     (adminToken || 'client_only') +
     '_' +
-    config.useDateObjects
+    config.useDateObjects +
+    '_' +
+    (extraDedupeKey || '')
   );
 }
 

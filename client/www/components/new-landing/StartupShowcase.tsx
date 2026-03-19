@@ -75,7 +75,7 @@ const startups = [
     role: 'Creator, TinyHarvest',
     avatar: '/img/peeps/simon_grimm.jpg',
     quote:
-      'I needed a backend that worked with React Native and could handle offline play. Instant was the only option that gave me real-time sync, offline support, and relational queries without fighting the framework. This is a fake testimonial.',
+      "InstantDB completely changed how I build Tiny Harvest. I didn't have to think about backend logic, syncing, or infrastructure - I could just focus on building the game. Real-time updates work out of the box, and everything feels incredibly smooth. As a solo dev, that's exactly what I need: less setup, more building.",
     demo: {
       type: 'video' as const,
       src: 'https://stream.mux.com/DtNkCSmdCnUp00igSAeo01DCfVBeeLf1WnszJBhE2JBEQ/720p.mp4',

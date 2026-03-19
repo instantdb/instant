@@ -1,22 +1,28 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { Button } from '@/components/ui';
 import { AppMetadata, webMetas, mobileMetas } from '@/lib/examples/data';
-import {
-  LandingContainer,
-  MainNav,
-  Section,
-  H2,
-  H3,
-} from '@/components/marketingUi';
+import { MainNav } from '@/components/marketingUi';
 import { Footer } from '@/components/new-landing/Footer';
+import { Section } from '@/components/new-landing/Section';
+import { TopWash } from '@/components/new-landing/TopWash';
+import { AnimateIn } from '@/components/new-landing/AnimateIn';
+import {
+  SectionTitle,
+  SectionSubtitle,
+  SmallButton,
+} from '@/components/new-landing/typography';
+import Link from 'next/link';
+import clsx from 'clsx';
+import { BrowserChrome } from '@/components/BrowserChrome';
 
 function LeftColumn({ app }: { app: AppMetadata }) {
   return (
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <H3>{app.title}</H3>
+        <h3 className="text-3xl leading-snug font-normal sm:text-4xl">
+          {app.title}
+        </h3>
         <p className="mt-1 text-sm text-gray-600">
           {app.linesOfCode} lines of code
         </p>
@@ -48,32 +54,25 @@ function LeftColumn({ app }: { app: AppMetadata }) {
 
 function RightColumn({ app }: { app: AppMetadata }) {
   return (
-    <div className="space-y-6">
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <BrowserChrome />
       {/* Screenshot */}
       <img
         src={app.screenshot}
         alt={app.title}
-        className="w-full rounded-lg border border-gray-600 object-cover"
+        className="max-h-[340px] w-full object-cover object-top"
       />
-
       {/* Buttons */}
-      <div className="flex gap-4">
-        <Button
-          type="link"
-          href={`/examples/${app.slug}`}
-          className="flex-1"
-          variant="cta"
-        >
+      <div
+        className="flex justify-end gap-3 border-t border-gray-200/60 px-3 py-2"
+        style={{ backgroundColor: '#f7f7f7' }}
+      >
+        <SmallButton href={`/examples/${app.slug}`} variant="cta">
           See Example
-        </Button>
-        <Button
-          type="link"
-          href={app.githubUrl}
-          className="flex-1"
-          variant="secondary"
-        >
+        </SmallButton>
+        <SmallButton href={app.githubUrl} variant="secondary">
           See Code
-        </Button>
+        </SmallButton>
       </div>
     </div>
   );
@@ -92,15 +91,15 @@ function TabToggle({
   onTabChange: (tab: string) => void;
 }) {
   return (
-    <div className="flex justify-center gap-4">
+    <div className="flex justify-center gap-2">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
-          className={`px-4 py-2 text-lg font-medium transition-colors ${
+          className={`rounded-lg border px-4 py-1.5 text-sm font-medium transition-colors ${
             activeTab === tab.id
-              ? 'border-b-2 border-[#606AF4] text-gray-900'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'border-orange-600 bg-orange-600 text-white'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
           }`}
         >
           {tab.label}
@@ -121,20 +120,21 @@ function Showcase({
 }) {
   return (
     <div className="space-y-12">
-      <div className="mx-auto mt-12 space-y-8">
+      <div className="space-y-8">
         <div className="text-center">
-          <H2>Example Apps built w/ Instant</H2>
+          <SectionTitle>Example Apps built w/ Instant</SectionTitle>
+          <SectionSubtitle>
+            Curious to see Instant in action? Here are some common apps to give
+            you a sense on how to build with Instant.
+          </SectionSubtitle>
         </div>
-        <p className="mx-auto mb-12 max-w-prose space-y-6 text-lg text-gray-700">
-          Curious to see Instant in action? Here are some common apps to give
-          you a sense on how to build with Instant.
-        </p>
         <TabToggle activeTab={activeTab} onTabChange={onTabChange} />
       </div>
       <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2">
-        {apps.map((app) => (
-          <div
+        {apps.map((app, i) => (
+          <AnimateIn
             key={app.slug}
+            delay={i * 100}
             className="col-span-1 grid grid-cols-1 gap-8 md:col-span-2 md:grid-cols-2"
           >
             <LeftColumn app={app} />
@@ -146,7 +146,7 @@ function Showcase({
                 <p key={line}>{line}</p>
               ))}
             </div>
-          </div>
+          </AnimateIn>
         ))}
       </div>
     </div>
@@ -176,18 +176,22 @@ export default function Page({
   const apps = activeTab === 'mobile' ? mobileApps : webApps;
 
   return (
-    <LandingContainer>
+    <div className="text-off-black w-full overflow-x-auto">
       <Head>
         <title>{pageTitle}</title>
         <meta name="description" content="Learn Instant through example apps" />
       </Head>
-      <MainNav />
-      <Section>
-        <Showcase apps={apps} activeTab={activeTab} onTabChange={setTab} />
-      </Section>
-      <div className="h-12" />
+      <MainNav transparent />
+
+      <div className="relative overflow-hidden pt-16">
+        <TopWash />
+        <Section className="relative">
+          <Showcase apps={apps} activeTab={activeTab} onTabChange={setTab} />
+        </Section>
+      </div>
+
       <Footer />
-    </LandingContainer>
+    </div>
   );
 }
 
