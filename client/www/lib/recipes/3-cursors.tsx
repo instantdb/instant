@@ -12,7 +12,9 @@ export default function InstantCursors() {
       userCursorColor={colorRef.current}
       className={cursorsClassNames}
     >
-      <span className="text-sm text-gray-400">Move your cursor around!</span>
+      <span className="text-sm text-gray-400 italic">
+        Move your cursor around!
+      </span>
     </Cursors>
   );
 }

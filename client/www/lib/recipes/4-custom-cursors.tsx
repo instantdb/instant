@@ -6,8 +6,12 @@ function CustomCursor({ name }: { color?: string; name: string }) {
   return (
     <img
       src={`/api/avatar?name=${encodeURIComponent(name)}&size=40`}
-      alt={name}
-      className="h-10 w-10 drop-shadow-md"
+      width={40}
+      height={40}
+      loading="eager"
+      decoding="async"
+      alt=""
+      className="h-10 w-10"
     />
   );
 }
@@ -31,7 +35,7 @@ export default function InstantCursors() {
       userCursorColor={colorRef.current}
       className={cursorsClassNames}
     >
-      <span className="text-sm text-gray-400">
+      <span className="text-sm text-gray-400 italic">
         You can customize your cursors too!
       </span>
     </Cursors>

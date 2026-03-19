@@ -1,32 +1,30 @@
 /*
  * Tile Game!
- * A collaborative pixel art board. We use `merge` to update a slice of
- * data without overwriting changes from other clients.
- */
+ * This example is meant to mimic a simple collaborative game. We use a 4x4 grid
+ * that users can color. We use `merge` to update a slice of data without
+ * overwriting potential changes from other clients.
+ * */
 
-import { id } from '@instantdb/react';
 import { useRecipeDB } from './db';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function App() {
   const db = useRecipeDB();
-  const room = db.room('main');
-  const userIdRef = useRef(id());
-  const [hoveredSquare, setHoveredSquare] = useState(null as string | null);
-  const [myColor, setMyColor] = useState(null as string | null);
-  const { isLoading, error, data } = db.useQuery({ boards: {} });
+  const room = db.room('tile-game-example');
+  const [myColor, setMyColor] = useState<string | null>(null);
+  const { isLoading, error, data } = db.useQuery({
+    boards: { $: { where: { id: boardId } } },
+  });
   const {
-    user: myPresence,
     peers,
     publishPresence,
     isLoading: isPresenceLoading,
   } = db.rooms.usePresence(room);
 
-  const boardState = data?.boards.find((b) => b.id === boardId)?.state;
+  const boardState = data?.boards[0]?.state;
 
   useEffect(() => {
-    if (isLoading || isPresenceLoading) return;
-    if (error) return;
+    if (isLoading || isPresenceLoading || error) return;
 
     if (!boardState) {
       db.transact([db.tx.boards[boardId].update({ state: makeEmptyBoard() })]);
@@ -38,9 +36,9 @@ export default function App() {
       const color =
         available[Math.floor(Math.random() * available.length)] || colors[0];
       setMyColor(color);
-      publishPresence({ color, id: userIdRef.current });
+      publishPresence({ color });
     }
-  }, [isLoading, isPresenceLoading, error, myColor]);
+  }, [isLoading, isPresenceLoading, error, boardState]);
 
   if (!boardState || isLoading || isPresenceLoading)
     return (
@@ -57,7 +55,7 @@ export default function App() {
     );
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 bg-white p-4">
+    <div className="flex h-full flex-col items-center justify-center gap-4 bg-[radial-gradient(circle,#e0ddd5_1px,transparent_1px)] bg-[length:24px_24px] p-4">
       {/* Header */}
       <div className="flex w-full max-w-[200px] items-center justify-between">
         <div className="flex items-center gap-2">
@@ -80,22 +78,17 @@ export default function App() {
       </div>
 
       {/* Board */}
-      <div className="grid grid-cols-4 gap-1 rounded-xl border border-gray-200 bg-gray-100 p-2 shadow-sm">
+      <div className="grid grid-cols-4 gap-1 rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
         {Array.from({ length: boardSize }).map((_, r) =>
           Array.from({ length: boardSize }).map((_, c) => {
             const key = `${r}-${c}`;
-            const isHovered = hoveredSquare === key;
             return (
               <div
                 key={key}
-                className="h-11 w-11 cursor-pointer rounded-lg transition-colors"
+                className="h-11 w-11 cursor-pointer rounded-lg transition-colors hover:brightness-95"
                 style={{
-                  backgroundColor: isHovered
-                    ? '#e8e5e0'
-                    : boardState[key] || emptyColor,
+                  backgroundColor: boardState[key] || emptyColor,
                 }}
-                onMouseEnter={() => setHoveredSquare(key)}
-                onMouseLeave={() => setHoveredSquare(null)}
                 onClick={() => {
                   db.transact([
                     db.tx.boards[boardId].merge({

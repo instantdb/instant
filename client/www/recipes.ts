@@ -17,7 +17,7 @@ export function getFiles(): File[] {
       const name = capitalize(pathName.slice(2).split('-').join(' '));
       const displayFileName = name.split(' ').map(capitalize).join('') + '.tsx';
       const raw = fs.readFileSync(`./lib/recipes/${fileName}`, 'utf-8');
-      const code = processCode(raw);
+      const code = processCode(raw).trimEnd();
 
       return { fileName: displayFileName, pathName, name, code };
     });

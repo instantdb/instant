@@ -206,8 +206,9 @@ function Main({ files }: { files: File[] }) {
           <div className="flex flex-col items-center text-center">
             <SectionTitle>Recipes</SectionTitle>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
-              Self-contained Instant apps you can copy and paste into your own
-              projects.
+              With the right abstractions, you and your agents can make a lot of
+              progress with a lot less code. Take a look at some of what's
+              possible below.
             </p>
             {isHydrated && !isAuthed && (
               <div className="mt-8 flex gap-3">
@@ -219,22 +220,20 @@ function Main({ files }: { files: File[] }) {
             )}
             <div
               ref={topInViewRef}
-              className="mt-8 flex items-center gap-2 text-sm text-gray-500"
+              className="mt-8 flex w-full max-w-md flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3"
             >
-              <span>
-                This is a realtime page — share to see friends in the previews!
-              </span>
-            </div>
-            <div className="mt-3 flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2">
-              <span className="shrink-0 text-xs font-medium text-gray-400">
-                URL
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
-                {isHydrated && appId ? recipesUrl(appId) : 'Loading...'}
-              </span>
-              <CopyToClipboardButton
-                text={isHydrated && appId ? recipesUrl(appId) : ''}
-              />
+              <p className="text-left text-sm text-gray-500">
+                P.S we made an Instant app just for you! Share this with your friends and you can play
+                with every example together.
+              </p>
+              <div className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5">
+                <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
+                  {isHydrated && appId ? recipesUrl(appId) : 'Loading...'}
+                </span>
+                <CopyToClipboardButton
+                  text={isHydrated && appId ? recipesUrl(appId) : ''}
+                />
+              </div>
             </div>
           </div>
         </Section>
@@ -306,8 +305,11 @@ function Example({
       data-path-name={file.pathName}
       className="flex flex-col gap-4"
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-baseline gap-3">
         <h3 className="text-2xl font-normal sm:text-3xl">{file.name}</h3>
+        <span className="text-base text-gray-400">
+          {file.code.split('\n').length} lines
+        </span>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-base text-gray-500">
             {numViews} {numViews === 1 ? 'preview' : 'previews'}
