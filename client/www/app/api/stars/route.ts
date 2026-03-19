@@ -5,10 +5,10 @@ export const revalidate = 3600;
 
 export const GET = async () => {
   const count = await getGithubStarCount();
-  return new NextResponse(
-    JSON.stringify({
+  return NextResponse.json(
+    {
       starCount: count,
-    }),
+    },
     {
       headers: {
         Cache: 'max-age=3600',
