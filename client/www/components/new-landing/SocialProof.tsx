@@ -86,7 +86,10 @@ export function SocialProof() {
               <span>Backed by SV Angel</span>
             </div>
             <span className="hidden text-gray-300 sm:inline">·</span>
-            <a href="https://techcrunch.com/2024/10/02/instant-harkens-back-to-a-pre-google-firebase/">
+            <a
+              target="_blank"
+              href="https://techcrunch.com/2024/10/02/instant-harkens-back-to-a-pre-google-firebase/"
+            >
               <div className="flex items-center gap-1.5">
                 <TechCrunchIcon className="h-3.5 w-3.5" />
                 <span>Featured in TechCrunch</span>
