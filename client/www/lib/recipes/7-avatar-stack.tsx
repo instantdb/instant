@@ -31,7 +31,7 @@ function Avatar({ name }: { name: string }) {
   return (
     <div className={avatarClassNames}>
       <img
-        src={`https://instantdb.com/api/avatar?name=${encodeURIComponent(name)}&size=32`}
+        src={`/api/avatar?name=${encodeURIComponent(name)}&size=32`}
         alt={name}
         className="h-full w-full rounded-full"
       />

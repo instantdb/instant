@@ -34,7 +34,7 @@ export default function InstantTypingIndicator() {
               className="relative inset-0 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full"
             >
               <img
-                src={`https://instantdb.com/api/avatar?name=${encodeURIComponent(peer.name || '')}&size=32`}
+                src={`/api/avatar?name=${encodeURIComponent(peer.name || '')}&size=32`}
                 alt={peer.name || ''}
                 className="h-full w-full rounded-full"
               />
