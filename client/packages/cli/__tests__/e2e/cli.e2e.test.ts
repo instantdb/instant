@@ -823,6 +823,55 @@ export default _schema;
       }
     });
 
+    it('returns singular object for has-one relationships', async () => {
+      const { appId, adminToken } = await createTempApp();
+      const project = await createTestProject({
+        appId,
+        schemaFile: SCHEMA_FILE,
+      });
+
+      try {
+        const pushResult = await runCli(['push', 'schema', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        const postId = randomUUID();
+        const commentId = randomUUID();
+        await adminTransact(appId, adminToken, [
+          ['update', 'posts', postId, { title: 'My Post', body: 'Content' }],
+          ['update', 'comments', commentId, { text: 'Great post!' }],
+          ['link', 'posts', postId, { comments: commentId }],
+        ]);
+
+        // Query from the "has one" side: comments -> post
+        const result = await runCli(
+          ['query', '--admin', JSON.stringify({ comments: { post: {} } })],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
+
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.comments).toHaveLength(1);
+
+        const post = data.comments[0].post;
+        expect(post).not.toBeInstanceOf(Array);
+        expect(post.title).toBe('My Post');
+      } finally {
+        await project.cleanup();
+      }
+    });
+
     it('--as-email runs query as a specific user with perms applied', async () => {
       const { appId, adminToken } = await createTempApp();
 
