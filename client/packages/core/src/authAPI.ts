@@ -133,8 +133,7 @@ export async function exchangeCodeForToken({
   codeVerifier,
   refreshToken,
   extraFields,
-}: SharedInput &
-  ExchangeCodeForTokenParams): Promise<CheckMagicCodeResponse> {
+}: SharedInput & ExchangeCodeForTokenParams): Promise<CheckMagicCodeResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/token`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
