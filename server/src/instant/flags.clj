@@ -360,3 +360,7 @@
   "Returns true if we should write our totp codes to the magic codes table."
   []
   (toggled? :dual-write-totp true))
+
+(defn totp-default-expiry-seconds
+  []
+  (flag :totp-default-expiry-seconds 86400))

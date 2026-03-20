@@ -71,7 +71,7 @@
                                    (/ totp/default-time-step)
                                    (Math/ceil))
                            ;; Default to 10 minutes
-                           (/ 600 totp/default-time-step))]
+                           (/ (flags/totp-default-expiry-seconds) totp/default-time-step))]
     ;; Have to add 1 extra period in case the code was generated near the
     ;; end of a period
     (when-not (totp/valid-totp? secret-key (inc expiry-periods) code)
