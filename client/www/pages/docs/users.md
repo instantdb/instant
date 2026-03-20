@@ -237,7 +237,7 @@ const { user, created } = await db.auth.signInWithMagicCode({
 if (created) {
   // Create default data for the new user
   db.transact([
-    tx.settings[id()]
+    db.tx.settings[id()]
       .update({ theme: 'light', notifications: true })
       .link({ user: user.id }),
   ]);
