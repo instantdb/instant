@@ -2296,7 +2296,7 @@ export default class Reactor {
       // The ID is passed through the redirect URL and used
       // by _oauthLoginInit to retrieve the right extraFields.
       // All entries are cleaned up after login.
-      const extraFieldsId = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const extraFieldsId = `${Math.random().toString(36).slice(2)}`;
       this.kv.updateInPlace((prev) => {
         const stored = prev[oauthExtraFieldsKey] || {};
         stored[extraFieldsId] = extraFields;
