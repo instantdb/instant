@@ -10,15 +10,19 @@ import { HttpBody } from '@effect/platform';
 export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>
   Effect.gen(function* () {
     const { appId } = yield* CurrentApp;
-    const contextCount =
-      (opts.admin ? 1 : 0) + (opts.asEmail ? 1 : 0) + (opts.asGuest ? 1 : 0);
-    if (contextCount === 0) {
+    const contexts = [
+      opts.admin,
+      opts.asEmail,
+      opts.asGuest,
+      opts.asToken,
+    ].filter(Boolean);
+    if (contexts.length === 0) {
       return yield* BadArgsError.make({
         message:
           'Please specify a context: --admin, --as-email <email>, or --as-guest',
       });
     }
-    if (contextCount > 1) {
+    if (contexts.length > 1) {
       return yield* BadArgsError.make({
         message:
           'Please specify only one context: --admin, --as-email <email>, or --as-guest',
@@ -37,6 +41,8 @@ export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>
       headers['as-email'] = opts.asEmail;
     } else if (opts.asGuest) {
       headers['as-guest'] = 'true';
+    } else if (opts.asToken) {
+      headers['as-token'] = opts.asToken;
     }
 
     const http = (yield* InstantHttpAuthed).pipe(withCommand('query'));

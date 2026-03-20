@@ -117,6 +117,10 @@ export const queryDef = program
   .option('--admin', 'Run the query as admin (bypasses permissions)')
   .option('--as-email <email>', 'Run the query as a specific user by email')
   .option('--as-guest', 'Run the query as an unauthenticated guest')
+  .option(
+    '--as-token <refresh-token>',
+    'Run the query as a user identified by refresh token',
+  )
   .description('Run an InstaQL query against your app.')
   .action(async function (queryArg, opts) {
     runCommandEffect(queryCmd(queryArg, opts));
