@@ -700,11 +700,27 @@ export default _schema;
       }
     });
 
-    it('fails without context flag', async () => {
+    it('defaults to admin context when no context flag is provided', async () => {
       const { appId, adminToken } = await createTempApp();
-      const project = await createTestProject({ appId });
+      const project = await createTestProject({
+        appId,
+        schemaFile: SCHEMA_FILE,
+      });
 
       try {
+        const pushResult = await runCli(['push', 'schema', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        await adminTransact(appId, adminToken, [
+          ['update', 'posts', randomUUID(), { title: 'Hello', body: 'World' }],
+        ]);
+
         const result = await runCli(['query', JSON.stringify({ posts: {} })], {
           cwd: project.dir,
           env: {
@@ -713,9 +729,10 @@ export default _schema;
           },
         });
 
-        expect(result.exitCode).not.toBe(0);
-        const output = result.stdout + result.stderr;
-        expect(output).toMatch(/--admin|--as-email|--as-guest/);
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.posts).toHaveLength(1);
+        expect(data.posts[0].title).toBe('Hello');
       } finally {
         await project.cleanup();
       }
