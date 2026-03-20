@@ -117,12 +117,12 @@
                                                   :email "stopa@instantdb.com"}))
 
   (def m (app-user-magic-code-model/create!
-          {:id (random-uuid) :user-id (:id runtime-user) :code (app-user-magic-code-model/rand-code)
+          {:id (random-uuid) :user-id (:id runtime-user)
            :app-id (:id app)}))
-  (verify-magic-code-post {:body {:email "stopainstantdb.com" :code (:code m)}})
-  (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code (:code m)}})
+  (verify-magic-code-post {:body {:email "stopainstantdb.com" :code m}})
+  (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code m}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code "0" :app-id (:id app)}})
-  (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code (:code m) :app-id (:id app)}}))
+  (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code m :app-id (:id app)}}))
 
 ;; -----
 ;; Guest sign in

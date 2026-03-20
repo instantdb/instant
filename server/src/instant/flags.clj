@@ -334,3 +334,29 @@
    Set to 0 to disable."
   []
   (flag :magic-code-rate-limit-per-hour 20))
+
+;; TOTP flags
+;; Process for rolling out TOTP
+;; 1. Deploy the code and wait for 24 hours
+;; 2. Flip the validate-with-totp? toggle to true
+;; 3. Wait for a while to make sure everything looks good
+;; 4. Flip the dual-write-totp toggle to false
+;; 5. Remove the code that writes to the magic codes table
+;; 6. Later--remove the magic codes completely
+
+(defn generate-with-totp?
+  "Returns true if we should generate codes with totp. Need to run this for 24 hours before
+   turning on validate-with-totp"
+  []
+  (toggled? :generate-totp true))
+
+(defn validate-with-totp?
+  "Returns true if we should validate codes with totp. Need to generate-with-totp for 24 hours before
+   turning on validate-with-totp"
+  []
+  (toggled? :validate-totp false))
+
+(defn dual-write-totp?
+  "Returns true if we should write our totp codes to the magic codes table."
+  []
+  (toggled? :dual-write-totp true))

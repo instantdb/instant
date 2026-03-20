@@ -346,6 +346,35 @@
                                  WHERE a.id = ?::uuid"
                                new-creator-id id])))))
 
+(defn ensure-totp-secret!
+  ([params]
+   (ensure-totp-secret! (aurora/conn-pool :write) params))
+  ([conn {:keys [id]}]
+   (let [secret-key (crypt-util/random-bytes 32)
+         enc-secret-key (crypt-util/aead-encrypt {:plaintext secret-key
+                                                  :associated-data (uuid-util/->bytes id)})]
+     (with-cache-invalidation id
+       (sql/execute-one! ::ensure-totp-secret!
+                         conn
+                         (hsql/format {:update :apps
+                                       :set {:totp-secret-key-enc enc-secret-key}
+                                       :where [:and
+                                               [:= :id id]
+                                               [:= :totp-secret-key-enc nil]]}))))))
+
+(defn get-totp-secret-key
+  ([params]
+   (get-totp-secret-key (aurora/conn-pool :read)
+                        (aurora/conn-pool :write)
+                        params))
+  ([read-conn write-conn {:keys [id]}]
+   (let [secret-key-enc (or (:totp_secret_key_enc (get-by-id! read-conn {:id id}))
+                            (:totp_secret_key_enc (ensure-totp-secret! write-conn {:id id}))
+                            ;; 2nd read in case two txes tried to initialize the key at the same time
+                            (:totp_secret_key_enc (get-by-id! read-conn {:id id})))]
+     (crypt-util/aead-decrypt {:ciphertext secret-key-enc
+                               :associated-data (uuid-util/->bytes id)}))))
+
 (defn clear-by-id!
   "Deletes attrs, rules, and triples for the specified app_id"
   ([params] (clear-by-id! (aurora/conn-pool :write) params))

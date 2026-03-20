@@ -500,7 +500,7 @@
 (defn magic-code-post [req]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
         email (ex/get-param! req [:body :email] email/coerce)
-        {:keys [code]} (app-user-magic-code-model/create! {:app-id app-id :email email})]
+        code (app-user-magic-code-model/create! {:app-id app-id :email email})]
     (response/ok {:code code})))
 
 (defn send-magic-code-post [req]

@@ -82,7 +82,7 @@
 (defn random-hex [^Long size]
   (bytes->hex-string (Random/randBytes size)))
 
-(defn hmac-256 [^bytes secret-key ^bytes b]
+(defn hmac-256 ^bytes [^bytes secret-key ^bytes b]
   (let [mac (Mac/getInstance "HmacSHA256")]
     (.init mac (SecretKeySpec. secret-key "HmacSHA256"))
     (.doFinal mac b)))

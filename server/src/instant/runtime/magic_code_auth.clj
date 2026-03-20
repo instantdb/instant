@@ -83,7 +83,7 @@
 (defn send! [{:keys [app-id email] :as req}]
   (check-rate-limit! req)
   (let [app             (app-model/get-by-id! {:id app-id})
-        {:keys [code]}  (app-user-magic-code-model/create! (select-keys req [:app-id :email]))
+        code            (app-user-magic-code-model/create! (select-keys req [:app-id :email]))
         template        (app-email-template-model/get-by-app-id-and-email-type
                          {:app-id app-id
                           :email-type "magic-code"})
@@ -178,10 +178,10 @@
   (def app (first (app-model/get-all-for-user {:user-id (:id instant-user)})))
   (def runtime-user (app-user-model/get-by-email {:app-id (:id app)
                                                   :email "stopa@instantdb.com"}))
-  (def m
-    (:magic-code (app-user-magic-code-model/create! {:app-id (:id app) :email "stopa@instantdb.com"})))
+  (def code
+    (app-user-magic-code-model/create! {:app-id (:id app) :email "stopa@instantdb.com"}))
 
   (verify! {:app-id (:id app) :email "stopa@instantdb.com" :code "0"})
 
-  (verify! {:app-id (:id app) :email "stopa@instantdb.com" :code (:code m)}))
+  (verify! {:app-id (:id app) :email "stopa@instantdb.com" :code code}))
 
