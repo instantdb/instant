@@ -2211,7 +2211,7 @@ export default class Reactor {
   async signInWithMagicCode(params) {
     const currentUser = await this.getCurrentUser();
     const isGuest = currentUser?.user?.type === 'guest';
-    const res = await authAPI.consumeMagicCode({
+    const res = await authAPI.checkMagicCode({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       email: params.email,

@@ -507,7 +507,7 @@ class Auth<Schema extends InstantSchemaDef<any, any, any>> {
   };
 
   /**
-   * @deprecated Use {@link consumeMagicCode} instead to get the `created` field
+   * @deprecated Use {@link checkMagicCode} instead to get the `created` field
    * and support `extraFields`.
    *
    * @see https://instantdb.com/docs/backend#custom-magic-codes
@@ -530,7 +530,7 @@ class Auth<Schema extends InstantSchemaDef<any, any, any>> {
    * `$users` properties at signup.
    *
    * @example
-   *   const { user, created } = await db.auth.consumeMagicCode(
+   *   const { user, created } = await db.auth.checkMagicCode(
    *     email,
    *     code,
    *     { extraFields: { nickname: 'ari' } },
@@ -538,7 +538,7 @@ class Auth<Schema extends InstantSchemaDef<any, any, any>> {
    *
    * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
-  consumeMagicCode = async (
+  checkMagicCode = async (
     email: string,
     code: string,
     options?: { extraFields?: UpdateParams<Schema, '$users'> },

@@ -114,8 +114,8 @@ import type { UploadFileResponse, DeleteFileResponse } from './StorageAPI.ts';
 import { FrameworkClient, type FrameworkConfig } from './framework.ts';
 
 import type {
-  ConsumeMagicCodeParams,
-  ConsumeMagicCodeResponse,
+  CheckMagicCodeParams,
+  CheckMagicCodeResponse,
   ExchangeCodeForTokenParams,
   SendMagicCodeParams,
   SendMagicCodeResponse,
@@ -349,8 +349,8 @@ class Auth {
    *       .catch((err) => console.error(err.body?.message))
    */
   signInWithMagicCode = (
-    params: ConsumeMagicCodeParams,
-  ): Promise<ConsumeMagicCodeResponse> => {
+    params: CheckMagicCodeParams,
+  ): Promise<CheckMagicCodeResponse> => {
     return this.db.signInWithMagicCode(params);
   };
 
@@ -424,7 +424,7 @@ class Auth {
    */
   signInWithIdToken = (
     params: SignInWithIdTokenParams,
-  ): Promise<ConsumeMagicCodeResponse> => {
+  ): Promise<CheckMagicCodeResponse> => {
     return this.db.signInWithIdToken(params);
   };
 
@@ -446,7 +446,7 @@ class Auth {
    */
   exchangeOAuthCode = (
     params: ExchangeCodeForTokenParams,
-  ): Promise<ConsumeMagicCodeResponse> => {
+  ): Promise<CheckMagicCodeResponse> => {
     return this.db.exchangeCodeForToken(params);
   };
 
@@ -1160,8 +1160,8 @@ export {
   type InstantDBInferredType,
 
   // auth types
-  type ConsumeMagicCodeParams,
-  type ConsumeMagicCodeResponse,
+  type CheckMagicCodeParams,
+  type CheckMagicCodeResponse,
   type ExchangeCodeForTokenParams,
   type SendMagicCodeParams,
   type SendMagicCodeResponse,

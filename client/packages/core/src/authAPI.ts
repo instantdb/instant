@@ -33,7 +33,7 @@ export type VerifyResponse = {
 };
 
 /**
- * @deprecated Use {@link consumeMagicCode} instead to get the `created` field
+ * @deprecated Use {@link checkMagicCode} instead to get the `created` field
  * and support `extraFields`.
  */
 export async function verifyMagicCode({
@@ -56,24 +56,24 @@ export async function verifyMagicCode({
   return res;
 }
 
-export type ConsumeMagicCodeParams = {
+export type CheckMagicCodeParams = {
   email: string;
   code: string;
   refreshToken?: string | undefined;
   extraFields?: Record<string, any> | undefined;
 };
-export type ConsumeMagicCodeResponse = {
+export type CheckMagicCodeResponse = {
   user: User;
   created: boolean;
 };
-export async function consumeMagicCode({
+export async function checkMagicCode({
   apiURI,
   appId,
   email,
   code,
   refreshToken,
   extraFields,
-}: SharedInput & ConsumeMagicCodeParams): Promise<ConsumeMagicCodeResponse> {
+}: SharedInput & CheckMagicCodeParams): Promise<CheckMagicCodeResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -134,7 +134,7 @@ export async function exchangeCodeForToken({
   refreshToken,
   extraFields,
 }: SharedInput &
-  ExchangeCodeForTokenParams): Promise<ConsumeMagicCodeResponse> {
+  ExchangeCodeForTokenParams): Promise<CheckMagicCodeResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/token`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -165,7 +165,7 @@ export async function signInWithIdToken({
   clientName,
   refreshToken,
   extraFields,
-}: SharedInput & SignInWithIdTokenParams): Promise<ConsumeMagicCodeResponse> {
+}: SharedInput & SignInWithIdTokenParams): Promise<CheckMagicCodeResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/id_token`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
