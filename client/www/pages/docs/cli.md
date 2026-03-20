@@ -98,6 +98,30 @@ npx instant-cli@latest pull
 
 This will generate new `instant.schema.ts` and `instant.perms.ts` files, based on your production state.
 
+## Query
+
+You can run InstaQL queries against your app directly from the terminal:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest query '{ posts: { comments: {} } }'
+```
+
+This outputs clean JSON to stdout, making it easy to pipe into `jq` or use in scripts. It supports JSON5 syntax, so you don't need to quote your keys.
+
+Each query requires an auth context flag:
+
+- `--admin` bypasses permissions (default)
+- `--as-email <email>` runs the query as a specific user with permissions applied
+- `--as-guest` runs the query as an unauthenticated guest
+
+For example, to see what a specific user can access:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest query --as-email alice@example.com '{ posts: {} }'
+```
+
+The results match what your client queries return, including cardinality. If your schema defines a relationship as `has: "one"`, you'll get back a single object instead of an array.
+
 ## App ID
 
 Whenever you run a CLI command, we look up your app id. You can either provide an app id as an option:
