@@ -182,9 +182,11 @@ data.ref(someVar + '.members.id')
 ## $users Permissions
 
 - Default `view` permission is `auth.id == data.id`
-- Default `create`, `update`, and `delete` permissions is false
-- Can override `view` and `update`
-- Cannot override `create` or `delete`
+- Default `update` and `delete` permissions is false
+- Default `create` permission is true (anyone can sign up)
+- Can override `view`, `update`, and `create`
+- Cannot override `delete`
+- The `create` rule runs during auth signup flows (not via `transact`). Use it to restrict signups or validate `extraFields`.
 
 ## $files Permissions
 
