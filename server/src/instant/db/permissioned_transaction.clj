@@ -46,7 +46,7 @@
     (throw-tx-step-validation-err! tx-step
                                    (format "%s is a system entity. You aren't allowed to delete this directly." etype))))
 
-(defn- validate-system-create-entity! [{:keys [admin? attrs]} {:keys [aid eid] :as tx-step}]
+(defn- validate-system-create-entity! [{:keys [admin? attrs]} {:keys [aid] :as tx-step}]
   (let [attr (attr-model/seek-by-id aid attrs)
         [etype label] (attr-model/fwd-ident-name attr)]
     (when (and (= "$users" etype)

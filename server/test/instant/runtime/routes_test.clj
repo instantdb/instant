@@ -494,7 +494,7 @@
 
 (deftest extra-fields-oauth-test
   (with-empty-app
-    (fn [{app-id :id :as app}]
+    (fn [{app-id :id}]
       (test-util/make-attrs app-id
                             [[:$users/username]
                              [:$users/displayName]])
@@ -655,7 +655,7 @@
 
 (deftest users-create-rule-oauth-test
   (with-empty-app
-    (fn [{app-id :id :as app}]
+    (fn [{app-id :id}]
       (test-util/make-attrs app-id
                             [[:$users/username]])
       (let [provider (provider-model/create! {:app-id app-id
