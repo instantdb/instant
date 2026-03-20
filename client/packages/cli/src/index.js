@@ -758,7 +758,7 @@ async function handleQuery(queryArg, opts) {
   const res = await fetchJson({
     method: 'POST',
     path: '/admin/query',
-    body: { query },
+    body: { query, 'inference?': true },
     headers,
     debugName: 'Query',
     errorMessage: 'Failed to run query.',
