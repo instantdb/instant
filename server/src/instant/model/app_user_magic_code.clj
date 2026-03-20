@@ -11,9 +11,7 @@
    [instant.util.exception :as ex]
    [instant.util.string :refer [rand-num-str]])
   (:import
-   (java.time Duration)
-   (java.util Date UUID)
-   (org.postgresql.util PGInterval)))
+   (java.util Date UUID)))
 
 (def etype "$magicCodes")
 
