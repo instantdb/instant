@@ -19,21 +19,20 @@
   "Validates that extra-fields keys exist in the $users schema and
    are not system fields."
   [app-id extra-fields]
-  (when (seq extra-fields)
-    (let [attrs (attr-model/get-by-app-id app-id)]
-      (doseq [[k _v] extra-fields]
-        (let [k-str (name k)
-              attr (attr-model/seek-by-fwd-ident-name [etype k-str] attrs)]
-          (when-not attr
-            (ex/throw-validation-err!
-             :extra-fields
-             extra-fields
-             [{:message (format "Unknown field: %s. It must be defined in your $users schema." k-str)}]))
-          (when (= :system (:catalog attr))
-            (ex/throw-validation-err!
-             :extra-fields
-             extra-fields
-             [{:message (format "Cannot set system field: %s" k-str)}])))))))
+  (let [attrs (attr-model/get-by-app-id app-id)]
+    (doseq [[k _v] extra-fields]
+      (let [k-str (name k)
+            attr (attr-model/seek-by-fwd-ident-name [etype k-str] attrs)]
+        (when-not attr
+          (ex/throw-validation-err!
+           :extra-fields
+           extra-fields
+           [{:message (format "Unknown field: %s. It must be defined in your $users schema." k-str)}]))
+        (when (= :system (:catalog attr))
+          (ex/throw-validation-err!
+           :extra-fields
+           extra-fields
+           [{:message (format "Cannot set system field: %s" k-str)}]))))))
 
 (defn assert-create-permission!
   "Checks the $users create rule against the user data being created.
