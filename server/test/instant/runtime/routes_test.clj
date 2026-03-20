@@ -665,7 +665,7 @@
           (rule-model/put! {:app-id app-id
                             :code {"$users" {"allow" {"create" "false"}}}})
           (is (thrown-with-msg?
-               ExceptionInfo #"permission"
+               ExceptionInfo #"Permission denied"
                (route/upsert-oauth-link! {:email "oauth-blocked@test.com"
                                           :sub "oauth-sub-blocked"
                                           :app-id app-id
