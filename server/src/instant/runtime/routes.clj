@@ -130,10 +130,8 @@
 (defn sign-in-guest-post [req]
   (let [app-id        (ex/get-param! req [:body :app-id] uuid-util/coerce)
         user-id       (random-uuid)
-        user-data     {"id" (str user-id)}
-        _             (app-user-model/assert-create-permission!
-                       {:app-id app-id
-                        :user-data user-data})
+        _             (app-user-model/assert-signup!
+                       {:app-id app-id :id user-id})
         user          (app-user-model/create!
                        {:app-id app-id
                         :id     user-id
@@ -285,15 +283,11 @@
                                        :sub (:app_user_oauth_links/sub oauth-link)})})))]
 
     (if-not user
-      (let [_        (app-user-model/validate-extra-fields! app-id extra-fields)
-            user-data (cond-> {"email" email
-                               "id" (str (or guest-user-id (random-uuid)))}
-                        extra-fields (merge (into {}
-                                                  (map (fn [[k v]] [(name k) v]))
-                                                  extra-fields)))
-            _        (app-user-model/assert-create-permission!
+      (let [_        (app-user-model/assert-signup!
                       {:app-id app-id
-                       :user-data user-data})
+                       :email email
+                       :id (or guest-user-id (random-uuid))
+                       :extra-fields extra-fields})
             new-user (app-user-model/create!
                        {:id guest-user-id
                         :app-id app-id

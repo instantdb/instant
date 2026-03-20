@@ -139,19 +139,15 @@
                         :email  email})
         created? (nil? existing-user)
         user-id (or guest-user-id (random-uuid))]
-    ;; Only validate extra-fields and check create permission for new users.
-    ;; Returning users ignore extra-fields so we skip validation for them.
+    ;; Check before consuming the code so a failed check doesn't
+    ;; burn the one-time code.
     (when created?
-      (app-user-model/validate-extra-fields! app-id extra-fields)
-      (when-not admin?
-        (let [user-data (cond-> {"email" email
-                                 "id" (str user-id)}
-                          extra-fields (merge (into {}
-                                                    (map (fn [[k v]] [(name k) v]))
-                                                    extra-fields)))]
-          (app-user-model/assert-create-permission!
-           {:app-id app-id
-            :user-data user-data}))))
+      (app-user-model/assert-signup!
+       {:app-id app-id
+        :email email
+        :id user-id
+        :extra-fields extra-fields
+        :skip-perm-check? admin?}))
     (app-user-magic-code-model/consume!
      {:app-id app-id
       :code   code

@@ -412,18 +412,18 @@
 
         {user-id :id :as user}
         (or existing-user
-            (do
-              (app-user-model/validate-extra-fields! app-id extra-fields)
-              (cond
-                email (app-user-model/create!
-                       {:id (UUID/randomUUID)
-                        :app-id app-id
-                        :email email
-                        :extra-fields extra-fields})
-                id    (app-user-model/create!
-                       {:id id
-                        :app-id app-id
-                        :extra-fields extra-fields}))))
+            (let [user-id (or id (UUID/randomUUID))]
+              (app-user-model/assert-signup!
+               {:app-id app-id
+                :email email
+                :id user-id
+                :extra-fields extra-fields
+                :skip-perm-check? true})
+              (app-user-model/create!
+               {:id user-id
+                :app-id app-id
+                :email email
+                :extra-fields extra-fields})))
 
         {refresh-token-id :id}
         (app-user-refresh-token-model/create!

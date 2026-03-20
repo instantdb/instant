@@ -34,11 +34,16 @@
            extra-fields
            [{:message (format "Cannot set system field: %s" k-str)}]))))))
 
-(defn assert-create-permission!
-  "Checks the $users create rule against the user data being created.
-   Used during auth signup flows. If no create rule is set, allows by default.
-   Both `auth` and `data` are set to the user being created."
-  [{:keys [app-id user-data]}]
+(defn- build-user-data
+  [{:keys [email id extra-fields]}]
+  (cond-> {"id" (str id)}
+    email (assoc "email" email)
+    extra-fields (merge (into {}
+                              (map (fn [[k v]] [(name k) v]))
+                              extra-fields))))
+
+(defn- assert-create-permission!
+  [app-id user-data]
   (let [rules (rule-model/get-by-app-id {:app-id app-id})
         program (rule-model/get-program! rules "$users" "create")]
     (when program
@@ -52,6 +57,16 @@
          ["$users" "create"]
          (cel/eval-program! ctx program {:data user-data
                                          :new-data user-data}))))))
+
+(defn assert-signup!
+  "Validates extra-fields and checks the $users create permission rule.
+   Pass skip-perm-check? true to skip the permission check (admin flows)."
+  [{:keys [app-id extra-fields skip-perm-check?] :as params}]
+  (validate-extra-fields! app-id extra-fields)
+  (when-not skip-perm-check?
+    (let [id (or (:id params) (random-uuid))
+          user-data (build-user-data (assoc params :id id))]
+      (assert-create-permission! app-id user-data))))
 
 (defn create!
   ([params]
