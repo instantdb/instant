@@ -63,8 +63,9 @@ const defaultConfig = {
 
 // Param that the backend adds if this is an oauth redirect
 const OAUTH_REDIRECT_PARAM = '_instant_oauth_redirect';
+const OAUTH_NONCE_PARAM = '_instant_oauth_nonce';
 
-const oauthExtraFieldsKey = 'oauthExtraFields';
+const oauthExtraFieldsPrefix = 'oauthExtraFields_';
 
 const currentUserKey = `currentUser`;
 
@@ -1879,6 +1880,7 @@ export default class Reactor {
     if (url.searchParams.get(OAUTH_REDIRECT_PARAM)) {
       const startUrl = url.toString();
       url.searchParams.delete(OAUTH_REDIRECT_PARAM);
+      url.searchParams.delete(OAUTH_NONCE_PARAM);
       url.searchParams.delete('code');
       url.searchParams.delete('error');
       const newPath =
@@ -1951,13 +1953,18 @@ export default class Reactor {
     if (!code) {
       return null;
     }
+    const nonce = params.get(OAUTH_NONCE_PARAM);
     this._replaceUrlAfterOAuth();
     try {
-      const extraFields = await this.kv.waitForKeyToLoad(oauthExtraFieldsKey);
-      if (extraFields) {
-        this.kv.updateInPlace((prev) => {
-          delete prev[oauthExtraFieldsKey];
-        });
+      let extraFields;
+      if (nonce) {
+        const key = `${oauthExtraFieldsPrefix}${nonce}`;
+        extraFields = await this.kv.waitForKeyToLoad(key);
+        if (extraFields) {
+          this.kv.updateInPlace((prev) => {
+            delete prev[key];
+          });
+        }
       }
       const currentUser = await this._getCurrentUser();
       const isGuest = currentUser?.type === 'guest';
@@ -2280,15 +2287,21 @@ export default class Reactor {
    * @returns {string} The created authorization URL.
    */
   createAuthorizationURL({ clientName, redirectURL, extraFields }) {
-    this.kv.updateInPlace((prev) => {
-      if (extraFields) {
-        prev[oauthExtraFieldsKey] = extraFields;
-      } else {
-        delete prev[oauthExtraFieldsKey];
-      }
-    });
     const { apiURI, appId } = this.config;
-    return `${apiURI}/runtime/oauth/start?app_id=${appId}&client_name=${clientName}&redirect_uri=${redirectURL}`;
+    let finalRedirectURL = redirectURL;
+    if (extraFields) {
+      // Store extraFields under a unique nonce so multiple
+      // createAuthorizationURL calls don't overwrite each other.
+      // The nonce is passed through the redirect URL and used
+      // by _oauthLoginInit to retrieve the right extraFields.
+      const nonce = `${appId}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const key = `${oauthExtraFieldsPrefix}${nonce}`;
+      this.kv.updateInPlace((prev) => {
+        prev[key] = extraFields;
+      });
+      finalRedirectURL = `${redirectURL}${redirectURL.includes('?') ? '&' : '?'}${OAUTH_NONCE_PARAM}=${nonce}`;
+    }
+    return `${apiURI}/runtime/oauth/start?app_id=${appId}&client_name=${clientName}&redirect_uri=${encodeURIComponent(finalRedirectURL)}`;
   }
 
   /**
