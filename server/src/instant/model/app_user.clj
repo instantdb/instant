@@ -1,9 +1,13 @@
 (ns instant.model.app-user
   (:require
+   [instant.db.cel :as cel]
+   [instant.db.datalog :as d]
+   [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.app-user-refresh-token :refer [hash-token]]
+   [instant.model.rule :as rule-model]
    [instant.system-catalog-ops :refer [update-op query-op]]
    [instant.util.exception :as ex])
   (:import
@@ -11,10 +15,63 @@
 
 (def etype "$users")
 
+(defn validate-extra-fields!
+  "Validates that extra-fields keys exist in the $users schema and
+   are not system fields."
+  [app-id extra-fields]
+  (let [attrs (attr-model/get-by-app-id app-id)]
+    (doseq [[k _v] extra-fields]
+      (let [k-str (name k)
+            attr (attr-model/seek-by-fwd-ident-name [etype k-str] attrs)]
+        (when-not attr
+          (ex/throw-validation-err!
+           :extra-fields
+           extra-fields
+           [{:message (format "Unknown field: %s. It must be defined in your $users schema." k-str)}]))
+        (when (= :system (:catalog attr))
+          (ex/throw-validation-err!
+           :extra-fields
+           extra-fields
+           [{:message (format "Cannot set system field: %s" k-str)}]))))))
+
+(defn- build-user-data
+  [{:keys [email id extra-fields]}]
+  (cond-> {"id" (str id)}
+    email (assoc "email" email)
+    extra-fields (merge (into {}
+                              (map (fn [[k v]] [(name k) v]))
+                              extra-fields))))
+
+(defn- assert-create-permission!
+  [app-id user-data]
+  (let [rules (rule-model/get-by-app-id {:app-id app-id})
+        program (rule-model/get-program! rules "$users" "create")]
+    (when program
+      (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                 :app-id app-id
+                 :attrs (attr-model/get-by-app-id app-id)
+                 :datalog-query-fn d/query
+                 :current-user user-data}]
+        (ex/assert-permitted!
+         :perms-pass?
+         ["$users" "create"]
+         (cel/eval-program! ctx program {:data user-data
+                                         :new-data user-data}))))))
+
+(defn assert-signup!
+  "Validates extra-fields and checks the $users create permission rule.
+   Pass skip-perm-check? true to skip the permission check (admin flows)."
+  [{:keys [app-id extra-fields skip-perm-check?] :as params}]
+  (validate-extra-fields! app-id extra-fields)
+  (when-not skip-perm-check?
+    (let [id (or (:id params) (random-uuid))
+          user-data (build-user-data (assoc params :id id))]
+      (assert-create-permission! app-id user-data))))
+
 (defn create!
   ([params]
    (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id email id type imageURL] :as params}]
+  ([conn {:keys [app-id email id type imageURL extra-fields] :as params}]
    (let [id (or id (random-uuid))]
      (update-op
       conn
@@ -29,7 +86,10 @@
           (when (contains? params :type)
             [[:add-triple id (resolve-id :type) type]])
           (when (and (contains? params :imageURL) imageURL)
-            [[:add-triple id (resolve-id :imageURL) imageURL]])))
+            [[:add-triple id (resolve-id :imageURL) imageURL]])
+          (map (fn [[k v]]
+                 [:add-triple id (resolve-id (keyword k)) v])
+               extra-fields)))
         (get-entity id))))))
 
 (defn get-by-id

@@ -35,7 +35,7 @@ const rules = {
 export default rules;
 ```
 
-Since `$users` is a managed namespace, you can override `view` and `update` rules, but not `create` or `delete`. These are handled by the Instant backend.
+Since `$users` is a managed namespace, you can override `view`, `update`, and `create` rules, but not `delete`. The `create` rule runs during signup (not via `transact`) and can be used to restrict who can sign up or validate `extraFields`. See [Signup rules](#signup-rules) for details.
 
 ## Sharing user data
 
@@ -175,6 +175,118 @@ const updateNick = (newNick, currentUser) => {
 ```
 
 At the moment you can only use `transact` to update the custom properties you added. Changing default columns like `email` would cause the transaction to fail.
+
+## Setting properties at signup
+
+You can set custom `$users` properties at the moment a user is created by passing `extraFields` to your sign-in method. Fields are only written when the user is first created. Returning users are unaffected.
+
+The fields you pass must be defined in your schema as optional attributes on `$users`.
+
+**Magic codes**
+
+```javascript
+db.auth.signInWithMagicCode({
+  email: sentEmail,
+  code,
+  extraFields: { nickname: 'nezaj' },
+});
+```
+
+**OAuth with ID token** (Google Button, Apple, Clerk, Firebase)
+
+```javascript
+db.auth.signInWithIdToken({
+  clientName: 'google',
+  idToken,
+  nonce,
+  extraFields: { nickname: 'nezaj' },
+});
+```
+
+**OAuth with web redirect** (Google, GitHub, LinkedIn)
+
+For the redirect flow, pass `extraFields` when creating the authorization URL. Instant stores them and applies them when the user is created after the redirect.
+
+```javascript
+const url = db.auth.createAuthorizationURL({
+  clientName: 'google',
+  redirectURL: window.location.href,
+  extraFields: { nickname: 'nezaj' },
+});
+```
+
+**OAuth with code exchange** (Expo, React Native)
+
+```javascript
+db.auth.exchangeOAuthCode({
+  code: res.params.code,
+  codeVerifier: request.codeVerifier,
+  extraFields: { nickname: 'nezaj' },
+});
+```
+
+All sign-in methods return a `created` boolean so you can distinguish new users from returning ones. This is useful for scaffolding initial data when a user first signs up:
+
+```javascript
+const { user, created } = await db.auth.signInWithMagicCode({
+  email,
+  code,
+  extraFields: { nickname },
+});
+
+if (created) {
+  // Create default data for the new user
+  db.transact([
+    db.tx.settings[id()]
+      .update({ theme: 'light', notifications: true })
+      .link({ user: user.id }),
+  ]);
+}
+```
+
+## Signup rules
+
+You can write a `create` rule on `$users` to control who can sign up and what fields they can set. This rule runs during the auth signup flow (magic codes, OAuth, guest sign-in) but does not apply to `transact`.
+
+By default, anyone can sign up. If you set a `create` rule, it must pass for signup to succeed. If it fails, no user is created and magic codes are not consumed.
+
+The `create` rule has access to `data` (the user being created, including email and any `extraFields`) and `auth` (set to the same value as `data`). Note that `ref()` is not available since the user has no relationships yet.
+
+**Restrict signups to a domain**
+
+```javascript
+{
+  "$users": {
+    "allow": {
+      "create": "data.email.endsWith('@mycompany.com')"
+    }
+  }
+}
+```
+
+**Validate extraFields values**
+
+```javascript
+{
+  "$users": {
+    "allow": {
+      "create": "data.username == null || data.username.size() >= 3"
+    }
+  }
+}
+```
+
+**Disable all signups (waitlist mode)**
+
+```javascript
+{
+  "$users": {
+    "allow": {
+      "create": "false"
+    }
+  }
+}
+```
 
 ## User permissions
 

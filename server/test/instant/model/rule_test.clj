@@ -98,15 +98,11 @@
                                               "child" "parent || true"]
                                       "allow" {"view" "parent"}}}))))
 
-(deftest can-only-create-view-update-rules-for-users
-  (is (= [{:message
-           "The $users namespace doesn't support permissions for create. Set `$users.allow.create` to `\"false\"`.",
-           :in ["$users" "allow" "create"]}]
-         (rule/validation-errors {"$users" {"allow" {"create" "true"}}}))
-      (= [{:message
-           "The $users namespace doesn't support permissions for delete. Set `$users.allow.delete` to `\"false\"`.",
-           :in ["$users" "allow" "delete"]}]
-         (rule/validation-errors {"$users" {"allow" {"delete" "true"}}}))))
+(deftest can-set-create-view-update-rules-for-users
+  (is (empty? (rule/validation-errors {"$users" {"allow" {"create" "true"}}})))
+  (is (empty? (rule/validation-errors {"$users" {"allow" {"view" "true"}}})))
+  (is (empty? (rule/validation-errors {"$users" {"allow" {"update" "true"}}})))
+  (is (seq (rule/validation-errors {"$users" {"allow" {"delete" "true"}}}))))
 
 (deftest cant-write-rules-for-system-attrs
   (is (= [{:message

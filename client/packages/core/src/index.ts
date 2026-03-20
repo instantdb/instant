@@ -114,6 +114,8 @@ import type { UploadFileResponse, DeleteFileResponse } from './StorageAPI.ts';
 import { FrameworkClient, type FrameworkConfig } from './framework.ts';
 
 import type {
+  CheckMagicCodeParams,
+  CheckMagicCodeResponse,
   ExchangeCodeForTokenParams,
   SendMagicCodeParams,
   SendMagicCodeResponse,
@@ -347,8 +349,8 @@ class Auth {
    *       .catch((err) => console.error(err.body?.message))
    */
   signInWithMagicCode = (
-    params: VerifyMagicCodeParams,
-  ): Promise<VerifyResponse> => {
+    params: CheckMagicCodeParams,
+  ): Promise<CheckMagicCodeResponse> => {
     return this.db.signInWithMagicCode(params);
   };
 
@@ -397,6 +399,7 @@ class Auth {
   createAuthorizationURL = (params: {
     clientName: string;
     redirectURL: string;
+    extraFields?: Record<string, any>;
   }): string => {
     return this.db.createAuthorizationURL(params);
   };
@@ -421,7 +424,7 @@ class Auth {
    */
   signInWithIdToken = (
     params: SignInWithIdTokenParams,
-  ): Promise<VerifyResponse> => {
+  ): Promise<CheckMagicCodeResponse> => {
     return this.db.signInWithIdToken(params);
   };
 
@@ -441,7 +444,9 @@ class Auth {
    *  .catch((err) => console.error(err.body?.message));
    *
    */
-  exchangeOAuthCode = (params: ExchangeCodeForTokenParams) => {
+  exchangeOAuthCode = (
+    params: ExchangeCodeForTokenParams,
+  ): Promise<CheckMagicCodeResponse> => {
     return this.db.exchangeCodeForToken(params);
   };
 
@@ -1155,6 +1160,8 @@ export {
   type InstantDBInferredType,
 
   // auth types
+  type CheckMagicCodeParams,
+  type CheckMagicCodeResponse,
   type ExchangeCodeForTokenParams,
   type SendMagicCodeParams,
   type SendMagicCodeResponse,

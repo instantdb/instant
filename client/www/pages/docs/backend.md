@@ -397,11 +397,19 @@ You can also use Instant's default email provider to send a magic code with `db.
 const { code } = await db.auth.sendMagicCode(req.body.email);
 ```
 
-Similarly, you can verify a magic code with `db.auth.verifyMagicCode`:
+Similarly, you can verify a magic code with `db.auth.checkMagicCode`. You can pass `extraFields` to set custom `$users` properties when the user is first created. The response includes a `created` boolean so you can distinguish new users from returning ones.
 
 ```typescript {% showCopy=true %}
-const user = await db.auth.verifyMagicCode(req.body.email, req.body.code);
+const { user, created } = await db.auth.checkMagicCode(
+  req.body.email,
+  req.body.code,
+  { extraFields: { nickname: req.body.nickname } },
+);
 const token = user.refresh_token;
+
+if (created) {
+  // first-time signup
+}
 ```
 
 ## Authenticated Endpoints
