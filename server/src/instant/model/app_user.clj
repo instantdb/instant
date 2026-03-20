@@ -53,7 +53,7 @@
                  :datalog-query-fn d/query
                  :current-user user-data}]
         (ex/assert-permitted!
-         :has-signup-permission?
+         :perms-pass?
          ["$users" "create"]
          (cel/eval-program! ctx program {:data user-data
                                          :new-data user-data}))))))
