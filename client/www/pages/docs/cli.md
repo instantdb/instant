@@ -103,14 +103,14 @@ This will generate new `instant.schema.ts` and `instant.perms.ts` files, based o
 You can run InstaQL queries against your app directly from the terminal:
 
 ```shell {% showCopy=true %}
-npx instant-cli@latest query --admin '{ posts: { comments: {} } }'
+npx instant-cli@latest query '{ posts: { comments: {} } }'
 ```
 
 This outputs clean JSON to stdout, making it easy to pipe into `jq` or use in scripts. It supports JSON5 syntax, so you don't need to quote your keys.
 
 Each query requires an auth context flag:
 
-- `--admin` bypasses permissions entirely
+- `--admin` bypasses permissions (default)
 - `--as-email <email>` runs the query as a specific user with permissions applied
 - `--as-guest` runs the query as an unauthenticated guest
 
