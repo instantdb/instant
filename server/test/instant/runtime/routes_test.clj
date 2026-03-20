@@ -456,7 +456,16 @@
                 ExceptionInfo #"status 400"
                 (verify-body app {:email "sys@test.com"
                                   :code code
-                                  :extra-fields {"email" "evil@test.com"}})))))))))
+                                  :extra-fields {"email" "evil@test.com"}})))))
+
+       ;; new@test.com was created in the "new user with extra-fields" test above
+       (testing "returning user with invalid extra-fields still signs in"
+         (let [code (send-code app {:email "new@test.com"})
+               body (verify-body app {:email "new@test.com"
+                                      :code code
+                                      :extra-fields {"nonexistent" "value"}})]
+           (is (false? (:created body)))
+           (is (= "new@test.com" (-> body :user :email)))))))))
 
 (deftest extra-fields-guest-upgrade-test
   (test-util/test-matrix

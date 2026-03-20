@@ -398,7 +398,6 @@
         email (ex/get-optional-param! req [:body :email] email/coerce)
         id (ex/get-optional-param! req [:body :id] uuid-util/coerce)
         extra-fields (get-in req [:body :extra-fields])
-        _ (app-user-model/validate-extra-fields! app-id extra-fields)
 
         existing-user
         (cond
@@ -413,16 +412,18 @@
 
         {user-id :id :as user}
         (or existing-user
-            (cond
-              email (app-user-model/create!
-                     {:id (UUID/randomUUID)
-                      :app-id app-id
-                      :email email
-                      :extra-fields extra-fields})
-              id    (app-user-model/create!
-                     {:id id
-                      :app-id app-id
-                      :extra-fields extra-fields})))
+            (do
+              (app-user-model/validate-extra-fields! app-id extra-fields)
+              (cond
+                email (app-user-model/create!
+                       {:id (UUID/randomUUID)
+                        :app-id app-id
+                        :email email
+                        :extra-fields extra-fields})
+                id    (app-user-model/create!
+                       {:id id
+                        :app-id app-id
+                        :extra-fields extra-fields}))))
 
         {refresh-token-id :id}
         (app-user-refresh-token-model/create!
@@ -513,7 +514,6 @@
         email            (ex/get-param! req [:body :email] email/coerce)
         code             (ex/get-param! req [:body :code] string-util/safe-trim)
         extra-fields     (get-in req [:body :extra-fields])
-        _                (app-user-model/validate-extra-fields! app-id extra-fields)
         guest-user       (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
                            (let [user (app-user-model/get-by-refresh-token!
                                        {:app-id        app-id

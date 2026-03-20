@@ -95,7 +95,6 @@
         code         (ex/get-param! req [:body :code]   string-util/safe-trim)
         app-id       (ex/get-param! req [:body :app-id] uuid-util/coerce)
         extra-fields (get-in req [:body :extra-fields])
-        _            (app-user-model/validate-extra-fields! app-id extra-fields)
         guest-user   (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
                        (let [user (app-user-model/get-by-refresh-token!
                                    {:app-id        app-id
@@ -286,7 +285,8 @@
                                        :sub (:app_user_oauth_links/sub oauth-link)})})))]
 
     (if-not user
-      (let [user-data (cond-> {"email" email
+      (let [_        (app-user-model/validate-extra-fields! app-id extra-fields)
+            user-data (cond-> {"email" email
                                "id" (str (or guest-user-id (random-uuid)))}
                         extra-fields (merge (into {}
                                                   (map (fn [[k v]] [(name k) v]))
@@ -606,7 +606,6 @@
         {:keys [app_id client_id user_info]} oauth-code
 
         _ (assert (= app-id app_id) (str "(= " app-id " " app_id ")"))
-        _ (app-user-model/validate-extra-fields! app-id extra-fields)
 
         client (or (app-oauth-client-model/get-by-id {:app-id app-id
                                                       :id client_id})
@@ -651,7 +650,6 @@
         current-refresh-token-id (ex/get-optional-param! req [:body :refresh_token] uuid-util/coerce)
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
         extra-fields (get-in req [:body :extra_fields])
-        _ (app-user-model/validate-extra-fields! app-id extra-fields)
         client (app-oauth-client-model/get-by-client-name! {:app-id app-id
                                                             :client-name client-name})
         oauth-client (app-oauth-client-model/->OAuthClient client)
