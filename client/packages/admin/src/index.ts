@@ -453,7 +453,7 @@ class Rooms<Schema extends InstantSchemaDef<any, any, any>> {
   }
 }
 
-class Auth {
+class Auth<Schema extends InstantSchemaDef<any, any, any>> {
   config: FilledConfig;
 
   constructor(config: FilledConfig) {
@@ -541,7 +541,7 @@ class Auth {
   consumeMagicCode = async (
     email: string,
     code: string,
-    options?: { extraFields?: Record<string, any> },
+    options?: { extraFields?: UpdateParams<Schema, '$users'> },
   ): Promise<{ user: User; created: boolean }> => {
     const res = await jsonFetch(
       `${this.config.apiURI}/admin/verify_magic_code?app_id=${this.config.appId}`,
@@ -1100,7 +1100,7 @@ class InstantAdminDatabase<
   >,
 > {
   config: InstantConfigFilled<Schema, UseDates>;
-  auth: Auth;
+  auth: Auth<Schema>;
   storage: Storage;
   streams: Streams;
   rooms: Rooms<Schema>;
@@ -1115,7 +1115,7 @@ class InstantAdminDatabase<
 
   constructor(_config: Config) {
     this.config = instantConfigWithDefaults(_config);
-    this.auth = new Auth(this.config);
+    this.auth = new Auth<Schema>(this.config);
     this.storage = new Storage(this.config, this.impersonationOpts);
     this.streams = new Streams(this.#ensureInstantStream.bind(this));
     this.rooms = new Rooms<Schema>(this.config);
