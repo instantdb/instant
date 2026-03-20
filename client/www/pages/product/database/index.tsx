@@ -45,7 +45,7 @@ function DiagramPre({
 
   return (
     <div className={cn('overflow-x-auto rounded-lg border p-5', className)}>
-      <pre className="mx-auto w-fit font-mono text-xs leading-relaxed text-gray-600">
+      <pre className="mx-auto w-fit font-mono text-xs leading-none text-gray-600">
         {parts.map((part, i) =>
           highlights.includes(part) ? (
             <span key={i} className="text-orange-500">

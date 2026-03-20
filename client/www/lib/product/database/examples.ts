@@ -1,18 +1,21 @@
 export const typicalArch = `                   Typical architecture
 
-┌────────┐  /GET todos  ┌────────┐  SELECT * FROM  ┌────────┐
-│        │─────────────▶│        │────── todos ───▶│        │
-│ Client │              │ Server │                 │   DB   │
-│        │◀─────────────│        │◀────────────────│        │
-└────────┘  json resp.  └────────┘   result rows   └────────┘`;
+╔════════╗  /GET todos  ╔════════╗  SELECT * FROM  ╔════════╗
+║        ║─────────────▶║        ║───── todos ────▶║        ║
+║ Client ║              ║ Server ║                 ║   DB   ║
+║        ║◀─────────────║        ║◀────────────────║        ║
+╚════════╝  json resp.  ╚════════╝   result rows   ╚════════╝`;
 
 export const instantArch = `             With Instant
 
-┌────────┐  { todos: {} }  ┌─────────┐
-│        │────────────────▶│         │
-│ Client │                 │ Instant │
-│        │◀────────────────│         │
-└────────┘  realtime data  └─────────┘`;
+╔════════╗  { todos: {} }  ╔═════════╗
+║        ║────────────────▶║         ║
+║ Client ║                 ║ Instant ║
+║        ║◀────────────────║         ║
+╚════════╝  realtime data  ╚═════════╝`;
+
+
+
 
 export const queryExamples = [
   {
