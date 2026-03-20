@@ -267,7 +267,7 @@ curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
   -d "{\"id\":\"$USER_ID\"}"
 ```
 
-If a user with the provider id or email does not exist, Instant will create the
+If a user with the given `id` or `email` does not exist, Instant will create the
 user for you. You can pass `extra-fields` to set custom `$users` properties on creation. The response includes `user.refresh_token` and `"created": true` when a new user is created. You can pass this token onto your client, and use that to [log in](/docs/backend#2-frontend-db-auth-sign-in-with-token)
 
 ## Custom magic codes
