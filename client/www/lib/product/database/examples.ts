@@ -14,9 +14,6 @@ export const instantArch = `             With Instant
 ║        ║◀────────────────║         ║
 ╚════════╝  realtime data  ╚═════════╝`;
 
-
-
-
 export const queryExamples = [
   {
     label: 'Nested query',
