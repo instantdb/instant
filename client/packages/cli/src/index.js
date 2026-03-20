@@ -596,6 +596,10 @@ program
   .option('--admin', 'Run the query as admin (bypasses permissions)')
   .option('--as-email <email>', 'Run the query as a specific user by email')
   .option('--as-guest', 'Run the query as an unauthenticated guest')
+  .option(
+    '--as-token <refresh-token>',
+    'Run the query as a user identified by refresh token',
+  )
   .description('Run an InstaQL query against your app.')
   .action(async function (queryArg, opts) {
     await handleQuery(queryArg, opts);
@@ -716,11 +720,15 @@ async function detectAppIdQuietly(opts) {
 }
 
 async function handleQuery(queryArg, opts) {
-  const contextCount =
-    (opts.admin ? 1 : 0) + (opts.asEmail ? 1 : 0) + (opts.asGuest ? 1 : 0);
-  if (contextCount > 1) {
+  const contexts = [
+    opts.admin,
+    opts.asEmail,
+    opts.asGuest,
+    opts.asToken,
+  ].filter(Boolean);
+  if (contexts.length > 1) {
     error(
-      'Please specify exactly one context: --admin, --as-email <email>, or --as-guest',
+      'Please specify exactly one context: --admin, --as-email <email>, --as-guest, or --as-token <refresh-token>',
     );
     return process.exit(1);
   }
@@ -747,6 +755,8 @@ async function handleQuery(queryArg, opts) {
     headers['as-email'] = opts.asEmail;
   } else if (opts.asGuest) {
     headers['as-guest'] = 'true';
+  } else if (opts.asToken) {
+    headers['as-token'] = opts.asToken;
   }
 
   const res = await fetchJson({
