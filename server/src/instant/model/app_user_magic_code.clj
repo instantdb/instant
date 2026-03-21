@@ -70,13 +70,12 @@
                                    (* 60)
                                    (/ totp/default-time-step)
                                    (Math/ceil))
-                           ;; Default to 10 minutes
                            (/ (flags/totp-default-expiry-seconds) totp/default-time-step))]
     ;; Have to add 1 extra period in case the code was generated near the
     ;; end of a period
     (when-not (totp/valid-totp? secret-key (inc expiry-periods) code)
-      (ex/throw-expiration-err! :app-user-magic-code {:args [{:code code
-                                                              :email email}]}))))
+      (ex/throw-expiration-err! :app-user-magic-code (tool/inspect {:args [{:code code
+                                                                            :email email}]})))))
 
 (defn consume!
   ([params]

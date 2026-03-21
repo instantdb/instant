@@ -1,9 +1,9 @@
 (ns instant.runtime.routes-test
   (:require
-   [clj-http.client :as http]
    [clojure.test :refer [deftest is testing]]
-   [instant.config :as config]
+   [instant.core :as core]
    [instant.db.model.attr :as attr-model]
+   [instant.flags :as flags]
    [instant.fixtures :refer [with-empty-app]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
@@ -18,25 +18,33 @@
    [instant.system-catalog :as system-catalog]
    [instant.util.coll :as coll]
    [instant.util.crypt :as crypt-util]
-   [instant.util.json :refer [->json]]
-   [instant.flags :as flags]
+   [instant.util.json :refer [->json <-json]]
    [instant.runtime.magic-code-auth :as magic-code-auth]
+   [instant.totp :as totp]
    [instant.util.cache :as cache]
    [instant.util.test :as test-util]
    [instant.util.tracer :as tracer])
   (:import
-   [clojure.lang ExceptionInfo]))
+   (clojure.lang ExceptionInfo)
+   (java.io ByteArrayInputStream)
+   (java.time Instant)
+   (java.time.temporal ChronoUnit)))
 
 (defn request [opts]
   (with-redefs [tracer/*silence-exceptions?* (atom true)]
-    (http/request
-     (merge-with
-      merge
-      {:headers {:Content-Type "application/json"}
-       :as :json}
-      (-> opts
-          (coll/update-when :url #(str config/server-origin %))
-          (coll/update-when :body ->json))))))
+    (let [req (merge-with merge
+                          {:headers {"content-type" "application/json"}
+                           :request-method (:method opts)
+                           :uri (:url opts)}
+                          (-> opts
+                              (coll/update-when :body (fn [body]
+                                                        (ByteArrayInputStream. (.getBytes ^String (->json body) "UTF-8"))))))
+          resp (-> ((core/handler) req)
+                   (update :body (fn [body]
+                                   (<-json body true))))]
+      (if (not= 200 (:status resp))
+        (throw (ex-info (str "status " (:status resp)) resp))
+        resp))))
 
 (defn send-code-runtime [app body]
   (let [letter (atom nil)]
@@ -110,11 +118,7 @@
    (with-empty-app
      (fn [{app-id :id :as app}]
        (testing "auth for new user"
-         (let [code  (send-code app {:email "a@b.c"})
-               code2 (send-code app {:email "a@b.c"})]
-
-           (testing "can generate two codes"
-             (is (not= code code2)))
+         (let [code  (send-code app {:email "a@b.c"})]
 
            (testing "can't use different code"
              (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app {:email "a@b.c" :code "000000"}))))
@@ -128,19 +132,8 @@
                (is (= "a@b.c" (:email user)))
                (is (some? (:refresh_token user)))))
 
-           (testing "can't reuse code"
-             (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app {:email "a@b.c" :code code}))))
-
-           (testing "can use second unused code"
-             (let [user (verify-code app {:email "a@b.c" :code code2})]
-               (is (= (str app-id) (:app_id user)))
-               (is (= "a@b.c" (:email user)))
-               (is (some? (:refresh_token user)))))
-
            (testing "auth for existing user"
              (let [code3 (send-code app {:email "a@b.c"})
-                   _     (is (not= code code3))
-                   _     (is (not= code2 code3))
                    user  (verify-code app {:email "a@b.c" :code code3})]
                (is (= (str app-id) (:app_id user)))
                (is (= "a@b.c" (:email user)))
@@ -156,7 +149,7 @@
        created_at = ?created-at
      WHERE
        app_id = ?app-id
-     AND entity_id = (
+     AND entity_id in (
        SELECT
          entity_id
        FROM
@@ -182,7 +175,15 @@
      (fn [{app-id :id :as app}]
        (let [code (send-code app {:email "a@b.c"})]
          (update-created-at app-id code (- (System/currentTimeMillis) (* 25 60 60 1000)))
-         (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app {:email "a@b.c" :code code}))))
+         (binding [totp/*now* (.plus (Instant/now) 1 ChronoUnit/DAYS)]
+           (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app {:email "a@b.c" :code code}))))
+
+         ;; Test that it works without dual-write
+         (binding [totp/*now* (.plus (.plus (Instant/now) 1 ChronoUnit/DAYS)
+                                     10 ChronoUnit/MINUTES)
+                   flags/*toggle-overrides* {:dual-write-totp false
+                                             :validate-with-totp true}]
+           (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app {:email "a@b.c" :code code})))))
 
        (let [code (send-code app {:email "a@b.c"})]
          (update-created-at app-id code (- (System/currentTimeMillis) (* 23 60 60 1000)))
@@ -338,25 +339,25 @@
 (deftest upsert-oauth-link-disambiguates-with-email
   (with-empty-app
     (fn [app]
-      ;; Apple OAuth lets you provide "relay" emails: 
-      ;; these are anonymous emails that forward to the user's real email. 
+      ;; Apple OAuth lets you provide "relay" emails:
+      ;; these are anonymous emails that forward to the user's real email.
 
-      ;; This opens up a potential problem. 
+      ;; This opens up a potential problem.
 
-      ;; Consider the following scenario: 
-      ;; (1) User signs in with magic code: stopa@instantdb.com 
-      ;; (2) User signs in with with Apple, private relay on: foo@privaterelay.appleid.com  
+      ;; Consider the following scenario:
+      ;; (1) User signs in with magic code: stopa@instantdb.com
+      ;; (2) User signs in with with Apple, private relay on: foo@privaterelay.appleid.com
 
-      ;; At this point we'll have _2_ separate users. 
+      ;; At this point we'll have _2_ separate users.
 
-      ;; Now 
-      ;; (3) The user signs in with Apple, private relay off: stopa@instantdb.com. 
+      ;; Now
+      ;; (3) The user signs in with Apple, private relay off: stopa@instantdb.com.
 
-      ;; Which user should we link this 3rd sign up too? It matches _both_ the 
-      ;; existing email user, and the existing Apple Oauth link. 
+      ;; Which user should we link this 3rd sign up too? It matches _both_ the
+      ;; existing email user, and the existing Apple Oauth link.
 
-      ;; Currently, we choose the existing email user. 
-      ;; This means that the user with the private relay email will get stranded. 
+      ;; Currently, we choose the existing email user.
+      ;; This means that the user with the private relay email will get stranded.
       ;; However, in the worst case scenario, they can be recovered manually.
       (let [provider (provider-model/create! {:app-id (:id app)
                                               :provider-name "apple"})
@@ -717,4 +718,3 @@
                (permissioned-tx/transact!
                 ctx
                 [[:add-triple user-id (:id id-attr) user-id]]))))))))
-

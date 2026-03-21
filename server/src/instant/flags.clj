@@ -245,15 +245,41 @@
 (defn test-rule-wheres? []
   (:rule-where-testing (query-result)))
 
+(def ^:dynamic *toggle-overrides* nil)
+
 (defn toggled?
   ([key]
-   (get-in (query-result) [:toggles key]))
+   (if *toggle-overrides*
+     (-> (query-result)
+         (get :toggles)
+         (merge *toggle-overrides*)
+         (get key))
+     (get-in (query-result) [:toggles key])))
   ([key not-found]
-   (get-in (query-result) [:toggles key] not-found)))
+   (if *toggle-overrides*
+     (-> (query-result)
+         (get :toggles)
+         (merge *toggle-overrides*)
+         (get key not-found))
+     (get-in (query-result) [:toggles key] not-found))))
+
+(def ^:dynamic *flag-overrides* nil)
 
 (defn flag
-  ([key] (get-in (query-result) [:flags key]))
-  ([key not-found] (get-in (query-result) [:flags key] not-found)))
+  ([key]
+   (if *flag-overrides*
+     (-> (query-result)
+         (get :flags)
+         (merge *flag-overrides*)
+         (get key))
+     (get-in (query-result) [:flags key])))
+  ([key not-found]
+   (if *flag-overrides*
+     (-> (query-result)
+         (get :flags)
+         (merge *flag-overrides*)
+         (get key not-found))
+     (get-in (query-result) [:flags key] not-found))))
 
 (defn handle-receive-timeout [app-id]
   (get-in (query-result) [:handle-receive-timeout app-id]))
@@ -348,13 +374,13 @@
   "Returns true if we should generate codes with totp. Need to run this for 24 hours before
    turning on validate-with-totp"
   []
-  (toggled? :generate-totp true))
+  (toggled? :generate-with-totp true))
 
 (defn validate-with-totp?
   "Returns true if we should validate codes with totp. Need to generate-with-totp for 24 hours before
    turning on validate-with-totp"
   []
-  (toggled? :validate-totp false))
+  (toggled? :validate-with-totp false))
 
 (defn dual-write-totp?
   "Returns true if we should write our totp codes to the magic codes table."

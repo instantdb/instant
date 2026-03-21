@@ -33,16 +33,19 @@
    10000000
    100000000])
 
+;; For use in testing
+(def ^:dynamic *now* nil)
+
 (defn generate-totp
   "Generates a TOTP code. For testing, it accepts the number of
    digits and a time step, but you should always use the default
    values in production."
   ([^bytes secret-key]
-   (generate-totp secret-key (Instant/now)))
+   (generate-totp secret-key (or *now* (Instant/now))))
   ([^bytes secret-key ^Instant time]
    (generate-totp secret-key time 6 default-time-step))
   ([^bytes secret-key ^Instant time code-digits time-step]
-   (let [t (/ (tool/inspect (.getEpochSecond time))
+   (let [t (/ (.getEpochSecond time)
               time-step)
          t-bytes (-> t
                      (Long/toHexString)
@@ -66,15 +69,15 @@
 (defn valid-totp?
   "Returns true if the totp code is valid. Will go back up to max-10-minute-intervals."
   ([^bytes secret-key max-5-minute-intervals ^String code]
-   (valid-totp? secret-key (Instant/now) max-5-minute-intervals code))
+   (valid-totp? secret-key (or *now* (Instant/now)) max-5-minute-intervals code))
   ([^bytes secret-key
     ^Instant time
     max-5-minute-intervals
     ^String code]
    (loop [remaining-intervals max-5-minute-intervals
           time time]
-     (when (pos? (tool/inspect remaining-intervals))
-       (if (crypt-util/constant-string= code (tool/inspect (generate-totp secret-key (tool/inspect time))))
+     (when (pos? remaining-intervals)
+       (if (crypt-util/constant-string= code (generate-totp secret-key time))
          true
          (recur (dec remaining-intervals)
                 (.minusSeconds time default-time-step)))))))
