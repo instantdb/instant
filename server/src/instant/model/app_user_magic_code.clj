@@ -74,8 +74,8 @@
     ;; Have to add 1 extra period in case the code was generated near the
     ;; end of a period
     (when-not (totp/valid-totp? secret-key (inc expiry-periods) code)
-      (ex/throw-expiration-err! :app-user-magic-code (tool/inspect {:args [{:code code
-                                                                            :email email}]})))))
+      (ex/throw-expiration-err! :app-user-magic-code {:args [{:code code
+                                                              :email email}]}))))
 
 (defn consume!
   ([params]
