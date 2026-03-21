@@ -1010,6 +1010,89 @@ export default _schema;
       }
     });
 
+    it('--as-token runs query as a user identified by refresh token', async () => {
+      const { appId, adminToken } = await createTempApp();
+
+      const schemaWithCreator = `
+import { i } from "@instantdb/core";
+const _schema = i.schema({
+  entities: {
+    posts: i.entity({
+      title: i.string(),
+      creatorEmail: i.string(),
+    }),
+  },
+});
+export default _schema;
+`;
+
+      const restrictedPerms = `export default {
+  posts: {
+    allow: {
+      view: "auth.email == data.creatorEmail",
+    },
+  },
+};
+`;
+
+      const project = await createTestProject({
+        appId,
+        schemaFile: schemaWithCreator,
+        permsFile: restrictedPerms,
+      });
+
+      try {
+        const pushResult = await runCli(['push', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        const alice = await createAppUser(appId, adminToken, 'alice@test.com');
+
+        await adminTransact(appId, adminToken, [
+          [
+            'update',
+            'posts',
+            randomUUID(),
+            { title: "Alice's Post", creatorEmail: 'alice@test.com' },
+          ],
+          [
+            'update',
+            'posts',
+            randomUUID(),
+            { title: "Bob's Post", creatorEmail: 'bob@test.com' },
+          ],
+        ]);
+
+        // Using Alice's refresh token should only show Alice's post
+        const result = await runCli(
+          [
+            'query',
+            '--as-token',
+            alice.refreshToken,
+            JSON.stringify({ posts: {} }),
+          ],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.posts).toHaveLength(1);
+        expect(data.posts[0].title).toBe("Alice's Post");
+      } finally {
+        await project.cleanup();
+      }
+    });
+
     it('--as-guest runs query as unauthenticated user', async () => {
       const { appId, adminToken } = await createTempApp();
 

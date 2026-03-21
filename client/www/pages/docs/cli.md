@@ -113,6 +113,7 @@ Each query requires an auth context flag:
 - `--admin` bypasses permissions (default)
 - `--as-email <email>` runs the query as a specific user with permissions applied
 - `--as-guest` runs the query as an unauthenticated guest
+- `--as-token <refresh-token>` runs the query as a user identified by their refresh token
 
 For example, to see what a specific user can access:
 
