@@ -2,7 +2,6 @@ import { Effect } from 'effect';
 import openInBrowser from 'open';
 import { explorerDef, OptsFromCommand } from '../index.js';
 import { CurrentApp } from '../context/currentApp.js';
-import { WithAppLayer } from '../layer.js';
 import { getDashUrl } from '../lib/http.js';
 
 export const explorerCmd = (opts: OptsFromCommand<typeof explorerDef>) =>
@@ -18,12 +17,4 @@ export const explorerCmd = (opts: OptsFromCommand<typeof explorerDef>) =>
         ),
       ),
     );
-  }).pipe(
-    Effect.provide(
-      WithAppLayer({
-        coerce: true,
-        coerceAuth: true,
-        appId: opts.app,
-      }),
-    ),
-  );
+  });

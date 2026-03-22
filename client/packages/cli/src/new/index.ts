@@ -1,13 +1,19 @@
 import { Command, Option } from '@commander-js/extra-typings';
 import chalk from 'chalk';
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 import version from '../version.js';
 import { initCommand } from './commands/init.js';
 import { initWithoutFilesCommand } from './commands/initWithoutFiles.js';
 import { loginCommand } from './commands/login.js';
 import { logoutCommand } from './commands/logout.js';
 import { loadEnv } from '../util/loadEnv.js';
-import { BaseLayerLive, printRedErrors, runCommandEffect } from './layer.js';
+import {
+  AuthLayerLive,
+  BaseLayerLive,
+  printRedErrors,
+  runCommandEffect,
+  WithAppLayer,
+} from './layer.js';
 import { infoCommand } from './commands/info.js';
 import { pullCommand, SchemaPermsOrBoth } from './commands/pull.js';
 import { claimCommand } from './commands/claim.js';
@@ -15,6 +21,7 @@ import { pushCommand } from './commands/push.js';
 import { explorerCmd } from './commands/explorer.js';
 import { queryCmd } from './commands/query.js';
 import { program } from './program.js';
+import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.js';
 
 loadEnv();
 
@@ -49,7 +56,20 @@ export const initDef = program
   )
   .option('--title <title>', 'Title for the created app')
   .action((options) => {
-    return runCommandEffect(initCommand(options));
+    return runCommandEffect(
+      initCommand(options).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: true,
+            coerceAuth: true,
+            title: options.title,
+            appId: options.app,
+            packageName: options.package as any,
+            applyEnv: true,
+          }),
+        ),
+      ),
+    );
   });
 
 export const initWithoutFilesDef = program
@@ -93,7 +113,16 @@ export const infoDef = program
   .command('info')
   .description('Display CLI version and login status')
   .action(async () => {
-    runCommandEffect(infoCommand());
+    runCommandEffect(
+      infoCommand().pipe(
+        Effect.provide(
+          AuthLayerLive({
+            coerce: false,
+            allowAdminToken: false,
+          }).pipe(Layer.catchAll((e) => Layer.empty)),
+        ),
+      ),
+    );
   });
 
 export const explorerDef = program
@@ -104,7 +133,17 @@ export const explorerDef = program
     'App ID to open the explorer to. Defaults to *_INSTANT_APP_ID in .env',
   )
   .action(async (opts) => {
-    runCommandEffect(explorerCmd(opts));
+    return runCommandEffect(
+      explorerCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: true,
+            coerceAuth: true,
+            appId: opts.app,
+          }),
+        ),
+      ),
+    );
   });
 
 export const queryDef = program
@@ -123,7 +162,16 @@ export const queryDef = program
   )
   .description('Run an InstaQL query against your app.')
   .action(async function (queryArg, opts) {
-    runCommandEffect(queryCmd(queryArg, opts));
+    runCommandEffect(
+      queryCmd(queryArg, opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            appId: opts.app,
+          }),
+        ),
+      ),
+    );
   });
 
 export const pullDef = program
@@ -154,7 +202,22 @@ Environment Variables:
 `,
   )
   .action(async function (arg, inputOpts) {
-    return runCommandEffect(pullCommand(arg as SchemaPermsOrBoth, inputOpts));
+    return runCommandEffect(
+      pullCommand(arg as SchemaPermsOrBoth, inputOpts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: true,
+            packageName: inputOpts.package as
+              | 'react'
+              | 'react-native'
+              | 'core'
+              | 'admin'
+              | undefined,
+            appId: inputOpts.app,
+          }),
+        ),
+      ),
+    );
   });
 
 export const pushDef = program
@@ -189,14 +252,36 @@ Environment Variables:
 `,
   )
   .action(async function (arg, inputOpts) {
-    runCommandEffect(pushCommand(arg, inputOpts));
+    runCommandEffect(
+      pushCommand(arg, inputOpts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: true,
+            appId: inputOpts.app,
+            applyEnv: true,
+            packageName:
+              inputOpts.package as keyof typeof PACKAGE_ALIAS_AND_FULL_NAMES,
+          }),
+        ),
+      ),
+    );
   });
 
 const claimDef = program
   .command('claim')
   .description('Transfer a tempoary app into your Instant account')
   .action(async function () {
-    runCommandEffect(claimCommand);
+    runCommandEffect(
+      claimCommand.pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            allowAdminToken: false,
+            applyEnv: false,
+          }),
+        ),
+      ),
+    );
   });
 //// Program setup /////
 

@@ -29,12 +29,4 @@ export const claimCommand = Effect.gen(function* () {
     .post(`/dash/apps/ephemeral/${appId}/claim`);
 
   yield* Effect.log(chalk.green('App claimed!'));
-}).pipe(
-  Effect.provide(
-    WithAppLayer({
-      coerce: false,
-      allowAdminToken: false,
-      applyEnv: false,
-    }),
-  ),
-);
+});

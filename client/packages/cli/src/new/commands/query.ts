@@ -2,7 +2,6 @@ import { Effect } from 'effect';
 import JSON5 from 'json5';
 import { OptsFromCommand, queryDef } from '../index.js';
 import { CurrentApp } from '../context/currentApp.js';
-import { WithAppLayer } from '../layer.js';
 import { BadArgsError } from '../errors.js';
 import { InstantHttpAuthed, withCommand } from '../lib/http.js';
 import { HttpBody } from '@effect/platform';
@@ -36,6 +35,7 @@ export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>
         }),
       ),
     );
+
     const headers = { 'app-id': appId };
     if (opts.asEmail) {
       headers['as-email'] = opts.asEmail;
@@ -54,11 +54,4 @@ export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>
     });
     const body = yield* response.json;
     yield* Effect.log(JSON.stringify(body, null, 2));
-  }).pipe(
-    Effect.provide(
-      WithAppLayer({
-        coerce: false,
-        appId: opts.app,
-      }),
-    ),
-  );
+  });
