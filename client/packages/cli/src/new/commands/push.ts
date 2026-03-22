@@ -23,13 +23,4 @@ export const pushCommand = (
     if (arg === 'perms' || arg === 'all') {
       yield* pushPerms;
     }
-  }).pipe(
-    Effect.provide(
-      WithAppLayer({
-        coerce: true,
-        appId: opts.app,
-        applyEnv: true,
-        packageName: opts.package as keyof typeof PACKAGE_ALIAS_AND_FULL_NAMES,
-      }),
-    ),
-  );
+  });

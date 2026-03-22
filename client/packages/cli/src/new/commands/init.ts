@@ -55,15 +55,4 @@ export const initCommand = (options: OptsFromCommand<typeof initDef>) =>
           }),
       },
     );
-  }).pipe(
-    Effect.provide(
-      WithAppLayer({
-        coerce: true,
-        coerceAuth: true,
-        title: options.title,
-        appId: options.app,
-        packageName: options.package as any,
-        applyEnv: true,
-      }),
-    ),
-  );
+  });

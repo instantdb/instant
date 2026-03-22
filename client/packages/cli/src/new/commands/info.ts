@@ -32,11 +32,4 @@ export const infoCommand = () =>
     } else {
       yield* Effect.log('Not logged in.');
     }
-  }).pipe(
-    Effect.provide(
-      AuthLayerLive({
-        coerce: false,
-        allowAdminToken: false,
-      }).pipe(Layer.catchAll((e) => Layer.empty)),
-    ),
-  );
+  });
