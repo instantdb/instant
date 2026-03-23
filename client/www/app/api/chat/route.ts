@@ -42,7 +42,7 @@ const DOC_FILES = getDocFiles();
 const DOC_HINTS = `
 # Additional Info
 
-Use this addiitonal info to answer questions about InstantDB.
+Use this additional info to answer questions about InstantDB.
 
 ## Hints for finding the right docs
 
@@ -70,7 +70,7 @@ https://github.com/instantdb/instant/blob/main/server/README.md
 
 ## What is Instant built on?
 
-InstantDB is built on top of Aurora Postgres. To get a better sense of how Instant tell users to check out https://www.youtube.com/watch?v=6FikTQf8qho
+InstantDB is built on top of Aurora Postgres. To get a better sense of how Instant works, tell users to check out https://www.youtube.com/watch?v=6FikTQf8qho
 
 `.trim();
 
