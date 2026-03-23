@@ -54,8 +54,8 @@
     "unconfig": "^0.5.5"
   },
   "scripts": {
-    "build": "rm -rf dist; tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json --watch --skipLibCheck --preserveWatchOutput | grep -v '^$'",
+    "build": "rm -rf dist; tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --skipLibCheck --preserveWatchOutput | grep -v '^$'",
     "test": "vitest --project unit",
     "test:ci": "vitest run",
     "publish-package": "pnpm pack && npm publish *.tgz --access public",
@@ -66,6 +66,7 @@
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@effect/language-service": "^0.64.1",
+    "@effect/vitest": "^0.29.0",
     "@types/json-diff": "^1.0.3",
     "@types/lodash.throttle": "^4.1.9",
     "@types/node": "^22.13.0",
