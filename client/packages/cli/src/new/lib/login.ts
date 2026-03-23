@@ -37,7 +37,7 @@ export const waitForAuthToken = Effect.fn(function* (secret: string) {
     Effect.retry({
       while: (e) =>
         e._tag === 'InstantHttpError' &&
-        e.hint?.errors?.at(0).issue === 'waiting-for-user',
+        e.hint?.errors?.at(0)?.issue === 'waiting-for-user',
       schedule: Schedule.fixed('1 seconds'),
       times: 120,
     }),

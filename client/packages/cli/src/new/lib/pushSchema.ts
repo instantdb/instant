@@ -139,7 +139,7 @@ export const pushSchema = (
         if (e.cause instanceof Error) {
           return SchemaDiffError.make({ message: e.cause.message });
         }
-        return e.message;
+        return SchemaDiffError.make({ message: e.message });
       }),
     );
 

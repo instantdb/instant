@@ -101,7 +101,7 @@ const getProjectInfo = (
         if (yes) {
           return yield* BadArgsError.make({
             message:
-              '--yes was provided without a package specificaion and no Instant SDK was found',
+              '--yes was provided without a package specification and no Instant SDK was found',
           });
         }
         moduleName = yield* runUIEffect(

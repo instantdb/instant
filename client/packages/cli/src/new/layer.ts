@@ -46,7 +46,7 @@ export const printRedErrors = Effect.catchAllCause((cause) =>
           );
         }
       }
-      return;
+      return process.exit(1);
     }
 
     // Print just the message if the error has a message attribute and no cause
@@ -137,7 +137,6 @@ export const WithAppLayer = (args: {
       applyEnv: args.applyEnv,
     }),
   ).pipe(
-    Layer.provideMerge(GlobalOptsLive),
     Layer.provideMerge(
       AuthLayerLive({
         allowAdminToken:
