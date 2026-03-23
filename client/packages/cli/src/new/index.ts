@@ -99,21 +99,25 @@ export const loginDef = program
     'Print the login URL instead of trying to open the browser',
   )
   .action(async (opts) => {
-    runCommandEffect(loginCommand(opts).pipe(Effect.provide(BaseLayerLive)));
+    await runCommandEffect(
+      loginCommand(opts).pipe(Effect.provide(BaseLayerLive)),
+    );
   });
 
 const _logoutDef = program
   .command('logout')
   .description('Log out of your Instant account')
   .action(async () => {
-    runCommandEffect(logoutCommand().pipe(Effect.provide(BaseLayerLive)));
+    return runCommandEffect(
+      logoutCommand().pipe(Effect.provide(BaseLayerLive)),
+    );
   });
 
 export const infoDef = program
   .command('info')
   .description('Display CLI version and login status')
   .action(async () => {
-    runCommandEffect(
+    return runCommandEffect(
       infoCommand().pipe(
         Effect.provide(
           AuthLayerLive({
@@ -162,7 +166,7 @@ export const queryDef = program
   )
   .description('Run an InstaQL query against your app.')
   .action(async function (queryArg, opts) {
-    runCommandEffect(
+    return runCommandEffect(
       queryCmd(queryArg, opts).pipe(
         Effect.provide(
           WithAppLayer({
@@ -252,7 +256,7 @@ Environment Variables:
 `,
   )
   .action(async function (arg, inputOpts) {
-    runCommandEffect(
+    return runCommandEffect(
       pushCommand(arg, inputOpts).pipe(
         Effect.provide(
           WithAppLayer({
@@ -269,9 +273,9 @@ Environment Variables:
 
 const claimDef = program
   .command('claim')
-  .description('Transfer a tempoary app into your Instant account')
+  .description('Transfer a temporary app into your Instant account')
   .action(async function () {
-    runCommandEffect(
+    return runCommandEffect(
       claimCommand.pipe(
         Effect.provide(
           WithAppLayer({

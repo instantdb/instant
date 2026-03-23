@@ -19,7 +19,7 @@ const runtime = ManagedRuntime.make(SimpleLogLayer);
 
 export const runCommandEffect = <A, E, R extends never>(
   effect: Effect.Effect<A, E, R>,
-): Promise<any> => runtime.runPromise(effect.pipe(printRedErrors) as any);
+): Promise<A> => runtime.runPromise(effect.pipe(printRedErrors) as any);
 
 export const printRedErrors = Effect.catchAllCause((cause) =>
   Effect.gen(function* () {
@@ -140,7 +140,8 @@ export const WithAppLayer = (args: {
     Layer.provideMerge(GlobalOptsLive),
     Layer.provideMerge(
       AuthLayerLive({
-        allowAdminToken: args.allowAdminToken || true,
+        allowAdminToken:
+          args.allowAdminToken !== undefined ? args.allowAdminToken : true,
         coerce: args.coerceAuth || false,
       }),
     ),
