@@ -8,7 +8,7 @@ import {
   createTempApp,
   adminTransact,
   createAppUser,
-} from './helpers';
+} from './helpers.js';
 
 const SCHEMA_FILE = `
 import { i } from "@instantdb/core";
