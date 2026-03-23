@@ -30,7 +30,18 @@ async function generateMagicCode(
   return data.code;
 }
 
-const authTest = makeE2ETest({ schema });
+const authTest = makeE2ETest({
+  schema,
+  rules: {
+    code: {
+      $users: {
+        allow: {
+          create: 'true',
+        },
+      },
+    },
+  },
+});
 
 authTest(
   'new user with extraFields gets fields written and created=true',
