@@ -5,7 +5,7 @@ import {
   HttpClientResponse,
   FileSystem,
 } from '@effect/platform';
-import { getAuthPaths } from '../../util/getAuthPaths.ts';
+import { getAuthPaths } from '../util/getAuthPaths.ts';
 
 const LoginInfo = Schema.Struct({
   secret: Schema.String,

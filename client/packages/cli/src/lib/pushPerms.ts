@@ -1,6 +1,6 @@
 import { Effect, Option, Schema } from 'effect';
 import jsonDiff from 'json-diff';
-import { readLocalPermsFile } from '../../index.js';
+import { readLocalPermsFile } from '../old.js';
 import { InstantHttpAuthed, withCommand } from './http.ts';
 import {
   HttpClient,
