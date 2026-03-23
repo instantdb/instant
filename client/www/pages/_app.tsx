@@ -67,6 +67,9 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
       <ErrorBoundary renderError={() => <Oops />}>
         <SWRConfig
           value={{
+            fallback: {
+              starCount: pageProps.starCount,
+            },
             provider: localStorageProvider,
           }}
         >

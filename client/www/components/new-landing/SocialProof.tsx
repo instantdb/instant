@@ -1,12 +1,9 @@
 import Image from 'next/image';
 import { AnimateIn } from './AnimateIn';
 import { Subheading } from './typography';
-
-const stats = [
-  { value: '10,000+', label: 'concurrent connections' },
-  { value: '1,000+', label: 'queries per second' },
-  { value: '9,600+', label: 'github stars' },
-];
+import { useGithubStarCount } from '@/lib/useGithubStarCount';
+import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
+import { formatNumberCompact } from '@/lib/format';
 
 const backers = [
   {
@@ -42,11 +39,26 @@ const backers = [
 ];
 
 export function SocialProof() {
+  const starCount = useGithubStarCount();
+
+  const { data: connectionCount } = useTotalSessionsCount({
+    refreshSeconds: 3,
+  });
+
+  const stats = [
+    {
+      value: connectionCount ? formatNumberCompact(connectionCount) : undefined,
+      label: 'concurrent connections',
+    },
+    { value: '1,000+', label: 'queries per second' },
+    { value: starCount, label: 'github stars' },
+  ];
+
   return (
     <div className="space-y-16">
       {/* Stats */}
       <AnimateIn>
-        <div className="mx-auto grid max-w-3xl grid-cols-3 gap-4 sm:gap-8">
+        <div className="mx-auto grid max-w-3xl grid-cols-3 items-end gap-4 sm:gap-8">
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
               <div className="font-mono text-3xl font-semibold tracking-tighter sm:text-5xl">
@@ -74,10 +86,15 @@ export function SocialProof() {
               <span>Backed by SV Angel</span>
             </div>
             <span className="hidden text-gray-300 sm:inline">·</span>
-            <div className="flex items-center gap-1.5">
-              <TechCrunchIcon className="h-3.5 w-3.5" />
-              <span>Featured in TechCrunch</span>
-            </div>
+            <a
+              target="_blank"
+              href="https://techcrunch.com/2024/10/02/instant-harkens-back-to-a-pre-google-firebase/"
+            >
+              <div className="flex items-center gap-1.5">
+                <TechCrunchIcon className="h-3.5 w-3.5" />
+                <span>Featured in TechCrunch</span>
+              </div>
+            </a>
           </div>
         </div>
       </AnimateIn>
