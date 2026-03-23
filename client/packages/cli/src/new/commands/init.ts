@@ -1,6 +1,5 @@
 import { Effect, Option } from 'effect';
 import { OptsFromCommand, initDef } from '../index.ts';
-import { WithAppLayer } from '../layer.ts';
 import { readLocalPermsFile, readLocalSchemaFile } from '../../index.js';
 import { pullSchema } from '../lib/pullSchema.ts';
 import { pullPerms } from '../lib/pullPerms.ts';
