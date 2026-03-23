@@ -34,9 +34,19 @@ export const printRedErrors = Effect.catchAllCause((cause) =>
 
     // Special error handling for specific error types
     if (theError instanceof InstantHttpError) {
-      return yield* Effect.logError(
-        `Error making request to Instant API: ${theError.message}`,
-      );
+      if (theError?.message) {
+        yield* Effect.logError(
+          'Error making request to Instant API: ' + theError.message,
+        );
+      }
+      if (Array.isArray(theError?.hint?.errors)) {
+        for (const err of theError.hint.errors) {
+          yield* Effect.logError(
+            `${err.in ? err.in.join('->') + ': ' : ''}${err.message}`,
+          );
+        }
+      }
+      return;
     }
 
     // Print just the message if the error has a message attribute and no cause
@@ -44,11 +54,10 @@ export const printRedErrors = Effect.catchAllCause((cause) =>
       typeof failure.value === 'object' &&
       failure.value !== null &&
       'message' in failure.value &&
+      typeof failure.value.message === 'string' &&
       !('cause' in failure.value)
     ) {
-      return yield* Effect.logError(
-        (failure.value as { message: string }).message,
-      ).pipe(
+      return yield* Effect.logError(failure.value.message).pipe(
         Effect.tap(() => {
           process.exit(1);
         }),
