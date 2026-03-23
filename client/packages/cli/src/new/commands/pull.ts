@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
-import { OptsFromCommand, pullDef } from '../index.js';
-import { pullSchema } from '../lib/pullSchema.js';
-import { pullPerms } from '../lib/pullPerms.js';
+import { OptsFromCommand, pullDef } from '../index.ts';
+import { pullSchema } from '../lib/pullSchema.ts';
+import { pullPerms } from '../lib/pullPerms.ts';
 
 export type SchemaPermsOrBoth = 'schema' | 'perms' | 'all';
 

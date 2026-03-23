@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { mergeSchema } from '../src/util/mergeSchema.js';
+import { mergeSchema } from '../src/util/mergeSchema.ts';
 
 test('preserves type annotations', () => {
   const oldFile = `

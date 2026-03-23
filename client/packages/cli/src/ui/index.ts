@@ -1,9 +1,9 @@
 import chalk from 'chalk';
 import boxen from 'boxen';
 import stringWidth from 'string-width';
-import { AnyKey, ModifyOutputFn, Prompt, SelectState } from './lib.js';
+import { AnyKey, ModifyOutputFn, Prompt, SelectState } from './lib.ts';
 
-export { render, renderUnwrap, setRawModeWindowsFriendly } from './lib.js';
+export { render, renderUnwrap, setRawModeWindowsFriendly } from './lib.ts';
 
 export namespace UI {
   type Status = 'idle' | 'submitted' | 'aborted';

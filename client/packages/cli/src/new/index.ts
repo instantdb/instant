@@ -2,26 +2,26 @@ import { Command, Option } from '@commander-js/extra-typings';
 import chalk from 'chalk';
 import { Effect, Layer } from 'effect';
 import version from '../version.js';
-import { initCommand } from './commands/init.js';
-import { initWithoutFilesCommand } from './commands/initWithoutFiles.js';
-import { loginCommand } from './commands/login.js';
-import { logoutCommand } from './commands/logout.js';
-import { loadEnv } from '../util/loadEnv.js';
+import { initCommand } from './commands/init.ts';
+import { initWithoutFilesCommand } from './commands/initWithoutFiles.ts';
+import { loginCommand } from './commands/login.ts';
+import { logoutCommand } from './commands/logout.ts';
+import { loadEnv } from '../util/loadEnv.ts';
 import {
   AuthLayerLive,
   BaseLayerLive,
   printRedErrors,
   runCommandEffect,
   WithAppLayer,
-} from './layer.js';
-import { infoCommand } from './commands/info.js';
-import { pullCommand, SchemaPermsOrBoth } from './commands/pull.js';
-import { claimCommand } from './commands/claim.js';
-import { pushCommand } from './commands/push.js';
-import { explorerCmd } from './commands/explorer.js';
-import { queryCmd } from './commands/query.js';
-import { program } from './program.js';
-import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.js';
+} from './layer.ts';
+import { infoCommand } from './commands/info.ts';
+import { pullCommand, SchemaPermsOrBoth } from './commands/pull.ts';
+import { claimCommand } from './commands/claim.ts';
+import { pushCommand } from './commands/push.ts';
+import { explorerCmd } from './commands/explorer.ts';
+import { queryCmd } from './commands/query.ts';
+import { program } from './program.ts';
+import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
 
 loadEnv();
 

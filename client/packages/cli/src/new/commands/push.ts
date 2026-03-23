@@ -1,10 +1,8 @@
 import { Effect } from 'effect';
-import { OptsFromCommand, pushDef } from '../index.js';
-import { WithAppLayer } from '../layer.js';
-import { PACKAGE_ALIAS_AND_FULL_NAMES } from '../context/projectInfo.js';
-import { pushPerms } from '../lib/pushPerms.js';
-import { pushSchema } from '../lib/pushSchema.js';
-import { BadArgsError } from '../errors.js';
+import { BadArgsError } from '../errors.ts';
+import { OptsFromCommand, pushDef } from '../index.ts';
+import { pushPerms } from '../lib/pushPerms.ts';
+import { pushSchema } from '../lib/pushSchema.ts';
 
 export const pushCommand = (
   arg: string | undefined,

@@ -20,8 +20,8 @@ import JSON5 from 'json5';
 import chalk from 'chalk';
 import { program, Option } from 'commander';
 import boxen from 'boxen';
-import { loadConfig } from './util/loadConfig.js';
-import { findProjectDir } from './util/projectDir.js';
+import { loadConfig } from './util/loadConfig.ts';
+import { findProjectDir } from './util/projectDir.ts';
 import openInBrowser from 'open';
 import terminalLink from 'terminal-link';
 import { exec } from 'child_process';
@@ -30,28 +30,28 @@ import {
   detectPackageManager,
   getInstallCommand,
 } from './util/packageManager.js';
-import { pathExists, readJsonFile } from './util/fs.js';
+import { pathExists, readJsonFile } from './util/fs.ts';
 import prettier from 'prettier';
 import {
   CancelSchemaError,
   groupSteps,
   renderSchemaPlan,
-} from './renderSchemaPlan.js';
-import { getAuthPaths } from './util/getAuthPaths.js';
-import { renderUnwrap } from './ui/lib.js';
-import { UI } from './ui/index.js';
-import { deferred } from './ui/lib.js';
-import { promptOk } from './util/promptOk.js';
-import { ResolveRenamePrompt } from './util/renamePrompt.js';
-import { loadEnv } from './util/loadEnv.js';
-import { isHeadlessEnvironment } from './util/isHeadlessEnvironment.js';
+} from './renderSchemaPlan.ts';
+import { getAuthPaths } from './util/getAuthPaths.ts';
+import { renderUnwrap } from './ui/lib.ts';
+import { UI } from './ui/index.ts';
+import { deferred } from './ui/lib.ts';
+import { promptOk } from './util/promptOk.ts';
+import { ResolveRenamePrompt } from './util/renamePrompt.ts';
+import { loadEnv } from './util/loadEnv.ts';
+import { isHeadlessEnvironment } from './util/isHeadlessEnvironment.ts';
 import {
   getSchemaReadCandidates,
   getPermsReadCandidates,
   getSchemaPathToWrite,
   getPermsPathToWrite,
-} from './util/findConfigCandidates.js';
-import { mergeSchema } from './util/mergeSchema.js';
+} from './util/findConfigCandidates.ts';
+import { mergeSchema } from './util/mergeSchema.ts';
 
 const execAsync = promisify(exec);
 

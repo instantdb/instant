@@ -1,9 +1,9 @@
 import { Effect } from 'effect';
 import JSON5 from 'json5';
-import { OptsFromCommand, queryDef } from '../index.js';
-import { CurrentApp } from '../context/currentApp.js';
-import { BadArgsError } from '../errors.js';
-import { InstantHttpAuthed, withCommand } from '../lib/http.js';
+import { OptsFromCommand, queryDef } from '../index.ts';
+import { CurrentApp } from '../context/currentApp.ts';
+import { BadArgsError } from '../errors.ts';
+import { InstantHttpAuthed, withCommand } from '../lib/http.ts';
 import { HttpBody } from '@effect/platform';
 
 export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>

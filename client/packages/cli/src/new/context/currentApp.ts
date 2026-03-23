@@ -1,15 +1,15 @@
 import { HttpClientRequest, HttpClientResponse } from '@effect/platform';
 import { randomUUID } from 'crypto';
 import { Context, Data, Effect, Layer, Runtime, Schema, Option } from 'effect';
-import { UI } from '../../ui/index.js';
-import { handleEnv } from '../lib/handleEnv.js';
-import { getBaseUrl, InstantHttpAuthed, withCommand } from '../lib/http.js';
-import { runUIEffect } from '../lib/ui.js';
-import { AuthToken } from './authToken.js';
-import { GlobalOpts } from './globalOpts.js';
-import { PlatformApi } from './platformApi.js';
+import { UI } from '../../ui/index.ts';
+import { handleEnv } from '../lib/handleEnv.ts';
+import { getBaseUrl, InstantHttpAuthed, withCommand } from '../lib/http.ts';
+import { runUIEffect } from '../lib/ui.ts';
+import { AuthToken } from './authToken.ts';
+import { GlobalOpts } from './globalOpts.ts';
+import { PlatformApi } from './platformApi.ts';
 import { readInstantConfigFile } from '../../index.js';
-import { BadArgsError } from '../errors.js';
+import { BadArgsError } from '../errors.ts';
 
 export type CurrentAppInfo = {
   appId: string;

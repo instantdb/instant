@@ -1,14 +1,14 @@
 import { Effect, Schema } from 'effect';
-import { CurrentApp } from '../context/currentApp.js';
-import { InstantHttpAuthed, withCommand } from './http.js';
+import { CurrentApp } from '../context/currentApp.ts';
+import { InstantHttpAuthed, withCommand } from './http.ts';
 import { HttpClientResponse } from '@effect/platform';
 import { readLocalPermsFile } from '../../index.js';
-import { getPermsPathToWrite } from '../../util/findConfigCandidates.js';
-import { promptOk } from './ui.js';
-import { UI } from '../../ui/index.js';
-import { writeTypescript } from './pullSchema.js';
+import { getPermsPathToWrite } from '../../util/findConfigCandidates.ts';
+import { promptOk } from './ui.ts';
+import { UI } from '../../ui/index.ts';
+import { writeTypescript } from './pullSchema.ts';
 import { generatePermsTypescriptFile } from '@instantdb/platform';
-import { ProjectInfo } from '../context/projectInfo.js';
+import { ProjectInfo } from '../context/projectInfo.ts';
 import { Path } from '@effect/platform';
 
 export const pullPerms = Effect.gen(function* () {

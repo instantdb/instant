@@ -6,14 +6,14 @@ import {
 import { Effect, Schema } from 'effect';
 import prettier from 'prettier';
 import { countEntities, readLocalSchemaFile } from '../../index.js';
-import { UI } from '../../ui/index.js';
-import { getSchemaPathToWrite } from '../../util/findConfigCandidates.js';
-import { CurrentApp } from '../context/currentApp.js';
-import { ProjectInfo } from '../context/projectInfo.js';
-import { InstantHttpAuthed, withCommand } from './http.js';
-import { promptOk } from './ui.js';
-import { ReadSchemaFileError } from './pushSchema.js';
-import { mergeSchema, MergeSchemaError } from '../../util/mergeSchema.js';
+import { UI } from '../../ui/index.ts';
+import { getSchemaPathToWrite } from '../../util/findConfigCandidates.ts';
+import { CurrentApp } from '../context/currentApp.ts';
+import { ProjectInfo } from '../context/projectInfo.ts';
+import { InstantHttpAuthed, withCommand } from './http.ts';
+import { promptOk } from './ui.ts';
+import { ReadSchemaFileError } from './pushSchema.ts';
+import { mergeSchema, MergeSchemaError } from '../../util/mergeSchema.ts';
 
 export const pullSchema = ({
   experimentalTypePreservation,

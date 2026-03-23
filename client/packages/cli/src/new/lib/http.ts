@@ -1,7 +1,7 @@
 import { HttpClient, HttpClientRequest } from '@effect/platform';
 import { version } from '@instantdb/version';
 import { Config, Context, Data, Effect, Layer, Option, Schema } from 'effect';
-import { AuthToken } from '../context/authToken.js';
+import { AuthToken } from '../context/authToken.ts';
 import { TimeoutException } from 'effect/Cause';
 import { RequestError } from '@effect/platform/HttpClientError';
 

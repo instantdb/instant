@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from 'effect';
-import { program } from '../program.js';
+import { program } from '../program.ts';
 
 export class GlobalOpts extends Context.Tag(
   'instant-cli/new/context/globalOpts',

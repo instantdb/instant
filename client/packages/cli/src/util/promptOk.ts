@@ -1,5 +1,5 @@
 import { OptionValues } from 'commander';
-import { renderUnwrap, UI } from '../ui/index.js';
+import { renderUnwrap, UI } from '../ui/index.ts';
 import boxen from 'boxen';
 
 export async function promptOk(

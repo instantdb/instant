@@ -1,10 +1,10 @@
 import { Effect, Layer } from 'effect';
 import { NodeHttpClient } from '@effect/platform-node';
-import { PlatformApi } from '../src/new/context/platformApi.js';
-import { CurrentApp } from '../src/new/context/currentApp.js';
-import { InstantHttpAuthedLive, InstantHttpLive } from '../src/new/lib/http.js';
-import { AuthToken } from '../src/new/context/authToken.js';
-import { GlobalOpts } from '../src/new/context/globalOpts.js';
+import { PlatformApi } from '../src/new/context/platformApi.ts';
+import { CurrentApp } from '../src/new/context/currentApp.ts';
+import { InstantHttpAuthedLive, InstantHttpLive } from '../src/new/lib/http.ts';
+import { AuthToken } from '../src/new/context/authToken.ts';
+import { GlobalOpts } from '../src/new/context/globalOpts.ts';
 
 export const getAppLayer = (title: string) =>
   Effect.gen(function* () {

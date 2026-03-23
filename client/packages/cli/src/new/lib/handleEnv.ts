@@ -1,13 +1,13 @@
 import { Effect } from 'effect';
-import { CurrentAppInfo, potentialEnvs } from '../context/currentApp.js';
-import { ProjectInfo, ProjectInfoError } from '../context/projectInfo.js';
+import { CurrentAppInfo, potentialEnvs } from '../context/currentApp.ts';
+import { ProjectInfo, ProjectInfoError } from '../context/projectInfo.ts';
 import { readPackage } from 'pkg-types';
-import { GlobalOpts } from '../context/globalOpts.js';
+import { GlobalOpts } from '../context/globalOpts.ts';
 import { FileSystem, Path } from '@effect/platform';
 import chalk from 'chalk';
 import terminalLink from 'terminal-link';
-import { getDashUrl } from './http.js';
-import { promptOk } from './ui.js';
+import { getDashUrl } from './http.ts';
+import { promptOk } from './ui.ts';
 
 export const handleEnv = Effect.fn(function* (app: CurrentAppInfo) {
   const opts = yield* GlobalOpts;

@@ -1,19 +1,19 @@
 import { NodeContext, NodeHttpClient } from '@effect/platform-node';
 import { Cause, Effect, Layer, ManagedRuntime } from 'effect';
-import { AuthTokenLive } from './context/authToken.js';
-import { CurrentAppLive } from './context/currentApp.js';
-import { GlobalOptsLive } from './context/globalOpts.js';
-import { PlatformApi } from './context/platformApi.js';
+import { AuthTokenLive } from './context/authToken.ts';
+import { CurrentAppLive } from './context/currentApp.ts';
+import { GlobalOptsLive } from './context/globalOpts.ts';
+import { PlatformApi } from './context/platformApi.ts';
 import {
   PACKAGE_ALIAS_AND_FULL_NAMES,
   ProjectInfoLive,
-} from './context/projectInfo.js';
+} from './context/projectInfo.ts';
 import {
   InstantHttpAuthedLive,
   InstantHttpError,
   InstantHttpLive,
-} from './lib/http.js';
-import { SimpleLogLayer } from './logging.js';
+} from './lib/http.ts';
+import { SimpleLogLayer } from './logging.ts';
 
 const runtime = ManagedRuntime.make(SimpleLogLayer);
 
