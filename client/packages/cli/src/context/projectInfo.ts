@@ -1,11 +1,10 @@
 import { Context, Data, Effect, Layer } from 'effect';
 import { detect } from 'package-manager-detector/detect';
 import { PackageJson, readPackage } from 'pkg-types';
-
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { UI } from '../../ui/index.ts';
-import { findProjectDir } from '../../util/projectDir.ts';
+import { UI } from '../ui/index.ts';
+import { findProjectDir } from '../util/projectDir.ts';
 import { runUIEffect } from '../lib/ui.ts';
 import chalk from 'chalk';
 import { GlobalOpts } from './globalOpts.ts';

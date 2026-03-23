@@ -3,16 +3,6 @@ import {
   HttpClientRequest,
   HttpClientResponse,
 } from '@effect/platform';
-import chalk from 'chalk';
-import { Data, Effect, Schema } from 'effect';
-import {
-  readLocalSchemaFile,
-  resolveRenames,
-  waitForIndexingJobsToFinish,
-} from '../../index.js';
-import { CurrentApp } from '../context/currentApp.ts';
-import { error } from '../logging.ts';
-import { InstantHttpAuthed, withCommand } from './http.ts';
 import {
   apiSchemaToInstantSchemaDef,
   buildAutoRenameSelector,
@@ -22,16 +12,25 @@ import {
   SchemaValidationError as PlatformSchemaError,
   validateSchema,
 } from '@instantdb/platform';
+import chalk from 'chalk';
+import { Data, Effect, Schema } from 'effect';
+import { CurrentApp } from '../context/currentApp.ts';
+import {
+  readLocalSchemaFile,
+  resolveRenames,
+  waitForIndexingJobsToFinish,
+} from '../old.js';
+import { InstantHttpAuthed, withCommand } from './http.ts';
 
-import { OptsFromCommand, pushDef } from '../index.ts';
+import boxen from 'boxen';
 import { GlobalOpts } from '../context/globalOpts.ts';
+import { OptsFromCommand, pushDef } from '../index.ts';
 import {
   groupSteps,
   renderSchemaPlan,
   SuperMigrationTx,
-} from '../../renderSchemaPlan.ts';
+} from '../renderSchemaPlan.ts';
 import { promptOk } from './ui.ts';
-import boxen from 'boxen';
 
 const FetchSchemaResponse = Schema.Struct({
   schema: Schema.Struct({

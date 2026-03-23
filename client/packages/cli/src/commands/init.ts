@@ -1,6 +1,6 @@
 import { Effect, Option } from 'effect';
 import { OptsFromCommand, initDef } from '../index.ts';
-import { readLocalPermsFile, readLocalSchemaFile } from '../../index.js';
+import { readLocalPermsFile, readLocalSchemaFile } from '../old.js';
 import { pullSchema } from '../lib/pullSchema.ts';
 import { pullPerms } from '../lib/pullPerms.ts';
 import { promptOk } from '../lib/ui.ts';

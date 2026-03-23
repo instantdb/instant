@@ -1,5 +1,5 @@
 import { it, expect } from '@effect/vitest';
-import { infoCommand } from '../../src/new/commands/info.ts';
+import { infoCommand } from '../../src/commands/info.ts';
 import { Effect } from 'effect';
 
 it.effect('info command', () =>

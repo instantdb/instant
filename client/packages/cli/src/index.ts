@@ -1,12 +1,12 @@
 import { Command, Option } from '@commander-js/extra-typings';
 import chalk from 'chalk';
 import { Effect, Layer } from 'effect';
-import version from '../version.js';
+import version from './version.js';
 import { initCommand } from './commands/init.ts';
 import { initWithoutFilesCommand } from './commands/initWithoutFiles.ts';
 import { loginCommand } from './commands/login.ts';
 import { logoutCommand } from './commands/logout.ts';
-import { loadEnv } from '../util/loadEnv.ts';
+import { loadEnv } from './util/loadEnv.ts';
 import {
   AuthLayerLive,
   BaseLayerLive,

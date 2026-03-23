@@ -18,8 +18,7 @@
     }
   },
   "bin": {
-    "instant-cli": "bin/index.js",
-    "new-instant-cli": "dist/new/index.js"
+    "instant-cli": "bin/index.js"
   },
   "dependencies": {
     "@commander-js/extra-typings": "^14.0.0",
