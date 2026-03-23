@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { getAuthPaths } from '../../util/getAuthPaths.js';
+import { getAuthPaths } from '../../util/getAuthPaths.ts';
 import { FileSystem } from '@effect/platform';
 import chalk from 'chalk';
 import { SystemError } from '@effect/platform/Error';

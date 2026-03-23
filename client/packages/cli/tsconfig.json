@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
+    "rewriteRelativeImportExtensions": true,
     "sourceMap": true,
     "skipLibCheck": true, // `unconfig` currently imports a broken type from `@antfu/utils`,
     "plugins": [

@@ -1,7 +1,7 @@
 import { Data, Effect } from 'effect';
-import { GlobalOpts } from '../context/globalOpts.js';
-import { Prompt, renderUnwrap } from '../../ui/lib.js';
-import { UI } from '../../ui/index.js';
+import { GlobalOpts } from '../context/globalOpts.ts';
+import { Prompt, renderUnwrap } from '../../ui/lib.ts';
+import { UI } from '../../ui/index.ts';
 
 export class UIError extends Data.TaggedError('UIError')<{
   message: string;

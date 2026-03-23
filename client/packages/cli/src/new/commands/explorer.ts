@@ -1,8 +1,8 @@
 import { Effect } from 'effect';
 import openInBrowser from 'open';
-import { explorerDef, OptsFromCommand } from '../index.js';
-import { CurrentApp } from '../context/currentApp.js';
-import { getDashUrl } from '../lib/http.js';
+import { explorerDef, OptsFromCommand } from '../index.ts';
+import { CurrentApp } from '../context/currentApp.ts';
+import { getDashUrl } from '../lib/http.ts';
 
 export const explorerCmd = (opts: OptsFromCommand<typeof explorerDef>) =>
   Effect.gen(function* () {

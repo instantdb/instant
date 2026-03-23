@@ -2,8 +2,8 @@ import { FileSystem } from '@effect/platform';
 import { Config, Context, Effect, Layer, Option, Schema } from 'effect';
 import envPaths from 'env-paths';
 import { join } from 'path';
-import { loginCommand } from '../commands/login.js';
-import { program } from '../program.js';
+import { loginCommand } from '../commands/login.ts';
+import { program } from '../program.ts';
 
 export class AuthToken extends Context.Tag('instant-cli/new/context/authToken')<
   AuthToken,

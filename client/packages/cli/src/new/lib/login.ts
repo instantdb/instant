@@ -1,11 +1,11 @@
 import { Effect, Schedule, Schema } from 'effect';
-import { InstantHttp, withCommand } from './http.js';
+import { InstantHttp, withCommand } from './http.ts';
 import {
   HttpClientRequest,
   HttpClientResponse,
   FileSystem,
 } from '@effect/platform';
-import { getAuthPaths } from '../../util/getAuthPaths.js';
+import { getAuthPaths } from '../../util/getAuthPaths.ts';
 
 const LoginInfo = Schema.Struct({
   secret: Schema.String,

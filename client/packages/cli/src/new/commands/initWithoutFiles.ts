@@ -1,11 +1,11 @@
 import { Effect } from 'effect';
-import { PlatformApi } from '../context/platformApi.js';
-import { BadArgsError } from '../errors.js';
-import { OptsFromCommand, initWithoutFilesDef } from '../index.js';
-import { createApp } from '../lib/createApp.js';
-import { AuthLayerLive } from '../layer.js';
+import { PlatformApi } from '../context/platformApi.ts';
+import { BadArgsError } from '../errors.ts';
+import { OptsFromCommand, initWithoutFilesDef } from '../index.ts';
+import { createApp } from '../lib/createApp.ts';
+import { AuthLayerLive } from '../layer.ts';
 import chalk from 'chalk';
-import { NotAuthedError } from '../context/authToken.js';
+import { NotAuthedError } from '../context/authToken.ts';
 
 export const initWithoutFilesCommand = (
   opts: OptsFromCommand<typeof initWithoutFilesDef>,

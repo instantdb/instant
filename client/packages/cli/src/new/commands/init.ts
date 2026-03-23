@@ -1,12 +1,12 @@
 import { Effect, Option } from 'effect';
-import { OptsFromCommand, initDef } from '../index.js';
-import { WithAppLayer } from '../layer.js';
+import { OptsFromCommand, initDef } from '../index.ts';
+import { WithAppLayer } from '../layer.ts';
 import { readLocalPermsFile, readLocalSchemaFile } from '../../index.js';
-import { pullSchema } from '../lib/pullSchema.js';
-import { pullPerms } from '../lib/pullPerms.js';
-import { promptOk } from '../lib/ui.js';
-import { pushSchema } from '../lib/pushSchema.js';
-import { pushPerms } from '../lib/pushPerms.js';
+import { pullSchema } from '../lib/pullSchema.ts';
+import { pullPerms } from '../lib/pullPerms.ts';
+import { promptOk } from '../lib/ui.ts';
+import { pushSchema } from '../lib/pushSchema.ts';
+import { pushPerms } from '../lib/pushPerms.ts';
 
 export const initCommand = (options: OptsFromCommand<typeof initDef>) =>
   Effect.gen(function* () {

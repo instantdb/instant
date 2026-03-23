@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Data, Effect, Schema } from 'effect';
-import { InstantHttpAuthed } from './http.js';
+import { InstantHttpAuthed } from './http.ts';
 import { HttpClientRequest, HttpClientResponse } from '@effect/platform';
 
 export class CreateAppError extends Data.TaggedError('CreateAppError')<{

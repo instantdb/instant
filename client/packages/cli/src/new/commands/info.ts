@@ -1,7 +1,7 @@
 import { HttpClientResponse } from '@effect/platform';
 import { Effect, Layer, pipe, Schema, Option } from 'effect';
-import { AuthLayerLive } from '../layer.js';
-import { InstantHttpAuthed } from '../lib/http.js';
+import { AuthLayerLive } from '../layer.ts';
+import { InstantHttpAuthed } from '../lib/http.ts';
 import { version } from '@instantdb/version';
 
 const DashMeResponse = Schema.Struct({

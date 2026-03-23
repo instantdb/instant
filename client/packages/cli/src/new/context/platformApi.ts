@@ -1,6 +1,6 @@
 import { PlatformApi as InstantPlatformApi } from '@instantdb/platform';
 import { Data, Effect } from 'effect';
-import { getBaseUrl } from '../lib/http.js';
+import { getBaseUrl } from '../lib/http.ts';
 
 export class PlatformApiError extends Data.TaggedError('PlatformApiError')<{
   message: string;

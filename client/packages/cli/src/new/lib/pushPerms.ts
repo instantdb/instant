@@ -1,14 +1,14 @@
 import { Effect, Option, Schema } from 'effect';
 import jsonDiff from 'json-diff';
 import { readLocalPermsFile } from '../../index.js';
-import { InstantHttpAuthed, withCommand } from './http.js';
+import { InstantHttpAuthed, withCommand } from './http.ts';
 import {
   HttpClient,
   HttpClientRequest,
   HttpClientResponse,
 } from '@effect/platform';
-import { CurrentApp } from '../context/currentApp.js';
-import { promptOk } from './ui.js';
+import { CurrentApp } from '../context/currentApp.ts';
+import { promptOk } from './ui.ts';
 import boxen from 'boxen';
 import chalk from 'chalk';
 

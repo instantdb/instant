@@ -10,9 +10,9 @@ import {
   resolveRenames,
   waitForIndexingJobsToFinish,
 } from '../../index.js';
-import { CurrentApp } from '../context/currentApp.js';
-import { error } from '../logging.js';
-import { InstantHttpAuthed, withCommand } from './http.js';
+import { CurrentApp } from '../context/currentApp.ts';
+import { error } from '../logging.ts';
+import { InstantHttpAuthed, withCommand } from './http.ts';
 import {
   apiSchemaToInstantSchemaDef,
   buildAutoRenameSelector,
@@ -23,14 +23,14 @@ import {
   validateSchema,
 } from '@instantdb/platform';
 
-import { OptsFromCommand, pushDef } from '../index.js';
-import { GlobalOpts } from '../context/globalOpts.js';
+import { OptsFromCommand, pushDef } from '../index.ts';
+import { GlobalOpts } from '../context/globalOpts.ts';
 import {
   groupSteps,
   renderSchemaPlan,
   SuperMigrationTx,
-} from '../../renderSchemaPlan.js';
-import { promptOk } from './ui.js';
+} from '../../renderSchemaPlan.ts';
+import { promptOk } from './ui.ts';
 import boxen from 'boxen';
 
 const FetchSchemaResponse = Schema.Struct({

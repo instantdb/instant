@@ -6,7 +6,7 @@ import {
 } from '@instantdb/platform';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
-import { promptOk } from './util/promptOk.js';
+import { promptOk } from './util/promptOk.ts';
 
 // Hack to prevent using @instantdb/core as a dependency for cli
 type InstantDBAttr = Parameters<typeof convertTxSteps>[1][0];

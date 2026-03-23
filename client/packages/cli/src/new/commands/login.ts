@@ -1,14 +1,14 @@
 import chalk from 'chalk';
 import { Effect } from 'effect';
 import openInBrowser from 'open';
-import { OptsFromCommand, loginDef } from '../index.js';
-import { getDashUrl } from '../lib/http.js';
+import { OptsFromCommand, loginDef } from '../index.ts';
+import { getDashUrl } from '../lib/http.ts';
 import {
   getLoginTicketAndSecret,
   saveConfigAuthToken,
   waitForAuthToken,
-} from '../lib/login.js';
-import { promptOk } from '../lib/ui.js';
+} from '../lib/login.ts';
+import { promptOk } from '../lib/ui.ts';
 
 const isHeadLessEnvironment = (opts: OptsFromCommand<typeof loginDef>) => {
   const noBrowserMode = Boolean(

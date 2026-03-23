@@ -4,12 +4,12 @@ import { PackageJson, readPackage } from 'pkg-types';
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { UI } from '../../ui/index.js';
-import { findProjectDir } from '../../util/projectDir.js';
-import { runUIEffect } from '../lib/ui.js';
+import { UI } from '../../ui/index.ts';
+import { findProjectDir } from '../../util/projectDir.ts';
+import { runUIEffect } from '../lib/ui.ts';
 import chalk from 'chalk';
-import { GlobalOpts } from './globalOpts.js';
-import { BadArgsError } from '../errors.js';
+import { GlobalOpts } from './globalOpts.ts';
+import { BadArgsError } from '../errors.ts';
 
 export class ProjectInfo extends Context.Tag(
   'instant-cli/new/context/projectInfo',
