@@ -182,11 +182,11 @@ export const pullDef = program
   .command('pull')
   .argument(
     '[schema|perms|all]',
-    'Which configuration to push. Defaults to `all`',
+    'Which configuration to pull. Defaults to `all`',
   )
   .option(
     '-a --app <app-id>',
-    'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
+    'App ID to pull to. Defaults to *_INSTANT_APP_ID in .env',
   )
   .option(
     '-p --package <react|react-native|core|admin|solid|svelte>',
