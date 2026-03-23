@@ -533,7 +533,7 @@ Environment Variables:
 
 program
   .command('claim')
-  .description('Transfer a tempoary app into your Instant account')
+  .description('Transfer a temporary app into your Instant account')
   .action(async function () {
     const authToken = await readConfigAuthToken(false);
     if (!authToken) {

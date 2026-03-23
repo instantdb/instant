@@ -79,20 +79,14 @@ export const pushSchema = (
           : ReadSchemaFileError.make({ message: String(e) }),
     });
     if (!localSchemaFile || !localSchemaFile?.schema) {
-      error(
-        `We couldn't find your ${chalk.yellow('`instant.schema.ts`')} file. Make sure it's in the root directory. (Hint: You can use an INSTANT_SCHEMA_FILE_PATH environment variable to specify it.)`,
-      );
-      return;
+      return yield* ReadSchemaFileError.make({
+        message: `We couldn't find your ${chalk.yellow('`instant.schema.ts`')} file. Make sure it's in the root directory. (Hint: You can use an INSTANT_SCHEMA_FILE_PATH environment variable to specify it.)`,
+      });
     }
     if (localSchemaFile.schema?.constructor?.name !== 'InstantSchemaDef') {
-      error("We couldn't find your schema export.");
-      error(
-        'In your ' +
-          chalk.green('`instant.schema.ts`') +
-          ' file, make sure you ' +
-          chalk.green('`export default schema`'),
-      );
-      return;
+      return yield* SchemaValidationError.make({
+        message: `We couldn't find your schema export.\nIn your ${chalk.yellow('`instant.schema.ts`')} file, make sure you ${chalk.green('`export default schema`')}`,
+      });
     }
 
     const http = yield* InstantHttpAuthed;

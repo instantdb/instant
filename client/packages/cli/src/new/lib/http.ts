@@ -19,12 +19,11 @@ export class InstantHttpAuthed extends Context.Tag(
   HttpClient.HttpClient.With<InstantHttpError | TimeoutException | RequestError>
 >() {}
 
-export class InstantHttpError extends Data.TaggedError('InstantHttpError')<{
-  message: string;
-  type: string;
-  methodAndUrl: string;
-  hint?: Record<string, any>;
-}> {}
+export class InstantHttpError extends Data.TaggedError('InstantHttpError')<
+  {
+    methodAndUrl: string;
+  } & typeof InstantTypicalHttpErrorResponse.Type
+> {}
 
 // Pipe on a client to set command header
 export const withCommand = (command: string) => {
@@ -39,14 +38,9 @@ export const withCommand = (command: string) => {
 class InstantTypicalHttpErrorResponse extends Schema.Struct({
   message: Schema.String,
   type: Schema.String.pipe(Schema.optional),
-  hint: Schema.Struct({
-    errors: Schema.Array(
-      Schema.Struct({
-        message: Schema.String,
-        in: Schema.Array(Schema.String).pipe(Schema.optional),
-      }),
-    ).pipe(Schema.optional),
-  }).pipe(Schema.optional),
+  hint: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(
+    Schema.optional,
+  ),
 }) {}
 
 export const InstantHttpLive = Layer.effect(
