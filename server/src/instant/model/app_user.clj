@@ -43,10 +43,14 @@
                               extra-fields))))
 
 (defn- assert-create-permission!
-  [app-id user-data]
+  [app-id user-data has-extra-fields?]
   (let [rules (rule-model/get-by-app-id {:app-id app-id})
-        program (rule-model/get-program! rules "$users" "create")]
-    (when program
+        program (rule-model/get-program! rules
+                  {:etype "$users"
+                   :action "create"
+                   :paths [["$users" "allow" "create"]]})]
+    (cond
+      program
       (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
                  :app-id app-id
                  :attrs (attr-model/get-by-app-id app-id)
@@ -56,7 +60,13 @@
          :perms-pass?
          ["$users" "create"]
          (cel/eval-program! ctx program {:data user-data
-                                         :new-data user-data}))))))
+                                         :new-data user-data})))
+
+      has-extra-fields?
+      (ex/assert-permitted!
+       :perms-pass?
+       ["$users" "create"]
+       false))))
 
 (defn assert-signup!
   "Validates extra-fields and checks the $users create permission rule.
@@ -66,7 +76,7 @@
   (when-not skip-perm-check?
     (let [id (or (:id params) (random-uuid))
           user-data (build-user-data (assoc params :id id))]
-      (assert-create-permission! app-id user-data))))
+      (assert-create-permission! app-id user-data (seq extra-fields)))))
 
 (defn create!
   ([params]
