@@ -6,7 +6,6 @@ import {
 } from '@instantdb/platform';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
-import { promptOk } from './util/promptOk.ts';
 
 // Hack to prevent using @instantdb/core as a dependency for cli
 type InstantDBAttr = Parameters<typeof convertTxSteps>[1][0];
@@ -167,19 +166,6 @@ export const groupSteps = (steps: MigrationTx[]): SuperMigrationTx[] => {
   );
 
   return [...collapsed, ...otherSteps];
-};
-
-export const confirmImportantSteps = async (planSteps: SuperMigrationTx[]) => {
-  for (const step of planSteps) {
-    if (step.type === 'delete-namespace') {
-      const ok = await promptOk({
-        promptText: `Are you sure you want to delete namespace ${step.namespace}?`,
-      });
-      if (!ok) {
-        throw new CancelSchemaError(`Deletion of namespace ${step.namespace}`);
-      }
-    }
-  }
 };
 
 const createDotName = (step: MigrationTx) => {
