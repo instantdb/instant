@@ -26,7 +26,7 @@ export const getGithubStarCount = async (): Promise<number> => {
   const parseResult = githubStarResponseSchema.safeParse(data);
 
   if (parseResult.error) {
-    throw new Error(JSON.stringify(parseResult.error));
+    throw new Error(parseResult.error.message);
   }
 
   return parseResult.data.stargazers_count;
