@@ -244,6 +244,8 @@ if (created) {
 }
 ```
 
+When using `extraFields`, a `create` rule on `$users` is required. Signup will fail if no rule is defined. This ensures you explicitly opt in to accepting custom fields. A rule of `"true"` allows any values through. See [Signup rules](#signup-rules) for more examples.
+
 ## Signup rules
 
 You can write a `create` rule on `$users` to control who can sign up and what fields they can set. This rule runs during the auth signup flow (magic codes, OAuth, guest sign-in) but does not apply to `transact`.
