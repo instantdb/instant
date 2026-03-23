@@ -409,6 +409,8 @@
        (test-util/make-attrs app-id
                              [[:$users/username :unique? :index?]
                               [:$users/displayName]])
+       (rule-model/put! {:app-id app-id
+                          :code {"$users" {"allow" {"create" "true"}}}})
 
        (testing "new user with extra-fields"
          (let [code (send-code app {:email "new@test.com"})
@@ -478,6 +480,8 @@
      (fn [{app-id :id :as app}]
        (test-util/make-attrs app-id
                              [[:$users/username]])
+       (rule-model/put! {:app-id app-id
+                          :code {"$users" {"allow" {"create" "true"}}}})
 
        (let [guest (sign-in-guest app)
              _     (is (= "guest" (:type guest)))
@@ -498,6 +502,8 @@
       (test-util/make-attrs app-id
                             [[:$users/username]
                              [:$users/displayName]])
+      (rule-model/put! {:app-id app-id
+                         :code {"$users" {"allow" {"create" "true"}}}})
 
       (let [provider (provider-model/create! {:app-id app-id
                                               :provider-name "clerk"})]
@@ -632,6 +638,14 @@
                                       :code code})]
            (is (true? (:created body)))))
 
+       (testing "extra-fields without create rule blocks signup"
+         (let [code (send-code app {:email "norule@test.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 400"
+                (verify-body app {:email "norule@test.com"
+                                  :code code
+                                  :extra-fields {"username" "sneaky"}})))))
+
        (testing "create rule does not run for existing users"
          (rule-model/put! {:app-id app-id
                            :code {"$users" {"allow" {"create" "false"}}}})
@@ -693,6 +707,12 @@
       (testing "create rule allows guest signup when passing"
         (rule-model/put! {:app-id app-id
                           :code {"$users" {"allow" {"create" "true"}}}})
+        (let [guest (sign-in-guest-runtime app)]
+          (is (= "guest" (:type guest)))))
+
+      (testing "$default rules do not affect guest signup"
+        (rule-model/put! {:app-id app-id
+                          :code {"$default" {"allow" {"$default" "false"}}}})
         (let [guest (sign-in-guest-runtime app)]
           (is (= "guest" (:type guest))))))))
 
