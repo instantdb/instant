@@ -84,17 +84,20 @@ export const initWithoutFilesCommand = (
       }),
     ),
     Effect.catchAll((e) =>
-      Effect.log(
-        JSON.stringify(
-          {
-            app: null,
-            error: {
-              message: e.message,
+      Effect.gen(function* () {
+        yield* Effect.log(
+          JSON.stringify(
+            {
+              app: null,
+              error: {
+                message: e.message,
+              },
             },
-          },
-          null,
-          2,
-        ),
-      ),
+            null,
+            2,
+          ),
+        );
+        process.exit(1);
+      }),
     ),
   );
