@@ -200,6 +200,9 @@ const confirmSchemaChanges = (steps: SuperMigrationTx[], currentAttrs: any[]) =>
     const lines = renderSchemaPlan(steps, currentAttrs);
     const globalOpts = yield* GlobalOpts;
     if (globalOpts.yes) {
+      console.log('Applying schema changes...');
+      console.log(lines.join('\n'));
+
       return;
     }
     const wantsToPush = yield* promptOk({
