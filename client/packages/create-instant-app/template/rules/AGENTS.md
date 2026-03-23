@@ -181,6 +181,7 @@ data.ref(someVar + '.members.id')
 - Can override `view`, `update`, and `create`
 - Cannot override `delete`
 - The `create` rule runs during auth signup flows (not via `transact`). Use it to restrict signups or validate `extraFields`.
+- `extraFields` require an explicit `create` rule. Without one, signup is blocked to prevent unvalidated writes.
 
 ## $files Permissions
 
