@@ -1,10 +1,11 @@
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 import JSON5 from 'json5';
 import { OptsFromCommand, queryDef } from '../index.ts';
 import { CurrentApp } from '../context/currentApp.ts';
 import { BadArgsError } from '../errors.ts';
 import { InstantHttpAuthed, withCommand } from '../lib/http.ts';
 import { HttpBody } from '@effect/platform';
+import { WithAppLayer } from '../layer.ts';
 
 export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>
   Effect.gen(function* () {
@@ -15,16 +16,10 @@ export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>
       opts.asGuest,
       opts.asToken,
     ].filter(Boolean);
-    if (contexts.length === 0) {
-      return yield* BadArgsError.make({
-        message:
-          'Please specify a context: --admin, --as-email <email>, or --as-guest',
-      });
-    }
     if (contexts.length > 1) {
       return yield* BadArgsError.make({
         message:
-          'Please specify only one context: --admin, --as-email <email>, or --as-guest',
+          'Please specify exactly one context: --admin, --as-email <email>, or --as-guest',
       });
     }
 
@@ -50,8 +45,16 @@ export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>
       headers,
       body: HttpBody.unsafeJson({
         query,
+        'inference?': true,
       }),
     });
     const body = yield* response.json;
     yield* Effect.log(JSON.stringify(body, null, 2));
-  });
+  }).pipe(
+    Effect.provide(
+      WithAppLayer({
+        coerce: false,
+        appId: opts.app,
+      }).pipe(Layer.annotateLogs('silent', true)),
+    ),
+  );

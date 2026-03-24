@@ -165,16 +165,7 @@ export const queryDef = program
   )
   .description('Run an InstaQL query against your app.')
   .action(async function (queryArg, opts) {
-    return runCommandEffect(
-      queryCmd(queryArg, opts).pipe(
-        Effect.provide(
-          WithAppLayer({
-            coerce: false,
-            appId: opts.app,
-          }),
-        ),
-      ),
-    );
+    return runCommandEffect(queryCmd(queryArg, opts));
   });
 
 export const pullDef = program

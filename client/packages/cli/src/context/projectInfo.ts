@@ -83,12 +83,7 @@ const getProjectInfo = (
     // TODO: Clean up with option
     const packageManager = yield* Effect.tryPromise(() => detect()).pipe(
       Effect.flatMap(Effect.fromNullable),
-      Effect.mapError(
-        () =>
-          new ProjectInfoError({
-            message: 'Failed to detect package manager',
-          }),
-      ),
+      Effect.option,
     );
 
     const { yes } = yield* GlobalOpts;
@@ -135,8 +130,19 @@ const getProjectInfo = (
           '@react-native-async-storage/async-storage',
         );
       }
+
+      const pkgManager = yield* packageManager.pipe(
+        Effect.mapError(
+          (e) =>
+            new ProjectInfoError({
+              message: 'Failed to detect package manager',
+              cause: e,
+            }),
+        ),
+      );
+
       const installCommand = getInstallCommand(
-        packageManager.agent,
+        pkgManager.agent,
         packagesToInstall.join(' '),
       );
       yield* Effect.log(installCommand);
@@ -146,8 +152,8 @@ const getProjectInfo = (
             cwd: projectDir.dir,
           }),
           errorText: 'Failed to install packages',
-          workingText: `Installing ${packagesToInstall.join(', ')} using ${packageManager.agent}...`,
-          doneText: `Installed ${packagesToInstall.join(', ')} using ${packageManager.agent}.`,
+          workingText: `Installing ${packagesToInstall.join(', ')} using ${pkgManager.agent}...`,
+          doneText: `Installed ${packagesToInstall.join(', ')} using ${pkgManager.agent}.`,
         }),
       );
       return {
