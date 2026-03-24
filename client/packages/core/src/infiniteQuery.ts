@@ -478,6 +478,9 @@ export const subscribeInfiniteQuery = <
       if (!initialForwardCursor) {
         return;
       }
+
+      // If page size is 1, keep around the first item because the forward chunks will start
+      // at the second item.
       if (pageSize !== 1) {
         forwardChunks.delete(makeCursorKey(PRE_BOOTSTRAP_CURSOR));
       } else {
@@ -487,6 +490,9 @@ export const subscribeInfiniteQuery = <
         });
       }
 
+      // If pagesize is 1, disable including the start of the range because we already have it from
+      // PRE_BOOTSTRAP_CURSOR, this allows us to "see" 1 if the data is [0, 1] because we don't
+      // include 0 in the result
       pushNewForward(initialForwardCursor, pageSize !== 1);
       pushNewReverse(pageInfo.startCursor);
       hasKickstarted = true;
