@@ -29,7 +29,7 @@
    (com.hazelcast.spi.properties ClusterProperty HazelcastProperty)
    (com.hazelcast.topic ITopic MessageListener Message)
 
-   (io.github.bucket4j.grid.hazelcast Bucket4jHazelcast HazelcastProxyManager)
+   (io.github.bucket4j.grid.hazelcast HazelcastProxyManager)
    (java.time Duration Instant)
    (java.util Map Map$Entry)
    (java.util.function BiFunction)
