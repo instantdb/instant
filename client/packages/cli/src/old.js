@@ -493,10 +493,3 @@ function sleep(ms) {
 export function countEntities(o) {
   return Object.keys(o).length;
 }
-
-export const rels = {
-  'many-false': ['many', 'many'],
-  'one-true': ['one', 'one'],
-  'many-true': ['many', 'one'],
-  'one-false': ['one', 'many'],
-};

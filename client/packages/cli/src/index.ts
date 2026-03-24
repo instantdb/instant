@@ -10,7 +10,6 @@ import { loadEnv } from './util/loadEnv.ts';
 import {
   AuthLayerLive,
   BaseLayerLive,
-  printRedErrors,
   runCommandEffect,
   WithAppLayer,
 } from './layer.ts';
