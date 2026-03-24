@@ -113,6 +113,7 @@ describe('infinite scroll number line', () => {
     await expect
       .poll(() => getLoadedValues(response))
       .not.toEqual([3, 2, 10, 1, 2, 3]);
+    scrollSub.unsubscribe();
   });
 
   test('adding new numbers', async ({ db }) => {
@@ -144,6 +145,7 @@ describe('infinite scroll number line', () => {
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([0, 1, 2, 3, 5, 6, 7, 8]);
+    scrollSub.unsubscribe();
   });
 
   test('adding negative numbers', async ({ db }) => {
@@ -184,6 +186,7 @@ describe('infinite scroll number line', () => {
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([-4, -2, -1, 0, 1, 2, 3]);
+    scrollSub.unsubscribe();
   });
 
   test('add zero twice', async ({ db }) => {
@@ -192,7 +195,7 @@ describe('infinite scroll number line', () => {
       response = resp;
     });
 
-    db.subscribeInfiniteQuery(
+    const scrollSub = db.subscribeInfiniteQuery(
       {
         items: {
           $: {
@@ -208,6 +211,7 @@ describe('infinite scroll number line', () => {
     addNumberItem(db, 0);
     addNumberItem(db, 0);
     await expect.poll(() => getLoadedValues(response)).toEqual([0, 0]);
+    scrollSub.unsubscribe();
   });
 });
 
@@ -244,6 +248,7 @@ describe('unique queries', () => {
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([5, 4, 3, 2, 1, 1]);
+    scrollSub.unsubscribe();
   });
 
   test('duplicate boundary values across pages (desc)', async ({ db }) => {
@@ -282,6 +287,7 @@ describe('unique queries', () => {
       .poll(() => getLoadedValues(response))
       .toEqual([5, 4, 3, 2, 2, 2, 1]);
     await expect.poll(() => response.canLoadNextPage).toEqual(false);
+    scrollSub.unsubscribe();
   });
 
   test('rapid loadNextPage calls do not duplicate pages', async ({ db }) => {
@@ -312,6 +318,7 @@ describe('unique queries', () => {
 
     await expect.poll(() => getLoadedValues(response)).toEqual([1, 2, 3, 4]);
     await expect.poll(() => response.canLoadNextPage).toEqual(true);
+    scrollSub.unsubscribe();
   });
 
   test('deleting an item', async ({ db }) => {
@@ -347,6 +354,7 @@ describe('unique queries', () => {
 
     await expect.poll(() => getLoadedValues(response)).toEqual([1, 2, 4, 5, 6]);
     await expect.poll(() => response.canLoadNextPage).toEqual(false);
+    scrollSub.unsubscribe();
   });
 
   test('updating an out-of-window item can reorder into visible chunk', async ({
@@ -382,6 +390,7 @@ describe('unique queries', () => {
       .poll(() => getLoadedValues(response))
       .toEqual([10, 15, 20, 30, 40, 50]);
     await expect.poll(() => response.canLoadNextPage).toEqual(false);
+    scrollSub.unsubscribe();
   });
 
   test('page size 1', async ({ db }) => {
@@ -412,5 +421,6 @@ describe('unique queries', () => {
     await expect.poll(() => response.canLoadNextPage).toEqual(true);
     scrollSub.loadNextPage();
     await expect.poll(() => getLoadedValues(response)).toEqual([0, 1, 2]);
+    scrollSub.unsubscribe();
   });
 });

@@ -502,10 +502,8 @@ export const subscribeInfiniteQuery = <
       await db._reactor.querySubs.flush();
 
       // Unsubscribe the starter subscription
-      if (pageSize !== 1) {
-        starterUnsub?.();
-        starterUnsub = null;
-      }
+      starterUnsub?.();
+      starterUnsub = null;
     },
     opts,
   );
