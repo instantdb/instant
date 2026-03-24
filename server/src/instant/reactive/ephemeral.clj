@@ -7,6 +7,7 @@
    [editscript.core :as editscript]
    [instant.config :as config]
    [instant.gauges :as gauges]
+   [instant.rate-limit :as rate-limit]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.aws :as aws-util]
@@ -27,6 +28,8 @@
                                EntryUpdatedListener)
    (com.hazelcast.spi.properties ClusterProperty HazelcastProperty)
    (com.hazelcast.topic ITopic MessageListener Message)
+
+   (io.github.bucket4j.grid.hazelcast HazelcastProxyManager)
    (java.time Duration Instant)
    (java.util Map Map$Entry)
    (java.util.function BiFunction)
@@ -77,22 +80,22 @@
                             (init [_ e]
                               (doseq [^Member m (.getMembers e)]
                                 (when-let [machine-id (-> m
-                                                         (.getAttribute "machine-id")
-                                                         uuid-util/coerce)]
+                                                          (.getAttribute "machine-id")
+                                                          uuid-util/coerce)]
                                   (Map/.put hz-member-by-machine-id-cache machine-id m)
                                   (run-member-callbacks machine-id :added))))
                             (memberAdded [_ e]
                               (let [m (.getMember e)]
                                 (when-let [machine-id (-> m
-                                                         (.getAttribute "machine-id")
-                                                         uuid-util/coerce)]
+                                                          (.getAttribute "machine-id")
+                                                          uuid-util/coerce)]
                                   (Map/.put hz-member-by-machine-id-cache machine-id m)
                                   (run-member-callbacks machine-id :added))))
                             (memberRemoved [_ e]
                               (let [m (.getMember e)]
                                 (when-let [machine-id (-> m
-                                                         (.getAttribute "machine-id")
-                                                         uuid-util/coerce)]
+                                                          (.getAttribute "machine-id")
+                                                          uuid-util/coerce)]
                                   (Map/.remove hz-member-by-machine-id-cache machine-id m)
                                   (run-member-callbacks machine-id :removed)))))))
 
@@ -170,6 +173,11 @@
     (.setSerializerConfigs serialization-config
                            hazelcast/serializer-configs)
 
+    (HazelcastProxyManager/addCustomSerializers serialization-config
+                                                ;; bucket4j is going to add its own types, so we give it some
+                                                ;; room to fit above our types
+                                                10000)
+
     (.setGlobalSerializerConfig serialization-config
                                 hazelcast/global-serializer-config)
 
@@ -177,6 +185,7 @@
           local-member       (.getLocalMember (.getCluster hz))
           hz-rooms-map       (.getMap hz "rooms-v2")
           hz-broadcast-topic (.getTopic hz "rooms-broadcast")]
+
       (.addEntryListener hz-rooms-map
                          (reify
                            EntryAddedListener
@@ -203,7 +212,8 @@
       {:hz                 hz
        :hz-rooms-map       hz-rooms-map
        :hz-broadcast-topic hz-broadcast-topic
-       :instance-id        instance-id})))
+       :instance-id        instance-id
+       :rate-limit (rate-limit/initialize hz)})))
 
 (defonce hz
   (delay
@@ -223,6 +233,9 @@
 
 (defn get-hz-broadcast-topic ^ITopic []
   (:hz-broadcast-topic @hz))
+
+(defn get-rate-limit []
+  (:rate-limit @hz))
 
 ;; ---------
 ;; Hazelcast
@@ -401,7 +414,7 @@
     [{:path k
       :value (clojure.java.jmx/read n a)}]))
 
-(defn hz-gauges [{:keys [^IMap hz-rooms-map ^ITopic hz-broadcast-topic]}]
+(defn hz-gauges [{:keys [^IMap hz-rooms-map ^ITopic hz-broadcast-topic rate-limit]}]
   (let [{:keys [putOperationCount
                 totalPutLatency
                 getOperationCount
@@ -462,7 +475,13 @@
        [{:path "hz.hz-broadcast-topic.publishOperationCount"
          :value (.getPublishOperationCount stats)}
         {:path "hz.hz-broadcast-topic.receiveOperationCount"
-         :value (.getReceiveOperationCount stats)}]))))
+         :value (.getReceiveOperationCount stats)}])
+
+     (let [stats (bean (.getLocalMapStats ^IMap (:bucket-map rate-limit)))]
+       [{:path "hz.bucket4j-map.heapCost"
+         :value (:heapCost stats)}
+        {:path "hz.bucket4j-map.ownedEntryMemoryCost"
+         :value (:ownedEntryMemoryCost stats)}]))))
 
 ;; ------
 ;; System
@@ -481,12 +500,17 @@
     (def stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
                                                    (hz-gauges hz-realized))))))
 
+(defn shutdown-hz [hz-delay]
+  (when-let [^HazelcastInstance hz (try (:hz @hz-delay) (catch Exception _e nil))]
+    (.shutdown hz))
+  (when-let [rate-limit (try (:rate-limit @hz-delay) (catch Exception _e nil))]
+    ((:shutdown rate-limit))))
+
 (defn stop []
   (lang/close clean-orphan-sessions-schedule)
   (when (bound? #'stop-gauge)
     (stop-gauge))
-  (when-let [^HazelcastInstance hz (try (get-hz) (catch Exception _e nil))]
-    (.shutdown hz)))
+  (shutdown-hz hz))
 
 (defn restart []
   (stop)

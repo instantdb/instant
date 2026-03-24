@@ -99,6 +99,9 @@
         dev.weavejester/medley {:mvn/version "1.8.1"}
         com.hazelcast/hazelcast {:mvn/version "5.5.0"}
 
+        com.bucket4j/bucket4j_jdk17-core {:mvn/version "8.17.0"}
+        com.bucket4j/bucket4j_jdk17-hazelcast {:mvn/version "8.17.0"}
+
         net.openhft/zero-allocation-hashing {:mvn/version "0.27ea1"}
         com.github.luben/zstd-jni {:mvn/version "1.5.7-4"}
         me.lemire.integercompression/JavaFastPFOR {:mvn/version "0.3.9"}
