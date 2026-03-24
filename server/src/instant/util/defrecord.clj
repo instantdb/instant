@@ -4,16 +4,12 @@
 
 (defmacro defrecord-once [name fields & body]
   (let [fingerprint (hash [fields body])
+        registry-key [(ns-name *ns*) name]
         constructor (symbol (str "->" name))
-        ;; We check the state of the compiler's namespace RIGHT NOW
-        already-defined? (resolve constructor)
-        matches-last-known? (= (get @record-registry name) fingerprint)]
-
+        already-defined? (ns-resolve *ns* constructor)
+        matches-last-known? (= (get @record-registry registry-key) fingerprint)]
     (if (and already-defined? matches-last-known?)
-      ;; Expand to nothing. The compiler stops here.
       nil
-
-      ;; Otherwise, update the registry and expand to a full defrecord
       (do
-        (swap! record-registry assoc name fingerprint)
+        (swap! record-registry assoc registry-key fingerprint)
         `(defrecord ~name ~fields ~@body)))))

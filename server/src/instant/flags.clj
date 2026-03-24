@@ -183,12 +183,11 @@
     (add-watch query-results
                watch-key
                (fn [_key _ref old-value new-value]
-                 (tool/def-locals)
                  (let [old-key-value (get-in old-value (concat [query :result] path))
                        new-key-value (get-in new-value (concat [query :result] path))]
                    (when (not= old-key-value
                                new-key-value)
-                     (f key
+                     (f path
                         old-key-value
                         new-key-value)))))
     (fn []

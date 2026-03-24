@@ -344,7 +344,7 @@
     (write ^bytes [_ {:keys [key]}]
       (nippy/fast-freeze key))
     (read [_ ^bytes in]
-      (CreateMagicCodeKey. (nippy/fast-thaw in)))
+      (ConsumeMagicCodeKey. (nippy/fast-thaw in)))
     (destroy [_])))
 
 (def consume-magic-code-key-record-config
