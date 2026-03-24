@@ -56,6 +56,7 @@
     "build": "rm -rf dist; tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch --skipLibCheck --preserveWatchOutput | grep -v '^$'",
     "test": "vitest --project unit",
+    "test:e2e": "vitest --project e2e",
     "test:ci": "vitest run",
     "publish-package": "pnpm pack && npm publish *.tgz --access public",
     "clean": "rm -rf dist",

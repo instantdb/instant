@@ -119,6 +119,7 @@ describe.concurrent('CLI e2e', { timeout: 30_000 }, () => {
             INSTANT_APP_ID: appId,
           },
         });
+        console.log(result.stdout + result.stderr);
 
         expect(result.exitCode).toBe(0);
         const output = result.stdout + result.stderr;
