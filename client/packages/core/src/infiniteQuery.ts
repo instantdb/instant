@@ -568,7 +568,7 @@ export const getInfiniteQueryInitialSnapshot = <
   if (opts && 'ruleParams' in opts) {
     coercedQuery = {
       $$ruleParams: opts.ruleParams,
-      ...fullQuery,
+      ...coercedQuery,
     };
   }
   const queryResult = db._reactor.getPreviousResult(coercedQuery);
