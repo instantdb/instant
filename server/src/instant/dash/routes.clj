@@ -48,6 +48,8 @@
             [instant.model.schema :as schema-model]
             [instant.plans :as plans]
             [instant.postmark :as postmark]
+            [instant.runtime.magic-code-auth :refer [check-send-rate-limit!
+                                                     check-verify-rate-limit!]]
             [instant.session-counter :as session-counter]
             [instant.storage.coordinator :as storage-coordinator]
             [instant.stripe :as stripe]
@@ -218,7 +220,7 @@
          Copy and paste this into the confirmation box, and you'll be on your way.
        </p>
        <p>
-         Note: This code will expire in 24 hours, and can only be used once. If you
+         Note: This code will expire in 10 minutes, and can only be used once. If you
          didn't request this code, please reply to this email.
        </p>")}))
 
@@ -229,6 +231,11 @@
 
 (defn send-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
+        ;; Use the config app for the rate limit so that we can share the
+        ;; same rate-limiting infra as the app's magic codes
+        _ (when-let [app-id config/instant-config-app-id]
+            (check-send-rate-limit! {:app-id app-id
+                                     :email email}))
         {user-id :id :as u} (or  (instant-user-model/get-by-email {:email email})
                                  (instant-user-model/create!
                                   {:id (UUID/randomUUID) :email email}))
@@ -249,6 +256,11 @@
 
 (defn verify-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
+        ;; Use the config app for the rate limit so that we can share the
+        ;; same rate-limiting infra as the app's magic codes
+        _ (when-let [app-id config/instant-config-app-id]
+            (check-verify-rate-limit! {:app-id app-id
+                                       :email email}))
         code (ex/get-param! req [:body :code] string-util/safe-trim)
         {user-id :user_id} (instant-user-magic-code-model/consume!
                             {:code code :email email})
