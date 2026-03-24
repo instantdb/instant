@@ -50,6 +50,7 @@ function NewApp() {
       invites: [],
       user_app_role: 'owner',
       magic_code_email_template: null,
+      magic_code_expiry_minutes: null,
       org: null,
     };
 
