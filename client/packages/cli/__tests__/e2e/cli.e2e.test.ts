@@ -119,7 +119,6 @@ describe.concurrent('CLI e2e', { timeout: 30_000 }, () => {
             INSTANT_APP_ID: appId,
           },
         });
-        console.log(result.stdout + result.stderr);
 
         expect(result.exitCode).toBe(0);
         const output = result.stdout + result.stderr;
@@ -271,7 +270,7 @@ export default _schema;
   });
 
   describe('push perms', () => {
-    it('succeeds gracefully when no perms file exists', async () => {
+    it('exits with code 1 when no perms file exists', async () => {
       const { appId, adminToken } = await createTempApp();
       const project = await createTestProject({ appId });
 
@@ -284,7 +283,7 @@ export default _schema;
           },
         });
 
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode).toBe(1);
       } finally {
         await project.cleanup();
       }
@@ -877,6 +876,8 @@ export default _schema;
             },
           },
         );
+
+        console.log(result.stdout + result.stderr);
 
         expect(result.exitCode).toBe(0);
         const data = JSON.parse(result.stdout);

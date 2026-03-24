@@ -30,7 +30,9 @@ export const pushPerms = Effect.gen(function* () {
   const permsFile = yield* Effect.tryPromise(readLocalPermsFile).pipe(
     Effect.flatMap(Option.fromNullable),
     Effect.mapError(() =>
-      NoPermsFileError.make({ message: 'No permissions file found' }),
+      NoPermsFileError.make({
+        message: `We couldn't find your ${chalk.yellow('`instant.perms.ts`')} file. Make sure it's in the root directory. (Hint: You can use an INSTANT_PERMS_FILE_PATH environment variable to specify it.)`,
+      }),
     ),
   );
 
