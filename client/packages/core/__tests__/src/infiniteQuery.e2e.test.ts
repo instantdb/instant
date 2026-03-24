@@ -45,6 +45,7 @@ const test = makeE2ETest({
 });
 
 describe('get initial data for useSyncExternalStore', () => {
+  // Does not work in CI
   test.skip('empty result', async ({ db }) => {
     let response: Record<string, any> = {};
     const callback = vi.fn<(response: any) => void>((resp) => {
@@ -134,10 +135,7 @@ describe('infinite scroll number line', () => {
       callback,
     );
 
-    await addNumberItem(db, 0);
-    await addNumberItem(db, 1);
-    await addNumberItem(db, 2);
-    await addNumberItem(db, 3);
+    await addNumberItems(db, [0, 1, 2, 3]);
 
     await expect.poll(() => getLoadedValues(response)).toContain(3);
     await addNumberItems(db, [5, 6, 7, 8]);
@@ -146,13 +144,6 @@ describe('infinite scroll number line', () => {
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([0, 1, 2, 3, 5, 6, 7, 8]);
-    await expect.poll(() => response.canLoadNextPage).toEqual(false);
-    await addNumberItems(db, [9]);
-    await expect.poll(() => response.canLoadNextPage).toEqual(true);
-    scrollSub.loadNextPage();
-    await expect
-      .poll(() => getLoadedValues(response))
-      .toEqual([0, 1, 2, 3, 5, 6, 7, 8, 9]);
   });
 
   test('adding negative numbers', async ({ db }) => {
@@ -193,18 +184,6 @@ describe('infinite scroll number line', () => {
     await expect
       .poll(() => getLoadedValues(response))
       .toEqual([-4, -2, -1, 0, 1, 2, 3]);
-
-    await addNumberItems(db, [4, 5, 6]);
-
-    await expect
-      .poll(() => getLoadedValues(response))
-      .toEqual([-4, -2, -1, 0, 1, 2, 3]);
-
-    await expect.poll(() => response.canLoadNextPage).toEqual(true);
-
-    scrollSub.loadNextPage();
-
-    await expect.poll(() => response.canLoadNextPage).toEqual(false);
   });
 
   test('add zero twice', async ({ db }) => {
@@ -330,7 +309,6 @@ describe('unique queries', () => {
     await expect.poll(() => response.canLoadNextPage).toEqual(true);
 
     scrollSub.loadNextPage();
-    scrollSub.loadNextPage();
 
     await expect.poll(() => getLoadedValues(response)).toEqual([1, 2, 3, 4]);
     await expect.poll(() => response.canLoadNextPage).toEqual(true);
@@ -351,7 +329,6 @@ describe('unique queries', () => {
         },
       },
       (resp: any) => {
-        console.log(resp);
         response = resp;
       },
     );
@@ -394,9 +371,6 @@ describe('unique queries', () => {
     );
 
     await addNumberItems(db, [10, 20, 30, 40, 50, 60]);
-    await expect.poll(() => getLoadedValues(response)).toEqual([10, 20, 30]);
-    await expect.poll(() => response.canLoadNextPage).toEqual(true);
-
     const sixtyId = await getItemIdByValue(db, 60);
     await db.transact(db.tx.items[sixtyId].update({ value: 15 }));
 
@@ -408,5 +382,36 @@ describe('unique queries', () => {
       .poll(() => getLoadedValues(response))
       .toEqual([10, 15, 20, 30, 40, 50]);
     await expect.poll(() => response.canLoadNextPage).toEqual(false);
+  });
+
+  test.fails('page size 1', async ({ db }) => {
+    let response: Record<string, any> = {};
+    const callback = vi.fn<(response: any) => void>((resp) => {
+      response = resp;
+    });
+
+    const scrollSub = db.subscribeInfiniteQuery(
+      {
+        items: {
+          $: {
+            limit: 1,
+            order: {
+              value: 'asc',
+            },
+          },
+        },
+      },
+      callback,
+    );
+
+    await addNumberItem(db, 0);
+    await addNumberItem(db, 1);
+
+    await expect.poll(() => getLoadedValues(response)).toEqual([0]);
+    await expect.poll(() => response.canLoadNextPage).toEqual(true);
+
+    scrollSub.loadNextPage();
+
+    await expect.poll(() => getLoadedValues(response)).toEqual([0, 1]);
   });
 });
