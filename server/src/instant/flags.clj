@@ -178,6 +178,25 @@
 
 (def queries [{:query query :transform #'transform-query-result}])
 
+(defn add-change-listener [path f]
+  (let [watch-key (random-uuid)]
+    (add-watch query-results
+               watch-key
+               (fn [_key _ref old-value new-value]
+                 (tool/def-locals)
+                 (let [old-key-value (get-in old-value (concat [query :result] path))
+                       new-key-value (get-in new-value (concat [query :result] path))]
+                   (when (not= old-key-value
+                               new-key-value)
+                     (f key
+                        old-key-value
+                        new-key-value)))))
+    (fn []
+      (remove-watch query-results watch-key))))
+
+(defn add-flag-listener [flag f]
+  (add-change-listener [:flags flag] f))
+
 (defn query-result []
   (get-in @query-results [query :result]))
 
@@ -245,15 +264,41 @@
 (defn test-rule-wheres? []
   (:rule-where-testing (query-result)))
 
+(def ^:dynamic *toggle-overrides* nil)
+
 (defn toggled?
   ([key]
-   (get-in (query-result) [:toggles key]))
+   (if *toggle-overrides*
+     (-> (query-result)
+         (get :toggles)
+         (merge *toggle-overrides*)
+         (get key))
+     (get-in (query-result) [:toggles key])))
   ([key not-found]
-   (get-in (query-result) [:toggles key] not-found)))
+   (if *toggle-overrides*
+     (-> (query-result)
+         (get :toggles)
+         (merge *toggle-overrides*)
+         (get key not-found))
+     (get-in (query-result) [:toggles key] not-found))))
+
+(def ^:dynamic *flag-overrides* nil)
 
 (defn flag
-  ([key] (get-in (query-result) [:flags key]))
-  ([key not-found] (get-in (query-result) [:flags key] not-found)))
+  ([key]
+   (if *flag-overrides*
+     (-> (query-result)
+         (get :flags)
+         (merge *flag-overrides*)
+         (get key))
+     (get-in (query-result) [:flags key])))
+  ([key not-found]
+   (if *flag-overrides*
+     (-> (query-result)
+         (get :flags)
+         (merge *flag-overrides*)
+         (get key not-found))
+     (get-in (query-result) [:flags key] not-found))))
 
 (defn handle-receive-timeout [app-id]
   (get-in (query-result) [:handle-receive-timeout app-id]))

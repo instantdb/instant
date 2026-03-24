@@ -6,6 +6,8 @@
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-email-template :as app-email-template-model]
+   [instant.rate-limit :as rate-limit]
+   [instant.reactive.ephemeral :as eph]
    [instant.util.tracer :as tracer]
    [instant.util.exception :as ex]
    [instant.util.cache :as cache]
@@ -21,7 +23,7 @@
   (cache/make {:max-size 100000
                :ttl (* 60 60 1000)}))
 
-(defn check-rate-limit! [{:keys [app-id email]}]
+(defn check-send-rate-limit-caffeine [{:keys [app-id email]}]
   (let [limit (flags/magic-code-rate-limit-per-hour)]
     (when (and limit (pos? limit))
       (let [k [app-id email]
@@ -33,8 +35,31 @@
                                 :attributes {:app-id app-id
                                              :email email
                                              :count count
-                                             :limit limit}})
+                                             :limit limit
+                                             :source "caffeine"}})
           (ex/throw-record-email-rate-limited!))))))
+
+(defn check-send-rate-limit-bucket4j [params]
+  (when-not (rate-limit/try-consume-create-magic-code (eph/get-rate-limit) params)
+    (tracer/record-info! {:name "magic-code/rate-limited"
+                          :attributes {:app-id (:app-id params)
+                                       :email (:email params)
+                                       :source "bucket4j"}})
+    (ex/throw-record-email-rate-limited!)))
+
+(defn check-send-rate-limit! [params]
+  (if (flags/toggled? :use-bucket4j true)
+    (check-send-rate-limit-bucket4j params)
+    (check-send-rate-limit-caffeine params)))
+
+(defn check-verify-rate-limit! [params]
+  (when (flags/toggled? :use-bucket4j true)
+    (when-not (rate-limit/try-consume-consume-magic-code (eph/get-rate-limit) params)
+      (tracer/record-info! {:name "magic-code/consume-rate-limited"
+                            :attributes {:app-id (:app-id params)
+                                         :email (:email params)
+                                         :source "bucket4j"}})
+      (ex/throw-record-email-rate-limited!))))
 
 (def postmark-unconfirmed-sender-body-error-code 400)
 
@@ -81,7 +106,7 @@
   (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"}))
 
 (defn send! [{:keys [app-id email] :as req}]
-  (check-rate-limit! req)
+  (check-send-rate-limit! req)
   (let [app             (app-model/get-by-id! {:id app-id})
         {:keys [code]}  (app-user-magic-code-model/create! (select-keys req [:app-id :email]))
         template        (app-email-template-model/get-by-app-id-and-email-type
@@ -134,6 +159,8 @@
    Permission check runs before consuming the code so that a failed check
    doesn't burn the one-time code."
   [{:keys [app-id email code guest-user-id extra-fields admin?]}]
+  (check-verify-rate-limit! {:app-id app-id
+                             :email email})
   (let [existing-user (app-user-model/get-by-email
                        {:app-id app-id
                         :email  email})
