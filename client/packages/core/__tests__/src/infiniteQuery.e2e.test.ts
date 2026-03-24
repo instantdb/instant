@@ -86,6 +86,31 @@ describe('get initial data for useSyncExternalStore', () => {
 });
 
 describe('infinite scroll number line', () => {
+  test.fails('no order field', async ({ db }) => {
+    let response: Record<string, any> = {};
+    const callback = vi.fn<(response: any) => void>((resp) => {
+      response = resp;
+    });
+
+    const scrollSub = db.subscribeInfiniteQuery(
+      {
+        items: {
+          $: {
+            limit: 4,
+          },
+        },
+      },
+      callback,
+    );
+
+    await addNumberItem(db, 0);
+    await addNumberItem(db, 1);
+    await addNumberItem(db, 2);
+    await addNumberItem(db, 3);
+
+    await expect.poll(() => getLoadedValues(response)).toEqual([0, 1, 2, 3]);
+  });
+
   test('adding new numbers', async ({ db }) => {
     let response: Record<string, any> = {};
     const callback = vi.fn<(response: any) => void>((resp) => {
