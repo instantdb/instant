@@ -23,7 +23,7 @@
   (cache/make {:max-size 100000
                :ttl (* 60 60 1000)}))
 
-(defn check-send-rate-limit-caffeine [{:keys [app-id email]}]
+(defn check-send-rate-limit-caffeine! [{:keys [app-id email]}]
   (let [limit (flags/magic-code-rate-limit-per-hour)]
     (when (and limit (pos? limit))
       (let [k [app-id email]
@@ -39,7 +39,7 @@
                                              :source "caffeine"}})
           (ex/throw-record-email-rate-limited!))))))
 
-(defn check-send-rate-limit-bucket4j [params]
+(defn check-send-rate-limit-bucket4j! [params]
   (when-not (rate-limit/try-consume-create-magic-code (eph/get-rate-limit) params)
     (tracer/record-info! {:name "magic-code/rate-limited"
                           :attributes {:app-id (:app-id params)
@@ -49,8 +49,8 @@
 
 (defn check-send-rate-limit! [params]
   (if (flags/toggled? :use-bucket4j true)
-    (check-send-rate-limit-bucket4j params)
-    (check-send-rate-limit-caffeine params)))
+    (check-send-rate-limit-bucket4j! params)
+    (check-send-rate-limit-caffeine! params)))
 
 (defn check-verify-rate-limit! [params]
   (when (flags/toggled? :use-bucket4j true)
