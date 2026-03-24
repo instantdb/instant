@@ -877,8 +877,6 @@ export default _schema;
           },
         );
 
-        console.log(result.stdout + result.stderr);
-
         expect(result.exitCode).toBe(0);
         const data = JSON.parse(result.stdout);
         expect(data.comments).toHaveLength(1);
