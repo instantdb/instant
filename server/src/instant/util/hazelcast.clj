@@ -327,10 +327,10 @@
   (reify ByteArraySerializer
     (getTypeId [_]
       create-magic-code-key-type-id)
-    (write ^bytes [_ {:keys [key]}]
-      (nippy/fast-freeze key))
+    (write ^bytes [_ {:keys [key-bytes]}]
+      key-bytes)
     (read [_ ^bytes in]
-      (CreateMagicCodeKey. (nippy/fast-thaw in)))
+      (CreateMagicCodeKey. in))
     (destroy [_])))
 
 (def create-magic-code-key-record-config
@@ -341,10 +341,10 @@
   (reify ByteArraySerializer
     (getTypeId [_]
       consume-magic-code-key-type-id)
-    (write ^bytes [_ {:keys [key]}]
-      (nippy/fast-freeze key))
+    (write ^bytes [_ {:keys [key-bytes]}]
+      key-bytes)
     (read [_ ^bytes in]
-      (ConsumeMagicCodeKey. (nippy/fast-thaw in)))
+      (ConsumeMagicCodeKey. in))
     (destroy [_])))
 
 (def consume-magic-code-key-record-config

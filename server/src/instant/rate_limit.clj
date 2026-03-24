@@ -14,9 +14,9 @@
 
 ;; Bucket4j docs: https://bucket4j.com/8.17.0/toc.html
 
-(defrecord-once CreateMagicCodeKey [key])
+(defrecord-once CreateMagicCodeKey [^bytes key-bytes])
 
-(defrecord-once ConsumeMagicCodeKey [key])
+(defrecord-once ConsumeMagicCodeKey [^bytes key-bytes])
 
 (defn create-rate-limit-config [capacity]
   (.. (BucketConfiguration/builder)
@@ -66,7 +66,7 @@
      :get-bucket (fn [key]
                    (.getProxy manager key bucket-config-fn))}))
 
-(defn magic-code-key-hash [app-id ^String email]
+(defn magic-code-key-hash ^bytes [app-id ^String email]
   (let [digest (MessageDigest/getInstance "SHA-256")]
     (.update digest (uuid-util/->bytes app-id))
     (.update digest (.getBytes email "UTF-8"))

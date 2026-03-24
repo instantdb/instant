@@ -1,6 +1,6 @@
 (ns instant.util.defrecord)
 
-(defonce record-registry (atom {}))
+(def record-registry (atom {}))
 
 (defmacro defrecord-once [name fields & body]
   (let [fingerprint (hash [fields body])
