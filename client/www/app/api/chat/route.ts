@@ -40,12 +40,38 @@ function getDocFiles(): string[] {
 const DOC_FILES = getDocFiles();
 
 const DOC_HINTS = `
+# Additional Info
+
+Use this additional info to answer questions about InstantDB.
+
 ## Hints for finding the right docs
 
 InstantDB separates concerns across different systems:
 - Schema (modeling-data.md): Types, relationships, indexes, uniqueness
 - Permissions (permissions.md): Validation rules, access control, business logic
 - Always check BOTH for questions about data constraints or validation.
+
+## Use size() in permissions for length checks
+
+Here's an example to limit the length of a todo's title
+
+{
+  todos: {
+    allow: {
+      create: "size(data.title) <= 10",
+    },
+  },
+}
+
+## How to self-host
+
+All of Instant is open source. To see self-hosting instructions, direct users to
+https://github.com/instantdb/instant/blob/main/server/README.md
+
+## What is Instant built on?
+
+InstantDB is built on top of Aurora Postgres. To get a better sense of how Instant works, tell users to check out https://www.youtube.com/watch?v=6FikTQf8qho
+
 `.trim();
 
 const getAdminFeedbackDb = () => {
