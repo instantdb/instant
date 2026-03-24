@@ -431,6 +431,8 @@ export const subscribeInfiniteQuery = <
     if (!chunk.endCursor) return;
 
     freezeForward(parseCursorKey(chunkKey));
+    // increment / decrement cursor to prevent overwriting keys since
+    // startCursor === endCursor when pageSize === 1
     if (pageSize === 1) {
       if (Object.values(order)[0] === 'asc') {
         pushNewForward(incrementCursor(chunk.endCursor));
