@@ -28,9 +28,29 @@ function parseFrontmatter(content: string): {
   return { frontmatter, content: remainingContent };
 }
 
-// Remove `{% ... %}` tags from markdown content
+// Extract attributes from a nav-button tag and convert to a markdown
+// list item. Href-based buttons become `- [title](href): description`,
+// param/value buttons become `- **title**: description`
+function navButtonToMarkdown(tag: string): string | null {
+  const href = tag.match(/href="([^"]*)"/)?.[1];
+  const title = tag.match(/title="([^"]*)"/)?.[1];
+  const desc = tag.match(/description="([^"]*)"/)?.[1];
+  if (!title) return null;
+  if (href) {
+    return desc ? `- [${title}](${href}): ${desc}` : `- [${title}](${href})`;
+  }
+  return desc ? `- **${title}**: ${desc}` : `- **${title}**`;
+}
+
+// Remove `{% ... %}` tags from markdown content, converting known tags
+// like nav-button into plain markdown equivalents
 function sanitizeMarkdown(content: string): string {
-  return content.replace(/{%[\s\S]*?%}/g, '');
+  return content.replace(/{%[\s\S]*?%}/g, (match) => {
+    if (/nav-button\s/.test(match)) {
+      return navButtonToMarkdown(match) ?? '';
+    }
+    return '';
+  });
 }
 
 // Transform markdoc content into a markdown format that's sanitized for
