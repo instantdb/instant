@@ -249,6 +249,7 @@ export function Email({ app }: { app: InstantApp }) {
                 Verify {verification.EmailAddress}
               </SubsectionHeading>
               <Button
+                type="button"
                 onClick={checkVerification}
                 loading={isVerifying}
                 variant="primary"
@@ -470,6 +471,7 @@ function MagicCodeExpirationSection({ app }: { app: InstantApp }) {
               Cancel
             </Button>
             <Button
+              type="button"
               onClick={handleSave}
               loading={isSaving}
               variant="primary"

@@ -106,7 +106,7 @@
   (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"}))
 
 (defn friendly-expiration [app]
-  (let [minutes (app-model/get-magic-code-expiry-minutes (:id app))]
+  (let [minutes (app-model/get-magic-code-expiry-minutes {:id (:id app)})]
     (if (<= 60 minutes)
       (let [hours (int (Math/floor (/ minutes 60)))]
         (format "%s hour%s" hours (if (> hours 1) "s" "")))
