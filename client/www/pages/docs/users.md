@@ -14,8 +14,7 @@ the users in your app!
 ## Querying users
 
 The `$users` namespace can be queried like any normal namespace. However, we've
-set some default permissions so that only a logged-in user can view their own
-data.
+set some default permissions.
 
 ```javascript
 // instant.perms.ts
@@ -24,10 +23,10 @@ import type { InstantRules } from "@instantdb/react";
 const rules = {
   $users: {
     allow: {
-      view: 'auth.id == data.id',
-      create: 'false',
-      delete: 'false',
-      update: 'false',
+      view: 'auth.id == data.id', // users can only see themselves by default
+      create: 'true', // signups are open by default
+      delete: 'false', // users can only be deleted via the dashboard or admin SDK
+      update: 'false', // users can't update by default
     },
   },
 } satisfies InstantRules;
@@ -49,9 +48,6 @@ const rules = {
   $users: {
     allow: {
       view: 'true', // anyone can see users
-      create: 'false',
-      delete: 'false',
-      update: 'false',
     },
     fields: {
       email: "auth.id == data.id" // but only the logged in user can see their own email.
