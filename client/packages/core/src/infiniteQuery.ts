@@ -131,7 +131,7 @@ const resolveOrder = <
 >(
   order?: Order<Schema, Entity>,
 ): Order<Schema, Entity> => {
-  if (order) return order;
+  if (order && Object.keys(order).length > 0) return order;
   return {
     serverCreatedAt: 'asc',
   } satisfies Order<Schema, Entity>;
