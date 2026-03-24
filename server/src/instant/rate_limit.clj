@@ -33,7 +33,6 @@
    by calling .tryConsume on it."
   [^HazelcastInstance hz]
   (let [map-name "bucket4j"
-        bucket-map (.getMap hz "bucket4j")
         eviction-config (.. (EvictionConfig.)
                             (setEvictionPolicy EvictionPolicy/LRU)
                             (setMaxSizePolicy MaxSizePolicy/PER_NODE)
@@ -42,6 +41,7 @@
         _ (doto map-config
             (.setEvictionConfig eviction-config)
             (.setMaxIdleSeconds (* 60 60))) ;; one hour
+        bucket-map (.getMap hz "bucket4j")
         manager (.. (Bucket4jHazelcast/entryProcessorBasedBuilder bucket-map)
                     (build))
         capacity (flags/magic-code-rate-limit-per-hour)
