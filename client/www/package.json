@@ -13,7 +13,8 @@
     "prebuild": "pnpm gen-llm-rules && pnpm gen-docs",
     "postbuild": "pnpm gen-llms && pnpm gen-rss && next-sitemap",
     "start": "next start",
-    "test": "jest --watch"
+    "test": "vitest run",
+    "test:ci": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.9",
@@ -128,7 +129,8 @@
     "next-sitemap": "^4.2.3",
     "postcss": "^8.4.5",
     "tailwindcss": "^4.1.17",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.1"
   },
   "engines": {
     "node": "22.x"
