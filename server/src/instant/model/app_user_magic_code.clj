@@ -19,7 +19,7 @@
 (defn expired? [app-id magic-code]
   (when magic-code
     (let [created-at ^Date (:created_at magic-code)
-          ttl-ms (* 1000 (app-model/get-magic-code-expiry-minutes {:id app-id}))]
+          ttl-ms (* 1000 60 (app-model/get-magic-code-expiry-minutes {:id app-id}))]
       (< (+ (.getTime created-at) ttl-ms) (System/currentTimeMillis)))))
 
 (defn create!

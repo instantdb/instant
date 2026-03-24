@@ -365,7 +365,7 @@
 (defn get-magic-code-expiry-minutes
   ([params] (get-magic-code-expiry-minutes (aurora/conn-pool :read) params))
   ([conn {:keys [id]}]
-   (or (:magic_code_expiry_minutes (get-by-id conn id))
+   (or (:magic_code_expiry_minutes (get-by-id conn {:id id}))
        (flags/default-magic-code-expiry-minutes))))
 
 (defn clear-by-id!

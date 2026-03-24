@@ -10,6 +10,7 @@
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.model.app :as app-model]
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
@@ -191,7 +192,18 @@
 
        (let [code (send-code app {:email "a@b.c"})]
          (update-created-at app-id code (- (System/currentTimeMillis) (* 23 60 60 1000)))
-         (is (= "a@b.c" (:email (verify-code app {:email "a@b.c" :code code})))))))))
+         (is (= "a@b.c" (:email (verify-code app {:email "a@b.c" :code code})))))))
+   (testing "with custom expiry"
+     (with-empty-app
+       (fn [{app-id :id :as app}]
+         (tool/inspect (app-model/update-magic-code-expiration! {:id app-id :magic-code-expiry-minutes 10}))
+         (let [code (send-code app {:email "a@b.c"})]
+           (update-created-at app-id code (- (System/currentTimeMillis) (* 11 60 1000)))
+           (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app {:email "a@b.c" :code code}))))
+
+         (let [code (send-code app {:email "a@b.c"})]
+           (update-created-at app-id code (- (System/currentTimeMillis) (* 8 60 1000)))
+           (is (= "a@b.c" (:email (verify-code app {:email "a@b.c" :code code}))))))))))
 
 (deftest magic-codes-rate-limit-test
   (with-empty-app
