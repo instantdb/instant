@@ -233,7 +233,7 @@
   (let [email (ex/get-param! req [:body :email] email/coerce)
         ;; Use the config app for the rate limit so that we can share the
         ;; same rate-limiting infra as the app's magic codes
-        _ (when-let [app-id config/instant-config-app-id]
+        _ (when-let [app-id (config/instant-config-app-id)]
             (check-send-rate-limit! {:app-id app-id
                                      :email email}))
         {user-id :id :as u} (or  (instant-user-model/get-by-email {:email email})
@@ -258,7 +258,7 @@
   (let [email (ex/get-param! req [:body :email] email/coerce)
         ;; Use the config app for the rate limit so that we can share the
         ;; same rate-limiting infra as the app's magic codes
-        _ (when-let [app-id config/instant-config-app-id]
+        _ (when-let [app-id (config/instant-config-app-id)]
             (check-verify-rate-limit! {:app-id app-id
                                        :email email}))
         code (ex/get-param! req [:body :code] string-util/safe-trim)
