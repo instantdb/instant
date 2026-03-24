@@ -125,6 +125,18 @@ const reverseOrder = <
   } as Order<Schema, Entity>;
 };
 
+const resolveOrder = <
+  Schema extends InstantSchemaDef<any, any, any>,
+  Entity extends keyof Schema['entities'],
+>(
+  order?: Order<Schema, Entity>,
+): Order<Schema, Entity> => {
+  if (order) return order;
+  return {
+    serverCreatedAt: 'asc',
+  } satisfies Order<Schema, Entity>;
+};
+
 const normalizeChunks = (
   forwardChunks: Map<string, Chunk>,
   reverseChunks: Map<string, Chunk>,
@@ -176,6 +188,7 @@ export const subscribeInfiniteQuery = <
 
   const pageSize = query.$?.limit || 10;
   const entity = entityName;
+  const order = resolveOrder(query.$?.order);
 
   const forwardChunks = new Map<string, Chunk>();
   const reverseChunks = new Map<string, Chunk>();
@@ -233,7 +246,7 @@ export const subscribeInfiniteQuery = <
             beforeInclusive: true,
             where: query.$?.where,
             fields: query.$?.fields,
-            order: reverseOrder(query.$?.order),
+            order: reverseOrder(order),
           },
         },
       } as unknown as Q,
@@ -272,7 +285,7 @@ export const subscribeInfiniteQuery = <
             after: startCursor,
             where: query.$?.where,
             fields: query.$?.fields,
-            order: reverseOrder(query.$?.order),
+            order: reverseOrder(order),
           },
         },
       } as unknown as Q,
@@ -309,7 +322,7 @@ export const subscribeInfiniteQuery = <
             afterInclusive,
             where: query.$?.where,
             fields: query.$?.fields,
-            order: query.$?.order,
+            order,
           },
         },
       } as unknown as Q,
@@ -355,7 +368,7 @@ export const subscribeInfiniteQuery = <
             beforeInclusive: true,
             where: query.$?.where,
             fields: query.$?.fields,
-            order: query.$?.order,
+            order,
           },
         },
       } as unknown as Q,
@@ -429,7 +442,7 @@ export const subscribeInfiniteQuery = <
           limit: pageSize,
           where: query.$?.where,
           fields: query.$?.fields,
-          order: query.$?.order,
+          order,
         },
       },
     } as unknown as Q,
@@ -522,6 +535,7 @@ export const getInfiniteQueryInitialSnapshot = <
   const { entityName, entityQuery } = splitAndValidateQuery(fullQuery);
 
   const pageSize = entityQuery.$?.limit || 10;
+  const order = resolveOrder(entityQuery.$?.order);
 
   let coercedQuery = fullQuery
     ? coerceQuery({
@@ -531,7 +545,7 @@ export const getInfiniteQueryInitialSnapshot = <
             limit: pageSize,
             where: entityQuery.$?.where,
             fields: entityQuery.$?.fields,
-            order: entityQuery.$?.order,
+            order,
           },
         },
       })
