@@ -1,20 +1,19 @@
 (ns instant.runtime.magic-code-auth
   (:require
    [clojure.string :as string]
-   [instant.flags :as flasg]
+   [instant.flags :as flags]
    [instant.model.app :as app-model]
+   [instant.model.app-email-template :as app-email-template-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
-   [instant.model.app-email-template :as app-email-template-model]
+   [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
+   [instant.model.instant-user :as instant-user-model]
    [instant.postmark :as postmark]
    [instant.rate-limit :as rate-limit]
    [instant.reactive.ephemeral :as eph]
-   [instant.util.tracer :as tracer]
-   [instant.util.exception :as ex]
    [instant.util.cache :as cache]
-   [instant.flags :as flags]
-   [instant.model.instant-user :as instant-user-model]
-   [instant.model.app-user-refresh-token :as app-user-refresh-token-model])
+   [instant.util.exception :as ex]
+   [instant.util.tracer :as tracer])
   (:import
    (java.util.concurrent.atomic AtomicLong)))
 
@@ -220,4 +219,3 @@
   (verify! {:app-id (:id app) :email "stopa@instantdb.com" :code "0"})
 
   (verify! {:app-id (:id app) :email "stopa@instantdb.com" :code (:code m)}))
-
