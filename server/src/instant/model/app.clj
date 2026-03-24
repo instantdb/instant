@@ -5,6 +5,7 @@
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.instant-user :as instant-user-model]
@@ -345,6 +346,27 @@
                                  SET creator_id = ?::uuid
                                  WHERE a.id = ?::uuid"
                                new-creator-id id])))))
+
+(def update-magic-code-expiration-q
+  (uhsql/preformat {:update :apps
+                    :set {:magic-code-expiry-minutes :?magic-code-expiry-minutes}
+                    :where [:= :id :?id]}))
+
+(defn update-magic-code-expiration!
+  ([params] (update-magic-code-expiration! (aurora/conn-pool :write) params))
+  ([conn {:keys [id magic-code-expiry-minutes]}]
+   (with-cache-invalidation id
+     (sql/execute-one! ::update-magic-code-expiration!
+                       conn
+                       (uhsql/formatp update-magic-code-expiration-q
+                                      {:id id
+                                       :magic-code-expiry-minutes magic-code-expiry-minutes})))))
+
+(defn get-magic-code-expiry-minutes
+  ([params] (get-magic-code-expiry-minutes (aurora/conn-pool :read) params))
+  ([conn {:keys [id]}]
+   (or (:magic_code_expiry_minutes (get-by-id conn {:id id}))
+       (flags/default-magic-code-expiry-minutes))))
 
 (defn clear-by-id!
   "Deletes attrs, rules, and triples for the specified app_id"

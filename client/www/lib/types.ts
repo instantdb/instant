@@ -17,6 +17,7 @@ export type InstantApp = {
     body: string;
     subject: string;
   } | null;
+  magic_code_expiry_minutes: number | null;
   org: { id: string; title: string } | null;
 };
 

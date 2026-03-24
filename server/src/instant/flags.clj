@@ -378,3 +378,7 @@
    Set to 0 to disable."
   []
   (flag :magic-code-rate-limit-per-hour 20))
+
+(defn default-magic-code-expiry-minutes
+  []
+  (flag :default-magic-code-expiry-minutes 1440))
