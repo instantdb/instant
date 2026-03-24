@@ -430,10 +430,16 @@ export const subscribeInfiniteQuery = <
     // if (!chunk?.hasMore) return;
     if (!chunk.endCursor) return;
 
-    if (makeCursorKey(chunk.endCursor) !== chunkKey) {
-      freezeForward(parseCursorKey(chunkKey));
+    freezeForward(parseCursorKey(chunkKey));
+    if (pageSize === 1) {
+      if (Object.values(order)[0] === 'asc') {
+        pushNewForward(incrementCursor(chunk.endCursor));
+      } else {
+        pushNewForward(decrementCursor(chunk.endCursor));
+      }
+    } else {
+      pushNewForward(chunk.endCursor);
     }
-    pushNewForward(chunk.endCursor);
   };
 
   starterUnsub = db.subscribeQuery(
@@ -479,21 +485,12 @@ export const subscribeInfiniteQuery = <
         return;
       }
 
-      // If page size is 1, keep around the first item because the forward chunks will start
-      // at the second item.
-      if (pageSize !== 1) {
-        forwardChunks.delete(makeCursorKey(PRE_BOOTSTRAP_CURSOR));
-      } else {
-        setForwardChunk(PRE_BOOTSTRAP_CURSOR, {
-          data: rows,
-          status: 'pre-bootstrap',
-        });
-      }
+      forwardChunks.delete(makeCursorKey(PRE_BOOTSTRAP_CURSOR));
 
       // If pagesize is 1, disable including the start of the range because we already have it from
       // PRE_BOOTSTRAP_CURSOR, this allows us to "see" 1 if the data is [0, 1] because we don't
       // include 0 in the result
-      pushNewForward(initialForwardCursor, pageSize !== 1);
+      pushNewForward(initialForwardCursor, true);
       pushNewReverse(pageInfo.startCursor);
       hasKickstarted = true;
 
@@ -600,3 +597,47 @@ const splitAndValidateQuery = (fullQuery: Record<string, any>) => {
   }
   return { entityName, entityQuery };
 };
+
+function decrementCursor(cursor: Cursor): Cursor {
+  return [decrementUUID(cursor[0]), cursor[1], cursor[2], cursor[3]];
+}
+
+function incrementCursor(cursor: Cursor): Cursor {
+  return [incrementUUID(cursor[0]), cursor[1], cursor[2], cursor[3]];
+}
+
+function decrementUUID(uuid: string): string {
+  const hex = uuid
+    .replace(/-/g, '')
+    .split('')
+    .map((c) => parseInt(c, 16));
+
+  for (let i = hex.length - 1; i >= 0; i--) {
+    if (hex[i] > 0) {
+      hex[i]--;
+      break;
+    }
+    hex[i] = 15;
+  }
+
+  const flat = hex.map((n) => n.toString(16)).join('');
+  return `${flat.slice(0, 8)}-${flat.slice(8, 12)}-${flat.slice(12, 16)}-${flat.slice(16, 20)}-${flat.slice(20)}`;
+}
+
+function incrementUUID(uuid: string): string {
+  const hex = uuid
+    .replace(/-/g, '')
+    .split('')
+    .map((c) => parseInt(c, 16));
+
+  for (let i = hex.length - 1; i >= 0; i--) {
+    if (hex[i] < 15) {
+      hex[i]++;
+      break;
+    }
+    hex[i] = 0;
+  }
+
+  const flat = hex.map((n) => n.toString(16)).join('');
+  return `${flat.slice(0, 8)}-${flat.slice(8, 12)}-${flat.slice(12, 16)}-${flat.slice(16, 20)}-${flat.slice(20)}`;
+}

@@ -22,7 +22,6 @@ function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
     items: {
       $: {
         limit: pageSize,
-
         order: {
           value: 'asc',
         },

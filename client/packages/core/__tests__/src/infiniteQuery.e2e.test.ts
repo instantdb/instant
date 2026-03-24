@@ -393,7 +393,7 @@ describe('unique queries', () => {
     scrollSub.unsubscribe();
   });
 
-  test('page size 1', async ({ db }) => {
+  test('page size 1, asc', async ({ db }) => {
     let response: Record<string, any> = {};
     const callback = vi.fn<(response: any) => void>((resp) => {
       response = resp;
@@ -416,11 +416,38 @@ describe('unique queries', () => {
     await addNumberItem(db, 0);
     await addNumberItem(db, 1);
 
-    await expect.poll(() => getLoadedValues(response)).toEqual([0, 1]);
-    await addNumberItem(db, 2);
+    await expect.poll(() => getLoadedValues(response)).toEqual([0]);
     await expect.poll(() => response.canLoadNextPage).toEqual(true);
     scrollSub.loadNextPage();
-    await expect.poll(() => getLoadedValues(response)).toEqual([0, 1, 2]);
-    scrollSub.unsubscribe();
+    await expect.poll(() => getLoadedValues(response)).toEqual([0, 1]);
+  });
+
+  test('page size 1, desc', async ({ db }) => {
+    let response: Record<string, any> = {};
+    const callback = vi.fn<(response: any) => void>((resp) => {
+      response = resp;
+    });
+
+    const scrollSub = db.subscribeInfiniteQuery(
+      {
+        items: {
+          $: {
+            limit: 1,
+            order: {
+              value: 'desc',
+            },
+          },
+        },
+      },
+      callback,
+    );
+
+    await addNumberItem(db, 0);
+    await addNumberItem(db, -1);
+
+    await expect.poll(() => getLoadedValues(response)).toEqual([0]);
+    await expect.poll(() => response.canLoadNextPage).toEqual(true);
+    scrollSub.loadNextPage();
+    await expect.poll(() => getLoadedValues(response)).toEqual([0, -1]);
   });
 });
