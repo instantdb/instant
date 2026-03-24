@@ -1353,6 +1353,30 @@
                                                         :reason "user_is_member_of_org"})
                                                      removed_app_members_already_on_paid_org)}})))
 
+(defn app-set-magic-code-expiry [req]
+  (let [expiry (ex/get-param! req
+                              [:body :expiry]
+                              (fn [v]
+                                (try
+                                  (int v)
+                                  (catch Exception _
+                                    nil))))
+        {app :app} (req->app-and-user! :admin req)]
+    (when-not (pos? expiry)
+      (ex/throw-validation-err!
+       :app
+       {:magic-token-expiry-minutes expiry}
+       [{:message "The magic token expiry must be positive."}]))
+    (when (< (* 24 60) expiry)
+      (ex/throw-validation-err!
+       :app
+       {:magic-token-expiry-minutes expiry}
+       [{:message "The magic token expiry must be under 1,440 minutes (24 hours)."}]))
+
+    (let [updated-app (app-model/update-magic-code-expiration! {:id (:id app)
+                                                                :magic-code-expiry-minutes expiry})]
+      (response/ok {:app updated-app}))))
+
 ;; ---
 ;; Storage
 
@@ -1948,6 +1972,8 @@
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
   (POST "/dash/apps/:app_id/transfer_to_org/:org_id" [] app-transfer-to-org)
+
+  (POST "/dash/apps/:app_id/set-magic-code-expiry" [] app-set-magic-code-expiry)
 
   ;; Storage
   (PUT "/dash/apps/:app_id/storage/upload", [] upload-put)

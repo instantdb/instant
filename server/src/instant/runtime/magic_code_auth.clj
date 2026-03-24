@@ -1,11 +1,12 @@
 (ns instant.runtime.magic-code-auth
   (:require
-   [instant.postmark :as postmark]
    [clojure.string :as string]
+   [instant.flags :as flasg]
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-email-template :as app-email-template-model]
+   [instant.postmark :as postmark]
    [instant.rate-limit :as rate-limit]
    [instant.reactive.ephemeral :as eph]
    [instant.util.tracer :as tracer]
@@ -70,7 +71,7 @@
     (or (= code postmark-unconfirmed-sender-body-error-code)
         (= code postmark-not-found-sender-body-error-code))))
 
-(defn default-body [title code]
+(defn default-body [{:keys [title code expiration]}]
   (postmark/standard-body "<p><strong>Welcome,</strong></p>
         <p>
           You asked to join " title ". To complete your registration, use this
@@ -81,7 +82,7 @@
          Copy and paste this into the confirmation box, and you'll be on your way.
        </p>
        <p>
-         Note: This code will expire in 24 hours, and can only be used once. If you
+         Note: This code will expire in " expiration ", and can only be used once. If you
          didn't request this code, please reply to this email.
        </p>"))
 
@@ -105,6 +106,13 @@
 (comment
   (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"}))
 
+(defn friendly-expiration [app]
+  (let [minutes (app-model/get-magic-code-expiry-minutes (:id app))]
+    (if (<= 60 minutes)
+      (let [hours (int (Math/floor (/ minutes 60)))]
+        (format "%s hour%s" hours (if (> hours 1) "s" "")))
+      (format "%s minute%s" minutes (if (> minutes 1) "s" "")))))
+
 (defn send! [{:keys [app-id email] :as req}]
   (check-send-rate-limit! req)
   (let [app             (app-model/get-by-id! {:id app-id})
@@ -114,7 +122,8 @@
                           :email-type "magic-code"})
         template-params {:user_email email
                          :code code
-                         :app_title (:title app)}
+                         :app_title (:title app)
+                         :expiration (friendly-expiration app)}
 
         default-sender  "verify@auth-pm.instantdb.com"
 
@@ -127,7 +136,7 @@
                           {:sender-name (:title app)
                            :sender-email default-sender
                            :subject (str code " is your verification code for " (:title app))
-                           :body (default-body (:title app) code)})
+                           :body (default-body template-params)})
 
         email-req       (magic-code-email email email-params)
         email-res       (try
