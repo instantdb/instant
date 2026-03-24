@@ -430,7 +430,9 @@ export const subscribeInfiniteQuery = <
     // if (!chunk?.hasMore) return;
     if (!chunk.endCursor) return;
 
-    freezeForward(parseCursorKey(chunkKey));
+    if (makeCursorKey(chunk.endCursor) !== chunkKey) {
+      freezeForward(parseCursorKey(chunkKey));
+    }
     pushNewForward(chunk.endCursor);
   };
 
@@ -476,9 +478,16 @@ export const subscribeInfiniteQuery = <
       if (!initialForwardCursor) {
         return;
       }
-      forwardChunks.delete(makeCursorKey(PRE_BOOTSTRAP_CURSOR));
+      if (pageSize !== 1) {
+        forwardChunks.delete(makeCursorKey(PRE_BOOTSTRAP_CURSOR));
+      } else {
+        setForwardChunk(PRE_BOOTSTRAP_CURSOR, {
+          data: rows,
+          status: 'pre-bootstrap',
+        });
+      }
 
-      pushNewForward(initialForwardCursor, true);
+      pushNewForward(initialForwardCursor, pageSize !== 1);
       pushNewReverse(pageInfo.startCursor);
       hasKickstarted = true;
 
@@ -487,8 +496,10 @@ export const subscribeInfiniteQuery = <
       await db._reactor.querySubs.flush();
 
       // Unsubscribe the starter subscription
-      starterUnsub?.();
-      starterUnsub = null;
+      if (pageSize !== 1) {
+        starterUnsub?.();
+        starterUnsub = null;
+      }
     },
     opts,
   );
