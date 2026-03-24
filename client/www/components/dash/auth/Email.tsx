@@ -447,8 +447,8 @@ function MagicCodeExpirationSection({ app }: { app: InstantApp }) {
             Choose how long magic codes remain valid.
           </Content>
           <div className="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-            <strong>Recommended: 10 minutes.</strong> Shorter lifetimes
-            reduce the window for code interception.
+            <strong>Recommended: 10 minutes.</strong> Shorter lifetimes reduce
+            the window for code interception.
           </div>
           <div className="flex flex-col gap-2">
             {EXPIRY_OPTIONS.map((option) => (
