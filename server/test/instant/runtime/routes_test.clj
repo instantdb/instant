@@ -196,7 +196,7 @@
    (testing "with custom expiry"
      (with-empty-app
        (fn [{app-id :id :as app}]
-         (tool/inspect (app-model/update-magic-code-expiration! {:id app-id :magic-code-expiry-minutes 10}))
+         (app-model/update-magic-code-expiration! {:id app-id :magic-code-expiry-minutes 10})
          (let [code (send-code app {:email "a@b.c"})]
            (update-created-at app-id code (- (System/currentTimeMillis) (* 11 60 1000)))
            (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app {:email "a@b.c" :code code}))))
