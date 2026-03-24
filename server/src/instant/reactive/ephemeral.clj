@@ -501,7 +501,6 @@
                                                    (hz-gauges hz-realized))))))
 
 (defn shutdown-hz [hz-delay]
-  (tool/def-locals)
   (when-let [^HazelcastInstance hz (try (:hz @hz-delay) (catch Exception _e nil))]
     (.shutdown hz))
   (when-let [rate-limit (try (:rate-limit @hz-delay) (catch Exception _e nil))]
