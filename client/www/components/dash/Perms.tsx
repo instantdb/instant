@@ -183,7 +183,10 @@ export function Perms({
       </Button>
     ) : (
       <BaseSelect value={selectedVersion} onValueChange={setSelectedVersion}>
-        <SelectTrigger size="sm" className="data-[size=sm]:h-auto px-2 py-1 text-xs">
+        <SelectTrigger
+          size="sm"
+          className="px-2 py-1 text-xs data-[size=sm]:h-auto"
+        >
           <SelectValue>{selectedTriggerLabel}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -215,7 +218,10 @@ export function Perms({
       value={diffBase}
       onValueChange={(v) => setDiffBase(v as 'current' | 'previous')}
     >
-      <SelectTrigger size="sm" className="data-[size=sm]:h-auto px-2 py-1 text-xs">
+      <SelectTrigger
+        size="sm"
+        className="px-2 py-1 text-xs data-[size=sm]:h-auto"
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
