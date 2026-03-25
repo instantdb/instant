@@ -1,7 +1,22 @@
 import JsonParser from 'json5';
-import { useContext, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { formatDistance } from 'date-fns';
 
-import { Content, JSONEditor, SectionHeading } from '@/components/ui';
+import {
+  Button,
+  Content,
+  Dialog,
+  JSONDiffEditor,
+  JSONEditor,
+  SectionHeading,
+  useDialog,
+} from '@/components/ui';
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
@@ -12,6 +27,13 @@ import { InstantReactWebDatabase } from '@instantdb/react';
 import { FetchedDash, useFetchedDash } from './MainDashLayout';
 import permsJsonSchema from '@/lib/permsJsonSchema';
 import { useDarkMode } from './DarkModeToggle';
+import { apply } from '@/lib/editscript';
+
+type RuleVersion = {
+  version: number;
+  edits: [string[], string, any?][];
+  created_at: string;
+};
 
 export function Perms({
   app,
@@ -33,8 +55,159 @@ export function Perms({
 
   const schema = permsJsonSchema(namespaces);
   const dashResponse = useFetchedDash();
-
   const { darkMode } = useDarkMode();
+
+  const [versions, setVersions] = useState<RuleVersion[] | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<string>('current');
+
+  const fetchVersions = useCallback(async () => {
+    try {
+      const res = await jsonFetch(
+        `${config.apiURI}/dash/apps/${app.id}/rule-versions`,
+        {
+          method: 'GET',
+          headers: {
+            authorization: `Bearer ${token}`,
+            'content-type': 'application/json',
+          },
+        },
+      );
+      setVersions(res.versions);
+    } catch {
+      // silently fail — versions are optional
+    }
+  }, [app.id, token]);
+
+  useEffect(() => {
+    fetchVersions();
+  }, [fetchVersions]);
+
+  const selectedVersionNum =
+    selectedVersion === 'current' ? null : Number(selectedVersion);
+
+  // Reconstruct the rules at the selected version and the one before it.
+  // Each version's edits transform version N → version N-1.
+  const { reconstructedRules, previousRules } = useMemo(() => {
+    if (selectedVersionNum == null || !versions || !app.rules)
+      return { reconstructedRules: null, previousRules: null };
+
+    const sortedDesc = [...versions].sort((a, b) => b.version - a.version);
+    let rules: any = app.rules;
+
+    for (const v of sortedDesc) {
+      if (v.version <= selectedVersionNum) break;
+      const edits = v.edits.map((edit) => {
+        const [path, op, ...rest] = edit;
+        const jsOp = op.replace(/^:/, '');
+        return [path, jsOp, ...rest] as [string[], string, ...any[]];
+      });
+      rules = apply(rules, edits);
+    }
+
+    const reconstructed = rules;
+
+    // Apply the selected version's edits to get the prior version
+    const selectedV = versions.find((v) => v.version === selectedVersionNum);
+    let prior = null;
+    if (selectedV) {
+      const edits = selectedV.edits.map((edit) => {
+        const [path, op, ...rest] = edit;
+        const jsOp = op.replace(/^:/, '');
+        return [path, jsOp, ...rest] as [string[], string, ...any[]];
+      });
+      prior = apply(reconstructed, edits);
+    }
+
+    return { reconstructedRules: reconstructed, previousRules: prior };
+  }, [selectedVersionNum, versions, app.rules]);
+
+  const [diffBase, setDiffBase] = useState<'current' | 'previous'>('previous');
+
+  const restoreDialog = useDialog();
+  const [restoring, setRestoring] = useState(false);
+
+  const handleRestoreClick = async () => {
+    // Refetch to make sure we have the latest rules before showing the modal
+    await dashResponse.refetch();
+    restoreDialog.onOpen();
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (!reconstructedRules) return;
+    setRestoring(true);
+    const er = await onEditRules(
+      dashResponse,
+      app.id,
+      JSON.stringify(reconstructedRules),
+      token,
+    ).catch((error) => error);
+    setRestoring(false);
+    setErrorRes(er);
+    if (!er) {
+      restoreDialog.onClose();
+      setSelectedVersion('current');
+      setVersions(null);
+      fetchVersions();
+    }
+  };
+
+  const showingDiff = selectedVersionNum != null && reconstructedRules != null;
+
+  const sortedVersions = useMemo(() => {
+    if (!versions || versions.length === 0) return [];
+    return [...versions].sort((a, b) => b.version - a.version);
+  }, [versions]);
+
+  const isCurrentVersion =
+    sortedVersions.length > 0 &&
+    selectedVersionNum === sortedVersions[0].version;
+
+  const versionSelect = sortedVersions.length > 0 && (
+    <select
+      value={selectedVersion}
+      onChange={(e) => setSelectedVersion(e.target.value)}
+      className="rounded border border-gray-300 bg-white py-0.5 pl-2 pr-6 text-xs dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-200"
+    >
+      <option value="current">current</option>
+      <option disabled>──── changes ────</option>
+      {sortedVersions.map((v, i) => (
+        <option key={v.version} value={v.version}>
+          v{v.version}
+          {i === 0 ? ' (current)' : ''} —{' '}
+          {formatDistance(new Date(v.created_at), new Date(), {
+            addSuffix: true,
+          })}
+        </option>
+      ))}
+    </select>
+  );
+
+  const diffBaseSelect = showingDiff && !isCurrentVersion && (
+    <select
+      value={diffBase}
+      onChange={(e) => setDiffBase(e.target.value as 'current' | 'previous')}
+      className="rounded border border-gray-300 bg-white py-0.5 pl-2 pr-6 text-xs dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-200"
+    >
+      <option value="current">vs current</option>
+      <option value="previous">vs previous</option>
+    </select>
+  );
+
+  const editorLabel = (
+    <span className="text-sm flex items-center gap-2">
+      <span>
+        <span
+          className="text-sm font-bold text-yellow-600"
+          style={{ letterSpacing: '4px' }}
+        >
+          {'{}'}
+        </span>{' '}
+        rules.json
+      </span>
+      {versionSelect}
+      {diffBaseSelect}
+    </span>
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -66,32 +239,105 @@ export function Perms({
             </div>
           </div>
         )}
-        <JSONEditor
-          darkMode={darkMode}
-          label={
-            <span className="text-sm">
-              <span
-                className="text-sm font-bold text-yellow-600"
-                style={{ letterSpacing: '4px' }}
-              >
-                {'{}'}
-              </span>{' '}
-              rules.json
-            </span>
-          }
-          value={value}
-          schema={schema}
-          onSave={async (r) => {
-            const er = await onEditRules(dashResponse, app.id, r, token).catch(
-              (error) => error,
-            );
-            setErrorRes(er);
-          }}
-        />
+        {showingDiff ? (
+          <>
+            <JSONDiffEditor
+              key={`${selectedVersion}-${diffBase}`}
+              darkMode={darkMode}
+              original={
+                isCurrentVersion || diffBase === 'previous'
+                  ? JSON.stringify(previousRules, null, 2)
+                  : value
+              }
+              modified={
+                isCurrentVersion || diffBase === 'previous'
+                  ? JSON.stringify(reconstructedRules, null, 2)
+                  : JSON.stringify(reconstructedRules, null, 2)
+              }
+              label={editorLabel}
+              action={
+                <Button
+                  variant="secondary"
+                  size="mini"
+                  onClick={() => setSelectedVersion('current')}
+                >
+                  Close
+                </Button>
+              }
+            />
+            {!isCurrentVersion && (
+              <div className="flex items-center gap-3 border-t bg-gray-50 px-4 py-2 dark:border-t-neutral-700 dark:bg-[#252525]">
+                <Button size="mini" onClick={handleRestoreClick}>
+                  Restore this version
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <JSONEditor
+            darkMode={darkMode}
+            label={editorLabel}
+            value={value}
+            schema={schema}
+            onSave={async (r) => {
+              const er = await onEditRules(
+                dashResponse,
+                app.id,
+                r,
+                token,
+              ).catch((error) => error);
+              setErrorRes(er);
+              if (!er) fetchVersions();
+            }}
+          />
+        )}
       </div>
+      <Dialog
+        title={`Restore to v${selectedVersionNum}?`}
+        open={restoreDialog.open}
+        onClose={restoreDialog.onClose}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-600 dark:text-neutral-300">
+            This will replace your current permissions with the rules from v
+            {selectedVersionNum}.
+          </p>
+          <div className="h-80 rounded border dark:border-neutral-700">
+            <JSONDiffEditor
+              key={`restore-${selectedVersionNum}`}
+              darkMode={darkMode}
+              original={value}
+              modified={JSON.stringify(reconstructedRules, null, 2)}
+              label={
+                <span className="text-xs text-gray-500 dark:text-neutral-400">
+                  current → v{selectedVersionNum}
+                </span>
+              }
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="destructive"
+              size="mini"
+              onClick={handleRestoreConfirm}
+            >
+              {restoring ? 'Restoring...' : `Restore to v${selectedVersionNum}`}
+            </Button>
+            <Button
+              variant="secondary"
+              size="mini"
+              onClick={restoreDialog.onClose}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
+
+// --- Helpers ---
 
 async function onEditRules(
   dashResponse: FetchedDash,

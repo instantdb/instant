@@ -59,6 +59,7 @@ export const {
   TooltipTrigger,
   CodeEditor,
   Fence,
+  JSONDiffEditor,
   JSONEditor,
   Switch,
 } = ui;

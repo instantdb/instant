@@ -34,7 +34,8 @@
       ::put!
       conn
       ["INSERT INTO rules (app_id, code) VALUES (?::uuid, ?::jsonb)
-          ON CONFLICT (app_id) DO UPDATE SET code = excluded.code"
+          ON CONFLICT (app_id) DO UPDATE SET code = excluded.code, version = rules.version + 1
+          WHERE rules.code IS DISTINCT FROM excluded.code"
        app-id (->json code)]))))
 
 (defn merge!
@@ -85,6 +86,15 @@
                (assoc acc app-id (get row-by-app-id app-id)))
              {}
              app-ids))))
+
+(defn get-versions
+  ([params] (get-versions (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id limit] :or {limit 50}}]
+   (sql/select ::get-versions
+               conn
+               ["SELECT version, edits, created_at FROM rule_versions
+                 WHERE app_id = ?::uuid ORDER BY version DESC LIMIT ?"
+                app-id limit])))
 
 (defn delete-by-app-id!
   ([params] (delete-by-app-id! (aurora/conn-pool :write) params))

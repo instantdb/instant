@@ -1,7 +1,7 @@
 'use client';
 import { Toaster, toast } from 'sonner';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { Editor, Monaco, OnMount } from '@monaco-editor/react';
+import { DiffEditor, Editor, Monaco, OnMount } from '@monaco-editor/react';
 import type { ClassValue } from 'clsx';
 import clsx from 'clsx';
 import copy from 'copy-to-clipboard';
@@ -1441,7 +1441,12 @@ export function JSONEditor(props: {
     <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
       <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
         <div className="font-mono">{props.label}</div>
-        <Button size="mini" onClick={() => props.onSave(draft)}>
+        <Button
+          size="mini"
+          disabled={draft === props.value}
+          title={draft === props.value ? 'No changes' : undefined}
+          onClick={() => props.onSave(draft)}
+        >
           Save
         </Button>
       </div>
@@ -1476,6 +1481,43 @@ export function JSONEditor(props: {
               }, 20);
             });
           }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function JSONDiffEditor(props: {
+  original: string;
+  modified: string;
+  darkMode: boolean;
+  label: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
+      <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
+        <div className="font-mono">{props.label}</div>
+        {props.action}
+      </div>
+      <div className="min-h-0 grow">
+        <DiffEditor
+          theme={props.darkMode ? 'vs-dark' : 'vs-light'}
+          height={'100%'}
+          language="json"
+          original={props.original}
+          modified={props.modified}
+          options={{
+            scrollBeyondLastLine: false,
+            overviewRulerLanes: 0,
+            hideCursorInOverviewRuler: true,
+            minimap: { enabled: false },
+            automaticLayout: true,
+            readOnly: true,
+            renderSideBySide: false,
+            renderOverviewRuler: false,
+          }}
+          loading={<FullscreenLoading />}
         />
       </div>
     </div>
