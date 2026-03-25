@@ -1494,11 +1494,22 @@ export function JSONDiffEditor(props: {
   label: ReactNode;
   action?: ReactNode;
 }) {
+  const [sideBySide, setSideBySide] = useState(false);
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
       <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
         <div className="font-mono">{props.label}</div>
-        {props.action}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSideBySide((v) => !v)}
+            title={sideBySide ? 'Inline diff' : 'Side-by-side diff'}
+            className="rounded px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-200 dark:text-neutral-400 dark:hover:bg-neutral-700"
+          >
+            {sideBySide ? 'Inline' : 'Split'}
+          </button>
+          {props.action}
+        </div>
       </div>
       <div className="min-h-0 grow">
         <DiffEditor
@@ -1514,7 +1525,7 @@ export function JSONDiffEditor(props: {
             minimap: { enabled: false },
             automaticLayout: true,
             readOnly: true,
-            renderSideBySide: false,
+            renderSideBySide: sideBySide,
             renderOverviewRuler: false,
           }}
           loading={<FullscreenLoading />}

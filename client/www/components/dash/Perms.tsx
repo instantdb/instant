@@ -90,20 +90,22 @@ export function Perms({
 
   const restoreDialog = useDialog();
   const [restoring, setRestoring] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<any>(null);
 
-  const handleRestoreClick = async () => {
+  const handleRestoreClick = async (target: any) => {
+    setRestoreTarget(target);
     // Refetch to make sure we have the latest rules before showing the modal
     await dashResponse.refetch();
     restoreDialog.onOpen();
   };
 
   const handleRestoreConfirm = async () => {
-    if (!reconstructedRules) return;
+    if (!restoreTarget) return;
     setRestoring(true);
     const er = await onEditRules(
       dashResponse,
       app.id,
-      JSON.stringify(reconstructedRules),
+      JSON.stringify(restoreTarget),
       token,
     ).catch((error) => error);
     setRestoring(false);
@@ -229,13 +231,25 @@ export function Perms({
                 </Button>
               }
             />
-            {!isCurrentVersion && (
-              <div className="flex items-center gap-3 border-t bg-gray-50 px-4 py-2 dark:border-t-neutral-700 dark:bg-[#252525]">
-                <Button size="mini" onClick={handleRestoreClick}>
+            <div className="flex items-center gap-3 border-t bg-gray-50 px-4 py-2 dark:border-t-neutral-700 dark:bg-[#252525]">
+              {isCurrentVersion ? (
+                previousRules && (
+                  <Button
+                    size="mini"
+                    onClick={() => handleRestoreClick(previousRules)}
+                  >
+                    Restore previous version
+                  </Button>
+                )
+              ) : (
+                <Button
+                  size="mini"
+                  onClick={() => handleRestoreClick(reconstructedRules)}
+                >
                   Restore this version
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </>
         ) : (
           <JSONEditor
@@ -257,24 +271,30 @@ export function Perms({
         )}
       </div>
       <Dialog
-        title={`Restore to v${selectedVersionNum}?`}
+        title="Restore permissions"
+        className="sm:max-w-3xl"
         open={restoreDialog.open}
         onClose={restoreDialog.onClose}
       >
         <div className="flex flex-col gap-4">
+          <h3 className="text-lg font-semibold dark:text-neutral-100">
+            Restore permissions
+          </h3>
           <p className="text-sm text-gray-600 dark:text-neutral-300">
-            This will replace your current permissions with the rules from v
-            {selectedVersionNum}.
+            This will replace your current permissions with the selected
+            version. Review the changes below.
           </p>
-          <div className="h-80 rounded border dark:border-neutral-700">
+          <div className="h-[70vh] rounded border dark:border-neutral-700">
             <JSONDiffEditor
               key={`restore-${selectedVersionNum}`}
               darkMode={darkMode}
               original={value}
-              modified={JSON.stringify(reconstructedRules, null, 2)}
+              modified={
+                restoreTarget ? JSON.stringify(restoreTarget, null, 2) : ''
+              }
               label={
                 <span className="text-xs text-gray-500 dark:text-neutral-400">
-                  current → v{selectedVersionNum}
+                  current → restored
                 </span>
               }
             />
@@ -285,7 +305,7 @@ export function Perms({
               size="mini"
               onClick={handleRestoreConfirm}
             >
-              {restoring ? 'Restoring...' : `Restore to v${selectedVersionNum}`}
+              {restoring ? 'Restoring...' : 'Restore'}
             </Button>
             <Button
               variant="secondary"
