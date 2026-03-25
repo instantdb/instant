@@ -1525,6 +1525,7 @@ export function JSONDiffEditor(props: {
             minimap: { enabled: false },
             automaticLayout: true,
             readOnly: true,
+            domReadOnly: true,
             renderSideBySide: sideBySide,
             renderOverviewRuler: false,
           }}
