@@ -60,13 +60,26 @@ export function Perms({
   );
   const versions = versionsResponse.data?.versions ?? null;
 
+  // Check that the version list is in sync with the current rules
+  const latestVersion =
+    versions && versions.length > 0
+      ? Math.max(...versions.map((v) => v.version))
+      : null;
+  const versionsInSync =
+    latestVersion != null && latestVersion === app.rules_version;
+
   const selectedVersionNum =
     selectedVersion === 'current' ? null : Number(selectedVersion);
 
   // Reconstruct the rules at the selected version and the one before it.
   // Each version's edits transform version N → version N-1.
   const { reconstructedRules, previousRules } = useMemo(() => {
-    if (selectedVersionNum == null || !versions || !app.rules)
+    if (
+      selectedVersionNum == null ||
+      !versionsInSync ||
+      !versions ||
+      !app.rules
+    )
       return { reconstructedRules: null, previousRules: null };
 
     const sortedDesc = [...versions].sort((a, b) => b.version - a.version);
@@ -84,7 +97,7 @@ export function Perms({
     const prior = selectedV ? apply(reconstructed, selectedV.edits) : null;
 
     return { reconstructedRules: reconstructed, previousRules: prior };
-  }, [selectedVersionNum, versions, app.rules]);
+  }, [selectedVersionNum, versionsInSync, versions, app.rules]);
 
   const [diffBase, setDiffBase] = useState<'current' | 'previous'>('previous');
 
@@ -321,13 +334,17 @@ function stringifyForDiff(
   a: any,
   b: any,
 ): { original: string; modified: string } {
+  const isObj = (v: any): v is Record<string, any> =>
+    v != null && typeof v === 'object' && !Array.isArray(v);
+
   const sortKeys = (obj: any, other: any): any => {
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+    if (!isObj(obj)) return obj;
+    const otherIsObj = isObj(other);
     const changed: string[] = [];
     const unchanged: string[] = [];
     for (const key of Object.keys(obj)) {
       if (
-        other == null ||
+        !otherIsObj ||
         !(key in other) ||
         JSON.stringify(obj[key]) !== JSON.stringify(other[key])
       ) {
@@ -338,7 +355,7 @@ function stringifyForDiff(
     }
     const sorted: any = {};
     for (const key of [...changed, ...unchanged]) {
-      sorted[key] = sortKeys(obj[key], other?.[key]);
+      sorted[key] = sortKeys(obj[key], otherIsObj ? other[key] : undefined);
     }
     return sorted;
   };

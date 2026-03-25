@@ -189,6 +189,7 @@
     :select [:a.*
              [:at.token :admin_token]
              [:r.code :rules]
+             [:r.version :rules_version]
              [[:case [:= nil :org.id] nil
                :else [:json_build_object
                       [:inline "id"] :org.id
