@@ -79,8 +79,9 @@ export function Perms({
       !versionsInSync ||
       !versions ||
       !app.rules
-    )
+    ) {
       return { reconstructedRules: null, previousRules: null };
+    }
 
     const sortedDesc = [...versions].sort((a, b) => b.version - a.version);
 
@@ -127,18 +128,23 @@ export function Perms({
   const handleRestoreConfirm = async () => {
     if (!restoreTarget) return;
     setRestoring(true);
-    const er = await onEditRules(
-      dashResponse,
-      app.id,
-      JSON.stringify(restoreTarget),
-      token,
-    ).catch((error) => error);
-    setRestoring(false);
-    setErrorRes(er);
-    if (!er) {
+    try {
+      await onEditRules(
+        dashResponse,
+        app.id,
+        JSON.stringify(restoreTarget),
+        token,
+      );
+      setErrorRes(null);
       restoreDialog.onClose();
       setSelectedVersion('current');
       versionsResponse.mutate();
+    } catch (error: any) {
+      if (error?.message && error?.in) {
+        setErrorRes(error);
+      }
+    } finally {
+      setRestoring(false);
     }
   };
 
