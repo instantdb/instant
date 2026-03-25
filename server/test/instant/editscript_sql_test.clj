@@ -46,11 +46,11 @@
 (defn- sql-edits->es-edits
   "Convert SQL editscript edits (string ops) to editscript library format (keyword ops).
    Paths stay as-is (strings for object keys, ints for array indices).
-   Only the op string like \":+\" becomes the keyword :+."
+   Only the op string like \"+\" becomes the keyword :+."
   [edits]
   (mapv (fn [edit]
           (let [path (vec (first edit))
-                op (keyword (subs (second edit) 1))]
+                op (keyword (second edit))]
             (if (> (count edit) 2)
               [path op (nth edit 2)]
               [path op])))
@@ -329,23 +329,23 @@
     (is (= [] (sql-diff "hello" "hello"))))
 
   (testing "Root scalar replace"
-    (is (= [[[] ":r" 2]] (sql-diff 1 2))))
+    (is (= [[[] "r" 2]] (sql-diff 1 2))))
 
   (testing "Object key add"
     (let [script (sql-diff {"a" 1} {"a" 1 "b" 2})]
       (is (= 1 (count script)))
-      (is (= ":+" (get-in script [0 1])))))
+      (is (= "+" (get-in script [0 1])))))
 
   (testing "Object key remove"
     (let [script (sql-diff {"a" 1 "b" 2} {"a" 1})]
       (is (= 1 (count script)))
-      (is (= ":-" (get-in script [0 1])))))
+      (is (= "-" (get-in script [0 1])))))
 
   (testing "Array element delete via LCS"
     ;; [1 2 3] -> [1 3] should produce a delete, not two replaces
     (let [script (sql-diff [1 2 3] [1 3])]
       (is (= 1 (count script)) (str "Expected 1 edit, got: " (pr-str script)))
-      (is (= ":-" (get-in script [0 1]))))))
+      (is (= "-" (get-in script [0 1]))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Edge cases

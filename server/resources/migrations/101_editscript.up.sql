@@ -25,7 +25,7 @@ end;
 $$;
 
 -- Wu O(NP) vector edit algorithm + min+plus->replace.
--- Returns a jsonb array of ops: integers (match count), ":-", ":+", ":r".
+-- Returns a jsonb array of ops: integers (match count), "-", "+", "r".
 -- Based on vec-edits and min+plus->replace from editscript.util.common.
 create or replace function editscript_vec_edits(a jsonb, b jsonb)
 returns jsonb
@@ -86,10 +86,10 @@ begin
       dk_p1 := fp_x[k + 1 + fp_offset];
       if dk_m1 > dk_p1 then
         x := dk_m1;
-        cur_ops := fp_ops[k - 1 + fp_offset] || '":-"'::jsonb;
+        cur_ops := fp_ops[k - 1 + fp_offset] || '"-"'::jsonb;
       else
         x := dk_p1;
-        cur_ops := fp_ops[k + 1 + fp_offset] || '":+"'::jsonb;
+        cur_ops := fp_ops[k + 1 + fp_offset] || '"+"'::jsonb;
       end if;
       y := x - k;
       snake_start := x;
@@ -110,10 +110,10 @@ begin
       dk_p1 := fp_x[k + 1 + fp_offset];
       if dk_m1 > dk_p1 then
         x := dk_m1;
-        cur_ops := fp_ops[k - 1 + fp_offset] || '":-"'::jsonb;
+        cur_ops := fp_ops[k - 1 + fp_offset] || '"-"'::jsonb;
       else
         x := dk_p1;
-        cur_ops := fp_ops[k + 1 + fp_offset] || '":+"'::jsonb;
+        cur_ops := fp_ops[k + 1 + fp_offset] || '"+"'::jsonb;
       end if;
       y := x - k;
       snake_start := x;
@@ -134,10 +134,10 @@ begin
     dk_p1 := fp_x[k + 1 + fp_offset];
     if dk_m1 > dk_p1 then
       x := dk_m1;
-      cur_ops := fp_ops[k - 1 + fp_offset] || '":-"'::jsonb;
+      cur_ops := fp_ops[k - 1 + fp_offset] || '"-"'::jsonb;
     else
       x := dk_p1;
-      cur_ops := fp_ops[k + 1 + fp_offset] || '":+"'::jsonb;
+      cur_ops := fp_ops[k + 1 + fp_offset] || '"+"'::jsonb;
     end if;
     y := x - k;
     snake_start := x;
@@ -152,7 +152,7 @@ begin
 
     -- Check termination
     if fp_x[delta + fp_offset] >= n then
-      -- Drop the first op (spurious :- or :+ from initialization)
+      -- Drop the first op (spurious - or + from initialization)
       tmp_ops := fp_ops[delta + fp_offset];
       raw_ops := '[]'::jsonb;
       for i in 1..jsonb_array_length(tmp_ops) - 1 loop
@@ -164,15 +164,15 @@ begin
     p := p + 1;
   end loop;
 
-  -- If we swapped a and b, swap the ops: :- <-> :+
+  -- If we swapped a and b, swap the ops: - <-> +
   if swapped then
     tmp_ops := '[]'::jsonb;
     for i in 0..jsonb_array_length(raw_ops) - 1 loop
       op_val := raw_ops -> i;
-      if op_val = '":-"'::jsonb then
-        tmp_ops := tmp_ops || '":+"'::jsonb;
-      elsif op_val = '":+"'::jsonb then
-        tmp_ops := tmp_ops || '":-"'::jsonb;
+      if op_val = '"-"'::jsonb then
+        tmp_ops := tmp_ops || '"+"'::jsonb;
+      elsif op_val = '"+"'::jsonb then
+        tmp_ops := tmp_ops || '"-"'::jsonb;
       else
         tmp_ops := tmp_ops || op_val;
       end if;
@@ -180,7 +180,7 @@ begin
     raw_ops := tmp_ops;
   end if;
 
-  -- min+plus->replace: convert adjacent :-/:+ pairs into :r
+  -- min+plus->replace: convert adjacent -/+ pairs into r
   -- Equivalent to editscript.util.common/min+plus->replace
   i := 0;
   while i < jsonb_array_length(raw_ops) loop
@@ -217,29 +217,29 @@ begin
         rs_count := greatest(mc, pc) - abs_delta;
 
         if mc < pc then
-          -- More of the other type: :r's first, then remaining other
+          -- More of the other type: r's first, then remaining other
           for j in 1..rs_count loop
-            result_ops := result_ops || '":r"'::jsonb;
+            result_ops := result_ops || '"r"'::jsonb;
           end loop;
           for j in 1..abs_delta loop
-            if first_op = '":-"'::jsonb then
-              result_ops := result_ops || '":+"'::jsonb;
+            if first_op = '"-"'::jsonb then
+              result_ops := result_ops || '"+"'::jsonb;
             else
-              result_ops := result_ops || '":-"'::jsonb;
+              result_ops := result_ops || '"-"'::jsonb;
             end if;
           end loop;
         elsif mc = pc then
-          -- Equal: all :r
+          -- Equal: all r
           for j in 1..rs_count loop
-            result_ops := result_ops || '":r"'::jsonb;
+            result_ops := result_ops || '"r"'::jsonb;
           end loop;
         else
-          -- More of first type: remaining first, then :r's
+          -- More of first type: remaining first, then r's
           for j in 1..abs_delta loop
             result_ops := result_ops || first_op;
           end loop;
           for j in 1..rs_count loop
-            result_ops := result_ops || '":r"'::jsonb;
+            result_ops := result_ops || '"r"'::jsonb;
           end loop;
         end if;
       end if;
@@ -252,7 +252,7 @@ $$;
 
 -- Generate editscript (forward): produces edits to transform old_data -> new_data.
 -- Uses Wu O(NP) diff for arrays (same algorithm as editscript's quick diff).
--- Edit format: [[path, op, ?value], ...] where op is ":+", ":-", or ":r".
+-- Edit format: [[path, op, ?value], ...] where op is "+", "-", or "r".
 create or replace function generate_editscript_edits(
   old_data jsonb,
   new_data jsonb,
@@ -281,10 +281,10 @@ begin
     return edits;
   end if;
   if old_data is null then
-    return jsonb_build_array(jsonb_build_array(path, ':+', new_data));
+    return jsonb_build_array(jsonb_build_array(path, '+', new_data));
   end if;
   if new_data is null then
-    return jsonb_build_array(jsonb_build_array(path, ':-'));
+    return jsonb_build_array(jsonb_build_array(path, '-'));
   end if;
 
   -- Both non-null; check deep equality
@@ -294,7 +294,7 @@ begin
 
   -- Different types -> replace
   if jsonb_typeof(old_data) != jsonb_typeof(new_data) then
-    return jsonb_build_array(jsonb_build_array(path, ':r', new_data));
+    return jsonb_build_array(jsonb_build_array(path, 'r', new_data));
   end if;
 
   -- Objects: key-by-key comparison with recursion
@@ -302,7 +302,7 @@ begin
     -- Keys in old
     for key, old_val in select * from jsonb_each(old_data) loop
       if not new_data ? key then
-        edits := edits || jsonb_build_array(jsonb_build_array(path || to_jsonb(key), ':-'));
+        edits := edits || jsonb_build_array(jsonb_build_array(path || to_jsonb(key), '-'));
       else
         new_val := new_data -> key;
         if old_val is distinct from new_val then
@@ -316,7 +316,7 @@ begin
     for key in select * from jsonb_object_keys(new_data) loop
       if not old_data ? key then
         edits := edits || jsonb_build_array(
-          jsonb_build_array(path || to_jsonb(key), ':+', new_data -> key));
+          jsonb_build_array(path || to_jsonb(key), '+', new_data -> key));
       end if;
     end loop;
 
@@ -330,12 +330,12 @@ begin
 
     -- For very large arrays, fall back to full replacement
     if old_len > 1000 or new_len > 1000 then
-      return jsonb_build_array(jsonb_build_array(path, ':r', new_data));
+      return jsonb_build_array(jsonb_build_array(path, 'r', new_data));
     end if;
 
     -- Handle empty arrays
     if old_len = 0 or new_len = 0 then
-      return jsonb_build_array(jsonb_build_array(path, ':r', new_data));
+      return jsonb_build_array(jsonb_build_array(path, 'r', new_data));
     end if;
 
     -- Get Wu edit ops
@@ -357,21 +357,21 @@ begin
         ia2 := ia2 + n_int;
         ib := ib + n_int;
 
-      elsif op_val = '":-"'::jsonb then
+      elsif op_val = '"-"'::jsonb then
         -- Delete old[ia] at current position ia2
         edits := edits || jsonb_build_array(
-          jsonb_build_array(path || to_jsonb(ia2), ':-'));
+          jsonb_build_array(path || to_jsonb(ia2), '-'));
         ia := ia + 1;
         -- ia2 stays (deletion shifts left)
 
-      elsif op_val = '":+"'::jsonb then
+      elsif op_val = '"+"'::jsonb then
         -- Insert new[ib] at current position ia2
         edits := edits || jsonb_build_array(
-          jsonb_build_array(path || to_jsonb(ia2), ':+', new_data -> ib));
+          jsonb_build_array(path || to_jsonb(ia2), '+', new_data -> ib));
         ia2 := ia2 + 1;
         ib := ib + 1;
 
-      elsif op_val = '":r"'::jsonb then
+      elsif op_val = '"r"'::jsonb then
         -- Replace: recursively diff old[ia] and new[ib]
         child_edits := generate_editscript_edits(
           old_data -> ia, new_data -> ib, path || to_jsonb(ia2));
@@ -386,7 +386,7 @@ begin
   end if;
 
   -- Scalars (string, number, boolean, json-null) - already checked equality
-  return jsonb_build_array(jsonb_build_array(path, ':r', new_data));
+  return jsonb_build_array(jsonb_build_array(path, 'r', new_data));
 end;
 $$;
 
@@ -415,17 +415,17 @@ begin
     -- Root-level operation (empty path)
     if array_length(path_arr, 1) is null then
       case op
-        when ':r', ':+' then target := val;
-        when ':-' then target := null;
+        when 'r', '+' then target := val;
+        when '-' then target := null;
       end case;
       continue;
     end if;
 
-    if op = ':r' then
+    if op = 'r' then
       target := jsonb_set(target, path_arr, val, true);
-    elsif op = ':-' then
+    elsif op = '-' then
       target := target #- path_arr;
-    elsif op = ':+' then
+    elsif op = '+' then
       -- Need to distinguish object add vs array insert
       if array_length(path_arr, 1) = 1 then
         parent := target;

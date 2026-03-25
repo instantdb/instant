@@ -1,11 +1,5 @@
 import JsonParser from 'json5';
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { formatDistance } from 'date-fns';
 
 import {
@@ -19,6 +13,7 @@ import {
 } from '@/components/ui';
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
+import { useTokenFetch } from '@/lib/auth';
 import { jsonFetch } from '@/lib/fetch';
 import { errorToast, successToast } from '@/lib/toast';
 import { InstantApp, SchemaNamespace } from '@/lib/types';
@@ -57,30 +52,13 @@ export function Perms({
   const dashResponse = useFetchedDash();
   const { darkMode } = useDarkMode();
 
-  const [versions, setVersions] = useState<RuleVersion[] | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<string>('current');
 
-  const fetchVersions = useCallback(async () => {
-    try {
-      const res = await jsonFetch(
-        `${config.apiURI}/dash/apps/${app.id}/rule-versions`,
-        {
-          method: 'GET',
-          headers: {
-            authorization: `Bearer ${token}`,
-            'content-type': 'application/json',
-          },
-        },
-      );
-      setVersions(res.versions);
-    } catch {
-      // silently fail — versions are optional
-    }
-  }, [app.id, token]);
-
-  useEffect(() => {
-    fetchVersions();
-  }, [fetchVersions]);
+  const versionsResponse = useTokenFetch<{ versions: RuleVersion[] }>(
+    `${config.apiURI}/dash/apps/${app.id}/rule-versions`,
+    token,
+  );
+  const versions = versionsResponse.data?.versions ?? null;
 
   const selectedVersionNum =
     selectedVersion === 'current' ? null : Number(selectedVersion);
@@ -96,27 +74,14 @@ export function Perms({
 
     for (const v of sortedDesc) {
       if (v.version <= selectedVersionNum) break;
-      const edits = v.edits.map((edit) => {
-        const [path, op, ...rest] = edit;
-        const jsOp = op.replace(/^:/, '');
-        return [path, jsOp, ...rest] as [string[], string, ...any[]];
-      });
-      rules = apply(rules, edits);
+      rules = apply(rules, v.edits);
     }
 
     const reconstructed = rules;
 
     // Apply the selected version's edits to get the prior version
     const selectedV = versions.find((v) => v.version === selectedVersionNum);
-    let prior = null;
-    if (selectedV) {
-      const edits = selectedV.edits.map((edit) => {
-        const [path, op, ...rest] = edit;
-        const jsOp = op.replace(/^:/, '');
-        return [path, jsOp, ...rest] as [string[], string, ...any[]];
-      });
-      prior = apply(reconstructed, edits);
-    }
+    const prior = selectedV ? apply(reconstructed, selectedV.edits) : null;
 
     return { reconstructedRules: reconstructed, previousRules: prior };
   }, [selectedVersionNum, versions, app.rules]);
@@ -146,8 +111,7 @@ export function Perms({
     if (!er) {
       restoreDialog.onClose();
       setSelectedVersion('current');
-      setVersions(null);
-      fetchVersions();
+      versionsResponse.mutate();
     }
   };
 
@@ -287,7 +251,7 @@ export function Perms({
                 token,
               ).catch((error) => error);
               setErrorRes(er);
-              if (!er) fetchVersions();
+              if (!er) versionsResponse.mutate();
             }}
           />
         )}
