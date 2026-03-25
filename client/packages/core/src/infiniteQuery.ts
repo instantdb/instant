@@ -463,8 +463,13 @@ export const subscribeInfiniteQuery = <
       },
     } as unknown as Q,
     async (starterData) => {
-      if (hasKickstarted) return;
+      console.log('starter data', JSON.stringify(starterData, null, 2));
+      if (hasKickstarted) {
+        console.log('has kickstarted');
+        return;
+      }
       if (starterData.error) {
+        console.error(starterData.error);
         return sendError(starterData.error);
       }
       const pageInfo = starterData.pageInfo[entity];
@@ -473,6 +478,7 @@ export const subscribeInfiniteQuery = <
       assert(rows && pageInfo, 'Expected rows and pageInfo');
 
       if (rows.length < pageSize) {
+        console.log('rows.length smaller than page size');
         // If the rows are less than the page size, then we don't need to
         // create forward and reverse chunks.
         // We just treat the starter query as a forward chunk
@@ -490,6 +496,7 @@ export const subscribeInfiniteQuery = <
       // server.
       const initialForwardCursor = pageInfo.startCursor;
       if (!initialForwardCursor) {
+        console.log('no initial forward cursor');
         return;
       }
 
@@ -504,7 +511,9 @@ export const subscribeInfiniteQuery = <
 
       // Flush the initial boostrap querysub data
       // because immediately unsubscribing will never save it for offline in idb
+      console.log('waiting for flush');
       await db._reactor.querySubs.flush();
+      console.log('flush succeeded');
 
       // Unsubscribe the starter subscription
       starterUnsub?.();
