@@ -83,6 +83,14 @@ export function Perms({
       return { reconstructedRules: null, previousRules: null };
 
     const sortedDesc = [...versions].sort((a, b) => b.version - a.version);
+
+    // Check for gaps — versions must be consecutive
+    for (let i = 0; i < sortedDesc.length - 1; i++) {
+      if (sortedDesc[i].version - sortedDesc[i + 1].version !== 1) {
+        return { reconstructedRules: null, previousRules: null };
+      }
+    }
+
     let rules: any = app.rules;
 
     for (const v of sortedDesc) {
