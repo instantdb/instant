@@ -1510,6 +1510,16 @@ export function JSONDiffEditor(props: {
   action?: ReactNode;
 }) {
   const [sideBySide, setSideBySide] = useLocalStorage('diffSideBySide', false);
+  const diffEditorRef = useRef<any>(null);
+
+  useEffect(() => {
+    const editor = diffEditorRef.current;
+    if (!editor) return;
+    editor.updateOptions({ renderSideBySide: sideBySide });
+    editor.getOriginalEditor().updateOptions({
+      lineNumbers: sideBySide ? 'on' : 'off',
+    });
+  }, [sideBySide]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
@@ -1543,6 +1553,12 @@ export function JSONDiffEditor(props: {
             domReadOnly: true,
             renderSideBySide: sideBySide,
             renderOverviewRuler: false,
+          }}
+          onMount={(editor) => {
+            diffEditorRef.current = editor;
+            if (!sideBySide) {
+              editor.getOriginalEditor().updateOptions({ lineNumbers: 'off' });
+            }
           }}
           loading={<FullscreenLoading />}
         />

@@ -169,37 +169,46 @@ export function Perms({
     sortedVersions.length > 0 &&
     selectedVersionNum === sortedVersions[0].version;
 
-  const selectedTriggerLabel =
-    selectedVersion === 'current'
-      ? 'current'
-      : `v${selectedVersion}${isCurrentVersion ? ' (current)' : ''}`;
+  const selectedTriggerLabel = `v${selectedVersion}${isCurrentVersion ? ' (latest)' : ''}`;
 
-  const versionSelect = sortedVersions.length > 0 && (
-    <BaseSelect
-      value={selectedVersion}
-      onValueChange={setSelectedVersion}
-    >
-      <SelectTrigger className="text-xs">
-        <SelectValue>{selectedTriggerLabel}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="current">current</SelectItem>
-        <SelectSeparator />
-        <SelectGroup>
-          <SelectLabel className="text-xs text-gray-400">Changes</SelectLabel>
-          {sortedVersions.map((v, i) => (
-            <SelectItem key={v.version} value={String(v.version)}>
-              v{v.version}
-              {i === 0 ? ' (current)' : ''} —{' '}
-              {formatDistance(new Date(v.created_at), new Date(), {
-                addSuffix: true,
-              })}
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </BaseSelect>
-  );
+  const versionPicker =
+    sortedVersions.length > 0 &&
+    (selectedVersion === 'current' ? (
+      <Button
+        variant="secondary"
+        size="nano"
+        onClick={() => setSelectedVersion(String(sortedVersions[0].version))}
+      >
+        Diff
+      </Button>
+    ) : (
+      <BaseSelect value={selectedVersion} onValueChange={setSelectedVersion}>
+        <SelectTrigger className="text-xs">
+          <SelectValue>{selectedTriggerLabel}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="current">latest</SelectItem>
+          <SelectSeparator />
+          <SelectGroup>
+            <SelectLabel className="text-xs text-gray-400">Changes</SelectLabel>
+            {sortedVersions.map((v, i) => (
+              <SelectItem key={v.version} value={String(v.version)}>
+                v{v.version}
+                {i === 0 ? ' (latest)' : ''} —{' '}
+                {formatDistance(new Date(v.created_at), new Date(), {
+                  addSuffix: true,
+                })}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </BaseSelect>
+    ));
+
+  const latestVersionNum =
+    sortedVersions.length > 0 ? sortedVersions[0].version : null;
+  const previousVersionNum =
+    selectedVersionNum != null ? selectedVersionNum - 1 : null;
 
   const diffBaseSelect = showingDiff && !isCurrentVersion && (
     <BaseSelect
@@ -210,8 +219,10 @@ export function Perms({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="previous">vs previous</SelectItem>
-        <SelectItem value="current">vs current</SelectItem>
+        <SelectItem value="previous">compare v{previousVersionNum}</SelectItem>
+        <SelectItem value="current">
+          compare v{latestVersionNum} (latest)
+        </SelectItem>
       </SelectContent>
     </BaseSelect>
   );
@@ -227,7 +238,7 @@ export function Perms({
         </span>{' '}
         rules.json
       </span>
-      {versionSelect}
+      {versionPicker}
       {diffBaseSelect}
     </span>
   );
@@ -271,34 +282,36 @@ export function Perms({
                 : stringifyForDiff(app.rules, reconstructedRules))}
               label={editorLabel}
               action={
-                <Button
-                  variant="secondary"
-                  size="mini"
-                  onClick={() => setSelectedVersion('current')}
-                >
-                  Close
-                </Button>
+                <div className="flex items-center gap-2">
+                  {isCurrentVersion ? (
+                    previousRules && (
+                      <Button
+                        variant="secondary"
+                        size="mini"
+                        onClick={() => handleRestoreClick(previousRules)}
+                      >
+                        Restore
+                      </Button>
+                    )
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="mini"
+                      onClick={() => handleRestoreClick(reconstructedRules)}
+                    >
+                      Restore
+                    </Button>
+                  )}
+                  <Button
+                    variant="secondary"
+                    size="mini"
+                    onClick={() => setSelectedVersion('current')}
+                  >
+                    Close
+                  </Button>
+                </div>
               }
             />
-            <div className="flex items-center gap-3 border-t bg-gray-50 px-4 py-2 dark:border-t-neutral-700 dark:bg-[#252525]">
-              {isCurrentVersion ? (
-                previousRules && (
-                  <Button
-                    size="mini"
-                    onClick={() => handleRestoreClick(previousRules)}
-                  >
-                    Restore previous version
-                  </Button>
-                )
-              ) : (
-                <Button
-                  size="mini"
-                  onClick={() => handleRestoreClick(reconstructedRules)}
-                >
-                  Restore this version
-                </Button>
-              )}
-            </div>
           </>
         ) : historyUnavailable ? (
           <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
@@ -346,8 +359,8 @@ export function Perms({
             Restore permissions
           </h3>
           <p className="text-sm text-gray-600 dark:text-neutral-300">
-            This will replace your current permissions with the selected
-            version. Review the changes below.
+            This will replace your latest permissions with the selected version.
+            Review the changes below.
           </p>
           <div className="h-[70vh] rounded border dark:border-neutral-700">
             <JSONDiffEditor
@@ -355,7 +368,7 @@ export function Perms({
               {...stringifyForDiff(app.rules, restoreTarget)}
               label={
                 <span className="text-xs text-gray-500 dark:text-neutral-400">
-                  current → restored
+                  latest → restored
                 </span>
               }
             />
