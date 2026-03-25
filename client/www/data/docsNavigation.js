@@ -134,4 +134,14 @@ module.exports = [
       { title: '(Experimental) Next.js SSR', href: '/docs/next-ssr' },
     ],
   },
+  {
+    title: 'Migration Guides',
+    links: [
+      {
+        title: 'Migrating from Supabase',
+        href: '/docs/migrate-from-supabase',
+        optionalLLM: true,
+      },
+    ],
+  },
 ];
