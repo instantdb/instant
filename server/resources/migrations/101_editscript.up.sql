@@ -329,7 +329,7 @@ begin
     new_len := jsonb_array_length(new_data);
 
     -- For very large arrays, fall back to full replacement
-    if old_len > 1000 or new_len > 1000 then
+    if old_len > 100 or new_len > 100 then
       return jsonb_build_array(jsonb_build_array(path, 'r', new_data));
     end if;
 
