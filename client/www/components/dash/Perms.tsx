@@ -91,20 +91,24 @@ export function Perms({
       }
     }
 
-    let rules: any = app.rules;
+    try {
+      let rules: any = app.rules;
 
-    for (const v of sortedDesc) {
-      if (v.version <= selectedVersionNum) break;
-      rules = apply(rules, v.edits);
+      for (const v of sortedDesc) {
+        if (v.version <= selectedVersionNum) break;
+        rules = apply(rules, v.edits);
+      }
+
+      const reconstructed = rules;
+
+      const selectedV = versions.find((v) => v.version === selectedVersionNum);
+      const prior = selectedV ? apply(reconstructed, selectedV.edits) : null;
+
+      return { reconstructedRules: reconstructed, previousRules: prior };
+    } catch (e) {
+      console.error('Failed to reconstruct rules from version history', e);
+      return { reconstructedRules: null, previousRules: null };
     }
-
-    const reconstructed = rules;
-
-    // Apply the selected version's edits to get the prior version
-    const selectedV = versions.find((v) => v.version === selectedVersionNum);
-    const prior = selectedV ? apply(reconstructed, selectedV.edits) : null;
-
-    return { reconstructedRules: reconstructed, previousRules: prior };
   }, [selectedVersionNum, versionsInSync, versions, app.rules]);
 
   const [diffBase, setDiffBase] = useState<'current' | 'previous'>('previous');
