@@ -132,6 +132,9 @@ const reverseOrder = <
   } as Order<Schema, Entity>;
 };
 
+// serverCreatedAt: 'asc' is the implicit order in queries without an `order`
+// field. We need this to be explicit, because when doing `reverse` queries, we rely
+// on inverting this order.
 const resolveOrder = <
   Schema extends InstantSchemaDef<any, any, any>,
   Entity extends keyof Schema['entities'],
