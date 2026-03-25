@@ -176,14 +176,14 @@ export function Perms({
     (selectedVersion === 'current' ? (
       <Button
         variant="secondary"
-        size="nano"
+        size="mini"
         onClick={() => setSelectedVersion(String(sortedVersions[0].version))}
       >
         Diff
       </Button>
     ) : (
       <BaseSelect value={selectedVersion} onValueChange={setSelectedVersion}>
-        <SelectTrigger className="text-xs">
+        <SelectTrigger size="sm" className="data-[size=sm]:h-auto px-2 py-1 text-xs">
           <SelectValue>{selectedTriggerLabel}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -215,7 +215,7 @@ export function Perms({
       value={diffBase}
       onValueChange={(v) => setDiffBase(v as 'current' | 'previous')}
     >
-      <SelectTrigger className="text-xs">
+      <SelectTrigger size="sm" className="data-[size=sm]:h-auto px-2 py-1 text-xs">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
