@@ -314,6 +314,7 @@ export function Perms({
             <Button
               variant="destructive"
               size="mini"
+              disabled={restoring}
               onClick={handleRestoreConfirm}
             >
               {restoring ? 'Restoring...' : 'Restore'}
