@@ -4,7 +4,7 @@ import { explorerDef, OptsFromCommand } from '../index.ts';
 import { CurrentApp } from '../context/currentApp.ts';
 import { getDashUrl } from '../lib/http.ts';
 
-export const explorerCmd = (opts: OptsFromCommand<typeof explorerDef>) =>
+export const explorerCmd = (_opts: OptsFromCommand<typeof explorerDef>) =>
   Effect.gen(function* () {
     const { appId } = yield* CurrentApp;
     const dashUrl = yield* getDashUrl;

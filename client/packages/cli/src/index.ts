@@ -103,7 +103,7 @@ export const loginDef = program
     );
   });
 
-const _logoutDef = program
+program
   .command('logout')
   .description('Log out of your Instant account')
   .action(async () => {
@@ -122,7 +122,7 @@ export const infoDef = program
           AuthLayerLive({
             coerce: false,
             allowAdminToken: false,
-          }).pipe(Layer.catchAll((e) => Layer.empty)),
+          }).pipe(Layer.catchAll(() => Layer.empty)), // make the auth layer optional
         ),
       ),
     );

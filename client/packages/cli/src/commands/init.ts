@@ -7,7 +7,7 @@ import { promptOk } from '../lib/ui.ts';
 import { pushSchema } from '../lib/pushSchema.ts';
 import { pushPerms } from '../lib/pushPerms.ts';
 
-export const initCommand = (options: OptsFromCommand<typeof initDef>) =>
+export const initCommand = (_options: OptsFromCommand<typeof initDef>) =>
   Effect.gen(function* () {
     yield* Effect.matchEffect(
       Effect.tryPromise(readLocalSchemaFile).pipe(

@@ -1,11 +1,11 @@
 import chalk from 'chalk';
 import { HashMap, Logger, Match, Option } from 'effect';
 
-export function warn(firstArg, ...rest) {
+export function warn(firstArg: string, ...rest: any[]) {
   console.warn(chalk.yellow('[warning]') + ' ' + firstArg, ...rest);
 }
 
-export function error(firstArg, ...rest) {
+export function error(firstArg: string, ...rest: any[]) {
   console.error(chalk.red('[error]') + ' ' + firstArg, ...rest);
 }
 
