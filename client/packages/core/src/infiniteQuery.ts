@@ -75,6 +75,15 @@ const parseChunkKey = (chunkKey: string) => {
   return { cursor, afterInclusive };
 };
 
+// Chunk sub key is used to create keys to keep track of the subscriptions
+// while chunk maps are keyed by [cursor, afterInclusive], we still distinguish
+// between forward and reverse to avoid clashes that can share the same key.
+const chunkSubKey = (
+  direction: 'forward' | 'reverse',
+  cursor: Cursor,
+  afterInclusive = false,
+) => `${direction}:${makeChunkKey(cursor, afterInclusive)}`;
+
 export type ChunkStatus = 'pre-bootstrap' | 'bootstrapping' | 'frozen';
 type Chunk = {
   status: ChunkStatus;
@@ -101,15 +110,6 @@ const readCanLoadNextPage = (forwardChunks: Map<string, Chunk>) => {
   return chunksInOrder[chunksInOrder.length - 1]?.hasMore || false;
 };
 
-// Chunk sub key is used to create keys to keep track of the subscriptions
-// while chunk maps are keyed by [cursor, afterInclusive], we still distinguish
-// between forward and reverse to avoid clashes that can share the same key.
-const chunkSubKey = (
-  direction: 'forward' | 'reverse',
-  cursor: Cursor,
-  afterInclusive = false,
-) => `${direction}:${makeChunkKey(cursor, afterInclusive)}`;
-
 const reverseOrder = <
   Schema extends InstantSchemaDef<any, any, any>,
   Entity extends keyof Schema['entities'],
@@ -132,9 +132,6 @@ const reverseOrder = <
   } as Order<Schema, Entity>;
 };
 
-// serverCreatedAt: 'asc' is the implicit order in queries without an `order`
-// field. We need this to be explicit, because when doing `reverse` queries, we rely
-// on inverting this order.
 const resolveOrder = <
   Schema extends InstantSchemaDef<any, any, any>,
   Entity extends keyof Schema['entities'],
@@ -142,6 +139,9 @@ const resolveOrder = <
   order?: Order<Schema, Entity>,
 ): Order<Schema, Entity> => {
   if (order && Object.keys(order).length > 0) return order;
+  // serverCreatedAt: 'asc' is the implicit order in queries without an `order`
+  // field. We need this to be explicit, because when doing `reverse` queries, we rely
+  // on inverting this order.
   return {
     serverCreatedAt: 'asc',
   } satisfies Order<Schema, Entity>;
@@ -463,13 +463,8 @@ export const subscribeInfiniteQuery = <
       },
     } as unknown as Q,
     async (starterData) => {
-      console.log('starter data', JSON.stringify(starterData, null, 2));
-      if (hasKickstarted) {
-        console.log('has kickstarted');
-        return;
-      }
+      if (hasKickstarted) return;
       if (starterData.error) {
-        console.error(starterData.error);
         return sendError(starterData.error);
       }
       const pageInfo = starterData.pageInfo[entity];
@@ -478,7 +473,6 @@ export const subscribeInfiniteQuery = <
       assert(rows && pageInfo, 'Expected rows and pageInfo');
 
       if (rows.length < pageSize) {
-        console.log('rows.length smaller than page size');
         // If the rows are less than the page size, then we don't need to
         // create forward and reverse chunks.
         // We just treat the starter query as a forward chunk
@@ -496,24 +490,18 @@ export const subscribeInfiniteQuery = <
       // server.
       const initialForwardCursor = pageInfo.startCursor;
       if (!initialForwardCursor) {
-        console.log('no initial forward cursor');
         return;
       }
 
       forwardChunks.delete(makeChunkKey(PRE_BOOTSTRAP_CURSOR));
 
-      // If pagesize is 1, disable including the start of the range because we already have it from
-      // PRE_BOOTSTRAP_CURSOR, this allows us to "see" 1 if the data is [0, 1] because we don't
-      // include 0 in the result
       pushNewForward(initialForwardCursor, true);
       pushNewReverse(pageInfo.startCursor);
       hasKickstarted = true;
 
       // Flush the initial boostrap querysub data
       // because immediately unsubscribing will never save it for offline in idb
-      console.log('waiting for flush');
       await db._reactor.querySubs.flush();
-      console.log('flush succeeded');
 
       // Unsubscribe the starter subscription
       starterUnsub?.();
