@@ -2,7 +2,7 @@ import { create } from 'mutative';
 
 // Helpers from object.ts in core
 
-function isEmpty(obj) {
+function isEmpty(obj: any) {
   return obj && Object.keys(obj).length === 0;
 }
 
@@ -11,7 +11,7 @@ function isEmpty(obj) {
  *
  * - for arrays: inserts the value at the specified index, instead of replacing it
  */
-function insertInMutative(obj, path, value) {
+function insertInMutative(obj: any, path: any[], value: any) {
   if (!obj) {
     return;
   }
@@ -36,7 +36,7 @@ function insertInMutative(obj, path, value) {
   }
 }
 
-function assocInMutative(obj, path, value) {
+function assocInMutative(obj: any, path: any[], value: any) {
   if (!obj) {
     return;
   }
@@ -56,7 +56,7 @@ function assocInMutative(obj, path, value) {
   current[path[path.length - 1]] = value;
 }
 
-function dissocInMutative(obj, path) {
+function dissocInMutative(obj: any, path: any[]) {
   if (!obj) {
     return;
   }
@@ -85,8 +85,10 @@ function dissocInMutative(obj, path) {
   }
 }
 
-// Apply edits
-export function apply(base, edits) {
+export type EditOp = '+' | '-' | 'r';
+export type Edit = [(string | number)[], EditOp, ...any[]];
+
+export function apply(base: any, edits: Edit[]) {
   return create(base, (draft) => {
     for (let [path, op, value] of edits) {
       switch (op) {

@@ -22,11 +22,11 @@ import { InstantReactWebDatabase } from '@instantdb/react';
 import { FetchedDash, useFetchedDash } from './MainDashLayout';
 import permsJsonSchema from '@/lib/permsJsonSchema';
 import { useDarkMode } from './DarkModeToggle';
-import { apply } from '@/lib/editscript';
+import { apply, type Edit } from '@/lib/editscript';
 
 type RuleVersion = {
   version: number;
-  edits: [string[], string, any?][];
+  edits: Edit[];
   created_at: string;
 };
 
