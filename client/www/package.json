@@ -78,6 +78,7 @@
     "markdown-table": "^3.0.4",
     "marked": "^16.1.1",
     "motion": "^12.4.0",
+    "mutative": "^1.0.10",
     "nanoid": "^5.1.6",
     "next": "^15.5.7",
     "nuqs": "^2.8.8",
