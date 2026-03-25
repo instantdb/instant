@@ -210,16 +210,9 @@ export function Perms({
             <JSONDiffEditor
               key={`${selectedVersion}-${diffBase}`}
               darkMode={darkMode}
-              original={
-                isCurrentVersion || diffBase === 'previous'
-                  ? JSON.stringify(previousRules, null, 2)
-                  : value
-              }
-              modified={
-                isCurrentVersion || diffBase === 'previous'
-                  ? JSON.stringify(reconstructedRules, null, 2)
-                  : JSON.stringify(reconstructedRules, null, 2)
-              }
+              {...(isCurrentVersion || diffBase === 'previous'
+                ? stringifyForDiff(previousRules, reconstructedRules)
+                : stringifyForDiff(app.rules, reconstructedRules))}
               label={editorLabel}
               action={
                 <Button
@@ -288,10 +281,7 @@ export function Perms({
             <JSONDiffEditor
               key={`restore-${selectedVersionNum}`}
               darkMode={darkMode}
-              original={value}
-              modified={
-                restoreTarget ? JSON.stringify(restoreTarget, null, 2) : ''
-              }
+              {...stringifyForDiff(app.rules, restoreTarget)}
               label={
                 <span className="text-xs text-gray-500 dark:text-neutral-400">
                   current → restored
@@ -322,6 +312,41 @@ export function Perms({
 }
 
 // --- Helpers ---
+
+/**
+ * Serialize two objects to JSON with changed keys sorted first,
+ * so diffs appear at the top of the diff viewer.
+ */
+function stringifyForDiff(
+  a: any,
+  b: any,
+): { original: string; modified: string } {
+  const sortKeys = (obj: any, other: any): any => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+    const changed: string[] = [];
+    const unchanged: string[] = [];
+    for (const key of Object.keys(obj)) {
+      if (
+        other == null ||
+        !(key in other) ||
+        JSON.stringify(obj[key]) !== JSON.stringify(other[key])
+      ) {
+        changed.push(key);
+      } else {
+        unchanged.push(key);
+      }
+    }
+    const sorted: any = {};
+    for (const key of [...changed, ...unchanged]) {
+      sorted[key] = sortKeys(obj[key], other?.[key]);
+    }
+    return sorted;
+  };
+  return {
+    original: JSON.stringify(sortKeys(a, b), null, 2),
+    modified: JSON.stringify(sortKeys(b, a), null, 2),
+  };
+}
 
 async function onEditRules(
   dashResponse: FetchedDash,

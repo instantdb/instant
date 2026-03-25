@@ -90,7 +90,7 @@ export type Edit = [(string | number)[], EditOp, ...any[]];
 
 export function apply(base: any, edits: Edit[]) {
   return create(base, (draft) => {
-    for (let [path, op, value] of edits) {
+    for (const [path, op, value] of edits) {
       switch (op) {
         case '+':
           insertInMutative(draft, path, value);
