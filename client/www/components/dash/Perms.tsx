@@ -149,6 +149,8 @@ export function Perms({
   };
 
   const showingDiff = selectedVersionNum != null && reconstructedRules != null;
+  const historyUnavailable =
+    selectedVersionNum != null && reconstructedRules == null;
 
   const sortedVersions = useMemo(() => {
     if (!versions || versions.length === 0) return [];
@@ -275,6 +277,22 @@ export function Perms({
               )}
             </div>
           </>
+        ) : historyUnavailable ? (
+          <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
+            <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
+              <div className="font-mono">{editorLabel}</div>
+              <Button
+                variant="secondary"
+                size="mini"
+                onClick={() => setSelectedVersion('current')}
+              >
+                Close
+              </Button>
+            </div>
+            <div className="flex flex-1 items-center justify-center text-sm text-gray-500 dark:text-neutral-400">
+              Version history unavailable for this selection.
+            </div>
+          </div>
         ) : (
           <JSONEditor
             darkMode={darkMode}
