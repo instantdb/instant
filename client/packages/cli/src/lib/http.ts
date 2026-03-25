@@ -25,7 +25,7 @@ export class InstantHttpError extends Data.TaggedError('InstantHttpError')<
   } & typeof InstantTypicalHttpErrorResponse.Type
 > {}
 
-// Pipe on a client to set command header
+// Pipe on an http client to set the command header
 export const withCommand = (command: string) => {
   return (client: HttpClient.HttpClient.With<InstantHttpError>) =>
     client.pipe(
@@ -58,6 +58,7 @@ export const InstantHttpLive = Layer.effect(
       ),
       HttpClient.transformResponse((r) => r.pipe(Effect.timeout('5 minutes'))),
       HttpClient.filterStatusOk, // makes non 2xx http codes error
+      // parses the non 2xx errors into known instant error shape
       HttpClient.transformResponse((r) =>
         r.pipe(
           Effect.catchTag('ResponseError', (requestError) =>

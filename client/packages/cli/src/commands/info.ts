@@ -1,6 +1,5 @@
 import { HttpClientResponse } from '@effect/platform';
-import { Effect, Layer, pipe, Schema, Option } from 'effect';
-import { AuthLayerLive } from '../layer.ts';
+import { Effect, Schema, Option } from 'effect';
 import { InstantHttpAuthed } from '../lib/http.ts';
 import { version } from '@instantdb/version';
 

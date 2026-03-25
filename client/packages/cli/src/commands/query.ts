@@ -23,13 +23,13 @@ export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>
       });
     }
 
-    const query = yield* Effect.try(() => JSON5.parse(arg)).pipe(
-      Effect.mapError((e) =>
+    const query = yield* Effect.try({
+      try: () => JSON5.parse(arg),
+      catch: (e) =>
         BadArgsError.make({
-          message: `Invalid query: ${e.error}`,
+          message: String(e),
         }),
-      ),
-    );
+    });
 
     const headers = { 'app-id': appId };
     if (opts.asEmail) {
