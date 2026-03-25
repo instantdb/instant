@@ -3,12 +3,20 @@ import { useContext, useMemo, useState } from 'react';
 import { formatDistance } from 'date-fns';
 
 import {
+  BaseSelect,
   Button,
   Content,
   Dialog,
   JSONDiffEditor,
   JSONEditor,
   SectionHeading,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
   useDialog,
 } from '@/components/ui';
 import config from '@/lib/config';
@@ -161,35 +169,51 @@ export function Perms({
     sortedVersions.length > 0 &&
     selectedVersionNum === sortedVersions[0].version;
 
+  const selectedTriggerLabel =
+    selectedVersion === 'current'
+      ? 'current'
+      : `v${selectedVersion}${isCurrentVersion ? ' (current)' : ''}`;
+
   const versionSelect = sortedVersions.length > 0 && (
-    <select
+    <BaseSelect
       value={selectedVersion}
-      onChange={(e) => setSelectedVersion(e.target.value)}
-      className="rounded border border-gray-300 bg-white py-0.5 pr-6 pl-2 text-xs dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-200"
+      onValueChange={setSelectedVersion}
     >
-      <option value="current">current</option>
-      <option disabled>──── changes ────</option>
-      {sortedVersions.map((v, i) => (
-        <option key={v.version} value={v.version}>
-          v{v.version}
-          {i === 0 ? ' (current)' : ''} —{' '}
-          {formatDistance(new Date(v.created_at), new Date(), {
-            addSuffix: true,
-          })}
-        </option>
-      ))}
-    </select>
+      <SelectTrigger className="text-xs">
+        <SelectValue>{selectedTriggerLabel}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="current">current</SelectItem>
+        <SelectSeparator />
+        <SelectGroup>
+          <SelectLabel className="text-xs text-gray-400">Changes</SelectLabel>
+          {sortedVersions.map((v, i) => (
+            <SelectItem key={v.version} value={String(v.version)}>
+              v{v.version}
+              {i === 0 ? ' (current)' : ''} —{' '}
+              {formatDistance(new Date(v.created_at), new Date(), {
+                addSuffix: true,
+              })}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </BaseSelect>
   );
 
   const diffBaseSelect = showingDiff && !isCurrentVersion && (
-    <select
+    <BaseSelect
       value={diffBase}
-      onChange={(e) => setDiffBase(e.target.value as 'current' | 'previous')}
-      className="rounded border border-gray-300 bg-white py-0.5 pr-6 pl-2 text-xs dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-200"
+      onValueChange={(v) => setDiffBase(v as 'current' | 'previous')}
     >
-      <option value="current">vs current</option>
-      <option value="previous">vs previous</option>
-    </select>
+      <SelectTrigger className="text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="previous">vs previous</SelectItem>
+        <SelectItem value="current">vs current</SelectItem>
+      </SelectContent>
+    </BaseSelect>
   );
 
   const editorLabel = (
@@ -241,7 +265,6 @@ export function Perms({
         {showingDiff ? (
           <>
             <JSONDiffEditor
-              key={`${selectedVersion}-${diffBase}`}
               darkMode={darkMode}
               {...(isCurrentVersion || diffBase === 'previous'
                 ? stringifyForDiff(previousRules, reconstructedRules)
@@ -328,7 +351,6 @@ export function Perms({
           </p>
           <div className="h-[70vh] rounded border dark:border-neutral-700">
             <JSONDiffEditor
-              key={`restore-${selectedVersionNum}`}
               darkMode={darkMode}
               {...stringifyForDiff(app.rules, restoreTarget)}
               label={

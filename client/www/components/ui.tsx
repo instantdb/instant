@@ -61,6 +61,14 @@ export const {
   Fence,
   JSONDiffEditor,
   JSONEditor,
+  BaseSelect,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
   Switch,
 } = ui;
 

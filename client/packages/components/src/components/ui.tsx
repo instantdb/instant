@@ -10,7 +10,10 @@ import { twMerge } from 'tailwind-merge';
 import {
   Select as BaseSelect,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from './select';
@@ -37,6 +40,7 @@ import {
 } from 'react';
 
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
+import { useLocalStorage } from '@lib/hooks/useLocalStorage';
 import {
   CheckCircleIcon,
   ClipboardDocumentIcon,
@@ -1351,6 +1355,17 @@ export {
   DropdownMenuTrigger,
 };
 
+export {
+  BaseSelect,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+};
+
 // utils
 
 export function twel<T = {}>(el: string, cls: ClassValue[] | ClassValue) {
@@ -1494,7 +1509,7 @@ export function JSONDiffEditor(props: {
   label: ReactNode;
   action?: ReactNode;
 }) {
-  const [sideBySide, setSideBySide] = useState(false);
+  const [sideBySide, setSideBySide] = useLocalStorage('diffSideBySide', false);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
@@ -1502,7 +1517,7 @@ export function JSONDiffEditor(props: {
         <div className="font-mono">{props.label}</div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setSideBySide((v) => !v)}
+            onClick={() => setSideBySide(!sideBySide)}
             title={sideBySide ? 'Inline diff' : 'Side-by-side diff'}
             className="rounded px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-200 dark:text-neutral-400 dark:hover:bg-neutral-700"
           >
