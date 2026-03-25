@@ -68,7 +68,12 @@ import { assert } from './utils/error.ts';
 //   Their starting point cursor is inclusive in the query and exclusive from the following query
 
 const makeCursorKey = (cursor: Cursor) => JSON.stringify(cursor);
-const parseCursorKey = (cursorKey: string) => JSON.parse(cursorKey) as Cursor;
+const makeChunkKey = (cursor: Cursor, afterInclusive = false) =>
+  JSON.stringify([cursor, afterInclusive]);
+const parseChunkKey = (chunkKey: string) => {
+  const [cursor, afterInclusive] = JSON.parse(chunkKey) as [Cursor, boolean];
+  return { cursor, afterInclusive };
+};
 
 export type ChunkStatus = 'pre-bootstrap' | 'bootstrapping' | 'frozen';
 type Chunk = {
@@ -97,11 +102,13 @@ const readCanLoadNextPage = (forwardChunks: Map<string, Chunk>) => {
 };
 
 // Chunk sub key is used to create keys to keep track of the subscriptions
-// while the chunk maps are keyed by the cursor, here we disinguish between
-// forward and reverse because the first 2 chunks will have the same starting
-// cursor.
-const chunkSubKey = (direction: 'forward' | 'reverse', cursor: Cursor) =>
-  `${direction}:${JSON.stringify(cursor)}`;
+// while chunk maps are keyed by [cursor, afterInclusive], we still distinguish
+// between forward and reverse to avoid clashes that can share the same key.
+const chunkSubKey = (
+  direction: 'forward' | 'reverse',
+  cursor: Cursor,
+  afterInclusive = false,
+) => `${direction}:${makeChunkKey(cursor, afterInclusive)}`;
 
 const reverseOrder = <
   Schema extends InstantSchemaDef<any, any, any>,
@@ -221,18 +228,18 @@ export const subscribeInfiniteQuery = <
   };
 
   const setForwardChunk = (startCursor: Cursor, chunk: Chunk) => {
-    forwardChunks.set(makeCursorKey(startCursor), chunk);
+    forwardChunks.set(makeChunkKey(startCursor, chunk.afterInclusive), chunk);
     pushUpdate();
   };
 
   const setReverseChunk = (startCursor: Cursor, chunk: Chunk) => {
-    reverseChunks.set(makeCursorKey(startCursor), chunk);
+    reverseChunks.set(makeChunkKey(startCursor), chunk);
     maybeAdvanceReverse();
     pushUpdate();
   };
 
   const freezeReverse = (chunkKey: string, chunk: ChunkWithEndCursor) => {
-    const startCursor = parseCursorKey(chunkKey);
+    const { cursor: startCursor } = parseChunkKey(chunkKey);
     const currentSub = allUnsubs.get(chunkSubKey('reverse', startCursor));
     currentSub?.();
 
@@ -346,12 +353,17 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    allUnsubs.set(chunkSubKey('forward', startCursor), querySub);
+    allUnsubs.set(
+      chunkSubKey('forward', startCursor, afterInclusive),
+      querySub,
+    );
   };
 
-  const freezeForward = (startCursor: Cursor) => {
-    const key = makeCursorKey(startCursor);
-    const currentSub = allUnsubs.get(chunkSubKey('forward', startCursor));
+  const freezeForward = (startCursor: Cursor, afterInclusive = false) => {
+    const key = makeChunkKey(startCursor, afterInclusive);
+    const currentSub = allUnsubs.get(
+      chunkSubKey('forward', startCursor, afterInclusive),
+    );
     currentSub?.();
 
     const chunk = forwardChunks.get(key);
@@ -392,7 +404,7 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    allUnsubs.set(chunkSubKey('forward', startCursor), nextSub);
+    allUnsubs.set(chunkSubKey('forward', startCursor, afterInclusive), nextSub);
   };
 
   // Consider order: {val: "asc"} with pageItems = 4
@@ -430,18 +442,9 @@ export const subscribeInfiniteQuery = <
     // if (!chunk?.hasMore) return;
     if (!chunk.endCursor) return;
 
-    freezeForward(parseCursorKey(chunkKey));
-    // increment / decrement cursor to prevent overwriting keys since
-    // startCursor === endCursor when pageSize === 1
-    if (pageSize === 1) {
-      if (Object.values(order)[0] === 'asc') {
-        pushNewForward(incrementCursor(chunk.endCursor));
-      } else {
-        pushNewForward(decrementCursor(chunk.endCursor));
-      }
-    } else {
-      pushNewForward(chunk.endCursor);
-    }
+    const { cursor: startCursor, afterInclusive } = parseChunkKey(chunkKey);
+    freezeForward(startCursor, afterInclusive);
+    pushNewForward(chunk.endCursor);
   };
 
   starterUnsub = db.subscribeQuery(
@@ -487,7 +490,7 @@ export const subscribeInfiniteQuery = <
         return;
       }
 
-      forwardChunks.delete(makeCursorKey(PRE_BOOTSTRAP_CURSOR));
+      forwardChunks.delete(makeChunkKey(PRE_BOOTSTRAP_CURSOR));
 
       // If pagesize is 1, disable including the start of the range because we already have it from
       // PRE_BOOTSTRAP_CURSOR, this allows us to "see" 1 if the data is [0, 1] because we don't
@@ -599,47 +602,3 @@ const splitAndValidateQuery = (fullQuery: Record<string, any>) => {
   }
   return { entityName, entityQuery };
 };
-
-function decrementCursor(cursor: Cursor): Cursor {
-  return [decrementUUID(cursor[0]), cursor[1], cursor[2], cursor[3]];
-}
-
-function incrementCursor(cursor: Cursor): Cursor {
-  return [incrementUUID(cursor[0]), cursor[1], cursor[2], cursor[3]];
-}
-
-function decrementUUID(uuid: string): string {
-  const hex = uuid
-    .replace(/-/g, '')
-    .split('')
-    .map((c) => parseInt(c, 16));
-
-  for (let i = hex.length - 1; i >= 0; i--) {
-    if (hex[i] > 0) {
-      hex[i]--;
-      break;
-    }
-    hex[i] = 15;
-  }
-
-  const flat = hex.map((n) => n.toString(16)).join('');
-  return `${flat.slice(0, 8)}-${flat.slice(8, 12)}-${flat.slice(12, 16)}-${flat.slice(16, 20)}-${flat.slice(20)}`;
-}
-
-function incrementUUID(uuid: string): string {
-  const hex = uuid
-    .replace(/-/g, '')
-    .split('')
-    .map((c) => parseInt(c, 16));
-
-  for (let i = hex.length - 1; i >= 0; i--) {
-    if (hex[i] < 15) {
-      hex[i]++;
-      break;
-    }
-    hex[i] = 0;
-  }
-
-  const flat = hex.map((n) => n.toString(16)).join('');
-  return `${flat.slice(0, 8)}-${flat.slice(8, 12)}-${flat.slice(12, 16)}-${flat.slice(16, 20)}-${flat.slice(20)}`;
-}
