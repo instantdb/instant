@@ -68,7 +68,21 @@ import { assert } from './utils/error.ts';
 //   Their starting point cursor is inclusive in the query and exclusive from the following query
 
 const makeCursorKey = (cursor: Cursor) => JSON.stringify(cursor);
-const parseCursorKey = (cursorKey: string) => JSON.parse(cursorKey) as Cursor;
+const makeChunkKey = (cursor: Cursor, afterInclusive = false) =>
+  JSON.stringify([cursor, afterInclusive]);
+const parseChunkKey = (chunkKey: string) => {
+  const [cursor, afterInclusive] = JSON.parse(chunkKey) as [Cursor, boolean];
+  return { cursor, afterInclusive };
+};
+
+// Chunk sub key is used to create keys to keep track of the subscriptions
+// while chunk maps are keyed by [cursor, afterInclusive], we still distinguish
+// between forward and reverse to avoid clashes that can share the same key.
+const chunkSubKey = (
+  direction: 'forward' | 'reverse',
+  cursor: Cursor,
+  afterInclusive = false,
+) => `${direction}:${makeChunkKey(cursor, afterInclusive)}`;
 
 export type ChunkStatus = 'pre-bootstrap' | 'bootstrapping' | 'frozen';
 type Chunk = {
@@ -96,13 +110,6 @@ const readCanLoadNextPage = (forwardChunks: Map<string, Chunk>) => {
   return chunksInOrder[chunksInOrder.length - 1]?.hasMore || false;
 };
 
-// Chunk sub key is used to create keys to keep track of the subscriptions
-// while the chunk maps are keyed by the cursor, here we disinguish between
-// forward and reverse because the first 2 chunks will have the same starting
-// cursor.
-const chunkSubKey = (direction: 'forward' | 'reverse', cursor: Cursor) =>
-  `${direction}:${JSON.stringify(cursor)}`;
-
 const reverseOrder = <
   Schema extends InstantSchemaDef<any, any, any>,
   Entity extends keyof Schema['entities'],
@@ -123,6 +130,21 @@ const reverseOrder = <
   return {
     [key]: order[key as keyof typeof order] === 'asc' ? 'desc' : 'asc',
   } as Order<Schema, Entity>;
+};
+
+const resolveOrder = <
+  Schema extends InstantSchemaDef<any, any, any>,
+  Entity extends keyof Schema['entities'],
+>(
+  order?: Order<Schema, Entity>,
+): Order<Schema, Entity> => {
+  if (order && Object.keys(order).length > 0) return order;
+  // serverCreatedAt: 'asc' is the implicit order in queries without an `order`
+  // field. We need this to be explicit, because when doing `reverse` queries, we rely
+  // on inverting this order.
+  return {
+    serverCreatedAt: 'asc',
+  } satisfies Order<Schema, Entity>;
 };
 
 const normalizeChunks = (
@@ -176,6 +198,7 @@ export const subscribeInfiniteQuery = <
 
   const pageSize = query.$?.limit || 10;
   const entity = entityName;
+  const order = resolveOrder(query.$?.order);
 
   const forwardChunks = new Map<string, Chunk>();
   const reverseChunks = new Map<string, Chunk>();
@@ -208,18 +231,18 @@ export const subscribeInfiniteQuery = <
   };
 
   const setForwardChunk = (startCursor: Cursor, chunk: Chunk) => {
-    forwardChunks.set(makeCursorKey(startCursor), chunk);
+    forwardChunks.set(makeChunkKey(startCursor, chunk.afterInclusive), chunk);
     pushUpdate();
   };
 
   const setReverseChunk = (startCursor: Cursor, chunk: Chunk) => {
-    reverseChunks.set(makeCursorKey(startCursor), chunk);
+    reverseChunks.set(makeChunkKey(startCursor), chunk);
     maybeAdvanceReverse();
     pushUpdate();
   };
 
   const freezeReverse = (chunkKey: string, chunk: ChunkWithEndCursor) => {
-    const startCursor = parseCursorKey(chunkKey);
+    const { cursor: startCursor } = parseChunkKey(chunkKey);
     const currentSub = allUnsubs.get(chunkSubKey('reverse', startCursor));
     currentSub?.();
 
@@ -233,7 +256,7 @@ export const subscribeInfiniteQuery = <
             beforeInclusive: true,
             where: query.$?.where,
             fields: query.$?.fields,
-            order: reverseOrder(query.$?.order),
+            order: reverseOrder(order),
           },
         },
       } as unknown as Q,
@@ -272,7 +295,7 @@ export const subscribeInfiniteQuery = <
             after: startCursor,
             where: query.$?.where,
             fields: query.$?.fields,
-            order: reverseOrder(query.$?.order),
+            order: reverseOrder(order),
           },
         },
       } as unknown as Q,
@@ -309,7 +332,7 @@ export const subscribeInfiniteQuery = <
             afterInclusive,
             where: query.$?.where,
             fields: query.$?.fields,
-            order: query.$?.order,
+            order,
           },
         },
       } as unknown as Q,
@@ -333,12 +356,17 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    allUnsubs.set(chunkSubKey('forward', startCursor), querySub);
+    allUnsubs.set(
+      chunkSubKey('forward', startCursor, afterInclusive),
+      querySub,
+    );
   };
 
-  const freezeForward = (startCursor: Cursor) => {
-    const key = makeCursorKey(startCursor);
-    const currentSub = allUnsubs.get(chunkSubKey('forward', startCursor));
+  const freezeForward = (startCursor: Cursor, afterInclusive = false) => {
+    const key = makeChunkKey(startCursor, afterInclusive);
+    const currentSub = allUnsubs.get(
+      chunkSubKey('forward', startCursor, afterInclusive),
+    );
     currentSub?.();
 
     const chunk = forwardChunks.get(key);
@@ -355,7 +383,7 @@ export const subscribeInfiniteQuery = <
             beforeInclusive: true,
             where: query.$?.where,
             fields: query.$?.fields,
-            order: query.$?.order,
+            order,
           },
         },
       } as unknown as Q,
@@ -379,7 +407,7 @@ export const subscribeInfiniteQuery = <
       opts,
     );
 
-    allUnsubs.set(chunkSubKey('forward', startCursor), nextSub);
+    allUnsubs.set(chunkSubKey('forward', startCursor, afterInclusive), nextSub);
   };
 
   // Consider order: {val: "asc"} with pageItems = 4
@@ -417,7 +445,8 @@ export const subscribeInfiniteQuery = <
     // if (!chunk?.hasMore) return;
     if (!chunk.endCursor) return;
 
-    freezeForward(parseCursorKey(chunkKey));
+    const { cursor: startCursor, afterInclusive } = parseChunkKey(chunkKey);
+    freezeForward(startCursor, afterInclusive);
     pushNewForward(chunk.endCursor);
   };
 
@@ -429,7 +458,7 @@ export const subscribeInfiniteQuery = <
           limit: pageSize,
           where: query.$?.where,
           fields: query.$?.fields,
-          order: query.$?.order,
+          order,
         },
       },
     } as unknown as Q,
@@ -463,7 +492,8 @@ export const subscribeInfiniteQuery = <
       if (!initialForwardCursor) {
         return;
       }
-      forwardChunks.delete(makeCursorKey(PRE_BOOTSTRAP_CURSOR));
+
+      forwardChunks.delete(makeChunkKey(PRE_BOOTSTRAP_CURSOR));
 
       pushNewForward(initialForwardCursor, true);
       pushNewReverse(pageInfo.startCursor);
@@ -522,6 +552,7 @@ export const getInfiniteQueryInitialSnapshot = <
   const { entityName, entityQuery } = splitAndValidateQuery(fullQuery);
 
   const pageSize = entityQuery.$?.limit || 10;
+  const order = resolveOrder(entityQuery.$?.order);
 
   let coercedQuery = fullQuery
     ? coerceQuery({
@@ -531,7 +562,7 @@ export const getInfiniteQueryInitialSnapshot = <
             limit: pageSize,
             where: entityQuery.$?.where,
             fields: entityQuery.$?.fields,
-            order: entityQuery.$?.order,
+            order,
           },
         },
       })
@@ -540,7 +571,7 @@ export const getInfiniteQueryInitialSnapshot = <
   if (opts && 'ruleParams' in opts) {
     coercedQuery = {
       $$ruleParams: opts.ruleParams,
-      ...fullQuery,
+      ...coercedQuery,
     };
   }
   const queryResult = db._reactor.getPreviousResult(coercedQuery);
