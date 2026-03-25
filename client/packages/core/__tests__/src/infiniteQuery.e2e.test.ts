@@ -45,7 +45,6 @@ const test = makeE2ETest({
 });
 
 describe('get initial data for useSyncExternalStore', () => {
-  // Does not work in CI
   test('empty result', async ({ db }) => {
     let response: Record<string, any> = {};
     const callback = vi.fn<(response: any) => void>((resp) => {
