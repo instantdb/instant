@@ -130,7 +130,7 @@ export function Perms({
     <select
       value={selectedVersion}
       onChange={(e) => setSelectedVersion(e.target.value)}
-      className="rounded border border-gray-300 bg-white py-0.5 pl-2 pr-6 text-xs dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-200"
+      className="rounded border border-gray-300 bg-white py-0.5 pr-6 pl-2 text-xs dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-200"
     >
       <option value="current">current</option>
       <option disabled>──── changes ────</option>
@@ -150,7 +150,7 @@ export function Perms({
     <select
       value={diffBase}
       onChange={(e) => setDiffBase(e.target.value as 'current' | 'previous')}
-      className="rounded border border-gray-300 bg-white py-0.5 pl-2 pr-6 text-xs dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-200"
+      className="rounded border border-gray-300 bg-white py-0.5 pr-6 pl-2 text-xs dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-200"
     >
       <option value="current">vs current</option>
       <option value="previous">vs previous</option>
@@ -158,7 +158,7 @@ export function Perms({
   );
 
   const editorLabel = (
-    <span className="text-sm flex items-center gap-2">
+    <span className="flex items-center gap-2 text-sm">
       <span>
         <span
           className="text-sm font-bold text-yellow-600"
