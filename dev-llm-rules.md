@@ -95,9 +95,9 @@ When you're asked to save screenshots related to some feature, announcement,
 etc. put them in their own directory. This is especially useful when I'm
 asking you to make mulitple screenshots
 
-To learn about how to do this, read ./llm-docs/code-screenshot-skill.md
-Save them in ./llm-docs/screenshots
+To learn about how to do this, read ./dev-llm-docs/code-screenshot-skill.md
+Save them in ./dev-llm-docs/screenshots
 
 # Querying InstantDB tables (e.g. for debugging the system)
 
-Read ./llm-docs/prompts/query-local-postgres.md for context on how to query the local Postgres instance that InstantDB uses for storage. This is useful for debugging and verifying the state of the system.
+Read ./dev-llm-docs/prompts/query-local-postgres.md for context on how to query the local Postgres instance that InstantDB uses for storage. This is useful for debugging and verifying the state of the system.
