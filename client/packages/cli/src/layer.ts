@@ -32,7 +32,6 @@ export const printRedErrors = Effect.catchAllCause((cause) =>
 
     const theError = failure.value;
 
-    console.log('hi');
     // Special error handling for specific error types
     if (theError instanceof InstantHttpError) {
       if (theError?.message) {
