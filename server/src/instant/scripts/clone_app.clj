@@ -45,7 +45,7 @@
   (assert-table-column-count conn "triples" 13)
   (assert-table-column-count conn "idents" 5)
   (assert-table-column-count conn "attrs" 22)
-  (assert-table-column-count conn "rules" 2))
+  (assert-table-column-count conn "rules" 3))
 
 ;; ------------ 
 ;; snapshot helpers
@@ -356,7 +356,7 @@
         (println)))))
 
 (defn- start-progress-logger!
-  [progress-atom interval-ms]
+  [progress-atom ^long interval-ms]
   (let [stop? (atom false)
         printer {:ansi? (boolean (System/console))
                  :last-lines (atom 0)}
