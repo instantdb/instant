@@ -23,5 +23,3 @@ InstantDB uses a dynamic schema. Apps define their data model via rows in `attrs
 
 The actual data lives in `triples`, which reference `attrs` by `attr_id`.
 
-## Conventions
-- Join `apps` to `instant_users` via `apps.creator_id = instant_users.id`
