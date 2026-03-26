@@ -382,7 +382,7 @@ function OtherNavItems() {
         </span>
       </NavLink>
       <div>
-        <Button variant="cta" className="" type="link" href="/dash">
+        <Button variant="cta" className="font-semibold" type="link" href="/dash">
           Dashboard
         </Button>
       </div>
