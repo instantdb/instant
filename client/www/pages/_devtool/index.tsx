@@ -203,7 +203,7 @@ function DevtoolWithData({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      const isToggleShortcut = e.shiftKey && e.ctrlKey && e.key === '0';
+      const isToggleShortcut = e.shiftKey && e.ctrlKey && e.code === 'Digit0';
 
       if (isToggleShortcut) {
         parent.postMessage(

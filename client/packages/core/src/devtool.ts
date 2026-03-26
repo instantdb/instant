@@ -26,7 +26,7 @@ export function createDevtool(appId: string, config: StrictDevtoolConfig) {
 
   function onKeyDown(event: KeyboardEvent) {
     const isToggleShortcut =
-      event.shiftKey && event.ctrlKey && event.key === '0';
+      event.shiftKey && event.ctrlKey && event.code === 'Digit0';
     const isEsc = event.key === 'Escape' || event.key === 'Esc';
 
     if (isToggleShortcut) {
