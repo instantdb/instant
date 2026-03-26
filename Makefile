@@ -5,7 +5,7 @@ setup-llm-rules:
 		if [ -e "$$dir/AGENTS.md" ] || [ -L "$$dir/AGENTS.md" ] || [ -e "$$dir/CLAUDE.md" ] || [ -L "$$dir/CLAUDE.md" ]; then \
 			echo "$$dir: AGENTS.md or CLAUDE.md already exists, skipping"; \
 		else \
-			echo "Important: to understand how to work in this folder, make sure you read llm-rules.md first" > "$$dir/AGENTS.md"; \
+			echo "Stop. Before doing anything in this folder, read ./llm-rules.md in this directory." > "$$dir/AGENTS.md"; \
 			ln -s AGENTS.md "$$dir/CLAUDE.md"; \
 			echo "Created $$dir/AGENTS.md and $$dir/CLAUDE.md -> AGENTS.md"; \
 		fi; \
