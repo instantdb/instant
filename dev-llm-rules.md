@@ -20,7 +20,7 @@ This monorepo contains the source code for the InstantDB platform, including:
 
 # Writing Prose
 
-Whenever writing prose for docs, announcments, or marketing materials you should
+Whenever writing prose for docs, announcements, or marketing materials you should
 follow the style of those existing materials. You should also avoid tell-tale
 signs of AI generated content like em-dashes.
 
@@ -33,7 +33,7 @@ announcements? You can see some example announcements in claude-docs/announcemen
 
 Whenever I ask you to make tweets/tweetstorm look at claude-docs/tweets for our style of writing tweets.
 
-Note: With twitter we should minimize useage of backticks and only use them for
+Note: With Twitter we should minimize usage of backticks and only use them for
 code snippets. We should also avoid using double dashes and emojis as they are a common
 sign of AI generated content.
 
@@ -44,7 +44,7 @@ sign of AI generated content.
 
 # Writing a team spec
 
-If I ask you to write a spec for my team can you do it in the style how we
+If I ask you to write a spec for my team, can you do it in the style we
 usually write specs? These specs are different than the spec we would write for
 implementing. They are more high level and make it easy for the team to align on
 the proposed solution before we implement. You can see some example specs in
@@ -57,7 +57,7 @@ code. This includes any console logs, commented out code, or any code that is
 not necessary for the final implementation. The code should be clean and easy to
 read.
 
-When reviewing code for removing slop be wary of aggresively abstracting components. If something is indeed repeated across multiple pages/screens/components etc. then it makes sense. But if it's only used once or twice, the abstraction may not be worth the cognitive overhead
+When reviewing code for removing slop, be wary of aggressively abstracting components. If something is indeed repeated across multiple pages/screens/components etc. then it makes sense. But if it's only used once or twice, the abstraction may not be worth the cognitive overhead
 
 # Checking your work
 
@@ -70,7 +70,7 @@ Whenever working with the instant-rules (./client/www/lib/intern/instant-rules.m
 
 ## Be concise but helpful
 Instant rules are meant to give context to LLM agents about how to correctly use
-Instant. They are not exhaustive documenation. We should write enough to be
+Instant. They are not exhaustive documentation. We should write enough to be
 complete but not waste tokens. Keep in the style of the existing document.
 
 ## Copying rules
@@ -93,8 +93,7 @@ parentheses, or just break up sentences into multiple sentences.
 
 When you're asked to save screenshots related to some feature, announcement,
 etc. put them in their own directory. This is especially useful when I'm
-asking you to make mulitple screenshots
-
+asking you to make multiple screenshots
 To learn about how to do this, read ./dev-llm-docs/code-screenshot-skill.md
 Save them in ./dev-llm-docs/screenshots
 
