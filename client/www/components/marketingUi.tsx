@@ -1,6 +1,4 @@
 'use client';
-import { useAuthToken } from '@/lib/auth';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/solid';
 import {
   ChevronDownIcon,
@@ -344,14 +342,11 @@ function ProductAccordionMobile() {
 }
 
 function NavItems() {
-  const isHydrated = useIsHydrated();
-  const isAuthed = !!useAuthToken();
-  if (!isHydrated) return null;
   return (
     <>
       <ProductDropdownDesktop />
       <ProductAccordionMobile />
-      <NavLink href="/enterprise">Enterprise</NavLink>
+      {/* <NavLink href="/enterprise">Enterprise</NavLink> */}
       <NavLink href="/pricing">Pricing</NavLink>
       <NavLink href="/tutorial">Tutorial</NavLink>
       <NavLink href="/examples">Examples</NavLink>
@@ -365,11 +360,7 @@ function NavItems() {
 }
 
 function OtherNavItems() {
-  const isHydrated = useIsHydrated();
-  const isAuthed = !!useAuthToken();
   const starCount = useGithubStarCount();
-
-  if (!isHydrated) return;
 
   const formattedStarCount = starCount
     ? formatNumberCompact(starCount)
@@ -380,7 +371,7 @@ function OtherNavItems() {
       <NavLink href="https://github.com/instantdb/instant">
         <span className="bg-secondary-fill border-secondary-border flex items-center gap-1 rounded-[5px] border p-1 px-3 text-sm transition-shadow hover:text-black hover:shadow">
           <img
-            src={'img/github-icon.svg'}
+            src={'/img/github-icon.svg'}
             alt="GitHub"
             className="h-[18px] w-[18px]"
           />
@@ -390,22 +381,16 @@ function OtherNavItems() {
           stars
         </span>
       </NavLink>
-      {isAuthed ? (
-        <div>
-          <Button variant="cta" className="" type="link" href="/dash">
-            Dashboard
-          </Button>
-        </div>
-      ) : (
-        <Link
-          className={cn(
-            'whitespace-nowrap text-gray-700 transition-colors hover:text-gray-950',
-          )}
+      <div>
+        <Button
+          variant="cta"
+          className="font-semibold"
+          type="link"
           href="/dash"
         >
-          Sign up
-        </Link>
-      )}
+          Dashboard
+        </Button>
+      </div>
     </>
   );
 }

@@ -88,9 +88,7 @@ export function Hero() {
     <section className="pt-28 pb-8 sm:pt-32 sm:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <div className="hero-stagger-1">
-            <HeroTitle>The best backend for AI-coded apps</HeroTitle>
-          </div>
+          <HeroTitle>The best backend for AI-coded apps</HeroTitle>
           <SectionSubtitle>
             Give your AI a real backend. You get auth, permissions, storage,
             presence, and streams — everything you need to ship apps your users
@@ -108,7 +106,7 @@ export function Hero() {
             <LandingButton href="/dash">Sign up now</LandingButton>
           </div>
 
-          <div className="hero-stagger-3 mx-auto mt-10 max-w-[880px]">
+          <div className="mx-auto mt-10 max-w-[880px]">
             <VideoPlayer />
           </div>
         </div>
