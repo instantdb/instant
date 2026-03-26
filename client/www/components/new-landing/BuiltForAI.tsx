@@ -319,10 +319,22 @@ function HoverTooltip({
   content: string;
 }) {
   const [show, setShow] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  const handleEnter = () => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setPos({ top: rect.top - 4, left: rect.left });
+    }
+    setShow(true);
+  };
+
   return (
     <span
-      className="relative cursor-default"
-      onMouseEnter={() => setShow(true)}
+      ref={ref}
+      className="cursor-default"
+      onMouseEnter={handleEnter}
       onMouseLeave={() => setShow(false)}
     >
       {children}
@@ -333,8 +345,8 @@ function HoverTooltip({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.1 }}
-            className="absolute bottom-full left-0 z-20 mb-1.5 rounded border border-gray-300 px-2.5 py-1.5 text-[12px] whitespace-nowrap shadow-lg"
-            style={{ backgroundColor: c.bg, color: c.text }}
+            className="fixed z-50 -translate-y-full rounded border border-gray-300 px-2.5 py-1.5 text-[12px] whitespace-nowrap shadow-lg"
+            style={{ backgroundColor: c.bg, color: c.text, top: pos.top, left: pos.left }}
           >
             {content}
           </motion.div>
@@ -427,7 +439,9 @@ const scenes: Scene[] = [
     suffix: '})',
     annotation: (
       <>
-        {'// → { messages: { '}
+        {'// → { '}
+        <span style={{ color: c.tag }}>messages</span>
+        {': { '}
         <span style={{ color: c.tag }}>id</span>
         {': string; '}
         <span style={{ color: c.tag }}>text</span>
@@ -596,7 +610,7 @@ export function TypeSafetyDemo() {
 
   return (
     <CodePanel tabs={[{ key: 'app', label: 'app.tsx' }]} activeTab="app">
-      <div className="min-h-[160px] p-5 font-mono text-sm sm:p-6 sm:text-[15px]">
+      <div className="min-h-[180px] p-5 font-mono text-sm sm:min-h-[160px] sm:p-6 sm:text-[15px]">
         {/* Code line */}
         <div className="relative inline-flex flex-wrap items-center whitespace-pre">
           {isPause ? (

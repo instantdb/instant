@@ -29,19 +29,20 @@ const startups = [
       src: 'https://stream.mux.com/a6XKGHGr801qqXSiZDnKldCqiobCOZ2pDLMzSB00pv6qM/720p.mp4',
     },
   },
-  {
-    name: 'Kosmik',
-    url: 'https://kosmik.app',
-    person: 'Paul Rony',
-    role: 'Co-founder, Kosmik',
-    avatar: '/img/peeps/paul_rony.jpg',
-    quote:
-      'Instant gave us real-time collaboration out of the box. Our users drag images, text, and links onto shared moodboards and see each other\u2019s changes live \u2014 we went from months of sync engine work to shipping multiplayer in a week. This is a fake testimonial.',
-    demo: {
-      type: 'video' as const,
-      src: 'https://stream.mux.com/44ZuaohoH028SIEcs1MHyp7YzprJEwHwGeWrcfs9fu0200/720p.mp4',
-    },
-  },
+  // TODO: Re-enable once Paul Rony gives the green light
+  // {
+  //   name: 'Kosmik',
+  //   url: 'https://kosmik.app',
+  //   person: 'Paul Rony',
+  //   role: 'Co-founder, Kosmik',
+  //   avatar: '/img/peeps/paul_rony.jpg',
+  //   quote:
+  //     'Instant gave us real-time collaboration out of the box. Our users drag images, text, and links onto shared moodboards and see each other\u2019s changes live \u2014 we went from months of sync engine work to shipping multiplayer in a week. This is a fake testimonial.',
+  //   demo: {
+  //     type: 'video' as const,
+  //     src: 'https://stream.mux.com/44ZuaohoH028SIEcs1MHyp7YzprJEwHwGeWrcfs9fu0200/720p.mp4',
+  //   },
+  // },
   {
     name: 'Prism',
     url: 'https://www.prismvideos.com',

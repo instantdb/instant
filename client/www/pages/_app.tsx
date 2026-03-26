@@ -68,7 +68,9 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
         <SWRConfig
           value={{
             fallback: {
-              starCount: pageProps.starCount,
+              ...(pageProps.starCount != null
+                ? { starCount: pageProps.starCount }
+                : {}),
             },
             provider: localStorageProvider,
           }}

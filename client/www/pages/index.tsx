@@ -11,7 +11,6 @@ import { StartupShowcase } from '@/components/new-landing/StartupShowcase';
 import { FirebaseTestimonial } from '@/components/new-landing/FirebaseTestimonial';
 import { FinalCTA } from '@/components/new-landing/FinalCTA';
 import { Footer } from '@/components/new-landing/Footer';
-import { AgentPathsBgSoftCenter } from '@/components/home/AgentPathsBgSoftCenter';
 import type { ReactNode } from 'react';
 import { GetStaticProps } from 'next';
 import { getGithubStarCount } from '@/lib/getGithubStars';
@@ -68,7 +67,6 @@ export default function Landing2026() {
       <HomeSeo />
       <main className="flex-1">
         <section className="relative overflow-hidden bg-[#F8F8F8]">
-          <AgentPathsBgSoftCenter />
           <div className="relative z-10 pt-10 pb-8 sm:pt-16 sm:pb-12">
             <Hero />
           </div>
@@ -103,11 +101,6 @@ export default function Landing2026() {
           id="social-proof"
           className="bg-[#F8F8F8]"
           fadeHeightClass="h-48"
-          background={
-            <div className="opacity-40">
-              <AgentPathsBgSoftCenter />
-            </div>
-          }
         >
           <div className="py-16 sm:py-24">
             <div className="landing-width mx-auto">

@@ -122,7 +122,7 @@ export function UndoDemo() {
 
   return (
     <div ref={containerRef} className="relative select-none">
-      <div className="flex flex-col items-stretch gap-3 sm:flex-row">
+      <div className="flex flex-col items-stretch gap-3 md:flex-row">
         {/* Posts table */}
         <div className="h-[200px] flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-md">
           <div className="border-b border-gray-100 px-4 py-2">
@@ -154,7 +154,7 @@ export function UndoDemo() {
                         btnRefs.current[row.attr] = el;
                       }}
                       onClick={() => handleDelete(row.attr)}
-                      className="cursor-pointer rounded-lg border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-medium text-red-500 transition-all hover:bg-gray-200 active:scale-95"
+                      className="cursor-pointer rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 transition-all hover:border-red-300 hover:text-red-500 active:scale-95"
                     >
                       Delete
                     </button>
@@ -200,7 +200,7 @@ export function UndoDemo() {
                     <div className="ml-auto pr-3">
                       <button
                         onClick={() => handleRestore(attr)}
-                        className="cursor-pointer rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-green-600 active:scale-95"
+                        className="cursor-pointer rounded-md border border-green-300 px-2.5 py-1 text-xs font-medium text-green-600 transition-all hover:bg-green-50 active:scale-95"
                       >
                         Restore
                       </button>
