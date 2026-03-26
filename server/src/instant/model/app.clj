@@ -373,10 +373,17 @@
   "Deletes attrs, rules, and triples for the specified app_id"
   ([params] (clear-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
-   (next-jdbc/with-transaction [tx-conn conn]
-     (transaction-model/create! tx-conn {:app-id id})
-     (attr-model/hard-delete-by-app-id! tx-conn id)
-     (rule-model/delete-by-app-id! tx-conn {:app-id id}))))
+   (let [attr-ids (keep (fn [attr]
+                          (when (= :user (:catalog attr))
+                            (:id attr)))
+                        (attr-model/get-by-app-id id))]
+     (with-cache-invalidation id
+       (attr-model/with-cache-invalidation id
+         (next-jdbc/with-transaction [tx-conn conn]
+           (transaction-model/create! tx-conn {:app-id id})
+           (attr-model/soft-delete-multi! tx-conn id attr-ids)
+           (rule-model/put! tx-conn {:app-id id
+                                     :code {}})))))))
 
 (comment
   (clear-by-id! {:id "9a6d8f38-991d-4264-9801-4a05d8b1eab1"}))

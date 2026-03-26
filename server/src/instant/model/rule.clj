@@ -96,15 +96,6 @@
                  WHERE app_id = ?::uuid ORDER BY version DESC LIMIT ?"
                 app-id limit])))
 
-(defn delete-by-app-id!
-  ([params] (delete-by-app-id! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id]}]
-   (with-cache-invalidation app-id
-     (sql/do-execute!
-      ::delete-by-app-id!
-      conn
-      ["DELETE FROM rules WHERE app_id = ?::uuid" app-id]))))
-
 (defn bind-usages [compiler bind-keys expr]
   (clojure.set/intersection bind-keys
                             (cel/ident-usages compiler expr)))
