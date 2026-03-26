@@ -553,6 +553,13 @@
                :body {:code code}})
   (instant-user-refresh-token-model/delete-by-id! (select-keys r [:id])))
 
+(defn rule-versions-get [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :apps/read
+                                                                         req)
+        versions (rule-model/get-versions {:app-id app-id})]
+    (response/ok {:versions versions})))
+
 ;; ---------
 ;; Apps Auth
 
@@ -1929,6 +1936,7 @@
   (POST "/dash/apps/:app_id/clear" [] apps-clear)
   (POST "/dash/apps/:app_id/track-import" [] apps-track-import)
   (POST "/dash/apps/:app_id/rules" [] rules-post)
+  (GET "/dash/apps/:app_id/rule-versions" [] rule-versions-get)
   (POST "/dash/apps/:app_id/tokens" [] admin-tokens-regenerate)
   (GET "/dash/apps/:app_id/soft_deleted_attrs" [] soft-deleted-attrs-get)
 

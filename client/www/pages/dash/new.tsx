@@ -46,6 +46,7 @@ function NewApp() {
       admin_token: v4(),
       created_at: new Date().toISOString(),
       rules: null,
+      rules_version: null,
       members: [],
       invites: [],
       user_app_role: 'owner',

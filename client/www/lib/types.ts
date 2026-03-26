@@ -7,6 +7,7 @@ export type InstantApp = {
   created_at: string;
   admin_token: string;
   rules: object | null;
+  rules_version: number | null;
   user_app_role: 'owner' | 'admin' | 'collaborator';
   members: InstantMember[] | null;
   invites: InstantAppInvite | null;
