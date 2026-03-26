@@ -66,14 +66,17 @@ const getProjectInfo = (
     const pkgJson = yield* Effect.tryPromise({
       try: () => readPackage(),
       catch: () =>
-        new ProjectInfoError({ message: "Couldn't read package.json" }),
+        new ProjectInfoError({
+          message:
+            "We couldn't find an Instant SDK. Install one, or run `init`",
+        }),
     });
 
     yield* Effect.log('Checking for an Instant SDK...');
     let moduleName = getInstantModuleName(pkgJson);
     if (!moduleName && !coerce) {
       return yield* new ProjectInfoError({
-        message: 'No instant client library installed',
+        message: "We couldn't find an Instant SDK. Install one, or run `init`",
       });
     }
     yield* Effect.log(

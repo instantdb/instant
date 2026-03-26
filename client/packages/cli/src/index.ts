@@ -250,8 +250,11 @@ Environment Variables:
       pushCommand(arg, inputOpts).pipe(
         Effect.provide(
           WithAppLayer({
-            coerce: true,
+            coerce: false,
             appId: inputOpts.app,
+            coerceLibraryInstall: true,
+            coerceAuth: false,
+            allowAdminToken: true,
             applyEnv: true,
             packageName:
               inputOpts.package as keyof typeof PACKAGE_ALIAS_AND_FULL_NAMES,
