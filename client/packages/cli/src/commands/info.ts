@@ -13,14 +13,14 @@ const DashMeResponse = Schema.Struct({
 
 export const infoCommand = () =>
   Effect.gen(function* () {
-    const http = yield* Effect.serviceOption(InstantHttpAuthed).pipe(
+    const authedHttp = yield* Effect.serviceOption(InstantHttpAuthed).pipe(
       Effect.map(Option.getOrNull),
     );
 
     yield* Effect.log('CLI Version:', version);
     // If logged in..
-    if (http) {
-      const meData = yield* http.get('/dash/me').pipe(
+    if (authedHttp) {
+      const meData = yield* authedHttp.get('/dash/me').pipe(
         Effect.flatMap(HttpClientResponse.schemaBodyJson(DashMeResponse)),
         Effect.mapError(
           (e) => new Error("Couldn't get user information.", { cause: e }),
