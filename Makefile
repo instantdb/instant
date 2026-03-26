@@ -8,11 +8,10 @@ setup-llm-rules:
 		else \
 			echo "$$dir/AGENTS.md already exists, skipping"; \
 		fi; \
-		if [ -L "$$dir/CLAUDE.md" ] && [ "$$(readlink "$$dir/CLAUDE.md")" = "AGENTS.md" ]; then \
-			echo "$$dir/CLAUDE.md -> AGENTS.md already exists, skipping"; \
-		else \
-			rm -f "$$dir/CLAUDE.md"; \
+		if [ ! -e "$$dir/CLAUDE.md" ] && [ ! -L "$$dir/CLAUDE.md" ]; then \
 			ln -s AGENTS.md "$$dir/CLAUDE.md"; \
 			echo "Created $$dir/CLAUDE.md -> AGENTS.md"; \
+		else \
+			echo "$$dir/CLAUDE.md already exists, skipping"; \
 		fi; \
 	done
