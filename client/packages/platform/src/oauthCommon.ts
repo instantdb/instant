@@ -33,6 +33,6 @@ export class InstantOAuthError extends Error {
   }
 
   get [Symbol.toStringTag]() {
-    return 'InstantAPIError';
+    return 'InstantOAuthError';
   }
 }
