@@ -19,7 +19,7 @@ export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>
     if (contexts.length > 1) {
       return yield* BadArgsError.make({
         message:
-          'Please specify exactly one context: --admin, --as-email <email>, or --as-guest',
+          'Please specify exactly one context: --admin, --as-email <email>, --as-guest, or --as-token <token>',
       });
     }
 

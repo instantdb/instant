@@ -162,6 +162,8 @@ export const pushSchema = (
       .post(`/dash/apps/${appId}/schema/steps/apply`)
       .pipe(Effect.flatMap(HttpClientResponse.schemaBodyJson(Schema.Any)));
 
+    yield* Effect.log(chalk.green('Schema updated!'));
+
     if (pushRes?.['indexing-jobs']) {
       // TODO: rewrite in effect
       yield* Effect.tryPromise({
@@ -174,8 +176,6 @@ export const pushSchema = (
           }),
       });
     }
-
-    yield* Effect.log(chalk.green('Schema updated!'));
   });
 
 export class WaitForJobsError extends Schema.TaggedError<WaitForJobsError>(

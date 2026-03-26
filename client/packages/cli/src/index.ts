@@ -50,7 +50,7 @@ export const initDef = program
     'If you have an existing app ID, we can pull schema and perms from there.',
   )
   .option(
-    '-p --package <react|react-native|core|admin>',
+    '-p --package <react|react-native|core|admin|solid|svelte>',
     'Which package to automatically install if there is not one installed already.',
   )
   .option('--title <title>', 'Title for the created app')

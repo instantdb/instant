@@ -1,7 +1,7 @@
 // @ts-check
 import boxen from 'boxen';
 import chalk from 'chalk';
-import { program } from 'commander';
+import { program } from '@commander-js/extra-typings';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import terminalLink from 'terminal-link';
@@ -444,7 +444,9 @@ export async function readInstantConfigFile() {
 
 async function readConfigAuthToken(allowAdminToken = true) {
   const options = program.opts();
+  // @ts-expect-error command opts type is unknown
   if (typeof options.token === 'string') {
+    // @ts-expect-error command opts type is unknown
     return options.token;
   }
 
