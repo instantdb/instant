@@ -889,6 +889,7 @@ ${inputDisplay}`;
     modifyOutput?: (output: string) => string;
     api: AppSelectorApi;
     startingMenuIndex?: number;
+    defaultAppName?: string;
   };
 
   export class AppSelector extends Prompt<{
@@ -1104,7 +1105,7 @@ ${inputDisplay}`;
 
       this.focus.setFocus('appList');
 
-      const defaultAppName = 'Awesome Todos';
+      const defaultAppName = props.defaultAppName || 'My Awesome App';
       this.appNameInput = new TextInput({
         prompt: 'Enter New App Name',
         placeholder: defaultAppName,

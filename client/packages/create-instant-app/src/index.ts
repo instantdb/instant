@@ -55,7 +55,11 @@ const main = async () => {
     schema: getSchema(projectDir),
   };
 
-  const possibleAppTokenPair = await tryConnectApp(appFlags, scaffoldMetadata);
+  const possibleAppTokenPair = await tryConnectApp(
+    scopedAppName,
+    appFlags,
+    scaffoldMetadata,
+  );
   if (possibleAppTokenPair) {
     applyEnvFile(
       project,

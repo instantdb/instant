@@ -230,6 +230,7 @@ const createPermissiveEphemeralApp = async (
 };
 
 export const tryConnectApp = async (
+  scopedAppName: string,
   appFlags?: AppFlags,
   metadata?: ScaffoldMetadata,
 ): Promise<AppTokenResponse | null> => {
@@ -357,6 +358,7 @@ export const tryConnectApp = async (
   const selectedApp = await renderUnwrap(
     new UI.AppSelector({
       startingMenuIndex: 0,
+      defaultAppName: scopedAppName,
       allowCreate: true,
       allowEphemeral: true,
       api: {
