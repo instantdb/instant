@@ -236,6 +236,10 @@ client/packages/version/src/package.json
 # codex
 .codex
 
+# LLM rules (these are ignored so you can customize them, but to set up our defaults, run `make setup-llm-rules`)
+client/CLAUDE.md
+client/AGENTS.md
+
 # example project package-locks
 examples/*/pnpm-lock.yaml
 
