@@ -125,6 +125,7 @@ export const WithAppLayer = (args: {
   title?: string;
   coerce: boolean;
   coerceAuth?: boolean;
+  coerceLibraryInstall?: boolean;
   packageName?: keyof typeof PACKAGE_ALIAS_AND_FULL_NAMES;
   allowAdminToken?: boolean;
   applyEnv?: boolean;
@@ -141,9 +142,14 @@ export const WithAppLayer = (args: {
       AuthLayerLive({
         allowAdminToken:
           args.allowAdminToken !== undefined ? args.allowAdminToken : true,
-        coerce: args.coerceAuth || false,
+        coerce: args.coerceAuth ?? false,
       }),
     ),
-    Layer.provideMerge(ProjectInfoLive(args.coerce, args.packageName)),
+    Layer.provideMerge(
+      ProjectInfoLive(
+        args.coerceLibraryInstall ?? args.coerce,
+        args.packageName,
+      ),
+    ),
     Layer.provideMerge(BaseLayerLive),
   );
