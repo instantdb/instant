@@ -30,30 +30,7 @@ export const initWithoutFilesCommand = (
       });
     }
 
-    if (!opts.temp) {
-      const app = yield* createApp(opts.title, opts.orgId).pipe(
-        Effect.provide(
-          AuthLayerLive({
-            allowAdminToken: false,
-            coerce: false,
-          }),
-        ),
-      );
-      console.error(`${chalk.green('Successfully created new app!')}\n`);
-      yield* Effect.log(
-        JSON.stringify(
-          {
-            app: {
-              appId: app.app.id,
-              adminToken: app.app['admin-token'],
-            },
-            error: null,
-          },
-          null,
-          2,
-        ),
-      );
-    } else {
+    if (opts.temp) {
       const platform = yield* PlatformApi;
       const app = yield* platform.use((api) =>
         api.createTemporaryApp({
@@ -75,7 +52,33 @@ export const initWithoutFilesCommand = (
           2,
         ),
       );
+
+      return;
     }
+
+    const app = yield* createApp(opts.title, opts.orgId).pipe(
+      Effect.provide(
+        AuthLayerLive({
+          allowAdminToken: false,
+          coerce: false,
+        }),
+      ),
+    );
+    // Using console.error so the output is part of error channel and not picked up by jq
+    console.error(`${chalk.green('Successfully created new app!')}\n`);
+    yield* Effect.log(
+      JSON.stringify(
+        {
+          app: {
+            appId: app.app.id,
+            adminToken: app.app['admin-token'],
+          },
+          error: null,
+        },
+        null,
+        2,
+      ),
+    );
   }).pipe(
     Effect.catchTag('NotAuthedError', (e) =>
       NotAuthedError.make({
