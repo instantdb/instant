@@ -66,11 +66,11 @@ export default function Landing2026() {
       <MainNav transparent />
       <HomeSeo />
       <main className="flex-1">
-        <section className="relative overflow-hidden bg-[#F8F8F8]">
-          <div className="relative z-10 pt-10 pb-8 sm:pt-16 sm:pb-12">
+        <section className="relative overflow-hidden bg-gradient-to-b from-[#FBF9F6] to-white">
+          <div className="relative z-10 pt-16 pb-12 sm:pt-24 sm:pb-20">
             <Hero />
           </div>
-          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-48 bg-gradient-to-b from-transparent to-white" />
+          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-24 bg-gradient-to-b from-transparent to-white" />
         </section>
 
         <Section id="built-for-ai">
@@ -93,14 +93,19 @@ export default function Landing2026() {
           </Section>
         </div>
 
-        <Section id="sync-relations">
-          <SyncRelations />
-        </Section>
+        <div className="bg-linear-to-b from-white via-[#F7F7F7] to-white">
+          <Section id="sync-relations">
+            <SyncRelations />
+          </Section>
+        </div>
 
         <LandingBand
           id="social-proof"
           className="bg-[#F8F8F8]"
           fadeHeightClass="h-48"
+          background={
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.5)_0%,_transparent_70%)]" />
+          }
         >
           <div className="py-16 sm:py-24">
             <div className="landing-width mx-auto">

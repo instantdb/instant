@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { CopyToClipboardButton } from './CopyToClipboardButton';
 import { HeroTitle, LandingButton, SectionSubtitle } from './typography';
 
@@ -84,33 +85,57 @@ function VideoPlayer() {
 
 // Main Hero component
 export function Hero() {
+  const shouldReduceMotion = useReducedMotion();
+  const y = shouldReduceMotion ? 0 : 12;
+
   return (
     <section className="pt-28 pb-8 sm:pt-32 sm:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <div className="hero-stagger-1">
+          <motion.div
+            initial={{ opacity: 0, y }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+          >
             <HeroTitle>The best backend for AI-coded apps</HeroTitle>
-          </div>
-          <SectionSubtitle>
-            Give your AI a real backend. You get auth, permissions, storage,
-            presence, and streams — everything you need to ship apps your users
-            will love.
-          </SectionSubtitle>
-          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <div className="inline-flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-100 px-4 py-3 font-mono text-base sm:text-lg">
-              <span className="text-orange-600">$</span>
-              <span className="text-gray-700">npx create-instant-app</span>
-              <CopyToClipboardButton text="npx create-instant-app" />
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: 'easeOut', delay: 0.08 }}
+          >
+            <SectionSubtitle>
+              Give your AI a real backend. You get auth, permissions, storage,
+              presence, and streams — everything you need to ship apps your users
+              will love.
+            </SectionSubtitle>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: 'easeOut', delay: 0.16 }}
+          >
+            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <div className="inline-flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-100 px-4 py-3 font-mono text-base sm:text-lg">
+                <span className="text-orange-600">$</span>
+                <span className="text-gray-700">npx create-instant-app</span>
+                <CopyToClipboardButton text="npx create-instant-app" />
+              </div>
+
+              <span className="text-base text-gray-400">or</span>
+
+              <LandingButton href="/dash">Sign up now</LandingButton>
             </div>
+          </motion.div>
 
-            <span className="text-base text-gray-400">or</span>
-
-            <LandingButton href="/dash">Sign up now</LandingButton>
-          </div>
-
-          <div className="hero-stagger-3 mx-auto mt-10 max-w-[880px]">
+          <motion.div
+            className="mx-auto mt-10 max-w-[880px]"
+            initial={{ opacity: 0, y }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: 'easeOut', delay: 0.24 }}
+          >
             <VideoPlayer />
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
