@@ -1,13 +1,3 @@
----
-name: carbon
-description: |
-  Generate beautiful code screenshots using carbon-now-cli.
-  TRIGGER when the user wants to create a screenshot of code, export code as an image,
-  make a code snippet shareable, or asks for a "carbon" screenshot.
-  Produces PNG or SVG images locally via headless browser.
-user_invocable: true
----
-
 # Carbon Code Screenshots
 
 - Tool: [carbon-now-cli](https://github.com/mixn/carbon-now-cli) (Playwright + carbon.now.sh)
