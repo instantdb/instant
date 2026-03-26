@@ -93,8 +93,7 @@ parentheses, or just break up sentences into multiple sentences.
 
 When you're asked to save screenshots related to some feature, announcement,
 etc. put them in their own directory. This is especially useful when I'm
-asking you to make multiple screenshots
-To learn about how to do this, read ./dev-llm-docs/code-screenshot-skill.md
+asking you to make multiple screenshots.
 Save them in ./dev-llm-docs/screenshots
 
 # Querying InstantDB tables (e.g. for debugging the system)
