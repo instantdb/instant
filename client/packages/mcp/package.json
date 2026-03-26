@@ -16,7 +16,9 @@
     "dist"
   ],
   "scripts": {
-    "test": "vitest",
+    "test": "vitest --project unit",
+    "test:e2e": "vitest --project e2e",
+    "test:ci": "vitest run",
     "dev": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
     "clean": "rm -rf dist",
     "build": "rm -rf dist && tsc",
@@ -37,7 +39,7 @@
     "pino-pretty": "^13.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.9.3",
-    "vitest": "^1.6.0"
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@honeycombio/opentelemetry-node": "^0.7.2",
