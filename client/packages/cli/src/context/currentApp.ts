@@ -130,7 +130,7 @@ export const CurrentAppLive = (args: {
           if (globalOpts.yes) {
             if (!args.title) {
               return yield* new CurrentAppContextError({
-                message: `Title is required when using --yes and no app is linked`,
+                message: `If you provide --yes, you must provide a --title flag.`,
               });
             } else {
               yield* Effect.log(`Creating app with title: ${args.title}`);
