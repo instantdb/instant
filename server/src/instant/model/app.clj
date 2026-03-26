@@ -370,7 +370,7 @@
        (flags/default-magic-code-expiry-minutes))))
 
 (defn clear-by-id!
-  "Deletes attrs, rules, and triples for the specified app_id"
+  "Soft deletes attrs, rules, and triples for the specified app_id"
   ([params] (clear-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
    (let [attr-ids (keep (fn [attr]
