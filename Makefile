@@ -3,7 +3,7 @@
 setup-llm-rules:
 	@for dir in client; do \
 		if [ ! -f "$$dir/AGENTS.md" ]; then \
-			echo "Read llm-rules.md in this folder" > "$$dir/AGENTS.md"; \
+			echo "Important: to understand how to work in this folder, make sure you read llm-rules.md first" > "$$dir/AGENTS.md"; \
 			echo "Created $$dir/AGENTS.md"; \
 		else \
 			echo "$$dir/AGENTS.md already exists, skipping"; \
