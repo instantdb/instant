@@ -346,7 +346,12 @@ function HoverTooltip({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.1 }}
             className="fixed z-50 -translate-y-full rounded border border-gray-300 px-2.5 py-1.5 text-[12px] whitespace-nowrap shadow-lg"
-            style={{ backgroundColor: c.bg, color: c.text, top: pos.top, left: pos.left }}
+            style={{
+              backgroundColor: c.bg,
+              color: c.text,
+              top: pos.top,
+              left: pos.left,
+            }}
           >
             {content}
           </motion.div>

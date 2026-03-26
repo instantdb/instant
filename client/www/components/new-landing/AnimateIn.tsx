@@ -6,13 +6,6 @@ interface AnimateInProps {
   className?: string;
 }
 
-export function AnimateIn({
-  children,
-  className = '',
-}: AnimateInProps) {
-  return (
-    <div className={className}>
-      {children}
-    </div>
-  );
+export function AnimateIn({ children, className = '' }: AnimateInProps) {
+  return <div className={className}>{children}</div>;
 }
