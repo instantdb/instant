@@ -17,6 +17,7 @@ export class DataAttrDef<
     public config: {
       indexed: boolean;
       unique: boolean;
+      ttl?: number | string;
       // clientValidator?: (value: ValueType) => boolean;
     } = { indexed: false, unique: false },
   ) {}
@@ -64,6 +65,18 @@ export class DataAttrDef<
       {
         ...this.config,
         indexed: true,
+      },
+    );
+  }
+
+  ttl(duration: number | string) {
+    return new DataAttrDef<ValueType, IsRequired, IsIndexed, IsUnique>(
+      this.valueType,
+      this.required,
+      this.isIndexed,
+      {
+        ...this.config,
+        ttl: duration,
       },
     );
   }
