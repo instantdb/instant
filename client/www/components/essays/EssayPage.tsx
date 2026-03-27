@@ -1,10 +1,10 @@
+'use client';
+
 import {
   LandingContainer,
   MainNav,
   PageProgressBar,
 } from '@/components/marketingUi';
-import * as og from '@/lib/og';
-import Head from 'next/head';
 import { authorFirstName, formatDuration } from '@/lib/postUtils';
 import type { Post } from '@/lib/posts';
 
@@ -13,25 +13,10 @@ import { EssayMarkdown } from '@/components/essays/EssayMarkdown';
 import { Footer } from '@/components/new-landing/Footer';
 
 export function EssayPage({ post }: { post: Post }) {
-  const { title, authors, hero, content, og_image } = post;
+  const { title, authors, hero, content } = post;
 
   return (
     <LandingContainer>
-      <Head>
-        <title>{title}</title>
-        <meta key="og:title" property="og:title" content={title} />
-        <meta
-          key="og:image"
-          property="og:image"
-          content={og_image || hero || og.url({ title, section: 'blog' })}
-        />
-        <meta key="og:type" property="og:type" content="article" />
-        <meta
-          key="og:article:author"
-          property="article:author"
-          content={authors.map((author) => author.name).join(', ')}
-        />
-      </Head>
       <PageProgressBar />
       <div className="relative">
         <TopWash />

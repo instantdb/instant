@@ -10,12 +10,12 @@ import {
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import NextLink from 'next/link';
+import { usePathname } from 'next/navigation';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Button, cn, LogoIcon } from '@/components/ui';
 import { ComponentType, SVGProps } from 'react';
-import { useRouter } from 'next/router';
-import { useGithubStarCount } from '@/lib/useGithubStarCount';
+import { useStarCount } from '@/lib/starCountContext';
 import { formatNumberCompact } from '@/lib/format';
 
 type Product = {
@@ -149,8 +149,7 @@ const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
   href,
   children,
 }) => {
-  const router = useRouter();
-  const pathname = router.pathname;
+  const pathname = usePathname();
   return (
     <NextLink
       href={href}
@@ -360,8 +359,7 @@ function NavItems() {
 }
 
 function OtherNavItems() {
-  const starCount = useGithubStarCount();
-
+  const starCount = useStarCount();
   const formattedStarCount = starCount
     ? formatNumberCompact(starCount)
     : undefined;

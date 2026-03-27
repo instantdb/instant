@@ -1,3 +1,5 @@
+'use client';
+
 import { useRef, useCallback, useMemo } from 'react';
 import { motion, useAnimation } from 'motion/react';
 import exampleDB from '@/lib/intern/docs-feedback/db';
