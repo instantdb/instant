@@ -498,14 +498,6 @@ export const subscribeInfiniteQuery = <
       pushNewForward(initialForwardCursor, true);
       pushNewReverse(pageInfo.startCursor);
       hasKickstarted = true;
-
-      // Flush the initial boostrap querysub data
-      // because immediately unsubscribing will never save it for offline in idb
-      await db._reactor.querySubs.flush();
-
-      // Unsubscribe the starter subscription
-      starterUnsub?.();
-      starterUnsub = null;
     },
     opts,
   );
