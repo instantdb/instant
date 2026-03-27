@@ -1,6 +1,8 @@
+'use client';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
 
 import { Navigation } from '@/components/docs/Navigation';
@@ -52,14 +54,14 @@ function useWorkspaceData(workspaceId, token) {
 
 function useSelectedApp(apps = [], orgId) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAppData, setSelectedAppData] = useState(null);
 
   useEffect(() => {
-    if (!router.isReady) return;
-
     const cachedAppData = getLocallySavedApp(orgId);
-    const { app: queryAppId, ...remainingQueryParams } = router.query;
+    const queryAppId = searchParams.get('app');
 
     const fromParams = queryAppId && apps.find((a) => a.id === queryAppId);
     const fromCache =
@@ -76,15 +78,12 @@ function useSelectedApp(apps = [], orgId) {
         id: fromParams.id,
         orgId: orgId,
       });
+      const remainingParams = new URLSearchParams(searchParams.toString());
+      remainingParams.delete('app');
+      const queryString = remainingParams.toString();
+      const hash = window.location.hash;
       router.replace(
-        {
-          query: remainingQueryParams,
-          hash: window.location.hash,
-        },
-        undefined,
-        {
-          shallow: true,
-        },
+        `${pathname}${queryString ? `?${queryString}` : ''}${hash}`,
       );
     } else if (fromCache) {
       const data = { id: fromCache.id, title: fromCache.title };
@@ -93,7 +92,7 @@ function useSelectedApp(apps = [], orgId) {
       setSelectedAppData({ id: first.id, title: first.title });
     }
     setIsLoading(false);
-  }, [router.isReady, apps.length, orgId]);
+  }, [apps.length, orgId]);
 
   const update = useCallback(
     (appId) => {
@@ -182,6 +181,8 @@ function AppPicker({
   allOrgs,
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const appOptions = apps.toSorted(titleComparator).map((app) => ({
     label: app.title,
@@ -226,15 +227,13 @@ function AppPicker({
 
     if (value.startsWith('org:')) {
       const orgId = value.substring(4);
-      const { org, ...rest } = router.query;
-      if (orgId === 'personal') {
-        router.push({ pathname: router.pathname, query: rest });
-      } else {
-        router.push({
-          pathname: router.pathname,
-          query: { ...rest, org: orgId },
-        });
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.delete('org');
+      if (orgId !== 'personal') {
+        newParams.set('org', orgId);
       }
+      const queryString = newParams.toString();
+      router.push(`${pathname}${queryString ? `?${queryString}` : ''}`);
     } else {
       updateSelectedAppId(value);
     }
@@ -438,24 +437,26 @@ const adj = {
 };
 
 export function Layout({ children, title, tableOfContents }) {
-  let router = useRouter();
+  let pathname = usePathname();
+  const searchParams = useSearchParams();
   const scrollContainerRef = useRef();
 
   let allLinks = navigation.flatMap((section) => section.links);
 
-  let previousPage = getPreviousPage(allLinks, router.pathname);
-  let nextPage = getNextPage(allLinks, router.pathname);
+  let previousPage = getPreviousPage(allLinks, pathname);
+  let nextPage = getNextPage(allLinks, pathname);
 
   let section = navigation.find((section) =>
-    section.links.find((link) => link.href === router.pathname),
+    section.links.find((link) => link.href === pathname),
   );
 
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [forceModal, setForceModal] = useState(false);
   const isMobile = useIsMobile();
 
-  const workspaceId = router.query.org || 'personal';
-  const orgQuery = router.query.org ? { org: router.query.org } : {};
+  const org = searchParams.get('org');
+  const workspaceId = org || 'personal';
+  const orgQuery = org ? { org } : {};
   const token = useAuthToken();
   const {
     apps,
@@ -529,7 +530,7 @@ export function Layout({ children, title, tableOfContents }) {
             {/* Main content */}
             <main
               ref={scrollContainerRef}
-              key={router.pathname}
+              key={pathname}
               className="max-w-prose min-w-0 flex-1 p-4"
             >
               {isHydrated && !isLoadingWorkspace && (
@@ -544,7 +545,7 @@ export function Layout({ children, title, tableOfContents }) {
                 />
               )}
               <PageContent
-                path={router.pathname}
+                path={pathname}
                 title={title}
                 sectionTitle={section?.title}
                 allLinks={allLinks}
@@ -552,7 +553,7 @@ export function Layout({ children, title, tableOfContents }) {
                 {children}
               </PageContent>
               <div className="mt-4">
-                <RatingBox pageId={router.pathname} />
+                <RatingBox pageId={pathname} />
               </div>
               <PageNav
                 previousPage={previousPage}

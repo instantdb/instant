@@ -1,3 +1,5 @@
+'use client';
+
 import { CheckIcon } from '@heroicons/react/24/outline';
 import { slugifyWithCounter } from '@sindresorhus/slugify';
 import { cn } from '@instantdb/components';

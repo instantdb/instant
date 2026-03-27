@@ -68,4 +68,4 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 };
 
-module.exports = withMarkdoc({ appDir: false })(nextConfig);
+module.exports = withMarkdoc()(nextConfig);

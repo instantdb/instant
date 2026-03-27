@@ -1,3 +1,5 @@
+'use client';
+
 /* Components for navigating between doc pages and conditionally rendering content
  *
  * Usage: Navigate to different page
@@ -27,7 +29,7 @@
  * {% /conditional %}
  */
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '../../components/ui.tsx';
 import { createContext, useContext } from 'react';
 
@@ -50,10 +52,9 @@ export function NavGroup({ children }) {
 }
 
 function isSelected(param, value) {
-  const router = useRouter();
-  const query = router.query;
+  const searchParams = useSearchParams();
   const defaultValue = useContext(DefaultValueContext);
-  return value && value === (router.query[param] || defaultValue);
+  return value && value === (searchParams.get(param) || defaultValue);
 }
 
 export function NavButton({
@@ -65,17 +66,14 @@ export function NavButton({
   recommended,
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const selected = isSelected(param, value);
 
   const handleClick = () => {
-    router.replace(
-      {
-        pathname: router.pathname,
-        query: { ...router.query, [param]: value },
-      },
-      undefined,
-      { scroll: false },
-    );
+    const newParams = new URLSearchParams(searchParams.toString());
+    newParams.set(param, value);
+    router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
   };
   const Component = (
     <div

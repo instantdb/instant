@@ -1,3 +1,5 @@
+import yaml from 'js-yaml';
+
 // Extract frontmatter from markdoc content and separate it from the
 // markdoc content
 function parseFrontmatter(content: string): {
@@ -14,16 +16,7 @@ function parseFrontmatter(content: string): {
   const frontmatterStr = match[1];
   const remainingContent = match[2];
 
-  const frontmatter: Record<string, string> = {};
-  const lines = frontmatterStr.split('\n');
-  for (const line of lines) {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex !== -1) {
-      const key = line.slice(0, colonIndex).trim();
-      const value = line.slice(colonIndex + 1).trim();
-      frontmatter[key] = value;
-    }
-  }
+  const frontmatter = yaml.load(frontmatterStr) || {};
 
   return { frontmatter, content: remainingContent };
 }
@@ -39,12 +32,15 @@ function transformContent(content: string): string {
   const { frontmatter, content: markdownContent } = parseFrontmatter(content);
   let result = '';
 
-  if (frontmatter.title) {
-    result += `# ${frontmatter.title}\n\n`;
+  const title = frontmatter.nextjs?.metadata?.title;
+  const description = frontmatter.nextjs?.metadata?.description;
+
+  if (title) {
+    result += `# ${title}\n\n`;
   }
 
-  if (frontmatter.description) {
-    result += `${frontmatter.description}\n\n`;
+  if (description) {
+    result += `${description}\n\n`;
   }
 
   const sanitizedContent = sanitizeMarkdown(markdownContent);

@@ -18,12 +18,13 @@ export function StarCountProvider({
   );
 }
 
-/**
- * Returns the GitHub star count, or null if outside the provider.
- *
- * Marketing pages (under app/(marketing)/layout.tsx) always get a number.
- * Docs pages (Pages Router) get null — the star badge renders empty.
- */
-export function useStarCount(): number | null {
-  return useContext(StarCountContext);
+export function useStarCount(): number {
+  const value = useContext(StarCountContext);
+  if (value == null) {
+    throw new Error(
+      'useStarCount() must be used within StarCountProvider. ' +
+        'Ensure this page is under app/layout.tsx.',
+    );
+  }
+  return value;
 }

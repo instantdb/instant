@@ -1,3 +1,5 @@
+'use client';
+
 import { Fragment, useContext } from 'react';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
 import { ClipboardDocumentIcon } from '@heroicons/react/24/outline';

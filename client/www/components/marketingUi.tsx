@@ -360,9 +360,7 @@ function NavItems() {
 
 function OtherNavItems() {
   const starCount = useStarCount();
-  const formattedStarCount = starCount
-    ? formatNumberCompact(starCount)
-    : undefined;
+  const formattedStarCount = formatNumberCompact(starCount);
 
   return (
     <>
