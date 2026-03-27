@@ -5,10 +5,10 @@ export function Prose({ as: Component = 'div', className, ...props }) {
     <Component
       className={clsx(
         className,
-        'prose max-w-none',
+        'prose max-w-none leading-relaxed',
         // headings
-        'prose-headings:scroll-mt-28 prose-headings:font-normal lg:prose-headings:scroll-mt-34',
-        'prose-h1:mb-4 prose-h1:mt-8 prose-h2:mb-4 prose-h2:mt-4 prose-h3:mb-4 prose-h3:mt-4',
+        'prose-headings:scroll-mt-28 prose-headings:font-normal prose-headings:leading-snug lg:prose-headings:scroll-mt-34',
+        'prose-h1:mb-4 prose-h1:mt-12 prose-h2:mb-3 prose-h2:mt-8 prose-h3:mb-3 prose-h3:mt-6',
         // lead
         'prose-lead:text-slate-500 dark:prose-lead:text-slate-400',
         // links

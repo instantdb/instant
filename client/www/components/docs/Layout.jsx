@@ -377,15 +377,7 @@ export function Layout({ children, title, tableOfContents }) {
 
   return (
     <SelectedAppContext.Provider value={selectedAppData}>
-      <style jsx global>
-        {`
-          html,
-          body {
-            background-color: #f8f9fa;
-          }
-        `}
-      </style>
-      <div className="min-h-dvh">
+      <div className="min-h-dvh bg-[#f8f9fa]">
         {/* Header */}
         <div
           className={clsx(
@@ -436,7 +428,7 @@ export function Layout({ children, title, tableOfContents }) {
             <main
               ref={scrollContainerRef}
               key={pathname}
-              className="max-w-prose min-w-0 flex-1 p-4"
+              className="max-w-2xl min-w-0 flex-1 p-4"
             >
               <AppPicker
                 isReady={isHydrated && !isLoadingWorkspace}
