@@ -62,6 +62,17 @@ function processCode(raw: string): string {
         return acc;
       }
 
+      // Replace `/api/avatar` with `https://instantdb.com/api/avatar`
+      const avatarUrlMatch = line.match(/(.*`)\/api\/avatar(.*)/);
+      if (avatarUrlMatch) {
+        acc.push(
+          avatarUrlMatch[1] +
+            'https://instantdb.com/api/avatar' +
+            avatarUrlMatch[2],
+        );
+        return acc;
+      }
+
       acc.push(line);
       return acc;
     }, [])
