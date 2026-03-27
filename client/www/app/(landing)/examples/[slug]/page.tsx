@@ -1,8 +1,5 @@
 import type { Metadata } from 'next';
-import {
-  getAllSlugs,
-  getExampleAppBySlug,
-} from '@/lib/examples/server';
+import { getAllSlugs, getExampleAppBySlug } from '@/lib/examples/server';
 import Content from './content';
 
 export async function generateStaticParams() {

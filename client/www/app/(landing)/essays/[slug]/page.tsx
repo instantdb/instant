@@ -20,7 +20,9 @@ export async function generateMetadata({
       title: post.title,
       type: 'article',
       images: [
-        post.og_image || post.hero || og.url({ title: post.title, section: 'blog' }),
+        post.og_image ||
+          post.hero ||
+          og.url({ title: post.title, section: 'blog' }),
       ],
       authors: post.authors.map((a) => a.name),
     },

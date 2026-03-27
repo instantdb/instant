@@ -117,7 +117,8 @@ function HiringContent() {
       <h2 id="apply">Apply</h2>
       <p>
         Our vision is to be the infrastructure for all apps of the future. If
-        this jives with you we should really talk {'\u{1F642}'}. Send us an email:{' '}
+        this jives with you we should really talk {'\u{1F642}'}. Send us an
+        email:{' '}
         <a href="mailto:founders@instantdb.com">founders@instantdb.com</a> with
         a bit about yourself, and a project you've worked on.
       </p>

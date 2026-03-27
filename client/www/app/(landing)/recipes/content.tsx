@@ -134,9 +134,7 @@ function Main({ files }: { files: File[] }) {
     if (getUrlAppId() !== newAppId) {
       const params = new URLSearchParams(searchParams?.toString());
       params.set('app', newAppId);
-      router.replace(
-        `${pathname}?${params.toString()}${window.location.hash}`,
-      );
+      router.replace(`${pathname}?${params.toString()}${window.location.hash}`);
     }
   }
 
