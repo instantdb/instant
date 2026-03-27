@@ -450,20 +450,18 @@ export const subscribeInfiniteQuery = <
     pushNewForward(chunk.endCursor);
   };
 
-  const starterQuery = {
-    [entity]: {
-      ...query,
-      $: {
-        limit: pageSize,
-        where: query.$?.where,
-        fields: query.$?.fields,
-        order,
-      },
-    },
-  };
-
   starterUnsub = db.subscribeQuery(
-    starterQuery as unknown as Q,
+    {
+      [entity]: {
+        ...query,
+        $: {
+          limit: pageSize,
+          where: query.$?.where,
+          fields: query.$?.fields,
+          order,
+        },
+      },
+    } as unknown as Q,
     async (starterData) => {
       if (hasKickstarted) return;
       if (starterData.error) {
@@ -568,7 +566,6 @@ export const getInfiniteQueryInitialSnapshot = <
       ...coercedQuery,
     };
   }
-
   const queryResult = db._reactor.getPreviousResult(coercedQuery);
 
   return {
