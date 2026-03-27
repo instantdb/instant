@@ -8,13 +8,13 @@ import clsx from 'clsx';
 import { Navigation } from '@/components/docs/Navigation';
 import { Prose } from '@/components/docs/Prose';
 import { Search } from '@/components/docs/Search';
+import { AppPicker } from '@/components/docs/AppPicker';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
 import config from '@/lib/config';
-import { Select, Button, cn } from '@/components/ui';
+import { Button, cn } from '@/components/ui';
 import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
-import { titleComparator } from '@/lib/app';
 import RatingBox from './RatingBox';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
@@ -169,107 +169,6 @@ function CopyAsMarkdown({ path, label = 'Copy as markdown' }) {
     >
       {copyLabel}
     </Button>
-  );
-}
-
-function AppPicker({
-  isReady,
-  apps,
-  selectedAppData,
-  updateSelectedAppId,
-  workspaceId,
-  allOrgs,
-}) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  const appOptions = apps.toSorted(titleComparator).map((app) => ({
-    label: app.title,
-    value: app.id,
-  }));
-
-  const workspaceOptions = [];
-
-  if (workspaceId !== 'personal') {
-    workspaceOptions.push({
-      label: 'Personal',
-      value: 'org:personal',
-    });
-  }
-
-  allOrgs.forEach((org) => {
-    if (org.id !== workspaceId) {
-      workspaceOptions.push({
-        label: org.title,
-        value: `org:${org.id}`,
-      });
-    }
-  });
-
-  const orgOptions =
-    workspaceOptions.length > 0
-      ? [
-          {
-            label: '── Switch workspace ──',
-            value: '__switch_workspace__',
-            disabled: true,
-          },
-          ...workspaceOptions,
-        ]
-      : [];
-
-  const allOptions = [...appOptions, ...orgOptions];
-
-  function onSelectAppId(option) {
-    const value = option?.value;
-    if (!value) return;
-
-    if (value.startsWith('org:')) {
-      const orgId = value.substring(4);
-      const newParams = new URLSearchParams(searchParams.toString());
-      newParams.delete('org');
-      if (orgId !== 'personal') {
-        newParams.set('org', orgId);
-      }
-      const queryString = newParams.toString();
-      router.push(`${pathname}${queryString ? `?${queryString}` : ''}`);
-    } else {
-      updateSelectedAppId(value);
-    }
-  }
-
-  const currentWorkspaceName =
-    workspaceId === 'personal'
-      ? 'Personal'
-      : allOrgs.find((org) => org.id === workspaceId)?.title || workspaceId;
-
-  return (
-    <div className="bg-opacity-40 mb-6 flex flex-col gap-1 border bg-white p-4">
-      <h4 className="font-bold">Pick your app</h4>
-      <p className="text-sm">
-        The examples below will be updated with your app ID.
-      </p>
-      {isReady ? (
-        <>
-          {allOrgs.length > 0 && (
-            <p className="mt-1 text-xs text-gray-600">
-              Current workspace: <strong>{currentWorkspaceName}</strong>
-            </p>
-          )}
-          <Select
-            className="max-w-sm"
-            disabled={!allOptions.length}
-            value={selectedAppData?.id}
-            options={allOptions}
-            onChange={onSelectAppId}
-            emptyLabel={'No apps - sign in to create one'}
-          />
-        </>
-      ) : (
-        <div className="mt-1 h-9 max-w-sm rounded border bg-gray-50" />
-      )}
-    </div>
   );
 }
 
