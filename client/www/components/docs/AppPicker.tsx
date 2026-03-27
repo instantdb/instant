@@ -78,7 +78,7 @@ export function AppPicker({
   }
 
   return (
-    <div className="bg-opacity-40 mb-6 flex flex-col gap-2 border bg-white p-4">
+    <div className="bg-opacity-40 mb-6 flex max-w-prose flex-col gap-2 border bg-white p-4">
       <div className="flex min-h-9 items-center justify-between">
         <h4 className="font-bold">Pick your app</h4>
         {hasOrgs && workspaceOptions.length > 0 && (

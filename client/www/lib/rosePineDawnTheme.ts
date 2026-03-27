@@ -13,7 +13,7 @@ export const rosePineDawnColors = {
 // Rosé Pine Dawn theme (matching prism.css)
 export const rosePineDawnTheme = {
   plain: {
-    backgroundColor: '#fff',
+    backgroundColor: '#faf8f5',
     color: '#575279',
   },
   styles: [
