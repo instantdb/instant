@@ -88,18 +88,12 @@ export function EssayMarkdown({
             }
             const language =
               (isValidElement(props.children) &&
-                props.children?.props.className?.replace(
-                  'language-',
-                  '',
-                )) ||
+                props.children?.props.className?.replace('language-', '')) ||
               '';
 
             return (
               <Fence
-                code={String(props.children.props.children).replace(
-                  /\n$/,
-                  '',
-                )}
+                code={String(props.children.props.children).replace(/\n$/, '')}
                 language={language}
                 style={{ backgroundColor: '#faf8f5' }}
               ></Fence>
