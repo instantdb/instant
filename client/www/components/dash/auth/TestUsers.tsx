@@ -12,6 +12,7 @@ import {
   TextInput,
   useDialog,
 } from '@/components/ui';
+import { TrashIcon } from '@heroicons/react/24/solid';
 import { errorToast, successToast } from '@/lib/toast';
 
 type TestUser = {
@@ -39,11 +40,19 @@ export function TestUsers({ app }: { app: InstantApp }) {
   const testUsers = fetchResult.data?.['test-users'] || [];
 
   const handleAdd = async () => {
-    if (!email || !code) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      errorToast('Please enter an email');
+      return;
+    }
+    if (!/^\d{6}$/.test(code)) {
+      errorToast('Code must be 6 digits');
+      return;
+    }
     setIsAdding(true);
     try {
       await jsonMutate(`${config.apiURI}/dash/apps/${app.id}/test_users`, {
-        body: { email, code },
+        body: { email: normalizedEmail, code },
         token,
       });
       setEmail('');
@@ -119,13 +128,15 @@ export function TestUsers({ app }: { app: InstantApp }) {
                   </div>
                   <button
                     type="button"
+                    aria-label="Remove user"
+                    title="Remove user"
                     className="cursor-pointer text-gray-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400"
                     onClick={() => {
                       setDeletingUser(user);
                       deleteDialog.onOpen();
                     }}
                   >
-                    &times;
+                    <TrashIcon height="1rem" />
                   </button>
                 </div>
               ))}
