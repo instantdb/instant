@@ -8,7 +8,7 @@
 code[class*='language-'],
 pre[class*='language-'] {
   color: #575279;
-  background: #faf8f5;
+  background: #fff;
   text-align: left;
   white-space: pre;
   word-spacing: normal;
@@ -49,16 +49,14 @@ pre[class*='language-'] ::selection {
 :not(pre) > code[class*='language-'],
 pre[class*='language-'] {
   color: #575279;
-  background: #faf8f5;
+  background: #fff;
 }
 
 /* Code blocks */
 pre[class*='language-'] {
-  padding: 1.25rem;
+  padding: 1em;
   margin: 0.5em 0;
   overflow: auto;
-  border: 1px solid #e5e7eb;
-  border-radius: 0;
 }
 
 /* Inline code */
@@ -67,7 +65,7 @@ pre[class*='language-'] {
   border-radius: 0.3em;
   white-space: normal;
   color: #575279;
-  background: #faf8f5;
+  background: #fff;
 }
 
 /* Text style & opacity */
