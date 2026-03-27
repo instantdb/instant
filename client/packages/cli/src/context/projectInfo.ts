@@ -1,4 +1,4 @@
-import { Context, Data, Effect, Layer } from 'effect';
+import { Context, Data, Effect, Layer, Option } from 'effect';
 import { detect } from 'package-manager-detector/detect';
 import { PackageJson, readPackage } from 'pkg-types';
 import { exec } from 'child_process';
@@ -79,13 +79,26 @@ const getProjectInfo = (
         message: "We couldn't find an Instant SDK. Install one, or run `init`",
       });
     }
-    yield* Effect.log(
-      `Found ${chalk.green(moduleName)} in your package.json.\n`,
-    );
+
+    if (!moduleName && coerce) {
+      yield* Effect.log(
+        "Couldn't find an Instant SDK in your package.json, let's install one!",
+      );
+    } else {
+      yield* Effect.log(
+        `Found ${chalk.green(moduleName)} in your package.json.\n`,
+      );
+    }
 
     // TODO: Clean up with option
     const packageManager = yield* Effect.tryPromise(() => detect()).pipe(
       Effect.flatMap(Effect.fromNullable),
+      Effect.catchTag('NoSuchElementException', () =>
+        Effect.succeed({
+          name: 'npm',
+          agent: 'npm',
+        }),
+      ),
       Effect.option,
     );
 
