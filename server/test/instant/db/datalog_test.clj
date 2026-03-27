@@ -3,13 +3,16 @@
             [honey.sql :as hsql]
             [instant.jdbc.aurora :as aurora]
             [instant.config :as config]
+            [instant.db.attr-sketch :as cms]
             [instant.db.datalog :as d]
             [instant.db.model.attr :as attr-model]
             [instant.db.transaction :as tx]
             [instant.data.resolvers :as resolvers]
             [instant.jdbc.sql :as sql]
             [instant.fixtures :refer [with-movies-app with-zeneca-app with-zeneca-checked-data-app]]
-            [instant.util.test :refer [in-memory-sketches-for-app]]))
+            [instant.util.test :refer [in-memory-sketches-for-app]])
+  (:import
+   (java.time Instant)))
 
 (defn make-ctx [app]
   {:db {:conn-pool (aurora/conn-pool :read)}
@@ -42,6 +45,28 @@
   (testing "named patterns add wildcards for missing params"
     (is (= '([:pattern {:idx [:keyword :vae], :e [:any _], :a [:any _], :v [:any _] :created-at [:any _]}])
            (d/->named-patterns '[[:vae]])))))
+
+(deftest best-index-ignores-index-columns-it-cant-use
+  (let [app-id (random-uuid)
+        attr-id (random-uuid)
+        date-value (Instant/parse "2026-01-24T05:00:00Z")
+        sketch (reduce (fn [acc i]
+                         (cms/add acc :date (Instant/ofEpochMilli (* 1000 i))))
+                       (cms/make-sketch)
+                       (range 200))
+        ctx {:app-id app-id
+             :sketches {{:app-id app-id
+                         :attr-id attr-id}
+                        {:sketch sketch}}}
+        named-p {:idx [:map {:idx-key :ave, :data-type :date}]
+                 :e [:variable '?item]
+                 :a [:constant #{attr-id}]
+                 :v [:function {:$comparator {:op :$gt
+                                              :value date-value
+                                              :data-type :date}}]
+                 :created-at [:any '_]}
+        best-index (d/best-index ctx named-p {'?item 2})]
+    (is (= :triples_pkey (:name best-index)))))
 
 (deftest pats->coarse-topics
   (is (= '[[#{:eav} _ _ _ _]]
