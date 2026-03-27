@@ -1,5 +1,4 @@
-'use client';
-
+import Head from 'next/head';
 import { useState } from 'react';
 import {
   LandingContainer,
@@ -116,6 +115,9 @@ export default function InternIndexPage() {
   if (!isHydrated || isLoading) {
     return (
       <LandingContainer>
+        <Head>
+          <title>Instant Intern tools</title>
+        </Head>
         <MainNav />
         <Section>
           <div className="flex min-h-64 items-center justify-center">
@@ -130,6 +132,9 @@ export default function InternIndexPage() {
   if (error || !isAdmin) {
     return (
       <LandingContainer>
+        <Head>
+          <title>Instant Intern tools</title>
+        </Head>
         <MainNav />
         <Section>
           <div className="mt-12 mb-8 text-center">
@@ -164,6 +169,9 @@ export default function InternIndexPage() {
 
   return (
     <LandingContainer>
+      <Head>
+        <title>Instant Intern tools</title>
+      </Head>
       <MainNav />
       <Section>
         <div className="mt-12 mb-8">

@@ -1,5 +1,6 @@
 'use client';
 
+import Head from 'next/head';
 import {
   LandingContainer,
   LandingFooter,
@@ -23,6 +24,9 @@ export default function AIChatUsagePage() {
   if (!isHydrated || isLoading) {
     return (
       <LandingContainer>
+        <Head>
+          <title>{pageTitle}</title>
+        </Head>
         <MainNav />
         <Section>
           <div className="flex min-h-64 items-center justify-center">
@@ -37,6 +41,9 @@ export default function AIChatUsagePage() {
   if (error || !isAdmin) {
     return (
       <LandingContainer>
+        <Head>
+          <title>{pageTitle}</title>
+        </Head>
         <MainNav />
         <Section>
           <div className="mt-12 mb-8 text-center">
@@ -52,8 +59,13 @@ export default function AIChatUsagePage() {
   }
 
   return (
-    <AuthGate>
-      <AIChatUsageDashboard />
-    </AuthGate>
+    <>
+      <Head>
+        <title>{pageTitle}</title>
+      </Head>
+      <AuthGate>
+        <AIChatUsageDashboard />
+      </AuthGate>
+    </>
   );
 }
