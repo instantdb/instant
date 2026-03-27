@@ -190,7 +190,7 @@ function jobGroupDescription(jobs) {
 }
 
 // TODO: rewrite in effect
-export async function waitForIndexingJobsToFinish(appId, data) {
+export async function waitForIndexingJobsToFinish(appId, data, authToken) {
   const spinnerDefferedPromise = deferred();
   const spinner = new UI.Spinner({
     promise: spinnerDefferedPromise.promise,
@@ -252,6 +252,7 @@ export async function waitForIndexingJobsToFinish(appId, data) {
     const res = await fetchJson({
       debugName: 'Check indexing status',
       method: 'GET',
+      authToken,
       path: `/dash/apps/${appId}/indexing-jobs/group/${groupId}`,
       errorMessage: 'Failed to check indexing status.',
       command: 'push',
