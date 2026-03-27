@@ -98,26 +98,25 @@ export function AppPicker({
       <p className="text-sm text-gray-600">
         The examples below will be updated with your app ID.
       </p>
-      {/* Action area — consistent height across all states */}
+      {/* Action area — all states use h-9 rounded-sm border to match Select trigger */}
       {!isReady ? (
-        <div className="h-9 max-w-sm animate-pulse rounded border bg-gray-50" />
+        <div className="h-9 w-fit min-w-[10rem] animate-pulse rounded-sm border border-gray-300/80 bg-gray-50 shadow-xs" />
       ) : isLoggedOut ? (
         <Link
           href="/dash"
-          className="flex h-9 max-w-sm items-center rounded border px-3 text-sm text-gray-500 transition-colors hover:border-gray-400 hover:text-gray-700"
+          className="flex h-9 w-fit items-center gap-1 rounded-sm border border-gray-300/80 px-3 text-sm text-gray-500 shadow-xs transition-colors hover:border-gray-400 hover:text-gray-700"
         >
           Sign in to get started &rarr;
         </Link>
       ) : !hasApps ? (
         <Link
           href="/dash"
-          className="flex h-9 max-w-sm items-center rounded border px-3 text-sm text-gray-500 transition-colors hover:border-gray-400 hover:text-gray-700"
+          className="flex h-9 w-fit items-center gap-1 rounded-sm border border-gray-300/80 px-3 text-sm text-gray-500 shadow-xs transition-colors hover:border-gray-400 hover:text-gray-700"
         >
           No apps yet &mdash; create one
         </Link>
       ) : (
         <Select
-          className="max-w-sm"
           value={selectedAppData?.id}
           options={appOptions}
           onChange={onSelectAppId}

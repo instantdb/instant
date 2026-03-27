@@ -41,7 +41,7 @@ export default function UI() {
   const isHydrated = useIsHydrated();
   if (!isHydrated) return null;
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
+    <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4">
       <h2 className="text-center font-mono text-2xl font-bold text-slate-500">
         instant/ui
       </h2>
@@ -175,65 +175,67 @@ export default function UI() {
           )),
       )}
       <GroupName>AppPicker</GroupName>
-      <Example label="AppPicker: loading">
-        <AppPicker
-          isReady={false}
-          apps={[]}
-          selectedAppData={null}
-          updateSelectedAppId={() => {}}
-          workspaceId="personal"
-          allOrgs={[]}
-        />
-      </Example>
-      <Example label="AppPicker: logged out">
-        <AppPicker
-          isReady={true}
-          apps={[]}
-          selectedAppData={null}
-          updateSelectedAppId={() => {}}
-          workspaceId="personal"
-          allOrgs={[]}
-        />
-      </Example>
-      <Example label="AppPicker: logged in, no apps">
-        <AppPicker
-          isReady={true}
-          apps={[]}
-          selectedAppData={null}
-          updateSelectedAppId={() => {}}
-          workspaceId="personal"
-          allOrgs={[{ id: 'org-1', title: 'My Team' }]}
-        />
-      </Example>
-      <Example label="AppPicker: logged in, with apps">
-        <AppPicker
-          isReady={true}
-          apps={[
-            { id: 'app-1', title: 'my-cool-app' },
-            { id: 'app-2', title: 'cloned-palette-2' },
-          ]}
-          selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
-          updateSelectedAppId={() => {}}
-          workspaceId="personal"
-          allOrgs={[]}
-        />
-      </Example>
-      <Example label="AppPicker: logged in, with apps + orgs">
-        <AppPicker
-          isReady={true}
-          apps={[
-            { id: 'app-1', title: 'my-cool-app' },
-            { id: 'app-2', title: 'cloned-palette-2' },
-          ]}
-          selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
-          updateSelectedAppId={() => {}}
-          workspaceId="personal"
-          allOrgs={[
-            { id: 'org-1', title: 'My Team' },
-            { id: 'org-2', title: 'Acme Corp' },
-          ]}
-        />
-      </Example>
+      <div className="grid grid-cols-3 gap-2">
+        <Example label="loading">
+          <AppPicker
+            isReady={false}
+            apps={[]}
+            selectedAppData={null}
+            updateSelectedAppId={() => {}}
+            workspaceId="personal"
+            allOrgs={[]}
+          />
+        </Example>
+        <Example label="logged out">
+          <AppPicker
+            isReady={true}
+            apps={[]}
+            selectedAppData={null}
+            updateSelectedAppId={() => {}}
+            workspaceId="personal"
+            allOrgs={[]}
+          />
+        </Example>
+        <Example label="no apps (has org)">
+          <AppPicker
+            isReady={true}
+            apps={[]}
+            selectedAppData={null}
+            updateSelectedAppId={() => {}}
+            workspaceId="personal"
+            allOrgs={[{ id: 'org-1', title: 'My Team' }]}
+          />
+        </Example>
+        <Example label="with apps">
+          <AppPicker
+            isReady={true}
+            apps={[
+              { id: 'app-1', title: 'my-cool-app' },
+              { id: 'app-2', title: 'cloned-palette-2' },
+            ]}
+            selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
+            updateSelectedAppId={() => {}}
+            workspaceId="personal"
+            allOrgs={[]}
+          />
+        </Example>
+        <Example label="with apps + orgs">
+          <AppPicker
+            isReady={true}
+            apps={[
+              { id: 'app-1', title: 'my-cool-app' },
+              { id: 'app-2', title: 'cloned-palette-2' },
+            ]}
+            selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
+            updateSelectedAppId={() => {}}
+            workspaceId="personal"
+            allOrgs={[
+              { id: 'org-1', title: 'My Team' },
+              { id: 'org-2', title: 'Acme Corp' },
+            ]}
+          />
+        </Example>
+      </div>
       <GroupName>Misc</GroupName>
       <Example label="Copyable">
         <Copyable label="Copyable" value={Date.now() + ''} />
