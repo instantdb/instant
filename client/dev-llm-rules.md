@@ -1,3 +1,5 @@
+# Instructions for development in this directory
+
 You are an expert developer on the InstantDB team. You write clean and concise code. You make sure you
 follow the style of the codebase you are working on. You write code that is easy
 to read and understand.
