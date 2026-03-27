@@ -29,11 +29,13 @@ import schema from './db/instant.schema.ts';
 import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
 import {
   addOAuthRoutes,
+  makeApiAuth,
   OAuthConfig,
   ServiceProvider,
   tokensOfBearerToken,
 } from './oauth-service-provider.ts';
 import { KeyConfig } from './crypto.ts';
+import { PlatformApi } from '@instantdb/platform';
 import indexHtml from './index.html.ts';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { handleQuery, handleTransact } from './tools.ts';
@@ -92,7 +94,7 @@ function wrapServerWithTracing(
   return server;
 }
 
-function registerTools(server: McpServer) {
+function registerTools(server: McpServer, api: PlatformApi) {
   server.tool(
     'learn',
     "If you don't have any context provided about InstantDB, use this tool to learn about it!",
@@ -267,14 +269,10 @@ function registerTools(server: McpServer) {
     https://instantdb.com/docs/instaql`,
     {
       appId: z.string().uuid().describe('UUID of the app'),
-      adminToken: z
-        .string()
-        .uuid()
-        .describe('UUID of the admin token for the app'),
       query: z.record(z.string(), z.any()).describe('InstaQL query object'),
     },
-    async ({ appId, adminToken, query }) => {
-      return handleQuery(appId, adminToken, query);
+    async ({ appId, query }) => {
+      return handleQuery(api, appId, query);
     },
   );
 
@@ -295,14 +293,10 @@ function registerTools(server: McpServer) {
     https://instantdb.com/docs/instaml`,
     {
       appId: z.string().uuid().describe('UUID of the app'),
-      adminToken: z
-        .string()
-        .uuid()
-        .describe('UUID of the admin token for the app'),
       steps: z.array(z.array(z.any())).describe('Array of transaction steps'),
     },
-    async ({ appId, adminToken, steps }) => {
-      return handleTransact(appId, adminToken, steps);
+    async ({ appId, steps }) => {
+      return handleTransact(api, appId, steps);
     },
   );
 }
@@ -329,8 +323,10 @@ async function startStdio() {
     process.exit(1);
   }
 
+  const api = new PlatformApi({ auth: { token: accessToken } });
+
   const server = createMCPServer();
-  registerTools(server);
+  registerTools(server, api);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -461,6 +457,10 @@ async function startSse() {
       try {
         const tokens = await tokensOfBearerToken(db, req.auth!.token);
 
+        const api = new PlatformApi({
+          auth: makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
+        });
+
         wrapServerWithTracing(server, tracer, {
           'client.client_id': tokens.mcpToken.client?.client_id,
           'client.name': tokens.mcpToken.client?.client_name,
@@ -469,7 +469,7 @@ async function startSse() {
           'client.uri': tokens.mcpToken.client?.client_uri,
           'client.redirect_urls': tokens.mcpToken.client?.redirect_uris,
         });
-        registerTools(server);
+        registerTools(server, api);
         const transport: StreamableHTTPServerTransport =
           new StreamableHTTPServerTransport({
             sessionIdGenerator: undefined,
@@ -535,6 +535,10 @@ async function startSse() {
       try {
         const tokens = await tokensOfBearerToken(db, req.auth!.token);
 
+        const api = new PlatformApi({
+          auth: makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
+        });
+
         wrapServerWithTracing(server, tracer, {
           'client.client_id': tokens.mcpToken.client?.client_id,
           'client.name': tokens.mcpToken.client?.client_name,
@@ -544,7 +548,7 @@ async function startSse() {
           'client.redirect_urls': tokens.mcpToken.client?.redirect_uris,
         });
 
-        registerTools(server);
+        registerTools(server, api);
         transports.sse[transport.sessionId] = transport;
       } catch (e) {
         console.error('Error handling MCP SSE request:', e);

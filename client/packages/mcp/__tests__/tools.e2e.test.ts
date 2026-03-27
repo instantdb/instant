@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { randomUUID } from 'crypto';
+import { PlatformApi } from '@instantdb/platform';
 import { handleQuery, handleTransact } from '../src/tools.ts';
 
 const API_URL = process.env.INSTANT_API_URL || 'https://api.instantdb.com';
 
 async function createTempApp(): Promise<{
   appId: string;
-  adminToken: string;
+  api: PlatformApi;
 }> {
   const response = await fetch(`${API_URL}/dash/apps/ephemeral`, {
     method: 'POST',
@@ -19,14 +20,17 @@ async function createTempApp(): Promise<{
     );
   }
   const { app } = await response.json();
-  return { appId: app.id, adminToken: app['admin-token'] };
+  return {
+    appId: app.id,
+    api: new PlatformApi({ auth: { token: app['admin-token'] } }),
+  };
 }
 
 describe.concurrent('MCP tools e2e', { timeout: 10_000 }, () => {
   describe('query', () => {
     it('returns empty results for a fresh app', async () => {
-      const { appId, adminToken } = await createTempApp();
-      const result = await handleQuery(appId, adminToken, { $users: {} });
+      const { appId, api } = await createTempApp();
+      const result = await handleQuery(api, appId, { $users: {} });
 
       expect(result.isError).toBeFalsy();
       const data = JSON.parse(result.content[0].text);
@@ -34,14 +38,14 @@ describe.concurrent('MCP tools e2e', { timeout: 10_000 }, () => {
     });
 
     it('returns data after transacting', async () => {
-      const { appId, adminToken } = await createTempApp();
+      const { appId, api } = await createTempApp();
       const todoId = randomUUID();
 
-      await handleTransact(appId, adminToken, [
+      await handleTransact(api, appId, [
         ['update', 'todos', todoId, { title: 'Buy milk', done: false }],
       ]);
 
-      const result = await handleQuery(appId, adminToken, { todos: {} });
+      const result = await handleQuery(api, appId, { todos: {} });
 
       expect(result.isError).toBeFalsy();
       const data = JSON.parse(result.content[0].text);
@@ -51,14 +55,14 @@ describe.concurrent('MCP tools e2e', { timeout: 10_000 }, () => {
     });
 
     it('supports where clauses', async () => {
-      const { appId, adminToken } = await createTempApp();
+      const { appId, api } = await createTempApp();
 
-      await handleTransact(appId, adminToken, [
+      await handleTransact(api, appId, [
         ['update', 'todos', randomUUID(), { title: 'Buy milk', done: false }],
         ['update', 'todos', randomUUID(), { title: 'Walk dog', done: true }],
       ]);
 
-      const result = await handleQuery(appId, adminToken, {
+      const result = await handleQuery(api, appId, {
         todos: { $: { where: { done: true } } },
       });
 
@@ -69,7 +73,8 @@ describe.concurrent('MCP tools e2e', { timeout: 10_000 }, () => {
     });
 
     it('returns error for bad credentials', async () => {
-      const result = await handleQuery(randomUUID(), randomUUID(), {
+      const badApi = new PlatformApi({ auth: { token: randomUUID() } });
+      const result = await handleQuery(badApi, randomUUID(), {
         todos: {},
       });
 
@@ -80,8 +85,8 @@ describe.concurrent('MCP tools e2e', { timeout: 10_000 }, () => {
 
   describe('transact', () => {
     it('creates entities', async () => {
-      const { appId, adminToken } = await createTempApp();
-      const result = await handleTransact(appId, adminToken, [
+      const { appId, api } = await createTempApp();
+      const result = await handleTransact(api, appId, [
         ['update', 'posts', randomUUID(), { title: 'Hello world' }],
       ]);
 
@@ -89,17 +94,17 @@ describe.concurrent('MCP tools e2e', { timeout: 10_000 }, () => {
     });
 
     it('links entities', async () => {
-      const { appId, adminToken } = await createTempApp();
+      const { appId, api } = await createTempApp();
       const postId = randomUUID();
       const commentId = randomUUID();
 
-      await handleTransact(appId, adminToken, [
+      await handleTransact(api, appId, [
         ['update', 'posts', postId, { title: 'My post' }],
         ['update', 'comments', commentId, { text: 'Great!' }],
         ['link', 'posts', postId, { comments: commentId }],
       ]);
 
-      const result = await handleQuery(appId, adminToken, {
+      const result = await handleQuery(api, appId, {
         posts: { comments: {} },
       });
 
@@ -111,22 +116,23 @@ describe.concurrent('MCP tools e2e', { timeout: 10_000 }, () => {
     });
 
     it('deletes entities', async () => {
-      const { appId, adminToken } = await createTempApp();
+      const { appId, api } = await createTempApp();
       const todoId = randomUUID();
 
-      await handleTransact(appId, adminToken, [
+      await handleTransact(api, appId, [
         ['update', 'todos', todoId, { title: 'Temp' }],
       ]);
 
-      await handleTransact(appId, adminToken, [['delete', 'todos', todoId]]);
+      await handleTransact(api, appId, [['delete', 'todos', todoId]]);
 
-      const result = await handleQuery(appId, adminToken, { todos: {} });
+      const result = await handleQuery(api, appId, { todos: {} });
       const data = JSON.parse(result.content[0].text);
       expect(data.todos).toEqual([]);
     });
 
     it('returns error for bad credentials', async () => {
-      const result = await handleTransact(randomUUID(), randomUUID(), [
+      const badApi = new PlatformApi({ auth: { token: randomUUID() } });
+      const result = await handleTransact(badApi, randomUUID(), [
         ['update', 'todos', randomUUID(), { title: 'Nope' }],
       ]);
 
