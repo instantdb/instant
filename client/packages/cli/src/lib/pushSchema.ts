@@ -31,6 +31,7 @@ import {
   SuperMigrationTx,
 } from '../renderSchemaPlan.ts';
 import { promptOk } from './ui.ts';
+import { AuthToken } from '../context/authToken.ts';
 
 const FetchSchemaResponse = Schema.Struct({
   schema: Schema.Struct({
@@ -164,11 +165,17 @@ export const pushSchema = (
 
     yield* Effect.log(chalk.green('Schema updated!'));
 
+    const { authToken } = yield* AuthToken;
+
     if (pushRes?.['indexing-jobs']) {
       // TODO: rewrite in effect
       yield* Effect.tryPromise({
         try: () =>
-          waitForIndexingJobsToFinish(appId, pushRes?.['indexing-jobs'] || []),
+          waitForIndexingJobsToFinish(
+            appId,
+            pushRes?.['indexing-jobs'] || [],
+            authToken,
+          ),
         catch: (e: any) =>
           WaitForJobsError.make({
             message:
