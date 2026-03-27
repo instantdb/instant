@@ -12,7 +12,7 @@ export function DocsWrapper({
   tableOfContents: any[];
   children: React.ReactNode;
 }) {
-  const title = frontmatter?.nextjs?.metadata?.title;
+  const title = frontmatter?.title ?? frontmatter?.nextjs?.metadata?.title;
 
   return (
     <Suspense>

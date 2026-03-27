@@ -1,8 +1,9 @@
 ---
+title: Getting started
 nextjs:
   metadata:
-    title: 'Getting started'
-    description: 'How to use Instant with React'
+    title: Instant - The Modern Firebase.
+    description: How to use Instant with React
 ---
 
 Instant is the easy to use backend for your frontend. With Instant you can build delightful apps in less than 10 minutes. Follow the quick start below to **build a live app!**
