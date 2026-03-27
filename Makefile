@@ -1,13 +1,21 @@
-# setup-dev-llm-rules: Copies dev-llm-rules.md into AGENTS.md (with CLAUDE.md as symlink).
+# setup-dev-llm-rules: 
+# If you are making changes into the Instant codebase, 
+# This sets you up with our team's AGENTS.md files!
 #
-# Each dev-llm-rules.md must start with "# Instructions for development in this directory".
-# This line acts as a marker: any content you add above it in AGENTS.md is preserved
-# on re-runs, and everything from the marker down gets replaced with fresh rules.
+# Usage: 
+#   make setup-dev-llm-rules
+# 
+# This will set up AGENTS.md and CLAUDE.md files in our root, server, and client repos
+# 
+# Making customizations:
+#. Sometimes you'll want to make changes to your own AGENTS.md file. To do that, 
+#  Make any change you like _above_ the MARKER
 #
-# Usage:
-#   make setup-dev-llm-rules          # safe re-run, preserves your content above the marker
-#
-# If the marker line is missing from an existing AGENTS.md, that directory is skipped.
+# Importing updates:
+#  Sometimes dev-llm-rules will get updated. When you want to import those changes,
+#  re-run `make setup-dev-llm-rules`
+#  This will replace all the content below `MARKER`
+#  If the marker line is missing from an existing AGENTS.md, that directory is skipped.
 
 MARKER = \# Instructions for development in this directory
 
