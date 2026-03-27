@@ -34,7 +34,8 @@
       ::put!
       conn
       ["INSERT INTO rules (app_id, code) VALUES (?::uuid, ?::jsonb)
-          ON CONFLICT (app_id) DO UPDATE SET code = excluded.code"
+          ON CONFLICT (app_id) DO UPDATE SET code = excluded.code, version = rules.version + 1
+          WHERE rules.code IS DISTINCT FROM excluded.code"
        app-id (->json code)]))))
 
 (defn merge!
@@ -86,14 +87,14 @@
              {}
              app-ids))))
 
-(defn delete-by-app-id!
-  ([params] (delete-by-app-id! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id]}]
-   (with-cache-invalidation app-id
-     (sql/do-execute!
-      ::delete-by-app-id!
-      conn
-      ["DELETE FROM rules WHERE app_id = ?::uuid" app-id]))))
+(defn get-versions
+  ([params] (get-versions (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id limit] :or {limit 50}}]
+   (sql/select ::get-versions
+               conn
+               ["SELECT version, edits, created_at FROM rule_versions
+                 WHERE app_id = ?::uuid ORDER BY version DESC LIMIT ?"
+                app-id limit])))
 
 (defn bind-usages [compiler bind-keys expr]
   (clojure.set/intersection bind-keys
@@ -180,6 +181,19 @@
   (when (contains? system-catalog/all-etypes etype)
     (let [compiler (cel/action->compiler action)]
       (cond
+        ;; Default to allowing signup. $users creation via transactions
+        ;; is blocked by validate-system-create-entity!.
+        (and (= "$users" etype)
+             (= "create" action))
+        (let [code "true"
+              ast (cel/->ast compiler code)]
+          {:etype etype
+           :action action
+           :code code
+           :display-code code
+           :cel-ast ast
+           :cel-program (cel/->program ast)})
+
         (and (= "$users" etype)
              (#{"view" "update"} action))
 
@@ -291,11 +305,12 @@
         :paths [path]}))))
 
 (defn $users-validation-errors
-  "Only allow users to changes the `view` and `update` rules for $users, since we don't have
-   a way to create or delete them from transactions."
+  "Allow users to set `view`, `update`, and `create` rules for $users.
+   `create` runs during auth signup flows (not via transactions).
+   `delete` is still blocked."
   [rules action]
   (case action
-    ("create" "delete")
+    "delete"
     (when (and (not (nil? (get-in rules ["$users" "allow" action])))
                (not= (get-in rules ["$users" "allow" action])
                      "false"))
@@ -303,7 +318,7 @@
                          "$users" action "$users" action)
         :in ["$users" "allow" action]}])
 
-    ("update" "view") nil))
+    ("create" "update" "view") nil))
 
 (defn system-attribute-validation-errors
   "Don't allow users to change rules for restricted system namespaces."

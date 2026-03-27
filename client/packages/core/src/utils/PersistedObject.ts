@@ -550,4 +550,21 @@ export class PersistedObject<K extends string, T, SerializedT> {
       this._subs = this._subs.filter((x) => x !== cb);
     };
   }
+
+  // Removes any keys that we haven't loaded--used when
+  // changing users to make sure we clean out all user data
+  public async clearUnloadedKeys(): Promise<void> {
+    let needsPersist = false;
+    for (const key of await this._persister.getAllKeys()) {
+      if (key === META_KEY || key in this.currentValue) {
+        continue;
+      }
+
+      this._pendingSaveKeys.add(key as K);
+      needsPersist = true;
+    }
+    if (needsPersist) {
+      await this._enqueuePersist();
+    }
+  }
 }

@@ -1,7 +1,7 @@
 'use client';
 import { Toaster, toast } from 'sonner';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { Editor, Monaco, OnMount } from '@monaco-editor/react';
+import { DiffEditor, Editor, Monaco, OnMount } from '@monaco-editor/react';
 import type { ClassValue } from 'clsx';
 import clsx from 'clsx';
 import copy from 'copy-to-clipboard';
@@ -10,7 +10,10 @@ import { twMerge } from 'tailwind-merge';
 import {
   Select as BaseSelect,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from './select';
@@ -37,6 +40,7 @@ import {
 } from 'react';
 
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
+import { useLocalStorage } from '@lib/hooks/useLocalStorage';
 import {
   CheckCircleIcon,
   ClipboardDocumentIcon,
@@ -1351,6 +1355,17 @@ export {
   DropdownMenuTrigger,
 };
 
+export {
+  BaseSelect,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+};
+
 // utils
 
 export function twel<T = {}>(el: string, cls: ClassValue[] | ClassValue) {
@@ -1441,7 +1456,12 @@ export function JSONEditor(props: {
     <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
       <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
         <div className="font-mono">{props.label}</div>
-        <Button size="mini" onClick={() => props.onSave(draft)}>
+        <Button
+          size="mini"
+          disabled={draft === props.value}
+          title={draft === props.value ? 'No changes' : undefined}
+          onClick={() => props.onSave(draft)}
+        >
           Save
         </Button>
       </div>
@@ -1476,6 +1496,71 @@ export function JSONEditor(props: {
               }, 20);
             });
           }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function JSONDiffEditor(props: {
+  original: string;
+  modified: string;
+  darkMode: boolean;
+  label: ReactNode;
+  action?: ReactNode;
+}) {
+  const [sideBySide, setSideBySide] = useLocalStorage('diffSideBySide', false);
+  const diffEditorRef = useRef<any>(null);
+
+  useEffect(() => {
+    const editor = diffEditorRef.current;
+    if (!editor) return;
+    editor.updateOptions({ renderSideBySide: sideBySide });
+    editor.getOriginalEditor().updateOptions({
+      lineNumbers: sideBySide ? 'on' : 'off',
+    });
+  }, [sideBySide]);
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
+      <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
+        <div className="font-mono">{props.label}</div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSideBySide(!sideBySide)}
+            title={sideBySide ? 'Inline diff' : 'Side-by-side diff'}
+            className="rounded px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-200 dark:text-neutral-400 dark:hover:bg-neutral-700"
+          >
+            {sideBySide ? 'Inline' : 'Split'}
+          </button>
+          {props.action}
+        </div>
+      </div>
+      <div className="min-h-0 grow">
+        <DiffEditor
+          theme={props.darkMode ? 'vs-dark' : 'vs-light'}
+          height={'100%'}
+          language="json"
+          original={props.original}
+          modified={props.modified}
+          options={{
+            scrollBeyondLastLine: false,
+            overviewRulerLanes: 0,
+            hideCursorInOverviewRuler: true,
+            minimap: { enabled: false },
+            automaticLayout: true,
+            readOnly: true,
+            domReadOnly: true,
+            renderSideBySide: sideBySide,
+            renderOverviewRuler: false,
+          }}
+          onMount={(editor) => {
+            diffEditorRef.current = editor;
+            if (!sideBySide) {
+              editor.getOriginalEditor().updateOptions({ lineNumbers: 'off' });
+            }
+          }}
+          loading={<FullscreenLoading />}
         />
       </div>
     </div>

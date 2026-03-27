@@ -57,6 +57,9 @@ import type {
   InstaQLResult,
   InstaQLFields,
   ValidQuery,
+  Cursor,
+  Order,
+  InstaQLQueryEntityResult,
 } from './queryTypes.ts';
 import type { PresencePeer } from './presenceTypes.ts';
 import type {
@@ -111,6 +114,8 @@ import type { UploadFileResponse, DeleteFileResponse } from './StorageAPI.ts';
 import { FrameworkClient, type FrameworkConfig } from './framework.ts';
 
 import type {
+  CheckMagicCodeParams,
+  CheckMagicCodeResponse,
   ExchangeCodeForTokenParams,
   SendMagicCodeParams,
   SendMagicCodeResponse,
@@ -142,6 +147,12 @@ import {
   ReadableStreamCtor,
   WritableStreamCtor,
 } from './Stream.ts';
+import {
+  type InfiniteQueryCallbackResponse,
+  type InfiniteQuerySubscription,
+  subscribeInfiniteQuery,
+  getInfiniteQueryInitialSnapshot,
+} from './infiniteQuery.ts';
 
 const defaultOpenDevtool = true;
 
@@ -338,8 +349,8 @@ class Auth {
    *       .catch((err) => console.error(err.body?.message))
    */
   signInWithMagicCode = (
-    params: VerifyMagicCodeParams,
-  ): Promise<VerifyResponse> => {
+    params: CheckMagicCodeParams,
+  ): Promise<CheckMagicCodeResponse> => {
     return this.db.signInWithMagicCode(params);
   };
 
@@ -388,6 +399,7 @@ class Auth {
   createAuthorizationURL = (params: {
     clientName: string;
     redirectURL: string;
+    extraFields?: Record<string, any>;
   }): string => {
     return this.db.createAuthorizationURL(params);
   };
@@ -412,7 +424,7 @@ class Auth {
    */
   signInWithIdToken = (
     params: SignInWithIdTokenParams,
-  ): Promise<VerifyResponse> => {
+  ): Promise<CheckMagicCodeResponse> => {
     return this.db.signInWithIdToken(params);
   };
 
@@ -432,7 +444,9 @@ class Auth {
    *  .catch((err) => console.error(err.body?.message));
    *
    */
-  exchangeOAuthCode = (params: ExchangeCodeForTokenParams) => {
+  exchangeOAuthCode = (
+    params: ExchangeCodeForTokenParams,
+  ): Promise<CheckMagicCodeResponse> => {
     return this.db.exchangeCodeForToken(params);
   };
 
@@ -693,6 +707,38 @@ class InstantCoreDatabase<
     opts?: InstaQLOptions,
   ) {
     return this._reactor.subscribeQuery(query, cb, opts);
+  }
+
+  /**
+   * Subscribe to a query and incrementally load more items
+   *
+   * Only one top level namespace in the query is allowed.
+   * @example
+   * const { unsubscribe, loadNextPage } = db.subscribeInfiniteQuery({
+   *   posts: {
+   *     $: {
+   *       limit: 20,   // Load 20 posts at a time
+   *       order: {
+   *         createdAt: 'desc',
+   *       },
+   *     },
+   *   },
+   *   (resp) => {
+   *     console.log(resp.data.posts);
+   *   }
+   * });
+   */
+  subscribeInfiniteQuery<Q extends ValidQuery<Q, Schema>>(
+    query: Q,
+    cb: (resp: InfiniteQueryCallbackResponse<Schema, Q, UseDates>) => void,
+    opts?: InstaQLOptions,
+  ): InfiniteQuerySubscription {
+    return subscribeInfiniteQuery<Schema, Q, UseDates>(
+      this as any,
+      query,
+      cb,
+      opts,
+    );
   }
 
   /**
@@ -1025,6 +1071,9 @@ export {
   version,
   InstantError,
 
+  // infinite query
+  getInfiniteQueryInitialSnapshot,
+
   // sync table enums
   SyncTableCallbackEventType,
 
@@ -1057,6 +1106,7 @@ export {
   // new query types
   type InstaQLParams,
   type ValidQuery,
+  type Cursor,
   type InstaQLOptions,
   type InstaQLQueryParams,
   type InstantQuery,
@@ -1065,6 +1115,10 @@ export {
   type InstantEntity,
   type InstantSchemaDatabase,
   type InstaQLFields,
+  type Order,
+  type InstaQLQueryEntityResult,
+  type InfiniteQueryCallbackResponse,
+  type InfiniteQuerySubscription,
 
   // schema types
   type AttrsDefs,
@@ -1106,6 +1160,8 @@ export {
   type InstantDBInferredType,
 
   // auth types
+  type CheckMagicCodeParams,
+  type CheckMagicCodeResponse,
   type ExchangeCodeForTokenParams,
   type SendMagicCodeParams,
   type SendMagicCodeResponse,

@@ -700,11 +700,27 @@ export default _schema;
       }
     });
 
-    it('fails without context flag', async () => {
+    it('defaults to admin context when no context flag is provided', async () => {
       const { appId, adminToken } = await createTempApp();
-      const project = await createTestProject({ appId });
+      const project = await createTestProject({
+        appId,
+        schemaFile: SCHEMA_FILE,
+      });
 
       try {
+        const pushResult = await runCli(['push', 'schema', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        await adminTransact(appId, adminToken, [
+          ['update', 'posts', randomUUID(), { title: 'Hello', body: 'World' }],
+        ]);
+
         const result = await runCli(['query', JSON.stringify({ posts: {} })], {
           cwd: project.dir,
           env: {
@@ -713,9 +729,10 @@ export default _schema;
           },
         });
 
-        expect(result.exitCode).not.toBe(0);
-        const output = result.stdout + result.stderr;
-        expect(output).toMatch(/--admin|--as-email|--as-guest/);
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.posts).toHaveLength(1);
+        expect(data.posts[0].title).toBe('Hello');
       } finally {
         await project.cleanup();
       }
@@ -818,6 +835,55 @@ export default _schema;
         expect(data.posts).toHaveLength(1);
         expect(data.posts[0].comments).toHaveLength(1);
         expect(data.posts[0].comments[0].text).toBe('Great post!');
+      } finally {
+        await project.cleanup();
+      }
+    });
+
+    it('returns singular object for has-one relationships', async () => {
+      const { appId, adminToken } = await createTempApp();
+      const project = await createTestProject({
+        appId,
+        schemaFile: SCHEMA_FILE,
+      });
+
+      try {
+        const pushResult = await runCli(['push', 'schema', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        const postId = randomUUID();
+        const commentId = randomUUID();
+        await adminTransact(appId, adminToken, [
+          ['update', 'posts', postId, { title: 'My Post', body: 'Content' }],
+          ['update', 'comments', commentId, { text: 'Great post!' }],
+          ['link', 'posts', postId, { comments: commentId }],
+        ]);
+
+        // Query from the "has one" side: comments -> post
+        const result = await runCli(
+          ['query', '--admin', JSON.stringify({ comments: { post: {} } })],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
+
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.comments).toHaveLength(1);
+
+        const post = data.comments[0].post;
+        expect(post).not.toBeInstanceOf(Array);
+        expect(post.title).toBe('My Post');
       } finally {
         await project.cleanup();
       }
@@ -939,6 +1005,89 @@ export default _schema;
         const bobData = JSON.parse(bobResult.stdout);
         expect(bobData.posts).toHaveLength(1);
         expect(bobData.posts[0].title).toBe("Bob's Post");
+      } finally {
+        await project.cleanup();
+      }
+    });
+
+    it('--as-token runs query as a user identified by refresh token', async () => {
+      const { appId, adminToken } = await createTempApp();
+
+      const schemaWithCreator = `
+import { i } from "@instantdb/core";
+const _schema = i.schema({
+  entities: {
+    posts: i.entity({
+      title: i.string(),
+      creatorEmail: i.string(),
+    }),
+  },
+});
+export default _schema;
+`;
+
+      const restrictedPerms = `export default {
+  posts: {
+    allow: {
+      view: "auth.email == data.creatorEmail",
+    },
+  },
+};
+`;
+
+      const project = await createTestProject({
+        appId,
+        schemaFile: schemaWithCreator,
+        permsFile: restrictedPerms,
+      });
+
+      try {
+        const pushResult = await runCli(['push', '--yes'], {
+          cwd: project.dir,
+          env: {
+            INSTANT_CLI_AUTH_TOKEN: adminToken,
+            INSTANT_APP_ID: appId,
+          },
+        });
+        expect(pushResult.exitCode).toBe(0);
+
+        const alice = await createAppUser(appId, adminToken, 'alice@test.com');
+
+        await adminTransact(appId, adminToken, [
+          [
+            'update',
+            'posts',
+            randomUUID(),
+            { title: "Alice's Post", creatorEmail: 'alice@test.com' },
+          ],
+          [
+            'update',
+            'posts',
+            randomUUID(),
+            { title: "Bob's Post", creatorEmail: 'bob@test.com' },
+          ],
+        ]);
+
+        // Using Alice's refresh token should only show Alice's post
+        const result = await runCli(
+          [
+            'query',
+            '--as-token',
+            alice.refreshToken,
+            JSON.stringify({ posts: {} }),
+          ],
+          {
+            cwd: project.dir,
+            env: {
+              INSTANT_CLI_AUTH_TOKEN: adminToken,
+              INSTANT_APP_ID: appId,
+            },
+          },
+        );
+        expect(result.exitCode).toBe(0);
+        const data = JSON.parse(result.stdout);
+        expect(data.posts).toHaveLength(1);
+        expect(data.posts[0].title).toBe("Alice's Post");
       } finally {
         await project.cleanup();
       }

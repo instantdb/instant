@@ -178,3 +178,7 @@ to changes, you can use `getAuth`.
 const user = await db.getAuth();
 console.log('logged in as', user.email);
 ```
+
+### Setting custom properties at signup
+
+If you want to set custom properties on `$users` at signup time, see [Setting properties at signup](/docs/users#setting-properties-at-signup).

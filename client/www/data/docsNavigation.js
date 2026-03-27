@@ -29,6 +29,13 @@ module.exports = [
         optionalLLM: true,
       },
       {
+        title: 'Getting started w/ Svelte',
+        href: '/docs/start-svelte',
+        prevHref: null,
+        nextHref: '/docs/create-instant-app',
+        optionalLLM: true,
+      },
+      {
         title: 'Getting started w/ TanStack Start',
         href: '/docs/start-tanstack',
         prevHref: null,
@@ -58,6 +65,7 @@ module.exports = [
       { title: 'Modeling data', href: '/docs/modeling-data' },
       { title: 'Writing data', href: '/docs/instaml' },
       { title: 'Reading data', href: '/docs/instaql' },
+      { title: 'Infinite Queries', href: '/docs/infinite-queries' },
       { title: 'Instant on the backend', href: '/docs/backend' },
       { title: 'Patterns', href: '/docs/patterns' },
     ],
@@ -124,6 +132,16 @@ module.exports = [
       { title: 'Stripe Payments', href: '/docs/stripe-payments' },
       { title: 'Admin HTTP API', href: '/docs/http-api' },
       { title: '(Experimental) Next.js SSR', href: '/docs/next-ssr' },
+    ],
+  },
+  {
+    title: 'Migration Guides',
+    links: [
+      {
+        title: 'Migrating from Supabase',
+        href: '/docs/migrate-from-supabase',
+        optionalLLM: true,
+      },
     ],
   },
 ];

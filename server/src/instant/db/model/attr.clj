@@ -189,7 +189,7 @@
 ;; hard-delete-by-app-id!
 
 (defn hard-delete-by-app-id!
-  "Hard-deletes all attrs for an app. 
+  "Hard-deletes all attrs for an app.
    Note: This will also delete all triples for an app"
   [conn app-id]
   (with-cache-invalidation app-id
@@ -265,14 +265,14 @@
   (map (partial qualify-col ns) cols))
 
 (defn validate-system-catalog-inserts!
-  "When we run a system catalog migration, we are inserting attrs that affect all 
-  existing apps. 
-  
-  What if a new system catalog insert has an ident that conflicts with some 
-  existing app's attr? 
-  
-  This will throw if new system catalog inserts conflict. 
-  
+  "When we run a system catalog migration, we are inserting attrs that affect all
+  existing apps.
+
+  What if a new system catalog insert has an ident that conflicts with some
+  existing app's attr?
+
+  This will throw if new system catalog inserts conflict.
+
   Note: System catalog migrations run during startup.
         This means that a conflict will *kill* new machines during a deploy."
   [conn attrs]
@@ -310,7 +310,7 @@
          :all-conflicts conflicts}]))))
 
 (defn validate-system-ident-names!
-  "Prevents users from creating attrs that use catalog idents. 
+  "Prevents users from creating attrs that use catalog idents.
    We also don't allow users to create new namespaces that start with $"
   [attrs]
   (doseq [attr attrs
@@ -645,14 +645,14 @@
 (defn restore-multi!
   "Restores soft-deleted attrs
 
-   1. When we restore an attr, we always make sure to mark 
+   1. When we restore an attr, we always make sure to mark
       it as not indexed, and not required.
-      This way we don't impact existing transactions 
-      
-      This does mean that we may have triples that still live on 
-      ave. It doesn't affect functionality but it does have some storage overhead. 
+      This way we don't impact existing transactions
 
-   2. We restore the etype and labels. We previously 
+      This does mean that we may have triples that still live on
+      ave. It doesn't affect functionality but it does have some storage overhead.
+
+   2. We restore the etype and labels. We previously
       branded them as deleted, to avoid uniqueness violations."
   [conn app-id ids]
   (with-cache-invalidation app-id
@@ -662,62 +662,62 @@
      (sql/format
       "with restored_attrs as (
         update attrs
-        set 
+        set
           deletion_marked_at = null,
           is_indexed = false,
           is_required = false,
           metadata = metadata - 'soft_delete_snapshot',
           etype = substring(etype from position('$' in etype) + 1),
           label = substring(label from position('$' in etype) + 1),
-          reverse_etype = case 
-            when reverse_etype is not null 
+          reverse_etype = case
+            when reverse_etype is not null
             then substring(reverse_etype from position('$' in etype) + 1)
-            else null 
+            else null
           end,
-          reverse_label = case 
-            when reverse_label is not null 
+          reverse_label = case
+            when reverse_label is not null
             then substring(reverse_label from position('$' in etype) + 1)
-            else null 
+            else null
           end
-        where 
-          app_id = ?app-id 
+        where
+          app_id = ?app-id
           and id = any(?attr-ids)
           and deletion_marked_at is not null
         returning *
-      ), restored_forward_idents as ( 
-        update idents fw 
-        set 
-          etype = a.etype, 
+      ), restored_forward_idents as (
+        update idents fw
+        set
+          etype = a.etype,
           label = a.label
-        from restored_attrs a 
-        where 
-          fw.app_id = ?app-id and 
+        from restored_attrs a
+        where
+          fw.app_id = ?app-id and
           fw.id = a.forward_ident
-        returning *    
-      ), restored_rev_idents as ( 
-       update idents rv 
-       set 
-         etype = a.reverse_etype, 
+        returning *
+      ), restored_rev_idents as (
+       update idents rv
+       set
+         etype = a.reverse_etype,
          label = a.reverse_label
        from restored_attrs a
-       where 
-         rv.app_id = ?app-id and 
+       where
+         rv.app_id = ?app-id and
          rv.id = a.reverse_ident
-       returning * 
-      ) 
-      select count(*) from restored_attrs 
-      union all 
-      select count(*) from restored_forward_idents 
-      union all 
+       returning *
+      )
+      select count(*) from restored_attrs
+      union all
+      select count(*) from restored_forward_idents
+      union all
       select count(*) from restored_rev_idents"
       {"?app-id" app-id
        "?attr-ids" (with-meta (vec ids) {:pgtype "uuid[]"})}))))
 
 (defn soft-delete-multi!
-  "Soft-deletes attrs 
+  "Soft-deletes attrs
    1. We always mark soft-deleted attrs as not indexed, and not required.
-      
-      This way we don't impact existing transactions. 
+
+      This way we don't impact existing transactions.
 
    2. We brand etype and labels with a `{attr_id}_deleted$` prefix.
       This way we avoid future uniqueness violations."
@@ -727,85 +727,85 @@
      ::soft-delete-multi!
      conn
      (sql/format
-      "with target_attrs as ( 
-        select app_id, id, etype 
-        from attrs 
-        where 
-          app_id = ?app-id 
+      "with target_attrs as (
+        select app_id, id, etype
+        from attrs
+        where
+          app_id = ?app-id
           and id = any(?attr-ids)
-          and deletion_marked_at is null 
-       ), snaps as ( 
-         select 
-           t.app_id as target_app_id, 
-           t.id as target_attr_id, 
+          and deletion_marked_at is null
+       ), snaps as (
+         select
+           t.app_id as target_app_id,
+           t.id as target_attr_id,
            id_attr.id as id_attr_id
-         from target_attrs t 
+         from target_attrs t
          left join lateral (
-           select 
-             id 
-           from    
-             attrs id_attr 
-           where 
+           select
+             id
+           from
+             attrs id_attr
+           where
              (id_attr.app_id = t.app_id or id_attr.app_id = ?system-catalog-app-id)
-             and id_attr.etype = t.etype 
-             and id_attr.label = 'id' 
+             and id_attr.etype = t.etype
+             and id_attr.label = 'id'
            limit 1
-         ) id_attr on true     
+         ) id_attr on true
        ), soft_deleted_attrs as (
         update attrs a
-        set 
+        set
           deletion_marked_at = now(),
-          is_indexed = false, 
-          is_required = false, 
+          is_indexed = false,
+          is_required = false,
           etype = id::text || '_deleted$' || etype,
           label = id::text || '_deleted$' || label,
           metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
             'soft_delete_snapshot', jsonb_build_object(
               'is_indexed', is_indexed,
-              'is_required', is_required, 
-              'id_attr_id', s.id_attr_id 
+              'is_required', is_required,
+              'id_attr_id', s.id_attr_id
             )
           ),
-          reverse_etype = case 
-            when reverse_etype is not null 
+          reverse_etype = case
+            when reverse_etype is not null
             then id::text || '_deleted$' || reverse_etype
-            else null 
+            else null
           end,
-          reverse_label = case 
-            when reverse_label is not null 
-            then id::text || '_deleted$' || reverse_label 
-            else null 
+          reverse_label = case
+            when reverse_label is not null
+            then id::text || '_deleted$' || reverse_label
+            else null
           end
-        from snaps s 
-        where a.app_id = s.target_app_id 
+        from snaps s
+        where a.app_id = s.target_app_id
               and a.id = s.target_attr_id
               and a.deletion_marked_at is null
         returning a.*
-      ), changed_forward_idents as ( 
-        update idents fw 
-        set 
-          etype = a.etype, 
+      ), changed_forward_idents as (
+        update idents fw
+        set
+          etype = a.etype,
           label = a.label
-        from soft_deleted_attrs a 
-        where 
-          fw.app_id = ?app-id and 
+        from soft_deleted_attrs a
+        where
+          fw.app_id = ?app-id and
           fw.id = a.forward_ident
-        returning *    
-      ), changed_rev_idents as ( 
-       update idents rv 
-       set 
-         etype = a.reverse_etype, 
+        returning *
+      ), changed_rev_idents as (
+       update idents rv
+       set
+         etype = a.reverse_etype,
          label = a.reverse_label
        from soft_deleted_attrs a
-       where 
-         rv.app_id = ?app-id and 
+       where
+         rv.app_id = ?app-id and
          rv.id = a.reverse_ident
-       returning * 
-      ) 
-      select count(*) from soft_deleted_attrs 
-      union all 
-      select count(*) from changed_forward_idents 
-      union all 
+       returning *
+      )
+      select count(*) from soft_deleted_attrs
+      union all
+      select count(*) from changed_forward_idents
+      union all
       select count(*) from changed_rev_idents"
       {"?app-id" app-id
        "?system-catalog-app-id" system-catalog-app-id
@@ -955,12 +955,12 @@
          ::get-soft-deleted-by-app-id
          conn
          (sql/format
-          "SELECT 
+          "SELECT
             *
            FROM
              attrs
            WHERE
-             app_id = CAST(?app-id AS UUID) 
+             app_id = CAST(?app-id AS UUID)
              AND deletion_marked_at IS NOT NULL
            ORDER BY
              id ASC"
@@ -1031,8 +1031,8 @@
   ([conn {:keys [maximum-deletion-marked-at]}]
    (sql/select ::get-attrs-to-hard-delete
                conn
-               ["select a.* 
-                 from attrs a 
+               ["select a.*
+                 from attrs a
                  where a.deletion_marked_at is not null and a.deletion_marked_at <= ?"
                 maximum-deletion-marked-at])))
 

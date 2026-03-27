@@ -1696,8 +1696,7 @@
                                   (into acc (map (fn [path]
                                                    [ctype (:ctype path)])
                                                  paths))
-                                  acc)
-                                )
+                                  acc))
                               #{}
                               (variable-components named-p))]
       (if (or (= #{[:e :e]} join-ctypes)
@@ -2047,16 +2046,26 @@
                          k)))
                    (vals idx->component-type))))
 
+(defn inclusive-comparison [comp]
+  (case comp
+    :> :>=
+    :< :<=
+    :>= :>=
+    :<= :<=))
+
 (defn add-cursor-comparisons
   "Updates the where query to include the constraints from the cursor."
-  [query {:keys [direction sym-triple-idx cursor cursor-type
-                 order-col-name order-col-type entity-id-col]}]
+  [query {:keys [direction sym-triple-idx cursor cursor-type order-col-required?
+                 order-col-name order-col-type entity-id-col inclusive?]}]
   (let [cursor-val (nth cursor sym-triple-idx)
         comparison (case [cursor-type direction]
                      [:before :asc] :<
                      [:before :desc] :>
                      [:after :asc] :>
                      [:after :desc] :<)
+        eid-comparison (if inclusive?
+                         (inclusive-comparison comparison)
+                         comparison)
         order-col-value-fn (when (not= order-col-type :created-at-timestamp)
                              (extract-value-fn order-col-type comparison))
         order-col (if order-col-value-fn
@@ -2086,13 +2095,15 @@
     (update query :where (fn [where]
                            [:and
                             where
-                            (if (= order-col-type :created-at-timestamp)
-                              ;; If we're using created-at, we can skip the null checks
-                              [:or
-                               [comparison order-col order-col-val]
-                               [:and
-                                [:= order-col order-col-val]
-                                [comparison entity-id-col [:cast (first cursor) :uuid]]]]
+                            (if order-col-required?
+                              ;; If the order col is required, we can skip the null checks
+                              [:and
+                               [(inclusive-comparison comparison) order-col order-col-val]
+                               [:or
+                                [comparison order-col order-col-val]
+                                [:and
+                                 [:= order-col order-col-val]
+                                 [eid-comparison entity-id-col [:cast (first cursor) :uuid]]]]]
                               [:or
                                [:or [comparison order-col order-col-val]
                                 ;; null > null => null in postgres, so we have to
@@ -2100,12 +2111,12 @@
                                 ;; n.b. if the user can specify nulls-first or nulls-last
                                 ;; then we need to take that into account here
                                 (case comparison
-                                  :> [:and
-                                      [:not= nil order-col]
-                                      [:= nil order-col-val]]
-                                  :< [:and
-                                      [:= nil order-col]
-                                      [:not= nil order-col-val]])]
+                                  (:> :>=) [:and
+                                            [:not= nil order-col]
+                                            [:= nil order-col-val]]
+                                  (:< :<=) [:and
+                                            [:= nil order-col]
+                                            [:not= nil order-col-val]])]
                                [:and
                                 ;; is not distinct from would be nice here, but not supported
                                 ;; by honeysql
@@ -2114,7 +2125,7 @@
                                   [:= order-col nil]
                                   [:= order-col-val nil]]
                                  [:= order-col order-col-val]]
-                                [comparison entity-id-col [:cast (first cursor) :uuid]]]])]))))
+                                [eid-comparison entity-id-col [:cast (first cursor) :uuid]]]])]))))
 
 (defn reverse-direction [direction]
   (case direction
@@ -2143,8 +2154,11 @@
            named-pattern
            order-sym
            order-col-type
+           order-col-required?
            before
-           after]
+           before-inclusive
+           after
+           after-inclusive]
     :as page-info}]
   (let [page-pattern (second named-pattern) ;; remove tag
         {:keys [cte pg-hints]} (joining-with prefix
@@ -2211,16 +2225,20 @@
                                                      :sym-triple-idx sym-triple-idx
                                                      :order-col-name order-col-name
                                                      :order-col-type order-col-type
+                                                     :order-col-required? order-col-required?
                                                      :cursor after
                                                      :cursor-type :after
-                                                     :entity-id-col entity-id-col})
+                                                     :entity-id-col entity-id-col
+                                                     :inclusive? after-inclusive})
                       before (add-cursor-comparisons {:direction direction
                                                       :sym-triple-idx sym-triple-idx
                                                       :order-col-name order-col-name
                                                       :order-col-type order-col-type
+                                                      :order-col-required? order-col-required?
                                                       :cursor before
                                                       :cursor-type :before
-                                                      :entity-id-col entity-id-col}))
+                                                      :entity-id-col entity-id-col
+                                                      :inclusive? before-inclusive}))
 
         first-row-table (kw table :-first)
         last-row-table (kw table :-last)
@@ -2278,6 +2296,7 @@
                                                       :sym-triple-idx 1
                                                       :order-col-name order-col-name
                                                       :order-col-type order-col-type
+                                                      :order-col-required? order-col-required?
                                                       :cursor [:cursor-row.e
                                                                :cursor-row.sym]
                                                       :cursor-type :after
@@ -2317,6 +2336,7 @@
                                                           :sym-triple-idx 1
                                                           :order-col-name order-col-name
                                                           :order-col-type order-col-type
+                                                          :order-col-required? order-col-required?
                                                           :cursor [:cursor-row.e
                                                                    :cursor-row.sym]
                                                           :cursor-type :before
@@ -2834,9 +2854,9 @@
                                                                (get "exists")))
                               (:page-info group) (assoc-in [:page-info :has-previous-page?]
                                                            (let [has-prev (-> sql-res
-                                                                             (get (name (has-prev-tbl table)))
-                                                                             first
-                                                                             (get "exists"))
+                                                                              (get (name (has-prev-tbl table)))
+                                                                              first
+                                                                              (get "exists"))
                                                                  offset (get-in group [:page-info :offset])
                                                                  after-cursor (get-in group [:page-info :after])]
                                                              ;; If the page is empty but we have an offset > 0 or an after cursor,

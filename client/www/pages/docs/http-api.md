@@ -267,8 +267,8 @@ curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
   -d "{\"id\":\"$USER_ID\"}"
 ```
 
-If a user with the provider id or email does not exist, Instant will create the
-user for you. The response includes `user.refresh_token`. You can pass this token onto your client, and use that to [log in](/docs/backend#2-frontend-db-auth-sign-in-with-token)
+If a user with the given `id` or `email` does not exist, Instant will create the
+user for you. You can pass `extra-fields` to set custom `$users` properties on creation. The response includes `user.refresh_token` and `"created": true` when a new user is created. You can pass this token onto your client, and use that to [log in](/docs/backend#2-frontend-db-auth-sign-in-with-token)
 
 ## Custom magic codes
 
@@ -292,14 +292,14 @@ curl -X POST "https://api.instantdb.com/admin/send_magic_code" \
   -d '{"email":"alyssa_p_hacker@instantdb.com"}'
 ```
 
-Similarly, you can verify a magic code too:
+Similarly, you can verify a magic code too. Like `refresh_tokens`, you can pass `extra-fields` to set custom `$users` properties on creation.
 
 ```shell
 curl -X POST "https://api.instantdb.com/admin/verify_magic_code" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "App-Id: $APP_ID" \
-  -d '{"email":"alyssa_p_hacker@instantdb.com","code":"123456"}'
+  -d '{"email":"alyssa_p_hacker@instantdb.com","code":"123456","extra-fields":{"nickname":"alyssa"}}'
 ```
 
 ## Authenticated Endpoints

@@ -397,24 +397,33 @@
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
         email (ex/get-optional-param! req [:body :email] email/coerce)
         id (ex/get-optional-param! req [:body :id] uuid-util/coerce)
+        extra-fields (get-in req [:body :extra-fields])
 
-        {user-id :id :as user}
+        existing-user
         (cond
-          email (or (app-user-model/get-by-email {:app-id app-id
-                                                  :email email})
-
-                    (app-user-model/create!
-                     {:id (UUID/randomUUID)
-                      :app-id app-id
-                      :email email}))
-          id  (or  (app-user-model/get-by-id {:app-id app-id :id id})
-                   (app-user-model/create!
-                    {:id id
-                     :app-id app-id}))
+          email (app-user-model/get-by-email {:app-id app-id :email email})
+          id    (app-user-model/get-by-id {:app-id app-id :id id})
           :else (ex/throw-validation-err!
                  :body
                  (:body req)
                  [{:message "Please provide an `email` or `id`"}]))
+
+        created? (nil? existing-user)
+
+        {user-id :id :as user}
+        (or existing-user
+            (let [user-id (or id (UUID/randomUUID))]
+              (app-user-model/assert-signup!
+               {:app-id app-id
+                :email email
+                :id user-id
+                :extra-fields extra-fields
+                :skip-perm-check? true})
+              (app-user-model/create!
+               {:id user-id
+                :app-id app-id
+                :email email
+                :extra-fields extra-fields})))
 
         {refresh-token-id :id}
         (app-user-refresh-token-model/create!
@@ -422,7 +431,8 @@
           :id (UUID/randomUUID)
           :user-id user-id})]
 
-    (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
+    (response/ok {:user (assoc user :refresh_token refresh-token-id)
+                  :created created?})))
 
 (defn sign-out-post [{:keys [body] :as req}]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
@@ -503,18 +513,23 @@
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
         email            (ex/get-param! req [:body :email] email/coerce)
         code             (ex/get-param! req [:body :code] string-util/safe-trim)
+        extra-fields     (get-in req [:body :extra-fields])
         guest-user       (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
                            (let [user (app-user-model/get-by-refresh-token!
                                        {:app-id        app-id
                                         :refresh-token refresh-token})]
                              (when (= "guest" (:type user))
-                               user)))]
+                               user)))
+        result           (magic-code-auth/verify!
+                          {:app-id         app-id
+                           :email          email
+                           :code           code
+                           :guest-user-id  (:id guest-user)
+                           :extra-fields   extra-fields
+                           :admin?         true})]
     (response/ok
-     {:user (magic-code-auth/verify!
-             {:app-id  app-id
-              :email   email
-              :code    code
-              :guest-user-id (:id guest-user)})})))
+     {:user (dissoc result :created)
+      :created (:created result)})))
 
 (defn sign-in-guest-post [req]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)

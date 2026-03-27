@@ -1,7 +1,7 @@
-export class Deferred {
-  promise;
-  _resolve;
-  _reject;
+export class Deferred<T = any> {
+  promise: Promise<T>;
+  _resolve: (value: T) => void;
+  _reject: (...reason: any) => void;
 
   constructor() {
     this.promise = new Promise((resolve, reject) => {

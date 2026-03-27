@@ -49,6 +49,12 @@ const nextConfig = {
         source: '/status',
         destination: 'https://status.instantdb.com',
       },
+      {
+        permanent: false,
+        basePath: false,
+        source: '/discord',
+        destination: 'https://discord.com/invite/VU53p7uQcE',
+      },
     ];
   },
   // Proxy to PostHog to avoid ad blockers

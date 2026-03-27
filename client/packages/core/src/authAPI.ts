@@ -31,6 +31,11 @@ export type VerifyMagicCodeParams = {
 export type VerifyResponse = {
   user: User;
 };
+
+/**
+ * @deprecated Use {@link checkMagicCode} instead to get the `created` field
+ * and support `extraFields`.
+ */
 export async function verifyMagicCode({
   apiURI,
   appId,
@@ -46,6 +51,38 @@ export async function verifyMagicCode({
       email,
       code,
       ...(refreshToken ? { 'refresh-token': refreshToken } : {}),
+    }),
+  });
+  return res;
+}
+
+export type CheckMagicCodeParams = {
+  email: string;
+  code: string;
+  refreshToken?: string | undefined;
+  extraFields?: Record<string, any> | undefined;
+};
+export type CheckMagicCodeResponse = {
+  user: User;
+  created: boolean;
+};
+export async function checkMagicCode({
+  apiURI,
+  appId,
+  email,
+  code,
+  refreshToken,
+  extraFields,
+}: SharedInput & CheckMagicCodeParams): Promise<CheckMagicCodeResponse> {
+  const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      'app-id': appId,
+      email,
+      code,
+      ...(refreshToken ? { 'refresh-token': refreshToken } : {}),
+      ...(extraFields ? { 'extra-fields': extraFields } : {}),
     }),
   });
   return res;
@@ -86,6 +123,7 @@ export type ExchangeCodeForTokenParams = {
   code: string;
   codeVerifier?: string;
   refreshToken?: string | undefined;
+  extraFields?: Record<string, any> | undefined;
 };
 
 export async function exchangeCodeForToken({
@@ -94,7 +132,8 @@ export async function exchangeCodeForToken({
   code,
   codeVerifier,
   refreshToken,
-}: SharedInput & ExchangeCodeForTokenParams): Promise<VerifyResponse> {
+  extraFields,
+}: SharedInput & ExchangeCodeForTokenParams): Promise<CheckMagicCodeResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/token`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -103,6 +142,7 @@ export async function exchangeCodeForToken({
       code: code,
       code_verifier: codeVerifier,
       refresh_token: refreshToken,
+      ...(extraFields ? { extra_fields: extraFields } : {}),
     }),
   });
   return res;
@@ -113,6 +153,7 @@ export type SignInWithIdTokenParams = {
   idToken: string;
   clientName: string;
   refreshToken?: string;
+  extraFields?: Record<string, any> | undefined;
 };
 
 export async function signInWithIdToken({
@@ -122,7 +163,8 @@ export async function signInWithIdToken({
   idToken,
   clientName,
   refreshToken,
-}: SharedInput & SignInWithIdTokenParams): Promise<VerifyResponse> {
+  extraFields,
+}: SharedInput & SignInWithIdTokenParams): Promise<CheckMagicCodeResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/id_token`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -132,6 +174,7 @@ export async function signInWithIdToken({
       id_token: idToken,
       client_name: clientName,
       refresh_token: refreshToken,
+      ...(extraFields ? { extra_fields: extraFields } : {}),
     }),
   });
   return res;

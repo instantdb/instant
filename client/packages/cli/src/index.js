@@ -387,7 +387,7 @@ program
     'If you have an existing app ID, we can pull schema and perms from there.',
   )
   .option(
-    '-p --package <react|react-native|core|admin|solid>',
+    '-p --package <react|react-native|core|admin|solid|svelte>',
     'Which package to automatically install if there is not one installed already.',
   )
   .option('--title <title>', 'Title for the created app')
@@ -454,7 +454,7 @@ program
     'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator stores.owner:stores.manager`',
   )
   .option(
-    '-p --package <react|react-native|core|admin|solid>',
+    '-p --package <react|react-native|core|admin|solid|svelte>',
     'Which package to automatically install if there is not one installed already.',
   )
   .description('Push schema and perm files to production.')
@@ -508,7 +508,7 @@ program
     'App ID to pull from. Defaults to *_INSTANT_APP_ID in .env',
   )
   .option(
-    '-p --package <react|react-native|core|admin|solid>',
+    '-p --package <react|react-native|core|admin|solid|svelte>',
     'Which package to automatically install if there is not one installed already.',
   )
   .option(
@@ -596,6 +596,10 @@ program
   .option('--admin', 'Run the query as admin (bypasses permissions)')
   .option('--as-email <email>', 'Run the query as a specific user by email')
   .option('--as-guest', 'Run the query as an unauthenticated guest')
+  .option(
+    '--as-token <refresh-token>',
+    'Run the query as a user identified by refresh token',
+  )
   .description('Run an InstaQL query against your app.')
   .action(async function (queryArg, opts) {
     await handleQuery(queryArg, opts);
@@ -716,17 +720,15 @@ async function detectAppIdQuietly(opts) {
 }
 
 async function handleQuery(queryArg, opts) {
-  const contextCount =
-    (opts.admin ? 1 : 0) + (opts.asEmail ? 1 : 0) + (opts.asGuest ? 1 : 0);
-  if (contextCount === 0) {
+  const contexts = [
+    opts.admin,
+    opts.asEmail,
+    opts.asGuest,
+    opts.asToken,
+  ].filter(Boolean);
+  if (contexts.length > 1) {
     error(
-      'Please specify a context: --admin, --as-email <email>, or --as-guest',
-    );
-    return process.exit(1);
-  }
-  if (contextCount > 1) {
-    error(
-      'Please specify exactly one context: --admin, --as-email <email>, or --as-guest',
+      'Please specify exactly one context: --admin, --as-email <email>, --as-guest, or --as-token <refresh-token>',
     );
     return process.exit(1);
   }
@@ -753,12 +755,14 @@ async function handleQuery(queryArg, opts) {
     headers['as-email'] = opts.asEmail;
   } else if (opts.asGuest) {
     headers['as-guest'] = 'true';
+  } else if (opts.asToken) {
+    headers['as-token'] = opts.asToken;
   }
 
   const res = await fetchJson({
     method: 'POST',
     path: '/admin/query',
-    body: { query },
+    body: { query, 'inference?': true },
     headers,
     debugName: 'Query',
     errorMessage: 'Failed to run query.',
@@ -974,6 +978,7 @@ const packageAliasAndFullNames = {
   core: '@instantdb/core',
   admin: '@instantdb/admin',
   solid: '@instantdb/solidjs',
+  svelte: '@instantdb/svelte',
 };
 
 async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
@@ -1015,6 +1020,7 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
           { label: '@instantdb/core', value: '@instantdb/core' },
           { label: '@instantdb/admin', value: '@instantdb/admin' },
           { label: '@instantdb/solidjs', value: '@instantdb/solidjs' },
+          { label: '@instantdb/svelte', value: '@instantdb/svelte' },
         ],
       }),
     );
@@ -1268,6 +1274,7 @@ async function getInstantModuleName(pkgJson) {
     '@instantdb/core',
     '@instantdb/admin',
     '@instantdb/solidjs',
+    '@instantdb/svelte',
   ].find((name) => deps[name] || devDeps[name]);
   return instantModuleName;
 }

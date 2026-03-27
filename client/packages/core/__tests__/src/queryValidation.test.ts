@@ -923,18 +923,58 @@ test('pagination parameters can only be used at top-level namespaces', () => {
     },
   });
 
+  beValid({
+    posts: {
+      $: {
+        before: cursor,
+        beforeInclusive: true,
+      },
+    },
+  });
+
+  beValid({
+    posts: {
+      $: {
+        after: cursor,
+        afterInclusive: true,
+      },
+    },
+  });
+
+  beWrong({
+    users: {
+      posts: {
+        $: {
+          beforeInclusive: true,
+        },
+      },
+    },
+  });
+
+  beWrong({
+    users: {
+      posts: {
+        $: {
+          afterInclusive: true,
+        },
+      },
+    },
+  });
+
   // Valid - multiple top-level entities with different pagination params
   beValid({
     posts: {
       $: {
         limit: 10,
         offset: 5,
+        afterInclusive: true,
       },
     },
     users: {
       $: {
         first: 20,
         after: cursor,
+        beforeInclusive: false,
       },
     },
   });

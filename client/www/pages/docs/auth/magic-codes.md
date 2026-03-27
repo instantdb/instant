@@ -445,4 +445,25 @@ db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
 
 You can then use `auth.signInWithMagicCode` to authenticate the user with the magic code they provided.
 
+## Setting properties at signup
+
+Pass `extraFields` to `signInWithMagicCode` to set custom `$users` properties when a user is first created. Fields are only written on first signup; returning users are unaffected.
+
+```javascript
+const { user, created } = await db.auth.signInWithMagicCode({
+  email: sentEmail,
+  code,
+  extraFields: { nickname: 'nezaj' },
+});
+
+if (created) {
+  // Scaffold default data for new users
+  db.transact([
+    db.tx.settings[id()].update({ theme: 'light' }).link({ user: user.id }),
+  ]);
+}
+```
+
+The fields must be defined as optional attributes on `$users` in your schema. A `create` rule on `$users` is also required. See [Setting properties at signup](/docs/users#setting-properties-at-signup) for the full guide.
+
 {% /nav-default %}
