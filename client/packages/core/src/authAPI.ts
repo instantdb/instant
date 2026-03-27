@@ -6,7 +6,7 @@ type SharedInput = {
   appId: string;
 };
 
-export type SendMagicCodeParams = { email: string };
+export type SendMagicCodeParams = { email: string; locale?: string | undefined };
 export type SendMagicCodeResponse = {
   sent: true;
 };
@@ -15,11 +15,16 @@ export function sendMagicCode({
   apiURI,
   appId,
   email,
+  locale,
 }: SharedInput & SendMagicCodeParams): Promise<SendMagicCodeResponse> {
   return jsonFetch(`${apiURI}/runtime/auth/send_magic_code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ 'app-id': appId, email }),
+    body: JSON.stringify({
+      'app-id': appId,
+      email,
+      ...(locale ? { locale } : {}),
+    }),
   });
 }
 
