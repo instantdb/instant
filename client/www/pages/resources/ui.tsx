@@ -41,7 +41,7 @@ export default function UI() {
   const isHydrated = useIsHydrated();
   if (!isHydrated) return null;
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4">
+    <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
       <h2 className="text-center font-mono text-2xl font-bold text-slate-500">
         instant/ui
       </h2>
@@ -175,7 +175,7 @@ export default function UI() {
           )),
       )}
       <GroupName>AppPicker</GroupName>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="relative left-1/2 w-[90vw] -translate-x-1/2 grid grid-cols-3 gap-2">
         <Example label="loading">
           <AppPicker
             isReady={false}
