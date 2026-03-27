@@ -15,7 +15,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Button, cn, LogoIcon } from '@/components/ui';
 import { ComponentType, SVGProps } from 'react';
 import { useRouter } from 'next/router';
-import { useGithubStarCount } from '@/lib/useGithubStarCount';
+import { useStarCount } from '@/lib/starCountContext';
 import { formatNumberCompact } from '@/lib/format';
 
 type Product = {
@@ -360,11 +360,8 @@ function NavItems() {
 }
 
 function OtherNavItems() {
-  const starCount = useGithubStarCount();
-
-  const formattedStarCount = starCount
-    ? formatNumberCompact(starCount)
-    : undefined;
+  const starCount = useStarCount();
+  const formattedStarCount = formatNumberCompact(starCount);
 
   return (
     <>

@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import { withStarCount } from '@/lib/withStarCount';
 import {
   LandingContainer,
   MainNav,
@@ -116,3 +117,5 @@ export default function HiringIndexPage() {
     </LandingContainer>
   );
 }
+
+export const getStaticProps = withStarCount();

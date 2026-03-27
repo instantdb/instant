@@ -1,6 +1,7 @@
 'use client';
 
 import Head from 'next/head';
+import { withStarCount } from '@/lib/withStarCount';
 import {
   LandingContainer,
   LandingFooter,
@@ -69,3 +70,5 @@ export default function AIChatUsagePage() {
     </>
   );
 }
+
+export const getStaticProps = withStarCount();

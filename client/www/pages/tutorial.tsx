@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
 import { MainNav } from '@/components/marketingUi';
+import { withStarCount } from '@/lib/withStarCount';
 import { Section } from '@/components/new-landing/Section';
 import {
   SectionTitle,
@@ -753,3 +754,5 @@ export default function Tutorial() {
     </div>
   );
 }
+
+export const getStaticProps = withStarCount();

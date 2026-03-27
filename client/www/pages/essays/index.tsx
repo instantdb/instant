@@ -9,14 +9,15 @@ import { Footer } from '@/components/new-landing/Footer';
 import { TopWash } from '@/components/new-landing/TopWash';
 import { authorFirstName, formatDuration } from '../../lib/postUtils';
 import { getAllPosts, type Author, type Post } from '../../lib/posts';
+import { withStarCount } from '@/lib/withStarCount';
 
 type EssaysIndexPost = Omit<Post, 'content'>;
 
-export async function getStaticProps() {
+export const getStaticProps = withStarCount(async () => {
   return {
     props: { posts: getAllPosts() },
   };
-}
+});
 
 function LinkedHeading({
   children,

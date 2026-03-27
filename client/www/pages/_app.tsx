@@ -21,6 +21,7 @@ import { SWRConfig } from 'swr';
 import { localStorageProvider } from '@/lib/swrCache';
 import posthog from '@/lib/posthog';
 import { PostHogProvider } from 'posthog-js/react';
+import { StarCountProvider } from '@/lib/starCountContext';
 
 declare global {
   function __getAppId(): any;
@@ -65,18 +66,15 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
       <AppHead />
       <PostHogIdentify />
       <ErrorBoundary renderError={() => <Oops />}>
-        <SWRConfig
-          value={{
-            fallback: {
-              ...(pageProps.starCount != null
-                ? { starCount: pageProps.starCount }
-                : {}),
-            },
-            provider: localStorageProvider,
-          }}
-        >
-          <NuqsAdapter>{mainEl}</NuqsAdapter>
-        </SWRConfig>
+        <StarCountProvider starCount={pageProps.starCount}>
+          <SWRConfig
+            value={{
+              provider: localStorageProvider,
+            }}
+          >
+            <NuqsAdapter>{mainEl}</NuqsAdapter>
+          </SWRConfig>
+        </StarCountProvider>
       </ErrorBoundary>
       {isDev ? null : <GoogleScripts />}
       {isDev ? <Dev /> : null}

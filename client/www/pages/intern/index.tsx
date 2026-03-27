@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import { withStarCount } from '@/lib/withStarCount';
 import { useState } from 'react';
 import {
   LandingContainer,
@@ -240,3 +241,5 @@ export default function InternIndexPage() {
     </LandingContainer>
   );
 }
+
+export const getStaticProps = withStarCount();

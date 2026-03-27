@@ -1,4 +1,5 @@
 import { MainNav } from '@/components/marketingUi';
+import { withStarCount } from '@/lib/withStarCount';
 import { Footer } from '@/components/new-landing/Footer';
 import { Section } from '@/components/new-landing/Section';
 import { TopWash } from '@/components/new-landing/TopWash';
@@ -479,3 +480,5 @@ export default function AboutPage() {
     </div>
   );
 }
+
+export const getStaticProps = withStarCount();

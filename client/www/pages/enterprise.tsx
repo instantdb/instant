@@ -1,4 +1,5 @@
 import { MainNav } from '@/components/marketingUi';
+import { withStarCount } from '@/lib/withStarCount';
 import { AppBuilders } from '@/components/new-landing/enterprise/AppBuilders';
 import { Architecture } from '@/components/new-landing/enterprise/Architecture';
 import { ChatPlatforms } from '@/components/new-landing/enterprise/ChatPlatforms';
@@ -55,3 +56,5 @@ export default function () {
     </div>
   );
 }
+
+export const getStaticProps = withStarCount();

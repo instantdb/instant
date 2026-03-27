@@ -12,8 +12,7 @@ import { FirebaseTestimonial } from '@/components/new-landing/FirebaseTestimonia
 import { FinalCTA } from '@/components/new-landing/FinalCTA';
 import { Footer } from '@/components/new-landing/Footer';
 import type { ReactNode } from 'react';
-import { GetStaticProps } from 'next';
-import { getGithubStarCount } from '@/lib/getGithubStars';
+import { withStarCount } from '@/lib/withStarCount';
 
 function HomeSeo() {
   return (
@@ -126,13 +125,4 @@ export default function Landing2026() {
   );
 }
 
-export const getStaticProps: GetStaticProps = async () => {
-  const starCount = await getGithubStarCount();
-  return {
-    props: {
-      starCount: starCount,
-    },
-    // Revalidate at most once every hour
-    revalidate: 3600,
-  };
-};
+export const getStaticProps = withStarCount();

@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import * as og from '@/lib/og';
+import { withStarCount } from '@/lib/withStarCount';
 import { MainNav, ProductNav, Link } from '@/components/marketingUi';
 import { cn } from '@/components/ui';
 import {
@@ -330,3 +331,5 @@ export default function Database() {
     </div>
   );
 }
+
+export const getStaticProps = withStarCount();

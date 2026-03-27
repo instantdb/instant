@@ -17,6 +17,7 @@ import {
 } from '@/lib/examples/server';
 import RatingBox from '@/components/docs/RatingBox';
 import { Footer } from '@/components/new-landing/Footer';
+import { withStarCount } from '@/lib/withStarCount';
 
 const buttonVariants = {
   cta: 'border border-transparent bg-orange-600 text-white hover:bg-orange-700',
@@ -174,14 +175,11 @@ export async function getStaticPaths() {
   };
 }
 
-export async function getStaticProps({
-  params: { slug },
-}: {
-  params: { slug: string };
-}) {
+export const getStaticProps = withStarCount(async (context) => {
+  const slug = context.params!.slug as string;
   return {
     props: { app: getExampleAppBySlug(slug) },
   };
-}
+});
 
 export default ExampleAppPage;

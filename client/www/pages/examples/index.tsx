@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { AppMetadata, webMetas, mobileMetas } from '@/lib/examples/data';
 import { MainNav } from '@/components/marketingUi';
+import { withStarCount } from '@/lib/withStarCount';
 import { Footer } from '@/components/new-landing/Footer';
 import { Section } from '@/components/new-landing/Section';
 import { TopWash } from '@/components/new-landing/TopWash';
@@ -195,11 +196,11 @@ export default function Page({
   );
 }
 
-export function getStaticProps() {
+export const getStaticProps = withStarCount(async () => {
   return {
     props: {
       webApps: webMetas,
       mobileApps: mobileMetas,
     },
   };
-}
+});

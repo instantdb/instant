@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import * as og from '@/lib/og';
+import { withStarCount } from '@/lib/withStarCount';
 import { MainNav, ProductNav, Link } from '@/components/marketingUi';
 import { adminExamples, httpExamples } from '@/lib/product/admin-sdk/examples';
 import { Section } from '@/components/new-landing/Section';
@@ -151,3 +152,5 @@ export default function AdminSdk() {
     </div>
   );
 }
+
+export const getStaticProps = withStarCount();

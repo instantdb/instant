@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { PlayIcon, PauseIcon } from '@heroicons/react/24/solid';
 import { AnimatePresence, motion } from 'motion/react';
+import { withStarCount } from '@/lib/withStarCount';
 import Head from 'next/head';
 import * as og from '@/lib/og';
 import { MainNav, ProductNav } from '@/components/marketingUi';
@@ -580,3 +581,5 @@ export default function Storage() {
     </div>
   );
 }
+
+export const getStaticProps = withStarCount();

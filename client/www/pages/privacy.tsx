@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import { LandingContainer, MainNav } from '@/components/marketingUi';
+import { withStarCount } from '@/lib/withStarCount';
 import { Footer } from '@/components/new-landing/Footer';
 
 function PrivacyPolicyContent() {
@@ -487,3 +488,5 @@ export default function Page() {
     </LandingContainer>
   );
 }
+
+export const getStaticProps = withStarCount();

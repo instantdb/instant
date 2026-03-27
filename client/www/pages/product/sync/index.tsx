@@ -1,6 +1,7 @@
 import { ComponentType, useState } from 'react';
 import Head from 'next/head';
 import * as og from '@/lib/og';
+import { withStarCount } from '@/lib/withStarCount';
 import Image from 'next/image';
 import { MainNav, ProductNav } from '@/components/marketingUi';
 import { Section } from '@/components/new-landing/Section';
@@ -268,3 +269,5 @@ export default function SyncEngine() {
     </div>
   );
 }
+
+export const getStaticProps = withStarCount();

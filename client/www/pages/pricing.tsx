@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import { MainNav } from '@/components/marketingUi';
+import { withStarCount } from '@/lib/withStarCount';
 import { Button } from '@/components/ui';
 import * as og from '@/lib/og';
 import { Footer } from '@/components/new-landing/Footer';
@@ -260,3 +261,5 @@ export default function Page() {
     </div>
   );
 }
+
+export const getStaticProps = withStarCount();

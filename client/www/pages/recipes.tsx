@@ -16,6 +16,7 @@ import {
 import { errorToast } from '@/lib/toast';
 import { MainNav } from '@/components/marketingUi';
 import * as og from '@/lib/og';
+import { withStarCount } from '@/lib/withStarCount';
 import { Toaster } from '@instantdb/components';
 import { Footer } from '@/components/new-landing/Footer';
 import { TopWash } from '@/components/new-landing/TopWash';
@@ -47,7 +48,7 @@ const recipeComponents: Record<string, ComponentType> = {
 
 const MAX_COLUMNS = 5;
 
-export async function getStaticProps() {
+export const getStaticProps = withStarCount(async () => {
   const files = getFiles();
 
   return {
@@ -55,7 +56,7 @@ export async function getStaticProps() {
       files,
     },
   };
-}
+});
 
 export default function Page({ files }: { files: File[] }) {
   return (

@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import { withStarCount } from '@/lib/withStarCount';
 
 import * as og from '@/lib/og';
 import { MainNav, ProductNav, Link } from '@/components/marketingUi';
@@ -185,3 +186,5 @@ export default function Auth() {
     </div>
   );
 }
+
+export const getStaticProps = withStarCount();
