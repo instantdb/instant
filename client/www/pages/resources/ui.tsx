@@ -175,7 +175,8 @@ export default function UI() {
           )),
       )}
       <GroupName>AppPicker</GroupName>
-      <div className="relative left-1/2 w-[90vw] -translate-x-1/2 grid grid-cols-3 gap-2">
+      <div className="relative left-1/2 w-[90vw] -translate-x-1/2 overflow-x-auto">
+      <div className="flex min-w-max gap-2 *:w-[20rem] *:shrink-0">
         <Example label="loading">
           <AppPicker
             isReady={false}
@@ -235,6 +236,7 @@ export default function UI() {
             ]}
           />
         </Example>
+      </div>
       </div>
       <GroupName>Misc</GroupName>
       <Example label="Copyable">
