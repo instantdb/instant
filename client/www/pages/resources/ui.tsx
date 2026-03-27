@@ -16,6 +16,7 @@ import {
   ToggleGroup,
 } from '@/components/ui';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
+import { AppPicker } from '@/components/docs/AppPicker';
 
 function Example({
   children,
@@ -173,6 +174,66 @@ export default function UI() {
             </Example>
           )),
       )}
+      <GroupName>AppPicker</GroupName>
+      <Example label="AppPicker: loading">
+        <AppPicker
+          isReady={false}
+          apps={[]}
+          selectedAppData={null}
+          updateSelectedAppId={() => {}}
+          workspaceId="personal"
+          allOrgs={[]}
+        />
+      </Example>
+      <Example label="AppPicker: logged out">
+        <AppPicker
+          isReady={true}
+          apps={[]}
+          selectedAppData={null}
+          updateSelectedAppId={() => {}}
+          workspaceId="personal"
+          allOrgs={[]}
+        />
+      </Example>
+      <Example label="AppPicker: logged in, no apps">
+        <AppPicker
+          isReady={true}
+          apps={[]}
+          selectedAppData={null}
+          updateSelectedAppId={() => {}}
+          workspaceId="personal"
+          allOrgs={[{ id: 'org-1', title: 'My Team' }]}
+        />
+      </Example>
+      <Example label="AppPicker: logged in, with apps">
+        <AppPicker
+          isReady={true}
+          apps={[
+            { id: 'app-1', title: 'my-cool-app' },
+            { id: 'app-2', title: 'cloned-palette-2' },
+          ]}
+          selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
+          updateSelectedAppId={() => {}}
+          workspaceId="personal"
+          allOrgs={[]}
+        />
+      </Example>
+      <Example label="AppPicker: logged in, with apps + orgs">
+        <AppPicker
+          isReady={true}
+          apps={[
+            { id: 'app-1', title: 'my-cool-app' },
+            { id: 'app-2', title: 'cloned-palette-2' },
+          ]}
+          selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
+          updateSelectedAppId={() => {}}
+          workspaceId="personal"
+          allOrgs={[
+            { id: 'org-1', title: 'My Team' },
+            { id: 'org-2', title: 'Acme Corp' },
+          ]}
+        />
+      </Example>
       <GroupName>Misc</GroupName>
       <Example label="Copyable">
         <Copyable label="Copyable" value={Date.now() + ''} />
