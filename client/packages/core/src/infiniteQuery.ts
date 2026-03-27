@@ -13,6 +13,13 @@ import {
 import { InstantSchemaDef } from './schemaTypes.ts';
 import { assert } from './utils/error.ts';
 
+const logIfTesting = (...args: Parameters<typeof console.log>) => {
+  // @ts-expect-error __vitest_browser__ in window object
+  if (typeof window !== 'undefined' && window.__vitest_browser__ == true) {
+    console.log(...args);
+  }
+};
+
 //   Example for {order: {value: "asc"}}
 //
 //                      0
@@ -450,18 +457,25 @@ export const subscribeInfiniteQuery = <
     pushNewForward(chunk.endCursor);
   };
 
-  starterUnsub = db.subscribeQuery(
-    {
-      [entity]: {
-        ...query,
-        $: {
-          limit: pageSize,
-          where: query.$?.where,
-          fields: query.$?.fields,
-          order,
-        },
+  const starterQuery = {
+    [entity]: {
+      ...query,
+      $: {
+        limit: pageSize,
+        where: query.$?.where,
+        fields: query.$?.fields,
+        order,
       },
-    } as unknown as Q,
+    },
+  };
+
+  logIfTesting(
+    'coerced starterQuery:',
+    JSON.stringify(coerceQuery(starterQuery)),
+  );
+
+  starterUnsub = db.subscribeQuery(
+    starterQuery as unknown as Q,
     async (starterData) => {
       if (hasKickstarted) return;
       if (starterData.error) {
@@ -501,7 +515,9 @@ export const subscribeInfiniteQuery = <
 
       // Flush the initial boostrap querysub data
       // because immediately unsubscribing will never save it for offline in idb
+      logIfTesting('starting querysubs flush');
       await db._reactor.querySubs.flush();
+      logIfTesting('finished querysubs flush');
 
       // Unsubscribe the starter subscription
       starterUnsub?.();
@@ -574,6 +590,9 @@ export const getInfiniteQueryInitialSnapshot = <
       ...coercedQuery,
     };
   }
+
+  logIfTesting('snapshot query:', JSON.stringify(coercedQuery));
+
   const queryResult = db._reactor.getPreviousResult(coercedQuery);
 
   return {
