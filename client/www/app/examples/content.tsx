@@ -178,7 +178,7 @@ export default function ExamplesContent({
 
   return (
     <div className="text-off-black w-full overflow-x-auto">
-      <MainNav transparent />
+      <MainNav />
 
       <div className="relative overflow-hidden pt-16">
         <TopWash />

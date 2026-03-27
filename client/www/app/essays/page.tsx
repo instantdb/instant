@@ -138,7 +138,7 @@ export default function EssaysPage() {
     <LandingContainer>
       <div className="relative flex min-h-screen flex-col justify-between">
         <TopWash />
-        <MainNav transparent />
+        <MainNav />
         <div className="landing-width relative mx-auto flex-1 pt-28 pb-16 sm:pt-32 sm:pb-20">
           <div className="mb-10 flex items-center justify-between">
             <h2 className="text-2xl font-normal sm:text-5xl">Essays</h2>

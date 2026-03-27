@@ -22,7 +22,7 @@ export default function Auth() {
 
   return (
     <div className="text-off-black w-full overflow-x-auto">
-      <MainNav transparent />
+      <MainNav />
 
       {/* Hero */}
       <div className="relative pt-16">

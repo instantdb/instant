@@ -20,7 +20,7 @@ export function EssayPage({ post }: { post: Post }) {
       <PageProgressBar />
       <div className="relative">
         <TopWash />
-        <MainNav transparent />
+        <MainNav />
         <div className="relative mx-auto max-w-4xl px-4 pt-28 pb-8 sm:pt-32">
           <div className="mx-auto mb-8 max-w-2xl">
             <h1 className="mb-4 text-5xl leading-tight font-normal tracking-tight">

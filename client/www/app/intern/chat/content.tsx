@@ -3,7 +3,7 @@
 import {
   LandingContainer,
   LandingFooter,
-  MainNav,
+  LegacyNav,
   Section,
   H2,
 } from '@/components/marketingUi';
@@ -23,7 +23,7 @@ export default function AIChatUsagePage() {
   if (!isHydrated || isLoading) {
     return (
       <LandingContainer>
-        <MainNav />
+        <LegacyNav />
         <Section>
           <div className="flex min-h-64 items-center justify-center">
             <FullscreenLoading />
@@ -37,7 +37,7 @@ export default function AIChatUsagePage() {
   if (error || !isAdmin) {
     return (
       <LandingContainer>
-        <MainNav />
+        <LegacyNav />
         <Section>
           <div className="mt-12 mb-8 text-center">
             <H2>Access Denied</H2>

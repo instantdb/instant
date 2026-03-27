@@ -52,7 +52,7 @@ function LandingBand({
 export default function HomePage() {
   return (
     <div className="text-off-black w-full overflow-x-auto">
-      <MainNav transparent />
+      <MainNav />
       <main className="flex-1">
         <section className="relative overflow-hidden bg-gradient-to-b from-[#FBF9F6] to-white">
           <div className="relative z-10 pt-16 pb-12 sm:pt-24 sm:pb-20">

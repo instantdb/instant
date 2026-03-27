@@ -171,7 +171,7 @@ function Main({ files }: { files: File[] }) {
       <Toaster />
 
       {appId ? <RoomStatus db={getColumnDb(appId, 0)} appId={appId} /> : null}
-      <MainNav transparent />
+      <MainNav />
 
       {/* Hero */}
       <div className="relative overflow-hidden pt-16">

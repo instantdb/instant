@@ -2,7 +2,7 @@
 
 import {
   LandingContainer,
-  MainNav,
+  LegacyNav,
   Link,
   Section,
   H2,
@@ -43,7 +43,7 @@ const JobCard = ({ title, href, description }: JobListing) => (
 export default function Content() {
   return (
     <LandingContainer>
-      <MainNav />
+      <LegacyNav />
       <Section>
         <div className="mt-12 mb-8">
           <div className="mb-6 text-center">

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   LandingContainer,
   LandingFooter,
-  MainNav,
+  LegacyNav,
   Link,
   Section,
   H2,
@@ -116,7 +116,7 @@ export default function InternIndexPage() {
   if (!isHydrated || isLoading) {
     return (
       <LandingContainer>
-        <MainNav />
+        <LegacyNav />
         <Section>
           <div className="flex min-h-64 items-center justify-center">
             <FullscreenLoading />
@@ -130,7 +130,7 @@ export default function InternIndexPage() {
   if (error || !isAdmin) {
     return (
       <LandingContainer>
-        <MainNav />
+        <LegacyNav />
         <Section>
           <div className="mt-12 mb-8 text-center">
             <H2>Access Denied</H2>
@@ -164,7 +164,7 @@ export default function InternIndexPage() {
 
   return (
     <LandingContainer>
-      <MainNav />
+      <LegacyNav />
       <Section>
         <div className="mt-12 mb-8">
           <div className="mb-6 text-center">

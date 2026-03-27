@@ -160,7 +160,7 @@ export default function AboutPage() {
   const toggleFilter = () => setFilterValue((v) => !v);
   return (
     <div className="text-off-black w-full overflow-x-auto">
-      <MainNav transparent />
+      <MainNav />
 
       {/* Hero */}
       <div className="relative overflow-hidden pt-16">

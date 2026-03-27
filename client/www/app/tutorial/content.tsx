@@ -497,7 +497,7 @@ export default function Tutorial() {
       {/* Hero band */}
       <div className="relative pt-16">
         <TopWash />
-        <MainNav transparent />
+        <MainNav />
         <div className="landing-width relative mx-auto px-8 pt-16 pb-12">
           <div className="mx-auto max-w-3xl">
             <SectionTitle>{pageTitle}</SectionTitle>

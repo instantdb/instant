@@ -150,7 +150,7 @@ export default function Content({ app }: { app: ExampleApp }) {
     <div className="min-h-full overflow-x-hidden">
       <div className="relative">
         <TopWash />
-        <MainNav transparent />
+        <MainNav />
         <ExampleDetail app={app} />
       </div>
       <Footer />

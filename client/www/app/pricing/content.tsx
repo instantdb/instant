@@ -244,7 +244,7 @@ function FourPlanGrid() {
 export default function Content() {
   return (
     <div className="text-off-black relative min-h-screen">
-      <MainNav transparent />
+      <MainNav />
       <main className="flex-1">
         <FourPlanGrid />
       </main>

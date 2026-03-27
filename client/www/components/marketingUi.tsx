@@ -449,12 +449,10 @@ export function BareNav({
   );
 }
 
-export function MainNav({ transparent = false }: { transparent?: boolean }) {
+export function MainNav() {
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
-    if (!transparent) return;
-
     const updateScrollState = () => {
       setIsScrolled(window.scrollY > 40);
     };
@@ -465,35 +463,36 @@ export function MainNav({ transparent = false }: { transparent?: boolean }) {
     return () => {
       window.removeEventListener('scroll', updateScrollState);
     };
-  }, [transparent]);
+  }, []);
 
   return (
     <div
       className={cn(
         'py-4',
-        transparent
-          ? cn(
-              'fixed top-0 right-0 left-0 z-50 border-b transition-[border-color] duration-300',
-              isScrolled ? 'border-b-gray-200/80' : 'border-b-transparent',
-            )
-          : 'border-b border-b-gray-200',
+        'fixed top-0 right-0 left-0 z-50 border-b transition-[border-color] duration-300',
+        isScrolled ? 'border-b-gray-200/80' : 'border-b-transparent',
       )}
     >
-      {transparent && (
-        <div
-          className={cn(
-            'absolute inset-0 -z-10 transition-[background-color,backdrop-filter] duration-300',
-            isScrolled
-              ? 'bg-white/80 backdrop-blur-md'
-              : 'bg-transparent backdrop-blur-none',
-          )}
-        />
-      )}
+      <div
+        className={cn(
+          'absolute inset-0 -z-10 transition-[background-color,backdrop-filter] duration-300',
+          isScrolled
+            ? 'bg-white/80 backdrop-blur-md'
+            : 'bg-transparent backdrop-blur-none',
+        )}
+      />
       <div className="landing-width mx-auto">
-        <BareNav
-          collapseLogo={transparent && isScrolled}
-          morphLogoOnCollapse={transparent}
-        />
+        <BareNav collapseLogo={isScrolled} morphLogoOnCollapse />
+      </div>
+    </div>
+  );
+}
+
+export function LegacyNav() {
+  return (
+    <div className="border-b border-b-gray-200 py-4">
+      <div className="landing-width mx-auto">
+        <BareNav />
       </div>
     </div>
   );
