@@ -104,5 +104,5 @@ export function getAllSlugs(): string[] {
 
 export function getAllPosts(): Omit<Post, 'content'>[] {
   const posts = getAllSlugs().map((slug) => getPostBySlug(slug));
-  return _.orderBy(posts, 'date', 'desc').map((p) => _.omit(p, 'content'));
+  return _.orderBy(posts, (p) => new Date(p.date).getTime(), 'desc').map((p) => _.omit(p, 'content'));
 }
