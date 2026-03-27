@@ -532,7 +532,7 @@ export function Layout({ children, title, tableOfContents }) {
               key={pathname}
               className="max-w-prose min-w-0 flex-1 p-4"
             >
-              <div className="bg-opacity-40 mb-6 flex flex-col gap-1 border bg-white p-4">
+              <div className="bg-opacity-40 mb-6 flex min-h-[8rem] flex-col gap-1 border bg-white p-4">
                 {isHydrated && !isLoadingWorkspace && (
                   <AppPicker
                     {...{
