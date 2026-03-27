@@ -5,7 +5,7 @@ import {
 } from 'unconfig';
 import { createRequire } from 'module';
 import path from 'path';
-import { findProjectDir } from './projectDir.js';
+import { findProjectDir } from './projectDir.ts';
 
 /**
  * Resolve @instantdb packages from CLI's dependency tree.

@@ -187,8 +187,7 @@ export function getSchemaPathToWrite(existingPath?: string): string {
   return 'instant.schema.ts';
 }
 
-export function getPermsPathToWrite(existingPath?: string): string {
-  if (existingPath) return existingPath;
+export function getPermsPathToWrite(): string {
   if (process.env.INSTANT_PERMS_FILE_PATH) {
     return process.env.INSTANT_PERMS_FILE_PATH;
   }

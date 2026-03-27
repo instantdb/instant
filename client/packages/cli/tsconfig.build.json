@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
+    "rootDir": "src",
     "rewriteRelativeImportExtensions": true,
     "sourceMap": true,
     "skipLibCheck": true, // `unconfig` currently imports a broken type from `@antfu/utils`,
@@ -11,8 +12,7 @@
       }
     ],
     "strictNullChecks": true
-    // remove once fixed
   },
-  "include": ["src", "__tests__"],
+  "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }

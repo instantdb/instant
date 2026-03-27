@@ -1,0 +1,50 @@
+import { Effect, Option, Schema } from 'effect';
+import { CurrentApp } from '../context/currentApp.ts';
+import { InstantHttpAuthed, withCommand } from './http.ts';
+import { HttpClientResponse } from '@effect/platform';
+import { readLocalPermsFile } from '../old.js';
+import { getPermsPathToWrite } from '../util/findConfigCandidates.ts';
+import { promptOk } from './ui.ts';
+import { UI } from '../ui/index.ts';
+import { writeTypescript } from './pullSchema.ts';
+import { generatePermsTypescriptFile } from '@instantdb/platform';
+import { ProjectInfo } from '../context/projectInfo.ts';
+import { Path } from '@effect/platform';
+
+export const pullPerms = Effect.gen(function* () {
+  yield* Effect.log('Pulling perms...');
+  const { appId } = yield* CurrentApp;
+  const http = yield* InstantHttpAuthed;
+  const permsResponse = yield* http
+    .pipe(withCommand('pull'))
+    .get(`/dash/apps/${appId}/perms/pull`)
+    .pipe(Effect.flatMap(HttpClientResponse.schemaBodyJson(Schema.Any))); // parse result body into "any"
+
+  const prevPermsFile = yield* Effect.tryPromise(readLocalPermsFile).pipe(
+    Effect.map(Option.fromNullable),
+  );
+
+  const shortPermsPath = Option.match(prevPermsFile, {
+    onSome: (file) => file.path,
+    onNone: () => getPermsPathToWrite(),
+  });
+
+  if (Option.isSome(prevPermsFile)) {
+    const shouldContinue = yield* promptOk({
+      promptText: `This will overwrite your local ${shortPermsPath} file, OK to proceed?`,
+      modifyOutput: UI.modifiers.yPadding,
+      inline: true,
+    });
+    if (!shouldContinue) return;
+  }
+  const { instantModuleName, pkgDir } = yield* ProjectInfo;
+  const fileContent = generatePermsTypescriptFile(
+    permsResponse?.perms || {},
+    instantModuleName,
+  );
+
+  const path = yield* Path.Path;
+
+  yield* writeTypescript(path.join(pkgDir, shortPermsPath), fileContent);
+  yield* Effect.log('✅ Wrote permissions to ' + shortPermsPath);
+});

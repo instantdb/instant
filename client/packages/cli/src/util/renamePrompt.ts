@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { ModifyOutputFn, Prompt, SelectState } from '../ui/lib.js';
+import { ModifyOutputFn, Prompt, SelectState } from '../ui/lib.ts';
 import { isRenamePromptItem } from '@instantdb/platform';
 
 export interface RenamePromptItem<T> {
