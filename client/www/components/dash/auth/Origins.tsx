@@ -356,8 +356,8 @@ export function AuthorizedOriginRow({
           </span>
         </div>
       </div>
-      <button onClick={deleteDialog.onOpen}>
-        <TrashIcon height={'1rem'} className="" />
+      <button className="cursor-pointer" onClick={deleteDialog.onOpen}>
+        <TrashIcon height={'1rem'} />
       </button>
       <Dialog title="Delete Origin" {...deleteDialog}>
         <div className="flex flex-col gap-2">

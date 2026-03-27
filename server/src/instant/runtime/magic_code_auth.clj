@@ -12,6 +12,7 @@
    [instant.rate-limit :as rate-limit]
    [instant.reactive.ephemeral :as eph]
    [instant.util.cache :as cache]
+   [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
   (:import
@@ -141,10 +142,20 @@
         email-res       (try
                           (postmark/send-structured! email-req)
                           (catch clojure.lang.ExceptionInfo e
-                            (if (invalid-sender? e)
+                            (cond
+                              (invalid-sender? e)
                               (do
                                 (tracer/record-info! {:name "magic-code/unconfirmed-or-unknown-sender" :attributes {:email sender-email :app-id app-id}})
                                 (postmark/send-structured! (magic-code-email email (assoc email-params :sender-email default-sender))))
+
+
+                              ;; Don't throw if it's a test user, even if we can't send email to it
+                              (and (= ::ex/validation-failed (-> e ex-data ::ex/type))
+                                   (not (nil? (app-model/get-test-user req))))
+                              false
+
+
+                              :else
                               (throw e))))]
     {:code code
      :sent-email email-res}))
@@ -157,6 +168,25 @@
                                                   :email "stopa@instantdb.com"}))
 
   (send! {:app-id (:id app) :email "stopa@instantdb.com"}))
+
+(defn matches-test-user?
+  "Returns true if it's a test user and the given code match's the user's static code."
+  [app-id code email]
+  (when (and code
+             (= 6 (count code)))
+    (let [test-user (app-model/get-test-user {:app-id app-id :email email})]
+      (and test-user
+           (crypt-util/constant-string= (:code test-user) code)))))
+
+(defn consume-code! [app-id code email]
+  (try
+    (app-user-magic-code-model/consume!
+     {:app-id app-id
+      :code   code
+      :email  email})
+    (catch clojure.lang.ExceptionInfo e
+      (when-not (matches-test-user? app-id code email)
+        (throw e)))))
 
 (defn verify!
   "Consumes the code and if the code is good, upserts the user.
@@ -183,10 +213,7 @@
         :id user-id
         :extra-fields extra-fields
         :skip-perm-check? admin?}))
-    (app-user-magic-code-model/consume!
-     {:app-id app-id
-      :code   code
-      :email  email})
+    (consume-code! app-id code email)
     (let [user (or existing-user
                    (app-user-model/create!
                     {:id user-id
