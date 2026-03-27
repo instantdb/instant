@@ -128,7 +128,7 @@ function registerTools(server: McpServer, api: PlatformApi) {
       You can fetch the schema for the app by using the instant-cli tool:
 
       \`\`\`
-      npx instant-cli pull schema --app ${appId} --token ${api.token()} --yes
+      npx instant-cli pull schema --app ${appId} --yes
       \`\`\`
 
       We supply the --yes flag to skip confirmation prompts. Now 'instant.schema.ts' will contain the schema for the app.
@@ -156,7 +156,7 @@ function registerTools(server: McpServer, api: PlatformApi) {
       You fetch the permissions for the app by using the instant-cli tool:
 
       \`\`\`
-      npx instant-cli pull perms --app ${appId} --token ${api.token()} --yes
+      npx instant-cli pull perms --app ${appId} --yes
       \`\`\`
 
       We supply the --yes flag to skip confirmation prompts. Now 'instant.perms.ts' will contain the permissions for the app.
@@ -185,7 +185,7 @@ function registerTools(server: McpServer, api: PlatformApi) {
       Push schema changes by using the instant-cli tool:
 
       \`\`\`
-      npx instant-cli push schema --app ${appId} --token ${api.token()} --yes
+      npx instant-cli push schema --app ${appId} --yes
       \`\`\`
 
       We supply the --yes flag to skip confirmation prompts.
@@ -194,7 +194,7 @@ function registerTools(server: McpServer, api: PlatformApi) {
       If you want to rename fields as part of your schema changes you can use the --rename flag to specify renames.
 
       \`\`\`
-      npx instant-cli push schema --app ${appId} --token ${api.token()} --rename 'posts.author:posts.creator stores.owner:stores.manager' --yes
+      npx instant-cli push schema --app ${appId} --rename 'posts.author:posts.creator stores.owner:stores.manager' --yes
       \`\`\`
       `;
 
@@ -221,7 +221,7 @@ function registerTools(server: McpServer, api: PlatformApi) {
       Push permission changes by using the instant-cli tool:
 
       \`\`\`
-      npx instant-cli push perms --app ${appId} --token ${api.token()} --yes
+      npx instant-cli push perms --app ${appId} --yes
       \`\`\`
 
       We supply the --yes flag to skip confirmation prompts.
