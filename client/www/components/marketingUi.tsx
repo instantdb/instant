@@ -365,7 +365,7 @@ function OtherNavItems() {
   return (
     <>
       <NavLink href="https://github.com/instantdb/instant">
-        <span className="bg-secondary-fill border-secondary-border flex items-center gap-1 rounded-[5px] border p-1 px-3 text-sm transition-shadow hover:text-black hover:shadow">
+        <span className="bg-secondary-fill border-secondary-border flex items-center gap-1 rounded-[5px] border self-stretch px-3 text-sm transition-shadow hover:text-black hover:shadow">
           <img
             src={'/img/github-icon.svg'}
             alt="GitHub"

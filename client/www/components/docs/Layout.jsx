@@ -173,6 +173,7 @@ function CopyAsMarkdown({ path, label = 'Copy as markdown' }) {
 }
 
 function AppPicker({
+  isReady,
   apps,
   selectedAppData,
   updateSelectedAppId,
@@ -245,23 +246,27 @@ function AppPicker({
 
   return (
     <div className="bg-opacity-40 mb-6 flex flex-col gap-1 border bg-white p-4">
-      <h4 className="font-bold">Pick your app</h4>
-      <p className="text-sm">
-        The examples below will be updated with your app ID.
-      </p>
-      {allOrgs.length > 0 && (
-        <p className="mt-1 text-xs text-gray-600">
-          Current workspace: <strong>{currentWorkspaceName}</strong>
-        </p>
+      {isReady && (
+        <>
+          <h4 className="font-bold">Pick your app</h4>
+          <p className="text-sm">
+            The examples below will be updated with your app ID.
+          </p>
+          {allOrgs.length > 0 && (
+            <p className="mt-1 text-xs text-gray-600">
+              Current workspace: <strong>{currentWorkspaceName}</strong>
+            </p>
+          )}
+          <Select
+            className="max-w-sm"
+            disabled={!allOptions.length}
+            value={selectedAppData?.id}
+            options={allOptions}
+            onChange={onSelectAppId}
+            emptyLabel={'No apps - sign in to create one'}
+          />
+        </>
       )}
-      <Select
-        className="max-w-sm"
-        disabled={!allOptions.length}
-        value={selectedAppData?.id}
-        options={allOptions}
-        onChange={onSelectAppId}
-        emptyLabel={'No apps - sign in to create one'}
-      />
     </div>
   );
 }
@@ -532,17 +537,16 @@ export function Layout({ children, title, tableOfContents }) {
               key={pathname}
               className="max-w-prose min-w-0 flex-1 p-4"
             >
-              {isHydrated && !isLoadingWorkspace && (
-                <AppPicker
-                  {...{
-                    apps,
-                    selectedAppData,
-                    updateSelectedAppId,
-                    workspaceId,
-                    allOrgs: orgs,
-                  }}
-                />
-              )}
+              <AppPicker
+                isReady={isHydrated && !isLoadingWorkspace}
+                {...{
+                  apps,
+                  selectedAppData,
+                  updateSelectedAppId,
+                  workspaceId,
+                  allOrgs: orgs,
+                }}
+              />
               <PageContent
                 path={pathname}
                 title={title}
