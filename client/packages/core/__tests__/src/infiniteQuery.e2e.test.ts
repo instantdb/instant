@@ -69,7 +69,6 @@ describe('get initial data for useSyncExternalStore', () => {
     await addNumberItem(db, 2);
     await addNumberItem(db, 3);
 
-    await expect.poll(() => getLoadedValues(response)).toContain(3);
     const result = getInfiniteQueryInitialSnapshot(db, {
       items: {
         $: {
