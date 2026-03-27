@@ -66,7 +66,7 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
       <AppHead />
       <PostHogIdentify />
       <ErrorBoundary renderError={() => <Oops />}>
-        <StarCountProvider starCount={pageProps.starCount}>
+        <StarCountProvider starCount={pageProps.starCount} isMarkdoc={isDocsPage}>
           <SWRConfig
             value={{
               provider: localStorageProvider,
