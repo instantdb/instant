@@ -19,7 +19,6 @@ import RatingBox from './RatingBox';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 import { ChatWidget, useIsMobile } from '../chat/ChatWidget';
-import { ClientOnly } from '../clientOnlyPage';
 
 function useWorkspaceData(workspaceId, token) {
   const dashResponse = useTokenFetch(`${config.apiURI}/dash`, token);
@@ -607,14 +606,14 @@ export function Layout({ children, title, tableOfContents }) {
             Chat with AI
           </button>
         )}
-        <ClientOnly>
+        {isHydrated && (
           <ChatWidget
             isOpen={aiChatOpen}
             onClose={() => setAiChatOpen(false)}
             forceModal={forceModal}
             setForceModal={setForceModal}
           />
-        </ClientOnly>
+        )}
       </div>
     </SelectedAppContext.Provider>
   );
