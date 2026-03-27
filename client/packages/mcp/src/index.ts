@@ -122,20 +122,16 @@ function registerTools(server: McpServer, api: PlatformApi) {
     'Fetch schema for an app by its ID!',
     {
       appId: z.string().uuid().describe('UUID of the app'),
-      adminToken: z
-        .string()
-        .uuid()
-        .describe('UUID of the admin token for the app'),
     },
-    async ({ appId, adminToken }) => {
+    async ({ appId }) => {
       const instructions = `
       You can fetch the schema for the app by using the instant-cli tool:
 
       \`\`\`
-      npx instant-cli pull schema --app ${appId} --token ${adminToken} --yes
+      npx instant-cli pull schema --app ${appId} --token ${api.token()} --yes
       \`\`\`
 
-      We supply the --yes flag to skip confirmation prompts. Now 'instant.schema.ts' with contain the schema for the app.
+      We supply the --yes flag to skip confirmation prompts. Now 'instant.schema.ts' will contain the schema for the app.
       `;
 
       return {
@@ -154,17 +150,13 @@ function registerTools(server: McpServer, api: PlatformApi) {
     'Fetch permissions for an app by its ID',
     {
       appId: z.string().uuid().describe('UUID of the app'),
-      adminToken: z
-        .string()
-        .uuid()
-        .describe('UUID of the admin token for the app'),
     },
-    async ({ appId, adminToken }) => {
+    async ({ appId }) => {
       const instructions = `
       You fetch the permissions for the app by using the instant-cli tool:
 
       \`\`\`
-      npx instant-cli pull perms --app ${appId} --token ${adminToken} --yes
+      npx instant-cli pull perms --app ${appId} --token ${api.token()} --yes
       \`\`\`
 
       We supply the --yes flag to skip confirmation prompts. Now 'instant.perms.ts' will contain the permissions for the app.
@@ -187,18 +179,13 @@ function registerTools(server: McpServer, api: PlatformApi) {
     If you don't have an instant.schema.ts file yet, use the get-schema tool to learn how to get this file.`,
     {
       appId: z.string().uuid().describe('UUID of the app'),
-      adminToken: z
-        .string()
-        .uuid()
-        .describe('UUID of the admin token for the app'),
     },
-    async ({ appId, adminToken }) => {
+    async ({ appId }) => {
       const instructions = `
       Push schema changes by using the instant-cli tool:
 
-
       \`\`\`
-      npx instant-cli push schema --app ${appId} --token ${adminToken} --yes
+      npx instant-cli push schema --app ${appId} --token ${api.token()} --yes
       \`\`\`
 
       We supply the --yes flag to skip confirmation prompts.
@@ -207,7 +194,7 @@ function registerTools(server: McpServer, api: PlatformApi) {
       If you want to rename fields as part of your schema changes you can use the --rename flag to specify renames.
 
       \`\`\`
-      npx instant-cli push schema --app ${appId} --token ${adminToken} --rename 'posts.author:posts.creator stores.owner:stores.manager' --yes
+      npx instant-cli push schema --app ${appId} --token ${api.token()} --rename 'posts.author:posts.creator stores.owner:stores.manager' --yes
       \`\`\`
       `;
 
@@ -228,17 +215,13 @@ function registerTools(server: McpServer, api: PlatformApi) {
     If you don't have an instant.perms.ts file yet, use the get-perms tool to learn how to get this file.`,
     {
       appId: z.string().uuid().describe('UUID of the app'),
-      adminToken: z
-        .string()
-        .uuid()
-        .describe('UUID of the admin token for the app'),
     },
-    async ({ appId, adminToken }) => {
+    async ({ appId }) => {
       const instructions = `
       Push permission changes by using the instant-cli tool:
 
       \`\`\`
-      npx instant-cli push perms --app ${appId} --token ${adminToken} --yes
+      npx instant-cli push perms --app ${appId} --token ${api.token()} --yes
       \`\`\`
 
       We supply the --yes flag to skip confirmation prompts.
