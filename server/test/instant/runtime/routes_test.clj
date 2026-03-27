@@ -205,6 +205,39 @@
            (update-created-at app-id code (- (System/currentTimeMillis) (* 8 60 1000)))
            (is (= "a@b.c" (:email (verify-code app {:email "a@b.c" :code code}))))))))))
 
+(deftest static-test-users-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (testing "test user can sign in with static code"
+        (app-model/create-test-user! {:app-id app-id
+                                      :email "test@example.com"
+                                      :code "424242"})
+        (let [user (verify-code-runtime app {:email "test@example.com"
+                                             :code "424242"})]
+          (is (= "test@example.com" (:email user)))))
+
+      (testing "wrong code is rejected"
+        (is (thrown-with-msg?
+             ExceptionInfo
+             #"status 400"
+             (verify-code-runtime app {:email "test@example.com"
+                                       :code "000000"}))))
+
+      (testing "regular magic code still works for test user"
+        (let [code (send-code-runtime app {:email "test@example.com"})]
+          (is (= "test@example.com"
+                 (:email (verify-code-runtime app {:email "test@example.com"
+                                                   :code code}))))))
+
+      (testing "after deleting test user, static code no longer works"
+        (let [test-user (first (app-model/get-test-users {:app-id app-id}))]
+          (app-model/delete-test-user! {:app-id app-id :id (:id test-user)}))
+        (is (thrown-with-msg?
+             ExceptionInfo
+             #"status 400"
+             (verify-code-runtime app {:email "test@example.com"
+                                       :code "424242"})))))))
+
 (deftest magic-codes-rate-limit-test
   (with-empty-app
     (fn [app]

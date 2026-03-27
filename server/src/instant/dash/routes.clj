@@ -1396,6 +1396,29 @@
                                                                 :magic-code-expiry-minutes expiry})]
       (response/ok {:app updated-app}))))
 
+(defn test-users-get [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        test-users (app-model/get-test-users {:app-id app-id})]
+    (response/ok {:test-users test-users})))
+
+(defn test-users-post [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        email (ex/get-param! req [:body :email] email/coerce)
+        code (ex/get-param! req [:body :code] string-util/coerce-non-blank-str)
+        _ (when-not (re-matches #"\d{6}" code)
+            (ex/throw-validation-err!
+             :code code [{:message "Code must be a 6-digit number."}]))
+        test-user (app-model/create-test-user! {:app-id app-id
+                                                :email email
+                                                :code code})]
+    (response/ok {:test-user test-user})))
+
+(defn test-users-delete [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        id (ex/get-param! req [:body :id] uuid-util/coerce)
+        test-user (app-model/delete-test-user! {:app-id app-id :id id})]
+    (response/ok {:test-user test-user})))
+
 ;; ---
 ;; Storage
 
@@ -1994,6 +2017,10 @@
   (POST "/dash/apps/:app_id/transfer_to_org/:org_id" [] app-transfer-to-org)
 
   (POST "/dash/apps/:app_id/set-magic-code-expiry" [] app-set-magic-code-expiry)
+
+  (GET "/dash/apps/:app_id/test_users" [] test-users-get)
+  (POST "/dash/apps/:app_id/test_users" [] test-users-post)
+  (DELETE "/dash/apps/:app_id/test_users" [] test-users-delete)
 
   ;; Storage
   (PUT "/dash/apps/:app_id/storage/upload", [] upload-put)
