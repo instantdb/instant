@@ -1,8 +1,21 @@
+function isTauriEnv() {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.__TAURI_INTERNALS__ !== 'undefined'
+  );
+}
+
 export default class WindowNetworkListener {
   static async getIsOnline() {
+    if (isTauriEnv()) {
+      return true;
+    }
     return navigator.onLine;
   }
   static listen(f) {
+    if (isTauriEnv()) {
+      return () => {};
+    }
     const onOnline = () => {
       f(true);
     };
