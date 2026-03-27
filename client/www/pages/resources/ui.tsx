@@ -176,67 +176,67 @@ export default function UI() {
       )}
       <GroupName>AppPicker</GroupName>
       <div className="relative left-1/2 w-[90vw] -translate-x-1/2 overflow-x-auto">
-      <div className="flex min-w-max gap-2 *:w-[20rem] *:shrink-0">
-        <Example label="loading">
-          <AppPicker
-            isReady={false}
-            apps={[]}
-            selectedAppData={null}
-            updateSelectedAppId={() => {}}
-            workspaceId="personal"
-            allOrgs={[]}
-          />
-        </Example>
-        <Example label="logged out">
-          <AppPicker
-            isReady={true}
-            apps={[]}
-            selectedAppData={null}
-            updateSelectedAppId={() => {}}
-            workspaceId="personal"
-            allOrgs={[]}
-          />
-        </Example>
-        <Example label="no apps (has org)">
-          <AppPicker
-            isReady={true}
-            apps={[]}
-            selectedAppData={null}
-            updateSelectedAppId={() => {}}
-            workspaceId="personal"
-            allOrgs={[{ id: 'org-1', title: 'My Team' }]}
-          />
-        </Example>
-        <Example label="with apps">
-          <AppPicker
-            isReady={true}
-            apps={[
-              { id: 'app-1', title: 'my-cool-app' },
-              { id: 'app-2', title: 'cloned-palette-2' },
-            ]}
-            selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
-            updateSelectedAppId={() => {}}
-            workspaceId="personal"
-            allOrgs={[]}
-          />
-        </Example>
-        <Example label="with apps + orgs">
-          <AppPicker
-            isReady={true}
-            apps={[
-              { id: 'app-1', title: 'my-cool-app' },
-              { id: 'app-2', title: 'cloned-palette-2' },
-            ]}
-            selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
-            updateSelectedAppId={() => {}}
-            workspaceId="personal"
-            allOrgs={[
-              { id: 'org-1', title: 'My Team' },
-              { id: 'org-2', title: 'Acme Corp' },
-            ]}
-          />
-        </Example>
-      </div>
+        <div className="flex min-w-max gap-2 *:w-[20rem] *:shrink-0">
+          <Example label="loading">
+            <AppPicker
+              isReady={false}
+              apps={[]}
+              selectedAppData={null}
+              updateSelectedAppId={() => {}}
+              workspaceId="personal"
+              allOrgs={[]}
+            />
+          </Example>
+          <Example label="logged out">
+            <AppPicker
+              isReady={true}
+              apps={[]}
+              selectedAppData={null}
+              updateSelectedAppId={() => {}}
+              workspaceId="personal"
+              allOrgs={[]}
+            />
+          </Example>
+          <Example label="no apps (has org)">
+            <AppPicker
+              isReady={true}
+              apps={[]}
+              selectedAppData={null}
+              updateSelectedAppId={() => {}}
+              workspaceId="personal"
+              allOrgs={[{ id: 'org-1', title: 'My Team' }]}
+            />
+          </Example>
+          <Example label="with apps">
+            <AppPicker
+              isReady={true}
+              apps={[
+                { id: 'app-1', title: 'my-cool-app' },
+                { id: 'app-2', title: 'cloned-palette-2' },
+              ]}
+              selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
+              updateSelectedAppId={() => {}}
+              workspaceId="personal"
+              allOrgs={[]}
+            />
+          </Example>
+          <Example label="with apps + orgs">
+            <AppPicker
+              isReady={true}
+              apps={[
+                { id: 'app-1', title: 'my-cool-app' },
+                { id: 'app-2', title: 'cloned-palette-2' },
+              ]}
+              selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
+              updateSelectedAppId={() => {}}
+              workspaceId="personal"
+              allOrgs={[
+                { id: 'org-1', title: 'My Team' },
+                { id: 'org-2', title: 'Acme Corp' },
+              ]}
+            />
+          </Example>
+        </div>
       </div>
       <GroupName>Misc</GroupName>
       <Example label="Copyable">
