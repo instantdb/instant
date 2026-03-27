@@ -184,6 +184,17 @@ const promptImportOrCreateApp = Effect.gen(function* () {
     }),
   );
 
+  if (result.approach === 'ephemeral') {
+    yield* Effect.contextWith((c) =>
+      c.pipe(
+        Context.add(AuthToken, {
+          authToken: result.adminToken,
+          source: 'file',
+        }),
+      ),
+    );
+  }
+
   if (result.approach === 'import') {
     yield* Effect.fork(trackAppImport(result.appId));
   }
