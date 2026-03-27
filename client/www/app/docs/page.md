@@ -1,7 +1,7 @@
 ---
 nextjs:
   metadata:
-    title: 'Instant - The Modern Firebase.'
+    title: 'Getting started'
     description: 'How to use Instant with React'
 ---
 
