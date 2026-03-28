@@ -51,7 +51,7 @@ function CodeStep(props: {
       </Content>
       <TextInput
         autoFocus
-        className="w-full appearance-none rounded-sm outline-hidden"
+        className="w-full appearance-none rounded-lg outline-hidden"
         placeholder="Your code"
         inputMode="numeric"
         value={props.code}
@@ -98,7 +98,7 @@ function EmailStep(props: {
         </Content>
         <TextInput
           autoFocus
-          className="w-full rounded-sm"
+          className="w-full rounded-lg"
           placeholder="Enter your email address"
           type="email"
           value={props.email}

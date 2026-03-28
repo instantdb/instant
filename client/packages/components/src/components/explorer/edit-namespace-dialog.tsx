@@ -170,7 +170,7 @@ export function EditNamespaceDialog({
               value={renameNsInput}
               onChange={(n) => setRenameNsInput(n)}
             />
-            <div className="flex flex-col gap-2 rounded-sm py-2">
+            <div className="flex flex-col gap-2 rounded-lg py-2">
               <Button
                 type="submit"
                 disabled={
@@ -1220,7 +1220,7 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
         <Select
           className={cn(
             pendingJob &&
-              'border-[#606AF4] ring-1 ring-[#606AF4] ring-inset focus:ring-[#606AF4]',
+              'border-[orange-500] ring-1 ring-[orange-500] ring-inset focus:ring-[orange-500]',
           )}
           disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
           title={disabled ? disabledReason : undefined}
@@ -1260,7 +1260,7 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
               setValue(attr.checkedDataType || 'any');
             }}
             height="1.2rem"
-            className="cursor-pointer pr-2 text-[#606AF4]"
+            className="cursor-pointer pr-2 text-[orange-500]"
           />
         )}
       </div>
@@ -1307,7 +1307,7 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
                 disabled || (runningJob && !jobIsCompleted(runningJob))
                   ? 'cursor-default'
                   : 'cursor-pointer',
-                pendingJob && 'text-[#606AF4]',
+                pendingJob && 'text-[orange-500]',
               )}
             >
               <strong>Require this attribute</strong> so all entities will be
@@ -1321,7 +1321,7 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
               setValue(!value);
             }}
             height="1.2rem"
-            className="cursor-pointer pr-2 text-[#606AF4]"
+            className="cursor-pointer pr-2 text-[orange-500]"
           />
         )}
       </div>
@@ -1368,7 +1368,7 @@ const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
                 disabled || (runningJob && !jobIsCompleted(runningJob))
                   ? 'cursor-default'
                   : 'cursor-pointer',
-                pendingJob && 'text-[#606AF4]',
+                pendingJob && 'text-[orange-500]',
               )}
             >
               <strong>Index this attribute</strong> to improve lookup
@@ -1382,7 +1382,7 @@ const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
               setValue(!value);
             }}
             height="1.2rem"
-            className="cursor-pointer pr-2 text-[#606AF4]"
+            className="cursor-pointer pr-2 text-[orange-500]"
           />
         )}
       </div>
@@ -1429,7 +1429,7 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
                 disabled || (runningJob && !jobIsCompleted(runningJob))
                   ? 'cursor-default'
                   : 'cursor-pointer',
-                pendingJob && 'text-[#606AF4]',
+                pendingJob && 'text-[orange-500]',
               )}
             >
               <strong>Enforce uniqueness</strong> so no two entities can have
@@ -1443,7 +1443,7 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
               setValue(!value);
             }}
             height="1.2rem"
-            className="cursor-pointer pr-2 text-[#606AF4]"
+            className="cursor-pointer pr-2 text-[orange-500]"
           />
         )}
       </div>
@@ -1744,7 +1744,7 @@ function EditAttrForm({
               value={attrName}
               onChange={(n) => setAttrName(n)}
             />
-            <div className="flex flex-col gap-2 rounded-sm py-2">
+            <div className="flex flex-col gap-2 rounded-lg py-2">
               <ActionButton
                 type="submit"
                 label={`Rename ${attr.name} → ${attrName}`}

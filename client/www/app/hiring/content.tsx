@@ -2,14 +2,13 @@
 
 import {
   LandingContainer,
-  LegacyNav,
+  MainNav,
   Link,
   Section,
-  H2,
-  H3,
 } from '@/components/marketingUi';
 import { Button } from '@/components/ui';
 import { Footer } from '@/components/new-landing/Footer';
+import { SectionTitle, Subheading } from '@/components/new-landing/typography';
 
 type JobListing = {
   title: string;
@@ -28,7 +27,7 @@ const jobListings = [
 
 const JobCard = ({ title, href, description }: JobListing) => (
   <Link href={href} className="no-underline">
-    <div className="relative rounded-md border border-gray-200 bg-white p-6 shadow-xs transition-all hover:shadow-md">
+    <div className="relative rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
       <div className="mb-2 text-xl font-medium text-gray-900">{title}</div>
       <p className="text-gray-600">{description}</p>
       <div className="mt-4">
@@ -43,11 +42,11 @@ const JobCard = ({ title, href, description }: JobListing) => (
 export default function Content() {
   return (
     <LandingContainer>
-      <LegacyNav />
+      <MainNav />
       <Section>
-        <div className="mt-12 mb-8">
+        <div className="mt-24 mb-8">
           <div className="mb-6 text-center">
-            <H2>Build the future of front-end tech.</H2>
+            <SectionTitle>Build the future of front-end tech.</SectionTitle>
           </div>
           <div className="mx-auto max-w-2xl">
             <p className="mb-4 text-gray-700">
@@ -70,7 +69,7 @@ export default function Content() {
 
         <div className="mb-8">
           <div className="mb-6 text-center">
-            <H3>Open Positions</H3>
+            <Subheading>Open Positions</Subheading>
           </div>
 
           <div className="mt-6 grid gap-6 md:grid-cols-2">
@@ -82,7 +81,7 @@ export default function Content() {
 
         <div className="mt-12 mb-16">
           <div className="mb-6 text-center">
-            <H3>Don't see a relevant role?</H3>
+            <Subheading>Don't see a relevant role?</Subheading>
           </div>
           <div className="mx-auto max-w-2xl">
             <p className="mb-4 text-gray-700">

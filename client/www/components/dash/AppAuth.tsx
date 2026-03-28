@@ -114,7 +114,7 @@ function ProviderPicker({
   onCancel: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
+    <div className="flex flex-col gap-4 rounded-lg border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
       <SectionHeading>Select auth provider</SectionHeading>
       <div className="grid grid-cols-3 gap-2">
         {PROVIDER_ORDER.map((providerType) => (
@@ -374,7 +374,7 @@ function ClientItem({
 
 function EmptyState({ onAddClient }: { onAddClient: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-sm border border-dashed bg-white p-8 text-center dark:border-neutral-700 dark:bg-neutral-800">
+    <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed bg-white p-8 text-center dark:border-neutral-700 dark:bg-neutral-800">
       <div className="flex gap-2">
         {PROVIDER_ORDER.slice(0, 4).map((providerType) => (
           <Image

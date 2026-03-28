@@ -441,7 +441,7 @@ function LinkCombobox({
           ref={inputRef}
           autoFocus={true}
           size={32}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500"
           value={q}
           onChange={(e) => {
             setq(e.target.value);
@@ -453,7 +453,7 @@ function LinkCombobox({
           portal={false}
           unmount={false}
           static={true}
-          className="absolute left-0 z-10 mt-1 max-h-[25vh] w-full divide-y overflow-scroll rounded-md border border-gray-300 bg-white shadow-lg empty:invisible dark:border-neutral-700 dark:bg-neutral-800"
+          className="absolute left-0 z-10 mt-1 max-h-[25vh] w-full divide-y overflow-scroll rounded-md border border-gray-200 bg-white shadow-lg empty:invisible dark:border-neutral-700 dark:bg-neutral-800"
         >
           {(options || []).map((o) => (
             <LinkComboboxItem
@@ -466,7 +466,7 @@ function LinkCombobox({
           ))}
         </ComboboxOptions>
         {options?.length || isLoading ? null : (
-          <div className="absolute left-0 z-10 mt-1 w-full divide-y overflow-scroll rounded-md border border-gray-300 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
+          <div className="absolute left-0 z-10 mt-1 w-full divide-y overflow-scroll rounded-md border border-gray-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
             No matching rows in <code>{namespace.name}</code>
           </div>
         )}
@@ -1006,7 +1006,7 @@ export function EditRowDialog({
                     )}
                   </div>
                   <Select
-                    className="w-24 rounded-sm px-2 py-0.5 text-sm"
+                    className="w-24 rounded-lg px-2 py-0.5 text-sm"
                     value={type}
                     options={validFieldTypeOptions(attr.checkedDataType)}
                     onChange={(option) =>
@@ -1023,7 +1023,7 @@ export function EditRowDialog({
                   <div className="flex space-x-1">
                     <div className="flex-1">
                       {type === 'json' ? (
-                        <div className="h-32 w-full rounded-sm border">
+                        <div className="h-32 w-full rounded-lg border">
                           <CodeEditor
                             darkMode={explorerProps.darkMode}
                             tabIndex={tabIndex}
@@ -1120,7 +1120,7 @@ export function EditRowDialog({
             <div key={attr.name} className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <Label className="font-mono">{attr.name}</Label>
-                <span className="rounded-sm px-2 py-0.5 text-sm">
+                <span className="rounded-lg px-2 py-0.5 text-sm">
                   Link to <code>{namespace.name}</code>
                 </span>
               </div>

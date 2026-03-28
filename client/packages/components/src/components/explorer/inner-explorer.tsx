@@ -997,7 +997,7 @@ export const InnerExplorer: React.FC<{
             </div>
             <div className="flex justify-between gap-2 px-2 py-1 md:justify-start">
               <Button
-                className="rounded-sm dark:bg-neutral-700/50"
+                className="rounded-lg dark:bg-neutral-700/50"
                 variant="secondary"
                 size="mini"
                 onClick={() => {
@@ -1022,7 +1022,7 @@ export const InnerExplorer: React.FC<{
                 <input
                   ref={fileInputRef}
                   type="file"
-                  className="flex cursor-pointer rounded-sm border border-neutral-200 bg-transparent px-1 pt-1.5 text-sm shadow-xs transition-colors file:rounded-xs file:border-none file:border-neutral-200 file:bg-transparent file:p-2 file:pt-1 file:text-sm file:font-medium file:shadow-none placeholder:text-neutral-500 focus-visible:ring-1 focus-visible:ring-neutral-950 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white dark:file:border-neutral-700 dark:file:text-white dark:placeholder:text-neutral-400 dark:focus-visible:ring-neutral-400"
+                  className="flex cursor-pointer rounded-lg border border-neutral-200 bg-transparent px-1 pt-1.5 text-sm shadow-xs transition-colors file:rounded-xs file:border-none file:border-neutral-200 file:bg-transparent file:p-2 file:pt-1 file:text-sm file:font-medium file:shadow-none placeholder:text-neutral-500 focus-visible:ring-1 focus-visible:ring-neutral-950 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white dark:file:border-neutral-700 dark:file:text-white dark:placeholder:text-neutral-400 dark:focus-visible:ring-neutral-400"
                   onChange={(e: React.ChangeEvent<any>) => {
                     const files = e.target.files;
                     setSelectedFiles(files);
@@ -1037,12 +1037,12 @@ export const InnerExplorer: React.FC<{
                   size="mini"
                   loading={uploadingFile}
                   onClick={handleUploadFile}
-                  className="rounded-sm"
+                  className="rounded-lg"
                 >
                   {uploadingFile ? 'Uploading...' : 'Upload file'}
                 </Button>
               </div>
-              <div className="relative flex max-w-[67vw] min-w-0 flex-1 rounded-sm border border-neutral-200 focus-within:ring-2 focus-within:ring-blue-700 dark:border-neutral-700 dark:focus-within:ring-blue-500">
+              <div className="relative flex max-w-[67vw] min-w-0 flex-1 rounded-lg border border-neutral-200 focus-within:ring-2 focus-within:ring-blue-700 dark:border-neutral-700 dark:focus-within:ring-blue-500">
                 <span className="absolute inset-y-0 left-0 flex items-center rounded-l bg-neutral-100 px-3 text-sm text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
                   File Path:
                 </span>
@@ -1051,7 +1051,7 @@ export const InnerExplorer: React.FC<{
                   placeholder="Enter a custom path (optional)"
                   value={customPath}
                   onChange={(e) => setCustomPath(e.target.value)}
-                  className="h-9 w-full rounded-sm border-0 bg-transparent py-1 pr-3 pl-24 text-sm ring-0 placeholder:text-neutral-500 focus:outline-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-400"
+                  className="h-9 w-full rounded-lg border-0 bg-transparent py-1 pr-3 pl-24 text-sm ring-0 placeholder:text-neutral-500 focus:outline-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-400"
                 />
               </div>
             </div>
@@ -1083,7 +1083,7 @@ export const InnerExplorer: React.FC<{
             )}
           >
             <Select
-              className="rounded-sm text-xs"
+              className="rounded-lg text-xs"
               onChange={(opt) => {
                 if (!opt) return;
 

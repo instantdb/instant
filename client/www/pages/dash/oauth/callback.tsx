@@ -26,7 +26,7 @@ function LoadingScreen() {
   );
 }
 const ErrorBubble: React.FC<{ error: string }> = ({ error }) => (
-  <div className="rounded-sm bg-red-100 px-3 py-1.5 text-sm text-red-600">
+  <div className="rounded-lg bg-red-100 px-3 py-1.5 text-sm text-red-600">
     {error}
   </div>
 );

@@ -748,7 +748,7 @@ export function HomeButton({
   return (
     <NextLink
       href={formatRouteParams(href)}
-      className="block cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
+      className="block cursor-pointer justify-start space-y-2 rounded-lg border bg-white p-4 shadow-sm transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
       onClick={onClick}
     >
       <div>
@@ -859,7 +859,7 @@ function Home({ app, token }: { app: InstantApp; token: string }) {
       {/* Connection Count Display */}
       <div className="mt-10">
         <SectionHeading>Your App Statistics</SectionHeading>
-        <div className="mt-4 space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="mt-4 space-y-2 rounded-lg border bg-white p-4 shadow-sm transition-colors dark:border-neutral-700 dark:bg-neutral-800">
           <div className="flex items-center justify-between">
             <div className="mt-1">
               {isLoading ? (
@@ -1217,7 +1217,7 @@ function Nav({
 export function FullscreenErrorMessage({ message }: { message: string }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-2">
-      <div className="rounded-sm bg-red-100 p-4 text-red-700">{message}</div>
+      <div className="rounded-lg bg-red-100 p-4 text-red-700">{message}</div>
     </div>
   );
 }

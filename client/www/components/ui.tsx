@@ -115,7 +115,7 @@ export function NavTabBar({
             className={clsx(
               'flex cursor-pointer rounded bg-none whitespace-nowrap decoration-gray-400 transition-colors hover:underline disabled:text-gray-400',
               {
-                'underline decoration-[#606AF4]! decoration-2':
+                'underline decoration-orange-500! decoration-2':
                   selectedId === t.id && !disabled,
               },
             )}

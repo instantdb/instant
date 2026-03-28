@@ -49,7 +49,7 @@ export const TopBar: React.FC<{}> = () => {
     canAccessAdmin;
 
   return (
-    <div className="relative flex flex-col gap-2 border-b border-b-gray-300 px-2 py-2 md:px-4 dark:border-b-neutral-700 dark:bg-neutral-800 dark:text-white">
+    <div className="relative flex flex-col gap-2 border-b border-b-gray-200 px-2 py-2 md:px-4 dark:border-b-neutral-700 dark:bg-neutral-800 dark:text-white">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-row items-center gap-2">
           <ProfilePanel />
@@ -82,7 +82,7 @@ export const TopBar: React.FC<{}> = () => {
       </div>
       {showFreeTeamsBanner && (
         <div className="flex justify-center 2xl:absolute 2xl:top-1/2 2xl:left-1/2 2xl:-translate-x-1/2 2xl:-translate-y-1/2">
-          <div className="flex items-center gap-2 rounded-sm border border-purple-400 bg-purple-100 px-3 py-1 text-sm font-medium text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-purple-100">
+          <div className="flex items-center gap-2 rounded-lg border border-orange-300 bg-orange-50 px-3 py-1 text-sm font-medium text-orange-800 dark:border-orange-500/50 dark:bg-orange-500/20 dark:text-orange-100">
             <Link
               href={`/dash?s=main&app=${appId}&t=admin#team-members`}
               className="cursor-pointer hover:underline"
@@ -91,7 +91,7 @@ export const TopBar: React.FC<{}> = () => {
             </Link>
             <button
               onClick={() => setIsBannerDismissed(true)}
-              className="cursor-pointer text-purple-600 hover:text-purple-800 dark:text-purple-300 dark:hover:text-white"
+              className="cursor-pointer text-orange-600 hover:text-orange-800 dark:text-orange-300 dark:hover:text-white"
             >
               <XMarkIcon width={16} />
             </button>

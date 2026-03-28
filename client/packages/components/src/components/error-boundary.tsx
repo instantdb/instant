@@ -61,7 +61,7 @@ class ErrorBoundary extends Component<Props, State> {
           </div>
           <button
             onClick={this.handleRetry}
-            className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-sm bg-[#606AF4] px-8 py-1 font-bold whitespace-nowrap text-white transition-all hover:bg-[#4543e9]"
+            className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-lg bg-orange-600 px-8 py-1 font-bold whitespace-nowrap text-white transition-all hover:bg-orange-700"
           >
             Try again
           </button>

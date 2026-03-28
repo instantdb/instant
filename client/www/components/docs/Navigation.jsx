@@ -29,7 +29,7 @@ export function Navigation({ navigation, className }) {
                     className={clsx(
                       'block w-full py-1 pl-3.5 before:pointer-events-none before:absolute before:top-1/2 before:-left-1 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rounded-full',
                       link.href === pathname
-                        ? 'text-blue-500 before:bg-blue-500'
+                        ? 'text-orange-500 before:bg-orange-500'
                         : 'text-slate-500 before:hidden before:bg-slate-300 hover:text-slate-600 hover:before:block dark:text-slate-400 dark:before:bg-slate-700 dark:hover:text-slate-300',
                     )}
                   >

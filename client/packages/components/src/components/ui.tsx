@@ -156,7 +156,7 @@ export function ToggleGroup({
 
         onChange(item);
       }}
-      className="flex gap-1 rounded-sm border border-gray-300 bg-gray-200 p-0.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+      className="flex gap-1 rounded-lg border border-gray-200 bg-gray-100 p-0.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
       type="single"
       defaultValue="center"
       aria-label={ariaLabel}
@@ -165,10 +165,10 @@ export function ToggleGroup({
         <HeadlessToggleGroup.Item
           key={item.id}
           className={cn(
-            'flex-1 rounded-sm p-0.5',
+            'flex-1 rounded-md p-0.5',
             selectedId === item.id
               ? 'bg-white dark:bg-neutral-600/50'
-              : 'bg-gray-200 dark:bg-transparent',
+              : 'bg-gray-100 dark:bg-transparent',
           )}
           value={item.id}
           aria-label={item.label}
@@ -237,7 +237,7 @@ export function TextInput({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500 dark:disabled:text-neutral-700',
+          'flex w-full flex-1 rounded-lg border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500 dark:disabled:text-neutral-700',
           className,
           {
             'border-red-500': error,
@@ -306,7 +306,7 @@ export function TextArea({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800',
+          'flex w-full flex-1 rounded-lg border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800',
           className,
           {
             'border-red-500': error,
@@ -467,14 +467,14 @@ export function Button({
   }, []);
 
   const cls = cn(
-    `inline-flex justify-center items-center gap-1 whitespace-nowrap px-8 py-1 font-bold rounded-sm cursor-pointer transition-all disabled:cursor-default`,
+    `inline-flex justify-center items-center gap-1 whitespace-nowrap px-8 py-1 font-bold rounded-lg cursor-pointer transition-all disabled:cursor-default`,
     {
       // primary
-      'bg-[#606AF4] text-white dark:bg-[#606AF4] dark:text-white':
+      'bg-orange-600 text-white dark:bg-orange-600 dark:text-white':
         variant === 'primary',
-      'hover:text-slate-100 hover:bg-[#4543e9] dark:hover:text-neutral-100 dark:hover:bg-[#4543e9]':
+      'hover:text-slate-100 hover:bg-orange-700 dark:hover:text-neutral-100 dark:hover:bg-orange-700':
         variant === 'primary' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-[#4543e9] disabled:bg-[#9197f3] dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-[#4543e9] dark:disabled:bg-[#9197f3]':
+      'hover:enabled:text-slate-100 hover:enabled:bg-orange-700 disabled:bg-orange-300 dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-orange-700 dark:disabled:bg-orange-300':
         variant === 'primary' && !isATag,
       // cta
       'bg-orange-600 text-white dark:bg-orange-600 dark:text-white':
@@ -577,11 +577,11 @@ export const IconButton = ({
           disabled={disabled}
           onClick={onClick}
           className={cn(
-            'flex h-9 w-9 cursor-pointer items-center justify-center rounded-sm p-2',
+            'flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg p-2',
             variant === 'primary' &&
-              'bg-[#616AF4] text-white hover:bg-[#4543E9]',
+              'bg-orange-600 text-white hover:bg-orange-700',
             variant === 'secondary' &&
-              'border border-gray-300 bg-white text-gray-800 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700/50',
+              'border border-gray-200 bg-white text-gray-800 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700/50',
             variant === 'subtle' &&
               'text-gray-800 hover:bg-gray-200/30 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700/50',
             disabled && 'cursor-not-allowed opacity-40',
@@ -954,7 +954,7 @@ export function SmallCopyable({
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm px-2 py-1 opacity-50 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700',
+              'flex items-center gap-x-1 rounded-md px-2 py-1 opacity-50 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -1045,7 +1045,7 @@ export function Copyable({
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600 dark:hover:bg-neutral-600',
+              'flex items-center gap-x-1 rounded-md bg-white px-2 py-1 ring-1 ring-gray-200 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600 dark:hover:bg-neutral-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -1065,7 +1065,7 @@ export function Copyable({
               }, 2500);
             }}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600 dark:hover:bg-neutral-600',
+              'flex items-center gap-x-1 rounded-md bg-white px-2 py-1 ring-1 ring-gray-200 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600 dark:hover:bg-neutral-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -1085,7 +1085,7 @@ export function Copytext({ value }: { value: string }) {
   const [showCopied, setShowCopied] = useState(false);
 
   return (
-    <span className="inline-flex items-center rounded-sm bg-gray-500 px-2 text-sm text-white">
+    <span className="inline-flex items-center rounded-md bg-gray-500 px-2 text-sm text-white">
       <code
         className="truncate"
         onClick={(e) => {
@@ -1208,7 +1208,7 @@ export function ProgressButton({
   };
 
   const progressFillClass = cn('absolute inset-0 transition-all', {
-    'bg-[#4543e9]': variant === 'primary' || !variant,
+    'bg-orange-700': variant === 'primary' || !variant,
     'bg-orange-500': variant === 'cta',
     'bg-gray-200': variant === 'secondary',
     'bg-gray-300': variant === 'subtle',
@@ -1331,7 +1331,7 @@ function DropdownMenuItem({
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
-        'relative flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none focus:bg-neutral-100 focus:text-neutral-900 data-disabled:pointer-events-none data-disabled:opacity-50 dark:focus:bg-neutral-700 dark:focus:text-neutral-50',
+        'relative flex cursor-pointer items-center rounded-md px-2 py-1.5 text-sm transition-colors outline-none select-none focus:bg-neutral-100 focus:text-neutral-900 data-disabled:pointer-events-none data-disabled:opacity-50 dark:focus:bg-neutral-700 dark:focus:text-neutral-50',
         className,
       )}
       {...props}
@@ -1556,7 +1556,7 @@ export function Fence({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 text-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-800 dark:ring-neutral-700"
+                className="flex items-center gap-x-1 rounded-md bg-white px-2 py-1 text-xs ring-1 ring-gray-200 ring-inset hover:bg-gray-50 dark:bg-neutral-800 dark:ring-neutral-700"
               >
                 <ClipboardDocumentIcon
                   className="-ml-0.5 h-4 w-4"

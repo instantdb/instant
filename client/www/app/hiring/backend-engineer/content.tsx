@@ -1,6 +1,6 @@
 'use client';
 
-import { LandingContainer, LegacyNav } from '@/components/marketingUi';
+import { LandingContainer, MainNav } from '@/components/marketingUi';
 import { Button } from '@/components/ui';
 import { Footer } from '@/components/new-landing/Footer';
 
@@ -129,8 +129,8 @@ function HiringContent() {
 export default function Content() {
   return (
     <LandingContainer>
-      <LegacyNav />
-      <div className="mx-auto mt-6 p-4 md:max-w-2xl">
+      <MainNav />
+      <div className="mx-auto mt-24 p-4 md:max-w-2xl">
         <HiringContent />
         <div className="mt-8 mb-4 flex justify-center">
           <Button type="link" href="/hiring" variant="secondary">
