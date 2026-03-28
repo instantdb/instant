@@ -179,7 +179,7 @@ function animateHeart(target: HTMLElement) {
   const count = 3 + Math.floor(Math.random() * 3);
   for (let i = 0; i < count; i++) {
     const el = document.createElement('div');
-    el.innerText = '\u2764\uFE0F';
+    el.innerText = '❤️';
     target.appendChild(el);
 
     const size = 14 + Math.random() * 14;
@@ -260,7 +260,7 @@ function PhotoApp() {
             onClick={handleHeartClick}
             className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xl shadow-sm transition-transform hover:shadow-md active:scale-90"
           >
-            {'\u2764\uFE0F'}
+            ❤️
           </button>
         </div>
       </div>

@@ -61,11 +61,10 @@ function Main({ files }: { files: File[] }) {
   const pathname = usePathname();
   const isHydrated = useIsHydrated();
   const recipesContainerElRef = useRef<HTMLDivElement>(null);
-  const [isReady, setIsReady] = useState(false);
   const { ref: topInViewRef } = useInView({
     threshold: 1,
     onChange(inView, entry) {
-      if (!isHydrated || !isReady) return;
+      if (!isHydrated) return;
 
       if (inView && entry.isIntersecting && entry.intersectionRatio > 0) {
         location.hash = '';
@@ -75,12 +74,6 @@ function Main({ files }: { files: File[] }) {
   const [selectedExample, setSelectedExample] = useState<string | undefined>();
   const [appId, setAppId] = useState<string | undefined>(undefined);
   const columnDbsRef = useRef<InstantDB[]>([]);
-
-  // In App Router, there's no router.isReady — searchParams are available immediately
-  // But we use a flag to track when our initialization is done
-  useEffect(() => {
-    setIsReady(true);
-  }, []);
 
   function getColumnDb(appId: string, index: number): InstantDB {
     while (columnDbsRef.current.length <= index) {
@@ -101,10 +94,10 @@ function Main({ files }: { files: File[] }) {
   }, []);
 
   useEffect(() => {
-    if (isReady && isHydrated) {
+    if (isHydrated) {
       onInit();
     }
-  }, [isReady, isHydrated]);
+  }, [isHydrated]);
 
   function jumpToExample() {
     if (!recipesContainerElRef.current) return;
@@ -215,7 +208,7 @@ function Main({ files }: { files: File[] }) {
                 appId={isHydrated && appId ? appId : undefined}
                 getColumnDb={getColumnDb}
                 onViewChange={(inView) => {
-                  if (!isHydrated || !isReady) return;
+                  if (!isHydrated) return;
                   if (!inView) return;
                   window.location.hash = file.pathName;
 
