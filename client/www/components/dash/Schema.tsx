@@ -58,7 +58,7 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
           changes to your schema:
         </p>
         <p>
-          <div className="overflow-auto rounded-sm border bg-white text-sm dark:border-neutral-600 dark:bg-neutral-800">
+          <div className="overflow-auto rounded-lg border bg-white text-sm dark:border-neutral-600 dark:bg-neutral-800">
             <Fence
               darkMode={darkMode}
               copyable

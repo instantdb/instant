@@ -142,12 +142,12 @@ export const ExplorerLayout = ({
             </Button>
             {deletedNamespaces.length ? (
               <Button
-                className="justify-start gap-2 rounded-sm p-2"
+                className="justify-start gap-2 rounded-lg p-2"
                 variant="subtle"
                 size="nano"
                 onClick={recentlyDeletedNsDialog.onOpen}
               >
-                <span className="rounded-sm bg-gray-200 px-1">
+                <span className="rounded-lg bg-gray-200 px-1">
                   {deletedNamespaces.length}
                 </span>
                 <span>Recently Deleted</span>
@@ -165,9 +165,9 @@ export const ExplorerLayout = ({
           </div>
         )}
       </div>
-      <div className="flex flex-col gap-2 border-r border-gray-300 bg-neutral-100 p-1 md:hidden dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="flex flex-col gap-2 border-r border-gray-200 bg-neutral-100 p-1 md:hidden dark:border-neutral-700 dark:bg-neutral-800">
         <button
-          className="flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 select-none hover:bg-neutral-300 dark:hover:bg-neutral-700"
+          className="flex cursor-pointer items-center gap-1 rounded-lg px-1 py-0.5 select-none hover:bg-neutral-300 dark:hover:bg-neutral-700"
           onClick={(e) => {
             e.stopPropagation();
             setIsNsOpen(true);

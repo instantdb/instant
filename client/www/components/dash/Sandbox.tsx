@@ -964,13 +964,13 @@ export function Sandbox({
               o.type === 'eval' ? (
                 <div
                   key={i}
-                  className="my-6 border-b border-gray-300 dark:border-b-neutral-600"
+                  className="my-6 border-b border-gray-200 dark:border-b-neutral-600"
                 ></div>
               ) : (
                 <div
                   key={i}
                   className={clsx(
-                    'rounded-sm border bg-gray-50 shadow-xs transition-all hover:shadow-sm dark:bg-neutral-800',
+                    'rounded-lg border bg-gray-50 shadow-xs transition-all hover:shadow-sm dark:bg-neutral-800',
                     {
                       'border-sky-200 dark:border-sky-600/50': o.type === 'log',
                       'border-red-200 dark:border-red-600/50':
@@ -1031,7 +1031,7 @@ export function Sandbox({
                             <div
                               key={cr.entity + '-' + cr.id + cr.label}
                               className={clsx(
-                                'flex flex-col gap-1 rounded-sm border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
+                                'flex flex-col gap-1 rounded-lg border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
                                 {
                                   'border-emerald-200 dark:border-emerald-600':
                                     Boolean(cr.check),
@@ -1083,14 +1083,14 @@ export function Sandbox({
                   {o.type === 'transaction' && !collapseTransaction && (
                     <div className="flex flex-col gap-2 p-3">
                       {o.data.response['all-checks-ok?'] ? (
-                        <p className="rounded-sm border border-emerald-200 bg-white px-1 py-1 dark:border-emerald-600 dark:bg-neutral-800">
+                        <p className="rounded-lg border border-emerald-200 bg-white px-1 py-1 dark:border-emerald-600 dark:bg-neutral-800">
                           <span className="border border-emerald-200 bg-white px-1 font-bold text-emerald-600 dark:border-emerald-600 dark:bg-neutral-800">
                             Success
                           </span>{' '}
                           All checks passed!
                         </p>
                       ) : (
-                        <p className="rounded-sm border border-rose-200 bg-white px-1 py-1 dark:border-rose-600 dark:bg-neutral-800">
+                        <p className="rounded-lg border border-rose-200 bg-white px-1 py-1 dark:border-rose-600 dark:bg-neutral-800">
                           <span className="border border-rose-300 bg-white px-1 font-bold text-rose-600 dark:border-rose-600 dark:bg-neutral-800">
                             Failed
                           </span>{' '}
@@ -1099,7 +1099,7 @@ export function Sandbox({
                       )}
 
                       {o.data.response['committed?'] ? null : (
-                        <p className="rounded-sm border border-amber-200 bg-white px-1 py-1 dark:border-amber-600 dark:bg-neutral-800">
+                        <p className="rounded-lg border border-amber-200 bg-white px-1 py-1 dark:border-amber-600 dark:bg-neutral-800">
                           <span className="border border-amber-300 bg-white px-1 font-bold text-amber-600 dark:border-amber-600 dark:bg-neutral-800">
                             Dry run
                           </span>{' '}
@@ -1112,7 +1112,7 @@ export function Sandbox({
                         <div
                           key={cr.entity + '-' + cr.id}
                           className={clsx(
-                            'flex flex-col gap-1 rounded-sm border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
+                            'flex flex-col gap-1 rounded-lg border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
                             {
                               'border-emerald-200 dark:border-emerald-600':
                                 cr['check-pass?'],
@@ -1225,7 +1225,7 @@ function EmailInput({
       <ComboboxOptions
         anchor="bottom start"
         modal={false}
-        className="z-10 mt-1 w-(--input-width) divide-y overflow-auto border border-gray-300 bg-white shadow-lg dark:divide-neutral-600 dark:border-neutral-600 dark:bg-neutral-700"
+        className="z-10 mt-1 w-(--input-width) divide-y overflow-auto border border-gray-200 bg-white shadow-lg dark:divide-neutral-600 dark:border-neutral-600 dark:bg-neutral-700"
       >
         {!email ? (
           <ComboboxOption
@@ -1268,7 +1268,7 @@ function Data({
   const { darkMode: isDark } = useDarkMode();
 
   return (
-    <div className="rounded-sm bg-white p-1 dark:bg-[#262626]">
+    <div className="rounded-lg bg-white p-1 dark:bg-[#262626]">
       {isObject ? (
         <Json
           value={data}

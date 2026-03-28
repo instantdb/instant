@@ -377,13 +377,10 @@ export function Layout({ children, title, tableOfContents }) {
 
   return (
     <SelectedAppContext.Provider value={selectedAppData}>
-      <div className="min-h-dvh bg-[#f8f9fa]">
+      <div className="min-h-dvh bg-white">
         {/* Header */}
         <div
-          className={clsx(
-            'fixed inset-x-0 top-0 z-10 bg-[#F8F9FA]',
-            adj.hHeader,
-          )}
+          className={clsx('fixed inset-x-0 top-0 z-10 bg-white', adj.hHeader)}
         >
           <div className="grid h-full w-full border-b px-4">
             <BareNav>

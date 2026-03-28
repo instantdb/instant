@@ -924,7 +924,7 @@ function EditableAppInput({
       <Label>{labelOfEditableAppField(field)}</Label>
       {editing ? (
         <TextInput
-          className="max-w-sm rounded-none border-0 border-b border-gray-300 p-0 outline-hidden focus:shadow-none focus:ring-0 focus:outline-hidden"
+          className="max-w-sm rounded-none border-0 border-b border-gray-200 p-0 outline-hidden focus:shadow-none focus:ring-0 focus:outline-hidden"
           value={value || ''}
           onChange={setValue}
           autoFocus={true}
@@ -1264,7 +1264,7 @@ function CreateAppForm({ onClose }: { onClose: () => void }) {
 
   return (
     <form
-      className="flex flex-col gap-2 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800"
+      className="flex flex-col gap-2 rounded-lg border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"

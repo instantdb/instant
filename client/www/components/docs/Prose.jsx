@@ -12,7 +12,7 @@ export function Prose({ as: Component = 'div', className, ...props }) {
         // lead
         'prose-lead:text-slate-500 dark:prose-lead:text-slate-400',
         // links
-        'prose-a:font-normal prose-a:text-blue-500 dark:prose-a:text-sky-400',
+        'prose-a:font-normal prose-a:text-orange-600 dark:prose-a:text-orange-400',
         // hr
         'prose-hr:mb-4 prose-hr:mt-4 dark:prose-hr:border-slate-800',
         // code

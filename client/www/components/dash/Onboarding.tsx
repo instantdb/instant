@@ -202,7 +202,7 @@ function ProfileScreen(props: {
                 onClick={() => setExperience(option.value)}
                 className={`flex flex-col gap-1 rounded-md border p-3 text-left transition-colors hover:cursor-pointer ${
                   experience === option.value
-                    ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20'
+                    ? 'border-orange-500 bg-orange-50 dark:border-orange-400 dark:bg-orange-900/20'
                     : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800'
                 }`}
               >
@@ -221,7 +221,7 @@ function ProfileScreen(props: {
           {isLoading ? '...' : 'Onwards!'}
         </Button>
         {error ? (
-          <div className="mb-4 rounded-sm bg-gray-200 p-2 text-orange-500">
+          <div className="mb-4 rounded-lg bg-gray-200 p-2 text-orange-500">
             {error}
           </div>
         ) : null}
@@ -269,7 +269,7 @@ function CreateFirstAppScreen(props: {
             Let's build!
           </Button>
           {props.error ? (
-            <div className="mb-4 rounded-sm bg-gray-200 p-2 text-orange-500">
+            <div className="mb-4 rounded-lg bg-gray-200 p-2 text-orange-500">
               {props.error}
             </div>
           ) : null}

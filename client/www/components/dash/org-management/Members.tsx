@@ -121,7 +121,7 @@ export const Members = () => {
       <InviteToOrgDialog dialog={dialog} />
       <div className="flex w-full py-2">
         {canAddMembers && !paid && (
-          <Content className="w-full rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
+          <Content className="w-full rounded-lg border border-orange-300 bg-orange-100 px-2 py-1 text-sm text-orange-800 italic dark:border-orange-500/50 dark:bg-orange-500/20 dark:text-white">
             Add your team members today to take advantage of{' '}
             <Link
               href="/essays/free_teams_through_february"
@@ -135,10 +135,10 @@ export const Members = () => {
         )}
       </div>
 
-      <div className="divide-y rounded-xs border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="divide-y rounded-lg border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
         {org.members.map((member) => (
           <div
-            className="flex w-full items-center justify-between gap-2 rounded-xs p-2 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700/40"
+            className="flex w-full items-center justify-between gap-2 rounded-lg p-2 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700/40"
             key={member.id}
           >
             <div className="flex items-center gap-3">

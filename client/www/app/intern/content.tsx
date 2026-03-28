@@ -3,16 +3,15 @@
 import { useState } from 'react';
 import {
   LandingContainer,
-  LandingFooter,
-  LegacyNav,
+  MainNav,
   Link,
   Section,
-  H2,
 } from '@/components/marketingUi';
 import { Button, FullscreenLoading } from '@/components/ui';
 import { useAdmin } from '@/lib/auth';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { Footer } from '@/components/new-landing/Footer';
+import { SectionTitle } from '@/components/new-landing/typography';
 
 type ToolCard = {
   title: string;
@@ -90,7 +89,7 @@ const categories = ['All', 'KPIs', 'Analytics', 'Comms', 'Other'];
 
 const ToolCard = ({ title, href, description, category }: ToolCard) => (
   <Link href={href} className="no-underline">
-    <div className="relative flex h-full flex-col rounded-md border border-gray-200 bg-white p-6 shadow-xs transition-all hover:shadow-md">
+    <div className="relative flex h-full flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
       <div className="mb-2 flex items-start justify-between">
         <div className="pr-2 text-xl font-medium text-gray-900">{title}</div>
         <div className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
@@ -116,7 +115,7 @@ export default function InternIndexPage() {
   if (!isHydrated || isLoading) {
     return (
       <LandingContainer>
-        <LegacyNav />
+        <MainNav />
         <Section>
           <div className="flex min-h-64 items-center justify-center">
             <FullscreenLoading />
@@ -130,10 +129,10 @@ export default function InternIndexPage() {
   if (error || !isAdmin) {
     return (
       <LandingContainer>
-        <LegacyNav />
+        <MainNav />
         <Section>
           <div className="mt-12 mb-8 text-center">
-            <H2>Access Denied</H2>
+            <SectionTitle>Access Denied</SectionTitle>
             <p className="mt-4 text-gray-600">
               You need to be an Instant admin to access this page.
             </p>
@@ -147,7 +146,7 @@ export default function InternIndexPage() {
   const getCategoryButtonClass = (category: string) =>
     `px-4 py-2 rounded-md text-sm font-medium transition-colors ${
       activeCategory === category
-        ? 'bg-blue-500 text-white'
+        ? 'bg-orange-600 text-white'
         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
     }`;
 
@@ -164,11 +163,11 @@ export default function InternIndexPage() {
 
   return (
     <LandingContainer>
-      <LegacyNav />
+      <MainNav />
       <Section>
-        <div className="mt-12 mb-8">
+        <div className="mt-24 mb-8">
           <div className="mb-6 text-center">
-            <H2>Internal Tools</H2>
+            <SectionTitle>Internal Tools</SectionTitle>
           </div>
           <div className="space-y-2 text-gray-700">
             <p>
@@ -191,7 +190,7 @@ export default function InternIndexPage() {
               placeholder="Search tools..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:ring-2 focus:ring-orange-500 focus:outline-hidden"
             />
           </div>
           <div className="flex flex-wrap gap-2">

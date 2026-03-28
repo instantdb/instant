@@ -125,7 +125,7 @@ export const OrgBilling = () => {
 
   return (
     <div className="pt-2">
-      <div className="gap flex flex-col rounded-sm border bg-white px-2 pt-1 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="gap flex flex-col rounded-lg border bg-white px-2 pt-1 dark:border-neutral-700 dark:bg-neutral-800">
         <div className="flex items-end justify-between gap-2 p-2">
           <span className="font-bold">Usage (all apps)</span>{' '}
           <span className="font-mono text-sm">
@@ -152,7 +152,7 @@ export const OrgBilling = () => {
           <Button variant="primary" onClick={onUpgrade}>
             Upgrade to Startup
           </Button>
-          <div className="w-full rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic">
+          <div className="w-full rounded-lg border border-orange-300 bg-orange-100 px-2 py-1 text-sm text-orange-800 italic">
             Startup offer 250GB of storage across all apps, multiple team
             members for apps, and priority support.
           </div>

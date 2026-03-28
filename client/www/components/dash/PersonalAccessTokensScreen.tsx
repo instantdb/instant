@@ -297,7 +297,7 @@ export default function PersonalAccessTokensTab({
                 </div>
                 <div className="flex flex-col gap-1">
                   <input
-                    className="flex w-full flex-1 rounded-xs border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
+                    className="flex w-full flex-1 rounded-lg border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
                     placeholder="My default token"
                     value={newPersonalAccessTokenName ?? ''}
                     onChange={(e) =>

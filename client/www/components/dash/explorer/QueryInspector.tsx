@@ -213,7 +213,7 @@ export function QueryInspector({
       <div className="flex max-w-lg flex-1 flex-col dark:bg-neutral-800">
         <h2 className="mt-4 mb-1 px-3 text-sm font-semibold">InstaQL query</h2>
 
-        <div className="relative h-64 overflow-hidden rounded-sm border-y dark:border-y-neutral-800">
+        <div className="relative h-64 overflow-hidden rounded-lg border-y dark:border-y-neutral-800">
           <CodeEditor
             darkMode={darkMode}
             language="json"
@@ -378,7 +378,7 @@ export function QueryInspector({
       </div>
       <div className="flex max-h-full flex-1 flex-col overflow-scroll border-l dark:border-l-neutral-700 dark:bg-neutral-800">
         <h2 className="mt-4 mb-1 px-3 text-sm font-semibold">Query results</h2>
-        <div className="flex-1 overflow-hidden rounded-sm border-y dark:border-y-neutral-700">
+        <div className="flex-1 overflow-hidden rounded-lg border-y dark:border-y-neutral-700">
           <CodeEditor
             darkMode={darkMode}
             loading={isLoading}

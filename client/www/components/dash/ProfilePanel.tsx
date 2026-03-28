@@ -52,7 +52,7 @@ export const ProfilePanel = () => {
             <PopoverButton>
               <div
                 className={clsx(
-                  'flex basis-[35%] items-center justify-between gap-9 truncate rounded-xs border border-gray-300 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-700/40 dark:data-focus:outline-neutral-400',
+                  'flex basis-[35%] items-center justify-between gap-9 truncate rounded-lg border border-gray-200 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-700/40 dark:data-focus:outline-neutral-400',
                   'px-2 text-sm/6',
                   'focus:outline-hidden data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25',
                 )}
@@ -64,12 +64,12 @@ export const ProfilePanel = () => {
                 <ChevronDownIcon width={15} />
               </div>
             </PopoverButton>
-            <PopoverPanel className="absolute top-[calc(100%+5px)] left-2 z-50 min-w-[300px] rounded-xs border border-gray-300 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
+            <PopoverPanel className="absolute top-[calc(100%+5px)] left-2 z-50 min-w-[300px] rounded-lg border border-gray-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
               <div
                 className={cn(
                   'flex w-full items-center justify-between gap-2 text-left hover:bg-gray-100 dark:hover:bg-neutral-700',
                   dashResponse.data.currentWorkspaceId === 'personal'
-                    ? 'border-l-4 border-l-[#606AF4]'
+                    ? 'border-l-4 border-l-orange-500'
                     : 'border-l-4 dark:border-l-neutral-700',
                 )}
               >
@@ -89,7 +89,7 @@ export const ProfilePanel = () => {
                 <Tooltip>
                   <TooltipTrigger onClick={() => {}}>
                     <Link href="/dash/user-settings" onClick={() => close()}>
-                      <div className="p-3 transition-colors hover:bg-gray-200 dark:invert dark:hover:bg-neutral-500">
+                      <div className="p-3 transition-colors hover:bg-gray-100 dark:invert dark:hover:bg-neutral-500">
                         <UserSettingsIcon />
                       </div>
                     </Link>
@@ -102,7 +102,7 @@ export const ProfilePanel = () => {
                   className={cn(
                     'flex w-full items-center justify-between gap-2 text-left hover:bg-gray-100 dark:hover:bg-neutral-700',
                     dashResponse.data.currentWorkspaceId === org.id
-                      ? 'border-l-4 border-l-[#606AF4]'
+                      ? 'border-l-4 border-l-orange-500'
                       : 'border-l-4 dark:border-l-neutral-700',
                   )}
                   key={org.id}
@@ -138,7 +138,7 @@ export const ProfilePanel = () => {
                             close();
                           }}
                         >
-                          <div className="p-3 transition-colors hover:bg-gray-200 dark:hover:bg-neutral-600">
+                          <div className="p-3 transition-colors hover:bg-gray-100 dark:hover:bg-neutral-600">
                             <Cog6ToothIcon height={16} width={16} />
                           </div>
                         </Link>
@@ -158,7 +158,7 @@ export const ProfilePanel = () => {
                       createOrgDialog.onOpen();
                     }}
                     variant="secondary"
-                    className="w-full px-2 text-left hover:bg-gray-200"
+                    className="w-full px-2 text-left hover:bg-gray-100"
                   >
                     Create Org
                   </Button>

@@ -162,7 +162,7 @@ export function Email({ app }: { app: InstantApp }) {
     <form {...form.formProps()} className="flex flex-col gap-2">
       <SectionHeading>Custom Magic Code Email</SectionHeading>
 
-      <div className="flex flex-col gap-1 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="flex flex-col gap-1 rounded-lg border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
         <BlockHeading>Template variables</BlockHeading>
         <Content className="text-sm">
           We provide a few dynamic variables for you to use in your email:
@@ -204,7 +204,7 @@ export function Email({ app }: { app: InstantApp }) {
       <div className="flex flex-col gap-1">
         <Label>Body (HTML or plain-text)</Label>
         <div
-          className={clsx('h-64 rounded-sm border dark:border-neutral-700', {
+          className={clsx('h-64 rounded-lg border dark:border-neutral-700', {
             'border-red-500': form.getError('bodyHtml'),
           })}
         >
@@ -222,7 +222,7 @@ export function Email({ app }: { app: InstantApp }) {
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="flex flex-col gap-2 rounded-lg border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
         <SubsectionHeading>
           Use a custom 'From' address (optional)
         </SubsectionHeading>
@@ -240,7 +240,7 @@ export function Email({ app }: { app: InstantApp }) {
       </div>
 
       {verification && (
-        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="flex flex-col gap-2 rounded-lg border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
           <div className="flex items-center justify-between">
             <SubsectionHeading>
               Verify {verification.EmailAddress}
@@ -255,7 +255,7 @@ export function Email({ app }: { app: InstantApp }) {
             </Button>
           </div>
 
-          <div className="rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
+          <div className="rounded-lg border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
             <div className="mb-2 flex items-center justify-between">
               <div className="text-sm font-medium">Email Confirmation</div>
               <div className="flex items-center gap-2">
@@ -282,7 +282,7 @@ export function Email({ app }: { app: InstantApp }) {
           </div>
 
           {/* Domain Verification */}
-          <div className="rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
+          <div className="rounded-lg border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
             <div className="mb-2 flex items-center justify-between">
               <div className="text-sm font-medium">
                 Bonus: Domain Verification
@@ -294,7 +294,7 @@ export function Email({ app }: { app: InstantApp }) {
               filters.
             </Content>
 
-            <div className="mb-3 overflow-hidden rounded-sm border dark:border-neutral-600">
+            <div className="mb-3 overflow-hidden rounded-lg border dark:border-neutral-600">
               <div className="grid grid-cols-[1fr_80px_2fr] border-b bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700 dark:border-b-neutral-600 dark:bg-neutral-600/50 dark:text-white">
                 <div>Record</div>
                 <div>Type</div>
@@ -312,7 +312,7 @@ export function Email({ app }: { app: InstantApp }) {
                     <div className="mb-1 text-xs text-gray-600 dark:text-gray-400">
                       Hostname:
                     </div>
-                    <code className="block rounded-sm bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
+                    <code className="block rounded-lg bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
                       {verification.DKIMPendingHost || verification.DKIMHost}
                     </code>
                   </div>
@@ -320,7 +320,7 @@ export function Email({ app }: { app: InstantApp }) {
                     <div className="mb-1 text-xs text-gray-600 dark:text-gray-400">
                       Value:
                     </div>
-                    <code className="block rounded-sm bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
+                    <code className="block rounded-lg bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
                       {verification.DKIMPendingTextValue ||
                         verification.DKIMTextValue}
                     </code>
@@ -339,7 +339,7 @@ export function Email({ app }: { app: InstantApp }) {
                     <div className="mb-1 text-xs text-gray-600 dark:text-neutral-400">
                       Hostname:
                     </div>
-                    <code className="block rounded-sm bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
+                    <code className="block rounded-lg bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
                       {verification.ReturnPathDomain}
                     </code>
                   </div>
@@ -347,7 +347,7 @@ export function Email({ app }: { app: InstantApp }) {
                     <div className="mb-1 text-xs text-gray-600 dark:text-neutral-400">
                       Value:
                     </div>
-                    <code className="block rounded-sm bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
+                    <code className="block rounded-lg bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
                       {verification.ReturnPathDomainCNAMEValue}
                     </code>
                   </div>
@@ -390,7 +390,7 @@ export function Email({ app }: { app: InstantApp }) {
 
 function VariableName({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-sm border bg-white px-1 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-800">
+    <span className="rounded-lg border bg-white px-1 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-800">
       {'{'}
       {children}
       {'}'}

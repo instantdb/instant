@@ -61,7 +61,7 @@ export function TabbedSingle({ tabs, defaultTab, storageKey }) {
             onClick={() => setSelectedTab(key)}
             className={`px-4 py-2.5 text-sm font-medium transition-colors ${
               selectedTab === key
-                ? '-mb-[2px] border-b-2 border-blue-500 bg-white text-gray-900'
+                ? '-mb-[2px] border-b-2 border-orange-500 bg-white text-gray-900'
                 : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
             }`}
           >

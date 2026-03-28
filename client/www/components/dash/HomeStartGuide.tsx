@@ -162,7 +162,7 @@ export function AppStart({ app }: { app: InstantApp }) {
                     href={step.link}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                    className="inline-flex items-center gap-1.5 text-sm text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300"
                   >
                     {step.link}
                     <ArrowTopRightOnSquareIcon className="h-4 w-4" />

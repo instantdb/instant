@@ -169,7 +169,7 @@ export function FirebaseClient({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col rounded-sm border dark:border-neutral-700"
+        className="flex flex-col rounded-lg border dark:border-neutral-700"
       >
         <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
@@ -204,7 +204,7 @@ export function FirebaseClient({
               to link your Firebase user to Instant.
             </Content>
 
-            <div className="overflow-auto rounded-sm border text-sm dark:border-none">
+            <div className="overflow-auto rounded-lg border text-sm dark:border-none">
               <Fence
                 darkMode={darkMode}
                 copyable
@@ -310,7 +310,7 @@ export function AddFirebaseClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 rounded-sm border p-4 dark:border-neutral-700"
+      className="flex flex-col gap-2 rounded-lg border p-4 dark:border-neutral-700"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
