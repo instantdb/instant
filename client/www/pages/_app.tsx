@@ -6,7 +6,6 @@ import Script from 'next/script';
 import { NuqsAdapter } from 'nuqs/adapters/next/pages';
 import Head from 'next/head';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { DocsPage } from '@/components/DocsPage';
 import { Button } from '@/components/ui';
 import { isDev } from '@/lib/config';
 import { Dev } from '@/components/Dev';
@@ -44,16 +43,9 @@ globalThis.__getAppId = () =>
     : undefined;
 
 function App({ Component, pageProps }: AppPropsWithLayout) {
-  const isDocsPage = 'markdoc' in pageProps;
   const getLayout = Component.getLayout ?? ((page) => page);
 
-  const mainEl = getLayout(
-    isDocsPage ? (
-      <DocsPage {...{ Component, pageProps }} />
-    ) : (
-      <Component {...pageProps} />
-    ),
-  );
+  const mainEl = getLayout(<Component {...pageProps} />);
 
   useEffect(() => {
     patchNumberInputScroll();
@@ -67,11 +59,6 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
       <ErrorBoundary renderError={() => <Oops />}>
         <SWRConfig
           value={{
-            fallback: {
-              ...(pageProps.starCount != null
-                ? { starCount: pageProps.starCount }
-                : {}),
-            },
             provider: localStorageProvider,
           }}
         >

@@ -29,6 +29,8 @@ export function EssayMarkdown({
       remarkPlugins={[remarkGfm, remarkMath]}
       components={
         {
+          // Note if you change the custom component key, you
+          // must also change all references in the markdown files
           'agents-essay-demo-section': AgentsEssayDemoSection,
           'sketch-demo': (props: { demo: string }) => {
             return <SketchDemo demo={props.demo} />;

@@ -1,6 +1,8 @@
+'use client';
+
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/router';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DocSearchModal, useDocSearchKeyboardEvents } from '@docsearch/react';
 import '@docsearch/css';
 
@@ -23,6 +25,7 @@ export function Search() {
   const [modifierKey, setModifierKey] = useState(null);
   const [initialQuery, setInitialQuery] = useState(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const onOpen = useCallback(() => {
     setIsOpen(true);
@@ -45,13 +48,13 @@ export function Search() {
   }, []);
 
   // Enable search on load if `q` is in the query string
-  const query = router.query;
+  const q = searchParams.get('q');
   useEffect(() => {
-    if (query?.q) {
-      setInitialQuery(query.q);
+    if (q) {
+      setInitialQuery(q);
       onOpen();
     }
-  }, [query.q]);
+  }, [q]);
 
   return (
     <>

@@ -24,7 +24,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const CONFIG = {
-  DOCS_PATH: path.resolve(__dirname, '../pages/docs'),
+  DOCS_PATH: path.resolve(__dirname, '../app/docs'),
   OUTPUT_PATH: path.resolve(__dirname, '../public'),
 };
 
@@ -48,7 +48,7 @@ async function findMarkdownFiles(dir: string): Promise<string[]> {
       if (item.isDirectory()) {
         const subResults = await findMarkdownFiles(fullPath);
         results = [...results, ...subResults];
-      } else if (item.isFile() && item.name.endsWith('.md')) {
+      } else if (item.isFile() && item.name === 'page.md') {
         results.push(fullPath);
       }
     }
@@ -68,22 +68,26 @@ async function processMarkdownFile(filePath: string): Promise<Document | null> {
     const content = await fs.readFile(filePath, 'utf-8');
     const { frontmatter } = parseFrontmatter(content);
 
-    if (!frontmatter.title) {
+    const title = frontmatter.nextjs?.metadata?.title;
+    const description = frontmatter.nextjs?.metadata?.description;
+
+    if (!title) {
       console.warn(`No title found in frontmatter for ${filePath}`);
       return null;
     }
 
     // Calculate the href (relative path within docs)
+    // Files are at app/docs/[name]/page.md — derive URL from parent directory
     const relativePath = path.relative(CONFIG.DOCS_PATH, filePath);
-    const urlPath = relativePath.replace(/\\/g, '/').replace(/\.md$/, '');
+    const urlPath = relativePath.replace(/\\/g, '/').replace(/\/page\.md$/, '');
 
-    const href = urlPath.endsWith('index') ? '/docs' : `/docs/${urlPath}`;
+    const href = urlPath === 'page.md' ? '/docs' : `/docs/${urlPath}`;
 
     const url = getDocumentUrl(href);
 
     return {
-      title: frontmatter.title,
-      description: frontmatter.description || '',
+      title,
+      description: description || '',
       content: transformContent(content),
       url,
       href,
