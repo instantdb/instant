@@ -15,12 +15,7 @@ import {
   init,
 } from '@instantdb/react';
 import { errorToast } from '@/lib/toast';
-import { MainNav } from '@/components/marketingUi';
 import { Toaster } from '@instantdb/components';
-import { Footer } from '@/components/new-landing/Footer';
-import { TopWash } from '@/components/new-landing/TopWash';
-import { Section } from '@/components/new-landing/Section';
-import { SectionTitle } from '@/components/new-landing/typography';
 import { CopyToClipboardButton } from '@/components/new-landing/CopyToClipboardButton';
 import { BrowserChrome } from '@/components/BrowserChrome';
 
@@ -160,45 +155,32 @@ function Main({ files }: { files: File[] }) {
   }
 
   return (
-    <div className="text-off-black w-full overflow-x-auto">
+    <>
       <Toaster />
 
       {appId ? <RoomStatus db={getColumnDb(appId, 0)} appId={appId} /> : null}
-      <MainNav />
 
-      {/* Hero */}
-      <div className="relative overflow-hidden pt-16">
-        <TopWash />
-        <Section className="relative pt-12 pb-6 sm:pt-16 sm:pb-10">
-          <div className="flex flex-col items-center text-center">
-            <SectionTitle>Recipes</SectionTitle>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
-              With the right abstractions, you and your agents can make a lot of
-              progress with a lot less code. Take a look at some of what's
-              possible below.
-            </p>
-            <div
-              ref={topInViewRef}
-              className="mt-8 flex w-full max-w-md flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3"
-            >
-              <p className="text-left text-sm text-gray-500">
-                P.S we made an Instant app just for you! Share this with your
-                friends and you can play with every example together.
-              </p>
-              <div className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5">
-                <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
-                  {isHydrated && appId ? recipesUrl(appId) : 'Loading...'}
-                </span>
-                <CopyToClipboardButton
-                  text={isHydrated && appId ? recipesUrl(appId) : ''}
-                />
-              </div>
-            </div>
+      <div className="flex justify-center px-4">
+        <div
+          ref={topInViewRef}
+          className="flex w-full max-w-md flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3"
+        >
+          <p className="text-left text-sm text-gray-500">
+            P.S we made an Instant app just for you! Share this with your
+            friends and you can play with every example together.
+          </p>
+          <div className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5">
+            <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
+              {isHydrated && appId ? recipesUrl(appId) : 'Loading...'}
+            </span>
+            <CopyToClipboardButton
+              text={isHydrated && appId ? recipesUrl(appId) : ''}
+            />
           </div>
-        </Section>
+        </div>
       </div>
 
-      <div className="landing-width mx-auto pb-16">
+      <div className="landing-width mx-auto pb-16 pt-8">
         <div className="flex flex-col gap-12" ref={recipesContainerElRef}>
           {files.map((file, i) => {
             return (
@@ -220,8 +202,7 @@ function Main({ files }: { files: File[] }) {
           })}
         </div>
       </div>
-      <Footer />
-    </div>
+    </>
   );
 }
 
