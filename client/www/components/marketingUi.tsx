@@ -531,4 +531,3 @@ export function LandingFooter() {
     </div>
   );
 }
-
