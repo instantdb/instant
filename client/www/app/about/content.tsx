@@ -133,7 +133,7 @@ export default function AboutPage() {
         <div className="relative h-px">
           <div className="absolute inset-0 bg-gray-100" />
           <motion.div
-            className="absolute inset-0 bg-gray-300"
+            className="absolute inset-0 bg-gray-200"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{
@@ -153,7 +153,7 @@ export default function AboutPage() {
             style={{ left: 'calc(50% + 3rem)', top: 0, bottom: 0 }}
           />
           <motion.div
-            className="absolute hidden lg:block w-px bg-gray-300"
+            className="absolute hidden lg:block w-px bg-gray-200"
             style={{
               left: 'calc(50% + 3rem)',
               top: 0,
@@ -236,7 +236,7 @@ export default function AboutPage() {
             {/* Right: timeline */}
             <div className="relative lg:mt-16">
               {/* Local timeline line (mobile only — on lg the global line covers it) */}
-              <div className="absolute top-0 bottom-0 left-4 w-px bg-gray-300 lg:hidden" />
+              <div className="absolute top-0 bottom-0 left-4 w-px bg-gray-200 lg:hidden" />
               <div className="space-y-8">
                 {timelineEvents.map((event, i) => (
                   <div key={event.date} className="relative pl-12">
@@ -268,31 +268,31 @@ export default function AboutPage() {
         </div>
 
         {/* What we believe — muted box + animated bright overlay */}
-        <div className="relative border border-gray-200">
+        <div className="relative border border-gray-100">
           {/* Animated bright borders */}
           <motion.div
-            className="absolute top-0 left-0 right-0 h-px bg-gray-300"
+            className="absolute top-0 left-0 right-0 h-px bg-gray-200"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ duration: T_BOX_DUR, delay: T_BOX_TOP, ease: 'easeInOut' }}
             style={{ transformOrigin: 'left' }}
           />
           <motion.div
-            className="absolute top-0 right-0 bottom-0 w-px bg-gray-300"
+            className="absolute top-0 right-0 bottom-0 w-px bg-gray-200"
             initial={{ scaleY: 0 }}
             animate={{ scaleY: 1 }}
             transition={{ duration: T_BOX_DUR, delay: T_BOX_RIGHT, ease: 'easeInOut' }}
             style={{ transformOrigin: 'top' }}
           />
           <motion.div
-            className="absolute bottom-0 left-0 right-0 h-px bg-gray-300"
+            className="absolute bottom-0 left-0 right-0 h-px bg-gray-200"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ duration: T_BOX_DUR, delay: T_BOX_BOTTOM, ease: 'easeInOut' }}
             style={{ transformOrigin: 'right' }}
           />
           <motion.div
-            className="absolute left-0 top-0 bottom-0 w-px bg-gray-300"
+            className="absolute left-0 top-0 bottom-0 w-px bg-gray-200"
             initial={{ scaleY: 0 }}
             animate={{ scaleY: 1 }}
             transition={{ duration: T_BOX_DUR, delay: T_BOX_LEFT, ease: 'easeInOut' }}
@@ -323,7 +323,7 @@ export default function AboutPage() {
         <div className="relative w-px py-16 sm:py-24">
           <div className="absolute inset-0 bg-gray-100" />
           <motion.div
-            className="absolute inset-0 bg-gray-300"
+            className="absolute inset-0 bg-gray-200"
             initial={{ scaleY: 0 }}
             animate={{ scaleY: 1 }}
             transition={{
@@ -343,7 +343,7 @@ export default function AboutPage() {
           <div className="relative w-fit">
             <div className="h-px bg-gray-100" />
             <motion.div
-              className="absolute top-0 left-0 right-0 h-px bg-gray-300"
+              className="absolute top-0 left-0 right-0 h-px bg-gray-200"
               initial={{ scaleX: 0 }}
               animate={{ scaleX: 1 }}
               transition={{
