@@ -341,6 +341,7 @@ describe('unique queries', () => {
 
     await addNumberItems(db, [1, 2, 3, 4, 5, 6]);
     await expect.poll(() => getLoadedValues(response)).toEqual([1, 2, 3, 4]);
+    await expect.poll(() => response.canLoadNextPage).toBe(true);
 
     scrollSub.loadNextPage();
     await expect
