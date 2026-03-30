@@ -61,7 +61,7 @@ export default function Content() {
               ))}
             </div>
 
-            <p className="mt-6 text-base">
+            <p className="mt-6">
               Don't see a relevant role? If none of the current roles fit your
               expertise but you're still interested in joining us, we would love
               to hear from you anyway! Please feel free to{' '}
