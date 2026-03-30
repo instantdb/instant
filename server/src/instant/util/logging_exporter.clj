@@ -73,13 +73,20 @@
      "fewer_vfutures") true
     false))
 
+(def max-attr-value-len 16384)
+
+(defn truncate [s]
+  (if (< max-attr-value-len (count s))
+    (str (subs s 0 max-attr-value-len) "...")
+    s))
+
 (defn format-attr-value
   "Formats attr values for logs."
   [v]
-  (condp identical? (type v)
-    ;; format will print e.g. "clojure.lang.LazySeq@7861"
-    clojure.lang.LazySeq (pr-str v)
-    v))
+  (truncate (condp identical? (type v)
+              ;; format will print e.g. "clojure.lang.LazySeq@7861"
+              clojure.lang.LazySeq (pr-str v)
+              (str v))))
 
 (defn- append-attr [^StringBuilder sb [k v]]
   (let [k (str k)]
