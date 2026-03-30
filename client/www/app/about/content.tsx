@@ -35,6 +35,9 @@ const T_BOX_RIGHT = T_BOX_TOP + T_BOX_DUR;
 const T_BOX_BOTTOM = T_BOX_RIGHT + T_BOX_DUR;
 const T_BOX_LEFT = T_BOX_BOTTOM + T_BOX_DUR;
 
+// The "wave" offset — how far behind the settle layer trails the bright layer
+const T_WAVE = 0.4;
+
 function HeroHeader() {
   return (
     <div className="flex flex-col items-center gap-10 text-center lg:flex-row lg:items-center lg:gap-16 lg:text-left">
@@ -133,14 +136,17 @@ export default function AboutPage() {
         <div className="relative h-px">
           <div className="absolute inset-0 bg-gray-100" />
           <motion.div
+            className="absolute inset-0 bg-gray-300"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: T_HLINE_DUR, delay: T_HLINE_START, ease: 'easeInOut' }}
+            style={{ transformOrigin: 'left' }}
+          />
+          <motion.div
             className="absolute inset-0 bg-gray-200"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
-            transition={{
-              duration: T_HLINE_DUR,
-              delay: T_HLINE_START,
-              ease: 'easeInOut',
-            }}
+            transition={{ duration: T_HLINE_DUR, delay: T_HLINE_START + T_WAVE, ease: 'easeInOut' }}
             style={{ transformOrigin: 'left' }}
           />
         </div>
@@ -153,20 +159,18 @@ export default function AboutPage() {
             style={{ left: 'calc(50% + 3rem)', top: 0, bottom: 0 }}
           />
           <motion.div
-            className="absolute hidden lg:block w-px bg-gray-200"
-            style={{
-              left: 'calc(50% + 3rem)',
-              top: 0,
-              bottom: 0,
-              transformOrigin: 'top',
-            }}
+            className="absolute hidden lg:block w-px bg-gray-300"
+            style={{ left: 'calc(50% + 3rem)', top: 0, bottom: 0, transformOrigin: 'top' }}
             initial={{ scaleY: 0 }}
             animate={{ scaleY: 1 }}
-            transition={{
-              duration: T_VLINE_DUR,
-              delay: T_VLINE_START,
-              ease: 'easeInOut',
-            }}
+            transition={{ duration: T_VLINE_DUR, delay: T_VLINE_START, ease: 'easeInOut' }}
+          />
+          <motion.div
+            className="absolute hidden lg:block w-px bg-gray-200"
+            style={{ left: 'calc(50% + 3rem)', top: 0, bottom: 0, transformOrigin: 'top' }}
+            initial={{ scaleY: 0 }}
+            animate={{ scaleY: 1 }}
+            transition={{ duration: T_VLINE_DUR, delay: T_VLINE_START + T_WAVE, ease: 'easeInOut' }}
           />
           <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
             {/* Left: narrative */}
@@ -269,35 +273,19 @@ export default function AboutPage() {
 
         {/* What we believe — muted box + animated bright overlay */}
         <div className="relative border border-gray-100">
-          {/* Animated bright borders */}
-          <motion.div
-            className="absolute top-0 left-0 right-0 h-px bg-gray-200"
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ duration: T_BOX_DUR, delay: T_BOX_TOP, ease: 'easeInOut' }}
-            style={{ transformOrigin: 'left' }}
-          />
-          <motion.div
-            className="absolute top-0 right-0 bottom-0 w-px bg-gray-200"
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{ duration: T_BOX_DUR, delay: T_BOX_RIGHT, ease: 'easeInOut' }}
-            style={{ transformOrigin: 'top' }}
-          />
-          <motion.div
-            className="absolute bottom-0 left-0 right-0 h-px bg-gray-200"
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ duration: T_BOX_DUR, delay: T_BOX_BOTTOM, ease: 'easeInOut' }}
-            style={{ transformOrigin: 'right' }}
-          />
-          <motion.div
-            className="absolute left-0 top-0 bottom-0 w-px bg-gray-200"
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{ duration: T_BOX_DUR, delay: T_BOX_LEFT, ease: 'easeInOut' }}
-            style={{ transformOrigin: 'bottom' }}
-          />
+          {/* Animated borders — bright wave then settle */}
+          {/* Top */}
+          <motion.div className="absolute top-0 left-0 right-0 h-px bg-gray-300" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_TOP, ease: 'easeInOut' }} style={{ transformOrigin: 'left' }} />
+          <motion.div className="absolute top-0 left-0 right-0 h-px bg-gray-200" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_TOP + T_WAVE, ease: 'easeInOut' }} style={{ transformOrigin: 'left' }} />
+          {/* Right */}
+          <motion.div className="absolute top-0 right-0 bottom-0 w-px bg-gray-300" initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_RIGHT, ease: 'easeInOut' }} style={{ transformOrigin: 'top' }} />
+          <motion.div className="absolute top-0 right-0 bottom-0 w-px bg-gray-200" initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_RIGHT + T_WAVE, ease: 'easeInOut' }} style={{ transformOrigin: 'top' }} />
+          {/* Bottom */}
+          <motion.div className="absolute bottom-0 left-0 right-0 h-px bg-gray-300" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_BOTTOM, ease: 'easeInOut' }} style={{ transformOrigin: 'right' }} />
+          <motion.div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_BOTTOM + T_WAVE, ease: 'easeInOut' }} style={{ transformOrigin: 'right' }} />
+          {/* Left */}
+          <motion.div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300" initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_LEFT, ease: 'easeInOut' }} style={{ transformOrigin: 'bottom' }} />
+          <motion.div className="absolute left-0 top-0 bottom-0 w-px bg-gray-200" initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_LEFT + T_WAVE, ease: 'easeInOut' }} style={{ transformOrigin: 'bottom' }} />
 
           <div className="py-12 sm:py-16 px-8 sm:px-12">
             <div className="text-center">
@@ -320,17 +308,20 @@ export default function AboutPage() {
 
       {/* Vertical connector — fills the gap between the values box and architecture */}
       <div className="relative flex justify-center">
-        <div className="relative w-px py-16 sm:py-24">
+        <div className="relative w-px py-12 sm:py-16">
           <div className="absolute inset-0 bg-gray-100" />
+          <motion.div
+            className="absolute inset-0 bg-gray-300"
+            initial={{ scaleY: 0 }}
+            animate={{ scaleY: 1 }}
+            transition={{ duration: 0.4, delay: T_BOX_LEFT + T_BOX_DUR, ease: 'easeInOut' }}
+            style={{ transformOrigin: 'top' }}
+          />
           <motion.div
             className="absolute inset-0 bg-gray-200"
             initial={{ scaleY: 0 }}
             animate={{ scaleY: 1 }}
-            transition={{
-              duration: 0.4,
-              delay: T_BOX_LEFT + T_BOX_DUR,
-              ease: 'easeInOut',
-            }}
+            transition={{ duration: 0.4, delay: T_BOX_LEFT + T_BOX_DUR + T_WAVE, ease: 'easeInOut' }}
             style={{ transformOrigin: 'top' }}
           />
         </div>
