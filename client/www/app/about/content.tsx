@@ -161,7 +161,7 @@ export default function AboutPage() {
       <MainNav />
 
       {/* Hero */}
-      <div className="relative overflow-hidden pt-16">
+      <div className="relative pt-16">
         <TopWash />
         <Section className="relative pt-16 pb-6 sm:pt-20 sm:pb-8">
           <HeroHeader />
