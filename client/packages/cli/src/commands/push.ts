@@ -1,6 +1,7 @@
 import { Effect } from 'effect';
 import { BadArgsError } from '../errors.ts';
-import { OptsFromCommand, pushDef } from '../index.ts';
+import { pushDef } from '../index.ts';
+import type { OptsFromCommand } from '../index.ts';
 import { pushPerms } from '../lib/pushPerms.ts';
 import { pushSchema } from '../lib/pushSchema.ts';
 

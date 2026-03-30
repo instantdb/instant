@@ -1,7 +1,8 @@
 import chalk from 'chalk';
 import boxen from 'boxen';
 import stringWidth from 'string-width';
-import { AnyKey, ModifyOutputFn, Prompt, SelectState } from './lib.ts';
+import { Prompt, SelectState } from './lib.ts';
+import type { AnyKey, ModifyOutputFn } from './lib.ts';
 
 export { render, renderUnwrap, setRawModeWindowsFriendly } from './lib.ts';
 

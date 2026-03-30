@@ -1,6 +1,7 @@
 import { Effect } from 'effect';
 import openInBrowser from 'open';
-import { explorerDef, OptsFromCommand } from '../index.ts';
+import { explorerDef } from '../index.ts';
+import type { OptsFromCommand } from '../index.ts';
 import { CurrentApp } from '../context/currentApp.ts';
 import { getDashUrl } from '../lib/http.ts';
 

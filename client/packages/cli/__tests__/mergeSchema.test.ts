@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { test, expect } from 'vitest';
 import { mergeSchema } from '../src/util/mergeSchema.ts';
 
 test('preserves type annotations', () => {

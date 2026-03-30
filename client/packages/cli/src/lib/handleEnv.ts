@@ -1,5 +1,6 @@
 import { Effect } from 'effect';
-import { CurrentAppInfo, potentialEnvs } from '../context/currentApp.ts';
+import { potentialEnvs } from '../context/currentApp.ts';
+import type { CurrentAppInfo } from '../context/currentApp.ts';
 import { ProjectInfo, ProjectInfoError } from '../context/projectInfo.ts';
 import { readPackage } from 'pkg-types';
 import { GlobalOpts } from '../context/globalOpts.ts';
@@ -89,7 +90,11 @@ const detectEnvType = Effect.gen(function* () {
   return 'catchall';
 }).pipe(Effect.catchTag('ProjectInfoError', () => Effect.succeed('catchall')));
 
-function printDotEnvInfo(envType, appId, dashOrigin: string) {
+function printDotEnvInfo(
+  envType: keyof typeof potentialEnvs,
+  appId: string,
+  dashOrigin: string,
+) {
   console.log(`\nPicked app ${chalk.green(appId)}!\n`);
   console.log(
     `To use this app automatically from now on, update your ${chalk.green('`.env`')} file:`,
@@ -105,6 +110,6 @@ function printDotEnvInfo(envType, appId, dashOrigin: string) {
   console.log(terminalLink('Dashboard:', appDashUrl(appId, dashOrigin)) + '\n');
 }
 
-function appDashUrl(id, instantOrigin: string) {
+function appDashUrl(id: string, instantOrigin: string) {
   return `${instantOrigin}/dash?s=main&t=home&app=${id}`;
 }

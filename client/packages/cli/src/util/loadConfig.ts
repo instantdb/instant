@@ -1,8 +1,5 @@
-import {
-  loadConfig as _loadConfig,
-  LoadConfigOptions,
-  LoadConfigResult,
-} from 'unconfig';
+import { loadConfig as _loadConfig } from 'unconfig';
+import type { LoadConfigOptions, LoadConfigResult } from 'unconfig';
 import { createRequire } from 'module';
 import path from 'path';
 import { findProjectDir } from './projectDir.ts';

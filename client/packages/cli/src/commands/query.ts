@@ -1,6 +1,7 @@
 import { Effect, Layer } from 'effect';
 import JSON5 from 'json5';
-import { OptsFromCommand, queryDef } from '../index.ts';
+import { queryDef } from '../index.ts';
+import type { OptsFromCommand } from '../index.ts';
 import { CurrentApp } from '../context/currentApp.ts';
 import { BadArgsError } from '../errors.ts';
 import { InstantHttpAuthed, withCommand } from '../lib/http.ts';
@@ -31,7 +32,7 @@ export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>
         }),
     });
 
-    const headers = { 'app-id': appId };
+    const headers: Record<string, string> = { 'app-id': appId };
     if (opts.asEmail) {
       headers['as-email'] = opts.asEmail;
     } else if (opts.asGuest) {

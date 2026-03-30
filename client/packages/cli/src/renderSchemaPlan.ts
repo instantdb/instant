@@ -1,5 +1,5 @@
-import {
-  convertTxSteps,
+import { convertTxSteps } from '@instantdb/platform';
+import type {
   MigrationTx,
   MigrationTxSpecific,
   MigrationTxTypes,
@@ -314,7 +314,9 @@ export const renderSchemaPlan = (
         break;
 
       default:
-        const unknownStep: never = step;
+        throw new Error(
+          `Unknown migration step: ${(step as { type: string }).type}`,
+        );
     }
   }
 

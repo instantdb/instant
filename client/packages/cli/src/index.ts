@@ -14,7 +14,8 @@ import {
   WithAppLayer,
 } from './layer.ts';
 import { infoCommand } from './commands/info.ts';
-import { pullCommand, SchemaPermsOrBoth } from './commands/pull.ts';
+import { pullCommand } from './commands/pull.ts';
+import type { SchemaPermsOrBoth } from './commands/pull.ts';
 import { claimCommand } from './commands/claim.ts';
 import { pushCommand } from './commands/push.ts';
 import { explorerCmd } from './commands/explorer.ts';
@@ -264,7 +265,7 @@ Environment Variables:
     );
   });
 
-const claimDef = program
+export const claimDef = program
   .command('claim')
   .description('Transfer a temporary app into your Instant account')
   .action(async function () {
@@ -301,25 +302,29 @@ function globalOption(
   return opt;
 }
 
-function getLocalAndGlobalOptions(cmd, helper) {
+function getLocalAndGlobalOptions(cmd: any, helper: any) {
   const mixOfLocalAndGlobal = helper.visibleOptions(cmd);
   const localOptionsFromMix = mixOfLocalAndGlobal.filter(
-    (option) => !option.__global,
+    (option: any) => !option.__global,
   );
   const globalOptionsFromMix = mixOfLocalAndGlobal.filter(
-    (option) => option.__global,
+    (option: any) => option.__global,
   );
   const globalOptions = helper.visibleGlobalOptions(cmd);
 
   return [localOptionsFromMix, globalOptionsFromMix.concat(globalOptions)];
 }
 
-function formatHelp(cmd, helper) {
+function formatHelp(
+  this: { showGlobalOptions: boolean },
+  cmd: any,
+  helper: any,
+) {
   const termWidth = helper.padWidth(cmd, helper);
   const helpWidth = helper.helpWidth || 80;
   const itemIndentWidth = 2;
   const itemSeparatorWidth = 2; // between term and description
-  function formatItem(term, description) {
+  function formatItem(term: string, description: string | undefined) {
     if (description) {
       const fullText = `${term.padEnd(termWidth + itemSeparatorWidth)}${description}`;
       return helper.wrap(
@@ -330,7 +335,7 @@ function formatHelp(cmd, helper) {
     }
     return term;
   }
-  function formatList(textArray) {
+  function formatList(textArray: string[]) {
     return textArray.join('\n').replace(/^/gm, ' '.repeat(itemIndentWidth));
   }
 
@@ -344,7 +349,7 @@ function formatHelp(cmd, helper) {
   }
 
   // Arguments
-  const argumentList = helper.visibleArguments(cmd).map((argument) => {
+  const argumentList = helper.visibleArguments(cmd).map((argument: any) => {
     return formatItem(
       helper.argumentTerm(argument),
       helper.argumentDescription(argument),
@@ -363,7 +368,7 @@ function formatHelp(cmd, helper) {
   );
 
   // Options
-  const optionList = visibleOptions.map((option) => {
+  const optionList = visibleOptions.map((option: any) => {
     return formatItem(
       helper.optionTerm(option),
       helper.optionDescription(option),
@@ -377,7 +382,7 @@ function formatHelp(cmd, helper) {
     ]);
   }
   // Commands
-  const commandList = helper.visibleCommands(cmd).map((cmd) => {
+  const commandList = helper.visibleCommands(cmd).map((cmd: any) => {
     return formatItem(
       helper.subcommandTerm(cmd),
       helper.subcommandDescription(cmd),
@@ -392,7 +397,7 @@ function formatHelp(cmd, helper) {
   }
 
   if (this.showGlobalOptions) {
-    const globalOptionList = visibleGlobalOptions.map((option) => {
+    const globalOptionList = visibleGlobalOptions.map((option: any) => {
       return formatItem(
         helper.optionTerm(option),
         helper.optionDescription(option),

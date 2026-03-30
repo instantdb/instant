@@ -1,4 +1,4 @@
-export function isHeadlessEnvironment(opts) {
+export function isHeadlessEnvironment(opts?: { headless?: boolean }) {
   const noBrowserMode = Boolean(
     process.env.INSTANT_CLI_NO_BROWSER || process.env.CI || opts?.headless,
   );

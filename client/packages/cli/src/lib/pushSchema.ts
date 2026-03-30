@@ -24,12 +24,10 @@ import { InstantHttpAuthed, withCommand } from './http.ts';
 
 import boxen from 'boxen';
 import { GlobalOpts } from '../context/globalOpts.ts';
-import { OptsFromCommand, pushDef } from '../index.ts';
-import {
-  groupSteps,
-  renderSchemaPlan,
-  SuperMigrationTx,
-} from '../renderSchemaPlan.ts';
+import { pushDef } from '../index.ts';
+import type { OptsFromCommand } from '../index.ts';
+import { groupSteps, renderSchemaPlan } from '../renderSchemaPlan.ts';
+import type { SuperMigrationTx } from '../renderSchemaPlan.ts';
 import { promptOk } from './ui.ts';
 import { AuthToken } from '../context/authToken.ts';
 

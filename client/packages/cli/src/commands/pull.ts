@@ -1,5 +1,6 @@
 import { Effect } from 'effect';
-import { OptsFromCommand, pullDef } from '../index.ts';
+import { pullDef } from '../index.ts';
+import type { OptsFromCommand } from '../index.ts';
 import { pullSchema } from '../lib/pullSchema.ts';
 import { pullPerms } from '../lib/pullPerms.ts';
 

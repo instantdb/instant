@@ -1,6 +1,7 @@
-import { Context, Data, Effect, Layer, Option } from 'effect';
+import { Context, Data, Effect, Layer } from 'effect';
 import { detect } from 'package-manager-detector/detect';
-import { PackageJson, readPackage } from 'pkg-types';
+import { readPackage } from 'pkg-types';
+import type { PackageJson } from 'pkg-types';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { UI } from '../ui/index.ts';

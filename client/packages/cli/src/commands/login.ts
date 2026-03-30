@@ -1,7 +1,8 @@
 import chalk from 'chalk';
 import { Effect } from 'effect';
 import openInBrowser from 'open';
-import { OptsFromCommand, loginDef } from '../index.ts';
+import { loginDef } from '../index.ts';
+import type { OptsFromCommand } from '../index.ts';
 import { getDashUrl } from '../lib/http.ts';
 import {
   getLoginTicketAndSecret,

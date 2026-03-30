@@ -1,7 +1,8 @@
 import { Effect } from 'effect';
 import { PlatformApi } from '../context/platformApi.ts';
 import { BadArgsError } from '../errors.ts';
-import { OptsFromCommand, initWithoutFilesDef } from '../index.ts';
+import { initWithoutFilesDef } from '../index.ts';
+import type { OptsFromCommand } from '../index.ts';
 import { createApp } from '../lib/createApp.ts';
 import { AuthLayerLive } from '../layer.ts';
 import chalk from 'chalk';
