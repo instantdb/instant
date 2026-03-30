@@ -4,18 +4,23 @@ import { LogoType } from '../marketingUi';
 
 const footerLinks = {
   Product: [
-    { href: '/pricing', label: 'Pricing' },
-    { href: '/docs', label: 'Docs' },
-    { href: '/tutorial', label: 'Tutorial' },
+    { href: '/product/database', label: 'Database' },
+    { href: '/product/auth', label: 'Auth' },
+    { href: '/product/sync', label: 'Sync Engine' },
+    { href: '/product/storage', label: 'Storage' },
+    { href: '/product/admin-sdk', label: 'Admin SDK' },
   ],
   Resources: [
-    { href: 'https://discord.com/invite/VU53p7uQcE', label: 'Discord' },
-    { href: 'https://status.instantdb.com', label: 'Status' },
+    { href: '/docs', label: 'Docs' },
+    { href: '/tutorial', label: 'Tutorial' },
+    { href: '/examples', label: 'Examples' },
+    { href: '/essays', label: 'Essays' },
+    { href: '/pricing', label: 'Pricing' },
   ],
   Company: [
     { href: '/about', label: 'About' },
     { href: '/hiring', label: 'Careers' },
-    { href: 'founders:hello@instantdb.com', label: 'Contact' },
+    { href: 'mailto:hello@instantdb.com', label: 'Contact' },
   ],
   Legal: [
     { href: '/privacy', label: 'Privacy Policy' },
