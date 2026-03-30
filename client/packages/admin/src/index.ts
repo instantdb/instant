@@ -162,6 +162,9 @@ function instantConfigWithDefaults<
     apiURI: 'https://api.instantdb.com',
   };
   const r = { ...defaultConfig, ...config };
+  if (!r.apiURI) {
+    r.apiURI = defaultConfig.apiURI;
+  }
   return r;
 }
 
