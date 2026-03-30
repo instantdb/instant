@@ -1,10 +1,6 @@
 'use client';
 
-import {
-  LandingContainer,
-  MainNav,
-  PageProgressBar,
-} from '@/components/marketingUi';
+import { LandingContainer, MainNav } from '@/components/marketingUi';
 import { authorFirstName, formatDuration } from '@/lib/postUtils';
 import type { Post } from '@/lib/posts';
 
@@ -14,10 +10,8 @@ import { Footer } from '@/components/new-landing/Footer';
 
 export function EssayPage({ post }: { post: Post }) {
   const { title, authors, hero, content } = post;
-
   return (
     <LandingContainer>
-      <PageProgressBar />
       <div className="relative">
         <TopWash />
         <MainNav />
