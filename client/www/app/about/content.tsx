@@ -22,74 +22,72 @@ import {
 } from '@/components/new-landing/typography';
 import { useState } from 'react';
 import { queryExamples } from '@/lib/product/database/examples';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion } from 'motion/react';
 
-const heroWords = 'Building the database for the AI era'.split(' ');
+// Line animation timing (seconds)
+const T_HLINE_START = 0.3;
+const T_HLINE_DUR = 0.5;
+const T_VLINE_START = T_HLINE_START + T_HLINE_DUR;
+const T_VLINE_DUR = 1.4;
+const T_VLINE_END = T_VLINE_START + T_VLINE_DUR;
+const T_BOX_DUR = 0.3;
+const T_BOX_TOP = T_VLINE_END;
+const T_BOX_RIGHT = T_BOX_TOP + T_BOX_DUR;
+const T_BOX_BOTTOM = T_BOX_RIGHT + T_BOX_DUR;
+const T_BOX_LEFT = T_BOX_BOTTOM + T_BOX_DUR;
 
-function DownArrow() {
+// The "wave" offset — how far behind the settle layer trails the bright layer
+const T_WAVE = 0.4;
+
+// Animated line segment with wave effect: muted base → bright front → settled color
+function ThreadLine({
+  className,
+  delay,
+  duration,
+  direction,
+  origin,
+  style,
+}: {
+  className: string;
+  delay: number;
+  duration: number;
+  direction: 'horizontal' | 'vertical';
+  origin: string;
+  style?: React.CSSProperties;
+}) {
+  const scale = direction === 'horizontal' ? 'scaleX' : 'scaleY';
   return (
-    <div className="flex justify-center">
-      <svg
-        className="h-5 w-5 text-gray-300"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={2}
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3"
-        />
-      </svg>
-    </div>
+    <>
+      <div className={`${className} bg-gray-100`} style={style} />
+      <motion.div
+        className={`${className} bg-gray-300`}
+        initial={{ [scale]: 0 }}
+        animate={{ [scale]: 1 }}
+        transition={{ duration, delay, ease: 'easeInOut' }}
+        style={{ ...style, transformOrigin: origin }}
+      />
+      <motion.div
+        className={`${className} bg-gray-200`}
+        initial={{ [scale]: 0 }}
+        animate={{ [scale]: 1 }}
+        transition={{ duration, delay: delay + T_WAVE, ease: 'easeInOut' }}
+        style={{ ...style, transformOrigin: origin }}
+      />
+    </>
   );
 }
 
 function HeroHeader() {
-  const shouldReduceMotion = useReducedMotion();
-
   return (
     <div className="flex flex-col items-center gap-10 text-center lg:flex-row lg:items-center lg:gap-16 lg:text-left">
       <h1 className="text-4xl leading-[1.1] font-normal sm:text-5xl lg:max-w-[60%] lg:text-6xl">
-        {heroWords.map((word, i) => (
-          <motion.span
-            key={i}
-            className="mr-[0.28em] inline-block"
-            initial={{
-              opacity: 0,
-              y: shouldReduceMotion ? 0 : 20,
-              filter: shouldReduceMotion ? 'none' : 'blur(4px)',
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              filter: 'blur(0px)',
-            }}
-            transition={{
-              duration: 0.5,
-              ease: [0.25, 0.1, 0.25, 1],
-              delay: 0.1 + i * 0.08,
-            }}
-          >
-            {word}
-          </motion.span>
-        ))}
+        Building the database for the AI era
       </h1>
-      <motion.p
-        className="max-w-xl text-lg text-balance sm:text-xl lg:max-w-lg"
-        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{
-          duration: 0.6,
-          ease: 'easeOut',
-          delay: 0.1 + heroWords.length * 0.08 + 0.15,
-        }}
-      >
+      <p className="max-w-xl text-lg text-balance sm:text-xl lg:max-w-lg">
         We started Instant because we believed we needed a new kind of database
         for the future of app development. Now, with agents building more
         software than ever, that need is bigger than ever.
-      </motion.p>
+      </p>
     </div>
   );
 }
@@ -161,7 +159,7 @@ function MultiTenantSection() {
     <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-start">
       <div className="space-y-4 md:max-w-[440px]">
         <Subheading>Multi-tenant Core</Subheading>
-        <p className="mt-2 text-base">
+        <p className="mt-2 text-lg">
           We designed Instant from the ground up to be multi-tenant. Queries and
           writes include an{' '}
           <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm">
@@ -169,11 +167,11 @@ function MultiTenantSection() {
           </code>{' '}
           that scopes operations to a specific app.
         </p>
-        <p className="mt-2 text-base">
+        <p className="mt-2 text-lg">
           The server enforces this scoping, so data is securely partitioned
           between apps without needing to spin up separate hardware.
         </p>
-        <p className="mt-2 text-base">
+        <p className="mt-2 text-lg">
           This is what allows us to offer a free tier with unlimited apps and no
           pausing.
         </p>
@@ -190,7 +188,7 @@ function InstaMLSection() {
     <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-start">
       <div className="space-y-4 md:max-w-[400px]">
         <Subheading>InstaML: Writing data</Subheading>
-        <p className="mt-2 text-base">
+        <p className="mt-2 text-lg">
           For writes, developers use InstaML, a simple API for creating,
           updating, deleting, and linking data. On the client, each operation is
           transformed into normalized triple steps. On the server, those steps
@@ -212,12 +210,12 @@ function WALSection() {
       </div>
       <div className="space-y-4 md:max-w-[440px]">
         <Subheading>Invalidations and the WAL</Subheading>
-        <p className="mt-2 text-base">
+        <p className="mt-2 text-lg">
           When the server acks a write, we need to make sure all subscribed
           queries get refreshed. We tail Postgres&apos;s Write-Ahead Log (WAL)
           to see which triples changed.
         </p>
-        <p className="mt-2 text-base">
+        <p className="mt-2 text-lg">
           We also record all active queries as patterns of triples. This lets us
           determine exactly which queries are affected by a change, and send
           invalidation messages via websockets to just those clients.
@@ -235,124 +233,233 @@ export default function AboutPage() {
       <MainNav />
 
       {/* Hero */}
-      <div className="relative overflow-hidden pt-16">
+      <div className="relative pt-16">
         <TopWash />
-        <Section className="relative pt-16 pb-16 sm:pt-20 sm:pb-20">
+        <Section className="relative pt-16 pb-6 sm:pt-20 sm:pb-8">
           <HeroHeader />
         </Section>
       </div>
 
-      {/* Our Story + Timeline */}
-      <Section className="pt-4 sm:pt-8">
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
-          {/* Left: narrative */}
-          <div className="text-center lg:text-left">
-            <Subheading>Our story</Subheading>
-            <div className="mt-8 space-y-6 text-left text-[17px] leading-relaxed text-gray-600">
-              <p>
-                In 2021, we wrote{' '}
-                <a
-                  href="/essays/db_browser"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-orange-600 underline underline-offset-2 hover:text-orange-700"
-                >
-                  &ldquo;Database in the Browser&rdquo;
-                </a>
-                , a deep exploration of every pain point developers face
-                building modern apps. Fetching data, keeping it consistent,
-                optimistic updates, offline mode, permissions. The thesis was
-                simple: these are all database problems in disguise.
-              </p>
-              <p>
-                A year later, we published{' '}
-                <a
-                  href="/essays/next_firebase"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-orange-600 underline underline-offset-2 hover:text-orange-700"
-                >
-                  &ldquo;A Graph-Based Firebase&rdquo;
-                </a>
-                , which laid out how a triple store and a new query language
-                could give developers the relational power of Supabase with the
-                real-time magic of Firebase. The essay went viral and the team
-                raised a seed round to build Instant.
-              </p>
-              <p>
-                Two years of heads-down development later, Instant was
-                open-sourced. It hit the front page of Hacker News with 1,000+
-                upvotes. The demo of spinning up a database instantly resonated
-                with the community.
-              </p>
-              <p>
-                In 2025 Instant became a full backend solution with database,
-                auth, permissions, and storage all governed by the same data
-                model. Then came{' '}
-                <span className="rounded bg-gray-200 px-1.5 py-0.5 font-mono text-sm">
-                  create-instant-app
-                </span>{' '}
-                and end-to-end typesafety, so getting started was as easy as a
-                single terminal command.
-              </p>
-              <p>
-                In 2026 Instant entered the AI era. Modern LLMs natively know
-                how to use it. Give them a bit of context and they can build
-                apps like Counter-Strike and Instagram in a few prompts.
-              </p>
-              <p>
-                With the rise of agents, we believe more software will be built
-                than ever. Infrastructure needs to scale to millions of apps,
-                not just millions of users. Instant is the database for that
-                future.
-              </p>
+      {/* ── Thread container: h-line → timeline → values box ── */}
+      <div className="landing-width relative mx-auto">
+        {/* Horizontal line */}
+        <div className="relative h-px">
+          <ThreadLine
+            className="absolute inset-0"
+            delay={T_HLINE_START}
+            duration={T_HLINE_DUR}
+            direction="horizontal"
+            origin="left"
+          />
+        </div>
+
+        {/* Our Story + Timeline */}
+        <div className="relative pt-4 pb-12 sm:pt-8 sm:pb-16">
+          {/* Vertical thread line (lg only) — at the timeline dots' x position */}
+          <ThreadLine
+            className="absolute hidden w-px lg:block"
+            delay={T_VLINE_START}
+            duration={T_VLINE_DUR}
+            direction="vertical"
+            origin="top"
+            style={{ left: 'calc(50% + 3rem)', top: 0, bottom: 0 }}
+          />
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
+            {/* Left: narrative */}
+            <div className="text-center lg:text-left">
+              <Subheading>Our story</Subheading>
+              <div className="mt-8 space-y-6 text-left text-lg leading-relaxed text-gray-600">
+                <p>
+                  In 2021, we wrote{' '}
+                  <a
+                    href="/essays/db_browser"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-orange-600 underline underline-offset-2 hover:text-orange-700"
+                  >
+                    &ldquo;Database in the Browser&rdquo;
+                  </a>
+                  , a deep exploration of every pain point developers face
+                  building modern apps. Fetching data, keeping it consistent,
+                  optimistic updates, offline mode, permissions. The thesis was
+                  simple: these are all database problems in disguise.
+                </p>
+                <p>
+                  A year later, we published{' '}
+                  <a
+                    href="/essays/next_firebase"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-orange-600 underline underline-offset-2 hover:text-orange-700"
+                  >
+                    &ldquo;A Graph-Based Firebase&rdquo;
+                  </a>
+                  , which laid out how a triple store and a new query language
+                  could give developers the relational power of Supabase with
+                  the real-time magic of Firebase. The essay went viral and the
+                  team raised a seed round to build Instant.
+                </p>
+                <p>
+                  Two years of heads-down development later, Instant was
+                  open-sourced. It hit the front page of Hacker News with 1,000+
+                  upvotes. The demo of spinning up a database instantly
+                  resonated with the community.
+                </p>
+                <p>
+                  In 2025 Instant became a full backend solution with database,
+                  auth, permissions, and storage all governed by the same data
+                  model. Then came{' '}
+                  <span className="rounded bg-gray-200 px-1.5 py-0.5 font-mono text-sm">
+                    create-instant-app
+                  </span>{' '}
+                  and end-to-end typesafety, so getting started was as easy as a
+                  single terminal command.
+                </p>
+                <p>
+                  In 2026 Instant entered the AI era. Modern LLMs natively know
+                  how to use it. Give them a bit of context and they can build
+                  apps like Counter-Strike and Instagram in a few prompts.
+                </p>
+                <p>
+                  With the rise of agents, we believe more software will be
+                  built than ever. Infrastructure needs to scale to millions of
+                  apps, not just millions of users. Instant is the database for
+                  that future.
+                </p>
+              </div>
+            </div>
+
+            {/* Right: timeline */}
+            <div className="relative lg:mt-16">
+              {/* Local timeline line (mobile only — on lg the global line covers it) */}
+              <div className="absolute top-0 bottom-0 left-4 w-px bg-gray-200 lg:hidden" />
+              <div className="space-y-8">
+                {timelineEvents.map((event, i) => (
+                  <div key={event.date} className="relative pl-12">
+                    {/* Dot — pops in as the line reaches it */}
+                    <motion.div
+                      className="absolute top-1.5 left-2.5 h-3 w-3 rounded-full bg-orange-600 ring-4 ring-white"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{
+                        duration: 0.3,
+                        delay:
+                          T_VLINE_START +
+                          (T_VLINE_DUR * (i + 0.5)) / timelineEvents.length,
+                        ease: 'easeOut',
+                      }}
+                    />
+                    <div className="text-base font-medium text-orange-600">
+                      {event.date}
+                    </div>
+                    <h3 className="mt-1 text-lg font-semibold">
+                      {event.title}
+                    </h3>
+                    <p className="mt-1 text-lg">{event.description}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Right: timeline */}
-          <div className="relative lg:mt-16">
-            <div className="absolute top-0 bottom-0 left-4 w-px bg-gray-300" />
-            <div className="space-y-8">
-              {timelineEvents.map((event) => (
-                <div key={event.date} className="relative pl-12">
-                  <div className="absolute top-1.5 left-2.5 h-3 w-3 rounded-full bg-orange-600 ring-4 ring-white" />
-                  <div className="text-sm font-medium text-orange-600">
-                    {event.date}
-                  </div>
-                  <h3 className="mt-1 text-base font-semibold">
-                    {event.title}
-                  </h3>
-                  <p className="mt-1 text-sm">{event.description}</p>
+        {/* What we believe — muted box + animated bright overlay */}
+        <div className="relative border border-gray-100">
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(ellipse at 50% 40%, #F5F3F0 0%, #FAFAF9 50%, white 100%)',
+            }}
+          />
+          {/* Animated box borders */}
+          <ThreadLine
+            className="absolute top-0 right-0 left-0 h-px"
+            delay={T_BOX_TOP}
+            duration={T_BOX_DUR}
+            direction="horizontal"
+            origin="left"
+          />
+          <ThreadLine
+            className="absolute top-0 right-0 bottom-0 w-px"
+            delay={T_BOX_RIGHT}
+            duration={T_BOX_DUR}
+            direction="vertical"
+            origin="top"
+          />
+          <ThreadLine
+            className="absolute right-0 bottom-0 left-0 h-px"
+            delay={T_BOX_BOTTOM}
+            duration={T_BOX_DUR}
+            direction="horizontal"
+            origin="right"
+          />
+          <ThreadLine
+            className="absolute top-0 bottom-0 left-0 w-px"
+            delay={T_BOX_LEFT}
+            duration={T_BOX_DUR}
+            direction="vertical"
+            origin="bottom"
+          />
+
+          <div className="relative px-8 py-12 sm:px-12 sm:py-16">
+            <div className="text-center">
+              <SectionTitle>What we believe</SectionTitle>
+            </div>
+            <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 md:px-12">
+              {values.map((v) => (
+                <div key={v.title}>
+                  <Subheading>{v.title}</Subheading>
+                  <p className="mt-4 text-lg text-gray-600">{v.description}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
-      </Section>
+      </div>
 
-      {/* Values */}
-      <div className="relative overflow-hidden bg-[#F2F0ED]">
-        <div className="pointer-events-none absolute top-0 right-0 left-0 z-[5] h-24 bg-gradient-to-b from-white to-transparent" />
-        <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-24 bg-gradient-to-b from-transparent to-white" />
-        <Section className="relative z-10 !pt-6 sm:!pt-10">
-          <div className="text-center">
-            <SectionTitle>What we believe</SectionTitle>
-          </div>
-          <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 md:px-12">
-            {values.map((v) => (
-              <div key={v.title}>
-                <h3 className="text-xl font-normal sm:text-2xl">{v.title}</h3>
-                <p className="mt-2 text-lg text-gray-600">{v.description}</p>
-              </div>
-            ))}
-          </div>
-        </Section>
+      {/* Vertical connector — fills the gap between the values box and architecture */}
+      <div className="relative flex justify-center">
+        <div className="relative w-px py-12 sm:py-16">
+          <ThreadLine
+            className="absolute inset-0"
+            delay={T_BOX_LEFT + T_BOX_DUR}
+            duration={0.4}
+            direction="vertical"
+            origin="top"
+          />
+        </div>
       </div>
 
       {/* Architecture */}
-      <Section className="pb-0 sm:pb-0">
+      <Section className="!pt-0 pb-0 sm:!pt-0 sm:pb-0">
         <div className="flex flex-col items-center text-center">
-          <SectionTitle>Under the hood</SectionTitle>
+          {/* Hood line + title share a w-fit wrapper so they're the same width */}
+          <div className="relative w-fit">
+            <div className="relative h-px">
+              <ThreadLine
+                className="absolute inset-0"
+                delay={T_BOX_LEFT + T_BOX_DUR + 0.4}
+                duration={0.5}
+                direction="horizontal"
+                origin="center"
+              />
+            </div>
+            <motion.div
+              className="h-3"
+              style={{
+                background:
+                  'radial-gradient(ellipse at center top, rgba(0,0,0,0.05) 0%, transparent 70%)',
+              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{
+                duration: 0.4,
+                delay: T_BOX_LEFT + T_BOX_DUR + 0.4 + 0.5,
+              }}
+            />
+            <SectionTitle>Under the hood</SectionTitle>
+          </div>
           <SectionSubtitle>
             Instant looks simple on the surface. A few lines of code and your
             app has a real-time backend. But there&apos;s a lot of interesting
@@ -365,7 +472,7 @@ export default function AboutPage() {
           <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-center">
             <div className="space-y-4 md:max-w-[400px]">
               <Subheading>Triples: the foundation</Subheading>
-              <p className="mt-2 text-base">
+              <p className="mt-2 text-lg">
                 All data in Instant is stored as triples:{' '}
                 <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm">
                   [entity, attribute, value]
@@ -373,7 +480,7 @@ export default function AboutPage() {
                 . A user&apos;s name, a goal&apos;s title, a relation between
                 them. They&apos;re all expressed the same way.
               </p>
-              <p className="mt-2 text-base">
+              <p className="mt-2 text-lg">
                 This simple, uniform structure can model any entity and any
                 relationship. Because triples work the same on both the frontend
                 and backend, we can use the same data model everywhere.
@@ -399,12 +506,12 @@ export default function AboutPage() {
               </div>
               <div className="space-y-4 md:max-w-[440px]">
                 <Subheading>InstaQL: Reading data</Subheading>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   Developers write InstaQL, a declarative syntax using plain
                   JavaScript objects. You describe the shape of the data you
                   want, and that&apos;s the shape you get back.
                 </p>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   No joins, no SQL, no GraphQL resolvers. The query language was
                   designed so that the shape of the query mirrors the shape of
                   the result.
@@ -418,12 +525,12 @@ export default function AboutPage() {
             <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-center">
               <div className="space-y-4 md:max-w-[400px]">
                 <Subheading>Datalog on the frontend</Subheading>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   On the client, InstaQL queries compile to Datalog, a
                   logic-based query language that runs in a lightweight engine
                   right in the browser.
                 </p>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   This local datalog engine is what makes optimistic updates
                   possible. When you mutate data, the change applies to the
                   local triple store instantly. The engine re-evaluates affected
@@ -450,12 +557,12 @@ export default function AboutPage() {
               </div>
               <div className="space-y-4 md:max-w-[440px]">
                 <Subheading>SQL on the server</Subheading>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   On the server, the same InstaQL queries take a different path.
                   They&apos;re translated into SQL and executed against
                   Postgres.
                 </p>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   You get the performance and reliability of a battle-tested
                   database. One query language, two execution paths: datalog
                   locally for speed, SQL on the server for truth.
@@ -479,11 +586,11 @@ export default function AboutPage() {
             <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-center">
               <div className="space-y-4 md:max-w-[400px]">
                 <Subheading>Permissions layer</Subheading>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   Every read and every write passes through a permission layer
                   based on Google&apos;s Common Expression Language (CEL).
                 </p>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   Permissions control who can see and change data at a granular
                   level.
                 </p>
@@ -502,13 +609,13 @@ export default function AboutPage() {
               </div>
               <div className="space-y-4 md:max-w-[440px]">
                 <Subheading>Offline by default</Subheading>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   Instant persists your query results on device automatically.
                   When the network drops, queries keep resolving from the cache.
                   Mutations are saved to a persistent outbox before they&apos;re
                   ever sent to the server.
                 </p>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   When the connection returns, the outbox flushes in order and
                   the server reconciles. You don&apos;t enable offline mode.
                   It&apos;s already on.
