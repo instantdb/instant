@@ -1,4 +1,4 @@
-import { init } from '@instantdb/admin';
+import { Config, init } from '@instantdb/admin';
 
 export interface CreateResumableStreamContextOptions {
   /**
@@ -112,13 +112,16 @@ export function createResumableStreamContext(
       'Missing adminToken. Pass it as an argument to createResumableStreamContext or set the INSTANT_APP_ADMIN_TOKEN environment variable.',
     );
   }
+
+  const config: Config = { appId, adminToken };
+
   const apiURI = options.apiURI || process.env.INSTANT_API_URI;
 
-  const db = init({
-    appId,
-    adminToken,
-    apiURI,
-  });
+  if (apiURI) {
+    config.apiURI = apiURI;
+  }
+
+  const db = init(config);
 
   async function resumableStream(
     streamId: string,
