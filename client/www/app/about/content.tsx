@@ -338,25 +338,36 @@ export default function AboutPage() {
 
       {/* Architecture */}
       <Section className="!pt-0 pb-0 sm:!pt-0 sm:pb-0">
-        {/* Hood line with shadow — same width as text content */}
-        <div className="mx-auto max-w-3xl relative">
-          <div className="h-px bg-gray-100" />
-          <motion.div
-            className="absolute top-0 left-0 right-0 h-px bg-gray-300"
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{
-              duration: 0.5,
-              delay: T_BOX_LEFT + T_BOX_DUR + 0.4,
-              ease: 'easeInOut',
-            }}
-            style={{ transformOrigin: 'center' }}
-          />
-          <div className="h-3 bg-gradient-to-b from-black/[0.04] to-transparent" />
-        </div>
-
-        <div className="mt-8 flex flex-col items-center text-center">
-          <SectionTitle>Under the hood</SectionTitle>
+        <div className="flex flex-col items-center text-center">
+          {/* Hood line + title share a w-fit wrapper so they're the same width */}
+          <div className="relative w-fit">
+            <div className="h-px bg-gray-100" />
+            <motion.div
+              className="absolute top-0 left-0 right-0 h-px bg-gray-300"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{
+                duration: 0.5,
+                delay: T_BOX_LEFT + T_BOX_DUR + 0.4,
+                ease: 'easeInOut',
+              }}
+              style={{ transformOrigin: 'center' }}
+            />
+            <motion.div
+              className="h-3"
+              style={{
+                background:
+                  'radial-gradient(ellipse at center top, rgba(0,0,0,0.05) 0%, transparent 70%)',
+              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{
+                duration: 0.4,
+                delay: T_BOX_LEFT + T_BOX_DUR + 0.4 + 0.5,
+              }}
+            />
+            <SectionTitle>Under the hood</SectionTitle>
+          </div>
           <SectionSubtitle>
             Instant looks simple on the surface. A few lines of code and your
             app has a real-time backend. But there&apos;s a lot of interesting
