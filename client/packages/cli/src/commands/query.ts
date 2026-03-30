@@ -7,6 +7,7 @@ import { BadArgsError } from '../errors.ts';
 import { InstantHttpAuthed, withCommand } from '../lib/http.ts';
 import { HttpBody } from '@effect/platform';
 import { WithAppLayer } from '../layer.ts';
+import { BadArgument } from '@effect/platform/Error';
 
 export const queryCmd = (arg: string, opts: OptsFromCommand<typeof queryDef>) =>
   Effect.gen(function* () {

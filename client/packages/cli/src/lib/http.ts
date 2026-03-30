@@ -81,8 +81,18 @@ export const InstantHttpLive = Layer.effect(
                     }),
                 ),
               );
+
+              // The hint.message is usually better error message
+              let message = jsonBody.message;
+              if (
+                jsonBody.hint?.message &&
+                typeof jsonBody.hint.message === 'string'
+              ) {
+                message = jsonBody.hint.message;
+              }
+
               return yield* new InstantHttpError({
-                message: jsonBody.message,
+                message: message,
                 methodAndUrl: requestError.methodAndUrl,
                 hint: jsonBody.hint,
                 type: jsonBody.type || 'Unknown type',
