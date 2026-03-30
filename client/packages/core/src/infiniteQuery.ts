@@ -485,11 +485,15 @@ export const subscribeInfiniteQuery = <
 
       // Consider a query with no items; the server will return a result with
       // no start cursor. If we add {pageSize} optimistic updates we can
-      // get here and still have no startCursor. By returning we are skipping
-      // the optimistic update and just waiting for the result from the
-      // server.
+      // get here and still have no startCursor.
+      // For now we treat the data we currently have like a pre boostrap
+      // state.
       const initialForwardCursor = pageInfo.startCursor;
       if (!initialForwardCursor) {
+        setForwardChunk(PRE_BOOTSTRAP_CURSOR, {
+          data: rows,
+          status: 'pre-bootstrap',
+        });
         return;
       }
 
