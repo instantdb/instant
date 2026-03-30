@@ -26,7 +26,11 @@ export default function Content() {
             </h1>
           </div>
           <div className="mx-auto mb-10 max-w-3xl">
-            <img src="/img/hiring/hero.png" alt="We're hiring!" className="w-full" />
+            <img
+              src="/img/hiring/hero.png"
+              alt="We're hiring!"
+              className="w-full"
+            />
           </div>
           <div className="prose prose-lg prose-headings:font-normal prose-headings:leading-snug prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl">
             <p>
