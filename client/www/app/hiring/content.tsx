@@ -25,6 +25,13 @@ export default function Content() {
               Build the future of front-end tech.
             </h1>
           </div>
+          <div className="mx-auto mb-10 max-w-3xl">
+            <img
+              src="/img/hiring/hero.png"
+              alt="We're hiring!"
+              className="w-full"
+            />
+          </div>
           <div className="prose prose-lg prose-headings:font-normal prose-headings:leading-snug prose-h2:mb-3 prose-h2:mt-8 mx-auto max-w-2xl">
             <p>
               We're a YC S22 company building the infrastructure for
