@@ -1,5 +1,3 @@
-'use client';
-
 import { LandingContainer, MainNav, Link } from '@/components/marketingUi';
 import { Footer } from '@/components/new-landing/Footer';
 import { TopWash } from '@/components/new-landing/TopWash';
