@@ -8,7 +8,7 @@ import {
   createTempApp,
   adminTransact,
   createAppUser,
-} from './helpers';
+} from './helpers.ts';
 
 const SCHEMA_FILE = `
 import { i } from "@instantdb/core";
@@ -270,7 +270,7 @@ export default _schema;
   });
 
   describe('push perms', () => {
-    it('succeeds gracefully when no perms file exists', async () => {
+    it('exits with code 1 when no perms file exists', async () => {
       const { appId, adminToken } = await createTempApp();
       const project = await createTestProject({ appId });
 
@@ -283,7 +283,7 @@ export default _schema;
           },
         });
 
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode).toBe(1);
       } finally {
         await project.cleanup();
       }

@@ -1,23 +1,20 @@
 {
-  "$schema": "https://raw.githubusercontent.com/Effect-TS/language-service/refs/heads/main/schema.json",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
+    "rootDir": "src",
     "rewriteRelativeImportExtensions": true,
     "sourceMap": true,
-    "skipLibCheck": true,
-    "incremental": true,
-    "composite": true,
-    "moduleDetection": "force",
     "verbatimModuleSyntax": true,
-    "strictNullChecks": true,
     "strict": true,
+    "skipLibCheck": true, // `unconfig` currently imports a broken type from `@antfu/utils`,
     "plugins": [
       {
         "name": "@effect/language-service"
       }
-    ]
+    ],
+    "strictNullChecks": true
   },
-  "include": ["src", "__tests__"],
+  "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }
