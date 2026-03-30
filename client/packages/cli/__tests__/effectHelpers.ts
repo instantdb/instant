@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Ref } from 'effect';
 import { NodeHttpClient } from '@effect/platform-node';
 import { PlatformApi } from '../src/context/platformApi.ts';
 import { CurrentApp } from '../src/context/currentApp.ts';
@@ -15,14 +15,18 @@ export const getAppLayer = (title: string) =>
       }),
     );
 
+    const authTokenRef = yield* Ref.make(app.app.adminToken);
+
     const test = Layer.mergeAll(
       Layer.provideMerge(
         InstantHttpAuthedLive,
         Layer.merge(
           InstantHttpLive.pipe(Layer.provide(NodeHttpClient.layer)),
           Layer.succeed(AuthToken, {
-            authToken: app.app.adminToken,
-            source: 'env',
+            getAuthToken: Ref.get(authTokenRef),
+            getSource: Effect.succeed('env' as const),
+            setAuthToken: (authToken: string) =>
+              Ref.set(authTokenRef, authToken),
           }),
         ),
       ),

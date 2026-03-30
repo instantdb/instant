@@ -27,7 +27,11 @@ export class InstantHttpError extends Data.TaggedError('InstantHttpError')<
 
 // Pipe on an http client to set the command header
 export const withCommand = (command: string) => {
-  return (client: HttpClient.HttpClient.With<InstantHttpError>) =>
+  return (
+    client: HttpClient.HttpClient.With<
+      InstantHttpError | TimeoutException | RequestError
+    >,
+  ) =>
     client.pipe(
       HttpClient.mapRequest((r) =>
         r.pipe(HttpClientRequest.setHeader(`X-Instant-Command`, command)),
@@ -95,11 +99,15 @@ export const InstantHttpAuthedLive = Layer.effect(
   InstantHttpAuthed,
   Effect.gen(function* () {
     const http = yield* InstantHttp;
-    const { authToken } = yield* AuthToken;
+    const authToken = yield* AuthToken;
     return http.pipe(
-      HttpClient.mapRequest((r) =>
-        r.pipe(
-          HttpClientRequest.setHeader('Authorization', `Bearer ${authToken}`),
+      HttpClient.mapRequestEffect((r) =>
+        authToken.getAuthToken.pipe(
+          Effect.map((token) =>
+            r.pipe(
+              HttpClientRequest.setHeader('Authorization', `Bearer ${token}`),
+            ),
+          ),
         ),
       ),
     );

@@ -1,15 +1,26 @@
 import { FileSystem } from '@effect/platform';
-import { Config, Context, Effect, Layer, Option, Schema } from 'effect';
+import { Config, Context, Effect, Layer, Option, Ref, Schema } from 'effect';
 import envPaths from 'env-paths';
 import { join } from 'path';
 import { loginCommand } from '../commands/login.ts';
 import { program } from '../program.ts';
 
+type AuthTokenSource = 'admin' | 'env' | 'opt' | 'file';
+
+type AuthTokenState = {
+  authToken: string;
+  source: AuthTokenSource;
+};
+
 export class AuthToken extends Context.Tag('instant-cli/new/context/authToken')<
   AuthToken,
   {
-    authToken: string;
-    source: 'admin' | 'env' | 'opt' | 'file';
+    getAuthToken: Effect.Effect<string>;
+    getSource: Effect.Effect<AuthTokenSource>;
+    setAuthToken: (
+      authToken: string,
+      source?: AuthTokenSource,
+    ) => Effect.Effect<void>;
   }
 >() {}
 
@@ -81,10 +92,44 @@ export const AuthTokenLive = ({
   Layer.effect(
     AuthToken,
     authTokenGetEffect(allowAdminToken).pipe(
+      Effect.flatMap((tokenResult) =>
+        Effect.gen(function* () {
+          const authStateRef = yield* Ref.make<AuthTokenState>(tokenResult);
+          return {
+            getAuthToken: Ref.get(authStateRef).pipe(
+              Effect.map((authState) => authState.authToken),
+            ),
+            getSource: Ref.get(authStateRef).pipe(
+              Effect.map((authState) => authState.source),
+            ),
+            setAuthToken: (authToken: string, source?: AuthTokenSource) =>
+              Ref.update(authStateRef, (authState) => ({
+                ...authState,
+                authToken,
+                source: source ?? authState.source,
+              })),
+          };
+        }),
+      ),
       Effect.catchTag('NotAuthedError', (e) =>
         Effect.gen(function* () {
           if (coerce) {
-            return yield* loginCommand({});
+            const loginResult = yield* loginCommand({});
+            const authStateRef = yield* Ref.make<AuthTokenState>(loginResult);
+            return {
+              getAuthToken: Ref.get(authStateRef).pipe(
+                Effect.map((authState) => authState.authToken),
+              ),
+              getSource: Ref.get(authStateRef).pipe(
+                Effect.map((authState) => authState.source),
+              ),
+              setAuthToken: (authToken: string, source?: AuthTokenSource) =>
+                Ref.update(authStateRef, (authState) => ({
+                  ...authState,
+                  authToken,
+                  source: source ?? authState.source,
+                })),
+            };
           } else {
             return yield* e;
           }

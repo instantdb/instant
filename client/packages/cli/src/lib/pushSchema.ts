@@ -165,7 +165,7 @@ export const pushSchema = (
 
     yield* Effect.log(chalk.green('Schema updated!'));
 
-    const { authToken } = yield* AuthToken;
+    const authToken = yield* (yield* AuthToken).getAuthToken;
 
     if (pushRes?.['indexing-jobs']) {
       // TODO: rewrite in effect

@@ -185,14 +185,8 @@ const promptImportOrCreateApp = Effect.gen(function* () {
   );
 
   if (result.approach === 'ephemeral') {
-    yield* Effect.contextWith((c) =>
-      c.pipe(
-        Context.add(AuthToken, {
-          authToken: result.adminToken,
-          source: 'file',
-        }),
-      ),
-    );
+    const authToken = yield* AuthToken;
+    yield* authToken.setAuthToken(result.adminToken, 'admin');
   }
 
   if (result.approach === 'import') {
@@ -216,7 +210,7 @@ const getSimpleApi = Effect.gen(function* () {
   const platform = yield* PlatformApi;
 
   const baseUrl = yield* getBaseUrl;
-  const { authToken } = yield* AuthToken;
+  const authToken = yield* AuthToken;
 
   return {
     getDash: () => dashData,
@@ -247,9 +241,13 @@ const getSimpleApi = Effect.gen(function* () {
     },
 
     async getAppsForOrg(orgId) {
+      const token = await Runtime.runPromise(
+        effectRuntime,
+        authToken.getAuthToken,
+      );
       const response = await fetch(baseUrl + '/dash/orgs/' + orgId, {
         headers: {
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       const data = await response.json();
@@ -261,7 +259,8 @@ const getSimpleApi = Effect.gen(function* () {
 const getAdminToken = Effect.gen(function* () {
   const found = Object.keys(potentialAdminTokenEnvs)
     .map((type) => {
-      const envName = potentialAdminTokenEnvs[type];
+      const envName =
+        potentialAdminTokenEnvs[type as keyof typeof potentialAdminTokenEnvs];
       const value = process.env[envName];
       return { type, envName, value };
     })

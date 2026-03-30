@@ -55,6 +55,7 @@
   "scripts": {
     "build": "rm -rf dist; tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch --skipLibCheck --preserveWatchOutput | grep -v '^$'",
+    "typecheck": "tsc --noEmit",
     "test": "vitest --project unit",
     "test:e2e": "vitest --project e2e",
     "test:ci": "vitest run",
