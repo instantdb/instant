@@ -11,11 +11,11 @@
     "skipLibCheck": true, // `unconfig` currently imports a broken type from `@antfu/utils`,
     "plugins": [
       {
-        "name": "@effect/language-service",
-      },
+        "name": "@effect/language-service"
+      }
     ],
-    "strictNullChecks": true,
+    "strictNullChecks": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist"],
+  "exclude": ["node_modules", "dist"]
 }
