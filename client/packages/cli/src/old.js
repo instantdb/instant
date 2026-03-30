@@ -16,8 +16,6 @@ import { loadEnv } from './util/loadEnv.ts';
 import { ResolveRenamePrompt } from './util/renamePrompt.ts';
 import version from './version.js';
 
-loadEnv();
-
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 

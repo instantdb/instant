@@ -1,3 +1,6 @@
+import { loadEnv } from './util/loadEnv.ts';
+loadEnv();
+
 import { Command, Option } from '@commander-js/extra-typings';
 import chalk from 'chalk';
 import { Effect, Layer } from 'effect';
@@ -6,7 +9,6 @@ import { initCommand } from './commands/init.ts';
 import { initWithoutFilesCommand } from './commands/initWithoutFiles.ts';
 import { loginCommand } from './commands/login.ts';
 import { logoutCommand } from './commands/logout.ts';
-import { loadEnv } from './util/loadEnv.ts';
 import {
   AuthLayerLive,
   BaseLayerLive,
@@ -22,8 +24,6 @@ import { explorerCmd } from './commands/explorer.ts';
 import { queryCmd } from './commands/query.ts';
 import { program } from './program.ts';
 import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
-
-loadEnv();
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
