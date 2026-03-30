@@ -163,7 +163,7 @@ export default function AboutPage() {
       {/* Hero */}
       <div className="relative overflow-hidden pt-16">
         <TopWash />
-        <Section className="relative pt-16 pb-16 sm:pt-20 sm:pb-20">
+        <Section className="relative pt-16 pb-6 sm:pt-20 sm:pb-8">
           <HeroHeader />
         </Section>
       </div>
@@ -182,7 +182,7 @@ export default function AboutPage() {
         </div>
 
         {/* Our Story + Timeline */}
-        <div className="relative py-12 sm:py-16">
+        <div className="relative pt-4 pb-12 sm:pt-8 sm:pb-16">
           {/* Vertical thread line (lg only) — at the timeline dots' x position */}
           <ThreadLine
             className="absolute hidden w-px lg:block"
