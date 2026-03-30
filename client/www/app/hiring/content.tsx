@@ -46,7 +46,7 @@ export default function Content() {
             <div className="not-prose -mx-6 mt-6 flex flex-col gap-6">
               {jobListings.map((job) => (
                 <Link key={job.href} href={job.href} className="no-underline">
-                  <div className="rounded-md border border-gray-200 bg-white p-6 shadow-xs transition-all hover:shadow-md">
+                  <div className="rounded-md border border-gray-200 bg-[#F9F7F4] p-6 shadow-xs transition-all hover:shadow-md">
                     <div className="mb-2 text-xl font-medium text-gray-900">
                       {job.title}
                     </div>

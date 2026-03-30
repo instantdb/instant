@@ -81,6 +81,13 @@ export default async function RootLayout({
         />
         <link
           rel="preload"
+          href="/fonts/Switzer-Italic.woff"
+          as="font"
+          type="font/woff"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
           href="https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.woff2"
           as="font"
           type="font/woff2"
