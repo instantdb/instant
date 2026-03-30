@@ -97,7 +97,10 @@ function skipCharactersTransformer(skipCharacters: number) {
 export function createResumableStreamContext(
   options: CreateResumableStreamContextOptions,
 ): ResumableStreamContext {
-  const appId = options.appId || process.env.INSTANT_APP_ID || process.env.NEXT_PUBLIC_INSTANT_APP_ID;
+  const appId =
+    options.appId ||
+    process.env.INSTANT_APP_ID ||
+    process.env.NEXT_PUBLIC_INSTANT_APP_ID;
   if (!appId) {
     throw new Error(
       'Missing appId. Pass it as an argument to createResumableStreamContext or set either the INSTANT_APP_ID or NEXT_PUBLIC_INSTANT_APP_ID environment variable.',
