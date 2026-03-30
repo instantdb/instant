@@ -9,6 +9,11 @@ import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
 import { TripleDemo } from '@/components/about/TripleDemo';
 import { DatalogDemo } from '@/components/about/DatalogDemo';
 import { SqlDemo } from '@/components/about/SqlDemo';
+import { WALInvalidationDemo } from '@/components/about/WALInvalidationDemo';
+import { InstaMLDemo } from '@/components/about/InstaMLDemo';
+import { PermissionsDemo } from '@/components/about/PermissionsDemo';
+import { OfflineDemo } from '@/components/about/OfflineDemo';
+import { MultiTenantDemo } from '@/components/about/MultiTenantDemo';
 import {
   LandingButton,
   SectionTitle,
@@ -16,11 +21,7 @@ import {
   Subheading,
 } from '@/components/new-landing/typography';
 import { useState } from 'react';
-import {
-  queryExamples,
-  transactionExamples,
-} from '@/lib/product/database/examples';
-import { permissionExamples } from '@/lib/product/auth/examples';
+import { queryExamples } from '@/lib/product/database/examples';
 import { motion, useReducedMotion } from 'motion/react';
 
 const heroWords = 'Building the database for the AI era'.split(' ');
@@ -154,6 +155,77 @@ const values = [
       "A 12-line chat app. A single terminal command to get started. Schema, permissions, and queries all in your code. If it's not delightful, we haven't shipped.",
   },
 ];
+
+function MultiTenantSection() {
+  return (
+    <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-start">
+      <div className="space-y-4 md:max-w-[440px]">
+        <Subheading>Multi-tenant Core</Subheading>
+        <p className="mt-2 text-base">
+          We designed Instant from the ground up to be multi-tenant. Queries and
+          writes include an{' '}
+          <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm">
+            appId
+          </code>{' '}
+          that scopes operations to a specific app.
+        </p>
+        <p className="mt-2 text-base">
+          The server enforces this scoping, so data is securely partitioned
+          between apps without needing to spin up separate hardware.
+        </p>
+        <p className="mt-2 text-base">
+          This is what allows us to offer a free tier with unlimited apps and no
+          pausing.
+        </p>
+      </div>
+      <div className="min-w-0 grow">
+        <MultiTenantDemo />
+      </div>
+    </div>
+  );
+}
+
+function InstaMLSection() {
+  return (
+    <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-start">
+      <div className="space-y-4 md:max-w-[400px]">
+        <Subheading>InstaML: Writing data</Subheading>
+        <p className="mt-2 text-base">
+          For writes, developers use InstaML, a simple API for creating,
+          updating, deleting, and linking data. On the client, each operation is
+          transformed into normalized triple steps. On the server, those steps
+          become SQL executed against Postgres.
+        </p>
+      </div>
+      <div className="min-w-0 grow lg:bg-[#F0F5FA] lg:px-[40px] lg:py-[37px]">
+        <InstaMLDemo />
+      </div>
+    </div>
+  );
+}
+
+function WALSection() {
+  return (
+    <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-start">
+      <div className="min-w-0 grow lg:bg-[#FFF9F4] lg:px-[40px] lg:py-[37px]">
+        <WALInvalidationDemo />
+      </div>
+      <div className="space-y-4 md:max-w-[440px]">
+        <Subheading>Invalidations and the WAL</Subheading>
+        <p className="mt-2 text-base">
+          When the server acks a write, we need to make sure all subscribed
+          queries get refreshed. We tail Postgres&apos;s Write-Ahead Log (WAL)
+          to see which triples changed.
+        </p>
+        <p className="mt-2 text-base">
+          We also record all active queries as patterns of triples. This lets us
+          determine exactly which queries are affected by a change, and send
+          invalidation messages via websockets to just those clients.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function AboutPage() {
   const [filterValue, setFilterValue] = useState(true);
@@ -326,7 +398,7 @@ export default function AboutPage() {
                 />
               </div>
               <div className="space-y-4 md:max-w-[440px]">
-                <Subheading>InstaQL: reading data</Subheading>
+                <Subheading>InstaQL: Reading data</Subheading>
                 <p className="mt-2 text-base">
                   Developers write InstaQL, a declarative syntax using plain
                   JavaScript objects. You describe the shape of the data you
@@ -394,59 +466,60 @@ export default function AboutPage() {
 
           {/* 5. InstaML */}
           <AnimateIn>
-            <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-center">
-              <div className="space-y-4 md:max-w-[400px]">
-                <Subheading>InstaML: writing data</Subheading>
-                <p className="mt-2 text-base">
-                  For writes, developers use InstaML, a simple API for creating,
-                  updating, deleting, and linking data.
-                </p>
-                <p className="mt-2 text-base">
-                  Write operations optimistically modify the client-side triple
-                  store for instant feedback, then send transactions to the
-                  server as the source of truth. If the server rejects a write,
-                  the local store rolls back automatically.
-                </p>
-              </div>
-              <div className="min-w-0 grow lg:bg-[#F0F5FA] lg:px-[66px] lg:py-[37px]">
-                <TabbedCodeExample
-                  examples={transactionExamples}
-                  tabs={[{ key: 'code', label: 'InstaML' }]}
-                  height="h-56"
-                />
-              </div>
-            </div>
+            <InstaMLSection />
           </AnimateIn>
 
-          {/* 4. Permissions */}
+          {/* 6. Invalidations and the WAL */}
           <AnimateIn>
-            <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center">
-              <div className="min-w-0 grow lg:bg-[#F7F7F8] lg:px-[66px] lg:py-[37px]">
-                <TabbedCodeExample
-                  examples={permissionExamples}
-                  tabs={[
-                    {
-                      key: 'code',
-                      label: 'instant.perms.ts',
-                      language: 'typescript',
-                    },
-                  ]}
-                />
-              </div>
-              <div className="space-y-4 text-center md:max-w-[440px] md:text-left">
-                <Subheading>Permissions: access control</Subheading>
+            <WALSection />
+          </AnimateIn>
+
+          {/* 7. Permissions */}
+          <AnimateIn>
+            <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-center">
+              <div className="space-y-4 md:max-w-[400px]">
+                <Subheading>Permissions layer</Subheading>
                 <p className="mt-2 text-base">
                   Every read and every write passes through a permission layer
                   based on Google&apos;s Common Expression Language (CEL).
                 </p>
                 <p className="mt-2 text-base">
-                  Permissions are expressive enough to handle complex rules like
-                  role-based access, row-level filtering, and field-level
-                  visibility, but readable enough that you can reason about them
-                  at a glance.
+                  Permissions control who can see and change data at a granular
+                  level.
+                </p>
+              </div>
+              <div className="min-w-0 grow lg:bg-[#F7F7F8] lg:px-[40px] lg:py-[37px]">
+                <PermissionsDemo />
+              </div>
+            </div>
+          </AnimateIn>
+
+          {/* 8. Offline mode */}
+          <AnimateIn>
+            <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center">
+              <div className="min-w-0 grow lg:bg-[#F0FAF5] lg:px-[40px] lg:py-[37px]">
+                <OfflineDemo />
+              </div>
+              <div className="space-y-4 md:max-w-[440px]">
+                <Subheading>Offline by default</Subheading>
+                <p className="mt-2 text-base">
+                  Instant persists your query results on device automatically.
+                  When the network drops, queries keep resolving from the cache.
+                  Mutations are saved to a persistent outbox before they&apos;re
+                  ever sent to the server.
+                </p>
+                <p className="mt-2 text-base">
+                  When the connection returns, the outbox flushes in order and
+                  the server reconciles. You don&apos;t enable offline mode.
+                  It&apos;s already on.
                 </p>
               </div>
             </div>
+          </AnimateIn>
+
+          {/* 9. Multi-tenancy */}
+          <AnimateIn>
+            <MultiTenantSection />
           </AnimateIn>
         </div>
       </Section>
