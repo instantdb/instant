@@ -334,14 +334,17 @@ export default function AboutPage() {
           <div className="relative w-fit">
             <div className="h-px bg-gray-100" />
             <motion.div
+              className="absolute top-0 left-0 right-0 h-px bg-gray-300"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ duration: 0.5, delay: T_BOX_LEFT + T_BOX_DUR + 0.4, ease: 'easeInOut' }}
+              style={{ transformOrigin: 'center' }}
+            />
+            <motion.div
               className="absolute top-0 left-0 right-0 h-px bg-gray-200"
               initial={{ scaleX: 0 }}
               animate={{ scaleX: 1 }}
-              transition={{
-                duration: 0.5,
-                delay: T_BOX_LEFT + T_BOX_DUR + 0.4,
-                ease: 'easeInOut',
-              }}
+              transition={{ duration: 0.5, delay: T_BOX_LEFT + T_BOX_DUR + 0.4 + T_WAVE, ease: 'easeInOut' }}
               style={{ transformOrigin: 'center' }}
             />
             <motion.div
