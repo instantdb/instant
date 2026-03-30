@@ -21,74 +21,31 @@ import {
   transactionExamples,
 } from '@/lib/product/database/examples';
 import { permissionExamples } from '@/lib/product/auth/examples';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion } from 'motion/react';
 
-const heroWords = 'Building the database for the AI era'.split(' ');
-
-function DownArrow() {
-  return (
-    <div className="flex justify-center">
-      <svg
-        className="h-5 w-5 text-gray-300"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={2}
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3"
-        />
-      </svg>
-    </div>
-  );
-}
+// Line animation timing (seconds)
+const T_HLINE_START = 0.3;
+const T_HLINE_DUR = 0.5;
+const T_VLINE_START = T_HLINE_START + T_HLINE_DUR;
+const T_VLINE_DUR = 1.4;
+const T_VLINE_END = T_VLINE_START + T_VLINE_DUR;
+const T_BOX_DUR = 0.3;
+const T_BOX_TOP = T_VLINE_END;
+const T_BOX_RIGHT = T_BOX_TOP + T_BOX_DUR;
+const T_BOX_BOTTOM = T_BOX_RIGHT + T_BOX_DUR;
+const T_BOX_LEFT = T_BOX_BOTTOM + T_BOX_DUR;
 
 function HeroHeader() {
-  const shouldReduceMotion = useReducedMotion();
-
   return (
     <div className="flex flex-col items-center gap-10 text-center lg:flex-row lg:items-center lg:gap-16 lg:text-left">
       <h1 className="text-4xl leading-[1.1] font-normal sm:text-5xl lg:max-w-[60%] lg:text-6xl">
-        {heroWords.map((word, i) => (
-          <motion.span
-            key={i}
-            className="mr-[0.28em] inline-block"
-            initial={{
-              opacity: 0,
-              y: shouldReduceMotion ? 0 : 20,
-              filter: shouldReduceMotion ? 'none' : 'blur(4px)',
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              filter: 'blur(0px)',
-            }}
-            transition={{
-              duration: 0.5,
-              ease: [0.25, 0.1, 0.25, 1],
-              delay: 0.1 + i * 0.08,
-            }}
-          >
-            {word}
-          </motion.span>
-        ))}
+        Building the database for the AI era
       </h1>
-      <motion.p
-        className="max-w-xl text-lg text-balance sm:text-xl lg:max-w-lg"
-        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{
-          duration: 0.6,
-          ease: 'easeOut',
-          delay: 0.1 + heroWords.length * 0.08 + 0.15,
-        }}
-      >
+      <p className="max-w-xl text-lg text-balance sm:text-xl lg:max-w-lg">
         We started Instant because we believed we needed a new kind of database
         for the future of app development. Now, with agents building more
         software than ever, that need is bigger than ever.
-      </motion.p>
+      </p>
     </div>
   );
 }
@@ -170,114 +127,235 @@ export default function AboutPage() {
         </Section>
       </div>
 
-      {/* Our Story + Timeline */}
-      <Section className="pt-4 sm:pt-8">
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
-          {/* Left: narrative */}
-          <div className="text-center lg:text-left">
-            <Subheading>Our story</Subheading>
-            <div className="mt-8 space-y-6 text-left text-lg leading-relaxed text-gray-600">
-              <p>
-                In 2021, we wrote{' '}
-                <a
-                  href="/essays/db_browser"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-orange-600 underline underline-offset-2 hover:text-orange-700"
-                >
-                  &ldquo;Database in the Browser&rdquo;
-                </a>
-                , a deep exploration of every pain point developers face
-                building modern apps. Fetching data, keeping it consistent,
-                optimistic updates, offline mode, permissions. The thesis was
-                simple: these are all database problems in disguise.
-              </p>
-              <p>
-                A year later, we published{' '}
-                <a
-                  href="/essays/next_firebase"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-orange-600 underline underline-offset-2 hover:text-orange-700"
-                >
-                  &ldquo;A Graph-Based Firebase&rdquo;
-                </a>
-                , which laid out how a triple store and a new query language
-                could give developers the relational power of Supabase with the
-                real-time magic of Firebase. The essay went viral and the team
-                raised a seed round to build Instant.
-              </p>
-              <p>
-                Two years of heads-down development later, Instant was
-                open-sourced. It hit the front page of Hacker News with 1,000+
-                upvotes. The demo of spinning up a database instantly resonated
-                with the community.
-              </p>
-              <p>
-                In 2025 Instant became a full backend solution with database,
-                auth, permissions, and storage all governed by the same data
-                model. Then came{' '}
-                <span className="rounded bg-gray-200 px-1.5 py-0.5 font-mono text-sm">
-                  create-instant-app
-                </span>{' '}
-                and end-to-end typesafety, so getting started was as easy as a
-                single terminal command.
-              </p>
-              <p>
-                In 2026 Instant entered the AI era. Modern LLMs natively know
-                how to use it. Give them a bit of context and they can build
-                apps like Counter-Strike and Instagram in a few prompts.
-              </p>
-              <p>
-                With the rise of agents, we believe more software will be built
-                than ever. Infrastructure needs to scale to millions of apps,
-                not just millions of users. Instant is the database for that
-                future.
-              </p>
+      {/* ── Thread container: h-line → timeline → values box ── */}
+      <div className="landing-width mx-auto relative">
+        {/* Horizontal line */}
+        <div className="relative h-px">
+          <div className="absolute inset-0 bg-gray-100" />
+          <motion.div
+            className="absolute inset-0 bg-gray-300"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{
+              duration: T_HLINE_DUR,
+              delay: T_HLINE_START,
+              ease: 'easeInOut',
+            }}
+            style={{ transformOrigin: 'left' }}
+          />
+        </div>
+
+        {/* Our Story + Timeline */}
+        <div className="relative py-12 sm:py-16">
+          {/* Vertical thread line (lg only) — at the timeline dots' x position */}
+          <div
+            className="absolute hidden lg:block w-px bg-gray-100"
+            style={{ left: 'calc(50% + 3rem)', top: 0, bottom: 0 }}
+          />
+          <motion.div
+            className="absolute hidden lg:block w-px bg-gray-300"
+            style={{
+              left: 'calc(50% + 3rem)',
+              top: 0,
+              bottom: 0,
+              transformOrigin: 'top',
+            }}
+            initial={{ scaleY: 0 }}
+            animate={{ scaleY: 1 }}
+            transition={{
+              duration: T_VLINE_DUR,
+              delay: T_VLINE_START,
+              ease: 'easeInOut',
+            }}
+          />
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
+            {/* Left: narrative */}
+            <div className="text-center lg:text-left">
+              <Subheading>Our story</Subheading>
+              <div className="mt-8 space-y-6 text-left text-lg leading-relaxed text-gray-600">
+                <p>
+                  In 2021, we wrote{' '}
+                  <a
+                    href="/essays/db_browser"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-orange-600 underline underline-offset-2 hover:text-orange-700"
+                  >
+                    &ldquo;Database in the Browser&rdquo;
+                  </a>
+                  , a deep exploration of every pain point developers face
+                  building modern apps. Fetching data, keeping it consistent,
+                  optimistic updates, offline mode, permissions. The thesis was
+                  simple: these are all database problems in disguise.
+                </p>
+                <p>
+                  A year later, we published{' '}
+                  <a
+                    href="/essays/next_firebase"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-orange-600 underline underline-offset-2 hover:text-orange-700"
+                  >
+                    &ldquo;A Graph-Based Firebase&rdquo;
+                  </a>
+                  , which laid out how a triple store and a new query language
+                  could give developers the relational power of Supabase with the
+                  real-time magic of Firebase. The essay went viral and the team
+                  raised a seed round to build Instant.
+                </p>
+                <p>
+                  Two years of heads-down development later, Instant was
+                  open-sourced. It hit the front page of Hacker News with 1,000+
+                  upvotes. The demo of spinning up a database instantly resonated
+                  with the community.
+                </p>
+                <p>
+                  In 2025 Instant became a full backend solution with database,
+                  auth, permissions, and storage all governed by the same data
+                  model. Then came{' '}
+                  <span className="rounded bg-gray-200 px-1.5 py-0.5 font-mono text-sm">
+                    create-instant-app
+                  </span>{' '}
+                  and end-to-end typesafety, so getting started was as easy as a
+                  single terminal command.
+                </p>
+                <p>
+                  In 2026 Instant entered the AI era. Modern LLMs natively know
+                  how to use it. Give them a bit of context and they can build
+                  apps like Counter-Strike and Instagram in a few prompts.
+                </p>
+                <p>
+                  With the rise of agents, we believe more software will be built
+                  than ever. Infrastructure needs to scale to millions of apps,
+                  not just millions of users. Instant is the database for that
+                  future.
+                </p>
+              </div>
+            </div>
+
+            {/* Right: timeline */}
+            <div className="relative lg:mt-16">
+              {/* Local timeline line (mobile only — on lg the global line covers it) */}
+              <div className="absolute top-0 bottom-0 left-4 w-px bg-gray-300 lg:hidden" />
+              <div className="space-y-8">
+                {timelineEvents.map((event, i) => (
+                  <div key={event.date} className="relative pl-12">
+                    {/* Dot — pops in as the line reaches it */}
+                    <motion.div
+                      className="absolute top-1.5 left-2.5 h-3 w-3 rounded-full bg-orange-600 ring-4 ring-white"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{
+                        duration: 0.3,
+                        delay:
+                          T_VLINE_START +
+                          (T_VLINE_DUR * (i + 0.5)) / timelineEvents.length,
+                        ease: 'easeOut',
+                      }}
+                    />
+                    <div className="text-base font-medium text-orange-600">
+                      {event.date}
+                    </div>
+                    <h3 className="mt-1 text-lg font-semibold">
+                      {event.title}
+                    </h3>
+                    <p className="mt-1 text-lg">{event.description}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Right: timeline */}
-          <div className="relative lg:mt-16">
-            <div className="absolute top-0 bottom-0 left-4 w-px bg-gray-300" />
-            <div className="space-y-8">
-              {timelineEvents.map((event) => (
-                <div key={event.date} className="relative pl-12">
-                  <div className="absolute top-1.5 left-2.5 h-3 w-3 rounded-full bg-orange-600 ring-4 ring-white" />
-                  <div className="text-base font-medium text-orange-600">
-                    {event.date}
-                  </div>
-                  <h3 className="mt-1 text-lg font-semibold">
-                    {event.title}
-                  </h3>
-                  <p className="mt-1 text-lg">{event.description}</p>
+        {/* What we believe — muted box + animated bright overlay */}
+        <div className="relative border border-gray-200">
+          {/* Animated bright borders */}
+          <motion.div
+            className="absolute top-0 left-0 right-0 h-px bg-gray-300"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: T_BOX_DUR, delay: T_BOX_TOP, ease: 'easeInOut' }}
+            style={{ transformOrigin: 'left' }}
+          />
+          <motion.div
+            className="absolute top-0 right-0 bottom-0 w-px bg-gray-300"
+            initial={{ scaleY: 0 }}
+            animate={{ scaleY: 1 }}
+            transition={{ duration: T_BOX_DUR, delay: T_BOX_RIGHT, ease: 'easeInOut' }}
+            style={{ transformOrigin: 'top' }}
+          />
+          <motion.div
+            className="absolute bottom-0 left-0 right-0 h-px bg-gray-300"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: T_BOX_DUR, delay: T_BOX_BOTTOM, ease: 'easeInOut' }}
+            style={{ transformOrigin: 'right' }}
+          />
+          <motion.div
+            className="absolute left-0 top-0 bottom-0 w-px bg-gray-300"
+            initial={{ scaleY: 0 }}
+            animate={{ scaleY: 1 }}
+            transition={{ duration: T_BOX_DUR, delay: T_BOX_LEFT, ease: 'easeInOut' }}
+            style={{ transformOrigin: 'bottom' }}
+          />
+
+          <div className="py-12 sm:py-16 px-8 sm:px-12">
+            <div className="text-center">
+              <SectionTitle>What we believe</SectionTitle>
+            </div>
+            <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 md:px-12">
+              {values.map((v) => (
+                <div key={v.title}>
+                  <Subheading>{v.title}</Subheading>
+                  <p className="mt-4 text-lg text-gray-600">
+                    {v.description}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
         </div>
-      </Section>
 
-      {/* Values */}
-      <div>
-        <Section className="!pt-6 sm:!pt-10">
-          <div className="text-center">
-            <SectionTitle>What we believe</SectionTitle>
-          </div>
-          <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 md:px-12">
-            {values.map((v) => (
-              <div key={v.title}>
-                <Subheading>{v.title}</Subheading>
-                <p className="mt-4 text-lg text-gray-600">{v.description}</p>
-              </div>
-            ))}
-          </div>
-        </Section>
+      </div>
+
+      {/* Vertical connector — fills the gap between the values box and architecture */}
+      <div className="relative flex justify-center">
+        <div className="relative w-px py-16 sm:py-24">
+          <div className="absolute inset-0 bg-gray-100" />
+          <motion.div
+            className="absolute inset-0 bg-gray-300"
+            initial={{ scaleY: 0 }}
+            animate={{ scaleY: 1 }}
+            transition={{
+              duration: 0.4,
+              delay: T_BOX_LEFT + T_BOX_DUR,
+              ease: 'easeInOut',
+            }}
+            style={{ transformOrigin: 'top' }}
+          />
+        </div>
       </div>
 
       {/* Architecture */}
-      <Section className="pb-0 sm:pb-0">
-        <div className="flex flex-col items-center text-center">
+      <Section className="!pt-0 pb-0 sm:!pt-0 sm:pb-0">
+        {/* Hood line with shadow — same width as text content */}
+        <div className="mx-auto max-w-3xl relative">
+          <div className="h-px bg-gray-100" />
+          <motion.div
+            className="absolute top-0 left-0 right-0 h-px bg-gray-300"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{
+              duration: 0.5,
+              delay: T_BOX_LEFT + T_BOX_DUR + 0.4,
+              ease: 'easeInOut',
+            }}
+            style={{ transformOrigin: 'center' }}
+          />
+          <div className="h-3 bg-gradient-to-b from-black/[0.04] to-transparent" />
+        </div>
+
+        <div className="mt-8 flex flex-col items-center text-center">
           <SectionTitle>Under the hood</SectionTitle>
           <SectionSubtitle>
             Instant looks simple on the surface. A few lines of code and your
@@ -416,7 +494,7 @@ export default function AboutPage() {
             </div>
           </AnimateIn>
 
-          {/* 4. Permissions */}
+          {/* 6. Permissions */}
           <AnimateIn>
             <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center">
               <div className="min-w-0 grow lg:bg-[#F7F7F8] lg:px-[66px] lg:py-[37px]">
