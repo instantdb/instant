@@ -1,6 +1,7 @@
 import { expect, test as test } from 'vitest';
 import { i } from '@instantdb/core';
 import {
+  convertTxSteps,
   diffSchemas,
   Identifier,
   MigrationTx,
@@ -593,6 +594,77 @@ test('make link optional', async () => {
       tx.identifier.attrName === 'songs',
   );
   expect(found).toBeDefined();
+});
+
+test('create required link', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {},
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: {
+            on: 'songs',
+            has: 'one',
+            label: 'album',
+            required: true,
+          },
+          reverse: { on: 'albums', has: 'many', label: 'songs' },
+        },
+      },
+    }),
+    createChooser([]),
+    systemCatalogIdentNames,
+  );
+
+  expectTxType(result, 'add-attr', 1);
+
+  const addAttr = result.find((tx) => tx.type === 'add-attr');
+  expect(addAttr).toMatchObject({
+    identifier: { namespace: 'songs', attrName: 'album' },
+    'required?': true,
+  });
+
+  const planSteps = convertTxSteps(result, []);
+
+  const addAttrStep = planSteps.find(([action]) => action === 'add-attr');
+  expect(addAttrStep).toMatchObject([
+    'add-attr',
+    {
+      'value-type': 'ref',
+      cardinality: 'one',
+      'required?': false,
+      'unique?': false,
+      'forward-identity': expect.arrayContaining(['songs', 'album']),
+      'reverse-identity': expect.arrayContaining(['albums', 'songs']),
+    },
+  ]);
+
+  const requiredStep = planSteps.find(([action]) => action === 'required');
+  expect(requiredStep).toMatchObject([
+    'required',
+    {
+      'attr-id': expect.any(String),
+      'forward-identity': expect.arrayContaining(['songs', 'album']),
+    },
+  ]);
 });
 
 test('system catalog attrs are ignored when adding entities', async () => {

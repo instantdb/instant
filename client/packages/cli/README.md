@@ -57,6 +57,25 @@ cd client/sandbox/cli-nodejs
 INSTANT_CLI_DEV=1 npx instant-cli ...
 ```
 
+## Testing local builds
+
+You can link a local build of `instant-cli` globally so it's available as a regular command:
+
+```bash
+cd client/packages/cli
+pnpm build
+pnpm link --global
+which instant-cli # should point to your pnpm global bin dir
+```
+
+Now you can run `instant-cli` anywhere and it will use your local build.
+
+To unlink:
+
+```bash
+pnpm unlink --global instant-cli
+```
+
 # Questions?
 
 If you have any questions, feel free to drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE)

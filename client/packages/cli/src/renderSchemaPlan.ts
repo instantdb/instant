@@ -231,6 +231,9 @@ export const renderSchemaPlan = (
                 .join(' <-> ')
                 .toUpperCase(),
           );
+          if (step['required?']) {
+            addSecondaryLine('   REQUIRED');
+          }
         } else {
           addLine(
             `${chalk.bgGreen.black(' + CREATE ATTR ')} ${createDotName(step)}`,

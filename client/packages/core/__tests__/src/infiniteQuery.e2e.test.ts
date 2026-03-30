@@ -140,6 +140,7 @@ describe('infinite scroll number line', () => {
     await expect.poll(() => getLoadedValues(response)).toContain(3);
     await addNumberItems(db, [5, 6, 7, 8]);
     await expect.poll(() => getLoadedValues(response)).toEqual([0, 1, 2, 3]);
+    await expect.poll(() => response.canLoadNextPage).toBe(true);
     scrollSub.loadNextPage();
     await expect
       .poll(() => getLoadedValues(response))
@@ -341,6 +342,7 @@ describe('unique queries', () => {
 
     await addNumberItems(db, [1, 2, 3, 4, 5, 6]);
     await expect.poll(() => getLoadedValues(response)).toEqual([1, 2, 3, 4]);
+    await expect.poll(() => response.canLoadNextPage).toBe(true);
 
     scrollSub.loadNextPage();
     await expect
