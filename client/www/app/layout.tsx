@@ -81,6 +81,13 @@ export default async function RootLayout({
         />
         <link
           rel="preload"
+          href="/fonts/Switzer-Bold.woff"
+          as="font"
+          type="font/woff"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
           href="/fonts/Switzer-Italic.woff"
           as="font"
           type="font/woff"
