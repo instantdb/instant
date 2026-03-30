@@ -176,7 +176,7 @@ export default function AboutPage() {
           {/* Left: narrative */}
           <div className="text-center lg:text-left">
             <Subheading>Our story</Subheading>
-            <div className="mt-8 space-y-6 text-left text-[17px] leading-relaxed text-gray-600">
+            <div className="mt-8 space-y-6 text-left text-lg leading-relaxed text-gray-600">
               <p>
                 In 2021, we wrote{' '}
                 <a
@@ -244,13 +244,13 @@ export default function AboutPage() {
               {timelineEvents.map((event) => (
                 <div key={event.date} className="relative pl-12">
                   <div className="absolute top-1.5 left-2.5 h-3 w-3 rounded-full bg-orange-600 ring-4 ring-white" />
-                  <div className="text-sm font-medium text-orange-600">
+                  <div className="text-base font-medium text-orange-600">
                     {event.date}
                   </div>
-                  <h3 className="mt-1 text-base font-semibold">
+                  <h3 className="mt-1 text-lg font-semibold">
                     {event.title}
                   </h3>
-                  <p className="mt-1 text-sm">{event.description}</p>
+                  <p className="mt-1 text-lg">{event.description}</p>
                 </div>
               ))}
             </div>
@@ -259,18 +259,16 @@ export default function AboutPage() {
       </Section>
 
       {/* Values */}
-      <div className="relative overflow-hidden bg-[#F2F0ED]">
-        <div className="pointer-events-none absolute top-0 right-0 left-0 z-[5] h-24 bg-gradient-to-b from-white to-transparent" />
-        <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-24 bg-gradient-to-b from-transparent to-white" />
-        <Section className="relative z-10 !pt-6 sm:!pt-10">
+      <div>
+        <Section className="!pt-6 sm:!pt-10">
           <div className="text-center">
             <SectionTitle>What we believe</SectionTitle>
           </div>
           <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 md:px-12">
             {values.map((v) => (
               <div key={v.title}>
-                <h3 className="text-xl font-normal sm:text-2xl">{v.title}</h3>
-                <p className="mt-2 text-lg text-gray-600">{v.description}</p>
+                <Subheading>{v.title}</Subheading>
+                <p className="mt-4 text-lg text-gray-600">{v.description}</p>
               </div>
             ))}
           </div>
@@ -293,7 +291,7 @@ export default function AboutPage() {
           <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-center">
             <div className="space-y-4 md:max-w-[400px]">
               <Subheading>Triples: the foundation</Subheading>
-              <p className="mt-2 text-base">
+              <p className="mt-2 text-lg">
                 All data in Instant is stored as triples:{' '}
                 <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm">
                   [entity, attribute, value]
@@ -301,7 +299,7 @@ export default function AboutPage() {
                 . A user&apos;s name, a goal&apos;s title, a relation between
                 them. They&apos;re all expressed the same way.
               </p>
-              <p className="mt-2 text-base">
+              <p className="mt-2 text-lg">
                 This simple, uniform structure can model any entity and any
                 relationship. Because triples work the same on both the frontend
                 and backend, we can use the same data model everywhere.
@@ -327,12 +325,12 @@ export default function AboutPage() {
               </div>
               <div className="space-y-4 md:max-w-[440px]">
                 <Subheading>InstaQL: reading data</Subheading>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   Developers write InstaQL, a declarative syntax using plain
                   JavaScript objects. You describe the shape of the data you
                   want, and that&apos;s the shape you get back.
                 </p>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   No joins, no SQL, no GraphQL resolvers. The query language was
                   designed so that the shape of the query mirrors the shape of
                   the result.
@@ -346,12 +344,12 @@ export default function AboutPage() {
             <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-center">
               <div className="space-y-4 md:max-w-[400px]">
                 <Subheading>Datalog on the frontend</Subheading>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   On the client, InstaQL queries compile to Datalog, a
                   logic-based query language that runs in a lightweight engine
                   right in the browser.
                 </p>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   This local datalog engine is what makes optimistic updates
                   possible. When you mutate data, the change applies to the
                   local triple store instantly. The engine re-evaluates affected
@@ -378,12 +376,12 @@ export default function AboutPage() {
               </div>
               <div className="space-y-4 md:max-w-[440px]">
                 <Subheading>SQL on the server</Subheading>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   On the server, the same InstaQL queries take a different path.
                   They&apos;re translated into SQL and executed against
                   Postgres.
                 </p>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   You get the performance and reliability of a battle-tested
                   database. One query language, two execution paths: datalog
                   locally for speed, SQL on the server for truth.
@@ -397,11 +395,11 @@ export default function AboutPage() {
             <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-center">
               <div className="space-y-4 md:max-w-[400px]">
                 <Subheading>InstaML: writing data</Subheading>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   For writes, developers use InstaML, a simple API for creating,
                   updating, deleting, and linking data.
                 </p>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   Write operations optimistically modify the client-side triple
                   store for instant feedback, then send transactions to the
                   server as the source of truth. If the server rejects a write,
@@ -435,11 +433,11 @@ export default function AboutPage() {
               </div>
               <div className="space-y-4 text-center md:max-w-[440px] md:text-left">
                 <Subheading>Permissions: access control</Subheading>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   Every read and every write passes through a permission layer
                   based on Google&apos;s Common Expression Language (CEL).
                 </p>
-                <p className="mt-2 text-base">
+                <p className="mt-2 text-lg">
                   Permissions are expressive enough to handle complex rules like
                   role-based access, row-level filtering, and field-level
                   visibility, but readable enough that you can reason about them
