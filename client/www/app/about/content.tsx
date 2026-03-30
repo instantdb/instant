@@ -38,6 +38,44 @@ const T_BOX_LEFT = T_BOX_BOTTOM + T_BOX_DUR;
 // The "wave" offset — how far behind the settle layer trails the bright layer
 const T_WAVE = 0.4;
 
+// Animated line segment with wave effect: muted base → bright front → settled color
+function ThreadLine({
+  className,
+  delay,
+  duration,
+  direction,
+  origin,
+  style,
+}: {
+  className: string;
+  delay: number;
+  duration: number;
+  direction: 'horizontal' | 'vertical';
+  origin: string;
+  style?: React.CSSProperties;
+}) {
+  const scale = direction === 'horizontal' ? 'scaleX' : 'scaleY';
+  return (
+    <>
+      <div className={`${className} bg-gray-100`} style={style} />
+      <motion.div
+        className={`${className} bg-gray-300`}
+        initial={{ [scale]: 0 }}
+        animate={{ [scale]: 1 }}
+        transition={{ duration, delay, ease: 'easeInOut' }}
+        style={{ ...style, transformOrigin: origin }}
+      />
+      <motion.div
+        className={`${className} bg-gray-200`}
+        initial={{ [scale]: 0 }}
+        animate={{ [scale]: 1 }}
+        transition={{ duration, delay: delay + T_WAVE, ease: 'easeInOut' }}
+        style={{ ...style, transformOrigin: origin }}
+      />
+    </>
+  );
+}
+
 function HeroHeader() {
   return (
     <div className="flex flex-col items-center gap-10 text-center lg:flex-row lg:items-center lg:gap-16 lg:text-left">
@@ -131,46 +169,28 @@ export default function AboutPage() {
       </div>
 
       {/* ── Thread container: h-line → timeline → values box ── */}
-      <div className="landing-width mx-auto relative">
+      <div className="landing-width relative mx-auto">
         {/* Horizontal line */}
         <div className="relative h-px">
-          <div className="absolute inset-0 bg-gray-100" />
-          <motion.div
-            className="absolute inset-0 bg-gray-300"
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ duration: T_HLINE_DUR, delay: T_HLINE_START, ease: 'easeInOut' }}
-            style={{ transformOrigin: 'left' }}
-          />
-          <motion.div
-            className="absolute inset-0 bg-gray-200"
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ duration: T_HLINE_DUR, delay: T_HLINE_START + T_WAVE, ease: 'easeInOut' }}
-            style={{ transformOrigin: 'left' }}
+          <ThreadLine
+            className="absolute inset-0"
+            delay={T_HLINE_START}
+            duration={T_HLINE_DUR}
+            direction="horizontal"
+            origin="left"
           />
         </div>
 
         {/* Our Story + Timeline */}
         <div className="relative py-12 sm:py-16">
           {/* Vertical thread line (lg only) — at the timeline dots' x position */}
-          <div
-            className="absolute hidden lg:block w-px bg-gray-100"
+          <ThreadLine
+            className="absolute hidden w-px lg:block"
+            delay={T_VLINE_START}
+            duration={T_VLINE_DUR}
+            direction="vertical"
+            origin="top"
             style={{ left: 'calc(50% + 3rem)', top: 0, bottom: 0 }}
-          />
-          <motion.div
-            className="absolute hidden lg:block w-px bg-gray-300"
-            style={{ left: 'calc(50% + 3rem)', top: 0, bottom: 0, transformOrigin: 'top' }}
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{ duration: T_VLINE_DUR, delay: T_VLINE_START, ease: 'easeInOut' }}
-          />
-          <motion.div
-            className="absolute hidden lg:block w-px bg-gray-200"
-            style={{ left: 'calc(50% + 3rem)', top: 0, bottom: 0, transformOrigin: 'top' }}
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{ duration: T_VLINE_DUR, delay: T_VLINE_START + T_WAVE, ease: 'easeInOut' }}
           />
           <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
             {/* Left: narrative */}
@@ -203,15 +223,15 @@ export default function AboutPage() {
                     &ldquo;A Graph-Based Firebase&rdquo;
                   </a>
                   , which laid out how a triple store and a new query language
-                  could give developers the relational power of Supabase with the
-                  real-time magic of Firebase. The essay went viral and the team
-                  raised a seed round to build Instant.
+                  could give developers the relational power of Supabase with
+                  the real-time magic of Firebase. The essay went viral and the
+                  team raised a seed round to build Instant.
                 </p>
                 <p>
                   Two years of heads-down development later, Instant was
                   open-sourced. It hit the front page of Hacker News with 1,000+
-                  upvotes. The demo of spinning up a database instantly resonated
-                  with the community.
+                  upvotes. The demo of spinning up a database instantly
+                  resonated with the community.
                 </p>
                 <p>
                   In 2025 Instant became a full backend solution with database,
@@ -229,10 +249,10 @@ export default function AboutPage() {
                   apps like Counter-Strike and Instagram in a few prompts.
                 </p>
                 <p>
-                  With the rise of agents, we believe more software will be built
-                  than ever. Infrastructure needs to scale to millions of apps,
-                  not just millions of users. Instant is the database for that
-                  future.
+                  With the rise of agents, we believe more software will be
+                  built than ever. Infrastructure needs to scale to millions of
+                  apps, not just millions of users. Instant is the database for
+                  that future.
                 </p>
               </div>
             </div>
@@ -273,21 +293,44 @@ export default function AboutPage() {
 
         {/* What we believe — muted box + animated bright overlay */}
         <div className="relative border border-gray-100">
-          {/* Animated borders — bright wave then settle */}
-          {/* Top */}
-          <motion.div className="absolute top-0 left-0 right-0 h-px bg-gray-300" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_TOP, ease: 'easeInOut' }} style={{ transformOrigin: 'left' }} />
-          <motion.div className="absolute top-0 left-0 right-0 h-px bg-gray-200" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_TOP + T_WAVE, ease: 'easeInOut' }} style={{ transformOrigin: 'left' }} />
-          {/* Right */}
-          <motion.div className="absolute top-0 right-0 bottom-0 w-px bg-gray-300" initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_RIGHT, ease: 'easeInOut' }} style={{ transformOrigin: 'top' }} />
-          <motion.div className="absolute top-0 right-0 bottom-0 w-px bg-gray-200" initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_RIGHT + T_WAVE, ease: 'easeInOut' }} style={{ transformOrigin: 'top' }} />
-          {/* Bottom */}
-          <motion.div className="absolute bottom-0 left-0 right-0 h-px bg-gray-300" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_BOTTOM, ease: 'easeInOut' }} style={{ transformOrigin: 'right' }} />
-          <motion.div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_BOTTOM + T_WAVE, ease: 'easeInOut' }} style={{ transformOrigin: 'right' }} />
-          {/* Left */}
-          <motion.div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300" initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_LEFT, ease: 'easeInOut' }} style={{ transformOrigin: 'bottom' }} />
-          <motion.div className="absolute left-0 top-0 bottom-0 w-px bg-gray-200" initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: T_BOX_DUR, delay: T_BOX_LEFT + T_WAVE, ease: 'easeInOut' }} style={{ transformOrigin: 'bottom' }} />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(ellipse at 50% 40%, #F5F3F0 0%, #FAFAF9 50%, white 100%)',
+            }}
+          />
+          {/* Animated box borders */}
+          <ThreadLine
+            className="absolute top-0 right-0 left-0 h-px"
+            delay={T_BOX_TOP}
+            duration={T_BOX_DUR}
+            direction="horizontal"
+            origin="left"
+          />
+          <ThreadLine
+            className="absolute top-0 right-0 bottom-0 w-px"
+            delay={T_BOX_RIGHT}
+            duration={T_BOX_DUR}
+            direction="vertical"
+            origin="top"
+          />
+          <ThreadLine
+            className="absolute right-0 bottom-0 left-0 h-px"
+            delay={T_BOX_BOTTOM}
+            duration={T_BOX_DUR}
+            direction="horizontal"
+            origin="right"
+          />
+          <ThreadLine
+            className="absolute top-0 bottom-0 left-0 w-px"
+            delay={T_BOX_LEFT}
+            duration={T_BOX_DUR}
+            direction="vertical"
+            origin="bottom"
+          />
 
-          <div className="py-12 sm:py-16 px-8 sm:px-12">
+          <div className="relative px-8 py-12 sm:px-12 sm:py-16">
             <div className="text-center">
               <SectionTitle>What we believe</SectionTitle>
             </div>
@@ -295,34 +338,23 @@ export default function AboutPage() {
               {values.map((v) => (
                 <div key={v.title}>
                   <Subheading>{v.title}</Subheading>
-                  <p className="mt-4 text-lg text-gray-600">
-                    {v.description}
-                  </p>
+                  <p className="mt-4 text-lg text-gray-600">{v.description}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
-
       </div>
 
       {/* Vertical connector — fills the gap between the values box and architecture */}
       <div className="relative flex justify-center">
         <div className="relative w-px py-12 sm:py-16">
-          <div className="absolute inset-0 bg-gray-100" />
-          <motion.div
-            className="absolute inset-0 bg-gray-300"
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{ duration: 0.4, delay: T_BOX_LEFT + T_BOX_DUR, ease: 'easeInOut' }}
-            style={{ transformOrigin: 'top' }}
-          />
-          <motion.div
-            className="absolute inset-0 bg-gray-200"
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{ duration: 0.4, delay: T_BOX_LEFT + T_BOX_DUR + T_WAVE, ease: 'easeInOut' }}
-            style={{ transformOrigin: 'top' }}
+          <ThreadLine
+            className="absolute inset-0"
+            delay={T_BOX_LEFT + T_BOX_DUR}
+            duration={0.4}
+            direction="vertical"
+            origin="top"
           />
         </div>
       </div>
@@ -332,21 +364,15 @@ export default function AboutPage() {
         <div className="flex flex-col items-center text-center">
           {/* Hood line + title share a w-fit wrapper so they're the same width */}
           <div className="relative w-fit">
-            <div className="h-px bg-gray-100" />
-            <motion.div
-              className="absolute top-0 left-0 right-0 h-px bg-gray-300"
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ duration: 0.5, delay: T_BOX_LEFT + T_BOX_DUR + 0.4, ease: 'easeInOut' }}
-              style={{ transformOrigin: 'center' }}
-            />
-            <motion.div
-              className="absolute top-0 left-0 right-0 h-px bg-gray-200"
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ duration: 0.5, delay: T_BOX_LEFT + T_BOX_DUR + 0.4 + T_WAVE, ease: 'easeInOut' }}
-              style={{ transformOrigin: 'center' }}
-            />
+            <div className="relative h-px">
+              <ThreadLine
+                className="absolute inset-0"
+                delay={T_BOX_LEFT + T_BOX_DUR + 0.4}
+                duration={0.5}
+                direction="horizontal"
+                origin="center"
+              />
+            </div>
             <motion.div
               className="h-3"
               style={{
