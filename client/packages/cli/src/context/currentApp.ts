@@ -147,7 +147,9 @@ export const CurrentAppLive = (args: {
         Effect.gen(function* () {
           if (
             args.applyEnv &&
-            (app.source === 'import' || app.source === 'create')
+            (app.source === 'import' ||
+              app.source === 'create' ||
+              app.source == 'ephemeral')
           ) {
             yield* handleEnv(app);
           }

@@ -121,9 +121,23 @@ export const pushSchema = (
     });
     const renames = rename && Array.isArray(rename) ? rename : [];
     const globalOpts = yield* GlobalOpts;
+    const autoRenameSelector = buildAutoRenameSelector(renames as any);
     const renameSelector = globalOpts.yes
-      ? buildAutoRenameSelector(renames as any)
-      : resolveRenames;
+      ? autoRenameSelector
+      : async (created: any, promptData: any, extraInfo: any) => {
+          const autoResolved = await autoRenameSelector(
+            created,
+            promptData,
+            extraInfo,
+          );
+
+          // If the user provided an explicit --rename match, skip the prompt.
+          if (autoResolved !== created) {
+            return autoResolved;
+          }
+
+          return resolveRenames(created, promptData, extraInfo);
+        };
 
     const diffResult = yield* Effect.tryPromise(() =>
       diffSchemas(
