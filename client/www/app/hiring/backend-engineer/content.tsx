@@ -44,7 +44,7 @@ export default function Content() {
               <li>Has experience working in Clojure or JVM-based languages</li>
             </ol>
 
-            <h2>About us</h2>
+            <h2 id="about-us">About us</h2>
             <p>
               We're looking to build the next Firebase. We want to make it
               easier for developers to build delightful applications.
@@ -73,7 +73,7 @@ export default function Content() {
               </a>
             </p>
 
-            <h2>About the role</h2>
+            <h2 id="about-the-role">About the role</h2>
             <p>Our current stack looks like so:</p>
             <ul>
               <li>
@@ -131,7 +131,7 @@ export default function Content() {
               </li>
             </ul>
 
-            <h2>Apply</h2>
+            <h2 id="apply">Apply</h2>
             <p>
               Our vision is to be the infrastructure for all apps of the future.
               If this jives with you we should really talk {'\u{1F642}'}. Send
