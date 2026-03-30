@@ -61,7 +61,7 @@ function RightColumn({ app }: { app: AppMetadata }) {
       <img
         src={app.screenshot}
         alt={app.title}
-        className="max-h-[340px] w-full object-cover object-top"
+        className="w-full"
       />
       {/* Buttons */}
       <div
