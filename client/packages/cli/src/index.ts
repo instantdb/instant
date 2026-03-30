@@ -268,13 +268,18 @@ Environment Variables:
 export const claimDef = program
   .command('claim')
   .description('Transfer a temporary app into your Instant account')
-  .action(async function () {
+  .option(
+    '-a --app <app-id>',
+    'App to claim. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action(async function (opts) {
     return runCommandEffect(
       claimCommand.pipe(
         Effect.provide(
           WithAppLayer({
             coerce: false,
             allowAdminToken: false,
+            appId: opts.app,
             applyEnv: false,
           }),
         ),

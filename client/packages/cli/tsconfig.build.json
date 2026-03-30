@@ -6,7 +6,6 @@
     "rewriteRelativeImportExtensions": true,
     "sourceMap": true,
     "verbatimModuleSyntax": true,
-    "noUnusedLocals": true,
     "strict": true,
     "skipLibCheck": true, // `unconfig` currently imports a broken type from `@antfu/utils`,
     "plugins": [

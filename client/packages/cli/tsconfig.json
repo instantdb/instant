@@ -12,7 +12,6 @@
     "verbatimModuleSyntax": true,
     "strictNullChecks": true,
     "strict": true,
-    "noUnusedLocals": true,
     "plugins": [
       {
         "name": "@effect/language-service"
