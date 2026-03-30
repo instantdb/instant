@@ -448,5 +448,37 @@
                                                   :associated-data (uuid-util/->bytes app-id)})
                         app-id]))))
 
+(defn get-test-users
+  ([params] (get-test-users (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id]}]
+   (sql/select ::get-test-users
+               conn
+               ["select id, app_id, email, code, created_at from app_test_users where app_id = ?::uuid"
+                app-id])))
+
+(defn get-test-user
+  ([params] (get-test-user (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id email]}]
+   (sql/select-one ::get-test-user
+                   conn
+                   ["select id, app_id, email, code, created_at from app_test_users where app_id = ?::uuid and email = ?"
+                    app-id email])))
+
+(defn create-test-user!
+  ([params] (create-test-user! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id email code]}]
+   (sql/execute-one! ::create-test-user!
+                     conn
+                     ["insert into app_test_users (id, app_id, email, code) values (?::uuid, ?::uuid, ?, ?) returning *"
+                      (random-uuid) app-id email code])))
+
+(defn delete-test-user!
+  ([params] (delete-test-user! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id id]}]
+   (sql/execute-one! ::delete-test-user!
+                     conn
+                     ["delete from app_test_users where app_id = ?::uuid and id = ?::uuid returning *"
+                      app-id id])))
+
 (comment
   (app-usage (aurora/conn-pool :read) {:app-id "5cb86bd5-5dfb-4489-a455-78bb86cd3da3"}))
