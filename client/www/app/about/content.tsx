@@ -21,9 +21,6 @@ import {
   transactionExamples,
 } from '@/lib/product/database/examples';
 import { permissionExamples } from '@/lib/product/auth/examples';
-import { motion, useReducedMotion } from 'motion/react';
-
-const heroWords = 'Building the database for the AI era'.split(' ');
 
 function DownArrow() {
   return (
@@ -46,49 +43,16 @@ function DownArrow() {
 }
 
 function HeroHeader() {
-  const shouldReduceMotion = useReducedMotion();
-
   return (
     <div className="flex flex-col items-center gap-10 text-center lg:flex-row lg:items-center lg:gap-16 lg:text-left">
       <h1 className="text-4xl leading-[1.1] font-normal sm:text-5xl lg:max-w-[60%] lg:text-6xl">
-        {heroWords.map((word, i) => (
-          <motion.span
-            key={i}
-            className="mr-[0.28em] inline-block"
-            initial={{
-              opacity: 0,
-              y: shouldReduceMotion ? 0 : 20,
-              filter: shouldReduceMotion ? 'none' : 'blur(4px)',
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              filter: 'blur(0px)',
-            }}
-            transition={{
-              duration: 0.5,
-              ease: [0.25, 0.1, 0.25, 1],
-              delay: 0.1 + i * 0.08,
-            }}
-          >
-            {word}
-          </motion.span>
-        ))}
+        Building the database for the AI era
       </h1>
-      <motion.p
-        className="max-w-xl text-lg text-balance sm:text-xl lg:max-w-lg"
-        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{
-          duration: 0.6,
-          ease: 'easeOut',
-          delay: 0.1 + heroWords.length * 0.08 + 0.15,
-        }}
-      >
+      <p className="max-w-xl text-lg text-balance sm:text-xl lg:max-w-lg">
         We started Instant because we believed we needed a new kind of database
         for the future of app development. Now, with agents building more
         software than ever, that need is bigger than ever.
-      </motion.p>
+      </p>
     </div>
   );
 }
