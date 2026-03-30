@@ -1,6 +1,3 @@
-'use client';
-
-import { useRouter, useSearchParams } from 'next/navigation';
 import { AppMetadata } from '@/lib/examples/data';
 import { MainNav } from '@/components/marketingUi';
 import { Footer } from '@/components/new-landing/Footer';
@@ -13,7 +10,6 @@ import {
   SmallButton,
 } from '@/components/new-landing/typography';
 import Link from 'next/link';
-import clsx from 'clsx';
 import { BrowserChrome } from '@/components/BrowserChrome';
 
 function LeftColumn({ app }: { app: AppMetadata }) {
@@ -84,19 +80,13 @@ const tabs = [
   { id: 'mobile', label: 'Mobile' },
 ] as const;
 
-function TabToggle({
-  activeTab,
-  onTabChange,
-}: {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
-}) {
+function TabToggle({ activeTab }: { activeTab: string }) {
   return (
     <div className="flex justify-center gap-2">
       {tabs.map((tab) => (
-        <button
+        <Link
           key={tab.id}
-          onClick={() => onTabChange(tab.id)}
+          href={tab.id === 'web' ? '/examples' : `/examples?tab=${tab.id}`}
           className={`rounded-lg border px-4 py-1.5 text-sm font-medium transition-colors ${
             activeTab === tab.id
               ? 'border-orange-600 bg-orange-600 text-white'
@@ -104,7 +94,7 @@ function TabToggle({
           }`}
         >
           {tab.label}
-        </button>
+        </Link>
       ))}
     </div>
   );
@@ -113,11 +103,9 @@ function TabToggle({
 function Showcase({
   apps,
   activeTab,
-  onTabChange,
 }: {
   apps: AppMetadata[];
   activeTab: string;
-  onTabChange: (tab: string) => void;
 }) {
   return (
     <div className="space-y-12">
@@ -129,7 +117,7 @@ function Showcase({
             you a sense on how to build with Instant.
           </SectionSubtitle>
         </div>
-        <TabToggle activeTab={activeTab} onTabChange={onTabChange} />
+        <TabToggle activeTab={activeTab} />
       </div>
       <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2">
         {apps.map((app, i) => (
@@ -157,23 +145,12 @@ function Showcase({
 export default function ExamplesContent({
   webApps,
   mobileApps,
+  activeTab,
 }: {
   webApps: AppMetadata[];
   mobileApps: AppMetadata[];
+  activeTab: string;
 }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const activeTab = searchParams?.get('tab') === 'mobile' ? 'mobile' : 'web';
-
-  const setTab = (tab: string) => {
-    const params = new URLSearchParams();
-    if (tab !== 'web') {
-      params.set('tab', tab);
-    }
-    const query = params.toString();
-    router.push(`/examples${query ? `?${query}` : ''}`);
-  };
-
   const apps = activeTab === 'mobile' ? mobileApps : webApps;
 
   return (
@@ -183,7 +160,7 @@ export default function ExamplesContent({
       <div className="relative overflow-hidden pt-16">
         <TopWash />
         <Section className="relative">
-          <Showcase apps={apps} activeTab={activeTab} onTabChange={setTab} />
+          <Showcase apps={apps} activeTab={activeTab} />
         </Section>
       </div>
 
