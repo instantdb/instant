@@ -12,7 +12,7 @@ import { ProjectInfo } from '../context/projectInfo.ts';
 import { Path } from '@effect/platform';
 
 export const pullPerms = Effect.gen(function* () {
-  yield* Effect.log('Pulling perms...');
+  yield* Effect.log('\nPulling perms...');
   const { appId } = yield* CurrentApp;
   const http = yield* InstantHttpAuthed;
   const permsResponse = yield* http
