@@ -55,11 +55,7 @@ function RightColumn({ app }: { app: AppMetadata }) {
       <BrowserChrome />
       {/* Screenshot */}
       <div className="max-h-[340px] overflow-hidden">
-        <img
-          src={app.screenshot}
-          alt={app.title}
-          className="w-full"
-        />
+        <img src={app.screenshot} alt={app.title} className="w-full" />
       </div>
       {/* Buttons */}
       <div

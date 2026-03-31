@@ -180,7 +180,7 @@ function Main({ files }: { files: File[] }) {
         </div>
       </div>
 
-      <div className="landing-width mx-auto pb-16 pt-8">
+      <div className="landing-width mx-auto pt-8 pb-16">
         <div className="flex flex-col gap-12" ref={recipesContainerElRef}>
           {files.map((file, i) => {
             return (
