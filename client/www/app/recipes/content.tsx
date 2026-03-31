@@ -7,7 +7,7 @@ import config from '@/lib/config';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useInView } from 'react-intersection-observer';
 import { ComponentType, useEffect, useRef, useState } from 'react';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import {
   InstantReactWebDatabase,
@@ -52,8 +52,6 @@ export default function RecipesContent({ files }: { files: File[] }) {
 
 function Main({ files }: { files: File[] }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
   const isHydrated = useIsHydrated();
   const recipesContainerElRef = useRef<HTMLDivElement>(null);
   const { ref: topInViewRef } = useInView({
@@ -112,23 +110,22 @@ function Main({ files }: { files: File[] }) {
     });
   }
 
-  function getUrlAppId() {
-    return searchParams?.get('app') || undefined;
-  }
-
   function saveAppId(newAppId: string) {
     setAppId(newAppId);
     localStorage.setItem(storageKey, newAppId);
-    if (getUrlAppId() !== newAppId) {
-      const params = new URLSearchParams(searchParams?.toString());
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('app') !== newAppId) {
       params.set('app', newAppId);
-      router.replace(`${pathname}?${params.toString()}${window.location.hash}`);
+      router.replace(
+        `${window.location.pathname}?${params.toString()}${window.location.hash}`,
+      );
     }
   }
 
   async function onInit() {
     // 1. check for an app ID in the URL or local storage - URL takes precedence over local storage
-    const incomingAppId = getUrlAppId() || localStorage.getItem(storageKey);
+    const params = new URLSearchParams(window.location.search);
+    const incomingAppId = params.get('app') || localStorage.getItem(storageKey);
 
     // 2a. if we have an app ID, verify it
     if (incomingAppId) {
