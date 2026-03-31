@@ -7,7 +7,7 @@ import config from '@/lib/config';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useInView } from 'react-intersection-observer';
 import { ComponentType, useEffect, useRef, useState } from 'react';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import {
   InstantReactWebDatabase,
@@ -15,12 +15,7 @@ import {
   init,
 } from '@instantdb/react';
 import { errorToast } from '@/lib/toast';
-import { MainNav } from '@/components/marketingUi';
 import { Toaster } from '@instantdb/components';
-import { Footer } from '@/components/new-landing/Footer';
-import { TopWash } from '@/components/new-landing/TopWash';
-import { Section } from '@/components/new-landing/Section';
-import { SectionTitle } from '@/components/new-landing/typography';
 import { CopyToClipboardButton } from '@/components/new-landing/CopyToClipboardButton';
 import { BrowserChrome } from '@/components/BrowserChrome';
 
@@ -57,8 +52,6 @@ export default function RecipesContent({ files }: { files: File[] }) {
 
 function Main({ files }: { files: File[] }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
   const isHydrated = useIsHydrated();
   const recipesContainerElRef = useRef<HTMLDivElement>(null);
   const { ref: topInViewRef } = useInView({
@@ -117,23 +110,22 @@ function Main({ files }: { files: File[] }) {
     });
   }
 
-  function getUrlAppId() {
-    return searchParams?.get('app') || undefined;
-  }
-
   function saveAppId(newAppId: string) {
     setAppId(newAppId);
     localStorage.setItem(storageKey, newAppId);
-    if (getUrlAppId() !== newAppId) {
-      const params = new URLSearchParams(searchParams?.toString());
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('app') !== newAppId) {
       params.set('app', newAppId);
-      router.replace(`${pathname}?${params.toString()}${window.location.hash}`);
+      router.replace(
+        `${window.location.pathname}?${params.toString()}${window.location.hash}`,
+      );
     }
   }
 
   async function onInit() {
     // 1. check for an app ID in the URL or local storage - URL takes precedence over local storage
-    const incomingAppId = getUrlAppId() || localStorage.getItem(storageKey);
+    const params = new URLSearchParams(window.location.search);
+    const incomingAppId = params.get('app') || localStorage.getItem(storageKey);
 
     // 2a. if we have an app ID, verify it
     if (incomingAppId) {
@@ -160,45 +152,32 @@ function Main({ files }: { files: File[] }) {
   }
 
   return (
-    <div className="text-off-black w-full overflow-x-auto">
+    <>
       <Toaster />
 
       {appId ? <RoomStatus db={getColumnDb(appId, 0)} appId={appId} /> : null}
-      <MainNav />
 
-      {/* Hero */}
-      <div className="relative overflow-hidden pt-16">
-        <TopWash />
-        <Section className="relative pt-12 pb-6 sm:pt-16 sm:pb-10">
-          <div className="flex flex-col items-center text-center">
-            <SectionTitle>Recipes</SectionTitle>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-balance sm:text-xl">
-              With the right abstractions, you and your agents can make a lot of
-              progress with a lot less code. Take a look at some of what's
-              possible below.
-            </p>
-            <div
-              ref={topInViewRef}
-              className="mt-8 flex w-full max-w-md flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3"
-            >
-              <p className="text-left text-sm text-gray-500">
-                P.S we made an Instant app just for you! Share this with your
-                friends and you can play with every example together.
-              </p>
-              <div className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5">
-                <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
-                  {isHydrated && appId ? recipesUrl(appId) : 'Loading...'}
-                </span>
-                <CopyToClipboardButton
-                  text={isHydrated && appId ? recipesUrl(appId) : ''}
-                />
-              </div>
-            </div>
+      <div className="flex justify-center px-4">
+        <div
+          ref={topInViewRef}
+          className="flex w-full max-w-md flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3"
+        >
+          <p className="text-left text-sm text-gray-500">
+            P.S we made an Instant app just for you! Share this with your
+            friends and you can play with every example together.
+          </p>
+          <div className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5">
+            <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
+              {isHydrated && appId ? recipesUrl(appId) : 'Loading...'}
+            </span>
+            <CopyToClipboardButton
+              text={isHydrated && appId ? recipesUrl(appId) : ''}
+            />
           </div>
-        </Section>
+        </div>
       </div>
 
-      <div className="landing-width mx-auto pb-16">
+      <div className="landing-width mx-auto pt-8 pb-16">
         <div className="flex flex-col gap-12" ref={recipesContainerElRef}>
           {files.map((file, i) => {
             return (
@@ -220,8 +199,7 @@ function Main({ files }: { files: File[] }) {
           })}
         </div>
       </div>
-      <Footer />
-    </div>
+    </>
   );
 }
 

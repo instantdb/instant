@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
 import { webMetas, mobileMetas } from '@/lib/examples/data';
 import Content from './content';
 
@@ -8,10 +7,19 @@ export const metadata: Metadata = {
   description: 'Learn Instant through example apps',
 };
 
-export default function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+  const activeTab = tab === 'mobile' ? 'mobile' : 'web';
+
   return (
-    <Suspense>
-      <Content webApps={webMetas} mobileApps={mobileMetas} />
-    </Suspense>
+    <Content
+      webApps={webMetas}
+      mobileApps={mobileMetas}
+      activeTab={activeTab}
+    />
   );
 }

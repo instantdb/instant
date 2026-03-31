@@ -1,6 +1,3 @@
-'use client';
-
-import { useRouter, useSearchParams } from 'next/navigation';
 import { AppMetadata } from '@/lib/examples/data';
 import { MainNav } from '@/components/marketingUi';
 import { Footer } from '@/components/new-landing/Footer';
@@ -13,7 +10,6 @@ import {
   SmallButton,
 } from '@/components/new-landing/typography';
 import Link from 'next/link';
-import clsx from 'clsx';
 import { BrowserChrome } from '@/components/BrowserChrome';
 
 function LeftColumn({ app }: { app: AppMetadata }) {
@@ -55,14 +51,12 @@ function LeftColumn({ app }: { app: AppMetadata }) {
 
 function RightColumn({ app }: { app: AppMetadata }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="self-start overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <BrowserChrome />
       {/* Screenshot */}
-      <img
-        src={app.screenshot}
-        alt={app.title}
-        className="max-h-[340px] w-full object-cover object-top"
-      />
+      <div className="max-h-[340px] overflow-hidden">
+        <img src={app.screenshot} alt={app.title} className="w-full" />
+      </div>
       {/* Buttons */}
       <div
         className="flex justify-end gap-3 border-t border-gray-200/60 px-3 py-2"
@@ -84,19 +78,13 @@ const tabs = [
   { id: 'mobile', label: 'Mobile' },
 ] as const;
 
-function TabToggle({
-  activeTab,
-  onTabChange,
-}: {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
-}) {
+function TabToggle({ activeTab }: { activeTab: string }) {
   return (
     <div className="flex justify-center gap-2">
       {tabs.map((tab) => (
-        <button
+        <Link
           key={tab.id}
-          onClick={() => onTabChange(tab.id)}
+          href={tab.id === 'web' ? '/examples' : `/examples?tab=${tab.id}`}
           className={`rounded-lg border px-4 py-1.5 text-sm font-medium transition-colors ${
             activeTab === tab.id
               ? 'border-orange-600 bg-orange-600 text-white'
@@ -104,7 +92,7 @@ function TabToggle({
           }`}
         >
           {tab.label}
-        </button>
+        </Link>
       ))}
     </div>
   );
@@ -113,11 +101,9 @@ function TabToggle({
 function Showcase({
   apps,
   activeTab,
-  onTabChange,
 }: {
   apps: AppMetadata[];
   activeTab: string;
-  onTabChange: (tab: string) => void;
 }) {
   return (
     <div className="space-y-12">
@@ -129,14 +115,14 @@ function Showcase({
             you a sense on how to build with Instant.
           </SectionSubtitle>
         </div>
-        <TabToggle activeTab={activeTab} onTabChange={onTabChange} />
+        <TabToggle activeTab={activeTab} />
       </div>
       <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2">
         {apps.map((app, i) => (
           <AnimateIn
             key={app.slug}
             delay={i * 100}
-            className="col-span-1 grid grid-cols-1 gap-8 md:col-span-2 md:grid-cols-2"
+            className="col-span-1 grid grid-cols-1 gap-8 md:col-span-2 md:grid-cols-[1fr_minmax(400px,1fr)]"
           >
             <LeftColumn app={app} />
             <RightColumn app={app} />
@@ -157,23 +143,12 @@ function Showcase({
 export default function ExamplesContent({
   webApps,
   mobileApps,
+  activeTab,
 }: {
   webApps: AppMetadata[];
   mobileApps: AppMetadata[];
+  activeTab: string;
 }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const activeTab = searchParams?.get('tab') === 'mobile' ? 'mobile' : 'web';
-
-  const setTab = (tab: string) => {
-    const params = new URLSearchParams();
-    if (tab !== 'web') {
-      params.set('tab', tab);
-    }
-    const query = params.toString();
-    router.push(`/examples${query ? `?${query}` : ''}`);
-  };
-
   const apps = activeTab === 'mobile' ? mobileApps : webApps;
 
   return (
@@ -183,7 +158,7 @@ export default function ExamplesContent({
       <div className="relative overflow-hidden pt-16">
         <TopWash />
         <Section className="relative">
-          <Showcase apps={apps} activeTab={activeTab} onTabChange={setTab} />
+          <Showcase apps={apps} activeTab={activeTab} />
         </Section>
       </div>
 

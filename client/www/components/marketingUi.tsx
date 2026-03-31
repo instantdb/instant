@@ -476,9 +476,7 @@ export function MainNav() {
       <div
         className={cn(
           'absolute inset-0 -z-10 transition-[background-color,backdrop-filter] duration-300',
-          isScrolled
-            ? 'bg-white/80 backdrop-blur-md'
-            : 'bg-transparent backdrop-blur-none',
+          isScrolled ? 'bg-white/80 backdrop-blur-md' : 'bg-[#FBF9F6]',
         )}
       />
       <div className="landing-width mx-auto">
