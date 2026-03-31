@@ -1,6 +1,7 @@
 'use client';
 
 import { Layout } from '@/components/docs/Layout';
+import { Suspense } from 'react';
 
 export function DocsWrapper({
   frontmatter,
@@ -14,8 +15,10 @@ export function DocsWrapper({
   const title = frontmatter?.title ?? frontmatter?.nextjs?.metadata?.title;
 
   return (
-    <Layout title={title} tableOfContents={tableOfContents}>
-      {children}
-    </Layout>
+    <Suspense>
+      <Layout title={title} tableOfContents={tableOfContents}>
+        {children}
+      </Layout>
+    </Suspense>
   );
 }
