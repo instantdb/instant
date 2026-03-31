@@ -51,14 +51,16 @@ function LeftColumn({ app }: { app: AppMetadata }) {
 
 function RightColumn({ app }: { app: AppMetadata }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="self-start overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <BrowserChrome />
       {/* Screenshot */}
-      <img
-        src={app.screenshot}
-        alt={app.title}
-        className="max-h-[340px] w-full object-cover object-top"
-      />
+      <div className="max-h-[340px] overflow-hidden">
+        <img
+          src={app.screenshot}
+          alt={app.title}
+          className="w-full"
+        />
+      </div>
       {/* Buttons */}
       <div
         className="flex justify-end gap-3 border-t border-gray-200/60 px-3 py-2"
@@ -124,7 +126,7 @@ function Showcase({
           <AnimateIn
             key={app.slug}
             delay={i * 100}
-            className="col-span-1 grid grid-cols-1 gap-8 md:col-span-2 md:grid-cols-2"
+            className="col-span-1 grid grid-cols-1 gap-8 md:col-span-2 md:grid-cols-[1fr_minmax(400px,1fr)]"
           >
             <LeftColumn app={app} />
             <RightColumn app={app} />
