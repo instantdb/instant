@@ -15,7 +15,7 @@ import type { ReactNode } from 'react';
 export const metadata: Metadata = {
   title: 'Instant',
   openGraph: {
-    title: 'InstantDB: Turn your agent into a full-stack app builder',
+    title: 'InstantDB: the best backend for AI-coded apps',
     description:
       'We make you and your agent more productive by giving your frontend a real-time database.',
   },
