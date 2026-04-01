@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Google OAuth'
-    description: 'How to add Google OAuth to your Instant app.'
+    title: Google OAuth
+    description: How to add Google OAuth to your Instant app.
+    openGraph:
+      images:
+        - /api/og?title=Google%20OAuth&section=docs
 ---
 
 {% nav-default value="web-google-button" %}

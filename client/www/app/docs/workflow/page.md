@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Recommended Workflow'
-    description: 'How to develop with Instant'
+    title: Recommended Workflow
+    description: How to develop with Instant
+    openGraph:
+      images:
+        - /api/og?title=Recommended%20Workflow&section=docs
 ---
 
 At a high level, here is the recommended workflow for developing with Instant:

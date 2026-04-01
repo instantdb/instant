@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Getting started with SolidJS'
-    description: 'How to use Instant with SolidJS'
+    title: Getting started with SolidJS
+    description: How to use Instant with SolidJS
+    openGraph:
+      images:
+        - /api/og?title=Getting%20started%20with%20SolidJS&section=docs
 ---
 
 ## Automatic Setup With Create Instant App

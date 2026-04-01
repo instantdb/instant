@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Create Instant App'
-    description: 'Use create-instant-app to scaffold a new Instant project'
+    title: Create Instant App
+    description: Use create-instant-app to scaffold a new Instant project
+    openGraph:
+      images:
+        - /api/og?title=Create%20Instant%20App&section=docs
 ---
 
 Once you know the basics of Instant, you may find it useful to be able to

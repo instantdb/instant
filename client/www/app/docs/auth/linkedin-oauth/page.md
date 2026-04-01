@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'LinkedIn OAuth'
-    description: 'How to add LinkedIn OAuth to your Instant app.'
+    title: LinkedIn OAuth
+    description: How to add LinkedIn OAuth to your Instant app.
+    openGraph:
+      images:
+        - /api/og?title=LinkedIn%20OAuth&section=docs
 ---
 
 {% nav-default value="web-redirect" %}

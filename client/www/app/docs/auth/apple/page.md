@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Sign In with Apple'
-    description: 'How to add Sign In with Apple to your Instant app.'
+    title: Sign In with Apple
+    description: How to add Sign In with Apple to your Instant app.
+    openGraph:
+      images:
+        - /api/og?title=Sign%20In%20with%20Apple&section=docs
 ---
 
 {% nav-default value="web-popup" %}

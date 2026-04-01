@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Storage'
-    description: 'How to upload and serve files with Instant.'
+    title: Storage
+    description: How to upload and serve files with Instant.
+    openGraph:
+      images:
+        - /api/og?title=Storage&section=docs
 ---
 
 Instant Storage makes it simple to upload and serve files for your app.

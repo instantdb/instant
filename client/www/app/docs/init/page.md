@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Initializing Instant'
-    description: 'How to integrate Instant with your app.'
+    title: Initializing Instant
+    description: How to integrate Instant with your app.
+    openGraph:
+      images:
+        - /api/og?title=Initializing%20Instant&section=docs
 ---
 
 ## Basic Initialization

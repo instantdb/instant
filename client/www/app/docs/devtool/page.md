@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Devtool'
-    description: 'Use the Instant devtool to inspect your app in development.'
+    title: Devtool
+    description: Use the Instant devtool to inspect your app in development.
+    openGraph:
+      images:
+        - /api/og?title=Devtool&section=docs
 ---
 
 When you load your app in development, you'll notice a little "Instant" Icon show up:

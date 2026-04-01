@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Patterns'
-    description: 'Common patterns for working with InstantDB.'
+    title: Patterns
+    description: Common patterns for working with InstantDB.
+    openGraph:
+      images:
+        - /api/og?title=Patterns&section=docs
 ---
 
 Below are some common patterns for working with InstantDB. We'll add more

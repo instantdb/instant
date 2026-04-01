@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Firebase Auth'
-    description: "How to integrate Firebase's auth flow with Instant."
+    title: Firebase Auth
+    description: How to integrate Firebase's auth flow with Instant.
+    openGraph:
+      images:
+        - /api/og?title=Firebase%20Auth&section=docs
 ---
 
 Instant supports delegating auth to Firebase Auth.

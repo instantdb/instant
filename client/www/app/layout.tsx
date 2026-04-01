@@ -15,7 +15,6 @@ export const metadata: Metadata = {
   applicationName: 'Instant',
   openGraph: {
     type: 'website',
-    images: ['https://www.instantdb.com/img/og_preview.png'],
   },
   icons: {
     icon: [

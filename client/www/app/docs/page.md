@@ -4,6 +4,9 @@ nextjs:
   metadata:
     title: Instant - The Modern Firebase.
     description: How to use Instant with React
+    openGraph:
+      images:
+        - /api/og?title=Instant%20-%20The%20Modern%20Firebase.&section=docs
 ---
 
 Instant is the easy to use backend for your frontend. With Instant you can build delightful apps in less than 10 minutes. Follow the quick start below to **build a live app!**

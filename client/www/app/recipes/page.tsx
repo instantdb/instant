@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { getFiles } from 'recipes';
-import * as og from '@/lib/og';
 import Content from './content';
 import { MainNav } from '@/components/marketingUi';
 import { Footer } from '@/components/new-landing/Footer';
@@ -10,9 +9,6 @@ import { SectionTitle } from '@/components/new-landing/typography';
 
 export const metadata: Metadata = {
   title: 'Instant Recipes',
-  openGraph: {
-    images: [og.url({ section: 'recipes' })],
-  },
 };
 
 export default function Page() {

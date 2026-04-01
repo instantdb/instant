@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Getting started with TanStack Start'
-    description: 'How to use Instant with TanStack Start'
+    title: Getting started with TanStack Start
+    description: How to use Instant with TanStack Start
+    openGraph:
+      images:
+        - /api/og?title=Getting%20started%20with%20TanStack%20Start&section=docs
 ---
 
 ## Automatic Setup With Create Instant App

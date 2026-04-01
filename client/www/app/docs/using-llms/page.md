@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Using Instant with LLMs'
-    description: 'How to use Instant with LLMs'
+    title: Using Instant with LLMs
+    description: How to use Instant with LLMs
+    openGraph:
+      images:
+        - /api/og?title=Using%20Instant%20with%20LLMs&section=docs
 ---
 
 You can supercharge your Instant experience by using it with LLMs. Just add our Instant rules and your off to the races!

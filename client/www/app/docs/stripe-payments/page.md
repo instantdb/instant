@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Stripe Payments'
-    description: 'How to add payments to your Instant app with Stripe.'
+    title: Stripe Payments
+    description: How to add payments to your Instant app with Stripe.
+    openGraph:
+      images:
+        - /api/og?title=Stripe%20Payments&section=docs
 ---
 
 The quickest way to add Stripe to your Instant app is to tell your LLM to do it. Just say "add Stripe payments" and follow along step by step.

@@ -1,8 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: 'Writing data'
-    description: 'How to write data with Instant using InstaML.'
+    title: Writing data
+    description: How to write data with Instant using InstaML.
+    openGraph:
+      images:
+        - /api/og?title=Writing%20data&section=docs
 ---
 
 Instant uses a **Firebase-inspired** interface for mutations. We call our mutation language **InstaML**
