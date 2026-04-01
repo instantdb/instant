@@ -103,6 +103,30 @@ describe.concurrent('CLI e2e', { timeout: 30_000 }, () => {
     });
   });
 
+  describe('init --temp', () => {
+    it('creates a temp app and writes .env file', async () => {
+      // Create a temp app to get a valid auth token for the CLI
+      const { adminToken } = await createTempApp();
+      const project = await createTestProject();
+      try {
+        const result = await runCli(
+          ['init', '--temp', '--title', 'e2e-init-temp', '--yes'],
+          {
+            cwd: project.dir,
+            env: { INSTANT_CLI_AUTH_TOKEN: adminToken },
+          },
+        );
+
+        expect(result.exitCode).toBe(0);
+
+        const envContents = await readFile(join(project.dir, '.env'), 'utf-8');
+        expect(envContents).toMatch(/INSTANT_APP_ID=.+/);
+      } finally {
+        await project.cleanup();
+      }
+    });
+  });
+
   describe('push schema', () => {
     it('pushes schema to a real app', async () => {
       const { appId, adminToken } = await createTempApp();

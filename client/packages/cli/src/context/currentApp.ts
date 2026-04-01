@@ -58,6 +58,7 @@ export const CurrentAppLive = (args: {
   coerce?: boolean;
   title?: string;
   applyEnv?: boolean;
+  temp?: boolean;
 }) =>
   Layer.effect(
     CurrentApp,
@@ -125,6 +126,16 @@ export const CurrentAppLive = (args: {
           if (!args.coerce)
             return yield* new AppNotFoundError({ message: 'No app found' });
 
+          // coerce into a temporary app
+          if (args.temp) {
+            const title = args.title ?? 'temp';
+            yield* Effect.log(`Creating temporary app with title: ${title}`);
+            const app = yield* createTemporaryApp(title);
+            const authToken = yield* AuthToken;
+            yield* authToken.setAuthToken(app.adminToken!, 'admin');
+            return app;
+          }
+
           // coerce into a new app
           const globalOpts = yield* GlobalOpts;
           if (globalOpts.yes) {
@@ -157,6 +168,19 @@ export const CurrentAppLive = (args: {
       ),
     ),
   );
+
+const createTemporaryApp = Effect.fn(function* (title: string) {
+  const platform = yield* PlatformApi;
+  const response = yield* platform.use(
+    (p) => p.createTemporaryApp({ title }),
+    'Error creating temporary app',
+  );
+  return {
+    appId: response.app.id,
+    source: 'ephemeral',
+    adminToken: response.app.adminToken,
+  } satisfies CurrentAppInfo;
+});
 
 const createApp = Effect.fn(function* (title: string, orgId?: string) {
   const id = randomUUID();

@@ -129,6 +129,7 @@ export const WithAppLayer = (args: {
   packageName?: keyof typeof PACKAGE_ALIAS_AND_FULL_NAMES;
   allowAdminToken?: boolean;
   applyEnv?: boolean;
+  temp?: boolean;
 }) =>
   Layer.mergeAll(
     CurrentAppLive({
@@ -136,6 +137,7 @@ export const WithAppLayer = (args: {
       appId: args.appId,
       title: args.title,
       applyEnv: args.applyEnv,
+      temp: args.temp,
     }),
   ).pipe(
     Layer.provideMerge(

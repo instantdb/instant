@@ -55,6 +55,10 @@ export const initDef = program
     'Which package to automatically install if there is not one installed already.',
   )
   .option('--title <title>', 'Title for the created app')
+  .option(
+    '--temp',
+    'Create a temporary app which will automatically delete itself after >24 hours.',
+  )
   .action((options) => {
     return runCommandEffect(
       initCommand(options).pipe(
@@ -66,6 +70,7 @@ export const initDef = program
             appId: options.app,
             packageName: options.package as any,
             applyEnv: true,
+            temp: options.temp,
           }),
         ),
       ),
