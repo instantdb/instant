@@ -1,10 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Platform OAuth Integration
-    description: >-
-      Allow third-party applications to access Instant resources on behalf of
-      users using OAuth 2.0.
+    title: 'Platform OAuth Integration'
+    description: 'Allow third-party applications to access Instant resources on behalf of users using OAuth 2.0.'
 ---
 
 Instant supports the standard OAuth 2.0 Authorization Code grant flow, enabling users to authorize your application to access their Instant data and perform actions on their behalf, like reading app details or managing apps.

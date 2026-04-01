@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Getting started with Vanilla JS
-    description: How to use Instant with Vanilla JS
+    title: 'Getting started with Vanilla JS'
+    description: 'How to use Instant with Vanilla JS'
 ---
 
 You can use Instant with plain ol' Javascript/Typescript too. You may find this helpful to integrate Instant with a framework that doesn't have an official SDK yet.

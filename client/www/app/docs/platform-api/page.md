@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Platform API
-    description: Spin up Instant apps on demand and manage schema with the Platform API.
+    title: 'Platform API'
+    description: 'Spin up Instant apps on demand and manage schema with the Platform API.'
 ---
 
 You can use Instant to programmatically create apps, push schemas and manage permissions. This is particularly powerful in two scenarios:

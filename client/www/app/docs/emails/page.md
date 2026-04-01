@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Custom email templates and senders
-    description: How to customize magic code emails.
+    title: 'Custom email templates and senders'
+    description: 'How to customize magic code emails.'
 ---
 
 You can customize all aspects of your Instant app's "magic code" email: the body (plain text or HTML), subject, sender name, and even the `from` address.

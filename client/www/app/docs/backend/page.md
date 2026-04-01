@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Instant on the Backend
-    description: How to use Instant on the server with the Admin SDK.
+    title: 'Instant on the Backend'
+    description: 'How to use Instant on the server with the Admin SDK.'
 ---
 
 You can use Instant on the server as well! This can be especially useful for

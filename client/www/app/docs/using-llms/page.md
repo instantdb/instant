@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Using Instant with LLMs
-    description: How to use Instant with LLMs
+    title: 'Using Instant with LLMs'
+    description: 'How to use Instant with LLMs'
 ---
 
 You can supercharge your Instant experience by using it with LLMs. Just add our Instant rules and your off to the races!

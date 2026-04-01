@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Permissions
-    description: How to secure your data with Instant's Rule Language.
+    title: 'Permissions'
+    description: "How to secure your data with Instant's Rule Language."
 ---
 
 To secure user data, you can use Instant's Rule Language. Our rule language

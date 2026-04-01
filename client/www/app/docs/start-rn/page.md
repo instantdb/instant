@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Getting started with React Native
-    description: How to use Instant with React Native
+    title: 'Getting started with React Native'
+    description: 'How to use Instant with React Native'
 ---
 
 You can use Instant in React Native projects too! Below is an example using Expo.

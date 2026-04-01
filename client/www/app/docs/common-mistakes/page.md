@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Common mistakes
-    description: Common mistakes when working with Instant
+    title: 'Common mistakes'
+    description: 'Common mistakes when working with Instant'
 ---
 
 Below are some common mistakes when working with Instant.

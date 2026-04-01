@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Recommended Workflow
-    description: How to develop with Instant
+    title: 'Recommended Workflow'
+    description: 'How to develop with Instant'
 ---
 
 At a high level, here is the recommended workflow for developing with Instant:

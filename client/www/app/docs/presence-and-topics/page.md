@@ -2,9 +2,7 @@
 nextjs:
   metadata:
     title: 'Presence, Cursors, and Activity'
-    description: >-
-      How to add ephemeral features like presence and cursors to your Instant
-      app.
+    description: 'How to add ephemeral features like presence and cursors to your Instant app.'
 ---
 
 Sometimes you want to show real-time updates to users without persisting the

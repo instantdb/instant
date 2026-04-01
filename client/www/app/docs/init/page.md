@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Initializing Instant
-    description: How to integrate Instant with your app.
+    title: 'Initializing Instant'
+    description: 'How to integrate Instant with your app.'
 ---
 
 ## Basic Initialization

@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Getting started with TanStack Start
-    description: How to use Instant with TanStack Start
+    title: 'Getting started with TanStack Start'
+    description: 'How to use Instant with TanStack Start'
 ---
 
 ## Automatic Setup With Create Instant App

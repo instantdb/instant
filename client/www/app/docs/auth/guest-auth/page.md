@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Guest Auth
-    description: Let your users try your app before creating an account
+    title: 'Guest Auth'
+    description: 'Let your users try your app before creating an account'
 ---
 
 Instant supports guest authentication. This allows your users to try your app before signing up and ensures they can keep all their data when they decide to create a full account with their email.

@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: (Experimental) NextJS SSR
-    description: Use server-side-rendering with InstantDB and Next.js.
+    title: '(Experimental) NextJS SSR'
+    description: 'Use server-side-rendering with InstantDB and Next.js.'
 ---
 
 If you use NextJS and want to do server-side rendering, we have an experimental library for you.

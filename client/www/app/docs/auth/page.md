@@ -1,7 +1,7 @@
 ---
 nextjs:
   metadata:
-    title: Auth
+    title: 'Auth'
     description: 'Instant supports magic code, OAuth, Clerk, and custom auth.'
 ---
 

@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Storage
-    description: How to upload and serve files with Instant.
+    title: 'Storage'
+    description: 'How to upload and serve files with Instant.'
 ---
 
 Instant Storage makes it simple to upload and serve files for your app.

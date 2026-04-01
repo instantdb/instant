@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Reading data
-    description: How to read data with Instant using InstaQL.
+    title: 'Reading data'
+    description: 'How to read data with Instant using InstaQL.'
 ---
 
 Instant uses a declarative syntax for querying. It's like GraphQL without the configuration. Here's how you can query data with **InstaQL.**

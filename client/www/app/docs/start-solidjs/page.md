@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Getting started with SolidJS
-    description: How to use Instant with SolidJS
+    title: 'Getting started with SolidJS'
+    description: 'How to use Instant with SolidJS'
 ---
 
 ## Automatic Setup With Create Instant App

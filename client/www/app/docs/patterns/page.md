@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: Patterns
-    description: Common patterns for working with InstantDB.
+    title: 'Patterns'
+    description: 'Common patterns for working with InstantDB.'
 ---
 
 Below are some common patterns for working with InstantDB. We'll add more
