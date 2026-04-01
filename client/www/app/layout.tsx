@@ -13,10 +13,10 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    isDev
-      ? `http://localhost:${process.env.PORT || 3000}`
-      : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
+    process.env.NEXT_PUBLIC_VERCEL_URL
+      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+      : isDev
+        ? `http://localhost:${process.env.PORT || 3000}`
         : 'https://www.instantdb.com',
   ),
   applicationName: 'Instant',
