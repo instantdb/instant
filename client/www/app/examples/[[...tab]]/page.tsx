@@ -2,18 +2,24 @@ import type { Metadata } from 'next';
 import { webMetas, mobileMetas } from '@/lib/examples/data';
 import Content from './content';
 
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return [{ tab: [] }, { tab: ['mobile'] }];
+}
+
 export const metadata: Metadata = {
   title: 'InstantDB Examples',
   description: 'Learn Instant through example apps',
 };
 
 export default async function Page({
-  searchParams,
+  params,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  params: Promise<{ tab?: string[] }>;
 }) {
-  const { tab } = await searchParams;
-  const activeTab = tab === 'mobile' ? 'mobile' : 'web';
+  const { tab } = await params;
+  const activeTab = tab?.[0] === 'mobile' ? 'mobile' : 'web';
 
   return (
     <Content

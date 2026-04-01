@@ -49,6 +49,12 @@ const nextConfig = {
         source: '/status',
         destination: 'https://status.instantdb.com',
       },
+      {
+        permanent: true,
+        source: '/examples',
+        has: [{ type: 'query', key: 'tab', value: '(?<tab>mobile)' }],
+        destination: '/examples/:tab',
+      },
     ];
   },
   // Proxy to PostHog to avoid ad blockers
