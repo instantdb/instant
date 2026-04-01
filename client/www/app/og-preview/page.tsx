@@ -146,8 +146,13 @@ function ImageCard({ src, label }: { src: string | undefined; label: string }) {
   );
 }
 
-async function PagePreview({ path: pagePath, baseUrl }: { path: string; baseUrl: string }) {
-
+async function PagePreview({
+  path: pagePath,
+  baseUrl,
+}: {
+  path: string;
+  baseUrl: string;
+}) {
   try {
     const res = await fetch(`${baseUrl}${pagePath}`, { cache: 'no-store' });
     const html = await res.text();
