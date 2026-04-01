@@ -59,59 +59,56 @@ function getEssayEntries(): PageEntry[] {
   });
 }
 
-import { metadata as metaRoot } from '../../page';
-import { metadata as metaAbout } from '../../about/page';
-import { metadata as metaEssays } from '../../essays/page';
-import { metadata as metaExamples } from '../../examples/page';
-import { metadata as metaHiring } from '../../hiring/page';
-import { metadata as metaHiringBe } from '../../hiring/backend-engineer/page';
-import { metadata as metaPricing } from '../../pricing/page';
-import { metadata as metaAdminSdk } from '../../product/admin-sdk/page';
-import { metadata as metaAuth } from '../../product/auth/page';
-import { metadata as metaDatabase } from '../../product/database/page';
-import { metadata as metaStorage } from '../../product/storage/page';
-import { metadata as metaSync } from '../../product/sync/page';
-import { metadata as metaRecipes } from '../../recipes/page';
-import { metadata as metaTutorial } from '../../tutorial/page';
+const staticPaths = [
+  '/',
+  '/about',
+  '/essays',
+  '/examples',
+  '/hiring',
+  '/hiring/backend-engineer',
+  '/pricing',
+  '/product/admin-sdk',
+  '/product/auth',
+  '/product/database',
+  '/product/storage',
+  '/product/sync',
+  '/recipes',
+  '/tutorial',
+];
 
-function extractMeta(meta: Metadata): { title: string; description?: string } {
-  const title =
-    (typeof meta.title === 'string'
-      ? meta.title
-      : (meta.title as any)?.default) ||
-    meta.openGraph?.title ||
-    '';
-  const description = (meta.description || meta.openGraph?.description) as
-    | string
-    | undefined;
-  return { title: String(title), description };
+function parseMetaFromFile(filePath: string): { title?: string; description?: string } {
+  try {
+    const src = fs.readFileSync(filePath, 'utf-8');
+    const titleMatch =
+      src.match(/title:\s*['"`]([^'"`]+)['"`]/) ||
+      src.match(/title\s*=\s*['"`]([^'"`]+)['"`]/);
+    const descMatch =
+      src.match(/description:\s*['"`]([^'"`]+)['"`]/) ||
+      src.match(/description\s*=\s*\n?\s*['"`]([^'"`]+)['"`]/);
+    return {
+      title: titleMatch?.[1],
+      description: descMatch?.[1],
+    };
+  } catch {
+    return {};
+  }
 }
 
-const staticPages: PageEntry[] = (
-  [
-    ['/', metaRoot],
-    ['/about', metaAbout],
-    ['/essays', metaEssays],
-    ['/examples', metaExamples],
-    ['/hiring', metaHiring],
-    ['/hiring/backend-engineer', metaHiringBe],
-    ['/pricing', metaPricing],
-    ['/product/admin-sdk', metaAdminSdk],
-    ['/product/auth', metaAuth],
-    ['/product/database', metaDatabase],
-    ['/product/storage', metaStorage],
-    ['/product/sync', metaSync],
-    ['/recipes', metaRecipes],
-    ['/tutorial', metaTutorial],
-  ] as [string, Metadata][]
-).map(([p, meta]) => ({
-  path: p,
-  ...extractMeta(meta),
-  ogImage: '/opengraph-image',
-}));
+function getStaticPages(): PageEntry[] {
+  return staticPaths.map((p) => {
+    const filePath = path.join(process.cwd(), 'app', p === '/' ? '' : p, 'page.tsx');
+    const meta = parseMetaFromFile(filePath);
+    return {
+      path: p,
+      title: meta.title || p,
+      description: meta.description,
+      ogImage: '/opengraph-image',
+    };
+  });
+}
 
 export default function OgPreviewPage() {
-  const allEntries = [...staticPages, ...getEssayEntries(), ...getDocEntries()];
+  const allEntries = [...getStaticPages(), ...getEssayEntries(), ...getDocEntries()];
 
   return (
     <div style={{ padding: 40, fontFamily: 'system-ui', background: '#111' }}>
