@@ -76,7 +76,10 @@ const staticPaths = [
   '/tutorial',
 ];
 
-function parseMetaFromFile(filePath: string): { title?: string; description?: string } {
+function parseMetaFromFile(filePath: string): {
+  title?: string;
+  description?: string;
+} {
   try {
     const src = fs.readFileSync(filePath, 'utf-8');
     const titleMatch =
@@ -96,7 +99,12 @@ function parseMetaFromFile(filePath: string): { title?: string; description?: st
 
 function getStaticPages(): PageEntry[] {
   return staticPaths.map((p) => {
-    const filePath = path.join(process.cwd(), 'app', p === '/' ? '' : p, 'page.tsx');
+    const filePath = path.join(
+      process.cwd(),
+      'app',
+      p === '/' ? '' : p,
+      'page.tsx',
+    );
     const meta = parseMetaFromFile(filePath);
     return {
       path: p,
@@ -108,7 +116,11 @@ function getStaticPages(): PageEntry[] {
 }
 
 export default function OgPreviewPage() {
-  const allEntries = [...getStaticPages(), ...getEssayEntries(), ...getDocEntries()];
+  const allEntries = [
+    ...getStaticPages(),
+    ...getEssayEntries(),
+    ...getDocEntries(),
+  ];
 
   return (
     <div style={{ padding: 40, fontFamily: 'system-ui', background: '#111' }}>
