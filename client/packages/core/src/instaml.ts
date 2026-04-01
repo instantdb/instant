@@ -164,13 +164,13 @@ function expandLink({ attrsStore }: Ctx, [etype, eidA, obj]) {
             fwdAttr.id,
             // Uses `!` because if we get here, we should have created the attr if it doesn't
             // already exist
-            extractLookup(attrsStore, fwdAttr['reverse-identity']![1], eidB),
+            extractLookup(attrsStore, fwdAttr['reverse-identity']?.[1], eidB),
           ]
         : [
             'add-triple',
             // Uses `!` because if we get here, we should have created the attr if it doesn't
             // already exist
-            extractLookup(attrsStore, revAttr!['forward-identity']![1], eidB),
+            extractLookup(attrsStore, revAttr!['forward-identity']?.[1], eidB),
             revAttr?.id,
             extractLookup(attrsStore, etype, eidA),
           ];
@@ -193,13 +193,13 @@ function expandUnlink({ attrsStore }: Ctx, [etype, eidA, obj]) {
             fwdAttr.id,
             // Uses `!` because if we get here, we should have created the attr if it doesn't
             // already exist
-            extractLookup(attrsStore, fwdAttr!['reverse-identity']![1], eidB),
+            extractLookup(attrsStore, fwdAttr['reverse-identity']?.[1], eidB),
           ]
         : [
             'retract-triple',
             // Uses `!` because if we get here, we should have created the attr if it doesn't
             // already exist
-            extractLookup(attrsStore, revAttr!['forward-identity'][1], eidB),
+            extractLookup(attrsStore, revAttr!['forward-identity']?.[1], eidB),
             revAttr!.id,
             extractLookup(attrsStore, etype, eidA),
           ];
