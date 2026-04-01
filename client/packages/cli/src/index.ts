@@ -332,7 +332,7 @@ function formatHelp(
   function formatItem(term: string, description: string | undefined) {
     if (description) {
       const fullText = `${term.padEnd(termWidth + itemSeparatorWidth)}${description}`;
-      return helper.wrap(
+      return helper.boxWrap(
         fullText,
         helpWidth - itemIndentWidth,
         termWidth + itemSeparatorWidth,
@@ -350,7 +350,10 @@ function formatHelp(
   // Description
   const commandDescription = helper.commandDescription(cmd);
   if (commandDescription.length > 0) {
-    output = output.concat([helper.wrap(commandDescription, helpWidth, 0), '']);
+    output = output.concat([
+      helper.boxWrap(commandDescription, helpWidth, 0),
+      '',
+    ]);
   }
 
   // Arguments
