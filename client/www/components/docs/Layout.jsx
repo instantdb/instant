@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 
 import { Navigation } from '@/components/docs/Navigation';
 import { Prose } from '@/components/docs/Prose';
 import { Search } from '@/components/docs/Search';
 import { AppPicker } from '@/components/docs/AppPicker';
+import { useDocsVariant } from '@/components/docs/DocsVariantContext';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
 import config from '@/lib/config';
@@ -18,6 +19,10 @@ import navigation from '@/data/docsNavigation';
 import RatingBox from './RatingBox';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
+import {
+  getLocallySavedWorkspace,
+  setLocallySavedWorkspace,
+} from '@/lib/locallySavedWorkspace';
 import { ChatWidget, useIsMobile } from '../chat/ChatWidget';
 
 function useWorkspaceData(workspaceId, token) {
@@ -51,16 +56,76 @@ function useWorkspaceData(workspaceId, token) {
   };
 }
 
+function getCurrentQueryParam(key) {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return new URL(window.location.href).searchParams.get(key);
+}
+
+function removeCurrentQueryParams(keys) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  let didChange = false;
+
+  for (const key of keys) {
+    if (!url.searchParams.has(key)) {
+      continue;
+    }
+
+    url.searchParams.delete(key);
+    didChange = true;
+  }
+
+  if (!didChange) {
+    return;
+  }
+
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${url.pathname}${url.search}${url.hash}`,
+  );
+}
+
+function useSelectedWorkspaceId() {
+  const [workspaceId, setWorkspaceId] = useState('personal');
+
+  useEffect(() => {
+    const queryWorkspaceId = getCurrentQueryParam('org');
+    const savedWorkspaceId = getLocallySavedWorkspace();
+    const nextWorkspaceId = queryWorkspaceId || savedWorkspaceId || 'personal';
+
+    setWorkspaceId(nextWorkspaceId);
+
+    if (queryWorkspaceId) {
+      setLocallySavedWorkspace(queryWorkspaceId);
+      removeCurrentQueryParams(['org']);
+    }
+  }, []);
+
+  const update = useCallback((nextWorkspaceId) => {
+    setWorkspaceId(nextWorkspaceId);
+    setLocallySavedWorkspace(nextWorkspaceId);
+  }, []);
+
+  return {
+    workspaceId,
+    update,
+  };
+}
+
 function useSelectedApp(apps = [], orgId) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedAppData, setSelectedAppData] = useState(null);
 
   useEffect(() => {
+    setSelectedAppData(null);
     const cachedAppData = getLocallySavedApp(orgId);
-    const queryAppId = searchParams.get('app');
+    const queryAppId = getCurrentQueryParam('app');
 
     const fromParams = queryAppId && apps.find((a) => a.id === queryAppId);
     const fromCache =
@@ -77,21 +142,14 @@ function useSelectedApp(apps = [], orgId) {
         id: fromParams.id,
         orgId: orgId,
       });
-      const remainingParams = new URLSearchParams(searchParams.toString());
-      remainingParams.delete('app');
-      const queryString = remainingParams.toString();
-      const hash = window.location.hash;
-      router.replace(
-        `${pathname}${queryString ? `?${queryString}` : ''}${hash}`,
-      );
+      removeCurrentQueryParams(['app']);
     } else if (fromCache) {
       const data = { id: fromCache.id, title: fromCache.title };
       setSelectedAppData(data);
     } else if (first) {
       setSelectedAppData({ id: first.id, title: first.title });
     }
-    setIsLoading(false);
-  }, [apps.length, orgId]);
+  }, [apps, orgId]);
 
   const update = useCallback(
     (appId) => {
@@ -104,10 +162,10 @@ function useSelectedApp(apps = [], orgId) {
         orgId: orgId,
       });
     },
-    [apps.length, orgId],
+    [apps, orgId],
   );
 
-  return { loading: isLoading, data: selectedAppData, update };
+  return { data: selectedAppData, update };
 }
 
 const contentCache = {};
@@ -242,7 +300,7 @@ function PageContent({ path, title, sectionTitle, allLinks, children }) {
   );
 }
 
-function PageNav({ previousPage, nextPage, orgQuery }) {
+function PageNav({ previousPage, nextPage }) {
   return (
     <dl className="mt-12 flex border-t border-slate-200 pt-6 dark:border-slate-800">
       {previousPage && (
@@ -252,7 +310,7 @@ function PageNav({ previousPage, nextPage, orgQuery }) {
           </dt>
           <dd className="mt-1">
             <Link
-              href={{ pathname: previousPage.href, query: orgQuery }}
+              href={previousPage.href}
               className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
             >
               <span aria-hidden="true">&larr;</span> {previousPage.title}
@@ -267,7 +325,7 @@ function PageNav({ previousPage, nextPage, orgQuery }) {
           </dt>
           <dd className="mt-1">
             <Link
-              href={{ pathname: nextPage.href, query: orgQuery }}
+              href={nextPage.href}
               className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
             >
               {nextPage.title} <span aria-hidden="true">&rarr;</span>
@@ -342,26 +400,25 @@ const adj = {
 };
 
 export function Layout({ children, title, tableOfContents }) {
-  let pathname = usePathname();
-  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const currentVariant = useDocsVariant();
+  const docPath = currentVariant.pagePath || pathname;
   const scrollContainerRef = useRef();
 
-  let allLinks = navigation.flatMap((section) => section.links);
+  const allLinks = navigation.flatMap((section) => section.links);
 
-  let previousPage = getPreviousPage(allLinks, pathname);
-  let nextPage = getNextPage(allLinks, pathname);
+  const previousPage = getPreviousPage(allLinks, docPath);
+  const nextPage = getNextPage(allLinks, docPath);
 
-  let section = navigation.find((section) =>
-    section.links.find((link) => link.href === pathname),
+  const section = navigation.find((section) =>
+    section.links.find((link) => link.href === docPath),
   );
 
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [forceModal, setForceModal] = useState(false);
   const isMobile = useIsMobile();
 
-  const org = searchParams.get('org');
-  const workspaceId = org || 'personal';
-  const orgQuery = org ? { org } : {};
+  const { workspaceId, update: updateWorkspaceId } = useSelectedWorkspaceId();
   const token = useAuthToken();
   const {
     apps,
@@ -427,7 +484,7 @@ export function Layout({ children, title, tableOfContents }) {
             {/* Main content */}
             <main
               ref={scrollContainerRef}
-              key={pathname}
+              key={docPath}
               className="max-w-2xl min-w-0 flex-1 p-4"
             >
               <AppPicker
@@ -437,11 +494,12 @@ export function Layout({ children, title, tableOfContents }) {
                   selectedAppData,
                   updateSelectedAppId,
                   workspaceId,
+                  updateWorkspaceId,
                   allOrgs: orgs,
                 }}
               />
               <PageContent
-                path={pathname}
+                path={docPath}
                 title={title}
                 sectionTitle={section?.title}
                 allLinks={allLinks}
@@ -449,13 +507,9 @@ export function Layout({ children, title, tableOfContents }) {
                 {children}
               </PageContent>
               <div className="mt-4">
-                <RatingBox pageId={pathname} />
+                <RatingBox pageId={docPath} />
               </div>
-              <PageNav
-                previousPage={previousPage}
-                nextPage={nextPage}
-                orgQuery={orgQuery}
-              />
+              <PageNav previousPage={previousPage} nextPage={nextPage} />
             </main>
 
             {/* Right sidebar */}

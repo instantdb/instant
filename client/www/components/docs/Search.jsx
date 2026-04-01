@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { DocSearchModal, useDocSearchKeyboardEvents } from '@docsearch/react';
 import '@docsearch/css';
 
@@ -24,8 +24,8 @@ export function Search() {
   const [isOpen, setIsOpen] = useState(false);
   const [modifierKey, setModifierKey] = useState(null);
   const [initialQuery, setInitialQuery] = useState(null);
+  const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const onOpen = useCallback(() => {
     setIsOpen(true);
@@ -48,13 +48,16 @@ export function Search() {
   }, []);
 
   // Enable search on load if `q` is in the query string
-  const q = searchParams.get('q');
   useEffect(() => {
+    const q = new URL(window.location.href).searchParams.get('q');
     if (q) {
       setInitialQuery(q);
       onOpen();
+      return;
     }
-  }, [q]);
+
+    setInitialQuery(null);
+  }, [pathname, onOpen]);
 
   return (
     <>

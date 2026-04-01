@@ -1,14 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
+import { getCanonicalDocsPagePath } from '@/lib/docsVariants';
 
 export function Navigation({ navigation, className }) {
-  let pathname = usePathname();
-  const searchParams = useSearchParams();
-  const org = searchParams.get('org');
-  const orgQuery = org ? { org } : {};
+  const pathname = getCanonicalDocsPagePath(usePathname());
 
   return (
     <nav className={clsx('text-sm', className)}>
@@ -25,7 +23,7 @@ export function Navigation({ navigation, className }) {
               {section.links.map((link) => (
                 <li key={link.href} className="relative">
                   <Link
-                    href={{ pathname: link.href, query: orgQuery }}
+                    href={link.href}
                     className={clsx(
                       'block w-full py-1 pl-3.5 before:pointer-events-none before:absolute before:top-1/2 before:-left-1 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rounded-full',
                       link.href === pathname

@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Select } from '@/components/ui';
 
 type App = { id: string; title: string };
@@ -17,6 +16,7 @@ export function AppPicker({
   selectedAppData,
   updateSelectedAppId,
   workspaceId,
+  updateWorkspaceId,
   allOrgs,
 }: {
   isReady: boolean;
@@ -24,12 +24,9 @@ export function AppPicker({
   selectedAppData: App | null;
   updateSelectedAppId: (id: string) => void;
   workspaceId: string;
+  updateWorkspaceId: (id: string) => void;
   allOrgs: Org[];
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
   const isLoggedOut = isReady && apps.length === 0 && allOrgs.length === 0;
   const hasApps = isReady && apps.length > 0;
   const hasOrgs = isReady && allOrgs.length > 0;
@@ -68,13 +65,7 @@ export function AppPicker({
     const value = option?.value;
     if (!value) return;
     const orgId = value.substring(4); // strip "org:" prefix
-    const newParams = new URLSearchParams(searchParams?.toString());
-    newParams.delete('org');
-    if (orgId !== 'personal') {
-      newParams.set('org', orgId);
-    }
-    const queryString = newParams.toString();
-    router.push(`${pathname}${queryString ? `?${queryString}` : ''}`);
+    updateWorkspaceId(orgId);
   }
 
   return (

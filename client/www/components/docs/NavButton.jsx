@@ -29,9 +29,11 @@
  * {% /conditional %}
  */
 import Link from 'next/link';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { cn } from '../../components/ui.tsx';
 import { createContext, useContext } from 'react';
+import { useDocsVariant } from '@/components/docs/DocsVariantContext';
+import { getDocsVariantConfig, getDocsVariantPath } from '@/lib/docsVariants';
 
 const DefaultValueContext = createContext(undefined);
 
@@ -51,10 +53,23 @@ export function NavGroup({ children }) {
   );
 }
 
-function isSelected(param, value) {
-  const searchParams = useSearchParams();
+function useIsSelected(param, value) {
   const defaultValue = useContext(DefaultValueContext);
-  return value && value === (searchParams.get(param) || defaultValue);
+  const currentVariant = useDocsVariant();
+  const config = currentVariant.pagePath
+    ? getDocsVariantConfig(currentVariant.pagePath)
+    : null;
+
+  if (
+    config &&
+    config.param === param &&
+    currentVariant.param === param &&
+    value
+  ) {
+    return value === (currentVariant.value || defaultValue);
+  }
+
+  return value && value === defaultValue;
 }
 
 export function NavButton({
@@ -66,14 +81,23 @@ export function NavButton({
   recommended,
 }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const selected = isSelected(param, value);
+  const currentVariant = useDocsVariant();
+  const selected = useIsSelected(param, value);
+  const targetPath =
+    !href &&
+    param &&
+    value &&
+    currentVariant.pagePath &&
+    getDocsVariantConfig(currentVariant.pagePath)?.param === param
+      ? getDocsVariantPath(currentVariant.pagePath, value)
+      : null;
 
   const handleClick = () => {
-    const newParams = new URLSearchParams(searchParams.toString());
-    newParams.set(param, value);
-    router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
+    if (!targetPath) {
+      return;
+    }
+
+    router.replace(targetPath, { scroll: false });
   };
   const Component = (
     <div
@@ -108,8 +132,8 @@ export function NavButton({
 
 export function ConditionalContent({ param, value, children, elseChildren }) {
   const selected = Array.isArray(value)
-    ? value.some((v) => isSelected(param, v))
-    : isSelected(param, value);
+    ? value.some((v) => useIsSelected(param, v))
+    : useIsSelected(param, value);
 
   if (selected) {
     return <>{children}</>;

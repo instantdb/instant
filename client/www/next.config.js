@@ -1,5 +1,22 @@
 const path = require('path');
 const withMarkdoc = require('@markdoc/next.js');
+const docsVariants = require('./data/docsVariants.json');
+
+const docsVariantRedirects = Object.entries(docsVariants).flatMap(
+  ([pagePath, config]) =>
+    config.values.map((value) => ({
+      permanent: false,
+      source: pagePath,
+      has: [
+        {
+          type: 'query',
+          key: config.param,
+          value,
+        },
+      ],
+      destination: value === config.default ? pagePath : `${pagePath}/${value}`,
+    })),
+);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -21,6 +38,7 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      ...docsVariantRedirects,
       {
         permanent: false,
         source: '/',

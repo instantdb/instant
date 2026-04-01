@@ -1,0 +1,27 @@
+{
+  "/docs/auth/apple": {
+    "param": "method",
+    "default": "web-popup",
+    "values": ["web-popup", "web-redirect", "native"]
+  },
+  "/docs/auth/github-oauth": {
+    "param": "method",
+    "default": "web-redirect",
+    "values": ["web-redirect", "rn-web"]
+  },
+  "/docs/auth/google-oauth": {
+    "param": "method",
+    "default": "web-google-button",
+    "values": ["web-google-button", "web-redirect", "rn-web", "rn-native"]
+  },
+  "/docs/auth/linkedin-oauth": {
+    "param": "method",
+    "default": "web-redirect",
+    "values": ["web-redirect", "rn-web"]
+  },
+  "/docs/auth/magic-codes": {
+    "param": "platform",
+    "default": "react",
+    "values": ["react", "react-native", "vanilla"]
+  }
+}

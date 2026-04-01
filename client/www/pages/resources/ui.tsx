@@ -184,6 +184,7 @@ export default function UI() {
               selectedAppData={null}
               updateSelectedAppId={() => {}}
               workspaceId="personal"
+              updateWorkspaceId={() => {}}
               allOrgs={[]}
             />
           </Example>
@@ -194,6 +195,7 @@ export default function UI() {
               selectedAppData={null}
               updateSelectedAppId={() => {}}
               workspaceId="personal"
+              updateWorkspaceId={() => {}}
               allOrgs={[]}
             />
           </Example>
@@ -204,6 +206,7 @@ export default function UI() {
               selectedAppData={null}
               updateSelectedAppId={() => {}}
               workspaceId="personal"
+              updateWorkspaceId={() => {}}
               allOrgs={[{ id: 'org-1', title: 'My Team' }]}
             />
           </Example>
@@ -217,6 +220,7 @@ export default function UI() {
               selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
               updateSelectedAppId={() => {}}
               workspaceId="personal"
+              updateWorkspaceId={() => {}}
               allOrgs={[]}
             />
           </Example>
@@ -230,6 +234,7 @@ export default function UI() {
               selectedAppData={{ id: 'app-1', title: 'my-cool-app' }}
               updateSelectedAppId={() => {}}
               workspaceId="personal"
+              updateWorkspaceId={() => {}}
               allOrgs={[
                 { id: 'org-1', title: 'My Team' },
                 { id: 'org-2', title: 'Acme Corp' },
