@@ -6,10 +6,12 @@ module.exports = function docsOgMetadataLoader(source) {
   const filepathMatch = source.match(/const filepath = "([^"]+)"/);
   if (!filepathMatch) return source;
 
-  // e.g. /docs/instaql/page.md -> instaql, /docs/page.md -> index
+  // e.g. /docs/instaql/page.md -> instaql
+  // /docs/auth/google-oauth/[[...tab]]/page.md -> auth/google-oauth
   const filepath = filepathMatch[1];
   const slug = filepath
     .replace(/^\/docs\//, '')
+    .replace(/\/?\[{1,2}\.{3}\w+\]{1,2}/, '')
     .replace(/(^|\/)page\.md$/, '') || 'index';
 
   return source.replace(

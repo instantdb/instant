@@ -21,25 +21,70 @@ function getDocEntries(): PageEntry[] {
   const docsDir = path.join(process.cwd(), 'app', 'docs');
   const entries: PageEntry[] = [];
 
+  function addEntry(pagePath: string, mdPath: string, slug: string) {
+    const { data } = matter(fs.readFileSync(mdPath, 'utf-8'));
+    const meta = data?.nextjs?.metadata;
+    entries.push({
+      path: pagePath,
+      title: meta?.title || path.basename(pagePath),
+      description: meta?.description,
+      ogImage: `/api/docs-og?slug=${encodeURIComponent(slug)}`,
+    });
+  }
+
+  function getTabValues(layoutPath: string): string[] {
+    try {
+      const src = fs.readFileSync(layoutPath, 'utf-8');
+      const match = src.match(/\{ tab: \['([^']+)'\] \}/g);
+      if (!match) return [];
+      return match.map((m) => {
+        const v = m.match(/\['([^']+)'\]/);
+        return v ? v[1] : '';
+      }).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
   function walk(dir: string, prefix: string) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        const sub = path.join(dir, entry.name);
+      if (!entry.isDirectory()) continue;
+      const sub = path.join(dir, entry.name);
+
+      // Dynamic catch-all like [[...tab]]
+      if (entry.name.startsWith('[')) {
         const mdPath = path.join(sub, 'page.md');
-        if (fs.existsSync(mdPath)) {
-          const slug = `${prefix}/${entry.name}`.replace('/docs/', '');
-          const { data } = matter(fs.readFileSync(mdPath, 'utf-8'));
-          const meta = data?.nextjs?.metadata;
-          entries.push({
-            path: `${prefix}/${entry.name}`,
-            title: meta?.title || entry.name,
-            description: meta?.description,
-            ogImage: `/api/docs-og?slug=${encodeURIComponent(slug)}`,
-          });
+        if (!fs.existsSync(mdPath)) continue;
+
+        const parentSlug = prefix.replace('/docs/', '').replace('/docs', '');
+        const slug = parentSlug || 'index';
+
+        // Base path (no tab)
+        addEntry(prefix, mdPath, slug);
+
+        // Each tab value
+        const layoutPath = path.join(sub, 'layout.tsx');
+        for (const tab of getTabValues(layoutPath)) {
+          addEntry(`${prefix}/${tab}`, mdPath, slug);
         }
-        walk(sub, `${prefix}/${entry.name}`);
+        continue;
       }
+
+      // Regular page
+      const mdPath = path.join(sub, 'page.md');
+      if (fs.existsSync(mdPath)) {
+        const slug = `${prefix}/${entry.name}`.replace('/docs/', '');
+        addEntry(`${prefix}/${entry.name}`, mdPath, slug);
+      }
+
+      walk(sub, `${prefix}/${entry.name}`);
     }
+  }
+
+  // Docs index
+  const indexMd = path.join(docsDir, 'page.md');
+  if (fs.existsSync(indexMd)) {
+    addEntry('/docs', indexMd, 'index');
   }
 
   walk(docsDir, '/docs');
