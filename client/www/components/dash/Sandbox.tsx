@@ -523,6 +523,7 @@ export function Sandbox({
             rules,
             ip: ipOverride,
             origin: originOverride,
+            inference: true,
             ...opts,
           });
           const execTimeMs = performance.now() - startTime;
