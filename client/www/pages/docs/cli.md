@@ -38,6 +38,14 @@ This will guide you through picking an Instant app and generate two files for yo
 - `instant.schema.ts` defines your application's data model.
 - `instant.perms.ts` defines your permission rules.
 
+If you want to quickly spin up a temporary app (for experiments or testing), you can use the `--temp` flag:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest init --temp
+```
+
+This will create an ephemeral app that automatically deletes itself after 24 hours. You can later transfer a temporary app to your account with `instant-cli claim`.
+
 To learn how to change `instant.schema.ts`, check our [Modeling Data](/docs/modeling-data). For `instant.perms.ts`, check out the [permissions](/docs/permissions) page.
 
 ## Push
