@@ -1,6 +1,5 @@
 import { id, init as initAdmin, lookup, tx } from '@instantdb/admin';
 import { init as initCore, InstantUnknownSchema } from '@instantdb/core';
-import JsonParser from 'json5';
 import Json from '@uiw/react-json-view';
 import { darkTheme } from '@uiw/react-json-view/dark';
 import { lightTheme } from '@uiw/react-json-view/light';
