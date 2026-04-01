@@ -76,6 +76,12 @@ const nextConfig = {
         ],
         destination: '/docs/auth/magic-codes/:platform',
       },
+      {
+        permanent: true,
+        source: '/examples',
+        has: [{ type: 'query', key: 'tab', value: '(?<tab>mobile)' }],
+        destination: '/examples/:tab',
+      },
     ];
   },
   // Proxy to PostHog to avoid ad blockers
