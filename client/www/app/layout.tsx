@@ -12,10 +12,16 @@ const isDev = process.env.NODE_ENV === 'development';
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_VERCEL_URL
+      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+      : isDev
+        ? `http://localhost:${process.env.PORT || 3000}`
+        : 'https://www.instantdb.com',
+  ),
   applicationName: 'Instant',
   openGraph: {
     type: 'website',
-    images: ['https://www.instantdb.com/img/og_preview.png'],
   },
   icons: {
     icon: [

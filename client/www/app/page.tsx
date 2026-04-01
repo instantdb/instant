@@ -12,7 +12,6 @@ import { FirebaseTestimonial } from '@/components/new-landing/FirebaseTestimonia
 import { FinalCTA } from '@/components/new-landing/FinalCTA';
 import { Footer } from '@/components/new-landing/Footer';
 import type { ReactNode } from 'react';
-
 export const metadata: Metadata = {
   title: 'Instant',
   openGraph: {

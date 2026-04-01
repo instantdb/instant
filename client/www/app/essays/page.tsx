@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import NextLink from 'next/link';
 import type { ElementType, ReactNode } from 'react';
 import { LandingContainer, MainNav } from '@/components/marketingUi';
-import * as og from '@/lib/og';
+
 import { Footer } from '@/components/new-landing/Footer';
 import { TopWash } from '@/components/new-landing/TopWash';
 import { authorFirstName, formatDuration } from '@/lib/postUtils';
@@ -12,9 +12,6 @@ import { getAllPosts, type Author, type Post } from '@/lib/posts';
 
 export const metadata: Metadata = {
   title: 'Instant Essays',
-  openGraph: {
-    images: [og.url({ section: 'blog' })],
-  },
   alternates: {
     types: {
       'application/rss+xml': '/rss.xml',
