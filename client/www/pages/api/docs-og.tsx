@@ -19,7 +19,10 @@ function findDocPage(slug: string): string {
   const slugDir = path.join(docsDir, slug);
   if (fs.existsSync(slugDir)) {
     for (const entry of fs.readdirSync(slugDir)) {
-      if (entry.startsWith('[') && fs.existsSync(path.join(slugDir, entry, 'page.md'))) {
+      if (
+        entry.startsWith('[') &&
+        fs.existsSync(path.join(slugDir, entry, 'page.md'))
+      ) {
         return path.join(slugDir, entry, 'page.md');
       }
     }

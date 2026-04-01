@@ -37,10 +37,12 @@ function getDocEntries(): PageEntry[] {
       const src = fs.readFileSync(layoutPath, 'utf-8');
       const match = src.match(/\{ tab: \['([^']+)'\] \}/g);
       if (!match) return [];
-      return match.map((m) => {
-        const v = m.match(/\['([^']+)'\]/);
-        return v ? v[1] : '';
-      }).filter(Boolean);
+      return match
+        .map((m) => {
+          const v = m.match(/\['([^']+)'\]/);
+          return v ? v[1] : '';
+        })
+        .filter(Boolean);
     } catch {
       return [];
     }

@@ -9,10 +9,11 @@ module.exports = function docsOgMetadataLoader(source) {
   // e.g. /docs/instaql/page.md -> instaql
   // /docs/auth/google-oauth/[[...tab]]/page.md -> auth/google-oauth
   const filepath = filepathMatch[1];
-  const slug = filepath
-    .replace(/^\/docs\//, '')
-    .replace(/\/?\[{1,2}\.{3}\w+\]{1,2}/, '')
-    .replace(/(^|\/)page\.md$/, '') || 'index';
+  const slug =
+    filepath
+      .replace(/^\/docs\//, '')
+      .replace(/\/?\[{1,2}\.{3}\w+\]{1,2}/, '')
+      .replace(/(^|\/)page\.md$/, '') || 'index';
 
   return source.replace(
     'export const metadata = frontmatter.nextjs?.metadata;',
@@ -22,6 +23,6 @@ module.exports = function docsOgMetadataLoader(source) {
     ...frontmatter.nextjs?.metadata?.openGraph,
     images: ["/api/docs-og?slug=${slug}"],
   },
-};`
+};`,
   );
 };
