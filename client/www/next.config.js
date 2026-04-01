@@ -50,21 +50,29 @@ const nextConfig = {
         destination: 'https://status.instantdb.com',
       },
       // Redirect old search-param-based auth doc tabs to route segments
-      ...['apple', 'google-oauth', 'github-oauth', 'linkedin-oauth'].map(
-        (page) => ({
-          permanent: true,
-          source: `/docs/auth/${page}`,
-          has: [
-            { type: 'query', key: 'method', value: '(?<method>.+)' },
-          ],
-          destination: `/docs/auth/${page}/:method`,
-        }),
-      ),
+      ...[
+        { page: 'apple', values: 'web-popup|web-redirect|native' },
+        {
+          page: 'google-oauth',
+          values: 'web-google-button|web-redirect|rn-web|rn-native',
+        },
+        { page: 'github-oauth', values: 'web-redirect|rn-web' },
+        { page: 'linkedin-oauth', values: 'web-redirect|rn-web' },
+      ].map(({ page, values }) => ({
+        permanent: true,
+        source: `/docs/auth/${page}`,
+        has: [{ type: 'query', key: 'method', value: `(?<method>${values})` }],
+        destination: `/docs/auth/${page}/:method`,
+      })),
       {
         permanent: true,
         source: '/docs/auth/magic-codes',
         has: [
-          { type: 'query', key: 'platform', value: '(?<platform>.+)' },
+          {
+            type: 'query',
+            key: 'platform',
+            value: '(?<platform>react|react-native|vanilla)',
+          },
         ],
         destination: '/docs/auth/magic-codes/:platform',
       },

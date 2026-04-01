@@ -29,7 +29,7 @@
  * {% /conditional %}
  */
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { cn } from '../../components/ui.tsx';
 import { createContext, useContext } from 'react';
 
@@ -45,6 +45,12 @@ export function RouteTabProvider({ paramName, value, basePath, children }) {
       {children}
     </RouteTabContext.Provider>
   );
+}
+
+export function useCanonicalDocsPath() {
+  const routeTab = useContext(RouteTabContext);
+  const pathname = usePathname();
+  return routeTab?.basePath || pathname;
 }
 
 export function NavDefault({ value, children }) {
@@ -86,23 +92,22 @@ export function NavButton({
   href,
   recommended,
 }) {
-  const router = useRouter();
   const routeTab = useContext(RouteTabContext);
   const tabState = useTabState();
   const selected = isSelected(param, value, tabState);
 
-  const handleClick = () => {
-    if (routeTab && routeTab.paramName === param) {
-      const orgParam = new URLSearchParams(window.location.search).get('org');
-      const query = orgParam ? `?org=${orgParam}` : '';
-      router.push(`${routeTab.basePath}/${value}${query}`);
-    }
-  };
+  const tabHref =
+    !href && param && value && routeTab && routeTab.paramName === param
+      ? `${routeTab.basePath}/${value}`
+      : null;
 
-  const Component = (
+  const linkHref = href || tabHref;
+
+  const card = (
     <div
-      className="group relative flex h-full max-w-sm cursor-pointer flex-col rounded-xl border border-slate-200 dark:border-slate-800"
-      onClick={() => !href && handleClick()}
+      className={cn(
+        'group relative flex h-full max-w-sm cursor-pointer flex-col rounded-xl border border-slate-200 dark:border-slate-800',
+      )}
     >
       <div
         className={
@@ -127,7 +132,17 @@ export function NavButton({
     </div>
   );
 
-  return <div>{href ? <Link href={href}>{Component}</Link> : Component}</div>;
+  if (linkHref) {
+    return (
+      <div>
+        <Link href={linkHref} replace={!!tabHref} scroll={!tabHref}>
+          {card}
+        </Link>
+      </div>
+    );
+  }
+
+  return <div>{card}</div>;
 }
 
 export function ConditionalContent({ param, value, children, elseChildren }) {

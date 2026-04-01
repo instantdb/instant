@@ -9,6 +9,7 @@ import { Navigation } from '@/components/docs/Navigation';
 import { Prose } from '@/components/docs/Prose';
 import { Search } from '@/components/docs/Search';
 import { AppPicker } from '@/components/docs/AppPicker';
+import { useCanonicalDocsPath } from '@/components/docs/NavButton';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
 import config from '@/lib/config';
@@ -342,16 +343,17 @@ const adj = {
 };
 
 export function Layout({ children, title, tableOfContents }) {
-  let pathname = usePathname();
+  const pathname = usePathname();
+  const docPath = useCanonicalDocsPath();
   const scrollContainerRef = useRef();
 
-  let allLinks = navigation.flatMap((section) => section.links);
+  const allLinks = navigation.flatMap((section) => section.links);
 
-  let previousPage = getPreviousPage(allLinks, pathname);
-  let nextPage = getNextPage(allLinks, pathname);
+  const previousPage = getPreviousPage(allLinks, docPath);
+  const nextPage = getNextPage(allLinks, docPath);
 
-  let section = navigation.find((section) =>
-    section.links.find((link) => link.href === pathname),
+  const section = navigation.find((section) =>
+    section.links.find((link) => link.href === docPath),
   );
 
   const [aiChatOpen, setAiChatOpen] = useState(false);
@@ -432,7 +434,7 @@ export function Layout({ children, title, tableOfContents }) {
             {/* Main content */}
             <main
               ref={scrollContainerRef}
-              key={pathname}
+              key={docPath}
               className="max-w-2xl min-w-0 flex-1 p-4"
             >
               <AppPicker
@@ -446,7 +448,7 @@ export function Layout({ children, title, tableOfContents }) {
                 }}
               />
               <PageContent
-                path={pathname}
+                path={docPath}
                 title={title}
                 sectionTitle={section?.title}
                 allLinks={allLinks}

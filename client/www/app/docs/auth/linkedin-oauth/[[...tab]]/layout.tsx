@@ -1,11 +1,9 @@
 import { RouteTabProvider } from '@/components/docs/NavButton';
 
+export const dynamicParams = false;
+
 export function generateStaticParams() {
-  return [
-    {},
-    { tab: ['web-redirect'] },
-    { tab: ['rn-web'] },
-  ];
+  return [{ tab: [] }, { tab: ['web-redirect'] }, { tab: ['rn-web'] }];
 }
 
 export default async function Layout({

@@ -1,8 +1,10 @@
 import { RouteTabProvider } from '@/components/docs/NavButton';
 
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return [
-    {},
+    { tab: [] },
     { tab: ['web-popup'] },
     { tab: ['web-redirect'] },
     { tab: ['native'] },
