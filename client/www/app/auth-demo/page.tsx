@@ -256,7 +256,6 @@ function AnimatedAuthDemo() {
           </AnimatePresence>
         </div>
       </div>
-
     </div>
   );
 }

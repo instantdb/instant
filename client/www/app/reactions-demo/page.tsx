@@ -104,7 +104,7 @@ function FakeCursor({
         />
       </svg>
       <span
-        className="ml-1 -mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold text-white shadow-md"
+        className="-mt-1 ml-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold text-white shadow-md"
         style={{ backgroundColor: color }}
       >
         {label}
@@ -126,7 +126,10 @@ const Card = React.forwardRef<
   }
 >(function Card({ label, avatarSrc, screenRef, buttonRefs, rowRef }, ref) {
   return (
-    <div ref={ref} className="w-[400px] overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200/60">
+    <div
+      ref={ref}
+      className="w-[400px] overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200/60"
+    >
       <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-3">
         <img
           src={avatarSrc}
@@ -150,7 +153,9 @@ const Card = React.forwardRef<
         {REACTIONS.map((emoji, i) => (
           <div
             key={emoji}
-            ref={(el) => { buttonRefs.current[i] = el; }}
+            ref={(el) => {
+              buttonRefs.current[i] = el;
+            }}
             className="flex h-14 w-14 items-center justify-center rounded-full border border-gray-200 bg-white text-2xl shadow-sm"
           >
             {emoji}
@@ -251,7 +256,10 @@ export default function V1() {
     t += 600;
     sched(() => setClick1(true), t);
     t += 120;
-    sched(() => { setClick1(false); emit('❤️', card1Buttons, card1Row, 0); }, t);
+    sched(() => {
+      setClick1(false);
+      emit('❤️', card1Buttons, card1Row, 0);
+    }, t);
     t += 700;
 
     // Drew's cursor → 🔥 on card 2
@@ -262,7 +270,10 @@ export default function V1() {
     t += 600;
     sched(() => setClick2(true), t);
     t += 120;
-    sched(() => { setClick2(false); emit('🔥', card2Buttons, card2Row, 1); }, t);
+    sched(() => {
+      setClick2(false);
+      emit('🔥', card2Buttons, card2Row, 1);
+    }, t);
     t += 700;
 
     // Daniel → 🎉
@@ -270,7 +281,10 @@ export default function V1() {
     t += 400;
     sched(() => setClick1(true), t);
     t += 120;
-    sched(() => { setClick1(false); emit('🎉', card1Buttons, card1Row, 2); }, t);
+    sched(() => {
+      setClick1(false);
+      emit('🎉', card1Buttons, card1Row, 2);
+    }, t);
     t += 700;
 
     // Drew → 👏
@@ -278,7 +292,10 @@ export default function V1() {
     t += 400;
     sched(() => setClick2(true), t);
     t += 120;
-    sched(() => { setClick2(false); emit('👏', card2Buttons, card2Row, 3); }, t);
+    sched(() => {
+      setClick2(false);
+      emit('👏', card2Buttons, card2Row, 3);
+    }, t);
     t += 600;
 
     // Rapid fire: both on ❤️
@@ -288,22 +305,34 @@ export default function V1() {
     for (let i = 0; i < 4; i++) {
       sched(() => setClick1(true), t);
       t += 100;
-      sched(() => { setClick1(false); emit('❤️', card1Buttons, card1Row, 0); }, t);
+      sched(() => {
+        setClick1(false);
+        emit('❤️', card1Buttons, card1Row, 0);
+      }, t);
       t += 150;
       sched(() => setClick2(true), t);
       t += 100;
-      sched(() => { setClick2(false); emit('❤️', card2Buttons, card2Row, 0); }, t);
+      sched(() => {
+        setClick2(false);
+        emit('❤️', card2Buttons, card2Row, 0);
+      }, t);
       t += 250;
     }
 
     t += 1200;
-    sched(() => { setShow1(false); setShow2(false); }, t);
+    sched(() => {
+      setShow1(false);
+      setShow2(false);
+    }, t);
     t += 2000;
     sched(() => runCycle(), t);
   }, [clear, emit, getBtnPos]);
 
   useEffect(() => {
-    if (!started.current) { started.current = true; runCycle(); }
+    if (!started.current) {
+      started.current = true;
+      runCycle();
+    }
     return () => clear();
   }, [runCycle, clear]);
 
@@ -313,27 +342,47 @@ export default function V1() {
       className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#FFF5F5] to-[#FFF0E5]"
     >
       <div className="relative flex items-center">
-        <div className="-rotate-2 translate-y-[-16px]">
+        <div className="translate-y-[-16px] -rotate-2">
           <Card
             label="Daniel"
             avatarSrc="/img/landing/daniel.png"
-            screenRef={(el) => { s1.current = el; }}
+            screenRef={(el) => {
+              s1.current = el;
+            }}
             buttonRefs={card1Buttons}
             rowRef={card1Row}
           />
         </div>
-        <div className="-ml-8 rotate-2 translate-y-[16px]">
+        <div className="-ml-8 translate-y-[16px] rotate-2">
           <Card
             label="Drew"
             avatarSrc="/img/landing/drew.jpg"
-            screenRef={(el) => { s2.current = el; }}
+            screenRef={(el) => {
+              s2.current = el;
+            }}
             buttonRefs={card2Buttons}
             rowRef={card2Row}
           />
         </div>
       </div>
-      {show1 && <FakeCursor x={c1.x} y={c1.y} clicking={click1} color="#6366F1" label="Daniel" />}
-      {show2 && <FakeCursor x={c2.x} y={c2.y} clicking={click2} color="#EC4899" label="Drew" />}
+      {show1 && (
+        <FakeCursor
+          x={c1.x}
+          y={c1.y}
+          clicking={click1}
+          color="#6366F1"
+          label="Daniel"
+        />
+      )}
+      {show2 && (
+        <FakeCursor
+          x={c2.x}
+          y={c2.y}
+          clicking={click2}
+          color="#EC4899"
+          label="Drew"
+        />
+      )}
     </div>
   );
 }

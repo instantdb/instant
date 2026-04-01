@@ -146,10 +146,7 @@ export default function CLIDemoPage() {
               style={{ backgroundColor: '#56949f' }}
             />
           </div>
-          <span
-            className="flex-1 text-center text-xs"
-            style={{ color: c.dim }}
-          >
+          <span className="flex-1 text-center text-xs" style={{ color: c.dim }}>
             Terminal
           </span>
           <div className="w-[46px]" />
@@ -220,9 +217,7 @@ export default function CLIDemoPage() {
                   </span>
                 </div>
                 <div className="mt-1 space-y-0.5 pl-3">
-                  <div style={{ color: c.keyword }}>
-                    + CREATE ATTR todos.id
-                  </div>
+                  <div style={{ color: c.keyword }}>+ CREATE ATTR todos.id</div>
                   <div style={{ color: c.keyword }}>
                     + CREATE ATTR todos.text
                   </div>
