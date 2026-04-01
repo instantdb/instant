@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: LinkedIn OAuth
-    description: How to add LinkedIn OAuth to your Instant app.
+    title: 'LinkedIn OAuth'
+    description: 'How to add LinkedIn OAuth to your Instant app.'
 ---
 
 {% nav-default value="web-redirect" %}

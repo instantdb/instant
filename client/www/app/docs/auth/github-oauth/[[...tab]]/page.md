@@ -1,8 +1,8 @@
 ---
 nextjs:
   metadata:
-    title: GitHub OAuth
-    description: How to add GitHub OAuth to your Instant app.
+    title: 'GitHub OAuth'
+    description: 'How to add GitHub OAuth to your Instant app.'
 ---
 
 {% nav-default value="web-redirect" %}
