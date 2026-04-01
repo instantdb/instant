@@ -11,6 +11,8 @@ export const metadata: Metadata = {
 
 type PageEntry = {
   path: string;
+  title: string;
+  description?: string;
   ogImage: string;
   twitterImage?: string;
 };
@@ -26,8 +28,12 @@ function getDocEntries(): PageEntry[] {
         const mdPath = path.join(sub, 'page.md');
         if (fs.existsSync(mdPath)) {
           const slug = `${prefix}/${entry.name}`.replace('/docs/', '');
+          const { data } = matter(fs.readFileSync(mdPath, 'utf-8'));
+          const meta = data?.nextjs?.metadata;
           entries.push({
             path: `${prefix}/${entry.name}`,
+            title: meta?.title || entry.name,
+            description: meta?.description,
             ogImage: `/api/docs-og?slug=${encodeURIComponent(slug)}`,
           });
         }
@@ -46,28 +52,57 @@ function getEssayEntries(): PageEntry[] {
     const ogImage = p.og_image || p.hero || p.thumbnail || '/opengraph-image';
     return {
       path: `/essays/${p.slug}`,
+      title: p.title,
+      description: p.summary,
       ogImage,
-      twitterImage: `/essays/${p.slug}/twitter-image`,
     };
   });
 }
 
-const staticPages: PageEntry[] = [
-  '/',
-  '/about',
-  '/essays',
-  '/examples',
-  '/hiring',
-  '/hiring/backend-engineer',
-  '/pricing',
-  '/product/admin-sdk',
-  '/product/auth',
-  '/product/database',
-  '/product/storage',
-  '/product/sync',
-  '/recipes',
-  '/tutorial',
-].map((p) => ({ path: p, ogImage: '/opengraph-image' }));
+import { metadata as metaRoot } from '../page';
+import { metadata as metaAbout } from '../about/page';
+import { metadata as metaEssays } from '../essays/page';
+import { metadata as metaExamples } from '../examples/page';
+import { metadata as metaHiring } from '../hiring/page';
+import { metadata as metaHiringBe } from '../hiring/backend-engineer/page';
+import { metadata as metaPricing } from '../pricing/page';
+import { metadata as metaAdminSdk } from '../product/admin-sdk/page';
+import { metadata as metaAuth } from '../product/auth/page';
+import { metadata as metaDatabase } from '../product/database/page';
+import { metadata as metaStorage } from '../product/storage/page';
+import { metadata as metaSync } from '../product/sync/page';
+import { metadata as metaRecipes } from '../recipes/page';
+import { metadata as metaTutorial } from '../tutorial/page';
+
+function extractMeta(meta: Metadata): { title: string; description?: string } {
+  const title =
+    (typeof meta.title === 'string' ? meta.title : (meta.title as any)?.default) ||
+    meta.openGraph?.title ||
+    '';
+  const description = (meta.description || meta.openGraph?.description) as string | undefined;
+  return { title: String(title), description };
+}
+
+const staticPages: PageEntry[] = ([
+  ['/', metaRoot],
+  ['/about', metaAbout],
+  ['/essays', metaEssays],
+  ['/examples', metaExamples],
+  ['/hiring', metaHiring],
+  ['/hiring/backend-engineer', metaHiringBe],
+  ['/pricing', metaPricing],
+  ['/product/admin-sdk', metaAdminSdk],
+  ['/product/auth', metaAuth],
+  ['/product/database', metaDatabase],
+  ['/product/storage', metaStorage],
+  ['/product/sync', metaSync],
+  ['/recipes', metaRecipes],
+  ['/tutorial', metaTutorial],
+] as [string, Metadata][]).map(([p, meta]) => ({
+  path: p,
+  ...extractMeta(meta),
+  ogImage: '/opengraph-image',
+}));
 
 export default function OgPreviewPage() {
   const allEntries = [
@@ -101,14 +136,14 @@ export default function OgPreviewPage() {
             {entry.twitterImage && entry.twitterImage !== entry.ogImage ? (
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <ImageCard src={entry.ogImage} label="og:image" />
+                  <OgPanel entry={entry} imageSrc={entry.ogImage} label="og:image" />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <ImageCard src={entry.twitterImage} label="twitter:image" />
+                  <OgPanel entry={entry} imageSrc={entry.twitterImage} label="twitter:image" />
                 </div>
               </div>
             ) : (
-              <ImageCard src={entry.ogImage} label="og:image" />
+              <OgPanel entry={entry} imageSrc={entry.ogImage} label="og:image" />
             )}
           </div>
         ))}
@@ -117,24 +152,76 @@ export default function OgPreviewPage() {
   );
 }
 
-function ImageCard({ src, label }: { src: string; label: string }) {
+function OgPanel({
+  entry,
+  imageSrc,
+  label,
+}: {
+  entry: PageEntry;
+  imageSrc: string;
+  label: string;
+}) {
   return (
     <div>
       <div style={{ color: '#666', fontSize: 12, marginBottom: 4 }}>
         {label}
       </div>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={label}
+      <div
         style={{
-          width: '100%',
-          aspectRatio: '1200/630',
-          objectFit: 'cover',
           borderRadius: 8,
           border: '1px solid #333',
+          overflow: 'hidden',
+          background: '#1a1a1a',
         }}
-      />
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageSrc}
+          alt={label}
+          style={{
+            width: '100%',
+            aspectRatio: '1200/630',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+        />
+        <div style={{ padding: '12px 16px' }}>
+          <div
+            style={{
+              color: '#888',
+              fontSize: 11,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+              marginBottom: 4,
+            }}
+          >
+            instantdb.com
+          </div>
+          <div
+            style={{
+              color: '#fff',
+              fontSize: 14,
+              fontWeight: 600,
+              marginBottom: entry.description ? 4 : 0,
+            }}
+          >
+            {entry.title}
+          </div>
+          {entry.description ? (
+            <div
+              style={{
+                color: '#888',
+                fontSize: 13,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {entry.description}
+            </div>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
