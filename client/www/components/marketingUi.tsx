@@ -345,7 +345,6 @@ function NavItems() {
     <>
       <ProductDropdownDesktop />
       <ProductAccordionMobile />
-      {/* <NavLink href="/enterprise">Enterprise</NavLink> */}
       <NavLink href="/pricing">Pricing</NavLink>
       <NavLink href="/tutorial">Tutorial</NavLink>
       <NavLink href="/examples">Examples</NavLink>
