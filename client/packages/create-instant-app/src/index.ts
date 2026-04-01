@@ -34,7 +34,7 @@ const main = async () => {
   }
 
   const theme = await detectTerminalTheme();
-  const { project, appFlags } = await runCli();
+  const project = await runCli();
 
   const [scopedAppName, appDir] = parseNameAndPath(project.appName);
 
@@ -57,7 +57,7 @@ const main = async () => {
 
   const possibleAppTokenPair = await tryConnectApp(
     scopedAppName,
-    appFlags,
+    project,
     scaffoldMetadata,
   );
   if (possibleAppTokenPair) {

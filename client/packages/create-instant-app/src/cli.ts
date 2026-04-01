@@ -28,11 +28,9 @@ export type Project = {
   appName: string;
   prompt: string | null;
   createRepo: boolean;
-};
-
-export type AppFlags = {
   app: string | null;
   token: string | null;
+  yes: boolean;
 };
 
 export const unwrapSkippablePrompt = <T>(result: Promise<T | symbol>) => {
@@ -50,12 +48,12 @@ const defaultOptions: Project = {
   ruleFiles: null,
   createRepo: true,
   prompt: null,
+  app: null,
+  token: null,
+  yes: false,
 };
 
-export const runCli = async (): Promise<{
-  project: Project;
-  appFlags: AppFlags;
-}> => {
+export const runCli = async (): Promise<Project> => {
   const results = defaultOptions;
 
   const program = new Command()
@@ -137,6 +135,12 @@ export const runCli = async (): Promise<{
         'Auth token override (use with --app when not logged in)',
       ),
     )
+    .addOption(
+      new Option(
+        '-y --yes',
+        'Use all defaults (requires project name as first argument)',
+      ).default(false),
+    )
     .version(version)
     .parse(process.argv);
   const cliProvidedName = program.args[0] && coerceAppName(program.args[0]);
@@ -150,6 +154,35 @@ export const runCli = async (): Promise<{
   }
 
   const flags = program.opts();
+
+  if (flags.yes) {
+    if (!cliProvidedName) {
+      throw new Error(
+        'When using --yes, you must specify a project name as the first argument.\n' +
+          'Usage: npx create-instant-app my-app --yes',
+      );
+    }
+    return {
+      ...defaultOptions,
+      appName: cliProvidedName,
+      base: (flags.base as Project['base']) ??
+        (flags.vanilla ? 'vite-vanilla' :
+         flags.next ? 'next-js-app-dir' :
+         flags.expo ? 'expo' :
+         flags.sv ? 'sveltekit' :
+         defaultOptions.base),
+      ruleFiles: flags.cursor ? 'cursor' :
+        flags.claude ? 'claude' :
+        flags.codex ? 'codex' :
+        flags.gemini ? 'gemini' :
+        flags.rules ? 'codex' :
+        defaultOptions.ruleFiles,
+      createRepo: flags.git ?? defaultOptions.createRepo,
+      app: flags.app ?? null,
+      token: flags.token ?? null,
+      yes: true,
+    };
+  }
 
   // Check if claude is in path
   if (flags.ai) {
@@ -328,10 +361,10 @@ export const runCli = async (): Promise<{
     },
   );
 
-  const appFlags: AppFlags = {
+  return {
+    ...project,
     app: flags.app ?? null,
     token: flags.token ?? null,
+    yes: false,
   };
-
-  return { project, appFlags };
 };

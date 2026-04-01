@@ -3,7 +3,7 @@ import * as p from '@clack/prompts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import openInBrowser from 'open';
 import { join } from 'node:path';
-import { AppFlags, Project, unwrapSkippablePrompt } from './cli.js';
+import { Project, unwrapSkippablePrompt } from './cli.js';
 import { randomUUID } from 'node:crypto';
 import {
   fetchJson,
@@ -231,39 +231,45 @@ const createPermissiveEphemeralApp = async (
 
 export const tryConnectApp = async (
   scopedAppName: string,
-  appFlags?: AppFlags,
+  project?: Project,
   metadata?: ScaffoldMetadata,
 ): Promise<AppTokenResponse | null> => {
   let authToken = await getAuthToken();
 
+  // Handle --yes flag: create an ephemeral app automatically
+  if (project?.yes && !project?.app) {
+    const app = await createPermissiveEphemeralApp(scopedAppName, metadata);
+    return { ...app, approach: 'ephemeral' };
+  }
+
   // Handle --app flag: skip interactive selection
-  if (appFlags?.app) {
+  if (project?.app) {
     // If token is provided via --token flag, verify and use it
-    if (appFlags.token) {
-      const isValid = await verifyAppIdAndToken(appFlags.app, appFlags.token);
+    if (project.token) {
+      const isValid = await verifyAppIdAndToken(project.app, project.token);
       if (!isValid) {
         throw new Error(
           `Invalid app ID and token combination. Please verify both the app ID and token are correct.`,
         );
       }
-      UI.log(`Linking to app: ${appFlags.app}`, UI.ciaModifier(null));
-      trackAppImport(appFlags.app, appFlags.token, metadata);
+      UI.log(`Linking to app: ${project.app}`, UI.ciaModifier(null));
+      trackAppImport(project.app, project.token, metadata);
       return {
-        appId: appFlags.app,
-        adminToken: appFlags.token,
+        appId: project.app,
+        adminToken: project.token,
         approach: 'import',
       };
     }
 
     // If no token provided but user is logged in, look up the admin token
     if (authToken) {
-      const appAccess = await verifyAppAccess(authToken, appFlags.app);
+      const appAccess = await verifyAppAccess(authToken, project.app);
       if (!appAccess) {
         throw new Error(
-          `You don't have access to app "${appFlags.app}". Please check the app ID or use --token to provide a token.`,
+          `You don't have access to app "${project.app}". Please check the app ID or use --token to provide a token.`,
         );
       }
-      UI.log(`Linking to app: ${appFlags.app}`, UI.ciaModifier(null));
+      UI.log(`Linking to app: ${project.app}`, UI.ciaModifier(null));
       trackAppImport(appAccess.appId, authToken, metadata);
       return {
         appId: appAccess.appId,
@@ -275,7 +281,7 @@ export const tryConnectApp = async (
     // No token and not logged in - error
     throw new Error(
       `You must be logged in or provide --token when using --app. ` +
-        `Either run 'npx instant-cli login' first, or use: --app ${appFlags.app} --token <token>`,
+        `Either run 'npx instant-cli login' first, or use: --app ${project.app} --token <token>`,
     );
   }
 
