@@ -84,7 +84,7 @@ function TabToggle({ activeTab }: { activeTab: string }) {
       {tabs.map((tab) => (
         <Link
           key={tab.id}
-          href={tab.id === 'web' ? '/examples' : `/examples?tab=${tab.id}`}
+          href={tab.id === 'web' ? '/examples' : `/examples/${tab.id}`}
           className={`rounded-lg border px-4 py-1.5 text-sm font-medium transition-colors ${
             activeTab === tab.id
               ? 'border-orange-600 bg-orange-600 text-white'

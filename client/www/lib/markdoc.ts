@@ -47,4 +47,9 @@ function transformContent(content: string): string {
   return result + sanitizedContent;
 }
 
-export { parseFrontmatter, transformContent };
+// Strip dynamic route segments like [[...tab]] from a docs file path
+function stripDynamicPaths(filePath: string): string {
+  return filePath.replace(/\/\[\[\.\.\..*?\]\]/g, '');
+}
+
+export { parseFrontmatter, transformContent, stripDynamicPaths };

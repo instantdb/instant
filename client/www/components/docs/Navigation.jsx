@@ -1,14 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
+import { useCanonicalDocsPath } from '@/components/docs/NavButton';
 
-export function Navigation({ navigation, className }) {
-  let pathname = usePathname();
-  const searchParams = useSearchParams();
-  const org = searchParams.get('org');
-  const orgQuery = org ? { org } : {};
+export function Navigation({ navigation, className, orgQuery = {} }) {
+  const pathname = useCanonicalDocsPath();
 
   return (
     <nav className={clsx('text-sm', className)}>

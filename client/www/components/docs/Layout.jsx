@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
@@ -9,6 +9,7 @@ import { Navigation } from '@/components/docs/Navigation';
 import { Prose } from '@/components/docs/Prose';
 import { Search } from '@/components/docs/Search';
 import { AppPicker } from '@/components/docs/AppPicker';
+import { useCanonicalDocsPath } from '@/components/docs/NavButton';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
 import config from '@/lib/config';
@@ -54,13 +55,13 @@ function useWorkspaceData(workspaceId, token) {
 function useSelectedApp(apps = [], orgId) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAppData, setSelectedAppData] = useState(null);
 
   useEffect(() => {
     const cachedAppData = getLocallySavedApp(orgId);
-    const queryAppId = searchParams.get('app');
+    const currentParams = new URLSearchParams(window.location.search);
+    const queryAppId = currentParams.get('app');
 
     const fromParams = queryAppId && apps.find((a) => a.id === queryAppId);
     const fromCache =
@@ -77,7 +78,7 @@ function useSelectedApp(apps = [], orgId) {
         id: fromParams.id,
         orgId: orgId,
       });
-      const remainingParams = new URLSearchParams(searchParams.toString());
+      const remainingParams = new URLSearchParams(window.location.search);
       remainingParams.delete('app');
       const queryString = remainingParams.toString();
       const hash = window.location.hash;
@@ -341,25 +342,34 @@ const adj = {
   hWithoutHeader: 'h-[calc(100dvh-3.5rem)]',
 };
 
-export function Layout({ children, title, tableOfContents }) {
-  let pathname = usePathname();
+function ParamSyncer({ setOrg }) {
   const searchParams = useSearchParams();
+  const org = searchParams.get('org');
+  useEffect(() => {
+    setOrg(org);
+  }, [org, setOrg]);
+  return null;
+}
+
+export function Layout({ children, title, tableOfContents }) {
+  const pathname = usePathname();
+  const docPath = useCanonicalDocsPath();
   const scrollContainerRef = useRef();
 
-  let allLinks = navigation.flatMap((section) => section.links);
+  const allLinks = navigation.flatMap((section) => section.links);
 
-  let previousPage = getPreviousPage(allLinks, pathname);
-  let nextPage = getNextPage(allLinks, pathname);
+  const previousPage = getPreviousPage(allLinks, docPath);
+  const nextPage = getNextPage(allLinks, docPath);
 
-  let section = navigation.find((section) =>
-    section.links.find((link) => link.href === pathname),
+  const section = navigation.find((section) =>
+    section.links.find((link) => link.href === docPath),
   );
 
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [forceModal, setForceModal] = useState(false);
   const isMobile = useIsMobile();
 
-  const org = searchParams.get('org');
+  const [org, setOrg] = useState(null);
   const workspaceId = org || 'personal';
   const orgQuery = org ? { org } : {};
   const token = useAuthToken();
@@ -378,6 +388,9 @@ export function Layout({ children, title, tableOfContents }) {
   return (
     <SelectedAppContext.Provider value={selectedAppData}>
       <div className="min-h-dvh bg-[#f8f9fa]">
+        <Suspense>
+          <ParamSyncer setOrg={setOrg} />
+        </Suspense>
         {/* Header */}
         <div
           className={clsx(
@@ -391,6 +404,7 @@ export function Layout({ children, title, tableOfContents }) {
                 <Search />
                 <Navigation
                   navigation={navigation}
+                  orgQuery={orgQuery}
                   className="w-64 pr-8 md:hidden xl:w-72 xl:pr-16"
                 />
               </div>
@@ -418,6 +432,7 @@ export function Layout({ children, title, tableOfContents }) {
                 <Search />
                 <Navigation
                   navigation={navigation}
+                  orgQuery={orgQuery}
                   className="ml-1 w-64 pr-8 xl:w-72 xl:pr-16"
                 />
               </div>
@@ -427,7 +442,7 @@ export function Layout({ children, title, tableOfContents }) {
             {/* Main content */}
             <main
               ref={scrollContainerRef}
-              key={pathname}
+              key={docPath}
               className="max-w-2xl min-w-0 flex-1 p-4"
             >
               <AppPicker
@@ -441,7 +456,7 @@ export function Layout({ children, title, tableOfContents }) {
                 }}
               />
               <PageContent
-                path={pathname}
+                path={docPath}
                 title={title}
                 sectionTitle={section?.title}
                 allLinks={allLinks}

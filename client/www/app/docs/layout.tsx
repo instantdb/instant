@@ -1,10 +1,7 @@
-import { connection } from 'next/server';
-
-export default async function DocsLayout({
+export default function DocsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await connection();
   return <>{children}</>;
 }
