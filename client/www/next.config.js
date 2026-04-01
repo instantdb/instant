@@ -49,6 +49,25 @@ const nextConfig = {
         source: '/status',
         destination: 'https://status.instantdb.com',
       },
+      // Redirect old search-param-based auth doc tabs to route segments
+      ...['apple', 'google-oauth', 'github-oauth', 'linkedin-oauth'].map(
+        (page) => ({
+          permanent: true,
+          source: `/docs/auth/${page}`,
+          has: [
+            { type: 'query', key: 'method', value: '(?<method>.+)' },
+          ],
+          destination: `/docs/auth/${page}/:method`,
+        }),
+      ),
+      {
+        permanent: true,
+        source: '/docs/auth/magic-codes',
+        has: [
+          { type: 'query', key: 'platform', value: '(?<platform>.+)' },
+        ],
+        destination: '/docs/auth/magic-codes/:platform',
+      },
     ];
   },
   // Proxy to PostHog to avoid ad blockers

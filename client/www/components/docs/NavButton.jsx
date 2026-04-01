@@ -29,11 +29,23 @@
  * {% /conditional %}
  */
 import Link from 'next/link';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { cn } from '../../components/ui.tsx';
 import { createContext, useContext } from 'react';
 
 const DefaultValueContext = createContext(undefined);
+
+// Context provided by route-level layouts (via generateStaticParams)
+// to supply the active tab value from the URL path segment.
+const RouteTabContext = createContext(null);
+
+export function RouteTabProvider({ paramName, value, basePath, children }) {
+  return (
+    <RouteTabContext.Provider value={{ paramName, value, basePath }}>
+      {children}
+    </RouteTabContext.Provider>
+  );
+}
 
 export function NavDefault({ value, children }) {
   return (
@@ -51,10 +63,16 @@ export function NavGroup({ children }) {
   );
 }
 
-function isSelected(param, value) {
-  const searchParams = useSearchParams();
+function useIsSelected(param, value) {
+  const routeTab = useContext(RouteTabContext);
   const defaultValue = useContext(DefaultValueContext);
-  return value && value === (searchParams.get(param) || defaultValue);
+
+  if (routeTab && routeTab.paramName === param) {
+    const active = routeTab.value || defaultValue;
+    return value && value === active;
+  }
+
+  return value && value === defaultValue;
 }
 
 export function NavButton({
@@ -66,15 +84,17 @@ export function NavButton({
   recommended,
 }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const selected = isSelected(param, value);
+  const routeTab = useContext(RouteTabContext);
+  const selected = useIsSelected(param, value);
 
   const handleClick = () => {
-    const newParams = new URLSearchParams(searchParams.toString());
-    newParams.set(param, value);
-    router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
+    if (routeTab && routeTab.paramName === param) {
+      const orgParam = new URLSearchParams(window.location.search).get('org');
+      const query = orgParam ? `?org=${orgParam}` : '';
+      router.push(`${routeTab.basePath}/${value}${query}`);
+    }
   };
+
   const Component = (
     <div
       className="group relative flex h-full max-w-sm cursor-pointer flex-col rounded-xl border border-slate-200 dark:border-slate-800"
@@ -108,8 +128,8 @@ export function NavButton({
 
 export function ConditionalContent({ param, value, children, elseChildren }) {
   const selected = Array.isArray(value)
-    ? value.some((v) => isSelected(param, v))
-    : isSelected(param, value);
+    ? value.some((v) => useIsSelected(param, v))
+    : useIsSelected(param, value);
 
   if (selected) {
     return <>{children}</>;

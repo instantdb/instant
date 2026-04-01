@@ -1,14 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 
-export function Navigation({ navigation, className }) {
+export function Navigation({ navigation, className, orgQuery = {} }) {
   let pathname = usePathname();
-  const searchParams = useSearchParams();
-  const org = searchParams.get('org');
-  const orgQuery = org ? { org } : {};
 
   return (
     <nav className={clsx('text-sm', className)}>

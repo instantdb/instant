@@ -81,7 +81,9 @@ async function processMarkdownFile(filePath: string): Promise<Document | null> {
     const relativePath = path.relative(CONFIG.DOCS_PATH, filePath);
     const urlPath = relativePath.replace(/\\/g, '/').replace(/\/page\.md$/, '');
 
-    const href = urlPath === 'page.md' ? '/docs' : `/docs/${urlPath}`;
+    // Strip optional catch-all segments like [[...tab]] from the path
+    const cleanUrlPath = urlPath.replace(/\/\[\[\.\.\..*?\]\]$/, '');
+    const href = urlPath === 'page.md' ? '/docs' : `/docs/${cleanUrlPath}`;
 
     const url = getDocumentUrl(href);
 

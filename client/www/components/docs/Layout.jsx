@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import clsx from 'clsx';
 
 import { Navigation } from '@/components/docs/Navigation';
@@ -54,13 +54,13 @@ function useWorkspaceData(workspaceId, token) {
 function useSelectedApp(apps = [], orgId) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAppData, setSelectedAppData] = useState(null);
 
   useEffect(() => {
     const cachedAppData = getLocallySavedApp(orgId);
-    const queryAppId = searchParams.get('app');
+    const currentParams = new URLSearchParams(window.location.search);
+    const queryAppId = currentParams.get('app');
 
     const fromParams = queryAppId && apps.find((a) => a.id === queryAppId);
     const fromCache =
@@ -77,7 +77,7 @@ function useSelectedApp(apps = [], orgId) {
         id: fromParams.id,
         orgId: orgId,
       });
-      const remainingParams = new URLSearchParams(searchParams.toString());
+      const remainingParams = new URLSearchParams(window.location.search);
       remainingParams.delete('app');
       const queryString = remainingParams.toString();
       const hash = window.location.hash;
@@ -343,7 +343,6 @@ const adj = {
 
 export function Layout({ children, title, tableOfContents }) {
   let pathname = usePathname();
-  const searchParams = useSearchParams();
   const scrollContainerRef = useRef();
 
   let allLinks = navigation.flatMap((section) => section.links);
@@ -359,7 +358,11 @@ export function Layout({ children, title, tableOfContents }) {
   const [forceModal, setForceModal] = useState(false);
   const isMobile = useIsMobile();
 
-  const org = searchParams.get('org');
+  const [org, setOrg] = useState(null);
+  useEffect(() => {
+    const orgFromUrl = new URLSearchParams(window.location.search).get('org');
+    if (orgFromUrl) setOrg(orgFromUrl);
+  }, []);
   const workspaceId = org || 'personal';
   const orgQuery = org ? { org } : {};
   const token = useAuthToken();
@@ -391,6 +394,7 @@ export function Layout({ children, title, tableOfContents }) {
                 <Search />
                 <Navigation
                   navigation={navigation}
+                  orgQuery={orgQuery}
                   className="w-64 pr-8 md:hidden xl:w-72 xl:pr-16"
                 />
               </div>
@@ -418,6 +422,7 @@ export function Layout({ children, title, tableOfContents }) {
                 <Search />
                 <Navigation
                   navigation={navigation}
+                  orgQuery={orgQuery}
                   className="ml-1 w-64 pr-8 xl:w-72 xl:pr-16"
                 />
               </div>

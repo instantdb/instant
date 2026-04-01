@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { DocSearchModal, useDocSearchKeyboardEvents } from '@docsearch/react';
 import '@docsearch/css';
 
@@ -25,7 +25,6 @@ export function Search() {
   const [modifierKey, setModifierKey] = useState(null);
   const [initialQuery, setInitialQuery] = useState(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const onOpen = useCallback(() => {
     setIsOpen(true);
@@ -45,16 +44,13 @@ export function Search() {
     setModifierKey(
       /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform) ? '⌘' : 'Ctrl ',
     );
-  }, []);
 
-  // Enable search on load if `q` is in the query string
-  const q = searchParams.get('q');
-  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q');
     if (q) {
       setInitialQuery(q);
       onOpen();
     }
-  }, [q]);
+  }, []);
 
   return (
     <>

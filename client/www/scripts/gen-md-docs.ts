@@ -58,7 +58,8 @@ async function exportDocsToPublic(): Promise<void> {
       const relativePath = path.relative(CONFIG.DOCS_PATH, sourceFilePath);
       const urlPath = relativePath
         .replace(/\\/g, '/')
-        .replace(/\/page\.md$/, '');
+        .replace(/\/page\.md$/, '')
+        .replace(/\/\[\[\.\.\..*?\]\]$/, '');
 
       // Special case for the root page.md - also save it as docs.md in the public root
       if (urlPath === 'page.md') {
