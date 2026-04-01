@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { getAllPosts } from '@/lib/posts';
+import { headers } from 'next/headers';
 import fs from 'fs';
 import path from 'path';
 
@@ -48,7 +49,12 @@ function getDocPages(): string[] {
   return pages;
 }
 
-export default function OgPreviewPage() {
+export default async function OgPreviewPage() {
+  const h = await headers();
+  const host = h.get('host') || 'localhost:3000';
+  const proto = host.includes('localhost') ? 'http' : 'https';
+  const baseUrl = `${proto}://${host}`;
+
   const posts = getAllPosts();
   const essayPages = posts.map((p) => `/essays/${p.slug}`);
   const docPages = getDocPages();
@@ -65,7 +71,7 @@ export default function OgPreviewPage() {
         }}
       >
         {allPages.map((p) => (
-          <PagePreview key={p} path={p} />
+          <PagePreview key={p} path={p} baseUrl={baseUrl} />
         ))}
       </div>
     </div>
@@ -140,10 +146,7 @@ function ImageCard({ src, label }: { src: string | undefined; label: string }) {
   );
 }
 
-async function PagePreview({ path: pagePath }: { path: string }) {
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000';
+async function PagePreview({ path: pagePath, baseUrl }: { path: string; baseUrl: string }) {
 
   try {
     const res = await fetch(`${baseUrl}${pagePath}`, { cache: 'no-store' });
