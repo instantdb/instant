@@ -73,18 +73,26 @@ export default function OgPreviewPage() {
 }
 
 function extractMetaContent(html: string, property: string, name: string) {
-  const byProperty = html.match(
-    new RegExp(`<meta[^>]*property="${property}"[^>]*content="([^"]*)"[^>]*>`),
-  ) || html.match(
-    new RegExp(`<meta[^>]*content="([^"]*)"[^>]*property="${property}"[^>]*>`),
-  );
+  const byProperty =
+    html.match(
+      new RegExp(
+        `<meta[^>]*property="${property}"[^>]*content="([^"]*)"[^>]*>`,
+      ),
+    ) ||
+    html.match(
+      new RegExp(
+        `<meta[^>]*content="([^"]*)"[^>]*property="${property}"[^>]*>`,
+      ),
+    );
   if (byProperty) return byProperty[1];
 
-  const byName = html.match(
-    new RegExp(`<meta[^>]*name="${name}"[^>]*content="([^"]*)"[^>]*>`),
-  ) || html.match(
-    new RegExp(`<meta[^>]*content="([^"]*)"[^>]*name="${name}"[^>]*>`),
-  );
+  const byName =
+    html.match(
+      new RegExp(`<meta[^>]*name="${name}"[^>]*content="([^"]*)"[^>]*>`),
+    ) ||
+    html.match(
+      new RegExp(`<meta[^>]*content="([^"]*)"[^>]*name="${name}"[^>]*>`),
+    );
   return byName?.[1];
 }
 
@@ -92,7 +100,9 @@ function ImageCard({ src, label }: { src: string | undefined; label: string }) {
   if (!src) {
     return (
       <div>
-        <div style={{ color: '#666', fontSize: 12, marginBottom: 4 }}>{label}</div>
+        <div style={{ color: '#666', fontSize: 12, marginBottom: 4 }}>
+          {label}
+        </div>
         <div
           style={{
             aspectRatio: '1200/630',
@@ -112,7 +122,9 @@ function ImageCard({ src, label }: { src: string | undefined; label: string }) {
   }
   return (
     <div>
-      <div style={{ color: '#666', fontSize: 12, marginBottom: 4 }}>{label}</div>
+      <div style={{ color: '#666', fontSize: 12, marginBottom: 4 }}>
+        {label}
+      </div>
       <img
         src={src}
         alt={label}
@@ -176,7 +188,14 @@ async function PagePreview({ path: pagePath }: { path: string }) {
   } catch {
     return (
       <div>
-        <div style={{ color: '#aaa', marginBottom: 8, fontSize: 14, fontFamily: 'monospace' }}>
+        <div
+          style={{
+            color: '#aaa',
+            marginBottom: 8,
+            fontSize: 14,
+            fontFamily: 'monospace',
+          }}
+        >
           {pagePath}
         </div>
         <div

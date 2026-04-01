@@ -37,13 +37,7 @@ export function Logo({ size = 64 }: { size?: number }) {
       xmlns="http://www.w3.org/2000/svg"
     >
       <rect width="512" height="512" fill="white" />
-      <rect
-        x="97.0973"
-        y="91.3297"
-        width="140"
-        height="330"
-        fill="black"
-      />
+      <rect x="97.0973" y="91.3297" width="140" height="330" fill="black" />
     </svg>
   );
 }

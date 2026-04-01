@@ -12,5 +12,9 @@ export default async function handler(request: NextRequest) {
 
   const layout = section === 'docs' ? 'centered' : 'default';
 
-  return generateOgImage({ title, section: section === 'docs' ? undefined : section, layout });
+  return generateOgImage({
+    title,
+    section: section === 'docs' ? undefined : section,
+    layout,
+  });
 }
