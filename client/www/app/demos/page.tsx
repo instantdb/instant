@@ -26,6 +26,11 @@ const demos = [
     title: 'CLI',
     description: 'Terminal with schema push, confetti on success',
   },
+  {
+    href: '/stream-demo',
+    title: 'Streams',
+    description: 'AI chat streaming across laptop and phone in real-time',
+  },
 ];
 
 export default function DemosPage() {
