@@ -334,7 +334,7 @@ export const runCli = async (): Promise<Project> => {
         return true;
       },
     } satisfies {
-      [K in keyof Project]: (args: {
+      [K in keyof Omit<Project, 'app' | 'token' | 'yes'>]: (args: {
         results: Partial<Project>;
       }) => Promise<Project[K] | symbol> | Project[K];
     },
