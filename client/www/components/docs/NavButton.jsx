@@ -63,10 +63,13 @@ export function NavGroup({ children }) {
   );
 }
 
-function useIsSelected(param, value) {
+function useTabState() {
   const routeTab = useContext(RouteTabContext);
   const defaultValue = useContext(DefaultValueContext);
+  return { routeTab, defaultValue };
+}
 
+function isSelected(param, value, { routeTab, defaultValue }) {
   if (routeTab && routeTab.paramName === param) {
     const active = routeTab.value || defaultValue;
     return value && value === active;
@@ -85,7 +88,8 @@ export function NavButton({
 }) {
   const router = useRouter();
   const routeTab = useContext(RouteTabContext);
-  const selected = useIsSelected(param, value);
+  const tabState = useTabState();
+  const selected = isSelected(param, value, tabState);
 
   const handleClick = () => {
     if (routeTab && routeTab.paramName === param) {
@@ -127,9 +131,10 @@ export function NavButton({
 }
 
 export function ConditionalContent({ param, value, children, elseChildren }) {
+  const tabState = useTabState();
   const selected = Array.isArray(value)
-    ? value.some((v) => useIsSelected(param, v))
-    : useIsSelected(param, value);
+    ? value.some((v) => isSelected(param, v, tabState))
+    : isSelected(param, value, tabState);
 
   if (selected) {
     return <>{children}</>;
