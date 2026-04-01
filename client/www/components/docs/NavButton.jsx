@@ -47,6 +47,10 @@ export function RouteTabProvider({ paramName, value, basePath, children }) {
   );
 }
 
+// Returns the canonical docs path for the current page, stripping any
+// tab sub-paths (e.g. /docs/auth/magic-codes/react -> /docs/auth/magic-codes).
+// Used by Navigation and Layout to match the current page against the
+// docs nav links, which use base paths without tab segments.
 export function useCanonicalDocsPath() {
   const routeTab = useContext(RouteTabContext);
   const pathname = usePathname();

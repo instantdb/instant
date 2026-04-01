@@ -18,7 +18,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import navigation from '../data/docsNavigation.js';
-import { parseFrontmatter, transformContent } from '../lib/markdoc.js';
+import {
+  parseFrontmatter,
+  stripDynamicPaths,
+  transformContent,
+} from '../lib/markdoc.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -80,9 +84,7 @@ async function processMarkdownFile(filePath: string): Promise<Document | null> {
     // Files are at app/docs/[name]/page.md — derive URL from parent directory
     const relativePath = path.relative(CONFIG.DOCS_PATH, filePath);
     const urlPath = relativePath.replace(/\\/g, '/').replace(/\/page\.md$/, '');
-
-    // Strip optional catch-all segments like [[...tab]] from the path
-    const cleanUrlPath = urlPath.replace(/\/\[\[\.\.\..*?\]\]$/, '');
+    const cleanUrlPath = stripDynamicPaths(urlPath);
     const href = urlPath === 'page.md' ? '/docs' : `/docs/${cleanUrlPath}`;
 
     const url = getDocumentUrl(href);
