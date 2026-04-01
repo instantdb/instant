@@ -10,7 +10,7 @@ import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { transformContent } from '../lib/markdoc.js';
+import { stripDynamicPaths, transformContent } from '../lib/markdoc.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,9 +56,9 @@ async function exportDocsToPublic(): Promise<void> {
       // Derive the output path from the directory structure
       // Files are at app/docs/[name]/page.md — output as [name].md
       const relativePath = path.relative(CONFIG.DOCS_PATH, sourceFilePath);
-      const urlPath = relativePath
-        .replace(/\\/g, '/')
-        .replace(/\/page\.md$/, '');
+      const urlPath = stripDynamicPaths(
+        relativePath.replace(/\\/g, '/').replace(/\/page\.md$/, ''),
+      );
 
       // Special case for the root page.md - also save it as docs.md in the public root
       if (urlPath === 'page.md') {

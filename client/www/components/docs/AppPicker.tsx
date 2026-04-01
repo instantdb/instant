@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Select } from '@/components/ui';
 
 type App = { id: string; title: string };
@@ -28,7 +28,6 @@ export function AppPicker({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const isLoggedOut = isReady && apps.length === 0 && allOrgs.length === 0;
   const hasApps = isReady && apps.length > 0;
@@ -68,7 +67,7 @@ export function AppPicker({
     const value = option?.value;
     if (!value) return;
     const orgId = value.substring(4); // strip "org:" prefix
-    const newParams = new URLSearchParams(searchParams?.toString());
+    const newParams = new URLSearchParams(window.location.search);
     newParams.delete('org');
     if (orgId !== 'personal') {
       newParams.set('org', orgId);
