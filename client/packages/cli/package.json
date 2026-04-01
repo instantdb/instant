@@ -32,7 +32,7 @@
     "ansi-escapes": "4.3.2",
     "boxen": "^8.0.1",
     "chalk": "^5.3.0",
-    "commander": "^12.1.0",
+    "commander": "^14.0.0",
     "dotenv": "^16.3.1",
     "dotenv-flow": "^4.1.0",
     "effect": "^3.19.14",
