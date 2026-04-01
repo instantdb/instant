@@ -3,9 +3,6 @@ nextjs:
   metadata:
     title: Getting started with React Native
     description: How to use Instant with React Native
-    openGraph:
-      images:
-        - /api/docs-og?slug=start-rn
 ---
 
 You can use Instant in React Native projects too! Below is an example using Expo.

@@ -3,9 +3,6 @@ nextjs:
   metadata:
     title: Streams
     description: How to stream and persist data with Instant.
-    openGraph:
-      images:
-        - /api/docs-og?slug=streams
 ---
 
 Instant Streams provide a simple way to build durable, real-time data flows. They are excellent for LLM-native applications, making it easy to stream AI chat completions.

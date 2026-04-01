@@ -5,9 +5,6 @@ nextjs:
     description: >-
       How to add ephemeral features like presence and cursors to your Instant
       app.
-    openGraph:
-      images:
-        - /api/docs-og?slug=presence-and-topics
 ---
 
 Sometimes you want to show real-time updates to users without persisting the

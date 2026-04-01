@@ -3,9 +3,6 @@ nextjs:
   metadata:
     title: App teams (Pro)
     description: How to manage your Instant app's team members and their roles.
-    openGraph:
-      images:
-        - /api/docs-og?slug=teams
 ---
 
 Apps with a Pro subscription can be managed by multiple users. To add team members to your app, head on over to the [Dashboard Admin tab](https://instantdb.com/dash?s=main&t=admin).

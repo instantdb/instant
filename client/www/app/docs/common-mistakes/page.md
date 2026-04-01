@@ -3,9 +3,6 @@ nextjs:
   metadata:
     title: Common mistakes
     description: Common mistakes when working with Instant
-    openGraph:
-      images:
-        - /api/docs-og?slug=common-mistakes
 ---
 
 Below are some common mistakes when working with Instant.

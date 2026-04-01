@@ -3,9 +3,6 @@ nextjs:
   metadata:
     title: Clerk
     description: How to integrate Clerk's auth flow with Instant.
-    openGraph:
-      images:
-        - /api/docs-og?slug=auth/clerk
 ---
 
 Instant supports auth with Clerk.

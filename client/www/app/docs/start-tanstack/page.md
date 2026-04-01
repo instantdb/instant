@@ -3,9 +3,6 @@ nextjs:
   metadata:
     title: Getting started with TanStack Start
     description: How to use Instant with TanStack Start
-    openGraph:
-      images:
-        - /api/docs-og?slug=start-tanstack
 ---
 
 ## Automatic Setup With Create Instant App

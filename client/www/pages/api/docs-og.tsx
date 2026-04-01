@@ -14,7 +14,9 @@ export default async function handler(
     return res.status(404).end('Not found');
   }
 
-  const mdPath = path.join(process.cwd(), 'app', 'docs', slug, 'page.md');
+  const mdPath = slug === 'index'
+    ? path.join(process.cwd(), 'app', 'docs', 'page.md')
+    : path.join(process.cwd(), 'app', 'docs', slug, 'page.md');
 
   let title: string;
   try {

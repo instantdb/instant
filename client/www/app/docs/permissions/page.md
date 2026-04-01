@@ -3,9 +3,6 @@ nextjs:
   metadata:
     title: Permissions
     description: How to secure your data with Instant's Rule Language.
-    openGraph:
-      images:
-        - /api/docs-og?slug=permissions
 ---
 
 To secure user data, you can use Instant's Rule Language. Our rule language

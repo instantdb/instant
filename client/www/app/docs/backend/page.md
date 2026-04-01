@@ -3,9 +3,6 @@ nextjs:
   metadata:
     title: Instant on the Backend
     description: How to use Instant on the server with the Admin SDK.
-    openGraph:
-      images:
-        - /api/docs-og?slug=backend
 ---
 
 You can use Instant on the server as well! This can be especially useful for

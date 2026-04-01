@@ -3,9 +3,6 @@ nextjs:
   metadata:
     title: Explorer Component
     description: Use the Explorer Component in your own apps
-    openGraph:
-      images:
-        - /api/docs-og?slug=explorer-component
 ---
 
 The explorer page from the Instant Dashboard is available as an installable React component that you can use in your own apps. This is especially useful if you're building **a platform or app builder** powered by Instant

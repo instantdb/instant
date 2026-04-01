@@ -3,9 +3,6 @@ nextjs:
   metadata:
     title: Managing users
     description: How to manage users in your Instant app.
-    openGraph:
-      images:
-        - /api/docs-og?slug=users
 ---
 
 ## See users in your app

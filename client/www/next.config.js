@@ -17,6 +17,19 @@ const nextConfig = {
       // Also add the @lib alias used within the components package
       config.resolve.alias['@lib'] = componentsSrc;
     }
+
+    // Auto-inject og:image metadata for docs pages.
+    // The markdoc loader generates:
+    //   export const metadata = frontmatter.nextjs?.metadata;
+    // We replace it with a version that merges in the og:image
+    // based on the file path, so doc authors don't have to.
+    config.module.rules.push({
+      test: /\.md$/,
+      include: path.resolve(__dirname, 'app/docs'),
+      enforce: 'post',
+      loader: path.resolve(__dirname, 'lib/docs-og-metadata-loader.js'),
+    });
+
     return config;
   },
   async redirects() {

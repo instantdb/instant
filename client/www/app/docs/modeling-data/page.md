@@ -3,9 +3,6 @@ nextjs:
   metadata:
     title: Modeling data
     description: How to model data with Instant's schema.
-    openGraph:
-      images:
-        - /api/docs-og?slug=modeling-data
 ---
 
 In this section we’ll learn how to model data using Instant's schema. By the end of this document you’ll know how to:
