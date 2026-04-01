@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
 
 import { Navigation } from '@/components/docs/Navigation';
@@ -342,6 +342,15 @@ const adj = {
   hWithoutHeader: 'h-[calc(100dvh-3.5rem)]',
 };
 
+function ParamSyncer({ setOrg }) {
+  const searchParams = useSearchParams();
+  const org = searchParams.get('org');
+  useEffect(() => {
+    setOrg(org);
+  }, [org, setOrg]);
+  return null;
+}
+
 export function Layout({ children, title, tableOfContents }) {
   const pathname = usePathname();
   const docPath = useCanonicalDocsPath();
@@ -361,10 +370,6 @@ export function Layout({ children, title, tableOfContents }) {
   const isMobile = useIsMobile();
 
   const [org, setOrg] = useState(null);
-  useEffect(() => {
-    const orgFromUrl = new URLSearchParams(window.location.search).get('org');
-    if (orgFromUrl) setOrg(orgFromUrl);
-  }, []);
   const workspaceId = org || 'personal';
   const orgQuery = org ? { org } : {};
   const token = useAuthToken();
@@ -383,6 +388,9 @@ export function Layout({ children, title, tableOfContents }) {
   return (
     <SelectedAppContext.Provider value={selectedAppData}>
       <div className="min-h-dvh bg-[#f8f9fa]">
+        <Suspense>
+          <ParamSyncer setOrg={setOrg} />
+        </Suspense>
         {/* Header */}
         <div
           className={clsx(
