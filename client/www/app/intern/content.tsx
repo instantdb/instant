@@ -84,6 +84,13 @@ const tools: ToolCard[] = [
       'Token usage and cost estimates for the docs AI chat assistant.',
     category: 'Analytics',
   },
+  {
+    title: 'OG Image Preview',
+    href: '/intern/og-preview',
+    description:
+      'Preview all og:image cards across the site to make sure they look good before deploying.',
+    category: 'Other',
+  },
 ];
 
 const categories = ['All', 'KPIs', 'Analytics', 'Comms', 'Other'];
