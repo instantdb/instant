@@ -3,42 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
-// ─── Fake Cursor ────────────────────────────────────────
-
-function FakeCursor({
-  x,
-  y,
-  clicking,
-}: {
-  x: number;
-  y: number;
-  clicking: boolean;
-}) {
-  return (
-    <motion.div
-      className="pointer-events-none absolute z-10"
-      initial={false}
-      animate={{ left: x, top: y, scale: clicking ? 0.85 : 1 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-    >
-      <svg
-        width="20"
-        height="24"
-        viewBox="0 0 16 20"
-        fill="none"
-        className="drop-shadow-md"
-      >
-        <path
-          d="M1 1L1 15L5 11L9 18L12 16.5L8 9.5L13 9L1 1Z"
-          fill="black"
-          stroke="white"
-          strokeWidth="1.5"
-        />
-      </svg>
-    </motion.div>
-  );
-}
-
 // ─── Icons ──────────────────────────────────────────────
 
 function GoogleIcon() {
@@ -86,10 +50,6 @@ function AnimatedAuthDemo() {
   const [view, setView] = useState<'form' | 'verify' | 'success'>('form');
   const [typedEmail, setTypedEmail] = useState('');
   const [typedCode, setTypedCode] = useState('');
-  const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
-  const [showCursor, setShowCursor] = useState(false);
-  const [clicking, setClicking] = useState(false);
-
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const hasStarted = useRef(false);
@@ -112,25 +72,8 @@ function AnimatedAuthDemo() {
     setView('form');
     setTypedEmail('');
     setTypedCode('');
-    setShowCursor(false);
-    setClicking(false);
 
     let t = 600;
-
-    // Cursor appears, moves to email input
-    sched(() => {
-      setShowCursor(true);
-      setCursorPos({ x: 200, y: 230 });
-    }, t);
-
-    t += 500;
-
-    // Click the email input
-    sched(() => setClicking(true), t);
-    t += 150;
-    sched(() => setClicking(false), t);
-
-    t += 300;
 
     // Type out email character by character
     for (let i = 0; i <= email.length; i++) {
@@ -139,32 +82,10 @@ function AnimatedAuthDemo() {
     }
     t += email.length * 60 + 400;
 
-    // Move cursor to "Send Code" button
-    sched(() => setCursorPos({ x: 400, y: 310 }), t);
-
-    t += 500;
-
-    // Click "Send Code"
-    sched(() => setClicking(true), t);
-    t += 150;
-    sched(() => {
-      setClicking(false);
-      setView('verify');
-    }, t);
+    // Transition to verify screen
+    sched(() => setView('verify'), t);
 
     t += 600;
-
-    // Move cursor to code input
-    sched(() => setCursorPos({ x: 200, y: 280 }), t);
-
-    t += 400;
-
-    // Click the code input
-    sched(() => setClicking(true), t);
-    t += 150;
-    sched(() => setClicking(false), t);
-
-    t += 300;
 
     // Type out code character by character
     for (let i = 0; i <= code.length; i++) {
@@ -173,23 +94,8 @@ function AnimatedAuthDemo() {
     }
     t += code.length * 80 + 400;
 
-    // Move cursor to "Verify" button
-    sched(() => setCursorPos({ x: 400, y: 370 }), t);
-
-    t += 500;
-
-    // Click "Verify"
-    sched(() => setClicking(true), t);
-    t += 150;
-    sched(() => {
-      setClicking(false);
-      setView('success');
-    }, t);
-
-    t += 400;
-
-    // Hide cursor
-    sched(() => setShowCursor(false), t);
+    // Transition to success screen
+    sched(() => setView('success'), t);
 
     // Wait then restart
     t += 3000;
@@ -351,9 +257,6 @@ function AnimatedAuthDemo() {
         </div>
       </div>
 
-      {showCursor && (
-        <FakeCursor x={cursorPos.x} y={cursorPos.y} clicking={clicking} />
-      )}
     </div>
   );
 }
