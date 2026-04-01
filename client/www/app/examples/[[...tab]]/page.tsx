@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { webMetas, mobileMetas } from '@/lib/examples/data';
 import Content from './content';
 
@@ -20,9 +19,6 @@ export default async function Page({
   params: Promise<{ tab?: string[] }>;
 }) {
   const { tab } = await params;
-  if (tab && (tab.length !== 1 || tab[0] !== 'mobile')) {
-    notFound();
-  }
   const activeTab = tab?.[0] === 'mobile' ? 'mobile' : 'web';
 
   return (
