@@ -1326,7 +1326,7 @@ class InstantAdminDatabase<
       ruleParams?: { [key: string]: any };
       ip?: string | null | undefined;
       origin?: string | null | undefined;
-      inference?: boolean;
+      cardinalityInference?: boolean;
     },
   ): Promise<{
     result: InstaQLResponse<Schema, Q, UseDates>;
@@ -1339,7 +1339,7 @@ class InstantAdminDatabase<
     const body: any = {
       query,
       'rules-override': opts?.rules,
-      'inference?': opts?.inference ?? !!this.config.schema,
+      'inference?': opts?.cardinalityInference ?? !!this.config.schema,
     };
     if (opts?.ip) {
       body['ip-override'] = opts.ip;
