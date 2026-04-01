@@ -5,7 +5,7 @@ nextjs:
     description: Common mistakes when working with Instant
     openGraph:
       images:
-        - /api/og?title=Common%20mistakes&section=docs
+        - /api/docs-og?slug=common-mistakes
 ---
 
 Below are some common mistakes when working with Instant.

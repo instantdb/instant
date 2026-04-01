@@ -5,7 +5,7 @@ nextjs:
     description: How to integrate Clerk's auth flow with Instant.
     openGraph:
       images:
-        - /api/og?title=Clerk&section=docs
+        - /api/docs-og?slug=auth/clerk
 ---
 
 Instant supports auth with Clerk.

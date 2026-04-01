@@ -5,7 +5,7 @@ nextjs:
     description: How to add GitHub OAuth to your Instant app.
     openGraph:
       images:
-        - /api/og?title=GitHub%20OAuth&section=docs
+        - /api/docs-og?slug=auth/github-oauth
 ---
 
 {% nav-default value="web-redirect" %}

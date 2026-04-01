@@ -5,7 +5,7 @@ nextjs:
     description: Use server-side-rendering with InstantDB and Next.js.
     openGraph:
       images:
-        - /api/og?title=(Experimental)%20NextJS%20SSR&section=docs
+        - /api/docs-og?slug=next-ssr
 ---
 
 If you use NextJS and want to do server-side rendering, we have an experimental library for you.

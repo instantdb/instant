@@ -5,7 +5,7 @@ nextjs:
     description: How to use Instant with SolidJS
     openGraph:
       images:
-        - /api/og?title=Getting%20started%20with%20SolidJS&section=docs
+        - /api/docs-og?slug=start-solidjs
 ---
 
 ## Automatic Setup With Create Instant App

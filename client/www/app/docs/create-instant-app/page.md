@@ -5,7 +5,7 @@ nextjs:
     description: Use create-instant-app to scaffold a new Instant project
     openGraph:
       images:
-        - /api/og?title=Create%20Instant%20App&section=docs
+        - /api/docs-og?slug=create-instant-app
 ---
 
 Once you know the basics of Instant, you may find it useful to be able to

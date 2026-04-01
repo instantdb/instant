@@ -5,7 +5,7 @@ nextjs:
     description: Direct HTTP access to Instant's admin API for non-JavaScript environments.
     openGraph:
       images:
-        - /api/og?title=Admin%20HTTP%20API&section=docs
+        - /api/docs-og?slug=http-api
 ---
 
 If your backend is written in Javascript, you can use the [`@instantdb/admin`](/docs/backend) SDK to connect your server to Instant.

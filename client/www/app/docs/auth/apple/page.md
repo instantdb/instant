@@ -5,7 +5,7 @@ nextjs:
     description: How to add Sign In with Apple to your Instant app.
     openGraph:
       images:
-        - /api/og?title=Sign%20In%20with%20Apple&section=docs
+        - /api/docs-og?slug=auth/apple
 ---
 
 {% nav-default value="web-popup" %}

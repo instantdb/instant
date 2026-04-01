@@ -5,7 +5,7 @@ nextjs:
     description: How to use Instant with TanStack Start
     openGraph:
       images:
-        - /api/og?title=Getting%20started%20with%20TanStack%20Start&section=docs
+        - /api/docs-og?slug=start-tanstack
 ---
 
 ## Automatic Setup With Create Instant App

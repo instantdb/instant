@@ -5,7 +5,7 @@ nextjs:
     description: How to manage users in your Instant app.
     openGraph:
       images:
-        - /api/og?title=Managing%20users&section=docs
+        - /api/docs-og?slug=users
 ---
 
 ## See users in your app

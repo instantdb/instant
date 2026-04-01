@@ -5,7 +5,7 @@ nextjs:
     description: How to use Instant with Vanilla JS
     openGraph:
       images:
-        - /api/og?title=Getting%20started%20with%20Vanilla%20JS&section=docs
+        - /api/docs-og?slug=start-vanilla
 ---
 
 You can use Instant with plain ol' Javascript/Typescript too. You may find this helpful to integrate Instant with a framework that doesn't have an official SDK yet.

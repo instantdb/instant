@@ -7,7 +7,7 @@ nextjs:
       users using OAuth 2.0.
     openGraph:
       images:
-        - /api/og?title=Platform%20OAuth%20Integration&section=docs
+        - /api/docs-og?slug=auth/platform-oauth
 ---
 
 Instant supports the standard OAuth 2.0 Authorization Code grant flow, enabling users to authorize your application to access their Instant data and perform actions on their behalf, like reading app details or managing apps.

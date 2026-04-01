@@ -5,7 +5,7 @@ nextjs:
     description: Common patterns for working with InstantDB.
     openGraph:
       images:
-        - /api/og?title=Patterns&section=docs
+        - /api/docs-og?slug=patterns
 ---
 
 Below are some common patterns for working with InstantDB. We'll add more

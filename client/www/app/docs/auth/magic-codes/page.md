@@ -5,7 +5,7 @@ nextjs:
     description: How to add magic code auth to your Instant app.
     openGraph:
       images:
-        - /api/og?title=Magic%20Code%20Auth&section=docs
+        - /api/docs-og?slug=auth/magic-codes
 ---
 
 {% nav-default value="react" %}

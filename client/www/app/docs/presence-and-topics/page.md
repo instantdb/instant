@@ -7,7 +7,7 @@ nextjs:
       app.
     openGraph:
       images:
-        - /api/og?title=Presence%2C%20Cursors%2C%20and%20Activity&section=docs
+        - /api/docs-og?slug=presence-and-topics
 ---
 
 Sometimes you want to show real-time updates to users without persisting the

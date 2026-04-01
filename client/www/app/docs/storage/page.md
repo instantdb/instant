@@ -5,7 +5,7 @@ nextjs:
     description: How to upload and serve files with Instant.
     openGraph:
       images:
-        - /api/og?title=Storage&section=docs
+        - /api/docs-og?slug=storage
 ---
 
 Instant Storage makes it simple to upload and serve files for your app.

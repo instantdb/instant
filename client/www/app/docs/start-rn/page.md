@@ -5,7 +5,7 @@ nextjs:
     description: How to use Instant with React Native
     openGraph:
       images:
-        - /api/og?title=Getting%20started%20with%20React%20Native&section=docs
+        - /api/docs-og?slug=start-rn
 ---
 
 You can use Instant in React Native projects too! Below is an example using Expo.

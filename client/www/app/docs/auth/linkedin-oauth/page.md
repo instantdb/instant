@@ -5,7 +5,7 @@ nextjs:
     description: How to add LinkedIn OAuth to your Instant app.
     openGraph:
       images:
-        - /api/og?title=LinkedIn%20OAuth&section=docs
+        - /api/docs-og?slug=auth/linkedin-oauth
 ---
 
 {% nav-default value="web-redirect" %}
