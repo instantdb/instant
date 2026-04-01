@@ -53,6 +53,22 @@ const defaultOptions: Project = {
   yes: false,
 };
 
+const baseFromFlags = (flags: Record<string, any>): Project['base'] | null =>
+  (flags.base as Project['base']) ||
+  (flags.vanilla && 'vite-vanilla') ||
+  (flags.next && 'next-js-app-dir') ||
+  (flags.expo && 'expo') ||
+  (flags.sv && 'sveltekit') ||
+  null;
+
+const ruleFilesFromFlags = (flags: Record<string, any>): Project['ruleFiles'] =>
+  (flags.cursor && 'cursor') ||
+  (flags.claude && 'claude') ||
+  (flags.codex && 'codex') ||
+  (flags.gemini && 'gemini') ||
+  (flags.rules && 'codex') ||
+  null;
+
 export const runCli = async (): Promise<Project> => {
   const results = defaultOptions;
 
@@ -165,18 +181,8 @@ export const runCli = async (): Promise<Project> => {
     return {
       ...defaultOptions,
       appName: cliProvidedName,
-      base: (flags.base as Project['base']) ??
-        (flags.vanilla ? 'vite-vanilla' :
-         flags.next ? 'next-js-app-dir' :
-         flags.expo ? 'expo' :
-         flags.sv ? 'sveltekit' :
-         defaultOptions.base),
-      ruleFiles: flags.cursor ? 'cursor' :
-        flags.claude ? 'claude' :
-        flags.codex ? 'codex' :
-        flags.gemini ? 'gemini' :
-        flags.rules ? 'codex' :
-        defaultOptions.ruleFiles,
+      base: baseFromFlags(flags) ?? defaultOptions.base,
+      ruleFiles: ruleFilesFromFlags(flags),
       createRepo: flags.git ?? defaultOptions.createRepo,
       app: flags.app ?? null,
       token: flags.token ?? null,
@@ -225,20 +231,9 @@ export const runCli = async (): Promise<Project> => {
         return null;
       },
       base: async ({ results }) => {
-        if (flags.base) {
-          return flags.base as Project['base'];
-        }
-        if (flags.vanilla) {
-          return 'vite-vanilla';
-        }
-        if (flags.next) {
-          return 'next-js-app-dir';
-        }
-        if (flags.expo) {
-          return 'expo';
-        }
-        if (flags.sv) {
-          return 'sveltekit';
+        const fromFlags = baseFromFlags(flags);
+        if (fromFlags) {
+          return fromFlags;
         }
 
         if (results.prompt) {
@@ -310,20 +305,9 @@ export const runCli = async (): Promise<Project> => {
           return 'claude';
         }
 
-        if (flags.cursor) {
-          return 'cursor';
-        }
-        if (flags.claude) {
-          return 'claude';
-        }
-        if (flags.codex) {
-          return 'codex';
-        }
-        if (flags.gemini) {
-          return 'gemini';
-        }
-        if (flags.rules) {
-          return 'codex';
+        const fromFlags = ruleFilesFromFlags(flags);
+        if (fromFlags) {
+          return fromFlags;
         }
 
         return renderUnwrap(
