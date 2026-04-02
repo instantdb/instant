@@ -238,8 +238,19 @@ export const tryConnectApp = async (
 
   // Handle --yes flag: create an ephemeral app automatically
   if (project?.yes && !project?.app) {
-    const app = await createPermissiveEphemeralApp(scopedAppName, metadata);
-    return { ...app, approach: 'ephemeral' };
+    // Create a real app if logged in, ephemeral if not
+    if (authToken) {
+      const { appID, adminToken } = await createApp(
+        scopedAppName,
+        authToken,
+        undefined,
+        metadata,
+      );
+      return { appId: appID, adminToken, approach: 'create' as const };
+    } else {
+      const { appId, adminToken } = await createPermissiveEphemeralApp(scopedAppName, metadata);
+      return { appId, adminToken, approach: 'ephemeral' };
+    }
   }
 
   // Handle --app flag: skip interactive selection
