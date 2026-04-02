@@ -53,10 +53,16 @@ export function OfflineDemo() {
     const title = NEW_TITLES[newIdx.current % NEW_TITLES.length];
     newIdx.current++;
     setTodos((prev) => [
-      ...prev,
       { id: `todo_${Date.now()}`, title, done: false },
+      ...prev,
     ]);
     addMutation(`${title} created`);
+  };
+
+  const deleteTodo = (todoId: string) => {
+    const todo = todos.find((t) => t.id === todoId);
+    setTodos((prev) => prev.filter((t) => t.id !== todoId));
+    addMutation(`${todo?.title ?? todoId} deleted`);
   };
 
   const goOnline = () => {
@@ -130,8 +136,8 @@ export function OfflineDemo() {
               {todos.map((todo) => (
                 <motion.div
                   key={todo.id}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   className="flex items-center gap-2 border-b border-gray-50 px-3 py-1.5"
                 >
                   <button
@@ -159,12 +165,30 @@ export function OfflineDemo() {
                     )}
                   </button>
                   <span
-                    className={`text-[11px] ${
+                    className={`flex-1 text-[11px] ${
                       todo.done ? 'text-gray-400 line-through' : 'text-gray-700'
                     }`}
                   >
                     {todo.title}
                   </span>
+                  <button
+                    onClick={() => deleteTodo(todo.id)}
+                    className="shrink-0 cursor-pointer text-gray-300 transition-colors hover:text-gray-500"
+                  >
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 18 18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -220,11 +244,11 @@ export function OfflineDemo() {
             <span className="text-[10px] font-medium tracking-wider text-gray-400 uppercase">
               Outbox
             </span>
-            {outbox.length > 0 && (
-              <span className="rounded-full bg-orange-100 px-1.5 py-0.5 text-[9px] font-medium text-orange-600">
-                {outbox.length}
-              </span>
-            )}
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${outbox.length > 0 ? 'bg-orange-100 text-orange-600' : 'invisible'}`}
+            >
+              {outbox.length || 0}
+            </span>
           </div>
           <div className="h-[130px] overflow-y-auto px-3 py-1.5">
             <AnimatePresence initial={false}>
