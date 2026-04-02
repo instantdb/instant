@@ -981,7 +981,6 @@ function init<
     {
       ...defaultConfig,
       ...configStrict,
-      cardinalityInference: configStrict.schema ? true : false,
     },
     Store || IndexedDBStorage,
     NetworkListener || WindowNetworkListener,
