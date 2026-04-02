@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { id } from '@instantdb/react';
 import db from '@/lib/intern/docs-feedback/db';
-import { BlockHeading, Button, ToggleGroup } from '@/components/ui';
+import { BlockHeading } from '@/components/ui/BlockHeading';
+import { Button } from '@/components/ui/Button';
+import { ToggleGroup } from '@/components/ui/ToggleGroup';
 import { Rating } from '@/lib/intern/docs-feedback/analytics';
 
 /**

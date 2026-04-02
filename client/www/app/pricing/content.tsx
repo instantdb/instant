@@ -1,7 +1,7 @@
 'use client';
 
 import { MainNav } from '@/components/marketingUi';
-import { Button } from '@/components/ui';
+import { Button } from '@/components/ui/Button';
 import { Footer } from '@/components/new-landing/Footer';
 import {
   SectionTitle,

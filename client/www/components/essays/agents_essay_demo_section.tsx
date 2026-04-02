@@ -1,4 +1,5 @@
-import { Button, Fence } from '@/components/ui';
+import { Button } from '@/components/ui/Button';
+import { Fence } from '@/components/ui/Fence';
 import config, { getLocal, isDev } from '@/lib/config';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/solid';
 import confetti from 'canvas-confetti';

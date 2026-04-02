@@ -1,4 +1,4 @@
-import { cn } from '@/components/ui';
+import { cn } from '@/lib/cn';
 
 type TermSpan = { text: string; color?: string; bg?: string };
 

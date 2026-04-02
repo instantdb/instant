@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { LogoIcon } from '@/components/ui';
+import { LogoIcon } from '@/components/ui/LogoIcon';
 import { WalkthroughShell } from './WalkthroughShell';
 
 // -- Types & constants -------------------------------------------------------

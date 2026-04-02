@@ -9,7 +9,8 @@ import {
   Section,
   H2,
 } from '@/components/marketingUi';
-import { Button, FullscreenLoading } from '@/components/ui';
+import { Button } from '@/components/ui/Button';
+import { FullscreenLoading } from '@/components/ui/FullscreenLoading';
 import { useAdmin } from '@/lib/auth';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { Footer } from '@/components/new-landing/Footer';

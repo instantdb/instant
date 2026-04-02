@@ -7,7 +7,7 @@ import {
   Section,
   H2,
 } from '@/components/marketingUi';
-import { FullscreenLoading } from '@/components/ui';
+import { FullscreenLoading } from '@/components/ui/FullscreenLoading';
 import { useAdmin } from '@/lib/auth';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { AuthGate } from '@/components/intern/docs-feedback/auth';

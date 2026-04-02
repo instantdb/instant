@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { MainNav } from '@/components/marketingUi';
 import { TopWash } from '@/components/new-landing/TopWash';
 import ReactMarkdown, { Components } from 'react-markdown';
-import { Fence } from '@/components/ui';
+import { Fence } from '@/components/ui/Fence';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';

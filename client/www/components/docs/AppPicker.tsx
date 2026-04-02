@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Select } from '@/components/ui';
+import { Select } from '@/components/ui/Select';
 
 type App = { id: string; title: string };
 type Org = { id: string; title: string };

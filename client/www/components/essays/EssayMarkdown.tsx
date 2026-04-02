@@ -9,7 +9,7 @@ import MuxPlayer from '@mux/mux-player-react';
 
 import { DemoIframe } from '@/components/DemoIframe';
 import { SketchDemo } from '@/components/essays/sketch/SketchDemo';
-import { Fence } from '@/components/ui';
+import { Fence } from '@/components/ui/Fence';
 import { muxPattern, youtubeParams, youtubePattern } from '@/lib/videos';
 import { isValidElement } from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
