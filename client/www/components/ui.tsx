@@ -1,16 +1,5 @@
 import clsx from 'clsx';
-
-import { Prism } from 'prism-react-renderer';
 import { ReactNode } from 'react';
-
-if (typeof global !== 'undefined') {
-  (global as any).Prism = Prism;
-} else {
-  (window as any).Prism = Prism;
-}
-
-require('prismjs/components/prism-clojure');
-
 import Link from 'next/link';
 
 import { ui } from '@instantdb/components';

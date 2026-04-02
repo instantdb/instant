@@ -3,10 +3,18 @@
 import { Fragment, useContext } from 'react';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
 import { ClipboardDocumentIcon } from '@heroicons/react/24/outline';
-import Highlight, { defaultProps } from 'prism-react-renderer';
+import Highlight, { Prism, defaultProps } from 'prism-react-renderer';
 import { useState } from 'react';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { rosePineDawnTheme } from '@/lib/rosePineDawnTheme';
+
+// Register Clojure language for prism
+if (typeof global !== 'undefined') {
+  global.Prism = Prism;
+} else {
+  window.Prism = Prism;
+}
+require('prismjs/components/prism-clojure');
 
 function parseLineHighlights(lineHighlight) {
   if (!lineHighlight) {
