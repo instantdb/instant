@@ -45,7 +45,7 @@ describe.concurrent('create-instant-app e2e', { timeout: 120_000 }, () => {
       }
     });
 
-    it('includes CLAUDE.md by default with --yes', async () => {
+    it('includes CLAUDE.md and git repo by default', async () => {
       const t = await createTestDir();
       try {
         const result = await runCreateInstantApp(['rules-test-app', '--yes'], {
@@ -58,21 +58,6 @@ describe.concurrent('create-instant-app e2e', { timeout: 120_000 }, () => {
         await expect(
           access(join(projectDir, 'CLAUDE.md')),
         ).resolves.toBeUndefined();
-      } finally {
-        await t.cleanup();
-      }
-    });
-
-    it('creates a git repo', async () => {
-      const t = await createTestDir();
-      try {
-        const result = await runCreateInstantApp(['git-test-app', '--yes'], {
-          cwd: t.dir,
-        });
-
-        expect(result.exitCode).toBe(0);
-
-        const projectDir = join(t.dir, 'git-test-app');
         await expect(access(join(projectDir, '.git'))).resolves.toBeUndefined();
       } finally {
         await t.cleanup();
