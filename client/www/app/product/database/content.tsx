@@ -1,7 +1,7 @@
 'use client';
 
 import { MainNav, ProductNav, Link } from '@/components/marketingUi';
-import { cn } from '@/components/ui';
+import { cn } from '@instantdb/components/components/cn';
 import {
   queryExamples,
   transactionExamples,

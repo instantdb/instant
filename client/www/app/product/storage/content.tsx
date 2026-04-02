@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { PlayIcon, PauseIcon } from '@heroicons/react/24/solid';
 import { AnimatePresence, motion } from 'motion/react';
 import { MainNav, ProductNav } from '@/components/marketingUi';
-import { cn } from '@/components/ui';
+import { cn } from '@instantdb/components/components/cn';
 import {
   storageExamples,
   permissionExamples,
