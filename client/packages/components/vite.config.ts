@@ -25,9 +25,14 @@ export default defineConfig(({ mode }) => ({
       formats: ['es', 'cjs'],
       entry: [
         resolve(__dirname, 'src', 'index.tsx'),
+        resolve(__dirname, 'src', 'button.tsx'),
+        resolve(__dirname, 'src', 'cn.ts'),
+        resolve(__dirname, 'src', 'logo-icon.tsx'),
+        resolve(__dirname, 'src', 'tooltip.tsx'),
         resolve(__dirname, 'src', 'style.css'),
       ],
-      fileName: 'index',
+      fileName: (format, entryName) =>
+        `${entryName}.${format === 'es' ? 'js' : 'cjs'}`,
     },
     rollupOptions: {
       external: (id) => {

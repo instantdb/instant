@@ -6,7 +6,7 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { SWRConfig } from 'swr';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PostHogIdentify } from '@/components/PostHogIdentify';
-import { Button } from '@/components/ui';
+import { Button } from '@instantdb/components/button';
 import { localStorageProvider } from '@/lib/swrCache';
 import { isDev } from '@/lib/config';
 import { Dev } from '@/components/Dev';

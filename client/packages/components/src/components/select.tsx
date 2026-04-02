@@ -2,13 +2,13 @@
 
 import * as React from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
-import { cn } from './ui';
+import { cn } from '../cn';
 import {
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
 } from '@heroicons/react/24/outline';
-import { useShadowRoot, useShadowDarkMode } from './StyleMe';
+import { useShadowRoot, useShadowDarkMode } from './shadowRoot';
 
 function Select({
   ...props

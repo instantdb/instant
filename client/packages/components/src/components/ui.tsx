@@ -6,7 +6,6 @@ import type { ClassValue } from 'clsx';
 import clsx from 'clsx';
 import copy from 'copy-to-clipboard';
 import React from 'react';
-import { twMerge } from 'tailwind-merge';
 import {
   Select as BaseSelect,
   SelectContent,
@@ -48,6 +47,15 @@ import CopyToClipboard from 'react-copy-to-clipboard';
 import { errorToast, successToast } from './toast';
 
 import { useMonacoJSONSchema } from '@lib/hooks/useMonacoJSONSchema';
+import { cn } from '../cn';
+import { Button } from '../button';
+import { LogoIcon } from '../logo-icon';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../tooltip';
 
 // content
 
@@ -66,24 +74,7 @@ export const Label = twel(
   'text-sm font-bold dark:text-neutral-400 text-gray-700',
 );
 
-export const LogoIcon = ({
-  size = 'mini',
-  className,
-}: {
-  size?: 'mini' | 'normal';
-  className?: string;
-}) => {
-  const sizeToClass = {
-    mini: 'h-4 w-4',
-    normal: 'h-6 w-6',
-  };
-  return (
-    <img
-      src="/img/icon/logo-512.svg"
-      className={cn(sizeToClass[size], className)}
-    />
-  );
-};
+export { Button, LogoIcon, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger };
 
 // controls
 
@@ -428,125 +419,6 @@ export function Select<Value extends string | boolean>({
         {options.length === 0 && noOptionsLabel}
       </SelectContent>
     </BaseSelect>
-  );
-}
-
-export function Button({
-  variant = 'primary',
-  size = 'normal',
-  type = 'button',
-  onClick,
-  href,
-  className,
-  children,
-  disabled,
-  loading,
-  autoFocus,
-  tabIndex,
-  title,
-}: PropsWithChildren<{
-  variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
-  size?: 'mini' | 'normal' | 'large' | 'xl' | 'nano';
-  type?: 'link' | 'link-new' | 'button' | 'submit';
-  onClick?: MouseEventHandler;
-  href?: string;
-  className?: string;
-  disabled?: boolean;
-  loading?: boolean;
-  autoFocus?: boolean;
-  tabIndex?: number;
-  title?: string | undefined;
-}>) {
-  const buttonRef = useRef<any>(null);
-  const isATag = type === 'link' || (type === 'link-new' && href);
-
-  useEffect(() => {
-    if (autoFocus) {
-      buttonRef.current?.focus();
-    }
-  }, []);
-
-  const cls = cn(
-    `inline-flex justify-center items-center gap-1 whitespace-nowrap px-8 py-1 font-bold rounded-sm cursor-pointer transition-all disabled:cursor-default`,
-    {
-      // primary
-      'bg-[#606AF4] text-white dark:bg-[#606AF4] dark:text-white':
-        variant === 'primary',
-      'hover:text-slate-100 hover:bg-[#4543e9] dark:hover:text-neutral-100 dark:hover:bg-[#4543e9]':
-        variant === 'primary' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-[#4543e9] disabled:bg-[#9197f3] dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-[#4543e9] dark:disabled:bg-[#9197f3]':
-        variant === 'primary' && !isATag,
-      // cta
-      'bg-orange-600 text-white dark:bg-orange-600 dark:text-white':
-        variant === 'cta',
-      'hover:text-slate-100 hover:bg-orange-500 dark:hover:text-neutral-100 dark:hover:bg-orange-500':
-        variant === 'cta' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-orange-500 dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-orange-500':
-        variant === 'cta' && !isATag,
-      // secondary
-      'border border-gray-200 text-gray-500 bg-gray-50 shadow-sm dark:border-neutral-600 dark:text-neutral-400 dark:bg-neutral-800':
-        variant === 'secondary',
-      'hover:text-gray-600 hover:bg-gray-50/30 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/30':
-        variant === 'secondary' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-50/30 disabled:text-gray-400 dark:hover:enabled:text-neutral-300 dark:hover:enabled:bg-neutral-700/30 dark:disabled:text-neutral-600':
-        variant === 'secondary' && !isATag,
-      // subtle
-      'text-gray-500 bg-white font-normal dark:text-neutral-400 dark:bg-transparent':
-        variant === 'subtle',
-      'hover:text-gray-600 hover:bg-gray-200/30 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/30':
-        variant === 'subtle' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-200/30 dark:hover:enabled:text-neutral-300 dark:hover:enabled:bg-neutral-700/30':
-        variant === 'subtle' && !isATag,
-      // destructive
-      'text-red-500 dark:bg-red-500/10 bg-white border border-red-200 dark:border-red-900/60':
-        variant === 'destructive',
-      'hover:text-red-600 hover:text-red-600 hover:border-red-300 dark:hover:border-red-800':
-        variant === 'destructive' && isATag,
-      'hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300 dark:hover:enabled:text-red-500 dark:hover:enabled:border-red-800 dark:disabled:border-red-950 dark:disabled:text-red-800':
-        variant === 'destructive' && !isATag,
-      'text-lg': size === 'large',
-      'text-xl': size === 'xl',
-      'text-sm px-2 py-0.5': size === 'mini',
-      'text-xs px-2 py-0': size === 'nano',
-      'cursor-not-allowed': disabled,
-      'cursor-wait opacity-75': loading, // Apply wait cursor and lower opacity when loading,
-      'bg-gray-200 text-gray-400 dark:bg-neutral-700 dark:text-neutral-500':
-        variant == 'cta' && disabled,
-    },
-    className,
-  );
-
-  if (isATag) {
-    return (
-      <a
-        title={title}
-        tabIndex={tabIndex}
-        ref={buttonRef}
-        className={cls}
-        {...(type === 'link-new'
-          ? { target: '_blank', rel: 'noopener noreferrer' }
-          : {})}
-        {...(loading || disabled
-          ? { 'aria-disabled': true }
-          : { href, onClick })}
-      >
-        {children}
-      </a>
-    );
-  }
-
-  return (
-    <button
-      title={title}
-      tabIndex={tabIndex}
-      ref={buttonRef}
-      disabled={loading || disabled}
-      type={type === 'submit' ? 'submit' : 'button'}
-      className={cls}
-      onClick={onClick}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -1230,65 +1102,7 @@ export function ProgressButton({
   );
 }
 
-import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { Fragment, useId } from 'react';
-
-function TooltipProvider({
-  delayDuration = 100,
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
-  return (
-    <TooltipPrimitive.Provider
-      data-slot="tooltip-provider"
-      delayDuration={delayDuration}
-      {...props}
-    />
-  );
-}
-
-function Tooltip({
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return (
-    <TooltipProvider>
-      <TooltipPrimitive.Root data-slot="tooltip" {...props} />
-    </TooltipProvider>
-  );
-}
-
-function TooltipTrigger({
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
-}
-
-function TooltipContent({
-  className,
-  sideOffset = 0,
-  children,
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
-  const shadowRoot = useShadowRoot();
-  const darkMode = useShadowDarkMode();
-  return (
-    <TooltipPrimitive.Portal container={shadowRoot}>
-      <TooltipPrimitive.Content
-        data-slot="tooltip-content"
-        sideOffset={sideOffset}
-        className={cn(
-          'animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) border border-gray-100 bg-white px-3 py-1.5 text-xs text-balance text-gray-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white',
-          darkMode ? 'dark' : '',
-          className,
-        )}
-        {...props}
-      >
-        {children}
-      </TooltipPrimitive.Content>
-    </TooltipPrimitive.Portal>
-  );
-}
-
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger };
 
 function DropdownMenu({
   ...props
@@ -1373,9 +1187,7 @@ export function twel<T = {}>(el: string, cls: ClassValue[] | ClassValue) {
   };
 }
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+export { cn };
 
 export function FullscreenLoading() {
   return (
@@ -1587,7 +1399,7 @@ export function Fence({
 
 import * as SwitchPrimitive from '@radix-ui/react-switch';
 import { rosePineDawnTheme } from './rosePineDawnTheme';
-import { useShadowRoot, useShadowDarkMode } from './StyleMe';
+import { useShadowRoot, useShadowDarkMode } from './shadowRoot';
 function Switch({
   className,
   ...props

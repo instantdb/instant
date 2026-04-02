@@ -4,7 +4,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui';
+} from '@instantdb/components/tooltip';
 import { rosePineDawnColors as c } from '@/lib/rosePineDawnTheme';
 import { ConnectorLine } from './ConnectorLine';
 

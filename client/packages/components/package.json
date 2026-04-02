@@ -21,7 +21,47 @@
   },
   "exports": {
     "./package.json": "./package.json",
+    "./button": {
+      "import": {
+        "types": "./dist/button.d.ts",
+        "default": "./dist/button.js"
+      },
+      "require": {
+        "types": "./dist/button.d.ts",
+        "default": "./dist/button.cjs"
+      }
+    },
+    "./cn": {
+      "import": {
+        "types": "./dist/cn.d.ts",
+        "default": "./dist/cn.js"
+      },
+      "require": {
+        "types": "./dist/cn.d.ts",
+        "default": "./dist/cn.cjs"
+      }
+    },
+    "./logo-icon": {
+      "import": {
+        "types": "./dist/logo-icon.d.ts",
+        "default": "./dist/logo-icon.js"
+      },
+      "require": {
+        "types": "./dist/logo-icon.d.ts",
+        "default": "./dist/logo-icon.cjs"
+      }
+    },
     "./style.css": "./dist/style.css",
+    "./tooltip": {
+      "import": {
+        "types": "./dist/tooltip.d.ts",
+        "default": "./dist/tooltip.js"
+      },
+      "require": {
+        "types": "./dist/tooltip.d.ts",
+        "default": "./dist/tooltip.cjs"
+      }
+    },
     ".": {
       "import": {
         "types": "./dist/index.d.ts",
