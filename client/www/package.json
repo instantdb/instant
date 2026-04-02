@@ -2,7 +2,7 @@
   "name": "instant-www",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --turbopack & PID=$!; (until curl -sf -o /dev/null http://localhost:${PORT:-3000}/hiring 2>/dev/null; do sleep 0.5; done; echo '  ✓ Page cache warmed') & wait $PID",
     "build": "next build",
     "gen-llms": "pnpm exec tsx scripts/gen-llms-txt.ts",
     "gen-docs": "pnpm exec tsx scripts/gen-md-docs.ts",

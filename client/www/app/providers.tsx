@@ -1,7 +1,6 @@
 'use client';
 
 import { ReactNode, useEffect, lazy, Suspense } from 'react';
-import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { isDev } from '@/lib/config';
 import {
@@ -10,7 +9,14 @@ import {
 } from '@/lib/patchBrowserEvents';
 
 const Analytics = lazy(() => import('@/components/Analytics'));
-const Dev = lazy(() => import('@/components/Dev').then((m) => ({ default: m.Dev })));
+const NuqsProvider = lazy(() =>
+  import('nuqs/adapters/next/app').then((m) => ({
+    default: m.NuqsAdapter,
+  })),
+);
+const Dev = lazy(
+  () => import('@/components/Dev').then((m) => ({ default: m.Dev })),
+);
 
 function Oops() {
   return (
@@ -36,7 +42,9 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <ErrorBoundary renderError={() => <Oops />}>
-      <NuqsAdapter>{children}</NuqsAdapter>
+      <Suspense fallback={children}>
+        <NuqsProvider>{children}</NuqsProvider>
+      </Suspense>
       <Suspense fallback={null}>
         <Analytics />
       </Suspense>

@@ -22,10 +22,6 @@ const nextConfig = {
           as: '*.js',
         },
       },
-      resolveAlias: {
-        '@instantdb/components': '../packages/components/src',
-        '@lib': '../packages/components/src',
-      },
     },
   },
   webpack: (config, { dev }) => {
