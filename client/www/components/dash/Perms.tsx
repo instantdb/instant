@@ -1,7 +1,8 @@
 import JsonParser from 'json5';
 import { useContext, useMemo, useState } from 'react';
 
-import { Content, JSONEditor, SectionHeading } from '@/components/ui';
+import { Content, SectionHeading } from '@/components/ui';
+import { JSONEditor } from '@instantdb/components/components/code-editors';
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';

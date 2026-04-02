@@ -1,10 +1,9 @@
 import {
-  CodeEditor,
-  Fence,
   Label,
   SectionHeading,
   Select,
 } from '@/components/ui';
+import { CodeEditor, Fence } from '@instantdb/components/components/code-editors';
 import { DBAttr } from '@/lib/types';
 import {
   apiSchemaToInstantSchemaDef,

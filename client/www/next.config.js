@@ -6,6 +6,15 @@ const nextConfig = {
   reactStrictMode: true,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx', 'md'],
   transpilePackages: ['@instantdb/components'],
+  experimental: {
+    optimizePackageImports: [
+      'motion',
+      'lodash',
+      '@dnd-kit/core',
+      '@dnd-kit/sortable',
+      '@dnd-kit/utilities',
+    ],
+  },
   webpack: (config, { dev }) => {
     // Resolve @instantdb/components to source for Fast Refresh in development
     if (dev) {

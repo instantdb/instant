@@ -8,12 +8,12 @@ import {
   Copyable,
   Dialog,
   Divider,
-  Fence,
   SectionHeading,
   SubsectionHeading,
   TextInput,
   useDialog,
 } from '@/components/ui';
+import { Fence } from '@instantdb/components/components/code-editors';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import {
   PlusIcon,

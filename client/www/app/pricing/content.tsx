@@ -1,7 +1,7 @@
 'use client';
 
 import { MainNav } from '@/components/marketingUi';
-import { Button } from '@/components/ui';
+import { Button } from '@instantdb/components/components/button';
 import { Footer } from '@/components/new-landing/Footer';
 import {
   SectionTitle,

@@ -57,11 +57,12 @@ export const {
   useDialog,
   TooltipProvider,
   TooltipTrigger,
-  CodeEditor,
-  Fence,
-  JSONEditor,
   Switch,
 } = ui;
+
+// Code editors (CodeEditor, JSONEditor, Fence) are in a separate submodule to
+// avoid top-level Monaco/Prism imports in the barrel.
+// Import directly: import { CodeEditor } from '@instantdb/components/components/code-editors'
 
 export type TabItem = {
   id: string;

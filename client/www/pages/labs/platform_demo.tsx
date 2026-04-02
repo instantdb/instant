@@ -1,4 +1,5 @@
-import { Button, Fence, SectionHeading, TextInput } from '@/components/ui';
+import { Button, SectionHeading, TextInput } from '@/components/ui';
+import { Fence } from '@instantdb/components/components/code-editors';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { useState } from 'react';

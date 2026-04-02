@@ -2,12 +2,12 @@ import {
   Button,
   Content,
   Copyable,
-  Fence,
   Label,
   SectionHeading,
   SubsectionHeading,
   TextInput,
 } from '@/components/ui';
+import { Fence } from '@instantdb/components/components/code-editors';
 import { useEffect, useState } from 'react';
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';

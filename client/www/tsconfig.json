@@ -23,7 +23,8 @@
       "@/data/*": ["data/*"],
       "@/utils/*": ["utils/*"],
       "@/styles/*": ["styles/*"],
-      "@/public/*": ["public/*"]
+      "@/public/*": ["public/*"],
+      "@instantdb/components/components/*": ["../packages/components/src/components/*"]
     },
     "plugins": [
       {

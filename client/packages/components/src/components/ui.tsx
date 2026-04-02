@@ -1,12 +1,11 @@
 'use client';
+import { cn, twel } from './cn';
+// Button is used internally by ActionButton, ProgressButton
+import { Button } from './button';
 import { Toaster, toast } from 'sonner';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { Editor, Monaco, OnMount } from '@monaco-editor/react';
-import type { ClassValue } from 'clsx';
 import clsx from 'clsx';
-import copy from 'copy-to-clipboard';
 import React from 'react';
-import { twMerge } from 'tailwind-merge';
 import {
   Select as BaseSelect,
   SelectContent,
@@ -17,18 +16,12 @@ import {
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { XIcon } from 'lucide-react';
 
-import Highlight, { defaultProps } from 'prism-react-renderer';
-
-import { parsePermsJSON } from '@lib/utils/parsePermsJSON';
-
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import * as HeadlessToggleGroup from '@radix-ui/react-toggle-group';
 import {
   ComponentProps,
-  createElement,
   CSSProperties,
-  MouseEventHandler,
   PropsWithChildren,
   ReactNode,
   useEffect,
@@ -47,7 +40,7 @@ import {
 import CopyToClipboard from 'react-copy-to-clipboard';
 import { errorToast, successToast } from './toast';
 
-import { useMonacoJSONSchema } from '@lib/hooks/useMonacoJSONSchema';
+
 
 // content
 
@@ -431,124 +424,8 @@ export function Select<Value extends string | boolean>({
   );
 }
 
-export function Button({
-  variant = 'primary',
-  size = 'normal',
-  type = 'button',
-  onClick,
-  href,
-  className,
-  children,
-  disabled,
-  loading,
-  autoFocus,
-  tabIndex,
-  title,
-}: PropsWithChildren<{
-  variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
-  size?: 'mini' | 'normal' | 'large' | 'xl' | 'nano';
-  type?: 'link' | 'link-new' | 'button' | 'submit';
-  onClick?: MouseEventHandler;
-  href?: string;
-  className?: string;
-  disabled?: boolean;
-  loading?: boolean;
-  autoFocus?: boolean;
-  tabIndex?: number;
-  title?: string | undefined;
-}>) {
-  const buttonRef = useRef<any>(null);
-  const isATag = type === 'link' || (type === 'link-new' && href);
-
-  useEffect(() => {
-    if (autoFocus) {
-      buttonRef.current?.focus();
-    }
-  }, []);
-
-  const cls = cn(
-    `inline-flex justify-center items-center gap-1 whitespace-nowrap px-8 py-1 font-bold rounded-sm cursor-pointer transition-all disabled:cursor-default`,
-    {
-      // primary
-      'bg-[#606AF4] text-white dark:bg-[#606AF4] dark:text-white':
-        variant === 'primary',
-      'hover:text-slate-100 hover:bg-[#4543e9] dark:hover:text-neutral-100 dark:hover:bg-[#4543e9]':
-        variant === 'primary' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-[#4543e9] disabled:bg-[#9197f3] dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-[#4543e9] dark:disabled:bg-[#9197f3]':
-        variant === 'primary' && !isATag,
-      // cta
-      'bg-orange-600 text-white dark:bg-orange-600 dark:text-white':
-        variant === 'cta',
-      'hover:text-slate-100 hover:bg-orange-500 dark:hover:text-neutral-100 dark:hover:bg-orange-500':
-        variant === 'cta' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-orange-500 dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-orange-500':
-        variant === 'cta' && !isATag,
-      // secondary
-      'border border-gray-200 text-gray-500 bg-gray-50 shadow-sm dark:border-neutral-600 dark:text-neutral-400 dark:bg-neutral-800':
-        variant === 'secondary',
-      'hover:text-gray-600 hover:bg-gray-50/30 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/30':
-        variant === 'secondary' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-50/30 disabled:text-gray-400 dark:hover:enabled:text-neutral-300 dark:hover:enabled:bg-neutral-700/30 dark:disabled:text-neutral-600':
-        variant === 'secondary' && !isATag,
-      // subtle
-      'text-gray-500 bg-white font-normal dark:text-neutral-400 dark:bg-transparent':
-        variant === 'subtle',
-      'hover:text-gray-600 hover:bg-gray-200/30 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/30':
-        variant === 'subtle' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-200/30 dark:hover:enabled:text-neutral-300 dark:hover:enabled:bg-neutral-700/30':
-        variant === 'subtle' && !isATag,
-      // destructive
-      'text-red-500 dark:bg-red-500/10 bg-white border border-red-200 dark:border-red-900/60':
-        variant === 'destructive',
-      'hover:text-red-600 hover:text-red-600 hover:border-red-300 dark:hover:border-red-800':
-        variant === 'destructive' && isATag,
-      'hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300 dark:hover:enabled:text-red-500 dark:hover:enabled:border-red-800 dark:disabled:border-red-950 dark:disabled:text-red-800':
-        variant === 'destructive' && !isATag,
-      'text-lg': size === 'large',
-      'text-xl': size === 'xl',
-      'text-sm px-2 py-0.5': size === 'mini',
-      'text-xs px-2 py-0': size === 'nano',
-      'cursor-not-allowed': disabled,
-      'cursor-wait opacity-75': loading, // Apply wait cursor and lower opacity when loading,
-      'bg-gray-200 text-gray-400 dark:bg-neutral-700 dark:text-neutral-500':
-        variant == 'cta' && disabled,
-    },
-    className,
-  );
-
-  if (isATag) {
-    return (
-      <a
-        title={title}
-        tabIndex={tabIndex}
-        ref={buttonRef}
-        className={cls}
-        {...(type === 'link-new'
-          ? { target: '_blank', rel: 'noopener noreferrer' }
-          : {})}
-        {...(loading || disabled
-          ? { 'aria-disabled': true }
-          : { href, onClick })}
-      >
-        {children}
-      </a>
-    );
-  }
-
-  return (
-    <button
-      title={title}
-      tabIndex={tabIndex}
-      ref={buttonRef}
-      disabled={loading || disabled}
-      type={type === 'submit' ? 'submit' : 'button'}
-      className={cls}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-}
+// Button — canonical definition lives in ./button.tsx; re-export for barrel compat
+export { Button };
 
 interface IconButtonProps {
   icon: ReactNode;
@@ -1230,64 +1107,13 @@ export function ProgressButton({
   );
 }
 
-import * as TooltipPrimitive from '@radix-ui/react-tooltip';
-import { Fragment, useId } from 'react';
-
-function TooltipProvider({
-  delayDuration = 100,
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
-  return (
-    <TooltipPrimitive.Provider
-      data-slot="tooltip-provider"
-      delayDuration={delayDuration}
-      {...props}
-    />
-  );
-}
-
-function Tooltip({
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return (
-    <TooltipProvider>
-      <TooltipPrimitive.Root data-slot="tooltip" {...props} />
-    </TooltipProvider>
-  );
-}
-
-function TooltipTrigger({
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
-}
-
-function TooltipContent({
-  className,
-  sideOffset = 0,
-  children,
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
-  const shadowRoot = useShadowRoot();
-  const darkMode = useShadowDarkMode();
-  return (
-    <TooltipPrimitive.Portal container={shadowRoot}>
-      <TooltipPrimitive.Content
-        data-slot="tooltip-content"
-        sideOffset={sideOffset}
-        className={cn(
-          'animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) border border-gray-100 bg-white px-3 py-1.5 text-xs text-balance text-gray-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white',
-          darkMode ? 'dark' : '',
-          className,
-        )}
-        {...props}
-      >
-        {children}
-      </TooltipPrimitive.Content>
-    </TooltipPrimitive.Portal>
-  );
-}
-
+// Tooltip — canonical definitions live in ./tooltip.tsx; re-export for barrel compat
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './tooltip';
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger };
 
 function DropdownMenu({
@@ -1362,20 +1188,8 @@ export {
   DropdownMenuTrigger,
 };
 
-// utils
-
-export function twel<T = {}>(el: string, cls: ClassValue[] | ClassValue) {
-  return function (props: { className?: string; children: ReactNode } & T) {
-    return createElement(el, {
-      ...props,
-      className: cn(cls, props.className),
-    });
-  };
-}
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+// utils — canonical definitions live in ./cn.ts; re-export for barrel compat
+export { cn, twel } from './cn';
 
 export function FullscreenLoading() {
   return (
@@ -1383,210 +1197,12 @@ export function FullscreenLoading() {
   );
 }
 
-// code editors
-export function CodeEditor(props: {
-  value: string;
-  darkMode: boolean;
-  language: string;
-  onChange: (value: string) => void;
-  schema?: object;
-  onMount?: OnMount;
-  path?: string;
-  tabIndex?: number;
-  loading?: boolean;
-  readOnly?: boolean;
-  className?: string;
-}) {
-  return (
-    <Editor
-      theme={props.darkMode ? 'vs-dark' : 'vs-light'}
-      className={cn(
-        props.loading ? 'animate-pulse' : undefined,
-        props.className,
-      )}
-      height={'100%'}
-      language={props.language}
-      value={props.value ?? ''}
-      defaultPath={props.path}
-      options={{
-        scrollBeyondLastLine: false,
-        overviewRulerLanes: 0,
-        hideCursorInOverviewRuler: true,
-        minimap: { enabled: false },
-        automaticLayout: true,
-        tabIndex: props.tabIndex,
-        readOnly: props.readOnly,
-      }}
-      onChange={(value) => {
-        props.onChange(value || '');
-      }}
-      onMount={props.onMount}
-      beforeMount={(monaco) => {}}
-      loading={<FullscreenLoading />}
-    />
-  );
-}
-
-export function JSONEditor(props: {
-  value: string;
-  darkMode: boolean;
-  label: ReactNode;
-  onSave: (value: string) => void;
-  schema?: object;
-}) {
-  const [draft, setDraft] = useState(props.value);
-  const editorId = useId();
-  const filePath = `json-editor-${editorId}.json`;
-
-  const [monacoInstance, setMonacomonacoInstance] = useState<
-    Monaco | undefined
-  >(undefined);
-
-  useMonacoJSONSchema(filePath, monacoInstance, props.schema);
-
-  useEffect(() => {
-    setDraft(props.value);
-  }, [props.value]);
-
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
-      <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
-        <div className="font-mono">{props.label}</div>
-        <Button size="mini" onClick={() => props.onSave(draft)}>
-          Save
-        </Button>
-      </div>
-      <div className="min-h-0 grow">
-        <CodeEditor
-          darkMode={props.darkMode}
-          language="json"
-          value={props.value}
-          path={filePath}
-          onChange={(draft) => setDraft(draft)}
-          onMount={function handleEditorDidMount(editor, monaco) {
-            setMonacomonacoInstance(monaco);
-            // cmd+S binding to save
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
-              props.onSave(editor.getValue()),
-            );
-
-            // Handle JSON5 paste conversion
-            editor.onDidPaste(async () => {
-              const model = editor.getModel();
-              if (!model) return;
-
-              // Wait 20 ms for paste to complete
-              setTimeout(async () => {
-                const fullContent = model.getValue();
-                if (!fullContent.trim()) return;
-
-                const converted = parsePermsJSON(fullContent);
-                if (converted.status === 'ok') {
-                  model.setValue(JSON.stringify(converted.value, null, 2));
-                }
-              }, 20);
-            });
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-export type FenceLanguage =
-  | 'jsx'
-  | 'tsx'
-  | 'javascript'
-  | 'typescript'
-  | 'bash'
-  | 'json'
-  | 'sql';
-
-export function Fence({
-  code,
-  language,
-  style: _style,
-  darkMode,
-  className: _className,
-  copyable,
-}: {
-  code: string;
-  darkMode?: boolean;
-  language: FenceLanguage;
-  className?: string;
-  style?: any;
-  copyable?: boolean;
-}) {
-  const [copyLabel, setCopyLabel] = useState('Copy');
-  return (
-    <Highlight
-      {...defaultProps}
-      code={code.trimEnd()}
-      language={language}
-      theme={
-        darkMode || false
-          ? {
-              plain: {
-                backgroundColor: '#262626',
-                color: 'white',
-              },
-              styles: [],
-            }
-          : rosePineDawnTheme
-      }
-    >
-      {({ className, style, tokens, getTokenProps }) => (
-        <pre
-          className={clsx(className, _className)}
-          style={{
-            ...style,
-            ..._style,
-            ...(copyable ? { position: 'relative' } : {}),
-          }}
-        >
-          {copyable ? (
-            <div className="absolute top-0 right-0 flex items-center px-2">
-              <button
-                onClick={(e) => {
-                  copy(code);
-                  setCopyLabel('Copied!');
-                  setTimeout(() => {
-                    setCopyLabel('Copy');
-                  }, 2500);
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 text-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-800 dark:ring-neutral-700"
-              >
-                <ClipboardDocumentIcon
-                  className="-ml-0.5 h-4 w-4"
-                  aria-hidden="true"
-                />
-                {copyLabel}
-              </button>
-            </div>
-          ) : null}
-          <code>
-            {tokens.map((line, lineIndex) => (
-              <Fragment key={lineIndex}>
-                {line
-                  .filter((token) => !token.empty)
-                  .map((token, tokenIndex) => {
-                    const { key, ...props } = getTokenProps({ token });
-                    return <span key={key || tokenIndex} {...props} />;
-                  })}
-                {'\n'}
-              </Fragment>
-            ))}
-          </code>
-        </pre>
-      )}
-    </Highlight>
-  );
-}
+// Code editors (CodeEditor, JSONEditor, Fence) have been moved to
+// ./code-editors.tsx to avoid top-level Monaco/Prism imports.
+// Import them directly: import { CodeEditor } from '@instantdb/components/components/code-editors'
+export type { FenceLanguage } from './code-editors';
 
 import * as SwitchPrimitive from '@radix-ui/react-switch';
-import { rosePineDawnTheme } from './rosePineDawnTheme';
 import { useShadowRoot, useShadowDarkMode } from './StyleMe';
 function Switch({
   className,

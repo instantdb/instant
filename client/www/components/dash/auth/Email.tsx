@@ -7,13 +7,13 @@ import {
   ActionButton,
   BlockHeading,
   Button,
-  CodeEditor,
   Content,
   Label,
   SectionHeading,
   SubsectionHeading,
   TextInput,
 } from '@/components/ui';
+import { CodeEditor } from '@instantdb/components/components/code-editors';
 import { displayInstantStandardError, useForm } from '@/lib/hooks/useForm';
 import { errorToast, successToast } from '@/lib/toast';
 import clsx from 'clsx';

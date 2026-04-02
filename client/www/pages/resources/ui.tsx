@@ -1,11 +1,9 @@
 import {
   Button,
   Checkbox,
-  CodeEditor,
   Content,
   Copyable,
   Hint,
-  JSONEditor,
   ScreenHeading,
   SectionHeading,
   Select,
@@ -15,6 +13,7 @@ import {
   ToggleCollection,
   ToggleGroup,
 } from '@/components/ui';
+import { CodeEditor, JSONEditor } from '@instantdb/components/components/code-editors';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { AppPicker } from '@/components/docs/AppPicker';
 

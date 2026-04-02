@@ -14,12 +14,12 @@ import {
   Copytext,
   Dialog,
   Divider,
-  Fence,
   SectionHeading,
   SubsectionHeading,
   TextInput,
   useDialog,
 } from '@/components/ui';
+import { Fence } from '@instantdb/components/components/code-editors';
 import { TokenContext } from '@/lib/contexts';
 import {
   InstantApp,

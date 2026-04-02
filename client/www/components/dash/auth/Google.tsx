@@ -25,13 +25,13 @@ import {
   Copytext,
   Dialog,
   Divider,
-  Fence,
   SectionHeading,
   SubsectionHeading,
   TextInput,
   useDialog,
   ToggleGroup,
 } from '@/components/ui';
+import { Fence } from '@instantdb/components/components/code-editors';
 import Image from 'next/image';
 import googleIconSvg from '../../../public/img/google_g.svg';
 import * as Collapsible from '@radix-ui/react-collapsible';
