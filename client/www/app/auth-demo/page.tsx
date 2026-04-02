@@ -52,8 +52,6 @@ function AnimatedAuthDemo() {
   const [typedCode, setTypedCode] = useState('');
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const hasStarted = useRef(false);
-
   const email = 'joe@instantdb.com';
   const code = '424242';
 
@@ -103,10 +101,7 @@ function AnimatedAuthDemo() {
   }, [clear]);
 
   useEffect(() => {
-    if (!hasStarted.current) {
-      hasStarted.current = true;
-      runCycle();
-    }
+    runCycle();
     return () => clear();
   }, [runCycle, clear]);
 
@@ -115,14 +110,12 @@ function AnimatedAuthDemo() {
       ref={containerRef}
       className="relative flex min-h-screen flex-col bg-white"
     >
-      {/* Nav bar */}
-      <div className="flex items-center border-b border-gray-100 px-8 py-4">
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-orange-500" />
-          <span className="text-lg font-semibold text-gray-800">My App</span>
-        </div>
-      </div>
-
+      <a
+        href="/demos"
+        className="absolute top-4 left-4 z-50 text-xs text-gray-400 hover:text-gray-600"
+      >
+        &larr; All Demos
+      </a>
       {/* Main content */}
       <div className="flex flex-1 items-center justify-center px-8">
         <div className="w-full max-w-sm">

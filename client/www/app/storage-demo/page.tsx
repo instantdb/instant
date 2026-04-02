@@ -50,7 +50,6 @@ function StorageDemo() {
   const [imageDropped, setImageDropped] = useState(false);
 
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const hasStarted = useRef(false);
   const caption = 'Newest member of the team';
 
   const clear = useCallback(() => {
@@ -130,10 +129,7 @@ function StorageDemo() {
   }, [clear]);
 
   useEffect(() => {
-    if (!hasStarted.current) {
-      hasStarted.current = true;
-      runCycle();
-    }
+    runCycle();
     return () => clear();
   }, [runCycle, clear]);
 
@@ -144,13 +140,13 @@ function StorageDemo() {
   const showOverlay = phase === 'uploading' || phase === 'uploaded';
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <div className="flex items-center border-b border-gray-100 px-8 py-4">
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-indigo-500" />
-          <span className="text-lg font-semibold text-gray-800">Photos</span>
-        </div>
-      </div>
+    <div className="relative flex min-h-screen flex-col bg-white">
+      <a
+        href="/demos"
+        className="absolute top-4 left-4 z-50 text-xs text-gray-400 hover:text-gray-600"
+      >
+        &larr; All Demos
+      </a>
 
       <div className="flex flex-1 items-center justify-center px-8">
         <div className="relative w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -198,9 +194,7 @@ function StorageDemo() {
                           r="54"
                           fill="none"
                           stroke={
-                            phase === 'uploaded'
-                              ? 'rgb(34, 197, 94)'
-                              : 'white'
+                            phase === 'uploaded' ? 'rgb(34, 197, 94)' : 'white'
                           }
                           strokeWidth="8"
                           strokeLinecap="round"

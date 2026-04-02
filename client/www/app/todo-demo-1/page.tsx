@@ -619,7 +619,13 @@ export default function TodoDemo1Page() {
   const currentScene = SCENES[sceneIndex];
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="relative flex min-h-screen flex-col bg-white">
+      <a
+        href="/demos"
+        className="absolute top-4 left-4 z-50 text-xs text-gray-400 hover:text-gray-600"
+      >
+        &larr; All Demos
+      </a>
       {/* Script instructions: full width, fixed height to prevent layout shift */}
       <div
         className="flex items-center justify-center px-8 pt-4 pb-2"
@@ -670,6 +676,7 @@ export default function TodoDemo1Page() {
               </span>
               <motion.div
                 className="absolute inset-0 flex items-center justify-center"
+                initial={false}
                 animate={{
                   opacity: codeBadge === 'usestate' ? 1 : 0,
                   filter: codeBadge === 'usestate' ? 'blur(0px)' : 'blur(6px)',
@@ -680,6 +687,7 @@ export default function TodoDemo1Page() {
               </motion.div>
               <motion.div
                 className="absolute inset-0 flex items-center justify-center"
+                initial={false}
                 animate={{
                   opacity: codeBadge === 'usequery' ? 1 : 0,
                   filter: codeBadge === 'usequery' ? 'blur(0px)' : 'blur(6px)',

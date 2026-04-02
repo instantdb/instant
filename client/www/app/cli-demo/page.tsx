@@ -74,7 +74,6 @@ export default function CLIDemoPage() {
   >('idle');
   const [typingIndex, setTypingIndex] = useState(0);
   const confettiRef = useRef<HTMLDivElement>(null);
-  const hasStarted = useRef(false);
 
   const runCycle = useCallback(() => {
     setPhase('idle');
@@ -112,17 +111,24 @@ export default function CLIDemoPage() {
   }, [phase, runCycle]);
 
   useEffect(() => {
-    if (!hasStarted.current) {
-      hasStarted.current = true;
-      runCycle();
-    }
+    runCycle();
+    return () => {
+      setPhase('idle');
+      setTypingIndex(0);
+    };
   }, [runCycle]);
 
   const showFound = !['idle', 'typing'].includes(phase);
   const showDiff = !['idle', 'typing', 'found'].includes(phase);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white p-8">
+    <div className="relative flex min-h-screen items-center justify-center bg-white p-8">
+      <a
+        href="/demos"
+        className="absolute top-4 left-4 z-50 text-xs text-gray-400 hover:text-gray-600"
+      >
+        &larr; All Demos
+      </a>
       <div
         className="relative w-full max-w-3xl rounded-xl border shadow-lg"
         style={{ borderColor: c.border, overflow: 'visible' }}

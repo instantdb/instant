@@ -76,11 +76,7 @@ interface Ripple {
 
 let rippleId = 0;
 
-function RippleEffect({
-  ripples,
-}: {
-  ripples: Ripple[];
-}) {
+function RippleEffect({ ripples }: { ripples: Ripple[] }) {
   return (
     <AnimatePresence>
       {ripples.map((r) => (
@@ -136,7 +132,8 @@ function FakeCursor({
           strokeWidth="1.5"
         />
       </svg>
-      <div className="-mt-1 ml-1 flex items-center gap-1 rounded-full px-1 py-0.5 shadow-md"
+      <div
+        className="-mt-1 ml-1 flex items-center gap-1 rounded-full px-1 py-0.5 shadow-md"
         style={{ backgroundColor: color }}
       >
         <img
@@ -144,9 +141,7 @@ function FakeCursor({
           alt={label}
           className="h-5 w-5 rounded-full object-cover"
         />
-        <span className="pr-1.5 text-xs font-bold text-white">
-          {label}
-        </span>
+        <span className="pr-1.5 text-xs font-bold text-white">{label}</span>
       </div>
     </motion.div>
   );
@@ -174,7 +169,9 @@ const Card = React.forwardRef<
           alt="Stopa"
           className="h-8 w-8 rounded-full object-cover"
         />
-        <span className="text-base font-semibold text-gray-800">Stopa&apos;s ride</span>
+        <span className="text-base font-semibold text-gray-800">
+          Stopa&apos;s ride
+        </span>
         <span className="ml-auto rounded-full bg-red-500 px-2.5 py-0.5 text-xs font-bold text-white">
           LIVE
         </span>
@@ -225,7 +222,6 @@ export default function V1() {
   const card1Row = useRef<HTMLDivElement | null>(null);
   const card2Row = useRef<HTMLDivElement | null>(null);
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const started = useRef(false);
 
   const [c1, setC1] = useState({ x: 0, y: 0 });
   const [c2, setC2] = useState({ x: 0, y: 0 });
@@ -235,8 +231,18 @@ export default function V1() {
   const [click2, setClick2] = useState(false);
 
   // Ripple state: per-card, per-button
-  const [card1Ripples, setCard1Ripples] = useState<Ripple[][]>([[], [], [], []]);
-  const [card2Ripples, setCard2Ripples] = useState<Ripple[][]>([[], [], [], []]);
+  const [card1Ripples, setCard1Ripples] = useState<Ripple[][]>([
+    [],
+    [],
+    [],
+    [],
+  ]);
+  const [card2Ripples, setCard2Ripples] = useState<Ripple[][]>([
+    [],
+    [],
+    [],
+    [],
+  ]);
 
   const clear = useCallback(() => {
     timeouts.current.forEach(clearTimeout);
@@ -262,11 +268,7 @@ export default function V1() {
   );
 
   const addRipple = useCallback(
-    (
-      card: 1 | 2,
-      btnIdx: number,
-      color: string,
-    ) => {
+    (card: 1 | 2, btnIdx: number, color: string) => {
       const id = ++rippleId;
       const ripple: Ripple = { id, color };
       const setter = card === 1 ? setCard1Ripples : setCard2Ripples;
@@ -419,10 +421,7 @@ export default function V1() {
   }, [clear, emit, getBtnPos, addRipple]);
 
   useEffect(() => {
-    if (!started.current) {
-      started.current = true;
-      runCycle();
-    }
+    runCycle();
     return () => clear();
   }, [runCycle, clear]);
 
@@ -431,6 +430,12 @@ export default function V1() {
       ref={containerRef}
       className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#FFF5F5] to-[#FFF0E5]"
     >
+      <a
+        href="/demos"
+        className="absolute top-4 left-4 z-50 text-xs text-gray-400 hover:text-gray-600"
+      >
+        &larr; All Demos
+      </a>
       <div className="relative flex items-center">
         <div className="translate-y-[-16px] -rotate-2">
           <Card

@@ -77,7 +77,6 @@ export default function PermsDemoPage() {
   const [clicking, setClicking] = useState(false);
 
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const hasStarted = useRef(false);
 
   const clear = useCallback(() => {
     timeouts.current.forEach(clearTimeout);
@@ -143,10 +142,7 @@ export default function PermsDemoPage() {
   }, [clear, sched, clickEl]);
 
   useEffect(() => {
-    if (!hasStarted.current) {
-      hasStarted.current = true;
-      runCycle();
-    }
+    runCycle();
     return () => clear();
   }, [runCycle, clear]);
 
@@ -157,6 +153,12 @@ export default function PermsDemoPage() {
       ref={containerRef}
       className="relative flex min-h-screen items-center justify-center bg-white"
     >
+      <a
+        href="/demos"
+        className="absolute top-4 left-4 z-50 text-xs text-gray-400 hover:text-gray-600"
+      >
+        &larr; All Demos
+      </a>
       <div className="w-full max-w-xl px-8">
         {/* Big avatar selector */}
         <div className="mb-10 flex items-center justify-center gap-6">
@@ -172,6 +174,7 @@ export default function PermsDemoPage() {
                 className="flex flex-col items-center gap-2"
               >
                 <motion.div
+                  initial={false}
                   animate={{
                     borderColor: active ? '#f97316' : '#e5e7eb',
                     scale: active ? 1.05 : 1,
@@ -231,7 +234,7 @@ export default function PermsDemoPage() {
         {/* Rule display */}
         <div className="mb-8 rounded-2xl bg-gray-50 px-6 py-4 text-center font-mono text-xl">
           <span className="text-gray-400">rule: </span>
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" initial={false}>
             <motion.span
               key={selectedOp}
               initial={{ opacity: 0, y: 8 }}
@@ -252,6 +255,7 @@ export default function PermsDemoPage() {
             return (
               <motion.div
                 key={msg.id}
+                initial={false}
                 animate={{
                   borderColor: allowed ? '#86efac' : '#fca5a5',
                   backgroundColor: allowed ? '#f0fdf4' : '#fef2f2',
@@ -265,6 +269,7 @@ export default function PermsDemoPage() {
                   className="h-14 w-14 shrink-0 rounded-full object-cover"
                 />
                 <motion.div
+                  initial={false}
                   animate={{
                     filter: allowed ? 'blur(0px)' : 'blur(6px)',
                     opacity: allowed ? 1 : 0.4,

@@ -8,25 +8,16 @@ const answer =
 
 // ─── Laptop Frame ───────────────────────────────────────
 
-function LaptopFrame({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function LaptopFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-[480px] w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg">
-      <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3">
-        <div className="flex gap-1.5">
-          <div className="h-3 w-3 rounded-full bg-red-400" />
-          <div className="h-3 w-3 rounded-full bg-yellow-400" />
-          <div className="h-3 w-3 rounded-full bg-green-400" />
-        </div>
-        <div className="flex-1 text-center text-xs font-medium text-gray-400">
-          {title}
-        </div>
-        <div className="w-[54px]" />
+      <div className="flex items-center border-b border-gray-100 bg-gray-50 px-4 py-3">
+        <div className="flex-1" />
+        <img
+          src="/img/landing/daniel.png"
+          alt="Daniel"
+          className="h-6 w-6 rounded-full object-cover ring-2 ring-white"
+        />
       </div>
       <div className="flex flex-1 flex-col">{children}</div>
     </div>
@@ -91,7 +82,7 @@ function ChatPanel({
               {userMsg}
             </div>
             <img
-              src="/img/landing/drew.jpg"
+              src="/img/landing/daniel.png"
               alt="Drew"
               className={`${avatarImg} shrink-0 rounded-full object-cover`}
             />
@@ -158,7 +149,6 @@ export default function StreamDemo4Page() {
   const [streaming, setStreaming] = useState(false);
 
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const hasStarted = useRef(false);
 
   const clear = useCallback(() => {
     timeouts.current.forEach(clearTimeout);
@@ -214,16 +204,19 @@ export default function StreamDemo4Page() {
   }, [clear]);
 
   useEffect(() => {
-    if (!hasStarted.current) {
-      hasStarted.current = true;
-      runCycle();
-    }
+    runCycle();
     return () => clear();
   }, [runCycle, clear]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center gap-12 bg-radial from-white to-[#FFF9F4] p-8">
-      <LaptopFrame title="InstaAI">
+    <div className="relative flex min-h-screen items-center justify-center gap-12 bg-radial from-white to-[#FFF9F4] p-8">
+      <a
+        href="/demos"
+        className="absolute top-4 left-4 z-50 text-xs text-gray-400 hover:text-gray-600"
+      >
+        &larr; All Demos
+      </a>
+      <LaptopFrame>
         <ChatPanel
           userMsg={showUserLeft ? question : ''}
           aiText={leftText}
