@@ -1,9 +1,8 @@
 import envPaths from 'env-paths';
-import * as p from '@clack/prompts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import openInBrowser from 'open';
 import { join } from 'node:path';
-import { Project, unwrapSkippablePrompt } from './cli.js';
+import { Project } from './cli.js';
 import { randomUUID } from 'node:crypto';
 import {
   fetchJson,
@@ -12,6 +11,7 @@ import {
   ScaffoldMetadata,
 } from './utils/fetch.js';
 import { renderUnwrap, UI } from 'instant-cli/ui';
+import { toTitleCase } from './utils/titleCase.js';
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const forceEphemeral = Boolean(process.env.INSTANT_CLI_FORCE_EPHEMERAL);
@@ -23,19 +23,6 @@ function getAuthPaths() {
 
   return { authConfigFilePath, appConfigDirPath };
 }
-
-export const promptForAppName = async (program: Project) => {
-  const title = await unwrapSkippablePrompt(
-    p.text({
-      message: 'What would you like to call it?',
-      placeholder: program.appName,
-      defaultValue: program.appName,
-      initialValue: program.appName,
-    }),
-  );
-
-  return title.trim();
-};
 
 export const createApp = async (
   title: string,
@@ -241,14 +228,17 @@ export const tryConnectApp = async (
     // Create a real app if logged in, ephemeral if not
     if (authToken) {
       const { appID, adminToken } = await createApp(
-        scopedAppName,
+        toTitleCase(scopedAppName),
         authToken,
         undefined,
         metadata,
       );
       return { appId: appID, adminToken, approach: 'create' as const };
     } else {
-      const { appId, adminToken } = await createPermissiveEphemeralApp(scopedAppName, metadata);
+      const { appId, adminToken } = await createPermissiveEphemeralApp(
+        toTitleCase(scopedAppName),
+        metadata,
+      );
       return { appId, adminToken, approach: 'ephemeral' };
     }
   }
@@ -375,7 +365,7 @@ export const tryConnectApp = async (
   const selectedApp = await renderUnwrap(
     new UI.AppSelector({
       startingMenuIndex: 0,
-      defaultAppName: scopedAppName,
+      defaultAppName: toTitleCase(scopedAppName),
       allowCreate: true,
       allowEphemeral: true,
       api: {
