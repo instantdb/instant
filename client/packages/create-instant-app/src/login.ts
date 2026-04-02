@@ -223,7 +223,6 @@ export const tryConnectApp = async (
 ): Promise<AppTokenResponse | null> => {
   let authToken = await getAuthToken();
 
-  // Handle --yes flag: create an ephemeral app automatically
   if (project?.yes && !project?.app) {
     // Create a real app if logged in, ephemeral if not
     if (authToken) {
@@ -233,7 +232,7 @@ export const tryConnectApp = async (
         undefined,
         metadata,
       );
-      return { appId: appID, adminToken, approach: 'create' as const };
+      return { appId: appID, adminToken, approach: 'create' };
     } else {
       const { appId, adminToken } = await createPermissiveEphemeralApp(
         toTitleCase(scopedAppName),

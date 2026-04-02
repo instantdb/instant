@@ -61,13 +61,15 @@ const baseFromFlags = (flags: Record<string, any>): Project['base'] | null =>
   (flags.sv && 'sveltekit') ||
   null;
 
-const ruleFilesFromFlags = (flags: Record<string, any>): Project['ruleFiles'] =>
+const ruleFilesFromFlags = (
+  flags: Record<string, any>,
+): Project['ruleFiles'] | null =>
   (flags.cursor && 'cursor') ||
   (flags.claude && 'claude') ||
   (flags.codex && 'codex') ||
   (flags.gemini && 'gemini') ||
   (flags.rules && 'codex') ||
-  'claude'; // claude is the default for interactive selection
+  null;
 
 export const runCli = async (): Promise<Project> => {
   const results = defaultOptions;
@@ -185,7 +187,7 @@ export const runCli = async (): Promise<Project> => {
       ...defaultOptions,
       appName: cliProvidedName,
       base: baseFromFlags(flags) ?? defaultOptions.base,
-      ruleFiles: ruleFilesFromFlags(flags),
+      ruleFiles: ruleFilesFromFlags(flags) ?? 'claude',
       createRepo: flags.git ?? defaultOptions.createRepo,
       app: flags.app ?? null,
       token: flags.token ?? null,
