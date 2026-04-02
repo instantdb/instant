@@ -1,19 +1,16 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
-import { PostHogProvider } from 'posthog-js/react';
+import { ReactNode, useEffect, lazy, Suspense } from 'react';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
-import { SWRConfig } from 'swr';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { PostHogIdentify } from '@/components/PostHogIdentify';
-import { localStorageProvider } from '@/lib/swrCache';
 import { isDev } from '@/lib/config';
-import { Dev } from '@/components/Dev';
-import posthog from '@/lib/posthog';
 import {
   patchFirefoxClicks,
   patchNumberInputScroll,
 } from '@/lib/patchBrowserEvents';
+
+const Analytics = lazy(() => import('@/components/Analytics'));
+const Dev = lazy(() => import('@/components/Dev').then((m) => ({ default: m.Dev })));
 
 function Oops() {
   return (
@@ -38,18 +35,16 @@ export function Providers({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <PostHogProvider client={posthog}>
-      <PostHogIdentify />
-      <ErrorBoundary renderError={() => <Oops />}>
-        <SWRConfig
-          value={{
-            provider: localStorageProvider,
-          }}
-        >
-          <NuqsAdapter>{children}</NuqsAdapter>
-        </SWRConfig>
-      </ErrorBoundary>
-      {isDev ? <Dev /> : null}
-    </PostHogProvider>
+    <ErrorBoundary renderError={() => <Oops />}>
+      <NuqsAdapter>{children}</NuqsAdapter>
+      <Suspense fallback={null}>
+        <Analytics />
+      </Suspense>
+      {isDev ? (
+        <Suspense fallback={null}>
+          <Dev />
+        </Suspense>
+      ) : null}
+    </ErrorBoundary>
   );
 }
