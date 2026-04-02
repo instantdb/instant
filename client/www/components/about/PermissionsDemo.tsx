@@ -478,7 +478,7 @@ function EditableSpan({
           const text = (ref.current?.textContent || '').replace(/\n/g, '');
           if (text !== value) onChange(text);
         }}
-        className="cursor-text rounded-sm outline-none focus:ring-1 focus:ring-orange-300"
+        className="inline-block min-w-[2ch] cursor-text rounded-sm outline-none focus:ring-1 focus:ring-orange-300"
         style={{
           color,
           borderBottom: error
