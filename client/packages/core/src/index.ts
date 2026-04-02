@@ -179,6 +179,7 @@ export type InstantConfig<
 > = {
   appId: string;
   schema?: S;
+  cardinalityInference?: boolean;
   websocketURI?: string;
   firstPartyPath?: string;
   apiURI?: string;
@@ -303,7 +304,9 @@ function reactorKey(config: InstantConfig<any, boolean>): string {
     '_' +
     (adminToken || 'client_only') +
     '_' +
-    config.useDateObjects
+    config.useDateObjects +
+    '_' +
+    String(!!config.cardinalityInference)
   );
 }
 
@@ -951,10 +954,13 @@ function init<
   versions?: { [key: string]: string },
   EventSourceImpl?: any,
 ): InstantCoreDatabase<Schema, UseDates> {
+  const cardinalityInference = config.cardinalityInference ?? !!config.schema;
+
   const configStrict = {
     ...config,
     appId: config.appId?.trim(),
     useDateObjects: (config.useDateObjects ?? false) as UseDates,
+    cardinalityInference,
   };
   const existingClient = globalInstantCoreStore[
     reactorKey(configStrict)
