@@ -5,7 +5,7 @@
  * Outbox (queued mutations). Network toggle above.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Todo {
@@ -26,10 +26,23 @@ const INITIAL_TODOS: Todo[] = [
 
 const NEW_TITLES = ['Deploy to prod', 'Review PR', 'Add tests', 'Write docs'];
 
-export function OfflineDemo() {
+export type NetworkState = 'online' | 'syncing' | 'offline';
+
+export function OfflineDemo({
+  onStateChange,
+}: { onStateChange?: (state: NetworkState) => void } = {}) {
   const [online, setOnline] = useState(true);
   const [todos, setTodos] = useState<Todo[]>(INITIAL_TODOS);
   const [outbox, setOutbox] = useState<OutboxEntry[]>([]);
+
+  const networkState: NetworkState = !online
+    ? 'offline'
+    : outbox.length > 0
+      ? 'syncing'
+      : 'online';
+  useEffect(() => {
+    onStateChange?.(networkState);
+  }, [networkState, onStateChange]);
   const counter = useRef(0);
   const newIdx = useRef(0);
 
@@ -84,11 +97,15 @@ export function OfflineDemo() {
         <div className="flex items-center gap-2">
           <div
             className={`h-2 w-2 rounded-full transition-colors ${
-              online ? 'bg-green-400' : 'bg-gray-300'
+              networkState === 'offline' ? 'bg-gray-300' : 'bg-green-400'
             }`}
           />
           <span className="text-[11px] font-medium text-gray-500">
-            {online ? 'Online' : 'Offline'}
+            {networkState === 'online'
+              ? 'Online'
+              : networkState === 'syncing'
+                ? 'Syncing'
+                : 'Offline'}
           </span>
         </div>
         <button
@@ -198,7 +215,7 @@ export function OfflineDemo() {
         {/* Cache */}
         <div
           className={`flex-1 overflow-hidden rounded-xl border bg-white shadow-sm transition-colors ${
-            online ? 'border-green-300' : 'border-orange-300'
+            networkState === 'online' ? 'border-green-300' : 'border-orange-300'
           }`}
         >
           <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/80 px-3 py-1.5">
@@ -207,10 +224,14 @@ export function OfflineDemo() {
             </span>
             <span
               className={`text-[9px] font-medium ${
-                online ? 'text-green-500' : 'text-orange-500'
+                networkState === 'online' ? 'text-green-500' : 'text-orange-500'
               }`}
             >
-              {online ? 'In sync' : 'Optimistic'}
+              {networkState === 'online'
+                ? 'In sync'
+                : networkState === 'syncing'
+                  ? 'Syncing'
+                  : 'Optimistic'}
             </span>
           </div>
           <div className="h-[130px] overflow-y-auto px-3 py-1.5">

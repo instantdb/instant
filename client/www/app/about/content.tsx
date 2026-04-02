@@ -154,6 +154,35 @@ const values = [
   },
 ];
 
+function OfflineSection() {
+  const [netState, setNetState] = useState<'online' | 'syncing' | 'offline'>(
+    'online',
+  );
+  return (
+    <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center">
+      <div
+        className={`min-w-0 grow transition-colors duration-500 lg:px-[40px] lg:py-[37px] ${netState === 'offline' ? 'lg:bg-gray-100' : 'lg:bg-[#F0FAF5]'}`}
+      >
+        <OfflineDemo onStateChange={setNetState} />
+      </div>
+      <div className="space-y-4 md:max-w-[440px]">
+        <Subheading>Offline by default</Subheading>
+        <p className="mt-2 text-lg">
+          Instant persists your query results on device automatically. When the
+          network drops, queries keep resolving from the cache. Mutations are
+          saved to a persistent outbox before they&apos;re ever sent to the
+          server.
+        </p>
+        <p className="mt-2 text-lg">
+          When the connection returns, the outbox flushes in order and the
+          server reconciles. You don&apos;t enable offline mode. It&apos;s
+          already on.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function MultiTenantSection() {
   return (
     <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-start">
@@ -603,25 +632,7 @@ export default function AboutPage() {
 
           {/* 8. Offline mode */}
           <AnimateIn>
-            <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center">
-              <div className="min-w-0 grow lg:bg-[#F0FAF5] lg:px-[40px] lg:py-[37px]">
-                <OfflineDemo />
-              </div>
-              <div className="space-y-4 md:max-w-[440px]">
-                <Subheading>Offline by default</Subheading>
-                <p className="mt-2 text-lg">
-                  Instant persists your query results on device automatically.
-                  When the network drops, queries keep resolving from the cache.
-                  Mutations are saved to a persistent outbox before they&apos;re
-                  ever sent to the server.
-                </p>
-                <p className="mt-2 text-lg">
-                  When the connection returns, the outbox flushes in order and
-                  the server reconciles. You don&apos;t enable offline mode.
-                  It&apos;s already on.
-                </p>
-              </div>
-            </div>
+            <OfflineSection />
           </AnimateIn>
 
           {/* 9. Multi-tenancy */}
