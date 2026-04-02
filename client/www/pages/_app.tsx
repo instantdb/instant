@@ -6,7 +6,7 @@ import Script from 'next/script';
 import { NuqsAdapter } from 'nuqs/adapters/next/pages';
 import Head from 'next/head';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { Button } from '@/components/ui';
+import { Button } from '@instantdb/components/components/button';
 import { isDev } from '@/lib/config';
 import { Dev } from '@/components/Dev';
 import {
