@@ -86,8 +86,9 @@ export const authClientAddDef = authClient
     '--type <google|apple|github|linkedin|clerk|firebase>',
     'Type of oauth client to add',
   )
+  .allowUnknownOption(true)
   .action((opts) => {
-    return runCommandEffect(authClientAddCmd(opts));
+    return runCommandEffect(authClientAddCmd(opts).pipe(Effect.provide(BaseLayerLive)));
   });
 
 export const initWithoutFilesDef = program
