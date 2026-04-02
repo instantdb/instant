@@ -9,12 +9,12 @@ const demos = [
   {
     href: '/storage-demo',
     title: 'Storage',
-    description: 'Image upload with progress ring and confetti',
+    description: 'Image upload with progress ring and checkmark completion',
   },
   {
     href: '/perms-demo',
     title: 'Permissions',
-    description: 'Role-based access with shield cards and animated cursor',
+    description: 'Big avatars, op tabs, rule display, blur cards',
   },
   {
     href: '/reactions-demo',
@@ -30,6 +30,31 @@ const demos = [
     href: '/stream-demo',
     title: 'Streams',
     description: 'AI chat streaming across laptop and phone in real-time',
+  },
+  {
+    href: '/todo-demo-1',
+    title: 'Todo v1',
+    description: 'Smooth crossfade code badge, soft green glow on persist',
+  },
+  {
+    href: '/todo-demo-2',
+    title: 'Todo v2',
+    description: 'Inline code morph with typing animation',
+  },
+  {
+    href: '/todo-demo-3',
+    title: 'Todo v3',
+    description: 'Minimal badge, emphasis on the app UI itself',
+  },
+  {
+    href: '/todo-demo-4',
+    title: 'Todo v4',
+    description: 'Code panel slides up from card, two-column realtime',
+  },
+  {
+    href: '/todo-demo-5',
+    title: 'Todo v5',
+    description: 'Tab-style code badge with before/after toggle',
   },
 ];
 

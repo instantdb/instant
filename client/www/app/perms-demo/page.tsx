@@ -1,44 +1,35 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
-// ─── Types & Data ───────────────────────────────────────
+// Variation 5: Minimal — big avatars as selector, rules inline,
+// messages as simple rows with animated allowed/denied pill
 
-type Role = 'guest' | 'admin' | 'bob';
+type User = 'joe' | 'daniel';
+type Op = 'view' | 'update';
 
-interface Vote {
-  id: string;
-  voter: string;
-  choice: string;
-}
-
-const VOTES: Vote[] = [
-  { id: 'v1', voter: 'Alice', choice: 'Option A' },
-  { id: 'v2', voter: 'Bob', choice: 'Option B' },
-  { id: 'v3', voter: 'Charlie', choice: 'Option A' },
-  { id: 'v4', voter: 'Diana', choice: 'Option C' },
-];
-
-const ROLES: { key: Role; label: string }[] = [
-  { key: 'guest', label: 'Guest' },
-  { key: 'admin', label: 'Admin' },
-  { key: 'bob', label: 'Bob' },
-];
-
-const ROLE_META: Record<Role, { label: string; color: string; bg: string }> = {
-  guest: { label: 'Guest', color: '#6366f1', bg: '#eef2ff' },
-  admin: { label: 'Admin', color: '#059669', bg: '#ecfdf5' },
-  bob: { label: 'Bob', color: '#ea580c', bg: '#fff7ed' },
+const userMeta: Record<User, { name: string; img: string }> = {
+  joe: { name: 'Joe', img: '/img/landing/joe.jpg' },
+  daniel: { name: 'Daniel', img: '/img/landing/daniel.png' },
 };
 
-function isVisible(vote: Vote, role: Role): boolean {
-  if (role === 'admin') return true;
-  if (role === 'bob') return vote.voter === 'Bob';
-  return false;
+const messages = [
+  { id: 1, author: 'Joe', text: 'Launch is tomorrow!', owner: 'joe' as User },
+  { id: 2, author: 'Daniel', text: 'Docs are ready', owner: 'daniel' as User },
+];
+
+const rules: { action: Op; rule: string }[] = [
+  { action: 'view', rule: 'true' },
+  { action: 'update', rule: 'auth.id == data.creator' },
+];
+
+function canDo(user: User, op: Op, msgOwner: User): boolean {
+  if (op === 'view') return true;
+  return user === msgOwner;
 }
 
-// ─── Fake Cursor ────────────────────────────────────────
+// Simplified sequence: start on Joe+view, click update, then click Daniel
 
 function FakeCursor({
   x,
@@ -57,8 +48,8 @@ function FakeCursor({
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
       <svg
-        width="20"
-        height="24"
+        width="28"
+        height="34"
         viewBox="0 0 16 20"
         fill="none"
         className="drop-shadow-md"
@@ -74,134 +65,92 @@ function FakeCursor({
   );
 }
 
-// ─── Shield Icons ───────────────────────────────────────
-
-function ShieldCheck() {
-  return (
-    <svg
-      className="h-10 w-10"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
-      />
-    </svg>
-  );
-}
-
-function ShieldX() {
-  return (
-    <svg
-      className="h-10 w-10"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286Zm0 13.036h.008v.008H12v-.008Z"
-      />
-    </svg>
-  );
-}
-
-// ─── Demo ───────────────────────────────────────────────
-
 export default function PermsDemoPage() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const buttonRefs = useRef(new Map<Role, HTMLButtonElement>());
+  const userBtnRefs = useRef(new Map<string, HTMLButtonElement>());
+  const opBtnRefs = useRef(new Map<string, HTMLButtonElement>());
 
-  const [role, setRole] = useState<Role>('guest');
+  const [selectedUser, setSelectedUser] = useState<User>('joe');
+  const [selectedOp, setSelectedOp] = useState<Op>('view');
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [showCursor, setShowCursor] = useState(false);
   const [clicking, setClicking] = useState(false);
-  const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const getButtonPos = useCallback((target: Role) => {
-    const btn = buttonRefs.current.get(target);
+  const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const hasStarted = useRef(false);
+
+  const clear = useCallback(() => {
+    timeouts.current.forEach(clearTimeout);
+    timeouts.current = [];
+  }, []);
+
+  const sched = useCallback((fn: () => void, ms: number) => {
+    const t = setTimeout(fn, ms);
+    timeouts.current.push(t);
+  }, []);
+
+  const getPos = useCallback((el: HTMLElement | null) => {
     const container = containerRef.current;
-    if (!btn || !container) return { x: 0, y: 0 };
-    const btnRect = btn.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
+    if (!el || !container) return { x: 0, y: 0 };
+    const r = el.getBoundingClientRect();
+    const c = container.getBoundingClientRect();
     return {
-      x: btnRect.left - containerRect.left + btnRect.width / 2,
-      y: btnRect.top - containerRect.top + btnRect.height / 2,
+      x: r.left - c.left + r.width / 2,
+      y: r.top - c.top + r.height / 2,
     };
   }, []);
 
-  useEffect(() => {
-    const ts = timeouts.current;
-
-    const sched = (fn: () => void, ms: number) => {
-      ts.push(setTimeout(fn, ms));
-    };
-
-    const clickBtn = (target: Role, t: number): number => {
-      sched(() => setCursorPos(getButtonPos(target)), t);
-      t += 600;
-      sched(() => setClicking(true), t);
-      t += 150;
+  const clickEl = useCallback(
+    (ref: Map<string, HTMLElement>, key: string, t: number) => {
       sched(() => {
-        setClicking(false);
-        setRole(target);
-      }, t);
-      t += 150;
-      return t;
-    };
-
-    let cancelled = false;
-
-    const runCycle = () => {
-      if (cancelled) return;
-      ts.forEach(clearTimeout);
-      ts.length = 0;
-
-      setRole('guest');
-      setShowCursor(false);
-      setClicking(false);
-
-      let t = 1000;
-
-      sched(() => {
-        const pos = getButtonPos('guest');
-        setCursorPos({ x: pos.x + 80, y: pos.y + 40 });
+        const pos = getPos(ref.get(key) || null);
+        setCursorPos(pos);
         setShowCursor(true);
       }, t);
-      t += 400;
+      t += 500;
+      sched(() => setClicking(true), t);
+      t += 150;
+      sched(() => setClicking(false), t);
+      return t;
+    },
+    [sched, getPos],
+  );
 
-      // Pause on guest
-      t += 1400;
+  const runCycle = useCallback(() => {
+    clear();
+    setSelectedUser('joe');
+    setSelectedOp('view');
+    setShowCursor(false);
+    setClicking(false);
 
-      // Click Admin
-      t = clickBtn('admin', t);
-      t += 2000;
+    // Start: Joe + view (all green), pause to see
+    let t = 1500;
 
-      // Click Bob
-      t = clickBtn('bob', t);
-      t += 2000;
+    // Click "update" — Joe can only update his own message
+    t = clickEl(opBtnRefs.current as Map<string, HTMLElement>, 'update', t);
+    sched(() => setSelectedOp('update'), t);
+    t += 2000;
 
-      // Hide cursor and restart
-      sched(() => setShowCursor(false), t);
-      t += 800;
-      sched(() => runCycle(), t);
-    };
+    // Click Daniel — Daniel can only update his own message
+    t = clickEl(userBtnRefs.current as Map<string, HTMLElement>, 'daniel', t);
+    sched(() => setSelectedUser('daniel'), t);
+    t += 2000;
 
-    const init = setTimeout(runCycle, 200);
+    // Hide cursor and restart
+    sched(() => setShowCursor(false), t);
+    t += 1500;
+    sched(() => runCycle(), t);
+  }, [clear, sched, clickEl]);
 
-    return () => {
-      cancelled = true;
-      clearTimeout(init);
-      ts.forEach(clearTimeout);
-      ts.length = 0;
-    };
-  }, [getButtonPos]);
+  useEffect(() => {
+    if (!hasStarted.current) {
+      hasStarted.current = true;
+      runCycle();
+    }
+    return () => clear();
+  }, [runCycle, clear]);
+
+  const activeRuleIdx = rules.findIndex((r) => r.action === selectedOp);
 
   return (
     <div
@@ -209,80 +158,121 @@ export default function PermsDemoPage() {
       className="relative flex min-h-screen items-center justify-center bg-white"
     >
       <div className="w-full max-w-xl px-8">
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Votes</h1>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-400">Viewing as</span>
-            <div className="flex gap-2">
-              {ROLES.map((r) => {
-                const meta = ROLE_META[r.key];
-                const active = role === r.key;
-                return (
-                  <button
-                    key={r.key}
-                    ref={(el) => {
-                      if (el) buttonRefs.current.set(r.key, el);
-                    }}
-                    className="relative rounded-full border px-5 py-2 text-base font-semibold transition-colors"
-                    style={{
-                      borderColor: active ? meta.color : '#e5e7eb',
-                      backgroundColor: active ? meta.bg : '#ffffff',
-                      color: active ? meta.color : '#9ca3af',
-                    }}
-                  >
-                    {active && (
-                      <motion.div
-                        layoutId="role-pill"
-                        className="absolute inset-0 rounded-full border-2"
-                        style={{ borderColor: meta.color }}
-                        transition={{
-                          type: 'spring',
-                          stiffness: 400,
-                          damping: 30,
-                        }}
-                      />
-                    )}
-                    {r.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-5">
-          {VOTES.map((vote) => {
-            const visible = isVisible(vote, role);
+        {/* Big avatar selector */}
+        <div className="mb-10 flex items-center justify-center gap-6">
+          {(['joe', 'daniel'] as User[]).map((u) => {
+            const m = userMeta[u];
+            const active = selectedUser === u;
             return (
-              <motion.div
-                key={vote.id}
-                animate={{
-                  borderColor: visible ? '#22c55e' : '#fca5a5',
-                  backgroundColor: visible ? '#f0fdf4' : '#fef2f2',
+              <button
+                key={u}
+                ref={(el) => {
+                  if (el) userBtnRefs.current.set(u, el);
                 }}
-                transition={{ duration: 0.4 }}
-                className="flex items-center gap-4 rounded-2xl border-2 p-6"
+                className="flex flex-col items-center gap-2"
               >
                 <motion.div
-                  animate={{ color: visible ? '#22c55e' : '#ef4444' }}
+                  animate={{
+                    borderColor: active ? '#f97316' : '#e5e7eb',
+                    scale: active ? 1.05 : 1,
+                  }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                  className="rounded-full border-[3px] p-1"
+                >
+                  <img
+                    src={m.img}
+                    alt={m.name}
+                    className="h-16 w-16 rounded-full object-cover"
+                  />
+                </motion.div>
+                <span
+                  className="text-xl font-semibold transition-colors"
+                  style={{ color: active ? '#ea580c' : '#9ca3af' }}
+                >
+                  {m.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Operation tabs */}
+        <div className="mb-8 flex justify-center gap-4">
+          {(['view', 'update'] as Op[]).map((op) => {
+            const active = selectedOp === op;
+            return (
+              <button
+                key={op}
+                ref={(el) => {
+                  if (el) opBtnRefs.current.set(op, el);
+                }}
+                className="relative rounded-xl px-8 py-3 text-xl font-semibold capitalize"
+                style={{
+                  color: active ? '#4f46e5' : '#9ca3af',
+                }}
+              >
+                {active && (
+                  <motion.div
+                    layoutId="op-tab"
+                    className="absolute inset-0 rounded-xl border-2 border-indigo-400 bg-indigo-50"
+                    transition={{
+                      type: 'spring',
+                      stiffness: 500,
+                      damping: 35,
+                    }}
+                  />
+                )}
+                <span className="relative">{op}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Rule display */}
+        <div className="mb-8 rounded-2xl bg-gray-50 px-6 py-4 text-center font-mono text-xl">
+          <span className="text-gray-400">rule: </span>
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={selectedOp}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="font-semibold text-gray-800"
+            >
+              {rules[activeRuleIdx].rule}
+            </motion.span>
+          </AnimatePresence>
+        </div>
+
+        {/* Messages */}
+        <div className="space-y-4">
+          {messages.map((msg) => {
+            const allowed = canDo(selectedUser, selectedOp, msg.owner);
+            return (
+              <motion.div
+                key={msg.id}
+                animate={{
+                  borderColor: allowed ? '#86efac' : '#fca5a5',
+                  backgroundColor: allowed ? '#f0fdf4' : '#fef2f2',
+                }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center gap-5 rounded-2xl border-2 px-6 py-6"
+              >
+                <img
+                  src={userMeta[msg.owner].img}
+                  alt={msg.author}
+                  className="h-14 w-14 shrink-0 rounded-full object-cover"
+                />
+                <motion.div
+                  animate={{
+                    filter: allowed ? 'blur(0px)' : 'blur(6px)',
+                    opacity: allowed ? 1 : 0.4,
+                  }}
                   transition={{ duration: 0.3 }}
                 >
-                  {visible ? <ShieldCheck /> : <ShieldX />}
+                  <div className="text-2xl text-gray-700">{msg.text}</div>
                 </motion.div>
-                <div className="flex-1">
-                  <motion.div
-                    animate={{
-                      filter: visible ? 'blur(0px)' : 'blur(6px)',
-                      opacity: visible ? 1 : 0.4,
-                    }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <div className="text-lg font-semibold text-gray-900">
-                      {vote.voter}
-                    </div>
-                    <div className="text-sm text-gray-500">{vote.choice}</div>
-                  </motion.div>
-                </div>
               </motion.div>
             );
           })}
