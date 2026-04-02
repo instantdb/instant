@@ -248,7 +248,9 @@ ${this.value}`;
       }
       let inputDisplay = '';
       if (this.value === '') {
-        inputDisplay = `${chalk.inverse(this.props.placeholder?.substring(0, 1))}${chalk.dim(this.props.placeholder?.substring(1))}`;
+        inputDisplay = this.props.placeholder
+          ? `${chalk.inverse(this.props.placeholder.substring(0, 1))}${chalk.dim(this.props.placeholder.substring(1))}`
+          : chalk.inverse(' ');
       } else {
         inputDisplay = `${this.value}${chalk.inverse(' ')}`;
       }

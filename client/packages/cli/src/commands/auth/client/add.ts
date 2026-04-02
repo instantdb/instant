@@ -34,7 +34,7 @@ const optOrPrompt = (value: unknown, prompt: string, placeholder?: string) =>
         return runUIEffect(
           new UI.TextInput({
             prompt,
-            placeholder,
+            ...(placeholder ? { placeholder } : {}),
           }),
         ).pipe(
           Effect.catchTag('UIError', (e) =>
@@ -83,6 +83,7 @@ export const authClientAddCmd = Effect.fn(function* (
       }),
     ),
   );
+  console.log(opts);
 
   yield* Match.value(clientType).pipe(
     Match.withReturnType<Effect.Effect<void, any, any>>(),
