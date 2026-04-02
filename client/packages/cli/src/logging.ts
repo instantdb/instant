@@ -12,16 +12,16 @@ export function error(firstArg: string, ...rest: any[]) {
 const simpleLogger = Logger.make(({ logLevel, message, annotations }) => {
   const isSilent = HashMap.get(annotations, 'silent').pipe(Option.getOrNull);
   if (isSilent) return;
-  const formattedMessage = Array.isArray(message) ? message.join(' ') : message;
+  const formattedMessage = Array.isArray(message) ? message : [message];
   Match.value(logLevel).pipe(
-    Match.tag('Info', () => console.log(formattedMessage)),
-    Match.tag('Warning', () => console.warn(formattedMessage)),
+    Match.tag('Info', () => console.log(...formattedMessage)),
+    Match.tag('Warning', () => console.warn(...formattedMessage)),
     Match.tag('Error', () =>
-      console.error(chalk.red('[error]') + ' ' + formattedMessage),
+      console.error(chalk.red('[error]'), ...formattedMessage),
     ),
-    Match.tag('Debug', () => console.debug(formattedMessage)),
+    Match.tag('Debug', () => console.debug(...formattedMessage)),
     Match.tag('Fatal', () =>
-      console.error(chalk.red('[error]') + ' ' + formattedMessage),
+      console.error(chalk.red('[error]'), ...formattedMessage),
     ),
   );
 });
