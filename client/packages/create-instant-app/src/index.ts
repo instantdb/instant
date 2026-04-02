@@ -56,7 +56,10 @@ const main = async () => {
   };
 
   const possibleAppTokenPair = await tryConnectApp(
-    scopedAppName,
+    // project-name -> Project Name
+    // . -> Folder Name
+    // @org/scoped -> Scoped
+    appDir === '.' ? scopedAppName : appDir,
     project,
     scaffoldMetadata,
   );
