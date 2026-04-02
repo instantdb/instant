@@ -1,5 +1,14 @@
 import Link from 'next/link';
 
+const whyDoesThisMatter = [
+  {
+    href: '/instant-diagram-demo',
+    title: 'Instant Diagram',
+    description:
+      'Architecture diagram showing infra complexity, converging into Instant',
+  },
+];
+
 const basicExample = [
   {
     href: '/todo-demo-1',
@@ -82,6 +91,20 @@ export default function DemosPage() {
         </p>
       </div>
       <div className="flex flex-1 flex-col items-center gap-12 px-8 py-12">
+        <section className="flex flex-col items-center gap-4">
+          <h2 className="text-sm font-semibold tracking-wider text-gray-400 uppercase">
+            Why does this matter
+          </h2>
+          <p className="max-w-md text-center text-sm text-gray-400">
+            Step-by-step diagram controlled with arrow keys. Shows the infra
+            complexity then converges it into Instant.
+          </p>
+          <div className="flex flex-wrap justify-center gap-6">
+            {whyDoesThisMatter.map((demo) => (
+              <DemoCard key={demo.href} {...demo} />
+            ))}
+          </div>
+        </section>
         <section className="flex flex-col items-center gap-4">
           <h2 className="text-sm font-semibold tracking-wider text-gray-400 uppercase">
             Basic Example
