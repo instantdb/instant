@@ -24,6 +24,7 @@ import { explorerCmd } from './commands/explorer.ts';
 import { queryCmd } from './commands/query.ts';
 import { program } from './program.ts';
 import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
+import { authClientAddCmd } from './commands/auth/client/add.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -75,6 +76,18 @@ export const initDef = program
         ),
       ),
     );
+  });
+
+const auth = program.command('auth');
+const authClient = auth.command('client');
+export const authClientAddDef = authClient
+  .command('add')
+  .option(
+    '--type <google|apple|github|linkedin|clerk|firebase>',
+    'Type of oauth client to add',
+  )
+  .action((opts) => {
+    return runCommandEffect(authClientAddCmd(opts));
   });
 
 export const initWithoutFilesDef = program
