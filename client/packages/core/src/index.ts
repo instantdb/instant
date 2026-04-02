@@ -954,7 +954,11 @@ function init<
   versions?: { [key: string]: string },
   EventSourceImpl?: any,
 ): InstantCoreDatabase<Schema, UseDates> {
-  const cardinalityInference = config.cardinalityInference ?? !!config.schema;
+  const cardinalityInference =
+    Boolean(config.schema) &&
+    ('cardinalityInference' in config
+      ? Boolean(config.cardinalityInference)
+      : true);
 
   const configStrict = {
     ...config,
