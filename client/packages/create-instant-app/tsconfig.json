@@ -31,5 +31,5 @@
     "useDefineForClassFields": true,
     "removeComments": true
   },
-  "include": ["src", "tsup.config.ts"]
+  "include": ["src", "__tests__", "tsup.config.ts"]
 }
