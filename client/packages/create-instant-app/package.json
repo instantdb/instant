@@ -20,7 +20,7 @@
     "package.json"
   ],
   "scripts": {
-    "typecheck": "tsc",
+    "typecheck": "tsc --noEmit",
     "prebuild": "pnpm run copy-examples",
     "build": "tsup",
     "dev": "tsup --watch",

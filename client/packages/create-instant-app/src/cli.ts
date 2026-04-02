@@ -28,11 +28,9 @@ export type Project = {
   appName: string;
   prompt: string | null;
   createRepo: boolean;
-};
-
-export type AppFlags = {
   app: string | null;
   token: string | null;
+  yes: boolean;
 };
 
 export const unwrapSkippablePrompt = <T>(result: Promise<T | symbol>) => {
@@ -50,12 +48,30 @@ const defaultOptions: Project = {
   ruleFiles: null,
   createRepo: true,
   prompt: null,
+  app: null,
+  token: null,
+  yes: false,
 };
 
-export const runCli = async (): Promise<{
-  project: Project;
-  appFlags: AppFlags;
-}> => {
+const baseFromFlags = (flags: Record<string, any>): Project['base'] | null =>
+  (flags.base as Project['base']) ||
+  (flags.vanilla && 'vite-vanilla') ||
+  (flags.next && 'next-js-app-dir') ||
+  (flags.expo && 'expo') ||
+  (flags.sv && 'sveltekit') ||
+  null;
+
+const ruleFilesFromFlags = (
+  flags: Record<string, any>,
+): Project['ruleFiles'] | null =>
+  (flags.cursor && 'cursor') ||
+  (flags.claude && 'claude') ||
+  (flags.codex && 'codex') ||
+  (flags.gemini && 'gemini') ||
+  (flags.rules && 'codex') ||
+  null;
+
+export const runCli = async (): Promise<Project> => {
   const results = defaultOptions;
 
   const program = new Command()
@@ -137,6 +153,12 @@ export const runCli = async (): Promise<{
         'Auth token override (use with --app when not logged in)',
       ),
     )
+    .addOption(
+      new Option(
+        '-y --yes',
+        'Use all defaults (requires project name as first argument)',
+      ).default(false),
+    )
     .version(version)
     .parse(process.argv);
   const cliProvidedName = program.args[0] && coerceAppName(program.args[0]);
@@ -150,6 +172,28 @@ export const runCli = async (): Promise<{
   }
 
   const flags = program.opts();
+
+  if (flags.yes) {
+    if (flags.ai) {
+      throw new Error('--yes is not supported with --ai');
+    }
+    if (!cliProvidedName) {
+      throw new Error(
+        'When using --yes, you must specify a project name as the first argument.\n' +
+          'Usage: npx create-instant-app my-app --yes',
+      );
+    }
+    return {
+      ...defaultOptions,
+      appName: cliProvidedName,
+      base: baseFromFlags(flags) ?? defaultOptions.base,
+      ruleFiles: ruleFilesFromFlags(flags) ?? 'claude',
+      createRepo: flags.git ?? defaultOptions.createRepo,
+      app: flags.app ?? null,
+      token: flags.token ?? null,
+      yes: true,
+    };
+  }
 
   // Check if claude is in path
   if (flags.ai) {
@@ -192,20 +236,9 @@ export const runCli = async (): Promise<{
         return null;
       },
       base: async ({ results }) => {
-        if (flags.base) {
-          return flags.base as Project['base'];
-        }
-        if (flags.vanilla) {
-          return 'vite-vanilla';
-        }
-        if (flags.next) {
-          return 'next-js-app-dir';
-        }
-        if (flags.expo) {
-          return 'expo';
-        }
-        if (flags.sv) {
-          return 'sveltekit';
+        const fromFlags = baseFromFlags(flags);
+        if (fromFlags) {
+          return fromFlags;
         }
 
         if (results.prompt) {
@@ -277,20 +310,9 @@ export const runCli = async (): Promise<{
           return 'claude';
         }
 
-        if (flags.cursor) {
-          return 'cursor';
-        }
-        if (flags.claude) {
-          return 'claude';
-        }
-        if (flags.codex) {
-          return 'codex';
-        }
-        if (flags.gemini) {
-          return 'gemini';
-        }
-        if (flags.rules) {
-          return 'codex';
+        const fromFlags = ruleFilesFromFlags(flags);
+        if (fromFlags) {
+          return fromFlags;
         }
 
         return renderUnwrap(
@@ -317,7 +339,7 @@ export const runCli = async (): Promise<{
         return true;
       },
     } satisfies {
-      [K in keyof Project]: (args: {
+      [K in keyof Omit<Project, 'app' | 'token' | 'yes'>]: (args: {
         results: Partial<Project>;
       }) => Promise<Project[K] | symbol> | Project[K];
     },
@@ -328,10 +350,10 @@ export const runCli = async (): Promise<{
     },
   );
 
-  const appFlags: AppFlags = {
+  return {
+    ...project,
     app: flags.app ?? null,
     token: flags.token ?? null,
+    yes: false,
   };
-
-  return { project, appFlags };
 };
