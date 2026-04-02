@@ -67,7 +67,7 @@ const ruleFilesFromFlags = (flags: Record<string, any>): Project['ruleFiles'] =>
   (flags.codex && 'codex') ||
   (flags.gemini && 'gemini') ||
   (flags.rules && 'codex') ||
-  null;
+  'claude'; // claude is the default for interactive selection
 
 export const runCli = async (): Promise<Project> => {
   const results = defaultOptions;
@@ -172,6 +172,9 @@ export const runCli = async (): Promise<Project> => {
   const flags = program.opts();
 
   if (flags.yes) {
+    if (flags.ai) {
+      throw new Error('--yes is not supported with --ai');
+    }
     if (!cliProvidedName) {
       throw new Error(
         'When using --yes, you must specify a project name as the first argument.\n' +
