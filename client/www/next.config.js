@@ -1,28 +1,42 @@
 const path = require('path');
 const withMarkdoc = require('@markdoc/next.js');
 
+const componentsSrc = path.resolve(__dirname, '../packages/components/src');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx', 'md'],
   transpilePackages: ['@instantdb/components'],
+  experimental: {
+    turbo: {
+      rules: {
+        // Markdoc + OG metadata loaders for docs .md pages.
+        // Order: last listed runs first (markdoc parses md -> JS,
+        // then og-metadata post-processes the output).
+        '*.md': {
+          loaders: [
+            path.resolve(__dirname, 'lib/docs-og-metadata-loader.js'),
+            path.resolve(__dirname, 'lib/markdoc-turbo-loader.js'),
+          ],
+          as: '*.js',
+        },
+      },
+      resolveAlias: {
+        '@instantdb/components': '../packages/components/src',
+        '@lib': '../packages/components/src',
+      },
+    },
+  },
   webpack: (config, { dev }) => {
     // Resolve @instantdb/components to source for Fast Refresh in development
     if (dev) {
-      const componentsSrc = path.resolve(
-        __dirname,
-        '../packages/components/src',
-      );
       config.resolve.alias['@instantdb/components'] = componentsSrc;
       // Also add the @lib alias used within the components package
       config.resolve.alias['@lib'] = componentsSrc;
     }
 
     // Auto-inject og:image metadata for docs pages.
-    // The markdoc loader generates:
-    //   export const metadata = frontmatter.nextjs?.metadata;
-    // We replace it with a version that merges in the og:image
-    // based on the file path, so doc authors don't have to.
     config.module.rules.push({
       test: /\.md$/,
       include: path.resolve(__dirname, 'app/docs'),
