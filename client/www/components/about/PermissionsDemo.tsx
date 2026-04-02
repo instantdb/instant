@@ -171,7 +171,7 @@ const DEFAULT_BINDS = [
 export function PermissionsDemo() {
   const [role, setRole] = useState<Role>('alice');
   const [viewRule, setViewRule] = useState(DEFAULT_VIEW_RULE);
-  const [binds, setBinds] = useState(DEFAULT_BINDS);
+  const binds = DEFAULT_BINDS;
   const [edited, setEdited] = useState(false);
 
   const [rowStates, setRowStates] = useState<RowState[]>(
@@ -458,7 +458,13 @@ function EditableSpan({
         onPaste={(e) => {
           e.preventDefault();
           const text = e.clipboardData.getData('text/plain').replace(/\n/g, '');
-          document.execCommand('insertText', false, text);
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(document.createTextNode(text));
+            range.collapse(false);
+          }
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
