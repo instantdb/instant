@@ -211,8 +211,20 @@ export function InstaMLDemo() {
         </div>
 
         <div className="flex shrink-0 items-center self-stretch">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-gray-200">
-            <path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            className="text-gray-200"
+          >
+            <path
+              d="M7 4l6 6-6 6"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </div>
 
@@ -227,8 +239,20 @@ export function InstaMLDemo() {
         </div>
 
         <div className="flex shrink-0 items-center self-stretch">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-gray-200">
-            <path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            className="text-gray-200"
+          >
+            <path
+              d="M7 4l6 6-6 6"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </div>
 
