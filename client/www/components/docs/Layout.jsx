@@ -20,7 +20,23 @@ import navigation from '@/data/docsNavigation';
 import RatingBox from './RatingBox';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
-import { ChatWidget, useIsMobile } from '../chat/ChatWidget';
+import dynamic from 'next/dynamic';
+
+const ChatWidget = dynamic(
+  () => import('../chat/ChatWidget').then((m) => m.ChatWidget),
+  { ssr: false },
+);
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkIsMobile = () => setIsMobile(window.innerWidth < 768);
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  return isMobile;
+}
 
 function useWorkspaceData(workspaceId, token) {
   const dashResponse = useTokenFetch(`${config.apiURI}/dash`, token);
