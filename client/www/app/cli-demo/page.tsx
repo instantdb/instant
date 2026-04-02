@@ -124,7 +124,7 @@ export default function CLIDemoPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-white p-8">
       <div
-        className="relative w-full max-w-2xl rounded-xl border shadow-lg"
+        className="relative w-full max-w-3xl rounded-xl border shadow-lg"
         style={{ borderColor: c.border, overflow: 'visible' }}
       >
         {/* Title bar */}
@@ -195,7 +195,6 @@ export default function CLIDemoPage() {
                 >
                   NEXT_PUBLIC_INSTANT_APP_ID
                 </span>
-                : a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a
               </div>
             )}
 
