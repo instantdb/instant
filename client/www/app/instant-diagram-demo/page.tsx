@@ -455,9 +455,15 @@ export default function Box7Page() {
 
   return (
     <div
-      className="flex min-h-screen w-screen flex-col"
+      className="relative flex min-h-screen w-screen flex-col"
       style={{ background: BG }}
     >
+      <a
+        href="/demos"
+        className="absolute top-4 left-4 z-50 text-xs text-gray-400 hover:text-gray-600"
+      >
+        &larr; All Demos
+      </a>
       {/* ── Top bar (fixed height to prevent layout shift) ── */}
       <div className="flex h-14 flex-shrink-0 items-center px-6">
         {/* Step label */}

@@ -96,8 +96,9 @@ export default function DemosPage() {
             Why does this matter
           </h2>
           <p className="max-w-md text-center text-sm text-gray-400">
-            Step-by-step diagram controlled with arrow keys. Shows the infra
-            complexity then converges it into Instant.
+            This follows the &quot;What you would do without Instant&quot;
+            script. It should go step by step alongside it, matching up with the
+            text from the script.
           </p>
           <div className="flex flex-wrap justify-center gap-6">
             {whyDoesThisMatter.map((demo) => (
