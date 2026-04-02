@@ -6,7 +6,6 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { SWRConfig } from 'swr';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PostHogIdentify } from '@/components/PostHogIdentify';
-import { Button } from '@/components/ui';
 import { localStorageProvider } from '@/lib/swrCache';
 import { isDev } from '@/lib/config';
 import { Dev } from '@/components/Dev';
@@ -22,9 +21,12 @@ function Oops() {
       <div className="text-4xl">🙈</div>
       <p className="text-2xl font-bold text-gray-600">Oops!</p>
       <p>An unexpected error occurred. We're on it!</p>
-      <Button type="link" href="/dash">
+      <a
+        href="/dash"
+        className="rounded bg-black px-4 py-2 text-white hover:bg-gray-800"
+      >
         Back to the dash
-      </Button>
+      </a>
     </div>
   );
 }

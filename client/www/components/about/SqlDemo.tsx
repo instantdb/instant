@@ -4,7 +4,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui';
+} from '@/components/ui/Tooltip';
 import { rosePineDawnColors as c } from '@/lib/rosePineDawnTheme';
 import { ConnectorLine } from './ConnectorLine';
 

@@ -60,7 +60,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const starCount = await getGithubStarCount();
+  const starCount = isDev ? 5000 : await getGithubStarCount();
   return (
     <html lang="en">
       <head>

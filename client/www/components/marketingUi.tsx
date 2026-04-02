@@ -13,7 +13,8 @@ import NextLink from 'next/link';
 import { usePathname } from 'next/navigation';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Button, cn, LogoIcon } from '@/components/ui';
+import { cn } from '@/lib/cn';
+import { LogoIcon } from '@/components/ui/LogoIcon';
 import { ComponentType, SVGProps } from 'react';
 import { useStarCount } from '@/lib/starCountContext';
 import { formatNumberCompact } from '@/lib/format';
@@ -377,14 +378,12 @@ function OtherNavItems() {
         </span>
       </NavLink>
       <div>
-        <Button
-          variant="cta"
-          className="font-semibold"
-          type="link"
+        <NextLink
           href="/dash"
+          className="inline-flex items-center justify-center rounded-md bg-orange-600 px-4 py-1.5 font-semibold text-white transition-colors hover:bg-orange-500"
         >
           Dashboard
-        </Button>
+        </NextLink>
       </div>
     </>
   );
