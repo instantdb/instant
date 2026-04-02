@@ -33,28 +33,8 @@ const demos = [
   },
   {
     href: '/todo-demo-1',
-    title: 'Todo v1',
-    description: 'Smooth crossfade code badge, soft green glow on persist',
-  },
-  {
-    href: '/todo-demo-2',
-    title: 'Todo v2',
-    description: 'Inline code morph with typing animation',
-  },
-  {
-    href: '/todo-demo-3',
-    title: 'Todo v3',
-    description: 'Minimal badge, emphasis on the app UI itself',
-  },
-  {
-    href: '/todo-demo-4',
-    title: 'Todo v4',
-    description: 'Code panel slides up from card, two-column realtime',
-  },
-  {
-    href: '/todo-demo-5',
-    title: 'Todo v5',
-    description: 'Tab-style code badge with before/after toggle',
+    title: 'Todo',
+    description: 'Scene-based todo demo with browser chrome',
   },
 ];
 
