@@ -105,9 +105,7 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        <Providers>
-          {children}
-        </Providers>
+        <Providers>{children}</Providers>
         {!isDev && <GoogleScripts />}
       </body>
     </html>

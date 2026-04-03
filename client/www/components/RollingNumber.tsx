@@ -115,10 +115,12 @@ function OdometerDigit({
       animate={{ clipPath: 'inset(0% 0 0 0)' }}
       exit={{ clipPath: 'inset(100% 0 0 0)' }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="relative inline-block w-[1ch] align-top overflow-hidden leading-[1]"
+      className="relative inline-block w-[1ch] overflow-hidden align-top leading-[1]"
     >
       {/* Invisible digit sets the natural height */}
-      <span className="invisible" aria-hidden>0</span>
+      <span className="invisible" aria-hidden>
+        0
+      </span>
       {Array.from({ length: 10 }, (_, i) => (
         <OdometerSlot key={i} mv={digitValue} number={i} />
       ))}

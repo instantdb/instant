@@ -32,9 +32,7 @@ export default function RollingNumberPlayground() {
 
       <div className="mb-8 space-y-6">
         <div className="space-y-2">
-          <label className="block text-sm text-gray-500">
-            Enter a number
-          </label>
+          <label className="block text-sm text-gray-500">Enter a number</label>
           <div className="flex gap-2">
             <input
               type="number"
@@ -105,9 +103,7 @@ export default function RollingNumberPlayground() {
         </div>
 
         <div className="rounded-lg border p-6">
-          <div className="mb-2 text-sm text-gray-500">
-            Formatted (compact)
-          </div>
+          <div className="mb-2 text-sm text-gray-500">Formatted (compact)</div>
           <div className="text-5xl font-semibold tracking-tighter">
             <RollingNumber value={value} format={formatNumberCompact} />
           </div>
@@ -121,9 +117,7 @@ export default function RollingNumberPlayground() {
         </div>
       </div>
 
-      <div className="mt-6 text-sm text-gray-400">
-        Current value: {value}
-      </div>
+      <div className="mt-6 text-sm text-gray-400">Current value: {value}</div>
     </div>
   );
 }

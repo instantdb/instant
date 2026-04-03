@@ -67,11 +67,14 @@ export function StarBurst({
         {particles.map((p) => (
           <motion.span
             key={p.id}
-            className="pointer-events-none absolute left-1/2 top-1/2 text-yellow-400"
+            className="pointer-events-none absolute top-1/2 left-1/2 text-yellow-400"
             style={{ fontSize: `${p.size}em` }}
             initial={{ x: 0, y: 0, opacity: 1, scale: 0 }}
             animate={{ x: p.x, y: p.y, opacity: 0, scale: 1.2 }}
-            transition={{ duration: 0.6 + Math.random() * 0.3, ease: 'easeOut' }}
+            transition={{
+              duration: 0.6 + Math.random() * 0.3,
+              ease: 'easeOut',
+            }}
             onAnimationComplete={() => removeParticle(p.id)}
           >
             {p.char}
