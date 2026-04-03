@@ -49,7 +49,7 @@ export function OfflineDemo({
   const addMutation = (label: string) => {
     const id = counter.current++;
     if (!online) {
-      setOutbox((prev) => [...prev, { id, label }]);
+      setOutbox((prev) => [{ id, label }, ...prev]);
     }
   };
 

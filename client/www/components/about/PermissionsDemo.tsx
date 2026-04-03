@@ -8,10 +8,11 @@ import {
 } from '@/lib/cel';
 import { rosePineDawnColors as c } from '@/lib/rosePineDawnTheme';
 
-type Role = 'alice' | 'admin' | 'guest';
+type Role = 'alice' | 'bob' | 'admin' | 'guest';
 
 const REF_DATA: Record<string, Record<string, unknown[]>> = {
   alice: { '$user.roles.type': ['user'] },
+  bob: { '$user.roles.type': ['user'] },
   admin_user: { '$user.roles.type': ['admin', 'user'] },
   guest_user: { '$user.roles.type': [] },
 };
@@ -55,6 +56,7 @@ const ORDERS: Order[] = [
 
 const ROLES: { key: Role; label: string }[] = [
   { key: 'alice', label: 'Alice' },
+  { key: 'bob', label: 'Bob' },
   { key: 'admin', label: 'Admin' },
   { key: 'guest', label: 'Anonymous' },
 ];
@@ -65,6 +67,11 @@ function getAuthContext(role: Role) {
       return makeRefable('alice', REF_DATA, {
         id: 'alice',
         email: 'alice@example.com',
+      });
+    case 'bob':
+      return makeRefable('bob', REF_DATA, {
+        id: 'bob',
+        email: 'bob@example.com',
       });
     case 'admin':
       return makeRefable('admin_user', REF_DATA, {
@@ -96,7 +103,7 @@ interface EvalResult {
 
 // Fast path: hardcoded results for the default rules
 function evaluateDefault(order: Order, role: Role): EvalResult {
-  const isOwner = role === 'alice' && order.customerId === 'alice';
+  const isOwner = order.customerId === role;
   const isAdmin = role === 'admin';
   return { binds: { isOwner, isAdmin }, allowed: isOwner || isAdmin };
 }
@@ -356,7 +363,9 @@ export function PermissionsDemo() {
                 <th className="px-4 py-1.5 font-medium">customer</th>
                 <th className="px-4 py-1.5 font-medium">item</th>
                 <th className="px-4 py-1.5 text-right font-medium">total</th>
-                <th className="px-4 py-1.5 font-medium">rule</th>
+                <th className="border-l border-gray-200 px-4 py-1.5 font-medium">
+                  rule
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -400,7 +409,7 @@ export function PermissionsDemo() {
                     >
                       ${order.total}
                     </td>
-                    <td className="relative px-4 py-1.5 font-mono text-[10px] whitespace-nowrap">
+                    <td className="relative border-l border-gray-200 px-4 py-1.5 font-mono text-[10px] whitespace-nowrap">
                       <span className="invisible">
                         isOwner → false, isAdmin → false
                       </span>
