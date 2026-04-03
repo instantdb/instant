@@ -214,13 +214,20 @@ Notes:
 
 # CRITICAL Storage Guidelines
 
+CRITICAL: If an app displays images or files, use Instant Storage. Do not store
+URLs as string attributes on your entities. This includes seed scripts: do not
+use placeholder image URLs (e.g. picsum.photos) as string attributes to fake
+file support.
+
 Uploads auto-create `$files` entities. Link them to your data via the schema,
-then query through the relationship to get URLs. Never store URLs as attributes.
+then query through the relationship to get URLs.
 
 CRITICAL: You MUST include `$files` in your schema entities if you use Storage.
 
+CRITICAL: `$files` entities can only be created via `db.storage.uploadFile`. You
+cannot create `$files` via `db.transact`, and you cannot set `url` via transactions.
+
 ```tsx
-// Schema: declare $files in entities and link to your data
 entities: {
   $files: i.entity({
     path: i.string().unique().indexed(),
