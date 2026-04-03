@@ -5,7 +5,7 @@
  * Outbox (queued mutations). Network toggle above.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Todo {
@@ -26,17 +26,30 @@ const INITIAL_TODOS: Todo[] = [
 
 const NEW_TITLES = ['Deploy to prod', 'Review PR', 'Add tests', 'Write docs'];
 
-export function OfflineDemo() {
+export type NetworkState = 'online' | 'syncing' | 'offline';
+
+export function OfflineDemo({
+  onStateChange,
+}: { onStateChange?: (state: NetworkState) => void } = {}) {
   const [online, setOnline] = useState(true);
   const [todos, setTodos] = useState<Todo[]>(INITIAL_TODOS);
   const [outbox, setOutbox] = useState<OutboxEntry[]>([]);
+
+  const networkState: NetworkState = !online
+    ? 'offline'
+    : outbox.length > 0
+      ? 'syncing'
+      : 'online';
+  useEffect(() => {
+    onStateChange?.(networkState);
+  }, [networkState, onStateChange]);
   const counter = useRef(0);
   const newIdx = useRef(0);
 
   const addMutation = (label: string) => {
     const id = counter.current++;
     if (!online) {
-      setOutbox((prev) => [...prev, { id, label }]);
+      setOutbox((prev) => [{ id, label }, ...prev]);
     }
   };
 
@@ -53,10 +66,16 @@ export function OfflineDemo() {
     const title = NEW_TITLES[newIdx.current % NEW_TITLES.length];
     newIdx.current++;
     setTodos((prev) => [
-      ...prev,
       { id: `todo_${Date.now()}`, title, done: false },
+      ...prev,
     ]);
     addMutation(`${title} created`);
+  };
+
+  const deleteTodo = (todoId: string) => {
+    const todo = todos.find((t) => t.id === todoId);
+    setTodos((prev) => prev.filter((t) => t.id !== todoId));
+    addMutation(`${todo?.title ?? todoId} deleted`);
   };
 
   const goOnline = () => {
@@ -78,11 +97,15 @@ export function OfflineDemo() {
         <div className="flex items-center gap-2">
           <div
             className={`h-2 w-2 rounded-full transition-colors ${
-              online ? 'bg-green-400' : 'bg-gray-300'
+              networkState === 'offline' ? 'bg-gray-300' : 'bg-green-400'
             }`}
           />
           <span className="text-[11px] font-medium text-gray-500">
-            {online ? 'Online' : 'Offline'}
+            {networkState === 'online'
+              ? 'Online'
+              : networkState === 'syncing'
+                ? 'Syncing'
+                : 'Offline'}
           </span>
         </div>
         <button
@@ -130,8 +153,8 @@ export function OfflineDemo() {
               {todos.map((todo) => (
                 <motion.div
                   key={todo.id}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   className="flex items-center gap-2 border-b border-gray-50 px-3 py-1.5"
                 >
                   <button
@@ -159,12 +182,30 @@ export function OfflineDemo() {
                     )}
                   </button>
                   <span
-                    className={`text-[11px] ${
+                    className={`flex-1 text-[11px] ${
                       todo.done ? 'text-gray-400 line-through' : 'text-gray-700'
                     }`}
                   >
                     {todo.title}
                   </span>
+                  <button
+                    onClick={() => deleteTodo(todo.id)}
+                    className="shrink-0 cursor-pointer text-gray-300 transition-colors hover:text-gray-500"
+                  >
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 18 18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -174,7 +215,7 @@ export function OfflineDemo() {
         {/* Cache */}
         <div
           className={`flex-1 overflow-hidden rounded-xl border bg-white shadow-sm transition-colors ${
-            online ? 'border-green-300' : 'border-orange-300'
+            networkState === 'online' ? 'border-green-300' : 'border-orange-300'
           }`}
         >
           <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/80 px-3 py-1.5">
@@ -183,10 +224,14 @@ export function OfflineDemo() {
             </span>
             <span
               className={`text-[9px] font-medium ${
-                online ? 'text-green-500' : 'text-orange-500'
+                networkState === 'online' ? 'text-green-500' : 'text-orange-500'
               }`}
             >
-              {online ? 'In sync' : 'Optimistic'}
+              {networkState === 'online'
+                ? 'In sync'
+                : networkState === 'syncing'
+                  ? 'Syncing'
+                  : 'Optimistic'}
             </span>
           </div>
           <div className="h-[130px] overflow-y-auto px-3 py-1.5">
@@ -220,11 +265,11 @@ export function OfflineDemo() {
             <span className="text-[10px] font-medium tracking-wider text-gray-400 uppercase">
               Outbox
             </span>
-            {outbox.length > 0 && (
-              <span className="rounded-full bg-orange-100 px-1.5 py-0.5 text-[9px] font-medium text-orange-600">
-                {outbox.length}
-              </span>
-            )}
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${outbox.length > 0 ? 'bg-orange-100 text-orange-600' : 'invisible'}`}
+            >
+              {outbox.length || 0}
+            </span>
           </div>
           <div className="h-[130px] overflow-y-auto px-3 py-1.5">
             <AnimatePresence initial={false}>

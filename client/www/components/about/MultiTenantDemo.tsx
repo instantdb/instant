@@ -39,25 +39,34 @@ const APPS: { id: AppId; label: string; color: string; bgColor: string }[] = [
 ];
 
 const TRIPLES: Triple[] = [
-  { appId: 'todos', entity: 'todo_1', attr: 'title', value: 'Ship v2' },
-  { appId: 'blog', entity: 'post_1', attr: 'title', value: 'Hello world' },
-  { appId: 'chat', entity: 'msg_1', attr: 'text', value: 'Hey team!' },
-  { appId: 'todos', entity: 'todo_1', attr: 'done', value: 'false' },
-  { appId: 'blog', entity: 'post_1', attr: 'author', value: 'Alice' },
-  { appId: 'chat', entity: 'msg_1', attr: 'sender', value: 'Bob' },
-  { appId: 'todos', entity: 'todo_2', attr: 'title', value: 'Fix bugs' },
-  { appId: 'blog', entity: 'post_2', attr: 'title', value: 'Our roadmap' },
-  { appId: 'chat', entity: 'msg_2', attr: 'text', value: 'Ship it!' },
-  { appId: 'todos', entity: 'todo_2', attr: 'done', value: 'true' },
-  { appId: 'blog', entity: 'post_2', attr: 'author', value: 'Charlie' },
-  { appId: 'chat', entity: 'msg_2', attr: 'sender', value: 'Alice' },
+  { appId: 'todos', entity: 'todo_1', attr: 'todos/title', value: 'Ship v2' },
+  {
+    appId: 'blog',
+    entity: 'post_1',
+    attr: 'posts/title',
+    value: 'Hello world',
+  },
+  { appId: 'chat', entity: 'msg_1', attr: 'messages/text', value: 'Hey team!' },
+  { appId: 'todos', entity: 'todo_1', attr: 'todos/done', value: 'false' },
+  { appId: 'blog', entity: 'post_1', attr: 'posts/author', value: 'Alice' },
+  { appId: 'chat', entity: 'msg_1', attr: 'messages/sender', value: 'Bob' },
+  { appId: 'todos', entity: 'todo_2', attr: 'todos/title', value: 'Fix bugs' },
+  {
+    appId: 'blog',
+    entity: 'post_2',
+    attr: 'posts/title',
+    value: 'Our roadmap',
+  },
+  { appId: 'chat', entity: 'msg_2', attr: 'messages/text', value: 'Ship it!' },
+  { appId: 'todos', entity: 'todo_2', attr: 'todos/done', value: 'true' },
+  { appId: 'blog', entity: 'post_2', attr: 'posts/author', value: 'Charlie' },
+  { appId: 'chat', entity: 'msg_2', attr: 'messages/sender', value: 'Alice' },
 ];
 
 export function MultiTenantDemo() {
-  const [selected, setSelected] = useState<AppId | 'all'>('all');
+  const [selected, setSelected] = useState<AppId>('todos');
 
-  const filtered =
-    selected === 'all' ? TRIPLES : TRIPLES.filter((t) => t.appId === selected);
+  const filtered = TRIPLES.filter((t) => t.appId === selected);
 
   const appColor = (appId: AppId) =>
     APPS.find((a) => a.id === appId)?.color ?? '#6b7280';
@@ -71,16 +80,6 @@ export function MultiTenantDemo() {
       <div className="flex items-center gap-2">
         <span className="text-[11px] text-gray-400">View as:</span>
         <div className="flex gap-1.5">
-          <button
-            onClick={() => setSelected('all')}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-              selected === 'all'
-                ? 'border-gray-700 bg-gray-700 text-white'
-                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            All apps
-          </button>
           {APPS.map((app) => (
             <button
               key={app.id}
@@ -109,26 +108,24 @@ export function MultiTenantDemo() {
             Triples
           </span>
           <span className="text-[10px] text-gray-400">
-            {selected === 'all'
-              ? `${APPS.length} apps, 1 database`
-              : `Showing ${filtered.length} of ${TRIPLES.length} rows`}
+            {`Showing ${filtered.length} of ${TRIPLES.length} rows`}
           </span>
         </div>
         <div className="grid grid-cols-4 border-b border-gray-100 text-[10px] text-gray-400">
           <div className="px-3 py-1.5 font-medium">app_id</div>
-          <div className="px-3 py-1.5 font-medium">entity</div>
-          <div className="px-3 py-1.5 font-medium">attr</div>
+          <div className="px-3 py-1.5 font-medium">entity_id</div>
+          <div className="px-3 py-1.5 font-medium">attr_id</div>
           <div className="px-3 py-1.5 font-medium">value</div>
         </div>
         <div className="h-[200px] overflow-y-auto">
-          {TRIPLES.map((triple, i) => {
-            const isVisible = selected === 'all' || triple.appId === selected;
+          {TRIPLES.map((triple) => {
+            const isVisible = triple.appId === selected;
             return (
               <motion.div
                 key={`${triple.appId}-${triple.entity}-${triple.attr}`}
                 className="grid grid-cols-4 border-b border-gray-50"
                 animate={{
-                  opacity: isVisible ? 1 : 0.15,
+                  opacity: isVisible ? 1 : 0.4,
                 }}
                 transition={{ duration: 0.2 }}
                 style={{
