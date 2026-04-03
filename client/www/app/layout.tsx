@@ -1,5 +1,4 @@
 import '../styles/globals.css';
-import '../styles/docs/tailwind.css';
 
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';

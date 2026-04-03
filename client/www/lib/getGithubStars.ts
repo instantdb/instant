@@ -1,10 +1,10 @@
-import z from 'zod';
-
-const githubStarResponseSchema = z.object({
-  stargazers_count: z.number(),
-});
+const DEV_GITHUB_STAR_COUNT = 9778;
 
 export const getGithubStarCount = async (): Promise<number> => {
+  if (process.env.NODE_ENV === 'development') {
+    return DEV_GITHUB_STAR_COUNT;
+  }
+
   const accessToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
 
   const response = await fetch(
@@ -19,15 +19,18 @@ export const getGithubStarCount = async (): Promise<number> => {
       },
     },
   );
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-  const data = await response.json();
-  const parseResult = githubStarResponseSchema.safeParse(data);
+  try {
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const data = await response.json();
+    const starCount = data?.stargazers_count;
+    if (typeof starCount !== 'number') {
+      throw new Error('GitHub stars response did not include stargazers_count');
+    }
 
-  if (parseResult.error) {
-    throw new Error(parseResult.error.message);
+    return starCount;
+  } catch {
+    return DEV_GITHUB_STAR_COUNT;
   }
-
-  return parseResult.data.stargazers_count;
 };

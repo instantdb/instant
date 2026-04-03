@@ -1,3 +1,5 @@
+import '../../styles/docs/tailwind.css';
+
 export default function DocsLayout({
   children,
 }: {

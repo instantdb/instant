@@ -78,3 +78,84 @@ Key findings:
 - Deferred `@mux/mux-player-react` behind a click-triggered `import()`
 - Result: homepage cold compile only moved by about `300ms`
 - Decision: reverted because the win was not meaningful enough
+
+## Server TTFB profiler
+
+Command:
+
+```bash
+cd client
+pnpm run profile:www-server -- --slot 8 --route /
+```
+
+What it measures:
+
+- Boots `client/www` directly under the Node inspector
+- Clears `client/www/.next` first so the request is cold
+- Captures a CPU profile for the actual `next-server` process during the first HTML response
+- Writes a `.cpuprofile` plus a JSON summary to `client/dev-llm-docs/server-profiles`
+
+Key findings on webpack:
+
+- The cold `/` request spent most of its time in webpack, `acorn`, Tailwind/PostCSS, and `eval-source-map-dev-tool-plugin`
+- Browser-side execution was not the primary problem
+- This is what justified testing Tailwind and the Markdoc/Turbopack path next
+
+## Change 2: scope docs Tailwind CSS to docs routes
+
+What changed:
+
+- Moved `styles/docs/tailwind.css` out of the root app layout
+- Imported that stylesheet only from `app/docs/layout.tsx`
+- Added a development fallback for GitHub stars so local cold loads do not depend on rate-limited GitHub API calls
+
+Result:
+
+- Direct `client/www` cold `/about` moved from about `2246ms` to about `2090ms`
+- Direct `client/www` cold `/` moved from about `5980ms` into a `5684ms` to `5936ms` range
+- Decision: keep it because the CSS split is correct structurally and the `/about` win is real, even though it is not the breakthrough fix
+
+## Change 3: upgrade Markdoc + Next and switch `instant-www` to Turbopack
+
+What changed:
+
+- Upgraded `@markdoc/next.js` from `0.3.7` to `0.5.0`
+- Upgraded `next` from `15.5.7` to `16.2.2`
+- Enabled Turbopack in `client/www`
+- Updated the Markdoc config to `withMarkdoc({ dir: process.cwd() })`
+
+Why:
+
+- The old `@markdoc/next.js` package was webpack-only
+- The upstream Markdoc package added Turbopack support in `0.5.0`
+- On `next@15.5.7`, docs routes were still unstable under Turbopack with an app-build-manifest ENOENT
+- On `next@16.2.2`, `/` and `/docs/init` were stable in repeated direct smoke tests
+
+Result (full root benchmark, clean `.next` cache):
+
+- Prior committed baseline after shared UI entrypoint split: `/` `6287ms`, `/about` `2122ms`
+- Turbopack run 1: `/` `5461ms`, `/about` `582ms`
+- Turbopack run 2: `/` `5235ms`, `/about` `518ms`
+- Improvement on `/`: about `826ms` to `1052ms` faster (`13%` to `17%`)
+- Improvement on `/about`: about `1540ms` to `1604ms` faster (`73%` to `76%`)
+
+Direct `client/www` smoke test under `next dev --turbopack`:
+
+- Server ready in `282ms`
+- Cold `/`: about `2933ms`
+- Cold `/docs/init`: about `840ms`
+- Warm `/docs/init`: about `30ms`
+
+## More reverted experiments
+
+- Upgraded `tailwindcss` and `@tailwindcss/postcss` to `4.2.2`
+- Result: no material improvement in cold route timings
+- Decision: reverted
+
+- Switched homepage hero Mux video to a client-only `next/dynamic(..., { ssr: false })` boundary
+- Result: cold `/` stayed in the same `5.2s` to `5.5s` range and was slightly worse on the measured run
+- Decision: reverted
+
+- Switched Motion imports to the reduced bundle-size pattern from the Motion docs
+- Result: no material server-side TTFB improvement
+- Decision: reverted

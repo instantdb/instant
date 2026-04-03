@@ -5,6 +5,7 @@ const withMarkdoc = require('@markdoc/next.js');
 const nextConfig = {
   reactStrictMode: true,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx', 'md'],
+  turbopack: {},
   transpilePackages: ['@instantdb/components'],
   webpack: (config, { dev }) => {
     // Resolve @instantdb/components to source for Fast Refresh in development
@@ -114,4 +115,6 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 };
 
-module.exports = withMarkdoc()(nextConfig);
+module.exports = withMarkdoc({
+  dir: process.cwd(),
+})(nextConfig);
