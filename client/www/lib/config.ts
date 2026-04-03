@@ -73,6 +73,8 @@ export const localStorageFlagPrefix = `__instant__flag__`;
 
 export const cliOauthParamName = '_cli_oauth_ticket';
 
+export const instantRepo = 'instantdb/instant';
+
 export const discordInviteUrl = 'https://discord.com/invite/VU53p7uQcE';
 
 export const discordOAuthAppsFeedbackInviteUrl =

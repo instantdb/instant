@@ -1,30 +1,39 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
+import { prodDB as db } from '@/lib/intern/docs-feedback/db';
 
-const StarCountContext = createContext<number | null>(null);
+const FALLBACK_STAR_COUNT = parseInt(
+  // The env var is set in next.config.ts at build time
+  process.env.NEXT_PUBLIC_FALLBACK_STAR_COUNT ?? '9782',
+  10,
+);
 
-export function StarCountProvider({
-  starCount,
-  children,
-}: {
-  starCount: number;
-  children: ReactNode;
-}) {
-  return (
-    <StarCountContext.Provider value={starCount}>
-      {children}
-    </StarCountContext.Provider>
-  );
-}
+export function useStarCount(
+  fullName: string,
+  onCountIncrease?: (delta: number) => void,
+): number {
+  const { data } = db.useQuery({
+    ghStarTotals: {
+      $: {
+        where: { repoFullName: fullName },
+        limit: 1,
+      },
+    },
+  });
 
-export function useStarCount(): number {
-  const value = useContext(StarCountContext);
-  if (value == null) {
-    throw new Error(
-      'useStarCount() must be used within StarCountProvider. ' +
-        'Ensure this page is under app/layout.tsx.',
-    );
-  }
-  return value;
+  const liveCount = data?.ghStarTotals?.[0]?.stargazersCount;
+  const prevLiveCount = useRef<number | undefined>(undefined);
+  const onCountIncreaseRef = useRef(onCountIncrease);
+  onCountIncreaseRef.current = onCountIncrease;
+
+  useEffect(() => {
+    if (liveCount == null) return;
+    if (prevLiveCount.current != null && liveCount > prevLiveCount.current) {
+      onCountIncreaseRef.current?.(liveCount - prevLiveCount.current);
+    }
+    prevLiveCount.current = liveCount;
+  }, [liveCount]);
+
+  return liveCount ?? FALLBACK_STAR_COUNT;
 }

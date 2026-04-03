@@ -1,6 +1,26 @@
 const path = require('path');
 const withMarkdoc = require('@markdoc/next.js');
 
+async function fetchStarCount() {
+  const { init } = await import('@instantdb/admin');
+  const db = init({
+    appId:
+      process.env.NEXT_PUBLIC_FEEDBACK_APP_ID ||
+      '5d9c6277-e6ac-42d6-8e51-2354b4870c05',
+  });
+  const { instantRepo } = await import('./lib/config.ts');
+  const data = await db.query({
+    ghStarTotals: {
+      $: { where: { repoFullName: instantRepo }, limit: 1 },
+    },
+  });
+  const count = data?.ghStarTotals?.[0]?.stargazersCount;
+  if (count == null) {
+    throw new Error('Missing star count');
+  }
+  return String(count);
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -120,4 +140,13 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 };
 
-module.exports = withMarkdoc()(nextConfig);
+module.exports = async () => {
+  const starCount = await fetchStarCount();
+  if (starCount) {
+    nextConfig.env = {
+      ...nextConfig.env,
+      NEXT_PUBLIC_FALLBACK_STAR_COUNT: starCount,
+    };
+  }
+  return withMarkdoc()(nextConfig);
+};
