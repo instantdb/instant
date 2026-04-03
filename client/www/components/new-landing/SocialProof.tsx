@@ -107,7 +107,7 @@ export function SocialProof() {
           <div className="mb-8 text-center">
             <Subheading>Backed by the best</Subheading>
           </div>
-          <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-x-10 gap-y-10">
+          <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-x-10 gap-y-10 lg:max-w-max">
             {backers.map((backer) => (
               <div key={backer.name} className="w-32 text-center">
                 <Image

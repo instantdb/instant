@@ -718,7 +718,7 @@ export default rules`;
 
 export function BuiltForAI() {
   return (
-    <div className="space-y-24">
+    <div className="space-y-12 md:space-y-16">
       {/* Section header */}
       <AnimateIn>
         <SectionIntro>
@@ -752,7 +752,7 @@ export function BuiltForAI() {
 
       {/* Feature 2: LLMs get it right */}
       <AnimateIn>
-        <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row lg:items-center">
+        <div className="flex flex-col-reverse items-stretch gap-8 pt-12 md:flex-row lg:items-center">
           <div className="lg:bg-surface/20 grow lg:px-[66px] lg:py-[37px]">
             <TabbedCodeExample
               examples={[
@@ -788,7 +788,7 @@ export function BuiltForAI() {
 
       {/* Feature 3: Type safety */}
       <AnimateIn>
-        <div className="flex flex-col items-stretch gap-7 md:flex-row md:items-center">
+        <div className="flex flex-col items-stretch gap-7 pt-12 md:flex-row md:items-center">
           <div className="md:max-w-[440px]">
             <Subheading>End-to-end type safety</Subheading>
             <FeatureBody>
@@ -806,7 +806,7 @@ export function BuiltForAI() {
 
       {/* Feature 4: Undo destructive changes */}
       <AnimateIn>
-        <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center lg:gap-12">
+        <div className="flex flex-col-reverse items-stretch gap-8 pt-12 md:flex-row md:items-center lg:gap-12">
           <div className="grow lg:bg-[#CC4E05]/10 lg:px-[66px] lg:py-[37px]">
             <UndoDemo />
           </div>

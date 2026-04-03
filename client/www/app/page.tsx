@@ -53,16 +53,31 @@ export default function HomePage() {
     <div className="text-off-black w-full overflow-x-auto">
       <MainNav />
       <main className="flex-1">
-        <section className="relative overflow-hidden bg-gradient-to-b from-[#FBF9F6] to-white">
-          <div className="relative z-10 pt-16 pb-12 sm:pt-24 sm:pb-20">
+        <section className="relative bg-linear-to-b from-[#FBF9F6] via-[#f2965040] to-white">
+          <div className="relative z-10 pt-0 pb-8 sm:pt-8">
             <Hero />
           </div>
-          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-24 bg-gradient-to-b from-transparent to-white" />
         </section>
 
-        <Section id="built-for-ai">
+        <LandingBand
+          id="social-proof"
+          className="bg-[#F8F8F8]"
+          fadeHeightClass="h-48"
+          background={
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.5)_0%,transparent_70%)]" />
+          }
+        >
+          <div className="pt-16 sm:pt-24 sm:pb-18">
+            <SocialProof />
+            <div className="mt-16">
+              <FirebaseTestimonial />
+            </div>
+          </div>
+        </LandingBand>
+
+        <div className="landing-width mx-auto pt-16 pb-16">
           <BuiltForAI />
-        </Section>
+        </div>
 
         <LandingBand className="bg-[#F0F5FA]" fadeHeightClass="h-48">
           <Section id="startup-showcase">
@@ -70,9 +85,9 @@ export default function HomePage() {
           </Section>
         </LandingBand>
 
-        <Section id="batteries-for-ai">
+        <div className="landing-width mx-auto pt-18 pb-24">
           <BatteriesForAI />
-        </Section>
+        </div>
 
         <div className="bg-linear-to-b from-[#F7F7F7] to-white">
           <Section id="sync-engine">
@@ -81,30 +96,12 @@ export default function HomePage() {
         </div>
 
         <div className="bg-linear-to-b from-white via-[#F7F7F7] to-white">
-          <Section id="sync-relations">
+          <Section className="py-8 sm:py-8" id="sync-relations">
             <SyncRelations />
           </Section>
         </div>
 
-        <LandingBand
-          id="social-proof"
-          className="bg-[#F8F8F8]"
-          fadeHeightClass="h-48"
-          background={
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.5)_0%,_transparent_70%)]" />
-          }
-        >
-          <div className="py-16 sm:py-24">
-            <div className="landing-width mx-auto">
-              <SocialProof />
-              <div className="mt-16">
-                <FirebaseTestimonial />
-              </div>
-            </div>
-          </div>
-        </LandingBand>
-
-        <Section className="pt-0!">
+        <Section>
           <FinalCTA />
         </Section>
       </main>

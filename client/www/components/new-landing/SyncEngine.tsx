@@ -26,7 +26,7 @@ export function SyncEngine() {
       </AnimateIn>
 
       {/* Features */}
-      <div className="flex flex-col gap-9">
+      <div className="flex flex-col gap-12 md:gap-9">
         {/* Instant updates — text left, demo right */}
         <AnimateIn>
           <div className="flex grid-cols-3 flex-col items-stretch gap-6 md:grid md:items-center">
