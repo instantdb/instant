@@ -1,9 +1,10 @@
 import chalk from 'chalk';
 import boxen from 'boxen';
 import stringWidth from 'string-width';
-import { AnyKey, ModifyOutputFn, Prompt, SelectState } from './lib.js';
+import { Prompt, SelectState } from './lib.ts';
+import type { AnyKey, ModifyOutputFn } from './lib.ts';
 
-export { render, renderUnwrap, setRawModeWindowsFriendly } from './lib.js';
+export { render, renderUnwrap, setRawModeWindowsFriendly } from './lib.ts';
 
 export namespace UI {
   type Status = 'idle' | 'submitted' | 'aborted';
@@ -864,7 +865,7 @@ ${inputDisplay}`;
     }
   }
 
-  interface AppSelectorApi {
+  export interface AppSelectorApi {
     getDash: () => { apps: App[]; orgs: Org[] };
     createEphemeralApp: (title: string) => Promise<{
       appId: string;
@@ -888,6 +889,7 @@ ${inputDisplay}`;
     modifyOutput?: (output: string) => string;
     api: AppSelectorApi;
     startingMenuIndex?: number;
+    defaultAppName?: string;
   };
 
   export class AppSelector extends Prompt<{
@@ -1103,7 +1105,7 @@ ${inputDisplay}`;
 
       this.focus.setFocus('appList');
 
-      const defaultAppName = 'Awesome Todos';
+      const defaultAppName = props.defaultAppName || 'My Awesome App';
       this.appNameInput = new TextInput({
         prompt: 'Enter New App Name',
         placeholder: defaultAppName,

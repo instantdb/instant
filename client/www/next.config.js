@@ -95,6 +95,12 @@ const nextConfig = {
         has: [{ type: 'query', key: 'tab', value: '(?<tab>mobile)' }],
         destination: '/examples/:tab',
       },
+      {
+        permanent: false,
+        basePath: false,
+        source: '/discord',
+        destination: 'https://discord.com/invite/VU53p7uQcE',
+      },
     ];
   },
   // Proxy to PostHog to avoid ad blockers

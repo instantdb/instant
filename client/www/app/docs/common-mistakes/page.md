@@ -606,3 +606,106 @@ InstantDB does not provide built-in username/password authentication.
 ✅ **Correction**: Use Instant's magic code or OAuth flows instead in client-side code
 
 If you need traditional password-based authentication, you must implement it as a custom auth flow using the Admin SDK.
+
+## Common mistakes with storage
+
+Files in Instant are first-class entities (`$files`), not URLs. You link them to your data via the schema and query through the relationship to get URLs.
+
+❌ **Common mistake**: Forgetting to declare `$files` in schema entities
+
+If you use Storage, you must include `$files` in your schema entities. Without it, you will get a runtime error.
+
+```typescript
+// ❌ Bad: Links reference $files but it's not declared in entities
+const _schema = i.schema({
+  entities: {
+    posts: i.entity({
+      caption: i.string(),
+    }),
+  },
+  links: {
+    postImage: {
+      forward: { on: 'posts', has: 'one', label: 'image' },
+      reverse: { on: '$files', has: 'many', label: 'posts' },
+    },
+  },
+});
+```
+
+✅ **Correction**: Declare `$files` in your schema entities
+
+```typescript
+// ✅ Good: $files is declared in entities
+const _schema = i.schema({
+  entities: {
+    $files: i.entity({
+      path: i.string().unique().indexed(),
+      url: i.string(),
+    }),
+    posts: i.entity({
+      caption: i.string(),
+    }),
+  },
+  links: {
+    postImage: {
+      forward: { on: 'posts', has: 'one', label: 'image' },
+      reverse: { on: '$files', has: 'many', label: 'posts' },
+    },
+  },
+});
+```
+
+❌ **Common mistake**: Storing image URLs as string attributes
+
+Do not store URLs as string attributes on your entities. This includes using placeholder image URLs (e.g. picsum.photos) in seed scripts. In a real app, users upload files via Storage, so string URLs won't work.
+
+```typescript
+// ❌ Bad: Storing a URL string on the entity
+const posts = [
+  { id: id(), caption: "Golden hour", image: "https://picsum.photos/seed/pier/600/600" },
+];
+db.transact(posts.map(p => db.tx.posts[p.id].update({ caption: p.caption, image: p.image })));
+
+// ❌ Also bad: querying the URL from a string attribute
+<img src={post.image} />
+```
+
+✅ **Correction**: Link `$files` to your entity and query through the relationship
+
+```typescript
+// ✅ Good: Upload creates a $files entity, then link it
+const postId = id();
+const { data } = await db.storage.uploadFile(`posts/${postId}/${file.name}`, file);
+db.transact(
+  db.tx.posts[postId]
+    .update({ caption })
+    .link({ image: data.id })
+);
+
+// Query through the relationship to get the URL
+const { data } = db.useQuery({ posts: { image: {} } });
+<img src={post.image.url} />
+```
+
+❌ **Common mistake**: Creating `$files` via transactions
+
+`$files` entities can only be created via `db.storage.uploadFile`. You cannot create them with `db.transact`, and you cannot set `url` via transactions.
+
+```typescript
+// ❌ Bad: $files cannot be created or updated this way
+db.transact(
+  db.tx.$files[id()].update({
+    path: 'photos/test.jpg',
+    url: 'https://picsum.photos/200',
+  }),
+);
+```
+
+✅ **Correction**: Use `db.storage.uploadFile` to create files
+
+```typescript
+// ✅ Good: Upload creates the $files entity
+const { data } = await db.storage.uploadFile('photos/test.jpg', file);
+// Then link it
+db.transact(db.tx.posts[postId].link({ image: data.id }));
+```

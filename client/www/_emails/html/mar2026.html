@@ -1,0 +1,104 @@
+<p><img
+src="https://www.instantdb.com/img/emails/mar2026/s_DF8F10A9009F2A236BC7D07C4EC05DDA50E4FB82F40AA98593D3B98A1A7EA3DC_1730238267270_instant_header.png" /></p>
+<p>Hey crew! It’s time for another edition of Instant News 🙂 Here’s a
+slice of what happened last month</p>
+<p><strong>Stripe Payments</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/mar2026/s_7E68A0F38CA64766BAE17E11B1BD01F7E63832745E267A5E792AF936D611AB84_1773184555430_image.png" /></p>
+<p>Want to add payments to your Instant app? We just made that a lot
+easier <a href="https://www.instantdb.com/docs/stripe-payments">with our
+new Stripe docs</a>!</p>
+<p>In these docs we cover three common payment patterns for one-off
+purchases, subscriptions, and credit-based models.</p>
+<p>We also included a reference to these docs in our instant-rules file.
+If you’ve scaffolded your project with <code>create-instant-app</code>
+you can just say “add Stripe payments” and follow along step by
+step!</p>
+<p><strong>Support for Streams</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/mar2026/s_7E68A0F38CA64766BAE17E11B1BD01F7E63832745E267A5E792AF936D611AB84_1773184570155_image.png" /></p>
+<p>If you’ve built LLM-based apps on Instant, you may have encountered
+the problem of where to put the stream of LLM-generated output.</p>
+<p>Now, you can use Instant streams to efficiently deliver streaming
+content.</p>
+<p>Instant streams implement the Web Streams API, so they easily slot in
+to any AI sdk you might be using. In fact, if you’re using Vercel’s
+<code>resumable-stream</code> package, you can replace it with
+<code>@instantdb/resumable-stream</code>. You’ll get streams that never
+expire and don’t require a separate Redis instance.</p>
+<p>You can try out building an AI chat app that uses streaming with
+create-instant-app:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npx</span> create-instant-app@latest <span class="at">--base</span> ai-chat</span></code></pre></div>
+<p>Read more in <a href="https://www.instantdb.com/docs/streams">the
+stream docs!</a></p>
+<p><strong>Starter templates for Tanstack, Bun, and SolidJS</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/mar2026/s_7E68A0F38CA64766BAE17E11B1BD01F7E63832745E267A5E792AF936D611AB84_1773187752076_image.png" /></p>
+<p>You can now scaffold full TanStack Start, Bun with React, and SolidJS
+apps using Instant! Try them out with the following commands:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npx</span> create-instant-app@latest <span class="at">--base</span> tanstack-start</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npx</span> create-instant-app@latest <span class="at">--base</span> bun-react</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">npx</span> create-instant-app@latest <span class="at">--base</span> solidjs</span></code></pre></div>
+<p><strong>MMKV in React Native</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/mar2026/s_7E68A0F38CA64766BAE17E11B1BD01F7E63832745E267A5E792AF936D611AB84_1773184586687_image.png" /></p>
+<p>Courtesy of lots of user requests from Instant React Native hackers:
+<strong>Instant now offers support for react-native-mmkv</strong>!</p>
+<p>The basic pattern to implement this looks like:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode typescript"><code class="sourceCode typescript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Store <span class="im">from</span> <span class="st">&#39;@instantdb/react-native-mmkv&#39;</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { init } <span class="im">from</span> <span class="st">&#39;@instantdb/react-native&#39;</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> db <span class="op">=</span> <span class="fu">init</span>({</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  appId<span class="op">:</span> APP_ID<span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  Store<span class="op">:</span> Store<span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>If you need other adapters, the <code>Store</code> abstraction makes
+it easy for you to swap in your own implementation.</p>
+<p>To learn more, <a
+href="https://www.instantdb.com/docs/start-rn#using-mmkv-for-faster-storage-optional">check
+out the docs!</a></p>
+<p><strong>Request Object in Permissions</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/mar2026/s_7E68A0F38CA64766BAE17E11B1BD01F7E63832745E267A5E792AF936D611AB84_1773184802847_image.png" /></p>
+<p>You now have access to a <code>request</code> object in your
+permission rules! The <code>request</code> object comes with a few
+special properties you can use for writing more powerful security
+rules:</p>
+<ul>
+<li><strong>request.modifiedFields</strong> gives you which fields are
+being set in a transaction</li>
+<li><strong>request.time</strong> gives you the timestamp of when the
+rule was evaluated.</li>
+<li><strong>request.origin</strong> is the origin that made the
+request</li>
+<li><strong>request.ip</strong> gives you the IP address of the request
+as a string</li>
+</ul>
+<p>You can test all of these in the dashboard sandbox too! To learn more
+check out the <a
+href="https://www.instantdb.com/docs/permissions#request-time">permission
+docs</a></p>
+<p><strong>And a few more things!</strong></p>
+<p>Here are a few more wins that got shipped thanks to your
+feedback!</p>
+<ul>
+<li>Schema deletions and renames are now supported in the Platform API.
+If you’re building an app builder the platform API should now have full
+parity with Instant’s CLI.</li>
+<li><strong>lookup</strong> is now type-safe! Use this <a
+href="https://www.instantdb.com/docs/instaml#lookup-by-unique-attribute">handy
+function</a> to look up an entity’s id by a unique value</li>
+<li>You can now set a custom domain when using the web redirect for
+OAuth. Previously this would only work if you used the native OAuth
+buttons</li>
+<li>We added an <a
+href="https://www.instantdb.com/examples?tab=mobile">examples page</a>
+for React Native apps. These feature two tutorials from Beto and Simon
+Grimm as well as a live app in the App store!</li>
+</ul>
+<p><strong>Looking ahead</strong></p>
+<p>We shipped a lot in February and have been racing away towards a big
+launch across Twitter, Product Hunt, and HN. Stay tuned :)</p>

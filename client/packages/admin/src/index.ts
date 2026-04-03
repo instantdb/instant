@@ -162,6 +162,9 @@ function instantConfigWithDefaults<
     apiURI: 'https://api.instantdb.com',
   };
   const r = { ...defaultConfig, ...config };
+  if (!r.apiURI) {
+    r.apiURI = defaultConfig.apiURI;
+  }
   return r;
 }
 
@@ -453,7 +456,7 @@ class Rooms<Schema extends InstantSchemaDef<any, any, any>> {
   }
 }
 
-class Auth {
+class Auth<Schema extends InstantSchemaDef<any, any, any>> {
   config: FilledConfig;
 
   constructor(config: FilledConfig) {
@@ -507,11 +510,8 @@ class Auth {
   };
 
   /**
-   * Verifies a magic code for the user with the given email.
-   *
-   * @example
-   *   const user = await db.auth.verifyMagicCode({ email, code })
-   *   console.log("Verified user:", user)
+   * @deprecated Use {@link checkMagicCode} instead to get the `created` field
+   * and support `extraFields`.
    *
    * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
@@ -525,6 +525,42 @@ class Auth {
       },
     );
     return user;
+  };
+
+  /**
+   * Verifies a magic code and returns the user along with whether
+   * the user was newly created. Supports `extraFields` to set custom
+   * `$users` properties at signup.
+   *
+   * @example
+   *   const { user, created } = await db.auth.checkMagicCode(
+   *     email,
+   *     code,
+   *     { extraFields: { nickname: 'ari' } },
+   *   );
+   *
+   * @see https://instantdb.com/docs/backend#custom-magic-codes
+   */
+  checkMagicCode = async (
+    email: string,
+    code: string,
+    options?: { extraFields?: UpdateParams<Schema, '$users'> },
+  ): Promise<{ user: User; created: boolean }> => {
+    const res = await jsonFetch(
+      `${this.config.apiURI}/admin/verify_magic_code?app_id=${this.config.appId}`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({
+          email,
+          code,
+          ...(options?.extraFields
+            ? { 'extra-fields': options.extraFields }
+            : {}),
+        }),
+      },
+    );
+    return { user: res.user, created: res.created };
   };
 
   /**
@@ -1067,7 +1103,7 @@ class InstantAdminDatabase<
   >,
 > {
   config: InstantConfigFilled<Schema, UseDates>;
-  auth: Auth;
+  auth: Auth<Schema>;
   storage: Storage;
   streams: Streams;
   rooms: Rooms<Schema>;
@@ -1082,7 +1118,7 @@ class InstantAdminDatabase<
 
   constructor(_config: Config) {
     this.config = instantConfigWithDefaults(_config);
-    this.auth = new Auth(this.config);
+    this.auth = new Auth<Schema>(this.config);
     this.storage = new Storage(this.config, this.impersonationOpts);
     this.streams = new Streams(this.#ensureInstantStream.bind(this));
     this.rooms = new Rooms<Schema>(this.config);
@@ -1290,6 +1326,7 @@ class InstantAdminDatabase<
       ruleParams?: { [key: string]: any };
       ip?: string | null | undefined;
       origin?: string | null | undefined;
+      cardinalityInference?: boolean;
     },
   ): Promise<{
     result: InstaQLResponse<Schema, Q, UseDates>;
@@ -1299,7 +1336,11 @@ class InstantAdminDatabase<
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
 
-    const body: any = { query, 'rules-override': opts?.rules };
+    const body: any = {
+      query,
+      'rules-override': opts?.rules,
+      'inference?': opts?.cardinalityInference ?? !!this.config.schema,
+    };
     if (opts?.ip) {
       body['ip-override'] = opts.ip;
     }

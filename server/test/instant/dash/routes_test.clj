@@ -3,7 +3,7 @@
    [clj-http.client :as http]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [instant.config :as config]
-   [instant.fixtures :refer [random-email with-empty-app with-org with-pro-app with-startup-org with-user]]
+   [instant.fixtures :refer [random-email with-empty-app with-org with-pro-app with-startup-org with-free-org with-user]]
    [instant.dash.routes :as routes]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
@@ -617,6 +617,61 @@
                 :ok (is (= (:id app)
                            (:id (:app (routes/req->app-and-user! role req)))))
                 :error (is (thrown? Exception (routes/req->app-and-user! role req)))))))))))
+
+(deftest app-access-works-with-free-orgs
+  (with-free-org
+    (fn [{:keys [app owner outside-user]}]
+      ;; Check a path available to all members of the app
+      (let [auth-path (format "%s/dash/apps/%s/auth" config/server-origin (:id app))]
+        (doseq [{:keys [user expected type]} [{:type "owner"
+                                               :user owner
+                                               :expected 200}
+                                              {:type "outside-user"
+                                               :user outside-user
+                                               :expected 400}]]
+          (testing type
+            (is (= expected (:status (http/get auth-path
+                                               {:throw-exceptions false
+                                                :headers {:Authorization (str "Bearer " (:refresh-token user))
+                                                          :Content-Type "application/json"}
+                                                :as :json})))))))
+
+      (testing "req->app-and-user!"
+        (doseq [{:keys [user expected type role]} [{:type "owner"
+                                                    :user owner
+                                                    :role :owner
+                                                    :expected :ok}
+                                                   {:type "owner"
+                                                    :user owner
+                                                    :role :admin
+                                                    :expected :ok}
+                                                   {:type "owner"
+                                                    :user owner
+                                                    :role :collaborator
+                                                    :expected :ok}
+
+
+                                                   {:type "outside-user"
+                                                    :user outside-user
+                                                    :role :owner
+                                                    :expected :error}
+                                                   {:type "outside-user"
+                                                    :user outside-user
+                                                    :role :admin
+                                                    :expected :error}
+                                                   {:type "outside-user"
+                                                    :user outside-user
+                                                    :role :collaborator
+                                                    :expected :error}]]
+          (testing (format "%s with role %s" type role)
+            (let [req {:params {:app_id (:id app)}
+                       :headers {"authorization" (str "Bearer " (:refresh-token user))}}]
+              (case expected
+                :ok (is (= (:id app)
+                           (:id (:app (routes/req->app-and-user! role req)))))
+                :error (is (thrown? Exception (routes/req->app-and-user! role req)))))))))))
+
+
 
 (deftest you-are-an-app-member-of-the-org-if-you-are-a-member-of-an-app
   (with-startup-org

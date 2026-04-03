@@ -588,18 +588,23 @@
 
                (and (#{:add-triple :deep-merge-triple} op)
                     create?)
-               [{:scope    :object
-                 :action   :create
-                 :etype    etype
-                 :eid      (get create-lookups-map eid eid)
-                 :program  (or (rule-model/get-program! rules etype "create")
-                               {:result true})
-                 :bindings (let [updated-entity (-> (get updated-entities-map key)
-                                                    (update "id" #(get create-lookups-map % %)))]
-                             {:data            updated-entity
-                              :new-data        updated-entity
-                              :rule-params     rule-params
-                              :modified-fields (get-modified-fields-for-eid eid tx-steps attrs)})}]
+               (do
+                 (when (= "$users" etype)
+                   (throw-tx-step-validation-err!
+                    {:op op :eid eid :aid aid :etype etype :value value}
+                    "$users is a system entity. You aren't allowed to create this directly."))
+                 [{:scope    :object
+                   :action   :create
+                   :etype    etype
+                   :eid      (get create-lookups-map eid eid)
+                   :program  (or (rule-model/get-program! rules etype "create")
+                                 {:result true})
+                   :bindings (let [updated-entity (-> (get updated-entities-map key)
+                                                      (update "id" #(get create-lookups-map % %)))]
+                               {:data            updated-entity
+                                :new-data        updated-entity
+                                :rule-params     rule-params
+                                :modified-fields (get-modified-fields-for-eid eid tx-steps attrs)})}])
 
                :else
                [])]

@@ -3,8 +3,10 @@
 // The class is generic so that it can be a good starting off point to make other ssr adapters.
 import {
   coerceQuery,
+  InstantAPIError,
   InstantCoreDatabase,
   InstantDBAttr,
+  InstantError,
   weakHash,
 } from './index.ts';
 import * as s from './store.js';
@@ -107,6 +109,67 @@ export class FrameworkClient {
         !!this.db._reactor.config.schema,
       );
     }
+  };
+
+  public removeCachedQueryResult = (queryHash: string) => {
+    this.resultMap.delete(queryHash);
+  };
+
+  // Run a query on the client and return a promise with the result
+  public queryClient = (
+    query_: any,
+    opts?: { ruleParams: RuleParams },
+  ): Promise<QueryPromise> => {
+    const { hash, query } = this.hashQuery(query_, opts);
+
+    let resolve;
+    let reject;
+
+    const promise: Promise<QueryPromise> = new Promise(
+      (resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+      },
+    );
+
+    let entry = {
+      status: 'pending' as 'pending' | 'success' | 'error',
+      type: 'session' as 'http' | 'session',
+      data: undefined as any,
+      error: undefined as any,
+      promise: promise as any,
+    };
+
+    let unsub: null | (() => void) = null;
+    let unsubImmediately = false;
+
+    unsub = this.db.subscribeQuery(query, (res) => {
+      if (res.error) {
+        entry.status = 'error';
+        entry.error = res.error;
+        entry.promise = null;
+        reject(res.error);
+      } else {
+        entry.status = 'success';
+        entry.data = res;
+        entry.promise = null;
+        resolve(res);
+      }
+      if (unsub !== null) {
+        unsub();
+      } else {
+        unsubImmediately;
+      }
+    });
+
+    // We may have gotten the result inside of subscribeQuery before
+    // we defined the `unsub` function
+    if (unsubImmediately) {
+      unsub();
+    }
+
+    this.resultMap.set(hash, entry);
+    return promise;
   };
 
   // creates an entry in the results map
@@ -282,7 +345,19 @@ export class FrameworkClient {
       );
 
       if (!response.ok) {
-        throw new Error('Error getting triples from server');
+        try {
+          const data = await response.json();
+          if ('message' in data) {
+            throw new InstantAPIError({ body: data, status: response.status });
+          } else {
+            throw new Error('Error getting triples from server');
+          }
+        } catch (e) {
+          if (e instanceof InstantError) {
+            throw e;
+          }
+          throw new Error('Error getting triples from server');
+        }
       }
 
       const data = await response.json();
@@ -307,6 +382,9 @@ export class FrameworkClient {
         pageInfo,
       };
     } catch (err: any) {
+      if (err instanceof InstantError) {
+        throw err;
+      }
       const errWithMessage = new Error(
         'Error getting triples from framework client',
       );

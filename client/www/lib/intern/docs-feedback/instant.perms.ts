@@ -64,6 +64,25 @@ const rules = {
       view: 'isAdmin',
     },
   },
+  ghStarTotals: {
+    allow: {
+      view: 'true',
+      create: 'false',
+      update: 'false',
+      delete: 'false',
+    },
+  },
+  ghStarGazers: {
+    bind: {
+      isAdmin: "auth.id != null && auth.email.endsWith('@instantdb.com')",
+    },
+    allow: {
+      view: 'isAdmin',
+      create: 'false',
+      update: 'false',
+      delete: 'false',
+    },
+  },
   $default: {
     allow: {
       $default: 'false',

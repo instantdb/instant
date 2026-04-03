@@ -46,6 +46,19 @@ const _schema = i.schema({
       usedAt: i.date().indexed(),
       tokens: i.number().indexed(),
     }),
+    ghStarTotals: i.entity({
+      repoId: i.number().unique(),
+      repoFullName: i.string().indexed(),
+      stargazersCount: i.number(),
+    }),
+    ghStarGazers: i.entity({
+      repoId: i.number(),
+      repoFullName: i.string().indexed(),
+      starredAt: i.date(),
+      senderLogin: i.string(),
+      senderId: i.number(),
+      senderType: i.string(),
+    }),
   },
   links: {
     chatMessages: {

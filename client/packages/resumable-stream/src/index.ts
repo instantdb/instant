@@ -1,4 +1,4 @@
-import { init } from '@instantdb/admin';
+import { Config, init } from '@instantdb/admin';
 
 export interface CreateResumableStreamContextOptions {
   /**
@@ -10,7 +10,7 @@ export interface CreateResumableStreamContextOptions {
    */
   waitUntil: ((promise: Promise<unknown>) => void) | null;
   /**
-   * The appId for your InstantDB app. It may also be provided with the INSTANT_APP_ID environment variable.
+   * The appId for your InstantDB app. It may also be provided with the INSTANT_APP_ID or NEXT_PUBLIC_INSTANT_APP_ID environment variable.
    */
   appId?: string;
   /**
@@ -97,10 +97,13 @@ function skipCharactersTransformer(skipCharacters: number) {
 export function createResumableStreamContext(
   options: CreateResumableStreamContextOptions,
 ): ResumableStreamContext {
-  const appId = options.appId || process.env.INSTANT_APP_ID;
+  const appId =
+    options.appId ||
+    process.env.INSTANT_APP_ID ||
+    process.env.NEXT_PUBLIC_INSTANT_APP_ID;
   if (!appId) {
     throw new Error(
-      'Missing appId. Pass it as an argument to createResumableStreamContext or set the INSTANT_APP_ID environment variable.',
+      'Missing appId. Pass it as an argument to createResumableStreamContext or set either the INSTANT_APP_ID or NEXT_PUBLIC_INSTANT_APP_ID environment variable.',
     );
   }
   const adminToken = options.adminToken || process.env.INSTANT_APP_ADMIN_TOKEN;
@@ -109,13 +112,16 @@ export function createResumableStreamContext(
       'Missing adminToken. Pass it as an argument to createResumableStreamContext or set the INSTANT_APP_ADMIN_TOKEN environment variable.',
     );
   }
+
+  const config: Config = { appId, adminToken };
+
   const apiURI = options.apiURI || process.env.INSTANT_API_URI;
 
-  const db = init({
-    appId,
-    adminToken,
-    apiURI,
-  });
+  if (apiURI) {
+    config.apiURI = apiURI;
+  }
+
+  const db = init(config);
 
   async function resumableStream(
     streamId: string,

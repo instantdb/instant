@@ -1,0 +1,34 @@
+import { HttpClientResponse } from '@effect/platform';
+import { Effect, Schema, Option } from 'effect';
+import { InstantHttpAuthed } from '../lib/http.ts';
+import { version } from '@instantdb/version';
+
+const DashMeResponse = Schema.Struct({
+  user: Schema.Struct({
+    id: Schema.String,
+    email: Schema.String,
+    created_at: Schema.String,
+  }),
+});
+
+export const infoCommand = () =>
+  Effect.gen(function* () {
+    const authedHttp = yield* Effect.serviceOption(InstantHttpAuthed).pipe(
+      Effect.map(Option.getOrNull),
+    );
+
+    yield* Effect.log('CLI Version:', version);
+    // If logged in..
+    if (authedHttp) {
+      const meData = yield* authedHttp.get('/dash/me').pipe(
+        Effect.flatMap(HttpClientResponse.schemaBodyJson(DashMeResponse)),
+        Effect.mapError(
+          (e) => new Error("Couldn't get user information.", { cause: e }),
+        ),
+      );
+
+      yield* Effect.log(`Logged in as ${meData.user.email}`);
+    } else {
+      yield* Effect.log('Not logged in.');
+    }
+  });

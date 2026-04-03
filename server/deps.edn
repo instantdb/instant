@@ -29,6 +29,7 @@
         software.amazon.awssdk/secretsmanager {:mvn/version "2.41.31"}
         software.amazon.awssdk/s3 {:mvn/version "2.41.31"}
         software.amazon.awssdk/bedrockruntime {:mvn/version "2.41.31"}
+        software.amazon.awssdk/cloudwatch {:mvn/version "2.41.32"}
         software.amazon.awssdk.crt/aws-crt {:mvn/version "0.40.3"}
 
         juji/editscript {:mvn/version "0.6.4"}
@@ -97,6 +98,9 @@
         djblue/portal {:mvn/version "0.58.5"}
         dev.weavejester/medley {:mvn/version "1.8.1"}
         com.hazelcast/hazelcast {:mvn/version "5.5.0"}
+
+        com.bucket4j/bucket4j_jdk17-core {:mvn/version "8.17.0"}
+        com.bucket4j/bucket4j_jdk17-hazelcast {:mvn/version "8.17.0"}
 
         net.openhft/zero-allocation-hashing {:mvn/version "0.27ea1"}
         com.github.luben/zstd-jni {:mvn/version "1.5.7-4"}

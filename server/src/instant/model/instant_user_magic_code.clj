@@ -23,7 +23,7 @@
 (defn expired?
   ([magic-code] (expired? (Instant/now) magic-code))
   ([now {created-at :created_at}]
-   (> (.between ChronoUnit/HOURS (Date/.toInstant created-at) now) 24)))
+   (> (.between ChronoUnit/MINUTES (Date/.toInstant created-at) now) 10)))
 
 (defn consume!
   ([params] (consume! (aurora/conn-pool :write) params))
@@ -48,7 +48,7 @@
                    :code (rand-code)
                    :user-id (:id u)}))
 
-  (expired? (.plus (Instant/now) 1 ChronoUnit/HOURS) m)
-  (expired? (.plus (Instant/now) 25 ChronoUnit/HOURS) m)
+  (expired? (.plus (Instant/now) 1 ChronoUnit/MINUTES) m)
+  (expired? (.plus (Instant/now) 25 ChronoUnit/MINUTES) m)
   (consume! {:email "stopa@instantdb.com"
              :code (:code m)}))

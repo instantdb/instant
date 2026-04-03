@@ -1,11 +1,17 @@
 import * as acorn from 'acorn';
 import tsPlugin from 'acorn-typescript';
+import { Data } from 'effect';
 
+export class MergeSchemaError extends Data.TaggedError('MergeSchemaError')<{
+  message: string;
+}> {}
+
+// @ts-ignore
 const node = acorn.Parser.extend(tsPlugin({ dts: false }));
 
 // --- Import Handling Helpers ---
 
-function collectImports(ast) {
+function collectImports(ast: any) {
   const imports = new Map(); // localName -> { source, importedName, type, importKind }
 
   for (const node of ast.body) {
@@ -45,7 +51,7 @@ function collectImports(ast) {
   return imports;
 }
 
-function collectExistingImports(ast) {
+function collectExistingImports(ast: any) {
   const existing = new Map(); // source -> Set<localName>
 
   for (const node of ast.body) {
@@ -61,7 +67,7 @@ function collectExistingImports(ast) {
   return existing;
 }
 
-function findIdentifiers(node, set = new Set()) {
+function findIdentifiers(node: any, set: Set<string> = new Set<string>()) {
   if (!node) return set;
 
   // If it's a Type Reference, grab the name
@@ -96,13 +102,13 @@ function findIdentifiers(node, set = new Set()) {
 
 // --- Schema Traversal Helpers ---
 
-function getPropName(prop) {
+function getPropName(prop: any) {
   if (prop.key.type === 'Identifier') return prop.key.name;
   if (prop.key.type === 'Literal') return prop.key.value;
   return null;
 }
 
-function analyzeChain(node) {
+function analyzeChain(node: any): { typeParams: any; baseCall: any } {
   let curr = node;
   let typeParams = null;
   let baseCall = null;
@@ -129,7 +135,11 @@ function analyzeChain(node) {
   return { typeParams, baseCall };
 }
 
-function traverseSchema(node, path, callback) {
+function traverseSchema(
+  node: any,
+  path: string,
+  callback: (node: any, path: string) => void,
+) {
   if (node.type === 'ObjectExpression') {
     for (const prop of node.properties) {
       const name = getPropName(prop);
@@ -162,9 +172,9 @@ function traverseSchema(node, path, callback) {
   }
 }
 
-function findSchemaObject(ast) {
-  let schemaObj = null;
-  function walk(node) {
+function findSchemaObject(ast: any) {
+  let schemaObj: any = null;
+  function walk(node: any) {
     if (!node) return;
     if (schemaObj) return;
     if (
@@ -192,7 +202,7 @@ function findSchemaObject(ast) {
   return schemaObj;
 }
 
-export function mergeSchema(oldFile, newFile) {
+export function mergeSchema(oldFile: string, newFile: string): string {
   const oldParsed = node.parse(oldFile, {
     sourceType: 'module',
     ecmaVersion: 'latest',
@@ -210,7 +220,7 @@ export function mergeSchema(oldFile, newFile) {
   // 1. Extract from old file
   const oldSchemaObj = findSchemaObject(oldParsed);
   if (oldSchemaObj) {
-    traverseSchema(oldSchemaObj, '', (node, path) => {
+    traverseSchema(oldSchemaObj, '', (node: any, path: string) => {
       const { typeParams } = analyzeChain(node);
       if (typeParams) {
         const src = oldFile.slice(typeParams.start, typeParams.end);
@@ -222,14 +232,14 @@ export function mergeSchema(oldFile, newFile) {
   // 2. Collect Imports
   const oldImports = collectImports(oldParsed);
   const newExistingImports = collectExistingImports(newParsed);
-  const neededIdentifiers = new Set();
+  const neededIdentifiers = new Set<string>();
 
   // 3. Apply to new file & Collect needed identifiers
-  const edits = [];
+  const edits: any[] = [];
   const newSchemaObj = findSchemaObject(newParsed);
 
   if (newSchemaObj) {
-    traverseSchema(newSchemaObj, '', (node, path) => {
+    traverseSchema(newSchemaObj, '', (node: any, path: string) => {
       const { typeParams, baseCall } = analyzeChain(node);
       const stored = schemaMap.get(path);
 
@@ -290,7 +300,7 @@ export function mergeSchema(oldFile, newFile) {
     }
   }
 
-  const importBlocks = [];
+  const importBlocks: string[] = [];
 
   for (const [source, info] of importsToAdd) {
     // Check if source exists in new file to merge?
@@ -299,7 +309,7 @@ export function mergeSchema(oldFile, newFile) {
 
     // If we have named imports
     if (info.named.size > 0) {
-      const namedImports = Array.from(info.named.values());
+      const namedImports: any[] = Array.from(info.named.values());
       const allTypes = namedImports.every((x) => x.isType);
 
       if (allTypes) {

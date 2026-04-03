@@ -1,12 +1,11 @@
-import {
-  convertTxSteps,
+import { convertTxSteps } from '@instantdb/platform';
+import type {
   MigrationTx,
   MigrationTxSpecific,
   MigrationTxTypes,
 } from '@instantdb/platform';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
-import { promptOk } from './util/promptOk.js';
 
 // Hack to prevent using @instantdb/core as a dependency for cli
 type InstantDBAttr = Parameters<typeof convertTxSteps>[1][0];
@@ -98,7 +97,7 @@ type AddOrDeleteAttr =
   | MigrationTxSpecific<'add-attr'>
   | MigrationTxSpecific<'delete-attr'>;
 
-type SuperMigrationTx =
+export type SuperMigrationTx =
   | MigrationTx
   | { type: 'create-namespace'; namespace: string; innerSteps: MigrationTx[] }
   | { type: 'delete-namespace'; namespace: string; innerSteps: MigrationTx[] };
@@ -169,19 +168,6 @@ export const groupSteps = (steps: MigrationTx[]): SuperMigrationTx[] => {
   return [...collapsed, ...otherSteps];
 };
 
-export const confirmImportantSteps = async (planSteps: SuperMigrationTx[]) => {
-  for (const step of planSteps) {
-    if (step.type === 'delete-namespace') {
-      const ok = await promptOk({
-        promptText: `Are you sure you want to delete namespace ${step.namespace}?`,
-      });
-      if (!ok) {
-        throw new CancelSchemaError(`Deletion of namespace ${step.namespace}`);
-      }
-    }
-  }
-};
-
 const createDotName = (step: MigrationTx) => {
   return `${step.identifier.namespace}.${step.identifier.attrName}`;
 };
@@ -231,6 +217,9 @@ export const renderSchemaPlan = (
                 .join(' <-> ')
                 .toUpperCase(),
           );
+          if (step['required?']) {
+            addSecondaryLine('   REQUIRED');
+          }
         } else {
           addLine(
             `${chalk.bgGreen.black(' + CREATE ATTR ')} ${createDotName(step)}`,
@@ -325,7 +314,9 @@ export const renderSchemaPlan = (
         break;
 
       default:
-        const unknownStep: never = step;
+        throw new Error(
+          `Unknown migration step: ${(step as { type: string }).type}`,
+        );
     }
   }
 

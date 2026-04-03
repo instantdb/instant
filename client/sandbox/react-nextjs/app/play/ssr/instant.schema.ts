@@ -17,6 +17,7 @@ const _schema = i.schema({
       text: i.string(),
       done: i.boolean(),
       createdAt: i.date(),
+      creatorId: i.string().optional(),
     }),
   },
   links: {

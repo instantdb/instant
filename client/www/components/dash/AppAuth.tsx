@@ -18,6 +18,7 @@ import {
 } from './auth/Apple';
 import { ClerkClient, AddClerkClientForm } from './auth/Clerk';
 import { Email } from './auth/Email';
+import { TestUsers } from './auth/TestUsers';
 import {
   Client as GitHubClient,
   AddClientForm as AddGitHubClientForm,
@@ -595,6 +596,10 @@ export function AppAuth({
         onAddOrigin={handleAddOrigin}
         onRemoveOrigin={handleRemoveOrigin}
       />
+
+      <Divider />
+
+      <TestUsers app={app} />
 
       <Divider />
 

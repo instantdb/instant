@@ -189,7 +189,7 @@ export function AuthorizedOriginsForm({
       className="flex flex-col gap-4 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800/50"
     >
       <div className="flex flex-row gap-2">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-0.75">
           <Label>Type</Label>
           <Select
             options={serviceOptions}
@@ -356,8 +356,8 @@ export function AuthorizedOriginRow({
           </span>
         </div>
       </div>
-      <button onClick={deleteDialog.onOpen}>
-        <TrashIcon height={'1rem'} className="" />
+      <button className="cursor-pointer" onClick={deleteDialog.onOpen}>
+        <TrashIcon height={'1rem'} />
       </button>
       <Dialog title="Delete Origin" {...deleteDialog}>
         <div className="flex flex-col gap-2">

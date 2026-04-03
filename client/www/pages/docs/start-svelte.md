@@ -1,0 +1,369 @@
+---
+title: Getting started with Svelte
+description: How to use Instant with SvelteKit and Svelte 5
+---
+
+## Automatic Setup With Create Instant App
+
+The fastest way to get started with Instant with SvelteKit is to use create-instant-app to scaffold a new project with Instant already set up.
+
+To get started run:
+
+```shell
+npx create-instant-app --sv
+```
+
+## Manual Setup
+
+Create a blank SvelteKit app:
+
+```shell
+npx sv create my-app
+```
+
+Add the InstantDB Svelte Library:
+
+```shell
+npm i @instantdb/svelte
+```
+
+Use `instant-cli` to set up a new Instant project. This will prompt you to log in if you haven't already. It will then create a schema file, permissions file, and update your `.env` file.
+
+```shell
+npx instant-cli init
+```
+
+Create a database client in `src/lib/db.ts`:
+
+{% file label="src/lib/db.ts" /%}
+
+```ts
+import { init } from '@instantdb/svelte';
+import schema from '../instant.schema';
+
+export const db = init({
+  appId: import.meta.env.VITE_INSTANT_APP_ID!,
+  schema,
+  useDateObjects: true,
+});
+```
+
+You're now ready to make queries and transactions to your database!
+
+### Creating a To-Do List App
+
+Let's add a "todo" entity to our schema file at `src/instant.schema.ts`:
+
+{% file label="src/instant.schema.ts" /%}
+
+```ts {% showCopy=true lineHighlight="14-18" %}
+import { i } from '@instantdb/svelte';
+
+const _schema = i.schema({
+  entities: {
+    $files: i.entity({
+      path: i.string().unique().indexed(),
+      url: i.string(),
+    }),
+    $users: i.entity({
+      email: i.string().unique().indexed().optional(),
+      imageURL: i.string().optional(),
+      type: i.string().optional(),
+    }),
+    todos: i.entity({
+      text: i.string(),
+      done: i.boolean(),
+      createdAt: i.date(),
+    }),
+  },
+  links: {
+    $usersLinkedPrimaryUser: {
+      forward: {
+        on: '$users',
+        has: 'one',
+        label: 'linkedPrimaryUser',
+        onDelete: 'cascade',
+      },
+      reverse: {
+        on: '$users',
+        has: 'many',
+        label: 'linkedGuestUsers',
+      },
+    },
+  },
+  rooms: {},
+});
+
+//...
+```
+
+Push the schema:
+
+```shell {% showCopy=true %}
+npx instant-cli push
+```
+
+Instant doesn't support SSR with SvelteKit yet (let us know if you want this!)
+so you need to disable SSR for routes that use Instant.
+
+{% file label="src/routes/+page.ts" /%}
+
+```ts {% showCopy=true %}
+export const ssr = false;
+```
+
+Replace the content of `src/routes/+page.svelte` with the following:
+
+{% file label="src/routes/+page.svelte" /%}
+
+```svelte {% showCopy=true %}
+<script lang="ts">
+  import { id, type InstaQLEntity } from '@instantdb/svelte';
+  import { db } from '$lib/db';
+  import type { AppSchema } from '../instant.schema';
+
+  type Todo = InstaQLEntity<AppSchema, 'todos'>;
+
+  const query = db.useQuery({ todos: {} });
+
+  let text = $state('');
+
+  function addTodo(todoText: string) {
+    db.transact(
+      db.tx.todos[id()].update({
+        text: todoText,
+        done: false,
+        createdAt: Date.now(),
+      }),
+    );
+  }
+
+  function deleteTodo(todo: Todo) {
+    db.transact(db.tx.todos[todo.id].delete());
+  }
+
+  function toggleDone(todo: Todo) {
+    db.transact(db.tx.todos[todo.id].update({ done: !todo.done }));
+  }
+
+  function deleteCompleted(todos: Todo[]) {
+    const completed = todos.filter((todo) => todo.done);
+    if (completed.length === 0) return;
+    const txs = completed.map((todo) => db.tx.todos[todo.id].delete());
+    db.transact(txs);
+  }
+</script>
+
+{#if query.isLoading}
+<div>Loading...</div>
+{:else if query.error}
+<div>Error: {query.error.message}</div>
+{:else} {@const todos = query.data?.todos ?? []}
+<div>
+  <h2>Todos</h2>
+  <div>
+    <form onsubmit={(e) => {
+      e.preventDefault(); if (!text) return; addTodo(text); text = '';
+    }}>
+      <input
+        bind:value={text}
+        autofocus
+        placeholder="What needs to be done?"
+        type="text"
+      />
+    </form>
+    {#each todos as todo (todo.id)}
+    <div>
+      <input type="checkbox" checked={todo.done} onchange={() =>
+        toggleDone(todo)} />
+      <span class:line-through={todo.done}>{todo.text}</span>
+      <button onclick={() => deleteTodo(todo)}>X</button>
+    </div>
+    {/each}
+    <div>
+      Remaining todos: {todos.filter((t) => !t.done).length}
+      <button onclick={() =>
+        deleteCompleted(todos)}> Delete Completed
+      </button>
+    </div>
+  </div>
+</div>
+{/if}
+```
+
+Go to `localhost:5173`, and huzzah 🎉 You've got a fully functional todo list running!
+
+## Reactivity
+
+In Svelte 5, Instant's hooks return `$state` proxies. You read properties directly off the returned object, and Svelte automatically tracks them for re-rendering.
+
+```svelte
+<script lang="ts">
+  const query = db.useQuery({ todos: {} });
+  // query.isLoading, query.data, query.error are all reactive
+</script>
+
+{#if !query.isLoading}
+<p>{query.data?.todos.length} todos</p>
+{/if}
+```
+
+For primitive values like connection status and local IDs, hooks return a `{ current: value }` wrapper (since primitives cannot be `$state` proxies):
+
+```svelte
+<script lang="ts">
+  const status = db.useConnectionStatus();
+  // status.current is reactive
+</script>
+
+<p>Connection: {status.current}</p>
+```
+
+### Reactive and conditional queries
+
+You can pass a function to `useQuery` to make queries reactive or conditional. The function will be re-evaluated whenever its dependencies change. Return `null` to skip the query:
+
+```svelte
+<script lang="ts">
+  import { db } from '$lib/db';
+
+  const auth = db.useAuth();
+
+  // Only query when we have a logged-in user
+  const query = db.useQuery(() =>
+    auth.user ? { todos: {} } : null
+  );
+</script>
+
+{#if auth.isLoading}
+  <p>Loading...</p>
+{:else if !auth.user}
+  <p>Please log in.</p>
+{:else if query.isLoading}
+  <p>Loading todos...</p>
+{:else}
+  {@const todos = query.data?.todos ?? []}
+  <p>{todos.length} todos</p>
+{/if}
+```
+
+This also works for reactive parameters. Any `$state` variable read inside the function will automatically trigger a new query when it changes:
+
+```svelte
+<script lang="ts">
+  import { db } from '$lib/db';
+
+  let filter = $state<'all' | 'active' | 'done'>('all');
+
+  const query = db.useQuery(() => {
+    if (filter === 'all') return { todos: {} };
+    return { todos: { $: { where: { done: filter === 'done' } } } };
+  });
+</script>
+
+<button onclick={() => filter = 'all'}>All</button>
+<button onclick={() => filter = 'active'}>Active</button>
+<button onclick={() => filter = 'done'}>Done</button>
+```
+
+### Writing data
+
+Transactions in Svelte work the same way they do in React via `db.transact`:
+
+```svelte
+<script lang="ts">
+  import { id } from '@instantdb/svelte';
+  import { db } from '$lib/db';
+
+  function addTodo(text: string) {
+    db.transact(db.tx.todos[id()].update({ text, done: false, createdAt: Date.now() }));
+  }
+
+  function toggleDone(todo: { id: string; done: boolean }) {
+    db.transact(db.tx.todos[todo.id].update({ done: !todo.done }));
+  }
+
+  function deleteTodo(todoId: string) {
+    db.transact(db.tx.todos[todoId].delete());
+  }
+</script>
+```
+
+To learn more see our [writing data](/docs/instaml) docs.
+
+## Auth
+
+The Svelte SDK supports all of Instant's [auth methods](/docs/auth): [magic codes](/docs/auth/magic-codes), [guest auth](/docs/auth/guest-auth), [Google OAuth](/docs/auth/google-oauth), and more.
+
+### useAuth
+
+Use `db.useAuth()` to get the current auth state. This gives you full control over loading, error, and user states:
+
+```svelte
+<script lang="ts">
+  import { db } from '$lib/db';
+
+  const auth = db.useAuth();
+</script>
+
+{#if auth.isLoading}
+  <div>Loading...</div>
+{:else if auth.error}
+  <div>Error: {auth.error.message}</div>
+{:else if auth.user}
+  <div>
+    <p>Hello, {auth.user.isGuest ? 'Guest' : auth.user.email}!</p>
+    <button onclick={() => db.auth.signOut()}>Sign out</button>
+  </div>
+{:else}
+  <div>
+    <p>Please log in.</p>
+    <button onclick={() => db.auth.signInAsGuest()}>
+      Try as guest
+    </button>
+  </div>
+{/if}
+```
+
+### SignedIn / SignedOut
+
+For simpler cases where you just need to gate content on auth state, you can use the `SignedIn` and `SignedOut` guard components instead:
+
+```svelte
+<script lang="ts">
+  import { SignedIn, SignedOut } from '@instantdb/svelte';
+  import { db } from '$lib/db';
+</script>
+
+<SignedIn {db}>
+  <p>You are logged in!</p>
+  <button onclick={() => db.auth.signOut()}>Sign out</button>
+</SignedIn>
+
+<SignedOut {db}>
+  <p>Please log in.</p>
+</SignedOut>
+```
+
+`useAuth` is better when you need access to `isLoading`, `error`, or `user.isGuest`. The guard components are simpler when you just need to show or hide content based on login state.
+
+## Components
+
+### Cursors
+
+A multiplayer cursor component that tracks mouse positions via presence. Wrap any area where you want to show live cursors from other users:
+
+```svelte
+<script lang="ts">
+  import { Cursors } from '@instantdb/svelte';
+  import { db } from '$lib/db';
+
+  const room = db.room('main', 'my-room-id');
+</script>
+
+<Cursors {room} userCursorColor="tomato">
+  <div>Move your mouse around!</div>
+</Cursors>
+```
+
+The `Cursors` component supports custom cursor rendering via a `renderCursor` snippet, a configurable wrapper element (`as`), and `className`/`style` props for styling. See the [Presence, Cursors, and Activity](/docs/presence-and-topics) docs for more details.

@@ -16,12 +16,10 @@
 (defn rand-code []
   (rand-num-str 6))
 
-(def ttl-ms
-  (* 24 60 60 1000))
-
-(defn expired? [magic-code]
+(defn expired? [app-id magic-code]
   (when magic-code
-    (let [created-at ^Date (:created_at magic-code)]
+    (let [created-at ^Date (:created_at magic-code)
+          ttl-ms (* 1000 60 (app-model/get-magic-code-expiry-minutes {:id app-id}))]
       (< (+ (.getTime created-at) ttl-ms) (System/currentTimeMillis)))))
 
 (defn create!
@@ -62,7 +60,7 @@
         (ex/assert-record! code-id :app-user-magic-code {:args [params]})
         (let [code (delete-entity! code-id)]
           (ex/assert-record! code :app-user-magic-code {:args [params]})
-          (when (expired? code)
+          (when (expired? app-id code)
             (ex/throw-expiration-err! :app-user-magic-code {:args [params]}))
           code))))))
 

@@ -1,4 +1,4 @@
-import { PathLike } from 'fs';
+import type { PathLike } from 'fs';
 import { readFile, stat } from 'fs/promises';
 
 export async function pathExists(p: PathLike): Promise<boolean> {

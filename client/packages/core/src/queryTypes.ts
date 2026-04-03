@@ -161,7 +161,9 @@ type $Option<
     first?: number;
     offset?: number;
     after?: Cursor;
+    afterInclusive?: boolean;
     before?: Cursor;
+    beforeInclusive?: boolean;
     fields?: InstaQLFields<S, K>;
   };
 };
@@ -376,7 +378,7 @@ type InstaQLEntity<
     InstaQLEntitySubqueryResult<Schema, EntityName, Subquery, UseDates>
 >;
 
-type InstaQLQueryEntityResult<
+export type InstaQLQueryEntityResult<
   Entities extends EntitiesDef,
   EntityName extends keyof Entities,
   Query extends {
@@ -501,7 +503,9 @@ type PaginationKeys =
   | 'first'
   | 'offset'
   | 'after'
-  | 'before';
+  | 'afterInclusive'
+  | 'before'
+  | 'beforeInclusive';
 
 type AllowedDollarSignKeys<TopLevel extends boolean> = TopLevel extends true
   ? PaginationKeys | 'where' | 'fields' | 'order'
@@ -530,7 +534,9 @@ type ValidDollarSignQuery<
             first?: number;
             offset?: number;
             after?: Cursor;
+            afterInclusive?: boolean;
             before?: Cursor;
+            beforeInclusive?: boolean;
           }
         : {})
     : never;
@@ -706,7 +712,6 @@ export {
   InstaQLQueryResult,
   InstaQLParams,
   InstaQLOptions,
-  InstaQLQueryEntityResult,
   InstaQLEntitySubquery,
   InstaQLEntity,
   InstaQLResult,
