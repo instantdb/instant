@@ -29,6 +29,17 @@ const nextConfig = {
       '@instantdb/components': '../packages/components/src/index.tsx',
       '@lib/*': '../packages/components/src/*',
     },
+    rules: {
+      '*.md': {
+        loaders: [
+          {
+            loader: path.resolve(__dirname, 'lib/markdoc-loader-patch.js'),
+            options: { dir: __dirname },
+          },
+        ],
+        as: '*.js',
+      },
+    },
   },
   webpack: (config, { dev }) => {
     // Resolve @instantdb/components to source for Fast Refresh in development
@@ -134,4 +145,31 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 };
 
-module.exports = withMarkdoc({ dir: __dirname })(nextConfig);
+const finalConfig = withMarkdoc({ dir: __dirname })(nextConfig);
+
+// Override markdoc's turbopack loader with our patched version that fixes
+// schema resolution (bare specifiers like 'tags' -> './tags')
+if (finalConfig.turbopack?.rules) {
+  for (const [key, rule] of Object.entries(finalConfig.turbopack.rules)) {
+    if (rule && rule.loaders) {
+      finalConfig.turbopack.rules[key] = {
+        ...rule,
+        loaders: rule.loaders.map((loader) => {
+          if (
+            typeof loader === 'object' &&
+            loader.loader &&
+            loader.loader.includes('markdoc')
+          ) {
+            return {
+              ...loader,
+              loader: path.resolve(__dirname, 'lib/markdoc-loader-patch.js'),
+            };
+          }
+          return loader;
+        }),
+      };
+    }
+  }
+}
+
+module.exports = finalConfig;
