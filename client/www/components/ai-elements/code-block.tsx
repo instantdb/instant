@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/components/ui/button';
-import { cn } from '@instantdb/components';
+import { cn } from '@instantdb/components/components/cn';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import {
   type ComponentProps,

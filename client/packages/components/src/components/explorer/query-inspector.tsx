@@ -5,7 +5,8 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import { StarIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { ArrowRightIcon } from '@heroicons/react/24/solid';
 
-import { Button, CodeEditor, cn } from '@lib/components/ui';
+import { Button, cn } from '@lib/components/ui';
+import { CodeEditor } from '@lib/components/code-editors';
 import { errorToast } from '@lib/components/toast';
 import { init, InstantReactWebDatabase } from '@instantdb/react';
 import { DBAttr, SchemaNamespace } from '@lib/types';

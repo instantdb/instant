@@ -2,7 +2,7 @@
 
 import { CheckIcon } from '@heroicons/react/24/outline';
 import { slugifyWithCounter } from '@sindresorhus/slugify';
-import { cn } from '@instantdb/components';
+import { cn } from '@instantdb/components/components/cn';
 import { useState } from 'react';
 
 export function Heading({ level = 1, id, children, ...props }) {

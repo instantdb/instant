@@ -15,7 +15,7 @@ import {
   init,
 } from '@instantdb/react';
 import { errorToast } from '@/lib/toast';
-import { Toaster } from '@instantdb/components';
+import { Toaster } from '@instantdb/components/components/ui';
 import { CopyToClipboardButton } from '@/components/new-landing/CopyToClipboardButton';
 import { BrowserChrome } from '@/components/BrowserChrome';
 

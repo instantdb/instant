@@ -12,11 +12,11 @@ import {
   ActionButton,
   ActionForm,
   Button,
-  CodeEditor,
   Label,
   Select,
   Checkbox,
 } from '@lib/components/ui';
+import { CodeEditor } from '@lib/components/code-editors';
 import { SchemaAttr, SchemaNamespace, SchemaNamespaceMap } from '@lib/types';
 import { errorToast, successToast } from '@lib/components/toast';
 import * as Tooltip from '@radix-ui/react-tooltip';

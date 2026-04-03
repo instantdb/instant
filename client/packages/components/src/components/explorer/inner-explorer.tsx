@@ -64,10 +64,10 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Fence,
   IconButton,
   Select,
 } from '@lib/components/ui';
+import { Fence } from '@lib/components/code-editors';
 import { SearchFilter, useNamespacesQuery } from '@lib/hooks/explorer';
 import { useColumnVisibility } from '@lib/hooks/useColumnVisibility';
 import { useLocalStorage } from '@lib/hooks/useLocalStorage';

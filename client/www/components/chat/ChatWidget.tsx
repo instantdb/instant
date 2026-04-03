@@ -1,6 +1,6 @@
 'use client';
 
-import { Dialog } from '@instantdb/components';
+import { Dialog } from '@instantdb/components/components/ui';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessageChunk } from 'ai';
 import React, { Fragment, useEffect, useMemo, useState } from 'react';

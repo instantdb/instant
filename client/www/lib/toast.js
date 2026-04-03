@@ -1,4 +1,4 @@
-import { toast } from '@instantdb/components';
+import { toast } from '@instantdb/components/components/ui';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import {
   ExclamationCircleIcon,

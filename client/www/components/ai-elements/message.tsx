@@ -1,13 +1,13 @@
 'use client';
 
 import { Button } from '@/components/components/ui/button';
+import { cn } from '@instantdb/components/components/cn';
 import {
-  cn,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@instantdb/components';
+} from '@instantdb/components/components/tooltip';
 import type { FileUIPart, UIMessage } from 'ai';
 import { PaperclipIcon, XIcon } from 'lucide-react';
 import type { ComponentProps, HTMLAttributes, ReactElement } from 'react';

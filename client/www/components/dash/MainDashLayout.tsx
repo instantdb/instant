@@ -14,7 +14,7 @@ import { useWorkspace } from '@/lib/hooks/useWorkspace';
 import { InstantApp } from '@/lib/types';
 import { useReadyRouter } from '../clientOnlyPage';
 import { useDarkMode } from './DarkModeToggle';
-import { Toaster } from '@instantdb/components';
+import { Toaster } from '@instantdb/components/components/ui';
 
 export type FetchedDash = ReturnType<typeof useFetchedDash>;
 

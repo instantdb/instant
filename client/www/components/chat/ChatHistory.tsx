@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/DropdownMenu';
-import { cn } from '@instantdb/components';
+import { cn } from '@instantdb/components/components/cn';
 import db from '@/lib/intern/docs-feedback/db';
 import { useEffect, useState } from 'react';
 import formatDistanceToNowStrict from 'date-fns/formatDistanceToNowStrict';

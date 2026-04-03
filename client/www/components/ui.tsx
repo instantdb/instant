@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { ReactNode } from 'react';
 import Link from 'next/link';
 
-import { ui } from '@instantdb/components';
+import * as ui from '@instantdb/components/components/ui';
 
 export const {
   Button,

@@ -1,11 +1,11 @@
 import React from 'react';
 import {
   cn,
-  Fence,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@lib/components/ui';
+import { Fence } from '@lib/components/code-editors';
 import {
   Cell,
   flexRender,

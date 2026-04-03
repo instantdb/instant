@@ -7,7 +7,7 @@ import { messageFromInstantError } from '@/lib/errors';
 import config, { cliOauthParamName } from '@/lib/config';
 import { InstantIssue } from '@/lib/types';
 import { usePostHog } from 'posthog-js/react';
-import { Toaster } from '@instantdb/components';
+import { Toaster } from '@instantdb/components/components/ui';
 import { useDarkMode } from '@/components/dash/DarkModeToggle';
 
 type CallbackState =
