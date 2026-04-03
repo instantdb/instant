@@ -1,6 +1,8 @@
+'use client';
+
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 import { DocSearchModal, useDocSearchKeyboardEvents } from '@docsearch/react';
 import '@docsearch/css';
 
@@ -42,16 +44,13 @@ export function Search() {
     setModifierKey(
       /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform) ? '⌘' : 'Ctrl ',
     );
-  }, []);
 
-  // Enable search on load if `q` is in the query string
-  const query = router.query;
-  useEffect(() => {
-    if (query?.q) {
-      setInitialQuery(query.q);
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) {
+      setInitialQuery(q);
       onOpen();
     }
-  }, [query.q]);
+  }, []);
 
   return (
     <>

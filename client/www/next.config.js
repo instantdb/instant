@@ -17,6 +17,19 @@ const nextConfig = {
       // Also add the @lib alias used within the components package
       config.resolve.alias['@lib'] = componentsSrc;
     }
+
+    // Auto-inject og:image metadata for docs pages.
+    // The markdoc loader generates:
+    //   export const metadata = frontmatter.nextjs?.metadata;
+    // We replace it with a version that merges in the og:image
+    // based on the file path, so doc authors don't have to.
+    config.module.rules.push({
+      test: /\.md$/,
+      include: path.resolve(__dirname, 'app/docs'),
+      enforce: 'post',
+      loader: path.resolve(__dirname, 'lib/docs-og-metadata-loader.js'),
+    });
+
     return config;
   },
   async redirects() {
@@ -49,6 +62,39 @@ const nextConfig = {
         source: '/status',
         destination: 'https://status.instantdb.com',
       },
+      // Redirect old search-param-based auth doc tabs to route segments
+      ...[
+        { page: 'apple', values: 'web-popup|web-redirect|native' },
+        {
+          page: 'google-oauth',
+          values: 'web-google-button|web-redirect|rn-web|rn-native',
+        },
+        { page: 'github-oauth', values: 'web-redirect|rn-web' },
+        { page: 'linkedin-oauth', values: 'web-redirect|rn-web' },
+      ].map(({ page, values }) => ({
+        permanent: true,
+        source: `/docs/auth/${page}`,
+        has: [{ type: 'query', key: 'method', value: `(?<method>${values})` }],
+        destination: `/docs/auth/${page}/:method`,
+      })),
+      {
+        permanent: true,
+        source: '/docs/auth/magic-codes',
+        has: [
+          {
+            type: 'query',
+            key: 'platform',
+            value: '(?<platform>react|react-native|vanilla)',
+          },
+        ],
+        destination: '/docs/auth/magic-codes/:platform',
+      },
+      {
+        permanent: true,
+        source: '/examples',
+        has: [{ type: 'query', key: 'tab', value: '(?<tab>mobile)' }],
+        destination: '/examples/:tab',
+      },
       {
         permanent: false,
         basePath: false,
@@ -74,4 +120,4 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 };
 
-module.exports = withMarkdoc({ appDir: false })(nextConfig);
+module.exports = withMarkdoc()(nextConfig);

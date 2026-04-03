@@ -1,3 +1,5 @@
+'use client';
+
 /* Components for navigating between doc pages and conditionally rendering content
  *
  * Usage: Navigate to different page
@@ -27,11 +29,33 @@
  * {% /conditional %}
  */
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import { usePathname } from 'next/navigation';
 import { cn } from '../../components/ui.tsx';
 import { createContext, useContext } from 'react';
 
 const DefaultValueContext = createContext(undefined);
+
+// Context provided by route-level layouts (via generateStaticParams)
+// to supply the active tab value from the URL path segment.
+const RouteTabContext = createContext(null);
+
+export function RouteTabProvider({ paramName, value, basePath, children }) {
+  return (
+    <RouteTabContext.Provider value={{ paramName, value, basePath }}>
+      {children}
+    </RouteTabContext.Provider>
+  );
+}
+
+// Returns the canonical docs path for the current page, stripping any
+// tab sub-paths (e.g. /docs/auth/magic-codes/react -> /docs/auth/magic-codes).
+// Used by Navigation and Layout to match the current page against the
+// docs nav links, which use base paths without tab segments.
+export function useCanonicalDocsPath() {
+  const routeTab = useContext(RouteTabContext);
+  const pathname = usePathname();
+  return routeTab?.basePath || pathname;
+}
 
 export function NavDefault({ value, children }) {
   return (
@@ -49,11 +73,19 @@ export function NavGroup({ children }) {
   );
 }
 
-function isSelected(param, value) {
-  const router = useRouter();
-  const query = router.query;
+function useTabState() {
+  const routeTab = useContext(RouteTabContext);
   const defaultValue = useContext(DefaultValueContext);
-  return value && value === (router.query[param] || defaultValue);
+  return { routeTab, defaultValue };
+}
+
+function isSelected(param, value, { routeTab, defaultValue }) {
+  if (routeTab && routeTab.paramName === param) {
+    const active = routeTab.value || defaultValue;
+    return value && value === active;
+  }
+
+  return value && value === defaultValue;
 }
 
 export function NavButton({
@@ -64,23 +96,22 @@ export function NavButton({
   href,
   recommended,
 }) {
-  const router = useRouter();
-  const selected = isSelected(param, value);
+  const routeTab = useContext(RouteTabContext);
+  const tabState = useTabState();
+  const selected = isSelected(param, value, tabState);
 
-  const handleClick = () => {
-    router.replace(
-      {
-        pathname: router.pathname,
-        query: { ...router.query, [param]: value },
-      },
-      undefined,
-      { scroll: false },
-    );
-  };
-  const Component = (
+  const tabHref =
+    !href && param && value && routeTab && routeTab.paramName === param
+      ? `${routeTab.basePath}/${value}`
+      : null;
+
+  const linkHref = href || tabHref;
+
+  const card = (
     <div
-      className="group relative flex h-full max-w-sm cursor-pointer flex-col rounded-xl border border-slate-200 dark:border-slate-800"
-      onClick={() => !href && handleClick()}
+      className={cn(
+        'group relative flex h-full max-w-sm cursor-pointer flex-col rounded-xl border border-slate-200 dark:border-slate-800',
+      )}
     >
       <div
         className={
@@ -105,13 +136,24 @@ export function NavButton({
     </div>
   );
 
-  return <div>{href ? <Link href={href}>{Component}</Link> : Component}</div>;
+  if (linkHref) {
+    return (
+      <div>
+        <Link href={linkHref} replace={!!tabHref} scroll={!tabHref}>
+          {card}
+        </Link>
+      </div>
+    );
+  }
+
+  return <div>{card}</div>;
 }
 
 export function ConditionalContent({ param, value, children, elseChildren }) {
+  const tabState = useTabState();
   const selected = Array.isArray(value)
-    ? value.some((v) => isSelected(param, v))
-    : isSelected(param, value);
+    ? value.some((v) => isSelected(param, v, tabState))
+    : isSelected(param, value, tabState);
 
   if (selected) {
     return <>{children}</>;

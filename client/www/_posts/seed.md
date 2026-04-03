@@ -2,6 +2,8 @@
 title: 'Instant raises $3.4M seed to build a modern Firebase'
 date: '2024-10-01'
 authors: nezaj
+summary: A month after we open sourced Instant, we had one of the largest Show HN's for a YC company. This shares the news of our $3.4M seed round.
+thumbnail: /img/essays/seed.jpg
 ---
 
 ![Instant raises $3.4M seed to build a modern Firebase](/img/essays/seed_header.png)

@@ -1,5 +1,4 @@
-import { useAuthToken } from '@/lib/auth';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
+'use client';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/solid';
 import {
   ChevronDownIcon,
@@ -11,10 +10,13 @@ import {
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import NextLink from 'next/link';
+import { usePathname } from 'next/navigation';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Button, cn, LogoIcon } from '@/components/ui';
 import { ComponentType, SVGProps } from 'react';
+import { useStarCount } from '@/lib/starCountContext';
+import { formatNumberCompact } from '@/lib/format';
 
 type Product = {
   id: string;
@@ -62,7 +64,7 @@ const productIcons: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
 
 export function ProductNav({ currentSlug }: { currentSlug: string }) {
   return (
-    <div className="hidden border-b border-gray-200 py-3 min-[60rem]:block">
+    <div className="relative hidden pt-5 pb-3 min-[60rem]:block">
       <div className="mx-auto max-w-7xl px-8">
         <div className="flex justify-center">
           <div className="inline-flex gap-1 rounded-lg bg-gray-100 p-1">
@@ -91,10 +93,12 @@ export function ProductNav({ currentSlug }: { currentSlug: string }) {
   );
 }
 
-const headingClasses = `font-mono tracking-wide leading-relaxed`;
+const headingClasses = `font-mono`;
 
 export const HeadingBrand = ({ children }: PropsWithChildren) => (
-  <h1 className={clsx(headingClasses, 'font-bold')}>{children}</h1>
+  <h1 className={clsx(headingClasses, 'font-bold', 'text-[20px]')}>
+    {children}
+  </h1>
 );
 
 export const H2 = ({ children }: PropsWithChildren) => (
@@ -113,12 +117,12 @@ export const H4 = ({ children }: PropsWithChildren) => (
   <h4 className={clsx(`text-xl`)}>{children}</h4>
 );
 
-export const SectionWide = ({ children }: PropsWithChildren) => (
-  <section className={clsx('mx-auto max-w-7xl px-8')}>{children}</section>
+export const Section = ({ children }: PropsWithChildren) => (
+  <section className={clsx('landing-width mx-auto')}>{children}</section>
 );
 
-export const Section = ({ children }: PropsWithChildren) => (
-  <section className={clsx('mx-auto max-w-4xl px-8')}>{children}</section>
+export const SectionWide = ({ children }: PropsWithChildren) => (
+  <section className={clsx('landing-width mx-auto')}>{children}</section>
 );
 
 export const TwoColResponsive = ({ children }: PropsWithChildren) => (
@@ -144,17 +148,69 @@ export const TextLink: React.FC<
 const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
   href,
   children,
-}) => (
-  <NextLink href={href} className="whitespace-nowrap hover:text-blue-500">
-    {children}
-  </NextLink>
-);
-
-function LogoType() {
+}) => {
+  const pathname = usePathname();
   return (
-    <Link href="/" className="inline-flex items-center space-x-2">
+    <NextLink
+      href={href}
+      className={cn(
+        'relative z-20 whitespace-nowrap text-gray-700 transition-colors hover:text-gray-950',
+        pathname === href && 'text-gray-950',
+      )}
+    >
+      {children}
+    </NextLink>
+  );
+};
+
+export function LogoType({
+  collapsed = false,
+  morphOnCollapse = false,
+}: {
+  collapsed?: boolean;
+  morphOnCollapse?: boolean;
+}) {
+  if (morphOnCollapse) {
+    return (
+      <Link
+        href="/"
+        className="inline-flex flex-row-reverse items-center gap-1 overflow-clip pr-4 font-mono"
+      >
+        <motion.div
+          animate={{
+            x: collapsed ? -90 : 0,
+            scaleX: collapsed ? 0.5 : 1,
+            opacity: collapsed ? 0 : 1,
+          }}
+          className="z-10 font-mono text-[20px] font-bold"
+          transition={{ type: 'tween', ease: 'easeOut', duration: 0.2 }}
+        >
+          instant
+        </motion.div>
+        <LogoIcon size="mini" className="z-20" />
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      href="/"
+      className={cn(
+        'inline-flex items-center',
+        collapsed ? 'gap-0.5' : 'gap-2',
+      )}
+    >
       <LogoIcon />
-      <HeadingBrand>instant</HeadingBrand>
+      <span
+        className={cn(
+          'inline-flex [transform-origin:left_center] overflow-hidden transition-[max-width,opacity,transform] duration-300 ease-out',
+          collapsed
+            ? 'max-w-0 [transform:perspective(260px)_rotateY(-82deg)] opacity-0'
+            : 'max-w-[7.5rem] [transform:perspective(260px)_rotateY(0deg)] opacity-100',
+        )}
+      >
+        <HeadingBrand>instant</HeadingBrand>
+      </span>
     </Link>
   );
 }
@@ -285,9 +341,6 @@ function ProductAccordionMobile() {
 }
 
 function NavItems() {
-  const isHydrated = useIsHydrated();
-  const isAuthed = !!useAuthToken();
-  if (!isHydrated) return null;
   return (
     <>
       <ProductDropdownDesktop />
@@ -296,46 +349,55 @@ function NavItems() {
       <NavLink href="/tutorial">Tutorial</NavLink>
       <NavLink href="/examples">Examples</NavLink>
       <NavLink href="/recipes">Recipes</NavLink>
-      <NavLink href="/essays">Essays</NavLink>
       <NavLink href="/docs">Docs</NavLink>
-      <NavLink href="/hiring">Hiring</NavLink>
-      <NavLink href="https://discord.com/invite/VU53p7uQcE">
-        <span className="hidden min-[60rem]:inline">
-          <img src="/marketing/discord-icon.svg" className="h-5 w-5" />
-        </span>
-        <span className="min-[60rem]:hidden">Discord</span>
-      </NavLink>
-      <NavLink href="https://github.com/instantdb/instant">
-        <span className="hidden min-[60rem]:inline">
-          <img
-            src="https://img.shields.io/github/stars/instantdb/instant?style=flat-square&logo=github&label=GitHub&labelColor=000000&color=F54900"
-            alt="GitHub stars"
-            className="h-5"
-          />
-        </span>
-        <span className="min-[60rem]:hidden">GitHub</span>
-      </NavLink>
-      {isAuthed ? (
-        <div>
-          <Button type="link" variant="cta" size="large" href="/dash">
-            Dashboard
-          </Button>
-        </div>
-      ) : (
-        <>
-          <NavLink href="/dash">Login</NavLink>
-          <div>
-            <Button type="link" variant="cta" size="large" href="/dash">
-              Sign up
-            </Button>
-          </div>
-        </>
-      )}
+      <NavLink href="/essays">Essays</NavLink>
+      <NavLink href="/about">About</NavLink>
+      <OtherNavItems />
     </>
   );
 }
 
-export function BareNav({ children }: PropsWithChildren) {
+function OtherNavItems() {
+  const starCount = useStarCount();
+  const formattedStarCount = formatNumberCompact(starCount);
+
+  return (
+    <>
+      <NavLink href="https://github.com/instantdb/instant">
+        <span className="bg-secondary-fill border-secondary-border flex items-center gap-1 rounded-[5px] border p-1 px-3 transition-shadow hover:text-black hover:shadow">
+          <img
+            src={'/img/github-icon.svg'}
+            alt="GitHub"
+            className="h-[18px] w-[18px]"
+          />
+          <span className="min-w-[38px] pl-1 font-semibold">
+            {formattedStarCount}
+          </span>
+          stars
+        </span>
+      </NavLink>
+      <div>
+        <Button
+          variant="cta"
+          className="font-semibold"
+          type="link"
+          href="/dash"
+        >
+          Dashboard
+        </Button>
+      </div>
+    </>
+  );
+}
+
+export function BareNav({
+  children,
+  collapseLogo = false,
+  morphLogoOnCollapse = false,
+}: PropsWithChildren<{
+  collapseLogo?: boolean;
+  morphLogoOnCollapse?: boolean;
+}>) {
   const [isOpen, setIsOpen] = useState(false);
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : 'auto';
@@ -343,7 +405,10 @@ export function BareNav({ children }: PropsWithChildren) {
 
   return (
     <div className="flex flex-row items-center justify-between gap-4 text-lg md:text-base">
-      <LogoType />
+      <LogoType
+        collapsed={collapseLogo}
+        morphOnCollapse={morphLogoOnCollapse}
+      />
       <button className="min-[60rem]:hidden" onClick={() => setIsOpen(true)}>
         <Bars3Icon height={'1em'} />
       </button>
@@ -361,31 +426,70 @@ export function BareNav({ children }: PropsWithChildren) {
           // layout
           'flex-col items-start gap-6 px-8 py-4 min-[60rem]:flex-row min-[60rem]:items-center min-[60rem]:gap-4 min-[60rem]:p-0',
           // look and feel
-          'bg-white/90 backdrop-blur-xl min-[60rem]:bg-transparent',
+          'bg-white/90 min-[60rem]:bg-transparent',
           {
             flex: isOpen,
           },
         )}
       >
         <div className="flex justify-between self-stretch min-[60rem]:hidden">
-          <LogoType />
+          <LogoType
+            morphOnCollapse={morphLogoOnCollapse}
+            collapsed={collapseLogo && !isOpen}
+          />
           <button className="z-50 mt-0.5" onClick={() => setIsOpen(false)}>
             <XMarkIcon height="1em" />
           </button>
         </div>
-
-        {children}
         <NavItems />
+        {children}
       </div>
     </div>
   );
 }
 
-export function MainNav({ children }: PropsWithChildren) {
+export function MainNav() {
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const updateScrollState = () => {
+      setIsScrolled(window.scrollY > 40);
+    };
+
+    window.addEventListener('scroll', updateScrollState, { passive: true });
+    updateScrollState();
+
+    return () => {
+      window.removeEventListener('scroll', updateScrollState);
+    };
+  }, []);
+
   return (
-    <div className="py-4">
-      <div className="mx-auto max-w-7xl px-8">
-        <BareNav>{children}</BareNav>
+    <div
+      className={cn(
+        'py-4',
+        'fixed top-0 right-0 left-0 z-50 border-b transition-[border-color] duration-300',
+        isScrolled ? 'border-b-gray-200/80' : 'border-b-transparent',
+      )}
+    >
+      <div
+        className={cn(
+          'absolute inset-0 -z-10 transition-[background-color,backdrop-filter] duration-300',
+          isScrolled ? 'bg-white/80 backdrop-blur-md' : 'bg-[#FBF9F6]',
+        )}
+      />
+      <div className="landing-width mx-auto">
+        <BareNav collapseLogo={isScrolled} morphLogoOnCollapse />
+      </div>
+    </div>
+  );
+}
+
+export function LegacyNav() {
+  return (
+    <div className="border-b border-b-gray-200 py-4">
+      <div className="landing-width mx-auto">
+        <BareNav />
       </div>
     </div>
   );
@@ -397,70 +501,30 @@ export const LandingContainer = ({ children }: PropsWithChildren) => (
 
 export function LandingFooter() {
   return (
-    <div className="text-xs text-gray-500">
-      <style jsx global>
-        {`
-          html,
-          body {
-            background-color: #f8f9fa;
-          }
-        `}
-      </style>
-      <SectionWide>
-        <hr className="h-px border-0 bg-gray-200" />
-        <div className="flex flex-col gap-2 py-6">
-          <div
-            className={clsx(
-              `flex flex-col gap-6 md:flex-row md:justify-between`,
-            )}
-          >
-            <div className="flex flex-col gap-2 font-mono md:gap-0">
-              <div>Instant</div>
-              <div>Engineered in San Francisco</div>
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              <NavLink href="/hiring">Hiring</NavLink>
-              <NavLink href="https://discord.com/invite/VU53p7uQcE">
-                Discord
-              </NavLink>
-              <NavLink href="https://github.com/instantdb/instant">
-                GitHub
-              </NavLink>
-              <NavLink href="/status">Status</NavLink>
-              <NavLink href="/privacy">Privacy Policy</NavLink>
-              <NavLink href="/terms">Terms</NavLink>
-            </div>
+    <div className="landing-width text-xs text-gray-500">
+      <hr className="h-px border-0 bg-gray-200" />
+      <div className="flex flex-col gap-2 py-6">
+        <div
+          className={clsx(`flex flex-col gap-6 md:flex-row md:justify-between`)}
+        >
+          <div className="flex flex-col gap-2 md:gap-0">
+            <div>Instant</div>
+            <div>Engineered in San Francisco</div>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <NavLink href="/hiring">Hiring</NavLink>
+            <NavLink href="https://discord.com/invite/VU53p7uQcE">
+              Discord
+            </NavLink>
+            <NavLink href="https://github.com/instantdb/instant">
+              GitHub
+            </NavLink>
+            <NavLink href="/status">Status</NavLink>
+            <NavLink href="/privacy">Privacy Policy</NavLink>
+            <NavLink href="/terms">Terms</NavLink>
           </div>
         </div>
-      </SectionWide>
-    </div>
-  );
-}
-
-export function PageProgressBar() {
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const updateProgress = () => {
-      const scrollHeight =
-        document.documentElement.scrollHeight - window.innerHeight;
-      const scrolled = window.scrollY;
-      const progress = Math.min((scrolled / scrollHeight) * 100, 100);
-      setProgress(progress);
-    };
-
-    window.addEventListener('scroll', updateProgress);
-    updateProgress();
-
-    return () => window.removeEventListener('scroll', updateProgress);
-  }, []);
-
-  return (
-    <div className="fixed top-0 right-0 left-0 z-50 h-0.5 bg-gray-200">
-      <div
-        className="h-full bg-orange-600 transition-all duration-150 ease-out"
-        style={{ width: `${progress}%` }}
-      />
+      </div>
     </div>
   );
 }

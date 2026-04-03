@@ -27,7 +27,7 @@ await db.transact(
   // Render them
   return (
     <div className="grid grid-cols-3 gap-2">
-      {data.$files.map((img) => (
+      {data?.$files.map((img) => (
         <img key={img.id} src={img.url} />
       ))}
     </div>

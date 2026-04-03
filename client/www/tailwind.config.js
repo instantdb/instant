@@ -1,4 +1,5 @@
 const sans = [
+  'Switzer',
   'ui-sans-serif',
   'system-ui',
   '-apple-system',
@@ -26,7 +27,7 @@ module.exports = {
   ],
   theme: {
     fontFamily: {
-      sans: ['"IBM Plex Sans"', ...sans],
+      sans: [...sans],
       mono: [
         'Berk Mono',
         'ui-monospace',
@@ -39,7 +40,14 @@ module.exports = {
         'monospace',
       ],
     },
-    extend: {},
+    extend: {
+      colors: {
+        'secondary-border': '#ECECEC',
+        'secondary-fill': '#F2F2F2',
+        'off-black': '#333333',
+        surface: '#cacaca',
+      },
+    },
   },
   future: { hoverOnlyWhenSupported: true },
   plugins: [
