@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import { usePathname } from 'next/navigation';
 import { Dialog } from '@headlessui/react';
 
 import { Logo } from '@/components/docs/Logo';
@@ -37,24 +39,18 @@ function CloseIcon(props) {
 }
 
 export function MobileNavigation({ navigation }) {
-  let router = useRouter();
+  let pathname = usePathname();
   let [isOpen, setIsOpen] = useState(false);
+  const prevPathnameRef = useRef(pathname);
 
   useEffect(() => {
-    if (!isOpen) return;
-
-    function onRouteChange() {
-      setIsOpen(false);
+    if (prevPathnameRef.current !== pathname) {
+      prevPathnameRef.current = pathname;
+      if (isOpen) {
+        setIsOpen(false);
+      }
     }
-
-    router.events.on('routeChangeComplete', onRouteChange);
-    router.events.on('routeChangeError', onRouteChange);
-
-    return () => {
-      router.events.off('routeChangeComplete', onRouteChange);
-      router.events.off('routeChangeError', onRouteChange);
-    };
-  }, [router, isOpen]);
+  }, [pathname, isOpen]);
 
   return (
     <>

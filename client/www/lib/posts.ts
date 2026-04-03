@@ -1,6 +1,9 @@
 import fs from 'fs';
+import path from 'path';
 import matter from 'gray-matter';
 import _ from 'lodash';
+
+const postsDir = path.join(process.cwd(), '_posts');
 
 export interface Author {
   name: string;
@@ -63,7 +66,7 @@ function getMinutesForContent(content: string): number {
 }
 
 export function getPostBySlug(slug: string): Post {
-  const file = fs.readFileSync(`./_posts/${slug}.md`, 'utf-8');
+  const file = fs.readFileSync(`${postsDir}/${slug}.md`, 'utf-8');
   const { data, content } = matter(file);
 
   const post: Post = {
@@ -96,7 +99,7 @@ function removeMdExtension(str: string): string {
 const archivedSlugs = ['stroop'];
 
 export function getAllSlugs(): string[] {
-  const dir = fs.readdirSync('./_posts');
+  const dir = fs.readdirSync(postsDir);
   return dir
     .map((mdName) => removeMdExtension(mdName))
     .filter((slug) => !archivedSlugs.includes(slug));

@@ -1,10 +1,6 @@
-import {
-  LandingContainer,
-  MainNav,
-  PageProgressBar,
-} from '@/components/marketingUi';
-import * as og from '@/lib/og';
-import Head from 'next/head';
+'use client';
+
+import { LandingContainer, MainNav } from '@/components/marketingUi';
 import { authorFirstName, formatDuration } from '@/lib/postUtils';
 import type { Post } from '@/lib/posts';
 
@@ -13,29 +9,12 @@ import { EssayMarkdown } from '@/components/essays/EssayMarkdown';
 import { Footer } from '@/components/new-landing/Footer';
 
 export function EssayPage({ post }: { post: Post }) {
-  const { title, authors, hero, content, og_image } = post;
-
+  const { title, authors, hero, content } = post;
   return (
     <LandingContainer>
-      <Head>
-        <title>{title}</title>
-        <meta key="og:title" property="og:title" content={title} />
-        <meta
-          key="og:image"
-          property="og:image"
-          content={og_image || hero || og.url({ title, section: 'blog' })}
-        />
-        <meta key="og:type" property="og:type" content="article" />
-        <meta
-          key="og:article:author"
-          property="article:author"
-          content={authors.map((author) => author.name).join(', ')}
-        />
-      </Head>
-      <PageProgressBar />
       <div className="relative">
         <TopWash />
-        <MainNav transparent />
+        <MainNav />
         <div className="relative mx-auto max-w-4xl px-4 pt-28 pb-8 sm:pt-32">
           <div className="mx-auto mb-8 max-w-2xl">
             <h1 className="mb-4 text-5xl leading-tight font-normal tracking-tight">

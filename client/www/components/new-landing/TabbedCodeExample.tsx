@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, type ReactNode } from 'react';
 import Highlight, { defaultProps } from 'prism-react-renderer';
 import { cn } from '@/components/ui';

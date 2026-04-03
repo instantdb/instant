@@ -1,23 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+'use client';
+
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
 
 import { Navigation } from '@/components/docs/Navigation';
 import { Prose } from '@/components/docs/Prose';
 import { Search } from '@/components/docs/Search';
+import { AppPicker } from '@/components/docs/AppPicker';
+import { useCanonicalDocsPath } from '@/components/docs/NavButton';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
 import config from '@/lib/config';
-import { Select, Button, cn } from '@/components/ui';
+import { Button, cn } from '@/components/ui';
 import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
-import { titleComparator } from '@/lib/app';
 import RatingBox from './RatingBox';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 import { ChatWidget, useIsMobile } from '../chat/ChatWidget';
-import { ClientOnly } from '../clientOnlyPage';
 
 function useWorkspaceData(workspaceId, token) {
   const dashResponse = useTokenFetch(`${config.apiURI}/dash`, token);
@@ -52,14 +54,14 @@ function useWorkspaceData(workspaceId, token) {
 
 function useSelectedApp(apps = [], orgId) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAppData, setSelectedAppData] = useState(null);
 
   useEffect(() => {
-    if (!router.isReady) return;
-
     const cachedAppData = getLocallySavedApp(orgId);
-    const { app: queryAppId, ...remainingQueryParams } = router.query;
+    const currentParams = new URLSearchParams(window.location.search);
+    const queryAppId = currentParams.get('app');
 
     const fromParams = queryAppId && apps.find((a) => a.id === queryAppId);
     const fromCache =
@@ -76,15 +78,12 @@ function useSelectedApp(apps = [], orgId) {
         id: fromParams.id,
         orgId: orgId,
       });
+      const remainingParams = new URLSearchParams(window.location.search);
+      remainingParams.delete('app');
+      const queryString = remainingParams.toString();
+      const hash = window.location.hash;
       router.replace(
-        {
-          query: remainingQueryParams,
-          hash: window.location.hash,
-        },
-        undefined,
-        {
-          shallow: true,
-        },
+        `${pathname}${queryString ? `?${queryString}` : ''}${hash}`,
       );
     } else if (fromCache) {
       const data = { id: fromCache.id, title: fromCache.title };
@@ -93,7 +92,7 @@ function useSelectedApp(apps = [], orgId) {
       setSelectedAppData({ id: first.id, title: first.title });
     }
     setIsLoading(false);
-  }, [router.isReady, apps.length, orgId]);
+  }, [apps.length, orgId]);
 
   const update = useCallback(
     (appId) => {
@@ -171,100 +170,6 @@ function CopyAsMarkdown({ path, label = 'Copy as markdown' }) {
     >
       {copyLabel}
     </Button>
-  );
-}
-
-function AppPicker({
-  apps,
-  selectedAppData,
-  updateSelectedAppId,
-  workspaceId,
-  allOrgs,
-}) {
-  const router = useRouter();
-
-  const appOptions = apps.toSorted(titleComparator).map((app) => ({
-    label: app.title,
-    value: app.id,
-  }));
-
-  const workspaceOptions = [];
-
-  if (workspaceId !== 'personal') {
-    workspaceOptions.push({
-      label: 'Personal',
-      value: 'org:personal',
-    });
-  }
-
-  allOrgs.forEach((org) => {
-    if (org.id !== workspaceId) {
-      workspaceOptions.push({
-        label: org.title,
-        value: `org:${org.id}`,
-      });
-    }
-  });
-
-  const orgOptions =
-    workspaceOptions.length > 0
-      ? [
-          {
-            label: '── Switch workspace ──',
-            value: '__switch_workspace__',
-            disabled: true,
-          },
-          ...workspaceOptions,
-        ]
-      : [];
-
-  const allOptions = [...appOptions, ...orgOptions];
-
-  function onSelectAppId(option) {
-    const value = option?.value;
-    if (!value) return;
-
-    if (value.startsWith('org:')) {
-      const orgId = value.substring(4);
-      const { org, ...rest } = router.query;
-      if (orgId === 'personal') {
-        router.push({ pathname: router.pathname, query: rest });
-      } else {
-        router.push({
-          pathname: router.pathname,
-          query: { ...rest, org: orgId },
-        });
-      }
-    } else {
-      updateSelectedAppId(value);
-    }
-  }
-
-  const currentWorkspaceName =
-    workspaceId === 'personal'
-      ? 'Personal'
-      : allOrgs.find((org) => org.id === workspaceId)?.title || workspaceId;
-
-  return (
-    <div className="bg-opacity-40 mb-6 flex flex-col gap-1 border bg-white p-4">
-      <h4 className="font-bold">Pick your app</h4>
-      <p className="text-sm">
-        The examples below will be updated with your app ID.
-      </p>
-      {allOrgs.length > 0 && (
-        <p className="mt-1 text-xs text-gray-600">
-          Current workspace: <strong>{currentWorkspaceName}</strong>
-        </p>
-      )}
-      <Select
-        className="max-w-sm"
-        disabled={!allOptions.length}
-        value={selectedAppData?.id}
-        options={allOptions}
-        onChange={onSelectAppId}
-        emptyLabel={'No apps - sign in to create one'}
-      />
-    </div>
   );
 }
 
@@ -437,25 +342,36 @@ const adj = {
   hWithoutHeader: 'h-[calc(100dvh-3.5rem)]',
 };
 
+function ParamSyncer({ setOrg }) {
+  const searchParams = useSearchParams();
+  const org = searchParams.get('org');
+  useEffect(() => {
+    setOrg(org);
+  }, [org, setOrg]);
+  return null;
+}
+
 export function Layout({ children, title, tableOfContents }) {
-  let router = useRouter();
+  const pathname = usePathname();
+  const docPath = useCanonicalDocsPath();
   const scrollContainerRef = useRef();
 
-  let allLinks = navigation.flatMap((section) => section.links);
+  const allLinks = navigation.flatMap((section) => section.links);
 
-  let previousPage = getPreviousPage(allLinks, router.pathname);
-  let nextPage = getNextPage(allLinks, router.pathname);
+  const previousPage = getPreviousPage(allLinks, docPath);
+  const nextPage = getNextPage(allLinks, docPath);
 
-  let section = navigation.find((section) =>
-    section.links.find((link) => link.href === router.pathname),
+  const section = navigation.find((section) =>
+    section.links.find((link) => link.href === docPath),
   );
 
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [forceModal, setForceModal] = useState(false);
   const isMobile = useIsMobile();
 
-  const workspaceId = router.query.org || 'personal';
-  const orgQuery = router.query.org ? { org: router.query.org } : {};
+  const [org, setOrg] = useState(null);
+  const workspaceId = org || 'personal';
+  const orgQuery = org ? { org } : {};
   const token = useAuthToken();
   const {
     apps,
@@ -471,15 +387,10 @@ export function Layout({ children, title, tableOfContents }) {
 
   return (
     <SelectedAppContext.Provider value={selectedAppData}>
-      <style jsx global>
-        {`
-          html,
-          body {
-            background-color: #f8f9fa;
-          }
-        `}
-      </style>
-      <div className="min-h-dvh">
+      <div className="min-h-dvh bg-[#f8f9fa]">
+        <Suspense>
+          <ParamSyncer setOrg={setOrg} />
+        </Suspense>
         {/* Header */}
         <div
           className={clsx(
@@ -493,6 +404,7 @@ export function Layout({ children, title, tableOfContents }) {
                 <Search />
                 <Navigation
                   navigation={navigation}
+                  orgQuery={orgQuery}
                   className="w-64 pr-8 md:hidden xl:w-72 xl:pr-16"
                 />
               </div>
@@ -520,6 +432,7 @@ export function Layout({ children, title, tableOfContents }) {
                 <Search />
                 <Navigation
                   navigation={navigation}
+                  orgQuery={orgQuery}
                   className="ml-1 w-64 pr-8 xl:w-72 xl:pr-16"
                 />
               </div>
@@ -529,22 +442,21 @@ export function Layout({ children, title, tableOfContents }) {
             {/* Main content */}
             <main
               ref={scrollContainerRef}
-              key={router.pathname}
-              className="max-w-prose min-w-0 flex-1 p-4"
+              key={docPath}
+              className="max-w-2xl min-w-0 flex-1 p-4"
             >
-              {isHydrated && !isLoadingWorkspace && (
-                <AppPicker
-                  {...{
-                    apps,
-                    selectedAppData,
-                    updateSelectedAppId,
-                    workspaceId,
-                    allOrgs: orgs,
-                  }}
-                />
-              )}
+              <AppPicker
+                isReady={isHydrated && !isLoadingWorkspace}
+                {...{
+                  apps,
+                  selectedAppData,
+                  updateSelectedAppId,
+                  workspaceId,
+                  allOrgs: orgs,
+                }}
+              />
               <PageContent
-                path={router.pathname}
+                path={docPath}
                 title={title}
                 sectionTitle={section?.title}
                 allLinks={allLinks}
@@ -552,7 +464,7 @@ export function Layout({ children, title, tableOfContents }) {
                 {children}
               </PageContent>
               <div className="mt-4">
-                <RatingBox pageId={router.pathname} />
+                <RatingBox pageId={pathname} />
               </div>
               <PageNav
                 previousPage={previousPage}
@@ -606,14 +518,14 @@ export function Layout({ children, title, tableOfContents }) {
             Chat with AI
           </button>
         )}
-        <ClientOnly>
+        {isHydrated && (
           <ChatWidget
             isOpen={aiChatOpen}
             onClose={() => setAiChatOpen(false)}
             forceModal={forceModal}
             setForceModal={setForceModal}
           />
-        </ClientOnly>
+        )}
       </div>
     </SelectedAppContext.Provider>
   );

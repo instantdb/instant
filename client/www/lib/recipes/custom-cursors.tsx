@@ -5,7 +5,7 @@ import { useRef } from 'react';
 function CustomCursor({ name }: { name: string }) {
   return (
     <img
-      src={`https://instantdb.com/api/avatar?name=${encodeURIComponent(name)}&size=40`}
+      src={`/api/avatar?name=${encodeURIComponent(name)}&size=40`}
       width={40}
       height={40}
       loading="eager"

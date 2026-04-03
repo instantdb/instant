@@ -1,7 +1,9 @@
+'use client';
+
 import Image from 'next/image';
 import { AnimateIn } from './AnimateIn';
 import { Subheading } from './typography';
-import { useGithubStarCount } from '@/lib/useGithubStarCount';
+import { useStarCount } from '@/lib/starCountContext';
 import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
 import { formatNumberCompact } from '@/lib/format';
 
@@ -39,7 +41,7 @@ const backers = [
 ];
 
 export function SocialProof() {
-  const starCount = useGithubStarCount();
+  const starCount = useStarCount();
 
   const { data: connectionCount } = useTotalSessionsCount({
     refreshSeconds: 3,
