@@ -22,11 +22,10 @@ const getAdminDb = () => {
   });
 };
 
-const webhooks = new Webhooks({
-  secret: process.env.GITHUB_WEBHOOK_SECRET!,
-});
-
 export async function POST(req: NextRequest) {
+  const webhooks = new Webhooks({
+    secret: process.env.GITHUB_WEBHOOK_SECRET!,
+  });
   const signature = req.headers.get('x-hub-signature-256');
   const eventType = req.headers.get('x-github-event');
 
