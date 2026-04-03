@@ -2,7 +2,7 @@
   "name": "instant-www",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "gen-llms": "pnpm exec tsx scripts/gen-llms-txt.ts",
     "gen-docs": "pnpm exec tsx scripts/gen-md-docs.ts",
