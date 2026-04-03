@@ -653,22 +653,25 @@ const _schema = i.schema({
 });
 ```
 
-❌ **Common mistake**: Storing the file URL as a string attribute
+❌ **Common mistake**: Storing image URLs as string attributes
+
+Do not store URLs as string attributes on your entities. This includes using placeholder image URLs (e.g. picsum.photos) in seed scripts. In a real app, users upload files via Storage, so string URLs won't work.
 
 ```typescript
-// ❌ Bad: Storing the URL as an attribute on the entity
-const { data } = await db.storage.uploadFile(path, file);
-db.transact(db.tx.posts[id()].update({ imageUrl: data.url, caption }));
+// ❌ Bad: Storing a URL string on the entity
+const posts = [
+  { id: id(), caption: "Golden hour", image: "https://picsum.photos/seed/pier/600/600" },
+];
+db.transact(posts.map(p => db.tx.posts[p.id].update({ caption: p.caption, image: p.image })));
 
-// Then querying the URL from the attribute
-const { data } = db.useQuery({ posts: {} });
-<img src={post.imageUrl} />
+// ❌ Also bad: querying the URL from a string attribute
+<img src={post.image} />
 ```
 
-✅ **Correction**: Link the `$files` entity and query through the relationship
+✅ **Correction**: Link `$files` to your entity and query through the relationship
 
 ```typescript
-// ✅ Good: Link the file and query through the relationship
+// ✅ Good: Upload creates a $files entity, then link it
 const postId = id();
 const { data } = await db.storage.uploadFile(`posts/${postId}/${file.name}`, file);
 db.transact(
@@ -680,4 +683,27 @@ db.transact(
 // Query through the relationship to get the URL
 const { data } = db.useQuery({ posts: { image: {} } });
 <img src={post.image.url} />
+```
+
+❌ **Common mistake**: Creating `$files` via transactions
+
+`$files` entities can only be created via `db.storage.uploadFile`. You cannot create them with `db.transact`, and you cannot set `url` via transactions.
+
+```typescript
+// ❌ Bad: $files cannot be created or updated this way
+db.transact(
+  db.tx.$files[id()].update({
+    path: 'photos/test.jpg',
+    url: 'https://picsum.photos/200',
+  }),
+);
+```
+
+✅ **Correction**: Use `db.storage.uploadFile` to create files
+
+```typescript
+// ✅ Good: Upload creates the $files entity
+const { data } = await db.storage.uploadFile('photos/test.jpg', file);
+// Then link it
+db.transact(db.tx.posts[postId].link({ image: data.id }));
 ```
