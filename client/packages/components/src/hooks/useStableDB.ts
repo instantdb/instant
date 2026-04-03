@@ -6,12 +6,10 @@ export const useStableDB = ({
   appId,
   apiURI,
   websocketURI,
-  adminToken,
 }: {
   appId: string;
   apiURI: string;
   websocketURI: string;
-  adminToken?: string;
 }) => {
   const connection = useMemo<InstantReactClient>(
     () =>
@@ -19,12 +17,10 @@ export const useStableDB = ({
         appId,
         apiURI,
         websocketURI,
-        // @ts-ignore
-        __adminToken: adminToken,
         disableValidation: true,
         devtool: false,
       }),
-    [appId, apiURI, websocketURI, adminToken],
+    [appId, apiURI, websocketURI],
   );
 
   return connection;
