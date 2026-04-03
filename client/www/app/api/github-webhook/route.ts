@@ -30,8 +30,7 @@ export async function POST(req: NextRequest) {
   const eventType = req.headers.get('x-github-event');
 
   if (eventType !== 'watch') {
-    NextResponse.json({ ok: true, ignored: true });
-    return;
+    return NextResponse.json({ ok: true, ignored: true });
   }
 
   if (!signature) {
