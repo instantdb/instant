@@ -13,7 +13,8 @@
   },
   "scripts": {
     "build": "turbo run build --cache-dir=.turbo --no-update-notifier",
-    "dev": "turbo run dev --filter=@instantdb/version --filter=@instantdb/core --filter=@instantdb/react-common --filter=@instantdb/react --filter=@instantdb/react-native --filter=@instantdb/admin --filter=@instantdb/platform --filter=@instantdb/react-native-mmkv --filter=instant-www --filter=sb-react-nextjs --filter=sb-admin-sdk-express --filter=@instantdb/components --filter=instant-cli --filter=create-instant-app --filter=@instantdb/resumable-stream --parallel --concurrency=20 --no-update-notifier",
+    "dev": "turbo run dev --filter=instant-www --parallel --concurrency=20 --no-update-notifier",
+    "dev:full": "turbo run dev --filter=@instantdb/version --filter=@instantdb/core --filter=@instantdb/react-common --filter=@instantdb/react --filter=@instantdb/react-native --filter=@instantdb/admin --filter=@instantdb/platform --filter=@instantdb/react-native-mmkv --filter=instant-www --filter=sb-react-nextjs --filter=sb-admin-sdk-express --filter=@instantdb/components --filter=instant-cli --filter=create-instant-app --filter=@instantdb/resumable-stream --parallel --concurrency=20 --no-update-notifier",
     "bench:www-dev": "pnpm exec tsx scripts/benchmark-www-dev.ts",
     "profile:www-server": "pnpm exec tsx scripts/profile-www-server-ttfb.ts",
     "trace:www-dev": "pnpm exec tsx scripts/trace-www-dev.ts",

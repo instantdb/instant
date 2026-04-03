@@ -159,3 +159,26 @@ Direct `client/www` smoke test under `next dev --turbopack`:
 - Switched Motion imports to the reduced bundle-size pattern from the Motion docs
 - Result: no material server-side TTFB improvement
 - Decision: reverted
+
+## Change 4: slim down the default root `client` dev stack
+
+What changed:
+
+- Changed `client/package.json` so `pnpm run dev` only starts `instant-www`
+- Preserved the previous wide workspace command as `pnpm run dev:full`
+- Added `make dev-full` so the old behavior is still available when we actually need the whole workspace running
+
+Why:
+
+- After the Turbopack upgrade, isolated `client/www` was already down around `2.9s` cold for `/`
+- The remaining gap came from the root `client` dev command choosing to boot a much wider set of sandboxes and packages than `instant-www` itself needs
+
+Result (full root benchmark, clean `.next` cache):
+
+- Previous Turbopack baseline: `/` `5235ms` to `5461ms`, `/about` `518ms` to `582ms`
+- Slim root dev run 1: `/` `3102ms`, `/about` `459ms`
+- Slim root dev run 2: `/` `3358ms`, `/about` `519ms`
+- Improvement on `/`: about `1877ms` to `2359ms` faster (`36%` to `43%`)
+- Improvement on `/about`: about `59ms` to `123ms` faster (`10%` to `21%`)
+
+- This is the first change that gets the realistic root `client` workflow close to the isolated `www` numbers

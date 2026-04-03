@@ -13,6 +13,15 @@ dev:
 	NEXT_PUBLIC_FEEDBACK_API_URI=http://localhost:$$((8888 + $(DEV_SLOT) * 1000)) \
 	pnpm run dev --ui tui $(filter-out $@,$(MAKECMDGOALS))
 
+dev-full:
+	@echo "Booting up full frontend workspace...$(if $(filter-out 0,$(DEV_SLOT)), (slot $(DEV_SLOT)),)"
+	PORT=$$((3000 + $(DEV_SLOT) * 100)) \
+	SB_PORT=$$((4000 + $(DEV_SLOT) * 100)) \
+	SB_EXPRESS_PORT=$$((3005 + $(DEV_SLOT) * 100)) \
+	NEXT_PUBLIC_LOCAL_SERVER_PORT=$$((8888 + $(DEV_SLOT) * 1000)) \
+	NEXT_PUBLIC_FEEDBACK_API_URI=http://localhost:$$((8888 + $(DEV_SLOT) * 1000)) \
+	pnpm run dev:full --ui tui $(filter-out $@,$(MAKECMDGOALS))
+
 lint:
 	pnpm run check-format
 
