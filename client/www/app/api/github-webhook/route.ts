@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
 
   if (eventType !== 'watch') {
     NextResponse.json({ ok: true, ignored: true });
+    return;
   }
 
   if (!signature) {
