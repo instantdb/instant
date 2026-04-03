@@ -1,6 +1,8 @@
 const path = require('path');
 const withMarkdoc = require('@markdoc/next.js');
 
+const componentsSrc = path.resolve(__dirname, '../packages/components/src');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -15,13 +17,22 @@ const nextConfig = {
       '@dnd-kit/utilities',
     ],
   },
+  // Turbopack config (used with next dev --turbopack)
+  turbopack: {
+    resolveAlias: {
+      '@instantdb/components/components/cn': '../packages/components/src/components/cn.ts',
+      '@instantdb/components/components/button': '../packages/components/src/components/button.tsx',
+      '@instantdb/components/components/primitives': '../packages/components/src/components/primitives.tsx',
+      '@instantdb/components/components/tooltip': '../packages/components/src/components/tooltip.tsx',
+      '@instantdb/components/components/code-editors': '../packages/components/src/components/code-editors.tsx',
+      '@instantdb/components/components/ui': '../packages/components/src/components/ui.tsx',
+      '@instantdb/components': '../packages/components/src/index.tsx',
+      '@lib/*': '../packages/components/src/*',
+    },
+  },
   webpack: (config, { dev }) => {
     // Resolve @instantdb/components to source for Fast Refresh in development
     if (dev) {
-      const componentsSrc = path.resolve(
-        __dirname,
-        '../packages/components/src',
-      );
       config.resolve.alias['@instantdb/components'] = componentsSrc;
       // Also add the @lib alias used within the components package
       config.resolve.alias['@lib'] = componentsSrc;
@@ -123,4 +134,4 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 };
 
-module.exports = withMarkdoc()(nextConfig);
+module.exports = withMarkdoc({ dir: __dirname })(nextConfig);
