@@ -36,6 +36,8 @@
     "@markdoc/next.js": "^0.3.7",
     "@monaco-editor/react": "^4.6.0",
     "@mux/mux-player-react": "3.6.0",
+    "@octokit/webhooks": "^14.2.0",
+    "@octokit/webhooks-types": "^7.6.1",
     "@radix-ui/react-collapsible": "^1.1.2",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
