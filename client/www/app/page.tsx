@@ -67,7 +67,7 @@ export default function HomePage() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.5)_0%,transparent_70%)]" />
           }
         >
-          <div className="pt-16 sm:pt-24">
+          <div className="py-16 sm:py-24">
             <SocialProof />
             <div className="mt-16">
               <FirebaseTestimonial />
