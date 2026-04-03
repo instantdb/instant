@@ -212,6 +212,43 @@ Notes:
 - Field rules override entity-level `view` for that field
 - Useful for hiding sensitive data (emails, phone numbers) on public entities
 
+# CRITICAL Storage Guidelines
+
+Uploads auto-create `$files` entities. Link them to your data via the schema,
+then query through the relationship to get URLs. Never store URLs as attributes.
+
+CRITICAL: You MUST include `$files` in your schema entities if you use Storage.
+
+```tsx
+// Schema: declare $files in entities and link to your data
+entities: {
+  $files: i.entity({
+    path: i.string().unique().indexed(),
+    url: i.string(),
+  }),
+  posts: i.entity({
+    caption: i.string(),
+  }),
+},
+links: {
+  postImage: {
+    forward: { on: "posts", has: "one", label: "image" },
+    reverse: { on: "$files", has: "many", label: "posts" },
+  },
+}
+
+// Upload and link the returned file ID to your entity
+const postId = id();
+const { data } = await db.storage.uploadFile(`posts/${postId}/${file.name}`, file);
+db.transact(
+  db.tx.posts[postId].update({ caption }).link({ image: data.id })
+);
+
+// Query through the relationship to get the URL
+const { data } = db.useQuery({ posts: { image: {} } });
+<img src={post.image.url} />
+```
+
 # Best Practices
 
 ## Pass `schema` when initializing Instant

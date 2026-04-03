@@ -604,3 +604,80 @@ InstantDB does not provide built-in username/password authentication.
 ✅ **Correction**: Use Instant's magic code or OAuth flows instead in client-side code
 
 If you need traditional password-based authentication, you must implement it as a custom auth flow using the Admin SDK.
+
+## Common mistakes with storage
+
+Files in Instant are first-class entities (`$files`), not URLs. You link them to your data via the schema and query through the relationship to get URLs.
+
+❌ **Common mistake**: Forgetting to declare `$files` in schema entities
+
+If you use Storage, you must include `$files` in your schema entities. Without it, you will get a runtime error.
+
+```typescript
+// ❌ Bad: Links reference $files but it's not declared in entities
+const _schema = i.schema({
+  entities: {
+    posts: i.entity({
+      caption: i.string(),
+    }),
+  },
+  links: {
+    postImage: {
+      forward: { on: 'posts', has: 'one', label: 'image' },
+      reverse: { on: '$files', has: 'many', label: 'posts' },
+    },
+  },
+});
+```
+
+✅ **Correction**: Declare `$files` in your schema entities
+
+```typescript
+// ✅ Good: $files is declared in entities
+const _schema = i.schema({
+  entities: {
+    $files: i.entity({
+      path: i.string().unique().indexed(),
+      url: i.string(),
+    }),
+    posts: i.entity({
+      caption: i.string(),
+    }),
+  },
+  links: {
+    postImage: {
+      forward: { on: 'posts', has: 'one', label: 'image' },
+      reverse: { on: '$files', has: 'many', label: 'posts' },
+    },
+  },
+});
+```
+
+❌ **Common mistake**: Storing the file URL as a string attribute
+
+```typescript
+// ❌ Bad: Storing the URL as an attribute on the entity
+const { data } = await db.storage.uploadFile(path, file);
+db.transact(db.tx.posts[id()].update({ imageUrl: data.url, caption }));
+
+// Then querying the URL from the attribute
+const { data } = db.useQuery({ posts: {} });
+<img src={post.imageUrl} />
+```
+
+✅ **Correction**: Link the `$files` entity and query through the relationship
+
+```typescript
+// ✅ Good: Link the file and query through the relationship
+const postId = id();
+const { data } = await db.storage.uploadFile(`posts/${postId}/${file.name}`, file);
+db.transact(
+  db.tx.posts[postId]
+    .update({ caption })
+    .link({ image: data.id })
+);
+
+// Query through the relationship to get the URL
+const { data } = db.useQuery({ posts: { image: {} } });
+<img src={post.image.url} />
+```
