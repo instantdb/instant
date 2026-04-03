@@ -67,7 +67,7 @@ export default function HomePage() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.5)_0%,transparent_70%)]" />
           }
         >
-          <div className="py-16 sm:py-24">
+          <div className="pt-16 sm:pt-24 sm:pb-18">
             <SocialProof />
             <div className="mt-16">
               <FirebaseTestimonial />
@@ -75,9 +75,9 @@ export default function HomePage() {
           </div>
         </LandingBand>
 
-        <Section id="built-for-ai">
+        <div className="landing-width mx-auto pt-16 pb-16">
           <BuiltForAI />
-        </Section>
+        </div>
 
         <LandingBand className="bg-[#F0F5FA]" fadeHeightClass="h-48">
           <Section id="startup-showcase">
@@ -85,9 +85,9 @@ export default function HomePage() {
           </Section>
         </LandingBand>
 
-        <Section id="batteries-for-ai">
+        <div className="landing-width mx-auto pt-18 pb-24">
           <BatteriesForAI />
-        </Section>
+        </div>
 
         <div className="bg-linear-to-b from-[#F7F7F7] to-white">
           <Section id="sync-engine">
@@ -96,12 +96,12 @@ export default function HomePage() {
         </div>
 
         <div className="bg-linear-to-b from-white via-[#F7F7F7] to-white">
-          <Section id="sync-relations">
+          <Section className="py-8 sm:py-8" id="sync-relations">
             <SyncRelations />
           </Section>
         </div>
 
-        <Section className="pt-0!">
+        <Section>
           <FinalCTA />
         </Section>
       </main>
