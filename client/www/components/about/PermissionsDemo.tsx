@@ -348,86 +348,88 @@ export function PermissionsDemo() {
             {visibleCount} of {ORDERS.length} visible
           </span>
         </div>
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-gray-100 text-[10px] text-gray-400">
-              <th className="px-4 py-1.5 font-medium">id</th>
-              <th className="px-4 py-1.5 font-medium">customer</th>
-              <th className="px-4 py-1.5 font-medium">item</th>
-              <th className="px-4 py-1.5 text-right font-medium">total</th>
-              <th className="px-4 py-1.5 font-medium">rule</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ORDERS.map((order, i) => {
-              const state = rowStates[i];
-              const result = results[i];
-              const dimmed = state === 'done' && !result.allowed;
-              const dimClass = dimmed
-                ? 'text-gray-400 line-through'
-                : 'text-gray-600';
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-gray-100 text-[10px] text-gray-400">
+                <th className="px-4 py-1.5 font-medium">id</th>
+                <th className="px-4 py-1.5 font-medium">customer</th>
+                <th className="px-4 py-1.5 font-medium">item</th>
+                <th className="px-4 py-1.5 text-right font-medium">total</th>
+                <th className="px-4 py-1.5 font-medium">rule</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ORDERS.map((order, i) => {
+                const state = rowStates[i];
+                const result = results[i];
+                const dimmed = state === 'done' && !result.allowed;
+                const dimClass = dimmed
+                  ? 'text-gray-400 line-through'
+                  : 'text-gray-600';
 
-              return (
-                <motion.tr
-                  key={order.id}
-                  className="border-b border-gray-50"
-                  animate={{
-                    backgroundColor:
-                      state === 'evaluating'
-                        ? 'rgba(249,115,22,0.08)'
-                        : 'rgba(249,115,22,0)',
-                  }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <td
-                    className={`px-4 py-1.5 font-mono text-[11px] ${dimClass}`}
+                return (
+                  <motion.tr
+                    key={order.id}
+                    className="border-b border-gray-50"
+                    animate={{
+                      backgroundColor:
+                        state === 'evaluating'
+                          ? 'rgba(249,115,22,0.08)'
+                          : 'rgba(249,115,22,0)',
+                    }}
+                    transition={{ duration: 0.15 }}
                   >
-                    {order.id}
-                  </td>
-                  <td
-                    className={`px-4 py-1.5 font-mono text-[11px] ${dimClass}`}
-                  >
-                    {order.customer}
-                  </td>
-                  <td
-                    className={`px-4 py-1.5 font-mono text-[11px] ${dimClass}`}
-                  >
-                    {order.item}
-                  </td>
-                  <td
-                    className={`px-4 py-1.5 text-right font-mono text-[11px] ${dimClass}`}
-                  >
-                    ${order.total}
-                  </td>
-                  <td className="relative px-4 py-1.5 font-mono text-[10px] whitespace-nowrap">
-                    <span className="invisible">
-                      isOwner → false, isAdmin → false
-                    </span>
-                    <span className="absolute inset-0 flex items-center px-4">
-                      {state === 'evaluating' ? (
-                        <span className="text-orange-500">evaluating...</span>
-                      ) : state === 'done' ? (
-                        <span
-                          className={
-                            result.error
-                              ? 'text-red-500'
-                              : result.allowed
-                                ? 'text-green-600'
-                                : 'text-red-400'
-                          }
-                        >
-                          {result.error
-                            ? 'error'
-                            : formatResult(result, viewRule)}
-                        </span>
-                      ) : null}
-                    </span>
-                  </td>
-                </motion.tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    <td
+                      className={`px-4 py-1.5 font-mono text-[11px] ${dimClass}`}
+                    >
+                      {order.id}
+                    </td>
+                    <td
+                      className={`px-4 py-1.5 font-mono text-[11px] ${dimClass}`}
+                    >
+                      {order.customer}
+                    </td>
+                    <td
+                      className={`px-4 py-1.5 font-mono text-[11px] ${dimClass}`}
+                    >
+                      {order.item}
+                    </td>
+                    <td
+                      className={`px-4 py-1.5 text-right font-mono text-[11px] ${dimClass}`}
+                    >
+                      ${order.total}
+                    </td>
+                    <td className="relative px-4 py-1.5 font-mono text-[10px] whitespace-nowrap">
+                      <span className="invisible">
+                        isOwner → false, isAdmin → false
+                      </span>
+                      <span className="absolute inset-0 flex items-center px-4">
+                        {state === 'evaluating' ? (
+                          <span className="text-orange-500">evaluating...</span>
+                        ) : state === 'done' ? (
+                          <span
+                            className={
+                              result.error
+                                ? 'text-red-500'
+                                : result.allowed
+                                  ? 'text-green-600'
+                                  : 'text-red-400'
+                            }
+                          >
+                            {result.error
+                              ? 'error'
+                              : formatResult(result, viewRule)}
+                          </span>
+                        ) : null}
+                      </span>
+                    </td>
+                  </motion.tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -231,10 +231,10 @@ export function WALInvalidationDemo() {
 
   return (
     <div className="flex flex-col gap-3 sm:h-[508px] sm:flex-row sm:gap-4">
-      {/* Left column: todo app on top, query switcher on bottom */}
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
+      {/* Left column: contents on mobile so order works, flex-col on desktop */}
+      <div className="contents sm:flex sm:min-w-0 sm:flex-1 sm:flex-col sm:gap-3">
         {/* Mini todo app */}
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="order-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:order-none">
           <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/60 px-4 py-2">
             <span className="text-xs font-medium text-gray-400">My Todos</span>
             <button
@@ -257,7 +257,7 @@ export function WALInvalidationDemo() {
               Add
             </button>
           </div>
-          <div className="h-[150px] overflow-y-auto">
+          <div className="h-[100px] overflow-y-auto sm:h-[150px]">
             <AnimatePresence initial={false}>
               {todos.map((todo) => (
                 <motion.div
@@ -323,7 +323,7 @@ export function WALInvalidationDemo() {
 
         {/* Query switcher — fixed height */}
         <motion.div
-          className="flex h-[310px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+          className="order-3 flex h-[220px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:order-none sm:h-[310px]"
           animate={{
             borderColor: invalidated.has(query.id) ? '#f97316' : '#e5e7eb',
           }}
@@ -348,97 +348,101 @@ export function WALInvalidationDemo() {
             </Select>
           </div>
 
-          {/* Query content — fixed height */}
-          <div className="px-3 py-2">
-            <div className="font-mono text-[11px]">{query.instaql}</div>
-          </div>
-
-          <div className="border-t border-gray-50 px-3 py-2">
-            <div className="text-[9px] font-medium tracking-wider text-gray-300 uppercase">
-              Topics
+          {/* Scrollable content below selector */}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="px-3 py-2">
+              <div className="font-mono text-[11px]">{query.instaql}</div>
             </div>
-            <div className="mt-0.5 space-y-0.5 font-mono text-[10px]">
-              <div
-                className={`rounded px-1 py-0.5 transition-colors duration-300 ${
-                  invalidatedTopics.has(`${query.id}-index`)
-                    ? 'bg-orange-100 text-orange-600'
-                    : 'text-gray-400'
-                }`}
-              >
-                {query.indexTopic}
-              </div>
-              <div
-                className={`rounded px-1 py-0.5 transition-colors duration-300 ${
-                  invalidatedTopics.has(`${query.id}-entity`)
-                    ? 'bg-orange-100 text-orange-600'
-                    : 'text-gray-400'
-                }`}
-              >
-                <EntityTopic ids={queryResults.map((r) => r.id)} />
-              </div>
-            </div>
-          </div>
 
-          <div className="flex min-h-0 flex-1 flex-col border-t border-gray-50 px-3 py-2">
-            <div className="relative flex items-center">
+            <div className="border-t border-gray-50 px-3 py-2">
               <div className="text-[9px] font-medium tracking-wider text-gray-300 uppercase">
-                Results
+                Topics
               </div>
-              <AnimatePresence>
-                {invalidated.has(query.id) && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="absolute left-[46px] rounded-full bg-orange-100 px-1.5 py-0.5 text-[8px] font-medium text-orange-600"
-                  >
-                    refreshing
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </div>
-            <div className="mt-1 min-h-0 flex-1 space-y-0.5 overflow-y-auto">
-              {queryResults.map((r) => (
+              <div className="mt-0.5 space-y-0.5 font-mono text-[10px]">
                 <div
-                  key={r.id}
-                  className="flex items-center gap-1.5 font-mono text-[11px] text-gray-600"
+                  className={`rounded px-1 py-0.5 transition-colors duration-300 ${
+                    invalidatedTopics.has(`${query.id}-index`)
+                      ? 'bg-orange-100 text-orange-600'
+                      : 'text-gray-400'
+                  }`}
                 >
+                  {query.indexTopic}
+                </div>
+                <div
+                  className={`rounded px-1 py-0.5 transition-colors duration-300 ${
+                    invalidatedTopics.has(`${query.id}-entity`)
+                      ? 'bg-orange-100 text-orange-600'
+                      : 'text-gray-400'
+                  }`}
+                >
+                  <EntityTopic ids={queryResults.map((r) => r.id)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-50 px-3 py-2">
+              <div className="relative flex items-center">
+                <div className="text-[9px] font-medium tracking-wider text-gray-300 uppercase">
+                  Results
+                </div>
+                <AnimatePresence>
+                  {invalidated.has(query.id) && (
+                    <motion.span
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute left-[46px] rounded-full bg-orange-100 px-1.5 py-0.5 text-[8px] font-medium text-orange-600"
+                    >
+                      refreshing
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+              <div className="mt-1 space-y-0.5">
+                {queryResults.map((r) => (
                   <div
-                    className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border opacity-40 ${
-                      r.done ? 'border-gray-400 bg-gray-400' : 'border-gray-300'
-                    }`}
+                    key={r.id}
+                    className="flex items-center gap-1.5 font-mono text-[11px] text-gray-600"
                   >
-                    {r.done && (
-                      <svg
-                        className="h-2.5 w-2.5 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={3}
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="m4.5 12.75 6 6 9-13.5"
-                        />
-                      </svg>
-                    )}
+                    <div
+                      className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border opacity-40 ${
+                        r.done
+                          ? 'border-gray-400 bg-gray-400'
+                          : 'border-gray-300'
+                      }`}
+                    >
+                      {r.done && (
+                        <svg
+                          className="h-2.5 w-2.5 text-white"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={3}
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="m4.5 12.75 6 6 9-13.5"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    {r.title}
                   </div>
-                  {r.title}
-                </div>
-              ))}
-              {queryResults.length === 0 && (
-                <div className="text-[11px] text-gray-300 italic">
-                  No results
-                </div>
-              )}
+                ))}
+                {queryResults.length === 0 && (
+                  <div className="text-[11px] text-gray-300 italic">
+                    No results
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>
       </div>
 
       {/* Right column: WAL stream — full height */}
-      <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:w-[250px] sm:shrink-0 sm:self-stretch">
+      <div className="order-2 flex h-[200px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:order-none sm:h-auto sm:w-[250px] sm:shrink-0 sm:self-stretch">
         <div className="border-b border-gray-200 bg-gray-50/80 px-4 py-2 text-[10px] font-medium tracking-wider text-gray-400 uppercase">
           WAL Stream
         </div>
