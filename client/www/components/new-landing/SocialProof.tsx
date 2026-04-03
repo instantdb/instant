@@ -54,7 +54,7 @@ export function SocialProof() {
   const stats = [
     {
       value: connectionCount ? (
-        <RollingNumber value={connectionCount} format={formatNumberCompact} />
+        <RollingNumber value={connectionCount} />
       ) : undefined,
       label: 'concurrent connections',
     },
