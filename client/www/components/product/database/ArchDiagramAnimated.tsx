@@ -11,7 +11,7 @@ const STROKE = {
   strokeLinejoin: 'round' as const,
 };
 
-const CONVERGE = { x: 280, y: 212 };
+const CONVERGE = { x: 280, y: 172 };
 
 // ─── SVG pieces ─────────────────────────────────────────
 
@@ -55,21 +55,21 @@ function WebSocketsBox() {
 function AppScreen() {
   return (
     <>
-      <rect x={545} y={115} width={160} height={195} rx={12} fill="white" {...STROKE} />
-      <circle cx={563} cy={132} r={3.5} fill="#ddd" stroke="none" />
-      <circle cx={574} cy={132} r={3.5} fill="#ddd" stroke="none" />
-      <circle cx={585} cy={132} r={3.5} fill="#ddd" stroke="none" />
-      <line x1={545} y1={143} x2={705} y2={143} stroke="#e0e0e0" strokeWidth={1} />
-      <circle cx={566} cy={165} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
-      <rect x={580} y={161} width={100} height={7} rx={3.5} fill="#ddd" stroke="none" />
-      <circle cx={566} cy={190} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
-      <rect x={580} y={186} width={80} height={7} rx={3.5} fill="#ddd" stroke="none" />
-      <circle cx={566} cy={215} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
-      <rect x={580} y={211} width={110} height={7} rx={3.5} fill="#ddd" stroke="none" />
-      <circle cx={566} cy={240} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
-      <rect x={580} y={236} width={70} height={7} rx={3.5} fill="#ddd" stroke="none" />
-      <rect x={556} y={268} width={138} height={28} rx={8} fill="#f0f0f0" stroke="#ddd" strokeWidth={1} />
-      <rect x={566} y={278} width={65} height={7} rx={3.5} fill="#ccc" stroke="none" />
+      <rect x={545} y={75} width={160} height={195} rx={12} fill="white" {...STROKE} />
+      <circle cx={563} cy={92} r={3.5} fill="#ddd" stroke="none" />
+      <circle cx={574} cy={92} r={3.5} fill="#ddd" stroke="none" />
+      <circle cx={585} cy={92} r={3.5} fill="#ddd" stroke="none" />
+      <line x1={545} y1={103} x2={705} y2={103} stroke="#e0e0e0" strokeWidth={1} />
+      <circle cx={566} cy={125} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
+      <rect x={580} y={121} width={100} height={7} rx={3.5} fill="#ddd" stroke="none" />
+      <circle cx={566} cy={150} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
+      <rect x={580} y={146} width={80} height={7} rx={3.5} fill="#ddd" stroke="none" />
+      <circle cx={566} cy={175} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
+      <rect x={580} y={171} width={110} height={7} rx={3.5} fill="#ddd" stroke="none" />
+      <circle cx={566} cy={200} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
+      <rect x={580} y={196} width={70} height={7} rx={3.5} fill="#ddd" stroke="none" />
+      <rect x={556} y={228} width={138} height={28} rx={8} fill="#f0f0f0" stroke="#ddd" strokeWidth={1} />
+      <rect x={566} y={238} width={65} height={7} rx={3.5} fill="#ccc" stroke="none" />
     </>
   );
 }
@@ -77,8 +77,8 @@ function AppScreen() {
 function OptimisticUpdates() {
   return (
     <>
-      <rect x={520} y={55} width={210} height={42} rx={10} fill="white" {...STROKE} />
-      <text x={625} y={82} textAnchor="middle" fill="#1d1d1d" fontSize={18} fontFamily="sans-serif">
+      <rect x={520} y={15} width={210} height={42} rx={10} fill="white" {...STROKE} />
+      <text x={625} y={42} textAnchor="middle" fill="#1d1d1d" fontSize={18} fontFamily="sans-serif">
         Optimistic Updates
       </text>
     </>
@@ -88,12 +88,12 @@ function OptimisticUpdates() {
 function IndexedDBCylinder() {
   return (
     <>
-      <rect x={755} y={120} width={110} height={80} fill="white" stroke="none" />
-      <line x1={755} y1={120} x2={755} y2={200} {...STROKE} />
-      <line x1={865} y1={120} x2={865} y2={200} {...STROKE} />
-      <ellipse cx={810} cy={200} rx={55} ry={17} fill="white" {...STROKE} />
-      <ellipse cx={810} cy={120} rx={55} ry={17} fill="white" {...STROKE} />
-      <text x={810} y={166} textAnchor="middle" fill="#1d1d1d" fontSize={18} fontFamily="sans-serif">
+      <rect x={755} y={80} width={110} height={80} fill="white" stroke="none" />
+      <line x1={755} y1={80} x2={755} y2={160} {...STROKE} />
+      <line x1={865} y1={80} x2={865} y2={160} {...STROKE} />
+      <ellipse cx={810} cy={160} rx={55} ry={17} fill="white" {...STROKE} />
+      <ellipse cx={810} cy={80} rx={55} ry={17} fill="white" {...STROKE} />
+      <text x={810} y={126} textAnchor="middle" fill="#1d1d1d" fontSize={18} fontFamily="sans-serif">
         IndexedDB
       </text>
     </>
@@ -106,24 +106,24 @@ const infraPieces = [
   { key: 'db', render: DBCylinder, cx: 90, cy: 200 },
   { key: 'wal', render: WALBox, cx: 310, cy: 50 },
   { key: 'websockets', render: WebSocketsBox, cx: 310, cy: 185 },
-  { key: 'indexeddb', render: IndexedDBCylinder, cx: 810, cy: 160 },
-  { key: 'optimistic', render: OptimisticUpdates, cx: 625, cy: 76 },
+  { key: 'indexeddb', render: IndexedDBCylinder, cx: 810, cy: 120 },
+  { key: 'optimistic', render: OptimisticUpdates, cx: 625, cy: 36 },
 ];
 
 const connectionLines = [
   'M 90 115 L 90 50 L 190 50',
   'M 310 77 L 310 130',
-  'M 390 178 L 545 178',
-  'M 390 192 L 545 192',
-  'M 755 160 L 705 160',
-  'M 730 76 L 810 76 L 810 103',
-  'M 625 97 L 625 115',
+  'M 390 165 L 545 165',
+  'M 390 180 L 545 180',
+  'M 755 120 L 705 120',
+  'M 730 36 L 810 36 L 810 63',
+  'M 625 57 L 625 75',
 ];
 
-// Centered at app vertical center (y=212)
+// Centered at app vertical center (y=172)
 const instantToAppLines = [
-  'M 325 205 L 545 205',
-  'M 325 220 L 545 220',
+  'M 325 165 L 545 165',
+  'M 325 180 L 545 180',
 ];
 
 // ─── Component ──────────────────────────────────────────
