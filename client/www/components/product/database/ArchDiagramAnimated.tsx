@@ -18,12 +18,26 @@ const CONVERGE = { x: 280, y: 172 };
 function DBCylinder() {
   return (
     <>
-      <rect x={35} y={135} width={110} height={130} fill="white" stroke="none" />
+      <rect
+        x={35}
+        y={135}
+        width={110}
+        height={130}
+        fill="white"
+        stroke="none"
+      />
       <line x1={35} y1={135} x2={35} y2={265} {...STROKE} />
       <line x1={145} y1={135} x2={145} y2={265} {...STROKE} />
       <ellipse cx={90} cy={265} rx={55} ry={20} fill="white" {...STROKE} />
       <ellipse cx={90} cy={135} rx={55} ry={20} fill="white" {...STROKE} />
-      <text x={90} y={210} textAnchor="middle" fill="#1d1d1d" fontSize={18} fontFamily="sans-serif">
+      <text
+        x={90}
+        y={210}
+        textAnchor="middle"
+        fill="#1d1d1d"
+        fontSize={18}
+        fontFamily="sans-serif"
+      >
         DB
       </text>
     </>
@@ -33,8 +47,23 @@ function DBCylinder() {
 function WALBox() {
   return (
     <>
-      <rect x={190} y={22} width={240} height={55} rx={10} fill="white" {...STROKE} />
-      <text x={310} y={57} textAnchor="middle" fill="#1d1d1d" fontSize={18} fontFamily="sans-serif">
+      <rect
+        x={190}
+        y={22}
+        width={240}
+        height={55}
+        rx={10}
+        fill="white"
+        {...STROKE}
+      />
+      <text
+        x={310}
+        y={57}
+        textAnchor="middle"
+        fill="#1d1d1d"
+        fontSize={18}
+        fontFamily="sans-serif"
+      >
         WAL
       </text>
     </>
@@ -44,8 +73,23 @@ function WALBox() {
 function WebSocketsBox() {
   return (
     <>
-      <rect x={230} y={130} width={160} height={110} rx={12} fill="white" {...STROKE} />
-      <text x={310} y={192} textAnchor="middle" fill="#1d1d1d" fontSize={18} fontFamily="sans-serif">
+      <rect
+        x={230}
+        y={130}
+        width={160}
+        height={110}
+        rx={12}
+        fill="white"
+        {...STROKE}
+      />
+      <text
+        x={310}
+        y={192}
+        textAnchor="middle"
+        fill="#1d1d1d"
+        fontSize={18}
+        fontFamily="sans-serif"
+      >
         WebSockets
       </text>
     </>
@@ -55,21 +99,113 @@ function WebSocketsBox() {
 function AppScreen() {
   return (
     <>
-      <rect x={545} y={75} width={160} height={195} rx={12} fill="white" {...STROKE} />
+      <rect
+        x={545}
+        y={75}
+        width={160}
+        height={195}
+        rx={12}
+        fill="white"
+        {...STROKE}
+      />
       <circle cx={563} cy={92} r={3.5} fill="#ddd" stroke="none" />
       <circle cx={574} cy={92} r={3.5} fill="#ddd" stroke="none" />
       <circle cx={585} cy={92} r={3.5} fill="#ddd" stroke="none" />
-      <line x1={545} y1={103} x2={705} y2={103} stroke="#e0e0e0" strokeWidth={1} />
-      <circle cx={566} cy={125} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
-      <rect x={580} y={121} width={100} height={7} rx={3.5} fill="#ddd" stroke="none" />
-      <circle cx={566} cy={150} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
-      <rect x={580} y={146} width={80} height={7} rx={3.5} fill="#ddd" stroke="none" />
-      <circle cx={566} cy={175} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
-      <rect x={580} y={171} width={110} height={7} rx={3.5} fill="#ddd" stroke="none" />
-      <circle cx={566} cy={200} r={6} fill="none" stroke="#ccc" strokeWidth={1.5} />
-      <rect x={580} y={196} width={70} height={7} rx={3.5} fill="#ddd" stroke="none" />
-      <rect x={556} y={228} width={138} height={28} rx={8} fill="#f0f0f0" stroke="#ddd" strokeWidth={1} />
-      <rect x={566} y={238} width={65} height={7} rx={3.5} fill="#ccc" stroke="none" />
+      <line
+        x1={545}
+        y1={103}
+        x2={705}
+        y2={103}
+        stroke="#e0e0e0"
+        strokeWidth={1}
+      />
+      <circle
+        cx={566}
+        cy={125}
+        r={6}
+        fill="none"
+        stroke="#ccc"
+        strokeWidth={1.5}
+      />
+      <rect
+        x={580}
+        y={121}
+        width={100}
+        height={7}
+        rx={3.5}
+        fill="#ddd"
+        stroke="none"
+      />
+      <circle
+        cx={566}
+        cy={150}
+        r={6}
+        fill="none"
+        stroke="#ccc"
+        strokeWidth={1.5}
+      />
+      <rect
+        x={580}
+        y={146}
+        width={80}
+        height={7}
+        rx={3.5}
+        fill="#ddd"
+        stroke="none"
+      />
+      <circle
+        cx={566}
+        cy={175}
+        r={6}
+        fill="none"
+        stroke="#ccc"
+        strokeWidth={1.5}
+      />
+      <rect
+        x={580}
+        y={171}
+        width={110}
+        height={7}
+        rx={3.5}
+        fill="#ddd"
+        stroke="none"
+      />
+      <circle
+        cx={566}
+        cy={200}
+        r={6}
+        fill="none"
+        stroke="#ccc"
+        strokeWidth={1.5}
+      />
+      <rect
+        x={580}
+        y={196}
+        width={70}
+        height={7}
+        rx={3.5}
+        fill="#ddd"
+        stroke="none"
+      />
+      <rect
+        x={556}
+        y={228}
+        width={138}
+        height={28}
+        rx={8}
+        fill="#f0f0f0"
+        stroke="#ddd"
+        strokeWidth={1}
+      />
+      <rect
+        x={566}
+        y={238}
+        width={65}
+        height={7}
+        rx={3.5}
+        fill="#ccc"
+        stroke="none"
+      />
     </>
   );
 }
@@ -77,8 +213,23 @@ function AppScreen() {
 function OptimisticUpdates() {
   return (
     <>
-      <rect x={520} y={15} width={210} height={42} rx={10} fill="white" {...STROKE} />
-      <text x={625} y={42} textAnchor="middle" fill="#1d1d1d" fontSize={18} fontFamily="sans-serif">
+      <rect
+        x={520}
+        y={15}
+        width={210}
+        height={42}
+        rx={10}
+        fill="white"
+        {...STROKE}
+      />
+      <text
+        x={625}
+        y={42}
+        textAnchor="middle"
+        fill="#1d1d1d"
+        fontSize={18}
+        fontFamily="sans-serif"
+      >
         Optimistic Updates
       </text>
     </>
@@ -93,7 +244,14 @@ function IndexedDBCylinder() {
       <line x1={865} y1={80} x2={865} y2={160} {...STROKE} />
       <ellipse cx={810} cy={160} rx={55} ry={17} fill="white" {...STROKE} />
       <ellipse cx={810} cy={80} rx={55} ry={17} fill="white" {...STROKE} />
-      <text x={810} y={126} textAnchor="middle" fill="#1d1d1d" fontSize={18} fontFamily="sans-serif">
+      <text
+        x={810}
+        y={126}
+        textAnchor="middle"
+        fill="#1d1d1d"
+        fontSize={18}
+        fontFamily="sans-serif"
+      >
         IndexedDB
       </text>
     </>
@@ -121,10 +279,7 @@ const connectionLines = [
 ];
 
 // Centered at app vertical center (y=172)
-const instantToAppLines = [
-  'M 325 165 L 545 165',
-  'M 325 180 L 545 180',
-];
+const instantToAppLines = ['M 325 165 L 545 165', 'M 325 180 L 545 180'];
 
 // ─── Component ──────────────────────────────────────────
 
@@ -162,9 +317,7 @@ export function ArchDiagramAnimated() {
 
   const isIdle = phase === 'idle';
   const linesOut = !isIdle;
-  const isConverging = ['converge', 'instant', 'instant-lines'].includes(
-    phase,
-  );
+  const isConverging = ['converge', 'instant', 'instant-lines'].includes(phase);
   const showInstant = ['instant', 'instant-lines'].includes(phase);
   const showInstantLines = phase === 'instant-lines';
 
