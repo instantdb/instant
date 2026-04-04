@@ -1,12 +1,9 @@
 'use client';
 
 import { MainNav, ProductNav, Link } from '@/components/marketingUi';
-import { cn } from '@/components/ui';
 import {
   queryExamples,
   transactionExamples,
-  typicalArch,
-  instantArch,
 } from '@/lib/product/database/examples';
 import {
   AnimatedTerminal,
@@ -23,55 +20,7 @@ import { Footer } from '@/components/new-landing/Footer';
 import { TopWash } from '@/components/new-landing/TopWash';
 import { AnimateIn } from '@/components/new-landing/AnimateIn';
 import { TabbedCodeExample } from '@/components/new-landing/TabbedCodeExample';
-
-function DiagramPre({
-  diagram,
-  highlights = [],
-  className,
-}: {
-  diagram: string;
-  highlights?: string[];
-  className?: string;
-}) {
-  const parts =
-    highlights.length === 0
-      ? [diagram]
-      : diagram.split(
-          new RegExp(
-            `(${highlights.map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
-            'g',
-          ),
-        );
-
-  return (
-    <div className={cn('overflow-x-auto rounded-lg border p-5', className)}>
-      <pre className="mx-auto w-fit font-mono text-xs leading-none text-gray-600">
-        {parts.map((part, i) =>
-          highlights.includes(part) ? (
-            <span key={i} className="text-orange-500">
-              {part}
-            </span>
-          ) : (
-            part
-          ),
-        )}
-      </pre>
-    </div>
-  );
-}
-
-function ArchDiagram() {
-  return (
-    <div className="flex flex-col gap-3">
-      <DiagramPre diagram={typicalArch} className="bg-gray-50" />
-      <DiagramPre
-        diagram={instantArch}
-        highlights={['With Instant', '{ todos: {} }', 'realtime data']}
-        className="bg-gray-50"
-      />
-    </div>
-  );
-}
+import { ArchDiagramAnimated } from '@/components/product/database/ArchDiagramAnimated';
 
 export default function Database() {
   const description =
@@ -202,7 +151,7 @@ export default function Database() {
                 </p>
               </div>
               <div className="grow lg:bg-radial lg:from-white lg:to-[#FFF9F4] lg:px-[66px] lg:py-[37px]">
-                <ArchDiagram />
+                <ArchDiagramAnimated />
               </div>
             </div>
           </AnimateIn>
