@@ -15,6 +15,7 @@ import { InstantApp } from '@/lib/types';
 import { useReadyRouter } from '../clientOnlyPage';
 import { useDarkMode } from './DarkModeToggle';
 import { Toaster } from '@instantdb/components';
+import { useRouter } from 'next/router';
 
 export type FetchedDash = ReturnType<typeof useFetchedDash>;
 
@@ -126,6 +127,7 @@ export const MainDashLayout: React.FC<{
   className?: string;
 }> = ({ children, className }) => {
   const token = useAuthToken();
+  const router = useRouter();
 
   const tickets = useTicketSystem();
   const { darkMode } = useDarkMode();
@@ -135,8 +137,21 @@ export const MainDashLayout: React.FC<{
     document.documentElement.style.colorScheme = darkMode ? 'dark' : 'light';
   }, [darkMode]);
 
+  const handleVerified = () => {
+    const returnTo = router.query['return-to'];
+    if (returnTo && typeof returnTo === 'string') {
+      router.replace(returnTo);
+    }
+  };
+
   if (!token) {
-    return <Auth key="anonymous" ticket={tickets.cliNormalTicket} />;
+    return (
+      <Auth
+        key="anonymous"
+        ticket={tickets.cliNormalTicket}
+        onVerified={handleVerified}
+      />
+    );
   }
 
   return (
