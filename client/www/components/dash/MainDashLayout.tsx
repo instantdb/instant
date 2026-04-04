@@ -139,7 +139,13 @@ export const MainDashLayout: React.FC<{
 
   const handleVerified = () => {
     const returnTo = router.query['return-to'];
-    if (returnTo && typeof returnTo === 'string') {
+    if (
+      returnTo &&
+      typeof returnTo === 'string' &&
+      // Prevent an open redirect
+      returnTo.startsWith('/') &&
+      !returnTo.startsWith('//')
+    ) {
       router.replace(returnTo);
     }
   };
