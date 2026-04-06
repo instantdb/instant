@@ -141,6 +141,9 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 };
 
+// Berkeley Mono is a licensed font that we can't check into the repo.
+// We fetch it from S3 on startup (dev server or build) so it ends up in the
+// bundle but never in source control. See .gitignore for the exclusion.
 const BERKELEY_MONO_FONTS = [
   'BerkeleyMono-Regular.woff2',
   'BerkeleyMono-Italic.woff2',
