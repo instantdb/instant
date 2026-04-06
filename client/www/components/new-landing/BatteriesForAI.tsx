@@ -60,6 +60,8 @@ export function AuthDemo() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@email.com"
                 onKeyDown={(e) => e.key === 'Enter' && handleSendCode()}
+                data-lpignore="true"
+                autoComplete="off"
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-700 placeholder:text-gray-400 focus:border-orange-300 focus:ring-1 focus:ring-orange-200 focus:outline-none"
               />
 
@@ -666,7 +668,7 @@ function StorageDemo() {
               <span className="text-xs font-semibold text-gray-900">stopa</span>
             </div>
             {/* Photo */}
-            <div className="relative aspect-square w-full overflow-visible">
+            <div className="relative w-full overflow-visible" style={{ aspectRatio: '4/3' }}>
               <img
                 src="/img/landing/dog-post.jpg"
                 alt="Dog licking a spoon"
