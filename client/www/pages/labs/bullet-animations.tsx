@@ -147,9 +147,9 @@ function PlayButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="absolute inset-0 z-20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200 bg-black/20"
+      className="absolute inset-0 z-20 flex items-center justify-center group cursor-pointer"
     >
-      <div className="w-16 h-16 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/20">
+      <div className="w-16 h-16 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         <svg
           width="24"
           height="24"
@@ -165,11 +165,17 @@ function PlayButton({ onClick }: { onClick: () => void }) {
 }
 
 export default function BulletAnimationsPage() {
+  const [keys, setKeys] = useState<number[]>(ANIMATIONS.map(() => 0));
   const [triggers, setTriggers] = useState<boolean[]>(
     ANIMATIONS.map(() => false),
   );
 
   const replay = useCallback((index: number) => {
+    setKeys((prev) => {
+      const next = [...prev];
+      next[index] = prev[index] + 1;
+      return next;
+    });
     setTriggers((prev) => {
       const next = [...prev];
       next[index] = false;
@@ -181,14 +187,15 @@ export default function BulletAnimationsPage() {
         next[index] = true;
         return next;
       });
-    }, 50);
+    }, 100);
   }, []);
 
   const replayAll = useCallback(() => {
+    setKeys((prev) => prev.map((k) => k + 1));
     setTriggers(ANIMATIONS.map(() => false));
     setTimeout(() => {
       setTriggers(ANIMATIONS.map(() => true));
-    }, 50);
+    }, 100);
   }, []);
 
   useEffect(() => {
@@ -241,7 +248,7 @@ export default function BulletAnimationsPage() {
                       fontSize: "clamp(14px, 1.8vw, 32px)",
                     }}
                   >
-                    <anim.Component trigger={triggers[i]} />
+                    <anim.Component key={keys[i]} trigger={triggers[i]} />
                   </div>
                 </div>
                 {/* Label */}
