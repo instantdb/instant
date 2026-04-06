@@ -11,6 +11,7 @@ import { StartupShowcase } from '@/components/new-landing/StartupShowcase';
 import { FirebaseTestimonial } from '@/components/new-landing/FirebaseTestimonial';
 import { FinalCTA } from '@/components/new-landing/FinalCTA';
 import { Footer } from '@/components/new-landing/Footer';
+import { fetchTotalSessionsCount } from '@/lib/hooks/fetchTotalSessionsCount';
 import type { ReactNode } from 'react';
 export const metadata: Metadata = {
   title: 'Instant',
@@ -48,7 +49,15 @@ function LandingBand({
   );
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  let initialConnectionCount: number | undefined;
+  try {
+    const body = await fetchTotalSessionsCount({ next: { revalidate: 30 } });
+    initialConnectionCount = (body['total-count'] as number) || undefined;
+  } catch {
+    initialConnectionCount = undefined;
+  }
+
   return (
     <div className="text-off-black w-full overflow-x-auto">
       <MainNav />
@@ -68,7 +77,7 @@ export default function HomePage() {
           }
         >
           <div className="pt-16 sm:pt-24 sm:pb-18">
-            <SocialProof />
+            <SocialProof initialConnectionCount={initialConnectionCount} />
             <div className="mt-16">
               <FirebaseTestimonial />
             </div>
