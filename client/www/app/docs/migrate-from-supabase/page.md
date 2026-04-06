@@ -1,6 +1,8 @@
 ---
-title: Migrating from Supabase
-description: A prompt for your AI coding assistant to migrate a Supabase project to InstantDB.
+nextjs:
+  metadata:
+    title: Migrating from Supabase
+    description: A prompt for your AI coding assistant to migrate a Supabase project to InstantDB.
 ---
 
 Want to give Instant a try but already have a Supabase project? No problem!

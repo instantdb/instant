@@ -1,6 +1,8 @@
 ---
-title: Infinite Queries
-description: How to subscribe to large amounts of data incrementally
+nextjs:
+  metadata:
+    title: Infinite Queries
+    description: How to subscribe to large amounts of data incrementally
 ---
 
 It is a common pattern to show users a long list of items that gets larger as they interact. Instant supports this pattern with the `useInfiniteQuery` hook.

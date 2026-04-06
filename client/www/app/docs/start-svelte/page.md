@@ -1,6 +1,8 @@
 ---
-title: Getting started with Svelte
-description: How to use Instant with SvelteKit and Svelte 5
+nextjs:
+  metadata:
+    title: Getting started with Svelte
+    description: How to use Instant with SvelteKit and Svelte 5
 ---
 
 ## Automatic Setup With Create Instant App
