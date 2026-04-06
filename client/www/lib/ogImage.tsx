@@ -1,31 +1,18 @@
 import { ImageResponse } from '@vercel/og';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 const SIZE = { width: 1200, height: 630 };
 
-const berkMonoRegularUrl = new URL(
-  '../public/fonts/BerkeleyMono-Regular.ttf',
-  import.meta.url,
-);
-const berkMonoBoldUrl = new URL(
-  '../public/fonts/BerkeleyMono-Bold.ttf',
-  import.meta.url,
-);
-const switzerRegularUrl = new URL(
-  '../public/fonts/Switzer-Regular.woff',
-  import.meta.url,
-);
-const switzerSemiboldUrl = new URL(
-  '../public/fonts/Switzer-Semibold.woff',
-  import.meta.url,
-);
+function readFont(filename: string): Buffer {
+  return readFileSync(join(process.cwd(), 'public', 'fonts', filename));
+}
 
 export async function loadFonts() {
-  const [berkRegular, berkBold, swRegular, swSemibold] = await Promise.all([
-    fetch(berkMonoRegularUrl).then((r) => r.arrayBuffer()),
-    fetch(berkMonoBoldUrl).then((r) => r.arrayBuffer()),
-    fetch(switzerRegularUrl).then((r) => r.arrayBuffer()),
-    fetch(switzerSemiboldUrl).then((r) => r.arrayBuffer()),
-  ]);
+  const berkRegular = readFont('BerkeleyMono-Regular.ttf');
+  const berkBold = readFont('BerkeleyMono-Bold.ttf');
+  const swRegular = readFont('Switzer-Regular.woff');
+  const swSemibold = readFont('Switzer-Semibold.woff');
   return [
     {
       name: 'Berkeley Mono',
