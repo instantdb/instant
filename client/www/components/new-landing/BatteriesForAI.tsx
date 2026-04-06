@@ -33,6 +33,22 @@ export function AuthDemo() {
     timeoutsRef.current.push(t);
   };
 
+  const [avatarSrc, setAvatarSrc] = useState('');
+
+  const preloadAvatar = useCallback(
+    (name: string) =>
+      fetch(`/api/avatar?name=${encodeURIComponent(name)}&size=48`)
+        .then((r) => r.blob())
+        .then((blob) => {
+          const url = URL.createObjectURL(blob);
+          setAvatarSrc(url);
+        })
+        .catch(() => {
+          setAvatarSrc(`/api/avatar?name=${encodeURIComponent(name)}&size=48`);
+        }),
+    [],
+  );
+
   const handleSendCode = () => {
     const derived = email.includes('@')
       ? email.split('@')[0].charAt(0).toUpperCase() +
@@ -42,6 +58,8 @@ export function AuthDemo() {
     setTypedCode('');
     setView('verify');
 
+    const avatarReady = preloadAvatar(derived);
+
     const code = '424242';
     let t = 400;
     for (let i = 1; i <= code.length; i++) {
@@ -49,12 +67,15 @@ export function AuthDemo() {
       sched(() => setTypedCode(text), t + i * 80);
     }
     t += code.length * 80 + 600;
-    sched(() => setView('success'), t);
+    sched(
+      () => avatarReady.then(() => setView('success')),
+      t,
+    );
   };
 
   const handleSocial = (provider: string) => {
     setName(provider);
-    setView('success');
+    preloadAvatar(provider).then(() => setView('success'));
   };
 
   return (
@@ -162,9 +183,11 @@ export function AuthDemo() {
               transition={{ duration: 0.25 }}
               className="flex flex-col items-center gap-3 rounded-xl bg-white p-8 shadow-sm"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 text-lg font-semibold text-orange-600">
-                {name[0]}
-              </div>
+              <img
+                src={avatarSrc}
+                alt={name}
+                className="h-12 w-12 rounded-full"
+              />
               <p className="text-sm font-semibold text-gray-800">
                 Welcome, {name}!
               </p>
