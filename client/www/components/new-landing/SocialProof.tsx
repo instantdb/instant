@@ -6,6 +6,9 @@ import { Subheading } from './typography';
 import { useStarCount } from '@/lib/starCountContext';
 import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
 import { formatNumberCompact } from '@/lib/format';
+import { StarBurst, useStarBurst } from '@/components/StarBurst';
+import { RollingNumber } from '@/components/RollingNumber';
+import { instantRepo } from '@/lib/config';
 
 const backers = [
   {
@@ -41,7 +44,8 @@ const backers = [
 ];
 
 export function SocialProof() {
-  const starCount = useStarCount();
+  const { particles, burst, removeParticle } = useStarBurst();
+  const starCount = useStarCount(instantRepo, burst);
 
   const { data: connectionCount } = useTotalSessionsCount({
     refreshSeconds: 3,
@@ -49,11 +53,20 @@ export function SocialProof() {
 
   const stats = [
     {
-      value: connectionCount ? formatNumberCompact(connectionCount) : undefined,
+      value: connectionCount ? (
+        <RollingNumber value={connectionCount} />
+      ) : undefined,
       label: 'concurrent connections',
     },
     { value: '1,000+', label: 'queries per second' },
-    { value: starCount, label: 'github stars' },
+    {
+      value: (
+        <StarBurst particles={particles} removeParticle={removeParticle}>
+          <RollingNumber value={starCount} />
+        </StarBurst>
+      ),
+      label: 'github stars',
+    },
   ];
 
   return (

@@ -4,8 +4,6 @@ import '../styles/docs/tailwind.css';
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Providers } from './providers';
-import { getGithubStarCount } from '@/lib/getGithubStars';
-import { StarCountProvider } from '@/lib/starCountContext';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -60,7 +58,6 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const starCount = await getGithubStarCount();
   return (
     <html lang="en">
       <head>
@@ -108,11 +105,7 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        <Providers>
-          <StarCountProvider starCount={starCount}>
-            {children}
-          </StarCountProvider>
-        </Providers>
+        <Providers>{children}</Providers>
         {!isDev && <GoogleScripts />}
       </body>
     </html>

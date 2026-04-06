@@ -17,6 +17,8 @@ import { Button, cn, LogoIcon } from '@/components/ui';
 import { ComponentType, SVGProps } from 'react';
 import { useStarCount } from '@/lib/starCountContext';
 import { formatNumberCompact } from '@/lib/format';
+import { RollingNumber } from '@/components/RollingNumber';
+import { instantRepo } from '@/lib/config';
 
 type Product = {
   id: string;
@@ -358,8 +360,7 @@ function NavItems() {
 }
 
 function OtherNavItems() {
-  const starCount = useStarCount();
-  const formattedStarCount = formatNumberCompact(starCount);
+  const starCount = useStarCount(instantRepo);
 
   return (
     <>
@@ -370,8 +371,8 @@ function OtherNavItems() {
             alt="GitHub"
             className="h-[18px] w-[18px]"
           />
-          <span className="min-w-[38px] pl-1 font-semibold">
-            {formattedStarCount}
+          <span className="inline-block w-[5ch] pl-1 text-center font-semibold">
+            <RollingNumber value={starCount} format={formatNumberCompact} />
           </span>
           stars
         </span>
