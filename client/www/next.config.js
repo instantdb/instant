@@ -24,6 +24,9 @@ async function fetchStarCount() {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  ...(process.env.NEXT_PUBLIC_SELF_HOSTED === 'true'
+    ? { output: 'standalone' }
+    : {}),
   reactStrictMode: true,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx', 'md'],
   transpilePackages: ['@instantdb/components'],
@@ -54,7 +57,7 @@ const nextConfig = {
     return config;
   },
   async redirects() {
-    return [
+    const standardRedirects = [
       {
         permanent: false,
         source: '/',
@@ -123,6 +126,21 @@ const nextConfig = {
         destination: 'https://discord.com/invite/VU53p7uQcE',
       },
     ];
+
+    if (process.env.NEXT_PUBLIC_SELF_HOSTED === 'true') {
+      return [
+        ...standardRedirects,
+        // redirect any page that isn't /api, /dash, /docs, or /logout
+        {
+          permanent: false,
+          source:
+            '/((?!api(?:/.*)?|dash(?:/.*)?|docs(?:/.*)?|logout(?:/.*)?|.*\\.[^/]+$).*)',
+          destination: '/dash',
+        },
+      ];
+    }
+
+    return standardRedirects;
   },
   // Proxy to PostHog to avoid ad blockers
   async rewrites() {

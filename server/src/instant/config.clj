@@ -93,14 +93,51 @@
 (defn s3-storage-secret-key []
   (some-> @config-map :s3-storage-secret-key crypt-util/secret-value))
 
+(defn s3-endpoint []
+  (or (System/getenv "S3_ENDPOINT")
+      (some-> @config-map :s3-endpoint)))
+
+(defn s3-public-endpoint []
+  (or (System/getenv "S3_PUBLIC_ENDPOINT")
+      (some-> @config-map :s3-public-endpoint)
+      (s3-endpoint)))
+
+(defn s3-region []
+  (or (System/getenv "AWS_REGION")
+      (some-> @config-map :s3-region)
+      "us-east-1"))
+
 (defn postmark-token []
-  (some-> @config-map :postmark-token crypt-util/secret-value))
+  (or (System/getenv "POSTMARK_TOKEN")
+      (some-> @config-map :postmark-token crypt-util/secret-value)))
 
 (defn sendgrid-token []
   (some-> @config-map :sendgrid-token crypt-util/secret-value))
 
 (defn postmark-account-token []
-  (some-> @config-map :postmark-account-token crypt-util/secret-value))
+  (or (System/getenv "POSTMARK_ACCOUNT_TOKEN")
+      (some-> @config-map :postmark-account-token crypt-util/secret-value)))
+
+(defn email-reply-to []
+  (or (System/getenv "INSTANT_EMAIL_REPLY_TO")
+      "hello@instantdb.com"))
+
+(defn dashboard-email-sender []
+  {:name (or (System/getenv "INSTANT_DASHBOARD_EMAIL_SENDER_NAME")
+             "Instant")
+   :email (or (System/getenv "INSTANT_DASHBOARD_EMAIL_SENDER_EMAIL")
+              "verify@dash-pm.instantdb.com")})
+
+(defn app-email-sender []
+  {:name (System/getenv "INSTANT_APP_EMAIL_SENDER_NAME")
+   :email (or (System/getenv "INSTANT_APP_EMAIL_SENDER_EMAIL")
+              "verify@auth-pm.instantdb.com")})
+
+(defn team-email-sender []
+  {:name (or (System/getenv "INSTANT_TEAM_EMAIL_SENDER_NAME")
+             "Instant")
+   :email (or (System/getenv "INSTANT_TEAM_EMAIL_SENDER_EMAIL")
+              "teams@pm.instantdb.com")})
 
 (defn sendgrid-send-disabled? []
   (not (string/blank? (sendgrid-token))))
@@ -197,10 +234,11 @@
 (defn dashboard-origin
   ([] (dashboard-origin {:env (get-env)}))
   ([{:keys [env]}]
-   (case env
-     :prod "https://www.instantdb.com"
-     :staging "https://staging.instantdb.com"
-     "http://localhost:3000")))
+   (or (System/getenv "INSTANT_DASHBOARD_URL")
+       (case env
+         :prod "https://www.instantdb.com"
+         :staging "https://staging.instantdb.com"
+         "http://localhost:3000"))))
 
 ;; ---
 ;; Stripe
@@ -262,10 +300,11 @@
   (-> @config-map :shared-oauth-clients))
 
 (def s3-bucket-name
-  (case (get-env)
-    :prod "instant-storage"
-    :staging "instant-storage-staging"
-    "instantdb-test-bucket"))
+  (or (System/getenv "S3_BUCKET")
+      (case (get-env)
+        :prod "instant-storage"
+        :staging "instant-storage-staging"
+        "instantdb-test-bucket")))
 
 (def s3-wal-history-bucket-name
   (when-not (= "pg" (System/getenv "WAL_HISTORY_STORAGE"))
@@ -319,10 +358,11 @@
         8887)))
 
 (def server-origin
-  (case (get-env)
-    :prod "https://api.instantdb.com"
-    :staging "https://api-staging.instantdb.com"
-    (str "http://localhost:" (get-server-port))))
+  (or (System/getenv "INSTANT_BACKEND_URL")
+      (case (get-env)
+        :prod "https://api.instantdb.com"
+        :staging "https://api-staging.instantdb.com"
+        (str "http://localhost:" (get-server-port)))))
 
 (defn get-nrepl-port []
   (or (env-integer "NREPL_PORT") 6005))
