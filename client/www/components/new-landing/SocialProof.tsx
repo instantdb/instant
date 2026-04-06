@@ -58,13 +58,28 @@ export function SocialProof({
 
   const stats = [
     {
+      key: 'connections',
       value: connectionCount ? (
         <RollingNumber value={connectionCount} />
       ) : undefined,
-      label: 'concurrent connections',
+      label: (
+        <>
+          <span className="hidden sm:inline">concurrent </span>connections
+        </>
+      ),
     },
-    { value: '1,000+', label: 'queries per second' },
     {
+      key: 'queries',
+      value: '1,000+',
+      label: (
+        <>
+          queries<span className="hidden sm:inline"> per</span>
+          <span className="sm:hidden"> /</span> second
+        </>
+      ),
+    },
+    {
+      key: 'stars',
       value: (
         <StarBurst particles={particles} removeParticle={removeParticle}>
           <RollingNumber value={starCount} />
@@ -80,7 +95,7 @@ export function SocialProof({
       <AnimateIn>
         <div className="mx-auto grid max-w-3xl grid-cols-3 items-end gap-4 sm:gap-8">
           {stats.map((stat) => (
-            <div key={stat.label} className="text-center">
+            <div key={stat.key} className="text-center">
               <div className="font-mono text-3xl font-semibold tracking-tighter sm:text-5xl">
                 {stat.value}
               </div>
