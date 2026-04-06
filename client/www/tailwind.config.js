@@ -29,7 +29,7 @@ module.exports = {
     fontFamily: {
       sans: [...sans],
       mono: [
-        'Berk Mono',
+        'Berkeley Mono',
         'ui-monospace',
         'SFMono-Regular',
         'Menlo',
