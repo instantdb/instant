@@ -99,9 +99,7 @@ function ClipReveal({ trigger }: { trigger: boolean }) {
             className="overflow-hidden inline-block transition-all duration-700 ease-out"
             style={{
               opacity: trigger ? 1 : 0,
-              clipPath: trigger
-                ? "inset(0 0% 0 0)"
-                : "inset(0 100% 0 0)",
+              clipPath: trigger ? "inset(0 0% 0 0)" : "inset(0 100% 0 0)",
               transitionDelay: `${delay}ms`,
             }}
           >
@@ -116,8 +114,7 @@ function ClipReveal({ trigger }: { trigger: boolean }) {
 const ANIMATIONS = [
   {
     name: "1. Simple Fade",
-    description:
-      "Each bullet fades in sequentially. Subtle and clean.",
+    description: "Each bullet fades in sequentially. Subtle and clean.",
     Component: SimpleFade,
   },
   {
@@ -146,9 +143,30 @@ const ANIMATIONS = [
   },
 ];
 
+function PlayButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="absolute inset-0 z-20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200 bg-black/20"
+    >
+      <div className="w-16 h-16 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/20">
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="white"
+          className="ml-1"
+        >
+          <polygon points="5,3 19,12 5,21" />
+        </svg>
+      </div>
+    </button>
+  );
+}
+
 export default function BulletAnimationsPage() {
   const [triggers, setTriggers] = useState<boolean[]>(
-    ANIMATIONS.map(() => false)
+    ANIMATIONS.map(() => false),
   );
 
   const replay = useCallback((index: number) => {
@@ -188,9 +206,7 @@ export default function BulletAnimationsPage() {
       <div className="min-h-screen bg-black text-white p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-10">
-            <h1 className="text-2xl font-bold">
-              Bullet Animation Options
-            </h1>
+            <h1 className="text-2xl font-bold">Bullet Animation Options</h1>
             <button
               onClick={replayAll}
               className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-md text-sm transition-colors"
@@ -205,15 +221,21 @@ export default function BulletAnimationsPage() {
                 key={anim.name}
                 className="border border-white/10 rounded-xl overflow-hidden"
               >
-                {/* Preview area simulating the video frame */}
                 <div
-                  className="relative bg-[#3a3530] flex items-center justify-end pr-16"
+                  className="relative flex items-center justify-end pr-[8%]"
                   style={{ aspectRatio: "16/9" }}
                 >
-                  {/* Dark overlay to simulate the video look */}
-                  <div className="absolute inset-0 bg-black/30" />
+                  {/* Background image */}
+                  <img
+                    src="/img/landing/video-frame.png"
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  {/* Play / replay button */}
+                  <PlayButton onClick={() => replay(i)} />
+                  {/* Bullet text */}
                   <div
-                    className="relative z-10 text-white font-semibold leading-tight"
+                    className="relative z-10 text-white font-semibold leading-tight drop-shadow-lg"
                     style={{
                       fontFamily: "Switzer, system-ui, sans-serif",
                       fontSize: "clamp(24px, 3.5vw, 62px)",
@@ -222,20 +244,12 @@ export default function BulletAnimationsPage() {
                     <anim.Component trigger={triggers[i]} />
                   </div>
                 </div>
-                {/* Label area */}
-                <div className="p-4 flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-lg font-semibold">{anim.name}</h2>
-                    <p className="text-white/60 text-sm mt-1">
-                      {anim.description}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => replay(i)}
-                    className="shrink-0 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-md text-sm transition-colors"
-                  >
-                    Replay
-                  </button>
+                {/* Label */}
+                <div className="p-4">
+                  <h2 className="text-lg font-semibold">{anim.name}</h2>
+                  <p className="text-white/60 text-sm mt-1">
+                    {anim.description}
+                  </p>
                 </div>
               </div>
             ))}
