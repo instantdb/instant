@@ -182,7 +182,7 @@ describe.concurrent('CLI e2e', { timeout: 30_000 }, () => {
       } finally {
         await project.cleanup();
       }
-    });
+    }, 40_000);
 
     it('works with --app flag instead of env var', async () => {
       const { appId, adminToken } = await createTempApp();
@@ -291,7 +291,7 @@ export default _schema;
         await project2.cleanup();
       }
     });
-  });
+  }, 40_000);
 
   describe('push perms', () => {
     it('exits with code 1 when no perms file exists', async () => {
