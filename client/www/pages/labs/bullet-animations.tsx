@@ -238,7 +238,7 @@ export default function BulletAnimationsPage() {
                     className="relative z-10 text-white font-semibold leading-tight drop-shadow-lg"
                     style={{
                       fontFamily: "Switzer, system-ui, sans-serif",
-                      fontSize: "clamp(24px, 3.5vw, 62px)",
+                      fontSize: "clamp(14px, 1.8vw, 32px)",
                     }}
                   >
                     <anim.Component trigger={triggers[i]} />
