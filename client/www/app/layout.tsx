@@ -62,11 +62,6 @@ export default async function RootLayout({
     <html lang="en">
       <head>
         <link
-          rel="preconnect"
-          href="https://stopaio.s3.amazonaws.com"
-          crossOrigin="anonymous"
-        />
-        <link
           rel="preload"
           href="/fonts/Switzer-Regular.woff"
           as="font"
@@ -103,7 +98,7 @@ export default async function RootLayout({
         />
         <link
           rel="preload"
-          href="https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.woff2"
+          href="/fonts/BerkeleyMono-Regular.woff2"
           as="font"
           type="font/woff2"
           crossOrigin="anonymous"

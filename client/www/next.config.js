@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const withMarkdoc = require('@markdoc/next.js');
 
 async function fetchStarCount() {
@@ -140,7 +141,36 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 };
 
+// Berkeley Mono is a licensed font that we can't check into the repo.
+// We fetch it from S3 on startup (dev server or build) so it ends up in the
+// bundle but never in source control. See .gitignore for the exclusion.
+const BERKELEY_MONO_FONTS = [
+  'BerkeleyMono-Regular.woff2',
+  'BerkeleyMono-Italic.woff2',
+  'BerkeleyMono-Bold.woff2',
+  'BerkeleyMono-BoldItalic.woff2',
+  'BerkeleyMono-Regular.ttf',
+  'BerkeleyMono-Bold.ttf',
+];
+
+async function fetchFonts() {
+  const dest = path.join(__dirname, 'public', 'fonts');
+  const baseUrl = 'https://stopaio.s3.amazonaws.com/public';
+  await Promise.all(
+    BERKELEY_MONO_FONTS.map(async (font) => {
+      const filePath = path.join(dest, font);
+      if (fs.existsSync(filePath)) return;
+      console.log(`Downloading ${font}...`);
+      const res = await fetch(`${baseUrl}/${font}`);
+      if (!res.ok) throw new Error(`Failed to download ${font}: ${res.status}`);
+      const buffer = Buffer.from(await res.arrayBuffer());
+      fs.writeFileSync(filePath, buffer);
+    }),
+  );
+}
+
 module.exports = async () => {
+  await fetchFonts();
   const starCount = await fetchStarCount();
   if (starCount) {
     nextConfig.env = {
