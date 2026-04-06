@@ -2,27 +2,54 @@ import { ImageResponse } from '@vercel/og';
 
 const SIZE = { width: 1200, height: 630 };
 
+const berkMonoRegularUrl = new URL(
+  '../public/fonts/BerkeleyMono-Regular.ttf',
+  import.meta.url,
+);
+const berkMonoBoldUrl = new URL(
+  '../public/fonts/BerkeleyMono-Bold.ttf',
+  import.meta.url,
+);
+const switzerRegularUrl = new URL(
+  '../public/fonts/Switzer-Regular.woff',
+  import.meta.url,
+);
+const switzerSemiboldUrl = new URL(
+  '../public/fonts/Switzer-Semibold.woff',
+  import.meta.url,
+);
+
 export async function loadFonts() {
-  const [regular, bold] = await Promise.all([
-    fetch('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.ttf'),
-    fetch('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Bold.ttf'),
-  ]);
-  const [boldFontData, regularFontData] = await Promise.all([
-    bold.arrayBuffer(),
-    regular.arrayBuffer(),
+  const [berkRegular, berkBold, swRegular, swSemibold] = await Promise.all([
+    fetch(berkMonoRegularUrl).then((r) => r.arrayBuffer()),
+    fetch(berkMonoBoldUrl).then((r) => r.arrayBuffer()),
+    fetch(switzerRegularUrl).then((r) => r.arrayBuffer()),
+    fetch(switzerSemiboldUrl).then((r) => r.arrayBuffer()),
   ]);
   return [
     {
       name: 'Berkeley Mono',
-      data: regularFontData,
+      data: berkRegular,
       style: 'normal' as const,
       weight: 500 as const,
     },
     {
       name: 'Berkeley Mono',
-      data: boldFontData,
+      data: berkBold,
       style: 'normal' as const,
       weight: 700 as const,
+    },
+    {
+      name: 'Switzer',
+      data: swRegular,
+      style: 'normal' as const,
+      weight: 400 as const,
+    },
+    {
+      name: 'Switzer',
+      data: swSemibold,
+      style: 'normal' as const,
+      weight: 600 as const,
     },
   ];
 }
@@ -113,8 +140,8 @@ export async function generateOgImage({
             <div
               style={{
                 fontSize: 56,
-                fontFamily: 'Berkeley Mono',
-                fontWeight: 700,
+                fontFamily: 'Switzer',
+                fontWeight: 600,
                 lineHeight: 1.3,
                 color: '#000',
                 textAlign: 'center',
@@ -174,7 +201,8 @@ export async function generateOgImage({
             style={{
               display: 'flex',
               fontSize: 40,
-              fontFamily: 'Berkeley Mono',
+              fontFamily: 'Switzer',
+              fontWeight: 400,
               marginTop: 24,
               lineHeight: 1.3,
               color: '#aaa',

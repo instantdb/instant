@@ -59,7 +59,7 @@
     font-weight: normal;
     font-style: normal;
     font-stretch: normal;
-    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.woff2')
+    src: url('/fonts/BerkeleyMono-Regular.woff2')
       format('woff2');
     font-display: swap;
   }
@@ -69,7 +69,7 @@
     font-weight: normal;
     font-style: italic;
     font-stretch: normal;
-    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Italic.woff2')
+    src: url('/fonts/BerkeleyMono-Italic.woff2')
       format('woff2');
     font-display: swap;
   }
@@ -79,7 +79,7 @@
     font-weight: bold;
     font-style: normal;
     font-stretch: normal;
-    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Bold.woff2')
+    src: url('/fonts/BerkeleyMono-Bold.woff2')
       format('woff2');
     font-display: swap;
   }
@@ -89,7 +89,7 @@
     font-weight: normal;
     font-style: italic;
     font-stretch: normal;
-    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-BoldItalic.woff2')
+    src: url('/fonts/BerkeleyMono-BoldItalic.woff2')
       format('woff2');
     font-display: swap;
   }

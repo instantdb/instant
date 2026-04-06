@@ -34,7 +34,7 @@ export default function Document() {
         />
         <link
           rel="preload"
-          href="https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.woff2"
+          href="/fonts/BerkeleyMono-Regular.woff2"
           as="font"
           type="font/woff2"
           crossOrigin="anonymous"
