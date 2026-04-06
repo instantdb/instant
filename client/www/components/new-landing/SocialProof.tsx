@@ -43,12 +43,17 @@ const backers = [
   },
 ];
 
-export function SocialProof() {
+export function SocialProof({
+  initialConnectionCount,
+}: {
+  initialConnectionCount?: number;
+}) {
   const { particles, burst, removeParticle } = useStarBurst();
   const starCount = useStarCount(instantRepo, burst);
 
   const { data: connectionCount } = useTotalSessionsCount({
     refreshSeconds: 3,
+    initialData: initialConnectionCount,
   });
 
   const stats = [
