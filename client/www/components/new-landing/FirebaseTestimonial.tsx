@@ -11,7 +11,7 @@ export function FirebaseTestimonial() {
         className="h-28 w-28 shrink-0 rounded-full object-cover object-center sm:h-36 sm:w-36"
       />
       <div>
-        <blockquote className="text-base leading-relaxed text-gray-500 max-sm:text-center sm:text-lg">
+        <blockquote className="px-2 text-base leading-relaxed text-balance text-gray-500 max-sm:text-center sm:text-lg">
           The amount of requests we had for relational queries for Firebase was
           off-the-charts. I always wanted this built and open sourced. I’m glad
           to see Instant is doing it!

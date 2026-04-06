@@ -33,7 +33,7 @@ export function Footer() {
     <footer className="border-t border-gray-200 bg-white">
       <div className="landing-width mx-auto px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
-          <div className="col-span-2 md:col-span-1">
+          <div className="col-span-2 flex items-center justify-between md:col-span-1 md:block">
             <LogoType />
             <div className="mt-3 flex items-center gap-3">
               <a

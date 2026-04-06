@@ -32,7 +32,7 @@ function VideoPlayer() {
   }, []);
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.22)]">
+    <div className="relative overflow-hidden rounded-4xl shadow-[0_28px_90px_rgba(0,0,0,0.22)]">
       {/* MuxPlayer is always mounted for eager preloading, but hidden until play */}
       <div className={isPlaying ? '' : 'invisible absolute inset-0'}>
         <MuxPlayer
