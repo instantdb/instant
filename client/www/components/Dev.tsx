@@ -1,5 +1,5 @@
 import { useAuthToken } from '@/lib/auth';
-import { getLocal } from '@/lib/config';
+import { getLocal, setLocal } from '@/lib/config';
 import { flags } from '@/lib/flags';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { useEffect, useState } from 'react';
@@ -131,10 +131,7 @@ export function Dev() {
 
                       setAuthTokens(nextTokens);
 
-                      localStorage.setItem(
-                        '__instant__authTokens',
-                        JSON.stringify(nextTokens),
-                      );
+                      setLocal('__instant__authTokens', nextTokens);
                     }}
                   >
                     Delete
@@ -180,7 +177,7 @@ export function Dev() {
               if (!token) return;
 
               const name = fd.get('name') as string;
-              const prod = Boolean(localStorage.getItem('devBackend'));
+              const prod = getLocal('devBackend') ?? false;
 
               const nextTokens = [
                 ...authTokens,

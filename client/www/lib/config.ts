@@ -3,6 +3,60 @@ export const isBrowser = typeof window != 'undefined';
 export const isDev = process.env.NODE_ENV === 'development';
 
 const isStaging = process.env.NEXT_PUBLIC_STAGING === 'true';
+const isSelfHosted = process.env.NEXT_PUBLIC_SELF_HOSTED === 'true';
+
+type DashboardConfig = {
+  apiURI: string;
+  websocketURI: string;
+};
+
+type RuntimeDashboardConfig = Partial<DashboardConfig>;
+
+declare global {
+  interface Window {
+    __instantConfig?: RuntimeDashboardConfig;
+  }
+}
+
+function websocketURIFromApiURI(apiURI: string) {
+  const url = new URL(apiURI);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  url.pathname = '/runtime/session';
+  url.search = '';
+  url.hash = '';
+  return url.toString();
+}
+
+function configFromApiURI(apiURI: string | undefined | null) {
+  const raw = apiURI?.trim();
+  if (!raw) {
+    return null;
+  }
+
+  const url = new URL(raw);
+  url.search = '';
+  url.hash = '';
+
+  const normalizedApiURI = url.toString().replace(/\/+$/, '');
+  return {
+    apiURI: normalizedApiURI,
+    websocketURI: websocketURIFromApiURI(normalizedApiURI),
+  };
+}
+
+function getRuntimeConfig() {
+  try {
+    if (isBrowser) {
+      return configFromApiURI(window.__instantConfig?.apiURI);
+    }
+
+    return configFromApiURI(
+      process.env.INSTANT_API_URI || process.env.INSTANT_BACKEND_URL,
+    );
+  } catch (_e) {
+    return null;
+  }
+}
 
 const devBackend = getLocal('devBackend');
 
@@ -23,6 +77,9 @@ const config = {
     ? `ws://localhost:${localPort}/runtime/session`
     : `wss://${isStaging ? 'api-staging' : 'api'}.instantdb.com/runtime/session`,
 };
+
+const sharedConfig =
+  isSelfHosted && !devBackend ? getRuntimeConfig() || config : config;
 
 // In dev mode, sync the devBackend flag to a cookie so server components
 // can resolve the same apiURI as the client.
@@ -51,10 +108,10 @@ export async function getServerConfig() {
       };
     }
   }
-  return config;
+  return sharedConfig;
 }
 
-export default config;
+export default sharedConfig;
 
 export const isTouchDevice =
   typeof window !== 'undefined' && 'ontouchstart' in window;

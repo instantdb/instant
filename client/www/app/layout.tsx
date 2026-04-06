@@ -103,6 +103,7 @@ export default async function RootLayout({
         />
       </head>
       <body>
+        <Script src="/environment.js" strategy="beforeInteractive" />
         <Providers>{children}</Providers>
         {!isDev && <GoogleScripts />}
       </body>

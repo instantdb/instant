@@ -7,7 +7,9 @@
             [instant.util.tracer :as tracer])
   (:import
    [software.amazon.awssdk.auth.credentials DefaultCredentialsProvider]
-   [software.amazon.awssdk.services.s3 S3AsyncClient S3Client]
+   [software.amazon.awssdk.regions Region]
+   [software.amazon.awssdk.services.s3 S3AsyncClient S3Client S3ClientBuilder S3CrtAsyncClientBuilder]
+   [java.net URI]
    [java.time Duration Instant]
    [org.apache.tika Tika]
    [org.apache.tika.io TikaInputStream]
@@ -19,7 +21,25 @@
 ;; Configuration
 ;; ----------------------
 
-(def ^:private s3-client* (delay (.build (S3Client/builder))))
+(defn- configure-s3-endpoint-client ^S3ClientBuilder [^S3ClientBuilder builder]
+  (if-let [endpoint (config/s3-endpoint)]
+    (doto builder
+      (.endpointOverride (URI/create endpoint))
+      (.region (Region/of (config/s3-region)))
+      (.forcePathStyle Boolean/TRUE))
+    builder))
+
+(defn- configure-s3-endpoint-async-client ^S3CrtAsyncClientBuilder [^S3CrtAsyncClientBuilder builder]
+  (if-let [endpoint (config/s3-endpoint)]
+    (doto builder
+      (.endpointOverride (URI/create endpoint))
+      (.region (Region/of (config/s3-region)))
+      (.forcePathStyle Boolean/TRUE))
+    builder))
+
+(def ^:private s3-client* (delay (-> (S3Client/builder)
+                                     (configure-s3-endpoint-client)
+                                     (.build))))
 
 (defn s3-client
   "Standard blocking S3 client. We use this for most operations."
@@ -27,9 +47,10 @@
   @s3-client*)
 
 (def ^:private s3-async-client* (delay
-                                  (-> (S3AsyncClient/crtBuilder)
-                                      (.targetThroughputInGbps 20.0)
-                                      (.build))))
+                                   (-> (S3AsyncClient/crtBuilder)
+                                       (configure-s3-endpoint-async-client)
+                                       (.targetThroughputInGbps 20.0)
+                                       (.build))))
 
 (defn s3-async-client
   "Async S3 Client. Useful when you want to asynchronously upload streams to S3"
@@ -40,23 +61,27 @@
   (delay
     (let [access-key (config/s3-storage-access-key)
           secret-key (config/s3-storage-secret-key)
-          region (.toString (.region (.serviceClientConfiguration (s3-client))))]
-      (if (and access-key secret-key)
-        {:access-key access-key
-         :secret-key secret-key
-         :region region}
-        (let [creds (.resolveCredentials (.build (DefaultCredentialsProvider/builder)))]
-          {:access-key (.accessKeyId creds)
-           :secret-key (.secretAccessKey creds)
-           :region region})))))
+          region (.toString (.region (.serviceClientConfiguration (s3-client))))
+          creds (if (and access-key secret-key)
+                  {:access-key access-key
+                   :secret-key secret-key
+                   :region region}
+                  (let [creds (.resolveCredentials (.build (DefaultCredentialsProvider/builder)))]
+                    {:access-key (.accessKeyId creds)
+                     :secret-key (.secretAccessKey creds)
+                     :region region}))]
+      (cond-> creds
+        (config/s3-endpoint)
+        (assoc :endpoint (config/s3-public-endpoint)
+               :path-style? true)))))
 
 (defn presign-creds
-  "Credentials to presign S3 URLs. We use special credentials, because 
-   the default credentials provider creates URLs that expire in 2 days. 
-   
+  "Credentials to presign S3 URLs. We use special credentials, because
+   the default credentials provider creates URLs that expire in 2 days.
+
    These are special credentials that can create URLs that expire in 7 days.
-   
-   Note: you need to make sure that both these credentials, and the default credentials, 
+
+   Note: you need to make sure that both these credentials, and the default credentials,
    have the necessary permissions to access the same S3 bucket."
   []
   @presign-creds*)
@@ -176,13 +201,13 @@
     (s3-util/delete-objects-paginated (s3-client) bucket-name location-keys)))
 
 (defn bucketed-signing-instant
-  "AWS URLs depend on the signing-instant.  
-  
-  We want to keep URLs stable: repeated calls to the same object should return 
-  the same URL, so that browsers can cache the object. 
+  "AWS URLs depend on the signing-instant.
 
-  To do this, we bucket dates to the start of the day. 
-  
+  We want to keep URLs stable: repeated calls to the same object should return
+  the same URL, so that browsers can cache the object.
+
+  To do this, we bucket dates to the start of the day.
+
   This gives about 24 hours where URLs are stable."
   []
   (let [now (date-util/utc-now)]

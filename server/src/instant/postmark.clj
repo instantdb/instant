@@ -1,5 +1,6 @@
 (ns instant.postmark
   (:require
+   [clojure.tools.logging :as log]
    [instant.config :as config]
    [clj-http.client :as clj-http]
    [instant.util.json :refer [->json]]
@@ -28,7 +29,7 @@
   (= 504
      (-> e ex-data :body :ErrorCode)))
 
-;; -------- 
+;; --------
 ;; API
 
 (defn send! [{:keys [from to cc bcc subject html text
@@ -45,13 +46,15 @@
                       html}
                text (assoc :TextBody text))]
     (if-not (config/postmark-send-enabled?)
-      (tracer/with-span! {:name "postmark/send-disabled"
-                          :attributes body}
+      (do
+        (log/infof "Postmark disabled; would send email: %s" (pr-str body))
+        (tracer/with-span! {:name "postmark/send-disabled"
+                            :attributes body}
         (tracer/record-info!
          {:name "postmark-disabled"
           :attributes
           {:msg
-           "Postmark is disabled, add postmark-token to config to enable"}}))
+            "Postmark is disabled, add postmark-token to config to enable"}})))
       (tracer/with-span! {:name "postmark/send"
                           :attributes body}
         (try

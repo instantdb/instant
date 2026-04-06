@@ -6,9 +6,29 @@ const GETADB_HOSTS = new Set([
   'getadb.localhost',
 ]);
 
+const isSelfHosted = process.env.NEXT_PUBLIC_SELF_HOSTED === 'true';
+
+function isPublicAsset(pathname: string) {
+  return /\.[^/]+$/.test(pathname);
+}
+
 export function middleware(request: NextRequest) {
   const host = (request.headers.get('host') ?? '').split(':')[0];
   const url = request.nextUrl.clone();
+
+  if (isSelfHosted) {
+    if (url.pathname === '/dash' || url.pathname.startsWith('/dash/')) {
+      return NextResponse.next();
+    }
+
+    if (isPublicAsset(url.pathname)) {
+      return NextResponse.next();
+    }
+
+    url.pathname = '/dash';
+    url.search = '';
+    return NextResponse.redirect(url, 307);
+  }
 
   if (url.pathname === '/getadb/new') {
     url.pathname = '/getadb/provision/new';
