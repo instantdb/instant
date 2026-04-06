@@ -1,7 +1,7 @@
 import '../styles/globals.css';
 import '../styles/docs/tailwind.css';
 
-import type { AppProps } from 'next/app';
+import type { AppContext, AppInitialProps, AppProps } from 'next/app';
 import Script from 'next/script';
 import { NuqsAdapter } from 'nuqs/adapters/next/pages';
 import Head from 'next/head';
@@ -20,6 +20,7 @@ import { SWRConfig } from 'swr';
 import { localStorageProvider } from '@/lib/swrCache';
 import posthog from '@/lib/posthog';
 import { PostHogProvider } from 'posthog-js/react';
+import { DeploymentConfigProvider } from '@/lib/hooks/useDeploymentConfig';
 
 declare global {
   function __getAppId(): any;
@@ -54,19 +55,21 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
 
   return (
     <PostHogProvider client={posthog}>
-      <AppHead />
-      <PostHogIdentify />
-      <ErrorBoundary renderError={() => <Oops />}>
-        <SWRConfig
-          value={{
-            provider: localStorageProvider,
-          }}
-        >
-          <NuqsAdapter>{mainEl}</NuqsAdapter>
-        </SWRConfig>
-      </ErrorBoundary>
-      {isDev ? null : <GoogleScripts />}
-      {isDev ? <Dev /> : null}
+      <DeploymentConfigProvider>
+        <AppHead />
+        <PostHogIdentify />
+        <ErrorBoundary renderError={() => <Oops />}>
+          <SWRConfig
+            value={{
+              provider: localStorageProvider,
+            }}
+          >
+            <NuqsAdapter>{mainEl}</NuqsAdapter>
+          </SWRConfig>
+        </ErrorBoundary>
+        {isDev ? null : <GoogleScripts />}
+        {isDev ? <Dev /> : null}
+      </DeploymentConfigProvider>
     </PostHogProvider>
   );
 }

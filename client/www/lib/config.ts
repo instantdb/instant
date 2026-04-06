@@ -73,7 +73,16 @@ export const stripeCustomerPortalURI = isDev
   ? stripeDevCustomerPortalURI
   : stripeProdCustomerPortalURI;
 
-export function getLocal(k: string) {
+type LocalKeysWithTypes = {
+  __instant__authTokens: { name: string; token: string; prod: boolean }[];
+  devBackend: boolean;
+};
+
+export function getLocal<Key extends string>(
+  k: Key,
+):
+  | (Key extends keyof LocalKeysWithTypes ? LocalKeysWithTypes[Key] : any)
+  | null {
   if (!isBrowser) {
     return null;
   }
@@ -87,7 +96,10 @@ export function getLocal(k: string) {
   }
 }
 
-export function setLocal(k: string, v: any) {
+export function setLocal<K extends string>(
+  k: K,
+  v: K extends keyof LocalKeysWithTypes ? LocalKeysWithTypes[K] : any,
+) {
   if (!isBrowser) {
     return;
   }

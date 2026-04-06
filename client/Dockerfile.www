@@ -1,0 +1,69 @@
+ARG NODE_VERSION=22.22.2-slim
+
+FROM node:${NODE_VERSION} AS dependencies
+
+WORKDIR /monorepo
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+
+
+# Install project dependencies with frozen lockfile for reproducible builds
+RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=cache,target=/usr/local/share/.cache/yarn \
+    --mount=type=cache,target=/root/.local/share/pnpm/store \
+    if [ -f package-lock.json ]; then \
+    npm ci --no-audit --no-fund; \
+    elif [ -f yarn.lock ]; then \
+    corepack enable yarn && yarn install --frozen-lockfile --production=false; \
+    elif [ -f pnpm-lock.yaml ]; then \
+    corepack enable pnpm && pnpm install --frozen-lockfile; \
+    else \
+    echo "No lockfile found." && exit 1; \
+    fi
+
+FROM node:${NODE_VERSION} AS pruner
+
+WORKDIR /monorepo
+
+COPY --from=dependencies /monorepo/node_modules ./node_modules
+
+COPY . .
+RUN corepack enable pnpm;
+RUN pnpm turbo prune instant-www --docker
+
+FROM node:${NODE_VERSION} AS builder
+WORKDIR /monorepo
+COPY --from=pruner /monorepo/out/json/ .
+RUN corepack enable pnpm
+RUN pnpm install --frozen-lockfile
+
+COPY --from=pruner /monorepo/out/full/ .
+COPY tsconfig.base.json ./
+
+RUN pnpm install --frozen-lockfile
+
+RUN pnpm turbo build
+
+# Production runner
+FROM node:${NODE_VERSION} AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy the standalone output
+COPY --from=builder /monorepo/www/.next/standalone ./
+# Copy static assets and public files
+COPY --from=builder /monorepo/www/.next/static ./www/.next/static
+COPY --from=builder /monorepo/www/public ./www/public
+
+USER nextjs
+
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "www/server.js"]
