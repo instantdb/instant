@@ -28,7 +28,7 @@ const config = {
 // can resolve the same apiURI as the client.
 if (isDev && isBrowser) {
   if (devBackend) {
-    document.cookie = `devBackend=1; path=/`;
+    document.cookie = `devBackend=${localPort}; path=/`;
   } else {
     document.cookie = `devBackend=; path=/; max-age=0`;
   }
@@ -42,11 +42,12 @@ export async function getServerConfig() {
   if (isDev && !isBrowser) {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
-    const hasDevBackend = cookieStore.get('devBackend')?.value;
-    if (hasDevBackend) {
+    const devBackendCookie = cookieStore.get('devBackend')?.value;
+    if (devBackendCookie) {
+      const port = devBackendCookie;
       return {
-        apiURI: `http://localhost:${localPort}`,
-        websocketURI: `ws://localhost:${localPort}/runtime/session`,
+        apiURI: `http://localhost:${port}`,
+        websocketURI: `ws://localhost:${port}/runtime/session`,
       };
     }
   }
