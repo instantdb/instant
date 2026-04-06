@@ -13,7 +13,7 @@ function SimpleFade({ trigger }: { trigger: boolean }) {
           className="transition-opacity duration-700 ease-out"
           style={{
             opacity: trigger ? 1 : 0,
-            transitionDelay: `${i * 200}ms`,
+            transitionDelay: `${i * 1000}ms`,
           }}
         >
           {b}
@@ -34,7 +34,7 @@ function SlideUpFade({ trigger }: { trigger: boolean }) {
           style={{
             opacity: trigger ? 1 : 0,
             transform: trigger ? "translateY(0)" : "translateY(24px)",
-            transitionDelay: `${i * 150}ms`,
+            transitionDelay: `${i * 1000}ms`,
           }}
         >
           {b}
@@ -55,7 +55,7 @@ function SlideFromRight({ trigger }: { trigger: boolean }) {
           style={{
             opacity: trigger ? 1 : 0,
             transform: trigger ? "translateX(0)" : "translateX(60px)",
-            transitionDelay: `${i * 120}ms`,
+            transitionDelay: `${i * 1000}ms`,
           }}
         >
           {b}
@@ -76,7 +76,7 @@ function ScalePop({ trigger }: { trigger: boolean }) {
           style={{
             opacity: trigger ? 1 : 0,
             transform: trigger ? "scale(1)" : "scale(0.6)",
-            transitionDelay: `${i * 150}ms`,
+            transitionDelay: `${i * 1000}ms`,
             transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
           }}
         >
@@ -92,7 +92,7 @@ function ClipReveal({ trigger }: { trigger: boolean }) {
   return (
     <div className="flex flex-col gap-2">
       {BULLETS.map((b, i) => {
-        const delay = i * 200;
+        const delay = i * 1000;
         return (
           <span
             key={b}
