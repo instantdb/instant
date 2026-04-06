@@ -88,7 +88,7 @@
 
   @font-face {
     font-family: 'Berkeley Mono';
-    font-weight: normal;
+    font-weight: bold;
     font-style: italic;
     font-stretch: normal;
     src: url('/fonts/BerkeleyMono-BoldItalic.woff2')
