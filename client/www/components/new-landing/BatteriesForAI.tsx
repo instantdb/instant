@@ -67,10 +67,7 @@ export function AuthDemo() {
       sched(() => setTypedCode(text), t + i * 80);
     }
     t += code.length * 80 + 600;
-    sched(
-      () => avatarReady.then(() => setView('success')),
-      t,
-    );
+    sched(() => avatarReady.then(() => setView('success')), t);
   };
 
   const handleSocial = (provider: string) => {
