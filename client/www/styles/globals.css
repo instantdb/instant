@@ -1,8 +1,9 @@
 @import 'tailwindcss';
 
 @theme {
-  --default-mono-font-family: 'Berk Mono';
-  --font-mono: 'Berk Mono', var(--default-mono-font-family);
+  --default-mono-font-family: 'Berkeley Mono', ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --font-mono: var(--default-mono-font-family);
 }
 
 @config '../tailwind.config.js';
@@ -32,7 +33,8 @@
   *,
   html {
     --default-font-family: 'Switzer', 'IBM Plex Sans', sans-serif;
-    --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
+    --default-mono-font-family: 'Berkeley Mono', ui-monospace, SFMono-Regular,
+      Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   }
 }
 
@@ -55,43 +57,43 @@
 
 @layer base {
   @font-face {
-    font-family: 'Berk Mono';
+    font-family: 'Berkeley Mono';
     font-weight: normal;
     font-style: normal;
     font-stretch: normal;
     src: url('/fonts/BerkeleyMono-Regular.woff2')
       format('woff2');
-    font-display: swap;
+    font-display: block;
   }
 
   @font-face {
-    font-family: 'Berk Mono';
+    font-family: 'Berkeley Mono';
     font-weight: normal;
     font-style: italic;
     font-stretch: normal;
     src: url('/fonts/BerkeleyMono-Italic.woff2')
       format('woff2');
-    font-display: swap;
+    font-display: block;
   }
 
   @font-face {
-    font-family: 'Berk Mono';
+    font-family: 'Berkeley Mono';
     font-weight: bold;
     font-style: normal;
     font-stretch: normal;
     src: url('/fonts/BerkeleyMono-Bold.woff2')
       format('woff2');
-    font-display: swap;
+    font-display: block;
   }
 
   @font-face {
-    font-family: 'Berk Mono';
+    font-family: 'Berkeley Mono';
     font-weight: normal;
     font-style: italic;
     font-stretch: normal;
     src: url('/fonts/BerkeleyMono-BoldItalic.woff2')
       format('woff2');
-    font-display: swap;
+    font-display: block;
   }
 
   @font-face {
@@ -99,7 +101,7 @@
     font-weight: 400;
     font-style: normal;
     src: url('/fonts/Switzer-Regular.woff') format('woff');
-    font-display: optional;
+    font-display: block;
   }
 
   @font-face {
@@ -107,7 +109,7 @@
     font-weight: 400;
     font-style: italic;
     src: url('/fonts/Switzer-Italic.woff') format('woff');
-    font-display: optional;
+    font-display: block;
   }
 
   @font-face {
@@ -115,7 +117,7 @@
     font-weight: 500;
     font-style: normal;
     src: url('/fonts/Switzer-Medium.woff') format('woff');
-    font-display: optional;
+    font-display: block;
   }
 
   @font-face {
@@ -123,7 +125,7 @@
     font-weight: 600;
     font-style: normal;
     src: url('/fonts/Switzer-Semibold.woff') format('woff');
-    font-display: optional;
+    font-display: block;
   }
 
   @font-face {
@@ -131,14 +133,15 @@
     font-weight: 700;
     font-style: normal;
     src: url('/fonts/Switzer-Bold.woff') format('woff');
-    font-display: optional;
+    font-display: block;
   }
 }
 
 html {
   height: 100%;
   background-color: #FBF9F6;
-  --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
+  --default-mono-font-family: 'Berkeley Mono', ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
 body {

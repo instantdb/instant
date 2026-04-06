@@ -18,9 +18,20 @@ import exampleDB from '@/lib/intern/docs-feedback/db';
 // ─── Auth Demo ───────────────────────────────────────────
 
 export function AuthDemo() {
-  const [view, setView] = useState<'form' | 'success'>('form');
+  const [view, setView] = useState<'form' | 'verify' | 'success'>('form');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [typedCode, setTypedCode] = useState('');
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => timeoutsRef.current.forEach(clearTimeout);
+  }, []);
+
+  const sched = (fn: () => void, ms: number) => {
+    const t = setTimeout(fn, ms);
+    timeoutsRef.current.push(t);
+  };
 
   const handleSendCode = () => {
     const derived = email.includes('@')
@@ -28,7 +39,17 @@ export function AuthDemo() {
         email.split('@')[0].slice(1)
       : 'Friend';
     setName(derived);
-    setView('success');
+    setTypedCode('');
+    setView('verify');
+
+    const code = '424242';
+    let t = 400;
+    for (let i = 1; i <= code.length; i++) {
+      const text = code.slice(0, i);
+      sched(() => setTypedCode(text), t + i * 80);
+    }
+    t += code.length * 80 + 600;
+    sched(() => setView('success'), t);
   };
 
   const handleSocial = (provider: string) => {
@@ -58,8 +79,13 @@ export function AuthDemo() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@email.com"
+                placeholder="you@example.com"
                 onKeyDown={(e) => e.key === 'Enter' && handleSendCode()}
+                data-lpignore="true"
+                data-1p-ignore
+                data-bwignore
+                data-form-type="other"
+                autoComplete="one-time-code"
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-700 placeholder:text-gray-400 focus:border-orange-300 focus:ring-1 focus:ring-orange-200 focus:outline-none"
               />
 
@@ -91,6 +117,40 @@ export function AuthDemo() {
                     {provider === 'GitHub' && <GitHubIcon />}
                   </button>
                 ))}
+              </div>
+            </motion.div>
+          ) : view === 'verify' ? (
+            <motion.div
+              key="verify"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="rounded-xl bg-white p-5 shadow-sm"
+            >
+              <p className="mb-1 text-sm font-semibold text-gray-800">
+                Check your email
+              </p>
+              <p className="mb-4 text-xs text-gray-500">
+                We sent a code to{' '}
+                <span className="font-medium text-gray-700">{email}</span>
+              </p>
+
+              {/* Code display */}
+              <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-center font-mono text-lg tracking-[0.3em] text-gray-700">
+                {typedCode ? (
+                  <span>
+                    {typedCode}
+                    <span className="animate-pulse text-gray-400">|</span>
+                  </span>
+                ) : (
+                  <span className="text-gray-400">------</span>
+                )}
+              </div>
+
+              {/* Verify button */}
+              <div className="mt-3 w-full rounded-lg bg-orange-500 py-2 text-center text-sm font-medium text-white">
+                Verify
               </div>
             </motion.div>
           ) : (
@@ -666,7 +726,10 @@ function StorageDemo() {
               <span className="text-xs font-semibold text-gray-900">stopa</span>
             </div>
             {/* Photo */}
-            <div className="relative aspect-square w-full overflow-visible">
+            <div
+              className="relative w-full overflow-visible"
+              style={{ aspectRatio: '4/3' }}
+            >
               <img
                 src="/img/landing/dog-post.jpg"
                 alt="Dog licking a spoon"

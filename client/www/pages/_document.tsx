@@ -5,6 +5,11 @@ export default function Document() {
     <Html lang="en">
       <Head>
         <link
+          rel="preconnect"
+          href="https://stopaio.s3.amazonaws.com"
+          crossOrigin="anonymous"
+        />
+        <link
           rel="preload"
           href="/fonts/Switzer-Regular.woff"
           as="font"
