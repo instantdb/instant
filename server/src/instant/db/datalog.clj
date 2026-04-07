@@ -1585,22 +1585,41 @@
   (let [row-estimate (estimate-rows ctx pattern)
         ;; The sketch estimate doesn't account for join selectivity.
         ;; If this pattern joins with a previous CTE (variable in symbol-map),
-        ;; the output can't exceed the join cardinality.
-        row-estimate (if (flags/toggled? :new-index-cost true)
-                       (let [join-cap (reduce (fn [acc c]
-                                                (let [[tag variable] (get pattern c)]
-                                                  (if-let [v (and (= :variable tag)
-                                                                  (get symbol-map variable))]
-                                                    (if acc (min acc v) v)
-                                                    acc)))
-                                              nil
-                                              [:e :v])]
-                         (if join-cap
-                           (min row-estimate join-cap)
-                           row-estimate))
-                       row-estimate)
+        ;; cap the row-estimate at the join cardinality.
+        ;;
+        ;; When :e is a NEW variable (not in symbol-map), this is a ref
+        ;; join that can fan out (1 conversation → N messages). We allow
+        ;; headroom in the symbol-map for downstream patterns by using
+        ;; join-cap for best-index but a higher estimate for propagation.
+        ;;
+        ;; When :e is ALREADY in the symbol-map, this is an entity join
+        ;; (1:1 per attribute). The cap is exact.
+        [row-estimate symbol-map-row-estimate]
+        (if (flags/toggled? :new-index-cost true)
+          (let [join-cap (reduce (fn [acc c]
+                                   (let [[tag variable] (get pattern c)]
+                                     (if-let [v (and (= :variable tag)
+                                                     (get symbol-map variable))]
+                                       (if acc (min acc v) v)
+                                       acc)))
+                                 nil
+                                 [:e :v])
+                [e-tag e-var] (:e pattern)
+                e-is-new? (and (= :variable e-tag)
+                               (not (contains? symbol-map e-var)))]
+            (if join-cap
+              [(min row-estimate join-cap)
+               (if e-is-new?
+                 ;; Ref join: :e fans out. Use sketch but cap at
+                 ;; join-cap * 20 to bound the inflated sketch estimate
+                 ;; while allowing for typical fan-out ratios.
+                 (min row-estimate (* 20 join-cap))
+                 ;; Entity join: 1:1, cap is exact.
+                 (min row-estimate join-cap))]
+              [row-estimate row-estimate]))
+          [row-estimate row-estimate])
         pattern-symbol-map (pattern->symbol-map-placeholder pattern
-                                                            row-estimate)]
+                                                            symbol-map-row-estimate)]
     {:symbol-map (merge-with min symbol-map pattern-symbol-map)
      :pattern (assoc pattern
                      :row-estimate row-estimate
