@@ -15,7 +15,9 @@
   "The aliases are t0, t1, t2, etc. This sorts the keys in the map
    so that t2 is after t10."
   (sorted-map-by (fn [a b]
-                   (let [a-num (some-> (re-find #"\d+" a)
+                   (let [a (str a)
+                         b (str b)
+                         a-num (some-> (re-find #"\d+" a)
                                        (Long/parseLong))
                          b-num (some-> (re-find #"\d+" b)
                                        (Long/parseLong))

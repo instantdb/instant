@@ -1264,27 +1264,6 @@
                                         next-cost)))
                                   1
                                   (:path costs))
-        join-cost (reduce + 1 (vals (:join-remaining costs)))
-        filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
-                                                   (:filter-components costs))))]
-    (* 1.0
-       (+ index-lookup-cost
-          (* 2 filter-cost))
-       (max 1 (* 1.1 join-cost)))))
-
-(defn path-cost-with-joins-new
-  "Tries to estimate the work we'll be doing for an individual index,
-  taking into account joins. It should correlate with the cost of a
-  nested loop."
-  [index]
-  (let [costs (:index-costs index)
-        index-lookup-cost (reduce (fn [acc {:keys [cost col]}]
-                                    (let [next-cost (* acc cost)]
-                                      (if (contains? (:unique-cols index) col)
-                                        (reduced next-cost)
-                                        next-cost)))
-                                  1
-                                  (:path costs))
         join-cost (reduce * 1 (vals (:join-remaining costs)))
         filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
                                                    (:filter-components costs))))]
@@ -1293,9 +1272,82 @@
           (* 2 filter-cost))
        (max 1 (* 1.1 join-cost)))))
 
+(defn path-cost-with-joins-new
+  "Estimates total work for an index, used to pick the best index for a CTE
+  that joins with previous CTEs via a nested loop.
+
+  In a nested loop join, one side drives (produces rows) and the other
+  probes (looks up per row). The index we pick determines which role this
+  CTE plays:
+
+  - Entity-first (pkey, ea_index): the previous CTE's entities drive.
+    For each entity, we probe the index. Fast when the entity set is small.
+
+  - Value-first (date_idx, trigram, number_type): we scan by value, then
+    check each result against the previous CTE's entity set (hash probe).
+    Fast when the value predicate is selective.
+
+  - Both (ave_with_e): tries to walk attr → value → entity in one btree
+    traversal. The cost product models this as a nested loop over all
+    value matches × all entities, which is pessimistic — but correctly
+    steers the optimizer toward either a pure entity-first or pure
+    value-first index, letting postgres handle the join between them.
+
+  ## Example: {:e 708, :a 1, :v 466906}
+
+  708 entities from the previous CTE, 466906 rows matching a
+  date range.
+
+  scan-cost (product along path, stop at unique cols):
+    ea_index    [:e :a]    → 708     (708 entity lookups)
+    date_idx    [:a :v]    → 466906  (scan all date matches)
+    ave_with_e  [:a :v :e] → 330M    (pessimistic: 466906 × 708)
+    created_at  [:a]       → 1       (unreliable — see correction)
+
+  Per-row overhead (10% per unresolved predicate):
+    ea_index:   708 rows × 1.1 (check date per row)     = 779     ← winner
+    date_idx:   466906 rows × 1.1 (hash probe entity)   = 513597
+    ave_with_e: 330M rows × 1.0 (nothing unresolved)    = 330M
+    created_at: corrected to 466906 × 1.2 (2 unresolved) = 560287
+
+  ea_index wins: 708 entity probes with a per-row date check.
+
+  ## :a-only correction
+
+  When the path only has :a, scan-cost = 1 (one attribute), which doesn't
+  reflect actual rows. We correct using the max remaining cardinality:
+    created_at [:a] with {:e 708, :v 466906} → max(1, 466906) = 466906"
+  [index]
+  (let [costs (:index-costs index)
+
+        scan-cost (reduce (fn [acc {:keys [cost col]}]
+                            (let [next-cost (* acc cost)]
+                              (if (contains? (:unique-cols index) col)
+                                (reduced next-cost)
+                                next-cost)))
+                          1
+                          (:path costs))
+
+        path-has-selective-col? (some #(not= :a (:col %))
+                                      (:path costs))
+
+        max-remaining (apply max 0 (concat (vals (:join-remaining costs))
+                                           (vals (select-keys (:known-remaining costs)
+                                                              (:filter-components costs)))))
+        rows-scanned (if path-has-selective-col?
+                       scan-cost
+                       (max scan-cost max-remaining))
+
+        num-unresolved (+ (count (:join-remaining costs))
+                          (count (select-keys (:known-remaining costs)
+                                              (:filter-components costs))))
+        per-row-overhead (* 0.1 num-unresolved)]
+
+    (* 1.0 rows-scanned (+ 1.0 per-row-overhead))))
+
 (defn path-cost-with-joins
   [index]
-  (if (flags/toggled? :new-index-cost)
+  (if (flags/toggled? :new-index-cost true)
     (path-cost-with-joins-new index)
     (path-cost-with-joins-old index)))
 
@@ -1412,15 +1464,20 @@
                                            :e (count value)
                                            :v (estimate-index-size ctx named-p :v))
                                :any nil
-                               :function (estimate-index-size ctx named-p c)
+                               :function (if (and (= :v c)
+                                                  (contains? #{:$isNull} (-> value keys first))
+                                                  ;; $isNull with nil?=true becomes NOT IN (subquery),
+                                                  ;; which can't drive index lookups on entity_id.
+                                                  ;; nil?=false becomes IN (subquery), where the
+                                                  ;; subquery results CAN drive index lookups.
+                                                  (:nil? (-> value vals first))
+                                                  (flags/toggled? :fix-is-null-index-cost true))
+                                           nil
+                                           (estimate-index-size ctx named-p c))
 
                                :variable (get symbol-map value))]
 
                       (assoc acc
-                             ;; $isNull gets turned into a subquery that returns entity_ids,
-                             ;; and then we check in the cte if entity_id in (subquery).
-                             ;; So when we determine the index to use for the CTE, we shouldn't be
-                             ;; looking at the :v--that happens in the subquery.
                              (if (and (= :v c)
                                       (= :function tag)
                                       (contains? #{:$isNull} (-> value keys first)))
@@ -1461,7 +1518,10 @@
                                                       :constant c
                                                       :function (if (and (= :v c)
                                                                          (contains? #{:$isNull} (-> value keys first)))
-                                                                  :e
+                                                                  (if (and (:nil? (-> value vals first))
+                                                                           (flags/toggled? :fix-is-null-index-cost true))
+                                                                    nil
+                                                                    :e)
                                                                   c))]
                                         (conj acc comp)
                                         acc)))
@@ -1523,8 +1583,43 @@
   "Annotates the pattern with best-index and adds updates the symbol-map."
   [ctx symbol-map pattern]
   (let [row-estimate (estimate-rows ctx pattern)
+        ;; The sketch estimate doesn't account for join selectivity.
+        ;; If this pattern joins with a previous CTE (variable in symbol-map),
+        ;; cap the row-estimate at the join cardinality.
+        ;;
+        ;; When :e is a NEW variable (not in symbol-map), this is a ref
+        ;; join that can fan out (1 conversation → N messages). We allow
+        ;; headroom in the symbol-map for downstream patterns by using
+        ;; join-cap for best-index but a higher estimate for propagation.
+        ;;
+        ;; When :e is ALREADY in the symbol-map, this is an entity join
+        ;; (1:1 per attribute). The cap is exact.
+        [row-estimate symbol-map-row-estimate]
+        (if (flags/toggled? :new-index-cost true)
+          (let [join-cap (reduce (fn [acc c]
+                                   (let [[tag variable] (get pattern c)]
+                                     (if-let [v (and (= :variable tag)
+                                                     (get symbol-map variable))]
+                                       (if acc (min acc v) v)
+                                       acc)))
+                                 nil
+                                 [:e :v])
+                [e-tag e-var] (:e pattern)
+                e-is-new? (and (= :variable e-tag)
+                               (not (contains? symbol-map e-var)))]
+            (if join-cap
+              [(min row-estimate join-cap)
+               (if e-is-new?
+                 ;; Ref join: :e fans out. Use sketch but cap at
+                 ;; join-cap * 20 to bound the inflated sketch estimate
+                 ;; while allowing for typical fan-out ratios.
+                 (min row-estimate (* 20 join-cap))
+                 ;; Entity join: 1:1, cap is exact.
+                 (min row-estimate join-cap))]
+              [row-estimate row-estimate]))
+          [row-estimate row-estimate])
         pattern-symbol-map (pattern->symbol-map-placeholder pattern
-                                                            row-estimate)]
+                                                            symbol-map-row-estimate)]
     {:symbol-map (merge-with min symbol-map pattern-symbol-map)
      :pattern (assoc pattern
                      :row-estimate row-estimate
