@@ -1273,25 +1273,54 @@
        (max 1 (* 1.1 join-cost)))))
 
 (defn path-cost-with-joins-new
-  "Tries to estimate the work we'll be doing for an individual index,
-  taking into account joins. It should correlate with the cost of a
-  nested loop."
+  "Estimates total work for an index choice.
+
+  1. Estimate rows-scanned: how many rows the index actually touches.
+
+     When the path includes a selective column (:e, :v, :created-at),
+     the path product is a reasonable row estimate. e.g. ea_index
+     [:e 708, :a 1] → 708 lookups.
+
+     When the path only covers :a (or is empty), scan-cost is just the
+     attribute count (usually 1) — NOT the actual row count. In this
+     case we correct using the max remaining cardinality (filter or join)
+     as a lower bound for the true scan size.
+
+  2. Per-row overhead for unresolved predicates. After the scan, each
+     remaining predicate is checked per-row — O(1). We model this as
+     10% overhead per unresolved predicate on the row estimate."
   [index]
   (let [costs (:index-costs index)
-        index-lookup-cost (reduce (fn [acc {:keys [cost col]}]
-                                    (let [next-cost (* acc cost)]
-                                      (if (contains? (:unique-cols index) col)
-                                        (reduced next-cost)
-                                        next-cost)))
-                                  1
-                                  (:path costs))
-        join-filter-cost (reduce + 0 (vals (:join-remaining costs)))
-        filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
-                                                   (:filter-components costs))))]
-    (* 1.0
-       (+ index-lookup-cost
-          filter-cost
-          join-filter-cost))))
+
+        scan-cost (reduce (fn [acc {:keys [cost col]}]
+                            (let [next-cost (* acc cost)]
+                              (if (contains? (:unique-cols index) col)
+                                (reduced next-cost)
+                                next-cost)))
+                          1
+                          (:path costs))
+
+        ;; Does the path include any selective column beyond :a?
+        ;; :a alone = "which attribute" (low selectivity, cost ~1).
+        ;; Any other column (:e, :v, :created-at) adds real selectivity.
+        path-has-selective-col? (some #(not= :a (:col %))
+                                      (:path costs))
+
+        ;; When the path only has :a (or is empty), scan-cost is unreliable.
+        ;; Use the max remaining cardinality as a lower bound for true scan size.
+        max-remaining (apply max 0 (concat (vals (:join-remaining costs))
+                                           (vals (select-keys (:known-remaining costs)
+                                                              (:filter-components costs)))))
+        rows-scanned (if path-has-selective-col?
+                       scan-cost
+                       (max scan-cost max-remaining))
+
+        num-unresolved (+ (count (:join-remaining costs))
+                          (count (select-keys (:known-remaining costs)
+                                              (:filter-components costs))))
+        per-row-overhead (* 0.1 num-unresolved)]
+
+    (* 1.0 rows-scanned (+ 1.0 per-row-overhead))))
 
 (defn path-cost-with-joins
   [index]
@@ -1531,6 +1560,22 @@
   "Annotates the pattern with best-index and adds updates the symbol-map."
   [ctx symbol-map pattern]
   (let [row-estimate (estimate-rows ctx pattern)
+        ;; The sketch estimate doesn't account for join selectivity.
+        ;; If this pattern joins with a previous CTE (variable in symbol-map),
+        ;; the output can't exceed the join cardinality.
+        row-estimate (if (flags/toggled? :new-index-cost true)
+                       (let [join-cap (reduce (fn [acc c]
+                                                (let [[tag variable] (get pattern c)]
+                                                  (if-let [v (and (= :variable tag)
+                                                                  (get symbol-map variable))]
+                                                    (if acc (min acc v) v)
+                                                    acc)))
+                                              nil
+                                              [:e :v])]
+                         (if join-cap
+                           (min row-estimate join-cap)
+                           row-estimate))
+                       row-estimate)
         pattern-symbol-map (pattern->symbol-map-placeholder pattern
                                                             row-estimate)]
     {:symbol-map (merge-with min symbol-map pattern-symbol-map)
