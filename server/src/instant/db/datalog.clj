@@ -1293,31 +1293,19 @@
   (let [costs (:index-costs index)
 
         ;; Product of selectivities along the index path.
-        ;; At a unique column (e.g. entity_id), stop. If we've already
-        ;; traversed a selective column, the unique col is just a filter
-        ;; on those results — don't multiply its cardinality.
-        ;; e.g. ave_with_e [:a 1, :v 895, :e 95046] → 895 (not 895*95046)
-        ;; But if the unique col is the first selective column, its
-        ;; cardinality IS the scan size — do multiply.
-        ;; e.g. ea_index [:e 95046, :a 1] → 95046 (entity lookups)
-        ;; [scan-cost, extra-unresolved] — the unique-col entity filter
-        ;; adds an extra unresolved predicate when not used as the
-        ;; primary scan dimension.
-        [scan-cost unique-col-unresolved]
-        (let [[cost-or-scan extra-or-selective?]
-              (reduce (fn [[acc seen-selective?] {:keys [cost col]}]
-                        (if (contains? (:unique-cols index) col)
-                          (if seen-selective?
-                            (reduced [acc 2])
-                            (reduced [(* acc cost) 0]))
-                          [(* acc cost) (or seen-selective? (not= :a col))]))
-                      [1 false]
-                      (:path costs))]
-          ;; If reduce hit a unique col, extra-or-selective? is a number (0 or 2).
-          ;; If it didn't, it's a boolean — default to 0 unresolved.
-          [cost-or-scan (if (number? extra-or-selective?)
-                          extra-or-selective?
-                          0)])
+        ;; Stops at unique columns (reduced). The specialized typed
+        ;; indexes (trigram, number_type, date_type) don't include :e
+        ;; in their path, so they get accurate scan costs naturally.
+        ;; ave_with_e includes :e and gets a large cost from the
+        ;; multiply — this correctly steers toward pkey for entity
+        ;; probing when ave_with_e isn't a specialized index.
+        scan-cost (reduce (fn [acc {:keys [cost col]}]
+                            (let [next-cost (* acc cost)]
+                              (if (contains? (:unique-cols index) col)
+                                (reduced next-cost)
+                                next-cost)))
+                          1
+                          (:path costs))
 
         ;; Does the path include any selective column beyond :a?
         ;; :a alone = "which attribute" (low selectivity, cost ~1).
@@ -1336,8 +1324,7 @@
 
         num-unresolved (+ (count (:join-remaining costs))
                           (count (select-keys (:known-remaining costs)
-                                              (:filter-components costs)))
-                          unique-col-unresolved)
+                                              (:filter-components costs))))
         per-row-overhead (* 0.1 num-unresolved)]
 
     (* 1.0 rows-scanned (+ 1.0 per-row-overhead))))
@@ -1375,19 +1362,6 @@
            (count (:path a-costs)))
         1
 
-        ;; Prefer to put join conds in the index
-        (and (= (:known-remaining b-costs)
-                (:join-components b-costs))
-             (not= (:known-remaining a-costs)
-                   (:join-components a-costs)))
-        -1
-
-        (and (= (:known-remaining a-costs)
-                (:join-components a-costs))
-             (not= (:known-remaining b-costs)
-                   (:join-components b-costs)))
-        1
-
         (and (< 0 (count (:path a-costs)))
              (< 0 (count (:path b-costs)))
              (< (/ (reduce + (map :cost (:path a-costs)))
@@ -1402,6 +1376,19 @@
                    (count (:path b-costs)))
                 (/ (reduce + (map :cost (:path a-costs)))
                    (count (:path a-costs)))))
+        1
+
+        ;; Prefer to put join conds in the index
+        (and (= (:known-remaining b-costs)
+                (:join-components b-costs))
+             (not= (:known-remaining a-costs)
+                   (:join-components a-costs)))
+        -1
+
+        (and (= (:known-remaining a-costs)
+                (:join-components a-costs))
+             (not= (:known-remaining b-costs)
+                   (:join-components b-costs)))
         1
 
         (and (:matching-idx-key? a)
@@ -1597,34 +1584,22 @@
                            row-estimate))
                        row-estimate)
         pattern-symbol-map (pattern->symbol-map-placeholder pattern
-                                                            row-estimate)
-        ;; Cap symbol-map values for best-index: the entity variable
-        ;; can't produce more rows than the capped row-estimate.
-        best-index-symbol-map (if (flags/toggled? :new-index-cost true)
-                                (reduce (fn [sm c]
-                                          (let [[tag variable] (get pattern c)]
-                                            (if (and (= :variable tag)
-                                                     (contains? sm variable))
-                                              (update sm variable min row-estimate)
-                                              sm)))
-                                        symbol-map
-                                        [:e :v])
-                                symbol-map)]
+                                                            row-estimate)]
     {:symbol-map (merge-with min symbol-map pattern-symbol-map)
      :pattern (assoc pattern
                      :row-estimate row-estimate
-                     :symbol-map best-index-symbol-map
+                     :symbol-map symbol-map
                      :best-index
                      (best-index ctx
                                  (assoc pattern
                                         :row-estimate row-estimate)
-                                 best-index-symbol-map)
+                                 symbol-map)
                      :best-index-if-eav (when (= :vae (idx-key (:idx pattern)))
                                           (best-index ctx
                                                       (assoc pattern
                                                              :row-estimate row-estimate
                                                              :idx [:keyword :eav])
-                                                      best-index-symbol-map)))}))
+                                                      symbol-map)))}))
 
 (defn annotate-patterns-with-hints [ctx initial-symbol-map patterns]
   (reduce
