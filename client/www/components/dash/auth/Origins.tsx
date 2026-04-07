@@ -1,6 +1,6 @@
 import { FormEventHandler, useContext, useState } from 'react';
 import { errorToast } from '@/lib/toast';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import {
   AuthorizedOrigin,
   AuthorizedOriginService,
@@ -45,7 +45,7 @@ export function addAuthorizedOrigin({
   params: string[];
 }): Promise<{ origin: AuthorizedOrigin }> {
   return jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/authorized_redirect_origins`,
+    `${getConfig().apiURI}/dash/apps/${appId}/authorized_redirect_origins`,
     {
       method: 'POST',
       headers: {
@@ -67,7 +67,7 @@ export function removeAuthorizedOrigin({
   originId: string;
 }): Promise<{ origin: AuthorizedOrigin }> {
   return jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/authorized_redirect_origins/${originId}`,
+    `${getConfig().apiURI}/dash/apps/${appId}/authorized_redirect_origins/${originId}`,
     {
       method: 'DELETE',
       headers: {

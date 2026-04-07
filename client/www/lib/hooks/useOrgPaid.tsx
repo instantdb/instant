@@ -1,7 +1,7 @@
 import { useFetchedDash } from '@/components/dash/MainDashLayout';
 import useSWR from 'swr';
 import { localStorageProvider } from '../swrCache';
-import config from '../config';
+import { useDeploymentConfig } from './useDeploymentConfig';
 import { useContext } from 'react';
 import { TokenContext } from '../contexts';
 
@@ -11,6 +11,7 @@ import { TokenContext } from '../contexts';
 export const useOrgPaid = () => {
   const dash = useFetchedDash();
   const token = useContext(TokenContext);
+  const { apiURI } = useDeploymentConfig();
 
   const result = useSWR(
     `${dash.data.currentWorkspaceId}-is-paid`,
@@ -19,7 +20,7 @@ export const useOrgPaid = () => {
         return false;
       }
       const response = await fetch(
-        `${config.apiURI}/dash/orgs/${dash.data.currentWorkspaceId}/billing`,
+        `${apiURI}/dash/orgs/${dash.data.currentWorkspaceId}/billing`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

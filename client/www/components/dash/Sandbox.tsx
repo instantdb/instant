@@ -14,7 +14,7 @@ import {
   TextInput,
   useDialog,
 } from '@/components/ui';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { attrsToSchema, dbAttrsToExplorerSchema } from '@/lib/schema';
 import { DBAttr, InstantApp, SchemaNamespace } from '@/lib/types';
@@ -390,7 +390,7 @@ export function Sandbox({
   useEffect(() => {
     const coreDb = initCore({
       appId: app.id,
-      apiURI: config.apiURI,
+      apiURI: getConfig().apiURI,
     });
 
     const unsubAttrs = coreDb._reactor.subscribeAttrs((_oAttrs: any) => {
@@ -461,7 +461,7 @@ export function Sandbox({
     const adminDb = initAdmin({
       adminToken: app.admin_token,
       appId: app.id,
-      apiURI: config.apiURI,
+      apiURI: getConfig().apiURI,
     }).asUser(runAsUserEmail ? { email: runAsUserEmail } : { guest: true });
 
     let rules: any;

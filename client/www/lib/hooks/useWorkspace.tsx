@@ -1,6 +1,6 @@
 import useSWR from 'swr';
 import { APIResponse, optimisticUpdate, useAuthToken } from '../auth';
-import config from '../config';
+import { getConfig } from '../config';
 import { InstantApp } from '../types';
 import { useDashFetch } from './useDashFetch';
 import { Role } from '@/pages/dash';
@@ -44,7 +44,7 @@ const getOrgDetails = async (params: {
   token: string;
   onUnauthorized?: () => void;
 }): Promise<Workspace> => {
-  const res = await fetch(`${config.apiURI}/dash/orgs/${params.orgId}`, {
+  const res = await fetch(`${getConfig().apiURI}/dash/orgs/${params.orgId}`, {
     headers: {
       authorization: `Bearer ${params.token}`,
       'Content-Type': 'application/json',

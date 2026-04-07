@@ -15,6 +15,7 @@ import {
   patchFirefoxClicks,
   patchNumberInputScroll,
 } from '@/lib/patchBrowserEvents';
+import { DeploymentConfigProvider } from '@/lib/hooks/useDeploymentConfig';
 
 function Oops() {
   return (
@@ -37,17 +38,19 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <PostHogProvider client={posthog}>
-      <PostHogIdentify />
-      <ErrorBoundary renderError={() => <Oops />}>
-        <SWRConfig
-          value={{
-            provider: localStorageProvider,
-          }}
-        >
-          <NuqsAdapter>{children}</NuqsAdapter>
-        </SWRConfig>
-      </ErrorBoundary>
-      {isDev ? <Dev /> : null}
+      <DeploymentConfigProvider>
+        <PostHogIdentify />
+        <ErrorBoundary renderError={() => <Oops />}>
+          <SWRConfig
+            value={{
+              provider: localStorageProvider,
+            }}
+          >
+            <NuqsAdapter>{children}</NuqsAdapter>
+          </SWRConfig>
+        </ErrorBoundary>
+        {isDev ? <Dev /> : null}
+      </DeploymentConfigProvider>
     </PostHogProvider>
   );
 }

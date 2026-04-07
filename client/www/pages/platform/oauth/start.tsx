@@ -3,7 +3,8 @@ import Auth from '@/components/dash/Auth';
 import { AppLogo } from '@/components/dash/OAuthApps';
 import { Button, Content, FullscreenLoading, LogoIcon } from '@/components/ui';
 import { useAuthToken } from '@/lib/auth';
-import config, { discordInviteUrl } from '@/lib/config';
+import { discordInviteUrl } from '@/lib/config';
+import { useDeploymentConfig } from '@/lib/hooks/useDeploymentConfig';
 import { messageFromInstantError } from '@/lib/errors';
 import { jsonFetch } from '@/lib/fetch';
 import { InstantIssue } from '@/lib/types';
@@ -113,6 +114,7 @@ type ClaimResult = {
 
 function OAuthForm({ redirectId }: { redirectId: string }) {
   const token = useAuthToken();
+  const { apiURI } = useDeploymentConfig();
 
   const [data, setData] = useState<ClaimResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -125,7 +127,7 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
       return;
     }
     hasFetched.current = true;
-    jsonFetch(`${config.apiURI}/platform/oauth/claim`, {
+    jsonFetch(`${apiURI}/platform/oauth/claim`, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${token}`,
@@ -198,7 +200,7 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
 
         <form
           className="flex flex-col"
-          action={`${config.apiURI}/platform/oauth/grant`}
+          action={`${apiURI}/platform/oauth/grant`}
           method="POST"
           onSubmit={() => setIsLoading(true)}
         >
@@ -211,7 +213,7 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
 
         <form
           className="flex flex-col"
-          action={`${config.apiURI}/platform/oauth/deny`}
+          action={`${apiURI}/platform/oauth/deny`}
           method="POST"
           onSubmit={() => setIsLoading(true)}
         >

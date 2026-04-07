@@ -2,7 +2,7 @@ import { Button, SectionHeading, TextInput } from '@/components/ui';
 import { useContext, useState } from 'react';
 import { useFetchedDash } from '../MainDashLayout';
 import { jsonFetch } from '@/lib/fetch';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { useReadyRouter } from '@/components/clientOnlyPage';
 
@@ -21,7 +21,7 @@ export const RenameOrg = () => {
     }
     dash.optimisticUpdateWorkspace(
       await jsonFetch(
-        `${config.apiURI}/dash/orgs/${dash.data.workspace.id}/rename`,
+        `${getConfig().apiURI}/dash/orgs/${dash.data.workspace.id}/rename`,
         {
           method: 'POST',
           headers: {

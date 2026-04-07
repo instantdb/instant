@@ -3,7 +3,7 @@ import { useContext } from 'react';
 import { useFetchedDash } from './MainDashLayout';
 import { ActionButton, Content, SectionHeading } from '../ui';
 import { jsonMutate } from '@/lib/fetch';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 
 export function Invites() {
   const token = useContext(TokenContext);
@@ -34,12 +34,15 @@ export function Invites() {
                   errorMessage="An error occurred when attempting to accept the invite."
                   successMessage={`You're part of the team for ${invite.title}!`}
                   onClick={async () => {
-                    await jsonMutate(`${config.apiURI}/dash/invites/accept`, {
-                      token,
-                      body: {
-                        'invite-id': invite.id,
+                    await jsonMutate(
+                      `${getConfig().apiURI}/dash/invites/accept`,
+                      {
+                        token,
+                        body: {
+                          'invite-id': invite.id,
+                        },
                       },
-                    });
+                    );
 
                     await dashResponse.mutate();
                   }}
@@ -49,12 +52,15 @@ export function Invites() {
                   submitLabel="Decline..."
                   errorMessage="An error occurred when attempting to decline the invite."
                   onClick={async () => {
-                    await jsonMutate(`${config.apiURI}/dash/invites/decline`, {
-                      token,
-                      body: {
-                        'invite-id': invite.id,
+                    await jsonMutate(
+                      `${getConfig().apiURI}/dash/invites/decline`,
+                      {
+                        token,
+                        body: {
+                          'invite-id': invite.id,
+                        },
                       },
-                    });
+                    );
 
                     await dashResponse.mutate();
 

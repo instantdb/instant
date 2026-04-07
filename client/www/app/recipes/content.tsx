@@ -3,7 +3,7 @@
 import { CodeEditor } from '@/components/new-landing/TabbedCodeExample';
 import { File } from 'recipes';
 import { InstantApp } from '@/lib/types';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useInView } from 'react-intersection-observer';
 import { ComponentType, useEffect, useRef, useState } from 'react';
@@ -73,7 +73,7 @@ function Main({ files }: { files: File[] }) {
       const i = columnDbsRef.current.length;
       columnDbsRef.current.push(
         init({
-          ...config,
+          ...getConfig(),
           appId,
           __extraDedupeKey: `recipes-col-${i}`,
         } as any),
@@ -367,7 +367,7 @@ function recipesUrl(appId: string) {
 }
 
 async function provisionEphemeralApp() {
-  const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
+  const r = await fetch(`${getConfig().apiURI}/dash/apps/ephemeral`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -386,7 +386,7 @@ async function provisionEphemeralApp() {
 }
 
 async function verifyEphemeralApp({ appId }: { appId: string }) {
-  const r = await fetch(`${config.apiURI}/dash/apps/ephemeral/${appId}`, {
+  const r = await fetch(`${getConfig().apiURI}/dash/apps/ephemeral/${appId}`, {
     headers: {
       'Content-Type': 'application/json',
     },

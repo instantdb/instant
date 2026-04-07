@@ -1,7 +1,7 @@
 import Cookies from 'js-cookie';
 import { useContext, useEffect, useState } from 'react';
 import useSwr, { SWRResponse } from 'swr';
-import config from './config';
+import { getConfig } from './config';
 import { jsonFetch, jsonMutate, trackingHeaders } from './fetch';
 import { TokenContext } from '@/lib/contexts';
 import produce, { Draft } from 'immer';
@@ -98,7 +98,7 @@ export function useAuthedFetch<Res = any>(path: string) {
 export function useAdmin() {
   const token = useAuthToken();
   const { data, error, isLoading } = useTokenFetch<{ ok: boolean }>(
-    `${config.apiURI}/dash/check-admin`,
+    `${getConfig().apiURI}/dash/check-admin`,
     token,
   );
 
@@ -173,7 +173,7 @@ function friendlyBillingError(message: string) {
 // Auth API
 
 export function sendMagicCode({ email }: { email: string }) {
-  return jsonFetch(`${config.apiURI}/dash/auth/send_magic_code`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/auth/send_magic_code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -188,7 +188,7 @@ export async function verifyMagicCode({
   code: string;
 }) {
   const res: { token: string; user: AuthUser } = await jsonFetch(
-    `${config.apiURI}/dash/auth/verify_magic_code`,
+    `${getConfig().apiURI}/dash/auth/verify_magic_code`,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -203,7 +203,7 @@ export async function signOut() {
   try {
     const token = _AUTH_INFO.token;
     if (token) {
-      await jsonFetch(`${config.apiURI}/dash/signout`, {
+      await jsonFetch(`${getConfig().apiURI}/dash/signout`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -223,7 +223,7 @@ export async function signOut() {
 
 export async function exchangeOAuthCodeForToken({ code }: { code: string }) {
   const res: { token: string; redirect_path: string; user: AuthUser } =
-    await jsonFetch(`${config.apiURI}/dash/oauth/token`, {
+    await jsonFetch(`${getConfig().apiURI}/dash/oauth/token`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ code }),
@@ -239,7 +239,7 @@ export async function claimTicket({
   ticket: string;
   token: string;
 }) {
-  return jsonMutate(`${config.apiURI}/dash/cli/auth/claim`, {
+  return jsonMutate(`${getConfig().apiURI}/dash/cli/auth/claim`, {
     token,
     body: { ticket },
   });
@@ -252,7 +252,7 @@ export async function voidTicket({
   ticket: string;
   token: string;
 }) {
-  return jsonMutate(`${config.apiURI}/dash/cli/auth/void`, {
+  return jsonMutate(`${getConfig().apiURI}/dash/cli/auth/void`, {
     token,
     body: { ticket },
   });

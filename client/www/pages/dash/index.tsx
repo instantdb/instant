@@ -31,7 +31,8 @@ import NextLink from 'next/link';
 import { ReactElement, useContext, useEffect, useRef, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 
-import config, { areTeamsFree, cliOauthParamName } from '@/lib/config';
+import { areTeamsFree, cliOauthParamName, getConfig } from '@/lib/config';
+import { useDeploymentConfig } from '@/lib/hooks/useDeploymentConfig';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { successToast } from '@/lib/toast';
@@ -114,7 +115,7 @@ async function fetchAppStats(
   token: string,
   appId: string,
 ): Promise<AppStatsResponse> {
-  return jsonFetch(`${config.apiURI}/dash/apps/${appId}/stats`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/apps/${appId}/stats`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -316,7 +317,7 @@ function Dashboard() {
     if (!agentEssayDemo.appId || !agentEssayDemo.adminToken) return;
 
     jsonMutate(
-      `${config.apiURI}/dash/apps/ephemeral/${agentEssayDemo.appId}/claim`,
+      `${getConfig().apiURI}/dash/apps/ephemeral/${agentEssayDemo.appId}/claim`,
       {
         token,
         method: 'POST',
@@ -384,7 +385,7 @@ function Dashboard() {
       let cancel = false;
       // If we didn't find the app, check if the app lives on
       // a different org and redirect to that.
-      jsonFetch(`${config.apiURI}/dash/apps/${appId}`, {
+      jsonFetch(`${getConfig().apiURI}/dash/apps/${appId}`, {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -433,8 +434,8 @@ function Dashboard() {
 
     const db = init({
       appId: app.id,
-      apiURI: config.apiURI,
-      websocketURI: config.websocketURI,
+      apiURI: getConfig().apiURI,
+      websocketURI: getConfig().websocketURI,
       // @ts-expect-error
       __adminToken: app?.admin_token,
       disableValidation: true,
@@ -1010,6 +1011,7 @@ function ExplorerTab({
   namespaces: SchemaNamespace[] | null;
 }) {
   const { darkMode } = useDarkMode();
+  const { apiURI, websocketURI } = useDeploymentConfig();
 
   const [explorerState, setExplorerState] = useExplorerState();
 
@@ -1020,8 +1022,8 @@ function ExplorerTab({
           useShadowDOM={false}
           setExplorerState={setExplorerState}
           explorerState={explorerState}
-          apiURI={config.apiURI}
-          websocketURI={config.websocketURI}
+          apiURI={apiURI}
+          websocketURI={websocketURI}
           darkMode={darkMode}
           appId={appId}
           adminToken={db.core._reactor.config.__adminToken}

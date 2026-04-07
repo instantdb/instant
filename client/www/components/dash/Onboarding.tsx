@@ -10,7 +10,7 @@ import { v4 } from 'uuid';
 
 import { Button, Content, ScreenHeading, TextInput } from '@/components/ui';
 import { signOut } from '@/lib/auth';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { useRouter } from 'next/router';
@@ -34,7 +34,7 @@ type App = {
 };
 
 function fetchDash(token: string) {
-  return jsonFetch(`${config.apiURI}/dash`, {
+  return jsonFetch(`${getConfig().apiURI}/dash`, {
     method: 'GET',
     headers: {
       authorization: `Bearer ${token}`,
@@ -44,7 +44,7 @@ function fetchDash(token: string) {
 }
 
 export function submitProfile(token: string, profile: Profile) {
-  return jsonFetch(`${config.apiURI}/dash/profiles`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/profiles`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,
@@ -58,7 +58,7 @@ export function createApp(
   token: string,
   toCreate: { id: string; title: string; admin_token: string },
 ) {
-  return jsonFetch(`${config.apiURI}/dash/apps`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/apps`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,

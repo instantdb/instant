@@ -1,8 +1,26 @@
+// Re-export deployment config utilities from the new system
+export {
+  getConfig,
+  isConfigInitialized,
+  type DeploymentConfig,
+} from './deploymentConfig';
+
+// Re-export constants
+export {
+  instantRepo,
+  discordInviteUrl,
+  discordOAuthAppsFeedbackInviteUrl,
+  bugsAndQuestionsInviteUrl,
+  localStorageFlagPrefix,
+  cliOauthParamName,
+} from './constants';
+
 export const isBrowser = typeof window != 'undefined';
 
 export const isDev = process.env.NODE_ENV === 'development';
 
 const isStaging = process.env.NEXT_PUBLIC_STAGING === 'true';
+const isSelfHosted = process.env.NEXT_PUBLIC_SELF_HOSTED === 'true';
 
 const devBackend = getLocal('devBackend');
 
@@ -15,6 +33,12 @@ if (devBackend && isBrowser) {
   }
 }
 
+/**
+ * @deprecated Use `getConfig()` from '@/lib/hooks/useDeploymentConfig' instead.
+ * This object is kept for backward compatibility during migration.
+ * For self-hosted deployments, this will have incorrect values until
+ * DeploymentConfigProvider initializes.
+ */
 const config = {
   apiURI: devBackend
     ? `http://localhost:${localPort}`
@@ -35,10 +59,26 @@ if (isDev && isBrowser) {
 }
 
 /**
- * Returns the config for use in server components. In dev mode, reads the
- * devBackend cookie so it resolves the same apiURI as the client.
+ * Returns the config for use in server components.
+ *
+ * For self-hosted deployments, reads INSTANT_BACKEND_URL from env.
+ * For cloud deployments in dev mode, reads the devBackend cookie.
  */
 export async function getServerConfig() {
+  // Self-hosted: read from environment variable
+  if (isSelfHosted) {
+    const backendUrl = process.env.INSTANT_BACKEND_URL;
+    if (backendUrl) {
+      const url = new URL(backendUrl);
+      const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      return {
+        apiURI: backendUrl,
+        websocketURI: `${wsProtocol}//${url.host}/runtime/session`,
+      };
+    }
+  }
+
+  // Dev mode: check for devBackend cookie
   if (isDev && !isBrowser) {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
@@ -51,9 +91,13 @@ export async function getServerConfig() {
       };
     }
   }
+
   return config;
 }
 
+/**
+ * @deprecated Use `getConfig()` from '@/lib/hooks/useDeploymentConfig' instead.
+ */
 export default config;
 
 export const isTouchDevice =
@@ -110,19 +154,6 @@ export function setLocal<K extends string>(
     return;
   }
 }
-
-export const localStorageFlagPrefix = `__instant__flag__`;
-
-export const cliOauthParamName = '_cli_oauth_ticket';
-
-export const instantRepo = 'instantdb/instant';
-
-export const discordInviteUrl = 'https://discord.com/invite/VU53p7uQcE';
-
-export const discordOAuthAppsFeedbackInviteUrl =
-  'https://discord.gg/GrvbPTBDEX';
-
-export const bugsAndQuestionsInviteUrl = 'https://discord.gg/unA5vyV6mP';
 
 export function areTeamsFree() {
   const now = new Date();

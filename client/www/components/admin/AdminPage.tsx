@@ -4,7 +4,7 @@ import { capitalize } from 'lodash';
 import { useContext, useState } from 'react';
 import { v4 } from 'uuid';
 
-import config, { areTeamsFree } from '@/lib/config';
+import { areTeamsFree, getConfig } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { errorToast, successToast } from '@/lib/toast';
@@ -108,7 +108,7 @@ export function Admin({
       if (dashResponse.data.workspace.type === 'personal') {
         // personal app
         await dashResponse.optimisticUpdate(
-          jsonMutate(`${config.apiURI}/dash/apps/${app.id}/rename`, {
+          jsonMutate(`${getConfig().apiURI}/dash/apps/${app.id}/rename`, {
             method: 'POST',
             token,
             body: {
@@ -125,7 +125,7 @@ export function Admin({
       } else {
         // org
         dashResponse.optimisticUpdateWorkspace(
-          jsonMutate(`${config.apiURI}/dash/apps/${app.id}/rename`, {
+          jsonMutate(`${getConfig().apiURI}/dash/apps/${app.id}/rename`, {
             method: 'POST',
             token,
             body: {
@@ -202,7 +202,7 @@ export function Admin({
               errorMessage="An error occurred while attempting to update team member."
               onClick={async () => {
                 await jsonMutate(
-                  `${config.apiURI}/dash/apps/${app.id}/members/update`,
+                  `${getConfig().apiURI}/dash/apps/${app.id}/members/update`,
                   {
                     token,
                     body: {
@@ -227,7 +227,7 @@ export function Admin({
               errorMessage="An error occurred while attempting to remove team member."
               onClick={async () => {
                 await jsonMutate(
-                  `${config.apiURI}/dash/apps/${app.id}/members/remove`,
+                  `${getConfig().apiURI}/dash/apps/${app.id}/members/remove`,
                   {
                     method: 'DELETE',
                     token,
@@ -364,7 +364,7 @@ export function Admin({
                       onClick={async () => {
                         dashResponse.optimisticUpdate(
                           jsonMutate(
-                            `${config.apiURI}/dash/apps/${app.id}/invite/revoke`,
+                            `${getConfig().apiURI}/dash/apps/${app.id}/invite/revoke`,
                             {
                               method: 'DELETE',
                               token,
@@ -484,7 +484,7 @@ export function Admin({
                 onClick={async () => {
                   setIsClearingApp(true);
                   await jsonFetch(
-                    `${config.apiURI}/dash/apps/${app.id}/clear`,
+                    `${getConfig().apiURI}/dash/apps/${app.id}/clear`,
                     {
                       method: 'POST',
                       headers: {
@@ -522,7 +522,7 @@ export function Admin({
                 variant="destructive"
                 onClick={async () => {
                   setIsDeletingApp(true);
-                  await jsonFetch(`${config.apiURI}/dash/apps/${app.id}`, {
+                  await jsonFetch(`${getConfig().apiURI}/dash/apps/${app.id}`, {
                     method: 'DELETE',
                     headers: {
                       authorization: `Bearer ${token}`,
@@ -548,7 +548,7 @@ function regenerateAdminToken(
   appId: string,
   adminToken: string,
 ) {
-  return jsonFetch(`${config.apiURI}/dash/apps/${appId}/tokens`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/apps/${appId}/tokens`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,
@@ -582,7 +582,7 @@ function InviteTeamMemberDialog({
     onClose();
 
     return dashResponse.optimisticUpdate(
-      jsonMutate(`${config.apiURI}/dash/apps/${app.id}/invite/send`, {
+      jsonMutate(`${getConfig().apiURI}/dash/apps/${app.id}/invite/send`, {
         token,
         body: {
           'invitee-email': email,
@@ -670,7 +670,7 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
     try {
       setIsLoading(true);
       const resp = await jsonFetch(
-        `${config.apiURI}/dash/apps/${app.id}/transfer_to_org/${org.id}`,
+        `${getConfig().apiURI}/dash/apps/${app.id}/transfer_to_org/${org.id}`,
         {
           method: 'POST',
           headers: {

@@ -11,7 +11,7 @@ import {
   ScreenHeading,
   TextInput,
 } from '@/components/ui';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { InstantApp } from '@/lib/types';
@@ -133,7 +133,7 @@ export function createApp(
     org_id?: string | null | undefined;
   },
 ) {
-  return jsonFetch(`${config.apiURI}/dash/apps`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/apps`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,

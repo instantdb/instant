@@ -1,5 +1,5 @@
 import useSWRSubscription from 'swr/subscription';
-import config from './config';
+import { getConfig } from './config';
 import { CheckedDataType, InstantIndexingJob } from './types';
 
 export async function createJob(
@@ -16,19 +16,22 @@ export async function createJob(
   },
   token: string,
 ): Promise<InstantIndexingJob> {
-  const res = await fetch(`${config.apiURI}/dash/apps/${appId}/indexing-jobs`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
+  const res = await fetch(
+    `${getConfig().apiURI}/dash/apps/${appId}/indexing-jobs`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        'app-id': appId,
+        'attr-id': attrId,
+        'job-type': jobType,
+        'checked-data-type': checkedDataType,
+      }),
     },
-    body: JSON.stringify({
-      'app-id': appId,
-      'attr-id': attrId,
-      'job-type': jobType,
-      'checked-data-type': checkedDataType,
-    }),
-  });
+  );
 
   const json = await res.json();
   return json.job;
@@ -57,7 +60,7 @@ export function jobFetchLoop(appId: string, jobId: string, token: string) {
     while (!stopped && !errored) {
       try {
         const res = await fetch(
-          `${config.apiURI}/dash/apps/${appId}/indexing-jobs/${jobId}`,
+          `${getConfig().apiURI}/dash/apps/${appId}/indexing-jobs/${jobId}`,
           { headers: { authorization: `Bearer ${token}` } },
         );
         const body = await res.text();

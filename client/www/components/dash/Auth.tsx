@@ -8,7 +8,8 @@ import {
   ScreenHeading,
   TextInput,
 } from '../ui';
-import config, { isDev } from '@/lib/config';
+import { isDev } from '@/lib/config';
+import { useDeploymentConfig } from '@/lib/hooks/useDeploymentConfig';
 import googleIconSvg from '../../public/img/google_g.svg';
 import Image from 'next/image';
 import { InstantIssue } from '@/lib/types';
@@ -81,6 +82,7 @@ function EmailStep(props: {
   ticket?: string;
 }) {
   const router = useRouter();
+  const { apiURI } = useDeploymentConfig();
 
   return (
     <div className="flex flex-col gap-4">
@@ -93,7 +95,7 @@ function EmailStep(props: {
       >
         <ScreenHeading>Let's log you in</ScreenHeading>
         <Content>
-          Enter your email, and we’ll send you a verification code. We'll create
+          Enter your email, and we'll send you a verification code. We'll create
           an account for you too if you don't already have one :)
         </Content>
         <TextInput
@@ -122,7 +124,7 @@ function EmailStep(props: {
           <Button
             variant="secondary"
             type="link"
-            href={url(config.apiURI, `/dash/oauth/start`, {
+            href={url(apiURI, `/dash/oauth/start`, {
               ticket: props.ticket,
               redirect_to_dev: isDev ? 'true' : undefined,
               redirect_path: router.asPath,

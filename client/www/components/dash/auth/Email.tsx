@@ -1,5 +1,5 @@
 import { useContext, useState, useEffect } from 'react';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { jsonMutate, jsonFetch } from '@/lib/fetch';
 import { TokenContext } from '@/lib/contexts';
 import { InstantApp } from '@/lib/types';
@@ -51,13 +51,16 @@ export function getSenderVerification({
   senderEmail: string;
   verification: SenderVerificationInfo | null;
 }> {
-  return jsonFetch(`${config.apiURI}/dash/apps/${appId}/sender-verification`, {
-    method: 'GET',
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
+  return jsonFetch(
+    `${getConfig().apiURI}/dash/apps/${appId}/sender-verification`,
+    {
+      method: 'GET',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
     },
-  });
+  );
 }
 
 export function Email({ app }: { app: InstantApp }) {
@@ -98,7 +101,7 @@ export function Email({ app }: { app: InstantApp }) {
     return dashResponse
       .optimisticUpdate(
         jsonMutate<{ id: string }>(
-          `${config.apiURI}/dash/apps/${app.id}/email_templates`,
+          `${getConfig().apiURI}/dash/apps/${app.id}/email_templates`,
           {
             body: {
               'email-type': 'magic-code',
@@ -374,7 +377,7 @@ export function Email({ app }: { app: InstantApp }) {
               if (template?.id) {
                 await dashResponse.optimisticUpdate(
                   jsonMutate(
-                    `${config.apiURI}/dash/apps/${app.id}/email_templates/${template?.id}`,
+                    `${getConfig().apiURI}/dash/apps/${app.id}/email_templates/${template?.id}`,
                     {
                       method: 'DELETE',
                       token,
@@ -415,7 +418,7 @@ function MagicCodeExpirationSection({ app }: { app: InstantApp }) {
     try {
       await dashResponse.optimisticUpdate(
         jsonMutate(
-          `${config.apiURI}/dash/apps/${app.id}/set-magic-code-expiry`,
+          `${getConfig().apiURI}/dash/apps/${app.id}/set-magic-code-expiry`,
           { body: { expiry: selected }, token },
         ),
       );
