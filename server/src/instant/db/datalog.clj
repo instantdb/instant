@@ -1264,7 +1264,7 @@
                                         next-cost)))
                                   1
                                   (:path costs))
-        join-cost (reduce + 1 (vals (:join-remaining costs)))
+        join-cost (reduce * 1 (vals (:join-remaining costs)))
         filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
                                                    (:filter-components costs))))]
     (* 1.0
@@ -1285,17 +1285,17 @@
                                         next-cost)))
                                   1
                                   (:path costs))
-        join-cost (reduce * 1 (vals (:join-remaining costs)))
+        join-filter-cost (reduce + 0 (vals (:join-remaining costs)))
         filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
                                                    (:filter-components costs))))]
     (* 1.0
        (+ index-lookup-cost
-          (* 2 filter-cost))
-       (max 1 (* 1.1 join-cost)))))
+          filter-cost
+          join-filter-cost))))
 
 (defn path-cost-with-joins
   [index]
-  (if (flags/toggled? :new-index-cost)
+  (if (flags/toggled? :new-index-cost true)
     (path-cost-with-joins-new index)
     (path-cost-with-joins-old index)))
 
@@ -1326,6 +1326,19 @@
            (count (:path a-costs)))
         1
 
+        ;; Prefer to put join conds in the index
+        (and (= (:known-remaining b-costs)
+                (:join-components b-costs))
+             (not= (:known-remaining a-costs)
+                   (:join-components a-costs)))
+        -1
+
+        (and (= (:known-remaining a-costs)
+                (:join-components a-costs))
+             (not= (:known-remaining b-costs)
+                   (:join-components b-costs)))
+        1
+
         (and (< 0 (count (:path a-costs)))
              (< 0 (count (:path b-costs)))
              (< (/ (reduce + (map :cost (:path a-costs)))
@@ -1340,19 +1353,6 @@
                    (count (:path b-costs)))
                 (/ (reduce + (map :cost (:path a-costs)))
                    (count (:path a-costs)))))
-        1
-
-        ;; Prefer to put join conds in the index
-        (and (= (:known-remaining b-costs)
-                (:join-components b-costs))
-             (not= (:known-remaining a-costs)
-                   (:join-components a-costs)))
-        -1
-
-        (and (= (:known-remaining a-costs)
-                (:join-components a-costs))
-             (not= (:known-remaining b-costs)
-                   (:join-components b-costs)))
         1
 
         (and (:matching-idx-key? a)
@@ -1412,15 +1412,20 @@
                                            :e (count value)
                                            :v (estimate-index-size ctx named-p :v))
                                :any nil
-                               :function (estimate-index-size ctx named-p c)
+                               :function (if (and (= :v c)
+                                                  (contains? #{:$isNull} (-> value keys first))
+                                                  ;; $isNull with nil?=true becomes NOT IN (subquery),
+                                                  ;; which can't drive index lookups on entity_id.
+                                                  ;; nil?=false becomes IN (subquery), where the
+                                                  ;; subquery results CAN drive index lookups.
+                                                  (:nil? (-> value vals first))
+                                                  (flags/toggled? :fix-is-null-index-cost true))
+                                           nil
+                                           (estimate-index-size ctx named-p c))
 
                                :variable (get symbol-map value))]
 
                       (assoc acc
-                             ;; $isNull gets turned into a subquery that returns entity_ids,
-                             ;; and then we check in the cte if entity_id in (subquery).
-                             ;; So when we determine the index to use for the CTE, we shouldn't be
-                             ;; looking at the :v--that happens in the subquery.
                              (if (and (= :v c)
                                       (= :function tag)
                                       (contains? #{:$isNull} (-> value keys first)))
@@ -1461,7 +1466,10 @@
                                                       :constant c
                                                       :function (if (and (= :v c)
                                                                          (contains? #{:$isNull} (-> value keys first)))
-                                                                  :e
+                                                                  (if (and (:nil? (-> value vals first))
+                                                                           (flags/toggled? :fix-is-null-index-cost true))
+                                                                    nil
+                                                                    :e)
                                                                   c))]
                                         (conj acc comp)
                                         acc)))
