@@ -1273,32 +1273,53 @@
        (max 1 (* 1.1 join-cost)))))
 
 (defn path-cost-with-joins-new
-  "Estimates total work for an index choice.
+  "Estimates total work for an index, used to pick the best index for a CTE
+  that joins with previous CTEs via a nested loop.
 
-  1. Estimate rows-scanned: how many rows the index actually touches.
+  In a nested loop join, one side drives (produces rows) and the other
+  probes (looks up per row). The index we pick determines which role this
+  CTE plays:
 
-     When the path includes a selective column (:e, :v, :created-at),
-     the path product is a reasonable row estimate. e.g. ea_index
-     [:e 708, :a 1] → 708 lookups.
+  - Entity-first (pkey, ea_index): the previous CTE's entities drive.
+    For each entity, we probe the index. Fast when the entity set is small.
 
-     When the path only covers :a (or is empty), scan-cost is just the
-     attribute count (usually 1) — NOT the actual row count. In this
-     case we correct using the max remaining cardinality (filter or join)
-     as a lower bound for the true scan size.
+  - Value-first (date_idx, trigram, number_type): we scan by value, then
+    check each result against the previous CTE's entity set (hash probe).
+    Fast when the value predicate is selective.
 
-  2. Per-row overhead for unresolved predicates. After the scan, each
-     remaining predicate is checked per-row — O(1). We model this as
-     10% overhead per unresolved predicate on the row estimate."
+  - Both (ave_with_e): tries to walk attr → value → entity in one btree
+    traversal. The cost product models this as a nested loop over all
+    value matches × all entities, which is pessimistic — but correctly
+    steers the optimizer toward either a pure entity-first or pure
+    value-first index, letting postgres handle the join between them.
+
+  ## Example: {:e 708, :a 1, :v 466906}
+
+  708 entities from the previous CTE, 466906 rows matching a
+  date range.
+
+  scan-cost (product along path, stop at unique cols):
+    ea_index    [:e :a]    → 708     (708 entity lookups)
+    date_idx    [:a :v]    → 466906  (scan all date matches)
+    ave_with_e  [:a :v :e] → 330M    (pessimistic: 466906 × 708)
+    created_at  [:a]       → 1       (unreliable — see correction)
+
+  Per-row overhead (10% per unresolved predicate):
+    ea_index:   708 rows × 1.1 (check date per row)     = 779     ← winner
+    date_idx:   466906 rows × 1.1 (hash probe entity)   = 513597
+    ave_with_e: 330M rows × 1.0 (nothing unresolved)    = 330M
+    created_at: corrected to 466906 × 1.2 (2 unresolved) = 560287
+
+  ea_index wins: 708 entity probes with a per-row date check.
+
+  ## :a-only correction
+
+  When the path only has :a, scan-cost = 1 (one attribute), which doesn't
+  reflect actual rows. We correct using the max remaining cardinality:
+    created_at [:a] with {:e 708, :v 466906} → max(1, 466906) = 466906"
   [index]
   (let [costs (:index-costs index)
 
-        ;; Product of selectivities along the index path.
-        ;; Stops at unique columns (reduced). The specialized typed
-        ;; indexes (trigram, number_type, date_type) don't include :e
-        ;; in their path, so they get accurate scan costs naturally.
-        ;; ave_with_e includes :e and gets a large cost from the
-        ;; multiply — this correctly steers toward pkey for entity
-        ;; probing when ave_with_e isn't a specialized index.
         scan-cost (reduce (fn [acc {:keys [cost col]}]
                             (let [next-cost (* acc cost)]
                               (if (contains? (:unique-cols index) col)
@@ -1307,14 +1328,9 @@
                           1
                           (:path costs))
 
-        ;; Does the path include any selective column beyond :a?
-        ;; :a alone = "which attribute" (low selectivity, cost ~1).
-        ;; Any other column (:e, :v, :created-at) adds real selectivity.
         path-has-selective-col? (some #(not= :a (:col %))
                                       (:path costs))
 
-        ;; When the path only has :a (or is empty), scan-cost is unreliable.
-        ;; Use the max remaining cardinality as a lower bound for true scan size.
         max-remaining (apply max 0 (concat (vals (:join-remaining costs))
                                            (vals (select-keys (:known-remaining costs)
                                                               (:filter-components costs)))))
