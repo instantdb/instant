@@ -45,6 +45,7 @@ services:
       context: ./server
       dockerfile: Dockerfile
     environment:
+      SELF_HOSTED: "true"
       DATABASE_URL: "postgresql://instant:pass@postgres:5432/instant"
     ports:
       - "8888:8888"
