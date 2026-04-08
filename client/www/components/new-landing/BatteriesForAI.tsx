@@ -650,135 +650,118 @@ function StorageDemo() {
     };
   }, [runCycle, clear]);
 
+  const isPost = phase === 'post';
+
   return (
     <div ref={containerRef} className="relative mx-auto max-w-[260px]">
-      <AnimatePresence mode="wait">
-        {phase !== 'post' ? (
-          <motion.div
-            key="compose"
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden rounded-lg border border-gray-200 bg-white"
-          >
-            {/* Header */}
-            <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2">
-              <img
-                src="/img/landing/stopa.jpg"
-                alt="stopa"
-                className="h-6 w-6 rounded-full object-cover"
-              />
-              <span className="text-xs font-semibold text-gray-900">stopa</span>
-            </div>
+      <div className="rounded-lg border border-gray-200 bg-white">
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 py-2">
+          <img
+            src="/img/landing/stopa.jpg"
+            alt="stopa"
+            className="h-6 w-6 rounded-full object-cover"
+          />
+          <span className="text-xs font-semibold text-gray-900">stopa</span>
+        </div>
 
-            {/* Dropzone / Image */}
-            <div className="px-3 pt-2">
-              {imageDropped ? (
-                <div className="relative overflow-hidden">
-                  <img
-                    src="/img/landing/dog-post.jpg"
-                    alt="Dog"
-                    className="w-full object-cover"
-                    style={{ aspectRatio: '4/3' }}
-                  />
-                  {phase === 'uploading' && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <div className="h-1.5 w-3/4 rounded-full bg-white/30">
-                        <div
-                          className="h-full rounded-full bg-white transition-all duration-75"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
+        {/* Image area with heart pill */}
+        <div className="relative w-full" style={{ aspectRatio: '4/3' }}>
+          <div className="absolute inset-0 overflow-hidden">
+            {imageDropped ? (
+              <>
+                <img
+                  src="/img/landing/dog-post.jpg"
+                  alt="Dog"
+                  className="h-full w-full object-cover"
+                />
+                {phase === 'uploading' && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="h-1.5 w-3/4 rounded-full bg-white/30">
+                      <div
+                        className="h-full rounded-full bg-white transition-all duration-75"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center rounded-md border-2 border-dashed border-gray-200 py-10 text-gray-300">
-                  <svg
-                    className="h-8 w-8"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
-                    />
-                  </svg>
-                  <span className="mt-1 text-xs">Drop image here</span>
-                </div>
-              )}
-            </div>
-
-            {/* Caption area */}
-            <div className="px-3 py-3">
-              <div className="min-h-[20px] text-xs text-gray-800">
-                {typedText ? (
-                  <span>
-                    {typedText}
-                    {phase === 'typing' && (
-                      <span className="animate-pulse text-gray-400">|</span>
-                    )}
-                  </span>
-                ) : (
-                  <span className="text-gray-300">Write a caption...</span>
+                  </div>
                 )}
-              </div>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="post"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="relative rounded-lg border border-gray-200 bg-white"
-          >
-            {/* Header */}
-            <div className="flex items-center gap-2 px-3 py-2">
-              <img
-                src="/img/landing/stopa.jpg"
-                alt="stopa"
-                className="h-7 w-7 rounded-full object-cover"
-              />
-              <span className="text-xs font-semibold text-gray-900">stopa</span>
-            </div>
-            {/* Photo */}
-            <div
-              className="relative w-full overflow-visible"
-              style={{ aspectRatio: '4/3' }}
-            >
-              <img
-                src="/img/landing/dog-post.jpg"
-                alt="Dog licking a spoon"
-                className="h-full w-full object-cover"
-              />
-              {/* Heart button — pill, overlapping bottom-right of image */}
-              <div
-                ref={heartRef}
-                className="absolute -right-2 -bottom-3"
-                style={{ overflow: 'visible' }}
-              >
-                <button
-                  onClick={handleHeartClick}
-                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xl shadow-sm transition-transform hover:shadow-md active:scale-90"
+              </>
+            ) : (
+              <div className="absolute inset-3 flex flex-col items-center justify-center rounded-md border-2 border-dashed border-gray-200 text-gray-300">
+                <svg
+                  className="h-8 w-8"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
                 >
-                  ❤️
-                </button>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
+                  />
+                </svg>
+                <span className="mt-1 text-xs">Drop image here</span>
               </div>
-            </div>
-            {/* Caption */}
-            <div className="px-3 pt-3 pb-2">
-              <p className="text-xs text-gray-800">
-                <span className="font-semibold">stopa</span>{' '}
-                <span className="text-gray-600">Newest member of the team</span>
-              </p>
-            </div>
+            )}
+          </div>
+          {/* Heart pill — always mounted, fades and scales in on post */}
+          <motion.div
+            ref={heartRef}
+            initial={false}
+            animate={{
+              opacity: isPost ? 1 : 0,
+              scale: isPost ? 1 : 0.6,
+            }}
+            transition={{ duration: 0.35, ease: [0.34, 1.56, 0.64, 1] }}
+            className="absolute -right-2 -bottom-3"
+            style={{ overflow: 'visible' }}
+          >
+            <button
+              onClick={handleHeartClick}
+              className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xl shadow-sm transition-transform hover:shadow-md active:scale-90"
+            >
+              ❤️
+            </button>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+
+        {/* Caption */}
+        <div className="px-3 pt-3 pb-2">
+          <div className="min-h-[20px] text-xs text-gray-800">
+            <AnimatePresence mode="wait">
+              {isPost ? (
+                <motion.p
+                  key="final"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  <span className="font-semibold">stopa</span>{' '}
+                  <span className="text-gray-600">{caption}</span>
+                </motion.p>
+              ) : (
+                <motion.div
+                  key="draft"
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  {typedText ? (
+                    <span>
+                      {typedText}
+                      {phase === 'typing' && (
+                        <span className="animate-pulse text-gray-400">|</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-gray-300">Write a caption...</span>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
 
       {/* Drag thumbnail following cursor */}
       {showDragThumb && (
