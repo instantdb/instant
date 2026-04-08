@@ -62,6 +62,7 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
             <Fence
               darkMode={darkMode}
               copyable
+              className="border-none!"
               code={`npx instant-cli@latest pull`}
               language="bash"
             />
