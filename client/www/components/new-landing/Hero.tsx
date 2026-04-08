@@ -20,8 +20,7 @@ function VideoPlayer() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  const loadingTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handlePlay = useCallback(() => {
     loadingTimer.current = setTimeout(() => setIsLoading(true), 500);
@@ -40,12 +39,21 @@ function VideoPlayer() {
           src={VIDEO_URL}
           controls
           preload="auto"
+          playsInline
           className="block aspect-video w-full"
           onPlaying={() => {
             if (loadingTimer.current) clearTimeout(loadingTimer.current);
             setHasStarted(true);
           }}
-        />
+        >
+          <track
+            kind="captions"
+            src="/video-previews/captions.vtt"
+            srcLang="en"
+            label="English"
+            default
+          />
+        </video>
       </div>
 
       {!hasStarted && (

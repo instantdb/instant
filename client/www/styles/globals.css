@@ -36,6 +36,9 @@
     --default-mono-font-family: 'Berkeley Mono', ui-monospace, SFMono-Regular,
       Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   }
+  ::cue {
+    font-family: var(--default-font-family);
+  }
 }
 
 @utility landing-width {
