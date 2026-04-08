@@ -220,7 +220,7 @@ export function AddClientForm({
         <RedirectUrlInput value={redirectTo} onChange={setRedirectTo} />
       )}
       {appType === 'web' && (
-        <div className="dark flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
           <p className="overflow-hidden">
             Add{' '}
             <Copytext
