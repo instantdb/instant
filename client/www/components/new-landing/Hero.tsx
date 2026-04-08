@@ -6,8 +6,8 @@ import { CopyToClipboardButton } from './CopyToClipboardButton';
 import { HeroTitle, LandingButton, SectionSubtitle } from './typography';
 
 // Video Player with Mux Player
-const PLAYBACK_ID = 'w17NAgfCBoFtqQi2snD2B7f901Ri5V5uVXepK7x74I0000';
-const THUMBNAIL_URL = `https://image.mux.com/${PLAYBACK_ID}/thumbnail.jpg?width=1920`;
+const PLAYBACK_ID = 'Hn5WaLtZdNS3phDS42IW3tT02fNeluQqZyVHEyldC007s';
+const THUMBNAIL_URL = '/video-previews/preview-4m41s.jpg';
 
 function PlayIcon({ className }: { className?: string }) {
   return (
@@ -19,11 +19,10 @@ function PlayIcon({ className }: { className?: string }) {
 
 function VideoPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const playerRef = useRef<any>(null);
 
   const handlePlay = useCallback(() => {
-    setIsPlaying(true);
-    // Start playback on the already-preloaded player
     const el = playerRef.current;
     if (el) {
       el.currentTime = 0;
@@ -32,22 +31,23 @@ function VideoPlayer() {
   }, []);
 
   return (
-    <div className="relative overflow-hidden rounded-4xl shadow-[0_28px_90px_rgba(0,0,0,0.22)]">
-      {/* MuxPlayer is always mounted for eager preloading, but hidden until play */}
-      <div className={isPlaying ? '' : 'invisible absolute inset-0'}>
+    <div className="relative aspect-video overflow-hidden rounded-4xl shadow-[0_28px_90px_rgba(0,0,0,0.22)]">
+      <div className={hasStarted ? '' : 'invisible absolute inset-0'}>
         <MuxPlayer
           ref={playerRef}
           playbackId={PLAYBACK_ID}
           accentColor="#ea580c"
-          metadata={{ video_title: 'InstantDB Demo' }}
+          metadata={{ video_title: 'InstantDB 1.0 Launch' }}
           preload="auto"
+          thumbnailTime={281}
           minResolution="1080p"
           renditionOrder="desc"
           style={{ aspectRatio: '16/9', display: 'block' }}
+          onPlaying={() => setHasStarted(true)}
         />
       </div>
 
-      {!isPlaying && (
+      {!hasStarted && (
         <button
           onClick={handlePlay}
           className="group relative w-full cursor-pointer"
@@ -55,23 +55,12 @@ function VideoPlayer() {
           <img
             src={THUMBNAIL_URL}
             alt="Watch demo video"
-            className="aspect-video w-full scale-[1.01] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            className="block aspect-video w-full object-cover"
           />
 
-          <div className="absolute top-0 right-0 -bottom-2 left-0 bg-black/50 transition-colors duration-300 group-hover:bg-black/50" />
+          <div className="absolute inset-0 bg-black/30 transition-colors duration-300 group-hover:bg-black/40" />
 
-          <div className="absolute inset-x-0 top-[13%] px-6 text-center sm:top-[14%] sm:px-10">
-            <p className="font-mono text-xs tracking-[0.16em] text-white/85 sm:text-[13px]">
-              instant in action
-            </p>
-            <p className="mx-auto mt-6 text-3xl leading-[1.2] font-semibold tracking-[-0.02em] text-white sm:text-5xl">
-              Agents build realtime
-              <br />
-              Instagram in 12 minutes
-            </p>
-          </div>
-
-          <div className="absolute top-[73%] left-1/2 -translate-x-1/2 -translate-y-1/2">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-600 shadow-[0_20px_48px_rgba(234,88,12,0.55)] transition-transform duration-300 group-hover:scale-110 sm:h-24 sm:w-24 lg:h-28 lg:w-28">
               <PlayIcon className="ml-1 h-8 w-8 text-white sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
             </div>
