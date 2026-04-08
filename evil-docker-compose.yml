@@ -35,22 +35,24 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile.www
+    environment:
+      - INSTANT_BACKEND_URL=http://localhost:8888
+      - NEXT_PUBLIC_SELF_HOSTED=true
 
   server:
     depends_on:
-      - postgres
-
-    # TODO: Swap with public image
+      postgres:
+        condition: service_healthy
+    # TODO: replace with real image
     build:
       context: ./server
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.self-hosted
     environment:
       SELF_HOSTED: "true"
-      DATABASE_URL: "postgresql://instant:pass@postgres:5432/instant"
+      DATABASE_URL: "postgresql://instant:pass@postgres:5432/instant?sslmode=disable"
     ports:
       - "8888:8888"
       - "6005:6005"
-    command: sh -c 'java $${JAVA_OPTS} --add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints -Djdk.attach.allowAttachSelf -Djava.awt.headless=true -Dcom.sun.management.jmxremote.port=10001 -Dcom.sun.management.jmxremote.rmi.port=10001 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -XX:StartFlightRecording=disk=true,maxsize=1G,name=instant,filename=instant_$(date +%s%N).jfr -Dcom.sun.management.jmxremote.local.only=false -Djava.rmi.server.hostname=localhost -server -jar target/instant-standalone.jar'
 
 volumes:
   backend-db:
