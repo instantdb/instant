@@ -143,8 +143,11 @@ function CategoryRow({
 
       {/* Amount */}
       <div className="flex-shrink-0 text-right">
-        <div className="text-sm font-semibold text-gray-800 tabular-nums">
-          ${animatedTotal.toFixed(2)}
+        <div className="relative text-sm font-semibold text-gray-800 tabular-nums">
+          <span aria-hidden className="invisible">
+            ${config.total.toFixed(2)}
+          </span>
+          <span className="absolute inset-0">${animatedTotal.toFixed(2)}</span>
         </div>
       </div>
 
@@ -183,8 +186,13 @@ export function RevenueDashboardDemo() {
             Revenue Dashboard
           </div>
           <div className="mt-0.5 flex items-baseline gap-2">
-            <span className="text-lg font-bold text-gray-800 tabular-nums">
-              ${animatedGrandTotal.toFixed(2)}
+            <span className="relative text-lg font-bold text-gray-800 tabular-nums">
+              <span aria-hidden className="invisible">
+                ${grandTotal.toFixed(2)}
+              </span>
+              <span className="absolute inset-0">
+                ${animatedGrandTotal.toFixed(2)}
+              </span>
             </span>
             <span className="text-[10px] text-gray-400">total revenue</span>
           </div>
