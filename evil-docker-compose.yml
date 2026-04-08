@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: ghcr.io/instantdb/postgresql:postgresql-16-pg-hint-plan
+    ports:
+      - "8890:5432"
+    environment:
+      POSTGRES_PASSWORD: pass
+      POSTGRES_USER: instant
+      POSTGRES_DB: instant
+    volumes:
+      - "backend-db:/var/lib/postgresql/data"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "instant"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_replication_slots=4"
+      - "-c"
+      - "max_wal_senders=4"
+      - "-c"
+      - "shared_preload_libraries=pg_hint_plan"
+      - "-c"
+      - "random_page_cost=1.1"
+
+  www:
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    build:
+      context: ./client
+      dockerfile: Dockerfile.www
+
+  server:
+    depends_on:
+      - postgres
+
+    # TODO: Swap with public image
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: "postgresql://instant:pass@postgres:5432/instant"
+    ports:
+      - "8888:8888"
+      - "6005:6005"
+    command: sh -c 'java $${JAVA_OPTS} --add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints -Djdk.attach.allowAttachSelf -Djava.awt.headless=true -Dcom.sun.management.jmxremote.port=10001 -Dcom.sun.management.jmxremote.rmi.port=10001 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -XX:StartFlightRecording=disk=true,maxsize=1G,name=instant,filename=instant_$(date +%s%N).jfr -Dcom.sun.management.jmxremote.local.only=false -Djava.rmi.server.hostname=localhost -server -jar target/instant-standalone.jar'
+
+volumes:
+  backend-db:
