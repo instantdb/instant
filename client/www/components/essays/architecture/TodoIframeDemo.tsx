@@ -1,17 +1,16 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  id,
   init,
   InstantReactWebDatabase,
   InstantUnknownSchema,
 } from '@instantdb/react';
+import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/solid';
 import config from '@/lib/config';
 import { Button } from '@/components/ui';
-import { BrowserChrome } from '@/components/BrowserChrome';
-import { RecipeDBProvider, useRecipeDB } from '@/lib/recipes/db';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { type DemoState } from './Demos';
 import { createDemoApp } from './createDemoApp';
+import TodoApp from './TodoApp';
 
 type InstantDB = InstantReactWebDatabase<InstantUnknownSchema>;
 
@@ -61,8 +60,20 @@ export default function TodoIframeDemo({
   );
 }
 
+const avatars = [
+  { src: '/img/landing/stopa.jpg', alt: 'Stopa' },
+  { src: '/img/landing/joe.jpg', alt: 'Joe' },
+];
+
 function TodoPreviews({ appId }: { appId: string }) {
   const dbsRef = useRef<InstantDB[]>([]);
+  const [baseUrl, setBaseUrl] = useState('https://instantdb.com');
+
+  useEffect(() => {
+    setBaseUrl(window.location.origin);
+  }, []);
+
+  const fullUrl = `${baseUrl}/launch-todo?a=${appId}`;
 
   function getDb(index: number): InstantDB {
     while (dbsRef.current.length <= index) {
@@ -85,7 +96,24 @@ function TodoPreviews({ appId }: { appId: string }) {
           key={i}
           className="flex h-[440px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white"
         >
-          <BrowserChrome url={`instantdb.com/todos?app=${appId}`} />
+          <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-3 py-2">
+            <div className="flex flex-1 items-center gap-2 truncate rounded bg-white px-2 py-1 text-xs text-gray-500">
+              <span className="truncate">{fullUrl}</span>
+              <a
+                href={fullUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-shrink-0"
+              >
+                <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600" />
+              </a>
+            </div>
+            <img
+              src={avatars[i].src}
+              alt={avatars[i].alt}
+              className="h-6 w-6 flex-shrink-0 rounded-full object-cover ring-2 ring-white"
+            />
+          </div>
           <div className="flex-1 overflow-auto">
             <ErrorBoundary
               renderError={() => (
@@ -94,135 +122,11 @@ function TodoPreviews({ appId }: { appId: string }) {
                 </p>
               )}
             >
-              <RecipeDBProvider value={getDb(i)}>
-                <EssayTodos />
-              </RecipeDBProvider>
+              <TodoApp db={getDb(i)} />
             </ErrorBoundary>
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      className="h-3 w-3 text-white"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={3}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function ClipboardIcon() {
-  return (
-    <svg
-      className="mb-3 h-12 w-12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-    >
-      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-      <rect x="9" y="3" width="6" height="4" rx="1" />
-    </svg>
-  );
-}
-
-function EssayTodos() {
-  const db = useRecipeDB();
-  const [text, setText] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const { data, isLoading } = db.useQuery({
-    todos: { $: { order: { createdAt: 'asc' } } },
-  });
-
-  const todos = data?.todos ?? [];
-
-  const addTodo = () => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    db.transact(
-      db.tx.todos[id()].update({
-        text: trimmed,
-        done: false,
-        createdAt: Date.now(),
-      }),
-    );
-    setText('');
-    inputRef.current?.focus();
-  };
-
-  return (
-    <div className="flex h-full flex-col bg-white">
-      <div className="flex-1 overflow-y-auto px-5">
-        {!isLoading && todos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-300">
-            <ClipboardIcon />
-            <span className="text-base">No todos yet</span>
-          </div>
-        ) : (
-          todos.map((todo) => (
-            <div
-              key={todo.id}
-              className="flex items-center gap-3 border-b border-gray-50 py-3"
-            >
-              <button
-                onClick={() =>
-                  db.transact(db.tx.todos[todo.id].update({ done: !todo.done }))
-                }
-                className={`flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                  todo.done
-                    ? 'border-orange-500 bg-orange-500'
-                    : 'border-orange-300 hover:border-orange-400'
-                }`}
-              >
-                {todo.done && <CheckIcon />}
-              </button>
-              <span
-                className={`text-base ${
-                  todo.done ? 'text-gray-400 line-through' : 'text-gray-700'
-                }`}
-              >
-                {todo.text}
-              </span>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="border-t border-gray-100 px-5 py-3">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            addTodo();
-          }}
-          className="flex items-center gap-2"
-        >
-          <input
-            ref={inputRef}
-            type="text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="What needs to be done?"
-            className="flex-1 rounded-lg bg-gray-50 px-3 py-2.5 text-base text-gray-700 placeholder-gray-300 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
-          >
-            Add
-          </button>
-        </form>
-      </div>
     </div>
   );
 }
