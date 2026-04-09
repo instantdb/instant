@@ -33,9 +33,9 @@ export default function CreateAppDemo({
   }, [app]);
 
   return (
-    <div className="not-prose my-4 flex h-48 flex-col rounded-md border border-gray-200 bg-gray-50 p-4">
+    <div className="essay-breakout not-prose my-4 flex h-48 flex-col rounded-md border border-gray-200 bg-gray-50 p-4">
       {app ? (
-        <div className="flex flex-1 flex-col justify-center space-y-3">
+        <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center space-y-3">
           <div className="space-y-2">
             <Copyable
               label={<span className="inline-block w-24">App ID</span>}

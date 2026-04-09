@@ -43,7 +43,7 @@ export default function TodoApp({ db }: { db: InstantDB }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading } = db.useQuery({
-    todos: { $: { order: { createdAt: 'asc' } } },
+    todos: { $files: {}, $: { order: { createdAt: 'asc' } } },
   });
 
   const todos = data?.todos ?? [];
@@ -88,6 +88,13 @@ export default function TodoApp({ db }: { db: InstantDB }) {
               >
                 {todo.done && <CheckIcon />}
               </button>
+              {todo.$files?.length > 0 && (
+                <img
+                  src={todo.$files[0].url}
+                  alt=""
+                  className="h-8 w-8 rounded object-cover"
+                />
+              )}
               <span
                 className={`text-base ${
                   todo.done ? 'text-gray-400 line-through' : 'text-gray-700'
