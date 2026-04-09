@@ -8,7 +8,7 @@ summary: Instant 1.0 is out! This essay shows a bunch of demos, to explain why w
 
 After 4 years, we’re releasing Instant 1.0!
 
-Instant turns your favorite coding agent into a full-stack app builder. And we’re fully open source. [^]
+Instant turns your favorite coding agent into a full-stack app builder. And we’re fully open source. [^1]
 
 Our claim is that Instant is the best backend you could use for AI-coded apps.
 
@@ -64,7 +64,7 @@ Compare a traditional CRUD app to modern apps like Linear, Notion, and Figma. Mo
 
 These kind of apps need custom infrastructure. For real-time you add stateful websocket servers. For offline mode you store caches in IndexedDB. And for optimistic updates, you figure out how to apply and undo mutations in the client.
 
-Linear, Notion, and Figma all built custom infra to handle this. As an industry we’ve called their infra sync engines [^]. Developers write UIs and query their data as though it was locally available. The sync engine handles all the data management under the hood.
+Linear, Notion, and Figma all built custom infra to handle this. As an industry we’ve called their infra sync engines [^2]. Developers write UIs and query their data as though it was locally available. The sync engine handles all the data management under the hood.
 
 If modern apps need sync engines, then you shouldn’t have to build them from scratch each time.
 
@@ -86,7 +86,7 @@ That’s about <architecture-demo demo="todo-code-line-count"></architecture-dem
 
 `db.useQuery` lets you write relational queries and they stay in sync. `db.transact` lets you make changes and it works offline.
 
-This is better for you as a builder: the code is understandable and it’s easy to maintain. It’s better for your users: they get a delightful app. And it’s better for your agents. Sync engines are a tight abstraction [^], so agents can use them to write more concise code with less tokens and less mistakes.
+This is better for you as a builder: the code is understandable and it’s easy to maintain. It’s better for your users: they get a delightful app. And it’s better for your agents. Sync engines are a tight abstraction [^3], so agents can use them to write more concise code with less tokens and less mistakes.
 
 ## Additional Services
 
@@ -116,7 +116,7 @@ This means you can even create CASCADE delete rules, so you can say “when you 
 
 CASCADE delete just deletes our files for us. There’s no need for background workers.
 
-Instead of multiple sources of truth, you get one integrated database. The shared infra handles all the edge cases under the hood [^].
+Instead of multiple sources of truth, you get one integrated database. The shared infra handles all the edge cases under the hood [^4].
 
 And this is just Instant Storage. You also get Auth. You can use Magic Codes, OAuth, and Guest Auth out of the box. Plus when your users sign up, they’re just rows in your database too.
 
@@ -168,7 +168,7 @@ Let’s start with the most obvious box. If we want to show the app offline, we 
 
 For the web you don’t have too many choices. IndexedDB is the best candidate. You can store many megabytes of data, and you even have some limited querying capabilities.
 
-So we chose IndexedDB [^]. The next question was, what kind data would we store there?
+So we chose IndexedDB [^5]. The next question was, what kind data would we store there?
 
 ## Triple store
 
@@ -202,7 +202,7 @@ Datalog is a logic-based query engine. Here’s what that looks like:
 
 <datalog-demo></datalog-demo>
 
-The syntax looks weird, but Datalog is powerful. It can support where clauses and relations just as well as SQL. And it’s simple to implement. In fact, you can write a basic Datalog engine in less than hundred lines of code [^].
+The syntax looks weird, but Datalog is powerful. It can support where clauses and relations just as well as SQL. And it’s simple to implement. In fact, you can write a basic Datalog engine in less than hundred lines of code [^6].
 
 So we built a Triple store and a Datalog engine. This lets us evaluate queries completely in the client, without having to wait for the server.
 
@@ -212,7 +212,7 @@ If a user creates a new todo, we have what need to re-run the query and observe 
 
 We can’t just mutated our the result in place. We have to be mindful of the server too.
 
-For example, what would happen if the server rejects our transaction? If we mutated the query result, there would be no way for us to undo the change. [^]
+For example, what would happen if the server rejects our transaction? If we mutated the query result, there would be no way for us to undo the change. [^7]
 
 That’s where the Pending Queue comes in. When a user makes a change, we don’t apply it directly to the Triple store. Instead we track the change in a separate queue.
 
@@ -220,7 +220,7 @@ To satisfy any query, we can merge apply pending changes to our triple store, an
 
 <pending-queue-demo></pending-queue-demo>
 
-This choice pushes us to make our Triple store immutable. This way we can apply the change and produce a new Triple store, rather than mutating the commited one. To make this work, we wrap the transact API with mutative, a library for immutable changes in Javascript [^].
+This choice pushes us to make our Triple store immutable. This way we can apply the change and produce a new Triple store, rather than mutating the commited one. To make this work, we wrap the transact API with mutative, a library for immutable changes in Javascript [^8].
 
 With that we have undo. If the server returns a failure, we simply remove the change from the pending queue and undo works out of the box.
 
@@ -238,7 +238,7 @@ You may have noticed that Instant queries don’t look like Datalog though. Inst
 
 We made this because we thought that the most ergonomic way for apps to query for data was describe the shape of the response they were looking for.
 
-This idea was heavily inspired by GraphQL. The main difference with our implementation is syntax sugar. Instead of introducing a specific grammar, InstaQL is built on top of plain javascript objects. This choice lets users skip a build step, and it lets them generate queries programmatically [^].
+This idea was heavily inspired by GraphQL. The main difference with our implementation is syntax sugar. Instead of introducing a specific grammar, InstaQL is built on top of plain javascript objects. This choice lets users skip a build step, and it lets them generate queries programmatically [^9].
 
 ## Reactor
 
@@ -280,7 +280,7 @@ Ideally, we should only change queries that _need_ to be changed.
 
 ## Topics
 
-We scoured around for ideas, and found the architecture behind Asana’s Luna [^] very promising. Asana wrote about how they turn queries into sets of “topics”. Roughly, a topic describe the part of the index that the query in question cares about.
+We scoured around for ideas, and found the architecture behind Asana’s Luna [^10] and Figma's LiveGraph [^11] very promising. Asana wrote about how they turn queries into sets of “topics”. Roughly, a topic describe the part of the index that the query in question cares about.
 
 For a something like “Give me all todos”, you could imagine a topic that says: “Track all updates to the TodosIndex”.
 
@@ -294,7 +294,7 @@ Here’s our topic for “Watch all todos”:
 
 Now we have a data structure we can use to describe the dependencies for a query. The next step is to track transactions and find these affected queries.
 
-# Invalidator
+## Invalidator
 
 That’s where the invalidator comes in. The invalidator tracks Postgres’ WAL (Write-Ahead Log).
 
@@ -306,7 +306,7 @@ This gets us the exact same kind of topic structure that our queries make. Now w
 
 ![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775744091203_CleanShot+2026-04-09+at+07.14.462x.png)
 
-Our version zero for this algorithm was very inefficient. We would effectively do an N^2 comparison from every transaction topic to every query topic. But you can intuit how these topic vectors are amenable to indexes. We now keep them in a tree-like structure. We only compare subsets and we prune early. [^]
+Our version zero for this algorithm was very inefficient. We would effectively do an N^2 comparison from every transaction topic to every query topic. But you can intuit how these topic vectors are amenable to indexes. We now keep them in a tree-like structure. We only compare subsets and we prune early. [^12]
 
 With that we can take a WAL entry and refresh queries based on them. The next step is to parallelize.
 
@@ -342,7 +342,7 @@ Notice the Grouped Queue abstraction makes an appearance here too. If different 
 
 And with this it may be the right place to pause and praise Clojure and the JVM for. They’ve been have been huge win for us in building this infrastructure.
 
-First, Clojure comes with great concurrency primitive and has real threads. This let us scale further with bigger machines and helped us avoid splitting the system up too early. The abstractions are also really simple and easy to compose. Our grouped queue for example is only 215 lines of code [^]
+First, Clojure comes with great concurrency primitive and has real threads. This let us scale further with bigger machines and helped us avoid splitting the system up too early. The abstractions are also really simple and easy to compose. Our grouped queue for example is only 215 lines of code [^13]
 
 Second, the JVM has a thriving ecosystem and we really enjoy the libraries. For example, we needed a way for users to define permissions inside Instant. We wanted a language that would be fast and easy to sandbox. After some searching, we discovered Google’s CEL. Thankfully CEL Java was available, and we could just pick it off the shelf.
 
@@ -352,4 +352,152 @@ Many folks deride DSLs but I think we couldn’t have built Instant without them
 
 And this brings us to the Multi-Tenant Database.
 
-<TODO, WRITING THE REST>
+# The Multi-Tenant Database
+
+Our database was also motivated by two constraints: we needed a way to spin new databases cheaply, and we needed it to be relational.
+
+Here’s where we ended up:
+
+![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775751529695_image.png)
+
+## The Triples Table
+
+Let’s start with the question: how can we let users create lots of different databases?
+
+The most straight forward path would have been to spin up Postgres VMs. But as we mentioned, VMs come with lots of overhead in RAM. There’s no sustainable way to support unlimited apps if you’re spinning up VMs.
+
+Another option would have been to use Postgres schemas. We could have created different tables for different apps, and then kept a mapping of who can see what. This would work, but Postgres wasn’t designed to scale well with tables. From our research we saw that after about 6000 tables, Postgres starts having issues: you get problems with how many files get created on disk, and pg_dump and autovacuum starts failing.
+
+This makes sense. The average Postgres app has a few big tables, not many small tables, which means big tables get optimized. Well, if big tables work, what if we reframed this problem into a giant table?
+
+And this brings us back too…Triple stores!
+
+They worked well on the client because they’re a simple DB that supports relational queries. We thought this could work well for us in Postgers too. So we added a `triples` table:
+
+![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775751156931_CleanShot+2026-04-09+at+09.12.202x.png)
+
+All the data lives in a single `triples` table, and they’re logically isolated by an `app_id`.
+
+If we wanted to get `post_1` from the app `blog` for example, we could generate a SQL query that looks roughly like this:
+
+```sql
+select *
+from triples
+where app_id = 'blog' and entity_id = 'post_1' and attr_id in (posts/id, posts/title)
+```
+
+With that, creating a new database is effectively free. Just as we mentioned in the demos, it’s a few rows in the database.
+
+### Surprising benefits
+
+Our choice came with some surprising benefits too.
+
+Since we manage columns ourselves, we were able to optimize the developer experience.
+
+For example, Postgres locks the table when you create a column. Since we implemented columns ourselves, we could make them lock-free.
+
+When you delete a column in Postgres, the data is gone. But we thought this was way too dangerous in the world of agents. So we implemented soft deletes at the column level. Even if a rogue agent deletes your columns, you can undo it and get all your data back in milliseconds.
+
+These were the benefits, but of course there were costs too.
+
+## Partial Indexes
+
+Consider user who says, “I want my posts to have a unique ‘slug’”. In Postgres it’s easy to create unique columns. But since we’re implementing our own columns, we have to do this ourselves.
+
+This is where partial indexes came to the rescue. We could add boolean markers to our `triples` table:
+
+```
+table_name: triples
+app_id | entity_id | attr_id | value | column_unique | ...
+```
+
+Once we have that, we can create a partial index for the whole table, flipped on by the marker:
+
+```sql
+create unique index unique_columns
+  on triples(app_id, column, value) where column_unique
+```
+
+Now if a user tries to insert two posts with the same slug:
+
+```sql
+app_id  | object_id | column | value   | column_unique
+'blog' | 1         | 'slug' | 'hello' | true
+'blog' | 2         | 'slug' | 'hello' | true
+```
+
+The `unique_columns` index triggers and prevents it!
+
+And this same trick makes our queries more efficient. If we want to find posts with the slug ‘hello’ for example, we can generate this query:
+
+```sql
+select entity_id
+from triples
+where app_id = 'blog' and attr_id = 'slug' and value = 'hello' and column_unique;
+```
+
+And we can extend this pattern to a whole range of queries: unique columns, indexes, dates, references, and so on.
+
+Just using partial indexes and relying on Postgres to make the right queries worked great for us for a while. But after we reached a few hundred million tuples in scale, Postgres started having troubles.
+
+## Count-Min Sketches
+
+If you are a Postgres expert reading this, you may have taken a pause looking at that triples table. In Postgres circles this is called the EAV pattern, and is generally discouraged.
+
+It’s discourages because Postgres relies on tables and columns for statistics.
+
+Those statistics is what lets the query planner decide which indexes are most efficient and which joins to do in what order.
+
+Once you keep all data in one table, Postgres loses information about the underlying frequencies in the dataset. It can't tell the difference between a column with 10 distinct values and one with 10 million.
+
+To solve for this, we started keeping track of our statistics. We use a data structure called count-min sketches, which help us estimate frequencies for columns. If you’re curious about how that works, we wrote an essay about.
+
+We could give those statistics to our query engine, and make those queries efficient again.
+
+## The Query Engine
+
+Which brings us to the query engine.
+
+So far I’ve been showing you SQL queries that are simple and easy to understand. But imagine translating more complicated InstaQL queries. Even a query with one where clause will start to have CTEs in them. And then you’ll want to use those statistics to decide which indexes to turn on.
+
+That’s what the query engine does. It takes InstaQL queries as well as the count-min sketches, and generates SQL query plans:
+
+![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775752934938_CleanShot+2026-04-09+at+09.42.092x.png)
+
+This engine is written in the Clojure backend. We took a lot of inspiration from Postgres’ own query engine. Sometimes these queries can look scarily long, but we have been so darn surprised with how well Postgres can handle them. We pass in some hints with pg_hint_plan, and Postgres just churns away and produces results.
+
+# Four Years in the Making
+
+And that covers the database, which covers our whole system!
+
+We hope you found this fun! This has been a labor of love. We’ve built Instant because we want to power the next generation of builders. Any product we build, we built with Instant, and thousands developers have trusted to run their core infrastructure.
+
+If you're building with agents, I think you will love using us.
+
+We hope you give us [try](/dashboard), and join us on [Discord](/discord).
+
+[^1]: Every single line of code behind the company lives on GitHub, including this [post](<[link](https://github.com/instantdb/instant/blob/main/client/www/_posts/architecture.md)>)
+
+[^2]: Nikita wrote a great blog post about this [here](https://www.instantdb.com/essays/sync_future)
+
+[^3]: LLMs have already learned about Instant in their training data, but there really isn’t that much to learn. Queries and transactions have a predictable DSL.
+
+[^4]: Fun fact, your files are still stored in S3. Since both services are built together though, the system can handle bi-directional data sync on your behalf!
+
+[^5]: On React Native we use react-native-async-storage, because it's available on Expo Go. The API for storage is pluggable though, so you can replace this pretty easily.
+
+[^6]: Check out [Datalog in Javascript](https://www.instantdb.com/essays/datalogjs)
+
+[^7]: There would be a lot more problems too. Check out the [sync engine](https://www.instantdb.com/product/sync) page, especially the conflict resolution demo.
+
+[^8]: https://mutative.js.org/ -- it's a great library!
+
+[^9]: This came very handy in our Explorer page. You can switch around a bunch of filters, and we'll dynamically generate the query for it.
+
+[^10]: See this [post](https://blog.asana.com/2020/09/worldstore-distributed-caching-reactivity-part-2/) to get started on the rabbit hole.
+
+[^11]: See this great [essay](https://www.figma.com/blog/livegraph-real-time-data-fetching-at-figma/)
+
+[^12]: We do some even more cool things. For example we take where clauses and transform them into little programs for additional filtering.
+
+[^13]: Check out the [source](https://github.com/instantdb/instant/blob/main/server/src/instant/grouped_queue.clj!
