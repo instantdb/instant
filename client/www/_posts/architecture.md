@@ -82,7 +82,7 @@ And here’s what the todo app’s backend code is like:
 
 <architecture-demo demo="todo-code"></architecture-demo>
 
-That’s about <architecture-demo demo="todo-code-line-count"></architecture-demo> lines. This is even more concise then if you had built a traditional CRUD app. You would have needed to write backend endpoints and frontend stores. Instead you just make queries and transactions directly in your frontend.
+That’s about <architecture-demo demo="todo-code-line-count"></architecture-demo> lines. This is even more concise than if you had built a traditional CRUD app. You would have needed to write backend endpoints and frontend stores. Instead you just make queries and transactions directly in your frontend.
 
 `db.useQuery` lets you write relational queries and they stay in sync. `db.transact` lets you make changes and it works offline.
 
@@ -90,7 +90,7 @@ This is better for you as a builder: the code is understandable and it’s easy 
 
 ## Additional Services
 
-You saw data sync, but it doesn’t stop there. Apps often need more then data sync.
+You saw data sync, but it doesn’t stop there. Apps often need more than data sync.
 
 For example, right now every person who opens our demo app sees the same set of todos. What if we want to add auth or permissions? We may also want to support file uploads, or a “who’s online” section. Or heck maybe we add an AI assistant, and would need infra to stream tokens to the client.
 
@@ -128,15 +128,15 @@ If you’re curious, we have a bunch of real examples you can play with in the r
 
 ## Bonus: What you can do, your agent can do
 
-Throughout this essay, you may have wondered, how do the all these demos work?
+Throughout this essay, you may have wondered, how do all these demos work?
 
 Well, Instant is completely programmatic. You can create apps, push schemas and update permissions either through an API or a CLI. This essay uses the API, but likely your agents will use the CLI.
 
 Most of the time you don’t have to click any dashboards. Your agents can just make actions on your behalf.
 
-At this point, we hope you’re excited enough to sign up. \*\*\*\*(You technically don’t even need to sign up to play around, but we do notice that if you do, you’re more likely to stick around. So we really encourage you too!)
+At this point, we hope you’re excited enough to sign up. (You technically don’t even need to sign up to play around, but we do notice that if you do, you’re more likely to stick around. So we really encourage you to!)
 
-And with that, we can dive into the architecture that powers of all of this.
+And with that, we can dive into the architecture that powers all of this.
 
 <a name="architecture"></a>
 
@@ -186,9 +186,9 @@ If we just wanted a read-only cache, we could store whatever the server returns 
 
 We need the client to respond \*\*to actions before the server acknowledges them. If a user adds a new todo for example, our query should just update right away.
 
-That means the client needs to understand queries. So then what our client really needs is a database itself. A database that can handle where clauses (i.e ‘done is false’), and relations (‘todos _and_ their attachments’).
+That means the client needs to understand queries. So then what our client really needs is a database itself. A database that can handle where clauses (i.e. ‘done is false’), and relations (‘todos _and_ their attachments’).
 
-One option would have been to use SQLLite. We could store normalized tables there — like `todos`, and `files` — and run SQL over them. But this was too heavy. SQLLite is about 300 KBs GZipped. For most apps it wouldn’t make sense to add such a heavy dependency.
+One option would have been to use SQLite. We could store normalized tables there — like `todos`, and `files` — and run SQL over them. But this was too heavy. SQLite is about 300 KBs GZipped. For most apps it wouldn’t make sense to add such a heavy dependency.
 
 After some sleuthing though we discovered Triple stores and Datalog.
 
@@ -206,17 +206,17 @@ The syntax looks weird, but Datalog is powerful. It can support where clauses an
 
 So we built a Triple store and a Datalog engine. This lets us evaluate queries completely in the client, without having to wait for the server.
 
-If a user creates a new todo, we have what need to re-run the query and observe the change right away. Well, almost. We need a way to apply changes to our query.
+If a user creates a new todo, we have what we need to re-run the query and observe the change right away. Well, almost. We need a way to apply changes to our query.
 
 ## Pending Queue
 
-We can’t just mutated our the result in place. We have to be mindful of the server too.
+We can’t just mutate our result in place. We have to be mindful of the server too.
 
 For example, what would happen if the server rejects our transaction? If we mutated the query result, there would be no way for us to undo the change. [^7]
 
 That’s where the Pending Queue comes in. When a user makes a change, we don’t apply it directly to the Triple store. Instead we track the change in a separate queue.
 
-To satisfy any query, we can merge apply pending changes to our triple store, and see the result:
+To satisfy any query, we can merge pending changes to our triple store, and see the result:
 
 <pending-queue-demo></pending-queue-demo>
 
@@ -236,7 +236,7 @@ You may have noticed that Instant queries don’t look like Datalog though. Inst
 }
 ```
 
-We made this because we thought that the most ergonomic way for apps to query for data was describe the shape of the response they were looking for.
+We made this because we thought that the most ergonomic way for apps to query for data was to describe the shape of the response they were looking for.
 
 This idea was heavily inspired by GraphQL. The main difference with our implementation is syntax sugar. Instead of introducing a specific grammar, InstaQL is built on top of plain javascript objects. This choice lets users skip a build step, and it lets them generate queries programmatically [^9].
 
@@ -280,7 +280,7 @@ Ideally, we should only change queries that _need_ to be changed.
 
 ## Topics
 
-We scoured around for ideas, and found the architecture behind Asana’s Luna [^10] and Figma's LiveGraph [^11] very promising. Asana wrote about how they turn queries into sets of “topics”. Roughly, a topic describe the part of the index that the query in question cares about.
+We scoured around for ideas, and found the architecture behind Asana’s Luna [^10] and Figma's LiveGraph [^11] very promising. Asana wrote about how they turn queries into sets of “topics”. Roughly, a topic describes the part of the index that the query in question cares about.
 
 For a something like “Give me all todos”, you could imagine a topic that says: “Track all updates to the TodosIndex”.
 
@@ -312,17 +312,17 @@ With that we can take a WAL entry and refresh queries based on them. The next st
 
 ## Grouped Queues
 
-Since our database is multi-tenant, our WAL include updates from multiple apps.
+Since our database is multi-tenant, our WAL includes updates from multiple apps.
 
 In order for invalidation algorithm to work, transactions _within_ a single app have to be processed serially and in order. But, we can certainly parallelize invalidations across _different_ apps.
 
-We needed some way to guarantee order within a single app and parallelize across apps. We also needed to make sure that one highly app didn’t hog all resources.
+We needed some way to guarantee order within a single app and parallelize across apps. We also needed to make sure that one highly active app didn’t hog all resources.
 
 This where the Grouped Queue abstraction comes in:
 
 ![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775746073426_CleanShot+2026-04-09+at+07.47.442x.png)
 
-Each app gets it’s own subqueue. This guarantees that all items for a particular app are handled serially.
+Each app gets its own subqueue. This guarantees that all items for a particular app are handled serially.
 
 Workers however can take from multiple different subqueues. This lets us parallelize invalidations across apps.
 
@@ -332,17 +332,17 @@ This data structure has turned out to be very useful for us, and has seeped all 
 
 ## The Session Manager, and Praise for Clojure and the JVM
 
-Which brings to the main coordinator inside the system. When the Client SDK opens up a websocket connection, it’s the session manager that picks up the messages:
+Which brings us to the main coordinator inside the system. When the Client SDK opens up a websocket connection, it’s the session manager that picks up the messages:
 
 ![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775747390276_image.png)
 
 The Session Manager’s job is to glue everything together. It makes reactive queries, it runs permissions, and it passes along requests to the other services.
 
-Notice the Grouped Queue abstraction makes an appearance here too. If different clients start bombarding the backend, the Grouped Queue makes sure to both parallelize as much as possible, and to prevent one bad socket from hoging all the resources.
+Notice the Grouped Queue abstraction makes an appearance here too. If different clients start bombarding the backend, the Grouped Queue makes sure to both parallelize as much as possible, and to prevent one bad socket from hogging all the resources.
 
-And with this it may be the right place to pause and praise Clojure and the JVM for. They’ve been have been huge win for us in building this infrastructure.
+And with this it may be the right place to pause and praise Clojure and the JVM for. They’ve been a huge win for us in building this infrastructure.
 
-First, Clojure comes with great concurrency primitive and has real threads. This let us scale further with bigger machines and helped us avoid splitting the system up too early. The abstractions are also really simple and easy to compose. Our grouped queue for example is only 215 lines of code [^13]
+First, Clojure comes with great concurrency primitives and has real threads. This let us scale further with bigger machines and helped us avoid splitting the system up too early. The abstractions are also really simple and easy to compose. Our grouped queue for example is only 215 lines of code [^13]
 
 Second, the JVM has a thriving ecosystem and we really enjoy the libraries. For example, we needed a way for users to define permissions inside Instant. We wanted a language that would be fast and easy to sandbox. After some searching, we discovered Google’s CEL. Thankfully CEL Java was available, and we could just pick it off the shelf.
 
@@ -370,9 +370,9 @@ Another option would have been to use Postgres schemas. We could have created di
 
 This makes sense. The average Postgres app has a few big tables, not many small tables, which means big tables get optimized. Well, if big tables work, what if we reframed this problem into a giant table?
 
-And this brings us back too…Triple stores!
+And this brings us back to…Triple stores!
 
-They worked well on the client because they’re a simple DB that supports relational queries. We thought this could work well for us in Postgers too. So we added a `triples` table:
+They worked well on the client because they’re a simple DB that supports relational queries. We thought this could work well for us in Postgres too. So we added a `triples` table:
 
 <multi-tenant-demo></multi-tenant-demo>
 
@@ -402,7 +402,7 @@ These were the benefits, but of course there were costs too.
 
 ## Partial Indexes
 
-Consider user who says, “I want my posts to have a unique ‘slug’”. In Postgres it’s easy to create unique columns. But since we’re implementing our own columns, we have to do this ourselves.
+Consider a user who says, “I want my posts to have a unique ‘slug’”. In Postgres it’s easy to create unique columns. But since we’re implementing our own columns, we have to do this ourselves.
 
 This is where partial indexes came to the rescue. We could add boolean markers to our `triples` table:
 
@@ -446,11 +446,11 @@ If you are a Postgres expert reading this, you may have taken a pause looking at
 
 It’s discourages because Postgres relies on tables and columns for statistics.
 
-Those statistics is what lets the query planner decide which indexes are most efficient and which joins to do in what order.
+Those statistics are what let the query planner decide which indexes are most efficient and which joins to do in what order.
 
 Once you keep all data in one table, Postgres loses information about the underlying frequencies in the dataset. It can't tell the difference between a column with 10 distinct values and one with 10 million.
 
-To solve for this, we started keeping track of our statistics. We use a data structure called count-min sketches, which help us estimate frequencies for columns. If you’re curious about how that works, we wrote an essay about.
+To solve for this, we started keeping track of our statistics. We use a data structure called count-min sketches, which help us estimate frequencies for columns. If you’re curious about how that works, we wrote an essay about it [^14].
 
 We could give those statistics to our query engine, and make those queries efficient again.
 
@@ -470,7 +470,7 @@ This engine is written in the Clojure backend. We took a lot of inspiration from
 
 And that covers the database, which covers our whole system!
 
-We hope you found this fun! This has been a labor of love. We’ve built Instant because we want to power the next generation of builders. Any product we build, we built with Instant, and thousands developers have trusted to run their core infrastructure.
+We hope you found this fun! This has been a labor of love. We’ve built Instant because we want to power the next generation of builders. Any product we build, we built with Instant, and thousands of developers have trusted to run their core infrastructure.
 
 If you're building with agents, I think you will love using us.
 
@@ -500,4 +500,6 @@ We hope you give us [try](/dashboard), and join us on [Discord](/discord).
 
 [^12]: We do some even more cool things. For example we take where clauses and transform them into little programs for additional filtering.
 
-[^13]: Check out the [source](https://github.com/instantdb/instant/blob/main/server/src/instant/grouped_queue.clj!
+[^13]: Check out the [source](https://github.com/instantdb/instant/blob/main/server/src/instant/grouped_queue.clj)!
+
+[^14]: Check out [Count-Min Sketches in JS](https://www.instantdb.com/essays/count_min_sketch)
