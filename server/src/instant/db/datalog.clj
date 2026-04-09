@@ -1066,6 +1066,9 @@
 (defn enable-pg-hints? []
   *enable-pg-hints*)
 
+(defn new-index-cost? []
+  (flags/toggled? :new-index-cost true))
+
 (defn required-sketch-keys-for-component
   "Returns a set of {:app-id :attr-id} maps for the sketches that we'll
    need to fulfill the count queries for the named pattern."
@@ -1322,6 +1325,8 @@
 
         scan-cost (reduce (fn [acc {:keys [cost col]}]
                             (let [next-cost (* acc cost)]
+                              (when *debug*
+                                (println "  STEP" col "cost" cost "acc" acc "next" next-cost))
                               (if (contains? (:unique-cols index) col)
                                 (reduced next-cost)
                                 next-cost)))
@@ -1331,23 +1336,49 @@
         path-has-selective-col? (some #(not= :a (:col %))
                                       (:path costs))
 
-        max-remaining (apply max 0 (concat (vals (:join-remaining costs))
-                                           (vals (select-keys (:known-remaining costs)
-                                                              (:filter-components costs)))))
-        rows-scanned (if path-has-selective-col?
-                       scan-cost
-                       (max scan-cost max-remaining))
+        max-filter-remaining (apply max 0 (vals (select-keys (:known-remaining costs)
+                                                                              (:filter-components costs))))
+        max-join-remaining (apply max 0 (vals (:join-remaining costs)))
 
-        num-unresolved (+ (count (:join-remaining costs))
-                          (count (select-keys (:known-remaining costs)
-                                              (:filter-components costs))))
-        per-row-overhead (* 0.1 num-unresolved)]
+        ;; When scan-cost is very small relative to the join-remaining
+        ;; driving set, PG may reverse the join order — making the small
+        ;; scan the outer side and re-scanning the previous CTE per row.
+        ;; Threshold: scan-cost < sqrt(max-join-remaining).
+        join-reversal-risk? (and (pos? max-join-remaining)
+                                 (< scan-cost (Math/sqrt max-join-remaining)))
 
-    (* 1.0 rows-scanned (+ 1.0 per-row-overhead))))
+        rows-scanned (cond
+                       join-reversal-risk? max-join-remaining
+                       path-has-selective-col? scan-cost
+                       :else (max scan-cost max-join-remaining max-filter-remaining))
+
+        num-unresolved-filters (count (select-keys (:known-remaining costs)
+                                                   (:filter-components costs)))
+        num-unresolved-joins (count (:join-remaining costs))
+        num-unresolved (+ num-unresolved-joins num-unresolved-filters)
+        ;; Filters are cheap per-row predicate checks (10%).
+        ;; Joins are more expensive — PG must resolve entity membership
+        ;; via hash probe or nested loop (15%).
+        per-row-overhead (+ (* 0.1 num-unresolved-filters)
+                            (* 0.15 num-unresolved-joins))
+        final-cost (* 1.0 rows-scanned (+ 1.0 per-row-overhead))]
+
+    (when *debug*
+      (println "COST" (:name index) (mapv :col (:path costs))
+               "scan-cost" scan-cost
+               "rows-scanned" rows-scanned
+               "unresolved" num-unresolved
+               "final" final-cost)
+      (when (pos? max-join-remaining)
+        (println "  join-remaining" (:join-remaining costs)))
+      (when (pos? max-filter-remaining)
+        (println "  filter-remaining" (select-keys (:known-remaining costs) (:filter-components costs)))))
+
+    final-cost))
 
 (defn path-cost-with-joins
   [index]
-  (if (flags/toggled? :new-index-cost true)
+  (if (new-index-cost?)
     (path-cost-with-joins-new index)
     (path-cost-with-joins-old index)))
 
@@ -1528,17 +1559,36 @@
                                   #{}
                                   [:e :a :v :created-at])
 
+        _ (when *debug*
+            (println "\nPATTERN" (select-keys named-p [:idx :e :a :v :created-at :row-estimate]))
+            (println "  known-components" known-components)
+            (println "  join-components" join-components)
+            (println "  filter-components" filter-components)
+            (println "  symbol-map-keys" (keys symbol-map)))
+
         indexes-with-costs
         (map (fn [idx-config]
                (let [costs (reduce (fn [acc col]
                                      (if-let [cost (get (:known-remaining acc) col)]
-                                       (-> acc
-                                           (update :known-remaining dissoc col)
-                                           (update :join-remaining dissoc col)
-                                           (update :filter-remaining disj col)
-                                           (update :path conj {:cost cost
-                                                               :col col
-                                                               :type :index-lookup}))
+                                       (let [next-acc (-> acc
+                                                          (update :known-remaining dissoc col)
+                                                          (update :join-remaining dissoc col)
+                                                          (update :filter-remaining disj col)
+                                                          (update :path conj {:cost cost
+                                                                             :col col
+                                                                             :type :index-lookup}))
+                                             [tag value] (get named-p col)
+                                             ;; TODO: Research exactly which predicates
+                                             ;; block later B-tree columns in PostgreSQL.
+                                             ;; Multi-value IN definitely blocks. Range
+                                             ;; predicates ($gt, $lt) may or may not.
+                                             blocks? (and (new-index-cost?)
+                                                          (= tag :constant)
+                                                          (set? value)
+                                                          (> (count value) 1))]
+                                         (if blocks?
+                                           (reduced next-acc)
+                                           next-acc))
                                        (reduced acc)))
                                    {:known-remaining known-components
                                     :known-components known-components
@@ -1562,6 +1612,8 @@
         sorted-indexes (sort index-compare indexes-with-costs)
 
         best-index (first sorted-indexes)]
+    (when *debug*
+      (println "SELECTED" (:name best-index) "cost" (:path-cost-with-joins best-index)))
     (if *debug*
       (assoc best-index
              :rest-indexes (rest sorted-indexes)
@@ -1595,7 +1647,7 @@
         ;; When :e is ALREADY in the symbol-map, this is an entity join
         ;; (1:1 per attribute). The cap is exact.
         [row-estimate symbol-map-row-estimate]
-        (if (flags/toggled? :new-index-cost true)
+        (if (new-index-cost?)
           (let [join-cap (reduce (fn [acc c]
                                    (let [[tag variable] (get pattern c)]
                                      (if-let [v (and (= :variable tag)
