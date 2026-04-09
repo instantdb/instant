@@ -114,28 +114,7 @@ function FileUploadLayout({ db, appId }: { db: InstantDB; appId: string }) {
     }).catch(() => {});
   }, []);
 
-  async function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragOver(false);
-
-    let file: File;
-    if (e.dataTransfer.files.length > 0) {
-      file = e.dataTransfer.files[0];
-    } else {
-      const html = e.dataTransfer.getData('text/html');
-      const vidaMatch = VIDA_IMAGES.find((img) => html?.includes(img.name));
-      if (!vidaMatch) return;
-
-      const cached = prefetchedFiles.current.get(vidaMatch.name);
-      if (cached) {
-        file = cached;
-      } else {
-        const res = await fetch(vidaMatch.url);
-        const blob = await res.blob();
-        file = new File([blob], vidaMatch.name, { type: blob.type });
-      }
-    }
-
+  async function uploadFile(file: File) {
     setUploading(true);
     try {
       const { data: fileData } = await db.storage.uploadFile(
@@ -159,6 +138,42 @@ function FileUploadLayout({ db, appId }: { db: InstantDB; appId: string }) {
     }
   }
 
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+
+    let file: File;
+    if (e.dataTransfer.files.length > 0) {
+      file = e.dataTransfer.files[0];
+    } else {
+      const html = e.dataTransfer.getData('text/html');
+      const vidaMatch = VIDA_IMAGES.find((img) => html?.includes(img.name));
+      if (!vidaMatch) return;
+
+      const cached = prefetchedFiles.current.get(vidaMatch.name);
+      if (cached) {
+        file = cached;
+      } else {
+        const res = await fetch(vidaMatch.url);
+        const blob = await res.blob();
+        file = new File([blob], vidaMatch.name, { type: blob.type });
+      }
+    }
+
+    await uploadFile(file);
+  }
+
+  async function handleImageClick(img: (typeof VIDA_IMAGES)[number]) {
+    if (uploading) return;
+    const cached = prefetchedFiles.current.get(img.name);
+    const file =
+      cached ??
+      new File([await (await fetch(img.url)).blob()], img.name, {
+        type: 'image/jpeg',
+      });
+    await uploadFile(file);
+  }
+
   return (
     <div className="essay-breakout not-prose my-6 flex flex-col gap-4 md:flex-row">
       {/* File viewer — first on mobile, second on desktop */}
@@ -175,7 +190,7 @@ function FileUploadLayout({ db, appId }: { db: InstantDB; appId: string }) {
           <span className="text-[11px] text-gray-400">/</span>
           <span className="text-[11px] font-medium text-gray-600">photos</span>
           <span className="ml-auto text-[10px] text-gray-400">
-            {VIDA_IMAGES.length} items
+            Tap to upload
           </span>
         </div>
         {/* File grid */}
@@ -184,7 +199,8 @@ function FileUploadLayout({ db, appId }: { db: InstantDB; appId: string }) {
             <div
               key={img.name}
               draggable
-              className="group flex shrink-0 cursor-grab flex-col items-center gap-1 rounded-lg p-2 hover:bg-gray-50 active:cursor-grabbing"
+              onClick={() => handleImageClick(img)}
+              className="group flex shrink-0 cursor-grab flex-col items-center gap-1 rounded-lg p-2 hover:bg-gray-50 active:cursor-grabbing md:cursor-grab"
             >
               <img
                 src={img.url}
@@ -215,7 +231,7 @@ function FileUploadLayout({ db, appId }: { db: InstantDB; appId: string }) {
 
       {/* Browser: create todo with drop zone */}
       <div
-        className={`flex h-[440px] min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-white transition-colors md:order-1 ${
+        className={`flex h-[480px] min-w-0 flex-col overflow-hidden rounded-xl border bg-white transition-colors md:order-1 md:h-[440px] md:flex-1 ${
           dragOver
             ? 'border-orange-400 ring-2 ring-orange-200'
             : 'border-gray-200'
@@ -311,7 +327,7 @@ function CreateTodoWithImage({
                   />
                 </svg>
                 <span className="text-sm text-gray-400">
-                  Drop an image to attach
+                  Tap or drag an image to attach
                 </span>
               </div>
             )}
