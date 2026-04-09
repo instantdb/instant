@@ -477,24 +477,28 @@ jobs:
       run: npm install --g vercel@canary
     - name: Pull Vercel Environment Information
       run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-    - name: Build Project Artifacts
-      run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
     - name: Set branch name
       run: |
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+          branch="${{ github.head_ref }}"
         else
-          echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          branch="${{ github.ref_name }}"
         fi
+        echo "BRANCH_NAME=$branch" >> $GITHUB_ENV
+        safeBranch=$(echo "$branch" | sed 's/[^a-zA-Z0-9-]/-/g')
+        echo "SAFE_BRANCH=$safeBranch" >> $GITHUB_ENV
+    - name: Build Project Artifacts
+      run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      env:
+        NEXT_PUBLIC_VERCEL_URL: instant-www-js-${{ env.SAFE_BRANCH }}-jsv.vercel.app
     - name: Deploy Project Artifacts to Vercel
       id: deploy
       run: |
-        vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt
+        vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt
         code=$?
         if [ $code -eq 0 ]; then
           deploymentUrl=`cat deployment-url.txt`
-          safeBranch=$(echo $BRANCH_NAME | sed 's/[^a-zA-Z0-9-]/-/g')
-          aliasUrl="instant-www-js-$safeBranch-jsv.vercel.app"
+          aliasUrl="instant-www-js-$SAFE_BRANCH-jsv.vercel.app"
           echo "ALIAS_URL=$aliasUrl" >> $GITHUB_ENV
           echo "url=https://$aliasUrl" >> $GITHUB_OUTPUT
           echo "aliasing $deploymentUrl to https://$aliasUrl"
@@ -579,7 +583,7 @@ jobs:
     - name: Deploy Project Artifacts to Vercel
       id: deploy
       run: |
-        vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt
+        vercel deploy --prebuilt --prod --archive=tgz --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt
         code=$?
         if [ $code -eq 0 ]; then
           deploymentUrl=`cat deployment-url.txt`
@@ -633,4 +637,4 @@ jobs:
     - name: Build Project Artifacts
       run: vercel build --target=staging --token=${{ secrets.VERCEL_TOKEN }}
     - name: Deploy Project Artifacts to Vercel
-      run: vercel deploy --prebuilt --target=staging --token=${{ secrets.VERCEL_TOKEN }}
+      run: vercel deploy --prebuilt --target=staging --archive=tgz --token=${{ secrets.VERCEL_TOKEN }}

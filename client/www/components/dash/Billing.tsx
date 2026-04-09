@@ -174,7 +174,7 @@ export default function Billing({ appId }: { appId: string }) {
       <div className="flex items-center gap-2">
         <h1 className="font-bold">Current plan</h1>
         {isFreeTier ? (
-          <div className="rounded-sm border px-2 py-1 font-mono font-bold dark:border-neutral-600">
+          <div className="rounded-sm border px-2 py-1 font-bold dark:border-neutral-600">
             {subscriptionName}
           </div>
         ) : (

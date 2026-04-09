@@ -2,6 +2,9 @@
 title: 'Sync Engines are the Future'
 date: '2025-03-17'
 authors: nikitonsky
+summary: We've been building frontends that talk to backends for years. But in the meantime the browser has become an OS. In that case what should your stack look like?
+thumbnail: /img/essays/sync_future.jpg
+hero: /img/essays/sync_future.jpg
 ---
 
 _Hi! Niki here, also known as @nikitonsky. You might know me for [DataScript](https://github.com/tonsky/datascript), [The Web After Tomorrow](https://tonsky.me/blog/the-web-after-tomorrow/) or [Your frontend needs a database](https://www.hytradboi.com/2022/your-frontend-needs-a-database/). Last December, I joined Instant to continue my journey of bringing databases into the browser. Here’s my mission:_

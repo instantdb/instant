@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import { id } from '@instantdb/react';
 import db from '@/lib/intern/docs-feedback/db';

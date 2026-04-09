@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg version="1.1" id="npm" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 780 250" style="enable-background:new 0 0 780 250;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#C12127;}
+</style>
+<path class="st0" d="M240,250h100v-50h100V0H240V250z M340,50h50v100h-50V50z M480,0v200h100V50h50v150h50V50h50v150h50V0H480z
+	 M0,200h100V50h50v150h50V0H0V200z"/>
+</svg>
