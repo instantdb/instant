@@ -3,6 +3,9 @@ import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
 
 import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
+import TodoCodeDemo, {
+  TODO_CODE_LINE_COUNT,
+} from '@/components/essays/todo_code_demo';
 import TodoIframeDemo from '@/components/essays/todo_iframe_demo';
 import { GPT52Leaderboard } from '@/components/essays/GPT52Leaderboard';
 import { Lightbox } from '@/components/Lightbox';
@@ -55,6 +58,8 @@ export function EssayMarkdown({
           // must also change all references in the markdown files
           'agents-essay-demo-section': AgentsEssayDemoSection,
           'todo-iframe-demo': TodoIframeDemo,
+          'todo-code-demo': TodoCodeDemo,
+          'todo-code-line-count': () => <>{TODO_CODE_LINE_COUNT}</>,
           'sketch-demo': (props: { demo: string }) => {
             return <SketchDemo demo={props.demo} />;
           },
