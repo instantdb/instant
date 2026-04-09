@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button, Copyable } from '@/components/ui';
 import { PlatformApi } from '@instantdb/platform';
 import config from '@/lib/config';
-import * as ephemeral from '@/lib/ephemeral';
 import { type DemoState } from './Demos';
 
 function formatExpiry(expiresMs: number): string {
@@ -58,33 +57,29 @@ export default function CreateAppDemo({
               setLoading(true);
               setError(null);
               try {
+                const api = new PlatformApi({ apiURI: config.apiURI });
                 const start = Date.now();
-                const res = await ephemeral.provisionApp({
-                  title: 'architecture-essay-app',
-                });
-                const appId = res.app.id;
-                const adminToken = res.app['admin-token'];
-                const api = new PlatformApi({
-                  auth: { token: adminToken },
-                  apiURI: config.apiURI,
-                });
-                await api.pushPerms(appId, {
-                  perms: {
-                    $files: {
-                      allow: {
-                        view: 'true',
-                        create: 'true',
+                const { app: newApp, expiresMs } =
+                  await api.createTemporaryApp({
+                    title: 'architecture-essay-app',
+                    rules: {
+                      code: {
+                        $files: {
+                          allow: {
+                            view: 'true',
+                            create: 'true',
+                          },
+                        },
                       },
                     },
-                  },
-                });
+                  });
                 const timeTaken = Date.now() - start;
                 setDemoState({
                   app: {
-                    id: appId,
-                    adminToken,
+                    id: newApp.id,
+                    adminToken: newApp.adminToken,
                     timeTaken,
-                    expiresMs: res.expires_ms,
+                    expiresMs,
                   },
                 });
               } catch (e: any) {
