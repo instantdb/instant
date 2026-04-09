@@ -42,7 +42,11 @@ export default function TodoCodeDemo({ demoState }: { demoState: DemoState }) {
         <Fence
           code={code}
           language="tsx"
-          style={{ backgroundColor: '#faf8f5' }}
+          style={{
+            backgroundColor: '#faf8f5',
+            margin: 0,
+            border: 'none',
+          }}
         />
       </div>
     </div>
