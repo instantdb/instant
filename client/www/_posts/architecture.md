@@ -72,7 +72,7 @@ So we built a generalized sync engine in Instant. Every app comes with multiplay
 
 You can try it yourself. Since we’ve created our isolated backend, let’s go ahead and use it:
 
-<todo-iframe-demo></todo-iframe-demo>
+<architecture-demo demo="todo-iframe"></architecture-demo>
 
 What you’re seeing are two iframes that render a todo app. They’re powered by the backend you just created (we passed the iframes your App ID).
 
@@ -80,9 +80,9 @@ Now if you add a todo in one iframe, it will show up in the other. If you go off
 
 And here’s what the todo app’s backend code is like:
 
-<todo-code-demo></todo-code-demo>
+<architecture-demo demo="todo-code"></architecture-demo>
 
-That’s about <todo-code-line-count></todo-code-line-count> lines. This is even more concise then if you had built a traditional CRUD app. You would have needed to write backend endpoints and frontend stores. Instead you just make queries and transactions directly in your frontend.
+That’s about <architecture-demo demo="todo-code-line-count"></architecture-demo> lines. This is even more concise then if you had built a traditional CRUD app. You would have needed to write backend endpoints and frontend stores. Instead you just make queries and transactions directly in your frontend.
 
 `db.useQuery` lets you write relational queries and they stay in sync. `db.transact` lets you make changes and it works offline.
 
