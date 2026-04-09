@@ -7,6 +7,7 @@ import { GPT52Leaderboard } from '@/components/essays/GPT52Leaderboard';
 import { Lightbox } from '@/components/Lightbox';
 import { TripleDemo } from '@/components/about/TripleDemo';
 import { DatalogDemo } from '@/components/about/DatalogDemo';
+import PendingQueueDemo from '@/components/essays/pending_queue_demo';
 import MuxPlayer from '@mux/mux-player-react';
 
 import { DemoIframe } from '@/components/DemoIframe';
@@ -57,6 +58,11 @@ export function EssayMarkdown({
             </div>
           ),
           'datalog-demo': DatalogEssayDemo,
+          'pending-queue-demo': () => (
+            <div className="not-prose my-8 flex justify-center">
+              <PendingQueueDemo />
+            </div>
+          ),
 
           p: ({ children }) => (
             <div className="prose prose-lg mt-[1.25em] mb-[1.25em] leading-relaxed">

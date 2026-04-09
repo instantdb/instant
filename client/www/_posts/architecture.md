@@ -218,7 +218,7 @@ That’s where the Pending Queue comes in. When a user makes a change, we don’
 
 To satisfy any query, we can merge apply pending changes to our triple store, and see the result:
 
-![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775710903881_image.png)
+<pending-queue-demo></pending-queue-demo>
 
 This choice pushes us to make our Triple store immutable. This way we can apply the change and produce a new Triple store, rather than mutating the commited one. To make this work, we wrap the transact API with mutative, a library for immutable changes in Javascript [^].
 
