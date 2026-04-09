@@ -75,19 +75,128 @@ function spawnFloater(emoji: string, container: HTMLElement, p: FloaterParams) {
 
 const presenceRoom = exampleDB.room('homepagePresenceDemo', 'presence');
 
+interface StreamCardProps {
+  tilt: string;
+  viewerCount: number;
+  react: (emoji: Reaction) => void;
+  registerScreen: (el: HTMLElement | null) => void;
+  emojiRefs: { current: Map<Reaction, HTMLButtonElement> };
+}
+
+function StreamCard({
+  tilt,
+  viewerCount,
+  react,
+  registerScreen,
+  emojiRefs,
+}: StreamCardProps) {
+  const controls = useAnimation();
+  const wiggle = () => {
+    controls.start({
+      rotate: [0, -2, 2, -1, 1, 0],
+      transition: { duration: 0.4, ease: 'easeInOut' },
+    });
+  };
+
+  return (
+    <div className={`flex flex-col items-center ${tilt}`}>
+      <div className="relative mb-6">
+        <motion.div
+          animate={controls}
+          onClick={wiggle}
+          className="w-[280px] cursor-pointer overflow-hidden rounded-xl bg-white shadow-sm"
+        >
+          <div className="flex items-center gap-2.5 border-b border-gray-100 px-3 py-2">
+            <span className="rounded bg-red-600 px-2 py-0.5 text-sm font-bold tracking-wide text-white">
+              LIVE
+            </span>
+            <span className="text-base text-gray-500">
+              {viewerCount.toLocaleString()} viewer
+              {viewerCount > 1 ? 's' : ''}
+            </span>
+            <div className="ml-auto flex items-center gap-2 text-gray-300">
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 15 12 12 15 15"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 9 12 12 15 9"
+                />
+              </svg>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div
+            ref={registerScreen}
+            className="relative aspect-video overflow-hidden"
+          >
+            <video
+              autoPlay
+              muted
+              playsInline
+              className="absolute inset-0 h-full w-full object-cover"
+              src="/img/landing/stream-clip.mp4"
+            />
+            <div className="absolute right-0 bottom-0 left-0 z-10">
+              <div className="h-[3px] w-full bg-black/20">
+                <div className="h-full w-full bg-red-500" />
+              </div>
+            </div>
+          </div>
+        </motion.div>
+        <div className="absolute -bottom-5 left-1/2 z-20 flex -translate-x-1/2 gap-2">
+          {REACTIONS.map((emoji) => (
+            <button
+              ref={(node) => {
+                const map = emojiRefs.current;
+                if (node) {
+                  map.set(emoji, node);
+                } else {
+                  map.delete(emoji);
+                }
+              }}
+              key={emoji}
+              onClick={() => react(emoji)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-lg shadow-md transition-transform hover:bg-gray-50 active:scale-90"
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LiveStreamDemo() {
   const screenRefs = useRef<HTMLElement[]>([]);
-  const videoRefs = useRef<HTMLVideoElement[]>([]);
   const emojiRefs = useRef<Map<Reaction, HTMLButtonElement>>(new Map());
 
   const registerScreen = useCallback((el: HTMLElement | null) => {
     if (!el) return;
     if (!screenRefs.current.includes(el)) screenRefs.current.push(el);
-  }, []);
-
-  const registerVideo = useCallback((el: HTMLVideoElement | null) => {
-    if (!el) return;
-    if (!videoRefs.current.includes(el)) videoRefs.current.push(el);
   }, []);
 
   const animateEmoji = useCallback((emoji: Reaction) => {
@@ -104,11 +213,6 @@ export function LiveStreamDemo() {
       const sWidth = s.getBoundingClientRect().width;
       const pct = ((sWidth / 2 + offsetFromRowCenter) / sWidth) * 100;
       spawnFloater(emoji, s, { ...params, startX: pct });
-    });
-
-    videoRefs.current.forEach((v) => {
-      v.currentTime = 0;
-      v.play();
     });
   }, []);
 
@@ -134,111 +238,22 @@ export function LiveStreamDemo() {
     );
   }, [peers]);
 
-  const StreamCard = ({ tilt }: { tilt: string }) => {
-    const controls = useAnimation();
-    const wiggle = () => {
-      controls.start({
-        rotate: [0, -2, 2, -1, 1, 0],
-        transition: { duration: 0.4, ease: 'easeInOut' },
-      });
-    };
-    return (
-      <div className={`flex flex-col items-center ${tilt}`}>
-        <div className="relative mb-6">
-          <motion.div
-            animate={controls}
-            onClick={wiggle}
-            className="w-[280px] cursor-pointer overflow-hidden rounded-xl bg-white shadow-sm"
-          >
-            <div className="flex items-center gap-2.5 border-b border-gray-100 px-3 py-2">
-              <span className="rounded bg-red-600 px-2 py-0.5 text-sm font-bold tracking-wide text-white">
-                LIVE
-              </span>
-              <span className="text-base text-gray-500">
-                {viewerCount.toLocaleString()} viewer
-                {viewerCount > 1 ? 's' : ''}
-              </span>
-              <div className="ml-auto flex items-center gap-2 text-gray-300">
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 15 12 12 15 15"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 9 12 12 15 9"
-                  />
-                </svg>
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"
-                  />
-                </svg>
-              </div>
-            </div>
-            <div
-              ref={registerScreen}
-              className="relative aspect-video overflow-hidden"
-            >
-              <video
-                ref={registerVideo}
-                autoPlay
-                muted
-                playsInline
-                className="absolute inset-0 h-full w-full object-cover"
-                src="/img/landing/stream-clip.mp4"
-              />
-              <div className="absolute right-0 bottom-0 left-0 z-10">
-                <div className="h-[3px] w-full bg-black/20">
-                  <div className="h-full w-full bg-red-500" />
-                </div>
-              </div>
-            </div>
-          </motion.div>
-          <div className="absolute -bottom-5 left-1/2 z-20 flex -translate-x-1/2 gap-2">
-            {REACTIONS.map((emoji) => (
-              <button
-                ref={(node) => {
-                  const map = emojiRefs.current;
-                  if (node) {
-                    map.set(emoji, node);
-                  } else {
-                    map.delete(emoji);
-                  }
-                }}
-                key={emoji}
-                onClick={() => react(emoji)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-lg shadow-md transition-transform hover:bg-gray-50 active:scale-90"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="flex flex-col items-center justify-center gap-10 md:flex-row md:items-end">
-      <StreamCard tilt="-rotate-2 translate-y-2" />
-      <StreamCard tilt="rotate-1 -translate-y-3" />
+      <StreamCard
+        tilt="-rotate-2 translate-y-2"
+        viewerCount={viewerCount}
+        react={react}
+        registerScreen={registerScreen}
+        emojiRefs={emojiRefs}
+      />
+      <StreamCard
+        tilt="rotate-1 -translate-y-3"
+        viewerCount={viewerCount}
+        react={react}
+        registerScreen={registerScreen}
+        emojiRefs={emojiRefs}
+      />
     </div>
   );
 }
