@@ -26,7 +26,6 @@ import {
   Dialog,
   Divider,
   Fence,
-  SectionHeading,
   SubsectionHeading,
   TextInput,
   useDialog,

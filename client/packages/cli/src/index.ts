@@ -86,9 +86,24 @@ export const authClientAddDef = authClient
     '--type <google|apple|github|linkedin|clerk|firebase>',
     'Type of oauth client to add',
   )
+  .option(
+    '-a --app <app-id>',
+    'App ID to modify. Defaults to *_INSTANT_APP_ID in .env',
+  )
   .allowUnknownOption(true)
   .action((opts) => {
-    return runCommandEffect(authClientAddCmd(opts).pipe(Effect.provide(BaseLayerLive)));
+    return runCommandEffect(
+      authClientAddCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    );
   });
 
 export const initWithoutFilesDef = program

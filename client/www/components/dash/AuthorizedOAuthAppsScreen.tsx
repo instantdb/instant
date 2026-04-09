@@ -1,24 +1,9 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import { ClipboardDocumentIcon, PlusIcon } from '@heroicons/react/24/outline';
-import format from 'date-fns/format';
-import CopyToClipboard from 'react-copy-to-clipboard';
-
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
-import {
-  ActionButton,
-  ActionForm,
-  Button,
-  cn,
-  Content,
-  Copyable,
-  Dialog,
-  Label,
-  SectionHeading,
-  SubsectionHeading,
-} from '@/components/ui';
+import { Button, cn, Content, SectionHeading } from '@/components/ui';
 import { TokenContext } from '@/lib/contexts';
-import { errorToast, successToast } from '@/lib/toast';
+import { errorToast } from '@/lib/toast';
 import { AppLogo } from './OAuthApps';
 import { ArrowPathIcon } from '@heroicons/react/24/solid';
 
