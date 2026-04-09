@@ -5,6 +5,8 @@ import remarkMath from 'remark-math';
 import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
 import { GPT52Leaderboard } from '@/components/essays/GPT52Leaderboard';
 import { Lightbox } from '@/components/Lightbox';
+import { TripleDemo } from '@/components/about/TripleDemo';
+import { DatalogDemo } from '@/components/about/DatalogDemo';
 import MuxPlayer from '@mux/mux-player-react';
 
 import { DemoIframe } from '@/components/DemoIframe';
@@ -12,11 +14,24 @@ import { SketchDemo } from '@/components/essays/sketch/SketchDemo';
 import { Demos, type DemoState } from '@/components/essays/architecture/Demos';
 import { Fence } from '@/components/ui';
 import { muxPattern, youtubeParams, youtubePattern } from '@/lib/videos';
-import { isValidElement } from 'react';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import { isValidElement, useState } from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
+
+function DatalogEssayDemo() {
+  const [filterValue, setFilterValue] = useState(true);
+  return (
+    <div className="not-prose my-8 flex justify-center">
+      <DatalogDemo
+        filterValue={filterValue}
+        onToggleFilter={() => setFilterValue((v) => !v)}
+        layout="horizontal"
+      />
+    </div>
+  );
+}
 
 export function EssayMarkdown({
   content,
@@ -49,6 +64,12 @@ export function EssayMarkdown({
             />
           ),
           'gpt52-leaderboard': GPT52Leaderboard,
+          'triple-demo': () => (
+            <div className="not-prose my-8 flex justify-center">
+              <TripleDemo />
+            </div>
+          ),
+          'datalog-demo': DatalogEssayDemo,
 
           p: ({ children }) => (
             <div className="prose prose-lg mt-[1.25em] mb-[1.25em] leading-relaxed">

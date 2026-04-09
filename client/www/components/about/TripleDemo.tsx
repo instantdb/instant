@@ -10,7 +10,7 @@ const USERS = [
 export function TripleDemo() {
   const [userIdx, setUserIdx] = useState(0);
   const [done, setDone] = useState(true);
-  const [title, setTitle] = useState('Ship delight');
+  const [title, setTitle] = useState('Ship!');
   const [lastChangedKey, setLastChangedKey] = useState<string | null>(null);
   const titleRef = useRef<HTMLSpanElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -116,7 +116,7 @@ export function TripleDemo() {
                   done ? 'text-gray-400 line-through' : 'text-gray-800'
                 }`}
               >
-                Ship delight
+                Ship!
               </span>
             </div>
           </div>
