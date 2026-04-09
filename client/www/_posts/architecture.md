@@ -72,7 +72,7 @@ So we built a generalized sync engine in Instant. Every app comes with multiplay
 
 You can try it yourself. Since we’ve created our isolated backend, let’s go ahead and use it:
 
-![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775599300716_image.png)
+<todo-iframe-demo></todo-iframe-demo>
 
 What you’re seeing are two iframes that render a todo app. They’re powered by the backend you just created (we passed the iframes your App ID).
 
