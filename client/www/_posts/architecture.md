@@ -124,7 +124,7 @@ If you want to share cursors, typing indicators, or ‘who’s online’ markers
 
 And if you need to share durable streams, you get, well, Instant Streams.
 
-If you’re curious, we have a bunch of real examples you can play with in the recipes page. You’ll notice that most of these services require little setup and little code. Both you and your agents can move faster and make your apps feature rich. You don’t have to scour for different providers and deal with bi-directional data sync.
+If you’re curious, we have a bunch of real examples you can play with in the [recipes](/recipes) page. You’ll notice that most of these services require little setup and little code. Both you and your agents can move faster and make your apps feature rich. You don’t have to scour for different providers and deal with bi-directional data sync.
 
 ## Bonus: What you can do, your agent can do
 
@@ -476,7 +476,7 @@ If you're building with agents, I think you will love using us.
 
 We hope you give us [try](/dashboard), and join us on [Discord](/discord).
 
-[^1]: Every single line of code behind the company lives on GitHub, including this [post](<[link](https://github.com/instantdb/instant/blob/main/client/www/_posts/architecture.md)>)
+[^1]: Every single line of code behind the company lives on GitHub, including this [post](https://github.com/instantdb/instant/blob/main/client/www/_posts/architecture.md)
 
 [^2]: Nikita wrote a great blog post about this [here](https://www.instantdb.com/essays/sync_future)
 
