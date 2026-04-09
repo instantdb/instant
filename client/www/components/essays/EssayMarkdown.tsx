@@ -9,9 +9,11 @@ import MuxPlayer from '@mux/mux-player-react';
 
 import { DemoIframe } from '@/components/DemoIframe';
 import { SketchDemo } from '@/components/essays/sketch/SketchDemo';
+import { Demos, type DemoState } from '@/components/essays/architecture/Demos';
 import { Fence } from '@/components/ui';
 import { muxPattern, youtubeParams, youtubePattern } from '@/lib/videos';
 import { isValidElement } from 'react';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import ReactMarkdown, { Components } from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
@@ -23,6 +25,10 @@ export function EssayMarkdown({
   content: string;
   title: string;
 }) {
+  const [demoState, setDemoState] = useLocalStorage<DemoState>(
+    'architecture-essay-demo',
+    {},
+  );
   return (
     <ReactMarkdown
       rehypePlugins={[rehypeRaw, rehypeKatex]}
@@ -35,6 +41,13 @@ export function EssayMarkdown({
           'sketch-demo': (props: { demo: string }) => {
             return <SketchDemo demo={props.demo} />;
           },
+          'architecture-demo': (props: { demo: string }) => (
+            <Demos
+              demo={props.demo}
+              demoState={demoState}
+              setDemoState={setDemoState}
+            />
+          ),
           'gpt52-leaderboard': GPT52Leaderboard,
 
           p: ({ children }) => (
