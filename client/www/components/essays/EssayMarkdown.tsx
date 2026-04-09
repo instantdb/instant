@@ -55,10 +55,6 @@ export function EssayMarkdown({
   content: string;
   title: string;
 }) {
-  const [demoState, setDemoState] = useLocalStorage<DemoState>(
-    'architecture-essay-demo',
-    {},
-  );
   return (
     <ReactMarkdown
       rehypePlugins={[rehypeRaw, rehypeKatex]}
@@ -72,11 +68,7 @@ export function EssayMarkdown({
             return <SketchDemo demo={props.demo} />;
           },
           'architecture-demo': (props: { demo: string }) => (
-            <Demos
-              demo={props.demo}
-              demoState={demoState}
-              setDemoState={setDemoState}
-            />
+            <Demos demo={props.demo} />
           ),
           'gpt52-leaderboard': GPT52Leaderboard,
           'triple-demo': () => (

@@ -34,7 +34,8 @@ export default function useLocalStorage<T>(
 ): [T, (v: T | undefined) => void] {
   const snapshotRef = useRef<T>(getSnapshot<T>(k) || defaultValue);
   const subscribe = useCallback((cb: Function) => {
-    const listener = () => {
+    const listener = (e: StorageEvent) => {
+      if (e.key !== k) return;
       snapshotRef.current = getSnapshot<T>(k) || defaultValue;
       cb();
     };

@@ -3,6 +3,7 @@ import CreationTimeDemo from './CreationTimeDemo';
 import TodoIframeDemo from './TodoIframeDemo';
 import TodoCodeDemo, { TODO_CODE_LINE_COUNT } from './TodoCodeDemo';
 import FileUploadDemo from './FileUploadDemo';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
 
 export type DemoState = {
   app?: {
@@ -13,15 +14,11 @@ export type DemoState = {
   } | null;
 };
 
-export function Demos({
-  demo,
-  demoState,
-  setDemoState,
-}: {
-  demo: string;
-  demoState: DemoState;
-  setDemoState: (state: DemoState) => void;
-}) {
+export function Demos({ demo }: { demo: string }) {
+  const [demoState, setDemoState] = useLocalStorage<DemoState>(
+    'architecture-essay-demo',
+    {},
+  );
   switch (demo) {
     case 'create-app':
       return (
