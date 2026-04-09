@@ -2,7 +2,7 @@ import { rosePineDawnColors as c } from '@/lib/rosePineDawnTheme';
 import { TripleStoreTable } from './TripleStoreTable';
 
 const TRIPLES: [string, string, string | boolean][] = [
-  ['todo_1', 'title', 'Ship delight'],
+  ['todo_1', 'title', 'Ship!'],
   ['todo_1', 'done', true],
   ['todo_2', 'title', 'Fix bug'],
   ['todo_2', 'done', false],
