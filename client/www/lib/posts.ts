@@ -55,6 +55,11 @@ const AUTHORS: Record<string, Author> = {
     url: 'https://x.com/instant_db',
     avatar: '/img/icon/logo-512.svg',
   },
+  drew: {
+    name: 'Drew Harris',
+    url: 'https://x.com/drewh_net',
+    avatar: '/img/peeps/drew.jpg',
+  },
 };
 
 function getAuthors(authorStr: string): Author[] {
