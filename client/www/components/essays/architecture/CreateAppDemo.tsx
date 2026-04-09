@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Button, Copyable } from '@/components/ui';
-import { PlatformApi } from '@instantdb/platform';
-import config from '@/lib/config';
 import { type DemoState } from './Demos';
+import { createDemoApp } from './createDemoApp';
 
 function formatExpiry(expiresMs: number): string {
   const days = Math.ceil((expiresMs - Date.now()) / (1000 * 60 * 60 * 24));
@@ -57,32 +56,8 @@ export default function CreateAppDemo({
               setLoading(true);
               setError(null);
               try {
-                const api = new PlatformApi({ apiURI: config.apiURI });
-                const start = Date.now();
-                const { app: newApp, expiresMs } = await api.createTemporaryApp(
-                  {
-                    title: 'Architecture Essay App',
-                    rules: {
-                      code: {
-                        $files: {
-                          allow: {
-                            view: 'true',
-                            create: 'true',
-                          },
-                        },
-                      },
-                    },
-                  },
-                );
-                const timeTaken = Date.now() - start;
-                setDemoState({
-                  app: {
-                    id: newApp.id,
-                    adminToken: newApp.adminToken,
-                    timeTaken,
-                    expiresMs,
-                  },
-                });
+                const app = await createDemoApp();
+                setDemoState({ app });
               } catch (e: any) {
                 setError(e?.message || 'Failed to create app');
               } finally {

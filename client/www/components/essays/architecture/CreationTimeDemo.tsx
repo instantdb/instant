@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { PlatformApi } from '@instantdb/platform';
-import config from '@/lib/config';
-import * as ephemeral from '@/lib/ephemeral';
 import { type DemoState } from './Demos';
+import { createDemoApp } from './createDemoApp';
 
 export default function CreationTimeDemo({
   demoState,
@@ -24,35 +22,8 @@ export default function CreationTimeDemo({
       onClick={async () => {
         setLoading(true);
         try {
-          const start = Date.now();
-          const res = await ephemeral.provisionApp({
-            title: 'architecture-essay-app',
-          });
-          const appId = res.app.id;
-          const adminToken = res.app['admin-token'];
-          const api = new PlatformApi({
-            auth: { token: adminToken },
-            apiURI: config.apiURI,
-          });
-          await api.pushPerms(appId, {
-            perms: {
-              $files: {
-                allow: {
-                  view: 'true',
-                  create: 'true',
-                },
-              },
-            },
-          });
-          const timeTaken = Date.now() - start;
-          setDemoState({
-            app: {
-              id: appId,
-              adminToken,
-              timeTaken,
-              expiresMs: res.expires_ms,
-            },
-          });
+          const app = await createDemoApp();
+          setDemoState({ app });
         } finally {
           setLoading(false);
         }
