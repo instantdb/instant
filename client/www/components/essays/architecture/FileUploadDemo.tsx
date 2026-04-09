@@ -163,29 +163,51 @@ function FileUploadLayout({ db, appId }: { db: InstantDB; appId: string }) {
     <div className="essay-breakout not-prose my-6 flex flex-col gap-4 md:flex-row">
       {/* File viewer — first on mobile, second on desktop */}
       <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:order-2 md:h-[440px] md:w-52 md:shrink-0">
-        <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-3 py-2">
+        {/* Sidebar / breadcrumb header */}
+        <div className="flex items-center gap-1.5 border-b border-gray-100 bg-gray-50 px-3 py-2">
           <svg
-            className="h-4 w-4 text-gray-400"
+            className="h-3.5 w-3.5 text-gray-400"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
             <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
           </svg>
-          <span className="text-xs font-medium text-gray-500">Files</span>
+          <span className="text-[11px] text-gray-400">/</span>
+          <span className="text-[11px] font-medium text-gray-600">photos</span>
+          <span className="ml-auto text-[10px] text-gray-400">
+            {VIDA_IMAGES.length} items
+          </span>
         </div>
-        <div className="flex flex-1 flex-row gap-3 overflow-x-auto p-3 md:flex-col md:overflow-x-hidden md:overflow-y-auto">
+        {/* File grid */}
+        <div className="flex flex-1 flex-row gap-2 overflow-x-auto p-2 md:flex-col md:overflow-x-hidden md:overflow-y-auto">
           {VIDA_IMAGES.map((img) => (
             <div
               key={img.name}
-              className="flex shrink-0 flex-col items-center gap-1"
+              draggable
+              className="group flex shrink-0 cursor-grab flex-col items-center gap-1 rounded-lg p-2 hover:bg-gray-50 active:cursor-grabbing"
             >
               <img
                 src={img.url}
                 alt="Vida the dog"
                 draggable
-                className="aspect-square w-32 cursor-grab rounded-lg border border-gray-200 object-cover shadow-sm active:cursor-grabbing"
+                className="aspect-square w-28 rounded-md border border-gray-200 object-cover shadow-sm"
               />
-              <span className="text-[11px] text-gray-500">{img.name}</span>
+              <div className="flex items-center gap-1">
+                <svg
+                  className="h-3 w-3 text-gray-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909-4.22-4.22a.75.75 0 00-1.06 0L2.5 11.06zm6.5-3.31a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="max-w-[6rem] truncate text-[10px] text-gray-500">
+                  {img.name}
+                </span>
+              </div>
             </div>
           ))}
         </div>
