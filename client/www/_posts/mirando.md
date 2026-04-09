@@ -2,6 +2,8 @@
 title: Mirando transforms Latin-American Real-Estate on top of Instant
 date: '2025-08-18'
 authors: stopachka
+summary: Ignacio De Haedo and Javier Rey left their software engineering jobs at Meta to build Mirando, an AI-powered real-estate platform for Latin America. This is the backstory.
+thumbnail: /img/essays/mirando.jpg
 ---
 
 _This is a first of a series of posts about the people who power their startup with Instant! Stories like Ignacio and Javier’s are what drive us to keep working on making the best tools for builders._

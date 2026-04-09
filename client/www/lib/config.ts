@@ -16,13 +16,43 @@ if (devBackend && isBrowser) {
 }
 
 const config = {
-  apiURI: getLocal('devBackend')
+  apiURI: devBackend
     ? `http://localhost:${localPort}`
     : `https://${isStaging ? 'api-staging' : 'api'}.instantdb.com`,
-  websocketURI: getLocal('devBackend')
+  websocketURI: devBackend
     ? `ws://localhost:${localPort}/runtime/session`
     : `wss://${isStaging ? 'api-staging' : 'api'}.instantdb.com/runtime/session`,
 };
+
+// In dev mode, sync the devBackend flag to a cookie so server components
+// can resolve the same apiURI as the client.
+if (isDev && isBrowser) {
+  if (devBackend) {
+    document.cookie = `devBackend=${localPort}; path=/`;
+  } else {
+    document.cookie = `devBackend=; path=/; max-age=0`;
+  }
+}
+
+/**
+ * Returns the config for use in server components. In dev mode, reads the
+ * devBackend cookie so it resolves the same apiURI as the client.
+ */
+export async function getServerConfig() {
+  if (isDev && !isBrowser) {
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const devBackendCookie = cookieStore.get('devBackend')?.value;
+    if (devBackendCookie) {
+      const port = devBackendCookie;
+      return {
+        apiURI: `http://localhost:${port}`,
+        websocketURI: `ws://localhost:${port}/runtime/session`,
+      };
+    }
+  }
+  return config;
+}
 
 export default config;
 
@@ -72,6 +102,8 @@ export function setLocal(k: string, v: any) {
 export const localStorageFlagPrefix = `__instant__flag__`;
 
 export const cliOauthParamName = '_cli_oauth_ticket';
+
+export const instantRepo = 'instantdb/instant';
 
 export const discordInviteUrl = 'https://discord.com/invite/VU53p7uQcE';
 

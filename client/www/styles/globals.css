@@ -1,9 +1,18 @@
 @import 'tailwindcss';
 
-@plugin 'tailwindcss-animate';
-@custom-variant dark (&:is(.dark *));
+@theme {
+  --default-mono-font-family: 'Berkeley Mono', ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --font-mono: var(--default-mono-font-family);
+}
 
 @config '../tailwind.config.js';
+
+@plugin 'tailwindcss-animate';
+@plugin '@tailwindcss/typography';
+@plugin '@tailwindcss/forms';
+@plugin 'tailwindcss-animate';
+@custom-variant dark (&:is(.dark *));
 
 /*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
@@ -21,6 +30,19 @@
   ::file-selector-button {
     border-color: oklch(92.8% 0.006 264.531);
   }
+  *,
+  html {
+    --default-font-family: 'Switzer', 'IBM Plex Sans', sans-serif;
+    --default-mono-font-family: 'Berkeley Mono', ui-monospace, SFMono-Regular,
+      Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  }
+  ::cue {
+    font-family: var(--default-font-family);
+  }
+}
+
+@utility landing-width {
+  @apply max-w-[1280px] px-8;
 }
 
 @utility no-scrollbar {
@@ -38,53 +60,100 @@
 
 @layer base {
   @font-face {
-    font-family: 'Berk Mono';
+    font-family: 'Berkeley Mono';
     font-weight: normal;
     font-style: normal;
     font-stretch: normal;
-    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.woff2')
+    src: url('/fonts/BerkeleyMono-Regular.woff2')
       format('woff2');
-    font-display: swap;
+    font-display: block;
   }
 
   @font-face {
-    font-family: 'Berk Mono';
+    font-family: 'Berkeley Mono';
     font-weight: normal;
     font-style: italic;
     font-stretch: normal;
-    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Italic.woff2')
+    src: url('/fonts/BerkeleyMono-Italic.woff2')
       format('woff2');
-    font-display: swap;
+    font-display: block;
   }
 
   @font-face {
-    font-family: 'Berk Mono';
+    font-family: 'Berkeley Mono';
     font-weight: bold;
     font-style: normal;
     font-stretch: normal;
-    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Bold.woff2')
+    src: url('/fonts/BerkeleyMono-Bold.woff2')
       format('woff2');
-    font-display: swap;
+    font-display: block;
   }
 
   @font-face {
-    font-family: 'Berk Mono';
-    font-weight: normal;
+    font-family: 'Berkeley Mono';
+    font-weight: bold;
     font-style: italic;
     font-stretch: normal;
-    src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-BoldItalic.woff2')
+    src: url('/fonts/BerkeleyMono-BoldItalic.woff2')
       format('woff2');
-    font-display: swap;
+    font-display: block;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 400;
+    font-style: normal;
+    src: url('/fonts/Switzer-Regular.woff') format('woff');
+    font-display: block;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 400;
+    font-style: italic;
+    src: url('/fonts/Switzer-Italic.woff') format('woff');
+    font-display: block;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 500;
+    font-style: normal;
+    src: url('/fonts/Switzer-Medium.woff') format('woff');
+    font-display: block;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 600;
+    font-style: normal;
+    src: url('/fonts/Switzer-Semibold.woff') format('woff');
+    font-display: block;
+  }
+
+  @font-face {
+    font-family: 'Switzer';
+    font-weight: 700;
+    font-style: normal;
+    src: url('/fonts/Switzer-Bold.woff') format('woff');
+    font-display: block;
   }
 }
 
 html {
   height: 100%;
+  background-color: #FBF9F6;
+  --default-mono-font-family: 'Berkeley Mono', ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
-body,
+body {
+  min-height: 100%;
+  background-color: #ffffff;
+}
+
 #__next {
-  height: 100%;
+  min-height: 100%;
 }
 
 .animate-slow-pulse {
@@ -233,4 +302,43 @@ div.Toastify__toast-icon {
 
 .katex-display > .katex {
   background-color: transparent;
+}
+
+/* Essay breakout styles — elements inside .essay-content that break out
+   of the narrow prose column to the wider max-w-3xl width */
+.essay-content
+  :is(.essay-breakout, .essay-image-breakout, table, .essay-video-breakout),
+.essay-content > pre,
+.essay-content > iframe {
+  position: relative;
+  left: 50%;
+  width: min(100vw - 2rem, 48rem);
+  max-width: 48rem; /* 3xl */
+  transform: translateX(-50%);
+}
+
+.essay-content .essay-image-breakout {
+  border-radius: 0;
+}
+
+.essay-content > pre {
+  border-radius: 0;
+  border: 1px solid #e5e7eb;
+  padding: 1.25rem;
+}
+
+.essay-content .essay-video-breakout {
+  display: block;
+}
+
+.essay-content > iframe {
+  display: block;
+  width: min(100vw - 2rem, 48rem) !important;
+}
+
+.essay-content table .essay-image-breakout {
+  position: static;
+  width: auto;
+  max-width: 100%;
+  transform: translateX(0);
 }

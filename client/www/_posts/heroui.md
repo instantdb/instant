@@ -2,6 +2,8 @@
 title: HeroUI helps people build beautiful apps, on top of Instant
 date: '2025-08-25'
 authors: stopachka
+summary: Junior went from Venezuela to YC to build HeroUI, a suite of primitives that have helped thousands of developers build frontends. Here's the backstory.
+thumbnail: /img/essays/heroui.jpg
 ---
 
 _This is part of a series of posts about the people who power their startups with Instant. Stories like Junior’s are what drive us to keep working on making the best tool for builders._

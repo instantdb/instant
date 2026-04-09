@@ -1,0 +1,224 @@
+'use client';
+
+import Image from 'next/image';
+import { AnimateIn } from './AnimateIn';
+import { Subheading } from './typography';
+import { useStarCount } from '@/lib/starCountContext';
+import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
+import { formatNumberCompact } from '@/lib/format';
+import { StarBurst, useStarBurst } from '@/components/StarBurst';
+import { RollingNumber } from '@/components/RollingNumber';
+import { instantRepo } from '@/lib/config';
+
+const backers = [
+  {
+    name: 'Greg Brockman',
+    role: 'Co-Founder of OpenAI',
+    imageSrc: '/img/investors/greg-brockman.jpg',
+  },
+  {
+    name: 'Jeff Dean',
+    role: 'Chief Scientist of Google DeepMind',
+    imageSrc: '/img/investors/jeff-dean.jpg',
+  },
+  {
+    name: 'Paul Graham',
+    role: 'Co-Founder of YCombinator',
+    imageSrc: '/img/investors/paul-graham.jpg',
+  },
+  {
+    name: 'Amjad Masad',
+    role: 'CEO of Replit',
+    imageSrc: '/img/investors/amjad-masad.jpg',
+  },
+  {
+    name: 'Karri Saarinen',
+    role: 'CEO of Linear',
+    imageSrc: '/img/investors/karri-saarinen.jpg',
+  },
+  {
+    name: 'Zach Sims',
+    role: 'CEO of Codecademy',
+    imageSrc: '/img/investors/zach-sims.jpg',
+  },
+];
+
+export function SocialProof({
+  initialConnectionCount,
+}: {
+  initialConnectionCount?: number;
+}) {
+  const { particles, burst, removeParticle } = useStarBurst();
+  const starCount = useStarCount(instantRepo, burst);
+
+  const { data: connectionCount } = useTotalSessionsCount({
+    refreshSeconds: 3,
+    initialData: initialConnectionCount,
+  });
+
+  const stats = [
+    {
+      key: 'connections',
+      value: connectionCount ? (
+        <RollingNumber value={connectionCount} />
+      ) : undefined,
+      label: (
+        <>
+          <span className="hidden sm:inline">concurrent </span>connections
+        </>
+      ),
+    },
+    {
+      key: 'queries',
+      value: '1,000+',
+      label: (
+        <>
+          queries<span className="hidden sm:inline"> per</span>
+          <span className="sm:hidden"> /</span> second
+        </>
+      ),
+    },
+    {
+      key: 'stars',
+      value: (
+        <StarBurst particles={particles} removeParticle={removeParticle}>
+          <RollingNumber value={starCount} />
+        </StarBurst>
+      ),
+      label: 'github stars',
+    },
+  ];
+
+  return (
+    <div className="space-y-16">
+      {/* Stats */}
+      <AnimateIn>
+        <div className="mx-auto grid max-w-3xl grid-cols-3 items-end gap-4 sm:gap-8">
+          {stats.map((stat) => (
+            <div key={stat.key} className="text-center">
+              <div className="font-mono text-3xl font-semibold tracking-tighter sm:text-5xl">
+                {stat.value}
+              </div>
+              <div className="mt-1 font-mono text-xs text-gray-500 sm:mt-2 sm:text-sm">
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </AnimateIn>
+
+      {/* Credibility badges */}
+      <AnimateIn delay={100}>
+        <div>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-gray-400">
+            <div className="flex items-center gap-1.5">
+              <YCIcon className="h-4 w-4" />
+              <span>Backed by Y Combinator</span>
+            </div>
+            <span className="hidden text-gray-300 sm:inline">·</span>
+            <div className="flex items-center gap-1.5">
+              <SVAngelIcon className="h-4 w-4" />
+              <span>Backed by SV Angel</span>
+            </div>
+            <span className="hidden text-gray-300 sm:inline">·</span>
+            <a
+              target="_blank"
+              href="https://techcrunch.com/2024/10/02/instant-harkens-back-to-a-pre-google-firebase/"
+            >
+              <div className="flex items-center gap-1.5">
+                <TechCrunchIcon className="h-3.5 w-3.5" />
+                <span>Featured in TechCrunch</span>
+              </div>
+            </a>
+          </div>
+        </div>
+      </AnimateIn>
+
+      {/* Backers */}
+      <AnimateIn delay={200}>
+        <div>
+          <div className="mb-8 text-center">
+            <Subheading>Backed by the best</Subheading>
+          </div>
+          <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-x-10 gap-y-10 lg:max-w-max">
+            {backers.map((backer) => (
+              <div key={backer.name} className="w-32 text-center">
+                <Image
+                  src={backer.imageSrc}
+                  alt={backer.name}
+                  width={80}
+                  height={80}
+                  className="mx-auto h-16 w-16 rounded-full object-cover object-center sm:h-20 sm:w-20"
+                />
+                <div className="mt-3">
+                  <div className="text-sm font-semibold">{backer.name}</div>
+                  <div className="text-xs text-gray-500">{backer.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-10 text-center text-sm text-gray-500">
+            And 50+ technical founders from Sendbird, Panther, Segment, and more
+          </div>
+        </div>
+      </AnimateIn>
+    </div>
+  );
+}
+
+function YCIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <rect width="24" height="24" rx="4" fill="#F26522" />
+      <text
+        x="12"
+        y="17"
+        textAnchor="middle"
+        fill="white"
+        fontSize="14"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        Y
+      </text>
+    </svg>
+  );
+}
+
+function SVAngelIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="4" fill="#1a1a1a" />
+      <text
+        x="12"
+        y="17"
+        textAnchor="middle"
+        fill="white"
+        fontSize="10"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        SVA
+      </text>
+    </svg>
+  );
+}
+
+function TechCrunchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="4" fill="#0A9E01" />
+      <text
+        x="12"
+        y="17"
+        textAnchor="middle"
+        fill="white"
+        fontSize="13"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        TC
+      </text>
+    </svg>
+  );
+}

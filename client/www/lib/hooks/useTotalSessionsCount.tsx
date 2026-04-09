@@ -1,19 +1,9 @@
 import { useEffect, useState } from 'react';
 import useCurrentDate from './useCurrentDate';
 
-import config from '@/lib/config';
-import { jsonFetch } from '../fetch';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '../types';
-
-async function fetchTotalSessionsCount() {
-  return jsonFetch(`${config.apiURI}/dash/stats/active_sessions`, {
-    method: 'GET',
-    headers: {
-      'content-type': 'application/json',
-    },
-  });
-}
+import { fetchTotalSessionsCount } from './fetchTotalSessionsCount';
 
 type State =
   | { isLoading: true; data: undefined; error: undefined }
@@ -22,15 +12,17 @@ type State =
 
 export default function useTotalSessionsCount({
   refreshSeconds,
+  initialData,
 }: {
   refreshSeconds: number;
+  initialData?: number;
 }): State {
   const date = useCurrentDate({ refreshSeconds });
-  const [state, setState] = useState<State>({
-    isLoading: true,
-    data: undefined,
-    error: undefined,
-  });
+  const [state, setState] = useState<State>(
+    initialData != null
+      ? { isLoading: false, data: initialData, error: undefined }
+      : { isLoading: true, data: undefined, error: undefined },
+  );
   useEffect(() => {
     let cancel = false;
     async function exec() {
