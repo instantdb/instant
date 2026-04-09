@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Copyable } from '@/components/ui';
+import config from '@/lib/config';
 import { type DemoState } from './Demos';
 import { createDemoApp } from './createDemoApp';
 
@@ -20,6 +21,16 @@ export default function CreateAppDemo({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const app = demoState.app;
+
+  useEffect(() => {
+    if (!app) {
+      // Warm the CORS preflight cache for the POST we'll make later
+      fetch(`${config.apiURI}/dash/apps/ephemeral`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(() => {});
+    }
+  }, [app]);
 
   return (
     <div className="not-prose my-4 flex h-48 flex-col rounded-md border border-gray-200 bg-gray-50 p-4">
