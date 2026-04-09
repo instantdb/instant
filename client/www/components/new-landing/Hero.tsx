@@ -6,7 +6,7 @@ import { HeroTitle, LandingButton, SectionSubtitle } from './typography';
 
 const VIDEO_URL =
   'https://stream.mux.com/RKzKMImR1oIGNLPTLjflaD02dNWo1003H00Pv6ZIIogo01g/1080p.mp4';
-const THUMBNAIL_URL = '/video-previews/preview-4m43s.jpg';
+const THUMBNAIL_URL = '/video-previews/preview-4m41s.jpg';
 
 function PlayIcon({ className }: { className?: string }) {
   return (
