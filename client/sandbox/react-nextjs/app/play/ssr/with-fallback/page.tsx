@@ -9,12 +9,12 @@ export default function Page() {
   return (
     <div>
       <Link href="/play/ssr/">Whole page version</Link>
+      <AddTodo></AddTodo>
       <div className="flex gap-2">
         <Suspense fallback={<div>Loading...</div>}>
           <TodosWithSuspense />
         </Suspense>
         <TodosWithoutSuspense />
-        <AddTodo></AddTodo>
       </div>
     </div>
   );

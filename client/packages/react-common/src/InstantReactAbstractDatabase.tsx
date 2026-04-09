@@ -32,6 +32,10 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { useQueryInternal } from './useQuery.ts';
+import {
+  type InfiniteQueryResult,
+  useInfiniteQuerySubscription,
+} from './useInfiniteQuerySubscription.ts';
 import { InstantReactRoom, rooms } from './InstantReactRoom.ts';
 
 const defaultAuthState = {
@@ -388,6 +392,41 @@ export default abstract class InstantReactAbstractDatabase<
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this.core.queryOnce(query, opts);
+  };
+
+  /**
+   * Subscribe to a query and incrementally load more items
+   *
+   * Only one top level namespace in the query is allowed.
+   *
+   * Changing the query or options while the subscription is active will
+   * reset the subscription and start over with new data.
+   * @example
+   * const {
+   *   data,
+   *   loadNextPage,
+   *   canLoadNextPage,
+   * } = db.useInfiniteQuery({
+   *   posts: {
+   *     $: {
+   *       limit: 20,   // Load 20 posts at a time
+   *       order: {
+   *         createdAt: 'desc',
+   *       },
+   *     },
+   *   },
+   * });
+   */
+  useInfiniteQuery = <Q extends ValidQuery<Q, Schema>>(
+    query: Q,
+    opts?: InstaQLOptions,
+  ): InfiniteQueryResult<Schema, Q, UseDates> => {
+    const result = useInfiniteQuerySubscription<Schema, Q, UseDates>({
+      core: this.core,
+      query: query,
+      opts,
+    });
+    return result;
   };
 
   /**

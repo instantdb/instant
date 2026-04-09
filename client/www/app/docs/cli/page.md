@@ -40,6 +40,14 @@ This will guide you through picking an Instant app and generate two files for yo
 - `instant.schema.ts` defines your application's data model.
 - `instant.perms.ts` defines your permission rules.
 
+If you want to quickly spin up a temporary app (for experiments or testing), you can use the `--temp` flag:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest init --temp
+```
+
+This will create an ephemeral app that automatically deletes itself after 24 hours. You can later transfer a temporary app to your account with `instant-cli claim`.
+
 To learn how to change `instant.schema.ts`, check our [Modeling Data](/docs/modeling-data). For `instant.perms.ts`, check out the [permissions](/docs/permissions) page.
 
 ## Push
@@ -99,6 +107,31 @@ npx instant-cli@latest pull
 ```
 
 This will generate new `instant.schema.ts` and `instant.perms.ts` files, based on your production state.
+
+## Query
+
+You can run InstaQL queries against your app directly from the terminal:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest query '{ posts: { comments: {} } }'
+```
+
+This outputs clean JSON to stdout, making it easy to pipe into `jq` or use in scripts. It supports JSON5 syntax, so you don't need to quote your keys.
+
+Each query requires an auth context flag:
+
+- `--admin` bypasses permissions (default)
+- `--as-email <email>` runs the query as a specific user with permissions applied
+- `--as-guest` runs the query as an unauthenticated guest
+- `--as-token <refresh-token>` runs the query as a user identified by their refresh token
+
+For example, to see what a specific user can access:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest query --as-email alice@example.com '{ posts: {} }'
+```
+
+The results match what your client queries return, including cardinality. If your schema defines a relationship as `has: "one"`, you'll get back a single object instead of an array.
 
 ## App ID
 

@@ -29,13 +29,16 @@ import schema from './db/instant.schema.ts';
 import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
 import {
   addOAuthRoutes,
+  makeApiAuth,
   OAuthConfig,
   ServiceProvider,
   tokensOfBearerToken,
 } from './oauth-service-provider.ts';
 import { KeyConfig } from './crypto.ts';
+import { PlatformApi } from '@instantdb/platform';
 import indexHtml from './index.html.ts';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { handleQuery, handleTransact } from './tools.ts';
 
 // Helpers
 // -----------
@@ -91,7 +94,7 @@ function wrapServerWithTracing(
   return server;
 }
 
-function registerTools(server: McpServer) {
+function registerTools(server: McpServer, api: PlatformApi) {
   server.tool(
     'learn',
     "If you don't have any context provided about InstantDB, use this tool to learn about it!",
@@ -119,20 +122,16 @@ function registerTools(server: McpServer) {
     'Fetch schema for an app by its ID!',
     {
       appId: z.string().uuid().describe('UUID of the app'),
-      adminToken: z
-        .string()
-        .uuid()
-        .describe('UUID of the admin token for the app'),
     },
-    async ({ appId, adminToken }) => {
+    async ({ appId }) => {
       const instructions = `
       You can fetch the schema for the app by using the instant-cli tool:
 
       \`\`\`
-      npx instant-cli pull schema --app ${appId} --token ${adminToken} --yes
+      npx instant-cli pull schema --app ${appId} --yes
       \`\`\`
 
-      We supply the --yes flag to skip confirmation prompts. Now 'instant.schema.ts' with contain the schema for the app.
+      We supply the --yes flag to skip confirmation prompts. Now 'instant.schema.ts' will contain the schema for the app.
       `;
 
       return {
@@ -151,17 +150,13 @@ function registerTools(server: McpServer) {
     'Fetch permissions for an app by its ID',
     {
       appId: z.string().uuid().describe('UUID of the app'),
-      adminToken: z
-        .string()
-        .uuid()
-        .describe('UUID of the admin token for the app'),
     },
-    async ({ appId, adminToken }) => {
+    async ({ appId }) => {
       const instructions = `
       You fetch the permissions for the app by using the instant-cli tool:
 
       \`\`\`
-      npx instant-cli pull perms --app ${appId} --token ${adminToken} --yes
+      npx instant-cli pull perms --app ${appId} --yes
       \`\`\`
 
       We supply the --yes flag to skip confirmation prompts. Now 'instant.perms.ts' will contain the permissions for the app.
@@ -184,18 +179,13 @@ function registerTools(server: McpServer) {
     If you don't have an instant.schema.ts file yet, use the get-schema tool to learn how to get this file.`,
     {
       appId: z.string().uuid().describe('UUID of the app'),
-      adminToken: z
-        .string()
-        .uuid()
-        .describe('UUID of the admin token for the app'),
     },
-    async ({ appId, adminToken }) => {
+    async ({ appId }) => {
       const instructions = `
       Push schema changes by using the instant-cli tool:
 
-
       \`\`\`
-      npx instant-cli push schema --app ${appId} --token ${adminToken} --yes
+      npx instant-cli push schema --app ${appId} --yes
       \`\`\`
 
       We supply the --yes flag to skip confirmation prompts.
@@ -204,7 +194,7 @@ function registerTools(server: McpServer) {
       If you want to rename fields as part of your schema changes you can use the --rename flag to specify renames.
 
       \`\`\`
-      npx instant-cli push schema --app ${appId} --token ${adminToken} --rename 'posts.author:posts.creator stores.owner:stores.manager' --yes
+      npx instant-cli push schema --app ${appId} --rename 'posts.author:posts.creator stores.owner:stores.manager' --yes
       \`\`\`
       `;
 
@@ -225,17 +215,13 @@ function registerTools(server: McpServer) {
     If you don't have an instant.perms.ts file yet, use the get-perms tool to learn how to get this file.`,
     {
       appId: z.string().uuid().describe('UUID of the app'),
-      adminToken: z
-        .string()
-        .uuid()
-        .describe('UUID of the admin token for the app'),
     },
-    async ({ appId, adminToken }) => {
+    async ({ appId }) => {
       const instructions = `
       Push permission changes by using the instant-cli tool:
 
       \`\`\`
-      npx instant-cli push schema --app ${appId} --token ${adminToken} --yes
+      npx instant-cli push perms --app ${appId} --yes
       \`\`\`
 
       We supply the --yes flag to skip confirmation prompts.
@@ -254,152 +240,46 @@ function registerTools(server: McpServer) {
 
   server.tool(
     'query',
-    'Execute a query againt an app. Useful for inspecting data in the app.',
-    {},
-    async () => {
-      const instructions = `
-      You can query data for an app by writing and executing a script using the
-      Admin SDK. Here's an example script for fetching a habit and its completions:
+    `Execute an InstaQL query against an app. Returns the query results as JSON.
 
-      \`\`\`typescript
-      import { init } from "@instantdb/admin";
-      import "dotenv/config";
+    Example query to fetch all goals and their todos:
+    {"goals": {"todos": {}}}
 
-      const adminDb = init({
-        appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-        adminToken: process.env.INSTANT_APP_ADMIN_TOKEN!,
-      });
+    Example query with a where clause:
+    {"goals": {"$": {"where": {"status": "active"}}, "todos": {}}}
 
-      async function fetchHabit(habitName: string) {
-        const { habits } = await adminDb.query({
-          habits: {
-            $: { where: { name: habitName } },
-            completions: {},
-          },
-        });
-        console.log(habits);
-      }
-
-      fetchHabit("Read");
-      \`\`\`
-
-      If you're unsure how to write queries, refer to the documentation:
-
-      https://instantdb.com/docs/instaql.md
-      `;
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: instructions,
-          },
-        ],
-      };
+    If you're unsure how to write queries, refer to the documentation:
+    https://instantdb.com/docs/instaql`,
+    {
+      appId: z.string().uuid().describe('UUID of the app'),
+      query: z.record(z.string(), z.any()).describe('InstaQL query object'),
+    },
+    async ({ appId, query }) => {
+      return handleQuery(api, appId, query);
     },
   );
 
   server.tool(
     'transact',
-    'Execute a transaction against an app. Useful for seeding or modifying data in the app.',
-    {},
-    async () => {
-      const instructions = `
-      You can transact data for an app by writing and executing a script using the
-      Admin SDK. Here's an example script for seeding a microblog app with some posts:
+    `Execute a transaction against an app. Useful for creating, updating, or deleting data.
 
-      \`\`\`typescript
-      import { init, id } from "@instantdb/admin";
-      import "dotenv/config";
+    Steps use the internal transaction format:
+    - Create/update: ["update", "namespace", "entity-id", {"attr": "value"}]
+    - Link: ["link", "namespace", "entity-id", {"linkAttr": "target-id"}]
+    - Unlink: ["unlink", "namespace", "entity-id", {"linkAttr": "target-id"}]
+    - Delete: ["delete", "namespace", "entity-id"]
 
-      const adminDb = init({
-        appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-        adminToken: process.env.INSTANT_APP_ADMIN_TOKEN!,
-      });
+    Example steps to create a todo:
+    [["update", "todos", "a-uuid", {"title": "Get fit", "done": false}]]
 
-      interface Post {
-        id: number;
-        author: string;
-        handle: string;
-        color: string;
-        content: string;
-        timestamp: string;
-        likes: number;
-        liked: boolean;
-      }
-
-      const mockPosts: Post[] = [
-        {
-          author: 'Sarah Chen',
-          handle: 'sarahchen',
-          color: 'bg-blue-100',
-          content: 'Just launched my new project! Really excited to share it with everyone.',
-          timestamp: '2h ago',
-          likes: 12,
-          liked: false,
-        },
-        {
-          author: 'Alex Rivera',
-          handle: 'alexrivera',
-          color: 'bg-purple-100',
-          content: 'Beautiful sunset today. Nature never stops amazing me.',
-          timestamp: '4h ago',
-          likes: 19,
-          liked: true,
-        },
-        {
-          author: 'Jordan Lee',
-          handle: 'jordanlee',
-          color: 'bg-pink-100',
-          content: 'Working on something cool with Next.js and TypeScript. Updates coming soon!',
-          timestamp: '6h ago',
-          likes: 7,
-          liked: false,
-        },
-      ];
-
-      function friendlyTimeToTimestamp(friendlyTime: string) {
-        const hours = parseInt(friendlyTime);
-        const now = Date.now();
-        return now - (hours * 60 * 60 * 1000);
-      }
-
-      function seed() {
-        console.log("Seeding db...");
-        mockPosts.forEach(post => {
-          const userId = id();
-          const postId = id();
-          const user = adminDb.tx.$users[userId].create({});
-          const profile = adminDb.tx.profiles[userId].create({
-            displayName: post.author,
-            handle: post.handle,
-          }).link({ user: userId });
-          const postEntity = adminDb.tx.posts[postId].create({
-            color: post.color,
-            content: post.content,
-            timestamp: friendlyTimeToTimestamp(post.timestamp),
-          }).link({ author: userId });
-          const likes = Array.from({ length: post.likes }, () => adminDb.tx.likes[id()].create({ postId, userId }).link({ post: postId, user: userId }));
-          adminDb.transact([user, profile, postEntity, ...likes]);
-        })
-      }
-
-      seed();
-      \`\`\`
-
-      If you're unsure how to make transactions, refer to the documentation:
-
-      https://instantdb.com/docs/instaml.md
-      `;
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: instructions,
-          },
-        ],
-      };
+    If you're unsure how to make transactions, refer to the documentation:
+    https://instantdb.com/docs/instaml`,
+    {
+      appId: z.string().uuid().describe('UUID of the app'),
+      steps: z.array(z.array(z.any())).describe('Array of transaction steps'),
+    },
+    async ({ appId, steps }) => {
+      return handleTransact(api, appId, steps);
     },
   );
 }
@@ -426,8 +306,10 @@ async function startStdio() {
     process.exit(1);
   }
 
+  const api = new PlatformApi({ auth: { token: accessToken } });
+
   const server = createMCPServer();
-  registerTools(server);
+  registerTools(server, api);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -558,6 +440,10 @@ async function startSse() {
       try {
         const tokens = await tokensOfBearerToken(db, req.auth!.token);
 
+        const api = new PlatformApi({
+          auth: makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
+        });
+
         wrapServerWithTracing(server, tracer, {
           'client.client_id': tokens.mcpToken.client?.client_id,
           'client.name': tokens.mcpToken.client?.client_name,
@@ -566,7 +452,7 @@ async function startSse() {
           'client.uri': tokens.mcpToken.client?.client_uri,
           'client.redirect_urls': tokens.mcpToken.client?.redirect_uris,
         });
-        registerTools(server);
+        registerTools(server, api);
         const transport: StreamableHTTPServerTransport =
           new StreamableHTTPServerTransport({
             sessionIdGenerator: undefined,
@@ -632,6 +518,10 @@ async function startSse() {
       try {
         const tokens = await tokensOfBearerToken(db, req.auth!.token);
 
+        const api = new PlatformApi({
+          auth: makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
+        });
+
         wrapServerWithTracing(server, tracer, {
           'client.client_id': tokens.mcpToken.client?.client_id,
           'client.name': tokens.mcpToken.client?.client_name,
@@ -641,7 +531,7 @@ async function startSse() {
           'client.redirect_urls': tokens.mcpToken.client?.redirect_uris,
         });
 
-        registerTools(server);
+        registerTools(server, api);
         transports.sse[transport.sessionId] = transport;
       } catch (e) {
         console.error('Error handling MCP SSE request:', e);

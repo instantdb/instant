@@ -1,5 +1,26 @@
 const path = require('path');
+const fs = require('fs');
 const withMarkdoc = require('@markdoc/next.js');
+
+async function fetchStarCount() {
+  const { init } = await import('@instantdb/admin');
+  const db = init({
+    appId:
+      process.env.NEXT_PUBLIC_FEEDBACK_APP_ID ||
+      '5d9c6277-e6ac-42d6-8e51-2354b4870c05',
+  }).asUser({ guest: true });
+  const { instantRepo } = await import('./lib/config.ts');
+  const data = await db.query({
+    ghStarTotals: {
+      $: { where: { repoFullName: instantRepo }, limit: 1 },
+    },
+  });
+  const count = data?.ghStarTotals?.[0]?.stargazersCount;
+  if (count == null) {
+    throw new Error('Missing star count');
+  }
+  return String(count);
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -95,6 +116,12 @@ const nextConfig = {
         has: [{ type: 'query', key: 'tab', value: '(?<tab>mobile)' }],
         destination: '/examples/:tab',
       },
+      {
+        permanent: false,
+        basePath: false,
+        source: '/discord',
+        destination: 'https://discord.com/invite/VU53p7uQcE',
+      },
     ];
   },
   // Proxy to PostHog to avoid ad blockers
@@ -114,4 +141,42 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 };
 
-module.exports = withMarkdoc()(nextConfig);
+// Berkeley Mono is a licensed font that we can't check into the repo.
+// We fetch it from S3 on startup (dev server or build) so it ends up in the
+// bundle but never in source control. See .gitignore for the exclusion.
+const BERKELEY_MONO_FONTS = [
+  'BerkeleyMono-Regular.woff2',
+  'BerkeleyMono-Italic.woff2',
+  'BerkeleyMono-Bold.woff2',
+  'BerkeleyMono-BoldItalic.woff2',
+  'BerkeleyMono-Regular.ttf',
+  'BerkeleyMono-Bold.ttf',
+];
+
+async function fetchFonts() {
+  const dest = path.join(__dirname, 'public', 'fonts');
+  const baseUrl = 'https://stopaio.s3.amazonaws.com/public';
+  await Promise.all(
+    BERKELEY_MONO_FONTS.map(async (font) => {
+      const filePath = path.join(dest, font);
+      if (fs.existsSync(filePath)) return;
+      console.log(`Downloading ${font}...`);
+      const res = await fetch(`${baseUrl}/${font}`);
+      if (!res.ok) throw new Error(`Failed to download ${font}: ${res.status}`);
+      const buffer = Buffer.from(await res.arrayBuffer());
+      fs.writeFileSync(filePath, buffer);
+    }),
+  );
+}
+
+module.exports = async () => {
+  await fetchFonts();
+  const starCount = await fetchStarCount();
+  if (starCount) {
+    nextConfig.env = {
+      ...nextConfig.env,
+      NEXT_PUBLIC_FALLBACK_STAR_COUNT: starCount,
+    };
+  }
+  return withMarkdoc()(nextConfig);
+};

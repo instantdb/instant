@@ -6,6 +6,9 @@ import { Subheading } from './typography';
 import { useStarCount } from '@/lib/starCountContext';
 import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
 import { formatNumberCompact } from '@/lib/format';
+import { StarBurst, useStarBurst } from '@/components/StarBurst';
+import { RollingNumber } from '@/components/RollingNumber';
+import { instantRepo } from '@/lib/config';
 
 const backers = [
   {
@@ -40,20 +43,50 @@ const backers = [
   },
 ];
 
-export function SocialProof() {
-  const starCount = useStarCount();
+export function SocialProof({
+  initialConnectionCount,
+}: {
+  initialConnectionCount?: number;
+}) {
+  const { particles, burst, removeParticle } = useStarBurst();
+  const starCount = useStarCount(instantRepo, burst);
 
   const { data: connectionCount } = useTotalSessionsCount({
     refreshSeconds: 3,
+    initialData: initialConnectionCount,
   });
 
   const stats = [
     {
-      value: connectionCount ? formatNumberCompact(connectionCount) : undefined,
-      label: 'concurrent connections',
+      key: 'connections',
+      value: connectionCount ? (
+        <RollingNumber value={connectionCount} />
+      ) : undefined,
+      label: (
+        <>
+          <span className="hidden sm:inline">concurrent </span>connections
+        </>
+      ),
     },
-    { value: '1,000+', label: 'queries per second' },
-    { value: starCount, label: 'github stars' },
+    {
+      key: 'queries',
+      value: '1,000+',
+      label: (
+        <>
+          queries<span className="hidden sm:inline"> per</span>
+          <span className="sm:hidden"> /</span> second
+        </>
+      ),
+    },
+    {
+      key: 'stars',
+      value: (
+        <StarBurst particles={particles} removeParticle={removeParticle}>
+          <RollingNumber value={starCount} />
+        </StarBurst>
+      ),
+      label: 'github stars',
+    },
   ];
 
   return (
@@ -62,7 +95,7 @@ export function SocialProof() {
       <AnimateIn>
         <div className="mx-auto grid max-w-3xl grid-cols-3 items-end gap-4 sm:gap-8">
           {stats.map((stat) => (
-            <div key={stat.label} className="text-center">
+            <div key={stat.key} className="text-center">
               <div className="font-mono text-3xl font-semibold tracking-tighter sm:text-5xl">
                 {stat.value}
               </div>
@@ -107,7 +140,7 @@ export function SocialProof() {
           <div className="mb-8 text-center">
             <Subheading>Backed by the best</Subheading>
           </div>
-          <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-x-10 gap-y-10">
+          <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-x-10 gap-y-10 lg:max-w-max">
             {backers.map((backer) => (
               <div key={backer.name} className="w-32 text-center">
                 <Image

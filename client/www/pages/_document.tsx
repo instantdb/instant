@@ -13,6 +13,13 @@ export default function Document() {
         />
         <link
           rel="preload"
+          href="/fonts/Switzer-Italic.woff"
+          as="font"
+          type="font/woff"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
           href="/fonts/Switzer-Medium.woff"
           as="font"
           type="font/woff"
@@ -34,7 +41,7 @@ export default function Document() {
         />
         <link
           rel="preload"
-          href="https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.woff2"
+          href="/fonts/BerkeleyMono-Regular.woff2"
           as="font"
           type="font/woff2"
           crossOrigin="anonymous"

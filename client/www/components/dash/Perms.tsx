@@ -1,9 +1,27 @@
 import JsonParser from 'json5';
 import { useContext, useMemo, useState } from 'react';
+import { formatDistance } from 'date-fns';
 
-import { Content, JSONEditor, SectionHeading } from '@/components/ui';
+import {
+  BaseSelect,
+  Button,
+  Content,
+  Dialog,
+  JSONDiffEditor,
+  JSONEditor,
+  SectionHeading,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+  useDialog,
+} from '@/components/ui';
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
+import { useTokenFetch } from '@/lib/auth';
 import { jsonFetch } from '@/lib/fetch';
 import { errorToast, successToast } from '@/lib/toast';
 import { InstantApp, SchemaNamespace } from '@/lib/types';
@@ -12,6 +30,13 @@ import { InstantReactWebDatabase } from '@instantdb/react';
 import { FetchedDash, useFetchedDash } from './MainDashLayout';
 import permsJsonSchema from '@/lib/permsJsonSchema';
 import { useDarkMode } from './DarkModeToggle';
+import { apply, type Edit } from '@/lib/editscript';
+
+type RuleVersion = {
+  version: number;
+  edits: Edit[];
+  created_at: string;
+};
 
 export function Perms({
   app,
@@ -33,8 +58,196 @@ export function Perms({
 
   const schema = permsJsonSchema(namespaces);
   const dashResponse = useFetchedDash();
-
   const { darkMode } = useDarkMode();
+
+  const [selectedVersion, setSelectedVersion] = useState<string>('current');
+
+  const versionsResponse = useTokenFetch<{ versions: RuleVersion[] }>(
+    `${config.apiURI}/dash/apps/${app.id}/rule-versions`,
+    token,
+  );
+  const versions = versionsResponse.data?.versions ?? null;
+
+  // Check that the version list is in sync with the current rules
+  const latestVersion =
+    versions && versions.length > 0
+      ? Math.max(...versions.map((v) => v.version))
+      : null;
+  const versionsInSync =
+    latestVersion != null && latestVersion === app.rules_version;
+
+  const selectedVersionNum =
+    selectedVersion === 'current' ? null : Number(selectedVersion);
+
+  // Reconstruct the rules at the selected version and the one before it.
+  // Each version's edits transform version N → version N-1.
+  const { reconstructedRules, previousRules } = useMemo(() => {
+    if (
+      selectedVersionNum == null ||
+      !versionsInSync ||
+      !versions ||
+      !app.rules
+    ) {
+      return { reconstructedRules: null, previousRules: null };
+    }
+
+    const sortedDesc = [...versions].sort((a, b) => b.version - a.version);
+
+    // Check for gaps — versions must be consecutive
+    for (let i = 0; i < sortedDesc.length - 1; i++) {
+      if (sortedDesc[i].version - sortedDesc[i + 1].version !== 1) {
+        return { reconstructedRules: null, previousRules: null };
+      }
+    }
+
+    try {
+      let rules: any = app.rules;
+
+      for (const v of sortedDesc) {
+        if (v.version <= selectedVersionNum) break;
+        rules = apply(rules, v.edits);
+      }
+
+      const reconstructed = rules;
+
+      const selectedV = versions.find((v) => v.version === selectedVersionNum);
+      const prior = selectedV ? apply(reconstructed, selectedV.edits) : null;
+
+      return { reconstructedRules: reconstructed, previousRules: prior };
+    } catch (e) {
+      console.error('Failed to reconstruct rules from version history', e);
+      return { reconstructedRules: null, previousRules: null };
+    }
+  }, [selectedVersionNum, versionsInSync, versions, app.rules]);
+
+  const [diffBase, setDiffBase] = useState<'current' | 'previous'>('previous');
+
+  const restoreDialog = useDialog();
+  const [restoring, setRestoring] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<any>(null);
+
+  const handleRestoreClick = async (target: any) => {
+    setRestoreTarget(target);
+    // Refetch to make sure we have the latest rules before showing the modal
+    await dashResponse.refetch();
+    restoreDialog.onOpen();
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (!restoreTarget) return;
+    setRestoring(true);
+    try {
+      await onEditRules(
+        dashResponse,
+        app.id,
+        JSON.stringify(restoreTarget),
+        token,
+      );
+      setErrorRes(null);
+      restoreDialog.onClose();
+      setSelectedVersion('current');
+      versionsResponse.mutate();
+    } catch (error: any) {
+      if (error?.message && error?.in) {
+        setErrorRes(error);
+      }
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const showingDiff = selectedVersionNum != null && reconstructedRules != null;
+  const historyUnavailable =
+    selectedVersionNum != null && reconstructedRules == null;
+
+  const sortedVersions = useMemo(() => {
+    if (!versions || versions.length === 0) return [];
+    return [...versions].sort((a, b) => b.version - a.version);
+  }, [versions]);
+
+  const isCurrentVersion =
+    sortedVersions.length > 0 &&
+    selectedVersionNum === sortedVersions[0].version;
+
+  const selectedTriggerLabel = `v${selectedVersion}${isCurrentVersion ? ' (latest)' : ''}`;
+
+  const versionPicker =
+    sortedVersions.length > 0 &&
+    (selectedVersion === 'current' ? (
+      <Button
+        variant="secondary"
+        size="mini"
+        onClick={() => setSelectedVersion(String(sortedVersions[0].version))}
+      >
+        Diff
+      </Button>
+    ) : (
+      <BaseSelect value={selectedVersion} onValueChange={setSelectedVersion}>
+        <SelectTrigger
+          size="sm"
+          className="px-2 py-1 text-xs data-[size=sm]:h-auto"
+        >
+          <SelectValue>{selectedTriggerLabel}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="current">latest</SelectItem>
+          <SelectSeparator />
+          <SelectGroup>
+            <SelectLabel className="text-xs text-gray-400">Changes</SelectLabel>
+            {sortedVersions.map((v, i) => (
+              <SelectItem key={v.version} value={String(v.version)}>
+                v{v.version}
+                {i === 0 ? ' (latest)' : ''} —{' '}
+                {formatDistance(new Date(v.created_at), new Date(), {
+                  addSuffix: true,
+                })}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </BaseSelect>
+    ));
+
+  const latestVersionNum =
+    sortedVersions.length > 0 ? sortedVersions[0].version : null;
+  const previousVersionNum =
+    selectedVersionNum != null ? selectedVersionNum - 1 : null;
+
+  const diffBaseSelect = showingDiff && !isCurrentVersion && (
+    <BaseSelect
+      value={diffBase}
+      onValueChange={(v) => setDiffBase(v as 'current' | 'previous')}
+    >
+      <SelectTrigger
+        size="sm"
+        className="px-2 py-1 text-xs data-[size=sm]:h-auto"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="previous">compare v{previousVersionNum}</SelectItem>
+        <SelectItem value="current">
+          compare v{latestVersionNum} (latest)
+        </SelectItem>
+      </SelectContent>
+    </BaseSelect>
+  );
+
+  const editorLabel = (
+    <span className="flex items-center gap-2 text-sm">
+      <span>
+        <span
+          className="text-sm font-bold text-yellow-600"
+          style={{ letterSpacing: '4px' }}
+        >
+          {'{}'}
+        </span>{' '}
+        rules.json
+      </span>
+      {versionPicker}
+      {diffBaseSelect}
+    </span>
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -66,31 +279,168 @@ export function Perms({
             </div>
           </div>
         )}
-        <JSONEditor
-          darkMode={darkMode}
-          label={
-            <span className="text-sm">
-              <span
-                className="text-sm font-bold text-yellow-600"
-                style={{ letterSpacing: '4px' }}
+        {showingDiff ? (
+          <>
+            <JSONDiffEditor
+              darkMode={darkMode}
+              {...(isCurrentVersion || diffBase === 'previous'
+                ? stringifyForDiff(previousRules, reconstructedRules)
+                : stringifyForDiff(app.rules, reconstructedRules))}
+              label={editorLabel}
+              action={
+                <div className="flex items-center gap-2">
+                  {isCurrentVersion ? (
+                    previousRules && (
+                      <Button
+                        variant="secondary"
+                        size="mini"
+                        onClick={() => handleRestoreClick(previousRules)}
+                      >
+                        Restore
+                      </Button>
+                    )
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="mini"
+                      onClick={() => handleRestoreClick(reconstructedRules)}
+                    >
+                      Restore
+                    </Button>
+                  )}
+                  <Button
+                    variant="secondary"
+                    size="mini"
+                    onClick={() => setSelectedVersion('current')}
+                  >
+                    Close
+                  </Button>
+                </div>
+              }
+            />
+          </>
+        ) : historyUnavailable ? (
+          <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
+            <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
+              <div className="font-mono">{editorLabel}</div>
+              <Button
+                variant="secondary"
+                size="mini"
+                onClick={() => setSelectedVersion('current')}
               >
-                {'{}'}
-              </span>{' '}
-              rules.json
-            </span>
-          }
-          value={value}
-          schema={schema}
-          onSave={async (r) => {
-            const er = await onEditRules(dashResponse, app.id, r, token).catch(
-              (error) => error,
-            );
-            setErrorRes(er);
-          }}
-        />
+                Close
+              </Button>
+            </div>
+            <div className="flex flex-1 items-center justify-center text-sm text-gray-500 dark:text-neutral-400">
+              Version history unavailable for this selection.
+            </div>
+          </div>
+        ) : (
+          <JSONEditor
+            darkMode={darkMode}
+            label={editorLabel}
+            value={value}
+            schema={schema}
+            onSave={async (r) => {
+              const er = await onEditRules(
+                dashResponse,
+                app.id,
+                r,
+                token,
+              ).catch((error) => error);
+              setErrorRes(er);
+              if (!er) versionsResponse.mutate();
+            }}
+          />
+        )}
       </div>
+      <Dialog
+        title="Restore permissions"
+        className="sm:max-w-3xl"
+        open={restoreDialog.open}
+        onClose={restoreDialog.onClose}
+      >
+        <div className="flex flex-col gap-4">
+          <h3 className="text-lg font-semibold dark:text-neutral-100">
+            Restore permissions
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-neutral-300">
+            This will replace your latest permissions with the selected version.
+            Review the changes below.
+          </p>
+          <div className="h-[70vh] rounded border dark:border-neutral-700">
+            <JSONDiffEditor
+              darkMode={darkMode}
+              {...stringifyForDiff(app.rules, restoreTarget)}
+              label={
+                <span className="text-xs text-gray-500 dark:text-neutral-400">
+                  latest → restored
+                </span>
+              }
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="destructive"
+              size="mini"
+              disabled={restoring}
+              onClick={handleRestoreConfirm}
+            >
+              {restoring ? 'Restoring...' : 'Restore'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="mini"
+              onClick={restoreDialog.onClose}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
+}
+
+// --- Helpers ---
+
+/**
+ * Serialize two objects to JSON with changed keys sorted first,
+ * so diffs appear at the top of the diff viewer.
+ */
+function stringifyForDiff(
+  a: any,
+  b: any,
+): { original: string; modified: string } {
+  const isObj = (v: any): v is Record<string, any> =>
+    v != null && typeof v === 'object' && !Array.isArray(v);
+
+  const sortKeys = (obj: any, other: any): any => {
+    if (!isObj(obj)) return obj;
+    const otherIsObj = isObj(other);
+    const changed: string[] = [];
+    const unchanged: string[] = [];
+    for (const key of Object.keys(obj)) {
+      if (
+        !otherIsObj ||
+        !(key in other) ||
+        JSON.stringify(obj[key]) !== JSON.stringify(other[key])
+      ) {
+        changed.push(key);
+      } else {
+        unchanged.push(key);
+      }
+    }
+    const sorted: any = {};
+    for (const key of [...changed, ...unchanged]) {
+      sorted[key] = sortKeys(obj[key], otherIsObj ? other[key] : undefined);
+    }
+    return sorted;
+  };
+  return {
+    original: JSON.stringify(sortKeys(a, b), null, 2),
+    modified: JSON.stringify(sortKeys(b, a), null, 2),
+  };
 }
 
 async function onEditRules(

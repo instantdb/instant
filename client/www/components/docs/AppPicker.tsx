@@ -102,7 +102,11 @@ export function AppPicker({
         <div className="h-9 w-fit min-w-[10rem] animate-pulse rounded-sm border border-gray-300/80 bg-gray-50 shadow-xs" />
       ) : isLoggedOut ? (
         <Link
-          href="/dash"
+          href={
+            pathname
+              ? `/dash?return-to=${encodeURIComponent(pathname)}`
+              : '/dash'
+          }
           className="flex h-9 w-fit items-center gap-1 rounded-sm border border-gray-300/80 px-3 text-sm text-gray-500 shadow-xs transition-colors hover:border-gray-400 hover:text-gray-700"
         >
           Sign in to get started &rarr;

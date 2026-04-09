@@ -1,28 +1,42 @@
 import { ImageResponse } from '@vercel/og';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 const SIZE = { width: 1200, height: 630 };
 
+function readFont(filename: string): Buffer {
+  return readFileSync(join(process.cwd(), 'public', 'fonts', filename));
+}
+
 export async function loadFonts() {
-  const [regular, bold] = await Promise.all([
-    fetch('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.ttf'),
-    fetch('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Bold.ttf'),
-  ]);
-  const [boldFontData, regularFontData] = await Promise.all([
-    bold.arrayBuffer(),
-    regular.arrayBuffer(),
-  ]);
+  const berkRegular = readFont('BerkeleyMono-Regular.ttf');
+  const berkBold = readFont('BerkeleyMono-Bold.ttf');
+  const swRegular = readFont('Switzer-Regular.woff');
+  const swSemibold = readFont('Switzer-Semibold.woff');
   return [
     {
       name: 'Berkeley Mono',
-      data: regularFontData,
+      data: berkRegular,
       style: 'normal' as const,
       weight: 500 as const,
     },
     {
       name: 'Berkeley Mono',
-      data: boldFontData,
+      data: berkBold,
       style: 'normal' as const,
       weight: 700 as const,
+    },
+    {
+      name: 'Switzer',
+      data: swRegular,
+      style: 'normal' as const,
+      weight: 400 as const,
+    },
+    {
+      name: 'Switzer',
+      data: swSemibold,
+      style: 'normal' as const,
+      weight: 600 as const,
     },
   ];
 }
@@ -113,8 +127,8 @@ export async function generateOgImage({
             <div
               style={{
                 fontSize: 56,
-                fontFamily: 'Berkeley Mono',
-                fontWeight: 700,
+                fontFamily: 'Switzer',
+                fontWeight: 600,
                 lineHeight: 1.3,
                 color: '#000',
                 textAlign: 'center',
@@ -174,7 +188,8 @@ export async function generateOgImage({
             style={{
               display: 'flex',
               fontSize: 40,
-              fontFamily: 'Berkeley Mono',
+              fontFamily: 'Switzer',
+              fontWeight: 400,
               marginTop: 24,
               lineHeight: 1.3,
               color: '#aaa',

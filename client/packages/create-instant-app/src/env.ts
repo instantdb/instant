@@ -9,6 +9,7 @@ const envNames: Record<Project['base'], string> = {
   'tanstack-start': 'VITE_INSTANT_APP_ID',
   'bun-react': 'BUN_PUBLIC_INSTANT_APP_ID',
   'solidjs-vite': 'VITE_INSTANT_APP_ID',
+  sveltekit: 'VITE_INSTANT_APP_ID',
   'tanstack-start-with-tanstack-query': 'VITE_INSTANT_APP_ID',
   'vercel-ai-sdk': 'NEXT_PUBLIC_INSTANT_APP_ID',
   'ai-chat': 'NEXT_PUBLIC_INSTANT_APP_ID',

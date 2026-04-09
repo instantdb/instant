@@ -148,7 +148,7 @@ function LikeDeviceCard({
                   </span>
                   <p className="text-sm text-gray-600">{msg.text}</p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1.5">
+                <div className="flex w-[3.75rem] shrink-0 items-center justify-end gap-1.5">
                   <button
                     onClick={() => onLike(msg.id)}
                     className="flex items-center gap-1 rounded-full border border-gray-200 px-2 py-1 text-sm transition-all hover:bg-gray-50 active:scale-95"

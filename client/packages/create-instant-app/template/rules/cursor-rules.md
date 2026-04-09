@@ -182,9 +182,12 @@ data.ref(someVar + '.members.id')
 ## $users Permissions
 
 - Default `view` permission is `auth.id == data.id`
-- Default `create`, `update`, and `delete` permissions is false
-- Can override `view` and `update`
-- Cannot override `create` or `delete`
+- Default `update` and `delete` permissions is false
+- Default `create` permission is true (anyone can sign up)
+- Can override `view`, `update`, and `create`
+- Cannot override `delete`
+- The `create` rule runs during auth signup flows (not via `transact`). Use it to restrict signups or validate `extraFields`.
+- `extraFields` require an explicit `create` rule. Without one, signup is blocked to prevent unvalidated writes.
 
 ## $files Permissions
 
@@ -283,9 +286,37 @@ function App() {
 }
 ```
 
-# Ad-hoc queries & transactions
+## Set custom properties at signup with `extraFields`
 
-Use `@instantdb/admin` to run ad-hoc queries and transactions on the backend.
+Pass `extraFields` to any sign-in method to write custom `$users` properties atomically on user creation.
+Fields must be defined as optional attrs on `$users` in your schema.
+Use the `created` boolean to scaffold data for new users.
+
+```tsx
+// Set properties at signup
+const { user, created } = await db.auth.signInWithMagicCode({
+  email,
+  code,
+  extraFields: { nickname, createdAt: Date.now() },
+});
+
+// Scaffold data for new users
+if (created) {
+  db.transact([
+    db.tx.settings[id()]
+      .update({ theme: 'light', notifications: true })
+      .link({ user: user.id }),
+  ]);
+}
+```
+
+# Ad-hoc queries from the CLI
+
+Run `npx instant-cli query '{ posts: {} }' --admin` to query your app. A context flag is required: `--admin`, `--as-email <email>`, or `--as-guest`. Also supports `--app <id>`.
+
+# Ad-hoc scripts with the Admin SDK
+
+Use `@instantdb/admin` to run ad-hoc scripts on the backend.
 Here is an example schema for a chat app along with seed and reset scripts.
 
 ```tsx
@@ -391,6 +422,11 @@ Fetch the URL for a topic to learn more about it.
 - [Storage](https://instantdb.com/docs/storage.md): How to upload and serve files with Instant.
 - [Streams](https://instantdb.com/docs/streams.md): How to use streams with Instant.
 - [Stripe Payments](https://instantdb.com/docs/stripe-payments.md): How to integrate Stripe payments with Instant.
+- [React Native](https://instantdb.com/docs/start-rn.md): How to use Instant in React Native apps.
+- [Vanilla JS](https://instantdb.com/docs/start-vanilla.md): How to use Instant in vanilla JS apps.
+- [SolidJS](https://instantdb.com/docs/start-solidjs.md): How to use Instant in SolidJS apps.
+- [Svelte](https://instantdb.com/docs/start-svelte.md): How to use Instant in Svelte apps.
+- [TanStack](https://instantdb.com/docs/start-tanstack.md): How to use Instant in TanStack apps.
 
 # Final Note
 

@@ -1,38 +1,48 @@
 (ns instant.runtime.routes-test
   (:require
-   [clj-http.client :as http]
    [clojure.test :refer [deftest is testing]]
-   [instant.config :as config]
+   [instant.core :as core]
+   [instant.db.datalog :as d]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.triple :as triples]
+   [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.fixtures :refer [with-empty-app]]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.db.model.triple :as triples]
+   [instant.model.app :as app-model]
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.app-user :as app-user-model]
+   [instant.model.rule :as rule-model]
    [instant.postmark :as postmark]
+   [instant.reactive.ephemeral :as eph]
+   [instant.reactive.store :as rs]
    [instant.runtime.routes :as route]
    [instant.system-catalog :as system-catalog]
    [instant.util.coll :as coll]
    [instant.util.crypt :as crypt-util]
-   [instant.util.json :refer [->json]]
-   [instant.flags :as flags]
-   [instant.runtime.magic-code-auth :as magic-code-auth]
-   [instant.util.cache :as cache]
+   [instant.util.json :refer [->json <-json]]
    [instant.util.test :as test-util]
    [instant.util.tracer :as tracer])
   (:import
-   [clojure.lang ExceptionInfo]))
+   (clojure.lang ExceptionInfo)
+   (java.io ByteArrayInputStream)))
 
 (defn request [opts]
   (with-redefs [tracer/*silence-exceptions?* (atom true)]
-    (http/request
-     (merge-with
-      merge
-      {:headers {:Content-Type "application/json"}
-       :as :json}
-      (-> opts
-          (coll/update-when :url #(str config/server-origin %))
-          (coll/update-when :body ->json))))))
+    (let [req (merge-with merge
+                          {:headers {"content-type" "application/json"}
+                           :request-method (:method opts)
+                           :uri (:url opts)}
+                          (-> opts
+                              (coll/update-when :body (fn [body]
+                                                        (ByteArrayInputStream. (.getBytes ^String (->json body) "UTF-8"))))))
+          resp (-> ((core/handler) req)
+                   (update :body (fn [body]
+                                   (<-json body true))))]
+      (if (not= 200 (:status resp))
+        (throw (ex-info (str "status " (:status resp)) resp))
+        resp))))
 
 (defn send-code-runtime [app body]
   (let [letter (atom nil)]
@@ -182,30 +192,83 @@
 
        (let [code (send-code app {:email "a@b.c"})]
          (update-created-at app-id code (- (System/currentTimeMillis) (* 23 60 60 1000)))
-         (is (= "a@b.c" (:email (verify-code app {:email "a@b.c" :code code})))))))))
+         (is (= "a@b.c" (:email (verify-code app {:email "a@b.c" :code code})))))))
+   (testing "with custom expiry"
+     (with-empty-app
+       (fn [{app-id :id :as app}]
+         (app-model/update-magic-code-expiration! {:id app-id :magic-code-expiry-minutes 10})
+         (let [code (send-code app {:email "a@b.c"})]
+           (update-created-at app-id code (- (System/currentTimeMillis) (* 11 60 1000)))
+           (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app {:email "a@b.c" :code code}))))
+
+         (let [code (send-code app {:email "a@b.c"})]
+           (update-created-at app-id code (- (System/currentTimeMillis) (* 8 60 1000)))
+           (is (= "a@b.c" (:email (verify-code app {:email "a@b.c" :code code}))))))))))
+
+(deftest static-test-users-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (testing "test user can sign in with static code"
+        (app-model/create-test-user! {:app-id app-id
+                                      :email "test@example.com"
+                                      :code "424242"})
+        (let [user (verify-code-runtime app {:email "test@example.com"
+                                             :code "424242"})]
+          (is (= "test@example.com" (:email user)))))
+
+      (testing "wrong code is rejected"
+        (is (thrown-with-msg?
+             ExceptionInfo
+             #"status 400"
+             (verify-code-runtime app {:email "test@example.com"
+                                       :code "000000"}))))
+
+      (testing "regular magic code still works for test user"
+        (let [code (send-code-runtime app {:email "test@example.com"})]
+          (is (= "test@example.com"
+                 (:email (verify-code-runtime app {:email "test@example.com"
+                                                   :code code}))))))
+
+      (testing "after deleting test user, static code no longer works"
+        (let [test-user (first (app-model/get-test-users {:app-id app-id}))]
+          (app-model/delete-test-user! {:app-id app-id :id (:id test-user)}))
+        (is (thrown-with-msg?
+             ExceptionInfo
+             #"status 400"
+             (verify-code-runtime app {:email "test@example.com"
+                                       :code "424242"})))))))
 
 (deftest magic-codes-rate-limit-test
   (with-empty-app
     (fn [app]
-      (cache/reset magic-code-auth/send-rate-limit-cache)
-      (with-redefs [flags/magic-code-rate-limit-per-hour (constantly 1)
-                    postmark/send-structured! (constantly nil)]
-        (testing "first request succeeds"
-          (is (= 200 (:status (request {:method :post
-                                        :url "/runtime/auth/send_magic_code"
-                                        :body {:app-id (:id app)
-                                               :email "a@b.c"}})))))
-        (testing "second request is rate limited"
-          (is (thrown-with-msg? ExceptionInfo #"status 429"
-                                (request {:method :post
-                                          :url "/runtime/auth/send_magic_code"
-                                          :body {:app-id (:id app)
-                                                 :email "a@b.c"}}))))
-        (testing "different email is not rate limited"
-          (is (= 200 (:status (request {:method :post
-                                        :url "/runtime/auth/send_magic_code"
-                                        :body {:app-id (:id app)
-                                               :email "different@b.c"}})))))))))
+      (binding [flags/*flag-overrides* {:magic-code-rate-limit-per-hour 1}]
+        (let [hz (delay (eph/init-hz :test
+                                     (rs/init)
+                                     (let [id (+ 100000 (rand-int 900000))]
+                                       {:instance-name (str "test-instance-" id)
+                                        :cluster-name  (str "test-cluster-" id)})))]
+          (try
+            (with-redefs [postmark/send-structured! (constantly nil)
+                          eph/hz hz]
+
+              (testing "first request succeeds"
+                (is (= 200 (:status (request {:method :post
+                                              :url "/runtime/auth/send_magic_code"
+                                              :body {:app-id (:id app)
+                                                     :email "a@b.c"}})))))
+              (testing "second request is rate limited"
+                (is (thrown-with-msg? ExceptionInfo #"status 429"
+                                      (request {:method :post
+                                                :url "/runtime/auth/send_magic_code"
+                                                :body {:app-id (:id app)
+                                                       :email "a@b.c"}}))))
+              (testing "different email is not rate limited"
+                (is (= 200 (:status (request {:method :post
+                                              :url "/runtime/auth/send_magic_code"
+                                              :body {:app-id (:id app)
+                                                     :email "different@b.c"}}))))))
+            (finally
+              (eph/shutdown-hz hz))))))))
 
 (deftest guest-test
   (test-util/test-matrix
@@ -376,3 +439,361 @@
         (is anon-link)
         (is (not= (:id email-user) (:user_id anon-link)))
         (is (= (:id email-user) (:user_id revealed-link)))))))
+
+;; -----
+;; Extra fields on signup
+
+(defn verify-code-body-runtime [app body]
+  (-> (request {:method :post
+                :url    "/runtime/auth/verify_magic_code"
+                :body   (assoc body :app-id (:id app))})
+      :body))
+
+(defn verify-code-body-admin [app body]
+  (-> (request {:method :post
+                :url     "/admin/verify_magic_code"
+                :headers {"app-id"        (:id app)
+                          "authorization" (str "Bearer " (:admin-token app))}
+                :body    body})
+      :body))
+
+(deftest extra-fields-magic-code-test
+  (test-util/test-matrix
+   [[send-code verify-body]
+    [[send-code-runtime verify-code-body-runtime]
+     [post-code-admin   verify-code-body-admin]]]
+   (with-empty-app
+     (fn [{app-id :id :as app}]
+       ;; Add custom attrs to $users
+       (test-util/make-attrs app-id
+                             [[:$users/username :unique? :index?]
+                              [:$users/displayName]])
+       (rule-model/put! {:app-id app-id
+                         :code {"$users" {"allow" {"create" "true"}}}})
+
+       (testing "new user with extra-fields"
+         (let [code (send-code app {:email "new@test.com"})
+               body (verify-body app {:email "new@test.com"
+                                      :code code
+                                      :extra-fields {"username" "cool_user"
+                                                     "displayName" "Cool User"}})
+               user (app-user-model/get-by-email {:app-id app-id
+                                                  :email "new@test.com"})]
+           (is (true? (:created body)))
+           (is (= "new@test.com" (-> body :user :email)))
+           (is (= "cool_user" (:username user)))
+           (is (= "Cool User" (:displayName user)))))
+
+       (testing "existing user ignores extra-fields"
+         (let [code (send-code app {:email "new@test.com"})
+               body (verify-body app {:email "new@test.com"
+                                      :code code
+                                      :extra-fields {"username" "different_name"
+                                                     "displayName" "Different"}})
+               user (app-user-model/get-by-email {:app-id app-id
+                                                  :email "new@test.com"})]
+           (is (false? (:created body)))
+           (is (= "cool_user" (:username user)))
+           (is (= "Cool User" (:displayName user)))))
+
+       (testing "without extra-fields (backwards compat)"
+         (let [code (send-code app {:email "compat@test.com"})
+               body (verify-body app {:email "compat@test.com"
+                                      :code code})]
+           (is (true? (:created body)))
+           (is (= "compat@test.com" (-> body :user :email)))))
+
+       (testing "unknown keys rejected"
+         (let [code (send-code app {:email "bad@test.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 400"
+                (verify-body app {:email "bad@test.com"
+                                  :code code
+                                  :extra-fields {"nonexistent" "value"}})))))
+
+       (testing "system fields rejected"
+         (let [code (send-code app {:email "sys@test.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 400"
+                (verify-body app {:email "sys@test.com"
+                                  :code code
+                                  :extra-fields {"email" "evil@test.com"}})))))
+
+       ;; new@test.com was created in the "new user with extra-fields" test above
+       (testing "returning user with invalid extra-fields still signs in"
+         (let [code (send-code app {:email "new@test.com"})
+               body (verify-body app {:email "new@test.com"
+                                      :code code
+                                      :extra-fields {"nonexistent" "value"}})]
+           (is (false? (:created body)))
+           (is (= "new@test.com" (-> body :user :email)))))))))
+
+(deftest extra-fields-guest-upgrade-test
+  (test-util/test-matrix
+   [sign-in-guest [sign-in-guest-runtime
+                   sign-in-guest-admin]
+    send-code     [send-code-runtime]
+    verify-body   [verify-code-body-runtime
+                   verify-code-body-admin]]
+   (with-empty-app
+     (fn [{app-id :id :as app}]
+       (test-util/make-attrs app-id
+                             [[:$users/username]])
+       (rule-model/put! {:app-id app-id
+                         :code {"$users" {"allow" {"create" "true"}}}})
+
+       (let [guest (sign-in-guest app)
+             _     (is (= "guest" (:type guest)))
+             code  (send-code app {:email "guest@test.com"})
+             body  (verify-body app {:email "guest@test.com"
+                                     :code code
+                                     :refresh-token (:refresh_token guest)
+                                     :extra-fields {"username" "upgraded_user"}})
+             user  (app-user-model/get-by-email {:app-id app-id
+                                                 :email "guest@test.com"})]
+         (is (true? (:created body)))
+         (is (= (:id guest) (-> body :user :id)))
+         (is (= "upgraded_user" (:username user))))))))
+
+(deftest extra-fields-oauth-test
+  (with-empty-app
+    (fn [{app-id :id}]
+      (test-util/make-attrs app-id
+                            [[:$users/username]
+                             [:$users/displayName]])
+      (rule-model/put! {:app-id app-id
+                        :code {"$users" {"allow" {"create" "true"}}}})
+
+      (let [provider (provider-model/create! {:app-id app-id
+                                              :provider-name "clerk"})]
+
+        (testing "new user with extra-fields via oauth"
+          (let [result (route/upsert-oauth-link! {:email "oauth@test.com"
+                                                  :sub "oauth-sub-1"
+                                                  :app-id app-id
+                                                  :provider-id (:id provider)
+                                                  :extra-fields {"username" "oauth_user"
+                                                                 "displayName" "OAuth User"}})
+                user   (app-user-model/get-by-id {:id (:user_id result)
+                                                  :app-id app-id})]
+            (is (true? (:created result)))
+            (is (= "oauth_user" (:username user)))
+            (is (= "OAuth User" (:displayName user)))))
+
+        (testing "existing oauth user ignores extra-fields"
+          (let [result (route/upsert-oauth-link! {:email "oauth@test.com"
+                                                  :sub "oauth-sub-1"
+                                                  :app-id app-id
+                                                  :provider-id (:id provider)
+                                                  :extra-fields {"username" "different_name"}})
+                user   (app-user-model/get-by-id {:id (:user_id result)
+                                                  :app-id app-id})]
+            (is (false? (:created result)))
+            (is (= "oauth_user" (:username user)))))))))
+
+(deftest extra-fields-admin-refresh-tokens-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (test-util/make-attrs app-id
+                            [[:$users/username]])
+
+      (testing "new user with extra-fields via admin refresh-tokens"
+        (let [resp (request {:method :post
+                             :url "/admin/refresh_tokens"
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " (:admin-token app))}
+                             :body {:email "admin@test.com"
+                                    :extra-fields {"username" "admin_user"}}})
+              body (:body resp)
+              user (app-user-model/get-by-email {:app-id app-id
+                                                 :email "admin@test.com"})]
+          (is (true? (:created body)))
+          (is (= "admin_user" (:username user)))))
+
+      (testing "existing user ignores extra-fields"
+        (let [resp (request {:method :post
+                             :url "/admin/refresh_tokens"
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " (:admin-token app))}
+                             :body {:email "admin@test.com"
+                                    :extra-fields {"username" "different"}}})
+              body (:body resp)
+              user (app-user-model/get-by-email {:app-id app-id
+                                                 :email "admin@test.com"})]
+          (is (false? (:created body)))
+          (is (= "admin_user" (:username user))))))))
+
+;; -----
+;; $users create permissions
+
+(deftest users-create-rule-validation-test
+  (testing "can save a $users create rule (no validation errors)"
+    (is (empty? (rule-model/validation-errors
+                 {"$users" {"allow" {"create" "true"}}}))))
+
+  (testing "can still not save a $users delete rule"
+    (is (seq (rule-model/validation-errors
+              {"$users" {"allow" {"delete" "true"}}})))))
+
+(deftest users-create-rule-magic-code-test
+  (test-util/test-matrix
+   [[send-code verify-body]
+    [[send-code-runtime verify-code-body-runtime]]]
+   (with-empty-app
+     (fn [{app-id :id :as app}]
+       (test-util/make-attrs app-id
+                             [[:$users/username]])
+
+       (testing "create rule blocks signup"
+         (rule-model/put! {:app-id app-id
+                           :code {"$users" {"allow" {"create" "false"}}}})
+         (let [code (send-code app {:email "blocked@test.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 400"
+                (verify-body app {:email "blocked@test.com"
+                                  :code code})))
+           ;; Magic code should not be consumed on permission failure
+           ;; so we can retry with the same code after fixing rules
+           (rule-model/put! {:app-id app-id
+                             :code {"$users" {"allow" {"create" "true"}}}})
+           (let [body (verify-body app {:email "blocked@test.com"
+                                        :code code})]
+             (is (true? (:created body)))
+             (is (= "blocked@test.com" (-> body :user :email))))))
+
+       (testing "create rule can restrict by email domain"
+         (rule-model/put! {:app-id app-id
+                           :code {"$users" {"allow" {"create" "data.email.endsWith('@allowed.com')"}}}})
+         (let [code (send-code app {:email "nope@blocked.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 400"
+                (verify-body app {:email "nope@blocked.com"
+                                  :code code}))))
+         (let [code (send-code app {:email "yes@allowed.com"})
+               body (verify-body app {:email "yes@allowed.com"
+                                      :code code})]
+           (is (true? (:created body)))))
+
+       (testing "create rule can validate extra-fields values"
+         (rule-model/put! {:app-id app-id
+                           :code {"$users" {"allow" {"create" "data.username == null || data.username.size() >= 3"}}}})
+         (let [code (send-code app {:email "nofield@test.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 400"
+                (verify-body app {:email "nofield@test.com"
+                                  :code code
+                                  :extra-fields {"username" "ab"}}))))
+         ;; Valid username should succeed
+         (let [code (send-code app {:email "nofield@test.com"})
+               body (verify-body app {:email "nofield@test.com"
+                                      :code code
+                                      :extra-fields {"username" "valid_user"}})]
+           (is (true? (:created body)))))
+
+       (testing "default (no create rule) allows signup"
+         (rule-model/put! {:app-id app-id :code {}})
+         (let [code (send-code app {:email "default@test.com"})
+               body (verify-body app {:email "default@test.com"
+                                      :code code})]
+           (is (true? (:created body)))))
+
+       (testing "extra-fields without create rule blocks signup"
+         (let [code (send-code app {:email "norule@test.com"})]
+           (is (thrown-with-msg?
+                ExceptionInfo #"status 400"
+                (verify-body app {:email "norule@test.com"
+                                  :code code
+                                  :extra-fields {"username" "sneaky"}})))))
+
+       (testing "create rule does not run for existing users"
+         (rule-model/put! {:app-id app-id
+                           :code {"$users" {"allow" {"create" "false"}}}})
+         ;; default@test.com already exists from previous test
+         (let [code (send-code app {:email "default@test.com"})
+               body (verify-body app {:email "default@test.com"
+                                      :code code})]
+           (is (false? (:created body)))))))))
+
+(deftest users-create-rule-admin-bypass-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (testing "admin SDK bypasses create rule"
+        (rule-model/put! {:app-id app-id
+                          :code {"$users" {"allow" {"create" "false"}}}})
+        (let [code (post-code-admin app {:email "admin-bypass@test.com"})
+              body (verify-code-body-admin app {:email "admin-bypass@test.com"
+                                                :code code})]
+          (is (true? (:created body)))
+          (is (= "admin-bypass@test.com" (-> body :user :email))))))))
+
+(deftest users-create-rule-oauth-test
+  (with-empty-app
+    (fn [{app-id :id}]
+      (test-util/make-attrs app-id
+                            [[:$users/username]])
+      (let [provider (provider-model/create! {:app-id app-id
+                                              :provider-name "clerk"})]
+
+        (testing "create rule blocks oauth signup"
+          (rule-model/put! {:app-id app-id
+                            :code {"$users" {"allow" {"create" "false"}}}})
+          (is (thrown-with-msg?
+               ExceptionInfo #"Permission denied"
+               (route/upsert-oauth-link! {:email "oauth-blocked@test.com"
+                                          :sub "oauth-sub-blocked"
+                                          :app-id app-id
+                                          :provider-id (:id provider)}))))
+
+        (testing "create rule allows oauth signup when passing"
+          (rule-model/put! {:app-id app-id
+                            :code {"$users" {"allow" {"create" "true"}}}})
+          (let [result (route/upsert-oauth-link! {:email "oauth-ok@test.com"
+                                                  :sub "oauth-sub-ok"
+                                                  :app-id app-id
+                                                  :provider-id (:id provider)})]
+            (is (true? (:created result)))))))))
+
+(deftest users-create-rule-guest-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (testing "create rule blocks guest signup"
+        (rule-model/put! {:app-id app-id
+                          :code {"$users" {"allow" {"create" "false"}}}})
+        (is (thrown-with-msg?
+             ExceptionInfo #"status 400"
+             (sign-in-guest-runtime app))))
+
+      (testing "create rule allows guest signup when passing"
+        (rule-model/put! {:app-id app-id
+                          :code {"$users" {"allow" {"create" "true"}}}})
+        (let [guest (sign-in-guest-runtime app)]
+          (is (= "guest" (:type guest)))))
+
+      (testing "$default rules do not affect guest signup"
+        (rule-model/put! {:app-id app-id
+                          :code {"$default" {"allow" {"$default" "false"}}}})
+        (let [guest (sign-in-guest-runtime app)]
+          (is (= "guest" (:type guest))))))))
+
+(deftest users-create-rule-transact-blocked-test
+  (with-empty-app
+    (fn [{app-id :id}]
+      (testing "$users creation via transact is blocked even with create rule set to true"
+        (rule-model/put! {:app-id app-id
+                          :code {"$users" {"allow" {"create" "true"}}}})
+        (let [user-id (random-uuid)
+              attrs (attr-model/get-by-app-id app-id)
+              id-attr (attr-model/seek-by-fwd-ident-name ["$users" "id"] attrs)
+              ctx {:db {:conn-pool (aurora/conn-pool :write)}
+                   :app-id app-id
+                   :attrs attrs
+                   :datalog-query-fn d/query
+                   :rules (rule-model/get-by-app-id
+                           (aurora/conn-pool :read) {:app-id app-id})
+                   :current-user nil}]
+          (is (thrown-with-msg?
+               ExceptionInfo #"system entity"
+               (permissioned-tx/transact!
+                ctx
+                [[:add-triple user-id (:id id-attr) user-id]]))))))))
+

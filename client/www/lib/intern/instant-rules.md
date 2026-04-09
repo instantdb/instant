@@ -176,9 +176,12 @@ data.ref(someVar + '.members.id')
 ## $users Permissions
 
 - Default `view` permission is `auth.id == data.id`
-- Default `create`, `update`, and `delete` permissions is false
-- Can override `view` and `update`
-- Cannot override `create` or `delete`
+- Default `update` and `delete` permissions is false
+- Default `create` permission is true (anyone can sign up)
+- Can override `view`, `update`, and `create`
+- Cannot override `delete`
+- The `create` rule runs during auth signup flows (not via `transact`). Use it to restrict signups or validate `extraFields`.
+- `extraFields` require an explicit `create` rule. Without one, signup is blocked to prevent unvalidated writes.
 
 ## $files Permissions
 
@@ -208,6 +211,50 @@ Notes:
 
 - Field rules override entity-level `view` for that field
 - Useful for hiding sensitive data (emails, phone numbers) on public entities
+
+# CRITICAL Storage Guidelines
+
+CRITICAL: If an app displays images or files, use Instant Storage. Do not store
+URLs as string attributes on your entities. This includes seed scripts: do not
+use placeholder image URLs (e.g. picsum.photos) as string attributes to fake
+file support.
+
+Uploads auto-create `$files` entities. Link them to your data via the schema,
+then query through the relationship to get URLs.
+
+CRITICAL: You MUST include `$files` in your schema entities if you use Storage.
+
+CRITICAL: `$files` entities can only be created via `db.storage.uploadFile`. You
+cannot create `$files` via `db.transact`, and you cannot set `url` via transactions.
+
+```tsx
+entities: {
+  $files: i.entity({
+    path: i.string().unique().indexed(),
+    url: i.string(),
+  }),
+  posts: i.entity({
+    caption: i.string(),
+  }),
+},
+links: {
+  postImage: {
+    forward: { on: "posts", has: "one", label: "image" },
+    reverse: { on: "$files", has: "many", label: "posts" },
+  },
+}
+
+// Upload and link the returned file ID to your entity
+const postId = id();
+const { data } = await db.storage.uploadFile(`posts/${postId}/${file.name}`, file);
+db.transact(
+  db.tx.posts[postId].update({ caption }).link({ image: data.id })
+);
+
+// Query through the relationship to get the URL
+const { data } = db.useQuery({ posts: { image: {} } });
+<img src={post.image.url} />
+```
 
 # Best Practices
 
@@ -277,89 +324,33 @@ function App() {
 }
 ```
 
-# Ad-hoc queries & transactions
+## Set custom properties at signup with `extraFields`
 
-Use `@instantdb/admin` to run ad-hoc queries and transactions on the backend.
-Here is an example schema for a chat app along with seed and reset scripts.
+Pass `extraFields` to any sign-in method to write custom `$users` properties atomically on user creation.
+Fields must be defined as optional attrs on `$users` in your schema.
+Use the `created` boolean to scaffold data for new users.
 
 ```tsx
-// instant.schema.ts
-const _schema = i.schema({
-  entities: {
-    $users: i.entity({
-      email: i.string().unique().indexed().optional(),
-    }),
-    profiles: i.entity({
-      displayName: i.string(),
-    }),
-    channels: i.entity({
-      name: i.string().indexed(),
-    }),
-    messages: i.entity({
-      content: i.string(),
-      timestamp: i.number().indexed(),
-    }),
-  },
-  links: {
-    userProfile: {
-      forward: { on: "profiles", has: "one", label: "user", onDelete: "cascade" }, // IMPORTANT: `cascade` can only be used in a has-one link
-      reverse: { on: "$users", has: "one", label: "profile" },
-    },
-    authorMessages: {
-      forward: { on: "messages", has: "one", label: "author", onDelete: "cascade" },
-      reverse: { on: "profiles", has: "many", label: "messages", },
-    },
-    channelMessages: {
-      forward: { on: "messages", has: "one", label: "channel", onDelete: "cascade" },
-      reverse: { on: "channels", has: "many", label: "messages" },
-    },
-  },
+// Set properties at signup
+const { user, created } = await db.auth.signInWithMagicCode({
+  email,
+  code,
+  extraFields: { nickname, createdAt: Date.now() },
 });
 
-// scripts/seed.ts
-import { id } from "@instantdb/admin";
-import { adminDb } from "@/lib/adminDb";
-
-const users: Record<string, User> = { ... }
-const channels: Record<string, Channel> = { ... }
-const mockMessages: Message[] = [ ... ]
-
-function seed() {
-  console.log("Seeding db...");
-  const userTxs = Object.values(users).map(u => adminDb.tx.$users[u.id].create({}));
-  const profileTxs = Object.values(users).map(u => adminDb.tx.profiles[u.id].create({ displayName: u.displayName }).link({ user: u.id }));
-  const channelTxs = Object.values(channels).map(c => adminDb.tx.channels[c.id].create({ name: c.name }))
-  const messageTxs = mockMessages.map(m => {
-    const messageId = id();
-    return adminDb.tx.messages[messageId].create({
-      content: m.content,
-      timestamp: m.timestamp,
-    })
-      .link({ author: users[m.author].id })
-      .link({ channel: channels[m.channel].id });
-  })
-
-  adminDb.transact([...userTxs, ...profileTxs, ...channelTxs, ...messageTxs]);
+// Scaffold data for new users
+if (created) {
+  db.transact([
+    db.tx.settings[id()]
+      .update({ theme: 'light', notifications: true })
+      .link({ user: user.id }),
+  ]);
 }
-
-seed();
-
-// scripts/reset.ts
-import { adminDb } from "@/lib/adminDb";
-
-async function reset() {
-  console.log("Resetting database...");
-  const { $users, channels } = await adminDb.query({ $users: {}, channels: {} });
-
-  // Deleting all users will cascade delete profiles and messages
-  const userTxs = $users.map(user => adminDb.tx.$users[user.id].delete());
-
-  const channelTxs = channels.map(channel => adminDb.tx.channels[channel.id].delete());
-  adminDb.transact([...userTxs, ...channelTxs]);
-}
-
-reset();
 ```
+
+# Ad-hoc queries from the CLI
+
+Run `npx instant-cli query '{ posts: {} }' --admin` to query your app. A context flag is required: `--admin`, `--as-email <email>`, or `--as-guest`. Also supports `--app <id>`.
 
 # Instant Documentation
 
@@ -385,6 +376,11 @@ Fetch the URL for a topic to learn more about it.
 - [Storage](https://instantdb.com/docs/storage.md): How to upload and serve files with Instant.
 - [Streams](https://instantdb.com/docs/streams.md): How to use streams with Instant.
 - [Stripe Payments](https://instantdb.com/docs/stripe-payments.md): How to integrate Stripe payments with Instant.
+- [React Native](https://instantdb.com/docs/start-rn.md): How to use Instant in React Native apps.
+- [Vanilla JS](https://instantdb.com/docs/start-vanilla.md): How to use Instant in vanilla JS apps.
+- [SolidJS](https://instantdb.com/docs/start-solidjs.md): How to use Instant in SolidJS apps.
+- [Svelte](https://instantdb.com/docs/start-svelte.md): How to use Instant in Svelte apps.
+- [TanStack](https://instantdb.com/docs/start-tanstack.md): How to use Instant in TanStack apps.
 
 # Final Note
 

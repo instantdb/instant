@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CLI_BIN = join(__dirname, '../../bin/index.js');
+const CLI_BIN = join(__dirname, '../../dist/index.js');
 
 const apiUrl = process.env.INSTANT_CLI_API_URI || 'https://api.instantdb.com';
 
@@ -112,6 +112,50 @@ export async function createTestProject(
       await rm(dir, { recursive: true, force: true });
     },
   };
+}
+
+export async function adminTransact(
+  appId: string,
+  adminToken: string,
+  steps: any[],
+): Promise<void> {
+  const response = await fetch(`${apiUrl}/admin/transact`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${adminToken}`,
+      'app-id': appId,
+    },
+    body: JSON.stringify({ steps }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to transact: ${response.status} ${await response.text()}`,
+    );
+  }
+}
+
+export async function createAppUser(
+  appId: string,
+  adminToken: string,
+  email: string,
+): Promise<{ userId: string; refreshToken: string }> {
+  const response = await fetch(`${apiUrl}/admin/refresh_tokens`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${adminToken}`,
+      'app-id': appId,
+    },
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to create user: ${response.status} ${await response.text()}`,
+    );
+  }
+  const data = await response.json();
+  return { userId: data.user.id, refreshToken: data.user.refresh_token };
 }
 
 export async function createTempApp(title = 'cli-e2e-test'): Promise<{

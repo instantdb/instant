@@ -41,6 +41,7 @@
     "bench": "vitest bench",
     "test:types": "tsc -p tsconfig.test.json --noEmit",
     "test:ci": "vitest run && pnpm run test:types",
+    "test:e2e": "vitest run --project e2e",
     "bench:ci": "vitest bench --run",
     "check": "tsc --noEmit",
     "check-exports": "attw --pack .",

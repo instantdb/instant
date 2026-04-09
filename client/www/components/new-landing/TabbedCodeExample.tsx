@@ -170,10 +170,22 @@ export function TabbedCodeExample({
         onTabChange={setActiveTabKey}
       >
         <div className={cn(height, 'overflow-auto text-sm')}>
-          <CodeEditor
-            language={activeTab.language || 'javascript'}
-            code={example[activeTab.key]}
-          />
+          <div className="grid">
+            {tabs.map((tab) => (
+              <div
+                key={tab.key}
+                className={cn(
+                  'col-start-1 row-start-1',
+                  tab.key !== activeTabKey && 'invisible',
+                )}
+              >
+                <CodeEditor
+                  language={tab.language || 'javascript'}
+                  code={example[tab.key]}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </CodePanel>
     </div>

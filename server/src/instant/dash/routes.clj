@@ -5,6 +5,7 @@
             [clojure.walk :as w]
             [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
             [hiccup2.core :as h]
+            [instant.cloudwatch :as cloudwatch]
             [instant.config :as config]
             [instant.dash.admin :as dash-admin]
             [instant.dash.ephemeral-app :as ephemeral-app]
@@ -47,6 +48,8 @@
             [instant.model.schema :as schema-model]
             [instant.plans :as plans]
             [instant.postmark :as postmark]
+            [instant.runtime.magic-code-auth :refer [check-send-rate-limit!
+                                                     check-verify-rate-limit!]]
             [instant.session-counter :as session-counter]
             [instant.storage.coordinator :as storage-coordinator]
             [instant.stripe :as stripe]
@@ -217,7 +220,7 @@
          Copy and paste this into the confirmation box, and you'll be on your way.
        </p>
        <p>
-         Note: This code will expire in 24 hours, and can only be used once. If you
+         Note: This code will expire in 10 minutes, and can only be used once. If you
          didn't request this code, please reply to this email.
        </p>")}))
 
@@ -228,6 +231,11 @@
 
 (defn send-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
+        ;; Use the config app for the rate limit so that we can share the
+        ;; same rate-limiting infra as the app's magic codes
+        _ (when-let [app-id (config/instant-config-app-id)]
+            (check-send-rate-limit! {:app-id app-id
+                                     :email email}))
         {user-id :id :as u} (or  (instant-user-model/get-by-email {:email email})
                                  (instant-user-model/create!
                                   {:id (UUID/randomUUID) :email email}))
@@ -248,6 +256,11 @@
 
 (defn verify-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
+        ;; Use the config app for the rate limit so that we can share the
+        ;; same rate-limiting infra as the app's magic codes
+        _ (when-let [app-id (config/instant-config-app-id)]
+            (check-verify-rate-limit! {:app-id app-id
+                                       :email email}))
         code (ex/get-param! req [:body :code] string-util/safe-trim)
         {user-id :user_id} (instant-user-magic-code-model/consume!
                             {:code code :email email})
@@ -539,6 +552,13 @@
                :params {:id (:id app)}
                :body {:code code}})
   (instant-user-refresh-token-model/delete-by-id! (select-keys r [:id])))
+
+(defn rule-versions-get [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :apps/read
+                                                                         req)
+        versions (rule-model/get-versions {:app-id app-id})]
+    (response/ok {:versions versions})))
 
 ;; ---------
 ;; Apps Auth
@@ -1352,6 +1372,53 @@
                                                         :reason "user_is_member_of_org"})
                                                      removed_app_members_already_on_paid_org)}})))
 
+(defn app-set-magic-code-expiry [req]
+  (let [expiry (ex/get-param! req
+                              [:body :expiry]
+                              (fn [v]
+                                (try
+                                  (int v)
+                                  (catch Exception _
+                                    nil))))
+        {app :app} (req->app-and-user! :admin req)]
+    (when-not (pos? expiry)
+      (ex/throw-validation-err!
+       :app
+       {:magic-token-expiry-minutes expiry}
+       [{:message "The magic token expiry must be positive."}]))
+    (when (< (* 24 60) expiry)
+      (ex/throw-validation-err!
+       :app
+       {:magic-token-expiry-minutes expiry}
+       [{:message "The magic token expiry must be under 1,440 minutes (24 hours)."}]))
+
+    (let [updated-app (app-model/update-magic-code-expiration! {:id (:id app)
+                                                                :magic-code-expiry-minutes expiry})]
+      (response/ok {:app updated-app}))))
+
+(defn test-users-get [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        test-users (app-model/get-test-users {:app-id app-id})]
+    (response/ok {:test-users test-users})))
+
+(defn test-users-post [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        email (ex/get-param! req [:body :email] email/coerce)
+        code (ex/get-param! req [:body :code] string-util/coerce-non-blank-str)
+        _ (when-not (re-matches #"\d{6}" code)
+            (ex/throw-validation-err!
+             :code code [{:message "Code must be a 6-digit number."}]))
+        test-user (app-model/create-test-user! {:app-id app-id
+                                                :email email
+                                                :code code})]
+    (response/ok {:test-user test-user})))
+
+(defn test-users-delete [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        id (ex/get-param! req [:body :id] uuid-util/coerce)
+        test-user (app-model/delete-test-user! {:app-id app-id :id id})]
+    (response/ok {:test-user test-user})))
+
 ;; ---
 ;; Storage
 
@@ -1599,7 +1666,8 @@
     (response/ok {})))
 
 (defn active-sessions-get [_]
-  (response/ok {:total-count (machine-summaries/get-num-sessions-cached)}))
+  (response/ok {:total-count (machine-summaries/get-num-sessions-cached)
+                :total-queries (cloudwatch/total-queries-cached)}))
 
 (defn oauth-apps-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)]
@@ -1891,6 +1959,7 @@
   (POST "/dash/apps/:app_id/clear" [] apps-clear)
   (POST "/dash/apps/:app_id/track-import" [] apps-track-import)
   (POST "/dash/apps/:app_id/rules" [] rules-post)
+  (GET "/dash/apps/:app_id/rule-versions" [] rule-versions-get)
   (POST "/dash/apps/:app_id/tokens" [] admin-tokens-regenerate)
   (GET "/dash/apps/:app_id/soft_deleted_attrs" [] soft-deleted-attrs-get)
 
@@ -1946,6 +2015,12 @@
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
   (POST "/dash/apps/:app_id/transfer_to_org/:org_id" [] app-transfer-to-org)
+
+  (POST "/dash/apps/:app_id/set-magic-code-expiry" [] app-set-magic-code-expiry)
+
+  (GET "/dash/apps/:app_id/test_users" [] test-users-get)
+  (POST "/dash/apps/:app_id/test_users" [] test-users-post)
+  (DELETE "/dash/apps/:app_id/test_users" [] test-users-delete)
 
   ;; Storage
   (PUT "/dash/apps/:app_id/storage/upload", [] upload-put)

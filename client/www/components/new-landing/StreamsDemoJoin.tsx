@@ -331,20 +331,16 @@ class StreamsDemo {
 
     this.danielJoined = true;
 
-    this.joinTimer = setTimeout(() => {
-      this.setupCanvas('daniel');
-
-      let i = 0;
-      const spawnNext = () => {
-        if (i >= recording.length) return;
-        if (i % 3 === 0) {
-          this.spawnStorageCoord(recording[i].point);
-        }
-        i++;
-        this.replayTimer = setTimeout(spawnNext, 12);
-      };
-      spawnNext();
-    }, 350);
+    let i = 0;
+    const spawnNext = () => {
+      if (i >= recording.length) return;
+      if (i % 3 === 0) {
+        this.spawnStorageCoord(recording[i].point);
+      }
+      i++;
+      this.replayTimer = setTimeout(spawnNext, 12);
+    };
+    spawnNext();
   }
 
   // ─── Private: canvas rendering ───

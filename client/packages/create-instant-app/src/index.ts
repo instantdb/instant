@@ -34,7 +34,7 @@ const main = async () => {
   }
 
   const theme = await detectTerminalTheme();
-  const { project, appFlags } = await runCli();
+  const project = await runCli();
 
   const [scopedAppName, appDir] = parseNameAndPath(project.appName);
 
@@ -55,7 +55,14 @@ const main = async () => {
     schema: getSchema(projectDir),
   };
 
-  const possibleAppTokenPair = await tryConnectApp(appFlags, scaffoldMetadata);
+  const possibleAppTokenPair = await tryConnectApp(
+    // project-name -> Project Name
+    // . -> Folder Name
+    // @org/scoped -> Scoped
+    appDir === '.' ? scopedAppName : appDir,
+    project,
+    scaffoldMetadata,
+  );
   if (possibleAppTokenPair) {
     applyEnvFile(
       project,

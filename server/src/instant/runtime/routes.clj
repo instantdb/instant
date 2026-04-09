@@ -91,20 +91,23 @@
   (send-magic-code-post {:body {:email "stopa@instantdb.com" :app-id (:id app)}}))
 
 (defn verify-magic-code-post [req]
-  (let [email      (ex/get-param! req [:body :email]  email/coerce)
-        code       (ex/get-param! req [:body :code]   string-util/safe-trim)
-        app-id     (ex/get-param! req [:body :app-id] uuid-util/coerce)
-        guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
-                     (let [user (app-user-model/get-by-refresh-token!
-                                 {:app-id        app-id
-                                  :refresh-token refresh-token})]
-                       (when (= "guest" (:type user))
-                         user)))
-        user       (magic-code-auth/verify! {:app-id  app-id
-                                             :email   email
-                                             :code    code
-                                             :guest-user-id (:id guest-user)})]
-    (response/ok {:user user})))
+  (let [email        (ex/get-param! req [:body :email]  email/coerce)
+        code         (ex/get-param! req [:body :code]   string-util/safe-trim)
+        app-id       (ex/get-param! req [:body :app-id] uuid-util/coerce)
+        extra-fields (get-in req [:body :extra-fields])
+        guest-user   (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
+                       (let [user (app-user-model/get-by-refresh-token!
+                                   {:app-id        app-id
+                                    :refresh-token refresh-token})]
+                         (when (= "guest" (:type user))
+                           user)))
+        result       (magic-code-auth/verify! {:app-id         app-id
+                                               :email          email
+                                               :code           code
+                                               :guest-user-id  (:id guest-user)
+                                               :extra-fields   extra-fields})]
+    (response/ok {:user (dissoc result :created)
+                  :created (:created result)})))
 
 (comment
   (def instant-user (instant-user-model/get-by-email
@@ -126,13 +129,13 @@
 
 (defn sign-in-guest-post [req]
   (let [app-id        (ex/get-param! req [:body :app-id] uuid-util/coerce)
-        ;; create guest user
         user-id       (random-uuid)
+        _             (app-user-model/assert-signup!
+                       {:app-id app-id :id user-id})
         user          (app-user-model/create!
                        {:app-id app-id
                         :id     user-id
                         :type   "guest"})
-        ;; create refresh-token for user
         refresh-token (random-uuid)
         _             (app-user-refresh-token-model/create!
                        {:app-id  app-id
@@ -252,7 +255,7 @@
                               ;; matches everything under the subdirectory
                               :path "/runtime/oauth"}))))
 
-(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id]}]
+(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id extra-fields]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
@@ -280,17 +283,24 @@
                                        :sub (:app_user_oauth_links/sub oauth-link)})})))]
 
     (if-not user
-      (let [created (app-user-model/create!
-                     {:id guest-user-id
-                      :app-id app-id
-                      :email email
-                      :imageURL imageURL
-                      :type "user"})]
-        (app-user-oauth-link-model/create! {:id (random-uuid)
-                                            :app-id app-id
-                                            :provider-id provider-id
-                                            :sub sub
-                                            :user-id (:id created)}))
+      (let [_        (app-user-model/assert-signup!
+                      {:app-id app-id
+                       :email email
+                       :id (or guest-user-id (random-uuid))
+                       :extra-fields extra-fields})
+            new-user (app-user-model/create!
+                       {:id guest-user-id
+                        :app-id app-id
+                        :email email
+                        :imageURL imageURL
+                        :type "user"
+                        :extra-fields extra-fields})]
+        (assoc (app-user-oauth-link-model/create! {:id (random-uuid)
+                                                    :app-id app-id
+                                                    :provider-id provider-id
+                                                    :sub sub
+                                                    :user-id (:id new-user)})
+               :created true))
 
       (do
         ;; extra caution because it would be really bad to
@@ -311,36 +321,38 @@
                                                :id (:app_users/id user)
                                                :image-url imageURL})))
 
-        (cond (and email (not= (:app_users/email user) email))
-              (tracer/with-span! {:name "app-user/update-email"
-                                  :attributes {:id (:app_users/id user)
-                                               :from-email (:app_users/email user)
-                                               :to-email email}}
-                (app-user-model/update-email! {:id (:app_users/id user)
-                                               :app-id app-id
-                                               :email email})
-                (ucoll/select-keys-no-ns user :app_user_oauth_links))
+        (assoc
+         (cond (and email (not= (:app_users/email user) email))
+               (tracer/with-span! {:name "app-user/update-email"
+                                   :attributes {:id (:app_users/id user)
+                                                :from-email (:app_users/email user)
+                                                :to-email email}}
+                 (app-user-model/update-email! {:id (:app_users/id user)
+                                                :app-id app-id
+                                                :email email})
+                 (ucoll/select-keys-no-ns user :app_user_oauth_links))
 
-              (and existing-oauth-link (not (:app_user_oauth_links/id user)))
-              (tracer/with-span! {:name "oauth-link/reassign"
-                                  :attributes {:link-id (:id existing-oauth-link)
-                                               :to-user-id (:app_users/id user)}}
-                (app-user-oauth-link-model/update-user! {:id (:id existing-oauth-link)
-                                                         :app-id app-id
-                                                         :user-id (:app_users/id user)}))
+               (and existing-oauth-link (not (:app_user_oauth_links/id user)))
+               (tracer/with-span! {:name "oauth-link/reassign"
+                                   :attributes {:link-id (:id existing-oauth-link)
+                                                :to-user-id (:app_users/id user)}}
+                 (app-user-oauth-link-model/update-user! {:id (:id existing-oauth-link)
+                                                          :app-id app-id
+                                                          :user-id (:app_users/id user)}))
 
-              (not (:app_user_oauth_links/id user))
-              (tracer/with-span! {:name "oauth-link/create"
-                                  :attributes {:id (:app_users/id user)
-                                               :provider_id provider-id
-                                               :sub sub}}
-                (app-user-oauth-link-model/create! {:id (random-uuid)
-                                                    :app-id (:app_users/app_id user)
-                                                    :provider-id provider-id
-                                                    :sub sub
-                                                    :user-id (:app_users/id user)}))
+               (not (:app_user_oauth_links/id user))
+               (tracer/with-span! {:name "oauth-link/create"
+                                   :attributes {:id (:app_users/id user)
+                                                :provider_id provider-id
+                                                :sub sub}}
+                 (app-user-oauth-link-model/create! {:id (random-uuid)
+                                                     :app-id (:app_users/app_id user)
+                                                     :provider-id provider-id
+                                                     :sub sub
+                                                     :user-id (:app_users/id user)}))
 
-              :else (ucoll/select-keys-no-ns user :app_user_oauth_links))))))
+               :else (ucoll/select-keys-no-ns user :app_user_oauth_links))
+         :created false)))))
 
 
 (def oauth-callback-testing-landing
@@ -575,6 +587,7 @@
   (let [app-id (ex/get-some-param! req (param-paths :app_id) uuid-util/coerce)
         code (ex/get-some-param! req (param-paths :code) uuid-util/coerce)
         code-verifier (some #(get-in req %) (param-paths :code_verifier))
+        extra-fields (get-in req [:body :extra_fields])
         oauth-code (app-oauth-code-model/consume! {:code code
                                                    :app-id app-id
                                                    :verifier code-verifier})
@@ -599,12 +612,14 @@
                        (when (= "guest" (:type user))
                          user)))
 
-        {user-id :user_id} (upsert-oauth-link! {:email (get user_info "email")
+        {user-id :user_id
+         :as social-login} (upsert-oauth-link! {:email (get user_info "email")
                                                 :sub (get user_info "sub")
                                                 :imageURL (get user_info "imageURL")
                                                 :app-id app-id
                                                 :provider-id (:provider_id client)
-                                                :guest-user-id (:id guest-user)})
+                                                :guest-user-id (:id guest-user)
+                                                :extra-fields extra-fields})
 
         refresh-token-id (random-uuid)
 
@@ -620,6 +635,7 @@
     (assert (= app-id (:app_id user)) (str "(= " app-id " " (:app_id user) ")"))
 
     (response/ok {:user (assoc user :refresh_token refresh-token-id)
+                  :created (:created social-login)
                   :refresh_token refresh-token-id})))
 
 (defn oauth-id-token-callback [{{:keys [nonce]} :body :as req}]
@@ -627,6 +643,7 @@
         app-id (ex/get-param! req [:body :app_id] uuid-util/coerce)
         current-refresh-token-id (ex/get-optional-param! req [:body :refresh_token] uuid-util/coerce)
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
+        extra-fields (get-in req [:body :extra_fields])
         client (app-oauth-client-model/get-by-client-name! {:app-id app-id
                                                             :client-name client-name})
         oauth-client (app-oauth-client-model/->OAuthClient client)
@@ -667,7 +684,8 @@
                                           :imageURL imageURL
                                           :app-id (:app_id client)
                                           :provider-id (:provider_id client)
-                                          :guest-user-id (:id guest-user)})
+                                          :guest-user-id (:id guest-user)
+                                          :extra-fields extra-fields})
 
         {refresh-token-id :id} (if (and current-refresh-token
                                         (= (:user_id social-login)
@@ -678,7 +696,8 @@
                                                                         :user-id (:user_id social-login)}))
         user (app-user-model/get-by-id {:app-id app-id :id (:user_id social-login)})]
     (assert (= app-id (:app_id user)))
-    (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
+    (response/ok {:user (assoc user :refresh_token refresh-token-id)
+                  :created (:created social-login)})))
 
 (defn openid-configuration-get [req]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)]

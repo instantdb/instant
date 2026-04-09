@@ -311,39 +311,6 @@ type Phase =
   | 'show-annotation'
   | 'pause';
 
-function HoverTooltip({
-  children,
-  content,
-}: {
-  children: React.ReactNode;
-  content: string;
-}) {
-  const [show, setShow] = useState(false);
-  return (
-    <span
-      className="relative cursor-default"
-      onMouseEnter={() => setShow(true)}
-      onMouseLeave={() => setShow(false)}
-    >
-      {children}
-      <AnimatePresence>
-        {show && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.1 }}
-            className="absolute bottom-full left-0 z-20 mb-1.5 rounded border border-gray-300 px-2.5 py-1.5 text-[12px] whitespace-nowrap shadow-lg"
-            style={{ backgroundColor: c.bg, color: c.text }}
-          >
-            {content}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </span>
-  );
-}
-
 type TypeSegment = { text: string; color: string };
 
 type Scene = {
@@ -440,11 +407,7 @@ const scenes: Scene[] = [
         <span style={{ color: c.punctuation }}>.</span>
         <span style={{ color: c.value }}>useQuery</span>
         <span style={{ color: c.punctuation }}>{'({ '}</span>
-        <HoverTooltip content="(property) messages: { id: string; text: string; createdAt: number }[]">
-          <span style={{ color: c.tag }} className="hover:underline">
-            messages
-          </span>
-        </HoverTooltip>
+        <span style={{ color: c.tag }}>messages</span>
         <span style={{ color: c.punctuation }}>{': {} })'}</span>
       </>
     ),
@@ -499,19 +462,11 @@ const scenes: Scene[] = [
       <>
         <span style={{ color: c.tag }}>data</span>
         <span style={{ color: c.punctuation }}>.</span>
-        <HoverTooltip content="(property) messages: { id: string; text: string; createdAt: number }[]">
-          <span style={{ color: c.tag }} className="hover:underline">
-            messages
-          </span>
-        </HoverTooltip>
+        <span style={{ color: c.tag }}>messages</span>
         <span style={{ color: c.punctuation }}>[</span>
         <span style={{ color: c.value }}>0</span>
         <span style={{ color: c.punctuation }}>].</span>
-        <HoverTooltip content="(property) text: string">
-          <span style={{ color: c.tag }} className="hover:underline">
-            text
-          </span>
-        </HoverTooltip>
+        <span style={{ color: c.tag }}>text</span>
       </>
     ),
   },
@@ -718,7 +673,7 @@ export default rules`;
 
 export function BuiltForAI() {
   return (
-    <div className="space-y-24">
+    <div className="space-y-12 md:space-y-16">
       {/* Section header */}
       <AnimateIn>
         <SectionIntro>
@@ -752,7 +707,7 @@ export function BuiltForAI() {
 
       {/* Feature 2: LLMs get it right */}
       <AnimateIn>
-        <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row lg:items-center">
+        <div className="flex flex-col-reverse items-stretch gap-8 pt-12 md:flex-row lg:items-center">
           <div className="lg:bg-surface/20 grow lg:px-[66px] lg:py-[37px]">
             <TabbedCodeExample
               examples={[
@@ -788,7 +743,7 @@ export function BuiltForAI() {
 
       {/* Feature 3: Type safety */}
       <AnimateIn>
-        <div className="flex flex-col items-stretch gap-7 md:flex-row md:items-center">
+        <div className="flex flex-col items-stretch gap-7 pt-12 md:flex-row md:items-center">
           <div className="md:max-w-[440px]">
             <Subheading>End-to-end type safety</Subheading>
             <FeatureBody>
@@ -806,7 +761,7 @@ export function BuiltForAI() {
 
       {/* Feature 4: Undo destructive changes */}
       <AnimateIn>
-        <div className="flex flex-col-reverse items-stretch gap-8 md:flex-row md:items-center lg:gap-12">
+        <div className="flex flex-col-reverse items-stretch gap-8 pt-12 md:flex-row md:items-center lg:gap-12">
           <div className="grow lg:bg-[#CC4E05]/10 lg:px-[66px] lg:py-[37px]">
             <UndoDemo />
           </div>

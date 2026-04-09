@@ -1,17 +1,20 @@
 (ns instant.runtime.magic-code-auth
   (:require
-   [instant.postmark :as postmark]
    [clojure.string :as string]
+   [instant.flags :as flags]
    [instant.model.app :as app-model]
+   [instant.model.app-email-template :as app-email-template-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
-   [instant.model.app-email-template :as app-email-template-model]
-   [instant.util.tracer :as tracer]
-   [instant.util.exception :as ex]
-   [instant.util.cache :as cache]
-   [instant.flags :as flags]
+   [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
    [instant.model.instant-user :as instant-user-model]
-   [instant.model.app-user-refresh-token :as app-user-refresh-token-model])
+   [instant.postmark :as postmark]
+   [instant.rate-limit :as rate-limit]
+   [instant.reactive.ephemeral :as eph]
+   [instant.util.cache :as cache]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex]
+   [instant.util.tracer :as tracer])
   (:import
    (java.util.concurrent.atomic AtomicLong)))
 
@@ -21,7 +24,7 @@
   (cache/make {:max-size 100000
                :ttl (* 60 60 1000)}))
 
-(defn check-rate-limit! [{:keys [app-id email]}]
+(defn check-send-rate-limit-caffeine! [{:keys [app-id email]}]
   (let [limit (flags/magic-code-rate-limit-per-hour)]
     (when (and limit (pos? limit))
       (let [k [app-id email]
@@ -33,8 +36,31 @@
                                 :attributes {:app-id app-id
                                              :email email
                                              :count count
-                                             :limit limit}})
+                                             :limit limit
+                                             :source "caffeine"}})
           (ex/throw-record-email-rate-limited!))))))
+
+(defn check-send-rate-limit-bucket4j! [params]
+  (when-not (rate-limit/try-consume-create-magic-code (eph/get-rate-limit) params)
+    (tracer/record-info! {:name "magic-code/rate-limited"
+                          :attributes {:app-id (:app-id params)
+                                       :email (:email params)
+                                       :source "bucket4j"}})
+    (ex/throw-record-email-rate-limited!)))
+
+(defn check-send-rate-limit! [params]
+  (if (flags/toggled? :use-bucket4j true)
+    (check-send-rate-limit-bucket4j! params)
+    (check-send-rate-limit-caffeine! params)))
+
+(defn check-verify-rate-limit! [params]
+  (when (flags/toggled? :use-bucket4j true)
+    (when-not (rate-limit/try-consume-consume-magic-code (eph/get-rate-limit) params)
+      (tracer/record-info! {:name "magic-code/consume-rate-limited"
+                            :attributes {:app-id (:app-id params)
+                                         :email (:email params)
+                                         :source "bucket4j"}})
+      (ex/throw-record-email-rate-limited!))))
 
 (def postmark-unconfirmed-sender-body-error-code 400)
 
@@ -45,7 +71,7 @@
     (or (= code postmark-unconfirmed-sender-body-error-code)
         (= code postmark-not-found-sender-body-error-code))))
 
-(defn default-body [title code]
+(defn default-body [{:keys [title code expiration]}]
   (postmark/standard-body "<p><strong>Welcome,</strong></p>
         <p>
           You asked to join " title ". To complete your registration, use this
@@ -56,7 +82,7 @@
          Copy and paste this into the confirmation box, and you'll be on your way.
        </p>
        <p>
-         Note: This code will expire in 24 hours, and can only be used once. If you
+         Note: This code will expire in " expiration ", and can only be used once. If you
          didn't request this code, please reply to this email.
        </p>"))
 
@@ -80,8 +106,15 @@
 (comment
   (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"}))
 
+(defn friendly-expiration [app]
+  (let [minutes (app-model/get-magic-code-expiry-minutes {:id (:id app)})]
+    (if (<= 60 minutes)
+      (let [hours (int (Math/floor (/ minutes 60)))]
+        (format "%s hour%s" hours (if (> hours 1) "s" "")))
+      (format "%s minute%s" minutes (if (> minutes 1) "s" "")))))
+
 (defn send! [{:keys [app-id email] :as req}]
-  (check-rate-limit! req)
+  (check-send-rate-limit! req)
   (let [app             (app-model/get-by-id! {:id app-id})
         {:keys [code]}  (app-user-magic-code-model/create! (select-keys req [:app-id :email]))
         template        (app-email-template-model/get-by-app-id-and-email-type
@@ -89,7 +122,8 @@
                           :email-type "magic-code"})
         template-params {:user_email email
                          :code code
-                         :app_title (:title app)}
+                         :app_title (:title app)
+                         :expiration (friendly-expiration app)}
 
         default-sender  "verify@auth-pm.instantdb.com"
 
@@ -102,16 +136,26 @@
                           {:sender-name (:title app)
                            :sender-email default-sender
                            :subject (str code " is your verification code for " (:title app))
-                           :body (default-body (:title app) code)})
+                           :body (default-body template-params)})
 
         email-req       (magic-code-email email email-params)
         email-res       (try
                           (postmark/send-structured! email-req)
                           (catch clojure.lang.ExceptionInfo e
-                            (if (invalid-sender? e)
+                            (cond
+                              (invalid-sender? e)
                               (do
                                 (tracer/record-info! {:name "magic-code/unconfirmed-or-unknown-sender" :attributes {:email sender-email :app-id app-id}})
                                 (postmark/send-structured! (magic-code-email email (assoc email-params :sender-email default-sender))))
+
+
+                              ;; Don't throw if it's a test user, even if we can't send email to it
+                              (and (= ::ex/validation-failed (-> e ex-data ::ex/type))
+                                   (not (nil? (app-model/get-test-user req))))
+                              false
+
+
+                              :else
                               (throw e))))]
     {:code code
      :sent-email email-res}))
@@ -125,36 +169,70 @@
 
   (send! {:app-id (:id app) :email "stopa@instantdb.com"}))
 
+(defn matches-test-user?
+  "Returns true if it's a test user and the given code match's the user's static code."
+  [app-id code email]
+  (when (and code
+             (= 6 (count code)))
+    (let [test-user (app-model/get-test-user {:app-id app-id :email email})]
+      (and test-user
+           (crypt-util/constant-string= (:code test-user) code)))))
+
+(defn consume-code! [app-id code email]
+  (try
+    (app-user-magic-code-model/consume!
+     {:app-id app-id
+      :code   code
+      :email  email})
+    (catch clojure.lang.ExceptionInfo e
+      (when-not (matches-test-user? app-id code email)
+        (throw e)))))
+
 (defn verify!
   "Consumes the code and if the code is good, upserts the user.
 
    If a guest-user-id is passed in, it will either upgrade the guest user
-   or link it to the existing user for the email."
-  [{:keys [app-id email code guest-user-id]}]
-  (app-user-magic-code-model/consume!
-   {:app-id app-id
-    :code   code
-    :email  email})
-  (let [user (or (app-user-model/get-by-email
-                  {:app-id app-id
-                   :email  email})
-                 (app-user-model/create!
-                  {:id (or guest-user-id (random-uuid))
-                   :app-id app-id
-                   :email  email
-                   :type   "user"}))
-        refresh-token-id (random-uuid)]
-    (when (and guest-user-id
-               (not= (:id user)
-                     guest-user-id))
-      (app-user-model/link-guest {:app-id app-id
-                                  :primary-user-id (:id user)
-                                  :guest-user-id guest-user-id}))
-    (app-user-refresh-token-model/create!
-     {:app-id  app-id
-      :id      refresh-token-id
-      :user-id (:id user)})
-    (assoc user :refresh_token refresh-token-id)))
+   or link it to the existing user for the email.
+
+   Permission check runs before consuming the code so that a failed check
+   doesn't burn the one-time code."
+  [{:keys [app-id email code guest-user-id extra-fields admin?]}]
+  (check-verify-rate-limit! {:app-id app-id
+                             :email email})
+  (let [existing-user (app-user-model/get-by-email
+                       {:app-id app-id
+                        :email  email})
+        created? (nil? existing-user)
+        user-id (or guest-user-id (random-uuid))]
+    ;; Check before consuming the code so a failed check doesn't
+    ;; burn the one-time code.
+    (when created?
+      (app-user-model/assert-signup!
+       {:app-id app-id
+        :email email
+        :id user-id
+        :extra-fields extra-fields
+        :skip-perm-check? admin?}))
+    (consume-code! app-id code email)
+    (let [user (or existing-user
+                   (app-user-model/create!
+                    {:id user-id
+                     :app-id app-id
+                     :email  email
+                     :type   "user"
+                     :extra-fields extra-fields}))
+          refresh-token-id (random-uuid)]
+      (when (and guest-user-id
+                 (not= (:id user)
+                       guest-user-id))
+        (app-user-model/link-guest {:app-id app-id
+                                    :primary-user-id (:id user)
+                                    :guest-user-id guest-user-id}))
+      (app-user-refresh-token-model/create!
+       {:app-id  app-id
+        :id      refresh-token-id
+        :user-id (:id user)})
+      (assoc user :refresh_token refresh-token-id :created created?))))
 
 (comment
   (def instant-user (instant-user-model/get-by-email
@@ -168,4 +246,3 @@
   (verify! {:app-id (:id app) :email "stopa@instantdb.com" :code "0"})
 
   (verify! {:app-id (:id app) :email "stopa@instantdb.com" :code (:code m)}))
-

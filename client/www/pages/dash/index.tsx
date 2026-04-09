@@ -945,11 +945,12 @@ function DashboardContent({
 }) {
   // Subscribe to schema changes at the dashboard level
   const schemaData = useSchemaQuery(connection.db);
+  const token = useContext(TokenContext)!;
 
   return (
     <>
       {tab === 'home' ? (
-        <Home app={app} token={useContext(TokenContext)!} />
+        <Home app={app} token={token} />
       ) : tab === 'explorer' ? (
         <ExplorerTab
           appId={appId}

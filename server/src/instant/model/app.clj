@@ -5,6 +5,7 @@
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.instant-user :as instant-user-model]
@@ -188,6 +189,7 @@
     :select [:a.*
              [:at.token :admin_token]
              [:r.code :rules]
+             [:r.version :rules_version]
              [[:case [:= nil :org.id] nil
                :else [:json_build_object
                       [:inline "id"] :org.id
@@ -346,14 +348,42 @@
                                  WHERE a.id = ?::uuid"
                                new-creator-id id])))))
 
+(def update-magic-code-expiration-q
+  (uhsql/preformat {:update :apps
+                    :set {:magic-code-expiry-minutes :?magic-code-expiry-minutes}
+                    :where [:= :id :?id]}))
+
+(defn update-magic-code-expiration!
+  ([params] (update-magic-code-expiration! (aurora/conn-pool :write) params))
+  ([conn {:keys [id magic-code-expiry-minutes]}]
+   (with-cache-invalidation id
+     (sql/execute-one! ::update-magic-code-expiration!
+                       conn
+                       (uhsql/formatp update-magic-code-expiration-q
+                                      {:id id
+                                       :magic-code-expiry-minutes magic-code-expiry-minutes})))))
+
+(defn get-magic-code-expiry-minutes
+  ([params] (get-magic-code-expiry-minutes (aurora/conn-pool :read) params))
+  ([conn {:keys [id]}]
+   (or (:magic_code_expiry_minutes (get-by-id conn {:id id}))
+       (flags/default-magic-code-expiry-minutes))))
+
 (defn clear-by-id!
-  "Deletes attrs, rules, and triples for the specified app_id"
+  "Soft deletes attrs, rules, and triples for the specified app_id"
   ([params] (clear-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
-   (next-jdbc/with-transaction [tx-conn conn]
-     (transaction-model/create! tx-conn {:app-id id})
-     (attr-model/hard-delete-by-app-id! tx-conn id)
-     (rule-model/delete-by-app-id! tx-conn {:app-id id}))))
+   (let [attr-ids (keep (fn [attr]
+                          (when (= :user (:catalog attr))
+                            (:id attr)))
+                        (attr-model/get-by-app-id id))]
+     (with-cache-invalidation id
+       (attr-model/with-cache-invalidation id
+         (next-jdbc/with-transaction [tx-conn conn]
+           (transaction-model/create! tx-conn {:app-id id})
+           (attr-model/soft-delete-multi! tx-conn id attr-ids)
+           (rule-model/put! tx-conn {:app-id id
+                                     :code {}})))))))
 
 (comment
   (clear-by-id! {:id "9a6d8f38-991d-4264-9801-4a05d8b1eab1"}))
@@ -417,6 +447,38 @@
                         (crypt-util/aead-encrypt {:plaintext (.getBytes ^String connection-string)
                                                   :associated-data (uuid-util/->bytes app-id)})
                         app-id]))))
+
+(defn get-test-users
+  ([params] (get-test-users (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id]}]
+   (sql/select ::get-test-users
+               conn
+               ["select id, app_id, email, code, created_at from app_test_users where app_id = ?::uuid"
+                app-id])))
+
+(defn get-test-user
+  ([params] (get-test-user (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id email]}]
+   (sql/select-one ::get-test-user
+                   conn
+                   ["select id, app_id, email, code, created_at from app_test_users where app_id = ?::uuid and email = ?"
+                    app-id email])))
+
+(defn create-test-user!
+  ([params] (create-test-user! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id email code]}]
+   (sql/execute-one! ::create-test-user!
+                     conn
+                     ["insert into app_test_users (id, app_id, email, code) values (?::uuid, ?::uuid, ?, ?) returning *"
+                      (random-uuid) app-id email code])))
+
+(defn delete-test-user!
+  ([params] (delete-test-user! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id id]}]
+   (sql/execute-one! ::delete-test-user!
+                     conn
+                     ["delete from app_test_users where app_id = ?::uuid and id = ?::uuid returning *"
+                      app-id id])))
 
 (comment
   (app-usage (aurora/conn-pool :read) {:app-id "5cb86bd5-5dfb-4489-a455-78bb86cd3da3"}))
