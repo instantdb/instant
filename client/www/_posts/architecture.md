@@ -80,9 +80,9 @@ Now if you add a todo in one iframe, it will show up in the other. If you go off
 
 And here’s what the todo app’s backend code is like:
 
-![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775599502627_image.png)
+<todo-code-demo></todo-code-demo>
 
-That’s about N lines. This is even more concise then if you had built a traditional CRUD app. You would have needed to write backend endpoints and frontend stores. Instead you just make queries and transactions directly in your frontend.
+That’s about <todo-code-line-count></todo-code-line-count> lines. This is even more concise then if you had built a traditional CRUD app. You would have needed to write backend endpoints and frontend stores. Instead you just make queries and transactions directly in your frontend.
 
 `db.useQuery` lets you write relational queries and they stay in sync. `db.transact` lets you make changes and it works offline.
 
