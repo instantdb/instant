@@ -124,7 +124,7 @@ If you want to share cursors, typing indicators, or ‘who’s online’ markers
 
 And if you need to share durable streams, you get, well, Instant Streams.
 
-If you’re curious, we have a bunch of real examples you can play with in the recipes page. You’ll notice that most of these services require little setup and little code. Both you and your agents can move faster and make your apps feature-rich. You don’t have to scour for different providers and deal with bi-directional data sync.
+If you’re curious, we have a bunch of real examples you can play with in the [recipes](/recipes) page. You’ll notice that most of these services require little setup and little code. Both you and your agents can move faster and make your apps feature-rich. You don’t have to scour for different providers and deal with bi-directional data sync.
 
 ## Bonus: What you can do, your agent can do
 
@@ -372,7 +372,7 @@ Another option would have been to use Postgres schemas. We could have created di
 
 This makes sense. The average Postgres app has a few big tables, not many small tables, which means big tables get optimized. Well, if big tables work, what if we reframed this problem into a giant table?
 
-And this brings us back too…Triple stores!
+And this brings us back to…Triple stores!
 
 They worked well on the client because they’re a simple DB that supports relational queries. We thought this could work well for us in Postgres too. So we added a `triples` table:
 
@@ -452,7 +452,7 @@ Those statistics are what let the query planner decide which indexes are most ef
 
 Once you keep all data in one table, Postgres loses information about the underlying frequencies in the dataset. It can't tell the difference between a column with 10 distinct values and one with 10 million.
 
-To solve for this, we started keeping track of our statistics. We use a data structure called count-min sketches, which help us estimate frequencies for columns. If you’re curious about how that works, we wrote an essay about it.
+To solve for this, we started keeping track of our statistics. We use a data structure called count-min sketches, which help us estimate frequencies for columns. If you’re curious about how that works, we wrote an essay about it [^14].
 
 We could give those statistics to our query engine, and make those queries efficient again.
 
@@ -478,7 +478,7 @@ If you're building with agents, I think you will love using us.
 
 We hope you give us a [try](/dashboard), and join us on [Discord](/discord).
 
-[^1]: Every single line of code behind the company lives on GitHub, including this [post](<[link](https://github.com/instantdb/instant/blob/main/client/www/_posts/architecture.md)>)
+[^1]: Every single line of code behind the company lives on GitHub, including this [post](https://github.com/instantdb/instant/blob/main/client/www/_posts/architecture.md)
 
 [^2]: Nikita wrote a great blog post about this [here](https://www.instantdb.com/essays/sync_future)
 
@@ -503,3 +503,5 @@ We hope you give us a [try](/dashboard), and join us on [Discord](/discord).
 [^12]: We do some even more cool things. For example we take where clauses and transform them into little programs for additional filtering.
 
 [^13]: Check out the [source](https://github.com/instantdb/instant/blob/main/server/src/instant/grouped_queue.clj)!
+
+[^14]: Check out [Count-Min Sketches in JS](https://www.instantdb.com/essays/count_min_sketch)
