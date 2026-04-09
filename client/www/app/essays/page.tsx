@@ -49,9 +49,21 @@ function AuthorByline({
   authors: Author[];
   duration: string;
 }) {
+  const hasManyAuthors = authors.length >= 3;
+
   return (
-    <div className="flex items-center justify-between text-sm">
-      <div className="flex items-center gap-2">
+    <div
+      className={clsx('flex justify-between text-sm', {
+        'items-center': !hasManyAuthors,
+        'items-end': hasManyAuthors,
+      })}
+    >
+      <div
+        className={clsx('flex gap-2', {
+          'items-center': !hasManyAuthors,
+          'flex-col': hasManyAuthors,
+        })}
+      >
         <div className="flex -space-x-1.5">
           {authors.map((author) => (
             <img
@@ -62,7 +74,9 @@ function AuthorByline({
             />
           ))}
         </div>
-        <span>{authors.map(authorFirstName).join(' & ')}</span>
+        <span>
+          {authors.map(authorFirstName).join(hasManyAuthors ? ', ' : ' & ')}
+        </span>
       </div>
       <span>{duration}</span>
     </div>
