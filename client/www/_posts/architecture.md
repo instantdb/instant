@@ -44,11 +44,11 @@ If your app is inactive, there's no compute or memory costs at all. And when it 
 
 This means you can truly create unlimited apps. In fact, the process is so efficient that we can create an app for you right inside this essay. No sign up required.
 
-If you click the button that follows, you’ll get an isolated backend:
+If you click the button, you’ll get an isolated backend:
 
-![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775599160595_image.png)
+<architecture-demo demo="create-app"></architecture-demo>
 
-And with that we have our backend. When you include the round-trip to your computer, this should take about a few hundred milliseconds (actual time: Click to see).
+And with that we have our backend. Including the round-trip to your computer, the whole process takes a few hundred milliseconds. Actual time: <architecture-demo demo="creation-time"></architecture-demo>
 
 You get a public App ID to identify your backend, and a private Admin Token that lets you make privileged changes. This gives you a relational database, sync engine, and the additional services we mentioned, like auth and storage.
 

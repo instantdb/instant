@@ -985,7 +985,7 @@ export function Copyable({
   onCopy,
 }: {
   value: string;
-  label?: string;
+  label?: React.ReactNode;
   size?: 'normal' | 'large';
   defaultHidden?: boolean;
   hideValue?: boolean;
