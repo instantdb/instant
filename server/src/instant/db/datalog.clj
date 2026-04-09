@@ -1340,12 +1340,15 @@
                                                                               (:filter-components costs))))
         max-join-remaining (apply max 0 (vals (:join-remaining costs)))
 
-        ;; When scan-cost is very small relative to the join-remaining
-        ;; driving set, PG may reverse the join order — making the small
-        ;; scan the outer side and re-scanning the previous CTE per row.
-        ;; Threshold: scan-cost < sqrt(max-join-remaining).
+        ;; When scan < join and the index only resolves cheap predicates
+        ;; (constants), PG may reverse the join order. But when the
+        ;; index resolves an expensive predicate (function like $ilike)
+        ;; in its path, the scan does useful work that justifies the
+        ;; join cost — the alternative would evaluate the expensive
+        ;; predicate per row on the full driving set.
         join-reversal-risk? (and (pos? max-join-remaining)
-                                 (< scan-cost (Math/sqrt max-join-remaining)))
+                                 (< scan-cost max-join-remaining)
+                                 (not (:path-resolves-function? costs)))
 
         rows-scanned (cond
                        join-reversal-risk? max-join-remaining
@@ -1600,6 +1603,16 @@
                                     :path []
                                     :unique-cols (:unique-cols idx-config)}
                                    (:cols idx-config))
+                     ;; Check if the index path resolves an expensive predicate
+                     ;; (function like $ilike). If so, the index scan does useful
+                     ;; work that justifies leaving join columns unresolved —
+                     ;; the alternative (entity-driven) would evaluate the
+                     ;; expensive predicate per row.
+                     path-resolves-function?
+                     (some (fn [{:keys [col]}]
+                             (= :function (first (get named-p col))))
+                           (:path costs))
+                     costs (assoc costs :path-resolves-function? path-resolves-function?)
                      cfg (assoc idx-config
                                 :index-costs costs
                                 :matching-idx-key? (= (:idx-key idx-config)
