@@ -110,13 +110,7 @@ With Instant, all of this is a non-issue.
 
 You get File Storage by default, and file objects are just rows in your database. They’re just like any other entity: you can create them, link them to other data, and run real-time queries against them.
 
-This means you can even create CASCADE delete rules, so you can say “when you delete todos, delete files”. So if we wanted to delete a todo this is the code we’d write:
-
-![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775600488569_image.png)
-
-CASCADE delete just deletes our files for us. There’s no need for background workers.
-
-Instead of multiple sources of truth, you get one integrated database. The shared infra handles all the edge cases under the hood [^4].
+This means you can even create CASCADE delete rules, so you can say “when you delete todos, delete files”. There’s no need for background workers. Instead of multiple sources of truth, you get one integrated database. The shared infra handles all the edge cases under the hood [^4].
 
 And this is just Instant Storage. You also get Auth. You can use Magic Codes, OAuth, and Guest Auth out of the box. Plus when your users sign up, they’re just rows in your database too.
 
