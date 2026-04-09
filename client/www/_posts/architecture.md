@@ -200,7 +200,7 @@ This uniform structure can model both attributes and relationships. Once data is
 
 Datalog is a logic-based query engine. Here’s what that looks like:
 
-![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775710238085_CleanShot+2026-04-08+at+21.50.262x.png)
+<datalog-demo></datalog-demo>
 
 The syntax looks weird, but Datalog is powerful. It can support where clauses and relations just as well as SQL. And it’s simple to implement. In fact, you can write a basic Datalog engine in less than hundred lines of code [^].
 
