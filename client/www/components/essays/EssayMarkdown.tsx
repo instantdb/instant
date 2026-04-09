@@ -5,6 +5,7 @@ import remarkMath from 'remark-math';
 import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
 import { GPT52Leaderboard } from '@/components/essays/GPT52Leaderboard';
 import { Lightbox } from '@/components/Lightbox';
+import { TripleDemo } from '@/components/about/TripleDemo';
 import MuxPlayer from '@mux/mux-player-react';
 
 import { DemoIframe } from '@/components/DemoIframe';
@@ -36,6 +37,11 @@ export function EssayMarkdown({
             return <SketchDemo demo={props.demo} />;
           },
           'gpt52-leaderboard': GPT52Leaderboard,
+          'triple-demo': () => (
+            <div className="not-prose my-8 flex justify-center">
+              <TripleDemo />
+            </div>
+          ),
 
           p: ({ children }) => (
             <div className="prose prose-lg mt-[1.25em] mb-[1.25em] leading-relaxed">
