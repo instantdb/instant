@@ -374,7 +374,7 @@ And this brings us back too…Triple stores!
 
 They worked well on the client because they’re a simple DB that supports relational queries. We thought this could work well for us in Postgers too. So we added a `triples` table:
 
-![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775751156931_CleanShot+2026-04-09+at+09.12.202x.png)
+<multi-tenant-demo></multi-tenant-demo>
 
 All the data lives in a single `triples` table, and they’re logically isolated by an `app_id`.
 
@@ -462,7 +462,7 @@ So far I’ve been showing you SQL queries that are simple and easy to understan
 
 That’s what the query engine does. It takes InstaQL queries as well as the count-min sketches, and generates SQL query plans:
 
-![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775752934938_CleanShot+2026-04-09+at+09.42.092x.png)
+<sql-demo></sql-demo>
 
 This engine is written in the Clojure backend. We took a lot of inspiration from Postgres’ own query engine. Sometimes these queries can look scarily long, but we have been so darn surprised with how well Postgres can handle them. We pass in some hints with pg_hint_plan, and Postgres just churns away and produces results.
 
