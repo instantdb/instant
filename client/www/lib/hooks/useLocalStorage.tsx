@@ -33,17 +33,20 @@ export default function useLocalStorage<T>(
   saveDefaultValue = false,
 ): [T, (v: T | undefined) => void] {
   const snapshotRef = useRef<T>(getSnapshot<T>(k) || defaultValue);
-  const subscribe = useCallback((cb: Function) => {
-    const listener = (e: StorageEvent) => {
-      if (e.key !== k) return;
-      snapshotRef.current = getSnapshot<T>(k) || defaultValue;
-      cb();
-    };
-    window.addEventListener('storage', listener);
-    return () => {
-      window.removeEventListener('storage', listener);
-    };
-  }, []);
+  const subscribe = useCallback(
+    (cb: Function) => {
+      const listener = (e: StorageEvent) => {
+        if (e.key !== null && e.key !== k) return;
+        snapshotRef.current = getSnapshot<T>(k) || defaultValue;
+        cb();
+      };
+      window.addEventListener('storage', listener);
+      return () => {
+        window.removeEventListener('storage', listener);
+      };
+    },
+    [k, defaultValue],
+  );
   const state = useSyncExternalStore<T>(
     subscribe,
     () => snapshotRef.current,
