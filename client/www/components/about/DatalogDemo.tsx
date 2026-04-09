@@ -19,9 +19,11 @@ function Connector() {
 export function DatalogDemo({
   filterValue,
   onToggleFilter,
+  layout = 'vertical',
 }: {
   filterValue: boolean;
   onToggleFilter: () => void;
+  layout?: 'vertical' | 'horizontal';
 }) {
   const matchedEntities = TRIPLES.filter(
     ([, attr, val]) => attr === 'done' && val === filterValue,
@@ -33,8 +35,8 @@ export function DatalogDemo({
     ),
   );
 
-  return (
-    <div className="flex flex-col items-center">
+  const queries = (
+    <>
       {/* InstaQL */}
       <div className="mb-1 self-start text-[10px] font-medium tracking-wider text-gray-400 uppercase">
         InstaQL
@@ -89,6 +91,21 @@ export function DatalogDemo({
           <span style={{ color: c.punctuation }}>]</span>
         </div>
       </div>
+    </>
+  );
+
+  if (layout === 'horizontal') {
+    return (
+      <div className="flex flex-col items-center gap-6 md:flex-row md:gap-12">
+        <div className="flex flex-col items-center">{queries}</div>
+        <TripleStoreTable triples={TRIPLES} highlightedKeys={highlightedKeys} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center">
+      {queries}
 
       <Connector />
 
