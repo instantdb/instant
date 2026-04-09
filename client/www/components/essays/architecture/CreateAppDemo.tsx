@@ -59,8 +59,8 @@ export default function CreateAppDemo({
               try {
                 const api = new PlatformApi({ apiURI: config.apiURI });
                 const start = Date.now();
-                const { app: newApp, expiresMs } =
-                  await api.createTemporaryApp({
+                const { app: newApp, expiresMs } = await api.createTemporaryApp(
+                  {
                     title: 'architecture-essay-app',
                     rules: {
                       code: {
@@ -72,7 +72,8 @@ export default function CreateAppDemo({
                         },
                       },
                     },
-                  });
+                  },
+                );
                 const timeTaken = Date.now() - start;
                 setDemoState({
                   app: {
