@@ -1,5 +1,5 @@
 import { Fence } from '@/components/ui';
-import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import { type DemoState } from './Demos';
 
 const CODE_TEMPLATE = `import { init, id } from '@instantdb/react';
 
@@ -29,12 +29,8 @@ function App() {
 
 export const TODO_CODE_LINE_COUNT = CODE_TEMPLATE.split('\n').length;
 
-export default function TodoCodeDemo() {
-  // Soft-coupled to demo #2's storage; integration pass swaps to demo #1's shared key.
-  const [{ appId }] = useLocalStorage<{ appId?: string }>(
-    'launch-todo-iframe-demo',
-    {},
-  );
+export default function TodoCodeDemo({ demoState }: { demoState: DemoState }) {
+  const appId = demoState.app?.id;
   const code = CODE_TEMPLATE.replace('__APP_ID__', appId ?? 'YOUR_APP_ID');
 
   return (
