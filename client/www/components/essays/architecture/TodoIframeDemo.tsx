@@ -29,7 +29,7 @@ export default function TodoIframeDemo({
   }
 
   return (
-    <div className="not-prose my-6">
+    <div className="essay-breakout not-prose my-6">
       <div className="relative">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="h-[440px] rounded-xl border border-gray-200 bg-gray-50" />
@@ -90,7 +90,7 @@ function TodoPreviews({ appId }: { appId: string }) {
   }
 
   return (
-    <div className="not-prose my-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div className="essay-breakout not-prose my-6 grid grid-cols-1 gap-4 md:grid-cols-2">
       {[0, 1].map((i) => (
         <div
           key={i}

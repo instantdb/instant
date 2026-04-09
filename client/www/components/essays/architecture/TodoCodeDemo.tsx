@@ -34,7 +34,7 @@ export default function TodoCodeDemo({ demoState }: { demoState: DemoState }) {
   const code = CODE_TEMPLATE.replace('__APP_ID__', appId ?? 'YOUR_APP_ID');
 
   return (
-    <div className="not-prose my-6 overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <div className="essay-breakout not-prose my-6 overflow-hidden rounded-xl border border-gray-200 bg-white">
       <div className="border-b border-gray-100 bg-gray-50 px-4 py-2.5">
         <span className="font-mono text-xs text-gray-500">App.tsx</span>
       </div>

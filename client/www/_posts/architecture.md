@@ -100,7 +100,7 @@ So to make it easier to enhance your apps, we baked in a bunch of common service
 
 To get a sense of these services, let’s look at our todo app again, but this time we’ll add support for file uploads:
 
-![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775600526256_image.png)
+<architecture-demo demo="file-upload"></architecture-demo>
 
 What would be the traditional way to do this? We would first create a `files` table in our transactional database, and link it to `todos`. But then we would need to store the actual file blobs, so we’d probably add S3.
 

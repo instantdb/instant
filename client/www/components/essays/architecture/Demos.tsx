@@ -2,6 +2,7 @@ import CreateAppDemo from './CreateAppDemo';
 import CreationTimeDemo from './CreationTimeDemo';
 import TodoIframeDemo from './TodoIframeDemo';
 import TodoCodeDemo, { TODO_CODE_LINE_COUNT } from './TodoCodeDemo';
+import FileUploadDemo from './FileUploadDemo';
 
 export type DemoState = {
   app?: {
@@ -38,6 +39,10 @@ export function Demos({
       return <TodoCodeDemo demoState={demoState} />;
     case 'todo-code-line-count':
       return <>{TODO_CODE_LINE_COUNT}</>;
+    case 'file-upload':
+      return (
+        <FileUploadDemo demoState={demoState} setDemoState={setDemoState} />
+      );
     default:
       return null;
   }
