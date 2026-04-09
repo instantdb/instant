@@ -7,6 +7,8 @@ import { GPT52Leaderboard } from '@/components/essays/GPT52Leaderboard';
 import { Lightbox } from '@/components/Lightbox';
 import { TripleDemo } from '@/components/about/TripleDemo';
 import { DatalogDemo } from '@/components/about/DatalogDemo';
+import { MultiTenantDemo } from '@/components/about/MultiTenantDemo';
+import { SqlDemo } from '@/components/about/SqlDemo';
 import PendingQueueDemo from '@/components/essays/pending_queue_demo';
 import MuxPlayer from '@mux/mux-player-react';
 
@@ -29,6 +31,18 @@ function DatalogEssayDemo() {
         filterValue={filterValue}
         onToggleFilter={() => setFilterValue((v) => !v)}
         layout="horizontal"
+      />
+    </div>
+  );
+}
+
+function SqlEssayDemo() {
+  const [filterValue, setFilterValue] = useState(true);
+  return (
+    <div className="not-prose my-8 flex justify-center">
+      <SqlDemo
+        filterValue={filterValue}
+        onToggleFilter={() => setFilterValue((v) => !v)}
       />
     </div>
   );
@@ -76,6 +90,12 @@ export function EssayMarkdown({
               <PendingQueueDemo />
             </div>
           ),
+          'multi-tenant-demo': () => (
+            <div className="not-prose my-8 flex justify-center">
+              <MultiTenantDemo />
+            </div>
+          ),
+          'sql-demo': SqlEssayDemo,
 
           p: ({ children }) => (
             <div className="prose prose-lg mt-[1.25em] mb-[1.25em] leading-relaxed">
