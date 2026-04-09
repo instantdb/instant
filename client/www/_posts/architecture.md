@@ -24,11 +24,9 @@ Let’s get into it.
 
 When you choose Instant you get three benefits:
 
-You can make unlimited apps and they’re never frozen.
-
-You get a sync engine, so your apps work offline, are real-time, and feel fast.
-
-And when you need more features you have built-in services: auth, file storage, presence, and streams.
+1. You can make unlimited apps and they’re never frozen.
+2. You get a sync engine, so your apps work offline, are real-time, and feel fast.
+3. And when you need more features you have built-in services: auth, file storage, presence, and streams.
 
 To get a sense of what we mean, I’ll dive into each point and show you how they look.
 
