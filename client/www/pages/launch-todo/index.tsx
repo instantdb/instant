@@ -87,9 +87,7 @@ function TodoApp() {
             >
               <button
                 onClick={() =>
-                  db.transact(
-                    db.tx.todos[todo.id].update({ done: !todo.done }),
-                  )
+                  db.transact(db.tx.todos[todo.id].update({ done: !todo.done }))
                 }
                 className={`flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                   todo.done
@@ -101,9 +99,7 @@ function TodoApp() {
               </button>
               <span
                 className={`text-base ${
-                  todo.done
-                    ? 'text-gray-400 line-through'
-                    : 'text-gray-700'
+                  todo.done ? 'text-gray-400 line-through' : 'text-gray-700'
                 }`}
               >
                 {todo.text}

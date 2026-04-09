@@ -13,10 +13,9 @@ type State =
   | { step: 'ready'; appId: string; expiresMs: number };
 
 export default function TodoIframeDemo() {
-  const [state, setState] = useLocalStorage<State>(
-    'launch-todo-iframe-demo',
-    { step: 'init' },
-  );
+  const [state, setState] = useLocalStorage<State>('launch-todo-iframe-demo', {
+    step: 'init',
+  });
 
   // If the cached ephemeral app is about to expire, reset so we provision
   // a fresh one on the next click. Mirrors AgentsEssayDemoSection.
