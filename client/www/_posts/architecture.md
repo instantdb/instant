@@ -264,4 +264,101 @@ Here’s roughly how the system looks:
 
 ![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775737048834_image.png)
 
+## Query Store 
+
+Let’s start by thinking through what happens when a user asks for a query. 
+
+First the server can go ahead and ask the database. In a stateless system that would be just about the end of the story. We could return our response and call it a day. 
+
+But remember, our queries have to be reactive. For that we need a place to store *which* users have made *which* queries. That’s what the Query Store is for:
+
+![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775739554767_CleanShot+2026-04-09+at+05.59.052x.png)
+
+
+If we were to track just the queries and the socket connections that asked for them, in principle we would have what we need to make an app reactive. For example we could tail every transaction and refresh every query. That would work, but our database would get hammered with lots of spam. 
+
+Ideally, we should only change queries that *need* to be changed.
+
+## Topics
+
+We scoured around for ideas, and found the architecture behind Asana’s Luna [^] very promising. Asana wrote about how they turn queries into sets of “topics”. Roughly, a topic describe the part of the index that the query in question cares about. 
+
+For a something like “Give me all todos”, you could imagine a topic that says: “Track all updates to the TodosIndex”. 
+
+We adapted this idea into our system. When we run queries, we also generate a set of topics that it cares for: 
+
+![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775739641762_CleanShot+2026-04-09+at+06.00.272x.png)
+
+
+Here’s our topic for “Watch all todos”:
+
+
+![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775744562817_CleanShot+2026-04-09+at+07.21.592x.png)
+
+
+Now we have a data structure we can use to describe the dependencies for a query. The next step is to track transactions and find these affected queries.
+
+# Invalidator
+
+That’s where the invalidator comes in. The invalidator tracks Postgres’ WAL (Write-Ahead Log). 
+
+We can take WAL entries and generate topics from them too. For example, if we had an update like “Set todo.done = false for id = 42’”, we could transform it:
+
+![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775743743474_CleanShot+2026-04-09+at+07.08.572x.png)
+
+
+This gets us the exact same kind of topic structure that our queries make. Now we can match them together, and discover what’s stale:
+
+![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775744091203_CleanShot+2026-04-09+at+07.14.462x.png)
+
+
+Our version zero for this algorithm was very inefficient. We would effectively do an N^2 comparison from every transaction topic to every query topic. But you can intuit how these topic vectors are amenable to indexes. We now keep them in a tree-like structure. We only compare subsets and we prune early. [^]
+
+With that we can take a WAL entry and refresh queries based on them. The next step is to parallelize.
+
+## Grouped Queues
+
+Since our database is multi-tenant, our WAL include updates from multiple apps. 
+
+In order for invalidation algorithm to work, transactions *within* a single app have to be processed serially and in order. But, we can certainly parallelize invalidations across *different* apps.
+
+We needed some way to guarantee order within a single app and parallelize across apps. We also needed to make sure that one highly app didn’t hog all resources.
+
+This where the Grouped Queue abstraction comes in: 
+
+![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775746073426_CleanShot+2026-04-09+at+07.47.442x.png)
+
+
+Each app gets it’s own subqueue. This guarantees that all items for a particular app are handled serially. 
+
+Workers however can take from multiple different subqueues. This lets us parallelize invalidations across apps.
+
+When we push a WAL entry into the grouped queue, it gets added to the app’s subqueue, but the global order of the subqueue does not change. This makes it so even if one app is adding thousands of items per second, other apps still get an equal chance to get picked up by an invalidator.
+
+This data structure has turned out to be very useful for us, and has seeped all across the code base, including the Session Manager. 
+
+
+## The Session Manager, and Praise for Clojure and the JVM
+
+Which brings to the main coordinator inside the system. When the Client SDK opens up a websocket connection, it’s the session manager that picks up the messages:
+
+![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775747390276_image.png)
+
+
+The Session Manager’s job is to glue everything together. It makes reactive queries, it runs permissions, and it passes along requests to the other services. 
+
+Notice the Grouped Queue abstraction makes an appearance here too. If different clients start bombarding the backend, the Grouped Queue makes sure to both parallelize as much as possible, and to prevent one bad socket from hoging all the resources.
+
+And with this it may be the right place to pause and praise Clojure and the JVM for. They’ve been have been huge win for us in building this infrastructure. 
+
+First, Clojure comes with great concurrency primitive and has real threads. This let us scale further with bigger machines and helped us avoid splitting the system up too early. The abstractions are also really simple and easy to compose. Our grouped queue for example is only 215 lines of code [^]
+
+Second, the JVM has a thriving ecosystem and we really enjoy the libraries. For example, we needed a way for users to define permissions inside Instant. We wanted a language that would be fast and easy to sandbox. After some searching, we discovered Google’s CEL. Thankfully CEL Java was available, and we could just pick it off the shelf. 
+
+And third, Clojure is great for DSLs and for experimental programming. When we started building Instant we had to discover a lot of these abstractions, and playing with them in the REPL was instrumental. 
+
+Many folks deride DSLs but I think we couldn’t have built Instant without them. Case in point: multi-tenant queries. We needed to make our database multi-tenant. To do that we would need to write some pretty complex SQL. Rather than do this by hand, we made a DSL that both made it easy to reason about, and guaranteed that you could pass in an App ID. 
+
+And this brings us to the Multi-Tenant Database. 
+
 <TODO, WRITING THE REST>
