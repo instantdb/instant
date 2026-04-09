@@ -354,9 +354,9 @@ And this brings us to the Multi-Tenant Database.
 
 # The Multi-Tenant Database
 
-Our database was also motivated by two constraints: we needed a way to spin new databases cheaply, and we needed it to be relational. 
+Our database was also motivated by two constraints: we needed a way to spin new databases cheaply, and we needed it to be relational.
 
-Here’s where we ended up: 
+Here’s where we ended up:
 
 ![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775751529695_image.png)
 
@@ -364,22 +364,21 @@ Here’s where we ended up:
 
 Let’s start with the question: how can we let users create lots of different databases?
 
-The most straight forward path would have been to spin up Postgres VMs. But as we mentioned, VMs come with lots of overhead in RAM. There’s no sustainable way to support unlimited apps if you’re spinning up VMs. 
+The most straight forward path would have been to spin up Postgres VMs. But as we mentioned, VMs come with lots of overhead in RAM. There’s no sustainable way to support unlimited apps if you’re spinning up VMs.
 
-Another option would have been to use Postgres schemas. We could have created different tables for different apps, and then kept a mapping of who can see what. This would work, but Postgres wasn’t designed to scale well with tables. From our research we saw that after about 6000 tables, Postgres starts having issues: you get problems with how many files get created on disk, and pg_dump and autovacuum starts failing. 
+Another option would have been to use Postgres schemas. We could have created different tables for different apps, and then kept a mapping of who can see what. This would work, but Postgres wasn’t designed to scale well with tables. From our research we saw that after about 6000 tables, Postgres starts having issues: you get problems with how many files get created on disk, and pg_dump and autovacuum starts failing.
 
-This makes sense. The average Postgres app has a few big tables, not many small tables, which means big tables get optimized. Well, if big tables work, what if we reframed this problem into a giant table? 
+This makes sense. The average Postgres app has a few big tables, not many small tables, which means big tables get optimized. Well, if big tables work, what if we reframed this problem into a giant table?
 
-And this brings us back too…Triple stores! 
+And this brings us back too…Triple stores!
 
 They worked well on the client because they’re a simple DB that supports relational queries. We thought this could work well for us in Postgers too. So we added a `triples` table:
 
 ![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775751156931_CleanShot+2026-04-09+at+09.12.202x.png)
 
+All the data lives in a single `triples` table, and they’re logically isolated by an `app_id`.
 
-All the data lives in a single `triples` table, and they’re logically isolated by an `app_id`. 
-
-If we wanted to get `post_1` from the app `blog` for example, we could generate a SQL query that looks roughly like this: 
+If we wanted to get `post_1` from the app `blog` for example, we could generate a SQL query that looks roughly like this:
 
 ```sql
 select *
@@ -391,19 +390,19 @@ With that, creating a new database is effectively free. Just as we mentioned in 
 
 ### Surprising benefits
 
-Our choice came with some surprising benefits too. 
+Our choice came with some surprising benefits too.
 
-Since we manage columns ourselves, we were able to optimize the developer experience. 
+Since we manage columns ourselves, we were able to optimize the developer experience.
 
-For example, Postgres locks the table when you create a column. Since we implemented columns ourselves, we could make them lock-free. 
+For example, Postgres locks the table when you create a column. Since we implemented columns ourselves, we could make them lock-free.
 
-When you delete a column in Postgres, the data is gone. But we thought this was way too dangerous in the world of agents. So we implemented soft deletes at the column level. Even if a rogue agent deletes your columns, you can undo it and get all your data back in milliseconds. 
+When you delete a column in Postgres, the data is gone. But we thought this was way too dangerous in the world of agents. So we implemented soft deletes at the column level. Even if a rogue agent deletes your columns, you can undo it and get all your data back in milliseconds.
 
 These were the benefits, but of course there were costs too.
 
 ## Partial Indexes
 
-Consider user who says, “I want my posts to have a unique ‘slug’”. In Postgres it’s easy to create unique columns. But since we’re implementing our own columns, we have to do this ourselves. 
+Consider user who says, “I want my posts to have a unique ‘slug’”. In Postgres it’s easy to create unique columns. But since we’re implementing our own columns, we have to do this ourselves.
 
 This is where partial indexes came to the rescue. We could add boolean markers to our `triples` table:
 
@@ -422,12 +421,12 @@ create unique index unique_columns
 Now if a user tries to insert two posts with the same slug:
 
 ```sql
-app_id  | object_id | column | value   | column_unique 
-'blog' | 1         | 'slug' | 'hello' | true          
-'blog' | 2         | 'slug' | 'hello' | true          
+app_id  | object_id | column | value   | column_unique
+'blog' | 1         | 'slug' | 'hello' | true
+'blog' | 2         | 'slug' | 'hello' | true
 ```
 
-The `unique_columns` index triggers and prevents it! 
+The `unique_columns` index triggers and prevents it!
 
 And this same trick makes our queries more efficient. If we want to find posts with the slug ‘hello’ for example, we can generate this query:
 
@@ -437,7 +436,7 @@ from triples
 where app_id = 'blog' and attr_id = 'slug' and value = 'hello' and column_unique;
 ```
 
-And we can extend this pattern to a whole range of queries: unique columns, indexes, dates, references, and so on. 
+And we can extend this pattern to a whole range of queries: unique columns, indexes, dates, references, and so on.
 
 Just using partial indexes and relying on Postgres to make the right queries worked great for us for a while. But after we reached a few hundred million tuples in scale, Postgres started having troubles.
 
@@ -445,34 +444,33 @@ Just using partial indexes and relying on Postgres to make the right queries wor
 
 If you are a Postgres expert reading this, you may have taken a pause looking at that triples table. In Postgres circles this is called the EAV pattern, and is generally discouraged.
 
-It’s discourages because Postgres relies on tables and columns for statistics. 
+It’s discourages because Postgres relies on tables and columns for statistics.
 
 Those statistics is what lets the query planner decide which indexes are most efficient and which joins to do in what order.
 
 Once you keep all data in one table, Postgres loses information about the underlying frequencies in the dataset. It can't tell the difference between a column with 10 distinct values and one with 10 million.
 
-To solve for this, we started keeping track of our statistics. We use a data structure called count-min sketches, which help us estimate frequencies for columns. If you’re curious about how that works, we wrote an essay about. 
+To solve for this, we started keeping track of our statistics. We use a data structure called count-min sketches, which help us estimate frequencies for columns. If you’re curious about how that works, we wrote an essay about.
 
 We could give those statistics to our query engine, and make those queries efficient again.
 
 ## The Query Engine
 
-Which brings us to the query engine. 
+Which brings us to the query engine.
 
-So far I’ve been showing you SQL queries that are simple and easy to understand. But imagine translating more complicated InstaQL queries. Even a query with one where clause will start to have CTEs in them. And then you’ll want to use those statistics to decide which indexes to turn on. 
+So far I’ve been showing you SQL queries that are simple and easy to understand. But imagine translating more complicated InstaQL queries. Even a query with one where clause will start to have CTEs in them. And then you’ll want to use those statistics to decide which indexes to turn on.
 
-That’s what the query engine does. It takes InstaQL queries as well as the count-min sketches, and generates SQL query plans: 
+That’s what the query engine does. It takes InstaQL queries as well as the count-min sketches, and generates SQL query plans:
 
 ![](https://paper-attachments.dropboxusercontent.com/s_331134A1AB81F48C9BB3AF9F0C08F3485C408CA845F0A79093D4B651B8B202E3_1775752934938_CleanShot+2026-04-09+at+09.42.092x.png)
-
 
 This engine is written in the Clojure backend. We took a lot of inspiration from Postgres’ own query engine. Sometimes these queries can look scarily long, but we have been so darn surprised with how well Postgres can handle them. We pass in some hints with pg_hint_plan, and Postgres just churns away and produces results.
 
 # Four Years in the Making
 
-And that covers the database, which covers our whole system! 
+And that covers the database, which covers our whole system!
 
-We hope you found this fun! This has been a labor of love. We’ve built Instant because we want to power the next generation of builders. Any product we build, we built with Instant, and thousands developers have trusted to run their core infrastructure. 
+We hope you found this fun! This has been a labor of love. We’ve built Instant because we want to power the next generation of builders. Any product we build, we built with Instant, and thousands developers have trusted to run their core infrastructure.
 
 If you're building with agents, I think you will love using us.
 
