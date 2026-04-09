@@ -61,7 +61,7 @@ export default function CreateAppDemo({
                 const start = Date.now();
                 const { app: newApp, expiresMs } = await api.createTemporaryApp(
                   {
-                    title: 'architecture-essay-app',
+                    title: 'Architecture Essay App',
                     rules: {
                       code: {
                         $files: {
