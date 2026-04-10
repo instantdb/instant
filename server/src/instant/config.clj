@@ -187,6 +187,7 @@
    (case env
      :prod "https://www.instantdb.com"
      :staging "https://staging.instantdb.com"
+     :self-hosted (System/getenv "INSTANT_DASHBOARD_URL")
      "http://localhost:3000")))
 
 ;; ---

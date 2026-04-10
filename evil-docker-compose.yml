@@ -36,13 +36,48 @@ services:
       context: ./client
       dockerfile: Dockerfile.www
     environment:
+      # Where the backend url will be available externally
       - INSTANT_BACKEND_URL=http://localhost:8888
       - NEXT_PUBLIC_SELF_HOSTED=true
+
+  minio:
+    image: minio/minio:latest
+    restart: always
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_BROWSER: "on"
+      MINIO_SKIP_CLIENT_CERT_VALIDATION: "on"
+      MINIO_ANONYMOUS_POLICY: "download"
+    ports:
+      - 9001:9001
+    command: server /data --console-address ":9001" --address ":9000"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set local http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb local/instant-bucket;
+      /usr/bin/mc policy set public local/instant-bucket;
+      exit"
 
   server:
     depends_on:
       postgres:
         condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
     # TODO: replace with real image
     build:
       context: ./server
@@ -50,9 +85,14 @@ services:
     environment:
       SELF_HOSTED: "true"
       DATABASE_URL: "postgresql://instant:pass@postgres:5432/instant?sslmode=disable"
+      STRIPE_API_KEY: ""
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_USE_SSL: false
+      MINIO_ENDPOINT: "http://minio:9000"
     ports:
       - "8888:8888"
-      - "6005:6005"
 
 volumes:
   backend-db:
+  minio_data:
