@@ -18,6 +18,7 @@ import {
   // core types
   type User,
   type Query,
+  InstantError,
 
   // query types
   type QueryResponse,
@@ -79,6 +80,7 @@ import {
   type WritableStreamCtor,
   type ReadableStreamCtor,
   InstantWritableStream,
+  InstantReadableStream,
 } from '@instantdb/core';
 
 import version from './version.ts';
@@ -1049,7 +1051,9 @@ class Streams {
    *     console.log(chunk);
    *   }
    */
-  createReadStream = (opts: CreateReadStreamOpts): ReadableStream<string> => {
+  createReadStream = (
+    opts: CreateReadStreamOpts,
+  ): InstantReadableStream<string> => {
     return this.#ensureInstantStream().createReadStream(opts);
   };
 
@@ -1611,6 +1615,7 @@ export {
   type InstaQLParams,
   type ValidQuery,
   type Query,
+  InstantError,
 
   // query types
   type QueryResponse,

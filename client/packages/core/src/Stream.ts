@@ -22,6 +22,10 @@ export interface InstantWritableStream<T> extends WritableStream<T> {
   streamId: () => Promise<string>;
 }
 
+export interface InstantReadableStream<T> extends ReadableStream<T> {
+  streamId: () => Promise<string>;
+}
+
 type WriteStreamStartResult =
   | { type: 'ok'; streamId: string; offset: number }
   | { type: 'disconnect' }
@@ -399,6 +403,7 @@ type ReadStreamUpdate =
       offset: number;
       files?: { url: string; size: number }[];
       content?: string;
+      streamId: string;
     }
   | { type: 'error'; error: InstantError }
   | { type: 'reconnect' };
@@ -476,7 +481,7 @@ function createReadStream({
   }) => StreamIterator<ReadStreamUpdate>;
   cancelStream: (opts: { eventId: string }) => void;
 }): {
-  stream: ReadableStream<string>;
+  stream: InstantReadableStream<string>;
   closed: () => boolean;
   addCloseCb: (cb: () => void) => void;
 } {
@@ -486,16 +491,20 @@ function createReadStream({
   const encoder = new TextEncoder();
   let eventId: string | null;
   let closed = false;
-  const closeCbs: (() => void)[] = [];
+  const closeCbs: ((error?: InstantError) => void)[] = [];
+  const streamIdCbs: ((streamId: string) => void)[] = [];
+  // Resolved stream id from the server
+  let streamId_: string | null = null;
+  let error_: InstantError | null = null;
 
-  function markClosed() {
+  function markClosed(error?: InstantError) {
     closed = true;
     for (const cb of closeCbs) {
-      cb();
+      cb(error);
     }
   }
 
-  function addCloseCb(cb: () => void) {
+  function addCloseCb(cb: (error?: InstantError) => void) {
     closeCbs.push(cb);
     return () => {
       const i = closeCbs.indexOf(cb);
@@ -505,12 +514,26 @@ function createReadStream({
     };
   }
 
+  function addStreamIdCb(cb: (streamId: string) => void) {
+    streamIdCbs.push(cb);
+    if (streamId_) {
+      cb(streamId_);
+    }
+    return () => {
+      const i = streamIdCbs.indexOf(cb);
+      if (i !== -1) {
+        streamIdCbs.splice(i, 1);
+      }
+    };
+  }
+
   function error(
     controller: ReadableStreamDefaultController<string>,
     e: InstantError,
   ) {
+    error_ = e;
     controller.error(e);
-    markClosed();
+    markClosed(e);
   }
 
   let fetchFailures = 0;
@@ -543,6 +566,12 @@ function createReadStream({
         error(controller, new InstantError('Stream is corrupted.'));
         canceled = true;
         return;
+      }
+
+      streamId_ = item.streamId;
+
+      for (const cb of streamIdCbs) {
+        cb(streamId_);
       }
 
       let discardLen = seenOffset - item.offset;
@@ -665,7 +694,51 @@ function createReadStream({
       markClosed();
     }
   }
-  const stream = new RStream<string>({
+
+  class RStreamEnhanced
+    extends RStream<string>
+    implements InstantReadableStream<string>
+  {
+    constructor(
+      source?: UnderlyingDefaultSource<string>,
+      strategy?: QueuingStrategy<string>,
+    ) {
+      super(source, strategy);
+    }
+
+    public async streamId(): Promise<string> {
+      if (streamId_) {
+        return streamId_;
+      }
+      if (error_) {
+        throw error_;
+      }
+      return new Promise((resolve, reject) => {
+        const cleanupFns: (() => void)[] = [];
+        const cleanup = () => {
+          for (const f of cleanupFns) {
+            f();
+          }
+        };
+        const resolveCb = (streamId: string) => {
+          resolve(streamId);
+          cleanup();
+        };
+        const rejectCb = (e?: InstantError) => {
+          console.log('REJECT');
+          reject(e || new InstantError('Stream is closed.'));
+          cleanup();
+        };
+
+        console.log('adding cbs');
+
+        cleanupFns.push(addStreamIdCb(resolveCb));
+        cleanupFns.push(addCloseCb(rejectCb));
+      });
+    }
+  }
+
+  const stream = new RStreamEnhanced({
     start(controller) {
       start(controller);
     },
@@ -1011,6 +1084,7 @@ export class InstantStream {
         offset: msg.offset,
         files: msg.files,
         content: msg.content,
+        streamId: msg['stream-id'],
       });
     }
 
@@ -1020,7 +1094,7 @@ export class InstantStream {
     }
   }
 
-  onConnectionStatusChange(status) {
+  onConnectionStatusChange(status: any) {
     // Tell the writers to retry:
     for (const cb of Object.values(this.startWriteStreamCbs)) {
       cb({ type: 'disconnect' });

@@ -1,4 +1,4 @@
-import { Config, init } from '@instantdb/admin';
+import { Config, init, InstantError } from '@instantdb/admin';
 
 export interface CreateResumableStreamContextOptions {
   /**
@@ -167,6 +167,17 @@ export function createResumableStreamContext(
     skipCharacters?: number,
   ): Promise<ReadableStream<string> | null | undefined> {
     const readStream = db.streams.createReadStream({ clientId: streamId });
+    try {
+      await readStream.streamId();
+    } catch (e) {
+      if (
+        e instanceof InstantError &&
+        (e.hint as any)?.errors?.[0]?.message === 'Stream is missing.'
+      ) {
+        return undefined;
+      }
+      throw e;
+    }
     if (skipCharacters) {
       return readStream.pipeThrough(skipCharactersTransformer(skipCharacters));
     }
