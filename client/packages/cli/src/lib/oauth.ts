@@ -21,15 +21,19 @@ export const OAuthServiceProvider = Schema.Struct({
   provider_name: Schema.String,
 });
 
+const NullableString = Schema.Union(Schema.String, Schema.Null).pipe(
+  Schema.optional,
+);
+
 export const OAuthClient = Schema.Struct({
   id: Schema.String,
   client_name: Schema.String,
-  client_id: Schema.String.pipe(Schema.optional),
+  client_id: NullableString,
   provider_id: Schema.String,
-  authorization_endpoint: Schema.String.pipe(Schema.optional),
-  token_endpoint: Schema.String.pipe(Schema.optional),
-  discovery_endpoint: Schema.String.pipe(Schema.optional),
-  redirect_to: Schema.String.pipe(Schema.optional),
+  authorization_endpoint: NullableString,
+  token_endpoint: NullableString,
+  discovery_endpoint: NullableString,
+  redirect_to: NullableString,
   meta: Schema.Any.pipe(Schema.optional),
 });
 

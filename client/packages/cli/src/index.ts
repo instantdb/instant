@@ -25,6 +25,7 @@ import { queryCmd } from './commands/query.ts';
 import { program } from './program.ts';
 import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
 import { authClientAddCmd } from './commands/auth/client/add.ts';
+import { authClientListCmd } from './commands/auth/client/list.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -94,6 +95,28 @@ export const authClientAddDef = authClient
   .action((opts) => {
     return runCommandEffect(
       authClientAddCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    );
+  });
+export const authClientListDef = authClient
+  .command('list')
+  .option(
+    '-a --app <app-id>',
+    'App ID to list clients for. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option('--json', 'Enable JSON output')
+  .allowUnknownOption(true)
+  .action((opts) => {
+    return runCommandEffect(
+      authClientListCmd(opts).pipe(
         Effect.provide(
           WithAppLayer({
             coerce: false,
