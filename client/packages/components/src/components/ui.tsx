@@ -238,6 +238,7 @@ export function TextInput({
         data-lpignore={type === 'sensitive' ? 'true' : undefined}
         data-1p-ignore={type === 'sensitive' ? 'true' : undefined}
         data-bwignore={type === 'sensitive' ? 'true' : undefined}
+        data-form-type={type === 'sensitive' ? 'other' : undefined}
         ref={inputRef}
         inputMode={inputMode}
         placeholder={placeholder}
