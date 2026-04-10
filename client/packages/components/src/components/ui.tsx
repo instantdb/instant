@@ -233,9 +233,11 @@ export function TextInput({
         title={title}
         type={type === 'sensitive' ? 'password' : (type ?? 'text')}
         // Try to prevent password managers from trying to save
-        // sensitive input
+        // sensitive input, LastPass, 1password, BitWarden
         autoComplete={type === 'sensitive' ? 'off' : undefined}
         data-lpignore={type === 'sensitive' ? 'true' : undefined}
+        data-1p-ignore={type === 'sensitive' ? 'true' : undefined}
+        data-bwignore={type === 'sensitive' ? 'true' : undefined}
         ref={inputRef}
         inputMode={inputMode}
         placeholder={placeholder}
