@@ -1583,13 +1583,17 @@
                                     :unique-cols (:unique-cols idx-config)}
                                    (:cols idx-config))
                      ;; Check if the index path resolves an expensive predicate
-                     ;; (function like $ilike). If so, the index scan does useful
-                     ;; work that justifies leaving join columns unresolved —
-                     ;; the alternative (entity-driven) would evaluate the
-                     ;; expensive predicate per row.
+                     ;; that the index handles more efficiently than a per-row
+                     ;; filter. Only $like/$ilike qualify — they are expensive
+                     ;; string operations that the trigram GiST index resolves.
+                     ;; Cheap functions ($not, $isNull, $gt) don't justify
+                     ;; leaving join columns unresolved.
                      path-resolves-function?
                      (some (fn [{:keys [col]}]
-                             (= :function (first (get named-p col))))
+                             (let [[tag value] (get named-p col)]
+                               (and (= :function tag)
+                                    (contains? #{:$like :$ilike}
+                                               (-> value :$comparator :op)))))
                            (:path costs))
                      costs (assoc costs :path-resolves-function? path-resolves-function?)
                      cfg (assoc idx-config
