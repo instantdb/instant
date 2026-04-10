@@ -1,6 +1,6 @@
 import type { InstantConfig, InstantSchemaDef } from '@instantdb/core';
 import { InstantReactAbstractDatabase } from '@instantdb/react-common';
-import { EventSource } from '@dww/eventsource';
+import { EventSource } from 'eventsource';
 
 export default class InstantReactWebDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
