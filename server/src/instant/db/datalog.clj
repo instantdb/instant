@@ -1335,7 +1335,7 @@
                                       (:path costs))
 
         max-filter-remaining (apply max 0 (vals (select-keys (:known-remaining costs)
-                                                                              (:filter-components costs))))
+                                                             (:filter-components costs))))
         max-join-remaining (apply max 0 (vals (:join-remaining costs)))
 
         ;; When scan < join and the index only resolves cheap predicates
@@ -1558,8 +1558,8 @@
                                                           (update :join-remaining dissoc col)
                                                           (update :filter-remaining disj col)
                                                           (update :path conj {:cost cost
-                                                                             :col col
-                                                                             :type :index-lookup}))
+                                                                              :col col
+                                                                              :type :index-lookup}))
                                              [tag value] (get named-p col)
                                              ;; TODO: Research exactly which predicates
                                              ;; block later B-tree columns in PostgreSQL.
