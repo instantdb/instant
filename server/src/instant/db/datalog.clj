@@ -1356,7 +1356,6 @@
         num-unresolved-filters (count (select-keys (:known-remaining costs)
                                                    (:filter-components costs)))
         num-unresolved-joins (count (:join-remaining costs))
-        num-unresolved (+ num-unresolved-joins num-unresolved-filters)
         ;; Filters are cheap per-row predicate checks (10%).
         ;; Joins are more expensive — PG must resolve entity membership
         ;; via hash probe or nested loop (15%).
