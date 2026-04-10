@@ -1325,8 +1325,6 @@
 
         scan-cost (reduce (fn [acc {:keys [cost col]}]
                             (let [next-cost (* acc cost)]
-                              (when *debug*
-                                (println "  STEP" col "cost" cost "acc" acc "next" next-cost))
                               (if (contains? (:unique-cols index) col)
                                 (reduced next-cost)
                                 next-cost)))
@@ -1365,17 +1363,6 @@
         per-row-overhead (+ (* 0.1 num-unresolved-filters)
                             (* 0.15 num-unresolved-joins))
         final-cost (* 1.0 rows-scanned (+ 1.0 per-row-overhead))]
-
-    (when *debug*
-      (println "COST" (:name index) (mapv :col (:path costs))
-               "scan-cost" scan-cost
-               "rows-scanned" rows-scanned
-               "unresolved" num-unresolved
-               "final" final-cost)
-      (when (pos? max-join-remaining)
-        (println "  join-remaining" (:join-remaining costs)))
-      (when (pos? max-filter-remaining)
-        (println "  filter-remaining" (select-keys (:known-remaining costs) (:filter-components costs)))))
 
     final-cost))
 
@@ -1562,13 +1549,6 @@
                                   #{}
                                   [:e :a :v :created-at])
 
-        _ (when *debug*
-            (println "\nPATTERN" (select-keys named-p [:idx :e :a :v :created-at :row-estimate]))
-            (println "  known-components" known-components)
-            (println "  join-components" join-components)
-            (println "  filter-components" filter-components)
-            (println "  symbol-map-keys" (keys symbol-map)))
-
         indexes-with-costs
         (map (fn [idx-config]
                (let [costs (reduce (fn [acc col]
@@ -1625,8 +1605,6 @@
         sorted-indexes (sort index-compare indexes-with-costs)
 
         best-index (first sorted-indexes)]
-    (when *debug*
-      (println "SELECTED" (:name best-index) "cost" (:path-cost-with-joins best-index)))
     (if *debug*
       (assoc best-index
              :rest-indexes (rest sorted-indexes)
