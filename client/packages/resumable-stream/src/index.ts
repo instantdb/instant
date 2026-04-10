@@ -21,6 +21,10 @@ export interface CreateResumableStreamContextOptions {
    * Optional apiURI for the instantdb server.
    */
   apiURI?: string;
+  /**
+   * Enable verbose logging from the underlying instant connection
+   */
+  verbose?: boolean;
 }
 
 export interface ResumableStreamContext {
@@ -119,6 +123,10 @@ export function createResumableStreamContext(
 
   if (apiURI) {
     config.apiURI = apiURI;
+  }
+
+  if (options.verbose) {
+    config.verbose = options.verbose;
   }
 
   const db = init(config);

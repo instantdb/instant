@@ -111,6 +111,7 @@ type Config = {
   apiURI?: string;
   useDateObjects?: boolean;
   disableValidation?: boolean;
+  verbose?: boolean;
 };
 
 export type InstantConfig<
