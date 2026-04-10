@@ -91,7 +91,8 @@ import {
   SubscriptionReadyState,
 } from './subscribe.ts';
 import { parseCookie } from 'cookie';
-import { EventSource } from 'eventsource';
+import { EventSource } from '@dww/eventsource';
+import { MessageEventPolyfill } from './polyfill.ts';
 
 type DebugCheckResult = {
   /** The ID of the record. */
@@ -331,6 +332,7 @@ function makeEventSourceWrapper(opts: {
 
     #createEventSource(url: string): EventSource {
       const es = new EventSource(url, {
+        messageEvent: MessageEventPolyfill,
         fetch(input, init) {
           return fetch(input, {
             ...init,
