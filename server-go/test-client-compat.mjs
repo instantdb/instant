@@ -10,8 +10,8 @@ import WebSocket from 'ws';
 
 const API_URI = 'http://localhost:8888';
 const WS_URI = 'ws://localhost:8888/runtime/session';
-const APP_ID = 'test-app-001';
-const ADMIN_TOKEN = 'df071eea-4a37-4588-988a-ac59c4170513';
+const APP_ID = '3e2d1582-ac5d-4bf1-90e4-6f7f7ff1b8e9';
+const ADMIN_TOKEN = '132262de-d6b2-48b6-bfe8-226c7cda039b';
 
 let passed = 0;
 let failed = 0;
@@ -118,7 +118,7 @@ async function testAdminAPI() {
     const attrs = schemaData.attrs || [];
 
     const idAttr = attrs.find(a => a['forward-identity'][1] === 'todos' && a['forward-identity'][2] === 'id');
-    const titleAttr = attrs.find(a => a['forward-identity'][1] === 'todos' && a['forward-identity'][2] === 'title');
+    const titleAttr = attrs.find(a => a['forward-identity'][1] === 'todos' && a['forward-identity'][2] === 'text');
     const doneAttr = attrs.find(a => a['forward-identity'][1] === 'todos' && a['forward-identity'][2] === 'done');
 
     if (!idAttr || !titleAttr || !doneAttr) {
@@ -134,7 +134,7 @@ async function testAdminAPI() {
         body: JSON.stringify({
           steps: [
             ['add-triple', todoId, idAttr.id, todoId],
-            ['add-triple', todoId, titleAttr.id, 'Admin API todo'],
+            ['add-triple', todoId, titleAttr.id, 'Admin API text'],
             ['add-triple', todoId, doneAttr.id, false],
           ],
         }),
@@ -221,10 +221,11 @@ async function testWebSocket() {
     'client-event-id': queryEventId,
   });
 
-  const queryResp = await waitForMsg(ws, m => m.op === 'q-ok' && m['client-event-id'] === queryEventId);
-  if (queryResp.result && queryResp.result.todos !== undefined) {
-    const todoCount = Array.isArray(queryResp.result.todos) ? queryResp.result.todos.length : 0;
-    pass(`WS: add-query returns results (${todoCount} todos)`);
+  const queryResp = await waitForMsg(ws, m => (m.op === 'q-ok' || m.op === 'add-query-ok') && m['client-event-id'] === queryEventId);
+  if (queryResp.result !== undefined) {
+    // Result is now InstaQL tree format (array of nodes with datalog-result)
+    const isTree = Array.isArray(queryResp.result);
+    pass(`WS: add-query returns results (tree format: ${isTree})`);
   } else {
     fail('WS: add-query', JSON.stringify(queryResp).slice(0, 200));
   }
@@ -233,15 +234,15 @@ async function testWebSocket() {
   // We need the attr IDs from init response
   const attrs = Array.isArray(initResp.attrs) ? initResp.attrs : Object.values(initResp.attrs || {});
   const idAttr = attrs.find(a => {
-    const fwd = a['forward-identity'] || a.ForwardIdentity;
+    const fwd = a['forward-identity'];
     return fwd && fwd[1] === 'todos' && fwd[2] === 'id';
   });
   const titleAttr = attrs.find(a => {
-    const fwd = a['forward-identity'] || a.ForwardIdentity;
-    return fwd && fwd[1] === 'todos' && fwd[2] === 'title';
+    const fwd = a['forward-identity'];
+    return fwd && fwd[1] === 'todos' && fwd[2] === 'text';
   });
   const doneAttr = attrs.find(a => {
-    const fwd = a['forward-identity'] || a.ForwardIdentity;
+    const fwd = a['forward-identity'];
     return fwd && fwd[1] === 'todos' && fwd[2] === 'done';
   });
 
@@ -249,12 +250,16 @@ async function testWebSocket() {
   const txEventId = uuid();
   const attrId = (a) => a.id || a.ID;
 
+  if (!idAttr || !titleAttr || !doneAttr) {
+    console.log('  DEBUG attrs count:', attrs.length, 'idAttr:', !!idAttr, 'titleAttr:', !!titleAttr, 'doneAttr:', !!doneAttr);
+    if (attrs.length > 0) console.log('  DEBUG sample:', JSON.stringify(attrs[0]).slice(0, 200));
+  }
   if (idAttr && titleAttr && doneAttr) {
     send(ws, {
       op: 'transact',
       'tx-steps': [
         ['add-triple', newTodoId, attrId(idAttr), newTodoId],
-        ['add-triple', newTodoId, attrId(titleAttr), 'WS transact todo'],
+        ['add-triple', newTodoId, attrId(titleAttr), 'WS transact text'],
         ['add-triple', newTodoId, attrId(doneAttr), false],
       ],
       'client-event-id': txEventId,

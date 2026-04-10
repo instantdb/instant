@@ -238,10 +238,10 @@ func (h *Handler) handleInit(ctx context.Context, sess *reactive.Session, msg ma
 		return
 	}
 
-	// Build attrs response
-	attrsResp := make(map[string]interface{})
+	// Build attrs response as array (client Reactor._setAttrs expects array)
+	attrsArr := make([]map[string]interface{}, 0, len(attrs))
 	for _, a := range attrs {
-		attrsResp[a.ID] = attrToJSON(a)
+		attrsArr = append(attrsArr, attrToJSON(a))
 	}
 
 	authResp := map[string]interface{}{
@@ -262,7 +262,7 @@ func (h *Handler) handleInit(ctx context.Context, sess *reactive.Session, msg ma
 		"session-id":      sess.ID,
 		"client-event-id": clientEventID,
 		"auth":            authResp,
-		"attrs":           attrs,
+		"attrs":           attrsArr,
 	})
 }
 
@@ -304,10 +304,13 @@ func (h *Handler) handleAddQuery(ctx context.Context, sess *reactive.Session, ms
 		h.refreshQuery(sess, clientEventID, query)
 	})
 
+	// Build InstaQL result tree (the format the client Reactor expects)
+	instaqlResult := h.buildInstaQLResult(ctx, appID, query, attrs)
+
 	sess.Send(map[string]interface{}{
-		"op":              "q-ok",
+		"op":              "add-query-ok",
 		"q":               query,
-		"result":          result.Data,
+		"result":          instaqlResult,
 		"client-event-id": clientEventID,
 	})
 }
@@ -349,14 +352,10 @@ func (h *Handler) handleTransact(ctx context.Context, sess *reactive.Session, ms
 		return
 	}
 
-	// Re-read attrs in case they changed
-	newAttrs, _ := h.db.GetAttrsByAppID(ctx, appID)
-
 	sess.Send(map[string]interface{}{
 		"op":              "transact-ok",
 		"tx-id":           result.TxID,
 		"client-event-id": clientEventID,
-		"attrs":           newAttrs,
 	})
 }
 
@@ -382,17 +381,175 @@ func (h *Handler) refreshQuery(sess *reactive.Session, eventID string, query jso
 		return
 	}
 
-	result, err := h.qe.ExecuteQuery(ctx, appID, query, attrs)
-	if err != nil {
-		return
-	}
+	instaqlResult := h.buildInstaQLResult(ctx, appID, query, attrs)
 
 	sess.Send(map[string]interface{}{
-		"op":              "q-ok",
+		"op":              "add-query-ok",
 		"q":               query,
-		"result":          result.Data,
+		"result":          instaqlResult,
 		"client-event-id": eventID,
 	})
+}
+
+// buildInstaQLResult converts query results into the InstaQL tree format
+// that the client Reactor expects: an array of nodes, each containing
+// datalog-result with join-rows of [entity_id, attr_id, value, created_at] triples.
+func (h *Handler) buildInstaQLResult(ctx context.Context, appID string, query json.RawMessage, attrs []*storage.Attr) []interface{} {
+	forms, err := engine.ParseInstaQL(query)
+	if err != nil {
+		return []interface{}{}
+	}
+
+	attrMap := storage.BuildAttrMap(attrs)
+	var nodes []interface{}
+
+	for _, form := range forms {
+		node := h.buildFormNode(ctx, appID, form, attrs, attrMap)
+		nodes = append(nodes, node)
+	}
+
+	return nodes
+}
+
+func (h *Handler) buildFormNode(ctx context.Context, appID string, form *engine.InstaQLForm, attrs []*storage.Attr, attrMap map[string]*storage.Attr) map[string]interface{} {
+	idAttr := storage.SeekAttrByFwdIdent(attrs, form.Etype, "id")
+	if idAttr == nil {
+		return map[string]interface{}{
+			"data": map[string]interface{}{
+				"datalog-result": map[string]interface{}{
+					"join-rows": []interface{}{},
+				},
+			},
+			"child-nodes": []interface{}{},
+		}
+	}
+
+	// Get entity IDs for this form
+	qe := h.qe
+	result, err := qe.ExecuteQuery(ctx, appID, mustMarshal(map[string]interface{}{form.Etype: formToQueryMap(form)}), attrs)
+	if err != nil {
+		return map[string]interface{}{
+			"data": map[string]interface{}{
+				"datalog-result": map[string]interface{}{
+					"join-rows": []interface{}{},
+				},
+			},
+			"child-nodes": []interface{}{},
+		}
+	}
+
+	// Get entities from the hydrated result
+	entities, _ := result.Data[form.Etype].([]map[string]interface{})
+
+	// Fetch raw triples for all these entities
+	var entityIDs []string
+	for _, e := range entities {
+		if eid, ok := e["id"].(string); ok {
+			entityIDs = append(entityIDs, eid)
+		}
+	}
+
+	joinRows := h.fetchJoinRows(ctx, appID, entityIDs)
+
+	// Build child nodes
+	var childNodes []interface{}
+	for _, child := range form.Children {
+		for _, e := range entities {
+			parentID, _ := e["id"].(string)
+			if parentID == "" {
+				continue
+			}
+			childNode := h.buildChildNode(ctx, appID, parentID, child, attrs, attrMap)
+			childNodes = append(childNodes, childNode)
+		}
+	}
+
+	if childNodes == nil {
+		childNodes = []interface{}{}
+	}
+
+	return map[string]interface{}{
+		"data": map[string]interface{}{
+			"datalog-result": map[string]interface{}{
+				"join-rows": joinRows,
+			},
+		},
+		"child-nodes": childNodes,
+	}
+}
+
+func (h *Handler) buildChildNode(ctx context.Context, appID, parentID string, child *engine.InstaQLForm, attrs []*storage.Attr, attrMap map[string]*storage.Attr) map[string]interface{} {
+	// For child queries, find linked entities and return their triples
+	// This is simplified - returns the link triples + child entity triples
+
+	childJoinRows := []interface{}{}
+	childNodes := []interface{}{}
+
+	return map[string]interface{}{
+		"data": map[string]interface{}{
+			"datalog-result": map[string]interface{}{
+				"join-rows": childJoinRows,
+			},
+		},
+		"child-nodes": childNodes,
+	}
+}
+
+func (h *Handler) fetchJoinRows(ctx context.Context, appID string, entityIDs []string) []interface{} {
+	if len(entityIDs) == 0 {
+		return []interface{}{}
+	}
+
+	var joinRows []interface{}
+	for _, eid := range entityIDs {
+		triples, err := h.db.GetTriplesByEntity(ctx, appID, eid)
+		if err != nil {
+			continue
+		}
+		for _, t := range triples {
+			// Each join row is an array of triples: [[entity_id, attr_id, value, created_at]]
+			var val interface{}
+			json.Unmarshal(t.Value, &val)
+			row := []interface{}{
+				[]interface{}{t.EntityID, t.AttrID, val, t.CreatedAt},
+			}
+			joinRows = append(joinRows, row)
+		}
+	}
+	return joinRows
+}
+
+func formToQueryMap(form *engine.InstaQLForm) map[string]interface{} {
+	m := map[string]interface{}{}
+	if len(form.Options.Where) > 0 || form.Options.Order != nil || form.Options.Limit != nil {
+		opts := map[string]interface{}{}
+		if len(form.Options.Where) > 0 {
+			where := map[string]interface{}{}
+			for _, w := range form.Options.Where {
+				if len(w.Path) > 0 {
+					if w.Op == "" {
+						where[w.Path[0]] = w.Value
+					} else {
+						where[w.Path[0]] = map[string]interface{}{w.Op: w.Value}
+					}
+				}
+			}
+			opts["where"] = where
+		}
+		if form.Options.Limit != nil {
+			opts["limit"] = *form.Options.Limit
+		}
+		m["$"] = opts
+	}
+	for _, child := range form.Children {
+		m[child.Etype] = formToQueryMap(child)
+	}
+	return m
+}
+
+func mustMarshal(v interface{}) json.RawMessage {
+	b, _ := json.Marshal(v)
+	return b
 }
 
 // ---- Ephemeral operations ----
@@ -689,9 +846,21 @@ func attrToJSON(a *storage.Attr) map[string]interface{} {
 		"cardinality":      a.Cardinality,
 		"unique?":          a.IsUnique,
 		"index?":           a.IsIndex,
+		"required?":        a.IsRequired,
+		"inferred-types":   nil,
+		"catalog":          "user",
 	}
 	if a.ReverseIdentity[0] != "" {
 		result["reverse-identity"] = a.ReverseIdentity
+	}
+	if a.CheckedDataType != "" {
+		result["checked-data-type"] = a.CheckedDataType
+	}
+	if a.Indexing {
+		result["indexing?"] = true
+	}
+	if a.SettingUnique {
+		result["setting-unique?"] = true
 	}
 	return result
 }

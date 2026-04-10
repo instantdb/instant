@@ -216,28 +216,20 @@ func TestWSAddQuery(t *testing.T) {
 	})
 
 	msg := readMsg(t, conn)
-	if msg["op"] != "q-ok" {
-		t.Errorf("expected q-ok, got %v", msg["op"])
+	if msg["op"] != "add-query-ok" {
+		t.Errorf("expected add-query-ok, got %v", msg["op"])
 	}
 	if msg["client-event-id"] != "evt-q1" {
 		t.Errorf("expected client-event-id=evt-q1, got %v", msg["client-event-id"])
 	}
 
-	// Result should contain users
-	result, ok := msg["result"].(map[string]interface{})
+	// Result should be InstaQL tree format (array of nodes)
+	result, ok := msg["result"].([]interface{})
 	if !ok {
-		t.Fatal("expected result map")
+		t.Fatalf("expected result array (InstaQL tree), got %T", msg["result"])
 	}
-	users, ok := result["users"]
-	if !ok {
-		t.Fatal("expected users in result")
-	}
-	userList, ok := users.([]interface{})
-	if !ok {
-		t.Fatalf("expected users list, got %T", users)
-	}
-	if len(userList) != 1 {
-		t.Errorf("expected 1 user, got %d", len(userList))
+	if len(result) < 1 {
+		t.Fatal("expected at least 1 node in result tree")
 	}
 }
 
