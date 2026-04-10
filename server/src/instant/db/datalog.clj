@@ -1066,6 +1066,9 @@
 (defn enable-pg-hints? []
   *enable-pg-hints*)
 
+(defn new-index-cost? []
+  (flags/toggled? :new-index-cost true))
+
 (defn required-sketch-keys-for-component
   "Returns a set of {:app-id :attr-id} maps for the sketches that we'll
    need to fulfill the count queries for the named pattern."
@@ -1331,23 +1334,40 @@
         path-has-selective-col? (some #(not= :a (:col %))
                                       (:path costs))
 
-        max-remaining (apply max 0 (concat (vals (:join-remaining costs))
-                                           (vals (select-keys (:known-remaining costs)
-                                                              (:filter-components costs)))))
-        rows-scanned (if path-has-selective-col?
-                       scan-cost
-                       (max scan-cost max-remaining))
+        max-filter-remaining (apply max 0 (vals (select-keys (:known-remaining costs)
+                                                             (:filter-components costs))))
+        max-join-remaining (apply max 0 (vals (:join-remaining costs)))
 
-        num-unresolved (+ (count (:join-remaining costs))
-                          (count (select-keys (:known-remaining costs)
-                                              (:filter-components costs))))
-        per-row-overhead (* 0.1 num-unresolved)]
+        ;; When scan < join and the index only resolves cheap predicates
+        ;; (constants), PG may reverse the join order. But when the
+        ;; index resolves an expensive predicate (function like $ilike)
+        ;; in its path, the scan does useful work that justifies the
+        ;; join cost — the alternative would evaluate the expensive
+        ;; predicate per row on the full driving set.
+        join-reversal-risk? (and (pos? max-join-remaining)
+                                 (< scan-cost max-join-remaining)
+                                 (not (:path-resolves-function? costs)))
 
-    (* 1.0 rows-scanned (+ 1.0 per-row-overhead))))
+        rows-scanned (cond
+                       join-reversal-risk? max-join-remaining
+                       path-has-selective-col? scan-cost
+                       :else (max scan-cost max-join-remaining max-filter-remaining))
+
+        num-unresolved-filters (count (select-keys (:known-remaining costs)
+                                                   (:filter-components costs)))
+        num-unresolved-joins (count (:join-remaining costs))
+        ;; Filters are cheap per-row predicate checks (10%).
+        ;; Joins are more expensive — PG must resolve entity membership
+        ;; via hash probe or nested loop (15%).
+        per-row-overhead (+ (* 0.1 num-unresolved-filters)
+                            (* 0.15 num-unresolved-joins))
+        final-cost (* 1.0 rows-scanned (+ 1.0 per-row-overhead))]
+
+    final-cost))
 
 (defn path-cost-with-joins
   [index]
-  (if (flags/toggled? :new-index-cost true)
+  (if (new-index-cost?)
     (path-cost-with-joins-new index)
     (path-cost-with-joins-old index)))
 
@@ -1532,13 +1552,25 @@
         (map (fn [idx-config]
                (let [costs (reduce (fn [acc col]
                                      (if-let [cost (get (:known-remaining acc) col)]
-                                       (-> acc
-                                           (update :known-remaining dissoc col)
-                                           (update :join-remaining dissoc col)
-                                           (update :filter-remaining disj col)
-                                           (update :path conj {:cost cost
-                                                               :col col
-                                                               :type :index-lookup}))
+                                       (let [next-acc (-> acc
+                                                          (update :known-remaining dissoc col)
+                                                          (update :join-remaining dissoc col)
+                                                          (update :filter-remaining disj col)
+                                                          (update :path conj {:cost cost
+                                                                              :col col
+                                                                              :type :index-lookup}))
+                                             [tag value] (get named-p col)
+                                             ;; TODO: Research exactly which predicates
+                                             ;; block later B-tree columns in PostgreSQL.
+                                             ;; Multi-value IN definitely blocks. Range
+                                             ;; predicates ($gt, $lt) may or may not.
+                                             blocks? (and (new-index-cost?)
+                                                          (= tag :constant)
+                                                          (set? value)
+                                                          (> (count value) 1))]
+                                         (if blocks?
+                                           (reduced next-acc)
+                                           next-acc))
                                        (reduced acc)))
                                    {:known-remaining known-components
                                     :known-components known-components
@@ -1550,6 +1582,20 @@
                                     :path []
                                     :unique-cols (:unique-cols idx-config)}
                                    (:cols idx-config))
+                     ;; Check if the index path resolves an expensive predicate
+                     ;; that the index handles more efficiently than a per-row
+                     ;; filter. Only $like/$ilike qualify — they are expensive
+                     ;; string operations that the trigram GiST index resolves.
+                     ;; Cheap functions ($not, $isNull, $gt) don't justify
+                     ;; leaving join columns unresolved.
+                     path-resolves-function?
+                     (some (fn [{:keys [col]}]
+                             (let [[tag value] (get named-p col)]
+                               (and (= :function tag)
+                                    (contains? #{:$like :$ilike}
+                                               (-> value :$comparator :op)))))
+                           (:path costs))
+                     costs (assoc costs :path-resolves-function? path-resolves-function?)
                      cfg (assoc idx-config
                                 :index-costs costs
                                 :matching-idx-key? (= (:idx-key idx-config)
@@ -1595,7 +1641,7 @@
         ;; When :e is ALREADY in the symbol-map, this is an entity join
         ;; (1:1 per attribute). The cap is exact.
         [row-estimate symbol-map-row-estimate]
-        (if (flags/toggled? :new-index-cost true)
+        (if (new-index-cost?)
           (let [join-cap (reduce (fn [acc c]
                                    (let [[tag variable] (get pattern c)]
                                      (if-let [v (and (= :variable tag)
