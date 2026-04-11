@@ -196,6 +196,11 @@ func (tp *TxProcessor) ProcessTransaction(ctx context.Context, appID string, ste
 				if err := tp.execAddAttr(ctx, tx, appID, step); err != nil {
 					return err
 				}
+				// Update attrMap so subsequent steps (e.g. add-triple for a link)
+				// can look up the newly created attr and get correct index flags.
+				if step.Attr != nil {
+					attrMap[step.Attr.ID] = step.Attr
+				}
 			case "update-attr":
 				if err := tp.execUpdateAttr(ctx, tx, step); err != nil {
 					return err
@@ -227,6 +232,14 @@ func (tp *TxProcessor) ProcessTransaction(ctx context.Context, appID string, ste
 	result.Changes = make([]storage.ChangelogEntry, len(newChanges))
 	for i, ch := range newChanges {
 		result.Changes[i] = *ch
+	}
+
+	// Set TxID to the last changelog entry ID so the client receives a
+	// non-zero tx-id.  The client stores this value and uses it to decide
+	// whether a transaction was confirmed; a zero value is falsy in
+	// JavaScript and causes the timeout handler to incorrectly fire.
+	if len(newChanges) > 0 {
+		result.TxID = newChanges[len(newChanges)-1].ID
 	}
 
 	return result, nil
