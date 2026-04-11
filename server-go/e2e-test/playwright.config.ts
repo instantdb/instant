@@ -10,9 +10,11 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3456',
     trace: 'on-first-retry',
-    launchOptions: {
-      executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-    },
+    ...(process.env.CHROME_PATH && {
+      launchOptions: {
+        executablePath: process.env.CHROME_PATH,
+      },
+    }),
   },
   webServer: {
     command: 'npx vite --port 3456',
