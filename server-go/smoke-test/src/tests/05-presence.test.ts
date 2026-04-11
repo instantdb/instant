@@ -107,8 +107,10 @@ export async function presenceTests(app: TestApp) {
       // Both join same room
       wsSend(ws1, { op: 'join-room', 'room-id': 'broadcast-room', 'peer-id': 'p1', 'client-event-id': uuid() });
       wsSend(ws2, { op: 'join-room', 'room-id': 'broadcast-room', 'peer-id': 'p2', 'client-event-id': uuid() });
-      await wsWaitFor(ws1, (m) => m.op === 'join-room-ok');
-      await wsWaitFor(ws2, (m) => m.op === 'join-room-ok');
+      await Promise.all([
+        wsWaitFor(ws1, (m) => m.op === 'join-room-ok'),
+        wsWaitFor(ws2, (m) => m.op === 'join-room-ok'),
+      ]);
 
       // ws1 broadcasts
       wsSend(ws1, {
@@ -140,8 +142,10 @@ export async function presenceTests(app: TestApp) {
 
       wsSend(ws1, { op: 'join-room', 'room-id': 'peer-pres-room', 'peer-id': 'p1', 'client-event-id': uuid() });
       wsSend(ws2, { op: 'join-room', 'room-id': 'peer-pres-room', 'peer-id': 'p2', 'client-event-id': uuid() });
-      await wsWaitFor(ws1, (m) => m.op === 'join-room-ok');
-      await wsWaitFor(ws2, (m) => m.op === 'join-room-ok');
+      await Promise.all([
+        wsWaitFor(ws1, (m) => m.op === 'join-room-ok'),
+        wsWaitFor(ws2, (m) => m.op === 'join-room-ok'),
+      ]);
 
       // ws1 sets presence
       wsSend(ws1, {
