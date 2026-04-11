@@ -124,7 +124,9 @@ export async function presenceTests(app: TestApp) {
       const msg = await wsWaitFor(ws2, (m) =>
         m.op === 'server-broadcast' && m.topic === 'emoji-reaction',
       );
-      expect(msg.data.emoji).toBe('🎉');
+      // Broadcast data is wrapped: msg.data = { data: <payload>, peer-id: <sender> }
+      expect(msg.data.data.emoji).toBe('🎉');
+      expect(msg.data['peer-id']).toBe('p1');
 
       ws1.close();
       ws2.close();
