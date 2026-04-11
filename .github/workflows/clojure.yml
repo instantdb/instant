@@ -4,7 +4,7 @@ env:
   INSTANT_TIMINGS_APP_ID: 'b6003065-8152-4b15-8bcd-09a70e322854'
 
 on:
-  push:
+  workflow_dispatch:
 
 jobs:
   detect_changes:
