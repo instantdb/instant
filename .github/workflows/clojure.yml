@@ -4,7 +4,7 @@ env:
   INSTANT_TIMINGS_APP_ID: 'b6003065-8152-4b15-8bcd-09a70e322854'
 
 on:
-  push:
+  workflow_dispatch:
 
 jobs:
   detect_changes:
@@ -192,7 +192,6 @@ jobs:
       run: clojure -T:build compile-java
 
     - name: Run Clojure tests
-      if: false
       working-directory: server
       env:
         DATABASE_URL: "jdbc:postgresql://localhost:5432/test_db?user=test_user&password=test_password"
