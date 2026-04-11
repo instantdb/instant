@@ -36,6 +36,7 @@ export async function setupTestApp(): Promise<TestAppInfo> {
         entities: {
           todos: {
             attrs: {
+              id: { unique: true, indexed: true },
               text: {},
               done: {},
               createdAt: { indexed: true },
@@ -44,6 +45,7 @@ export async function setupTestApp(): Promise<TestAppInfo> {
           },
           projects: {
             attrs: {
+              id: { unique: true, indexed: true },
               name: {},
               color: {},
               createdAt: { indexed: true },
@@ -51,6 +53,7 @@ export async function setupTestApp(): Promise<TestAppInfo> {
           },
           messages: {
             attrs: {
+              id: { unique: true, indexed: true },
               content: {},
               sender: {},
               category: {},
@@ -108,6 +111,8 @@ export async function seedTodos(
   const createdAtAttr = findAttr(attrs, 'todos', 'createdAt');
   const priorityAttr = findAttr(attrs, 'todos', 'priority');
 
+  const idAttr = findAttr(attrs, 'todos', 'id');
+
   const ids: string[] = [];
   for (let i = 0; i < count; i++) {
     const todoId = crypto.randomUUID();
@@ -121,6 +126,7 @@ export async function seedTodos(
       },
       body: JSON.stringify({
         steps: [
+          ['add-triple', todoId, idAttr.id, todoId],
           ['add-triple', todoId, textAttr.id, `Seeded todo ${i + 1}`],
           ['add-triple', todoId, doneAttr.id, false],
           ['add-triple', todoId, createdAtAttr.id, Date.now() + i * 100],
@@ -150,6 +156,8 @@ export async function seedMessages(
   const priorityAttr = findAttr(attrs, 'messages', 'priority');
   const createdAtAttr = findAttr(attrs, 'messages', 'createdAt');
 
+  const idAttr = findAttr(attrs, 'messages', 'id');
+
   const ids: string[] = [];
   for (let i = 0; i < messages.length; i++) {
     const msgId = crypto.randomUUID();
@@ -164,6 +172,7 @@ export async function seedMessages(
       },
       body: JSON.stringify({
         steps: [
+          ['add-triple', msgId, idAttr.id, msgId],
           ['add-triple', msgId, contentAttr.id, m.content],
           ['add-triple', msgId, senderAttr.id, m.sender],
           ['add-triple', msgId, categoryAttr.id, m.category],
