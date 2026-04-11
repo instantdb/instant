@@ -1,0 +1,96 @@
+name: Go Server Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server-go/**'
+      - '.github/workflows/go-release.yml'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest go-server tag
+        id: get_tag
+        run: |
+          # Find the latest go-server tag
+          LATEST_TAG=$(git tag -l 'go-server/v*' --sort=-v:refname | head -n 1)
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No existing go-server tags found, starting at v0.0.0"
+            LATEST_TAG="go-server/v0.0.0"
+          fi
+          echo "latest_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+
+          # Extract version components
+          VERSION=${LATEST_TAG#go-server/v}
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+
+          # Bump patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_TAG="go-server/v${MAJOR}.${MINOR}.${NEW_PATCH}"
+          echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+          echo "new_version=v${MAJOR}.${MINOR}.${NEW_PATCH}" >> "$GITHUB_OUTPUT"
+          echo "Next release: $NEW_TAG"
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          LATEST_TAG="${{ steps.get_tag.outputs.latest_tag }}"
+          NEW_TAG="${{ steps.get_tag.outputs.new_tag }}"
+
+          # Check if the previous tag exists in the repo
+          if git rev-parse "$LATEST_TAG" >/dev/null 2>&1; then
+            NOTES=$(git log "$LATEST_TAG"..HEAD --pretty=format:"- %s (%h)" -- server-go/)
+          else
+            NOTES=$(git log --pretty=format:"- %s (%h)" -20 -- server-go/)
+          fi
+
+          if [ -z "$NOTES" ]; then
+            NOTES="- Maintenance release"
+          fi
+
+          # Write to file to avoid escaping issues
+          echo "$NOTES" > /tmp/release_notes.txt
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: server-go/go.sum
+
+      - name: Run tests
+        working-directory: server-go
+        run: |
+          go mod download
+          CGO_ENABLED=1 go test -timeout 120s -count=1 -race ./...
+
+      - name: Build binary
+        working-directory: server-go
+        run: CGO_ENABLED=1 go build -o instant-server ./cmd/instant/
+
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.get_tag.outputs.new_tag }}"
+          git push origin "${{ steps.get_tag.outputs.new_tag }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_tag.outputs.new_tag }}
+          name: "Go Server ${{ steps.get_tag.outputs.new_version }}"
+          body_path: /tmp/release_notes.txt
+          generate_release_notes: false
