@@ -26,6 +26,7 @@ import { streamTests } from './tests/07-streams.test.js';
 import { syncTests } from './tests/08-sync.test.js';
 import { schemaTests } from './tests/09-schema.test.js';
 import { oauthTests } from './tests/10-oauth.test.js';
+import { todosAppTests } from './tests/11-todos-app.test.js';
 
 async function main() {
   console.log('');
@@ -61,6 +62,7 @@ async function main() {
   await syncTests(app);
   await schemaTests(app);
   await oauthTests(app);
+  await todosAppTests(app);
 
   // Print results
   const allPassed = printResults();
