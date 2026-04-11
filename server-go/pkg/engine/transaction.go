@@ -163,6 +163,11 @@ func (tp *TxProcessor) ProcessTransaction(ctx context.Context, appID string, ste
 	result := &TxResult{}
 	var changes []storage.ChangelogEntry
 
+	// Record the last changelog ID before the transaction so we can find new entries after
+	var lastChangelogID int64
+	tp.db.RawDB().QueryRowContext(ctx,
+		`SELECT COALESCE(MAX(id), 0) FROM changelog WHERE app_id = ?`, appID).Scan(&lastChangelogID)
+
 	err := tp.db.ExecTx(ctx, func(tx *sql.Tx) error {
 		for _, rawStep := range steps {
 			step, err := ParseTxStep(rawStep)
@@ -214,11 +219,14 @@ func (tp *TxProcessor) ProcessTransaction(ctx context.Context, appID string, ste
 		return nil, err
 	}
 
-	result.Changes = changes
-
-	// Notify subscribers of changes
-	for _, ch := range changes {
-		tp.db.NotifyChange(ch)
+	// Read changelog entries written by SQLite triggers during the transaction.
+	newChanges, _ := tp.db.GetChangesSince(ctx, appID, lastChangelogID, 1000)
+	for _, ch := range newChanges {
+		tp.db.NotifyChange(*ch)
+	}
+	result.Changes = make([]storage.ChangelogEntry, len(newChanges))
+	for i, ch := range newChanges {
+		result.Changes[i] = *ch
 	}
 
 	return result, nil

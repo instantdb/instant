@@ -316,8 +316,9 @@ func (h *Handler) handleAddQuery(ctx context.Context, sess *reactive.Session, ms
 
 	// Subscribe to invalidation topics — scoped to this session so ALL
 	// sessions with overlapping queries get notified on changes.
+	refreshSess := sess // capture for closure
 	h.inv.Subscribe(sess.ID, result.Topics, func(appID string, entry *storage.ChangelogEntry) {
-		h.refreshAllQueries(sess)
+		h.refreshAllQueries(refreshSess)
 	})
 
 	// Build InstaQL result tree (the format the client Reactor expects)
@@ -399,30 +400,18 @@ func (h *Handler) refreshQuery(sess *reactive.Session, eventID string, query jso
 
 	instaqlResult := h.buildInstaQLResult(ctx, appID, query, attrs)
 
-	// Build attrs array for the Reactor
-	attrsArr := make([]map[string]interface{}, 0, len(attrs))
-	for _, a := range attrs {
-		attrsArr = append(attrsArr, attrToJSON(a))
-	}
-
-	// Send refresh-ok with computations — this is the format the Reactor
-	// expects for cross-session invalidation (not add-query-ok which is
-	// only for the initial query subscription response).
 	sess.Send(map[string]interface{}{
-		"op":              "refresh-ok",
-		"processed-tx-id": 0,
-		"attrs":           attrsArr,
-		"computations": []map[string]interface{}{
-			{
-				"instaql-query":  query,
-				"instaql-result": instaqlResult,
-			},
-		},
+		"op":              "add-query-ok",
+		"q":               query,
+		"result":          instaqlResult,
+		"client-event-id": eventID,
 	})
 }
 
-// refreshAllQueries sends fresh data for ALL queries in a session.
-// Called when another session mutates data that this session is subscribed to.
+// refreshAllQueries re-sends fresh query results for ALL queries in a session.
+// Called when another session mutates data that overlaps this session's subscriptions.
+// Sends individual add-query-ok messages for each query so the Reactor updates
+// its store directly (same as the initial subscription response).
 func (h *Handler) refreshAllQueries(sess *reactive.Session) {
 	ctx := context.Background()
 	appID := sess.AppID
@@ -433,30 +422,15 @@ func (h *Handler) refreshAllQueries(sess *reactive.Session) {
 	}
 
 	queries := sess.GetQueries()
-	if len(queries) == 0 {
-		return
-	}
-
-	attrsArr := make([]map[string]interface{}, 0, len(attrs))
-	for _, a := range attrs {
-		attrsArr = append(attrsArr, attrToJSON(a))
-	}
-
-	var computations []map[string]interface{}
-	for _, sub := range queries {
+	for eventID, sub := range queries {
 		instaqlResult := h.buildInstaQLResult(ctx, appID, sub.Query, attrs)
-		computations = append(computations, map[string]interface{}{
-			"instaql-query":  sub.Query,
-			"instaql-result": instaqlResult,
+		sess.Send(map[string]interface{}{
+			"op":              "add-query-ok",
+			"q":               sub.Query,
+			"result":          instaqlResult,
+			"client-event-id": eventID,
 		})
 	}
-
-	sess.Send(map[string]interface{}{
-		"op":              "refresh-ok",
-		"processed-tx-id": 0,
-		"attrs":           attrsArr,
-		"computations":    computations,
-	})
 }
 
 // buildInstaQLResult converts query results into the InstaQL tree format

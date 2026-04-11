@@ -155,19 +155,20 @@ test.describe('Todos App: Delete', () => {
 
   test('delete completed removes only done todos', async ({ page }) => {
     await waitForApp(page);
-    await addTodoViaUI(page, 'Keep');
+    await addTodoViaUI(page, 'Keep this one');
     await expect(page.getByTestId('todo-item')).toHaveCount(1, { timeout: 5000 });
 
-    await addTodoViaUI(page, 'Remove');
+    await addTodoViaUI(page, 'Remove this one');
     await expect(page.getByTestId('todo-item')).toHaveCount(2, { timeout: 5000 });
 
-    // Mark second as done
-    await page.getByTestId('todo-checkbox').nth(1).click();
-    await expect(page.getByTestId('todo-text').nth(1)).toHaveCSS('text-decoration-line', 'line-through', { timeout: 5000 });
+    // Find and mark "Remove this one" as done by clicking its checkbox
+    const removeItem = page.getByTestId('todo-item').filter({ hasText: 'Remove this one' });
+    await removeItem.getByTestId('todo-checkbox').click();
+    await expect(removeItem.getByTestId('todo-text')).toHaveCSS('text-decoration-line', 'line-through', { timeout: 5000 });
 
     await page.getByTestId('delete-completed').click();
     await expect(page.getByTestId('todo-item')).toHaveCount(1, { timeout: 5000 });
-    await expect(page.getByTestId('todo-text').first()).toHaveText('Keep');
+    await expect(page.getByTestId('todo-text').first()).toHaveText('Keep this one');
   });
 });
 
@@ -196,12 +197,7 @@ test.describe('Todos App: Toggle All', () => {
   });
 });
 
-// Cross-tab real-time sync requires the Reactor's internal pending-mutation
-// state to be in sync with the server's processed-tx-id. The server correctly
-// fans out invalidation to all sessions, but the Reactor needs matching
-// tx-id tracking to process refresh-ok. These tests validate the behavior
-// once the processed-tx-id flow is fully implemented.
-test.describe.skip('Todos App: Real-time Cross-Tab Sync', () => {
+test.describe('Todos App: Real-time Cross-Tab Sync', () => {
   test('todo added in one tab appears in another in real-time', async ({ browser }) => {
     // Seed a todo so both tabs have subscriptions established
     await seedTodos(app.appId, app.adminToken, 1);
