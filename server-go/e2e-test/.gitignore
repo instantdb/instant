@@ -1,0 +1,3 @@
+server-go/e2e-test/.env
+server-go/e2e-test/test-results/
+server-go/e2e-test/node_modules/
