@@ -73,7 +73,7 @@ jobs:
         working-directory: server-go/smoke-test
         run: npm ci
 
-      - name: Run smoke tests (63 tests across 10 suites)
+      - name: Run smoke tests
         working-directory: server-go/smoke-test
         run: npm test
 
@@ -144,7 +144,7 @@ jobs:
             sleep 1
           done
 
-      - name: Run Playwright tests (20 tests)
+      - name: Run Playwright tests
         working-directory: server-go/e2e-test
         run: npx playwright test --reporter=list
 

@@ -725,7 +725,10 @@ func (h *Handler) handleClientBroadcast(sess *reactive.Session, msg map[string]j
 		"op":      "server-broadcast",
 		"room-id": roomID,
 		"topic":   topic,
-		"data":    data,
+		"data": map[string]interface{}{
+			"data":    data,
+			"peer-id": peerID,
+		},
 		"peer-id": peerID,
 	}
 

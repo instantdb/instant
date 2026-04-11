@@ -1,2 +1,6 @@
 test-results/
 dist/
+instant-server
+*.db
+*.db-shm
+*.db-wal

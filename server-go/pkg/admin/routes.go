@@ -80,6 +80,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /admin/oauth/start", h.handleOAuthStart)
 	mux.HandleFunc("GET /admin/oauth/callback", h.handleOAuthCallback)
 	mux.HandleFunc("GET /health", h.handleHealth)
+
+	// Runtime auth aliases — the SDK (@instantdb/core) calls /runtime/auth/*
+	// instead of /admin/*, so we register both paths.
+	mux.HandleFunc("POST /runtime/auth/send_magic_code", h.handleMagicCodeSend)
+	mux.HandleFunc("POST /runtime/auth/verify_magic_code", h.handleMagicCodeVerify)
+	mux.HandleFunc("POST /runtime/auth/sign_in_guest", h.handleSignInAsGuest)
+	mux.HandleFunc("POST /runtime/auth/verify_refresh_token", h.handleVerifyRefreshToken)
 }
 
 // ---- Storage Handlers ----
@@ -776,6 +783,43 @@ func (h *Handler) handleCustomAuthToken(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, 200, map[string]interface{}{"token": token})
+}
+
+func (h *Handler) handleVerifyRefreshToken(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		AppID        string `json:"app-id"`
+		RefreshToken string `json:"refresh-token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, 400, "invalid body")
+		return
+	}
+
+	appID := body.AppID
+	if appID == "" {
+		appID = h.getAppID(r)
+	}
+
+	user, err := h.authSvc.VerifyRefreshToken(r.Context(), appID, body.RefreshToken)
+	if err != nil || user == nil {
+		writeError(w, 401, "invalid refresh token")
+		return
+	}
+
+	token, err := h.authSvc.CreateToken(appID, user.ID, user.Email)
+	if err != nil {
+		writeError(w, 500, "failed to create token")
+		return
+	}
+
+	writeJSON(w, 200, map[string]interface{}{
+		"user": map[string]interface{}{
+			"id":            user.ID,
+			"email":         user.Email,
+			"refresh_token": user.RefreshToken,
+		},
+		"token": token,
+	})
 }
 
 func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
