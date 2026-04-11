@@ -15,8 +15,10 @@ export async function generateMetadata({
   const postImage = post.og_image || post.hero || post.thumbnail;
   return {
     title: post.title,
+    description: post.summary,
     openGraph: {
       title: post.title,
+      description: post.summary,
       type: 'article',
       ...(postImage ? { images: [postImage] } : {}),
       authors: post.authors.map((a) => a.name),

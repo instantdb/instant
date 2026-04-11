@@ -42,6 +42,8 @@
                            (update acc alias' (fnil conj #{})
                                    {:index idx
                                     :node (get node "Node Type")
+                                    :rows (get node "Actual Rows")
+                                    :loops (get node "Actual Loops")
                                     :time (* (get node "Actual Loops" 1)
                                              (get node "Actual Total Time"))})
                            acc)]

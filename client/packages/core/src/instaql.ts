@@ -759,6 +759,7 @@ function runDataloadAndReturnObjects(
     }
 
     if (
+      !isLeadingQuery &&
       endCursor &&
       orderAttr &&
       isAfter(endCursor, orderAttr, direction, idVec)

@@ -222,7 +222,7 @@ export default function Auth(props: {
     }));
   };
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center p-4">
+    <div className="flex min-h-[100dvh] items-center justify-center p-4 dark:bg-neutral-900">
       <div className="max-w-sm">
         <span className="inline-flex items-center space-x-2">
           <LogoIcon />

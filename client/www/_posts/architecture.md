@@ -24,11 +24,9 @@ Let’s get into it.
 
 When you choose Instant you get three benefits:
 
-You can make unlimited apps and they’re never frozen.
-
-You get a sync engine, so your apps work offline, are real-time, and feel fast.
-
-And when you need more features you have built-in services: auth, file storage, presence, and streams.
+1. You can make unlimited apps and they’re never frozen.
+2. You get a sync engine, so your apps work offline, are real-time, and feel fast.
+3. And when you need more features you have built-in services: auth, file storage, presence, and streams.
 
 To get a sense of what we mean, I’ll dive into each point and show you how they look.
 
@@ -128,7 +126,21 @@ Well, Instant is completely programmatic. You can create apps, push schemas and 
 
 Most of the time you don’t have to click any dashboards. Your agents can just take actions on your behalf.
 
-At this point, we hope you’re excited enough to sign up. (You technically don’t even need to sign up to play around, but we do notice that if you do, you’re more likely to stick around. So we really encourage you to!)
+At this point, we hope you’re excited enough to [sign up](/dashboard).
+
+You technically don’t even need to sign up to play around, but we do notice that if you do, you’re more likely to stick around. So we really encourage you to!
+
+And if you want to get your agents playing with Instant right away, here are a few things you can do:
+
+```bash
+# This scaffolds a new starter for you in either NextJS, Tanstack, Bun, Vite, or Expo
+# Your agent will have everything it needs to build
+npx create-instant-app
+
+# If you have an existing app, you can also add our handy skill and tell your agent
+# to make some new features
+npx skills add instantdb/skills
+```
 
 And with that, we can dive into the architecture that powers all of this.
 
