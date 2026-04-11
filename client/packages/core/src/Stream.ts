@@ -725,12 +725,9 @@ function createReadStream({
           cleanup();
         };
         const rejectCb = (e?: InstantError) => {
-          console.log('REJECT');
           reject(e || new InstantError('Stream is closed.'));
           cleanup();
         };
-
-        console.log('adding cbs');
 
         cleanupFns.push(addStreamIdCb(resolveCb));
         cleanupFns.push(addCloseCb(rejectCb));
@@ -1078,15 +1075,13 @@ export class InstantStream {
       return;
     }
 
-    if (msg.files?.length || msg.content) {
-      iterator.push({
-        type: 'append',
-        offset: msg.offset,
-        files: msg.files,
-        content: msg.content,
-        streamId: msg['stream-id'],
-      });
-    }
+    iterator.push({
+      type: 'append',
+      offset: msg.offset,
+      files: msg.files,
+      content: msg.content,
+      streamId: msg['stream-id'],
+    });
 
     if (msg.done) {
       iterator.close();
