@@ -4,12 +4,15 @@ on:
   push:
     paths:
       - 'server-go/**'
+      - '.github/workflows/go.yml'
   pull_request:
     paths:
       - 'server-go/**'
+      - '.github/workflows/go.yml'
 
 jobs:
-  test:
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -29,15 +32,51 @@ jobs:
       - name: Build
         run: CGO_ENABLED=1 go build ./...
 
-      - name: Run tests
+      - name: Run unit tests
         run: CGO_ENABLED=1 go test -timeout 120s -count=1 -race ./...
+
+  smoke-tests:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    defaults:
+      run:
+        working-directory: server-go
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: server-go/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - name: Build binary
         run: CGO_ENABLED=1 go build -o instant-server ./cmd/instant/
 
-      - name: Smoke test
+      - name: Start server
         run: |
-          ./instant-server &
-          sleep 2
-          curl -sf http://localhost:8888/health | grep -q '"ok"'
-          kill %1
+          DB_PATH=/tmp/smoke-test.db ./instant-server &
+          for i in 1 2 3 4 5; do
+            if curl -sf http://localhost:8888/health > /dev/null 2>&1; then
+              echo "Server ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Install smoke test dependencies
+        working-directory: server-go/smoke-test
+        run: npm ci
+
+      - name: Run smoke tests (63 tests across 10 suites)
+        working-directory: server-go/smoke-test
+        run: npm test
+
+      - name: Stop server
+        if: always()
+        run: pkill -f instant-server || true
