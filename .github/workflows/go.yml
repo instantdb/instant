@@ -1,0 +1,43 @@
+name: Go Server CI
+
+on:
+  push:
+    paths:
+      - 'server-go/**'
+  pull_request:
+    paths:
+      - 'server-go/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server-go
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: server-go/go.sum
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build
+        run: CGO_ENABLED=1 go build ./...
+
+      - name: Run tests
+        run: CGO_ENABLED=1 go test -timeout 120s -count=1 -race ./...
+
+      - name: Build binary
+        run: CGO_ENABLED=1 go build -o instant-server ./cmd/instant/
+
+      - name: Smoke test
+        run: |
+          ./instant-server &
+          sleep 2
+          curl -sf http://localhost:8888/health | grep -q '"ok"'
+          kill %1
