@@ -72,7 +72,166 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /admin/users", h.handleDeleteUser)
 	mux.HandleFunc("POST /admin/magic-code/send", h.handleMagicCodeSend)
 	mux.HandleFunc("POST /admin/magic-code/verify", h.handleMagicCodeVerify)
+	// Storage
+	mux.HandleFunc("POST /admin/storage/upload", h.handleStorageUpload)
+	mux.HandleFunc("GET /admin/storage/files", h.handleStorageList)
+	mux.HandleFunc("DELETE /admin/storage/files", h.handleStorageDelete)
+	// OAuth
+	mux.HandleFunc("GET /admin/oauth/start", h.handleOAuthStart)
+	mux.HandleFunc("GET /admin/oauth/callback", h.handleOAuthCallback)
 	mux.HandleFunc("GET /health", h.handleHealth)
+}
+
+// ---- Storage Handlers ----
+
+func (h *Handler) handleStorageUpload(w http.ResponseWriter, r *http.Request) {
+	appID, _, err := h.authenticate(r)
+	if err != nil {
+		writeError(w, 401, "unauthorized")
+		return
+	}
+
+	var body struct {
+		Path               string `json:"path"`
+		ContentType        string `json:"content-type"`
+		ContentDisposition string `json:"content-disposition"`
+		SizeBytes          int64  `json:"size-bytes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, 400, "invalid body")
+		return
+	}
+
+	fileID := generateUUID()
+	file := &storage.FileRecord{
+		ID:                 fileID,
+		AppID:              appID,
+		Path:               body.Path,
+		ContentType:        body.ContentType,
+		ContentDisposition: body.ContentDisposition,
+		SizeBytes:          body.SizeBytes,
+	}
+
+	if err := h.db.CreateFile(r.Context(), file); err != nil {
+		writeError(w, 500, err.Error())
+		return
+	}
+
+	writeJSON(w, 200, map[string]interface{}{
+		"data": map[string]interface{}{
+			"id":   fileID,
+			"path": body.Path,
+		},
+	})
+}
+
+func (h *Handler) handleStorageList(w http.ResponseWriter, r *http.Request) {
+	appID := h.getAppID(r)
+	if appID == "" {
+		writeError(w, 400, "app-id required")
+		return
+	}
+
+	files, err := h.db.GetFilesByAppID(r.Context(), appID)
+	if err != nil {
+		writeError(w, 500, err.Error())
+		return
+	}
+	if files == nil {
+		files = []*storage.FileRecord{}
+	}
+
+	writeJSON(w, 200, map[string]interface{}{"$files": files})
+}
+
+func (h *Handler) handleStorageDelete(w http.ResponseWriter, r *http.Request) {
+	appID, _, err := h.authenticate(r)
+	if err != nil {
+		writeError(w, 401, "unauthorized")
+		return
+	}
+
+	var body struct {
+		FileID string `json:"file-id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, 400, "invalid body")
+		return
+	}
+
+	if err := h.db.DeleteFile(r.Context(), appID, body.FileID); err != nil {
+		writeError(w, 500, err.Error())
+		return
+	}
+
+	writeJSON(w, 200, map[string]string{"status": "ok"})
+}
+
+// ---- OAuth Handlers ----
+
+func (h *Handler) handleOAuthStart(w http.ResponseWriter, r *http.Request) {
+	appID := r.URL.Query().Get("app_id")
+	provider := r.URL.Query().Get("provider")
+	redirectURL := r.URL.Query().Get("redirect_url")
+	clientID := r.URL.Query().Get("client_id")
+
+	if appID == "" || provider == "" || redirectURL == "" {
+		writeError(w, 400, "app_id, provider, and redirect_url required")
+		return
+	}
+
+	oauthSvc := engine.NewOAuthService()
+	state := oauthSvc.GenerateState(appID, redirectURL, provider)
+
+	// Store state in DB for cross-request validation
+	h.db.RawDB().ExecContext(r.Context(),
+		`INSERT INTO oauth_states(state, app_id, provider, redirect_url) VALUES (?, ?, ?, ?)`,
+		state, appID, provider, redirectURL)
+
+	authURL, err := oauthSvc.GetAuthorizationURL(provider, clientID, redirectURL, state)
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+
+	writeJSON(w, 200, map[string]interface{}{
+		"url":   authURL,
+		"state": state,
+	})
+}
+
+func (h *Handler) handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	state := r.URL.Query().Get("state")
+	code := r.URL.Query().Get("code")
+
+	if state == "" || code == "" {
+		writeError(w, 400, "state and code required")
+		return
+	}
+
+	// Validate state from DB
+	var appID, provider, redirectURL string
+	err := h.db.RawDB().QueryRowContext(r.Context(),
+		`SELECT app_id, provider, redirect_url FROM oauth_states WHERE state = ?`, state).
+		Scan(&appID, &provider, &redirectURL)
+	if err != nil {
+		writeError(w, 400, "invalid or expired state")
+		return
+	}
+
+	// Clean up state
+	h.db.RawDB().ExecContext(r.Context(), `DELETE FROM oauth_states WHERE state = ?`, state)
+
+	// In a full implementation, we would exchange the code for tokens
+	// and create/look up the user. For the single-binary backend,
+	// we return the code and provider info for the client to handle
+	// or for a custom backend to exchange.
+	writeJSON(w, 200, map[string]interface{}{
+		"app-id":       appID,
+		"provider":     provider,
+		"code":         code,
+		"redirect-url": redirectURL,
+	})
 }
 
 // getImpersonation extracts impersonation headers (as-email, as-token, as-guest).

@@ -178,6 +178,24 @@ func (h *Handler) handleSingleMessage(sess *reactive.Session, data []byte) {
 		h.handleClientBroadcast(sess, msg, clientEventID)
 	case "server-broadcast":
 		h.handleServerBroadcast(sess, msg, clientEventID)
+	// Stream operations
+	case "start-stream":
+		h.handleStartStream(ctx, sess, msg, clientEventID)
+	case "append-stream":
+		h.handleAppendStream(ctx, sess, msg, clientEventID)
+	case "subscribe-stream":
+		h.handleSubscribeStream(ctx, sess, msg, clientEventID)
+	case "unsubscribe-stream":
+		h.handleUnsubscribeStream(sess, msg, clientEventID)
+	// Sync table operations
+	case "start-sync":
+		h.handleStartSync(ctx, sess, msg, clientEventID)
+	case "remove-sync":
+		h.handleRemoveSync(ctx, sess, msg, clientEventID)
+	case "refresh-sync-table":
+		h.handleRefreshSyncTable(ctx, sess, msg, clientEventID)
+	case "resync-table":
+		h.handleResyncTable(ctx, sess, msg, clientEventID)
 	default:
 		sess.Send(map[string]interface{}{
 			"op":              "error",

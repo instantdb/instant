@@ -130,6 +130,58 @@ func (s *DB) migrate() error {
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_changelog_app_id ON changelog(app_id, id)`,
+		// Files table
+		`CREATE TABLE IF NOT EXISTS files (
+			id TEXT PRIMARY KEY,
+			app_id TEXT NOT NULL,
+			path TEXT NOT NULL DEFAULT '',
+			content_type TEXT NOT NULL DEFAULT '',
+			content_disposition TEXT NOT NULL DEFAULT '',
+			size_bytes INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (app_id) REFERENCES apps(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_files_app_id ON files(app_id)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_files_app_path ON files(app_id, path)`,
+		// Streams table
+		`CREATE TABLE IF NOT EXISTS streams (
+			id TEXT PRIMARY KEY,
+			app_id TEXT NOT NULL,
+			client_id TEXT NOT NULL DEFAULT '',
+			done INTEGER NOT NULL DEFAULT 0,
+			size_bytes INTEGER NOT NULL DEFAULT 0,
+			abort_reason TEXT NOT NULL DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (app_id) REFERENCES apps(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_streams_app_id ON streams(app_id)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_streams_client_id ON streams(app_id, client_id)`,
+		// Stream data chunks
+		`CREATE TABLE IF NOT EXISTS stream_data (
+			stream_id TEXT NOT NULL,
+			seq INTEGER NOT NULL,
+			data BLOB NOT NULL,
+			PRIMARY KEY (stream_id, seq),
+			FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
+		)`,
+		// Sync subscriptions
+		`CREATE TABLE IF NOT EXISTS sync_subscriptions (
+			id TEXT PRIMARY KEY,
+			app_id TEXT NOT NULL,
+			query TEXT NOT NULL DEFAULT '{}',
+			last_tx_id INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (app_id) REFERENCES apps(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_sync_subs_app_id ON sync_subscriptions(app_id)`,
+		// OAuth states
+		`CREATE TABLE IF NOT EXISTS oauth_states (
+			state TEXT PRIMARY KEY,
+			app_id TEXT NOT NULL,
+			provider TEXT NOT NULL DEFAULT '',
+			redirect_url TEXT NOT NULL DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 		// Trigger to log inserts
 		`CREATE TRIGGER IF NOT EXISTS triples_after_insert AFTER INSERT ON triples
 		BEGIN
@@ -566,6 +618,187 @@ func (s *DB) NotifyChange(entry ChangelogEntry) {
 			// drop if subscriber is too slow
 		}
 	}
+}
+
+// ---- Files ----
+
+func (s *DB) CreateFile(ctx context.Context, f *FileRecord) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO files(id, app_id, path, content_type, content_disposition, size_bytes)
+		 VALUES (?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(app_id, path) DO UPDATE SET content_type=excluded.content_type, size_bytes=excluded.size_bytes`,
+		f.ID, f.AppID, f.Path, f.ContentType, f.ContentDisposition, f.SizeBytes)
+	return err
+}
+
+func (s *DB) GetFilesByAppID(ctx context.Context, appID string) ([]*FileRecord, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, app_id, path, content_type, content_disposition, size_bytes, created_at
+		 FROM files WHERE app_id = ? ORDER BY created_at ASC`, appID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var files []*FileRecord
+	for rows.Next() {
+		f := &FileRecord{}
+		if err := rows.Scan(&f.ID, &f.AppID, &f.Path, &f.ContentType, &f.ContentDisposition, &f.SizeBytes, &f.CreatedAt); err != nil {
+			return nil, err
+		}
+		files = append(files, f)
+	}
+	return files, rows.Err()
+}
+
+func (s *DB) GetFile(ctx context.Context, appID, fileID string) (*FileRecord, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT id, app_id, path, content_type, content_disposition, size_bytes, created_at
+		 FROM files WHERE app_id = ? AND id = ?`, appID, fileID)
+	f := &FileRecord{}
+	if err := row.Scan(&f.ID, &f.AppID, &f.Path, &f.ContentType, &f.ContentDisposition, &f.SizeBytes, &f.CreatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return f, nil
+}
+
+func (s *DB) DeleteFile(ctx context.Context, appID, fileID string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM files WHERE app_id = ? AND id = ?`, appID, fileID)
+	return err
+}
+
+// ---- Streams ----
+
+func (s *DB) CreateStream(ctx context.Context, st *StreamRecord) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO streams(id, app_id, client_id) VALUES (?, ?, ?)
+		 ON CONFLICT(app_id, client_id) DO UPDATE SET done=0, size_bytes=0, abort_reason=''`,
+		st.ID, st.AppID, st.ClientID)
+	return err
+}
+
+func (s *DB) GetStream(ctx context.Context, streamID string) (*StreamRecord, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT id, app_id, client_id, done, size_bytes, abort_reason, created_at
+		 FROM streams WHERE id = ?`, streamID)
+	st := &StreamRecord{}
+	var done int
+	if err := row.Scan(&st.ID, &st.AppID, &st.ClientID, &done, &st.SizeBytes, &st.AbortReason, &st.CreatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	st.Done = done != 0
+	return st, nil
+}
+
+func (s *DB) GetStreamByClientID(ctx context.Context, appID, clientID string) (*StreamRecord, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT id, app_id, client_id, done, size_bytes, abort_reason, created_at
+		 FROM streams WHERE app_id = ? AND client_id = ?`, appID, clientID)
+	st := &StreamRecord{}
+	var done int
+	if err := row.Scan(&st.ID, &st.AppID, &st.ClientID, &done, &st.SizeBytes, &st.AbortReason, &st.CreatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	st.Done = done != 0
+	return st, nil
+}
+
+func (s *DB) AppendStreamData(ctx context.Context, streamID string, data []byte) error {
+	// Get next sequence number
+	var maxSeq int64
+	s.db.QueryRowContext(ctx,
+		`SELECT COALESCE(MAX(seq), -1) FROM stream_data WHERE stream_id = ?`, streamID).Scan(&maxSeq)
+
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO stream_data(stream_id, seq, data) VALUES (?, ?, ?)`,
+		streamID, maxSeq+1, data)
+	if err != nil {
+		return err
+	}
+
+	// Update size
+	_, err = s.db.ExecContext(ctx,
+		`UPDATE streams SET size_bytes = size_bytes + ? WHERE id = ?`,
+		len(data), streamID)
+	return err
+}
+
+func (s *DB) GetStreamData(ctx context.Context, streamID string, byteOffset int64) ([]byte, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT data FROM stream_data WHERE stream_id = ? ORDER BY seq ASC`, streamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var all []byte
+	for rows.Next() {
+		var chunk []byte
+		if err := rows.Scan(&chunk); err != nil {
+			return nil, err
+		}
+		all = append(all, chunk...)
+	}
+	if byteOffset > 0 && int64(len(all)) > byteOffset {
+		all = all[byteOffset:]
+	} else if byteOffset > 0 {
+		all = nil
+	}
+	return all, rows.Err()
+}
+
+func (s *DB) CloseStream(ctx context.Context, streamID string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE streams SET done = 1 WHERE id = ?`, streamID)
+	return err
+}
+
+func (s *DB) AbortStream(ctx context.Context, streamID, reason string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE streams SET done = 1, abort_reason = ? WHERE id = ?`, reason, streamID)
+	return err
+}
+
+// ---- Sync Subscriptions ----
+
+func (s *DB) CreateSyncSubscription(ctx context.Context, sub *SyncSubscription) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO sync_subscriptions(id, app_id, query) VALUES (?, ?, ?)`,
+		sub.ID, sub.AppID, string(sub.Query))
+	return err
+}
+
+func (s *DB) GetSyncSubscription(ctx context.Context, id string) (*SyncSubscription, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT id, app_id, query, last_tx_id, created_at FROM sync_subscriptions WHERE id = ?`, id)
+	sub := &SyncSubscription{}
+	var query string
+	if err := row.Scan(&sub.ID, &sub.AppID, &query, &sub.LastTxID, &sub.CreatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	sub.Query = json.RawMessage(query)
+	return sub, nil
+}
+
+func (s *DB) DeleteSyncSubscription(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM sync_subscriptions WHERE id = ?`, id)
+	return err
+}
+
+func (s *DB) UpdateSyncLastTxID(ctx context.Context, id string, txID int64) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE sync_subscriptions SET last_tx_id = ? WHERE id = ?`, txID, id)
+	return err
 }
 
 // ---- Transaction execution ----

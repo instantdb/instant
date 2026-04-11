@@ -77,6 +77,38 @@ type Rule struct {
 	Code  json.RawMessage `json:"code"`
 }
 
+// FileRecord represents a file stored in the system.
+type FileRecord struct {
+	ID                 string `json:"id"`
+	AppID              string `json:"app-id"`
+	Path               string `json:"path"`
+	URL                string `json:"url,omitempty"`
+	ContentType        string `json:"content-type"`
+	ContentDisposition string `json:"content-disposition,omitempty"`
+	SizeBytes          int64  `json:"size-bytes"`
+	CreatedAt          time.Time `json:"created-at,omitempty"`
+}
+
+// StreamRecord represents a data stream.
+type StreamRecord struct {
+	ID          string `json:"id"`
+	AppID       string `json:"app-id"`
+	ClientID    string `json:"client-id"`
+	Done        bool   `json:"done"`
+	SizeBytes   int64  `json:"size-bytes"`
+	AbortReason string `json:"abort-reason,omitempty"`
+	CreatedAt   time.Time `json:"created-at,omitempty"`
+}
+
+// SyncSubscription tracks a sync table subscription.
+type SyncSubscription struct {
+	ID        string          `json:"id"`
+	AppID     string          `json:"app-id"`
+	Query     json.RawMessage `json:"query"`
+	LastTxID  int64           `json:"last-tx-id"`
+	CreatedAt time.Time       `json:"created-at,omitempty"`
+}
+
 // ChangelogEntry records a mutation for reactive invalidation.
 type ChangelogEntry struct {
 	ID        int64           `json:"id"`

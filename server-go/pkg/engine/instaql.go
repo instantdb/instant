@@ -48,10 +48,22 @@ type OrderClause struct {
 	Direction string `json:"direction"` // "asc" or "desc"
 }
 
+// Cursor is a 4-tuple [entityID, attrID, value, createdAt].
+type Cursor []interface{}
+
+// PageInfoEntry holds pagination info for one entity type.
+type PageInfoEntry struct {
+	StartCursor     Cursor `json:"startCursor"`
+	EndCursor       Cursor `json:"endCursor"`
+	HasNextPage     bool   `json:"hasNextPage"`
+	HasPreviousPage bool   `json:"hasPreviousPage"`
+}
+
 // InstaQLResult holds the results of an InstaQL query.
 type InstaQLResult struct {
-	Data   map[string]interface{} `json:"data"`
-	Topics []string               `json:"topics"`
+	Data     map[string]interface{}       `json:"data"`
+	Topics   []string                     `json:"topics"`
+	PageInfo map[string]*PageInfoEntry    `json:"page-info,omitempty"`
 }
 
 // QueryEngine executes InstaQL queries against the SQLite store.
@@ -243,78 +255,124 @@ func (qe *QueryEngine) ExecuteQuery(ctx context.Context, appID string, query jso
 
 	attrMap := storage.BuildAttrMap(attrs)
 	data := make(map[string]interface{})
+	pageInfo := make(map[string]*PageInfoEntry)
 	var topics []string
 
 	for _, form := range forms {
-		result, formTopics, err := qe.executeForm(ctx, appID, form, attrs, attrMap)
+		result, formTopics, pi, err := qe.executeForm(ctx, appID, form, attrs, attrMap)
 		if err != nil {
 			return nil, fmt.Errorf("query %s: %w", form.Etype, err)
 		}
 		data[form.Etype] = result
 		topics = append(topics, formTopics...)
+		if pi != nil {
+			pageInfo[form.Etype] = pi
+		}
 	}
 
-	return &InstaQLResult{Data: data, Topics: topics}, nil
+	return &InstaQLResult{Data: data, Topics: topics, PageInfo: pageInfo}, nil
 }
 
-func (qe *QueryEngine) executeForm(ctx context.Context, appID string, form *InstaQLForm, attrs []*storage.Attr, attrMap map[string]*storage.Attr) (interface{}, []string, error) {
+func (qe *QueryEngine) executeForm(ctx context.Context, appID string, form *InstaQLForm, attrs []*storage.Attr, attrMap map[string]*storage.Attr) (interface{}, []string, *PageInfoEntry, error) {
 	// Find the id attribute for this etype
 	idAttr := storage.SeekAttrByFwdIdent(attrs, form.Etype, "id")
 	if idAttr == nil {
 		// Return empty result if etype doesn't exist
-		return []interface{}{}, nil, nil
+		return []interface{}{}, nil, nil, nil
 	}
 
 	// Build the SQL query for this form
 	sqlQuery, args, err := qe.buildFormSQL(appID, form, attrs, attrMap, idAttr)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Execute the query to get entity IDs
 	rows, err := qe.db.RawDB().QueryContext(ctx, sqlQuery, args...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("execute query: %w", err)
+		return nil, nil, nil, fmt.Errorf("execute query: %w", err)
 	}
 	defer rows.Close()
 
-	var entityIDs []string
+	// Fetch all matching entity IDs (before applying cursor filter)
+	var allEntityIDs []string
 	for rows.Next() {
 		var eid string
 		if err := rows.Scan(&eid); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
-		entityIDs = append(entityIDs, eid)
+		allEntityIDs = append(allEntityIDs, eid)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+
+	entityIDs := allEntityIDs
+
+	// For pageInfo: we need to know if there are more items than requested.
+	// Since SQL LIMIT already restricts results, we detect "more pages"
+	// by whether we got exactly the requested limit (suggesting there may be more).
+	returnedCount := len(entityIDs)
 
 	// Build the topic for invalidation
 	topic := fmt.Sprintf("%s:%s:ea", appID, idAttr.ID)
 	topics := []string{topic}
 
+	// Build pageInfo
+	var pi *PageInfoEntry
+	hasPagination := form.Options.First != nil || form.Options.Last != nil ||
+		form.Options.Limit != nil
+	if hasPagination && len(entityIDs) > 0 {
+		pi = &PageInfoEntry{}
+
+		requestedLimit := 0
+		if form.Options.First != nil {
+			requestedLimit = *form.Options.First
+		} else if form.Options.Last != nil {
+			requestedLimit = *form.Options.Last
+		} else if form.Options.Limit != nil {
+			requestedLimit = *form.Options.Limit
+		}
+
+		// StartCursor: first entity
+		pi.StartCursor = Cursor{entityIDs[0], idAttr.ID, entityIDs[0], 0}
+		// EndCursor: last entity
+		lastEID := entityIDs[len(entityIDs)-1]
+		pi.EndCursor = Cursor{lastEID, idAttr.ID, lastEID, 0}
+
+		if form.Options.First != nil || form.Options.Limit != nil {
+			// If we got exactly the limit, there are likely more
+			pi.HasNextPage = returnedCount >= requestedLimit
+			pi.HasPreviousPage = form.Options.Offset != nil && *form.Options.Offset > 0
+		}
+		if form.Options.Last != nil {
+			// For last N, we always have previous pages since we only return the tail
+			pi.HasPreviousPage = returnedCount >= requestedLimit
+			pi.HasNextPage = false
+		}
+	}
+
 	// Fetch all triples for these entities
 	entities, err := qe.hydrateEntities(ctx, appID, entityIDs, attrs, attrMap)
 	if err != nil {
-		return nil, topics, err
+		return nil, topics, nil, err
 	}
 
 	// Aggregate?
 	if form.Options.Aggregate == "count" {
-		return map[string]interface{}{"aggregate": map[string]interface{}{"count": len(entityIDs)}}, topics, nil
+		return map[string]interface{}{"aggregate": map[string]interface{}{"count": len(entityIDs)}}, topics, pi, nil
 	}
 
 	// Process children (join queries)
 	for _, child := range form.Children {
 		childTopics, err := qe.resolveChildren(ctx, appID, entities, child, attrs, attrMap)
 		if err != nil {
-			return nil, topics, err
+			return nil, topics, pi, err
 		}
 		topics = append(topics, childTopics...)
 	}
 
-	return entities, topics, nil
+	return entities, topics, pi, nil
 }
 
 func (qe *QueryEngine) buildFormSQL(appID string, form *InstaQLForm, attrs []*storage.Attr, attrMap map[string]*storage.Attr, idAttr *storage.Attr) (string, []interface{}, error) {
