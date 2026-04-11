@@ -942,6 +942,61 @@ test('Leading queries should ignore the start cursor', () => {
   expect(usersWithBob).toEqual(['bob', 'nicolegf']);
 });
 
+test('Leading queries should ignore the end cursor for optimistic adds', () => {
+  // Simulates the offline optimistic add bug:
+  // 1. Server returns data with an end-cursor (last entity in asc order)
+  // 2. Client optimistically adds a new entity with a value beyond the end-cursor
+  // 3. The new entity should still appear (leading queries have no bounds)
+
+  // pageInfo with end-cursor pointing to nicolegf (last in asc createdAt order)
+  const pageInfo = {
+    users: {
+      'start-cursor': [
+        'a55a5231-5c4d-4033-b859-7790c45c22d5', // stopa (first in asc)
+        '2ffdf0fc-1561-4fc5-96db-2210a41adfa6', // createdAt attr id
+        '2021-01-07 18:50:43.447955',
+        1718117867976,
+      ],
+      'end-cursor': [
+        '0f3d67fc-8b37-4b03-ac47-29fec4edc4f7', // nicolegf (last in asc)
+        '2ffdf0fc-1561-4fc5-96db-2210a41adfa6', // createdAt attr id
+        '2021-02-05 22:35:23.754264',
+        1718118127976,
+      ],
+    },
+  };
+
+  // Optimistically add a new user with a createdAt AFTER the end cursor
+  const chunk = tx.users[randomUUID()].update({
+    fullName: 'New User',
+    email: 'new@instantdb.com',
+    handle: 'newuser',
+    createdAt: '2025-09-05 18:53:07.993689',
+  });
+  const txSteps = instaml.transform({ attrsStore: zenecaAttrsStore }, chunk);
+  const { store: newStore, attrsStore: newAttrsStore } = transact(
+    store,
+    zenecaAttrsStore,
+    txSteps,
+  );
+
+  // Leading query (no offset/before/after) with ascending order
+  const result = query(
+    { store: newStore, attrsStore: newAttrsStore, pageInfo },
+    {
+      users: {
+        $: {
+          order: { createdAt: 'asc' },
+        },
+      },
+    },
+  );
+
+  const handles = result.data.users.map((x) => x.handle);
+  expect(handles).toContain('newuser');
+  expect(handles).toEqual(['stopa', 'joe', 'alex', 'nicolegf', 'newuser']);
+});
+
 test('arbitrary ordering', () => {
   const books = query(ctx, {
     books: { $: { first: 10, order: { title: 'asc' } } },
