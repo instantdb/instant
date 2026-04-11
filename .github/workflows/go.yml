@@ -23,17 +23,17 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache-dependency-path: server-go/go.sum
 
       - name: Install dependencies
         run: go mod download
 
       - name: Build
-        run: CGO_ENABLED=1 go build ./...
+        run: CGO_ENABLED=0 go build ./...
 
       - name: Run unit tests
-        run: CGO_ENABLED=1 go test -timeout 120s -count=1 -race ./...
+        run: go test -timeout 120s -count=1 -race ./...
 
   smoke-tests:
     name: Smoke Tests
@@ -48,7 +48,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache-dependency-path: server-go/go.sum
 
       - uses: actions/setup-node@v4
@@ -56,7 +56,7 @@ jobs:
           node-version: '22'
 
       - name: Build binary
-        run: CGO_ENABLED=1 go build -o instant-server ./cmd/instant/
+        run: CGO_ENABLED=0 go build -o instant-server ./cmd/instant/
 
       - name: Start server
         run: |
@@ -91,7 +91,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache-dependency-path: server-go/go.sum
 
       - uses: pnpm/action-setup@v4
@@ -106,7 +106,7 @@ jobs:
 
       - name: Build Go binary
         working-directory: server-go
-        run: CGO_ENABLED=1 go build -o instant-server ./cmd/instant/
+        run: CGO_ENABLED=0 go build -o instant-server ./cmd/instant/
 
       - name: Build @instantdb/react
         working-directory: client
