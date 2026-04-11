@@ -93,7 +93,7 @@ import {
   SubscriptionReadyState,
 } from './subscribe.ts';
 import { parseCookie } from 'cookie';
-import { EventSource } from '@dww/eventsource';
+import { EventSource } from '@instantdb/eventsource';
 import { MessageEventPolyfill } from './polyfill.ts';
 
 type DebugCheckResult = {

@@ -1,4 +1,4 @@
-import { EventSource } from '@dww/eventsource';
+import { EventSource } from '@instantdb/eventsource';
 import version from './version.ts';
 import {
   id,
