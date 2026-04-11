@@ -59,7 +59,7 @@ const HTMLView = ({
   htmlBody,
   useLocalImages,
 }: {
-  htmlBody: String;
+  htmlBody: string;
   useLocalImages: Boolean;
 }) => {
   const replaceUrl = getImgReplaceUrl();
