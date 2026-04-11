@@ -108,10 +108,19 @@ jobs:
         working-directory: server-go
         run: CGO_ENABLED=0 go build -o instant-server ./cmd/instant/
 
+      - name: Debug pnpm setup
+        working-directory: client
+        run: |
+          echo "pnpm version: $(pnpm --version)"
+          echo "node version: $(node --version)"
+          echo "lockfile first 3 lines:"
+          head -3 pnpm-lock.yaml
+          echo "lockfile md5: $(md5sum pnpm-lock.yaml)"
+
       - name: Build @instantdb/react
         working-directory: client
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install
           pnpm --filter @instantdb/version run build
           pnpm --filter @instantdb/core run build
           pnpm --filter @instantdb/react-common run build
