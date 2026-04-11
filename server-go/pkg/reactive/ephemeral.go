@@ -5,6 +5,9 @@ import (
 	"sync"
 )
 
+// SendFunc is a function that sends a message to a session.
+type SendFunc func(msg interface{})
+
 // EphemeralStore manages rooms, presence, and broadcasts in-memory.
 type EphemeralStore struct {
 	mu    sync.RWMutex
@@ -177,6 +180,7 @@ func (es *EphemeralStore) GetRoomMembers(appID, roomID, excludeSessionID string)
 }
 
 // BroadcastToRoom sends a message to all sessions in a room (except sender).
+// Messages are sent concurrently to avoid one slow connection blocking others.
 func (es *EphemeralStore) BroadcastToRoom(store *SessionStore, appID, roomID, senderSessionID string, msg interface{}) {
 	es.mu.RLock()
 	key := roomKey(appID, roomID)
@@ -186,18 +190,30 @@ func (es *EphemeralStore) BroadcastToRoom(store *SessionStore, appID, roomID, se
 		return
 	}
 
-	var targetSessionIDs []string
+	// Collect target sessions while holding the lock
+	var targets []*Session
 	for sid := range room.Sessions {
 		if sid != senderSessionID {
-			targetSessionIDs = append(targetSessionIDs, sid)
+			sess := store.GetSession(sid)
+			if sess != nil {
+				targets = append(targets, sess)
+			}
 		}
 	}
 	es.mu.RUnlock()
 
-	for _, sid := range targetSessionIDs {
-		sess := store.GetSession(sid)
-		if sess != nil {
-			sess.Send(msg)
-		}
+	if len(targets) == 0 {
+		return
 	}
+
+	// Send to all targets concurrently
+	var wg sync.WaitGroup
+	wg.Add(len(targets))
+	for _, sess := range targets {
+		go func(s *Session) {
+			defer wg.Done()
+			s.Send(msg)
+		}(sess)
+	}
+	wg.Wait()
 }

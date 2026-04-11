@@ -19,8 +19,8 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  4096,
+	WriteBufferSize: 4096,
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
@@ -752,6 +752,13 @@ func (h *Handler) broadcastPresenceUpdate(appID, roomID, senderSessionID string)
 		return
 	}
 
+	// Collect targets first, then send concurrently to avoid blocking
+	type target struct {
+		sess     *reactive.Session
+		presence map[string]interface{}
+	}
+	var targets []target
+
 	for sid := range members {
 		if sid == senderSessionID {
 			continue
@@ -760,14 +767,23 @@ func (h *Handler) broadcastPresenceUpdate(appID, roomID, senderSessionID string)
 		if sess == nil {
 			continue
 		}
-
 		presence := h.buildPresenceResponse(members, sid)
-		sess.Send(map[string]interface{}{
-			"op":      "refresh-presence",
-			"room-id": roomID,
-			"data":    presence,
-		})
+		targets = append(targets, target{sess: sess, presence: presence})
 	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(targets))
+	for _, t := range targets {
+		go func(t target) {
+			defer wg.Done()
+			t.sess.Send(map[string]interface{}{
+				"op":      "refresh-presence",
+				"room-id": roomID,
+				"data":    t.presence,
+			})
+		}(t)
+	}
+	wg.Wait()
 }
 
 func (h *Handler) buildPresenceResponse(members map[string]*reactive.RoomMember, excludeSessionID string) map[string]interface{} {

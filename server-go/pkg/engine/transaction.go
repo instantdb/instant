@@ -163,12 +163,16 @@ func (tp *TxProcessor) ProcessTransaction(ctx context.Context, appID string, ste
 	result := &TxResult{}
 	var changes []storage.ChangelogEntry
 
-	// Record the last changelog ID before the transaction so we can find new entries after
+	// Read lastChangelogID INSIDE the transaction so each concurrent
+	// transaction gets a consistent snapshot and only notifies about its
+	// own changelog entries (avoids duplicate notifications that flood
+	// the invalidation channel).
 	var lastChangelogID int64
-	tp.db.RawDB().QueryRowContext(ctx,
-		`SELECT COALESCE(MAX(id), 0) FROM changelog WHERE app_id = ?`, appID).Scan(&lastChangelogID)
 
 	err := tp.db.ExecTx(ctx, func(tx *sql.Tx) error {
+		tx.QueryRowContext(ctx,
+			`SELECT COALESCE(MAX(id), 0) FROM changelog WHERE app_id = ?`, appID).Scan(&lastChangelogID)
+
 		for _, rawStep := range steps {
 			step, err := ParseTxStep(rawStep)
 			if err != nil {

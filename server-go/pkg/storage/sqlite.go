@@ -587,7 +587,7 @@ func (s *DB) TruncateChangelog(ctx context.Context, appID string, beforeID int64
 
 // SubscribeChanges returns a channel that receives new changelog entries.
 func (s *DB) SubscribeChanges() chan ChangelogEntry {
-	ch := make(chan ChangelogEntry, 256)
+	ch := make(chan ChangelogEntry, 4096)
 	s.changeSubMu.Lock()
 	s.changeSubs = append(s.changeSubs, ch)
 	s.changeSubMu.Unlock()

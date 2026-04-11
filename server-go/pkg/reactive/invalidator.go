@@ -71,7 +71,6 @@ func (inv *Invalidator) handleChange(entry storage.ChangelogEntry) {
 
 	// Collect unique handlers to call (a session may match multiple topics
 	// but we only want to notify it once per change).
-	type handlerKey struct{ ptr uintptr }
 	seen := make(map[string]bool) // sessionID -> already called
 
 	inv.mu.RLock()
@@ -86,9 +85,17 @@ func (inv *Invalidator) handleChange(entry storage.ChangelogEntry) {
 	}
 	inv.mu.RUnlock()
 
+	// Fire handlers concurrently so one slow session doesn't block others,
+	// and the invalidation pipeline isn't starved by DB queries.
+	var wg sync.WaitGroup
+	wg.Add(len(toCall))
 	for _, sub := range toCall {
-		sub.handler(entry.AppID, &entry)
+		go func(s subscription) {
+			defer wg.Done()
+			s.handler(entry.AppID, &entry)
+		}(sub)
 	}
+	wg.Wait()
 }
 
 func (inv *Invalidator) generateTopics(entry storage.ChangelogEntry) []string {
