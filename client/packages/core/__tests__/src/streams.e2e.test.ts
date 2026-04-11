@@ -36,23 +36,9 @@ async function readAll(stream: ReadableStream<string>): Promise<string> {
   return result;
 }
 
-/** Read up to `n` chunks from a ReadableStream, return concatenated string. */
-async function readChunks(
-  stream: ReadableStream<string>,
-  n: number,
-): Promise<{ data: string; reader: ReadableStreamDefaultReader<string> }> {
-  const reader = stream.getReader();
-  let result = '';
-  for (let i = 0; i < n; i++) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    if (value) result += value;
-  }
-  return { data: result, reader };
-}
-
 test(
   'write and read a stream end-to-end',
+  { timeout: 30000 },
   async ({ db }) => {
     const clientId = randomId();
 
@@ -70,11 +56,11 @@ test(
     expect(data).toContain('Hello ');
     expect(data).toContain('World');
   },
-  { timeout: 30000 },
 );
 
 test(
   'streamId() returns a valid stream ID',
+  { timeout: 30000 },
   async ({ db }) => {
     const clientId = randomId();
 
@@ -89,11 +75,11 @@ test(
     const writer = writeStream.getWriter();
     await writer.close();
   },
-  { timeout: 30000 },
 );
 
 test(
   'read stream by streamId',
+  { timeout: 30000 },
   async ({ db }) => {
     const clientId = randomId();
 
@@ -109,11 +95,11 @@ test(
 
     expect(data).toContain('by-stream-id');
   },
-  { timeout: 30000 },
 );
 
 test(
   'multiple writes produce concatenated output',
+  { timeout: 30000 },
   async ({ db }) => {
     const clientId = randomId();
 
@@ -131,11 +117,11 @@ test(
     expect(data).toContain('line2\n');
     expect(data).toContain('line3\n');
   },
-  { timeout: 30000 },
 );
 
 test(
   'reader can cancel mid-stream',
+  { timeout: 30000 },
   async ({ db }) => {
     const clientId = randomId();
 
@@ -158,11 +144,11 @@ test(
     // Writer should still be able to close
     await writer.close();
   },
-  { timeout: 30000 },
 );
 
 test(
   'independent streams do not interfere',
+  { timeout: 30000 },
   async ({ db }) => {
     const clientA = randomId();
     const clientB = randomId();
@@ -180,8 +166,12 @@ test(
     await writerB.close();
 
     // Read each independently
-    const dataA = await readAll(db.streams.createReadStream({ clientId: clientA }));
-    const dataB = await readAll(db.streams.createReadStream({ clientId: clientB }));
+    const dataA = await readAll(
+      db.streams.createReadStream({ clientId: clientA }),
+    );
+    const dataB = await readAll(
+      db.streams.createReadStream({ clientId: clientB }),
+    );
 
     expect(dataA).toContain('stream-A-data');
     expect(dataB).toContain('stream-B-data');
@@ -189,11 +179,11 @@ test(
     expect(dataA).not.toContain('stream-B-data');
     expect(dataB).not.toContain('stream-A-data');
   },
-  { timeout: 30000 },
 );
 
 test(
   'write large data and read it back',
+  { timeout: 30000 },
   async ({ db }) => {
     const clientId = randomId();
 
@@ -210,11 +200,11 @@ test(
 
     expect(data.length).toBeGreaterThanOrEqual(50 * 1024);
   },
-  { timeout: 30000 },
 );
 
 test(
   'write stream with waitUntil completes properly',
+  { timeout: 30000 },
   async ({ db }) => {
     const clientId = randomId();
     let waitUntilResolved = false;
@@ -237,5 +227,4 @@ test(
 
     expect(waitUntilResolved).toBe(true);
   },
-  { timeout: 30000 },
 );
