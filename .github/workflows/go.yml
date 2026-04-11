@@ -94,9 +94,9 @@ jobs:
           go-version: '1.25'
           cache-dependency-path: server-go/go.sum
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
-          version: 10
+          package_json_file: client/package.json
 
       - uses: actions/setup-node@v4
         with:
@@ -108,10 +108,19 @@ jobs:
         working-directory: server-go
         run: CGO_ENABLED=0 go build -o instant-server ./cmd/instant/
 
+      - name: Debug pnpm setup
+        working-directory: client
+        run: |
+          echo "pnpm version: $(pnpm --version)"
+          echo "node version: $(node --version)"
+          echo "lockfile first 3 lines:"
+          head -3 pnpm-lock.yaml
+          echo "lockfile md5: $(md5sum pnpm-lock.yaml)"
+
       - name: Build @instantdb/react
         working-directory: client
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install
           pnpm --filter @instantdb/version run build
           pnpm --filter @instantdb/core run build
           pnpm --filter @instantdb/react-common run build
