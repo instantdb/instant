@@ -208,12 +208,16 @@ export async function concurrentClientTests(app: TestApp) {
         15000,
       );
 
-      // Count how many of our tagged todos appear in the result
-      const allTodos: any[] = result.result?.todos || [];
-      const ourTodos = allTodos.filter((t: any) =>
-        typeof t.text === 'string' && t.text.startsWith(`${tag}-client-`),
-      );
-      expect(ourTodos.length).toBe(NUM_CLIENTS);
+      // The result is an InstaQL tree (array of nodes with join-rows of triples).
+      // Stringify and count occurrences of our tagged text values.
+      const json = JSON.stringify(result.result || []);
+      let matchCount = 0;
+      for (let i = 0; i < NUM_CLIENTS; i++) {
+        if (json.includes(`${tag}-client-${i}`)) {
+          matchCount++;
+        }
+      }
+      expect(matchCount).toBe(NUM_CLIENTS);
 
       for (const ws of clients) ws.close();
     }, 90000);
