@@ -358,8 +358,10 @@ export async function todosAppTests(app: TestApp) {
 
       wsSend(ws1, { op: 'join-room', 'room-id': roomId, 'peer-id': 'u1', 'client-event-id': uuid() });
       wsSend(ws2, { op: 'join-room', 'room-id': roomId, 'peer-id': 'u2', 'client-event-id': uuid() });
-      await wsWaitFor(ws1, (m) => m.op === 'join-room-ok');
-      await wsWaitFor(ws2, (m) => m.op === 'join-room-ok');
+      await Promise.all([
+        wsWaitFor(ws1, (m) => m.op === 'join-room-ok'),
+        wsWaitFor(ws2, (m) => m.op === 'join-room-ok'),
+      ]);
 
       // User 2 leaves
       wsSend(ws2, { op: 'leave-room', 'room-id': roomId, 'client-event-id': uuid() });
