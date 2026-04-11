@@ -109,11 +109,8 @@ func (h *Handler) onClose(sess *reactive.Session) {
 		}
 	}
 
-	// Unsubscribe all queries
-	queries := sess.GetQueries()
-	for _, sub := range queries {
-		h.inv.UnsubscribeAll(sub.Topics)
-	}
+	// Unsubscribe this session's invalidation handlers
+	h.inv.UnsubscribeSession(sess.ID)
 
 	h.sessions.RemoveSession(sess.ID)
 }
@@ -317,9 +314,10 @@ func (h *Handler) handleAddQuery(ctx context.Context, sess *reactive.Session, ms
 	}
 	sess.AddQuery(clientEventID, sub)
 
-	// Subscribe to invalidation topics
-	h.inv.Subscribe(result.Topics, func(appID string, entry *storage.ChangelogEntry) {
-		h.refreshQuery(sess, clientEventID, query)
+	// Subscribe to invalidation topics — scoped to this session so ALL
+	// sessions with overlapping queries get notified on changes.
+	h.inv.Subscribe(sess.ID, result.Topics, func(appID string, entry *storage.ChangelogEntry) {
+		h.refreshAllQueries(sess)
 	})
 
 	// Build InstaQL result tree (the format the client Reactor expects)
@@ -342,7 +340,7 @@ func (h *Handler) handleRemoveQuery(sess *reactive.Session, msg map[string]json.
 
 	sub := sess.RemoveQuery(clientEventID)
 	if sub != nil {
-		h.inv.UnsubscribeAll(sub.Topics)
+		h.inv.UnsubscribeTopics(sess.ID, sub.Topics)
 	}
 }
 
@@ -401,11 +399,63 @@ func (h *Handler) refreshQuery(sess *reactive.Session, eventID string, query jso
 
 	instaqlResult := h.buildInstaQLResult(ctx, appID, query, attrs)
 
+	// Build attrs array for the Reactor
+	attrsArr := make([]map[string]interface{}, 0, len(attrs))
+	for _, a := range attrs {
+		attrsArr = append(attrsArr, attrToJSON(a))
+	}
+
+	// Send refresh-ok with computations — this is the format the Reactor
+	// expects for cross-session invalidation (not add-query-ok which is
+	// only for the initial query subscription response).
 	sess.Send(map[string]interface{}{
-		"op":              "add-query-ok",
-		"q":               query,
-		"result":          instaqlResult,
-		"client-event-id": eventID,
+		"op":              "refresh-ok",
+		"processed-tx-id": 0,
+		"attrs":           attrsArr,
+		"computations": []map[string]interface{}{
+			{
+				"instaql-query":  query,
+				"instaql-result": instaqlResult,
+			},
+		},
+	})
+}
+
+// refreshAllQueries sends fresh data for ALL queries in a session.
+// Called when another session mutates data that this session is subscribed to.
+func (h *Handler) refreshAllQueries(sess *reactive.Session) {
+	ctx := context.Background()
+	appID := sess.AppID
+
+	attrs, err := h.db.GetAttrsByAppID(ctx, appID)
+	if err != nil {
+		return
+	}
+
+	queries := sess.GetQueries()
+	if len(queries) == 0 {
+		return
+	}
+
+	attrsArr := make([]map[string]interface{}, 0, len(attrs))
+	for _, a := range attrs {
+		attrsArr = append(attrsArr, attrToJSON(a))
+	}
+
+	var computations []map[string]interface{}
+	for _, sub := range queries {
+		instaqlResult := h.buildInstaQLResult(ctx, appID, sub.Query, attrs)
+		computations = append(computations, map[string]interface{}{
+			"instaql-query":  sub.Query,
+			"instaql-result": instaqlResult,
+		})
+	}
+
+	sess.Send(map[string]interface{}{
+		"op":              "refresh-ok",
+		"processed-tx-id": 0,
+		"attrs":           attrsArr,
+		"computations":    computations,
 	})
 }
 

@@ -12,25 +12,32 @@ import (
 // Topic represents a subscription topic for invalidation.
 type Topic string
 
-// Invalidator watches for data changes and invalidates affected queries.
-type Invalidator struct {
-	db        *storage.DB
-	mu        sync.RWMutex
-	listeners map[string][]InvalidationHandler // topic -> handlers
-	changeCh  chan storage.ChangelogEntry
-	stopCh    chan struct{}
-}
-
 // InvalidationHandler is called when a topic is invalidated.
 type InvalidationHandler func(appID string, entry *storage.ChangelogEntry)
+
+// subscription ties a handler to a specific session so it can be
+// removed cleanly when that session disconnects.
+type subscription struct {
+	sessionID string
+	handler   InvalidationHandler
+}
+
+// Invalidator watches for data changes and invalidates affected queries.
+type Invalidator struct {
+	db       *storage.DB
+	mu       sync.RWMutex
+	subs     map[string][]subscription // topic -> subscriptions (across ALL sessions)
+	changeCh chan storage.ChangelogEntry
+	stopCh   chan struct{}
+}
 
 // NewInvalidator creates a new invalidator.
 func NewInvalidator(db *storage.DB) *Invalidator {
 	return &Invalidator{
-		db:        db,
-		listeners: make(map[string][]InvalidationHandler),
-		changeCh:  db.SubscribeChanges(),
-		stopCh:    make(chan struct{}),
+		db:       db,
+		subs:     make(map[string][]subscription),
+		changeCh: db.SubscribeChanges(),
+		stopCh:   make(chan struct{}),
 	}
 }
 
@@ -60,57 +67,90 @@ func (inv *Invalidator) run() {
 }
 
 func (inv *Invalidator) handleChange(entry storage.ChangelogEntry) {
-	// Generate topics that this change affects
 	topics := inv.generateTopics(entry)
 
-	inv.mu.RLock()
-	defer inv.mu.RUnlock()
+	// Collect unique handlers to call (a session may match multiple topics
+	// but we only want to notify it once per change).
+	type handlerKey struct{ ptr uintptr }
+	seen := make(map[string]bool) // sessionID -> already called
 
+	inv.mu.RLock()
+	var toCall []subscription
 	for _, topic := range topics {
-		handlers, ok := inv.listeners[topic]
-		if !ok {
-			continue
+		for _, sub := range inv.subs[topic] {
+			if !seen[sub.sessionID] {
+				seen[sub.sessionID] = true
+				toCall = append(toCall, sub)
+			}
 		}
-		for _, h := range handlers {
-			h(entry.AppID, &entry)
-		}
+	}
+	inv.mu.RUnlock()
+
+	for _, sub := range toCall {
+		sub.handler(entry.AppID, &entry)
 	}
 }
 
 func (inv *Invalidator) generateTopics(entry storage.ChangelogEntry) []string {
-	var topics []string
-
-	// ea topic: app_id:attr_id:ea
-	topics = append(topics, fmt.Sprintf("%s:%s:ea", entry.AppID, entry.AttrID))
-
-	// av topic: app_id:attr_id:av
-	topics = append(topics, fmt.Sprintf("%s:%s:av", entry.AppID, entry.AttrID))
-
-	// eav topic: app_id:entity_id:attr_id:eav
-	topics = append(topics, fmt.Sprintf("%s:%s:%s:eav", entry.AppID, entry.EntityID, entry.AttrID))
-
-	// vae topic: app_id:attr_id:vae
-	topics = append(topics, fmt.Sprintf("%s:%s:vae", entry.AppID, entry.AttrID))
-
-	return topics
-}
-
-// Subscribe registers a handler for the given topics.
-func (inv *Invalidator) Subscribe(topics []string, handler InvalidationHandler) {
-	inv.mu.Lock()
-	defer inv.mu.Unlock()
-	for _, topic := range topics {
-		inv.listeners[topic] = append(inv.listeners[topic], handler)
+	return []string{
+		// ea topic: app_id:attr_id:ea
+		fmt.Sprintf("%s:%s:ea", entry.AppID, entry.AttrID),
+		// av topic: app_id:attr_id:av
+		fmt.Sprintf("%s:%s:av", entry.AppID, entry.AttrID),
+		// eav topic: app_id:entity_id:attr_id:eav
+		fmt.Sprintf("%s:%s:%s:eav", entry.AppID, entry.EntityID, entry.AttrID),
+		// vae topic: app_id:attr_id:vae
+		fmt.Sprintf("%s:%s:vae", entry.AppID, entry.AttrID),
 	}
 }
 
-// Unsubscribe removes all handlers for the given topics that match the handler.
-// Since Go functions aren't comparable, we remove by index tracking externally.
-func (inv *Invalidator) UnsubscribeAll(topics []string) {
+// Subscribe registers a handler for the given topics, scoped to a session.
+func (inv *Invalidator) Subscribe(sessionID string, topics []string, handler InvalidationHandler) {
+	inv.mu.Lock()
+	defer inv.mu.Unlock()
+	sub := subscription{sessionID: sessionID, handler: handler}
+	for _, topic := range topics {
+		inv.subs[topic] = append(inv.subs[topic], sub)
+	}
+}
+
+// UnsubscribeSession removes ALL subscriptions for a given session across
+// all topics. Called when a session disconnects.
+func (inv *Invalidator) UnsubscribeSession(sessionID string) {
+	inv.mu.Lock()
+	defer inv.mu.Unlock()
+	for topic, subs := range inv.subs {
+		filtered := subs[:0]
+		for _, s := range subs {
+			if s.sessionID != sessionID {
+				filtered = append(filtered, s)
+			}
+		}
+		if len(filtered) == 0 {
+			delete(inv.subs, topic)
+		} else {
+			inv.subs[topic] = filtered
+		}
+	}
+}
+
+// UnsubscribeTopics removes a specific session's subscriptions for the given topics.
+func (inv *Invalidator) UnsubscribeTopics(sessionID string, topics []string) {
 	inv.mu.Lock()
 	defer inv.mu.Unlock()
 	for _, topic := range topics {
-		delete(inv.listeners, topic)
+		subs := inv.subs[topic]
+		filtered := subs[:0]
+		for _, s := range subs {
+			if s.sessionID != sessionID {
+				filtered = append(filtered, s)
+			}
+		}
+		if len(filtered) == 0 {
+			delete(inv.subs, topic)
+		} else {
+			inv.subs[topic] = filtered
+		}
 	}
 }
 
@@ -142,10 +182,10 @@ type SessionAuth struct {
 
 // QuerySub tracks a single query subscription.
 type QuerySub struct {
-	Query     json.RawMessage `json:"query"`
-	Hash      string          `json:"hash"`
-	Topics    []string        `json:"topics"`
-	LastResult interface{}    `json:"last-result"`
+	Query      json.RawMessage `json:"query"`
+	Hash       string          `json:"hash"`
+	Topics     []string        `json:"topics"`
+	LastResult interface{}     `json:"last-result"`
 }
 
 // NewSessionStore creates a new session store.
@@ -225,7 +265,6 @@ func (s *Session) RemoveQuery(eventID string) *QuerySub {
 func (s *Session) GetQueries() map[string]*QuerySub {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	// Return a copy
 	result := make(map[string]*QuerySub, len(s.Queries))
 	for k, v := range s.Queries {
 		result[k] = v

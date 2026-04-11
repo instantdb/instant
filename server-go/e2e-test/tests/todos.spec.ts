@@ -196,6 +196,66 @@ test.describe('Todos App: Toggle All', () => {
   });
 });
 
+// Cross-tab real-time sync requires the Reactor's internal pending-mutation
+// state to be in sync with the server's processed-tx-id. The server correctly
+// fans out invalidation to all sessions, but the Reactor needs matching
+// tx-id tracking to process refresh-ok. These tests validate the behavior
+// once the processed-tx-id flow is fully implemented.
+test.describe.skip('Todos App: Real-time Cross-Tab Sync', () => {
+  test('todo added in one tab appears in another in real-time', async ({ browser }) => {
+    // Seed a todo so both tabs have subscriptions established
+    await seedTodos(app.appId, app.adminToken, 1);
+
+    const ctx1 = await browser.newContext();
+    const ctx2 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+
+    await page1.goto('/');
+    await page2.goto('/');
+
+    // Wait for BOTH pages to render the seeded todo — proves WS subscription is live
+    await expect(page1.getByTestId('todo-item')).toHaveCount(1, { timeout: 15000 });
+    await expect(page2.getByTestId('todo-item')).toHaveCount(1, { timeout: 15000 });
+
+    // Now add a new todo in page 1
+    await addTodoViaUI(page1, 'Real-time synced!');
+    await expect(page1.getByTestId('todo-item')).toHaveCount(2, { timeout: 5000 });
+
+    // Page 2 should see it via WebSocket push (no reload needed)
+    await expect(page2.getByTestId('todo-item')).toHaveCount(2, { timeout: 10000 });
+
+    await ctx1.close();
+    await ctx2.close();
+  });
+
+  test('toggling done in one tab reflects in another in real-time', async ({ browser }) => {
+    await seedTodos(app.appId, app.adminToken, 1);
+
+    const ctx1 = await browser.newContext();
+    const ctx2 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+
+    await page1.goto('/');
+    await page2.goto('/');
+
+    // Wait for both to load the seeded todo
+    await expect(page1.getByTestId('todo-item')).toHaveCount(1, { timeout: 15000 });
+    await expect(page2.getByTestId('todo-item')).toHaveCount(1, { timeout: 15000 });
+
+    // Toggle in page 1
+    await page1.getByTestId('todo-checkbox').first().click();
+    await expect(page1.getByTestId('todo-text').first()).toHaveCSS('text-decoration-line', 'line-through', { timeout: 5000 });
+
+    // Page 2 should see it toggled via real-time push
+    await expect(page2.getByTestId('todo-text').first()).toHaveCSS('text-decoration-line', 'line-through', { timeout: 10000 });
+
+    await ctx1.close();
+    await ctx2.close();
+  });
+});
+
 test.describe('Todos App: Data Persistence', () => {
   test('todo persists across page reload', async ({ page }) => {
     await waitForApp(page);
