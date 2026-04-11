@@ -1,0 +1,18 @@
+{
+  "name": "instant-go-smoke-test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx src/run-all-tests.ts",
+    "test:ci": "tsx src/run-all-tests.ts --ci"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "@types/ws": "^8.5.0",
+    "@types/node": "^22.0.0"
+  }
+}

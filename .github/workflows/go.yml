@@ -1,0 +1,138 @@
+name: Go Server CI
+
+on:
+  push:
+    paths:
+      - 'server-go/**'
+      - '.github/workflows/go.yml'
+  pull_request:
+    paths:
+      - 'server-go/**'
+      - '.github/workflows/go.yml'
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server-go
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: server-go/go.sum
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build
+        run: CGO_ENABLED=1 go build ./...
+
+      - name: Run unit tests
+        run: CGO_ENABLED=1 go test -timeout 120s -count=1 -race ./...
+
+  smoke-tests:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    defaults:
+      run:
+        working-directory: server-go
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: server-go/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build binary
+        run: CGO_ENABLED=1 go build -o instant-server ./cmd/instant/
+
+      - name: Start server
+        run: |
+          DB_PATH=/tmp/smoke-test.db ./instant-server &
+          for i in 1 2 3 4 5; do
+            if curl -sf http://localhost:8888/health > /dev/null 2>&1; then
+              echo "Server ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Install smoke test dependencies
+        working-directory: server-go/smoke-test
+        run: npm ci
+
+      - name: Run smoke tests (63 tests across 10 suites)
+        working-directory: server-go/smoke-test
+        run: npm test
+
+      - name: Stop server
+        if: always()
+        run: pkill -f instant-server || true
+
+  e2e-tests:
+    name: E2E Browser Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: server-go/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build Go binary
+        working-directory: server-go
+        run: CGO_ENABLED=1 go build -o instant-server ./cmd/instant/
+
+      - name: Build @instantdb/react
+        working-directory: client
+        run: |
+          pnpm install
+          pnpm --filter @instantdb/version run build
+          pnpm --filter @instantdb/core run build
+          pnpm --filter @instantdb/react-common run build
+          pnpm --filter @instantdb/react run build
+
+      - name: Install Playwright
+        working-directory: server-go/e2e-test
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Start Go server
+        working-directory: server-go
+        run: |
+          DB_PATH=/tmp/e2e-test.db ./instant-server &
+          for i in 1 2 3 4 5; do
+            if curl -sf http://localhost:8888/health > /dev/null 2>&1; then
+              echo "Server ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run Playwright tests (20 tests)
+        working-directory: server-go/e2e-test
+        run: npx playwright test --reporter=list
+
+      - name: Stop server
+        if: always()
+        run: pkill -f instant-server || true

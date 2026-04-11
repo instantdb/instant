@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>InstantDB Go Backend Test</title>
+  <style>
+    body { font-family: monospace; margin: 20px; background: #1a1a2e; color: #eee; }
+    .test { margin: 8px 0; padding: 8px; border-radius: 4px; }
+    .pass { background: #0a3622; border-left: 4px solid #2ecc71; }
+    .fail { background: #3a1020; border-left: 4px solid #e74c3c; }
+    .running { background: #2a2a1e; border-left: 4px solid #f1c40f; }
+    .info { background: #1a2a3e; border-left: 4px solid #3498db; }
+    h1 { color: #3498db; }
+    #results { margin-top: 20px; }
+    #summary { margin-top: 20px; padding: 12px; font-size: 1.2em; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>InstantDB Go Backend - Client SDK Compatibility Tests</h1>
+  <div id="results"></div>
+  <div id="summary"></div>
+
+  <script type="module">
+    // We'll use the core SDK directly via import from the built package
+    import { init } from '../../packages/core/src/index.ts';
+
+    const APP_ID = 'test-app-001';
+    const ADMIN_TOKEN = 'df071eea-4a37-4588-988a-ac59c4170513';
+    const API_URI = 'http://localhost:8888';
+    const WS_URI = 'ws://localhost:8888/runtime/session';
+
+    const resultsEl = document.getElementById('results');
+    const summaryEl = document.getElementById('summary');
+    let passed = 0;
+    let failed = 0;
+    let total = 0;
+
+    function log(msg, cls = 'info') {
+      const div = document.createElement('div');
+      div.className = 'test ' + cls;
+      div.textContent = msg;
+      resultsEl.appendChild(div);
+      console.log(`[${cls}] ${msg}`);
+    }
+
+    function pass(name) {
+      passed++;
+      log(`PASS: ${name}`, 'pass');
+      updateSummary();
+    }
+
+    function fail(name, err) {
+      failed++;
+      log(`FAIL: ${name} - ${err}`, 'fail');
+      updateSummary();
+    }
+
+    function updateSummary() {
+      summaryEl.textContent = `Results: ${passed} passed, ${failed} failed, ${passed + failed}/${total} complete`;
+      summaryEl.className = failed > 0 ? 'fail' : 'pass';
+    }
+
+    // Helper: wait for a condition with timeout
+    function waitFor(fn, timeoutMs = 10000, intervalMs = 100) {
+      return new Promise((resolve, reject) => {
+        const start = Date.now();
+        const check = () => {
+          const result = fn();
+          if (result) {
+            resolve(result);
+          } else if (Date.now() - start > timeoutMs) {
+            reject(new Error('Timeout waiting for condition'));
+          } else {
+            setTimeout(check, intervalMs);
+          }
+        };
+        check();
+      });
+    }
+
+    // Helper: generate UUID
+    function uuid() {
+      return crypto.randomUUID();
+    }
+
+    async function runTests() {
+      total = 9;
+      log('Initializing InstantDB client against Go backend...', 'info');
+      log(`API: ${API_URI}`, 'info');
+      log(`WebSocket: ${WS_URI}`, 'info');
+
+      // ---- Test 1: Initialize client ----
+      let db;
+      try {
+        db = init({
+          appId: APP_ID,
+          apiURI: API_URI,
+          websocketURI: WS_URI,
+        });
+        pass('1. Client init()');
+      } catch (e) {
+        fail('1. Client init()', e.message);
+        return;
+      }
+
+      // ---- Test 2: Wait for connection ----
+      try {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
+          const unsub = db.subscribeAuth((auth) => {
+            // Once we get any auth callback, connection is established
+            clearTimeout(timeout);
+            unsub();
+            resolve(auth);
+          });
+        });
+        pass('2. WebSocket connection established');
+      } catch (e) {
+        fail('2. WebSocket connection established', e.message);
+        // Continue anyway - some tests might still work
+      }
+
+      // ---- Test 3: Transact - add data ----
+      const todoId = uuid();
+      try {
+        await db.transact(
+          db.tx.todos[todoId].update({
+            title: 'Test todo from browser',
+            done: false,
+            createdAt: Date.now(),
+          })
+        );
+        pass('3. Transact - add todo');
+      } catch (e) {
+        fail('3. Transact - add todo', e.message);
+      }
+
+      // ---- Test 4: Query - read data ----
+      try {
+        const result = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Query timeout')), 10000);
+          const unsub = db.subscribeQuery({ todos: {} }, (resp) => {
+            if (resp.error) {
+              clearTimeout(timeout);
+              unsub();
+              reject(new Error(resp.error.message));
+              return;
+            }
+            if (resp.data && resp.data.todos) {
+              clearTimeout(timeout);
+              unsub();
+              resolve(resp.data);
+            }
+          });
+        });
+
+        const todos = result.todos || [];
+        if (todos.length > 0) {
+          pass(`4. Query - read todos (got ${todos.length})`);
+        } else {
+          fail('4. Query - read todos', 'Got 0 todos');
+        }
+      } catch (e) {
+        fail('4. Query - read todos', e.message);
+      }
+
+      // ---- Test 5: Query with where filter ----
+      try {
+        const result = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Query timeout')), 10000);
+          const unsub = db.subscribeQuery(
+            { todos: { $: { where: { done: false } } } },
+            (resp) => {
+              if (resp.error) {
+                clearTimeout(timeout);
+                unsub();
+                reject(new Error(resp.error.message));
+                return;
+              }
+              if (resp.data && resp.data.todos) {
+                clearTimeout(timeout);
+                unsub();
+                resolve(resp.data);
+              }
+            }
+          );
+        });
+        pass(`5. Query with where filter (got ${result.todos.length} todos)`);
+      } catch (e) {
+        fail('5. Query with where filter', e.message);
+      }
+
+      // ---- Test 6: Transact - update data ----
+      try {
+        await db.transact(
+          db.tx.todos[todoId].update({ done: true })
+        );
+        pass('6. Transact - update todo');
+      } catch (e) {
+        fail('6. Transact - update todo', e.message);
+      }
+
+      // ---- Test 7: Transact - add multiple items ----
+      try {
+        await db.transact([
+          db.tx.todos[uuid()].update({ title: 'Second todo', done: false, createdAt: Date.now() }),
+          db.tx.todos[uuid()].update({ title: 'Third todo', done: true, createdAt: Date.now() }),
+        ]);
+        pass('7. Transact - batch add');
+      } catch (e) {
+        fail('7. Transact - batch add', e.message);
+      }
+
+      // ---- Test 8: Transact - delete entity ----
+      try {
+        await db.transact(db.tx.todos[todoId].delete());
+        pass('8. Transact - delete todo');
+      } catch (e) {
+        fail('8. Transact - delete todo', e.message);
+      }
+
+      // ---- Test 9: Query after mutations ----
+      try {
+        const result = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Query timeout')), 10000);
+          const unsub = db.subscribeQuery({ todos: {} }, (resp) => {
+            if (resp.error) {
+              clearTimeout(timeout);
+              unsub();
+              reject(new Error(resp.error.message));
+              return;
+            }
+            if (resp.data && resp.data.todos) {
+              clearTimeout(timeout);
+              unsub();
+              resolve(resp.data);
+            }
+          });
+        });
+
+        const todos = result.todos || [];
+        // After: +1 (test3), +2 (test7), -1 (test8) = 2 remaining
+        if (todos.length >= 2) {
+          pass(`9. Query after mutations (got ${todos.length} todos)`);
+        } else {
+          fail(`9. Query after mutations`, `Expected >= 2 todos, got ${todos.length}`);
+        }
+      } catch (e) {
+        fail('9. Query after mutations', e.message);
+      }
+
+      log('--- Tests complete ---', 'info');
+      updateSummary();
+    }
+
+    runTests().catch(e => {
+      fail('Test runner', e.message);
+    });
+  </script>
+</body>
+</html>
