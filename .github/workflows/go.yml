@@ -94,9 +94,15 @@ jobs:
           go-version: '1.24'
           cache-dependency-path: server-go/go.sum
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: client/pnpm-lock.yaml
 
       - name: Build Go binary
         working-directory: server-go
@@ -105,7 +111,7 @@ jobs:
       - name: Build @instantdb/react
         working-directory: client
         run: |
-          pnpm install
+          pnpm install --frozen-lockfile
           pnpm --filter @instantdb/version run build
           pnpm --filter @instantdb/core run build
           pnpm --filter @instantdb/react-common run build
