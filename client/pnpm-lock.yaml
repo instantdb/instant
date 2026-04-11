@@ -26,12 +26,12 @@ importers:
 
   packages/admin:
     dependencies:
-      '@dww/eventsource':
-        specifier: 4.1.0-0
-        version: 4.1.0-0
       '@instantdb/core':
         specifier: workspace:*
         version: link:../core
+      '@instantdb/eventsource':
+        specifier: 4.1.0-2
+        version: 4.1.0-2
       '@instantdb/version':
         specifier: workspace:*
         version: link:../version
@@ -2956,10 +2956,6 @@ packages:
       search-insights:
         optional: true
 
-  '@dww/eventsource@4.1.0-0':
-    resolution: {integrity: sha512-2Le2C5z9cCi6djWFvaBaxWIdJcfv8p/E4mwBnjEs7JNAAmnP+kSU5+qosmMfzCkwgFeu1ijr8cJjbyt7Mfq7fA==}
-    engines: {node: '>=20.0.0'}
-
   '@effect/cluster@0.56.1':
     resolution: {integrity: sha512-gnrsH6kfrUjn+82j/bw1IR4yFqJqV8tc7xZvrbJPRgzANycc6K1hu3LMg548uYbUkTzD8YYyqrSatMO1mkQpzw==}
     peerDependencies:
@@ -4721,6 +4717,10 @@ packages:
 
   '@instantdb/core@0.19.20':
     resolution: {integrity: sha512-v/lFVX2X3JdAwHFwQTthN/g72ta6Cc0X+TGIHHedbwLO6ryqGlQfaOn6vpuMPpdidemmEHhe59mwzdLaLa5rgA==}
+
+  '@instantdb/eventsource@4.1.0-2':
+    resolution: {integrity: sha512-k2uzhsRzdD7hzV3fv+eoCRNeluZcj4pDfUKKAhvIS6xshc7zHkaM9/m3vxBgaYoNVmvOyaGp84TcHG0/Bp7k4g==}
+    engines: {node: '>=20.0.0'}
 
   '@instantdb/platform@0.19.20':
     resolution: {integrity: sha512-qFPsV3AGRQKLGolNiAbrlqsIEEGlDCwgSHDYfgSRn19rM8MIqI8i5vqjvXYOljhEDyKm2lEEBMmrDZXrGw5O2w==}
@@ -19495,10 +19495,6 @@ snapshots:
     transitivePeerDependencies:
       - '@algolia/client-search'
 
-  '@dww/eventsource@4.1.0-0':
-    dependencies:
-      eventsource-parser: 3.0.6
-
   '@effect/cluster@0.56.1(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14)(ioredis@5.6.1))(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/workflow@0.16.0(@effect/experimental@0.58.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14)(ioredis@5.6.1))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14))(effect@3.19.14)':
     dependencies:
       '@effect/platform': 0.94.1(effect@3.19.14)
@@ -21221,6 +21217,10 @@ snapshots:
     dependencies:
       mutative: 1.1.0
       uuid: 9.0.1
+
+  '@instantdb/eventsource@4.1.0-2':
+    dependencies:
+      eventsource-parser: 3.0.6
 
   '@instantdb/platform@0.19.20':
     dependencies:

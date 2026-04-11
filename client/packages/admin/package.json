@@ -61,7 +61,7 @@
     "@instantdb/core": "workspace:*",
     "@instantdb/version": "workspace:*",
     "cookie": "^1.1.1",
-    "@dww/eventsource": "4.1.0-0",
+    "@instantdb/eventsource": "4.1.0-2",
     "uuid": "^11.1.0"
   }
 }
