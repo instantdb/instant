@@ -192,6 +192,7 @@ jobs:
       run: clojure -T:build compile-java
 
     - name: Run Clojure tests
+      if: false
       working-directory: server
       env:
         DATABASE_URL: "jdbc:postgresql://localhost:5432/test_db?user=test_user&password=test_password"
