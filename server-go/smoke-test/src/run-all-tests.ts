@@ -27,6 +27,7 @@ import { syncTests } from './tests/08-sync.test.js';
 import { schemaTests } from './tests/09-schema.test.js';
 import { oauthTests } from './tests/10-oauth.test.js';
 import { todosAppTests } from './tests/11-todos-app.test.js';
+import { concurrentClientTests } from './tests/12-concurrent-clients.test.js';
 
 async function main() {
   console.log('');
@@ -63,6 +64,7 @@ async function main() {
   await schemaTests(app);
   await oauthTests(app);
   await todosAppTests(app);
+  await concurrentClientTests(app);
 
   // Print results
   const allPassed = printResults();

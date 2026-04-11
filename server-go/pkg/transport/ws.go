@@ -617,10 +617,11 @@ func (h *Handler) handleJoinRoom(sess *reactive.Session, msg map[string]json.Raw
 		json.Unmarshal(raw, &peerID)
 	}
 
-	room := h.eph.JoinRoom(sess.AppID, roomID, sess.ID, userID, peerID)
+	h.eph.JoinRoom(sess.AppID, roomID, sess.ID, userID, peerID)
 
 	// Build presence response
-	presence := h.buildPresenceResponse(room, sess.ID)
+	members := h.eph.GetPresence(sess.AppID, roomID)
+	presence := h.buildPresenceResponse(members, sess.ID)
 
 	sess.Send(map[string]interface{}{
 		"op":              "join-room-ok",
@@ -679,8 +680,8 @@ func (h *Handler) handleRefreshPresence(sess *reactive.Session, msg map[string]j
 		json.Unmarshal(raw, &roomID)
 	}
 
-	room := h.eph.GetRoom(sess.AppID, roomID)
-	if room == nil {
+	members := h.eph.GetPresence(sess.AppID, roomID)
+	if members == nil {
 		sess.Send(map[string]interface{}{
 			"op":              "refresh-presence-ok",
 			"room-id":         roomID,
@@ -690,7 +691,7 @@ func (h *Handler) handleRefreshPresence(sess *reactive.Session, msg map[string]j
 		return
 	}
 
-	presence := h.buildPresenceResponse(room, sess.ID)
+	presence := h.buildPresenceResponse(members, sess.ID)
 
 	sess.Send(map[string]interface{}{
 		"op":              "refresh-presence-ok",
@@ -746,12 +747,12 @@ func (h *Handler) handleServerBroadcast(sess *reactive.Session, msg map[string]j
 }
 
 func (h *Handler) broadcastPresenceUpdate(appID, roomID, senderSessionID string) {
-	room := h.eph.GetRoom(appID, roomID)
-	if room == nil {
+	members := h.eph.GetPresence(appID, roomID)
+	if members == nil {
 		return
 	}
 
-	for sid, member := range room.Sessions {
+	for sid := range members {
 		if sid == senderSessionID {
 			continue
 		}
@@ -760,19 +761,18 @@ func (h *Handler) broadcastPresenceUpdate(appID, roomID, senderSessionID string)
 			continue
 		}
 
-		presence := h.buildPresenceResponse(room, sid)
+		presence := h.buildPresenceResponse(members, sid)
 		sess.Send(map[string]interface{}{
 			"op":      "refresh-presence",
 			"room-id": roomID,
 			"data":    presence,
 		})
-		_ = member
 	}
 }
 
-func (h *Handler) buildPresenceResponse(room *reactive.Room, excludeSessionID string) map[string]interface{} {
+func (h *Handler) buildPresenceResponse(members map[string]*reactive.RoomMember, excludeSessionID string) map[string]interface{} {
 	result := make(map[string]interface{})
-	for sid, member := range room.Sessions {
+	for sid, member := range members {
 		key := sid
 		if member.PeerID != "" {
 			key = member.PeerID
