@@ -129,6 +129,27 @@ func ParseTxStep(raw json.RawMessage) (*storage.TxStep, error) {
 		}
 		json.Unmarshal(arr[1], &step.AttrID)
 
+	case "restore-attr":
+		if len(arr) < 2 {
+			return nil, fmt.Errorf("restore-attr requires [op, attrID]")
+		}
+		json.Unmarshal(arr[1], &step.AttrID)
+
+	case "rule-params":
+		// rule-params attaches extra context for permission evaluation
+		// [op, entityID, etype, params]
+		if len(arr) >= 2 {
+			var eid string
+			json.Unmarshal(arr[1], &eid)
+			step.EntityID = eid
+		}
+		if len(arr) >= 3 {
+			json.Unmarshal(arr[2], &step.Etype)
+		}
+		if len(arr) >= 4 {
+			step.Value = arr[3]
+		}
+
 	default:
 		return nil, fmt.Errorf("unknown tx op: %s", op)
 	}
@@ -178,6 +199,10 @@ func (tp *TxProcessor) ProcessTransaction(ctx context.Context, appID string, ste
 				if err := tp.execDeleteAttr(ctx, tx, step); err != nil {
 					return err
 				}
+			case "restore-attr":
+				// restore-attr is a no-op in SQLite backend (attrs aren't soft-deleted)
+			case "rule-params":
+				// rule-params is a client-side hint for permission evaluation, no DB action needed
 			default:
 				return fmt.Errorf("unknown op: %s", step.Op)
 			}

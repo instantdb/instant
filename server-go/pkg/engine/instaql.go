@@ -36,6 +36,12 @@ type WhereClause struct {
 	Op    string      `json:"op"` // "", "$in", "$not", "$gt", "$gte", "$lt", "$lte", "$like", "$ilike", "$isNull"
 }
 
+// CompoundWhere represents $and / $or compound conditions.
+type CompoundWhere struct {
+	And []interface{} `json:"$and,omitempty"` // elements are WhereClause or CompoundWhere
+	Or  []interface{} `json:"$or,omitempty"`
+}
+
 // OrderClause specifies sort order.
 type OrderClause struct {
 	Key       string `json:"k"`
@@ -175,9 +181,47 @@ func parseWhere(raw json.RawMessage) ([]WhereClause, error) {
 	if err := json.Unmarshal(raw, &whereMap); err != nil {
 		return nil, err
 	}
+	return parseWhereMap(whereMap)
+}
+
+func parseWhereMap(whereMap map[string]interface{}) ([]WhereClause, error) {
 	var clauses []WhereClause
 	for key, val := range whereMap {
-		path := []string{key}
+		// Handle $and / $or compound conditions
+		if key == "$and" || key == "and" {
+			if arr, ok := val.([]interface{}); ok {
+				for _, item := range arr {
+					if m, ok := item.(map[string]interface{}); ok {
+						sub, err := parseWhereMap(m)
+						if err != nil {
+							return nil, err
+						}
+						clauses = append(clauses, sub...)
+					}
+				}
+			}
+			continue
+		}
+		if key == "$or" || key == "or" {
+			if arr, ok := val.([]interface{}); ok {
+				// For $or, wrap each condition with a special marker
+				for _, item := range arr {
+					if m, ok := item.(map[string]interface{}); ok {
+						sub, err := parseWhereMap(m)
+						if err != nil {
+							return nil, err
+						}
+						for _, s := range sub {
+							s.Op = "$or:" + s.Op
+							clauses = append(clauses, s)
+						}
+					}
+				}
+			}
+			continue
+		}
+
+		path := strings.Split(key, ".")
 		switch v := val.(type) {
 		case map[string]interface{}:
 			for op, opVal := range v {

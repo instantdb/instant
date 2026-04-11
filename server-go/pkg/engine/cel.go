@@ -28,6 +28,10 @@ type PermContext struct {
 	UserEmail string
 	IsAdmin   bool
 	Attrs     []*storage.Attr
+	// Request context
+	RequestTime   int64  // unix millis
+	RequestOrigin string
+	RequestIP     string
 }
 
 // CheckResult holds the result of a permission check.
@@ -60,11 +64,18 @@ func (pe *PermissionEngine) CheckPermission(_ context.Context, rule string, perm
 		}
 	}
 
+	requestCtx := map[string]interface{}{
+		"time":   permCtx.RequestTime,
+		"origin": permCtx.RequestOrigin,
+		"ip":     permCtx.RequestIP,
+	}
+
 	env := map[string]interface{}{
 		"auth":       authCtx,
 		"data":       data,
 		"newData":    data,
 		"ruleParams": map[string]interface{}{},
+		"request":    requestCtx,
 	}
 
 	result, err := evalExpr(rule, env)
@@ -128,6 +139,47 @@ func (pe *PermissionEngine) EvalRules(ctx context.Context, permCtx *PermContext,
 	}
 
 	return pe.CheckPermission(ctx, ruleStr, permCtx, etype, action, data)
+}
+
+// EvalFieldPermissions checks field-level permissions for an entity.
+// Returns the set of fields that should be hidden from the response.
+func (pe *PermissionEngine) EvalFieldPermissions(ctx context.Context, permCtx *PermContext, rules *storage.Rule, etype string, data map[string]interface{}) map[string]bool {
+	if permCtx.IsAdmin || rules == nil {
+		return nil
+	}
+
+	var ruleMap map[string]interface{}
+	if err := json.Unmarshal(rules.Code, &ruleMap); err != nil {
+		return nil
+	}
+
+	etypeRules, ok := ruleMap[etype].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	allowRules, ok := etypeRules["allow"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	fieldsRules, ok := allowRules["fields"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	hidden := map[string]bool{}
+	for field, ruleExpr := range fieldsRules {
+		ruleStr, ok := ruleExpr.(string)
+		if !ok {
+			continue
+		}
+		result := pe.CheckPermission(ctx, ruleStr, permCtx, etype, "view", data)
+		if !result.Allowed {
+			hidden[field] = true
+		}
+	}
+	return hidden
 }
 
 // ---- Simple expression evaluator ----

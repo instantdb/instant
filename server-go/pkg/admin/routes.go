@@ -67,10 +67,38 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /admin/rules", h.handleGetRules)
 	mux.HandleFunc("POST /admin/users", h.handleCreateUser)
 	mux.HandleFunc("GET /admin/users", h.handleListUsers)
+	mux.HandleFunc("POST /admin/sign-in-as-guest", h.handleSignInAsGuest)
+	mux.HandleFunc("POST /admin/custom-auth-token", h.handleCustomAuthToken)
 	mux.HandleFunc("DELETE /admin/users", h.handleDeleteUser)
 	mux.HandleFunc("POST /admin/magic-code/send", h.handleMagicCodeSend)
 	mux.HandleFunc("POST /admin/magic-code/verify", h.handleMagicCodeVerify)
 	mux.HandleFunc("GET /health", h.handleHealth)
+}
+
+// getImpersonation extracts impersonation headers (as-email, as-token, as-guest).
+func (h *Handler) getImpersonation(r *http.Request) (isAdmin bool, userID, userEmail string) {
+	asEmail := r.Header.Get("as-email")
+	asToken := r.Header.Get("as-token")
+	asGuest := r.Header.Get("as-guest")
+
+	if asGuest == "true" {
+		return false, "", ""
+	}
+	if asEmail != "" {
+		user, _ := h.db.GetAppUserByEmail(r.Context(), h.getAppID(r), asEmail)
+		if user != nil {
+			return false, user.ID, user.Email
+		}
+		return false, "", asEmail
+	}
+	if asToken != "" {
+		user, _ := h.authSvc.VerifyRefreshToken(r.Context(), h.getAppID(r), asToken)
+		if user != nil {
+			return false, user.ID, user.Email
+		}
+		return false, "", ""
+	}
+	return true, "", "" // admin by default
 }
 
 func (h *Handler) handleQuery(w http.ResponseWriter, r *http.Request) {
@@ -539,6 +567,56 @@ func (h *Handler) handleMagicCodeVerify(w http.ResponseWriter, r *http.Request) 
 		},
 		"token": token,
 	})
+}
+
+func (h *Handler) handleSignInAsGuest(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		AppID string `json:"app-id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, 400, "invalid body")
+		return
+	}
+
+	user, token, err := h.authSvc.SignInAsGuest(r.Context(), body.AppID)
+	if err != nil {
+		writeError(w, 500, err.Error())
+		return
+	}
+
+	writeJSON(w, 200, map[string]interface{}{
+		"user": map[string]interface{}{
+			"id":            user.ID,
+			"refresh_token": user.RefreshToken,
+			"is_guest":      true,
+		},
+		"token": token,
+	})
+}
+
+func (h *Handler) handleCustomAuthToken(w http.ResponseWriter, r *http.Request) {
+	appID, _, err := h.authenticate(r)
+	if err != nil {
+		writeError(w, 401, "unauthorized")
+		return
+	}
+
+	var body struct {
+		Email  string `json:"email"`
+		UserID string `json:"user-id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, 400, "invalid body")
+		return
+	}
+
+	token, err := h.authSvc.CreateCustomToken(r.Context(), appID, body.Email, body.UserID)
+	if err != nil {
+		writeError(w, 500, err.Error())
+		return
+	}
+
+	writeJSON(w, 200, map[string]interface{}{"token": token})
 }
 
 func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {

@@ -196,6 +196,65 @@ func (s *Service) VerifyMagicCode(ctx context.Context, appID, email, code string
 	return user, token, nil
 }
 
+// ---- Guest Auth ----
+
+// SignInAsGuest creates a guest user with no email.
+func (s *Service) SignInAsGuest(ctx context.Context, appID string) (*storage.AppUser, string, error) {
+	userID := generateUUID()
+	refreshToken := generateUUID()
+	user := &storage.AppUser{
+		ID:           userID,
+		AppID:        appID,
+		Email:        "", // guest has no email
+		RefreshToken: refreshToken,
+	}
+	if err := s.db.CreateAppUser(ctx, user); err != nil {
+		return nil, "", err
+	}
+
+	token, err := s.CreateToken(appID, user.ID, "")
+	if err != nil {
+		return nil, "", err
+	}
+
+	return user, token, nil
+}
+
+// ---- Custom Auth Token ----
+
+// CreateCustomToken creates an auth token for a user identified by email or ID.
+func (s *Service) CreateCustomToken(ctx context.Context, appID string, email string, userID string) (string, error) {
+	if email != "" {
+		user, err := s.db.GetAppUserByEmail(ctx, appID, email)
+		if err != nil {
+			return "", err
+		}
+		if user == nil {
+			// Create the user
+			uid := generateUUID()
+			refreshToken := generateUUID()
+			user = &storage.AppUser{
+				ID: uid, AppID: appID, Email: email, RefreshToken: refreshToken,
+			}
+			if err := s.db.CreateAppUser(ctx, user); err != nil {
+				return "", err
+			}
+		}
+		return s.CreateToken(appID, user.ID, user.Email)
+	}
+	if userID != "" {
+		user, err := s.db.GetAppUserByID(ctx, userID)
+		if err != nil {
+			return "", err
+		}
+		if user == nil {
+			return "", ErrUserNotFound
+		}
+		return s.CreateToken(appID, user.ID, user.Email)
+	}
+	return "", fmt.Errorf("email or user ID required")
+}
+
 // ---- Admin Token Auth ----
 
 // VerifyAdminToken checks if the token matches the app's admin token.
