@@ -86,6 +86,26 @@ export class LinkAttrDef<
   ) {}
 }
 
+export type WebhookEvent = 'create' | 'update' | 'delete';
+
+export type WebhookFilter = {
+  [key: string]: any;
+};
+
+export type WebhookPayloadConfig = {
+  include?: string[];
+  exclude?: string[];
+};
+
+export class WebhookDef {
+  constructor(
+    public events: WebhookEvent[],
+    public url: string,
+    public filter?: WebhookFilter,
+    public payload?: WebhookPayloadConfig,
+  ) {}
+}
+
 export interface IContainEntitiesAndLinks<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
@@ -111,14 +131,16 @@ export class EntityDef<
   Attrs extends AttrsDefs,
   Links extends Record<string, LinkAttrDef<any, any>>,
   AsType,
+  Webhooks extends Record<string, WebhookDef> = {},
 > {
   constructor(
     public attrs: Attrs,
     public links: Links,
+    public webhooks?: Webhooks,
   ) {}
 
   asType<_AsType extends Partial<MappedAttrs<Attrs, boolean>>>() {
-    return new EntityDef<Attrs, Links, _AsType>(this.attrs, this.links);
+    return new EntityDef<Attrs, Links, _AsType, Webhooks>(this.attrs, this.links, this.webhooks);
   }
 }
 
