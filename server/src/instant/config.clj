@@ -234,6 +234,18 @@
 (defn get-google-oauth-client []
   (-> @config-map :google-oauth-client))
 
+(defn get-google-oauth-client-dev []
+  (let [client-id (or (System/getenv "GOOGLE_OAUTH_CLIENT_ID_DEV")
+                      (-> @config-map :google-oauth-client-dev :client-id))
+        client-secret (or (System/getenv "GOOGLE_OAUTH_CLIENT_SECRET_DEV")
+                          (some-> @config-map
+                                  :google-oauth-client-dev
+                                  :client-secret
+                                  crypt-util/secret-value))]
+    (when (and client-id client-secret)
+      {:client-id client-id
+       :client-secret (crypt-util/obfuscate client-secret)})))
+
 (def s3-bucket-name
   (case (get-env)
     :prod "instant-storage"

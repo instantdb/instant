@@ -184,6 +184,18 @@
   (when (string/starts-with? v cookie-value-prefix)
     (uuid-util/coerce (subs v (count cookie-value-prefix)))))
 
+(defn- localhost-origin? [redirect-uri]
+  (contains? #{"localhost" "127.0.0.1"}
+             (some-> redirect-uri uri/uri :host)))
+
+(defn- managed-dev-origin? [matched-origin redirect-uri]
+  (case (:service matched-origin)
+    "netlify" true
+    "vercel" true
+    "custom-scheme" true
+    "generic" (localhost-origin? redirect-uri)
+    false))
+
 (defn oauth-start [{{:keys [state code_challenge code_challenge_method]} :params :as req}]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
 
@@ -216,6 +228,18 @@
              :redirect-uri
              redirect-uri
              [{:message "Invalid redirect_uri. If you're the developer, make sure to add your website to the list of approved domains from the Dashboard."}]))
+        _ (when (and (app-oauth-client-model/google-managed-dev-client? client)
+                     (not (managed-dev-origin? matched-origin redirect-uri)))
+            (ex/throw-validation-err!
+             :redirect-uri
+             redirect-uri
+             [{:message "Instant dev credentials for Google only work on localhost, preview URLs, and custom app schemes. Add your own Google client ID and secret for production domains."}]))
+        _ (when (and (app-oauth-client-model/google-managed-dev-client? client)
+                     (:redirect_to client))
+            (ex/throw-validation-err!
+             :redirect-to
+             (:redirect_to client)
+             [{:message "Custom Redirect URL is not supported when using Instant dev credentials."}]))
 
         app-redirect-url
         (if state

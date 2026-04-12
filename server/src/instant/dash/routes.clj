@@ -601,6 +601,64 @@
 
     (response/ok {:provider (select-keys provider [:id :provider_name :created_at])})))
 
+(defn- meta-value [m k]
+  (or (get m k)
+      (get m (keyword k))))
+
+(def ^:private missing-body-value ::missing-body-value)
+
+(defn- body-value [req k]
+  (let [body (:body req)]
+    (cond
+      (contains? body k) (get body k)
+      (contains? body (name k)) (get body (name k))
+      :else missing-body-value)))
+
+(defn- body-contains? [req k]
+  (not= missing-body-value (body-value req k)))
+
+(defn- get-optional-body-param! [req k coercer]
+  (let [param (body-value req k)]
+    (when-not (= missing-body-value param)
+      (if (nil? param)
+        nil
+        (if-some [coerced (coercer param)]
+          coerced
+          (ex/throw-malformed-param! [:body k] param))))))
+
+(defn- oauth-client-errors [{:keys [provider-name client-id client-secret redirect-to meta]}]
+  (let [use-dev-credentials? (true? (meta-value meta "useDevCredentials"))
+        app-type (meta-value meta "appType")]
+    (concat
+     (when (and use-dev-credentials?
+                (not= "google" provider-name))
+       [{:message "Instant dev credentials are only supported for Google clients."}])
+
+     (when (and use-dev-credentials?
+                (not= "web" app-type))
+       [{:message "Instant dev credentials are only supported for Google web redirect clients."}])
+
+     (when (and use-dev-credentials? redirect-to)
+       [{:message "Custom Redirect URL is not supported when using Instant dev credentials."}])
+
+     (when (and use-dev-credentials? client-id)
+       [{:message "Client ID must be blank when using Instant dev credentials."}])
+
+     (when (and use-dev-credentials? client-secret)
+       [{:message "Client secret must be blank when using Instant dev credentials."}])
+
+     (when (and (= "google" provider-name)
+                (= "web" app-type)
+                (not use-dev-credentials?)
+                (string/blank? client-id))
+       [{:message "Missing client id"}])
+
+     (when (and (= "google" provider-name)
+                (= "web" app-type)
+                (not use-dev-credentials?)
+                (string/blank? client-secret))
+       [{:message "Missing client secret"}]))))
+
 (defn oauth-clients-post [req]
   (let [coerce-optional-param!
         (fn [path]
@@ -610,10 +668,15 @@
 
         {{app-id :id} :app} (req->app-and-user! :collaborator req)
         provider-id (ex/get-param! req [:body :provider_id] uuid-util/coerce)
+        provider (app-oauth-service-provider-model/get-by-id {:app-id app-id
+                                                              :id provider-id})
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
         client-id (coerce-optional-param! [:body :client_id])
         client-secret (coerce-optional-param! [:body :client_secret])
-        meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
+        meta (ex/get-optional-param! req [:body :meta]
+                                     (fn [x]
+                                       (when (instance? java.util.Map x)
+                                         (into {} x))))
         redirect-to (-> req :body :redirect_to string-util/coerce-non-blank-str)
         _ (when redirect-to
             (ex/assert-valid!
@@ -621,11 +684,22 @@
              redirect-to
              (url-util/redirect-url-validation-errors
               redirect-to :allow-localhost? true)))
-        provider-name (ex/get-optional-param! meta [:providerName] string-util/coerce-non-blank-str)
+        _ (ex/assert-valid!
+           :oauth-client
+           {:provider-name (:provider_name provider)
+            :client-id client-id
+            :client-secret client-secret
+            :redirect-to redirect-to
+            :meta meta}
+           (oauth-client-errors {:provider-name (:provider_name provider)
+                                 :client-id client-id
+                                 :client-secret client-secret
+                                 :redirect-to redirect-to
+                                 :meta meta}))
 
         ;; GitHub doesn't need discovery endpoints
         ;; OIDC providers (Google, LinkedIn, Apple) need discovery endpoints
-        discovery-endpoint (when-not (= "github" provider-name)
+        discovery-endpoint (when-not (= "github" (:provider_name provider))
                              (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str))
 
         client (app-oauth-client-model/create! {:app-id app-id
@@ -642,19 +716,49 @@
 (defn update-oauth-client [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         id (ex/get-param! req [:params :id] uuid-util/coerce)
-        meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
-        redirect-to (-> req :body :redirect_to string-util/coerce-non-blank-str)
+        current-client (app-oauth-client-model/get-by-id {:app-id app-id
+                                                          :id id})
+        provider (app-oauth-service-provider-model/get-by-id {:app-id app-id
+                                                              :id (:provider_id current-client)})
+        meta (get-optional-body-param! req :meta
+                                       (fn [x]
+                                         (when (instance? java.util.Map x)
+                                           (into {} x))))
+        redirect-to (get-optional-body-param! req :redirect_to string-util/coerce-non-blank-str)
         _ (when redirect-to
             (ex/assert-valid!
              :redirect_to
              redirect-to
              (url-util/redirect-url-validation-errors
               redirect-to :allow-localhost? true)))
+        merged-meta (cond
+                      (body-contains? req :meta) (merge (:meta current-client) meta)
+                      :else (:meta current-client))
+        _ (ex/assert-valid!
+           :oauth-client
+           {:provider-name (:provider_name provider)
+            :redirect-to redirect-to
+            :meta merged-meta}
+           (concat
+            (when (and (body-contains? req :meta)
+                       (or (app-oauth-client-model/uses-dev-credentials? current-client)
+                           (contains? (or meta {}) "useDevCredentials")
+                           (contains? (or meta {}) :useDevCredentials)
+                           (nil? meta)))
+              [{:message "Delete and recreate the client to change Instant dev credentials mode."}])
+            (oauth-client-errors {:provider-name (:provider_name provider)
+                                  :client-id (:client_id current-client)
+                                  :client-secret (when (:client_secret current-client)
+                                                   "<existing>")
+                                  :redirect-to (if (body-contains? req :redirect_to)
+                                                 redirect-to
+                                                 (:redirect_to current-client))
+                                  :meta merged-meta})))
         params (cond-> {:app-id app-id
                         :id id}
                  ;; Distinguish between null and undefined
-                 (contains? (:body req) :meta) (assoc :meta meta)
-                 (contains? (:body req) :redirect_to) (assoc :redirect-to redirect-to))
+                 (body-contains? req :meta) (assoc :meta meta)
+                 (body-contains? req :redirect_to) (assoc :redirect-to redirect-to))
         client (app-oauth-client-model/update! params)]
     (response/ok {:client (select-keys client [:id :provider_id :client_name
                                                :client_id :created_at :meta :discovery_endpoint])})))

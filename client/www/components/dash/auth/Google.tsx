@@ -57,6 +57,23 @@ function isNative(appType: AppType) {
   return appType === 'ios' || appType === 'android';
 }
 
+function supportsDevCredentials(appType: AppType) {
+  return appType === 'web';
+}
+
+function usesDevCredentials(client: OAuthClient) {
+  return Boolean(client.meta?.useDevCredentials);
+}
+
+function DevCredentialsNotice() {
+  return (
+    <p className="text-sm text-gray-500 dark:text-neutral-400">
+      Works on localhost, preview URLs, and app schemes. Use your own Google
+      client ID and secret for production domains.
+    </p>
+  );
+}
+
 export function AddClientForm({
   app,
   provider,
@@ -82,6 +99,7 @@ export function AddClientForm({
   const [redirectTo, setRedirectTo] = useState<string>('');
   const [updatedRedirectURL, setUpdatedRedirectURL] = useState(false);
   const [skipNonceChecks, setSkipNonceChecks] = useState(isNative(appType));
+  const [useDevCredentials, setUseDevCredentials] = useState(appType === 'web');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const onChangeAppType = (item: { id: string; label: string }) => {
@@ -89,6 +107,20 @@ export function AddClientForm({
     setAppType(newAppType);
     setClientName(findName(`google-${newAppType}`, usedClientNames));
     setSkipNonceChecks(isNative(newAppType));
+    setUseDevCredentials(supportsDevCredentials(newAppType));
+    if (!supportsDevCredentials(newAppType)) {
+      setUpdatedRedirectURL(false);
+    }
+  };
+
+  const onChangeUseDevCredentials = (nextValue: boolean) => {
+    setUseDevCredentials(nextValue);
+    if (nextValue) {
+      setClientId('');
+      setClientSecret('');
+      setRedirectTo('');
+      setUpdatedRedirectURL(false);
+    }
   };
 
   const validationError = () => {
@@ -98,10 +130,10 @@ export function AddClientForm({
     if (usedClientNames.has(clientName)) {
       return `The unique name '${clientName}' is already in use.`;
     }
-    if (!clientId) {
+    if (!useDevCredentials && !clientId) {
       return 'Missing client id';
     }
-    if (appType === 'web' && !clientSecret) {
+    if (appType === 'web' && !useDevCredentials && !clientSecret) {
       return 'Missing client secret';
     }
   };
@@ -120,16 +152,19 @@ export function AddClientForm({
         appId: app.id,
         providerId: provider.id,
         clientName,
-        clientId,
-        clientSecret: clientSecret ? clientSecret : undefined,
+        clientId: useDevCredentials ? undefined : clientId,
+        clientSecret:
+          useDevCredentials || !clientSecret ? undefined : clientSecret,
         authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
         tokenEndpoint: 'https://oauth2.googleapis.com/token',
         discoveryEndpoint:
           'https://accounts.google.com/.well-known/openid-configuration',
-        redirectTo,
+        redirectTo: useDevCredentials ? undefined : redirectTo,
         meta: {
+          providerName: 'google',
           skipNonceChecks: skipNonceChecks,
           appType,
+          useDevCredentials,
         },
       });
       onAddClient(resp.client);
@@ -174,28 +209,40 @@ export function AddClientForm({
         label="Client name"
         placeholder={`e.g. google-${appType}`}
       />
-
-      <TextInput
-        tabIndex={2}
-        value={clientId}
-        onChange={setClientId}
-        label={
-          <>
-            Client ID from{' '}
-            <a
-              className="underline"
-              target="_blank"
-              rel="noopener noreferer"
-              href="https://console.developers.google.com/apis/credentials"
-            >
-              Google console
-            </a>
-          </>
-        }
-        placeholder=""
-      />
-
       {appType === 'web' && (
+        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+          <Checkbox
+            checked={useDevCredentials}
+            onChange={onChangeUseDevCredentials}
+            label="Use Instant dev credentials"
+          />
+          <DevCredentialsNotice />
+        </div>
+      )}
+
+      {!useDevCredentials && (
+        <TextInput
+          tabIndex={2}
+          value={clientId}
+          onChange={setClientId}
+          label={
+            <>
+              Client ID from{' '}
+              <a
+                className="underline"
+                target="_blank"
+                rel="noopener noreferer"
+                href="https://console.developers.google.com/apis/credentials"
+              >
+                Google console
+              </a>
+            </>
+          }
+          placeholder=""
+        />
+      )}
+
+      {appType === 'web' && !useDevCredentials && (
         <TextInput
           type="sensitive"
           tabIndex={3}
@@ -216,10 +263,10 @@ export function AddClientForm({
           }
         />
       )}
-      {appType === 'web' && (
+      {appType === 'web' && !useDevCredentials && (
         <RedirectUrlInput value={redirectTo} onChange={setRedirectTo} />
       )}
-      {appType === 'web' && (
+      {appType === 'web' && !useDevCredentials && (
         <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
           <p className="overflow-hidden">
             Add{' '}
@@ -363,6 +410,7 @@ export function Client({
   const { darkMode } = useDarkMode();
 
   const didSkipNonceChecks = client.meta?.skipNonceChecks;
+  const usesGoogleDevCredentials = usesDevCredentials(client);
 
   const handleDelete = async () => {
     try {
@@ -481,8 +529,10 @@ function Login() {
             <div className="">App Type: {appTypeLabel(appType)}</div>
 
             <Copyable label="Client name" value={client.client_name} />
-            <Copyable label="Google client ID" value={client.client_id || ''} />
-            {appType === 'web' && (
+            {!usesGoogleDevCredentials && client.client_id ? (
+              <Copyable label="Google client ID" value={client.client_id} />
+            ) : null}
+            {appType === 'web' && !usesGoogleDevCredentials && (
               <EditableRedirectUrl
                 app={app}
                 client={client}
@@ -501,7 +551,35 @@ function Login() {
                 <NonceCheckNotice />
               </div>
             ) : null}
-            {appType === 'web' && (
+            {appType === 'web' && usesGoogleDevCredentials && (
+              <>
+                <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+                  <Checkbox
+                    checked={true}
+                    onChange={() => {}}
+                    label="Using Instant dev credentials"
+                  />
+                  <DevCredentialsNotice />
+                  <Content className="text-sm text-gray-500 dark:text-neutral-400">
+                    Custom Redirect URL is not supported in this mode. If you
+                    need production domains or a custom redirect URL, delete
+                    this client and create it again with your own Google client
+                    ID and secret.
+                  </Content>
+                </div>
+                <Content>
+                  Use the code below to generate a login link in your app.
+                </Content>
+                <div className="overflow-auto rounded-sm border text-sm dark:border-none">
+                  <Fence
+                    darkMode={darkMode}
+                    code={exampleCode}
+                    language="typescript"
+                  />
+                </div>
+              </>
+            )}
+            {appType === 'web' && !usesGoogleDevCredentials && (
               <>
                 <SubsectionHeading>
                   <a

@@ -1,6 +1,10 @@
 (ns instant.runtime.routes-test
   (:require
+   [clj-http.client :as clj-http]
+   [clojure.string :as string]
    [clojure.test :refer [deftest is testing]]
+   [instant.auth.oauth :as oauth]
+   [instant.config :as config]
    [instant.core :as core]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -11,6 +15,8 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
+   [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
+   [instant.model.app-oauth-client :as app-oauth-client-model]
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
@@ -23,26 +29,70 @@
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json <-json]]
    [instant.util.test :as test-util]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [lambdaisland.uri :as uri])
   (:import
    (clojure.lang ExceptionInfo)
-   (java.io ByteArrayInputStream)))
+   (java.io ByteArrayInputStream)
+   (java.net URLDecoder)
+   (java.util Base64)))
+
+(defn- build-request [opts]
+  (let [[uri query-string] (string/split (:url opts) #"\?" 2)]
+    (merge-with merge
+                {:headers {"content-type" "application/json"}
+                 :request-method (:method opts)
+                 :uri uri}
+                (cond-> {}
+                  query-string (assoc :query-string query-string)
+                  (:body opts) (assoc :body (ByteArrayInputStream.
+                                             (.getBytes ^String (->json (:body opts))
+                                                        "UTF-8")))
+                  (:headers opts) (assoc :headers (:headers opts))))))
+
+(defn- maybe-json-body [body]
+  (if (string? body)
+    (try
+      (<-json body true)
+      (catch Exception _e
+        body))
+    body))
+
+(defn raw-request [opts]
+  (with-redefs [tracer/*silence-exceptions?* (atom true)]
+    (-> ((core/handler) (build-request opts))
+        (update :body maybe-json-body))))
 
 (defn request [opts]
-  (with-redefs [tracer/*silence-exceptions?* (atom true)]
-    (let [req (merge-with merge
-                          {:headers {"content-type" "application/json"}
-                           :request-method (:method opts)
-                           :uri (:url opts)}
-                          (-> opts
-                              (coll/update-when :body (fn [body]
-                                                        (ByteArrayInputStream. (.getBytes ^String (->json body) "UTF-8"))))))
-          resp (-> ((core/handler) req)
-                   (update :body (fn [body]
-                                   (<-json body true))))]
-      (if (not= 200 (:status resp))
-        (throw (ex-info (str "status " (:status resp)) resp))
-        resp))))
+  (let [resp (raw-request opts)]
+    (if (not= 200 (:status resp))
+      (throw (ex-info (str "status " (:status resp)) resp))
+      resp)))
+
+(defn- parse-query-params [url]
+  (let [query (.getQuery (java.net.URI. url))]
+    (into {}
+          (for [part (remove string/blank? (string/split (or query "") #"&"))
+                :let [[k v] (string/split part #"=" 2)]]
+            [k (URLDecoder/decode (or v "") "UTF-8")]))))
+
+(defn- first-set-cookie [resp]
+  (when-let [header (or (get-in resp [:headers "Set-Cookie"])
+                        (get-in resp [:headers "set-cookie"]))]
+    (let [cookie (if (sequential? header)
+                   (first header)
+                   header)]
+      (first (string/split cookie #";")))))
+
+(defn- base64url-encode [s]
+  (.encodeToString (.withoutPadding (Base64/getUrlEncoder))
+                   (.getBytes ^String s "UTF-8")))
+
+(defn- fake-jwt [payload]
+  (str (base64url-encode (->json {:alg "RS256" :typ "JWT"}))
+       "."
+       (base64url-encode (->json payload))
+       ".signature"))
 
 (defn send-code-runtime [app body]
   (let [letter (atom nil)]
@@ -440,6 +490,109 @@
         (is (not= (:id email-user) (:user_id anon-link)))
         (is (= (:id email-user) (:user_id revealed-link)))))))
 
+(deftest google-managed-dev-oauth-test
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [provider (provider-model/create! {:app-id app-id
+                                              :provider-name "google"})
+            discovery {:authorization_endpoint "https://accounts.google.com/o/oauth2/v2/auth"
+                       :token_endpoint "https://oauth2.googleapis.com/token"
+                       :jwks_uri "https://www.googleapis.com/oauth2/v3/certs"
+                       :issuer "https://accounts.google.com"
+                       :id_token_signing_alg_values_supported ["RS256"]}]
+        (app-authorized-redirect-origin-model/add! {:app-id app-id
+                                                    :service "generic"
+                                                    :params ["localhost:3000"]})
+        (app-authorized-redirect-origin-model/add! {:app-id app-id
+                                                    :service "generic"
+                                                    :params ["example.com"]})
+
+        (with-redefs [oauth/fetch-discovery (fn [_endpoint]
+                                              {:data discovery})
+                      config/get-google-oauth-client-dev
+                      (fn []
+                        {:client-id "managed-google-client-id"
+                         :client-secret (crypt-util/obfuscate
+                                         "managed-google-client-secret")})
+                      clj-http/post
+                      (fn [url opts]
+                        (is (= "https://oauth2.googleapis.com/token" url))
+                        (is (= "managed-google-client-id"
+                               (get-in opts [:form-params :client_id])))
+                        (is (= "managed-google-client-secret"
+                               (get-in opts [:form-params :client_secret])))
+                        {:status 200
+                         :body {:id_token (fake-jwt
+                                           {:email "google-dev@test.com"
+                                            :email_verified true
+                                            :sub "google-dev-sub"
+                                            :picture "https://example.com/avatar.png"})}})]
+          (let [client-name "google-web"
+                _client (app-oauth-client-model/create!
+                         {:app-id app-id
+                          :provider-id (:id provider)
+                          :client-name client-name
+                          :discovery-endpoint app-oauth-client-model/google-discovery-endpoint
+                          :meta {"appType" "web"
+                                 "providerName" "google"
+                                 "useDevCredentials" true}})]
+
+            (testing "managed dev clients reject production origins"
+              (let [resp (raw-request
+                          {:method :get
+                           :url (str "/runtime/oauth/start?app_id=" app-id
+                                     "&client_name=" client-name
+                                     "&redirect_uri="
+                                     (java.net.URLEncoder/encode
+                                      "https://example.com/callback"
+                                      "UTF-8"))})]
+                (is (= 400 (:status resp)))
+                (is (re-find #"localhost, preview URLs, and custom app schemes"
+                             (str (:body resp))))))
+
+            (testing "managed dev clients complete the redirect flow"
+              (let [start-resp (raw-request
+                                {:method :get
+                                 :url (str "/runtime/oauth/start?app_id=" app-id
+                                           "&client_name=" client-name
+                                           "&redirect_uri="
+                                           (java.net.URLEncoder/encode
+                                            "http://localhost:3000/callback"
+                                            "UTF-8"))})
+                    start-location (get-in start-resp [:headers "Location"])
+                    start-params (parse-query-params start-location)
+                    cookie (first-set-cookie start-resp)
+                    callback-resp (raw-request
+                                   {:method :get
+                                    :url (str "/runtime/oauth/callback?state="
+                                              (get start-params "state")
+                                              "&code=fake-google-code")
+                                    :headers {"cookie" cookie}})
+                    callback-location (get-in callback-resp [:headers "Location"])
+                    callback-params (parse-query-params callback-location)
+                    token-resp (request {:method :post
+                                         :url "/runtime/oauth/token"
+                                         :body {:app_id app-id
+                                                :code (get callback-params "code")}})
+                    user (get-in token-resp [:body :user])]
+                (is (= 302 (:status start-resp)))
+                (is (string/starts-with? start-location
+                                         "https://accounts.google.com/o/oauth2/v2/auth"))
+                (is (= "managed-google-client-id"
+                       (get start-params "client_id")))
+                (is (= route/oauth-redirect-url
+                       (get start-params "redirect_uri")))
+                (is (some? cookie))
+
+                (is (= 302 (:status callback-resp)))
+                (is (= "true" (get callback-params "_instant_oauth_redirect")))
+                (is (string/starts-with? callback-location
+                                         "http://localhost:3000/callback"))
+
+                (is (= "google-dev@test.com" (:email user)))
+                (is (some? (:refresh_token user)))
+                (is (true? (get-in token-resp [:body :created])))))))))))
+
 ;; -----
 ;; Extra fields on signup
 
@@ -796,4 +949,3 @@
                (permissioned-tx/transact!
                 ctx
                 [[:add-triple user-id (:id id-attr) user-id]]))))))))
-

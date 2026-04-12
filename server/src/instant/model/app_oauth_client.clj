@@ -1,6 +1,7 @@
 (ns instant.model.app-oauth-client
   (:require
    [instant.auth.oauth :as oauth]
+   [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.crypt :as crypt-util]
@@ -11,6 +12,24 @@
    (java.util UUID)))
 
 (def etype "$oauthClients")
+
+(def google-discovery-endpoint
+  "https://accounts.google.com/.well-known/openid-configuration")
+
+(defn- meta-value [m k]
+  (or (get m k)
+      (get m (keyword k))))
+
+(defn uses-dev-credentials? [oauth-client]
+  (true? (meta-value (:meta oauth-client) "useDevCredentials")))
+
+(defn google-web-client? [oauth-client]
+  (and (= google-discovery-endpoint (:discovery_endpoint oauth-client))
+       (= "web" (meta-value (:meta oauth-client) "appType"))))
+
+(defn google-managed-dev-client? [oauth-client]
+  (and (uses-dev-credentials? oauth-client)
+       (google-web-client? oauth-client)))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
@@ -121,6 +140,21 @@
 
 (defn ->OAuthClient [oauth-client]
   (cond
+    (google-managed-dev-client? oauth-client)
+    (let [{:keys [client-id client-secret]} (config/get-google-oauth-client-dev)]
+      (when-not (and client-id client-secret)
+        (ex/throw-validation-err!
+         :oauth-client
+         (:id oauth-client)
+         [{:message "Instant dev credentials for Google are not configured on the server."}]))
+      (oauth/generic-oauth-client-from-discovery-url
+       {:app-id (:app_id oauth-client)
+        :provider-id (:provider_id oauth-client)
+        :client-id client-id
+        :client-secret client-secret
+        :discovery-endpoint google-discovery-endpoint
+        :meta (:meta oauth-client)}))
+
     (:discovery_endpoint oauth-client)
     (oauth/generic-oauth-client-from-discovery-url
      {:app-id (:app_id oauth-client)

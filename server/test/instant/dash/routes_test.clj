@@ -1057,3 +1057,70 @@
               (is (= 400 (:status resp)))
               (is (= "admin-token-mismatch"
                      (-> resp :body <-json (get "hint") (get "reason")))))))))))
+
+(deftest google-managed-dev-oauth-client-validation
+  (with-user
+    (fn [u]
+      (with-empty-app
+        (:id u)
+        (fn [app]
+          (let [headers {:Authorization (str "Bearer " (:refresh-token u))
+                         :Content-Type "application/json"}
+                provider-resp (http/post (str config/server-origin
+                                              "/dash/apps/" (:id app) "/oauth_service_providers")
+                                         {:headers headers
+                                          :body (->json {:provider_name "google"})
+                                          :throw-exceptions false})
+                provider-id (-> provider-resp :body <-json (get "provider") (get "id"))
+                create-client (fn [body]
+                                (http/post (str config/server-origin
+                                                "/dash/apps/" (:id app) "/oauth_clients")
+                                           {:headers headers
+                                            :body (->json body)
+                                            :throw-exceptions false}))
+                managed-dev-body {:provider_id provider-id
+                                  :client_name "google-web"
+                                  :discovery_endpoint "https://accounts.google.com/.well-known/openid-configuration"
+                                  :meta {"providerName" "google"
+                                         "appType" "web"
+                                         "useDevCredentials" true}}]
+            (is (= 200 (:status provider-resp)))
+
+            (testing "managed dev credentials can create a Google web client without secrets"
+              (let [resp (create-client managed-dev-body)
+                    client (-> resp :body <-json (get "client"))]
+                (is (= 200 (:status resp)))
+                (is (= true (get-in client ["meta" "useDevCredentials"])))
+                (is (= "google-web" (get client "client_name")))))
+
+            (testing "managed dev credentials reject custom redirect urls"
+              (let [resp (create-client (assoc managed-dev-body
+                                               :client_name "google-web-redirect"
+                                               :redirect_to "http://localhost:3000/callback"))]
+                (is (= 400 (:status resp)))
+                (is (= "Custom Redirect URL is not supported when using Instant dev credentials."
+                       (-> resp :body <-json (get "hint") (get-in ["errors" 0 "message"]))))))
+
+            (testing "managed dev credentials reject custom secrets"
+              (let [resp (create-client (assoc managed-dev-body
+                                               :client_name "google-web-secret"
+                                               :client_secret "should-not-be-set"))]
+                (is (= 400 (:status resp)))
+                (is (= "Client secret must be blank when using Instant dev credentials."
+                       (-> resp :body <-json (get "hint") (get-in ["errors" 0 "message"]))))))
+
+            (testing "updating an existing client cannot toggle managed dev mode"
+              (let [client-id (-> (create-client (assoc managed-dev-body
+                                                        :client_name "google-web-update"))
+                                  :body
+                                  <-json
+                                  (get "client")
+                                  (get "id"))
+                    resp (http/post (str config/server-origin
+                                         "/dash/apps/" (:id app) "/oauth_clients/" client-id)
+                                    {:headers headers
+                                     :body (->json {:meta {"useDevCredentials" false}})
+                                     :throw-exceptions false})]
+                (is (= 400 (:status resp)))
+                (is (= "Delete and recreate the client to change Instant dev credentials mode."
+                       (-> resp :body <-json (get "hint") (get-in ["errors" 0 "message"]))))))))))))
