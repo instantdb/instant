@@ -13,6 +13,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
+   [instant.model.app-authorized-redirect-origin :as redirect-origin-model]
    [instant.model.app-oauth-client :as app-oauth-client-model]
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.app-user :as app-user-model]
@@ -837,6 +838,88 @@
                                                    :app-id app-id
                                                    :provider-id (:id provider)})]
               (is (false? (:created link))))))))))
+
+
+(deftest default-credentials-oauth-e2e-test
+  (with-empty-app
+    (fn [{app-id :id}]
+      (with-redefs [config/get-default-app-oauth-client
+                    (fn [provider-name]
+                      (when (= "google" (name provider-name))
+                        {:client-id "test-default-client-id"
+                         :client-secret (Secret. "test-default-secret")}))
+                    oauth/fetch-discovery
+                    (fn [_endpoint]
+                      {:date (java.time.Instant/now)
+                       :data mock-google-discovery})
+                    oauth/get-discovery
+                    (fn [_endpoint]
+                      mock-google-discovery)]
+
+        (let [provider (provider-model/create! {:app-id app-id
+                                                :provider-name "google"})
+              client (app-oauth-client-model/create!
+                      {:app-id app-id
+                       :provider-id (:id provider)
+                       :client-name "google-web"
+                       :client-id "test-default-client-id"
+                       :client-secret nil
+                       :discovery-endpoint "https://accounts.google.com/.well-known/openid-configuration"
+                       :meta {"useDefaultCredentials" true
+                              "defaultProvider" "google"
+                              "appType" "web"}})]
+
+          (testing "->OAuthClient resolves default credentials and builds valid auth URL"
+            (let [oauth-client (app-oauth-client-model/->OAuthClient client)
+                  auth-url (oauth/create-authorization-url
+                            oauth-client
+                            "test-state"
+                            "http://localhost:8888/runtime/oauth/callback"
+                            {})]
+              (is (= "test-default-client-id" (:client-id oauth-client)))
+              (is (= "test-default-secret"
+                     (crypt-util/secret-value (:client-secret oauth-client))))
+              (is (clojure.string/includes? auth-url "accounts.google.com"))
+              (is (clojure.string/includes? auth-url "test-default-client-id"))))
+
+          (testing "full sign-in flow: upsert creates user with image"
+            (let [link (route/upsert-oauth-link! {:email "e2e-user@test.com"
+                                                   :sub "google-e2e-sub"
+                                                   :imageURL "https://example.com/photo.jpg"
+                                                   :app-id app-id
+                                                   :provider-id (:id provider)})
+                  user (app-user-model/get-by-id {:id (:user_id link)
+                                                   :app-id app-id})]
+              (is (true? (:created link)))
+              (is (= "e2e-user@test.com" (:email user)))
+              ))
+
+          (testing "second sign-in returns same user"
+            (let [link (route/upsert-oauth-link! {:email "e2e-user@test.com"
+                                                   :sub "google-e2e-sub"
+                                                   :app-id app-id
+                                                   :provider-id (:id provider)})]
+              (is (false? (:created link)))))
+
+          (testing "custom client still uses stored credentials (not defaults)"
+            (let [custom-client (app-oauth-client-model/create!
+                                 {:app-id app-id
+                                  :provider-id (:id provider)
+                                  :client-name "google-custom"
+                                  :client-id "custom-client-id"
+                                  :client-secret "custom-secret"
+                                  :discovery-endpoint "https://accounts.google.com/.well-known/openid-configuration"
+                                  :meta {"appType" "web"}})
+                  oauth-client (app-oauth-client-model/->OAuthClient custom-client)
+                  auth-url (oauth/create-authorization-url
+                            oauth-client
+                            "test-state"
+                            "http://localhost:8888/runtime/oauth/callback"
+                            {})]
+              (is (= "custom-client-id" (:client-id oauth-client)))
+              (is (= "custom-secret"
+                     (crypt-util/secret-value (:client-secret oauth-client))))
+              (is (clojure.string/includes? auth-url "custom-client-id")))))))))
 
 (deftest users-create-rule-guest-test
   (with-empty-app

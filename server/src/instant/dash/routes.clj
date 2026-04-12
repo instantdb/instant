@@ -627,18 +627,27 @@
 
         [client-id client-secret discovery-endpoint meta]
         (if use-default-credentials
-          (let [default-creds (config/get-default-app-oauth-client
-                               (or provider-name "google"))]
+          ;; Resolve provider name from the provider record, not client meta
+          (let [provider (app-oauth-service-provider-model/get-by-id
+                          {:app-id app-id :id provider-id})
+                resolved-provider (or (:provider_name provider) "google")
+                default-creds (config/get-default-app-oauth-client resolved-provider)
+                discovery-endpoint (get default-discovery-endpoints resolved-provider)]
             (when-not default-creds
               (ex/throw-validation-err!
                :use_default_credentials
-               provider-name
-               [{:message (str "Default credentials are not available for " (or provider-name "google") ".")}]))
+               resolved-provider
+               [{:message (str "Default credentials are not available for " resolved-provider ".")}]))
+            (when-not discovery-endpoint
+              (ex/throw-validation-err!
+               :use_default_credentials
+               resolved-provider
+               [{:message (str "Default discovery endpoint is not configured for " resolved-provider ".")}]))
             [(:client-id default-creds)
              nil
-             (get default-discovery-endpoints (or provider-name "google"))
+             discovery-endpoint
              (merge meta {"useDefaultCredentials" true
-                          "defaultProvider" (or provider-name "google")})])
+                          "defaultProvider" resolved-provider})])
           [(coerce-optional-param! [:body :client_id])
            (coerce-optional-param! [:body :client_secret])
            (when-not (= "github" provider-name)

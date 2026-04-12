@@ -126,7 +126,10 @@
   [oauth-client]
   (when (get (:meta oauth-client) "useDefaultCredentials")
     (let [provider (get (:meta oauth-client) "defaultProvider" "google")]
-      (config/get-default-app-oauth-client provider))))
+      (or (config/get-default-app-oauth-client provider)
+          (throw (ex-info "Missing default OAuth credentials in config"
+                          {:provider provider
+                           :oauth-client-id (:id oauth-client)}))))))
 
 (defn ->OAuthClient [oauth-client]
   (let [defaults (default-credentials oauth-client)
