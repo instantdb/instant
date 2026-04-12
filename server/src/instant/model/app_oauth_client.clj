@@ -1,6 +1,7 @@
 (ns instant.model.app-oauth-client
   (:require
    [instant.auth.oauth :as oauth]
+   [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.crypt :as crypt-util]
@@ -119,26 +120,40 @@
       (String. "UTF-8")
       (Secret.)))
 
+(defn- default-credentials
+  "Returns {:client-id ... :client-secret ...} from config for a default
+   credentials client, or nil if the client doesn't use defaults."
+  [oauth-client]
+  (when (get (:meta oauth-client) "useDefaultCredentials")
+    (let [provider (get (:meta oauth-client) "defaultProvider" "google")]
+      (config/get-default-app-oauth-client provider))))
+
 (defn ->OAuthClient [oauth-client]
-  (cond
-    (:discovery_endpoint oauth-client)
-    (oauth/generic-oauth-client-from-discovery-url
-     {:app-id (:app_id oauth-client)
-      :provider-id (:provider_id oauth-client)
-      :client-id (:client_id oauth-client)
-      :client-secret (when (:client_secret oauth-client)
-                       (decrypted-client-secret oauth-client))
-      :discovery-endpoint (:discovery_endpoint oauth-client)
-      :meta (:meta oauth-client)})
+  (let [defaults (default-credentials oauth-client)
+        client-id (if defaults
+                    (:client-id defaults)
+                    (:client_id oauth-client))
+        client-secret (if defaults
+                        (:client-secret defaults)
+                        (when (:client_secret oauth-client)
+                          (decrypted-client-secret oauth-client)))]
+    (cond
+      (:discovery_endpoint oauth-client)
+      (oauth/generic-oauth-client-from-discovery-url
+       {:app-id (:app_id oauth-client)
+        :provider-id (:provider_id oauth-client)
+        :client-id client-id
+        :client-secret client-secret
+        :discovery-endpoint (:discovery_endpoint oauth-client)
+        :meta (:meta oauth-client)})
 
-    (= "github" (get (:meta oauth-client) "providerName"))
-    (oauth/map->GitHubOAuthClient
-     {:app-id (:app_id oauth-client)
-      :provider-id (:provider_id oauth-client)
-      :client-id (:client_id oauth-client)
-      :client-secret (when (:client_secret oauth-client)
-                       (decrypted-client-secret oauth-client))
-      :meta (:meta oauth-client)})
+      (= "github" (get (:meta oauth-client) "providerName"))
+      (oauth/map->GitHubOAuthClient
+       {:app-id (:app_id oauth-client)
+        :provider-id (:provider_id oauth-client)
+        :client-id client-id
+        :client-secret client-secret
+        :meta (:meta oauth-client)})
 
-    :else
-    (throw (ex-info "Unsupported OAuth client" {:oauth-client oauth-client}))))
+      :else
+      (throw (ex-info "Unsupported OAuth client" {:oauth-client oauth-client})))))

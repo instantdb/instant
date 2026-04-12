@@ -46,6 +46,7 @@
 (s/def ::honeycomb-api-key ::config-value)
 (s/def ::posthog-api-key ::config-value)
 (s/def ::google-oauth-client ::oauth-client)
+(s/def ::default-app-oauth-clients (s/map-of keyword? ::oauth-client))
 (s/def ::instant-config-app-id uuid?)
 (s/def ::kms-key-url string?)
 
@@ -75,6 +76,7 @@
                                  ::honeycomb-api-key
                                  ::posthog-api-key
                                  ::google-oauth-client
+                                 ::default-app-oauth-clients
                                  ::hybrid-keyset]
                         :req-un [::aead-keyset]))
 

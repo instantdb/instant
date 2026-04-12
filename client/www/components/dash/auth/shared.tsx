@@ -65,6 +65,7 @@ export function addClient({
   discoveryEndpoint,
   redirectTo,
   meta,
+  useDefaultCredentials,
 }: {
   token: string;
   appId: string;
@@ -77,6 +78,7 @@ export function addClient({
   discoveryEndpoint?: string;
   redirectTo?: string;
   meta?: any;
+  useDefaultCredentials?: boolean;
 }): Promise<{ client: OAuthClient }> {
   return jsonFetch(`${config.apiURI}/dash/apps/${appId}/oauth_clients`, {
     method: 'POST',
@@ -94,6 +96,7 @@ export function addClient({
       discovery_endpoint: discoveryEndpoint,
       redirect_to: redirectTo,
       meta,
+      use_default_credentials: useDefaultCredentials,
     }),
   });
 }

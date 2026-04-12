@@ -1,6 +1,8 @@
 (ns instant.runtime.routes-test
   (:require
    [clojure.test :refer [deftest is testing]]
+   [instant.auth.oauth :as oauth]
+   [instant.config :as config]
    [instant.core :as core]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -11,6 +13,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
+   [instant.model.app-oauth-client :as app-oauth-client-model]
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
@@ -26,6 +29,7 @@
    [instant.util.tracer :as tracer])
   (:import
    (clojure.lang ExceptionInfo)
+   (instant.util.crypt Secret)
    (java.io ByteArrayInputStream)))
 
 (defn request [opts]
@@ -752,6 +756,87 @@
                                                   :app-id app-id
                                                   :provider-id (:id provider)})]
             (is (true? (:created result)))))))))
+
+(def mock-google-discovery
+  {:authorization_endpoint "https://accounts.google.com/o/oauth2/v2/auth"
+   :token_endpoint "https://oauth2.googleapis.com/token"
+   :jwks_uri "https://www.googleapis.com/oauth2/v3/certs"
+   :issuer "https://accounts.google.com"
+   :id_token_signing_alg_values_supported ["RS256"]
+   :userinfo_endpoint "https://openidconnect.googleapis.com/v1/userinfo"})
+
+(deftest default-credentials-oauth-client-test
+  (with-empty-app
+    (fn [{app-id :id}]
+      (with-redefs [config/get-default-app-oauth-client
+                    (fn [provider-name]
+                      (when (= "google" (name provider-name))
+                        {:client-id "test-default-client-id"
+                         :client-secret (Secret. "test-default-secret")}))
+                    oauth/fetch-discovery
+                    (fn [_endpoint]
+                      {:date (java.time.Instant/now)
+                       :data mock-google-discovery})
+                    oauth/get-discovery
+                    (fn [_endpoint]
+                      mock-google-discovery)]
+        (let [provider (provider-model/create! {:app-id app-id
+                                                :provider-name "google"})
+              client (app-oauth-client-model/create!
+                      {:app-id app-id
+                       :provider-id (:id provider)
+                       :client-name "google-web"
+                       :client-id "test-default-client-id"
+                       :client-secret nil
+                       :discovery-endpoint "https://accounts.google.com/.well-known/openid-configuration"
+                       :meta {"useDefaultCredentials" true
+                              "defaultProvider" "google"
+                              "appType" "web"}})]
+
+          (testing "client is created with default credentials meta"
+            (is (= true (get (:meta client) "useDefaultCredentials")))
+            (is (= "google" (get (:meta client) "defaultProvider")))
+            (is (= "test-default-client-id" (:client_id client)))
+            (is (nil? (:client_secret client))))
+
+          (testing "->OAuthClient uses config credentials for default client"
+            (let [oauth-client (app-oauth-client-model/->OAuthClient client)]
+              (is (= "test-default-client-id" (:client-id oauth-client)))
+              (is (some? (:client-secret oauth-client)))
+              (is (= "test-default-secret"
+                     (crypt-util/secret-value (:client-secret oauth-client))))))
+
+          (testing "->OAuthClient for non-default client uses stored credentials"
+            (let [custom-client (app-oauth-client-model/create!
+                                 {:app-id app-id
+                                  :provider-id (:id provider)
+                                  :client-name "google-custom"
+                                  :client-id "custom-client-id"
+                                  :client-secret "custom-secret"
+                                  :discovery-endpoint "https://accounts.google.com/.well-known/openid-configuration"
+                                  :meta {"appType" "web"}})
+                  oauth-client (app-oauth-client-model/->OAuthClient custom-client)]
+              (is (= "custom-client-id" (:client-id oauth-client)))
+              (is (= "custom-secret"
+                     (crypt-util/secret-value (:client-secret oauth-client))))))
+
+          (testing "upsert-oauth-link works with default credentials provider"
+            (let [link (route/upsert-oauth-link! {:email "default-oauth@test.com"
+                                                   :sub "google-sub-123"
+                                                   :app-id app-id
+                                                   :provider-id (:id provider)})
+                  user (app-user-model/get-by-id {:id (:user_id link)
+                                                   :app-id app-id})]
+              (is (true? (:created link)))
+              (is (= "default-oauth@test.com" (:email user)))
+              (is (= "google-sub-123" (:sub link)))))
+
+          (testing "sign in again with same sub returns same user"
+            (let [link (route/upsert-oauth-link! {:email "default-oauth@test.com"
+                                                   :sub "google-sub-123"
+                                                   :app-id app-id
+                                                   :provider-id (:id provider)})]
+              (is (false? (:created link))))))))))
 
 (deftest users-create-rule-guest-test
   (with-empty-app

@@ -601,6 +601,9 @@
 
     (response/ok {:provider (select-keys provider [:id :provider_name :created_at])})))
 
+(def default-discovery-endpoints
+  {"google" "https://accounts.google.com/.well-known/openid-configuration"})
+
 (defn oauth-clients-post [req]
   (let [coerce-optional-param!
         (fn [path]
@@ -611,8 +614,7 @@
         {{app-id :id} :app} (req->app-and-user! :collaborator req)
         provider-id (ex/get-param! req [:body :provider_id] uuid-util/coerce)
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
-        client-id (coerce-optional-param! [:body :client_id])
-        client-secret (coerce-optional-param! [:body :client_secret])
+        use-default-credentials (get-in req [:body :use_default_credentials])
         meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
         redirect-to (-> req :body :redirect_to string-util/coerce-non-blank-str)
         _ (when redirect-to
@@ -623,10 +625,25 @@
               redirect-to :allow-localhost? true)))
         provider-name (ex/get-optional-param! meta [:providerName] string-util/coerce-non-blank-str)
 
-        ;; GitHub doesn't need discovery endpoints
-        ;; OIDC providers (Google, LinkedIn, Apple) need discovery endpoints
-        discovery-endpoint (when-not (= "github" provider-name)
-                             (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str))
+        [client-id client-secret discovery-endpoint meta]
+        (if use-default-credentials
+          (let [default-creds (config/get-default-app-oauth-client
+                               (or provider-name "google"))]
+            (when-not default-creds
+              (ex/throw-validation-err!
+               :use_default_credentials
+               provider-name
+               [{:message (str "Default credentials are not available for " (or provider-name "google") ".")}]))
+            [(:client-id default-creds)
+             nil
+             (get default-discovery-endpoints (or provider-name "google"))
+             (merge meta {"useDefaultCredentials" true
+                          "defaultProvider" (or provider-name "google")})])
+          [(coerce-optional-param! [:body :client_id])
+           (coerce-optional-param! [:body :client_secret])
+           (when-not (= "github" provider-name)
+             (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str))
+           meta])
 
         client (app-oauth-client-model/create! {:app-id app-id
                                                 :provider-id provider-id

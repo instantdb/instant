@@ -16,6 +16,7 @@ import {
   EditableRedirectUrl,
   TestRedirectButton,
 } from './shared';
+import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import { messageFromInstantError } from '@/lib/errors';
 import {
   Button,
@@ -71,6 +72,9 @@ export function AddClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
+  const [mode, setMode] = useState<'choosing' | 'default' | 'custom'>(
+    'choosing',
+  );
   const [appType, setAppType] = useState<
     'web' | 'ios' | 'android' | 'button-for-web'
   >('web');
@@ -103,6 +107,31 @@ export function AddClientForm({
     }
     if (appType === 'web' && !clientSecret) {
       return 'Missing client secret';
+    }
+  };
+
+  const onSubmitDefault = async () => {
+    const name = findName('google-web', usedClientNames);
+    try {
+      setIsLoading(true);
+      const resp = await addClient({
+        token,
+        appId: app.id,
+        providerId: provider.id,
+        clientName: name,
+        useDefaultCredentials: true,
+        meta: {
+          appType: 'web',
+        },
+      });
+      onAddClient(resp.client);
+    } catch (e) {
+      console.error(e);
+      const msg =
+        messageFromInstantError(e as InstantIssue) || 'Error creating client.';
+      errorToast(msg, { autoClose: 5000 });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -142,6 +171,48 @@ export function AddClientForm({
       setIsLoading(false);
     }
   };
+
+  if (mode === 'choosing') {
+    return (
+      <div className="flex flex-col gap-3 rounded-sm border p-4 dark:border-neutral-700">
+        <SubsectionHeading>Add a new Google client</SubsectionHeading>
+        <button
+          onClick={onSubmitDefault}
+          disabled={isLoading}
+          className="flex cursor-pointer items-start gap-3 rounded border border-blue-200 bg-blue-50 p-4 text-left transition-colors hover:border-blue-300 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:hover:border-blue-700 dark:hover:bg-blue-900"
+        >
+          <Image alt="google icon" src={googleIconSvg} className="mt-0.5" />
+          <div className="flex flex-1 flex-col gap-1">
+            <div className="font-medium dark:text-white">
+              Quick setup (recommended for development)
+            </div>
+            <p className="text-sm text-gray-600 dark:text-neutral-400">
+              Use Instant's shared Google credentials. No Google Cloud setup
+              needed. The consent screen will show "InstantDB" branding.
+            </p>
+          </div>
+        </button>
+        <button
+          onClick={() => setMode('custom')}
+          className="flex cursor-pointer items-start gap-3 rounded border p-4 text-left transition-colors hover:bg-gray-50 dark:border-neutral-700 dark:hover:bg-neutral-700"
+        >
+          <ArrowTopRightOnSquareIcon className="mt-0.5 h-5 w-5 text-gray-400" />
+          <div className="flex flex-1 flex-col gap-1">
+            <div className="font-medium dark:text-white">
+              Custom credentials
+            </div>
+            <p className="text-sm text-gray-600 dark:text-neutral-400">
+              Use your own Google OAuth client ID and secret. Your app's branding
+              appears on the consent screen.
+            </p>
+          </div>
+        </button>
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <form
@@ -353,6 +424,7 @@ export function Client({
   const [isLoading, setIsLoading] = useState(false);
 
   const appType: AppType = client.meta?.appType || 'web';
+  const isDefault = client.meta?.useDefaultCredentials;
   const [nativeExampleType, setNativeExampleType] = useState<'rn' | 'web'>(
     appType === 'button-for-web' ? 'web' : 'rn',
   );
@@ -468,6 +540,11 @@ function Login() {
                   (Google)
                 </span>
               </div>
+              {isDefault && (
+                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                  Dev credentials
+                </span>
+              )}
             </div>
             {open ? (
               <ChevronUpIcon height={24} />
@@ -481,8 +558,21 @@ function Login() {
             <div className="">App Type: {appTypeLabel(appType)}</div>
 
             <Copyable label="Client name" value={client.client_name} />
-            <Copyable label="Google client ID" value={client.client_id || ''} />
-            {appType === 'web' && (
+            {!isDefault && (
+              <Copyable
+                label="Google client ID"
+                value={client.client_id || ''}
+              />
+            )}
+            {isDefault && (
+              <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                Using Instant's shared development credentials. The Google
+                consent screen will show "InstantDB" branding. To use your own
+                branding, delete this client and create one with custom
+                credentials.
+              </div>
+            )}
+            {!isDefault && appType === 'web' && (
               <EditableRedirectUrl
                 app={app}
                 client={client}
@@ -501,7 +591,7 @@ function Login() {
                 <NonceCheckNotice />
               </div>
             ) : null}
-            {appType === 'web' && (
+            {appType === 'web' && !isDefault && (
               <>
                 <SubsectionHeading>
                   <a
@@ -544,6 +634,21 @@ function Login() {
                 <Content>
                   <strong className="dark:text-white">2.</strong> Use the code
                   below to generate a login link in your app.
+                </Content>
+                <div className="overflow-auto rounded-sm border text-sm dark:border-none">
+                  <Fence
+                    darkMode={darkMode}
+                    code={exampleCode}
+                    language="typescript"
+                  />
+                </div>
+              </>
+            )}
+            {appType === 'web' && isDefault && (
+              <>
+                <SubsectionHeading>Usage</SubsectionHeading>
+                <Content>
+                  Use the code below to generate a login link in your app.
                 </Content>
                 <div className="overflow-auto rounded-sm border text-sm dark:border-none">
                   <Fence

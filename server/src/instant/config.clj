@@ -234,6 +234,9 @@
 (defn get-google-oauth-client []
   (-> @config-map :google-oauth-client))
 
+(defn get-default-app-oauth-client [provider-name]
+  (-> @config-map :default-app-oauth-clients (get (keyword provider-name))))
+
 (def s3-bucket-name
   (case (get-env)
     :prod "instant-storage"

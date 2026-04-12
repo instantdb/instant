@@ -34,6 +34,9 @@
  :google-oauth-client {:client-id "785415128641-ccl4op4i0h9hfgietklpaqe2jqc4v90r.apps.googleusercontent.com"
                        :client-secret {:enc "01761259c7ce11373e60e945f959c3071c0e56efd173ec83dfac673d658f08f54ff4e2097e57deef55953e8dc200b895a5e64609be8c1ce67fec4968eeb283708ce43dc3ea72976583858dcaa64fb93f675ace50c77dc9b5"}}
 
+ :default-app-oauth-clients {:google {:client-id "94404989680-rp3ffj2ogb87svg6t2tc28b4b4edpccr.apps.googleusercontent.com"
+                                      :client-secret {:enc "01761259c7c67a86215e6eb905fc9c2dbd6112df730663671adc6fe9752c8642a42acc082bc3a03870f82330d01d244ec750322987fe89c6ad4383edc80fc953a41da9d66e3b0f949f8df7681a6bec00508e8a52b058fc59"}}}
+
  :database-url "jdbc:postgresql://localhost:5432/instant"
 
  :instant-config-app-id #uuid "24a4d71b-7bb2-4630-9aee-01146af26239"}
