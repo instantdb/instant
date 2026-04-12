@@ -749,13 +749,14 @@
            :oauth-client
            {:provider-name (:provider_name provider)
             :redirect-to redirect-to
-            :meta merged-meta}
+           :meta merged-meta}
            (concat
             (when (and (body-contains? req :meta)
-                       (or (app-oauth-client-model/uses-dev-credentials? current-client)
-                           (contains? (or meta {}) "useDevCredentials")
+                       (or (contains? (or meta {}) "useDevCredentials")
                            (contains? (or meta {}) :useDevCredentials)
-                           (nil? meta)))
+                           (and (nil? meta)
+                                (app-oauth-client-model/uses-dev-credentials?
+                                 current-client))))
               [{:message "Delete and recreate the client to change Instant dev credentials mode."}])
             (oauth-client-errors {:provider-name (:provider_name provider)
                                   :client-id (:client_id current-client)

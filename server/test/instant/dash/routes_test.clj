@@ -1133,6 +1133,23 @@
                 (is (= "Delete and recreate the client to change Instant dev credentials mode."
                        (-> resp :body <-json (get "hint") (get-in ["errors" 0 "message"]))))))
 
+            (testing "managed dev clients can update unrelated meta fields"
+              (let [client-id (-> (create-client (assoc managed-dev-body
+                                                        :client_name "google-web-theme"))
+                                  :body
+                                  <-json
+                                  (get "client")
+                                  (get "id"))
+                    resp (http/post (str config/server-origin
+                                         "/dash/apps/" (:id app) "/oauth_clients/" client-id)
+                                    {:headers headers
+                                     :body (->json {:meta {"theme" "light"}})
+                                     :throw-exceptions false})
+                    client (-> resp :body <-json (get "client"))]
+                (is (= 200 (:status resp)))
+                (is (= true (get-in client ["meta" "useDevCredentials"])))
+                (is (= "light" (get-in client ["meta" "theme"])))))
+
             (testing "updating a missing client returns record not found"
               (let [resp (http/post (str config/server-origin
                                          "/dash/apps/" (:id app) "/oauth_clients/" (random-uuid))
