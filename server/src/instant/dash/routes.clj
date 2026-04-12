@@ -626,7 +626,7 @@
           coerced
           (ex/throw-malformed-param! [:body k] param))))))
 
-(defn- oauth-client-errors [{:keys [provider-name client-id client-secret redirect-to meta]}]
+(defn- oauth-client-errors [{:keys [provider-name client-id client-secret discovery-endpoint redirect-to meta]}]
   (let [use-dev-credentials? (true? (meta-value meta "useDevCredentials"))
         app-type (meta-value meta "appType")]
     (concat
@@ -646,6 +646,12 @@
 
      (when (and use-dev-credentials? client-secret)
        [{:message "Client secret must be blank when using Instant dev credentials."}])
+
+     (when (and use-dev-credentials?
+                (= "google" provider-name)
+                (not= app-oauth-client-model/google-discovery-endpoint
+                      discovery-endpoint))
+       [{:message "Instant dev credentials require Google's default discovery endpoint."}])
 
      (when (and (= "google" provider-name)
                 (= "web" app-type)
@@ -673,6 +679,10 @@
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
         client-id (coerce-optional-param! [:body :client_id])
         client-secret (coerce-optional-param! [:body :client_secret])
+        ;; GitHub doesn't need discovery endpoints
+        ;; OIDC providers (Google, LinkedIn, Apple) need discovery endpoints
+        discovery-endpoint (when-not (= "github" (:provider_name provider))
+                             (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str))
         meta (ex/get-optional-param! req [:body :meta]
                                      (fn [x]
                                        (when (instance? java.util.Map x)
@@ -689,18 +699,15 @@
            {:provider-name (:provider_name provider)
             :client-id client-id
             :client-secret client-secret
+            :discovery-endpoint discovery-endpoint
             :redirect-to redirect-to
             :meta meta}
            (oauth-client-errors {:provider-name (:provider_name provider)
                                  :client-id client-id
                                  :client-secret client-secret
+                                 :discovery-endpoint discovery-endpoint
                                  :redirect-to redirect-to
                                  :meta meta}))
-
-        ;; GitHub doesn't need discovery endpoints
-        ;; OIDC providers (Google, LinkedIn, Apple) need discovery endpoints
-        discovery-endpoint (when-not (= "github" (:provider_name provider))
-                             (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str))
 
         client (app-oauth-client-model/create! {:app-id app-id
                                                 :provider-id provider-id
@@ -716,8 +723,12 @@
 (defn update-oauth-client [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         id (ex/get-param! req [:params :id] uuid-util/coerce)
-        current-client (app-oauth-client-model/get-by-id {:app-id app-id
-                                                          :id id})
+        current-client (ex/assert-record!
+                        (app-oauth-client-model/get-by-id {:app-id app-id
+                                                           :id id})
+                        :app-oauth-client
+                        {:app-id app-id
+                         :id id})
         provider (app-oauth-service-provider-model/get-by-id {:app-id app-id
                                                               :id (:provider_id current-client)})
         meta (get-optional-body-param! req :meta
@@ -750,6 +761,7 @@
                                   :client-id (:client_id current-client)
                                   :client-secret (when (:client_secret current-client)
                                                    "<existing>")
+                                  :discovery-endpoint (:discovery_endpoint current-client)
                                   :redirect-to (if (body-contains? req :redirect_to)
                                                  redirect-to
                                                  (:redirect_to current-client))

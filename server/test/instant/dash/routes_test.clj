@@ -1109,6 +1109,14 @@
                 (is (= "Client secret must be blank when using Instant dev credentials."
                        (-> resp :body <-json (get "hint") (get-in ["errors" 0 "message"]))))))
 
+            (testing "managed dev credentials reject non-google discovery endpoints"
+              (let [resp (create-client (assoc managed-dev-body
+                                               :client_name "google-web-discovery"
+                                               :discovery_endpoint "https://example.com/.well-known/openid-configuration"))]
+                (is (= 400 (:status resp)))
+                (is (= "Instant dev credentials require Google's default discovery endpoint."
+                       (-> resp :body <-json (get "hint") (get-in ["errors" 0 "message"]))))))
+
             (testing "updating an existing client cannot toggle managed dev mode"
               (let [client-id (-> (create-client (assoc managed-dev-body
                                                         :client_name "google-web-update"))
@@ -1123,4 +1131,14 @@
                                      :throw-exceptions false})]
                 (is (= 400 (:status resp)))
                 (is (= "Delete and recreate the client to change Instant dev credentials mode."
-                       (-> resp :body <-json (get "hint") (get-in ["errors" 0 "message"]))))))))))))
+                       (-> resp :body <-json (get "hint") (get-in ["errors" 0 "message"]))))))
+
+            (testing "updating a missing client returns record not found"
+              (let [resp (http/post (str config/server-origin
+                                         "/dash/apps/" (:id app) "/oauth_clients/" (random-uuid))
+                                    {:headers headers
+                                     :body (->json {:meta {"theme" "light"}})
+                                     :throw-exceptions false})]
+                (is (= 400 (:status resp)))
+                (is (= "Record not found: app-oauth-client"
+                       (-> resp :body <-json (get "message"))))))))))))

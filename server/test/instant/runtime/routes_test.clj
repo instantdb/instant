@@ -29,8 +29,7 @@
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json <-json]]
    [instant.util.test :as test-util]
-   [instant.util.tracer :as tracer]
-   [lambdaisland.uri :as uri])
+   [instant.util.tracer :as tracer])
   (:import
    (clojure.lang ExceptionInfo)
    (java.io ByteArrayInputStream)
@@ -505,6 +504,9 @@
                                                     :params ["localhost:3000"]})
         (app-authorized-redirect-origin-model/add! {:app-id app-id
                                                     :service "generic"
+                                                    :params ["[::1]:3000"]})
+        (app-authorized-redirect-origin-model/add! {:app-id app-id
+                                                    :service "generic"
                                                     :params ["example.com"]})
 
         (with-redefs [oauth/fetch-discovery (fn [_endpoint]
@@ -528,6 +530,15 @@
                                             :sub "google-dev-sub"
                                             :picture "https://example.com/avatar.png"})}})]
           (let [client-name "google-web"
+                start-oauth (fn [redirect-uri]
+                              (raw-request
+                               {:method :get
+                                :url (str "/runtime/oauth/start?app_id=" app-id
+                                          "&client_name=" client-name
+                                          "&redirect_uri="
+                                          (java.net.URLEncoder/encode
+                                           redirect-uri
+                                           "UTF-8"))}))
                 _client (app-oauth-client-model/create!
                          {:app-id app-id
                           :provider-id (:id provider)
@@ -538,27 +549,13 @@
                                  "useDevCredentials" true}})]
 
             (testing "managed dev clients reject production origins"
-              (let [resp (raw-request
-                          {:method :get
-                           :url (str "/runtime/oauth/start?app_id=" app-id
-                                     "&client_name=" client-name
-                                     "&redirect_uri="
-                                     (java.net.URLEncoder/encode
-                                      "https://example.com/callback"
-                                      "UTF-8"))})]
+              (let [resp (start-oauth "https://example.com/callback")]
                 (is (= 400 (:status resp)))
                 (is (re-find #"localhost, preview URLs, and custom app schemes"
                              (str (:body resp))))))
 
             (testing "managed dev clients complete the redirect flow"
-              (let [start-resp (raw-request
-                                {:method :get
-                                 :url (str "/runtime/oauth/start?app_id=" app-id
-                                           "&client_name=" client-name
-                                           "&redirect_uri="
-                                           (java.net.URLEncoder/encode
-                                            "http://localhost:3000/callback"
-                                            "UTF-8"))})
+              (let [start-resp (start-oauth "http://localhost:3000/callback")
                     start-location (get-in start-resp [:headers "Location"])
                     start-params (parse-query-params start-location)
                     cookie (first-set-cookie start-resp)
@@ -591,7 +588,17 @@
 
                 (is (= "google-dev@test.com" (:email user)))
                 (is (some? (:refresh_token user)))
-                (is (true? (get-in token-resp [:body :created])))))))))))
+                (is (true? (get-in token-resp [:body :created])))))
+
+            (testing "managed dev clients allow IPv6 localhost origins"
+              (let [start-resp (start-oauth "http://[::1]:3000/callback")
+                    start-location (get-in start-resp [:headers "Location"])
+                    start-params (parse-query-params start-location)]
+                (is (= 302 (:status start-resp)))
+                (is (string/starts-with? start-location
+                                         "https://accounts.google.com/o/oauth2/v2/auth"))
+                (is (= "managed-google-client-id"
+                       (get start-params "client_id")))))))))))
 
 ;; -----
 ;; Extra fields on signup

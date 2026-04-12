@@ -235,13 +235,28 @@
   (-> @config-map :google-oauth-client))
 
 (defn get-google-oauth-client-dev []
-  (let [client-id (or (System/getenv "GOOGLE_OAUTH_CLIENT_ID_DEV")
-                      (-> @config-map :google-oauth-client-dev :client-id))
-        client-secret (or (System/getenv "GOOGLE_OAUTH_CLIENT_SECRET_DEV")
-                          (some-> @config-map
-                                  :google-oauth-client-dev
-                                  :client-secret
-                                  crypt-util/secret-value))]
+  (let [present-value (fn [v]
+                        (when-not (string/blank? v)
+                          v))
+        env-client-id (present-value (System/getenv "GOOGLE_OAUTH_CLIENT_ID_DEV"))
+        env-client-secret (present-value (System/getenv "GOOGLE_OAUTH_CLIENT_SECRET_DEV"))
+        config-client-id (present-value (-> @config-map
+                                            :google-oauth-client-dev
+                                            :client-id))
+        config-client-secret (some-> @config-map
+                                     :google-oauth-client-dev
+                                     :client-secret
+                                     crypt-util/secret-value
+                                     present-value)
+        [client-id client-secret] (cond
+                                    (and env-client-id env-client-secret)
+                                    [env-client-id env-client-secret]
+
+                                    (or env-client-id env-client-secret)
+                                    [nil nil]
+
+                                    :else
+                                    [config-client-id config-client-secret])]
     (when (and client-id client-secret)
       {:client-id client-id
        :client-secret (crypt-util/obfuscate client-secret)})))

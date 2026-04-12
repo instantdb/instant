@@ -185,8 +185,12 @@
     (uuid-util/coerce (subs v (count cookie-value-prefix)))))
 
 (defn- localhost-origin? [redirect-uri]
-  (contains? #{"localhost" "127.0.0.1"}
-             (some-> redirect-uri uri/uri :host)))
+  (let [host (some-> redirect-uri
+                     uri/uri
+                     :host
+                     (string/replace #"^\[(.*)\]$" "$1"))]
+    (contains? #{"localhost" "127.0.0.1" "::1"}
+               host)))
 
 (defn- managed-dev-origin? [matched-origin redirect-uri]
   (case (:service matched-origin)
