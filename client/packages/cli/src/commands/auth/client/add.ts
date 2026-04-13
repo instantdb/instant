@@ -62,7 +62,10 @@ const selectGoogleAppType = (value: unknown) =>
               { label: 'Google Button for Web', value: 'button-for-web' },
             ],
             promptText: 'Select a Google app type',
-            modifyOutput: UI.modifiers.dimOnComplete,
+            modifyOutput: UI.modifiers.piped([
+              UI.modifiers.topPadding,
+              UI.modifiers.dimOnComplete,
+            ]),
             defaultValue: 'web',
           }),
         ).pipe(
@@ -91,7 +94,10 @@ const promptSkipNonceChecks = (value: unknown) =>
         promptText: 'Skip nonce checks?',
         yesText: 'Skip',
         noText: 'Keep',
-        modifyOutput: UI.modifiers.dimOnComplete,
+        modifyOutput: UI.modifiers.piped([
+          UI.modifiers.topPadding,
+          UI.modifiers.dimOnComplete,
+        ]),
       },
       true,
     );
@@ -134,7 +140,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
 
   const clientName = yield* optOrPrompt(
     opts.clientName,
-    'Client name',
+    'Client Name',
     suggestedClientName,
     suggestedClientName,
   );
@@ -183,7 +189,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
 
   const resolvedClientSecret =
     appType === 'web'
-      ? yield* optOrPrompt(clientSecret, 'Client secret')
+      ? yield* optOrPrompt(clientSecret, 'Client Secret')
       : undefined;
   const redirectTo =
     appType === 'web'
@@ -214,6 +220,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
 
   const redirectUri = redirectTo ?? GOOGLE_DEFAULT_CALLBACK_URL;
 
+  yield* Effect.log();
   yield* Effect.log(
     `Google OAuth client created: ${response.client.client_name}`,
   );
@@ -247,7 +254,7 @@ export const authClientAddCmd = Effect.fn(function* (
             { label: 'Firebase', value: 'firebase' },
           ],
           promptText: 'Select a client type',
-          modifyOutput: UI.modifiers.dimOnComplete,
+          modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
         }),
       ),
     ),

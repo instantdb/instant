@@ -106,6 +106,10 @@ export const optOrPrompt = (
             ...(defaultValue ? { defaultValue } : {}),
             validate: (input) =>
               input.trim().length > 0 ? undefined : 'Value is required',
+            modifyOutput: UI.modifiers.piped([
+              UI.modifiers.topPadding,
+              UI.modifiers.dimOnComplete,
+            ]),
           }),
         ).pipe(
           Effect.catchTag('UIError', (e) =>
@@ -142,6 +146,10 @@ export const optionalOptOrPrompt = (
       new UI.TextInput({
         prompt,
         ...(placeholder ? { placeholder } : {}),
+        modifyOutput: UI.modifiers.piped([
+          UI.modifiers.topPadding,
+          UI.modifiers.dimOnComplete,
+        ]),
       }),
     ).pipe(
       Effect.catchTag('UIError', (e) =>
