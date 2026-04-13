@@ -139,7 +139,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   const suggestedClientName = findName(`google-${appType}`, usedClientNames);
 
   const clientName = yield* optOrPrompt(
-    opts.clientName,
+    opts.name,
     'Client Name:',
     suggestedClientName,
     suggestedClientName,
