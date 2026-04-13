@@ -276,10 +276,10 @@ export default class IndexedDBStorage extends StoreInterface {
         const transaction = db.transaction([this._storeName], 'readonly');
         const objectStore = transaction.objectStore(this._storeName);
         const request = objectStore.get(k);
-        request.onerror = (event) => {
-          reject(event);
+        request.onerror = () => {
+          reject(request.error);
         };
-        request.onsuccess = (_event) => {
+        request.onsuccess = () => {
           if (request.result) {
             resolve(request.result);
           } else {
@@ -295,44 +295,27 @@ export default class IndexedDBStorage extends StoreInterface {
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([this._storeName], 'readwrite');
         const objectStore = transaction.objectStore(this._storeName);
-        const request = objectStore.put(v, k);
+        objectStore.put(v, k);
 
-        request.onerror = (event) => {
-          reject(event);
-        };
-
-        request.onsuccess = (_event) => {
-          resolve();
-        };
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
       });
     });
   }
 
-  // Performs all writes in a transaction so that all succeed or none succeed.
   async multiSet(keyValuePairs: Array<[string, any]>): Promise<void> {
     return this._withRetry((db) => {
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([this._storeName], 'readwrite');
         const objectStore = transaction.objectStore(this._storeName);
-        const requests: Set<IDBRequest<IDBValidKey>> = new Set();
         for (const [k, v] of keyValuePairs) {
-          const request = objectStore.put(v, k);
-          requests.add(request);
+          objectStore.put(v, k);
         }
 
-        for (const request of requests) {
-          request.onerror = (event) => {
-            transaction.abort();
-            reject(event);
-          };
-          request.onsuccess = (_event) => {
-            requests.delete(request);
-            // Last request to finish resolves the transaction
-            if (requests.size === 0) {
-              resolve();
-            }
-          };
-        }
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
       });
     });
   }
@@ -342,14 +325,11 @@ export default class IndexedDBStorage extends StoreInterface {
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([this._storeName], 'readwrite');
         const objectStore = transaction.objectStore(this._storeName);
-        const request = objectStore.delete(k);
-        request.onerror = (event) => {
-          reject(event);
-        };
+        objectStore.delete(k);
 
-        request.onsuccess = (_event) => {
-          resolve();
-        };
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
       });
     });
   }
@@ -360,10 +340,10 @@ export default class IndexedDBStorage extends StoreInterface {
         const transaction = db.transaction([this._storeName], 'readonly');
         const objectStore = transaction.objectStore(this._storeName);
         const request = objectStore.getAllKeys();
-        request.onerror = (event) => {
-          reject(event);
+        request.onerror = () => {
+          reject(request.error);
         };
-        request.onsuccess = (_event) => {
+        request.onsuccess = () => {
           resolve(request.result.filter((x) => typeof x === 'string'));
         };
       });
