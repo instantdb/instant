@@ -564,7 +564,8 @@
 ;; Apps Auth
 
 (defn dash-apps-auth-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (tool/def-locals)
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/read req)
         {:keys [data]} (app-model/get-dash-auth-data {:app-id app-id})]
     (response/ok data)))
 
@@ -585,14 +586,14 @@
     (response/ok {:origin (select-keys origin [:id :service :params :created_at])})))
 
 (defn authorized-redirect-origins-delete [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/write req)
         id (ex/get-param! req [:params :id] uuid-util/coerce)
         origin (app-authorized-redirect-origin-model/delete-by-id-ensure!
                 {:id id :app-id app-id})]
     (response/ok {:origin (select-keys origin [:id :service :params :created_at])})))
 
 (defn oauth-service-providers-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/write req)
         provider-name (ex/get-param! req
                                      [:body :provider_name]
                                      string-util/coerce-non-blank-str)
@@ -608,7 +609,7 @@
                                   path
                                   string-util/coerce-non-blank-str))
 
-        {{app-id :id} :app} (req->app-and-user! :collaborator req)
+        {{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/write req)
         provider-id (ex/get-param! req [:body :provider_id] uuid-util/coerce)
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
         client-id (coerce-optional-param! [:body :client_id])
@@ -660,7 +661,7 @@
                                                :client_id :created_at :meta :discovery_endpoint])})))
 
 (defn oauth-clients-delete [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/write req)
         id (ex/get-param! req [:params :id] uuid-util/coerce)
         client (app-oauth-client-model/delete-by-id-ensure! {:id id :app-id app-id})]
     (response/ok {:client (select-keys client [:id :provider_id :client_name
