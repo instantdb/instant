@@ -892,7 +892,7 @@ export function BatteriesForAI() {
             <Subheading>Presence</Subheading>
             <FeatureBody>
               Make your apps feel alive. You can use Presence and Broadcast
-              services to share who's online, who's typing, or who's cursor is
+              services to share who's online, who's typing, or whose cursor is
               moving.
             </FeatureBody>
           </div>
@@ -905,7 +905,7 @@ export function BatteriesForAI() {
             <Subheading>Streams</Subheading>
             <FeatureBody>
               Broadcast large data streams without worrying about RAM or
-              durability. The streams service lets you send infintely large
+              durability. The streams service lets you send infinitely large
               data, and multiple listeners can join at any time.
             </FeatureBody>
           </div>
