@@ -18,6 +18,7 @@ import {
   // core types
   type User,
   type Query,
+  InstantError,
 
   // query types
   type QueryResponse,
@@ -79,6 +80,7 @@ import {
   type WritableStreamCtor,
   type ReadableStreamCtor,
   InstantWritableStream,
+  InstantReadableStream,
 } from '@instantdb/core';
 
 import version from './version.ts';
@@ -91,7 +93,8 @@ import {
   SubscriptionReadyState,
 } from './subscribe.ts';
 import { parseCookie } from 'cookie';
-import { EventSource } from 'eventsource';
+import { EventSource } from '@instantdb/eventsource';
+import { MessageEventPolyfill } from './polyfill.ts';
 
 type DebugCheckResult = {
   /** The ID of the record. */
@@ -110,6 +113,7 @@ type Config = {
   apiURI?: string;
   useDateObjects?: boolean;
   disableValidation?: boolean;
+  verbose?: boolean;
 };
 
 export type InstantConfig<
@@ -331,6 +335,7 @@ function makeEventSourceWrapper(opts: {
 
     #createEventSource(url: string): EventSource {
       const es = new EventSource(url, {
+        messageEvent: MessageEventPolyfill,
         fetch(input, init) {
           return fetch(input, {
             ...init,
@@ -1046,7 +1051,9 @@ class Streams {
    *     console.log(chunk);
    *   }
    */
-  createReadStream = (opts: CreateReadStreamOpts): ReadableStream<string> => {
+  createReadStream = (
+    opts: CreateReadStreamOpts,
+  ): InstantReadableStream<string> => {
     return this.#ensureInstantStream().createReadStream(opts);
   };
 
@@ -1608,6 +1615,7 @@ export {
   type InstaQLParams,
   type ValidQuery,
   type Query,
+  InstantError,
 
   // query types
   type QueryResponse,

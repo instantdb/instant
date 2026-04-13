@@ -1,4 +1,4 @@
-import { EventSource } from 'eventsource';
+import { EventSource } from '@instantdb/eventsource';
 import version from './version.ts';
 import {
   id,
@@ -10,6 +10,7 @@ import {
   ValidQuery,
   PageInfoResponse,
 } from '@instantdb/core';
+import { MessageEventPolyfill } from './polyfill.ts';
 
 export type SubscriptionReadyState = 'closed' | 'connecting' | 'open';
 
@@ -237,6 +238,7 @@ export function subscribe<
   const es = new EventSource(
     `${opts.apiURI}/admin/subscribe-query?local_connection_id=${localConnectionId}`,
     {
+      messageEvent: MessageEventPolyfill,
       fetch(input, init) {
         fetchErrorResponse = null;
         return fetch(input, {

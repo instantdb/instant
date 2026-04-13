@@ -144,6 +144,7 @@ import type {
 import {
   InstantStream,
   InstantWritableStream,
+  InstantReadableStream,
   ReadableStreamCtor,
   WritableStreamCtor,
 } from './Stream.ts';
@@ -603,7 +604,9 @@ class Streams {
    *     console.log(chunk);
    *   }
    */
-  createReadStream = (opts: CreateReadStreamOpts): ReadableStream<string> => {
+  createReadStream = (
+    opts: CreateReadStreamOpts,
+  ): InstantReadableStream<string> => {
     return this.db.createReadStream(opts);
   };
 
@@ -1195,6 +1198,7 @@ export {
   type CreateReadStreamOpts,
   type CreateWriteStreamOpts,
   type InstantWritableStream,
+  type InstantReadableStream,
 
   // sync table types
   type SyncTableCallback,

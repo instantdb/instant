@@ -1,4 +1,4 @@
-import { Config, init } from '@instantdb/admin';
+import { Config, init, InstantError } from '@instantdb/admin';
 
 export interface CreateResumableStreamContextOptions {
   /**
@@ -21,6 +21,10 @@ export interface CreateResumableStreamContextOptions {
    * Optional apiURI for the instantdb server.
    */
   apiURI?: string;
+  /**
+   * Enable verbose logging from the underlying instant connection
+   */
+  verbose?: boolean;
 }
 
 export interface ResumableStreamContext {
@@ -121,6 +125,10 @@ export function createResumableStreamContext(
     config.apiURI = apiURI;
   }
 
+  if (options.verbose) {
+    config.verbose = options.verbose;
+  }
+
   const db = init(config);
 
   async function resumableStream(
@@ -159,6 +167,17 @@ export function createResumableStreamContext(
     skipCharacters?: number,
   ): Promise<ReadableStream<string> | null | undefined> {
     const readStream = db.streams.createReadStream({ clientId: streamId });
+    try {
+      await readStream.streamId();
+    } catch (e) {
+      if (
+        e instanceof InstantError &&
+        (e.hint as any)?.errors?.[0]?.message === 'Stream is missing.'
+      ) {
+        return undefined;
+      }
+      throw e;
+    }
     if (skipCharacters) {
       return readStream.pipeThrough(skipCharactersTransformer(skipCharacters));
     }

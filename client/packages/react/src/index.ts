@@ -94,6 +94,7 @@ import {
   createInstantRouteHandler,
   type StoreInterfaceStoreName,
   InstantWritableStream,
+  InstantReadableStream,
 } from '@instantdb/core';
 
 import { InstantReactAbstractDatabase } from '@instantdb/react-common';
@@ -194,6 +195,7 @@ export {
   type CreateReadStreamOpts,
   type CreateWriteStreamOpts,
   type InstantWritableStream,
+  type InstantReadableStream,
 
   // custom store
   StoreInterface,

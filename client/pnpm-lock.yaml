@@ -29,15 +29,15 @@ importers:
       '@instantdb/core':
         specifier: workspace:*
         version: link:../core
+      '@instantdb/eventsource':
+        specifier: 4.1.0-2
+        version: 4.1.0-2
       '@instantdb/version':
         specifier: workspace:*
         version: link:../version
       cookie:
         specifier: ^1.1.1
         version: 1.1.1
-      eventsource:
-        specifier: ^4.0.0
-        version: 4.0.0
       uuid:
         specifier: ^11.1.0
         version: 11.1.0
@@ -4717,6 +4717,10 @@ packages:
 
   '@instantdb/core@0.19.20':
     resolution: {integrity: sha512-v/lFVX2X3JdAwHFwQTthN/g72ta6Cc0X+TGIHHedbwLO6ryqGlQfaOn6vpuMPpdidemmEHhe59mwzdLaLa5rgA==}
+
+  '@instantdb/eventsource@4.1.0-2':
+    resolution: {integrity: sha512-k2uzhsRzdD7hzV3fv+eoCRNeluZcj4pDfUKKAhvIS6xshc7zHkaM9/m3vxBgaYoNVmvOyaGp84TcHG0/Bp7k4g==}
+    engines: {node: '>=20.0.0'}
 
   '@instantdb/platform@0.19.20':
     resolution: {integrity: sha512-qFPsV3AGRQKLGolNiAbrlqsIEEGlDCwgSHDYfgSRn19rM8MIqI8i5vqjvXYOljhEDyKm2lEEBMmrDZXrGw5O2w==}
@@ -21214,6 +21218,10 @@ snapshots:
       mutative: 1.1.0
       uuid: 9.0.1
 
+  '@instantdb/eventsource@4.1.0-2':
+    dependencies:
+      eventsource-parser: 3.0.6
+
   '@instantdb/platform@0.19.20':
     dependencies:
       '@babel/parser': 8.0.0-beta.0
@@ -28068,7 +28076,7 @@ snapshots:
 
   eventsource@3.0.7:
     dependencies:
-      eventsource-parser: 3.0.2
+      eventsource-parser: 3.0.6
 
   eventsource@4.0.0:
     dependencies:
