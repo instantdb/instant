@@ -25,7 +25,7 @@
    <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
 <p>
 
-Instant is a modern Firebase. We make you productive by giving your frontend a real-time database.
+Instant is the best backend for AI-coded apps. You get auth, permissions, storage, presence, and streams — everything you need to ship apps your users will love.
 
 You write [relational queries](https://www.instantdb.com/docs/instaql) in the shape of the data you want and Instant handles all the data fetching, permission checking, and offline caching. When you [change data](https://www.instantdb.com/docs/instaml), optimistic updates and rollbacks are handled for you as well. Plus, every query is multiplayer by default.
 
