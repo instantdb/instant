@@ -26,6 +26,7 @@ import { program } from './program.ts';
 import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
 import { authClientAddCmd } from './commands/auth/client/add.ts';
 import { authClientListCmd } from './commands/auth/client/list.ts';
+import { authClientDeleteCmd } from './commands/auth/client/delete.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -121,6 +122,28 @@ export const authClientListDef = authClient
           WithAppLayer({
             coerce: false,
             coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    );
+  });
+
+export const authClientDeleteDef = authClient
+  .command('delete')
+  .option('--id <client-id>', 'Client ID to delete')
+  .option('--name <client-name>', 'Client name to delete')
+  .option(
+    '-a --app <app-id>',
+    'App ID to delete a client from. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      authClientDeleteCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
             appId: opts.app,
             allowAdminToken: true,
           }),

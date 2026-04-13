@@ -61,7 +61,7 @@ const selectGoogleAppType = (value: unknown) =>
               { label: 'Android', value: 'android' },
               { label: 'Google Button for Web', value: 'button-for-web' },
             ],
-            promptText: 'Select a Google app type',
+            promptText: 'Select a Google app type:',
             modifyOutput: UI.modifiers.piped([
               UI.modifiers.topPadding,
               UI.modifiers.dimOnComplete,
@@ -140,7 +140,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
 
   const clientName = yield* optOrPrompt(
     opts.clientName,
-    'Client Name',
+    'Client Name:',
     suggestedClientName,
     suggestedClientName,
   );
@@ -189,13 +189,13 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
 
   const resolvedClientSecret =
     appType === 'web'
-      ? yield* optOrPrompt(clientSecret, 'Client Secret')
+      ? yield* optOrPrompt(clientSecret, 'Client Secret:')
       : undefined;
   const redirectTo =
     appType === 'web'
       ? yield* optionalOptOrPrompt(
           customRedirectUri,
-          'Custom redirect URL (optional)',
+          'Custom redirect URL (optional):',
           'e.g. https://yoursite.com/oauth/callback',
         )
       : undefined;
@@ -253,13 +253,10 @@ export const authClientAddCmd = Effect.fn(function* (
             { label: 'Clerk', value: 'clerk' },
             { label: 'Firebase', value: 'firebase' },
           ],
-          promptText: 'Select a client type',
+          promptText: 'Select a client type:',
           modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
         }),
       ),
-    ),
-    Effect.catchTag('UIError', (e) =>
-      BadArgsError.make({ message: `UI error: ${e.message}` }),
     ),
     Effect.andThen((s) => Schema.decodeUnknown(ClientTypeSchema)(s)),
     Effect.catchTag('ParseError', () =>

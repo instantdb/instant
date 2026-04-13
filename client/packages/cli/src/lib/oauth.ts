@@ -64,9 +64,9 @@ export const AppsAuthResponse = Schema.Struct({
   oauth_clients: NullableArray(OAuthClient),
 });
 
-export const getAppsAuth = Effect.fn(function* (appId?: string) {
+export const getAppsAuth = Effect.fn(function* () {
   const http = (yield* InstantHttpAuthed).pipe(withCommand('auth'));
-  const targetAppId = appId ?? (yield* CurrentApp).appId;
+  const targetAppId = (yield* CurrentApp).appId;
 
   return yield* http
     .get(`/dash/apps/${targetAppId}/auth`)
