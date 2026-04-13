@@ -206,16 +206,21 @@
                                     :let [value (get-in req [:params param])]
                                     :when value]
                                 [param value]))
+        use-shared-credentials? (get (:meta client) "useSharedCredentials")
         authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
                             {:app-id (:app_id client)})
-        matched-origin (app-authorized-redirect-origin-model/find-match
-                        authorized-origins
-                        redirect-uri)
+        matched-origin (if use-shared-credentials?
+                         (app-authorized-redirect-origin-model/localhost-match redirect-uri)
+                         (app-authorized-redirect-origin-model/find-match
+                          authorized-origins
+                          redirect-uri))
         _ (when-not matched-origin
             (ex/throw-validation-err!
              :redirect-uri
              redirect-uri
-             [{:message "Invalid redirect_uri. If you're the developer, make sure to add your website to the list of approved domains from the Dashboard."}]))
+             [{:message (if use-shared-credentials?
+                          "Shared dev credentials only work with localhost. Add your own credentials for other domains."
+                          "Invalid redirect_uri. If you're the developer, make sure to add your website to the list of approved domains from the Dashboard.")}]))
 
         app-redirect-url
         (if state
@@ -289,17 +294,17 @@
                        :id (or guest-user-id (random-uuid))
                        :extra-fields extra-fields})
             new-user (app-user-model/create!
-                       {:id guest-user-id
-                        :app-id app-id
-                        :email email
-                        :imageURL imageURL
-                        :type "user"
-                        :extra-fields extra-fields})]
+                      {:id guest-user-id
+                       :app-id app-id
+                       :email email
+                       :imageURL imageURL
+                       :type "user"
+                       :extra-fields extra-fields})]
         (assoc (app-user-oauth-link-model/create! {:id (random-uuid)
-                                                    :app-id app-id
-                                                    :provider-id provider-id
-                                                    :sub sub
-                                                    :user-id (:id new-user)})
+                                                   :app-id app-id
+                                                   :provider-id provider-id
+                                                   :sub sub
+                                                   :user-id (:id new-user)})
                :created true))
 
       (do
@@ -354,19 +359,18 @@
                :else (ucoll/select-keys-no-ns user :app_user_oauth_links))
          :created false)))))
 
-
 (def oauth-callback-testing-landing
   "Helps users test that their redirect is working properly."
   {:status 200
    :headers {"content-type" "text/html"}
    :body (str (h/html (h/raw "<!DOCTYPE html>")
-                [:html {:lang "en"}
-                 [:head
-                  [:meta {:charset "UTF-8"}]
-                  [:meta {:name "viewport"
-                          :content "width=device-width, initial-scale=1.0"}]
-                  [:title "Test redirect"]
-                  [:style "
+                      [:html {:lang "en"}
+                       [:head
+                        [:meta {:charset "UTF-8"}]
+                        [:meta {:name "viewport"
+                                :content "width=device-width, initial-scale=1.0"}]
+                        [:title "Test redirect"]
+                        [:style "
                            body {
                              margin: 0;
                              height: 100vh;
@@ -407,8 +411,8 @@
                                background-color: black;
                              }
                            }"]]
-                 [:body
-                  [:p "Your OAuth redirect looks good!"]]]))})
+                       [:body
+                        [:p "Your OAuth redirect looks good!"]]]))})
 
 (defn oauth-callback-landing
   "Used for external apps to prevent a dangling page on redirect.
@@ -421,16 +425,16 @@
      :headers {"content-type" "text/html"}
      :inline-scripts [script]
      :body (str (h/html (h/raw "<!DOCTYPE html>")
-                  [:html {:lang "en"}
-                   [:head
-                    [:meta {:charset "UTF-8"}]
-                    [:meta {:name "viewport"
-                            :content "width=device-width, initial-scale=1.0"}]
-                    [:meta {:http-equiv "refresh"
-                            :content (format "0; url=%s" redirect-url)}]
+                        [:html {:lang "en"}
+                         [:head
+                          [:meta {:charset "UTF-8"}]
+                          [:meta {:name "viewport"
+                                  :content "width=device-width, initial-scale=1.0"}]
+                          [:meta {:http-equiv "refresh"
+                                  :content (format "0; url=%s" redirect-url)}]
 
-                    [:title "Finish Sign In"]
-                    [:style "
+                          [:title "Finish Sign In"]
+                          [:style "
                            body {
                              margin: 0;
                              height: 100vh;
@@ -471,16 +475,16 @@
                                background-color: black;
                              }
                            }"]]
-                   [:body
-                    [:p "Logged in as " email]
-                    [:p
-                     [:a {:class "button"
-                          :href redirect-url}
-                      "Open app"]]
-                    [:script {:type "text/javascript"
-                              :id "redirect-script"
-                              :data-redirect-uri redirect-url}
-                     (h/raw script)]]]))}))
+                         [:body
+                          [:p "Logged in as " email]
+                          [:p
+                           [:a {:class "button"
+                                :href redirect-url}
+                            "Open app"]]
+                          [:script {:type "text/javascript"
+                                    :id "redirect-script"
+                                    :data-redirect-uri redirect-url}
+                           (h/raw script)]]]))}))
 
 (defn oauth-callback* [{:keys [params] :as req}]
   (try
@@ -591,19 +595,24 @@
         oauth-code (app-oauth-code-model/consume! {:code code
                                                    :app-id app-id
                                                    :verifier code-verifier})
-        _ (when-let [origin (get-in req [:headers "origin"])]
-            (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
-                                      {:app-id app-id})]
-              (when-not (app-authorized-redirect-origin-model/find-match
-                         authorized-origins origin)
-                (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
         {:keys [app_id client_id user_info]} oauth-code
-
-        _ (assert (= app-id app_id) (str "(= " app-id " " app_id ")"))
 
         client (or (app-oauth-client-model/get-by-id {:app-id app-id
                                                       :id client_id})
                    (ex/throw-oauth-err! "Missing OAuth client"))
+
+        use-shared-credentials? (get (:meta client) "useSharedCredentials")
+        _ (when-let [origin (get-in req [:headers "origin"])]
+            (if use-shared-credentials?
+              (when-not (app-authorized-redirect-origin-model/localhost-match origin)
+                (ex/throw-validation-err! :origin origin [{:message "Shared dev credentials only work with localhost."}]))
+              (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
+                                        {:app-id app-id})]
+                (when-not (app-authorized-redirect-origin-model/find-match
+                           authorized-origins origin)
+                  (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}])))))
+
+        _ (assert (= app-id app_id) (str "(= " app-id " " app_id ")"))
 
         guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh_token] uuid-util/coerce)]
                      (let [user (app-user-model/get-by-refresh-token!
@@ -713,7 +722,7 @@
         app-id (req->app-id-untrusted! req)
         user (when auth-token
                (app-user-model/get-by-refresh-token {:refresh-token auth-token
-                                                      :app-id app-id}))
+                                                     :app-id app-id}))
         attrs (attr-model/get-by-app-id app-id)
         ctx {:db {:conn-pool (aurora/conn-pool :read)}
              :app-id app-id

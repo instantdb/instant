@@ -68,6 +68,12 @@
   (and (not (contains? reserved-uri-schemes uri-scheme))
        (= scheme uri-scheme)))
 
+(defn localhost-match [url]
+  (let [parsed-url (uri/uri url)
+        host (:host parsed-url)]
+    (when (= host "localhost")
+      {:service "localhost"})))
+
 (defn find-match [site-origins url]
   (let [parsed-url (uri/uri url)
         raw-host (:host parsed-url)
