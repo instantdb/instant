@@ -1,3 +1,5 @@
+export const revalidate = false;
+
 export default function DocsLayout({
   children,
 }: {
