@@ -7,7 +7,6 @@ import { Providers } from './providers';
 
 const isDev = process.env.NODE_ENV === 'development';
 
-
 export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_VERCEL_URL
