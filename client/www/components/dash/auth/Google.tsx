@@ -71,9 +71,11 @@ export function AddClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
+  const [credentialMode, setCredentialMode] = useState<'dev' | 'custom'>('dev');
   const [appType, setAppType] = useState<
     'web' | 'ios' | 'android' | 'button-for-web'
   >('web');
+  const useSharedCredentials = appType === 'web' && credentialMode === 'dev';
   const [clientName, setClientName] = useState<string>(() =>
     findName(`google-${appType}`, usedClientNames),
   );
@@ -98,11 +100,13 @@ export function AddClientForm({
     if (usedClientNames.has(clientName)) {
       return `The unique name '${clientName}' is already in use.`;
     }
-    if (!clientId) {
-      return 'Missing client id';
-    }
-    if (appType === 'web' && !clientSecret) {
-      return 'Missing client secret';
+    if (!useSharedCredentials) {
+      if (!clientId) {
+        return 'Missing client id';
+      }
+      if (appType === 'web' && !clientSecret) {
+        return 'Missing client secret';
+      }
     }
   };
 
@@ -120,16 +124,20 @@ export function AddClientForm({
         appId: app.id,
         providerId: provider.id,
         clientName,
-        clientId,
-        clientSecret: clientSecret ? clientSecret : undefined,
+        clientId: useSharedCredentials ? undefined : clientId,
+        clientSecret:
+          !useSharedCredentials && clientSecret ? clientSecret : undefined,
         authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
         tokenEndpoint: 'https://oauth2.googleapis.com/token',
         discoveryEndpoint:
           'https://accounts.google.com/.well-known/openid-configuration',
-        redirectTo,
+        redirectTo: useSharedCredentials ? undefined : redirectTo,
         meta: {
           skipNonceChecks: skipNonceChecks,
           appType,
+          ...(useSharedCredentials
+            ? { useSharedCredentials: true, providerName: 'google' }
+            : {}),
         },
       });
       onAddClient(resp.client);
@@ -167,6 +175,19 @@ export function AddClientForm({
           ariaLabel="Application type"
         />
       </div>
+      {appType === 'web' && (
+        <div className="mb-2">
+          <ToggleGroup
+            items={[
+              { id: 'dev', label: 'Use dev credentials' },
+              { id: 'custom', label: 'Use my own' },
+            ]}
+            selectedId={credentialMode}
+            onChange={({ id }) => setCredentialMode(id as 'dev' | 'custom')}
+            ariaLabel="Credential mode"
+          />
+        </div>
+      )}
       <TextInput
         tabIndex={1}
         value={clientName}
@@ -175,90 +196,108 @@ export function AddClientForm({
         placeholder={`e.g. google-${appType}`}
       />
 
-      <TextInput
-        tabIndex={2}
-        value={clientId}
-        onChange={setClientId}
-        label={
-          <>
-            Client ID from{' '}
-            <a
-              className="underline"
-              target="_blank"
-              rel="noopener noreferer"
-              href="https://console.developers.google.com/apis/credentials"
-            >
-              Google console
-            </a>
-          </>
-        }
-        placeholder=""
-      />
-
-      {appType === 'web' && (
-        <TextInput
-          type="sensitive"
-          tabIndex={3}
-          value={clientSecret}
-          onChange={setClientSecret}
-          label={
-            <>
-              Client secret from{' '}
-              <a
-                className="underline"
-                target="_blank"
-                rel="noopener noreferer"
-                href="https://console.developers.google.com/apis/credentials"
-              >
-                Google console
-              </a>
-            </>
-          }
-        />
-      )}
-      {appType === 'web' && (
-        <RedirectUrlInput value={redirectTo} onChange={setRedirectTo} />
-      )}
-      {appType === 'web' && (
-        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
-          <p className="overflow-hidden">
-            Add{' '}
-            <Copytext
-              value={
-                redirectTo || 'https://api.instantdb.com/runtime/oauth/callback'
-              }
-            />{' '}
-            to the "Authorized redirect URIs" on your{' '}
-            <a
-              className="underline dark:text-white"
-              target="_blank"
-              rel="noopener noreferer"
-              href={
-                clientId
-                  ? `https://console.cloud.google.com/apis/credentials/oauthclient/${clientId}`
-                  : 'https://console.developers.google.com/apis/credentials'
-              }
-            >
-              Google OAuth client
-            </a>
-            .
+      {useSharedCredentials ? (
+        <div className="rounded-sm bg-gray-50 p-3 text-sm text-gray-600 dark:bg-neutral-800 dark:text-neutral-400">
+          <p>
+            Instant provides dev credentials so you can test Google sign-in on{' '}
+            <span className="font-medium">localhost</span> without any setup.
           </p>
-          {redirectTo && (
-            <>
-              <p className="text-sm text-gray-500 dark:text-neutral-400">
-                Your redirect URL should forward to{' '}
-                <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
-                with all query parameters.
-              </p>
-              <TestRedirectButton redirectTo={redirectTo} />
-            </>
-          )}
-          <Checkbox
-            checked={updatedRedirectURL}
-            onChange={setUpdatedRedirectURL}
-            label="I added the redirect to Google"
-          />
+          <button
+            type="button"
+            className="mt-2 text-blue-600 hover:underline dark:text-blue-400"
+            onClick={() => setCredentialMode('custom')}
+          >
+            Ready for production? Add your own credentials
+          </button>
         </div>
+      ) : (
+        <>
+          <TextInput
+            tabIndex={2}
+            value={clientId}
+            onChange={setClientId}
+            label={
+              <>
+                Client ID from{' '}
+                <a
+                  className="underline"
+                  target="_blank"
+                  rel="noopener noreferer"
+                  href="https://console.developers.google.com/apis/credentials"
+                >
+                  Google console
+                </a>
+              </>
+            }
+            placeholder=""
+          />
+
+          {appType === 'web' && (
+            <TextInput
+              type="sensitive"
+              tabIndex={3}
+              value={clientSecret}
+              onChange={setClientSecret}
+              label={
+                <>
+                  Client secret from{' '}
+                  <a
+                    className="underline"
+                    target="_blank"
+                    rel="noopener noreferer"
+                    href="https://console.developers.google.com/apis/credentials"
+                  >
+                    Google console
+                  </a>
+                </>
+              }
+            />
+          )}
+          {appType === 'web' && (
+            <RedirectUrlInput value={redirectTo} onChange={setRedirectTo} />
+          )}
+          {appType === 'web' && (
+            <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+              <p className="overflow-hidden">
+                Add{' '}
+                <Copytext
+                  value={
+                    redirectTo || 'https://api.instantdb.com/runtime/oauth/callback'
+                  }
+                />{' '}
+                to the "Authorized redirect URIs" on your{' '}
+                <a
+                  className="underline dark:text-white"
+                  target="_blank"
+                  rel="noopener noreferer"
+                  href={
+                    clientId
+                      ? `https://console.cloud.google.com/apis/credentials/oauthclient/${clientId}`
+                      : 'https://console.developers.google.com/apis/credentials'
+                  }
+                >
+                  Google OAuth client
+                </a>
+                .
+              </p>
+              {redirectTo && (
+                <>
+                  <p className="text-sm text-gray-500 dark:text-neutral-400">
+                    Your redirect URL should forward to{' '}
+                    <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
+                    with all query parameters.
+                  </p>
+                  <TestRedirectButton redirectTo={redirectTo} />
+                </>
+              )}
+              <Checkbox
+                checked={updatedRedirectURL}
+                onChange={setUpdatedRedirectURL}
+                label="I added the redirect to Google"
+              />
+            </div>
+          )}
+        </>
       )}
       {isNative(appType) && (
         <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
@@ -337,13 +376,17 @@ function appTypeLabel(appType: AppType): string {
 
 export function Client({
   app,
+  provider,
   client,
+  onAddClient,
   onDeleteClient,
   onUpdateClient,
   defaultOpen = false,
 }: {
   app: InstantApp;
+  provider: OAuthServiceProvider;
   client: OAuthClient;
+  onAddClient: (client: OAuthClient) => void;
   onDeleteClient: (client: OAuthClient) => void;
   onUpdateClient: (client: OAuthClient) => void;
   defaultOpen?: boolean;
@@ -351,6 +394,9 @@ export function Client({
   const token = useContext(TokenContext);
   const [open, setOpen] = useState(defaultOpen);
   const [isLoading, setIsLoading] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeClientId, setUpgradeClientId] = useState('');
+  const [upgradeClientSecret, setUpgradeClientSecret] = useState('');
 
   const appType: AppType = client.meta?.appType || 'web';
   const [nativeExampleType, setNativeExampleType] = useState<'rn' | 'web'>(
@@ -378,6 +424,51 @@ export function Client({
       console.error(e);
       const msg =
         messageFromInstantError(e as InstantIssue) || 'Error deleting client.';
+      errorToast(msg, { autoClose: 5000 });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpgradeCredentials = async () => {
+    if (!upgradeClientId) {
+      errorToast('Missing client id', { autoClose: 5000 });
+      return;
+    }
+    if (!upgradeClientSecret) {
+      errorToast('Missing client secret', { autoClose: 5000 });
+      return;
+    }
+    try {
+      setIsLoading(true);
+      await deleteClient({
+        token,
+        appId: app.id,
+        clientDatabaseId: client.id,
+      });
+      const resp = await addClient({
+        token,
+        appId: app.id,
+        providerId: provider.id,
+        clientName: client.client_name,
+        clientId: upgradeClientId,
+        clientSecret: upgradeClientSecret,
+        authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+        tokenEndpoint: 'https://oauth2.googleapis.com/token',
+        discoveryEndpoint:
+          'https://accounts.google.com/.well-known/openid-configuration',
+        meta: {
+          skipNonceChecks: client.meta?.skipNonceChecks,
+          appType: client.meta?.appType,
+        },
+      });
+      onDeleteClient(client);
+      onAddClient(resp.client);
+    } catch (e) {
+      console.error(e);
+      const msg =
+        messageFromInstantError(e as InstantIssue) ||
+        'Error upgrading credentials.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -481,8 +572,54 @@ function Login() {
             <div className="">App Type: {appTypeLabel(appType)}</div>
 
             <Copyable label="Client name" value={client.client_name} />
-            <Copyable label="Google client ID" value={client.client_id || ''} />
-            {appType === 'web' && (
+            {client.meta?.useSharedCredentials ? (
+              <div className="rounded-sm bg-gray-50 p-3 text-sm text-gray-600 dark:bg-neutral-800 dark:text-neutral-400">
+                <p>
+                  Using Instant's dev credentials. Works on{' '}
+                  <span className="font-medium">localhost</span> out of the box.
+                </p>
+                {!showUpgrade ? (
+                  <button
+                    type="button"
+                    className="mt-2 text-blue-600 hover:underline dark:text-blue-400"
+                    onClick={() => setShowUpgrade(true)}
+                  >
+                    Ready for production? Add your own credentials
+                  </button>
+                ) : (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <TextInput
+                      value={upgradeClientId}
+                      onChange={setUpgradeClientId}
+                      label="Client ID from Google console"
+                    />
+                    <TextInput
+                      type="sensitive"
+                      value={upgradeClientSecret}
+                      onChange={setUpgradeClientSecret}
+                      label="Client secret from Google console"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        loading={isLoading}
+                        onClick={handleUpgradeCredentials}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => setShowUpgrade(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Copyable label="Google client ID" value={client.client_id || ''} />
+            )}
+            {appType === 'web' && !client.meta?.useSharedCredentials && (
               <EditableRedirectUrl
                 app={app}
                 client={client}
@@ -512,38 +649,44 @@ function Login() {
                     Setup and usage
                   </a>
                 </SubsectionHeading>
-                <Content>
-                  <strong className="dark:text-white">1.</strong> Navigate to{' '}
-                  <a
-                    className="underline dark:text-white"
-                    href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
-                    target="_blank"
-                    rel="noopener noreferer"
-                  >
-                    Google OAuth client
-                  </a>{' '}
-                  and add the redirect URL under "Authorized redirect URIs"
-                </Content>
-                <Copyable
-                  label="Redirect URI"
-                  value={
-                    client.redirect_to ||
-                    'https://api.instantdb.com/runtime/oauth/callback'
-                  }
-                />
-                {client.redirect_to && (
+                {!client.meta?.useSharedCredentials && (
                   <>
-                    <Content className="text-sm text-gray-500 dark:text-neutral-400">
-                      Your redirect URL should forward to{' '}
-                      <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
-                      with all query parameters.
+                    <Content>
+                      <strong className="dark:text-white">1.</strong> Navigate to{' '}
+                      <a
+                        className="underline dark:text-white"
+                        href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
+                        target="_blank"
+                        rel="noopener noreferer"
+                      >
+                        Google OAuth client
+                      </a>{' '}
+                      and add the redirect URL under "Authorized redirect URIs"
                     </Content>
-                    <TestRedirectButton redirectTo={client.redirect_to} />
+                    <Copyable
+                      label="Redirect URI"
+                      value={
+                        client.redirect_to ||
+                        'https://api.instantdb.com/runtime/oauth/callback'
+                      }
+                    />
+                    {client.redirect_to && (
+                      <>
+                        <Content className="text-sm text-gray-500 dark:text-neutral-400">
+                          Your redirect URL should forward to{' '}
+                          <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
+                          with all query parameters.
+                        </Content>
+                        <TestRedirectButton redirectTo={client.redirect_to} />
+                      </>
+                    )}
                   </>
                 )}
                 <Content>
-                  <strong className="dark:text-white">2.</strong> Use the code
-                  below to generate a login link in your app.
+                  {!client.meta?.useSharedCredentials && (
+                    <strong className="dark:text-white">2. </strong>
+                  )}
+                  Use the code below to generate a login link in your app.
                 </Content>
                 <div className="overflow-auto rounded-sm border text-sm dark:border-none">
                   <Fence
@@ -685,7 +828,9 @@ export function GoogleClients({
             // lastCreatedClientId is set--this causes it to re-evaluate defaultOpen
             key={c.id === lastCreatedClientId ? `${c.id}-last` : c.id}
             app={app}
+            provider={provider}
             client={c}
+            onAddClient={onAddClient}
             onDeleteClient={onDeleteClient}
             onUpdateClient={onUpdateClient}
             defaultOpen={c.id === lastCreatedClientId}
