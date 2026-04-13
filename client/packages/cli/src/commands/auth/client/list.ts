@@ -10,7 +10,7 @@ export const authClientListCmd = Effect.fn(function* (
 ) {
   const info = yield* getAppsAuth();
   if (_opts.json) {
-    yield* Effect.log(JSON.stringify(info, null, 2));
+    yield* Effect.log(JSON.stringify(info.oauth_clients, null, 2));
     return;
   }
 
@@ -27,12 +27,9 @@ export const authClientListCmd = Effect.fn(function* (
     return;
   }
 
-  yield* Effect.log(chalk.bold('OAuth clients'));
-
   for (const client of clients) {
     const provider = providersById.get(client.provider_id);
 
-    yield* Effect.log('');
     yield* Effect.log(chalk.cyan(client.client_name));
     yield* Effect.log(
       `  Provider: ${provider?.provider_name ?? client.provider_id}`,
