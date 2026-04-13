@@ -210,7 +210,7 @@
         authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
                             {:app-id (:app_id client)})
         matched-origin (if use-shared-credentials?
-                         (app-authorized-redirect-origin-model/localhost-match redirect-uri)
+                         (app-authorized-redirect-origin-model/shared-credential-match redirect-uri)
                          (app-authorized-redirect-origin-model/find-match
                           authorized-origins
                           redirect-uri))
@@ -604,7 +604,7 @@
         use-shared-credentials? (get (:meta client) "useSharedCredentials")
         _ (when-let [origin (get-in req [:headers "origin"])]
             (if use-shared-credentials?
-              (when-not (app-authorized-redirect-origin-model/localhost-match origin)
+              (when-not (app-authorized-redirect-origin-model/shared-credential-match origin)
                 (ex/throw-validation-err! :origin origin [{:message "Shared dev credentials only work with localhost."}]))
               (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
                                         {:app-id app-id})]
