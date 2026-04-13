@@ -1,6 +1,7 @@
 (ns instant.model.app-oauth-client
   (:require
    [instant.auth.oauth :as oauth]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.crypt :as crypt-util]
@@ -11,6 +12,10 @@
    (java.util UUID)))
 
 (def etype "$oauthClients")
+
+(defn encrypt-client-secret [id client-secret]
+  (crypt-util/aead-encrypt {:plaintext (String/.getBytes client-secret)
+                            :associated-data (uuid-util/->bytes id)}))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
@@ -42,8 +47,7 @@
 
          enc-client-secret
          (when client-secret
-           (crypt-util/aead-encrypt {:plaintext (String/.getBytes client-secret)
-                                     :associated-data (uuid-util/->bytes id)}))]
+           (encrypt-client-secret id client-secret))]
      (update-op
       conn
       {:app-id app-id
@@ -119,26 +123,56 @@
       (String. "UTF-8")
       (Secret.)))
 
+(defn get-shared-credential! [provider-name]
+  (let [cred (-> (flags/shared-oauth-clients)
+                 (get provider-name)
+                 first)]
+    (ex/assert-record! cred
+                       :shared-oauth-client
+                       {:provider-name provider-name})))
+
 (defn ->OAuthClient [oauth-client]
-  (cond
-    (:discovery_endpoint oauth-client)
-    (oauth/generic-oauth-client-from-discovery-url
-     {:app-id (:app_id oauth-client)
-      :provider-id (:provider_id oauth-client)
-      :client-id (:client_id oauth-client)
-      :client-secret (when (:client_secret oauth-client)
-                       (decrypted-client-secret oauth-client))
-      :discovery-endpoint (:discovery_endpoint oauth-client)
-      :meta (:meta oauth-client)})
+  (let [provider-name (get (:meta oauth-client) "providerName")
+        use-shared-credential? (get (:meta oauth-client) "useSharedCredentials")
+        oauth-client (if use-shared-credential?
+                       (let [shared-cred (get-shared-credential! provider-name)]
+                         (assoc oauth-client
+                                :id (:id shared-cred)
+                                :client_id (:clientId shared-cred)
+                                :client_secret (:encryptedClientSecret shared-cred)))
+                       oauth-client)]
+    (cond
+      (:discovery_endpoint oauth-client)
+      (oauth/generic-oauth-client-from-discovery-url
+       {:app-id (:app_id oauth-client)
+        :provider-id (:provider_id oauth-client)
+        :client-id (:client_id oauth-client)
+        :client-secret (when (:client_secret oauth-client)
+                         (decrypted-client-secret oauth-client))
+        :discovery-endpoint (:discovery_endpoint oauth-client)
+        :meta (:meta oauth-client)})
 
-    (= "github" (get (:meta oauth-client) "providerName"))
-    (oauth/map->GitHubOAuthClient
-     {:app-id (:app_id oauth-client)
-      :provider-id (:provider_id oauth-client)
-      :client-id (:client_id oauth-client)
-      :client-secret (when (:client_secret oauth-client)
-                       (decrypted-client-secret oauth-client))
-      :meta (:meta oauth-client)})
+      (= "github" (get (:meta oauth-client) "providerName"))
+      (oauth/map->GitHubOAuthClient
+       {:app-id (:app_id oauth-client)
+        :provider-id (:provider_id oauth-client)
+        :client-id (:client_id oauth-client)
+        :client-secret (when (:client_secret oauth-client)
+                         (decrypted-client-secret oauth-client))
+        :meta (:meta oauth-client)})
 
-    :else
-    (throw (ex-info "Unsupported OAuth client" {:oauth-client oauth-client}))))
+      :else
+      (throw (ex-info "Unsupported OAuth client" {:oauth-client oauth-client})))))
+
+(comment
+  ;; Want to create a shared oauth client? Here's what you do: 
+
+  ;; 1. Create a new oauth client in shared-oauth-clients.
+  ;; 2. Copy the id from the modal
+  ;; 3. Encrypt your client secret with (1) id + (2) your client secret. 
+  ;; 4. Paste it in `encryptedClientSecret`, and you are done!
+  (tool/copy
+   (crypt-util/bytes->hex-string
+    (encrypt-client-secret
+     "<your-uuid>"
+     "<your-client-secret>"))))

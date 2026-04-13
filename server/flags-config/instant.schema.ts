@@ -63,6 +63,11 @@ const _schema = i.schema({
     "rule-where-testing": i.entity({
       enabled: i.boolean(),
     }),
+    "shared-oauth-clients": i.entity({
+      providerName: i.string().unique().indexed(),
+      clientId: i.string(),
+      encryptedClientSecretHexString: i.string(),
+    }),
     "rule-wheres": i.entity({
       "app-ids": i.json(),
       "query-hash-blacklist": i.any(),
