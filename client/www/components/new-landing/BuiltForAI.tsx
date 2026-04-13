@@ -734,8 +734,8 @@ export function BuiltForAI() {
               features.
             </FeatureBody>
             <FeatureBody>
-              Here's how a real-time chat app looks like with Instant. Simple to
-              read, and even easier for your AI to understand and generate.
+              Here's what a real-time chat app looks like with Instant. Simple
+              to read, and even easier for your AI to understand and generate.
             </FeatureBody>
           </div>
         </div>
