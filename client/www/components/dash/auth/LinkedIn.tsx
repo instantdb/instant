@@ -106,7 +106,7 @@ export function AddLinkedInProviderForm({
   );
 }
 
-export function AddClientForm({
+export function AddLinkedInClientForm({
   app,
   provider,
   onAddClient,
@@ -273,7 +273,7 @@ export function AddClientForm({
   );
 }
 
-export function Client({
+export function LinkedInClient({
   app,
   client,
   onDeleteClient,
@@ -426,66 +426,6 @@ export function Client({
           </Button>
         </div>
       </Dialog>
-    </div>
-  );
-}
-
-export function LinkedInClients({
-  app,
-  provider,
-  clients,
-  onAddClient,
-  onDeleteClient,
-  onUpdateClient,
-  usedClientNames,
-  lastCreatedClientId,
-  defaultOpen,
-}: {
-  app: InstantApp;
-  provider: OAuthServiceProvider;
-  clients: OAuthClient[];
-  onAddClient: (client: OAuthClient) => void;
-  onDeleteClient: (client: OAuthClient) => void;
-  onUpdateClient: (client: OAuthClient) => void;
-  usedClientNames: Set<string>;
-  lastCreatedClientId: string | null;
-  defaultOpen: boolean;
-}) {
-  const [showAddClientForm, setShowAddClientForm] =
-    useState<boolean>(defaultOpen);
-
-  const handleAddClient = (client: OAuthClient) => {
-    setShowAddClientForm(false);
-    onAddClient(client);
-  };
-
-  return (
-    <div className="flex flex-col gap-2 bg-white dark:bg-neutral-800">
-      {clients.map((c) => (
-        <Client
-          key={c.id === lastCreatedClientId ? `${c.id}-last` : c.id}
-          app={app}
-          client={c}
-          onDeleteClient={onDeleteClient}
-          onUpdateClient={onUpdateClient}
-          defaultOpen={c.id === lastCreatedClientId}
-        />
-      ))}
-
-      {showAddClientForm ? (
-        <AddClientForm
-          app={app}
-          provider={provider}
-          onAddClient={handleAddClient}
-          onCancel={() => setShowAddClientForm(false)}
-          usedClientNames={usedClientNames}
-        />
-      ) : (
-        <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}
-          LinkedIn client
-        </Button>
-      )}
     </div>
   );
 }
