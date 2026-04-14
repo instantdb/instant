@@ -319,16 +319,15 @@ function StorageCard() {
       <div className="flex items-center gap-2 rounded-t-lg px-3 py-2">
         <img
           src="/img/landing/stopa.jpg"
-          alt="stopa"
+          alt=""
           className="h-7 w-7 rounded-full object-cover"
         />
-        <span className="text-xs font-semibold text-gray-900">stopa</span>
       </div>
       <div className="relative aspect-square w-full">
         <img
           src="/img/landing/dog-post.jpg"
           alt="Dog licking a spoon"
-          className="h-full w-full object-cover"
+          className="h-full w-full rounded-b-lg object-cover"
         />
         <div
           ref={heartRef}
@@ -342,12 +341,6 @@ function StorageCard() {
             {'\u2764\uFE0F'}
           </button>
         </div>
-      </div>
-      <div className="px-3 pt-3 pb-2">
-        <p className="text-xs text-gray-800">
-          <span className="font-semibold">stopa</span>{' '}
-          <span className="text-gray-600">Newest member of the team</span>
-        </p>
       </div>
     </div>
   );
@@ -423,8 +416,51 @@ function spawnFloater(emoji: string, container: HTMLElement, p: FloaterParams) {
   anim.onfinish = () => el.remove();
 }
 
+// Button centers: ❤️ ~15%, 🔥 ~38%, 🎉 ~62%, 👏 ~85%
 const frozenEmojis = [
-  // 🎉 trail — 4 rapid taps, rising from bottom-right area
+  // ❤️ trail — rising from left (~15%)
+  {
+    emoji: '\u2764\uFE0F',
+    bottom: '12%',
+    left: '15%',
+    scale: 1.1,
+    rotate: -3,
+    opacity: 1,
+  },
+  {
+    emoji: '\u2764\uFE0F',
+    bottom: '35%',
+    left: '13%',
+    scale: 1.0,
+    rotate: 5,
+    opacity: 0.9,
+  },
+  {
+    emoji: '\u2764\uFE0F',
+    bottom: '58%',
+    left: '17%',
+    scale: 0.85,
+    rotate: -8,
+    opacity: 0.65,
+  },
+  // 🔥 trail — rising from center-left (~38%)
+  {
+    emoji: '\uD83D\uDD25',
+    bottom: '15%',
+    left: '38%',
+    scale: 1.05,
+    rotate: 4,
+    opacity: 1,
+  },
+  {
+    emoji: '\uD83D\uDD25',
+    bottom: '40%',
+    left: '36%',
+    scale: 0.95,
+    rotate: -6,
+    opacity: 0.85,
+  },
+  // 🎉 trail — rising from center-right (~62%)
   {
     emoji: '\uD83C\uDF89',
     bottom: '12%',
@@ -435,59 +471,27 @@ const frozenEmojis = [
   },
   {
     emoji: '\uD83C\uDF89',
-    bottom: '30%',
-    left: '58%',
-    scale: 1.05,
-    rotate: -6,
-    opacity: 0.95,
-  },
-  {
-    emoji: '\uD83C\uDF89',
-    bottom: '50%',
-    left: '65%',
-    scale: 0.95,
-    rotate: 8,
-    opacity: 0.8,
-  },
-  {
-    emoji: '\uD83C\uDF89',
-    bottom: '68%',
+    bottom: '32%',
     left: '60%',
-    scale: 0.8,
-    rotate: -4,
-    opacity: 0.55,
+    scale: 1.0,
+    rotate: -6,
+    opacity: 0.9,
   },
-  // Scattered others from earlier taps
   {
-    emoji: '\u2764\uFE0F',
+    emoji: '\uD83C\uDF89',
     bottom: '55%',
-    left: '25%',
-    scale: 1.1,
-    rotate: -8,
-    opacity: 1,
-  },
-  {
-    emoji: '\uD83D\uDD25',
-    bottom: '72%',
-    left: '38%',
+    left: '64%',
     scale: 0.9,
-    rotate: 12,
-    opacity: 0.85,
+    rotate: 8,
+    opacity: 0.7,
   },
-  {
-    emoji: '\u2764\uFE0F',
-    bottom: '82%',
-    left: '48%',
-    scale: 0.7,
-    rotate: 15,
-    opacity: 0.5,
-  },
+  // 👏 trail — rising from right (~85%)
   {
     emoji: '\uD83D\uDC4F',
-    bottom: '45%',
-    left: '18%',
-    scale: 0.85,
-    rotate: -12,
+    bottom: '18%',
+    left: '78%',
+    scale: 1.0,
+    rotate: -5,
     opacity: 0.7,
   },
 ];
@@ -505,50 +509,84 @@ function PresenceCard() {
   }, []);
 
   return (
-    <div className="w-[240px] overflow-hidden rounded-xl bg-white shadow-sm">
-      <div className="flex items-center gap-2.5 border-b border-gray-100 px-3 py-2">
-        <span className="rounded bg-red-600 px-2 py-0.5 text-[11px] font-bold tracking-wide text-white">
-          LIVE
-        </span>
-        <span className="text-xs text-gray-500">42 viewers</span>
-      </div>
-      <div className="relative aspect-video overflow-hidden bg-gray-900">
-        <video
-          ref={videoRef}
-          muted
-          playsInline
-          preload="auto"
-          className="absolute inset-0 h-full w-full object-cover"
-          src="/img/landing/stream-clip.mp4"
-        />
-        {/* Frozen emojis mid-flight */}
-        {frozenEmojis.map((f, i) => (
-          <span
-            key={i}
-            className="pointer-events-none absolute z-10"
-            style={{
-              bottom: f.bottom,
-              left: f.left,
-              fontSize: 20,
-              lineHeight: 1,
-              transform: `scale(${f.scale}) rotate(${f.rotate}deg)`,
-              opacity: f.opacity,
-            }}
-          >
-            {f.emoji}
+    <div className="relative mb-6">
+      <div className="w-[240px] overflow-hidden rounded-xl bg-white shadow-sm">
+        <div className="flex items-center gap-2.5 border-b border-gray-100 px-3 py-2">
+          <div className="flex items-center gap-2 text-gray-300">
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 15 12 12 15 15"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 9 12 12 15 9"
+              />
+            </svg>
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"
+              />
+            </svg>
+          </div>
+          <span className="ml-auto rounded bg-red-600 px-2 py-0.5 text-[11px] font-bold tracking-wide text-white">
+            LIVE
           </span>
-        ))}
-        <div className="absolute right-0 bottom-0 left-0 z-10">
-          <div className="h-[3px] w-full bg-black/20">
-            <div className="h-full w-full bg-red-500" />
+        </div>
+        <div className="relative aspect-video overflow-hidden bg-gray-900">
+          <video
+            ref={videoRef}
+            muted
+            playsInline
+            preload="auto"
+            className="absolute inset-0 h-full w-full object-cover"
+            src="/img/landing/stream-clip.mp4"
+          />
+          {frozenEmojis.map((f, i) => (
+            <span
+              key={i}
+              className="pointer-events-none absolute z-10"
+              style={{
+                bottom: f.bottom,
+                left: f.left,
+                fontSize: 20,
+                lineHeight: 1,
+                transform: `scale(${f.scale}) rotate(${f.rotate}deg)`,
+                opacity: f.opacity,
+              }}
+            >
+              {f.emoji}
+            </span>
+          ))}
+          <div className="absolute right-0 bottom-0 left-0 z-10">
+            <div className="h-[3px] w-full bg-black/20">
+              <div className="h-full w-full bg-red-500" />
+            </div>
           </div>
         </div>
       </div>
-      <div className="flex justify-center -space-x-1 py-2.5">
+      {/* Emoji buttons floating below the card */}
+      <div className="absolute -bottom-5 left-1/2 z-20 flex -translate-x-1/2 gap-2">
         {REACTIONS.map((emoji) => (
           <span
             key={emoji}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-sm shadow-sm"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-base shadow-md"
           >
             {emoji}
           </span>
@@ -726,22 +764,22 @@ function Slide2() {
 
         {/* Cards row */}
         <div
-          className="mt-10 flex items-start justify-center gap-1"
+          className="mt-14 flex items-start justify-center gap-1"
           style={{ transform: 'scale(1.15)', transformOrigin: 'top center' }}
         >
-          <div className="flex translate-y-4 -rotate-3 flex-col items-center gap-5">
+          <div className="flex translate-y-4 -rotate-3 flex-col items-center gap-7">
             <span className="text-3xl font-normal text-gray-900">Auth</span>
             <AuthCard />
           </div>
-          <div className="flex translate-y-8 rotate-1 flex-col items-center gap-5">
+          <div className="flex translate-y-8 rotate-1 flex-col items-center gap-7">
             <span className="text-3xl font-normal text-gray-900">Storage</span>
             <StorageCard />
           </div>
-          <div className="flex translate-y-2 -rotate-1 flex-col items-center gap-5">
+          <div className="flex translate-y-2 -rotate-1 flex-col items-center gap-7">
             <span className="text-3xl font-normal text-gray-900">Presence</span>
             <PresenceCard />
           </div>
-          <div className="flex translate-y-6 rotate-2 flex-col items-center gap-5">
+          <div className="flex translate-y-6 rotate-2 flex-col items-center gap-7">
             <span className="text-3xl font-normal text-gray-900">Streams</span>
             <StreamsCard />
           </div>
@@ -872,22 +910,22 @@ export function Slide2V2() {
         </h2>
 
         <div
-          className="mt-10 flex items-start justify-center gap-1"
+          className="mt-14 flex items-start justify-center gap-1"
           style={{ transform: 'scale(1.15)', transformOrigin: 'top center' }}
         >
-          <div className="flex translate-y-12 -rotate-3 flex-col items-center gap-5">
+          <div className="flex translate-y-12 -rotate-3 flex-col items-center gap-7">
             <span className="text-3xl font-normal text-gray-900">Auth</span>
             <AuthCard />
           </div>
-          <div className="flex translate-y-2 rotate-1 flex-col items-center gap-5">
+          <div className="flex translate-y-2 rotate-1 flex-col items-center gap-7">
             <span className="text-3xl font-normal text-gray-900">Storage</span>
             <StorageCard />
           </div>
-          <div className="flex translate-y-8 -rotate-1 flex-col items-center gap-5">
+          <div className="flex translate-y-14 -rotate-1 flex-col items-center gap-7">
             <span className="text-3xl font-normal text-gray-900">Presence</span>
             <PresenceCard />
           </div>
-          <div className="flex translate-y-5 rotate-2 flex-col items-center gap-5">
+          <div className="flex translate-y-5 rotate-2 flex-col items-center gap-7">
             <span className="text-3xl font-normal text-gray-900">Streams</span>
             <StreamsChatCard />
           </div>

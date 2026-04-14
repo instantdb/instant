@@ -93,22 +93,20 @@ function MiniTodoCard({
 }) {
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2.5 px-1">
+      <div className="mb-3 px-1">
         <img
           src={img}
           alt={name}
-          className="h-7 w-7 rounded-full object-cover"
+          className="h-9 w-9 rounded-full object-cover"
         />
-        <span className="text-sm font-medium">{name}</span>
       </div>
-      <div className="w-[220px] rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 text-sm font-medium text-gray-500">Team Todos</div>
-        <div className="space-y-1.5">
+      <div className="w-[340px] rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="space-y-3">
           {items.map((t) => (
-            <div key={t.id} className="flex items-center gap-3 px-1 py-1">
+            <div key={t.id} className="flex items-center gap-4 px-1 py-2">
               <Checkbox done={t.done} opacity={t.checkboxOpacity} />
               <span
-                className={`text-sm ${t.done ? 'text-gray-400 line-through' : 'text-gray-700'}`}
+                className={`text-xl ${t.done ? 'text-gray-400 line-through' : 'text-gray-700'}`}
               >
                 {t.text}
               </span>
@@ -250,17 +248,17 @@ export function Slide4() {
           />
 
           {/* Daniel's cursor on "Review PR" checkbox (left card, row 1) */}
-          <Cursor left="32px" top="135px" img="/img/landing/daniel.png" />
+          <Cursor left="35px" top="135px" img="/img/landing/daniel.png" />
 
           {/* Joe's cursor on "Update docs" checkbox (right card, row 3) */}
-          <Cursor left="330px" top="160px" img="/img/landing/joe.jpg" />
+          <Cursor left="461px" top="206px" img="/img/landing/joe.jpg" />
 
           {/* "Review PR" check syncing Daniel → Joe (diagonal up-right) */}
-          <SyncDot left="47%" top="108px" size={10} />
-          <SyncDot left="51%" top="98px" size={7} opacity={0.6} />
+          <SyncDot left="47%" top="125px" size={10} />
+          <SyncDot left="51%" top="110px" size={7} opacity={0.6} />
           {/* "Update docs" uncheck syncing Joe → Daniel (diagonal down-left) */}
-          <SyncDot left="53%" top="162px" size={10} />
-          <SyncDot left="49%" top="172px" size={7} opacity={0.6} />
+          <SyncDot left="53%" top="210px" size={10} />
+          <SyncDot left="49%" top="225px" size={7} opacity={0.6} />
         </div>
       </div>
     </div>

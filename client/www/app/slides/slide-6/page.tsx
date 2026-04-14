@@ -502,34 +502,34 @@ export function Slide6A4() {
         }}
       />
       <div className="relative z-10 flex h-full w-full flex-col items-center justify-center px-14">
-        <h2 className="text-center text-[44px] leading-[1.15] font-normal tracking-tight">
+        <h2 className="text-center text-[72px] leading-[1.2] font-normal tracking-tight">
           Trusted by developers
         </h2>
 
-        <div className="mt-8">
+        <div className="mt-10">
           <Stats />
         </div>
 
         {/* Bottom half: quote left, backers right */}
-        <div className="mt-12 flex w-full items-start gap-12">
+        <div className="mt-14 flex w-full items-start gap-14">
           {/* Quote */}
           <div className="flex-1">
-            <p className="text-2xl tracking-tight">
-              <span className="text-gray-400">From the</span> Founder of
-              Firebase
+            <p className="text-3xl tracking-tight">
+              <span className="text-gray-400">From the</span>{' '}
+              <span className="font-medium">Founder of Firebase</span>
             </p>
-            <blockquote className="mt-4 text-lg leading-relaxed text-balance text-gray-500">
+            <blockquote className="mt-5 text-lg leading-relaxed text-balance text-gray-500">
               The amount of requests we had for relational queries for Firebase
               was off-the-charts. I always wanted this built and open sourced.
               I&#39;m glad to see Instant is doing it!
             </blockquote>
-            <div className="mt-4 flex items-center gap-3">
+            <div className="mt-5 flex items-center gap-3">
               <Image
                 src="/img/investors/james-tamplin.jpg"
                 alt="James Tamplin"
                 width={160}
                 height={160}
-                className="h-10 w-10 shrink-0 rounded-full object-cover object-center"
+                className="h-11 w-11 shrink-0 rounded-full object-cover object-center"
               />
               <div>
                 <div className="text-sm font-semibold">James Tamplin</div>
@@ -540,8 +540,8 @@ export function Slide6A4() {
 
           {/* Backers */}
           <div className="w-[420px] shrink-0">
-            <p className="text-2xl tracking-tight">Backed by the best</p>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            <p className="text-3xl tracking-tight">Backed by the best</p>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
               {backers.map((backer) => (
                 <div key={backer.name} className="w-[72px] text-center">
                   <Image

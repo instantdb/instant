@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import Link from 'next/link';
 import { Slide2V2 } from './slide-2/page';
 import { Slide3 } from './slide-3/page';
@@ -8,6 +8,7 @@ import { Slide4 } from './slide-4/page';
 import { SlideD as Slide5 } from './slide-5/page';
 import { Slide6A4 } from './slide-6/page';
 import { Slide7C2 } from './slide-7/page';
+import { Slide8D4 } from './slide-8/page';
 import { useStarCount } from '@/lib/starCountContext';
 import { instantRepo } from '@/lib/config';
 
@@ -158,14 +159,14 @@ const slides = [
   {
     id: 'slide-3',
     label: 'Slide 3',
-    varPath: '/slides/slide-3',
-    component: <Slide3 />,
+    varPath: '/slides/slide-4',
+    component: <Slide4 />,
   },
   {
     id: 'slide-4',
     label: 'Slide 4',
-    varPath: '/slides/slide-4',
-    component: <Slide4 />,
+    varPath: '/slides/slide-3',
+    component: <Slide3 />,
   },
   {
     id: 'slide-5',
@@ -185,15 +186,92 @@ const slides = [
     varPath: '/slides/slide-7',
     component: <Slide7C2 />,
   },
+  {
+    id: 'slide-8',
+    label: 'Slide 8',
+    varPath: '/slides/slide-8',
+    component: <Slide8D4 />,
+  },
 ];
+
+function DownloadButton({ slideNumber }: { slideNumber: string }) {
+  const [loading, setLoading] = useState(false);
+
+  async function handleDownload() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/slides/export?slide=${slideNumber}`);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `slide-${slideNumber}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to export slide. Make sure you are on localhost.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={loading}
+      className="text-sm text-gray-400 underline hover:text-gray-600 disabled:text-gray-300"
+    >
+      {loading ? 'Exporting...' : 'Download PNG'}
+    </button>
+  );
+}
+
+function DownloadAllButton() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleDownloadAll() {
+    setLoading(true);
+    try {
+      for (let i = 1; i <= slides.length; i++) {
+        const res = await fetch(`/api/slides/export?slide=${i}`);
+        if (!res.ok) throw new Error(`Export failed for slide ${i}`);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `slide-${i}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to export slides. Make sure you are on localhost.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleDownloadAll}
+      disabled={loading}
+      className="text-sm text-gray-400 underline hover:text-gray-600 disabled:text-gray-300"
+    >
+      {loading ? 'Exporting all...' : 'Download all as PNG'}
+    </button>
+  );
+}
 
 export default function SlidesPage() {
   return (
     <div className="flex min-h-screen flex-col items-start gap-16 bg-gray-100 p-12">
       <div className="w-full max-w-[100vw] self-stretch">
-        <h1 className="mb-4 text-2xl font-medium text-gray-500">
-          Instant Slides
-        </h1>
+        <div className="mb-4 flex items-baseline gap-4">
+          <h1 className="text-2xl font-medium text-gray-500">Instant Slides</h1>
+          <DownloadAllButton />
+        </div>
         {/* Horizontal scrolling nav of thumbnails */}
         <div className="flex items-center gap-3 overflow-x-auto pb-2">
           {slides.map((s) => (
@@ -218,6 +296,7 @@ export default function SlidesPage() {
             >
               Variations
             </Link>
+            <DownloadButton slideNumber={s.id.replace('slide-', '')} />
           </div>
           <SlidePreview>{s.component}</SlidePreview>
         </div>
