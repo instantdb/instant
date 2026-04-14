@@ -371,7 +371,7 @@
             ;; create the program to see if it throws
             _program (cel/->program ast)
             ;; XXX: Here is where we need to validate the rules are available
-            errors (cel/validation-errors compiler ast)]
+            errors (cel/validation-errors rules compiler ast)]
         (when (seq errors)
           (format-cel-errors path errors))))
     (catch CelValidationException e
@@ -381,20 +381,18 @@
         :in path}])))
 
 (defn rule-validation-errors [rules]
-  (->> rules
-       (#(dissoc % "$rateLimits"))
+  (->> (dissoc rules "$rateLimits")
        keys
        (mapcat (fn [etype] (map (fn [action] [etype action]) ["view" "create" "update" "delete"])))
        (mapcat (fn [[etype action]]
                  (or (and (= etype "$users")
                           ($users-validation-errors rules action))
                      (system-attribute-validation-errors etype action)
-                     (and (not= etype "$rateLimits")
-                          (expr-validation-errors
-                           rules
-                           {:etype etype
-                            :action action
-                            :path [etype "allow" action]})))))
+                     (expr-validation-errors
+                      rules
+                      {:etype etype
+                       :action action
+                       :path [etype "allow" action]}))))
        (keep identity)))
 
 (defn field-validation-errors [rules]

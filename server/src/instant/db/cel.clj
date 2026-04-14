@@ -374,14 +374,13 @@
                                         :cel-return-type SimpleType/BOOL
                                         :java-args [RateLimitBucket Object]
                                         :impl (fn [[^RateLimitBucket b ^Object k]]
-                                                (tool/inspect (.limit b k)))}])
+                                                (.limit b k))}])
                      (member-overload "limit"
                                       [{:overload-id "_rateLimit_limit_opts"
                                         :cel-args [rate-limit-bucket-cel-type SimpleType/DYN type-obj]
                                         :cel-return-type SimpleType/BOOL
                                         :java-args [RateLimitBucket Object Map]
                                         :impl (fn [[^RateLimitBucket b ^Object k ^Map opts]]
-                                                (println "OPTS" opts)
                                                 (.limit b k))}])])
 
 (def get-time-decl {:overload-id "_getTime"
@@ -584,7 +583,6 @@
            etype
            action] :as program}
    {:keys [resolver data rule-params new-data linked-data linked-etype actions modified-fields]}]
-  (tool/def-locals)
   (if (contains? program :result)
     (:result program)
     (try
@@ -617,12 +615,12 @@
                                                (CelMap. actions))
                                               (Optional/empty))
                                "rateLimit" (Optional/of
-                                            (tool/inspect (reduce-kv (fn [acc bucket-name config]
-                                                                       (assoc acc bucket-name (RateLimitBucket. (:app-id ctx)
-                                                                                                                bucket-name
-                                                                                                                config)))
-                                                                     {}
-                                                                     (get-in ctx [:rules :code "$rateLimits"]))))
+                                            (reduce-kv (fn [acc bucket-name config]
+                                                         (assoc acc bucket-name (RateLimitBucket. (:app-id ctx)
+                                                                                                  bucket-name
+                                                                                                  config)))
+                                                       {}
+                                                       (get-in ctx [:rules :code "$rateLimits"])))
 
                                (Optional/empty)))))
             unknown-ctx (UnknownContext/create resolver (ImmutableList/of))
@@ -1600,11 +1598,36 @@
   [^CelExpr$CelCall call]
   (let [f (.function call)]
     (if-let [target ^CelExpr (get-optional-value (.target call))]
-      (if (= CelExpr$ExprKind$Kind/IDENT (.getKind target))
+      (cond
+        ;; data.ref()
+        (= CelExpr$ExprKind$Kind/IDENT (.getKind target))
         [(.name (.ident target)) f]
-        (tracer/with-span! {:name "cel/unknown-function-name"
-                            :attributes {:cel-call call}}
-          [nil f]))
+
+        ;; Handles rateLimit.createPosts()
+        (and (= CelExpr$ExprKind$Kind/SELECT (.getKind target))
+             (= CelExpr$ExprKind$Kind/IDENT (.getKind (.operand (.select target)))))
+        [(-> target
+             (.select)
+             (.operand)
+             (.ident)
+             (.name))
+         (.field (.select target))]
+
+        ;; Handles rateLimit['createPosts']()
+        (and (= CelExpr$ExprKind$Kind/CALL (.getKind target))
+             (= (.getFunction Operator/INDEX) (.function (.call target)))
+             (= 2 (count (.args (.call target))))
+             (= CelExpr$ExprKind$Kind/IDENT (.getKind
+                                             ^CelExpr (first (.args
+                                                              (.call target)))))
+             (= CelExpr$ExprKind$Kind/CONSTANT (.getKind
+                                                ^CelExpr (second (.args (.call target))))))
+        [(.name (.ident ^CelExpr (first (.args (.call target)))))
+         (.stringValue (.constant ^CelExpr (second (.args (.call target)))))]
+
+        :else (tracer/with-span! {:name "cel/unknown-function-name"
+                                  :attributes {:cel-call call}}
+                [nil f]))
       [nil f])))
 
 (defn ref-arg
@@ -1789,11 +1812,35 @@
                                (.id expr))
                              "auth.ref arg must start with `$user.`"))))))))))
 
+(defn rate-limit-validator ^CelAstValidator
+  [rules]
+  (reify CelAstValidator
+    (validate [_this ast _cel issues-factory]
+      (let [rate-limit-keys (-> rules
+                                (get "$rateLimits")
+                                keys
+                                set)]
+        (doseq [^CelNavigableExpr node (-> ast
+                                           (.getRoot)
+                                           (.allNodes)
+                                           (.iterator)
+                                           iterator-seq)]
+          (when (= CelExpr$ExprKind$Kind/CALL (.getKind node))
+            (let [expr (get-expr node)
+                  call (.call expr)
+                  [obj f] (function-name call)]
+              (when (and (= obj "rateLimit")
+                         (not (contains? rate-limit-keys f)))
+                (.addError issues-factory
+                           (.id expr)
+                           (format "`%s` is not a valid rate limit config. It should be defined in the `$rateLimits` key."
+                                   f))))))))))
+
 ;; XXX: We should validate that the rate limits are defined here
-(defn validation-errors [^CelCompiler compiler ^CelAbstractSyntaxTree ast]
+(defn validation-errors [rules ^CelCompiler compiler ^CelAbstractSyntaxTree ast]
   (-> (CelValidatorFactory/standardCelValidatorBuilder compiler
                                                        cel-runtime)
-      (.addAstValidators (ucoll/array-of CelAstValidator [auth-ref-validator]))
+      (.addAstValidators (ucoll/array-of CelAstValidator [auth-ref-validator (rate-limit-validator rules)]))
       (.build)
       (.validate ast)
       (.getErrors)))
