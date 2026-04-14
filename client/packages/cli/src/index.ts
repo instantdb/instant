@@ -88,7 +88,7 @@ export const authClientAddDef = authClient
     '--type <google|apple|github|linkedin|clerk|firebase>',
     'Type of oauth client to add',
   )
-  .option('--name', 'Custom name for to identy the OAuth client')
+  .option('--name', 'Custom name to identify the OAuth client (ex: google-web)')
   .option(
     '-a --app <app-id>',
     'App ID to modify. Defaults to *_INSTANT_APP_ID in .env',
@@ -99,7 +99,7 @@ export const authClientAddDef = authClient
 Provider Specific Options:
   Google:
    --appType       web|ios|android|button-for-web
-   --clientName                        (web only)
+   --clientId                          (web only)
    --clientSecret                      (web only)
    --skipNonceChecks       (iOS and Android only)
    --customRedirectUri       (optional, web only)

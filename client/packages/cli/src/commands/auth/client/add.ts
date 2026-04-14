@@ -7,11 +7,13 @@ import {
   addOAuthClient,
   addOAuthProvider,
   getAppsAuth,
+} from '../../../lib/oauth.ts';
+import {
   GOOGLE_AUTHORIZATION_ENDPOINT,
   GOOGLE_DEFAULT_CALLBACK_URL,
   GOOGLE_DISCOVERY_ENDPOINT,
   GOOGLE_TOKEN_ENDPOINT,
-} from '../../../lib/oauth.ts';
+} from '@instantdb/platform';
 import {
   getBooleanFlag,
   getOptionalStringFlag,
@@ -20,6 +22,7 @@ import {
   optionalOptOrPrompt,
 } from '../../../lib/ui.ts';
 import { UI } from '../../../ui/index.ts';
+import chalk from 'chalk';
 
 const ClientTypeSchema = Schema.Literal(
   'google',
@@ -49,14 +52,19 @@ const selectGoogleAppType = (value: unknown) =>
       Effect.catchTag('NoSuchElementException', () => {
         if (yes) {
           return BadArgsError.make({
-            message: 'Missing required value for: App type',
+            message:
+              'Missing required value for: App type. Expected one of: web, ios, android, button-for-web',
           });
         }
 
         return runUIEffect(
           new UI.Select({
             options: [
-              { label: 'Web', value: 'web' },
+              {
+                label:
+                  'Web' + chalk.dim(' (Redirect Flows or Expo Auth Session)'),
+                value: 'web',
+              },
               { label: 'iOS', value: 'ios' },
               { label: 'Android', value: 'android' },
               { label: 'Google Button for Web', value: 'button-for-web' },
@@ -195,8 +203,12 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     appType === 'web'
       ? yield* optionalOptOrPrompt(
           customRedirectUri,
-          'Custom redirect URL (optional):',
-          'e.g. https://yoursite.com/oauth/callback',
+          'Custom redirect URL (optional):' +
+            chalk.dim(`
+With a custom redirect URL, users will instead see "Redirecting to yoursite.com..." for a more branded experience.
+Your URL must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.
+`),
+          'https://yoursite.com/oauth/callback',
         )
       : undefined;
   const skipNonceChecks = isNativeAppType(appType)
@@ -247,11 +259,12 @@ export const authClientAddCmd = Effect.fn(function* (
         new UI.Select({
           options: [
             { label: 'Google', value: 'google' },
-            { label: 'Apple', value: 'apple' },
-            { label: 'GitHub', value: 'github' },
-            { label: 'LinkedIn', value: 'linkedin' },
-            { label: 'Clerk', value: 'clerk' },
-            { label: 'Firebase', value: 'firebase' },
+            // TODO: implement
+            // { label: 'Apple', value: 'apple' },
+            // { label: 'GitHub', value: 'github' },
+            // { label: 'LinkedIn', value: 'linkedin' },
+            // { label: 'Clerk', value: 'clerk' },
+            // { label: 'Firebase', value: 'firebase' },
           ],
           promptText: 'Select a client type:',
           modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
@@ -270,11 +283,11 @@ export const authClientAddCmd = Effect.fn(function* (
   yield* Match.value(clientType).pipe(
     Match.withReturnType<Effect.Effect<void, any, any>>(),
     Match.when('google', () => handleGoogleClient(opts)),
-    Match.when('apple', () => Effect.succeed(undefined)),
-    Match.when('clerk', () => Effect.succeed(undefined)),
-    Match.when('github', () => Effect.succeed(undefined)),
-    Match.when('firebase', () => Effect.succeed(undefined)),
-    Match.when('linkedin', () => Effect.succeed(undefined)),
+    Match.when('apple', () => Effect.logError('Not Implemented')),
+    Match.when('clerk', () => Effect.logError('Not Implemented')),
+    Match.when('github', () => Effect.logError('Not Implemented')),
+    Match.when('firebase', () => Effect.logError('Not Implemented')),
+    Match.when('linkedin', () => Effect.logError('Not Implemented')),
     Match.exhaustive,
   );
 });
