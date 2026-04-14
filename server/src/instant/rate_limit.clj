@@ -12,7 +12,7 @@
    (io.github.bucket4j Bandwidth Bucket BucketConfiguration)
    (io.github.bucket4j.grid.hazelcast Bucket4jHazelcast)
    (java.security MessageDigest)
-   (java.time Duration)
+   (java.time Duration Instant)
    (org.postgresql.util PGInterval)))
 
 ;; Bucket4j docs: https://bucket4j.com/8.17.0/toc.html
@@ -171,7 +171,24 @@
     (.digest digest)))
 
 (defn try-consume-user-rate-limit
-  [{:keys [get-bucket-with-config]} {:keys [app-id bucket-name bucket-key config]}]
+  [{:keys [get-bucket-with-config]}
+   {:keys [app-id config tokens
+           bucket-key bucket-name]
+    :or {tokens 1}}]
   (let [key (ConsumeMagicCodeKey. (user-key-hash app-id bucket-name config bucket-key))
         ^Bucket bucket (get-bucket-with-config key (make-bucket-config-fn config))]
-    (tool/inspect (.isConsumed (.tryConsumeAndReturnRemaining bucket 1)))))
+    (.tryConsume bucket tokens)))
+
+(defn consume-user-rate-limit
+  [{:keys [get-bucket-with-config]}
+   {:keys [app-id config tokens
+           bucket-key bucket-name]
+    :or {tokens 1}}]
+  (let [key (ConsumeMagicCodeKey. (user-key-hash app-id bucket-name config bucket-key))
+        ^Bucket bucket (get-bucket-with-config key (make-bucket-config-fn config))
+        remaining (.tryConsumeAndReturnRemaining bucket tokens)]
+
+    (if (.isConsumed remaining)
+      true
+      (throw (ex/throw-permission-rate-limited! (.plusNanos (Instant/now)
+                                                            (.getNanosToWaitForRefill remaining)))))))
