@@ -76,7 +76,7 @@
       (= host "localhost")
       {:service "localhost"}
 
-      (and scheme (not (contains? reserved-uri-schemes scheme)))
+      (= scheme "exp")
       {:service "custom-scheme"})))
 
 (defn find-match [site-origins url]

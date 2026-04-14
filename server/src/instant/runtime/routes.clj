@@ -209,18 +209,16 @@
         use-shared-credentials? (get (:meta client) "useSharedCredentials")
         authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
                             {:app-id (:app_id client)})
-        matched-origin (if use-shared-credentials?
-                         (app-authorized-redirect-origin-model/shared-credential-match redirect-uri)
-                         (app-authorized-redirect-origin-model/find-match
-                          authorized-origins
-                          redirect-uri))
+        matched-origin (or (app-authorized-redirect-origin-model/find-match
+                            authorized-origins
+                            redirect-uri)
+                           (when use-shared-credentials?
+                             (app-authorized-redirect-origin-model/shared-credential-match redirect-uri)))
         _ (when-not matched-origin
             (ex/throw-validation-err!
              :redirect-uri
              redirect-uri
-             [{:message (if use-shared-credentials?
-                          "Shared dev credentials only work with localhost. Add your own credentials for other domains."
-                          "Invalid redirect_uri. If you're the developer, make sure to add your website to the list of approved domains from the Dashboard.")}]))
+             [{:message "Invalid redirect_uri. If you're the developer, make sure to add your website to the list of approved domains from the Dashboard."}]))
 
         app-redirect-url
         (if state
@@ -603,14 +601,14 @@
 
         use-shared-credentials? (get (:meta client) "useSharedCredentials")
         _ (when-let [origin (get-in req [:headers "origin"])]
-            (if use-shared-credentials?
-              (when-not (app-authorized-redirect-origin-model/shared-credential-match origin)
-                (ex/throw-validation-err! :origin origin [{:message "Shared dev credentials only work with localhost."}]))
-              (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
-                                        {:app-id app-id})]
-                (when-not (app-authorized-redirect-origin-model/find-match
-                           authorized-origins origin)
-                  (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}])))))
+            (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
+                                      {:app-id app-id})
+                  matched (or (app-authorized-redirect-origin-model/find-match
+                               authorized-origins origin)
+                              (when use-shared-credentials?
+                                (app-authorized-redirect-origin-model/shared-credential-match origin)))]
+              (when-not matched
+                (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
         _ (assert (= app-id app_id) (str "(= " app-id " " app_id ")"))
 
