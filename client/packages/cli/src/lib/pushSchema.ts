@@ -99,9 +99,7 @@ export const pushSchema = (
 
     const currentAttrs = res['attrs'];
     const currentApiSchema = res['schema'];
-    const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema, {
-      disableTypeInference: true,
-    });
+    const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
     const systemCatalogIdentNames =
       collectSystemCatalogIdentNames(currentAttrs);
 
