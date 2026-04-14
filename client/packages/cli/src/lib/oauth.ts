@@ -135,7 +135,7 @@ export const promptForRedirectURI = Effect.fn(function* (
 ) {
   if (existingValue) return existingValue;
 
-  return yield* runUIEffect(
+  const result = yield* runUIEffect(
     new UI.TextInput({
       prompt: '',
       placeholder: 'https://yoursite.com/oauth/callback',
@@ -156,7 +156,11 @@ ${chalk.dim('Your URL must forward to https://api.instantdb.com/runtime/oauth/ca
     }),
   ).pipe(
     Effect.catchTag('UIError', (e) =>
-      BadArgsError.make({ message: `UI error for ${prompt}: ${e.message}` }),
+      BadArgsError.make({
+        message: `UI error for redirect URI: ${e.message}`,
+      }),
     ),
   );
+
+  return result === '' ? undefined : result;
 });

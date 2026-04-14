@@ -96,6 +96,9 @@ const promptSkipNonceChecks = (value: unknown) =>
     const parsed = yield* getBooleanFlag(value, 'skipNonceChecks');
     if (parsed !== undefined) return parsed;
 
+    const { yes } = yield* GlobalOpts;
+    if (yes) return true;
+
     return yield* promptOk(
       {
         promptText: 'Skip nonce checks?',
