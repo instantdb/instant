@@ -115,7 +115,9 @@ function EmailStep(props: {
       {props.emailOnly ? null : (
         <>
           <Divider>
-            <span className="mx-4 text-xs text-gray-900">OR</span>
+            <span className="mx-4 text-xs text-gray-900 dark:text-neutral-400">
+              OR
+            </span>
           </Divider>
           <Button
             variant="secondary"
