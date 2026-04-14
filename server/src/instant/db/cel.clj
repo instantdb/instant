@@ -581,6 +581,14 @@
       :else
       result)))
 
+(defn create-rate-limit-obj [ctx]
+  (reduce-kv (fn [acc bucket-name config]
+               (assoc acc bucket-name (RateLimitBucket. (:app-id ctx)
+                                                        bucket-name
+                                                        config)))
+             {}
+             (get-in ctx [:rules :code "$rateLimits"])))
+
 (defn eval-program!
   [ctx
    {:keys [cel-program etype action]}
@@ -594,6 +602,7 @@
                                                                          :time (or (:timestamp ctx)
                                                                                    (Instant/now))}
                                                                         *request-info*)))
+          _ (.put bindings "rateLimit" (create-rate-limit-obj ctx))
           _ (when new-data
               (.put bindings "newData" (CelMap. new-data)))
           _ (when linked-data
@@ -652,12 +661,7 @@
                                                (CelMap. actions))
                                               (Optional/empty))
                                "rateLimit" (Optional/of
-                                            (reduce-kv (fn [acc bucket-name config]
-                                                         (assoc acc bucket-name (RateLimitBucket. (:app-id ctx)
-                                                                                                  bucket-name
-                                                                                                  config)))
-                                                       {}
-                                                       (get-in ctx [:rules :code "$rateLimits"])))
+                                            (create-rate-limit-obj ctx))
 
                                (Optional/empty)))))
             unknown-ctx (UnknownContext/create resolver (ImmutableList/of))

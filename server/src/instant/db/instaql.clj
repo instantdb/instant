@@ -2216,7 +2216,9 @@
             rules (rule-model/get-by-app-id (:conn-pool (:db ctx)) {:app-id app-id})
 
             rule-wheres (get-rule-wheres ctx rule-params rules o)
-            ctx (assoc ctx :rule-wheres rule-wheres)
+            ctx (assoc ctx
+                       :rule-wheres rule-wheres
+                       :rules rules)
             o (if (seq rule-wheres)
                 (add-rule-wheres-to-query ctx rule-wheres o)
                 o)
@@ -2240,7 +2242,9 @@
                   (rule-model/get-by-app-id (:conn-pool (:db ctx)) {:app-id app-id}))
 
         rule-wheres (get-rule-wheres ctx rule-params rules o)
-        ctx (assoc ctx :rule-wheres rule-wheres)
+        ctx (assoc ctx
+                   :rule-wheres rule-wheres
+                   :rules rules)
         o (if (seq rule-wheres)
             (add-rule-wheres-to-query ctx rule-wheres o)
             o)
