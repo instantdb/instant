@@ -564,7 +564,6 @@
 ;; Apps Auth
 
 (defn dash-apps-auth-get [req]
-  (tool/def-locals)
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/read req)
         {:keys [data]} (app-model/get-dash-auth-data {:app-id app-id})]
     (response/ok data)))
