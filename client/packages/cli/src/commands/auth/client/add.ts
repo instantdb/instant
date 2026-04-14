@@ -160,7 +160,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     });
   }
 
-  const clientId = yield* optOrPrompt(opts.clientId, 'Client ID');
+  const clientId = yield* optOrPrompt(opts.clientId, 'Client ID:');
 
   const clientSecret = yield* getOptionalStringFlag(
     opts.clientSecret,

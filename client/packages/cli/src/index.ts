@@ -1,6 +1,7 @@
 import { loadEnv } from './util/loadEnv.ts';
 loadEnv();
 
+import minimist from 'minimist';
 import { Command, Option } from '@commander-js/extra-typings';
 import chalk from 'chalk';
 import { Effect, Layer } from 'effect';
@@ -111,6 +112,10 @@ Provider Specific Options:
 `,
   )
   .action((opts) => {
+    opts = {
+      ...opts,
+      ...minimist(process.argv),
+    };
     return runCommandEffect(
       authClientAddCmd(opts).pipe(
         Effect.provide(
