@@ -259,7 +259,7 @@
    {:keys [app-id config tokens
            bucket-key bucket-name]
     :or {tokens 1}}]
-  (let [key (ConsumeMagicCodeKey. (user-key-hash app-id bucket-name config bucket-key))
+  (let [key (user-key-hash app-id bucket-name config bucket-key)
         ^Bucket bucket (get-bucket-with-config key (make-bucket-config-fn config))
         remaining (.tryConsumeAndReturnRemaining bucket tokens)]
     (if (.isConsumed remaining)
