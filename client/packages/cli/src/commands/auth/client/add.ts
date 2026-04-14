@@ -53,8 +53,7 @@ const selectGoogleAppType = (value: unknown) =>
       Effect.catchTag('NoSuchElementException', () => {
         if (yes) {
           return BadArgsError.make({
-            message:
-              'Missing required value for: App type. Expected one of: web, ios, android, button-for-web',
+            message: `Missing required value for: App type. Expected one of: ${GoogleAppTypeSchema.literals.join(', ')}`,
           });
         }
 
