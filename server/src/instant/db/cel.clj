@@ -9,6 +9,8 @@
    [instant.db.model.triple :as triple-model]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
+   [instant.rate-limit :as rate-limit]
+   [instant.reactive.ephemeral :as eph]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
@@ -175,6 +177,9 @@
 ;; ----
 ;; Cel
 
+(defn create-cel-type [^String name]
+  (OpaqueType/create name (ImmutableList/of (TypeParamType/create name))))
+
 (declare stringify get-cel-value)
 
 (deftype CelList [xs]
@@ -287,6 +292,23 @@
                                        "")]
       (ref-impl ctx m "$users" path))))
 
+(definterface IRateLimitBucket
+  ^boolean (limit [bucket-key]))
+
+;; XXX Add json encoders for these
+(deftype RateLimitBucket [app-id bucket-name config]
+  IRateLimitBucket
+  (limit [_ bucket-key]
+    (rate-limit/try-consume-user-rate-limit (eph/get-rate-limit)
+                                            {:app-id app-id
+                                             :bucket-name bucket-name
+                                             :config config
+                                             :bucket-key bucket-key})))
+
+(def rate-limit-bucket-cel-type (create-cel-type "RateLimitBucket"))
+
+(def ^MapType type-rate-limits (MapType/create SimpleType/STRING rate-limit-bucket-cel-type))
+
 (json/add-encoder AuthCelMap json/encode-java-map)
 
 (def ^MapType type-obj (MapType/create SimpleType/STRING SimpleType/DYN))
@@ -339,6 +361,29 @@
 ;; Normal evaluation pipeline
 ;; --------------------------
 
+(def rate-limit-fns [#_(member-overload "bucket"
+                                        [{:overload-id "_bucket"
+                                          :cel-args [rate-limiter-cel-type SimpleType/STRING]
+                                          :cel-return-type rate-limit-bucket-cel-type
+                                          :java-args [RateLimiter String]
+                                          :impl (fn [[^RateLimiter r ^String k]]
+                                                  (.bucket r k))}])
+                     (member-overload "limit"
+                                      [{:overload-id "_rateLimit_limit"
+                                        :cel-args [rate-limit-bucket-cel-type SimpleType/DYN]
+                                        :cel-return-type SimpleType/BOOL
+                                        :java-args [RateLimitBucket Object]
+                                        :impl (fn [[^RateLimitBucket b ^Object k]]
+                                                (tool/inspect (.limit b k)))}])
+                     (member-overload "limit"
+                                      [{:overload-id "_rateLimit_limit_opts"
+                                        :cel-args [rate-limit-bucket-cel-type SimpleType/DYN type-obj]
+                                        :cel-return-type SimpleType/BOOL
+                                        :java-args [RateLimitBucket Object Map]
+                                        :impl (fn [[^RateLimitBucket b ^Object k ^Map opts]]
+                                                (println "OPTS" opts)
+                                                (.limit b k))}])])
+
 (def get-time-decl {:overload-id "_getTime"
                     :cel-args [SimpleType/TIMESTAMP]
                     :cel-return-type SimpleType/INT
@@ -378,7 +423,8 @@
 (def ref-fn (member-overload "ref"
                              [ref-decl]))
 
-(def custom-fns [ref-fn get-time-fn timestamp-fn])
+(def custom-fns (into [ref-fn get-time-fn timestamp-fn]
+                      rate-limit-fns))
 (def custom-fn-decls (mapv :decl custom-fns))
 (def custom-fn-bindings (mapcat :runtimes custom-fns))
 
@@ -399,6 +445,7 @@
       (.addVar "auth" type-obj)
       (.addVar "ruleParams" type-obj)
       (.addVar "request" ^StructTypeReference request-cel-type)
+      (.addVar "rateLimit" type-rate-limits)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setOptions cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
@@ -537,6 +584,7 @@
            etype
            action] :as program}
    {:keys [resolver data rule-params new-data linked-data linked-etype actions modified-fields]}]
+  (tool/def-locals)
   (if (contains? program :result)
     (:result program)
     (try
@@ -568,6 +616,13 @@
                                               (Optional/of
                                                (CelMap. actions))
                                               (Optional/empty))
+                               "rateLimit" (Optional/of
+                                            (tool/inspect (reduce-kv (fn [acc bucket-name config]
+                                                                       (assoc acc bucket-name (RateLimitBucket. (:app-id ctx)
+                                                                                                                bucket-name
+                                                                                                                config)))
+                                                                     {}
+                                                                     (get-in ctx [:rules :code "$rateLimits"]))))
 
                                (Optional/empty)))))
             unknown-ctx (UnknownContext/create resolver (ImmutableList/of))
@@ -740,9 +795,6 @@
     (str where-clause)))
 
 ;; custom cel types
-
-(defn create-cel-type [^String name]
-  (OpaqueType/create name (ImmutableList/of (TypeParamType/create name))))
 
 (def datakey-cel-type (create-cel-type "DataKey"))
 (def whereclause-cel-type (create-cel-type "WhereClause"))
@@ -1737,6 +1789,7 @@
                                (.id expr))
                              "auth.ref arg must start with `$user.`"))))))))))
 
+;; XXX: We should validate that the rate limits are defined here
 (defn validation-errors [^CelCompiler compiler ^CelAbstractSyntaxTree ast]
   (-> (CelValidatorFactory/standardCelValidatorBuilder compiler
                                                        cel-runtime)
