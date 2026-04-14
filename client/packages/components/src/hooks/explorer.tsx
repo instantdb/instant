@@ -12,7 +12,19 @@ export type SearchFilterOp =
   | '$isNull';
 export type SearchFilter = [string, SearchFilterOp, any];
 
-function makeWhere(
+// When navWhere is set (relationship link navigation), ignore stale local
+// search filters from the previous table.
+export function resolveFilters(
+  navWhere: [string, any] | undefined,
+  navFilters: SearchFilter[] | undefined,
+  localSearchFilters: SearchFilter[],
+): SearchFilter[] {
+  if (navFilters) return navFilters;
+  if (navWhere) return [];
+  return localSearchFilters;
+}
+
+export function makeWhere(
   navWhere: null | undefined | [string, any],
   searchFilters: null | undefined | SearchFilter[],
 ) {
