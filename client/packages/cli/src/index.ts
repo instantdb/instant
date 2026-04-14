@@ -84,11 +84,16 @@ const auth = program.command('auth');
 const authClient = auth.command('client');
 export const authClientAddDef = authClient
   .command('add')
+  .allowExcessArguments(true)
+  .allowUnknownOption(true)
   .option(
     '--type <google|apple|github|linkedin|clerk|firebase>',
     'Type of oauth client to add',
   )
-  .option('--name', 'Custom name to identify the OAuth client (ex: google-web)')
+  .option(
+    '--name <client name>',
+    'Custom name to identify the OAuth client (ex: google-web)',
+  )
   .option(
     '-a --app <app-id>',
     'App ID to modify. Defaults to *_INSTANT_APP_ID in .env',
@@ -105,7 +110,6 @@ Provider Specific Options:
    --customRedirectUri       (optional, web only)
 `,
   )
-  .allowUnknownOption(true)
   .action((opts) => {
     return runCommandEffect(
       authClientAddCmd(opts).pipe(
