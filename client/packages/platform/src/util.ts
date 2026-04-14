@@ -48,10 +48,7 @@ export function joinWithTrailingSep(
   return s;
 }
 
-export function deriveClientType(
-  attr: InstantDBAttr,
-  disableTypeInference?: boolean,
-): {
+export function deriveClientType(attr: InstantDBAttr): {
   type: InstantDBCheckedDataType | InstantDBInferredType | 'any';
   origin: 'checked' | 'inferred' | 'unknown';
 } {
