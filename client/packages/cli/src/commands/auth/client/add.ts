@@ -7,6 +7,7 @@ import {
   addOAuthClient,
   addOAuthProvider,
   getAppsAuth,
+  promptForRedirectURI,
 } from '../../../lib/oauth.ts';
 import {
   GOOGLE_AUTHORIZATION_ENDPOINT,
@@ -201,15 +202,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
       : undefined;
   const redirectTo =
     appType === 'web'
-      ? yield* optionalOptOrPrompt(
-          customRedirectUri,
-          'Custom redirect URL (optional):' +
-            chalk.dim(`
-With a custom redirect URL, users will instead see "Redirecting to yoursite.com..." for a more branded experience.
-Your URL must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.
-`),
-          'https://yoursite.com/oauth/callback',
-        )
+      ? yield* promptForRedirectURI(customRedirectUri)
       : undefined;
   const skipNonceChecks = isNativeAppType(appType)
     ? yield* promptSkipNonceChecks(skipNonceChecksFlag)

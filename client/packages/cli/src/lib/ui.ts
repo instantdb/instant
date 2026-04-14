@@ -158,3 +158,11 @@ export const optionalOptOrPrompt = (
       Effect.andThen((input) => getOptionalStringFlag(input, prompt)),
     );
   });
+
+export const stripFirstBlankLine = (str: string): string => {
+  const lines = str.split('\n');
+  const firstBlankIndex = lines.findIndex((line) => line.trim() === '');
+  if (firstBlankIndex === -1) return str;
+  lines.splice(firstBlankIndex, 1);
+  return lines.join('\n');
+};
