@@ -262,7 +262,8 @@ export function AddClientForm({
                 Add{' '}
                 <Copytext
                   value={
-                    redirectTo || 'https://api.instantdb.com/runtime/oauth/callback'
+                    redirectTo ||
+                    'https://api.instantdb.com/runtime/oauth/callback'
                   }
                 />{' '}
                 to the "Authorized redirect URIs" on your{' '}
@@ -617,7 +618,10 @@ function Login() {
                 )}
               </div>
             ) : (
-              <Copyable label="Google client ID" value={client.client_id || ''} />
+              <Copyable
+                label="Google client ID"
+                value={client.client_id || ''}
+              />
             )}
             {appType === 'web' && !client.meta?.useSharedCredentials && (
               <EditableRedirectUrl
@@ -652,7 +656,8 @@ function Login() {
                 {!client.meta?.useSharedCredentials && (
                   <>
                     <Content>
-                      <strong className="dark:text-white">1.</strong> Navigate to{' '}
+                      <strong className="dark:text-white">1.</strong> Navigate
+                      to{' '}
                       <a
                         className="underline dark:text-white"
                         href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
