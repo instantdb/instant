@@ -48,21 +48,6 @@ export function joinWithTrailingSep(
   return s;
 }
 
-export function inferredType(attr: InstantDBAttr) {
-  if (attr.catalog === 'system') {
-    return null;
-  }
-
-  const inferredList = attr['inferred-types'];
-  const hasJustOne = inferredList?.length === 1;
-
-  if (!hasJustOne) {
-    return null;
-  }
-
-  return inferredList[0];
-}
-
 export function deriveClientType(
   attr: InstantDBAttr,
   disableTypeInference?: boolean,
@@ -72,12 +57,6 @@ export function deriveClientType(
 } {
   if (attr['checked-data-type']) {
     return { type: attr['checked-data-type'], origin: 'checked' };
-  }
-
-  const inferred = inferredType(attr);
-
-  if (inferred && !disableTypeInference) {
-    return { type: inferred, origin: 'inferred' };
   }
 
   return { type: 'any', origin: 'unknown' };

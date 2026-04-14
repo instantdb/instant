@@ -435,9 +435,6 @@ test('generates schema', () => {
 import { i } from "@instantdb/core";
 
 const _schema = i.schema({
-  // We inferred 1 attribute!
-  // Take a look at this schema, and if everything looks good,
-  // run \`push schema\` again to enforce the types.
   entities: {
     "$files": i.entity({
       "metadata": i.any().optional(),
@@ -455,7 +452,7 @@ const _schema = i.schema({
       "title": i.string().indexed(),
     }),
     "bookshelves": i.entity({
-      "desc": i.string().optional(),
+      "desc": i.any().optional(),
       "name": i.any().optional(),
       "order": i.number().indexed().optional(),
     }),
@@ -616,7 +613,7 @@ test('validateSchema throws on links to non-existent entities', () => {
   ).toThrow(SchemaValidationError);
 });
 
-test('disableTypeInference', () => {
+test('attrs without checked-data-type should be any, ignoring inferred types', () => {
   const apiSchemaDef = {
     refs: {},
     blobs: {
@@ -643,15 +640,5 @@ test('disableTypeInference', () => {
   expect(
     apiSchemaToInstantSchemaDef(apiSchemaDef).entities.books.attrs.description
       .valueType,
-  ).toBe('string');
-  expect(
-    apiSchemaToInstantSchemaDef(apiSchemaDef, {
-      disableTypeInference: false,
-    }).entities.books.attrs.description.valueType,
-  ).toBe('string');
-  expect(
-    apiSchemaToInstantSchemaDef(apiSchemaDef, {
-      disableTypeInference: true,
-    }).entities.books.attrs.description.valueType,
   ).toBe('json');
 });
