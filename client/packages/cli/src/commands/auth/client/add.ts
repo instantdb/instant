@@ -20,18 +20,17 @@ import {
   getOptionalStringFlag,
   invalidFlagError,
   optOrPrompt,
-  optionalOptOrPrompt,
 } from '../../../lib/ui.ts';
 import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
 
 const ClientTypeSchema = Schema.Literal(
   'google',
-  'apple',
-  'github',
-  'linkedin',
-  'clerk',
-  'firebase',
+  // 'apple',
+  // 'github',
+  // 'linkedin',
+  // 'clerk',
+  // 'firebase',
 );
 
 const GoogleAppTypeSchema = Schema.Literal(
@@ -245,6 +244,12 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
 export const authClientAddCmd = Effect.fn(function* (
   opts: OptsFromCommand<typeof authClientAddDef> & Record<string, unknown>,
 ) {
+  const { yes } = yield* GlobalOpts;
+  if (!opts.type && yes) {
+    return yield* BadArgsError.make({
+      message: `Missing required value for: App type. Expected one of: ${ClientTypeSchema.literals.join(', ')}`,
+    });
+  }
   const clientType = yield* Option.fromNullable(opts.type).pipe(
     Effect.catchTag('NoSuchElementException', () =>
       runUIEffect(
@@ -275,11 +280,11 @@ export const authClientAddCmd = Effect.fn(function* (
   yield* Match.value(clientType).pipe(
     Match.withReturnType<Effect.Effect<void, any, any>>(),
     Match.when('google', () => handleGoogleClient(opts)),
-    Match.when('apple', () => Effect.logError('Not Implemented')),
-    Match.when('clerk', () => Effect.logError('Not Implemented')),
-    Match.when('github', () => Effect.logError('Not Implemented')),
-    Match.when('firebase', () => Effect.logError('Not Implemented')),
-    Match.when('linkedin', () => Effect.logError('Not Implemented')),
+    // Match.when('apple', () => Effect.logError('Not Implemented')),
+    // Match.when('clerk', () => Effect.logError('Not Implemented')),
+    // Match.when('github', () => Effect.logError('Not Implemented')),
+    // Match.when('firebase', () => Effect.logError('Not Implemented')),
+    // Match.when('linkedin', () => Effect.logError('Not Implemented')),
     Match.exhaustive,
   );
 });

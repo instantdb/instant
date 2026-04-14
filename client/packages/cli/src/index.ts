@@ -87,10 +87,7 @@ export const authClientAddDef = authClient
   .command('add')
   .allowExcessArguments(true)
   .allowUnknownOption(true)
-  .option(
-    '--type <google|apple|github|linkedin|clerk|firebase>',
-    'Type of oauth client to add',
-  )
+  .option('--type <google>', 'Type of oauth client to add')
   .option(
     '--name <client name>',
     'Custom name to identify the OAuth client (ex: google-web)',
@@ -105,10 +102,10 @@ export const authClientAddDef = authClient
 Provider Specific Options:
   Google:
    --appType       web|ios|android|button-for-web
-   --clientId                          (web only)
-   --clientSecret                      (web only)
-   --skipNonceChecks       (iOS and Android only)
-   --customRedirectUri       (optional, web only)
+   --client-id                          (web only)
+   --client-secret                      (web only)
+   --skip-nonce-checks       (iOS and Android only)
+   --custom-redirect-uri       (optional, web only)
 `,
   )
   .action((opts) => {
