@@ -1,5 +1,6 @@
 import { test, expect, describe } from 'vitest';
 import { makeWhere, resolveFilters, SearchFilter } from '../explorer';
+import { ExplorerNav } from '../../components/explorer';
 
 describe('makeWhere', () => {
   test('returns empty object when no navWhere and no filters', () => {
@@ -70,5 +71,39 @@ describe('resolveFilters', () => {
     expect(resolveFilters(navWhere, navFilters, localFilters)).toEqual(
       navFilters,
     );
+  });
+});
+
+describe('explorer history preserves filters', () => {
+  test('filters survive link navigation and back', () => {
+    // Simulates the explorer state history stack (mirrors pushExplorerState/popExplorerState)
+    let explorerState: ExplorerNav = { namespace: 'users' };
+    const history: ExplorerNav[] = [];
+
+    // Step 1: User types a search, onSearchChange syncs filters to explorer state
+    const searchFilters: SearchFilter[] = [['email', '$ilike', '%test%']];
+    explorerState = { ...explorerState, filters: searchFilters };
+
+    expect(
+      resolveFilters(explorerState.where, explorerState.filters, searchFilters),
+    ).toEqual(searchFilters);
+
+    // Step 2: User clicks relationship link — current state saved to history
+    history.push(explorerState);
+    explorerState = { namespace: 'user_info', where: ['user.id', 'abc-123'] };
+
+    // Stale filters should not leak to the new table
+    expect(
+      resolveFilters(explorerState.where, explorerState.filters, searchFilters),
+    ).toEqual([]);
+
+    // Step 3: User hits back — old state restored from history
+    explorerState = history.pop()!;
+
+    // Filters are restored from the saved state
+    expect(explorerState.filters).toEqual(searchFilters);
+    expect(
+      resolveFilters(explorerState.where, explorerState.filters, []),
+    ).toEqual(searchFilters);
   });
 });

@@ -1012,7 +1012,16 @@ export const InnerExplorer: React.FC<{
               </Button>
               <SearchInput
                 key={selectedNamespaceId}
-                onSearchChange={(filters) => setSearchFilters(filters)}
+                onSearchChange={(filters) => {
+                  setSearchFilters(filters);
+                  history.push(
+                    (prev) => ({
+                      ...prev!,
+                      filters: filters.length ? filters : undefined,
+                    }),
+                    true,
+                  );
+                }}
                 attrs={selectedNamespace?.attrs}
                 initialFilters={currentNav?.filters || []}
               />
