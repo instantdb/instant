@@ -49,9 +49,7 @@ vi.mock('../src/lib/oauth.ts', () => ({
 }));
 
 // Lazy import so mocks are in place
-const { authClientAddCmd } = await import(
-  '../src/commands/auth/client/add.ts'
-);
+const { authClientAddCmd } = await import('../src/commands/auth/client/add.ts');
 
 // -- helpers --
 
@@ -151,9 +149,7 @@ describe('web: interactive prompts for each missing flag', () => {
   test('missing --type → prompts type selector', async () => {
     mockPromptReturn = 'google';
     await run(without(webFlags, 'type'), { yes: false });
-    expect((prompts[0] as any).params.promptText).toBe(
-      'Select a client type:',
-    );
+    expect((prompts[0] as any).params.promptText).toBe('Select a client type:');
   });
 
   test('missing --app-type → prompts app type selector', async () => {
