@@ -207,7 +207,7 @@ describe('web: success', () => {
       clientSecret: 'GOCSPX-abc123',
     });
     expect(logs.join('\n')).toContain(
-      'Add this redirect URI in Google Console: https://api.instantdb.com/runtime/oauth/callback',
+      'Add this redirect URI in Google Console:\nhttps://api.instantdb.com/runtime/oauth/callback',
     );
   });
 
@@ -219,7 +219,7 @@ describe('web: success', () => {
     expect(addedClients[0].redirectTo).toBe('https://myapp.com/cb');
     const output = logs.join('\n');
     expect(output).toContain(
-      'Add this redirect URI in Google Console: https://myapp.com/cb',
+      'Add this redirect URI in Google Console:\nhttps://myapp.com/cb',
     );
     expect(output).toContain(
       'Your custom redirect must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.',
