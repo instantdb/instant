@@ -117,8 +117,8 @@ export const optOrPrompt = (
         return value.trim();
       }
     } else {
-      if (value && typeof value === 'string') {
-        return value.trim();
+      if (value !== undefined || value !== null) {
+        return String(value).trim();
       }
 
       const result = yield* runUIEffect(new UI.TextInput(params.prompt));
