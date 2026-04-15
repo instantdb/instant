@@ -1,8 +1,14 @@
 import { test, expect, describe, vi, beforeEach } from 'vitest';
 import { Effect, Layer, Logger } from 'effect';
 import { GlobalOpts } from '../src/context/globalOpts.ts';
+import { CurrentApp } from '../src/context/currentApp.ts';
+import { InstantHttpAuthed } from '../src/lib/http.ts';
 
 // -- mocks --
+
+// Prevent src/index.ts side-effect (program.parse) from running.
+// add.ts has `import type` from index.ts, but vitest still evaluates it.
+vi.mock('../src/index.ts', () => ({}));
 
 let prompts: any[] = [];
 let mockPromptReturn: any = '';
@@ -51,20 +57,33 @@ const { authClientAddCmd } = await import(
 
 let logs: string[] = [];
 
-const TestLoggerLive = Logger.replace(
-  Logger.defaultLogger,
-  Logger.make(({ message }) => {
-    logs.push(String(message));
-  }),
-);
-
-const run = (opts: Record<string, unknown>, yes: boolean) =>
+const run = (flags: Map<string, string>, { yes }: { yes: boolean }) =>
   Effect.runPromise(
-    authClientAddCmd(opts as any).pipe(
-      Effect.provide(Layer.succeed(GlobalOpts, { yes })),
-      Effect.provide(TestLoggerLive),
+    authClientAddCmd(Object.fromEntries(flags) as any).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          Layer.succeed(GlobalOpts, { yes }),
+          Layer.succeed(CurrentApp, { appId: 'test-app', source: 'env' }),
+          Layer.succeed(InstantHttpAuthed, {} as any),
+          Logger.replace(
+            Logger.defaultLogger,
+            Logger.make(({ message }) => {
+              logs.push(String(message));
+            }),
+          ),
+        ),
+      ),
     ),
   );
+
+const without = (flags: Map<string, string>, key: string) => {
+  const copy = new Map(flags);
+  copy.delete(key);
+  return copy;
+};
+
+const withEntry = (flags: Map<string, string>, key: string, value: string) =>
+  new Map([...flags, [key, value]]);
 
 beforeEach(() => {
   prompts = [];
@@ -75,58 +94,50 @@ beforeEach(() => {
 
 // -- flag sets --
 
-const webFlags = {
-  type: 'google',
-  'app-type': 'web',
-  name: 'google-web',
-  'client-id': '123456.apps.googleusercontent.com',
-  'client-secret': 'GOCSPX-abc123',
-};
+const webFlags = new Map([
+  ['type', 'google'],
+  ['app-type', 'web'],
+  ['name', 'google-web'],
+  ['client-id', '123456.apps.googleusercontent.com'],
+  ['client-secret', 'GOCSPX-abc123'],
+]);
 
-const iosFlags = {
-  type: 'google',
-  'app-type': 'ios',
-  name: 'google-ios',
-  'client-id': '123456.apps.googleusercontent.com',
-};
-
-const without = (
-  flags: Record<string, string>,
-  key: string,
-): Record<string, unknown> => {
-  const { [key]: _, ...rest } = flags;
-  return rest;
-};
+const iosFlags = new Map([
+  ['type', 'google'],
+  ['app-type', 'ios'],
+  ['name', 'google-ios'],
+  ['client-id', '123456.apps.googleusercontent.com'],
+]);
 
 // -- web: build-up with --yes --
 
 describe('web: --yes errors on each missing required flag', () => {
   test('missing --type', async () => {
-    await run(without(webFlags, 'type'), true);
+    await run(without(webFlags, 'type'), { yes: true });
     expect(logs.join('\n')).toContain('Missing required value for --type');
     expect(addedClients).toHaveLength(0);
   });
 
   test('missing --app-type', async () => {
-    await run(without(webFlags, 'app-type'), true);
+    await run(without(webFlags, 'app-type'), { yes: true });
     expect(logs.join('\n')).toContain('Missing required value for --app-type');
     expect(addedClients).toHaveLength(0);
   });
 
   test('missing --name', async () => {
-    await run(without(webFlags, 'name'), true);
+    await run(without(webFlags, 'name'), { yes: true });
     expect(logs.join('\n')).toContain('Missing required value for --name');
     expect(addedClients).toHaveLength(0);
   });
 
   test('missing --client-id', async () => {
-    await run(without(webFlags, 'client-id'), true);
+    await run(without(webFlags, 'client-id'), { yes: true });
     expect(logs.join('\n')).toContain('Missing required value for --client-id');
     expect(addedClients).toHaveLength(0);
   });
 
   test('missing --client-secret', async () => {
-    await run(without(webFlags, 'client-secret'), true);
+    await run(without(webFlags, 'client-secret'), { yes: true });
     expect(logs.join('\n')).toContain(
       'Missing required value for --client-secret',
     );
@@ -139,7 +150,7 @@ describe('web: --yes errors on each missing required flag', () => {
 describe('web: interactive prompts for each missing flag', () => {
   test('missing --type → prompts type selector', async () => {
     mockPromptReturn = 'google';
-    await run(without(webFlags, 'type'), false);
+    await run(without(webFlags, 'type'), { yes: false });
     expect((prompts[0] as any).params.promptText).toBe(
       'Select a client type:',
     );
@@ -147,7 +158,7 @@ describe('web: interactive prompts for each missing flag', () => {
 
   test('missing --app-type → prompts app type selector', async () => {
     mockPromptReturn = 'web';
-    await run(without(webFlags, 'app-type'), false);
+    await run(without(webFlags, 'app-type'), { yes: false });
     expect((prompts[0] as any).params.promptText).toBe(
       'Select a Google app type:',
     );
@@ -155,26 +166,26 @@ describe('web: interactive prompts for each missing flag', () => {
 
   test('missing --name → prompts for name', async () => {
     mockPromptReturn = 'google-web';
-    await run(without(webFlags, 'name'), false);
+    await run(without(webFlags, 'name'), { yes: false });
     expect((prompts[0] as any).props.prompt).toBe('Client Name:');
   });
 
   test('missing --client-id → prompts for client id', async () => {
     mockPromptReturn = '123456.apps.googleusercontent.com';
-    await run(without(webFlags, 'client-id'), false);
+    await run(without(webFlags, 'client-id'), { yes: false });
     expect((prompts[0] as any).props.prompt).toBe('Client ID:');
   });
 
   test('missing --client-secret → prompts for client secret', async () => {
     mockPromptReturn = 'GOCSPX-abc123';
-    await run(without(webFlags, 'client-secret'), false);
+    await run(without(webFlags, 'client-secret'), { yes: false });
     expect((prompts[0] as any).props.prompt).toBe('Client Secret:');
     expect((prompts[0] as any).props.sensitive).toBe(true);
   });
 
   test('custom-redirect-uri → prompts when omitted', async () => {
     mockPromptReturn = '';
-    await run(webFlags, false);
+    await run(webFlags, { yes: false });
     expect(prompts).toHaveLength(1);
     expect((prompts[0] as any).props.placeholder).toBe(
       'https://yoursite.com/oauth/callback',
@@ -182,7 +193,7 @@ describe('web: interactive prompts for each missing flag', () => {
   });
 
   test('custom-redirect-uri → skipped with --yes', async () => {
-    await run(webFlags, true);
+    await run(webFlags, { yes: true });
     expect(prompts).toHaveLength(0);
     expect(addedClients).toHaveLength(1);
   });
@@ -192,7 +203,7 @@ describe('web: interactive prompts for each missing flag', () => {
 
 describe('web: success', () => {
   test('all required flags → creates client', async () => {
-    await run(webFlags, true);
+    await run(webFlags, { yes: true });
     expect(addedClients).toHaveLength(1);
     expect(addedClients[0]).toMatchObject({
       clientName: 'google-web',
@@ -203,7 +214,7 @@ describe('web: success', () => {
 
   test('with custom-redirect-uri → uses it', async () => {
     await run(
-      { ...webFlags, 'custom-redirect-uri': 'https://myapp.com/cb' },
+      withEntry(webFlags, 'custom-redirect-uri', 'https://myapp.com/cb'),
       true,
     );
     expect(addedClients[0].redirectTo).toBe('https://myapp.com/cb');
@@ -214,7 +225,7 @@ describe('web: success', () => {
 
 describe('ios', () => {
   test('--client-secret → error (not supported)', async () => {
-    await run({ ...iosFlags, 'client-secret': 'secret' }, true);
+    await run(withEntry(iosFlags, 'client-secret', 'secret'), { yes: true });
     expect(logs.join('\n')).toContain(
       '--client-secret is not compatible with other options',
     );
@@ -223,7 +234,7 @@ describe('ios', () => {
 
   test('--custom-redirect-uri → error (not supported)', async () => {
     await run(
-      { ...iosFlags, 'custom-redirect-uri': 'https://example.com' },
+      withEntry(iosFlags, 'custom-redirect-uri', 'https://example.com'),
       true,
     );
     expect(logs.join('\n')).toContain('not using web app type');
@@ -231,7 +242,7 @@ describe('ios', () => {
   });
 
   test('valid flags → creates client without secret', async () => {
-    await run(iosFlags, true);
+    await run(iosFlags, { yes: true });
     expect(addedClients).toHaveLength(1);
     expect(addedClients[0]).toMatchObject({
       clientName: 'google-ios',
