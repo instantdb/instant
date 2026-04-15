@@ -416,10 +416,12 @@
   (throw+ {::type ::rate-limited
            ::message "Your request exceeded the rate limit."
            ::hint {:retry-at retry-at
-                   :retry-after (max 0
-                                     (int (/ (.toMillis (Duration/between (Instant/now)
-                                                                          retry-at))
-                                              1000)))}}))
+                   :retry-after (-> (Duration/between (Instant/now) retry-at)
+                                    (.toMillis)
+                                    (/ 1000)
+                                    (Math/ceil)
+                                    (int)
+                                    (max 0))}}))
 
 ;; -------
 ;; Sockets
