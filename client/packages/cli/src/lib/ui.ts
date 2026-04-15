@@ -98,23 +98,23 @@ export const optOrPrompt = (
               `Missing required value for ${params.simpleName}`,
           });
         }
-        if (typeof value !== 'string') {
+        if (typeof value !== 'string' && typeof value !== 'number') {
           return yield* BadArgsError.make({
             message: `Invalid value for ${params.simpleName}`,
           });
         }
-        return value.trim();
+        return String(value).trim();
         // Optional string
       } else {
         if (!value) {
           return undefined;
         }
-        if (typeof value !== 'string') {
+        if (typeof value !== 'string' && typeof value !== 'number') {
           return yield* BadArgsError.make({
             message: `Invalid value for ${params.simpleName}`,
           });
         }
-        return value.trim();
+        return String(value).trim();
       }
     } else {
       if (value !== undefined && value !== null) {
