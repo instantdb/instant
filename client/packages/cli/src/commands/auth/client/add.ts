@@ -199,7 +199,7 @@ ${chalk.dim('Your URL must forward to https://api.instantdb.com/runtime/oauth/ca
   if (!clientName) {
     return yield* BadArgsError.make({ message: 'Client name is required.' }); // Should never reach this
   }
-  const redirectUri = customRedirectUri ?? GOOGLE_DEFAULT_CALLBACK_URL;
+  const redirectUri = customRedirectUri || GOOGLE_DEFAULT_CALLBACK_URL;
 
   const response = yield* addOAuthClient({
     providerId: provider.id,

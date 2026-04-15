@@ -117,7 +117,7 @@ export const optOrPrompt = (
         return value.trim();
       }
     } else {
-      if (value !== undefined || value !== null) {
+      if (value !== undefined && value !== null) {
         return String(value).trim();
       }
 
