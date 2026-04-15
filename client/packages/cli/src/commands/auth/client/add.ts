@@ -180,13 +180,13 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
         (output, status) => {
           if (status === 'idle') {
             return (
-              `\nCustom redirect URL (optional):
-${chalk.dim('With a custom redirect URL, users will instead see "Redirecting to yoursite.com..." for a more branded experience.')}
-${chalk.dim('Your URL must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.')}\n\n` +
+              `\nCustom redirect URI (optional):
+${chalk.dim('With a custom redirect URI, users will instead see "Redirecting to yoursite.com..." for a more branded experience.')}
+${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.')}\n\n` +
               stripFirstBlankLine(output)
             );
           }
-          return `\nCustom redirect URL (optional):\n${stripFirstBlankLine(output)}`;
+          return `\nCustom redirect URI (optional):\n${stripFirstBlankLine(output)}`;
         },
         UI.modifiers.dimOnComplete,
       ]),
