@@ -103,7 +103,7 @@
                                      {"allow" {"view" "rateLimit.myLimit.limit('a') && rateLimit['myLimit'].limit('b')"}}
 
                                      "$rateLimits"
-                                     {"myLimit" {"capacity" 2}}})))
+                                     {"myLimit" {"limits" [{"capacity" 2}]}}})))
 
   (is (= [{:message
            "`myLimit` is not a valid rate limit config. It should be defined in the `$rateLimits` key.",
@@ -115,7 +115,7 @@
                                   {"allow" {"view" "rateLimit.myLimit.limit('a') && rateLimit['myLimit2'].limit('b')"}}
 
                                   "$rateLimits"
-                                  {"someOtherLimit" {"capacity" 2}}}))))
+                                  {"someOtherLimit" {"limits" [{"capacity" 2}]}}}))))
 
 (deftest can-set-create-view-update-rules-for-users
   (is (empty? (rule/validation-errors {"$users" {"allow" {"create" "true"}}})))
