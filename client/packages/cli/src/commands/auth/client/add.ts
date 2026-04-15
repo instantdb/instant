@@ -252,7 +252,7 @@ export const authClientAddCmd = Effect.fn(function* (
   opts: OptsFromCommand<typeof authClientAddDef> & Record<string, unknown>,
 ) {
   const { yes } = yield* GlobalOpts;
-  if (!opts.type && yes) {
+  if (!opts.appType && yes) {
     return yield* BadArgsError.make({
       message: `Missing required value for: App type. Expected one of: ${ClientTypeSchema.literals.join(', ')}`,
     });
