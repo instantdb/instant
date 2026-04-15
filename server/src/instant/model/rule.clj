@@ -430,7 +430,6 @@
              (get rules "$rateLimits")))
 
 (defn validation-errors [rules]
-  (tool/def-locals)
   (concat (bind-validation-errors rules)
           (rule-validation-errors rules)
           (field-validation-errors rules)
